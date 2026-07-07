@@ -86,7 +86,7 @@ Apple `container` is the preferred macOS container runtime candidate for local s
 Verified local fact:
 
 ```text
-container CLI version 1.0.0
+container CLI version 1.1.0
 ```
 
 Upstream facts to preserve:
@@ -100,26 +100,31 @@ Upstream facts to preserve:
 
 ## Practical Rule
 
-Use Apple `container` for explicit local services, not as a transparent Docker Compose replacement.
+Use Apple `container` for explicit local services, not as a transparent Docker Compose replacement. The repo uses `bianpai --backend container` as the local orchestration layer for supported host-published services.
 
 For MVP v0, the important local service is Postgres with PostGIS.
 
 Target shape:
 
 ```text
-scripts/dev_db.py
-  start     -> start Postgres/PostGIS container
-  stop      -> stop it
-  status    -> show container status
-  logs      -> tail logs
-  reset     -> recreate local dev database
+ops/local-dev/compose.yaml
+  -> single Postgres/PostGIS service
+  -> publishes 5432 to localhost
+  -> uses a named persistent volume
+
+scripts/dev_stack.py
+  start     -> start Apple container + bianpai stack, wait for DB, apply migrations
+  stop      -> stop and remove stack containers/networks
+  status    -> show stack status
+  logs      -> show database logs
+  reset     -> recreate local dev database volume, wait for DB, apply migrations
 ```
 
 The script should hide local command differences while keeping behavior explicit.
 
 ## Postgres/PostGIS Runtime Shape
 
-Use an OCI image that supports arm64. Prefer an official or well-maintained PostGIS image with Apple silicon support.
+Use an OCI image that supports arm64. The validated local image is `ghcr.io/baosystems/postgis:17-3.5`. The upstream `postgis/postgis:17-3.5` image failed under bianpai on this Apple Silicon host with `unsupported platform ... linux/arm64`.
 
 Runtime requirements:
 
@@ -134,7 +139,7 @@ persistent local data volume
 Application config should use a normal database URL:
 
 ```text
-DATABASE_URL=postgres://iroha:iroha_dev@localhost:5432/iroha
+DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable
 ```
 
 ## Database Migrations

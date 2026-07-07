@@ -8,7 +8,7 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet test build web-install web-check web-test web-build check validate db-up db-down db-reset
+.PHONY: help fmt fmt-check vet test build web-install web-check web-test web-build check validate db-up db-down db-status db-logs db-reset
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -49,11 +49,17 @@ check: fmt-check vet test web-check web-test ## Pre-commit gate: fmt-check + vet
 validate: check build web-build ## Pre-PR gate: check + full server and web builds
 
 ## --- Dev database (Postgres/PostGIS via uv scripts) ---
-db-up: ## Start the local dev database
-	$(NIX_DEV)uv run python scripts/dev_db.py start
+db-up: ## Start the local dev database stack and apply migrations
+	$(NIX_DEV)uv run python scripts/dev_stack.py start
 
 db-down: ## Stop the local dev database
-	$(NIX_DEV)uv run python scripts/dev_db.py stop
+	$(NIX_DEV)uv run python scripts/dev_stack.py stop
 
-db-reset: ## Reset the local dev database
-	$(NIX_DEV)uv run python scripts/dev_db.py reset
+db-status: ## Show local dev database stack status
+	$(NIX_DEV)uv run python scripts/dev_stack.py status
+
+db-logs: ## Show local dev database logs
+	$(NIX_DEV)uv run python scripts/dev_stack.py logs
+
+db-reset: ## Reset the local dev database stack and apply migrations
+	$(NIX_DEV)uv run python scripts/dev_stack.py reset

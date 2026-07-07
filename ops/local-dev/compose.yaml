@@ -1,0 +1,17 @@
+name: iroha-dev
+
+services:
+  db:
+    image: ghcr.io/baosystems/postgis:17-3.5
+    environment:
+      POSTGRES_DB: iroha
+      POSTGRES_USER: iroha
+      POSTGRES_PASSWORD: iroha_dev
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
