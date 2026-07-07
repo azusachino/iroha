@@ -18,6 +18,7 @@
           packages = [
             pkgs.go
             pkgs.goose
+            pkgs.bun
             pkgs.nodejs_24
             pkgs.postgresql_17
             pkgs.uv
@@ -25,7 +26,7 @@
 
           shellHook = ''
             export UV_CACHE_DIR=''${UV_CACHE_DIR:-.uv-cache}
-            echo "iroha dev shell"
+            echo "iroha dev shell" >&2
           '';
         };
       }
