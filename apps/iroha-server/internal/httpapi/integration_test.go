@@ -57,6 +57,15 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 		}
 	})
 	waitForImportStatus(t, server, importID, imports.StatusCompleted)
+	assertCanonicalImportedActivity(t, db, rawID, "Integration Run")
+
+	var secondImportID string
+	requestJSON(t, server, http.MethodPost, "/api/v1/imports", `{"raw_file_id":"`+rawID+`","parser_kind":"gpx"}`, http.StatusAccepted, func(body map[string]any) {
+		secondImportID = stringValue(t, body, "id")
+	})
+	waitForImportStatus(t, server, secondImportID, imports.StatusCompleted)
+	assertCanonicalImportedActivity(t, db, rawID, "Integration Run")
+
 	requestJSON(t, server, http.MethodPost, "/api/v1/imports", `{"raw_file_id":"`+rawID+`","parser_kind":"bogus"}`, http.StatusBadRequest, nil)
 	requestJSON(t, server, http.MethodGet, "/api/v1/imports/imp_bad", "", http.StatusBadRequest, nil)
 	requestJSON(t, server, http.MethodGet, "/api/v1/imports/"+ids.Encode(ids.ImportPrefix, uuid.New()), "", http.StatusNotFound, nil)
@@ -140,6 +149,91 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 		ImportService:   imports.NewService(db, slog.New(slog.NewTextHandler(io.Discard, nil)), "integration-test"),
 		RawFileService:  rawFileService,
 	})
+}
+
+func assertCanonicalImportedActivity(t *testing.T, db *gorm.DB, rawID string, wantTitle string) {
+	t.Helper()
+	decodedRawID, err := ids.Decode(ids.RawFilePrefix, rawID)
+	if err != nil {
+		t.Fatalf("decode raw id: %v", err)
+	}
+
+	assertTableCount(t, db, "tb_raw_files", 1)
+	assertTableCount(t, db, "tb_activities", 1)
+	assertTableCount(t, db, "tb_external_refs", 1)
+	assertTableCount(t, db, "tb_activity_route_points", 2)
+	assertTableCount(t, db, "tb_activity_samplings", 0)
+	assertTableCount(t, db, "tb_activity_laps", 0)
+
+	var row struct {
+		ActivityID     uuid.UUID
+		Title          string
+		SportType      string
+		SourceKind     string
+		FirstRawFileID uuid.UUID
+		RoutePoints    int
+		FirstLon       float64
+		FirstLat       float64
+		LastLon        float64
+		LastLat        float64
+	}
+	if err := db.Raw(`
+		select
+		  a.id as activity_id,
+		  a.title,
+		  a.sport_type,
+		  a.source_kind,
+		  a.first_raw_file_id,
+		  count(rp.seq)::int as route_points,
+		  min(ST_X(rp.geom::geometry)) filter (where rp.seq = 0) as first_lon,
+		  min(ST_Y(rp.geom::geometry)) filter (where rp.seq = 0) as first_lat,
+		  min(ST_X(rp.geom::geometry)) filter (where rp.seq = 1) as last_lon,
+		  min(ST_Y(rp.geom::geometry)) filter (where rp.seq = 1) as last_lat
+		from tb_activities a
+		join tb_activity_route_points rp on rp.activity_id = a.id
+		group by a.id
+	`).Scan(&row).Error; err != nil {
+		t.Fatalf("query canonical activity: %v", err)
+	}
+	if row.Title != wantTitle {
+		t.Fatalf("title = %q, want %q", row.Title, wantTitle)
+	}
+	if row.SportType != "run" {
+		t.Fatalf("sport_type = %q, want run", row.SportType)
+	}
+	if row.SourceKind != "gpx" {
+		t.Fatalf("source_kind = %q, want gpx", row.SourceKind)
+	}
+	if row.FirstRawFileID != decodedRawID {
+		t.Fatalf("first_raw_file_id = %s, want %s", row.FirstRawFileID, decodedRawID)
+	}
+	if row.RoutePoints != 2 {
+		t.Fatalf("route point count = %d, want 2", row.RoutePoints)
+	}
+	if row.FirstLon != 139.0 || row.FirstLat != 35.0 || row.LastLon != 139.1 || row.LastLat != 35.1 {
+		t.Fatalf("route geometry = (%v,%v)->(%v,%v), want (139,35)->(139.1,35.1)", row.FirstLon, row.FirstLat, row.LastLon, row.LastLat)
+	}
+
+	var refCount int64
+	if err := db.Table("tb_external_refs").
+		Where("activity_id = ? and provider = ? and raw_file_id = ?", row.ActivityID, "gpx", decodedRawID).
+		Count(&refCount).Error; err != nil {
+		t.Fatalf("query external refs: %v", err)
+	}
+	if refCount != 1 {
+		t.Fatalf("external refs for imported activity = %d, want 1", refCount)
+	}
+}
+
+func assertTableCount(t *testing.T, db *gorm.DB, table string, want int64) {
+	t.Helper()
+	var got int64
+	if err := db.Table(table).Count(&got).Error; err != nil {
+		t.Fatalf("count %s: %v", table, err)
+	}
+	if got != want {
+		t.Fatalf("%s count = %d, want %d", table, got, want)
+	}
 }
 
 func uploadRawFile(t *testing.T, handler http.Handler, filename string, sourceKind string, uploadedVia string, content string) string {
