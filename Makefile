@@ -8,7 +8,7 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet test build web-install web-check web-test web-build check validate db-up db-down db-status db-logs db-reset
+.PHONY: help fmt fmt-check vet test test-integration build web-install web-check web-test web-build check validate db-up db-down db-status db-logs db-reset
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -27,6 +27,9 @@ vet: ## Run go vet
 
 test: ## Run Go tests
 	$(NIX_DEV)go -C $(SERVER_DIR) test ./...
+
+test-integration: db-up ## Run DB-backed Go integration tests
+	$(NIX_DEV)env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -tags=integration ./...
 
 build: ## Build the Go server
 	$(NIX_DEV)go -C $(SERVER_DIR) build ./...
