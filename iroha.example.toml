@@ -1,0 +1,12 @@
+[server]
+addr = "127.0.0.1:8080"
+
+[database]
+url = "postgres://iroha:iroha_dev@localhost:5432/iroha?sslmode=disable"
+
+[storage]
+data_dir = ".iroha-data"
+
+[auth]
+local_no_auth = true
+import_token = ""
