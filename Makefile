@@ -8,7 +8,7 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet test build web-install web-check web-build check validate db-up db-down db-reset
+.PHONY: help fmt fmt-check vet test build web-install web-check web-test web-build check validate db-up db-down db-reset
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -38,11 +38,14 @@ web-install: ## Install web dependencies
 web-check: ## Type-check the web app (svelte-check)
 	cd $(WEB_DIR) && $(NIX_DEV)bun run check
 
+web-test: ## Run unit tests for the web app (vitest)
+	cd $(WEB_DIR) && $(NIX_DEV)bun run test
+
 web-build: ## Production build of the web app
 	cd $(WEB_DIR) && $(NIX_DEV)bun run build
 
 ## --- Aggregate gates ---
-check: fmt-check vet test web-check ## Pre-commit gate: fmt-check + vet + test + web type-check
+check: fmt-check vet test web-check web-test ## Pre-commit gate: fmt-check + vet + test + web type-check + web tests
 validate: check build web-build ## Pre-PR gate: check + full server and web builds
 
 ## --- Dev database (Postgres/PostGIS via uv scripts) ---
