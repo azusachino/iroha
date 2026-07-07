@@ -61,6 +61,32 @@ Reprocessing is modeled as another import job for the same raw file, not as muta
 
 Import jobs are persisted jobs. MVP execution can be an in-process worker, but job state must live in Postgres so status survives process crashes and future worker extraction.
 
+Initial task-2 behavior:
+
+```text
+POST /api/v1/imports
+  -> creates queued import job
+  -> returns 202 Accepted
+  -> in-process worker moves it to parsing
+  -> worker records failed with parser-not-implemented until task 3 adds real parsers
+```
+
+Response shape:
+
+```json
+{
+  "id": "imp_019f...",
+  "raw_file_id": "raw_019f...",
+  "status": "failed",
+  "parser_kind": "apple_health_export",
+  "parser_version": "dev",
+  "error_message": "parser \"apple_health_export\" is not implemented yet",
+  "started_at": "2026-07-07T00:00:00Z",
+  "finished_at": "2026-07-07T00:00:01Z",
+  "created_at": "2026-07-07T00:00:00Z"
+}
+```
+
 ### Activities
 
 ```text

@@ -7,6 +7,7 @@ import (
 
 	"github.com/azusachino/iroha/apps/iroha-server/internal/config"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/httpapi"
+	"github.com/azusachino/iroha/apps/iroha-server/internal/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/rawfiles"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -32,10 +33,12 @@ func main() {
 		logger.Error("create raw file service", "error", err)
 		os.Exit(1)
 	}
+	importService := imports.NewService(db, logger, "dev")
 
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:         cfg,
 		Logger:         logger,
+		ImportService:  importService,
 		RawFileService: rawFileService,
 		MaxUploadBytes: 2 << 30,
 		AllowedOrigins: nil,

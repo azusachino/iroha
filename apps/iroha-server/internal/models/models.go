@@ -21,3 +21,19 @@ type RawFile struct {
 func (RawFile) TableName() string {
 	return "raw_files"
 }
+
+type ImportJob struct {
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
+	RawFileID     uuid.UUID `gorm:"type:uuid"`
+	Status        string
+	ParserKind    string
+	ParserVersion string
+	ErrorMessage  *string
+	StartedAt     *time.Time
+	FinishedAt    *time.Time
+	CreatedAt     time.Time
+}
+
+func (ImportJob) TableName() string {
+	return "import_jobs"
+}

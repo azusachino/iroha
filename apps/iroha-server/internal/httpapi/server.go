@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/azusachino/iroha/apps/iroha-server/internal/config"
+	"github.com/azusachino/iroha/apps/iroha-server/internal/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/rawfiles"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -13,6 +14,7 @@ import (
 type Dependencies struct {
 	Config         config.Config
 	Logger         *slog.Logger
+	ImportService  *imports.Service
 	RawFileService *rawfiles.Service
 	MaxUploadBytes int64
 	AllowedOrigins []string
@@ -54,6 +56,11 @@ func (s *Server) routes() {
 			r.Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
 			r.Get("/{rawFileId}", s.handleGetRawFile)
+		})
+		r.Route("/imports", func(r chi.Router) {
+			r.Post("/", s.handleCreateImportJob)
+			r.Get("/", s.handleListImportJobs)
+			r.Get("/{importId}", s.handleGetImportJob)
 		})
 	})
 }
