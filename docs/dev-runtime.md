@@ -75,6 +75,8 @@ apps/iroha-server/go.mod
 
 Add `go.work` when a second Go module becomes real, such as a shared client package, parser package, or separate worker binary.
 
+The private frontend lives alongside the server at `apps/iroha-web` (SvelteKit, built with `bun`); see `apps/iroha-web/README.md`.
+
 Do not use a Git submodule for `iroha-server` unless it must live in a separate repository with independent release ownership. In this product phase, `iroha-server` should be a subdirectory module inside the iroha repo, not an external Git submodule.
 
 ## Apple `container`
