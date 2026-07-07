@@ -169,6 +169,8 @@ Exit criteria:
 
 Goal: track personal media consumption without turning iroha into a social media clone.
 
+See [Reading and Watching History Research](media-history-research.md) for the researched data model, source connectors, and implementation boundary.
+
 This module should reuse the same three-layer pattern as running:
 
 ```text

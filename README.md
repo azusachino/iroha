@@ -9,5 +9,6 @@ Iroha is a personal data cockpit. The first product module is running and fitnes
 - [Iroha Server](docs/iroha-server.md)
 - [Import Pipeline](docs/import-pipeline.md)
 - [Data Model](docs/data-model.md)
+- [Reading and Watching History Research](docs/media-history-research.md)
 - [Development Runtime](docs/dev-runtime.md)
 - [Roadmap](docs/roadmap.md)
