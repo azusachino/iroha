@@ -68,7 +68,7 @@ func (s *Server) routes() {
 			r.Get("/", s.handleListActivities)
 			r.Get("/{activityId}", s.handleGetActivity)
 			r.Get("/{activityId}/route", s.handleGetActivityRoute)
-			r.Get("/{activityId}/samples", s.handleGetActivitySamples)
+			r.Get("/{activityId}/samplings", s.handleGetActivitySamplings)
 			r.Get("/{activityId}/laps", s.handleGetActivityLaps)
 		})
 	})

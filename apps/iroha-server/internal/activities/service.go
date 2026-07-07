@@ -84,15 +84,15 @@ func (s *Service) Route(id string) ([]models.ActivityRoutePoint, bool, error) {
 	return points, true, err
 }
 
-func (s *Service) Samples(id string) ([]models.ActivitySample, bool, error) {
+func (s *Service) Samplings(id string) ([]models.ActivitySampling, bool, error) {
 	activity, found, err := s.Get(id)
 	if err != nil || !found {
 		return nil, found, err
 	}
 
-	var samples []models.ActivitySample
-	err = s.db.Where("activity_id = ?", activity.ID).Order("sample_type asc, ts asc").Find(&samples).Error
-	return samples, true, err
+	var samplings []models.ActivitySampling
+	err = s.db.Where("activity_id = ?", activity.ID).Order("sampling_type asc, ts asc").Find(&samplings).Error
+	return samplings, true, err
 }
 
 func (s *Service) Laps(id string) ([]models.ActivityLap, bool, error) {

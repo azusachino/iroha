@@ -92,17 +92,17 @@ func (ActivityRoutePoint) TableName() string {
 	return "tb_activity_route_points"
 }
 
-type ActivitySample struct {
-	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
-	ActivityID uuid.UUID `gorm:"type:uuid"`
-	SampleType string
-	Ts         time.Time
-	Value      float64
-	Unit       string
+type ActivitySampling struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ActivityID   uuid.UUID `gorm:"type:uuid"`
+	SamplingType string
+	Ts           time.Time
+	Value        float64
+	Unit         string
 }
 
-func (ActivitySample) TableName() string {
-	return "tb_activity_samples"
+func (ActivitySampling) TableName() string {
+	return "tb_activity_samplings"
 }
 
 type ActivityLap struct {

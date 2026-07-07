@@ -32,7 +32,7 @@ An import is a parsing attempt against a raw file. A raw file may have many impo
 
 ### Activities Are Canonical Domain Objects
 
-Activities, route points, samples, laps, notes, and gear are normalized into Postgres/PostGIS for query and presentation.
+Activities, route points, samplings, laps, notes, and gear are normalized into Postgres/PostGIS for query and presentation.
 
 ### Public Data Is A Sanitized Projection
 
@@ -48,7 +48,7 @@ In scope:
 - GPX import.
 - Initial FIT and TCX parser hooks, even if parser coverage starts narrow.
 - Activity list.
-- Activity detail page API data: summary, route, samples, laps.
+- Activity detail page API data: summary, route, samplings, laps.
 - Dedupe by raw file hash and source activity references.
 - Import status tracking.
 - External upload client contract for an existing personal Telegram bot.
@@ -125,6 +125,6 @@ The first end-to-end success is:
 3. Iroha stores the original zip unchanged.
 4. Iroha parses workouts and route GPX files.
 5. Iroha shows imported tb_activities.
-6. Opening one activity shows route, summary metrics, and samples.
+6. Opening one activity shows route, summary metrics, and samplings.
 
 That path validates the product without requiring an Apple Developer Program subscription.

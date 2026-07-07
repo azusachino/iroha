@@ -225,7 +225,7 @@ create table tb_activity_route_points (
 create index idx_tb_route_points_geom on tb_activity_route_points using gist(geom);
 ```
 
-### tb_activity_samples
+### tb_activity_samplings
 
 Time-series metric readings that are not necessarily route points.
 
@@ -237,19 +237,19 @@ Examples:
 - body temperature
 - oxygen saturation
 
-The name `sample` follows HealthKit/FIT-style language: one timestamped measurement from a stream.
+The name `sampling` follows HealthKit/FIT-style language: one timestamped measurement from a stream.
 
 ```sql
-create table tb_activity_samples (
+create table tb_activity_samplings (
   id uuid primary key,
   activity_id uuid not null references tb_activities(id) on delete cascade,
-  sample_type text not null,
+  sampling_type text not null,
   ts timestamptz not null,
   value numeric not null,
   unit text not null
 );
 
-create index idx_tb_samples_activity_type_ts on tb_activity_samples(activity_id, sample_type, ts);
+create index idx_tb_samplings_activity_type_ts on tb_activity_samplings(activity_id, sampling_type, ts);
 ```
 
 ### tb_activity_laps
@@ -347,7 +347,7 @@ Create these first:
 - `tb_activities`
 - `tb_external_refs`
 - `tb_activity_route_points`
-- `tb_activity_samples`
+- `tb_activity_samplings`
 - `tb_activity_laps`
 
 Add notes, gear, privacy zones, and publishing after the import and activity detail path works.

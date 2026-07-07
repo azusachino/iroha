@@ -84,7 +84,7 @@ Tasks:
 - Parse Apple Health `export.xml` workout records.
 - Parse route GPX files from `workout-routes/`.
 - Parse standalone GPX.
-- Add activity-core migration for `tb_activities`, `tb_external_refs`, `tb_activity_route_points`, `tb_activity_samples`, and `tb_activity_laps`.
+- Add activity-core migration for `tb_activities`, `tb_external_refs`, `tb_activity_route_points`, `tb_activity_samplings`, and `tb_activity_laps`.
 - Insert activities and route points.
 - Record external references where source identity is available.
 - Make reprocessing idempotent.
@@ -103,7 +103,7 @@ Tasks:
 
 - Add `/api/v1/activities`.
 - Add `/api/v1/activities/{activityId}`.
-- Add route, sample, and lap endpoints.
+- Add route, sampling, and lap endpoints.
 - Add filters for sport type and date range.
 
 Exit criteria:

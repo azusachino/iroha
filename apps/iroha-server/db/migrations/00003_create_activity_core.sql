@@ -49,16 +49,16 @@ create table tb_activity_route_points (
 
 create index idx_tb_route_points_geom on tb_activity_route_points using gist(geom);
 
-create table tb_activity_samples (
+create table tb_activity_samplings (
   id uuid primary key,
   activity_id uuid not null references tb_activities(id) on delete cascade,
-  sample_type text not null,
+  sampling_type text not null,
   ts timestamptz not null,
   value numeric not null,
   unit text not null
 );
 
-create index idx_tb_samples_activity_type_ts on tb_activity_samples(activity_id, sample_type, ts);
+create index idx_tb_samplings_activity_type_ts on tb_activity_samplings(activity_id, sampling_type, ts);
 
 create table tb_activity_laps (
   id uuid primary key,
@@ -75,7 +75,7 @@ create table tb_activity_laps (
 
 -- +goose Down
 drop table if exists tb_activity_laps;
-drop table if exists tb_activity_samples;
+drop table if exists tb_activity_samplings;
 drop table if exists tb_activity_route_points;
 drop table if exists tb_external_refs;
 drop table if exists tb_activities;

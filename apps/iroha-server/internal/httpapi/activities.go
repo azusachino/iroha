@@ -43,12 +43,12 @@ type routePointResponse struct {
 	HeartRate  *int       `json:"heart_rate,omitempty"`
 }
 
-type activitySampleResponse struct {
-	ID         string    `json:"id"`
-	SampleType string    `json:"sample_type"`
-	Ts         time.Time `json:"ts"`
-	Value      float64   `json:"value"`
-	Unit       string    `json:"unit"`
+type activitySamplingResponse struct {
+	ID           string    `json:"id"`
+	SamplingType string    `json:"sampling_type"`
+	Ts           time.Time `json:"ts"`
+	Value        float64   `json:"value"`
+	Unit         string    `json:"unit"`
 }
 
 type activityLapResponse struct {
@@ -122,8 +122,8 @@ func (s *Server) handleGetActivityRoute(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, response)
 }
 
-func (s *Server) handleGetActivitySamples(w http.ResponseWriter, r *http.Request) {
-	samples, found, err := s.deps.ActivityService.Samples(chi.URLParam(r, "activityId"))
+func (s *Server) handleGetActivitySamplings(w http.ResponseWriter, r *http.Request) {
+	samplings, found, err := s.deps.ActivityService.Samplings(chi.URLParam(r, "activityId"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid activity id")
 		return
@@ -133,14 +133,14 @@ func (s *Server) handleGetActivitySamples(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response := make([]activitySampleResponse, 0, len(samples))
-	for _, sample := range samples {
-		response = append(response, activitySampleResponse{
-			ID:         ids.Encode("sample", sample.ID),
-			SampleType: sample.SampleType,
-			Ts:         sample.Ts,
-			Value:      sample.Value,
-			Unit:       sample.Unit,
+	response := make([]activitySamplingResponse, 0, len(samplings))
+	for _, sampling := range samplings {
+		response = append(response, activitySamplingResponse{
+			ID:           ids.Encode("sampling", sampling.ID),
+			SamplingType: sampling.SamplingType,
+			Ts:           sampling.Ts,
+			Value:        sampling.Value,
+			Unit:         sampling.Unit,
 		})
 	}
 	writeJSON(w, http.StatusOK, response)
