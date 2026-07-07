@@ -31,9 +31,23 @@ apple_health_export/
 
 The importer should parse `export.xml` for workouts and samples, then link workout route GPX files where possible.
 
+Initial parser behavior:
+
+- Parse `Workout` records from `export.xml` into canonical activities.
+- Parse GPX files under `workout-routes/` as route-backed activities.
+- Defer precise Apple workout-to-route association until real exports are inspected.
+- Defer heart-rate and other sample extraction until the first route/activity import loop is stable.
+
 ### GPX
 
 GPX is the simplest route-first import source. It should be supported early to validate route rendering and PostGIS storage.
+
+Initial parser behavior:
+
+- Each GPX track becomes one activity.
+- Track points become `activity_route_points`.
+- The parser defaults `sport_type` to `run`.
+- Reprocessing dedupes by external reference derived from the raw file hash.
 
 ### FIT and TCX
 
