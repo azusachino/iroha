@@ -63,6 +63,25 @@ Telegram is an optional inbox. The personal bot is an external upload client onl
 
 The bot uploads with `uploaded_via=telegram`, sending a bearer token when auth is enabled, then creates an import job and polls its status. All parsing and dedupe stay inside iroha-server. See the External Upload Client Contract in `iroha-server.md` for the exact request and response shapes.
 
+## Real Apple Health Export Findings
+
+A real Apple Health export zip exercises the product route through the HTTP API: raw-file multipart upload, import job creation, import status polling, and read API queries.
+
+Current support:
+
+- `export.xml` workout rows are parsed into activities.
+- `workout-routes/*.gpx` files are parsed into route-backed activities.
+- Large route imports work against PostGIS.
+
+Known gaps:
+
+- Route GPX files are imported as separate `gpx` activities. They are not yet matched back to their corresponding Apple workout rows.
+- HealthKit `Record` samples are not parsed yet, so heart rate and other time-series samplings remain empty.
+- Laps/splits are not parsed yet.
+- Duplicate raw-file uploads dedupe the stored raw file, but creating another import job still reprocesses the full export.
+- Route points are inserted one row at a time; large exports should use batched inserts or copy-style loading.
+- Expected lookup misses currently produce noisy GORM `record not found` SQL logs; quiet those before regular real-data testing.
+
 ## Pipeline Stages
 
 ```text

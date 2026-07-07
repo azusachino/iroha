@@ -8,7 +8,7 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet test test-integration build web-install web-check web-test web-build check validate db-up db-down db-status db-logs db-reset
+.PHONY: help fmt fmt-check vet test test-integration build web-install web-check web-test web-build check validate db-up db-down db-status db-logs db-reset smoke-real-import
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -66,3 +66,7 @@ db-logs: ## Show local dev database logs
 
 db-reset: ## Reset the local dev database stack and apply migrations
 	$(NIX_DEV)uv run python scripts/dev_stack.py reset
+
+smoke-real-import: ## Upload/import a real local file through the HTTP API (FILE=...)
+	@test -n "$(FILE)" || (echo "FILE is required, e.g. make smoke-real-import FILE=.iroha-data/imports/export.zip" >&2; exit 2)
+	$(NIX_DEV)uv run python scripts/real_import_smoke.py "$(FILE)" --api-base "$(or $(API_BASE),http://127.0.0.1:8080)"

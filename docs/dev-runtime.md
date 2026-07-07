@@ -122,6 +122,33 @@ scripts/dev_stack.py
 
 The script should hide local command differences while keeping behavior explicit.
 
+## Real Import Smoke
+
+Keep real exports under ignored local storage:
+
+```bash
+mkdir -p .iroha-data/imports
+cp ~/Downloads/export.zip .iroha-data/imports/apple-health-export.zip
+```
+
+With `iroha-server` running locally, smoke the product HTTP route:
+
+```bash
+make smoke-real-import FILE=.iroha-data/imports/apple-health-export.zip
+```
+
+This script uses the same upload/import APIs an external client uses:
+
+```text
+POST /api/v1/raw-files
+POST /api/v1/imports
+GET  /api/v1/imports/{importId}
+GET  /api/v1/activities
+GET  /api/v1/activities/{activityId}/route
+```
+
+No manual `uv` environment setup is needed. Run repo scripts through `make` or `nix develop ... uv run`; `uv` uses the existing `pyproject.toml` and `uv.lock`.
+
 ## Postgres/PostGIS Runtime Shape
 
 Use an OCI image that supports arm64. The validated local image is `ghcr.io/baosystems/postgis:17-3.5`. The upstream `postgis/postgis:17-3.5` image failed under bianpai on this Apple Silicon host with `unsupported platform ... linux/arm64`.
