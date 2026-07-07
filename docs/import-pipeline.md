@@ -34,7 +34,7 @@ The importer should parse `export.xml` for workouts and samples, then link worko
 Initial parser behavior:
 
 - Parse `Workout` records from `export.xml` into canonical activities.
-- Parse GPX files under `workout-routes/` as route-backed activities.
+- Parse GPX files under `workout-routes/` as route-backed tb_activities.
 - Defer precise Apple workout-to-route association until real exports are inspected.
 - Defer heart-rate and other sample extraction until the first route/activity import loop is stable.
 
@@ -45,7 +45,7 @@ GPX is the simplest route-first import source. It should be supported early to v
 Initial parser behavior:
 
 - Each GPX track becomes one activity.
-- Track points become `activity_route_points`.
+- Track points become `tb_activity_route_points`.
 - The parser defaults `sport_type` to `run`.
 - Reprocessing dedupes by external reference derived from the raw file hash.
 
@@ -65,9 +65,9 @@ Telegram is an optional inbox. The bot forwards files to iroha-server and does n
 
 ```text
 receive upload
-  -> create raw_files row
+  -> create tb_raw_files row
   -> store raw bytes unchanged
-  -> create import_jobs row
+  -> create tb_import_jobs row
   -> detect parser
   -> parse into ParsedActivity[]
   -> dedupe and upsert canonical activities
@@ -100,15 +100,15 @@ The parser should not write canonical tables directly. A normalization step hand
 
 Use multiple signals:
 
-- `raw_files.sha256` prevents storing identical files twice.
-- `external_refs(provider, external_id)` prevents duplicate source activities.
+- `tb_raw_files.sha256` prevents storing identical files twice.
+- `tb_external_refs(provider, external_id)` prevents duplicate source activities.
 - fallback matching may use sport type, start time, duration, and distance when source IDs are absent.
 
 Fallback matching should be conservative. It is better to surface a duplicate candidate than silently merge unrelated activities.
 
 ## Reprocessing
 
-Parser improvements should create a new `import_jobs` row for the same `raw_file_id`.
+Parser improvements should create a new `tb_import_jobs` row for the same `raw_file_id`.
 
 Reprocessing must be idempotent:
 

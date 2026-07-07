@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/azusachino/iroha/apps/iroha-server/internal/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/config"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/imports"
@@ -34,14 +35,16 @@ func main() {
 		os.Exit(1)
 	}
 	importService := imports.NewService(db, logger, "dev")
+	activityService := activities.NewService(db)
 
 	server := httpapi.NewServer(httpapi.Dependencies{
-		Config:         cfg,
-		Logger:         logger,
-		ImportService:  importService,
-		RawFileService: rawFileService,
-		MaxUploadBytes: 2 << 30,
-		AllowedOrigins: nil,
+		Config:          cfg,
+		Logger:          logger,
+		ActivityService: activityService,
+		ImportService:   importService,
+		RawFileService:  rawFileService,
+		MaxUploadBytes:  2 << 30,
+		AllowedOrigins:  nil,
 	})
 
 	logger.Info("starting iroha-server", "addr", cfg.Server.Addr)

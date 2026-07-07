@@ -71,8 +71,8 @@ Out of scope:
 ```text
 iPhone Health export / GPX / FIT / TCX / Strava archive / Telegram document
   -> iroha-server /api/v1/raw-files
-  -> raw_files row + immutable filesystem blob
-  -> import_jobs row
+  -> tb_raw_files row + immutable filesystem blob
+  -> tb_import_jobs row
   -> parser creates ParsedActivity records
   -> canonical activity tables
   -> private UI and future sanitized public projections
@@ -89,9 +89,9 @@ Top-level resources:
 - `/api/v1/activities`
 - `/api/v1/gear`
 - `/api/v1/privacy-zones`
-- `/api/v1/published-activities`
+- `/api/v1/published-tb_activities`
 
-The MVP can combine upload and import creation for convenience, but the internal model must still create separate `raw_files` and `import_jobs` records.
+The MVP can combine upload and import creation for convenience, but the internal model must still create separate `tb_raw_files` and `tb_import_jobs` records.
 
 ## Technology Choices
 
@@ -124,7 +124,7 @@ The first end-to-end success is:
 2. Upload `export.zip` to iroha.
 3. Iroha stores the original zip unchanged.
 4. Iroha parses workouts and route GPX files.
-5. Iroha shows imported activities.
+5. Iroha shows imported tb_activities.
 6. Opening one activity shows route, summary metrics, and samples.
 
 That path validates the product without requiring an Apple Developer Program subscription.

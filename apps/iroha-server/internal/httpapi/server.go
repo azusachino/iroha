@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/azusachino/iroha/apps/iroha-server/internal/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/config"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/rawfiles"
@@ -12,12 +13,13 @@ import (
 )
 
 type Dependencies struct {
-	Config         config.Config
-	Logger         *slog.Logger
-	ImportService  *imports.Service
-	RawFileService *rawfiles.Service
-	MaxUploadBytes int64
-	AllowedOrigins []string
+	Config          config.Config
+	Logger          *slog.Logger
+	ActivityService *activities.Service
+	ImportService   *imports.Service
+	RawFileService  *rawfiles.Service
+	MaxUploadBytes  int64
+	AllowedOrigins  []string
 }
 
 type Server struct {
@@ -61,6 +63,13 @@ func (s *Server) routes() {
 			r.Post("/", s.handleCreateImportJob)
 			r.Get("/", s.handleListImportJobs)
 			r.Get("/{importId}", s.handleGetImportJob)
+		})
+		r.Route("/activities", func(r chi.Router) {
+			r.Get("/", s.handleListActivities)
+			r.Get("/{activityId}", s.handleGetActivity)
+			r.Get("/{activityId}/route", s.handleGetActivityRoute)
+			r.Get("/{activityId}/samples", s.handleGetActivitySamples)
+			r.Get("/{activityId}/laps", s.handleGetActivityLaps)
 		})
 	})
 }

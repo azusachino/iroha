@@ -36,7 +36,7 @@ source_kind      apple_health_export | gpx | fit | tcx | strava_export
 uploaded_via     web | telegram | cli | ios_bridge
 ```
 
-The server computes SHA-256, stores the bytes unchanged, and creates a `raw_files` row.
+The server computes SHA-256, stores the bytes unchanged, and creates a `tb_raw_files` row.
 
 ### Imports
 
@@ -126,9 +126,9 @@ Privacy zones define locations to remove or blur before publishing.
 ### Published Activities
 
 ```text
-POST   /api/v1/published-activities
-GET    /api/v1/published-activities/{publishedActivityId}
-DELETE /api/v1/published-activities/{publishedActivityId}
+POST   /api/v1/published-tb_activities
+GET    /api/v1/published-tb_activities/{publishedActivityId}
+DELETE /api/v1/published-tb_activities/{publishedActivityId}
 ```
 
 Publishing writes a sanitized projection. Public pages should read this projection, not private activity tables.

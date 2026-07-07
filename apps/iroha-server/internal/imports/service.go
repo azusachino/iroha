@@ -276,7 +276,7 @@ func replaceRoutePoints(tx *gorm.DB, activityID uuid.UUID, points []parsers.Rout
 	}
 	for seq, point := range points {
 		if err := tx.Exec(
-			`insert into activity_route_points
+			`insert into tb_activity_route_points
 			  (activity_id, seq, ts, lat, lon, elevation_m, geom)
 			  values (?, ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)`,
 			activityID,

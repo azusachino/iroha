@@ -41,7 +41,7 @@ Tasks:
 - Add TOML config loading with environment variable overrides.
 - Add SQL migration directory under `apps/iroha-server/db/migrations`.
 - Add initial Postgres extensions migration for `postgis`.
-- Add import-core migration for `raw_files` and `import_jobs`.
+- Add import-core migration for `tb_raw_files` and `tb_import_jobs`.
 - Add `/api/v1/raw-files`.
 - Store raw uploads on local filesystem.
 - Compute SHA-256 and dedupe exact files.
@@ -84,7 +84,7 @@ Tasks:
 - Parse Apple Health `export.xml` workout records.
 - Parse route GPX files from `workout-routes/`.
 - Parse standalone GPX.
-- Add activity-core migration for `activities`, `external_refs`, `activity_route_points`, `activity_samples`, and `activity_laps`.
+- Add activity-core migration for `tb_activities`, `tb_external_refs`, `tb_activity_route_points`, `tb_activity_samples`, and `tb_activity_laps`.
 - Insert activities and route points.
 - Record external references where source identity is available.
 - Make reprocessing idempotent.
@@ -137,7 +137,7 @@ Tasks:
 
 - Add bearer-token auth for upload clients.
 - Document the upload flow for external clients.
-- Support `uploaded_via=telegram` on `raw_files`.
+- Support `uploaded_via=telegram` on `tb_raw_files`.
 - Return stable JSON from raw-file creation and import creation.
 - Make import status responses compact enough for bot messages.
 - Keep parser and dedupe logic only in `iroha-server`.
@@ -158,7 +158,7 @@ Tasks:
 
 - Add privacy zones.
 - Add sanitized activity projection generation.
-- Add `published_activities`.
+- Add `tb_published_activities`.
 - Add public read path backed by sanitized payloads.
 
 Exit criteria:

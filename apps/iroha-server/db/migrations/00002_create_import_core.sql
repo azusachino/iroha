@@ -1,5 +1,5 @@
 -- +goose Up
-create table raw_files (
+create table tb_raw_files (
   id uuid primary key,
   sha256 text not null unique,
   original_filename text not null,
@@ -11,12 +11,12 @@ create table raw_files (
   created_at timestamptz not null
 );
 
-create index idx_raw_files_created_at on raw_files(created_at desc);
-create index idx_raw_files_source_created_at on raw_files(source_kind, created_at desc);
+create index idx_tb_raw_files_created_at on tb_raw_files(created_at desc);
+create index idx_tb_raw_files_source_created_at on tb_raw_files(source_kind, created_at desc);
 
-create table import_jobs (
+create table tb_import_jobs (
   id uuid primary key,
-  raw_file_id uuid not null references raw_files(id),
+  raw_file_id uuid not null references tb_raw_files(id),
   status text not null,
   parser_kind text not null,
   parser_version text not null,
@@ -24,12 +24,12 @@ create table import_jobs (
   started_at timestamptz,
   finished_at timestamptz,
   created_at timestamptz not null,
-  constraint import_jobs_status_check check (status in ('queued', 'parsing', 'completed', 'failed'))
+  constraint tb_import_jobs_status_check check (status in ('queued', 'parsing', 'completed', 'failed'))
 );
 
-create index idx_import_jobs_status on import_jobs(status);
-create index idx_import_jobs_raw_file_created_at on import_jobs(raw_file_id, created_at desc);
+create index idx_tb_import_jobs_status on tb_import_jobs(status);
+create index idx_tb_import_jobs_raw_file_created_at on tb_import_jobs(raw_file_id, created_at desc);
 
 -- +goose Down
-drop table if exists import_jobs;
-drop table if exists raw_files;
+drop table if exists tb_import_jobs;
+drop table if exists tb_raw_files;

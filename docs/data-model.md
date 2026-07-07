@@ -30,7 +30,7 @@ Use the ORM for:
 - mapping rows to Go structs
 - ordinary inserts, updates, and queries
 - transaction boundaries
-- simple associations such as `raw_files -> import_jobs`
+- simple associations such as `tb_raw_files -> tb_import_jobs`
 
 Use explicit SQL for:
 
@@ -119,12 +119,12 @@ Apple Health and Strava export zips can contain many activities. A raw file is s
 
 ## Tables
 
-### raw_files
+### tb_raw_files
 
 Stores immutable uploaded bytes.
 
 ```sql
-create table raw_files (
+create table tb_raw_files (
   id uuid primary key,
   sha256 text not null unique,
   original_filename text not null,
@@ -137,14 +137,14 @@ create table raw_files (
 );
 ```
 
-### import_jobs
+### tb_import_jobs
 
 Stores parser attempts against raw files.
 
 ```sql
-create table import_jobs (
+create table tb_import_jobs (
   id uuid primary key,
-  raw_file_id uuid not null references raw_files(id),
+  raw_file_id uuid not null references tb_raw_files(id),
   status text not null,
   parser_kind text not null,
   parser_version text not null,
@@ -154,15 +154,15 @@ create table import_jobs (
   created_at timestamptz not null
 );
 
-create index idx_import_jobs_status on import_jobs(status);
+create index idx_tb_import_jobs_status on tb_import_jobs(status);
 ```
 
-### activities
+### tb_activities
 
 Canonical workout/activity record.
 
 ```sql
-create table activities (
+create table tb_activities (
   id uuid primary key,
   sport_type text not null,
   title text,
@@ -178,38 +178,38 @@ create table activities (
   avg_pace_s_per_km numeric,
   source_kind text not null,
   source_activity_id text,
-  first_raw_file_id uuid references raw_files(id),
+  first_raw_file_id uuid references tb_raw_files(id),
   created_at timestamptz not null,
   updated_at timestamptz not null
 );
 
-create index idx_activities_started_at on activities(started_at desc);
-create index idx_activities_sport_started on activities(sport_type, started_at desc);
+create index idx_tb_activities_started_at on tb_activities(started_at desc);
+create index idx_tb_activities_sport_started on tb_activities(sport_type, started_at desc);
 ```
 
-### external_refs
+### tb_external_refs
 
 Links canonical activities to provider identities.
 
 ```sql
-create table external_refs (
+create table tb_external_refs (
   id uuid primary key,
-  activity_id uuid not null references activities(id) on delete cascade,
+  activity_id uuid not null references tb_activities(id) on delete cascade,
   provider text not null,
   external_id text not null,
-  raw_file_id uuid references raw_files(id),
+  raw_file_id uuid references tb_raw_files(id),
   created_at timestamptz not null,
   unique(provider, external_id)
 );
 ```
 
-### activity_route_points
+### tb_activity_route_points
 
 Route geometry and per-point metrics.
 
 ```sql
-create table activity_route_points (
-  activity_id uuid not null references activities(id) on delete cascade,
+create table tb_activity_route_points (
+  activity_id uuid not null references tb_activities(id) on delete cascade,
   seq integer not null,
   ts timestamptz,
   lat double precision not null,
@@ -222,34 +222,44 @@ create table activity_route_points (
   primary key (activity_id, seq)
 );
 
-create index idx_route_points_geom on activity_route_points using gist(geom);
+create index idx_tb_route_points_geom on tb_activity_route_points using gist(geom);
 ```
 
-### activity_samples
+### tb_activity_samples
 
-Time-series samples that are not necessarily route points.
+Time-series metric readings that are not necessarily route points.
+
+Examples:
+
+- heart rate
+- cadence
+- power
+- body temperature
+- oxygen saturation
+
+The name `sample` follows HealthKit/FIT-style language: one timestamped measurement from a stream.
 
 ```sql
-create table activity_samples (
+create table tb_activity_samples (
   id uuid primary key,
-  activity_id uuid not null references activities(id) on delete cascade,
+  activity_id uuid not null references tb_activities(id) on delete cascade,
   sample_type text not null,
   ts timestamptz not null,
   value numeric not null,
   unit text not null
 );
 
-create index idx_samples_activity_type_ts on activity_samples(activity_id, sample_type, ts);
+create index idx_tb_samples_activity_type_ts on tb_activity_samples(activity_id, sample_type, ts);
 ```
 
-### activity_laps
+### tb_activity_laps
 
 Lap or split records.
 
 ```sql
-create table activity_laps (
+create table tb_activity_laps (
   id uuid primary key,
-  activity_id uuid not null references activities(id) on delete cascade,
+  activity_id uuid not null references tb_activities(id) on delete cascade,
   lap_no integer not null,
   start_ts timestamptz,
   end_ts timestamptz,
@@ -279,21 +289,21 @@ create table gear (
 );
 ```
 
-### activity_gear
+### tb_activity_gear
 
 ```sql
-create table activity_gear (
-  activity_id uuid not null references activities(id) on delete cascade,
+create table tb_activity_gear (
+  activity_id uuid not null references tb_activities(id) on delete cascade,
   gear_id uuid not null references gear(id),
   primary key (activity_id, gear_id)
 );
 ```
 
-### activity_notes
+### tb_activity_notes
 
 ```sql
-create table activity_notes (
-  activity_id uuid primary key references activities(id) on delete cascade,
+create table tb_activity_notes (
+  activity_id uuid primary key references tb_activities(id) on delete cascade,
   markdown text,
   mood text,
   weather text,
@@ -302,10 +312,10 @@ create table activity_notes (
 );
 ```
 
-### privacy_zones
+### tb_privacy_zones
 
 ```sql
-create table privacy_zones (
+create table tb_privacy_zones (
   id uuid primary key,
   name text not null,
   center geography(Point, 4326) not null,
@@ -314,12 +324,12 @@ create table privacy_zones (
 );
 ```
 
-### published_activities
+### tb_published_activities
 
 ```sql
-create table published_activities (
+create table tb_published_activities (
   id uuid primary key,
-  activity_id uuid not null references activities(id),
+  activity_id uuid not null references tb_activities(id),
   slug text not null unique,
   visibility text not null,
   sanitized_payload jsonb not null,
@@ -332,12 +342,12 @@ create table published_activities (
 
 Create these first:
 
-- `raw_files`
-- `import_jobs`
-- `activities`
-- `external_refs`
-- `activity_route_points`
-- `activity_samples`
-- `activity_laps`
+- `tb_raw_files`
+- `tb_import_jobs`
+- `tb_activities`
+- `tb_external_refs`
+- `tb_activity_route_points`
+- `tb_activity_samples`
+- `tb_activity_laps`
 
 Add notes, gear, privacy zones, and publishing after the import and activity detail path works.

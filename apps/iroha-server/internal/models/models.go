@@ -19,7 +19,7 @@ type RawFile struct {
 }
 
 func (RawFile) TableName() string {
-	return "raw_files"
+	return "tb_raw_files"
 }
 
 type ImportJob struct {
@@ -35,7 +35,7 @@ type ImportJob struct {
 }
 
 func (ImportJob) TableName() string {
-	return "import_jobs"
+	return "tb_import_jobs"
 }
 
 type Activity struct {
@@ -60,7 +60,7 @@ type Activity struct {
 }
 
 func (Activity) TableName() string {
-	return "activities"
+	return "tb_activities"
 }
 
 type ExternalRef struct {
@@ -73,7 +73,7 @@ type ExternalRef struct {
 }
 
 func (ExternalRef) TableName() string {
-	return "external_refs"
+	return "tb_external_refs"
 }
 
 type ActivityRoutePoint struct {
@@ -89,5 +89,34 @@ type ActivityRoutePoint struct {
 }
 
 func (ActivityRoutePoint) TableName() string {
-	return "activity_route_points"
+	return "tb_activity_route_points"
+}
+
+type ActivitySample struct {
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ActivityID uuid.UUID `gorm:"type:uuid"`
+	SampleType string
+	Ts         time.Time
+	Value      float64
+	Unit       string
+}
+
+func (ActivitySample) TableName() string {
+	return "tb_activity_samples"
+}
+
+type ActivityLap struct {
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ActivityID    uuid.UUID `gorm:"type:uuid"`
+	LapNo         int
+	StartTs       *time.Time
+	EndTs         *time.Time
+	DistanceM     *float64
+	DurationS     *int
+	AvgHR         *int
+	AvgPaceSPerKM *float64
+}
+
+func (ActivityLap) TableName() string {
+	return "tb_activity_laps"
 }
