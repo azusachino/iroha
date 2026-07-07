@@ -55,12 +55,12 @@ func (s *Server) routes() {
 	s.mux.Get("/healthz", s.handleHealthz)
 	s.mux.Route("/api/v1", func(r chi.Router) {
 		r.Route("/raw-files", func(r chi.Router) {
-			r.Post("/", s.handleCreateRawFile)
+			r.With(s.requireUploadAuth).Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
 			r.Get("/{rawFileId}", s.handleGetRawFile)
 		})
 		r.Route("/imports", func(r chi.Router) {
-			r.Post("/", s.handleCreateImportJob)
+			r.With(s.requireUploadAuth).Post("/", s.handleCreateImportJob)
 			r.Get("/", s.handleListImportJobs)
 			r.Get("/{importId}", s.handleGetImportJob)
 		})

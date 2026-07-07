@@ -94,7 +94,7 @@ GET   /api/v1/activities
 GET   /api/v1/activities/{activityId}
 PATCH /api/v1/activities/{activityId}
 GET   /api/v1/activities/{activityId}/route
-GET   /api/v1/activities/{activityId}/samples
+GET   /api/v1/activities/{activityId}/samplings
 GET   /api/v1/activities/{activityId}/laps
 ```
 
@@ -158,25 +158,120 @@ The large-file flow is deferred until direct multipart upload becomes painful.
 
 ## External Telegram Bot Boundary
 
-The personal Telegram bot is an external upload client, not an in-repo component and not an importer.
+The personal Telegram bot is an external upload client, not an in-repo component and not an importer. It pushes raw bytes plus metadata and lets iroha-server own all parsing and dedupe.
 
 ```text
 Telegram document
   -> bot validates sender
   -> bot downloads file if size allows
-  -> bot POSTs to /api/v1/raw-files
+  -> bot POSTs to /api/v1/raw-files with uploaded_via=telegram
   -> bot POSTs to /api/v1/imports
-  -> bot reports import status
+  -> bot polls import status
 ```
 
 Normal Telegram Bot API file downloads may be too small for full Apple Health exports. For large exports, use web upload or a local Telegram Bot API server.
+
+### Upload Contract
+
+All write requests carry the bearer token when auth is enabled (see [Auth](#auth)):
+
+```text
+Authorization: Bearer <import_token>
+```
+
+Step 1 — push the raw file as multipart form data:
+
+```text
+POST /api/v1/raw-files
+Content-Type: multipart/form-data
+
+file          the raw bytes (e.g. export.zip)
+source_kind   apple_health_export | gpx | fit | tcx | strava_export
+uploaded_via  telegram
+```
+
+Response (`201 Created`, or `200 OK` with `"duplicate": true` when the sha256 already exists):
+
+```json
+{
+  "id": "raw_019f...",
+  "sha256": "b1946ac9...",
+  "original_filename": "export.zip",
+  "content_type": "application/zip",
+  "size_bytes": 20480,
+  "source_kind": "apple_health_export",
+  "uploaded_via": "telegram",
+  "created_at": "2026-07-07T00:00:00Z"
+}
+```
+
+Step 2 — create the import job for that raw file:
+
+```text
+POST /api/v1/imports
+Content-Type: application/json
+```
+
+```json
+{
+  "raw_file_id": "raw_019f...",
+  "parser_kind": "apple_health_export"
+}
+```
+
+Response (`202 Accepted`):
+
+```json
+{
+  "id": "imp_019f...",
+  "raw_file_id": "raw_019f...",
+  "status": "queued",
+  "parser_kind": "apple_health_export",
+  "parser_version": "dev",
+  "created_at": "2026-07-07T00:00:00Z"
+}
+```
+
+Step 3 — poll import status until it reaches `completed` or `failed`:
+
+```text
+GET /api/v1/imports/{importId}
+```
+
+```json
+{
+  "id": "imp_019f...",
+  "raw_file_id": "raw_019f...",
+  "status": "completed",
+  "parser_kind": "apple_health_export",
+  "parser_version": "dev",
+  "started_at": "2026-07-07T00:00:00Z",
+  "finished_at": "2026-07-07T00:00:01Z",
+  "created_at": "2026-07-07T00:00:00Z"
+}
+```
+
+`error_message` is present only on `failed` jobs. The `id`, `status`, and `raw_file_id` fields are the stable contract an external client depends on.
 
 ## Auth
 
 MVP auth is intentionally simple:
 
-- no auth for local-only development
-- bearer token when external upload clients such as a personal Telegram bot are enabled
+- no auth for local-only development (`local_no_auth = true`)
+- bearer token when external upload clients such as a personal Telegram bot are enabled (`local_no_auth = false`, `import_token = "<secret>"`)
+
+Only the write endpoints are guarded:
+
+```text
+POST /api/v1/raw-files   requires Authorization: Bearer <import_token>
+POST /api/v1/imports     requires Authorization: Bearer <import_token>
+```
+
+The read endpoints (`GET /api/v1/raw-files`, `GET /api/v1/imports`, `GET /api/v1/activities...`) are not guarded. A missing or wrong bearer token on a guarded endpoint returns `401 Unauthorized`:
+
+```json
+{ "error": "unauthorized" }
+```
 
 OIDC can be added later if iroha becomes network-exposed or multi-device access becomes awkward.
 

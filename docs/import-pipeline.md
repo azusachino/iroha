@@ -29,14 +29,14 @@ apple_health_export/
     route_*.gpx
 ```
 
-The importer should parse `export.xml` for workouts and samples, then link workout route GPX files where possible.
+The importer should parse `export.xml` for workouts and samplings, then link workout route GPX files where possible.
 
 Initial parser behavior:
 
 - Parse `Workout` records from `export.xml` into canonical activities.
 - Parse GPX files under `workout-routes/` as route-backed tb_activities.
 - Defer precise Apple workout-to-route association until real exports are inspected.
-- Defer heart-rate and other sample extraction until the first route/activity import loop is stable.
+- Defer heart-rate and other sampling extraction until the first route/activity import loop is stable.
 
 ### GPX
 
@@ -59,7 +59,9 @@ Strava is a legacy import adapter only. Strava IDs may be stored as external ref
 
 ### Telegram Document
 
-Telegram is an optional inbox. The bot forwards files to iroha-server and does not parse them.
+Telegram is an optional inbox. The personal bot is an external upload client only: it forwards files to iroha-server and does not parse them.
+
+The bot uploads with `uploaded_via=telegram`, sending a bearer token when auth is enabled, then creates an import job and polls its status. All parsing and dedupe stay inside iroha-server. See the External Upload Client Contract in `iroha-server.md` for the exact request and response shapes.
 
 ## Pipeline Stages
 
@@ -89,7 +91,7 @@ ParsedActivity
   timezone
   summary metrics
   route_points[]
-  samples[]
+  samplings[]
   laps[]
   metadata
 ```
@@ -114,7 +116,7 @@ Reprocessing must be idempotent:
 
 - same source identity updates the same activity
 - route points for an activity can be replaced transactionally
-- samples can be replaced by activity and sample type
+- samplings can be replaced by activity and sampling type
 - old import jobs remain as audit history
 
 ## Error Handling
