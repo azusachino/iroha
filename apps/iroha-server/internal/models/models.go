@@ -120,3 +120,32 @@ type ActivityLap struct {
 func (ActivityLap) TableName() string {
 	return "tb_activity_laps"
 }
+
+type ImportSnapshot struct {
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ImportJobID   uuid.UUID `gorm:"type:uuid"`
+	RawFileID     uuid.UUID `gorm:"type:uuid"`
+	SHA256        string    `gorm:"column:sha256"`
+	ParserVersion string
+	TakenAt       *time.Time
+	CreatedAt     time.Time
+}
+
+func (ImportSnapshot) TableName() string {
+	return "tb_import_snapshots"
+}
+
+type AppleSourceItem struct {
+	ID                 uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceKey          string
+	ItemType           string
+	ContentHash        string
+	ActivityID         *uuid.UUID `gorm:"type:uuid"`
+	LastSeenSnapshotID *uuid.UUID `gorm:"type:uuid"`
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+func (AppleSourceItem) TableName() string {
+	return "tb_apple_source_items"
+}
