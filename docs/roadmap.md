@@ -165,6 +165,48 @@ Exit criteria:
 
 - A public activity can be generated without exposing exact private route data.
 
+## Future Module: Reading and Watching Stats
+
+Goal: track personal media consumption without turning iroha into a social media clone.
+
+This module should reuse the same three-layer pattern as running:
+
+```text
+raw imports
+  -> canonical normalized records
+  -> private dashboards and optional public summaries
+```
+
+In scope for a first reading/watching module:
+
+- Manual entry for books, manga, articles, films, shows, and videos.
+- CSV/JSON import from existing trackers where available.
+- Canonical `media_items` records for title, type, creators, release year, and external refs.
+- `media_events` records for started, progressed, completed, abandoned, reread, and rewatched events.
+- Progress units that fit the media type: pages, chapters, episodes, minutes, percent.
+- Ratings, notes, tags, and favorite quotes/snippets.
+- Year/month summaries: count, time spent, pages read, episodes watched, favorite creators, top tags.
+
+Out of scope initially:
+
+- Social follow/follower graphs.
+- Recommendation engine.
+- Full metadata scraping pipeline.
+- DRM or paid-content extraction.
+- Public publishing beyond sanitized yearly summaries.
+
+Candidate future tables:
+
+```text
+tb_media_items
+tb_media_external_refs
+tb_media_events
+tb_media_notes
+tb_media_collections
+```
+
+This should wait until running import, activity read API, and the first private UI prove the core product loop.
+
 ## Deferred
 
 - Native iOS HealthKit sync app.
@@ -179,4 +221,5 @@ Exit criteria:
 - Route clustering and similarity.
 - Heatmaps.
 - Annual yearbook.
+- Reading and watching stats.
 - Photos, location history, notes, and other personal data modules.
