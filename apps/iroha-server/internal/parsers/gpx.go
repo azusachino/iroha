@@ -3,6 +3,7 @@ package parsers
 import (
 	"encoding/xml"
 	"fmt"
+	"io"
 	"os"
 	"time"
 )
@@ -39,8 +40,8 @@ func ParseGPXFile(path string, options GPXOptions) ([]ParsedActivity, error) {
 	}
 	defer file.Close()
 
-	var doc gpxDocument
-	if err := xml.NewDecoder(file).Decode(&doc); err != nil {
+	doc, err := decodeGPXDocument(file)
+	if err != nil {
 		return nil, err
 	}
 
@@ -84,6 +85,32 @@ func ParseGPXFile(path string, options GPXOptions) ([]ParsedActivity, error) {
 	}
 
 	return activities, nil
+}
+
+// decodeGPXDocument decodes a GPX document from an arbitrary reader.
+func decodeGPXDocument(r io.Reader) (gpxDocument, error) {
+	var doc gpxDocument
+	if err := xml.NewDecoder(r).Decode(&doc); err != nil {
+		return gpxDocument{}, err
+	}
+	return doc, nil
+}
+
+// parseGPXPoints decodes a GPX document from r and flattens all points across
+// every track and segment, in document order. Used to attach route points
+// directly from a zip entry (e.g. an Apple Health workout route) without the
+// temp-file/track-splitting concerns of ParseGPXFile.
+func parseGPXPoints(r io.Reader) ([]RoutePoint, error) {
+	doc, err := decodeGPXDocument(r)
+	if err != nil {
+		return nil, err
+	}
+
+	var points []RoutePoint
+	for _, track := range doc.Tracks {
+		points = append(points, flattenGPXPoints(track)...)
+	}
+	return points, nil
 }
 
 func flattenGPXPoints(track gpxTrack) []RoutePoint {

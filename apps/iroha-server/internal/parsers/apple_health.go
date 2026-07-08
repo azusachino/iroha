@@ -7,8 +7,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -35,7 +33,24 @@ type appleWorkout struct {
 }
 
 type appleWorkoutRoute struct {
-	FileReference *appleFileReference `xml:"FileReference"`
+	FileReference   *appleFileReference  `xml:"FileReference"`
+	MetadataEntries []appleMetadataEntry `xml:"MetadataEntry"`
+}
+
+// syncIdentifier returns the WorkoutRoute's HKMetadataKeySyncIdentifier
+// metadata value, if present. This is a stable identity for the route
+// distinct from the workout's own identity, used to detect route
+// additions/changes/removals via the workout content hash.
+func (route *appleWorkoutRoute) syncIdentifier() string {
+	if route == nil {
+		return ""
+	}
+	for _, entry := range route.MetadataEntries {
+		if entry.Key == "HKMetadataKeySyncIdentifier" {
+			return entry.Value
+		}
+	}
+	return ""
 }
 
 type appleFileReference struct {
@@ -74,32 +89,84 @@ func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, erro
 
 	var activities []ParsedActivity
 	for _, file := range reader.File {
-		if strings.HasSuffix(file.Name, "export.xml") {
-			parsed, err := parseAppleWorkouts(file)
-			if err != nil {
-				return nil, err
-			}
-			activities = append(activities, parsed...)
+		if !strings.HasSuffix(file.Name, "export.xml") {
+			continue
 		}
-		if strings.Contains(file.Name, "workout-routes/") && strings.HasSuffix(strings.ToLower(file.Name), ".gpx") {
-			parsed, err := parseZippedGPX(file, rawHash)
-			if err != nil {
-				return nil, err
+
+		workouts, err := parseAppleWorkoutsRaw(file)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, workout := range workouts {
+			activity, ok := workoutToActivity(workout)
+			if !ok {
+				continue
 			}
-			activities = append(activities, parsed...)
+			attachWorkoutRoute(&activity, workout, reader)
+			activities = append(activities, activity)
 		}
 	}
 	return activities, nil
 }
 
-func parseAppleWorkouts(file *zip.File) ([]ParsedActivity, error) {
+func parseAppleWorkoutsRaw(file *zip.File) ([]appleWorkout, error) {
 	opened, err := file.Open()
 	if err != nil {
 		return nil, err
 	}
 	defer opened.Close()
 
-	return decodeAppleWorkouts(opened)
+	return decodeAppleWorkoutsRaw(opened)
+}
+
+// attachWorkoutRoute locates the zip entry referenced by the workout's
+// WorkoutRoute/FileReference (if any), parses its track points, and attaches
+// them to activity.RoutePoints. Workouts without a route, or whose
+// referenced gpx entry is missing from the zip, are left with empty
+// RoutePoints - this must never fail the overall import.
+func attachWorkoutRoute(activity *ParsedActivity, workout appleWorkout, reader *zip.ReadCloser) {
+	if workout.WorkoutRoute == nil || workout.WorkoutRoute.FileReference == nil {
+		return
+	}
+	refPath := workout.WorkoutRoute.FileReference.Path
+	if refPath == "" {
+		return
+	}
+
+	routeFile := findRouteZipFile(reader.File, refPath)
+	if routeFile == nil {
+		return
+	}
+
+	opened, err := routeFile.Open()
+	if err != nil {
+		return
+	}
+	defer opened.Close()
+
+	points, err := parseGPXPoints(opened)
+	if err != nil {
+		return
+	}
+	activity.RoutePoints = points
+}
+
+// findRouteZipFile matches a WorkoutRoute FileReference path (which carries
+// a leading slash, e.g. "/workout-routes/route_x.gpx") against the zip's
+// entries by suffix, so it works regardless of the export directory prefix
+// (e.g. "apple_health_export/workout-routes/route_x.gpx").
+func findRouteZipFile(files []*zip.File, refPath string) *zip.File {
+	trimmed := strings.TrimPrefix(refPath, "/")
+	if trimmed == "" {
+		return nil
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file.Name, trimmed) {
+			return file
+		}
+	}
+	return nil
 }
 
 // decodeAppleWorkouts streams through an export.xml document, decoding each
@@ -151,34 +218,6 @@ func decodeAppleWorkoutsRaw(r io.Reader) ([]appleWorkout, error) {
 		workouts = append(workouts, workout)
 	}
 	return workouts, nil
-}
-
-func parseZippedGPX(file *zip.File, rawHash string) ([]ParsedActivity, error) {
-	opened, err := file.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer opened.Close()
-
-	temp, err := os.CreateTemp("", "iroha-route-*.gpx")
-	if err != nil {
-		return nil, err
-	}
-	tempPath := temp.Name()
-	defer os.Remove(tempPath)
-
-	if _, err := io.Copy(temp, opened); err != nil {
-		temp.Close()
-		return nil, err
-	}
-	if err := temp.Close(); err != nil {
-		return nil, err
-	}
-
-	return ParseGPXFile(tempPath, GPXOptions{
-		Title:      titleFromFilename(filepath.Base(file.Name)),
-		ExternalID: rawHash + ":" + file.Name,
-	})
 }
 
 func workoutToActivity(workout appleWorkout) (ParsedActivity, bool) {
@@ -281,6 +320,11 @@ func workoutContentHash(workout appleWorkout) string {
 	fmt.Fprintf(&b, "sourceName=%s\n", workout.SourceName)
 	fmt.Fprintf(&b, "sourceVersion=%s\n", workout.SourceVersion)
 	fmt.Fprintf(&b, "device=%s\n", stableDeviceKey(workout.Device))
+
+	if workout.WorkoutRoute != nil && workout.WorkoutRoute.FileReference != nil {
+		fmt.Fprintf(&b, "routePath=%s\n", workout.WorkoutRoute.FileReference.Path)
+	}
+	fmt.Fprintf(&b, "routeSyncId=%s\n", workout.WorkoutRoute.syncIdentifier())
 
 	for _, stat := range workout.Statistics {
 		fmt.Fprintf(&b, "stat:type=%s|sum=%s|avg=%s|max=%s|min=%s|unit=%s|start=%s|end=%s\n",

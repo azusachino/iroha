@@ -1,6 +1,8 @@
 package parsers
 
 import (
+	"archive/zip"
+	"os"
 	"strings"
 	"testing"
 )
@@ -207,6 +209,203 @@ func TestWorkoutStableKeyAndContentHashAcrossReexports(t *testing.T) {
 	}
 	if changedHash == hash1 {
 		t.Errorf("workoutContentHash should change when workout statistics change")
+	}
+}
+
+const sampleRouteGPX = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1"><trk><trkseg>
+<trkpt lat="37.1" lon="-122.1"><ele>10.0</ele><time>2024-01-01T15:00:00Z</time></trkpt>
+<trkpt lat="37.2" lon="-122.2"><ele>12.0</ele><time>2024-01-01T15:01:00Z</time></trkpt>
+</trkseg></trk></gpx>
+`
+
+// buildAppleHealthZip writes an in-memory zip with the given export.xml body
+// and optional extra file (name -> contents) to a temp file, returning its
+// path.
+func buildAppleHealthZip(t *testing.T, exportXML string, extraFiles map[string]string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	zipPath := dir + "/export.zip"
+	f, err := os.Create(zipPath)
+	if err != nil {
+		t.Fatalf("failed to create temp zip: %v", err)
+	}
+	defer f.Close()
+
+	w := zip.NewWriter(f)
+	writeEntry := func(name, contents string) {
+		entry, err := w.Create(name)
+		if err != nil {
+			t.Fatalf("failed to create zip entry %q: %v", name, err)
+		}
+		if _, err := entry.Write([]byte(contents)); err != nil {
+			t.Fatalf("failed to write zip entry %q: %v", name, err)
+		}
+	}
+
+	writeEntry("apple_health_export/export.xml", exportXML)
+	for name, contents := range extraFiles {
+		writeEntry(name, contents)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close zip writer: %v", err)
+	}
+	return zipPath
+}
+
+func TestParseAppleHealthExportAttachesRouteToWorkout(t *testing.T) {
+	exportXML := `<?xml version="1.0" encoding="UTF-8"?>
+<HealthData locale="en_US">
+  <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30" durationUnit="min" totalDistance="5" totalDistanceUnit="km" sourceName="Watch" sourceVersion="10.0" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 08:30:00 -0700">
+    <WorkoutRoute>
+      <FileReference path="/workout-routes/route_x.gpx"/>
+      <MetadataEntry key="HKMetadataKeySyncIdentifier" value="ABC"/>
+    </WorkoutRoute>
+  </Workout>
+</HealthData>
+`
+	zipPath := buildAppleHealthZip(t, exportXML, map[string]string{
+		"apple_health_export/workout-routes/route_x.gpx": sampleRouteGPX,
+	})
+
+	activities, err := ParseAppleHealthExport(zipPath, "rawhash123")
+	if err != nil {
+		t.Fatalf("ParseAppleHealthExport returned error: %v", err)
+	}
+
+	if len(activities) != 1 {
+		t.Fatalf("expected exactly 1 activity (route must NOT become a standalone gpx activity), got %d: %+v", len(activities), activities)
+	}
+
+	activity := activities[0]
+	if activity.Provider != "apple_health" {
+		t.Errorf("Provider = %q, want apple_health", activity.Provider)
+	}
+	if len(activity.RoutePoints) != 2 {
+		t.Fatalf("expected 2 route points attached, got %d", len(activity.RoutePoints))
+	}
+	if activity.RoutePoints[0].Lat != 37.1 || activity.RoutePoints[0].Lon != -122.1 {
+		t.Errorf("unexpected first route point: %+v", activity.RoutePoints[0])
+	}
+	if activity.RoutePoints[1].Lat != 37.2 || activity.RoutePoints[1].Lon != -122.2 {
+		t.Errorf("unexpected second route point: %+v", activity.RoutePoints[1])
+	}
+}
+
+func TestParseAppleHealthExportWorkoutWithoutRoute(t *testing.T) {
+	exportXML := `<?xml version="1.0" encoding="UTF-8"?>
+<HealthData locale="en_US">
+  <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30" durationUnit="min" totalDistance="5" totalDistanceUnit="km" sourceName="Watch" sourceVersion="10.0" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 08:30:00 -0700">
+  </Workout>
+</HealthData>
+`
+	zipPath := buildAppleHealthZip(t, exportXML, nil)
+
+	activities, err := ParseAppleHealthExport(zipPath, "rawhash123")
+	if err != nil {
+		t.Fatalf("ParseAppleHealthExport returned error: %v", err)
+	}
+	if len(activities) != 1 {
+		t.Fatalf("expected 1 activity, got %d", len(activities))
+	}
+	if len(activities[0].RoutePoints) != 0 {
+		t.Errorf("expected empty RoutePoints for workout without a route, got %d", len(activities[0].RoutePoints))
+	}
+}
+
+func TestParseAppleHealthExportMissingRouteFileIsSkippedGracefully(t *testing.T) {
+	exportXML := `<?xml version="1.0" encoding="UTF-8"?>
+<HealthData locale="en_US">
+  <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30" durationUnit="min" totalDistance="5" totalDistanceUnit="km" sourceName="Watch" sourceVersion="10.0" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 08:30:00 -0700">
+    <WorkoutRoute>
+      <FileReference path="/workout-routes/route_missing.gpx"/>
+    </WorkoutRoute>
+  </Workout>
+</HealthData>
+`
+	zipPath := buildAppleHealthZip(t, exportXML, nil)
+
+	activities, err := ParseAppleHealthExport(zipPath, "rawhash123")
+	if err != nil {
+		t.Fatalf("ParseAppleHealthExport returned error: %v", err)
+	}
+	if len(activities) != 1 {
+		t.Fatalf("expected import to proceed despite missing route file, got %d activities", len(activities))
+	}
+	if len(activities[0].RoutePoints) != 0 {
+		t.Errorf("expected empty RoutePoints when referenced route file is missing, got %d", len(activities[0].RoutePoints))
+	}
+}
+
+func TestParseGPXPoints(t *testing.T) {
+	points, err := parseGPXPoints(strings.NewReader(sampleRouteGPX))
+	if err != nil {
+		t.Fatalf("parseGPXPoints returned error: %v", err)
+	}
+	if len(points) != 2 {
+		t.Fatalf("expected 2 points, got %d", len(points))
+	}
+	if points[0].Lat != 37.1 || points[0].Lon != -122.1 {
+		t.Errorf("unexpected first point: %+v", points[0])
+	}
+	if points[0].ElevationM == nil || *points[0].ElevationM != 10.0 {
+		t.Errorf("unexpected elevation on first point: %+v", points[0].ElevationM)
+	}
+	if points[0].Ts == nil {
+		t.Errorf("expected first point to have a parsed timestamp")
+	}
+}
+
+func TestWorkoutContentHashChangesWithRouteIdentity(t *testing.T) {
+	base := appleWorkout{
+		WorkoutActivityType: "HKWorkoutActivityTypeRunning",
+		StartDate:           "2024-01-01 08:00:00 -0700",
+		EndDate:             "2024-01-01 08:30:00 -0700",
+		Duration:            "30",
+		DurationUnit:        "min",
+		SourceName:          "Watch",
+	}
+
+	noRoute := base
+	hashNoRoute := workoutContentHash(noRoute)
+
+	withRoute := base
+	withRoute.WorkoutRoute = &appleWorkoutRoute{
+		FileReference: &appleFileReference{Path: "/workout-routes/route_x.gpx"},
+		MetadataEntries: []appleMetadataEntry{
+			{Key: "HKMetadataKeySyncIdentifier", Value: "ABC"},
+		},
+	}
+	hashWithRoute := workoutContentHash(withRoute)
+
+	if hashWithRoute == hashNoRoute {
+		t.Errorf("workoutContentHash should change when a route is added")
+	}
+
+	changedPath := base
+	changedPath.WorkoutRoute = &appleWorkoutRoute{
+		FileReference: &appleFileReference{Path: "/workout-routes/route_y.gpx"},
+		MetadataEntries: []appleMetadataEntry{
+			{Key: "HKMetadataKeySyncIdentifier", Value: "ABC"},
+		},
+	}
+	hashChangedPath := workoutContentHash(changedPath)
+	if hashChangedPath == hashWithRoute {
+		t.Errorf("workoutContentHash should change when route path changes")
+	}
+
+	changedSyncID := base
+	changedSyncID.WorkoutRoute = &appleWorkoutRoute{
+		FileReference: &appleFileReference{Path: "/workout-routes/route_x.gpx"},
+		MetadataEntries: []appleMetadataEntry{
+			{Key: "HKMetadataKeySyncIdentifier", Value: "XYZ"},
+		},
+	}
+	hashChangedSyncID := workoutContentHash(changedSyncID)
+	if hashChangedSyncID == hashWithRoute {
+		t.Errorf("workoutContentHash should change when route sync identifier changes")
 	}
 }
 
