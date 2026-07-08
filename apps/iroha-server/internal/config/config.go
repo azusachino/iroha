@@ -7,11 +7,16 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// defaultCacheURL points at the valkey instance from ops/local-dev/compose.yaml.
+// Valkey speaks the Redis protocol, so a redis:// URL works unmodified.
+const defaultCacheURL = "redis://localhost:6379/0"
+
 type Config struct {
 	Server   ServerConfig   `toml:"server"`
 	Database DatabaseConfig `toml:"database"`
 	Storage  StorageConfig  `toml:"storage"`
 	Auth     AuthConfig     `toml:"auth"`
+	Cache    CacheConfig    `toml:"cache"`
 }
 
 type ServerConfig struct {
@@ -29,6 +34,10 @@ type StorageConfig struct {
 type AuthConfig struct {
 	LocalNoAuth bool   `toml:"local_no_auth"`
 	ImportToken string `toml:"import_token"`
+}
+
+type CacheConfig struct {
+	URL string `toml:"url"`
 }
 
 func Load(path string) (Config, error) {
@@ -59,6 +68,9 @@ func Default() Config {
 		Auth: AuthConfig{
 			LocalNoAuth: true,
 		},
+		Cache: CacheConfig{
+			URL: defaultCacheURL,
+		},
 	}
 }
 
@@ -79,5 +91,8 @@ func applyEnv(cfg *Config) {
 	}
 	if value := os.Getenv("IROHA_IMPORT_TOKEN"); value != "" {
 		cfg.Auth.ImportToken = value
+	}
+	if value := os.Getenv("IROHA_VALKEY_URL"); value != "" {
+		cfg.Cache.URL = value
 	}
 }

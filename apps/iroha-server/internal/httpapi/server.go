@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/azusachino/iroha/apps/iroha-server/internal/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/internal/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/config"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/rawfiles"
@@ -18,6 +19,7 @@ type Dependencies struct {
 	ActivityService *activities.Service
 	ImportService   *imports.Service
 	RawFileService  *rawfiles.Service
+	Cache           *cache.Client
 	MaxUploadBytes  int64
 	AllowedOrigins  []string
 }

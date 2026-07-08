@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/azusachino/iroha/apps/iroha-server/internal/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/internal/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/config"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/imports"
@@ -44,6 +45,12 @@ func main() {
 	}
 	importService := imports.NewService(db, logger, parserVersion)
 	activityService := activities.NewService(db)
+	cacheClient := cache.New(cfg.Cache.URL)
+	defer func() {
+		if err := cacheClient.Close(); err != nil {
+			logger.Warn("close cache client", "error", err)
+		}
+	}()
 
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:          cfg,
@@ -51,6 +58,7 @@ func main() {
 		ActivityService: activityService,
 		ImportService:   importService,
 		RawFileService:  rawFileService,
+		Cache:           cacheClient,
 		MaxUploadBytes:  2 << 30,
 		AllowedOrigins:  nil,
 	})
