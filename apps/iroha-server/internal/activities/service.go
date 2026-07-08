@@ -29,6 +29,15 @@ const (
 	routeMaxPoints = 150
 	// earthRadiusMeters is the mean Earth radius used for haversine distance.
 	earthRadiusMeters = 6371000
+	// privateZoneRadiusMeters is the radius of an auto-detected private zone:
+	// every route point within this distance of a frequent start/end hub
+	// (home, work, gym) is dropped, and routes are split (not bridged) across
+	// the gap, so the location is masked even where routes pass it mid-track.
+	privateZoneRadiusMeters = 300
+	// privateZoneMinCluster is how many start/end anchors must fall within a
+	// radius of each other before that location is treated as a sensitive hub
+	// worth masking (below this, the location is not frequent enough to matter).
+	privateZoneMinCluster = 3
 )
 
 type Service struct {
@@ -229,11 +238,13 @@ type routePointRow struct {
 	Lon        *float64
 }
 
-// RouteLines returns all activities' route points, privacy-trimmed (the
-// first/last routeTrimMeters of each track are dropped so a viewer can't
-// infer exact start/end addresses) and decimated to at most routeMaxPoints
-// per activity. Activities left with fewer than routeMinPoints after
-// trimming are omitted entirely.
+// RouteLines returns all activities' routes as privacy-masked polylines for
+// the public map. Two layers of protection apply: each track's first/last
+// routeTrimMeters are trimmed, and every point within an auto-detected private
+// zone (a frequent start/end hub — home, work, gym) is dropped, splitting the
+// line rather than bridging across it. A single activity may yield several
+// polylines; segments below routeMinPoints are omitted, each decimated to
+// routeMaxPoints.
 func (s *Service) RouteLines() ([]RouteLine, error) {
 	var rows []routePointRow
 	err := s.db.Table("tb_activity_route_points AS p").
@@ -245,52 +256,108 @@ func (s *Service) RouteLines() ([]RouteLine, error) {
 		return nil, fmt.Errorf("route lines: %w", err)
 	}
 
-	lines := make([]RouteLine, 0)
-	var current []routePointRow
-	var currentSport string
+	// Group ordered points into one coordinate track per activity.
+	type track struct {
+		sport  string
+		coords [][2]float64
+	}
+	var tracks []track
 	var currentID uuid.UUID
+	var current track
 	flush := func() {
-		if len(current) == 0 {
-			return
-		}
-		if points := trimAndDecimateRoute(current); len(points) >= routeMinPoints {
-			lines = append(lines, RouteLine{SportType: currentSport, Points: points})
+		if len(current.coords) > 0 {
+			tracks = append(tracks, current)
 		}
 	}
-	for _, row := range rows {
-		if row.ActivityID != currentID {
-			flush()
-			current = current[:0]
-			currentID = row.ActivityID
-			currentSport = row.SportType
-		}
-		current = append(current, row)
-	}
-	flush()
-
-	return lines, nil
-}
-
-// trimAndDecimateRoute drops the first/last routeTrimMeters of a single
-// activity's track (measured along its coordinates) then decimates the
-// remainder to at most routeMaxPoints, always keeping the last kept point.
-func trimAndDecimateRoute(rows []routePointRow) [][2]float64 {
-	coords := make([][2]float64, 0, len(rows))
 	for _, row := range rows {
 		if row.Lat == nil || row.Lon == nil {
 			continue
 		}
-		coords = append(coords, [2]float64{*row.Lon, *row.Lat})
+		if row.ActivityID != currentID {
+			flush()
+			current = track{sport: row.SportType}
+			currentID = row.ActivityID
+		}
+		current.coords = append(current.coords, [2]float64{*row.Lon, *row.Lat})
 	}
-	if len(coords) < routeMinPoints {
-		return nil
+	flush()
+
+	// Auto-detect private zones from where activities frequently start/end,
+	// then mask them across every route — endpoint trimming alone leaves these
+	// hubs exposed where other routes pass near them mid-track.
+	anchors := make([][2]float64, 0, len(tracks)*2)
+	for _, t := range tracks {
+		anchors = append(anchors, t.coords[0], t.coords[len(t.coords)-1])
+	}
+	zones := detectPrivateZones(anchors)
+
+	lines := make([]RouteLine, 0, len(tracks))
+	for _, t := range tracks {
+		trimmed := trimRouteEnds(t.coords)
+		if len(trimmed) < routeMinPoints {
+			continue
+		}
+		// Decimate first, then mask, so masking runs over few points per route.
+		for _, segment := range maskPrivateZones(decimatePoints(trimmed), zones) {
+			if len(segment) < routeMinPoints {
+				continue
+			}
+			lines = append(lines, RouteLine{SportType: t.sport, Points: segment})
+		}
+	}
+	return lines, nil
+}
+
+// detectPrivateZones returns every start/end anchor that sits in a dense
+// cluster (>= privateZoneMinCluster anchors within privateZoneRadiusMeters),
+// i.e. a frequent hub — home, work, gym. All such anchors are kept (not
+// collapsed to a centroid) so masking covers the whole footprint of each hub,
+// including its edges, rather than a single point.
+func detectPrivateZones(anchors [][2]float64) [][2]float64 {
+	zones := make([][2]float64, 0)
+	for i := range anchors {
+		count := 0
+		for j := range anchors {
+			if haversineMeters(anchors[i], anchors[j]) <= privateZoneRadiusMeters {
+				count++
+			}
+		}
+		if count >= privateZoneMinCluster {
+			zones = append(zones, anchors[i])
+		}
+	}
+	return zones
+}
+
+// maskPrivateZones splits a track into the contiguous segments lying OUTSIDE
+// all private zones. Points within privateZoneRadiusMeters of any zone are
+// dropped and break the line, so no segment bridges straight across a hub.
+func maskPrivateZones(coords, zones [][2]float64) [][][2]float64 {
+	inZone := func(p [2]float64) bool {
+		for _, z := range zones {
+			if haversineMeters(p, z) <= privateZoneRadiusMeters {
+				return true
+			}
+		}
+		return false
 	}
 
-	trimmed := trimRouteEnds(coords)
-	if len(trimmed) < routeMinPoints {
-		return nil
+	var segments [][][2]float64
+	var current [][2]float64
+	for _, coord := range coords {
+		if inZone(coord) {
+			if len(current) > 0 {
+				segments = append(segments, current)
+				current = nil
+			}
+			continue
+		}
+		current = append(current, coord)
 	}
-	return decimatePoints(trimmed)
+	if len(current) > 0 {
+		segments = append(segments, current)
+	}
+	return segments
 }
 
 // trimRouteEnds drops points within routeTrimMeters of the start and end of
