@@ -5,11 +5,15 @@ import {
 	getActivityRoute,
 	getActivitySamplings,
 	getActivityLaps,
+	getPublicSummary,
+	listPublicActivities,
 	type Activity,
 	type Page,
 	type RoutePoint,
 	type SamplingPoint,
-	type Lap
+	type Lap,
+	type Summary,
+	type PublicActivity
 } from './api';
 
 const emptyPage: Page<Activity> = { items: [], next_cursor: null, has_more: false };
@@ -262,6 +266,98 @@ describe('getActivityLaps', () => {
 
 		const result = await getActivityLaps('test-id', fakeFetch);
 		expect(result).toEqual(mockLaps);
+	});
+});
+
+describe('getPublicSummary', () => {
+	it('builds correct path', async () => {
+		const mockSummary: Summary = {
+			totals: { activity_count: 0, distance_m: 0, duration_s: 0, moving_time_s: 0 },
+			by_year: [],
+			by_month: [],
+			by_sport: []
+		};
+		const { fakeFetch, getCapturedUrl } = createFakeFetch(mockSummary);
+		await getPublicSummary(fakeFetch);
+
+		const url = getCapturedUrl();
+		expect(url).toContain('/public/v1/summary');
+	});
+
+	it('returns the summary object', async () => {
+		const mockSummary: Summary = {
+			totals: { activity_count: 10, distance_m: 50000, duration_s: 18000, moving_time_s: 0 },
+			by_year: [{ key: '2026', activity_count: 10, distance_m: 50000, duration_s: 18000, moving_time_s: 0 }],
+			by_month: [
+				{ key: '2026-07', activity_count: 5, distance_m: 25000, duration_s: 9000, moving_time_s: 0 }
+			],
+			by_sport: [
+				{ key: 'run', activity_count: 8, distance_m: 40000, duration_s: 14000, moving_time_s: 0 }
+			]
+		};
+		const { fakeFetch } = createFakeFetch(mockSummary);
+
+		const result = await getPublicSummary(fakeFetch);
+		expect(result).toEqual(mockSummary);
+	});
+});
+
+describe('listPublicActivities', () => {
+	it('builds URL without params', async () => {
+		const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyPage);
+		await listPublicActivities({}, fakeFetch);
+
+		const url = getCapturedUrl();
+		expect(url).toContain('/public/v1/activities');
+		expect(url).not.toContain('?');
+	});
+
+	it('adds sport_type param when provided', async () => {
+		const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyPage);
+		await listPublicActivities({ sport_type: 'ride' }, fakeFetch);
+
+		const url = getCapturedUrl();
+		expect(url).toContain('sport_type=ride');
+	});
+
+	it('adds limit and cursor params when provided', async () => {
+		const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyPage);
+		await listPublicActivities({ limit: 20, cursor: 'abc123' }, fakeFetch);
+
+		const url = getCapturedUrl();
+		expect(url).toContain('limit=20');
+		expect(url).toContain('cursor=abc123');
+	});
+
+	it('adds distance bound params when provided', async () => {
+		const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyPage);
+		await listPublicActivities({ min_distance_m: 1000, max_distance_m: 5000 }, fakeFetch);
+
+		const url = getCapturedUrl();
+		expect(url).toContain('min_distance_m=1000');
+		expect(url).toContain('max_distance_m=5000');
+	});
+
+	it('returns the public activities page envelope', async () => {
+		const mockPage: Page<PublicActivity> = {
+			items: [
+				{
+					id: 'act1',
+					sport_type: 'run',
+					title: 'Morning Run',
+					started_at: '2026-01-01T08:00:00Z',
+					timezone: 'UTC',
+					distance_m: 5000,
+					duration_s: 1500
+				}
+			],
+			next_cursor: null,
+			has_more: false
+		};
+		const { fakeFetch } = createFakeFetch(mockPage);
+
+		const result = await listPublicActivities({}, fakeFetch);
+		expect(result).toEqual(mockPage);
 	});
 });
 
