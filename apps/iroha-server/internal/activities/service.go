@@ -90,9 +90,12 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 }
 
 // SummaryTotals holds aggregate metrics across a set of activities.
+// DurationS is elapsed time; MovingTimeS is often unset (e.g. Apple imports),
+// so DurationS is the reliable "total time" for a rollup.
 type SummaryTotals struct {
 	ActivityCount int     `json:"activity_count"`
 	DistanceM     float64 `json:"distance_m"`
+	DurationS     int     `json:"duration_s"`
 	MovingTimeS   int     `json:"moving_time_s"`
 }
 
@@ -103,19 +106,23 @@ type SummaryBucket struct {
 }
 
 // Summary is a derived, aggregate-only view suitable for the public page.
+// The time-bucketed rollups (ByYear / ByMonth) are the generally useful shape
+// across data types; BySport is the activity-specific facet.
 type Summary struct {
 	Totals  SummaryTotals   `json:"totals"`
 	ByYear  []SummaryBucket `json:"by_year"`
+	ByMonth []SummaryBucket `json:"by_month"`
 	BySport []SummaryBucket `json:"by_sport"`
 }
 
 const summaryMetrics = "count(*) as activity_count, " +
 	"coalesce(sum(distance_m), 0) as distance_m, " +
+	"coalesce(sum(duration_s), 0) as duration_s, " +
 	"coalesce(sum(moving_time_s), 0) as moving_time_s"
 
-// Summary computes aggregate totals overall and grouped by year and sport.
-// Year is extracted in the database session timezone (approximate for the
-// public rollup; not tied to each activity's own timezone).
+// Summary computes aggregate totals overall and grouped by year, month, and
+// sport. Year/month are derived in the database session timezone (approximate
+// for the public rollup; not tied to each activity's own timezone).
 func (s *Service) Summary() (Summary, error) {
 	base := func() *gorm.DB { return s.db.Model(&models.Activity{}) }
 
@@ -131,6 +138,13 @@ func (s *Service) Summary() (Summary, error) {
 		return Summary{}, fmt.Errorf("summary by year: %w", err)
 	}
 
+	var byMonth []SummaryBucket
+	if err := base().
+		Select("to_char(started_at, 'YYYY-MM') as key, " + summaryMetrics).
+		Group("key").Order("key desc").Scan(&byMonth).Error; err != nil {
+		return Summary{}, fmt.Errorf("summary by month: %w", err)
+	}
+
 	var bySport []SummaryBucket
 	if err := base().
 		Select("sport_type as key, " + summaryMetrics).
@@ -138,7 +152,7 @@ func (s *Service) Summary() (Summary, error) {
 		return Summary{}, fmt.Errorf("summary by sport: %w", err)
 	}
 
-	return Summary{Totals: totals, ByYear: byYear, BySport: bySport}, nil
+	return Summary{Totals: totals, ByYear: byYear, ByMonth: byMonth, BySport: bySport}, nil
 }
 
 func (s *Service) Get(id string) (models.Activity, bool, error) {
