@@ -122,6 +122,14 @@ func (s *Service) process(jobID uuid.UUID) error {
 		return s.fail(jobID, "raw_file not found")
 	}
 
+	reused, err := s.reuseCompletedImport(jobID, job.ParserVersion, rawFile.SHA256)
+	if err != nil {
+		return err
+	}
+	if reused {
+		return nil
+	}
+
 	parsed, err := parsers.Parse(parsers.Input{
 		ParserKind:       job.ParserKind,
 		StoragePath:      rawFile.StoragePath,
@@ -132,7 +140,20 @@ func (s *Service) process(jobID uuid.UUID) error {
 		return s.fail(jobID, err.Error())
 	}
 
-	if err := s.persistActivities(rawFile, parsed); err != nil {
+	snapshotID, err := ids.New()
+	if err != nil {
+		return s.fail(jobID, err.Error())
+	}
+	snapshot := models.ImportSnapshot{
+		ID:            snapshotID,
+		ImportJobID:   jobID,
+		RawFileID:     rawFile.ID,
+		SHA256:        rawFile.SHA256,
+		ParserVersion: job.ParserVersion,
+		CreatedAt:     time.Now().UTC(),
+	}
+
+	if err := s.persistActivities(rawFile, parsed, snapshot); err != nil {
 		return s.fail(jobID, err.Error())
 	}
 
@@ -141,6 +162,45 @@ func (s *Service) process(jobID uuid.UUID) error {
 		"status":      StatusCompleted,
 		"finished_at": &finishedAt,
 	}).Error
+}
+
+// reuseCompletedImport checks whether a COMPLETED import job already exists
+// for a raw file with the same sha256 processed by the same parser
+// version. If so, the current job is a redundant re-run against
+// already-imported content (the raw file itself is deduped at upload by
+// sha256, so this guards re-running the same logical import rather than
+// re-uploads) - short-circuit it as completed without re-parsing or
+// re-persisting anything.
+func (s *Service) reuseCompletedImport(jobID uuid.UUID, parserVersion string, sha256 string) (bool, error) {
+	var existing models.ImportJob
+	err := s.db.
+		Joins("join tb_raw_files on tb_raw_files.id = tb_import_jobs.raw_file_id").
+		Where("tb_import_jobs.status = ? and tb_import_jobs.parser_version = ? and tb_raw_files.sha256 = ? and tb_import_jobs.id <> ?",
+			StatusCompleted, parserVersion, sha256, jobID).
+		Order("tb_import_jobs.created_at desc").
+		First(&existing).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	s.logger.Info("reusing prior completed import; skipping re-parse",
+		"job_id", jobID.String(),
+		"reused_job_id", existing.ID.String(),
+		"sha256", sha256,
+		"parser_version", parserVersion,
+	)
+
+	finishedAt := time.Now().UTC()
+	if err := s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
+		"status":      StatusCompleted,
+		"finished_at": &finishedAt,
+	}).Error; err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *Service) getByUUID(id uuid.UUID) (models.ImportJob, bool, error) {
@@ -187,22 +247,106 @@ func (s *Service) fail(jobID uuid.UUID, message string) error {
 	}).Error
 }
 
-func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ParsedActivity) error {
+func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ParsedActivity, snapshot models.ImportSnapshot) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&snapshot).Error; err != nil {
+			return err
+		}
+
 		for _, activity := range parsed {
 			if activity.ExternalID == "" {
 				return fmt.Errorf("parsed activity missing external id")
 			}
-			activityID, err := s.upsertActivity(tx, rawFile, activity)
-			if err != nil {
-				return err
+
+			// Activities without a content hash (currently: everything but
+			// Apple Health workouts) keep the original always-upsert
+			// behavior; they don't participate in apple_source_items
+			// change-detection.
+			if activity.ContentHash == "" {
+				activityID, err := s.upsertActivity(tx, rawFile, activity)
+				if err != nil {
+					return err
+				}
+				if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
+					return err
+				}
+				continue
 			}
-			if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
+
+			if err := s.persistAppleWorkout(tx, rawFile, activity, snapshot.ID); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+}
+
+// persistAppleWorkout applies per-workout change detection for a parsed
+// Apple Health workout activity (identified by having a non-empty
+// ContentHash): unchanged workouts skip both the activity upsert and the
+// route point rewrite entirely, only bumping the source item's
+// last_seen_snapshot_id so we know it was still present in this export.
+func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activity parsers.ParsedActivity, snapshotID uuid.UUID) error {
+	var existing models.AppleSourceItem
+	err := tx.First(&existing, "source_key = ?", activity.ExternalID).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	found := err == nil
+
+	var existingHash *string
+	if found {
+		existingHash = &existing.ContentHash
+	}
+
+	now := time.Now().UTC()
+
+	switch decideSourceItem(existingHash, activity.ContentHash) {
+	case sourceItemUnchanged:
+		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
+			"last_seen_snapshot_id": snapshotID,
+			"updated_at":            now,
+		}).Error
+
+	case sourceItemChanged:
+		activityID, err := s.upsertActivity(tx, rawFile, activity)
+		if err != nil {
+			return err
+		}
+		if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
+			return err
+		}
+		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
+			"content_hash":          activity.ContentHash,
+			"activity_id":           activityID,
+			"last_seen_snapshot_id": snapshotID,
+			"updated_at":            now,
+		}).Error
+
+	default: // sourceItemNew
+		activityID, err := s.upsertActivity(tx, rawFile, activity)
+		if err != nil {
+			return err
+		}
+		if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
+			return err
+		}
+		itemID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		item := models.AppleSourceItem{
+			ID:                 itemID,
+			SourceKey:          activity.ExternalID,
+			ItemType:           "workout",
+			ContentHash:        activity.ContentHash,
+			ActivityID:         &activityID,
+			LastSeenSnapshotID: &snapshotID,
+			CreatedAt:          now,
+			UpdatedAt:          now,
+		}
+		return tx.Create(&item).Error
+	}
 }
 
 func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed parsers.ParsedActivity) (uuid.UUID, error) {

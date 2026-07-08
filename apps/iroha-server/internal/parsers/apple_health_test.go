@@ -65,7 +65,7 @@ func TestDecodeAppleWorkoutsCapturesNestedSubtree(t *testing.T) {
 }
 
 func TestDecodeAppleWorkoutsProducesUnchangedActivity(t *testing.T) {
-	activities, err := decodeAppleWorkouts(strings.NewReader(sampleAppleExport), "rawhash123")
+	activities, err := decodeAppleWorkouts(strings.NewReader(sampleAppleExport))
 	if err != nil {
 		t.Fatalf("decodeAppleWorkouts returned error: %v", err)
 	}
@@ -77,12 +77,15 @@ func TestDecodeAppleWorkoutsProducesUnchangedActivity(t *testing.T) {
 	if activity.Provider != "apple_health" {
 		t.Errorf("Provider = %q, want apple_health", activity.Provider)
 	}
-	wantExternalID := "rawhash123:HKWorkoutActivityTypeRunning:2024-01-01 08:00:00 -0700"
+	wantExternalID := "Watch||HKWorkoutActivityTypeRunning|2024-01-01 08:00:00 -0700|2024-01-01 08:30:00 -0700|30"
 	if activity.ExternalID != wantExternalID {
 		t.Errorf("ExternalID = %q, want %q", activity.ExternalID, wantExternalID)
 	}
 	if activity.SourceActivityID != wantExternalID {
 		t.Errorf("SourceActivityID = %q, want %q", activity.SourceActivityID, wantExternalID)
+	}
+	if activity.ContentHash == "" {
+		t.Errorf("ContentHash should not be empty for an apple_health workout")
 	}
 	if activity.SportType != "run" {
 		t.Errorf("SportType = %q, want run", activity.SportType)
@@ -101,6 +104,109 @@ func TestDecodeAppleWorkoutsProducesUnchangedActivity(t *testing.T) {
 	}
 	if len(activity.RoutePoints) != 0 {
 		t.Errorf("RoutePoints should be empty in this task (route linking is task-4), got %d", len(activity.RoutePoints))
+	}
+}
+
+func TestStableDeviceKeyStripsVolatilePointerAndCreationDate(t *testing.T) {
+	// Two "exports" of the same physical Apple Watch: the runtime pointer
+	// after "HKDevice:" and the "creation date:" both differ, as they do
+	// between real re-exports, but name/hardware/manufacturer are the same.
+	export1 := "<<HKDevice: 0x8dcef18c0>, name:Apple Watch, manufacturer:Apple Inc., model:Watch, hardware:Watch7,1, software:10.2, creation date:2024-01-01 08:30:00 -0700>>"
+	export2 := "<<HKDevice: 0x7f2a1b400>, name:Apple Watch, manufacturer:Apple Inc., model:Watch, hardware:Watch7,1, software:10.2, creation date:2024-06-15 09:00:00 -0700>>"
+
+	key1 := stableDeviceKey(export1)
+	key2 := stableDeviceKey(export2)
+
+	if key1 == "" {
+		t.Fatalf("stableDeviceKey returned empty string for a populated device attr")
+	}
+	if key1 != key2 {
+		t.Errorf("stableDeviceKey differed across exports of the same device: %q != %q", key1, key2)
+	}
+	if strings.Contains(key1, "0x") {
+		t.Errorf("stableDeviceKey leaked the volatile pointer token: %q", key1)
+	}
+	if strings.Contains(key1, "creation date") {
+		t.Errorf("stableDeviceKey leaked the volatile creation date: %q", key1)
+	}
+
+	// A genuinely different device (different hardware) must produce a
+	// different key.
+	otherHardware := "<<HKDevice: 0x8dcef18c0>, name:Apple Watch, manufacturer:Apple Inc., model:Watch, hardware:Watch6,1, software:9.0, creation date:2024-01-01 08:30:00 -0700>>"
+	if stableDeviceKey(otherHardware) == key1 {
+		t.Errorf("stableDeviceKey should differ for a different hardware model")
+	}
+
+	if got := stableDeviceKey(""); got != "" {
+		t.Errorf("stableDeviceKey(\"\") = %q, want empty string", got)
+	}
+}
+
+func TestWorkoutStableKeyAndContentHashAcrossReexports(t *testing.T) {
+	// Same workout appearing in two different full exports: the device
+	// string's pointer/creation-date differ (as with a real re-export), but
+	// everything else about the workout is identical.
+	deviceA := "<<HKDevice: 0x8dcef18c0>, name:Apple Watch, manufacturer:Apple Inc., hardware:Watch7,1, software:10.2, creation date:2024-01-01 08:30:00 -0700>>"
+	deviceB := "<<HKDevice: 0x1122aabb0>, name:Apple Watch, manufacturer:Apple Inc., hardware:Watch7,1, software:10.2, creation date:2024-06-01 12:00:00 -0700>>"
+
+	base := appleWorkout{
+		WorkoutActivityType: "HKWorkoutActivityTypeRunning",
+		StartDate:           "2024-01-01 08:00:00 -0700",
+		EndDate:             "2024-01-01 08:30:00 -0700",
+		Duration:            "30",
+		DurationUnit:        "min",
+		TotalDistance:       "5",
+		TotalDistanceUnit:   "km",
+		SourceName:          "Watch",
+		SourceVersion:       "10.0",
+		Statistics: []appleWorkoutStatistic{
+			{Type: "HKQuantityTypeIdentifierDistanceWalkingRunning", Sum: "5", Unit: "km"},
+		},
+		MetadataEntries: []appleMetadataEntry{
+			{Key: "HKIndoorWorkout", Value: "0"},
+			// Real exports duplicate metadata keys under one Workout; the
+			// hash must dedupe by key rather than treating this as extra
+			// content.
+			{Key: "HKIndoorWorkout", Value: "0"},
+		},
+	}
+
+	export1 := base
+	export1.Device = deviceA
+	export2 := base
+	export2.Device = deviceB
+
+	key1 := stableWorkoutSourceKey(export1)
+	key2 := stableWorkoutSourceKey(export2)
+	if key1 != key2 {
+		t.Errorf("stableWorkoutSourceKey differed across re-exports of the same workout: %q != %q", key1, key2)
+	}
+
+	hash1 := workoutContentHash(export1)
+	hash2 := workoutContentHash(export2)
+	if hash1 != hash2 {
+		t.Errorf("workoutContentHash differed across re-exports of the same workout: %q != %q", hash1, hash2)
+	}
+	if hash1 == "" {
+		t.Errorf("workoutContentHash should not be empty")
+	}
+
+	// Now change something that actually affects the workout content (a
+	// statistic value) and confirm the hash changes but the identity key
+	// does not - a content update to an already-known workout, not a new
+	// workout.
+	changed := export2
+	changed.Statistics = []appleWorkoutStatistic{
+		{Type: "HKQuantityTypeIdentifierDistanceWalkingRunning", Sum: "6", Unit: "km"},
+	}
+	changedKey := stableWorkoutSourceKey(changed)
+	changedHash := workoutContentHash(changed)
+
+	if changedKey != key1 {
+		t.Errorf("stableWorkoutSourceKey should be unaffected by a statistics change, got %q want %q", changedKey, key1)
+	}
+	if changedHash == hash1 {
+		t.Errorf("workoutContentHash should change when workout statistics change")
 	}
 }
 

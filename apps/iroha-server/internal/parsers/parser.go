@@ -24,7 +24,13 @@ type ParsedActivity struct {
 	DurationS        *int
 	SourceKind       string
 	SourceActivityID string
-	RoutePoints      []RoutePoint
+	// ContentHash is a sha256 hex digest over the change-relevant fields of
+	// the source record, used to detect whether a re-export produced the
+	// same content for an already-known source item. Non-Apple parsers
+	// leave this empty, which opts the activity out of change-detection
+	// (it always follows the plain upsert path).
+	ContentHash string
+	RoutePoints []RoutePoint
 }
 
 type RoutePoint struct {

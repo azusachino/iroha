@@ -2,11 +2,15 @@ package parsers
 
 import (
 	"archive/zip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -71,7 +75,7 @@ func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, erro
 	var activities []ParsedActivity
 	for _, file := range reader.File {
 		if strings.HasSuffix(file.Name, "export.xml") {
-			parsed, err := parseAppleWorkouts(file, rawHash)
+			parsed, err := parseAppleWorkouts(file)
 			if err != nil {
 				return nil, err
 			}
@@ -88,21 +92,21 @@ func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, erro
 	return activities, nil
 }
 
-func parseAppleWorkouts(file *zip.File, rawHash string) ([]ParsedActivity, error) {
+func parseAppleWorkouts(file *zip.File) ([]ParsedActivity, error) {
 	opened, err := file.Open()
 	if err != nil {
 		return nil, err
 	}
 	defer opened.Close()
 
-	return decodeAppleWorkouts(opened, rawHash)
+	return decodeAppleWorkouts(opened)
 }
 
 // decodeAppleWorkouts streams through an export.xml document, decoding each
 // <Workout> element's full subtree while skipping everything else (notably
 // the potentially millions of sibling <Record> elements). It must remain
 // streaming rather than reading the whole document into memory.
-func decodeAppleWorkouts(r io.Reader, rawHash string) ([]ParsedActivity, error) {
+func decodeAppleWorkouts(r io.Reader) ([]ParsedActivity, error) {
 	workouts, err := decodeAppleWorkoutsRaw(r)
 	if err != nil {
 		return nil, err
@@ -110,7 +114,7 @@ func decodeAppleWorkouts(r io.Reader, rawHash string) ([]ParsedActivity, error) 
 
 	var activities []ParsedActivity
 	for _, workout := range workouts {
-		activity, ok := workoutToActivity(workout, rawHash)
+		activity, ok := workoutToActivity(workout)
 		if ok {
 			activities = append(activities, activity)
 		}
@@ -177,7 +181,7 @@ func parseZippedGPX(file *zip.File, rawHash string) ([]ParsedActivity, error) {
 	})
 }
 
-func workoutToActivity(workout appleWorkout, rawHash string) (ParsedActivity, bool) {
+func workoutToActivity(workout appleWorkout) (ParsedActivity, bool) {
 	startedAt, err := parseAppleTime(workout.StartDate)
 	if err != nil {
 		return ParsedActivity{}, false
@@ -189,7 +193,8 @@ func workoutToActivity(workout appleWorkout, rawHash string) (ParsedActivity, bo
 
 	durationS := parseDurationSeconds(workout.Duration, workout.DurationUnit)
 	distanceM := parseDistanceMeters(workout.TotalDistance, workout.TotalDistanceUnit)
-	externalID := fmt.Sprintf("%s:%s:%s", rawHash, workout.WorkoutActivityType, workout.StartDate)
+	externalID := stableWorkoutSourceKey(workout)
+	contentHash := workoutContentHash(workout)
 
 	return ParsedActivity{
 		Provider:         "apple_health",
@@ -202,7 +207,101 @@ func workoutToActivity(workout appleWorkout, rawHash string) (ParsedActivity, bo
 		DurationS:        durationS,
 		SourceKind:       "apple_health_export",
 		SourceActivityID: externalID,
+		ContentHash:      contentHash,
 	}, true
+}
+
+// stableWorkoutSourceKey builds an identity for an Apple Health workout that
+// is stable ACROSS full-export re-exports of the same underlying workout.
+// It deliberately does NOT include the export zip's sha256 (that changes on
+// every export even when the workout itself hasn't). It combines the
+// workout's source name, a normalized device fingerprint (see
+// stableDeviceKey), activity type, start/end timestamps and duration -
+// fields that together uniquely and durably identify a single workout
+// recorded by a single device.
+func stableWorkoutSourceKey(workout appleWorkout) string {
+	return strings.Join([]string{
+		workout.SourceName,
+		stableDeviceKey(workout.Device),
+		workout.WorkoutActivityType,
+		workout.StartDate,
+		workout.EndDate,
+		workout.Duration,
+	}, "|")
+}
+
+// deviceFieldRe extracts "name:" and "hardware:" values out of Apple's
+// HKDevice description string, e.g.:
+//
+//	<<HKDevice: 0x8dcef18c0>, name:Apple Watch, manufacturer:Apple Inc.,
+//	  model:Watch, hardware:Watch7,1, software:10.2, creation date:...>>
+//
+// The leading "0x..." token is a runtime pointer and "creation date:" is
+// wall-clock capture time - both are volatile and differ between exports of
+// the SAME physical device. Only "name" and "hardware" are stable, so those
+// are the only fields pulled out.
+var deviceFieldRe = regexp.MustCompile(`(?:^|,\s*)(name|hardware):([^,>]*)`)
+
+// stableDeviceKey normalizes a raw Apple HKDevice description string into a
+// fingerprint that is stable across exports of the same device, by
+// extracting only the "name" and "hardware" fields and dropping the
+// volatile pointer address and creation-date segment.
+func stableDeviceKey(device string) string {
+	if device == "" {
+		return ""
+	}
+	matches := deviceFieldRe.FindAllStringSubmatch(device, -1)
+	if len(matches) == 0 {
+		return ""
+	}
+	values := make(map[string]string, len(matches))
+	for _, m := range matches {
+		values[m[1]] = strings.TrimSpace(m[2])
+	}
+	return fmt.Sprintf("name=%s;hardware=%s", values["name"], values["hardware"])
+}
+
+// workoutContentHash computes a sha256 hex digest over the change-relevant
+// fields of a workout: its own attrs (with device normalized via
+// stableDeviceKey, since the raw device string carries a volatile pointer
+// and creation date that would otherwise make every re-export look
+// "changed"), its WorkoutStatistics entries in document order, and its
+// workout-level MetadataEntry values deduped by key (real exports can
+// repeat metadata keys under one Workout) and sorted for determinism.
+func workoutContentHash(workout appleWorkout) string {
+	var b strings.Builder
+
+	fmt.Fprintf(&b, "type=%s\n", workout.WorkoutActivityType)
+	fmt.Fprintf(&b, "start=%s\n", workout.StartDate)
+	fmt.Fprintf(&b, "end=%s\n", workout.EndDate)
+	fmt.Fprintf(&b, "duration=%s\n", workout.Duration)
+	fmt.Fprintf(&b, "durationUnit=%s\n", workout.DurationUnit)
+	fmt.Fprintf(&b, "totalDistance=%s\n", workout.TotalDistance)
+	fmt.Fprintf(&b, "totalDistanceUnit=%s\n", workout.TotalDistanceUnit)
+	fmt.Fprintf(&b, "sourceName=%s\n", workout.SourceName)
+	fmt.Fprintf(&b, "sourceVersion=%s\n", workout.SourceVersion)
+	fmt.Fprintf(&b, "device=%s\n", stableDeviceKey(workout.Device))
+
+	for _, stat := range workout.Statistics {
+		fmt.Fprintf(&b, "stat:type=%s|sum=%s|avg=%s|max=%s|min=%s|unit=%s|start=%s|end=%s\n",
+			stat.Type, stat.Sum, stat.Average, stat.Maximum, stat.Minimum, stat.Unit, stat.StartDate, stat.EndDate)
+	}
+
+	metadata := make(map[string]string, len(workout.MetadataEntries))
+	for _, entry := range workout.MetadataEntries {
+		metadata[entry.Key] = entry.Value
+	}
+	keys := make([]string, 0, len(metadata))
+	for key := range metadata {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		fmt.Fprintf(&b, "meta:%s=%s\n", key, metadata[key])
+	}
+
+	sum := sha256.Sum256([]byte(b.String()))
+	return hex.EncodeToString(sum[:])
 }
 
 func parseAppleTime(value string) (time.Time, error) {
