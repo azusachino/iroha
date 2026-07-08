@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 const sampleAppleExport = `<?xml version="1.0" encoding="UTF-8"?>
@@ -595,6 +596,124 @@ func TestWorkoutContentHashChangesWithEvents(t *testing.T) {
 	changedEventDateHash := workoutContentHash(changedEventDate)
 	if changedEventDateHash == withEventHash {
 		t.Errorf("workoutContentHash should change when an event's date changes")
+	}
+}
+
+func TestParseAppleHealthExportAssociatesSelectedRecordsToWorkoutWindow(t *testing.T) {
+	// Document order mirrors a real export: Records appear before the
+	// Workout element, so pass 2 must re-stream to find owning windows only
+	// after all workouts (and hence windows) are known.
+	exportXML := `<?xml version="1.0" encoding="UTF-8"?>
+<HealthData locale="en_US">
+  <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Watch" unit="count/min" startDate="2024-01-01 08:05:00 -0700" endDate="2024-01-01 08:05:00 -0700" value="120"/>
+  <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Watch" unit="count/min" startDate="2024-01-01 08:15:00 -0700" endDate="2024-01-01 08:15:00 -0700" value="135"/>
+  <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Watch" unit="count/min" startDate="2024-01-01 09:00:00 -0700" endDate="2024-01-01 09:00:00 -0700" value="70"/>
+  <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Watch" unit="count" startDate="2024-01-01 08:06:00 -0700" endDate="2024-01-01 08:06:00 -0700" value="50"/>
+  <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30" durationUnit="min" totalDistance="5" totalDistanceUnit="km" sourceName="Watch" sourceVersion="10.0" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 08:30:00 -0700">
+  </Workout>
+</HealthData>
+`
+	zipPath := buildAppleHealthZip(t, exportXML, nil)
+
+	activities, err := ParseAppleHealthExport(zipPath, "rawhash123")
+	if err != nil {
+		t.Fatalf("ParseAppleHealthExport returned error: %v", err)
+	}
+	if len(activities) != 1 {
+		t.Fatalf("expected 1 activity, got %d", len(activities))
+	}
+
+	samplings := activities[0].Samplings
+	if len(samplings) != 2 {
+		t.Fatalf("expected 2 in-window heart_rate samplings (outside-window HR and non-selected StepCount must be excluded), got %d: %+v", len(samplings), samplings)
+	}
+
+	for _, s := range samplings {
+		if s.SamplingType != "heart_rate" {
+			t.Errorf("SamplingType = %q, want heart_rate", s.SamplingType)
+		}
+		if s.Unit != "count/min" {
+			t.Errorf("Unit = %q, want count/min", s.Unit)
+		}
+	}
+	if samplings[0].Value != 120 || samplings[1].Value != 135 {
+		t.Errorf("unexpected sampling values: %+v", samplings)
+	}
+
+	wantTs0, _ := parseAppleTime("2024-01-01 08:05:00 -0700")
+	wantTs1, _ := parseAppleTime("2024-01-01 08:15:00 -0700")
+	if !samplings[0].Ts.Equal(wantTs0) {
+		t.Errorf("samplings[0].Ts = %v, want %v", samplings[0].Ts, wantTs0)
+	}
+	if !samplings[1].Ts.Equal(wantTs1) {
+		t.Errorf("samplings[1].Ts = %v, want %v", samplings[1].Ts, wantTs1)
+	}
+}
+
+func TestParseAppleHealthExportIncludesRecordsExactlyOnWindowBoundary(t *testing.T) {
+	exportXML := `<?xml version="1.0" encoding="UTF-8"?>
+<HealthData locale="en_US">
+  <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Watch" unit="count/min" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 08:00:00 -0700" value="100"/>
+  <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Watch" unit="count/min" startDate="2024-01-01 08:30:00 -0700" endDate="2024-01-01 08:30:00 -0700" value="140"/>
+  <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30" durationUnit="min" totalDistance="5" totalDistanceUnit="km" sourceName="Watch" sourceVersion="10.0" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 08:30:00 -0700">
+  </Workout>
+</HealthData>
+`
+	zipPath := buildAppleHealthZip(t, exportXML, nil)
+
+	activities, err := ParseAppleHealthExport(zipPath, "rawhash123")
+	if err != nil {
+		t.Fatalf("ParseAppleHealthExport returned error: %v", err)
+	}
+	if len(activities) != 1 {
+		t.Fatalf("expected 1 activity, got %d", len(activities))
+	}
+
+	samplings := activities[0].Samplings
+	if len(samplings) != 2 {
+		t.Fatalf("expected both boundary records (exactly at start and exactly at end) to be included, got %d: %+v", len(samplings), samplings)
+	}
+}
+
+func TestFindOwningActivityBinarySearchEdges(t *testing.T) {
+	mkTime := func(s string) time.Time {
+		ts, err := parseAppleTime(s)
+		if err != nil {
+			t.Fatalf("parseAppleTime(%q): %v", s, err)
+		}
+		return ts
+	}
+
+	act1 := &ParsedActivity{Title: "first"}
+	act2 := &ParsedActivity{Title: "second"}
+	windows := []workoutWindow{
+		{start: mkTime("2024-01-01 08:00:00 -0700"), end: mkTime("2024-01-01 08:30:00 -0700"), activity: act1},
+		{start: mkTime("2024-01-01 09:00:00 -0700"), end: mkTime("2024-01-01 09:15:00 -0700"), activity: act2},
+	}
+
+	cases := []struct {
+		name string
+		ts   string
+		want *ParsedActivity
+	}{
+		{"before all windows", "2024-01-01 07:00:00 -0700", nil},
+		{"exactly first window start", "2024-01-01 08:00:00 -0700", act1},
+		{"inside first window", "2024-01-01 08:15:00 -0700", act1},
+		{"exactly first window end", "2024-01-01 08:30:00 -0700", act1},
+		{"gap between windows", "2024-01-01 08:45:00 -0700", nil},
+		{"exactly second window start", "2024-01-01 09:00:00 -0700", act2},
+		{"inside second window", "2024-01-01 09:10:00 -0700", act2},
+		{"exactly second window end", "2024-01-01 09:15:00 -0700", act2},
+		{"after all windows", "2024-01-01 10:00:00 -0700", nil},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := findOwningActivity(windows, mkTime(tc.ts))
+			if got != tc.want {
+				t.Errorf("findOwningActivity(%s) = %v, want %v", tc.ts, got, tc.want)
+			}
+		})
 	}
 }
 

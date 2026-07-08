@@ -44,6 +44,22 @@ type ParsedActivity struct {
 	// Health WorkoutEvent entries of type Lap/Segment). Nil when the source
 	// has no such events - most workouts won't have them.
 	Laps []ParsedLap
+
+	// Samplings are per-timestamp sensor samples (heart rate, running
+	// power, etc.) associated with this activity via its time window (see
+	// apple_health.go's pass-2 record stream). Nil when the source has no
+	// selected-type records falling inside the activity's window.
+	Samplings []ParsedSampling
+}
+
+// ParsedSampling is a single timestamped sensor sample (e.g. an Apple
+// Health <Record>) attached to a ParsedActivity because its timestamp falls
+// inside that activity's [StartedAt, EndedAt] window.
+type ParsedSampling struct {
+	SamplingType string
+	Ts           time.Time
+	Value        float64
+	Unit         string
 }
 
 type RoutePoint struct {

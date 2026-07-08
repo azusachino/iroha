@@ -320,6 +320,9 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 		if err := replaceLaps(tx, activityID, activity.Laps); err != nil {
 			return err
 		}
+		if err := replaceSamplings(tx, activityID, activity.Samplings); err != nil {
+			return err
+		}
 		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
 			"content_hash":          activity.ContentHash,
 			"activity_id":           activityID,
@@ -336,6 +339,9 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 			return err
 		}
 		if err := replaceLaps(tx, activityID, activity.Laps); err != nil {
+			return err
+		}
+		if err := replaceSamplings(tx, activityID, activity.Samplings); err != nil {
 			return err
 		}
 		itemID, err := ids.New()
@@ -459,6 +465,43 @@ func replaceLaps(tx *gorm.DB, activityID uuid.UUID, laps []parsers.ParsedLap) er
 		})
 	}
 	return tx.Create(&rows).Error
+}
+
+// samplingInsertBatchSize caps how many samplings are inserted per batch via
+// GORM's CreateInBatches. Unlike route points, samplings have no PostGIS
+// geom column to hand-build SQL for, so CreateInBatches is clean here.
+const samplingInsertBatchSize = 1000
+
+// replaceSamplings deletes any existing samplings for the activity and
+// bulk-inserts the newly parsed ones. Deliberately NOT called for the
+// sourceItemUnchanged branch of persistAppleWorkout (an unchanged workout
+// has unchanged samples, and re-writing thousands of samples per unchanged
+// workout would be wasted work over ~2M source records) and not called on
+// the non-Apple import path.
+func replaceSamplings(tx *gorm.DB, activityID uuid.UUID, samplings []parsers.ParsedSampling) error {
+	if err := tx.Delete(&models.ActivitySampling{}, "activity_id = ?", activityID).Error; err != nil {
+		return err
+	}
+	if len(samplings) == 0 {
+		return nil
+	}
+
+	rows := make([]models.ActivitySampling, 0, len(samplings))
+	for _, sampling := range samplings {
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		rows = append(rows, models.ActivitySampling{
+			ID:           id,
+			ActivityID:   activityID,
+			SamplingType: sampling.SamplingType,
+			Ts:           sampling.Ts,
+			Value:        sampling.Value,
+			Unit:         sampling.Unit,
+		})
+	}
+	return tx.CreateInBatches(rows, samplingInsertBatchSize).Error
 }
 
 // routePointInsertBatchSize caps how many route points are inserted per

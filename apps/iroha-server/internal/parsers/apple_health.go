@@ -99,14 +99,42 @@ func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, erro
 			return nil, err
 		}
 
+		fileActivities := make([]ParsedActivity, 0, len(workouts))
 		for _, workout := range workouts {
 			activity, ok := workoutToActivity(workout)
 			if !ok {
 				continue
 			}
 			attachWorkoutRoute(&activity, workout, reader)
-			activities = append(activities, activity)
+			fileActivities = append(fileActivities, activity)
 		}
+
+		// Pass 2: export.xml's document order is ExportDate, Me, the huge
+		// <Record> block, THEN <Workout> elements - so records are seen
+		// before workout windows exist. Re-open the same zip entry (do not
+		// buffer the ~900MB file) and stream <Record> elements now that
+		// fileActivities (and their windows) are known.
+		//
+		// buildWorkoutWindows takes pointers into fileActivities, so
+		// nothing may be appended to fileActivities between here and where
+		// it's copied into the outer activities slice below - an append
+		// that grows past capacity would reallocate fileActivities' backing
+		// array and silently orphan those pointers, losing any samplings
+		// written through them.
+		windows := buildWorkoutWindows(fileActivities)
+		if len(windows) > 0 {
+			samplingsFile, err := file.Open()
+			if err != nil {
+				return nil, err
+			}
+			err = decodeAppleSamplings(samplingsFile, windows)
+			samplingsFile.Close()
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		activities = append(activities, fileActivities...)
 	}
 	return activities, nil
 }
@@ -219,6 +247,161 @@ func decodeAppleWorkoutsRaw(r io.Reader) ([]appleWorkout, error) {
 		workouts = append(workouts, workout)
 	}
 	return workouts, nil
+}
+
+// selectedRecordTypes maps the HealthKit <Record type="..."> identifiers we
+// capture as activity samplings to their sampling_type slug. Every other
+// record type (steps, sleep, resting HR outside a workout, ...) is skipped
+// without being decoded - this is the common case over ~2M records.
+var selectedRecordTypes = map[string]string{
+	"HKQuantityTypeIdentifierHeartRate":              "heart_rate",
+	"HKQuantityTypeIdentifierRunningSpeed":           "running_speed",
+	"HKQuantityTypeIdentifierRunningPower":           "running_power",
+	"HKQuantityTypeIdentifierRunningStrideLength":    "stride_length",
+	"HKQuantityTypeIdentifierDistanceWalkingRunning": "distance",
+	"HKQuantityTypeIdentifierActiveEnergyBurned":     "active_energy",
+}
+
+// appleRecord decodes a single selected-type <Record> element. Only decoded
+// once selectedRecordSamplingType has already confirmed the record's type
+// attr is one we care about - unselected records are skipped via
+// decoder.Skip() without ever being unmarshaled into this struct.
+type appleRecord struct {
+	Type       string `xml:"type,attr"`
+	SourceName string `xml:"sourceName,attr"`
+	Unit       string `xml:"unit,attr"`
+	StartDate  string `xml:"startDate,attr"`
+	EndDate    string `xml:"endDate,attr"`
+	Value      string `xml:"value,attr"`
+}
+
+// workoutWindow is a workout's [start, end] time span paired with a pointer
+// into the activities slice it came from, used to associate pass-2 records
+// back to the activity that will be persisted.
+type workoutWindow struct {
+	start    time.Time
+	end      time.Time
+	activity *ParsedActivity
+}
+
+// buildWorkoutWindows builds the sorted-by-start window list used to
+// associate <Record> samples with their owning workout. Only activities with
+// a valid EndedAt are included (an open-ended workout has no window to test
+// against). Callers must not append to activities after calling this - see
+// the caution at ParseAppleHealthExport's call site.
+func buildWorkoutWindows(activities []ParsedActivity) []workoutWindow {
+	windows := make([]workoutWindow, 0, len(activities))
+	for i := range activities {
+		if activities[i].EndedAt == nil {
+			continue
+		}
+		windows = append(windows, workoutWindow{
+			start:    activities[i].StartedAt,
+			end:      *activities[i].EndedAt,
+			activity: &activities[i],
+		})
+	}
+	sort.Slice(windows, func(i, j int) bool { return windows[i].start.Before(windows[j].start) })
+	return windows
+}
+
+// findOwningActivity binary-searches windows (which must be sorted by
+// start) for the rightmost window whose start <= ts, then checks whether ts
+// also falls at-or-before that window's end. Both endpoints are inclusive,
+// so a record exactly on a workout's start or end boundary counts as
+// inside. Returns nil if no window contains ts.
+//
+// If workout windows overlap (rare in practice), the rightmost
+// start-matching window is used rather than searching earlier windows too -
+// an accepted approximation per the task spec.
+func findOwningActivity(windows []workoutWindow, ts time.Time) *ParsedActivity {
+	idx := sort.Search(len(windows), func(i int) bool {
+		return windows[i].start.After(ts)
+	}) - 1
+	if idx < 0 {
+		return nil
+	}
+	w := windows[idx]
+	if ts.Before(w.start) || ts.After(w.end) {
+		return nil
+	}
+	return w.activity
+}
+
+// decodeAppleSamplings is pass 2 over export.xml: it streams top-level
+// <Record> elements and, for each whose type is in selectedRecordTypes and
+// whose startDate falls inside a workout window, appends a ParsedSampling
+// to that window's activity (via the activity pointer captured in
+// workoutWindow).
+//
+// This must stay cheap over ~2M records: the type attr is read directly off
+// the raw xml.StartElement (no allocation), and any non-selected record is
+// discarded via decoder.Skip() - a cheap subtree skip - without ever being
+// unmarshaled. Only selected-type records pay for DecodeElement, and only
+// those that also land inside a workout window are retained.
+func decodeAppleSamplings(r io.Reader, windows []workoutWindow) error {
+	decoder := xml.NewDecoder(r)
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		start, ok := token.(xml.StartElement)
+		if !ok || start.Name.Local != "Record" {
+			continue
+		}
+
+		samplingType, selected := selectedRecordSamplingType(start)
+		if !selected {
+			if err := decoder.Skip(); err != nil {
+				return err
+			}
+			continue
+		}
+
+		var rec appleRecord
+		if err := decoder.DecodeElement(&rec, &start); err != nil {
+			return err
+		}
+
+		ts, err := parseAppleTime(rec.StartDate)
+		if err != nil {
+			continue
+		}
+		value, err := strconv.ParseFloat(rec.Value, 64)
+		if err != nil {
+			continue
+		}
+
+		activity := findOwningActivity(windows, ts)
+		if activity == nil {
+			continue
+		}
+		activity.Samplings = append(activity.Samplings, ParsedSampling{
+			SamplingType: samplingType,
+			Ts:           ts,
+			Value:        value,
+			Unit:         rec.Unit,
+		})
+	}
+	return nil
+}
+
+// selectedRecordSamplingType reads the "type" attr straight off a raw
+// <Record> StartElement, without decoding the element. This keeps the
+// common (unselected) case to an attribute scan followed by decoder.Skip().
+func selectedRecordSamplingType(start xml.StartElement) (string, bool) {
+	for _, attr := range start.Attr {
+		if attr.Name.Local == "type" {
+			samplingType, ok := selectedRecordTypes[attr.Value]
+			return samplingType, ok
+		}
+	}
+	return "", false
 }
 
 func workoutToActivity(workout appleWorkout) (ParsedActivity, bool) {
