@@ -20,6 +20,45 @@ type appleWorkout struct {
 	DurationUnit        string `xml:"durationUnit,attr"`
 	TotalDistance       string `xml:"totalDistance,attr"`
 	TotalDistanceUnit   string `xml:"totalDistanceUnit,attr"`
+	SourceName          string `xml:"sourceName,attr"`
+	SourceVersion       string `xml:"sourceVersion,attr"`
+	Device              string `xml:"device,attr"`
+
+	WorkoutRoute    *appleWorkoutRoute      `xml:"WorkoutRoute"`
+	Statistics      []appleWorkoutStatistic `xml:"WorkoutStatistics"`
+	Events          []appleWorkoutEvent     `xml:"WorkoutEvent"`
+	MetadataEntries []appleMetadataEntry    `xml:"MetadataEntry"`
+}
+
+type appleWorkoutRoute struct {
+	FileReference *appleFileReference `xml:"FileReference"`
+}
+
+type appleFileReference struct {
+	Path string `xml:"path,attr"`
+}
+
+type appleWorkoutStatistic struct {
+	Type      string `xml:"type,attr"`
+	Sum       string `xml:"sum,attr"`
+	Average   string `xml:"average,attr"`
+	Maximum   string `xml:"maximum,attr"`
+	Minimum   string `xml:"minimum,attr"`
+	Unit      string `xml:"unit,attr"`
+	StartDate string `xml:"startDate,attr"`
+	EndDate   string `xml:"endDate,attr"`
+}
+
+type appleWorkoutEvent struct {
+	Type         string `xml:"type,attr"`
+	Date         string `xml:"date,attr"`
+	Duration     string `xml:"duration,attr"`
+	DurationUnit string `xml:"durationUnit,attr"`
+}
+
+type appleMetadataEntry struct {
+	Key   string `xml:"key,attr"`
+	Value string `xml:"value,attr"`
 }
 
 func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, error) {
@@ -56,8 +95,37 @@ func parseAppleWorkouts(file *zip.File, rawHash string) ([]ParsedActivity, error
 	}
 	defer opened.Close()
 
-	decoder := xml.NewDecoder(opened)
+	return decodeAppleWorkouts(opened, rawHash)
+}
+
+// decodeAppleWorkouts streams through an export.xml document, decoding each
+// <Workout> element's full subtree while skipping everything else (notably
+// the potentially millions of sibling <Record> elements). It must remain
+// streaming rather than reading the whole document into memory.
+func decodeAppleWorkouts(r io.Reader, rawHash string) ([]ParsedActivity, error) {
+	workouts, err := decodeAppleWorkoutsRaw(r)
+	if err != nil {
+		return nil, err
+	}
+
 	var activities []ParsedActivity
+	for _, workout := range workouts {
+		activity, ok := workoutToActivity(workout, rawHash)
+		if ok {
+			activities = append(activities, activity)
+		}
+	}
+	return activities, nil
+}
+
+// decodeAppleWorkoutsRaw performs the streaming token walk over an
+// export.xml document and returns the decoded appleWorkout structs
+// (including their nested subtrees) without converting them to
+// ParsedActivity. Exposed separately so tests can assert on the captured
+// nested data directly.
+func decodeAppleWorkoutsRaw(r io.Reader) ([]appleWorkout, error) {
+	decoder := xml.NewDecoder(r)
+	var workouts []appleWorkout
 	for {
 		token, err := decoder.Token()
 		if err == io.EOF {
@@ -73,31 +141,12 @@ func parseAppleWorkouts(file *zip.File, rawHash string) ([]ParsedActivity, error
 		}
 
 		var workout appleWorkout
-		for _, attr := range start.Attr {
-			switch attr.Name.Local {
-			case "workoutActivityType":
-				workout.WorkoutActivityType = attr.Value
-			case "startDate":
-				workout.StartDate = attr.Value
-			case "endDate":
-				workout.EndDate = attr.Value
-			case "duration":
-				workout.Duration = attr.Value
-			case "durationUnit":
-				workout.DurationUnit = attr.Value
-			case "totalDistance":
-				workout.TotalDistance = attr.Value
-			case "totalDistanceUnit":
-				workout.TotalDistanceUnit = attr.Value
-			}
+		if err := decoder.DecodeElement(&workout, &start); err != nil {
+			return nil, err
 		}
-
-		activity, ok := workoutToActivity(workout, rawHash)
-		if ok {
-			activities = append(activities, activity)
-		}
+		workouts = append(workouts, workout)
 	}
-	return activities, nil
+	return workouts, nil
 }
 
 func parseZippedGPX(file *zip.File, rawHash string) ([]ParsedActivity, error) {
