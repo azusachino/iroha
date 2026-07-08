@@ -1,3 +1,16 @@
+@import 'tailwindcss';
+
+@theme {
+	--color-bg: #0f1115;
+	--color-surface: #171a21;
+	--color-surface-2: #1f242d;
+	--color-border: #2a2f3a;
+	--color-text: #e6e8ec;
+	--color-text-muted: #9aa3b2;
+	--color-accent: #4f8cff;
+	--color-danger: #ff6b6b;
+}
+
 :root {
 	--bg: #0f1115;
 	--surface: #171a21;
@@ -110,14 +123,43 @@ h2 {
 .filters {
 	display: flex;
 	gap: 0.75rem;
-	align-items: center;
+	align-items: flex-end;
 	margin-bottom: 1.25rem;
 	flex-wrap: wrap;
 }
 
 .filters label {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
 	color: var(--text-muted);
+	font-size: 0.8rem;
+}
+
+.filters button {
+	background: var(--accent);
+	color: var(--bg);
+	border: 1px solid var(--accent);
+	border-radius: var(--radius);
+	padding: 0.4rem 0.9rem;
+	font: inherit;
 	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.filters button.secondary {
+	background: var(--surface-2);
+	color: var(--text);
+	border-color: var(--border);
+}
+
+.filters input[type='number'] {
+	width: 6rem;
+}
+
+.result-count {
+	margin: 0 0 0.6rem;
+	font-size: 0.85rem;
 }
 
 select,
@@ -177,6 +219,28 @@ input {
 	font-size: 0.75rem;
 	color: var(--text-muted);
 	text-transform: capitalize;
+}
+
+.load-more {
+	display: block;
+	width: 100%;
+	margin-top: 1rem;
+	padding: 0.6rem 1rem;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	color: var(--text);
+	font: inherit;
+	cursor: pointer;
+}
+
+.load-more:hover:not(:disabled) {
+	border-color: var(--accent);
+}
+
+.load-more:disabled {
+	opacity: 0.6;
+	cursor: default;
 }
 
 /* Metrics grid */

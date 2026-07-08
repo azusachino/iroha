@@ -10,3 +10,6 @@ data_dir = ".iroha-data"
 [auth]
 local_no_auth = true
 import_token = ""
+
+[cache]
+url = "redis://localhost:6379/0"

@@ -15,6 +15,7 @@
 		<a class="brand" href="/">iroha</a>
 		<nav>
 			<a class="nav-link" class:active={page.url.pathname === '/'} href="/">Activities</a>
+			<a class="nav-link" class:active={page.url.pathname.startsWith('/u')} href="/u">Public</a>
 		</nav>
 	</header>
 	<main class="content">

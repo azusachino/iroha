@@ -56,7 +56,21 @@ export interface Lap {
 
 export interface ListActivitiesParams {
 	sport_type?: string;
+	// RFC3339 timestamps; inclusive bounds on started_at.
+	started_from?: string;
+	started_to?: string;
+	// Distance bounds in meters; rows with no distance are excluded.
+	min_distance_m?: number;
+	max_distance_m?: number;
 	limit?: number;
+	cursor?: string;
+}
+
+// One keyset page. `next_cursor` is null when no further rows exist.
+export interface Page<T> {
+	items: T[];
+	next_cursor: string | null;
+	has_more: boolean;
 }
 
 async function getJSON<T>(path: string, fetchFn: typeof fetch = fetch): Promise<T> {
@@ -72,12 +86,17 @@ async function getJSON<T>(path: string, fetchFn: typeof fetch = fetch): Promise<
 export function listActivities(
 	params: ListActivitiesParams = {},
 	fetchFn: typeof fetch = fetch
-): Promise<Activity[]> {
+): Promise<Page<Activity>> {
 	const query = new URLSearchParams();
 	if (params.sport_type) query.set('sport_type', params.sport_type);
+	if (params.started_from) query.set('started_from', params.started_from);
+	if (params.started_to) query.set('started_to', params.started_to);
+	if (params.min_distance_m != null) query.set('min_distance_m', String(params.min_distance_m));
+	if (params.max_distance_m != null) query.set('max_distance_m', String(params.max_distance_m));
 	if (params.limit != null) query.set('limit', String(params.limit));
+	if (params.cursor) query.set('cursor', params.cursor);
 	const suffix = query.toString() ? `?${query.toString()}` : '';
-	return getJSON<Activity[]>(`/api/v1/activities${suffix}`, fetchFn);
+	return getJSON<Page<Activity>>(`/api/v1/activities${suffix}`, fetchFn);
 }
 
 export function getActivity(id: string, fetchFn: typeof fetch = fetch): Promise<Activity> {
@@ -97,4 +116,103 @@ export function getActivitySamplings(
 
 export function getActivityLaps(id: string, fetchFn: typeof fetch = fetch): Promise<Lap[]> {
 	return getJSON<Lap[]>(`/api/v1/activities/${encodeURIComponent(id)}/laps`, fetchFn);
+}
+
+// --- Public API (sanitized, no auth) ---
+// Mirrors iroha-server's /public/v1 routes. Activities carry a strict subset
+// of fields — no source/raw-file identifiers or other private metadata.
+
+export interface PublicActivity {
+	id: string;
+	sport_type: string;
+	title: string;
+	started_at: string;
+	ended_at?: string;
+	timezone: string;
+	distance_m?: number;
+	duration_s?: number;
+	moving_time_s?: number;
+	elevation_gain_m?: number;
+	avg_hr?: number;
+	max_hr?: number;
+	avg_pace_s_per_km?: number;
+}
+
+export interface ListPublicActivitiesParams {
+	sport_type?: string;
+	started_from?: string;
+	started_to?: string;
+	min_distance_m?: number;
+	max_distance_m?: number;
+	limit?: number;
+	cursor?: string;
+}
+
+export interface SummaryTotals {
+	activity_count: number;
+	distance_m: number;
+	duration_s: number;
+	moving_time_s: number;
+}
+
+// A single row in one of the summary's grouped breakdowns (by_year / by_month
+// / by_sport). `key` is a year ("2026"), a "YYYY-MM" month, or a sport_type.
+export interface SummaryBucket {
+	key: string;
+	activity_count: number;
+	distance_m: number;
+	duration_s: number;
+	moving_time_s: number;
+}
+
+export interface Summary {
+	totals: SummaryTotals;
+	by_year: SummaryBucket[];
+	by_month: SummaryBucket[];
+	by_sport: SummaryBucket[];
+}
+
+export function getPublicSummary(fetchFn: typeof fetch = fetch): Promise<Summary> {
+	return getJSON<Summary>('/public/v1/summary', fetchFn);
+}
+
+// A single public route line, rendered as a GeoJSON LineString. Coordinates
+// are [lon, lat] pairs (GeoJSON order), already privacy-trimmed and
+// decimated by the server.
+export interface RouteFeatureProperties {
+	sport_type: string;
+}
+
+export interface RouteFeature {
+	type: 'Feature';
+	geometry: {
+		type: 'LineString';
+		coordinates: [number, number][];
+	};
+	properties: RouteFeatureProperties;
+}
+
+export interface RouteFeatureCollection {
+	type: 'FeatureCollection';
+	features: RouteFeature[];
+}
+
+export function getPublicRoutes(fetchFn: typeof fetch = fetch): Promise<RouteFeatureCollection> {
+	return getJSON<RouteFeatureCollection>('/public/v1/routes', fetchFn);
+}
+
+export function listPublicActivities(
+	params: ListPublicActivitiesParams = {},
+	fetchFn: typeof fetch = fetch
+): Promise<Page<PublicActivity>> {
+	const query = new URLSearchParams();
+	if (params.sport_type) query.set('sport_type', params.sport_type);
+	if (params.started_from) query.set('started_from', params.started_from);
+	if (params.started_to) query.set('started_to', params.started_to);
+	if (params.min_distance_m != null) query.set('min_distance_m', String(params.min_distance_m));
+	if (params.max_distance_m != null) query.set('max_distance_m', String(params.max_distance_m));
+	if (params.limit != null) query.set('limit', String(params.limit));
+	if (params.cursor) query.set('cursor', params.cursor);
+	const suffix = query.toString() ? `?${query.toString()}` : '';
+	return getJSON<Page<PublicActivity>>(`/public/v1/activities${suffix}`, fetchFn);
 }
