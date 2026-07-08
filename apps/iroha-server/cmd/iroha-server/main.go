@@ -34,10 +34,15 @@ func main() {
 		logger.Error("create raw file service", "error", err)
 		os.Exit(1)
 	}
-	// parser_version bumped from "dev" to force the new Apple Health pipeline
-	// (task-8 of iroha:apple-health-fidelity) to run instead of short-circuiting
-	// via the reuse guard against the pre-refactor "dev" completed import.
-	importService := imports.NewService(db, logger, "apple-health-2026-07")
+	// parser_version identifies the parser build; a completed import at a
+	// different version triggers a reprocess (purge + re-persist) rather than
+	// a duplicate append. Overridable via IROHA_PARSER_VERSION so it can be
+	// bumped without recompiling.
+	parserVersion := os.Getenv("IROHA_PARSER_VERSION")
+	if parserVersion == "" {
+		parserVersion = "apple-health-2026-07"
+	}
+	importService := imports.NewService(db, logger, parserVersion)
 	activityService := activities.NewService(db)
 
 	server := httpapi.NewServer(httpapi.Dependencies{
