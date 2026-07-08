@@ -8,7 +8,7 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test test-integration build web-install web-check web-test web-build check validate db-up db-down db-status db-logs db-reset smoke-real-import
+.PHONY: help fmt fmt-check vet lint test test-integration build run web-install web-check web-test web-build web-dev check validate db-up db-down db-status db-logs db-reset smoke-real-import
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -37,6 +37,9 @@ test-integration: db-up ## Run DB-backed Go integration tests
 build: ## Build the Go server
 	$(NIX_DEV)go -C $(SERVER_DIR) build ./...
 
+run: db-up ## Run the server against the local dev stack (http://127.0.0.1:8080)
+	$(NIX_DEV)go -C $(SERVER_DIR) run ./cmd/iroha-server
+
 ## --- Web frontend (apps/iroha-web, bun) ---
 web-install: ## Install web dependencies
 	cd $(WEB_DIR) && $(NIX_DEV)bun install
@@ -49,6 +52,9 @@ web-test: ## Run unit tests for the web app (vitest)
 
 web-build: ## Production build of the web app
 	cd $(WEB_DIR) && $(NIX_DEV)bun run build
+
+web-dev: ## Run the web dev server (http://localhost:5173)
+	cd $(WEB_DIR) && $(NIX_DEV)bun run dev
 
 ## --- Aggregate gates ---
 check: fmt-check vet lint test web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + web type-check + web tests
