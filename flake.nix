@@ -17,6 +17,8 @@
         devShells.default = pkgs.mkShell {
           packages = [
             pkgs.go
+            pkgs.golangci-lint
+            pkgs.gofumpt
             pkgs.goose
             pkgs.bun
             pkgs.nodejs_24

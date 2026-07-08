@@ -38,7 +38,7 @@ func ParseGPXFile(path string, options GPXOptions) ([]ParsedActivity, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	doc, err := decodeGPXDocument(file)
 	if err != nil {

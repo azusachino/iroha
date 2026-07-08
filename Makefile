@@ -8,22 +8,25 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet test test-integration build web-install web-check web-test web-build check validate db-up db-down db-status db-logs db-reset smoke-real-import
+.PHONY: help fmt fmt-check vet lint test test-integration build web-install web-check web-test web-build check validate db-up db-down db-status db-logs db-reset smoke-real-import
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
 		awk 'BEGIN{FS=":.*## "}{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
 
 ## --- Go server (apps/iroha-server) ---
-fmt: ## Format Go code
-	$(NIX_DEV)gofmt -w $(SERVER_DIR)
+fmt: ## Format Go code (gofumpt)
+	$(NIX_DEV)gofumpt -w $(SERVER_DIR)
 
 fmt-check: ## Fail if any Go file is unformatted
-	@files=$$($(NIX_DEV)gofmt -l $(SERVER_DIR)); \
-		if [ -n "$$files" ]; then echo "gofmt needed:"; echo "$$files"; exit 1; fi
+	@files=$$($(NIX_DEV)gofumpt -l $(SERVER_DIR)); \
+		if [ -n "$$files" ]; then echo "gofumpt needed:"; echo "$$files"; exit 1; fi
 
 vet: ## Run go vet
 	$(NIX_DEV)go -C $(SERVER_DIR) vet ./...
+
+lint: ## Run golangci-lint (Uber Go Style Guide orientation)
+	cd $(SERVER_DIR) && $(NIX_DEV)golangci-lint run ./...
 
 test: ## Run Go tests
 	$(NIX_DEV)go -C $(SERVER_DIR) test ./...
@@ -48,7 +51,7 @@ web-build: ## Production build of the web app
 	cd $(WEB_DIR) && $(NIX_DEV)bun run build
 
 ## --- Aggregate gates ---
-check: fmt-check vet test web-check web-test ## Pre-commit gate: fmt-check + vet + test + web type-check + web tests
+check: fmt-check vet lint test web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + web type-check + web tests
 validate: check build web-build ## Pre-PR gate: check + full server and web builds
 
 ## --- Dev database (Postgres/PostGIS via uv scripts) ---

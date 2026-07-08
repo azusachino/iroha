@@ -138,7 +138,8 @@ func (s *Service) process(jobID uuid.UUID) error {
 	case dispositionSkip:
 		return s.reuseCompletedImport(jobID, prior)
 	case dispositionReprocess:
-		s.logger.Info("reprocessing import: parser_version differs from prior completed import; purging and re-persisting",
+		s.logger.Info(
+			"reprocessing import: parser_version differs from prior completed import; purging and re-persisting",
 			"job_id", jobID.String(),
 			"prior_job_id", prior.ID.String(),
 			"prior_parser_version", prior.ParserVersion,
@@ -208,7 +209,8 @@ func (s *Service) priorCompletedImport(jobID uuid.UUID, sha256 string) (models.I
 // re-persisting anything, because a prior completed import already covers
 // the same raw file sha256 at the same parser_version (dispositionSkip).
 func (s *Service) reuseCompletedImport(jobID uuid.UUID, existing models.ImportJob) error {
-	s.logger.Info("reusing prior completed import; skipping re-parse",
+	s.logger.Info(
+		"reusing prior completed import; skipping re-parse",
 		"job_id", jobID.String(),
 		"reused_job_id", existing.ID.String(),
 		"parser_version", existing.ParserVersion,
@@ -608,7 +610,8 @@ func buildRoutePointsInsertSQL(activityID uuid.UUID, points []parsers.RoutePoint
 			sb.WriteString(", ")
 		}
 		sb.WriteString("(?, ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)")
-		args = append(args,
+		args = append(
+			args,
 			activityID,
 			startSeq+i,
 			point.Ts,

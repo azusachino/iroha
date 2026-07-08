@@ -64,7 +64,7 @@ func (s *Server) handleCreateRawFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	rawFile, duplicate, err := s.deps.RawFileService.Create(rawfiles.CreateInput{
 		File:             file,

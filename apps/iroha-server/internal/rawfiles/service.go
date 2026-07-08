@@ -56,7 +56,7 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 		return models.RawFile{}, false, err
 	}
 	tempPath := tempFile.Name()
-	defer os.Remove(tempPath)
+	defer func() { _ = os.Remove(tempPath) }()
 
 	hasher := sha256.New()
 	size, copyErr := io.Copy(io.MultiWriter(tempFile, hasher), input.File)

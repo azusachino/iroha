@@ -86,7 +86,7 @@ func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, erro
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	var activities []ParsedActivity
 	for _, file := range reader.File {
@@ -128,7 +128,7 @@ func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, erro
 				return nil, err
 			}
 			err = decodeAppleSamplings(samplingsFile, windows)
-			samplingsFile.Close()
+			_ = samplingsFile.Close()
 			if err != nil {
 				return nil, err
 			}
@@ -144,7 +144,7 @@ func parseAppleWorkoutsRaw(file *zip.File) ([]appleWorkout, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer opened.Close()
+	defer func() { _ = opened.Close() }()
 
 	return decodeAppleWorkoutsRaw(opened)
 }
@@ -172,7 +172,7 @@ func attachWorkoutRoute(activity *ParsedActivity, workout appleWorkout, reader *
 	if err != nil {
 		return
 	}
-	defer opened.Close()
+	defer func() { _ = opened.Close() }()
 
 	points, err := parseGPXPoints(opened)
 	if err != nil {
