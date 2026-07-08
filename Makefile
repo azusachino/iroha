@@ -53,8 +53,8 @@ web-test: ## Run unit tests for the web app (vitest)
 web-build: ## Production build of the web app
 	cd $(WEB_DIR) && $(NIX_DEV)bun run build
 
-web-dev: ## Run the web dev server (http://localhost:5173)
-	cd $(WEB_DIR) && $(NIX_DEV)bun run dev
+web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
+	cd $(WEB_DIR) && $(NIX_DEV)bun run dev --host 0.0.0.0
 
 ## --- Aggregate gates ---
 check: fmt-check vet lint test web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + web type-check + web tests
