@@ -31,3 +31,41 @@ func decideSourceItem(existingContentHash *string, newContentHash string) source
 	}
 	return sourceItemChanged
 }
+
+// importDisposition captures how process() should handle a queued import
+// job relative to prior completed imports of the same raw file (matched by
+// sha256, since raw files themselves are deduped by sha256 at upload time).
+type importDisposition int
+
+const (
+	// dispositionFresh means no completed import exists for this raw
+	// file's sha256 - persist as a brand new import.
+	dispositionFresh importDisposition = iota
+	// dispositionSkip means a completed import already exists for this
+	// sha256 at the SAME parser_version - this is a redundant re-run
+	// against already-imported content; short-circuit without re-parsing
+	// or re-persisting anything.
+	dispositionSkip
+	// dispositionReprocess means a completed import exists for this
+	// sha256 but at a DIFFERENT parser_version - a parser upgrade (or
+	// downgrade). Raw files are canonical snapshots, so this must purge
+	// everything derived from the raw file and persist fresh rather than
+	// appending alongside the stale rows.
+	dispositionReprocess
+)
+
+// decideImportDisposition is a pure function so the skip/reprocess/fresh
+// three-way branch can be unit-tested without a database. priorSameVersion
+// is whether a completed import exists for this raw file's sha256 at the
+// same parser_version as the current job; priorAnyVersion is whether a
+// completed import exists for this sha256 at any parser_version (including
+// the same one). priorSameVersion implies priorAnyVersion.
+func decideImportDisposition(priorSameVersion bool, priorAnyVersion bool) importDisposition {
+	if priorSameVersion {
+		return dispositionSkip
+	}
+	if priorAnyVersion {
+		return dispositionReprocess
+	}
+	return dispositionFresh
+}

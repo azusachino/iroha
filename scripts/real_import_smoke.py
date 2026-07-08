@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Smoke-test a real import through the iroha HTTP API.
 
-Two modes:
-  - default (no --assert): the original single-import smoke check (upload,
-    import, poll, read back a few activity sub-resources).
+Three modes:
+  - default (no --assert / --assert-reprocess): the original single-import
+    smoke check (upload, import, poll, read back a few activity
+    sub-resources).
   - --assert: a two-phase delta check against the real Postgres/PostGIS
     database. Runs the same file through the import pipeline twice
     (import #1 = full parse, import #2 = same sha256 + parser_version, should
@@ -12,6 +13,17 @@ Two modes:
     tb_import_snapshots, tb_activity_samplings, tb_activity_laps, plus
     route points joined to those new source items, and the absence of any
     NEW standalone provider='gpx' activities created by this run.
+  - --assert-reprocess: exercises the purge-then-repersist reprocess path
+    (see the "iroha:decision:apple-reprocess-from-raw" ADR). Precondition:
+    the server must already be running with a parser_version DIFFERENT from
+    the parser_version of the last COMPLETED import of this file (so the
+    disposition is dispositionReprocess, not skip). Captures counts before
+    the import, runs the import once, captures counts after, and asserts
+    the derived data was REPLACED, not appended: activities, apple source
+    items, import snapshots, samplings, laps, and route points on source
+    items are all unchanged in total, and there are zero apple_health
+    activities left without a source item (which would mean the purge
+    missed rows and change-detection is now lying).
 """
 import argparse
 import json
@@ -42,9 +54,24 @@ def main() -> int:
         action="store_true",
         help="run the two-phase delta check against Postgres instead of the single-shot smoke",
     )
+    parser.add_argument(
+        "--assert-reprocess",
+        dest="do_assert_reprocess",
+        action="store_true",
+        help=(
+            "run the purge-then-repersist reprocess check against Postgres; "
+            "requires the server to be running at a parser_version different "
+            "from the last completed import of this file"
+        ),
+    )
     parser.add_argument("--dsn", default=os.environ.get("IROHA_DATABASE_URL", DEFAULT_DSN))
     args = parser.parse_args()
 
+    if args.do_assert and args.do_assert_reprocess:
+        parser.error("--assert and --assert-reprocess are mutually exclusive")
+
+    if args.do_assert_reprocess:
+        return run_assert_reprocess_mode(args)
     if args.do_assert:
         return run_assert_mode(args)
     return run_basic_mode(args)
@@ -200,8 +227,131 @@ def run_assert_mode(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_assert_reprocess_mode(args: argparse.Namespace) -> int:
+    """Exercise the reprocess (purge-then-repersist) path.
+
+    This mode does NOT change the server's parser_version - it can't, that's
+    a server-startup config. It assumes the caller has already restarted the
+    server with a parser_version different from the last completed import
+    of this file's sha256, so the import job created here lands on
+    dispositionReprocess. If the server is instead still on the SAME
+    parser_version as the last completed import, this will hit
+    dispositionSkip and the "unchanged" assertions will trivially pass
+    without exercising the purge at all - see the printed disposition hint
+    below if that looks likely.
+    """
+    print("\n=== baseline (before reprocess import) ===")
+    baseline = capture_counts(args.dsn)
+    print_counts(baseline)
+
+    if baseline["apple_health_activities_without_source_item"] != 0:
+        print(
+            "[WARN] baseline already has apple_health activities without a "
+            "source_item - prior state is already inconsistent; results below "
+            "may not isolate this run's behavior"
+        )
+
+    print("\n=== reprocess import (parser_version expected to differ from last completed import) ===")
+    raw = upload_raw_file(args)
+    print(f"raw_file_id={raw['id']} duplicate={raw.get('duplicate', False)}")
+    job = create_import(args, raw["id"])
+    print(f"import_id={job['id']}")
+    final = wait_import(args, job["id"])
+    print(f"import_status={final['status']}")
+    if final.get("error_message"):
+        print(f"import_error={final['error_message']}")
+        return 1
+
+    after = capture_counts(args.dsn)
+    print_counts(after)
+
+    d = delta(baseline, after)
+    print(f"delta={d}")
+
+    print("\n=== assertions ===")
+    failures = []
+
+    def check(label: str, condition: bool, detail: str) -> None:
+        status = "PASS" if condition else "FAIL"
+        print(f"[{status}] {label}: {detail}")
+        if not condition:
+            failures.append(label)
+
+    check(
+        "reprocess: activities_total unchanged (replaced, not appended)",
+        d["activities_total"] == 0,
+        f"delta activities_total={d['activities_total']} ({baseline['activities_total']} -> {after['activities_total']})",
+    )
+    check(
+        "reprocess: apple_health_activities_total unchanged",
+        d["apple_health_activities_total"] == 0,
+        f"delta apple_health_activities_total={d['apple_health_activities_total']} "
+        f"({baseline['apple_health_activities_total']} -> {after['apple_health_activities_total']})",
+    )
+    check(
+        "reprocess: apple_source_items total unchanged",
+        d["source_items_total"] == 0,
+        f"delta source_items_total={d['source_items_total']} ({baseline['source_items_total']} -> {after['source_items_total']})",
+    )
+    check(
+        "reprocess: import_snapshots unchanged in total (old purged, one new persisted)",
+        d["snapshots"] == 0,
+        f"delta snapshots={d['snapshots']} ({baseline['snapshots']} -> {after['snapshots']})",
+    )
+    check(
+        "reprocess: samplings unchanged in total",
+        d["samplings_total"] == 0,
+        f"delta samplings_total={d['samplings_total']} ({baseline['samplings_total']} -> {after['samplings_total']})",
+    )
+    check(
+        "reprocess: laps unchanged in total",
+        d["laps_total"] == 0,
+        f"delta laps_total={d['laps_total']} ({baseline['laps_total']} -> {after['laps_total']})",
+    )
+    check(
+        "reprocess: route points on source items unchanged in total",
+        d["route_points_on_source_items"] == 0,
+        f"delta route_points_on_source_items={d['route_points_on_source_items']} "
+        f"({baseline['route_points_on_source_items']} -> {after['route_points_on_source_items']})",
+    )
+    check(
+        "reprocess: no apple_health activities left without a source_item (purge order sound)",
+        after["apple_health_activities_without_source_item"] == 0,
+        f"after.apple_health_activities_without_source_item={after['apple_health_activities_without_source_item']}",
+    )
+
+    print("\n=== summary ===")
+    if failures:
+        print(f"FAILED: {len(failures)} assertion(s) failed: {failures}")
+        return 1
+    print("ALL ASSERTIONS PASSED")
+    return 0
+
+
 def capture_counts(dsn: str) -> dict:
     return {
+        "activities_total": psql_int(dsn, "select count(*) from tb_activities;"),
+        "apple_health_activities_total": psql_int(
+            dsn,
+            """
+            select count(*)
+            from tb_activities a
+            join tb_external_refs er on er.activity_id = a.id
+            where er.provider = 'apple_health';
+            """,
+        ),
+        "apple_health_activities_without_source_item": psql_int(
+            dsn,
+            """
+            select count(*)
+            from tb_activities a
+            join tb_external_refs er on er.activity_id = a.id
+            where er.provider = 'apple_health'
+              and not exists (
+                select 1 from tb_apple_source_items si where si.activity_id = a.id
+              );
+            """,
+        ),
         "source_items_total": psql_int(dsn, "select count(*) from tb_apple_source_items;"),
         "source_items_workout": psql_int(
             dsn, "select count(*) from tb_apple_source_items where item_type = 'workout';"

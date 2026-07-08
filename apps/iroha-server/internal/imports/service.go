@@ -123,13 +123,25 @@ func (s *Service) process(jobID uuid.UUID) error {
 		return s.fail(jobID, "raw_file not found")
 	}
 
-	reused, err := s.reuseCompletedImport(jobID, job.ParserVersion, rawFile.SHA256)
+	prior, priorFound, err := s.priorCompletedImport(jobID, rawFile.SHA256)
 	if err != nil {
 		return err
 	}
-	if reused {
-		return nil
+	priorSameVersion := priorFound && prior.ParserVersion == job.ParserVersion
+
+	switch decideImportDisposition(priorSameVersion, priorFound) {
+	case dispositionSkip:
+		return s.reuseCompletedImport(jobID, prior)
+	case dispositionReprocess:
+		s.logger.Info("reprocessing import: parser_version differs from prior completed import; purging and re-persisting",
+			"job_id", jobID.String(),
+			"prior_job_id", prior.ID.String(),
+			"prior_parser_version", prior.ParserVersion,
+			"parser_version", job.ParserVersion,
+			"sha256", rawFile.SHA256,
+		)
 	}
+	reprocess := priorFound && !priorSameVersion
 
 	parsed, err := parsers.Parse(parsers.Input{
 		ParserKind:       job.ParserKind,
@@ -154,7 +166,7 @@ func (s *Service) process(jobID uuid.UUID) error {
 		CreatedAt:     time.Now().UTC(),
 	}
 
-	if err := s.persistActivities(rawFile, parsed, snapshot); err != nil {
+	if err := s.persistActivities(rawFile, parsed, snapshot, reprocess); err != nil {
 		return s.fail(jobID, err.Error())
 	}
 
@@ -165,43 +177,43 @@ func (s *Service) process(jobID uuid.UUID) error {
 	}).Error
 }
 
-// reuseCompletedImport checks whether a COMPLETED import job already exists
-// for a raw file with the same sha256 processed by the same parser
-// version. If so, the current job is a redundant re-run against
-// already-imported content (the raw file itself is deduped at upload by
-// sha256, so this guards re-running the same logical import rather than
-// re-uploads) - short-circuit it as completed without re-parsing or
-// re-persisting anything.
-func (s *Service) reuseCompletedImport(jobID uuid.UUID, parserVersion string, sha256 string) (bool, error) {
+// priorCompletedImport looks up the most recent COMPLETED import job for a
+// raw file with the given sha256, excluding the current job (the raw file
+// itself is deduped at upload by sha256, so this identifies prior completed
+// imports of the same logical source rather than re-uploads). found is
+// false if no such job exists.
+func (s *Service) priorCompletedImport(jobID uuid.UUID, sha256 string) (models.ImportJob, bool, error) {
 	var existing models.ImportJob
 	err := s.db.
 		Joins("join tb_raw_files on tb_raw_files.id = tb_import_jobs.raw_file_id").
-		Where("tb_import_jobs.status = ? and tb_import_jobs.parser_version = ? and tb_raw_files.sha256 = ? and tb_import_jobs.id <> ?",
-			StatusCompleted, parserVersion, sha256, jobID).
+		Where("tb_import_jobs.status = ? and tb_raw_files.sha256 = ? and tb_import_jobs.id <> ?",
+			StatusCompleted, sha256, jobID).
 		Order("tb_import_jobs.created_at desc").
 		First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, nil
+		return models.ImportJob{}, false, nil
 	}
 	if err != nil {
-		return false, err
+		return models.ImportJob{}, false, err
 	}
+	return existing, true, nil
+}
 
+// reuseCompletedImport marks jobID as completed without re-parsing or
+// re-persisting anything, because a prior completed import already covers
+// the same raw file sha256 at the same parser_version (dispositionSkip).
+func (s *Service) reuseCompletedImport(jobID uuid.UUID, existing models.ImportJob) error {
 	s.logger.Info("reusing prior completed import; skipping re-parse",
 		"job_id", jobID.String(),
 		"reused_job_id", existing.ID.String(),
-		"sha256", sha256,
-		"parser_version", parserVersion,
+		"parser_version", existing.ParserVersion,
 	)
 
 	finishedAt := time.Now().UTC()
-	if err := s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
+	return s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
 		"status":      StatusCompleted,
 		"finished_at": &finishedAt,
-	}).Error; err != nil {
-		return false, err
-	}
-	return true, nil
+	}).Error
 }
 
 func (s *Service) getByUUID(id uuid.UUID) (models.ImportJob, bool, error) {
@@ -248,8 +260,57 @@ func (s *Service) fail(jobID uuid.UUID, message string) error {
 	}).Error
 }
 
-func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ParsedActivity, snapshot models.ImportSnapshot) error {
+// purgeDerivedForRawFile deletes everything derived from a raw file so it
+// can be re-persisted fresh (dispositionReprocess), instead of appending
+// alongside stale rows. The delete order matters:
+//
+//  1. tb_apple_source_items first. These carry the content_hash used by
+//     persistAppleWorkout's change-detection. If they survived a purge, the
+//     freshly re-parsed workouts would look "unchanged" against the
+//     just-deleted activities and persistAppleWorkout would only bump
+//     last_seen_snapshot_id instead of re-creating the activity -
+//     resurrecting nothing and silently losing data. They're matched two
+//     ways: by activity_id (workouts produced from this raw file) and by
+//     last_seen_snapshot_id (source items last touched by a snapshot of
+//     this raw file, covering unchanged workouts that were never
+//     re-persisted but still got their last_seen bumped).
+//  2. tb_import_snapshots for this raw file, now safe to remove since no
+//     source item still references them.
+//  3. tb_activities with first_raw_file_id = this raw file. ON DELETE
+//     CASCADE removes tb_external_refs, tb_activity_route_points,
+//     tb_activity_samplings, and tb_activity_laps for those activities.
+//     This step must come after (1) since tb_apple_source_items.activity_id
+//     is ON DELETE SET NULL, not CASCADE - deleting activities first would
+//     just null out the source items rather than removing them, defeating
+//     step (1)'s purpose.
+func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
+	if err := tx.Exec(`
+		delete from tb_apple_source_items
+		where activity_id in (select id from tb_activities where first_raw_file_id = ?)
+		   or last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?)
+	`, rawFileID, rawFileID).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Where("raw_file_id = ?", rawFileID).Delete(&models.ImportSnapshot{}).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Where("first_raw_file_id = ?", rawFileID).Delete(&models.Activity{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ParsedActivity, snapshot models.ImportSnapshot, reprocess bool) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		if reprocess {
+			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
+				return err
+			}
+		}
+
 		if err := tx.Create(&snapshot).Error; err != nil {
 			return err
 		}
