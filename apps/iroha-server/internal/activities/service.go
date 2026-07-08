@@ -2,6 +2,7 @@ package activities
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/internal/ids"
@@ -86,6 +87,58 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		page.NextCursor = &Cursor{StartedAt: last.StartedAt, ID: last.ID}
 	}
 	return page, nil
+}
+
+// SummaryTotals holds aggregate metrics across a set of activities.
+type SummaryTotals struct {
+	ActivityCount int     `json:"activity_count"`
+	DistanceM     float64 `json:"distance_m"`
+	MovingTimeS   int     `json:"moving_time_s"`
+}
+
+// SummaryBucket is one grouped total, keyed by year or sport type.
+type SummaryBucket struct {
+	Key string `json:"key"`
+	SummaryTotals
+}
+
+// Summary is a derived, aggregate-only view suitable for the public page.
+type Summary struct {
+	Totals  SummaryTotals   `json:"totals"`
+	ByYear  []SummaryBucket `json:"by_year"`
+	BySport []SummaryBucket `json:"by_sport"`
+}
+
+const summaryMetrics = "count(*) as activity_count, " +
+	"coalesce(sum(distance_m), 0) as distance_m, " +
+	"coalesce(sum(moving_time_s), 0) as moving_time_s"
+
+// Summary computes aggregate totals overall and grouped by year and sport.
+// Year is extracted in the database session timezone (approximate for the
+// public rollup; not tied to each activity's own timezone).
+func (s *Service) Summary() (Summary, error) {
+	base := func() *gorm.DB { return s.db.Model(&models.Activity{}) }
+
+	var totals SummaryTotals
+	if err := base().Select(summaryMetrics).Scan(&totals).Error; err != nil {
+		return Summary{}, fmt.Errorf("summary totals: %w", err)
+	}
+
+	var byYear []SummaryBucket
+	if err := base().
+		Select("extract(year from started_at)::text as key, " + summaryMetrics).
+		Group("key").Order("key desc").Scan(&byYear).Error; err != nil {
+		return Summary{}, fmt.Errorf("summary by year: %w", err)
+	}
+
+	var bySport []SummaryBucket
+	if err := base().
+		Select("sport_type as key, " + summaryMetrics).
+		Group("sport_type").Order("activity_count desc").Scan(&bySport).Error; err != nil {
+		return Summary{}, fmt.Errorf("summary by sport: %w", err)
+	}
+
+	return Summary{Totals: totals, ByYear: byYear, BySport: bySport}, nil
 }
 
 func (s *Service) Get(id string) (models.Activity, bool, error) {

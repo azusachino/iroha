@@ -74,6 +74,12 @@ func (s *Server) routes() {
 			r.Get("/{activityId}/laps", s.handleGetActivityLaps)
 		})
 	})
+
+	// Public, sanitized, cache-backed views for the public page. No auth.
+	s.mux.Route("/public/v1", func(r chi.Router) {
+		r.Get("/summary", s.handlePublicSummary)
+		r.Get("/activities", s.handlePublicActivities)
+	})
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
