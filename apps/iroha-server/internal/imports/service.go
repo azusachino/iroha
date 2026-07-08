@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/internal/ids"
@@ -288,11 +289,11 @@ func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.Par
 // last_seen_snapshot_id so we know it was still present in this export.
 func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activity parsers.ParsedActivity, snapshotID uuid.UUID) error {
 	var existing models.AppleSourceItem
-	err := tx.First(&existing, "source_key = ?", activity.ExternalID).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
+	res := tx.Limit(1).Find(&existing, "source_key = ?", activity.ExternalID)
+	if res.Error != nil {
+		return res.Error
 	}
-	found := err == nil
+	found := res.RowsAffected > 0
 
 	var existingHash *string
 	if found {
@@ -351,13 +352,14 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 
 func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed parsers.ParsedActivity) (uuid.UUID, error) {
 	var externalRef models.ExternalRef
-	err := tx.First(&externalRef, "provider = ? and external_id = ?", parsed.Provider, parsed.ExternalID).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return uuid.Nil, err
+	res := tx.Limit(1).Find(&externalRef, "provider = ? and external_id = ?", parsed.Provider, parsed.ExternalID)
+	if res.Error != nil {
+		return uuid.Nil, res.Error
 	}
+	found := res.RowsAffected > 0
 
 	now := time.Now().UTC()
-	if err == nil {
+	if found {
 		updates := map[string]any{
 			"sport_type":         parsed.SportType,
 			"title":              parsed.Title,
@@ -414,26 +416,54 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed par
 	return activityID, nil
 }
 
+// routePointInsertBatchSize caps how many route points are inserted per
+// multi-row INSERT statement. Each row binds 8 params, so 1000 rows/batch
+// binds 8000 params - well under PostgreSQL's 65535 bind-parameter limit.
+const routePointInsertBatchSize = 1000
+
 func replaceRoutePoints(tx *gorm.DB, activityID uuid.UUID, points []parsers.RoutePoint) error {
 	if err := tx.Delete(&models.ActivityRoutePoint{}, "activity_id = ?", activityID).Error; err != nil {
 		return err
 	}
-	for seq, point := range points {
-		if err := tx.Exec(
-			`insert into tb_activity_route_points
-			  (activity_id, seq, ts, lat, lon, elevation_m, geom)
-			  values (?, ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)`,
+	for start := 0; start < len(points); start += routePointInsertBatchSize {
+		end := start + routePointInsertBatchSize
+		if end > len(points) {
+			end = len(points)
+		}
+		sql, args := buildRoutePointsInsertSQL(activityID, points[start:end], start)
+		if err := tx.Exec(sql, args...).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// buildRoutePointsInsertSQL builds a single multi-row INSERT statement (and
+// its flat arg list) for one batch of route points. startSeq is the
+// absolute index of points[0] within the full slice passed to
+// replaceRoutePoints, so seq numbering stays correct across chunks.
+func buildRoutePointsInsertSQL(activityID uuid.UUID, points []parsers.RoutePoint, startSeq int) (string, []any) {
+	var sb strings.Builder
+	sb.WriteString(`insert into tb_activity_route_points
+		  (activity_id, seq, ts, lat, lon, elevation_m, geom)
+		  values `)
+
+	args := make([]any, 0, len(points)*8)
+	for i, point := range points {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString("(?, ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)")
+		args = append(args,
 			activityID,
-			seq,
+			startSeq+i,
 			point.Ts,
 			point.Lat,
 			point.Lon,
 			point.ElevationM,
 			point.Lon,
 			point.Lat,
-		).Error; err != nil {
-			return err
-		}
+		)
 	}
-	return nil
+	return sb.String(), args
 }
