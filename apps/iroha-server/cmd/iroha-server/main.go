@@ -60,7 +60,7 @@ func main() {
 		RawFileService:  rawFileService,
 		Cache:           cacheClient,
 		MaxUploadBytes:  2 << 30,
-		AllowedOrigins:  nil,
+		AllowedOrigins:  cfg.Server.AllowedOrigins,
 	})
 
 	logger.Info("starting iroha-server", "addr", cfg.Server.Addr)

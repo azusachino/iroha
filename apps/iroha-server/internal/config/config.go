@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -10,6 +11,9 @@ import (
 // defaultCacheURL points at the valkey instance from ops/local-dev/compose.yaml.
 // Valkey speaks the Redis protocol, so a redis:// URL works unmodified.
 const defaultCacheURL = "redis://localhost:6379/0"
+
+// defaultAllowedOrigins lets the local web dev server reach the private API.
+var defaultAllowedOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
 
 type Config struct {
 	Server   ServerConfig   `toml:"server"`
@@ -21,6 +25,9 @@ type Config struct {
 
 type ServerConfig struct {
 	Addr string `toml:"addr"`
+	// AllowedOrigins restricts CORS for the private /api/v1 routes. The public
+	// /public/v1 routes always allow all origins (sanitized data).
+	AllowedOrigins []string `toml:"allowed_origins"`
 }
 
 type DatabaseConfig struct {
@@ -57,7 +64,8 @@ func Load(path string) (Config, error) {
 func Default() Config {
 	return Config{
 		Server: ServerConfig{
-			Addr: "127.0.0.1:8080",
+			Addr:           "127.0.0.1:8080",
+			AllowedOrigins: defaultAllowedOrigins,
 		},
 		Database: DatabaseConfig{
 			URL: "postgres://iroha:iroha_dev@localhost:5432/iroha?sslmode=disable",
@@ -94,5 +102,14 @@ func applyEnv(cfg *Config) {
 	}
 	if value := os.Getenv("IROHA_VALKEY_URL"); value != "" {
 		cfg.Cache.URL = value
+	}
+	if value := os.Getenv("IROHA_ALLOWED_ORIGINS"); value != "" {
+		origins := make([]string, 0)
+		for _, origin := range strings.Split(value, ",") {
+			if trimmed := strings.TrimSpace(origin); trimmed != "" {
+				origins = append(origins, trimmed)
+			}
+		}
+		cfg.Server.AllowedOrigins = origins
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/internal/rawfiles"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 )
 
 type Dependencies struct {
@@ -56,6 +57,8 @@ func (s *Server) routes() {
 
 	s.mux.Get("/healthz", s.handleHealthz)
 	s.mux.Route("/api/v1", func(r chi.Router) {
+		// Private API: CORS limited to configured origins.
+		r.Use(corsMiddleware(s.deps.AllowedOrigins))
 		r.Route("/raw-files", func(r chi.Router) {
 			r.With(s.requireUploadAuth).Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
@@ -75,10 +78,22 @@ func (s *Server) routes() {
 		})
 	})
 
-	// Public, sanitized, cache-backed views for the public page. No auth.
+	// Public, sanitized, cache-backed views for the public page. No auth, and
+	// CORS open to any origin since the data is already sanitized.
 	s.mux.Route("/public/v1", func(r chi.Router) {
+		r.Use(corsMiddleware([]string{"*"}))
 		r.Get("/summary", s.handlePublicSummary)
 		r.Get("/activities", s.handlePublicActivities)
+	})
+}
+
+// corsMiddleware builds a read-only CORS handler for the given origins.
+func corsMiddleware(origins []string) func(http.Handler) http.Handler {
+	return cors.Handler(cors.Options{
+		AllowedOrigins: origins,
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+		AllowedHeaders: []string{"Accept", "Content-Type"},
+		MaxAge:         300,
 	})
 }
 
