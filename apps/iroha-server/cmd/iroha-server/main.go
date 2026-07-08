@@ -34,7 +34,10 @@ func main() {
 		logger.Error("create raw file service", "error", err)
 		os.Exit(1)
 	}
-	importService := imports.NewService(db, logger, "dev")
+	// parser_version bumped from "dev" to force the new Apple Health pipeline
+	// (task-8 of iroha:apple-health-fidelity) to run instead of short-circuiting
+	// via the reuse guard against the pre-refactor "dev" completed import.
+	importService := imports.NewService(db, logger, "apple-health-2026-07")
 	activityService := activities.NewService(db)
 
 	server := httpapi.NewServer(httpapi.Dependencies{

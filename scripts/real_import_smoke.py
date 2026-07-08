@@ -1,12 +1,31 @@
 #!/usr/bin/env python3
+"""Smoke-test a real import through the iroha HTTP API.
+
+Two modes:
+  - default (no --assert): the original single-import smoke check (upload,
+    import, poll, read back a few activity sub-resources).
+  - --assert: a two-phase delta check against the real Postgres/PostGIS
+    database. Runs the same file through the import pipeline twice
+    (import #1 = full parse, import #2 = same sha256 + parser_version, should
+    hit the reuse guard and short-circuit) and asserts on tables the
+    pre-refactor parser never wrote to: tb_apple_source_items,
+    tb_import_snapshots, tb_activity_samplings, tb_activity_laps, plus
+    route points joined to those new source items, and the absence of any
+    NEW standalone provider='gpx' activities created by this run.
+"""
 import argparse
 import json
 import mimetypes
+import os
+import subprocess
+import sys
 import time
 import uuid
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+
+DEFAULT_DSN = "postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable"
 
 
 def main() -> int:
@@ -17,8 +36,21 @@ def main() -> int:
     parser.add_argument("--parser-kind", default="apple_health_export")
     parser.add_argument("--uploaded-via", default="telegram")
     parser.add_argument("--timeout-s", type=int, default=360)
+    parser.add_argument(
+        "--assert",
+        dest="do_assert",
+        action="store_true",
+        help="run the two-phase delta check against Postgres instead of the single-shot smoke",
+    )
+    parser.add_argument("--dsn", default=os.environ.get("IROHA_DATABASE_URL", DEFAULT_DSN))
     args = parser.parse_args()
 
+    if args.do_assert:
+        return run_assert_mode(args)
+    return run_basic_mode(args)
+
+
+def run_basic_mode(args: argparse.Namespace) -> int:
     raw = upload_raw_file(args)
     print(f"raw_file_id={raw['id']}")
     print(f"raw_duplicate={str(raw.get('duplicate', False)).lower()}")
@@ -43,6 +75,215 @@ def main() -> int:
         print(f"first_activity_samplings_len={len(samplings)}")
         print(f"first_activity_laps_len={len(laps)}")
     return 0
+
+
+# --- assert mode -----------------------------------------------------------
+
+
+def run_assert_mode(args: argparse.Namespace) -> int:
+    run_started_at = psql_scalar(args.dsn, "select now()::text;")
+    print(f"run_started_at={run_started_at}")
+
+    print("\n=== baseline (before import #1) ===")
+    baseline = capture_counts(args.dsn)
+    print_counts(baseline)
+
+    print("\n=== import #1 (full pipeline expected) ===")
+    raw1 = upload_raw_file(args)
+    print(f"raw_file_id={raw1['id']} duplicate={raw1.get('duplicate', False)}")
+    job1 = create_import(args, raw1["id"])
+    print(f"import_id={job1['id']}")
+    final1 = wait_import(args, job1["id"])
+    print(f"import_status={final1['status']}")
+    if final1.get("error_message"):
+        print(f"import_error={final1['error_message']}")
+        return 1
+    counts1 = capture_counts(args.dsn)
+    print_counts(counts1)
+
+    print("\n=== import #2 (same file; reuse guard expected) ===")
+    raw2 = upload_raw_file(args)
+    print(f"raw_file_id={raw2['id']} duplicate={raw2.get('duplicate', False)}")
+    job2 = create_import(args, raw2["id"])
+    print(f"import_id={job2['id']}")
+    final2 = wait_import(args, job2["id"])
+    print(f"import_status={final2['status']}")
+    if final2.get("error_message"):
+        print(f"import_error={final2['error_message']}")
+        return 1
+    counts2 = capture_counts(args.dsn)
+    print_counts(counts2)
+
+    new_gpx_after_1 = new_gpx_activity_count(args.dsn, run_started_at)
+    new_gpx_after_2 = new_gpx_activity_count(args.dsn, run_started_at)
+
+    print("\n=== assertions ===")
+    failures = []
+
+    def check(label: str, condition: bool, detail: str) -> None:
+        status = "PASS" if condition else "FAIL"
+        print(f"[{status}] {label}: {detail}")
+        if not condition:
+            failures.append(label)
+
+    d1 = delta(baseline, counts1)
+    check(
+        "import#1 apple_source_items(workout) > 0",
+        counts1["source_items_workout"] > 0,
+        f"counts1.source_items_workout={counts1['source_items_workout']}",
+    )
+    check(
+        "import#1 import_snapshots increased by exactly 1",
+        d1["snapshots"] == 1,
+        f"delta snapshots={d1['snapshots']} (baseline={baseline['snapshots']} -> {counts1['snapshots']})",
+    )
+    check(
+        "import#1 samplings > 0",
+        counts1["samplings_total"] > 0,
+        f"counts1.samplings_total={counts1['samplings_total']}",
+    )
+    check(
+        "import#1 samplings include heart_rate",
+        "heart_rate" in counts1["sampling_types"],
+        f"counts1.sampling_types={sorted(counts1['sampling_types'])}",
+    )
+    check(
+        "import#1 route points joined to new source items > 0",
+        counts1["route_points_on_source_items"] > 0,
+        f"counts1.route_points_on_source_items={counts1['route_points_on_source_items']}",
+    )
+    check(
+        "import#1 creates zero NEW standalone gpx activities",
+        new_gpx_after_1 == 0,
+        f"new_gpx_activities_since_run_start={new_gpx_after_1}",
+    )
+
+    d2 = delta(counts1, counts2)
+    check(
+        "import#2 (reuse) apple_source_items unchanged",
+        d2["source_items_total"] == 0,
+        f"delta source_items_total={d2['source_items_total']} ({counts1['source_items_total']} -> {counts2['source_items_total']})",
+    )
+    check(
+        "import#2 (reuse) import_snapshots unchanged",
+        d2["snapshots"] == 0,
+        f"delta snapshots={d2['snapshots']} ({counts1['snapshots']} -> {counts2['snapshots']})",
+    )
+    check(
+        "import#2 (reuse) samplings unchanged",
+        d2["samplings_total"] == 0,
+        f"delta samplings_total={d2['samplings_total']} ({counts1['samplings_total']} -> {counts2['samplings_total']})",
+    )
+    check(
+        "import#2 (reuse) laps unchanged",
+        d2["laps_total"] == 0,
+        f"delta laps_total={d2['laps_total']} ({counts1['laps_total']} -> {counts2['laps_total']})",
+    )
+    check(
+        "import#2 (reuse) route points on source items unchanged",
+        d2["route_points_on_source_items"] == 0,
+        f"delta route_points_on_source_items={d2['route_points_on_source_items']} ({counts1['route_points_on_source_items']} -> {counts2['route_points_on_source_items']})",
+    )
+    check(
+        "import#2 creates zero NEW standalone gpx activities (delta vs #1)",
+        new_gpx_after_2 == new_gpx_after_1,
+        f"new_gpx_after_1={new_gpx_after_1} new_gpx_after_2={new_gpx_after_2}",
+    )
+
+    print(f"\nlaps_total after import#1 = {counts1['laps_total']} (informational; not hard-asserted)")
+
+    print("\n=== summary ===")
+    if failures:
+        print(f"FAILED: {len(failures)} assertion(s) failed: {failures}")
+        return 1
+    print("ALL ASSERTIONS PASSED")
+    return 0
+
+
+def capture_counts(dsn: str) -> dict:
+    return {
+        "source_items_total": psql_int(dsn, "select count(*) from tb_apple_source_items;"),
+        "source_items_workout": psql_int(
+            dsn, "select count(*) from tb_apple_source_items where item_type = 'workout';"
+        ),
+        "source_items_by_type": psql_rows(
+            dsn,
+            "select item_type, count(*) from tb_apple_source_items group by item_type order by item_type;",
+        ),
+        "snapshots": psql_int(dsn, "select count(*) from tb_import_snapshots;"),
+        "samplings_total": psql_int(dsn, "select count(*) from tb_activity_samplings;"),
+        "sampling_types": {
+            row[0] for row in psql_rows(dsn, "select distinct sampling_type from tb_activity_samplings;")
+        },
+        "laps_total": psql_int(dsn, "select count(*) from tb_activity_laps;"),
+        "route_points_on_source_items": psql_int(
+            dsn,
+            """
+            select count(*)
+            from tb_activity_route_points rp
+            join tb_apple_source_items si on si.activity_id = rp.activity_id;
+            """,
+        ),
+    }
+
+
+def new_gpx_activity_count(dsn: str, since_iso: str) -> int:
+    return psql_int(
+        dsn,
+        f"""
+        select count(*)
+        from tb_activities a
+        join tb_external_refs er on er.activity_id = a.id
+        where er.provider = 'gpx' and a.created_at >= '{since_iso}'::timestamptz;
+        """,
+    )
+
+
+def delta(before: dict, after: dict) -> dict:
+    out = {}
+    for key, value in after.items():
+        if isinstance(value, (int, float)) and isinstance(before.get(key), (int, float)):
+            out[key] = value - before[key]
+    return out
+
+
+def print_counts(counts: dict) -> None:
+    for key, value in counts.items():
+        print(f"  {key}={value}")
+
+
+def psql_scalar(dsn: str, sql: str) -> str:
+    result = subprocess.run(
+        ["psql", dsn, "-tA", "-c", sql],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def psql_int(dsn: str, sql: str) -> int:
+    value = psql_scalar(dsn, sql)
+    return int(value) if value else 0
+
+
+def psql_rows(dsn: str, sql: str) -> list[tuple[str, ...]]:
+    result = subprocess.run(
+        ["psql", dsn, "-tA", "-F", "|", "-c", sql],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    rows = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        rows.append(tuple(line.split("|")))
+    return rows
+
+
+# --- shared HTTP helpers -----------------------------------------------------
 
 
 def upload_raw_file(args: argparse.Namespace) -> dict:
