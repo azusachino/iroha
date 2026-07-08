@@ -176,6 +176,31 @@ export function getPublicSummary(fetchFn: typeof fetch = fetch): Promise<Summary
 	return getJSON<Summary>('/public/v1/summary', fetchFn);
 }
 
+// A single public route line, rendered as a GeoJSON LineString. Coordinates
+// are [lon, lat] pairs (GeoJSON order), already privacy-trimmed and
+// decimated by the server.
+export interface RouteFeatureProperties {
+	sport_type: string;
+}
+
+export interface RouteFeature {
+	type: 'Feature';
+	geometry: {
+		type: 'LineString';
+		coordinates: [number, number][];
+	};
+	properties: RouteFeatureProperties;
+}
+
+export interface RouteFeatureCollection {
+	type: 'FeatureCollection';
+	features: RouteFeature[];
+}
+
+export function getPublicRoutes(fetchFn: typeof fetch = fetch): Promise<RouteFeatureCollection> {
+	return getJSON<RouteFeatureCollection>('/public/v1/routes', fetchFn);
+}
+
 export function listPublicActivities(
 	params: ListPublicActivitiesParams = {},
 	fetchFn: typeof fetch = fetch

@@ -3,6 +3,7 @@ package activities
 import (
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/internal/ids"
@@ -11,7 +12,24 @@ import (
 	"gorm.io/gorm"
 )
 
-const defaultPageLimit = 50
+const (
+	defaultPageLimit = 50
+
+	// routeTrimMeters is how much distance is trimmed from the start and end
+	// of each route before it is exposed publicly, so a viewer can't pinpoint
+	// exact home/work addresses from where tracks begin or end. Distance is
+	// measured along the track from the coordinates (route points carry no
+	// reliable distance_m), so this trim is independent of import source.
+	routeTrimMeters = 200
+	// routeMinPoints is the minimum number of points a trimmed route must
+	// retain to be worth emitting; shorter remainders are dropped entirely.
+	routeMinPoints = 2
+	// routeMaxPoints caps how many points each public route line carries,
+	// keeping the response small; points are decimated evenly.
+	routeMaxPoints = 150
+	// earthRadiusMeters is the mean Earth radius used for haversine distance.
+	earthRadiusMeters = 6371000
+)
 
 type Service struct {
 	db *gorm.DB
@@ -191,6 +209,149 @@ func (s *Service) Route(id string) ([]models.ActivityRoutePoint, bool, error) {
 		"heart_rate",
 	).Where("activity_id = ?", activity.ID).Order("seq asc").Find(&points).Error
 	return points, true, err
+}
+
+// RouteLine is one activity's simplified, privacy-trimmed polyline, suitable
+// for the public "all routes" map. Points are [lon, lat] pairs (GeoJSON
+// coordinate order).
+type RouteLine struct {
+	SportType string
+	Points    [][2]float64
+}
+
+// routePointRow is the minimal projection needed to build public route
+// lines: no timestamps, elevation, speed, or heart rate leave the database.
+type routePointRow struct {
+	ActivityID uuid.UUID
+	SportType  string
+	Seq        int
+	Lat        *float64
+	Lon        *float64
+}
+
+// RouteLines returns all activities' route points, privacy-trimmed (the
+// first/last routeTrimMeters of each track are dropped so a viewer can't
+// infer exact start/end addresses) and decimated to at most routeMaxPoints
+// per activity. Activities left with fewer than routeMinPoints after
+// trimming are omitted entirely.
+func (s *Service) RouteLines() ([]RouteLine, error) {
+	var rows []routePointRow
+	err := s.db.Table("tb_activity_route_points AS p").
+		Select("p.activity_id", "a.sport_type", "p.seq", "p.lat", "p.lon").
+		Joins("JOIN tb_activities AS a ON a.id = p.activity_id").
+		Order("p.activity_id, p.seq asc").
+		Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("route lines: %w", err)
+	}
+
+	lines := make([]RouteLine, 0)
+	var current []routePointRow
+	var currentSport string
+	var currentID uuid.UUID
+	flush := func() {
+		if len(current) == 0 {
+			return
+		}
+		if points := trimAndDecimateRoute(current); len(points) >= routeMinPoints {
+			lines = append(lines, RouteLine{SportType: currentSport, Points: points})
+		}
+	}
+	for _, row := range rows {
+		if row.ActivityID != currentID {
+			flush()
+			current = current[:0]
+			currentID = row.ActivityID
+			currentSport = row.SportType
+		}
+		current = append(current, row)
+	}
+	flush()
+
+	return lines, nil
+}
+
+// trimAndDecimateRoute drops the first/last routeTrimMeters of a single
+// activity's track (measured along its coordinates) then decimates the
+// remainder to at most routeMaxPoints, always keeping the last kept point.
+func trimAndDecimateRoute(rows []routePointRow) [][2]float64 {
+	coords := make([][2]float64, 0, len(rows))
+	for _, row := range rows {
+		if row.Lat == nil || row.Lon == nil {
+			continue
+		}
+		coords = append(coords, [2]float64{*row.Lon, *row.Lat})
+	}
+	if len(coords) < routeMinPoints {
+		return nil
+	}
+
+	trimmed := trimRouteEnds(coords)
+	if len(trimmed) < routeMinPoints {
+		return nil
+	}
+	return decimatePoints(trimmed)
+}
+
+// trimRouteEnds drops points within routeTrimMeters of the start and end of
+// the track. Distance is accumulated along the track with the haversine
+// formula, since route points carry no reliable distance_m. Tracks shorter
+// than 2*routeTrimMeters are dropped entirely (nothing left after trimming).
+func trimRouteEnds(coords [][2]float64) [][2]float64 {
+	if len(coords) < routeMinPoints {
+		return nil
+	}
+
+	cumulative := make([]float64, len(coords))
+	for i := 1; i < len(coords); i++ {
+		cumulative[i] = cumulative[i-1] + haversineMeters(coords[i-1], coords[i])
+	}
+	total := cumulative[len(cumulative)-1]
+	if total <= 2*routeTrimMeters {
+		return nil
+	}
+
+	hi := total - routeTrimMeters
+	trimmed := make([][2]float64, 0, len(coords))
+	for i, coord := range coords {
+		if cumulative[i] >= routeTrimMeters && cumulative[i] <= hi {
+			trimmed = append(trimmed, coord)
+		}
+	}
+	return trimmed
+}
+
+// haversineMeters returns the great-circle distance between two [lon, lat]
+// points in meters.
+func haversineMeters(a, b [2]float64) float64 {
+	lat1 := a[1] * math.Pi / 180
+	lat2 := b[1] * math.Pi / 180
+	dLat := lat2 - lat1
+	dLon := (b[0] - a[0]) * math.Pi / 180
+
+	h := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1)*math.Cos(lat2)*math.Sin(dLon/2)*math.Sin(dLon/2)
+	return 2 * earthRadiusMeters * math.Asin(math.Sqrt(h))
+}
+
+// decimatePoints keeps at most routeMaxPoints points, chosen with an even
+// stride, always including the final point so the line still reaches the
+// track's (trimmed) end.
+func decimatePoints(points [][2]float64) [][2]float64 {
+	if len(points) <= routeMaxPoints {
+		return points
+	}
+
+	stride := int(math.Ceil(float64(len(points)) / float64(routeMaxPoints)))
+	out := make([][2]float64, 0, routeMaxPoints+1)
+	for i := 0; i < len(points); i += stride {
+		out = append(out, points[i])
+	}
+	last := points[len(points)-1]
+	if out[len(out)-1] != last {
+		out = append(out, last)
+	}
+	return out
 }
 
 func (s *Service) Samplings(id string) ([]models.ActivitySampling, bool, error) {

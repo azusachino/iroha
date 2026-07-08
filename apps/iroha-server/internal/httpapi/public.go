@@ -90,6 +90,57 @@ func (s *Server) handlePublicActivities(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, response)
 }
 
+// geoJSONFeatureCollection and geoJSONFeature are minimal GeoJSON types for
+// the public routes response — just enough to describe a LineString per
+// route, without pulling in a full GeoJSON dependency.
+type geoJSONFeatureCollection struct {
+	Type     string           `json:"type"`
+	Features []geoJSONFeature `json:"features"`
+}
+
+type geoJSONFeature struct {
+	Type       string            `json:"type"`
+	Geometry   geoJSONLineString `json:"geometry"`
+	Properties routeLineProps    `json:"properties"`
+}
+
+type geoJSONLineString struct {
+	Type        string       `json:"type"`
+	Coordinates [][2]float64 `json:"coordinates"`
+}
+
+type routeLineProps struct {
+	SportType string `json:"sport_type"`
+}
+
+func (s *Server) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
+	response, err := cache.GetOrLoad(
+		r.Context(), s.deps.Cache, "public:routes:v1", publicCacheTTL,
+		func() (geoJSONFeatureCollection, error) {
+			lines, err := s.deps.ActivityService.RouteLines()
+			if err != nil {
+				return geoJSONFeatureCollection{}, err
+			}
+
+			features := make([]geoJSONFeature, 0, len(lines))
+			for _, line := range lines {
+				features = append(features, geoJSONFeature{
+					Type:       "Feature",
+					Geometry:   geoJSONLineString{Type: "LineString", Coordinates: line.Points},
+					Properties: routeLineProps{SportType: line.SportType},
+				})
+			}
+			return geoJSONFeatureCollection{Type: "FeatureCollection", Features: features}, nil
+		},
+	)
+	if err != nil {
+		s.deps.Logger.Error("public routes", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load routes")
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 func toPublicActivityResponse(activity models.Activity) publicActivityResponse {
 	return publicActivityResponse{
 		ID:             ids.Encode(ids.ActivityPrefix, activity.ID),

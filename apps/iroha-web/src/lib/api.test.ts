@@ -7,13 +7,15 @@ import {
 	getActivityLaps,
 	getPublicSummary,
 	listPublicActivities,
+	getPublicRoutes,
 	type Activity,
 	type Page,
 	type RoutePoint,
 	type SamplingPoint,
 	type Lap,
 	type Summary,
-	type PublicActivity
+	type PublicActivity,
+	type RouteFeatureCollection
 } from './api';
 
 const emptyPage: Page<Activity> = { items: [], next_cursor: null, has_more: false };
@@ -358,6 +360,40 @@ describe('listPublicActivities', () => {
 
 		const result = await listPublicActivities({}, fakeFetch);
 		expect(result).toEqual(mockPage);
+	});
+});
+
+describe('getPublicRoutes', () => {
+	it('builds correct path', async () => {
+		const emptyCollection: RouteFeatureCollection = { type: 'FeatureCollection', features: [] };
+		const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyCollection);
+		await getPublicRoutes(fakeFetch);
+
+		const url = getCapturedUrl();
+		expect(url).toContain('/public/v1/routes');
+	});
+
+	it('returns the route feature collection', async () => {
+		const mockCollection: RouteFeatureCollection = {
+			type: 'FeatureCollection',
+			features: [
+				{
+					type: 'Feature',
+					geometry: {
+						type: 'LineString',
+						coordinates: [
+							[-0.1, 51.5],
+							[-0.11, 51.51]
+						]
+					},
+					properties: { sport_type: 'run' }
+				}
+			]
+		};
+		const { fakeFetch } = createFakeFetch(mockCollection);
+
+		const result = await getPublicRoutes(fakeFetch);
+		expect(result).toEqual(mockCollection);
 	});
 });
 

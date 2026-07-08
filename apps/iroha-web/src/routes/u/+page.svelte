@@ -2,11 +2,14 @@
 	import {
 		getPublicSummary,
 		listPublicActivities,
+		getPublicRoutes,
 		type Summary,
 		type SummaryBucket,
-		type PublicActivity
+		type PublicActivity,
+		type RouteFeatureCollection
 	} from '$lib/api';
 	import { formatDistance, formatDuration, formatDateOnly } from '$lib/format';
+	import RoutesMap from '$lib/components/RoutesMap.svelte';
 
 	const MONTH_LABELS = [
 		'Jan',
@@ -113,10 +116,28 @@
 		}
 	}
 
+	// --- All-routes map ---
+	let routes = $state<RouteFeatureCollection | null>(null);
+	let routesLoading = $state(true);
+	let routesError = $state<string | null>(null);
+
+	async function loadRoutes() {
+		routesLoading = true;
+		routesError = null;
+		try {
+			routes = await getPublicRoutes();
+		} catch (e) {
+			routesError = e instanceof Error ? e.message : String(e);
+		} finally {
+			routesLoading = false;
+		}
+	}
+
 	// Initial loads (run once — no reactive dependencies read).
 	$effect(() => {
 		loadSummary();
 		loadActivities(false);
+		loadRoutes();
 	});
 </script>
 
@@ -230,6 +251,20 @@
 			{/if}
 		</div>
 	{/if}
+{/if}
+
+<!-- All-routes map -->
+<h2>Routes</h2>
+{#if routesLoading}
+	<p class="muted">Loading routes…</p>
+{:else if routesError}
+	<p class="error">Failed to load routes: {routesError}</p>
+{:else if !routes || routes.features.length === 0}
+	<p class="muted">No routes found.</p>
+{:else}
+	<div class="mb-8">
+		<RoutesMap data={routes} />
+	</div>
 {/if}
 
 <!-- Activity table -->

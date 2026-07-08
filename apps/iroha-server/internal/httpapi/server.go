@@ -84,6 +84,7 @@ func (s *Server) routes() {
 		r.Use(corsMiddleware([]string{"*"}))
 		r.Get("/summary", s.handlePublicSummary)
 		r.Get("/activities", s.handlePublicActivities)
+		r.Get("/routes", s.handlePublicRoutes)
 	})
 }
 
