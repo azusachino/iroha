@@ -8,7 +8,7 @@
 		type PublicActivity,
 		type RouteFeatureCollection
 	} from '$lib/api';
-	import { formatDistance, formatDuration, formatDateOnly } from '$lib/format';
+	import { formatDistance, formatDuration, formatDate, formatSport } from '$lib/format';
 	import RoutesMap from '$lib/components/RoutesMap.svelte';
 
 	const MONTH_LABELS = [
@@ -189,11 +189,11 @@
 		<!-- Per-month bar chart -->
 		<div class="mb-8 rounded-lg border border-border bg-surface p-4">
 			<div class="mb-3 text-sm text-text-muted">Monthly {monthMetric === 'distance_m' ? 'distance' : 'activities'} — {selectedYear}</div>
-			<div class="flex h-40 items-end gap-2">
+			<div class="flex h-40 items-stretch gap-2">
 				{#each monthSlots as slot (slot.key)}
 					{@const value = slot.bucket ? slot.bucket[monthMetric] : 0}
 					{@const heightPct = Math.max(2, (value / monthMax) * 100)}
-					<div class="group relative flex flex-1 flex-col items-center justify-end gap-1">
+					<div class="group relative flex h-full flex-1 flex-col items-center justify-end gap-1">
 						<div
 							class="pointer-events-none absolute -top-6 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] whitespace-nowrap text-text opacity-0 transition-opacity group-hover:opacity-100"
 						>
@@ -227,7 +227,7 @@
 							class:text-text={sportFilter === null || sportFilter === sport.key}
 							class:text-text-muted={sportFilter !== null && sportFilter !== sport.key}
 						>
-							{sport.key}
+							{formatSport(sport.key)}
 						</span>
 						<div class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
 							<div
@@ -246,7 +246,7 @@
 			</div>
 			{#if sportFilter}
 				<button class="mt-2 text-xs text-accent underline" onclick={() => toggleSport(sportFilter!)}>
-					Clear sport filter ({sportFilter})
+					Clear sport filter ({formatSport(sportFilter)})
 				</button>
 			{/if}
 		</div>
@@ -289,11 +289,11 @@
 			<tbody>
 				{#each activities as activity (activity.id)}
 					<tr class="border-b border-border last:border-0 odd:bg-surface even:bg-surface/60">
-						<td class="px-3 py-2 text-text"
-							>{formatDateOnly(activity.started_at, activity.timezone)}</td
+						<td class="px-3 py-2 whitespace-nowrap text-text"
+							>{formatDate(activity.started_at, activity.timezone)}</td
 						>
 						<td class="px-3 py-2">
-							<span class="badge">{activity.sport_type}</span>
+							<span class="badge">{formatSport(activity.sport_type)}</span>
 						</td>
 						<td class="px-3 py-2 text-text">{formatDistance(activity.distance_m)}</td>
 						<td class="px-3 py-2 text-text"

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { listActivities, type Activity, type ListActivitiesParams } from '$lib/api';
-	import { formatDistance, formatDuration, formatDateOnly } from '$lib/format';
+	import { formatDistance, formatDuration, formatDate, formatSport } from '$lib/format';
 
 	// Draft filter inputs (bound to the form); committed to `applied` on submit
 	// so "Load more" keeps paging the same query the user actually ran.
@@ -129,8 +129,8 @@
 				<a class="activity-card" href={`/activities/${activity.id}`}>
 					<div class="title">{activity.title || 'Untitled activity'}</div>
 					<div class="meta">
-						<span class="badge">{activity.sport_type}</span>
-						<span>{formatDateOnly(activity.started_at, activity.timezone)}</span>
+						<span class="badge">{formatSport(activity.sport_type)}</span>
+						<span>{formatDate(activity.started_at, activity.timezone)}</span>
 						<span>{formatDistance(activity.distance_m)}</span>
 						<span>{formatDuration(activity.duration_s ?? activity.moving_time_s)}</span>
 					</div>

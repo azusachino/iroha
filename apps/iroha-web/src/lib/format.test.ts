@@ -6,10 +6,44 @@ import {
 	formatElevation,
 	formatHr,
 	formatDate,
-	formatDateOnly
+	formatDateOnly,
+	formatSport
 } from './format';
 
 const DASH = '—';
+
+describe('formatSport', () => {
+	it('returns dash for missing input', () => {
+		expect(formatSport(undefined)).toBe(DASH);
+		expect(formatSport('')).toBe(DASH);
+	});
+
+	it('title-cases short lowercase codes', () => {
+		expect(formatSport('run')).toBe('Run');
+		expect(formatSport('ride')).toBe('Ride');
+	});
+
+	it('splits Apple PascalCase into words', () => {
+		expect(formatSport('FitnessGaming')).toBe('Fitness Gaming');
+		expect(formatSport('HighIntensityIntervalTraining')).toBe('High Intensity Interval Training');
+	});
+
+	it('normalizes underscores', () => {
+		expect(formatSport('functional_strength_training')).toBe('Functional Strength Training');
+	});
+});
+
+describe('formatDate', () => {
+	it('renders yyyy-MM-dd HH:mm:ss in the given timezone', () => {
+		expect(formatDate('2026-07-09T00:39:38Z', 'UTC')).toBe('2026-07-09 00:39:38');
+	});
+});
+
+describe('formatDateOnly is yyyy-MM-dd', () => {
+	it('renders date only in the given timezone', () => {
+		expect(formatDateOnly('2026-07-09T00:39:38Z', 'UTC')).toBe('2026-07-09');
+	});
+});
 
 describe('formatDistance', () => {
 	it('returns em dash for undefined', () => {

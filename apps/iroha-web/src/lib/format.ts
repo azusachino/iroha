@@ -38,31 +38,56 @@ export function formatHr(bpm?: number): string {
 	return `${Math.round(bpm)} bpm`;
 }
 
+// Full timestamp as `yyyy-MM-dd HH:mm:ss` in the activity's timezone. The
+// sv-SE locale renders exactly this ISO-like shape with a 24-hour clock.
 export function formatDate(iso?: string, timezone?: string): string {
 	if (!iso) return DASH;
 	const d = new Date(iso);
 	if (isNaN(d.getTime())) return iso;
 	try {
-		return new Intl.DateTimeFormat('en-GB', {
-			dateStyle: 'medium',
-			timeStyle: 'short',
+		return new Intl.DateTimeFormat('sv-SE', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: false,
 			timeZone: timezone || undefined
 		}).format(d);
 	} catch {
-		return d.toLocaleString();
+		return d.toISOString().slice(0, 19).replace('T', ' ');
 	}
 }
 
+// Date only as `yyyy-MM-dd` in the activity's timezone.
 export function formatDateOnly(iso?: string, timezone?: string): string {
 	if (!iso) return DASH;
 	const d = new Date(iso);
 	if (isNaN(d.getTime())) return iso;
 	try {
-		return new Intl.DateTimeFormat('en-GB', {
-			dateStyle: 'medium',
+		return new Intl.DateTimeFormat('sv-SE', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
 			timeZone: timezone || undefined
 		}).format(d);
 	} catch {
-		return d.toLocaleDateString();
+		return d.toISOString().slice(0, 10);
 	}
+}
+
+// Normalize a sport type for display: iroha stores a mix of short lowercase
+// codes (run, walk, ride) and raw Apple PascalCase (FitnessGaming,
+// HighIntensityIntervalTraining). Render all of them as uniform Title Case.
+export function formatSport(sport?: string): string {
+	if (!sport) return DASH;
+	return sport
+		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+		.replace(/[_-]+/g, ' ')
+		.trim()
+		.toLowerCase()
+		.split(/\s+/)
+		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+		.join(' ');
 }

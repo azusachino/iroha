@@ -16,7 +16,8 @@
 		formatPace,
 		formatElevation,
 		formatHr,
-		formatDate
+		formatDate,
+		formatSport
 	} from '$lib/format';
 	import RouteMap from '$lib/components/RouteMap.svelte';
 	import LineChart, { type ChartSeries } from '$lib/components/LineChart.svelte';
@@ -98,6 +99,29 @@
 	const hrSeries = $derived.by(() => column((p) => p.heart_rate));
 	const elevationSeries = $derived.by(() => column((p) => p.elevation_m));
 
+	// Apple exports carry no activity-level elevation gain, but route points do
+	// have elevation — estimate cumulative climb from them (3 m hysteresis to
+	// damp GPS noise) when the stored value is absent.
+	const elevationGainM = $derived.by<number | undefined>(() => {
+		if (activity?.elevation_gain_m != null) return activity.elevation_gain_m;
+		const elevs = route
+			.map((p) => p.elevation_m)
+			.filter((e): e is number => e != null && Number.isFinite(e));
+		if (elevs.length < 2) return undefined;
+		const threshold = 3;
+		let gain = 0;
+		let ref = elevs[0];
+		for (const e of elevs) {
+			if (e - ref >= threshold) {
+				gain += e - ref;
+				ref = e;
+			} else if (e < ref) {
+				ref = e;
+			}
+		}
+		return gain;
+	});
+
 	// Fallback heart-rate series from samplings when route points carry no HR.
 	interface SamplingChart {
 		x: number[];
@@ -143,7 +167,7 @@
 {:else if activity}
 	<h1>{activity.title || 'Untitled activity'}</h1>
 	<div class="filters">
-		<span class="badge">{activity.sport_type}</span>
+		<span class="badge">{formatSport(activity.sport_type)}</span>
 		<span class="muted">{formatDate(activity.started_at, activity.timezone)}</span>
 	</div>
 
@@ -156,13 +180,15 @@
 			<div class="label">Duration</div>
 			<div class="value">{formatDuration(activity.duration_s)}</div>
 		</div>
-		<div class="metric">
-			<div class="label">Moving time</div>
-			<div class="value">{formatDuration(activity.moving_time_s)}</div>
-		</div>
+		{#if activity.moving_time_s != null}
+			<div class="metric">
+				<div class="label">Moving time</div>
+				<div class="value">{formatDuration(activity.moving_time_s)}</div>
+			</div>
+		{/if}
 		<div class="metric">
 			<div class="label">Elevation gain</div>
-			<div class="value">{formatElevation(activity.elevation_gain_m)}</div>
+			<div class="value">{formatElevation(elevationGainM)}</div>
 		</div>
 		<div class="metric">
 			<div class="label">Avg pace</div>
