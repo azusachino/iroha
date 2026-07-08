@@ -6,28 +6,47 @@ import (
 
 	"github.com/azusachino/iroha/apps/iroha-server/internal/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/internal/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+const defaultPageLimit = 50
 
 type Service struct {
 	db *gorm.DB
 }
 
+// Cursor is a keyset position over the (started_at desc, id desc) ordering.
+type Cursor struct {
+	StartedAt time.Time
+	ID        uuid.UUID
+}
+
 type ListFilters struct {
-	SportType   string
-	StartedFrom *time.Time
-	StartedTo   *time.Time
-	Limit       int
+	SportType    string
+	StartedFrom  *time.Time
+	StartedTo    *time.Time
+	DistanceMinM *float64
+	DistanceMaxM *float64
+	Limit        int
+	Cursor       *Cursor
+}
+
+// Page is one keyset window; NextCursor is nil when no further rows exist.
+type Page struct {
+	Items      []models.Activity
+	NextCursor *Cursor
+	HasMore    bool
 }
 
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
-func (s *Service) List(filters ListFilters) ([]models.Activity, error) {
+func (s *Service) List(filters ListFilters) (Page, error) {
 	limit := filters.Limit
 	if limit <= 0 || limit > 100 {
-		limit = 50
+		limit = defaultPageLimit
 	}
 
 	query := s.db.Model(&models.Activity{})
@@ -40,10 +59,33 @@ func (s *Service) List(filters ListFilters) ([]models.Activity, error) {
 	if filters.StartedTo != nil {
 		query = query.Where("started_at <= ?", *filters.StartedTo)
 	}
+	// Distance filters naturally exclude rows with a NULL distance_m.
+	if filters.DistanceMinM != nil {
+		query = query.Where("distance_m >= ?", *filters.DistanceMinM)
+	}
+	if filters.DistanceMaxM != nil {
+		query = query.Where("distance_m <= ?", *filters.DistanceMaxM)
+	}
+	if filters.Cursor != nil {
+		// Row-value comparison walks the (started_at desc, id desc) order:
+		// keep rows strictly after the cursor position.
+		query = query.Where("(started_at, id) < (?, ?)", filters.Cursor.StartedAt, filters.Cursor.ID)
+	}
 
+	// Fetch one extra row to detect whether another page follows.
 	var rows []models.Activity
-	err := query.Order("started_at desc").Limit(limit).Find(&rows).Error
-	return rows, err
+	if err := query.Order("started_at desc, id desc").Limit(limit + 1).Find(&rows).Error; err != nil {
+		return Page{}, err
+	}
+
+	page := Page{Items: rows}
+	if len(rows) > limit {
+		last := rows[limit-1]
+		page.Items = rows[:limit]
+		page.HasMore = true
+		page.NextCursor = &Cursor{StartedAt: last.StartedAt, ID: last.ID}
+	}
+	return page, nil
 }
 
 func (s *Service) Get(id string) (models.Activity, bool, error) {

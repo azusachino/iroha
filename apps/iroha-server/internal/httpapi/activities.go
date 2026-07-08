@@ -11,6 +11,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+type activityListResponse struct {
+	Items      []activityResponse `json:"items"`
+	NextCursor *string            `json:"next_cursor"`
+	HasMore    bool               `json:"has_more"`
+}
+
 type activityResponse struct {
 	ID               string     `json:"id"`
 	SportType        string     `json:"sport_type"`
@@ -68,16 +74,22 @@ func (s *Server) handleListActivities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := s.deps.ActivityService.List(filters)
+	page, err := s.deps.ActivityService.List(filters)
 	if err != nil {
 		s.deps.Logger.Error("list activities", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list activities")
 		return
 	}
 
-	response := make([]activityResponse, 0, len(rows))
-	for _, row := range rows {
-		response = append(response, toActivityResponse(row))
+	items := make([]activityResponse, 0, len(page.Items))
+	for _, row := range page.Items {
+		items = append(items, toActivityResponse(row))
+	}
+
+	response := activityListResponse{Items: items, HasMore: page.HasMore}
+	if page.NextCursor != nil {
+		cursor := activities.EncodeCursor(*page.NextCursor)
+		response.NextCursor = &cursor
 	}
 	writeJSON(w, http.StatusOK, response)
 }
@@ -200,6 +212,30 @@ func parseActivityFilters(w http.ResponseWriter, r *http.Request) (activities.Li
 			return activities.ListFilters{}, false
 		}
 		filters.StartedTo = &parsed
+	}
+	if value := query.Get("min_distance_m"); value != "" {
+		parsed, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid min_distance_m")
+			return activities.ListFilters{}, false
+		}
+		filters.DistanceMinM = &parsed
+	}
+	if value := query.Get("max_distance_m"); value != "" {
+		parsed, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid max_distance_m")
+			return activities.ListFilters{}, false
+		}
+		filters.DistanceMaxM = &parsed
+	}
+	if value := query.Get("cursor"); value != "" {
+		cursor, err := activities.DecodeCursor(value)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid cursor")
+			return activities.ListFilters{}, false
+		}
+		filters.Cursor = &cursor
 	}
 
 	return filters, true

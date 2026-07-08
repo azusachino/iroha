@@ -56,7 +56,21 @@ export interface Lap {
 
 export interface ListActivitiesParams {
 	sport_type?: string;
+	// RFC3339 timestamps; inclusive bounds on started_at.
+	started_from?: string;
+	started_to?: string;
+	// Distance bounds in meters; rows with no distance are excluded.
+	min_distance_m?: number;
+	max_distance_m?: number;
 	limit?: number;
+	cursor?: string;
+}
+
+// One keyset page. `next_cursor` is null when no further rows exist.
+export interface Page<T> {
+	items: T[];
+	next_cursor: string | null;
+	has_more: boolean;
 }
 
 async function getJSON<T>(path: string, fetchFn: typeof fetch = fetch): Promise<T> {
@@ -72,12 +86,17 @@ async function getJSON<T>(path: string, fetchFn: typeof fetch = fetch): Promise<
 export function listActivities(
 	params: ListActivitiesParams = {},
 	fetchFn: typeof fetch = fetch
-): Promise<Activity[]> {
+): Promise<Page<Activity>> {
 	const query = new URLSearchParams();
 	if (params.sport_type) query.set('sport_type', params.sport_type);
+	if (params.started_from) query.set('started_from', params.started_from);
+	if (params.started_to) query.set('started_to', params.started_to);
+	if (params.min_distance_m != null) query.set('min_distance_m', String(params.min_distance_m));
+	if (params.max_distance_m != null) query.set('max_distance_m', String(params.max_distance_m));
 	if (params.limit != null) query.set('limit', String(params.limit));
+	if (params.cursor) query.set('cursor', params.cursor);
 	const suffix = query.toString() ? `?${query.toString()}` : '';
-	return getJSON<Activity[]>(`/api/v1/activities${suffix}`, fetchFn);
+	return getJSON<Page<Activity>>(`/api/v1/activities${suffix}`, fetchFn);
 }
 
 export function getActivity(id: string, fetchFn: typeof fetch = fetch): Promise<Activity> {

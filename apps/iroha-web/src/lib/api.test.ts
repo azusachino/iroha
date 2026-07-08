@@ -6,10 +6,13 @@ import {
 	getActivitySamplings,
 	getActivityLaps,
 	type Activity,
+	type Page,
 	type RoutePoint,
 	type SamplingPoint,
 	type Lap
 } from './api';
+
+const emptyPage: Page<Activity> = { items: [], next_cursor: null, has_more: false };
 
 // Helper to create a fake fetch function that captures the URL and returns a response
 function createFakeFetch(responseData: any, ok = true, status = 200, statusText = 'OK') {
@@ -64,24 +67,36 @@ describe('listActivities', () => {
 		expect(url).toContain('limit=20');
 	});
 
-	it('returns the activities array', async () => {
-		const mockActivities: Activity[] = [
-			{
-				id: 'act1',
-				sport_type: 'run',
-				title: 'Morning Run',
-				started_at: '2024-01-01T08:00:00Z',
-				timezone: 'UTC',
-				source_kind: 'manual',
-				first_raw_file_id: 'file1',
-				created_at: '2024-01-01T08:00:00Z',
-				updated_at: '2024-01-01T08:00:00Z'
-			}
-		];
-		const { fakeFetch } = createFakeFetch(mockActivities);
+	it('adds cursor param when provided', async () => {
+		const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyPage);
+		await listActivities({ cursor: 'abc123' }, fakeFetch);
+
+		const url = getCapturedUrl();
+		expect(url).toContain('cursor=abc123');
+	});
+
+	it('returns the activities page envelope', async () => {
+		const mockPage: Page<Activity> = {
+			items: [
+				{
+					id: 'act1',
+					sport_type: 'run',
+					title: 'Morning Run',
+					started_at: '2024-01-01T08:00:00Z',
+					timezone: 'UTC',
+					source_kind: 'manual',
+					first_raw_file_id: 'file1',
+					created_at: '2024-01-01T08:00:00Z',
+					updated_at: '2024-01-01T08:00:00Z'
+				}
+			],
+			next_cursor: 'next123',
+			has_more: true
+		};
+		const { fakeFetch } = createFakeFetch(mockPage);
 
 		const result = await listActivities({}, fakeFetch);
-		expect(result).toEqual(mockActivities);
+		expect(result).toEqual(mockPage);
 	});
 });
 
