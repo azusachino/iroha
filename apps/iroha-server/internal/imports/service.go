@@ -21,6 +21,11 @@ const (
 	StatusFailed    = "failed"
 )
 
+// DefaultParserVersion identifies the current parser build. A completed
+// import at a different version triggers a reprocess (purge + re-persist)
+// rather than a duplicate append; bump this when parser semantics change.
+const DefaultParserVersion = "apple-health-2026-07"
+
 type Service struct {
 	db            *gorm.DB
 	logger        *slog.Logger
@@ -34,7 +39,7 @@ type CreateInput struct {
 
 func NewService(db *gorm.DB, logger *slog.Logger, parserVersion string) *Service {
 	if parserVersion == "" {
-		parserVersion = "dev"
+		parserVersion = DefaultParserVersion
 	}
 	if logger == nil {
 		logger = slog.Default()

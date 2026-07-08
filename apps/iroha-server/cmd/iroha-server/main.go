@@ -40,7 +40,7 @@ func main() {
 	// bumped without recompiling.
 	parserVersion := os.Getenv("IROHA_PARSER_VERSION")
 	if parserVersion == "" {
-		parserVersion = "apple-health-2026-07"
+		parserVersion = imports.DefaultParserVersion
 	}
 	importService := imports.NewService(db, logger, parserVersion)
 	activityService := activities.NewService(db)
