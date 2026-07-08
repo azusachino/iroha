@@ -409,6 +409,195 @@ func TestWorkoutContentHashChangesWithRouteIdentity(t *testing.T) {
 	}
 }
 
+func TestWorkoutToActivityAppliesStatisticsToSummaryFields(t *testing.T) {
+	workout := appleWorkout{
+		WorkoutActivityType: "HKWorkoutActivityTypeRunning",
+		StartDate:           "2024-01-01 08:00:00 -0700",
+		EndDate:             "2024-01-01 08:30:00 -0700",
+		Duration:            "30",
+		DurationUnit:        "min",
+		TotalDistance:       "1",
+		TotalDistanceUnit:   "km",
+		SourceName:          "Watch",
+		Statistics: []appleWorkoutStatistic{
+			{Type: "HKQuantityTypeIdentifierHeartRate", Average: "145.4", Maximum: "172.6", Minimum: "98", Unit: "count/min"},
+			{Type: "HKQuantityTypeIdentifierDistanceWalkingRunning", Sum: "5", Unit: "km"},
+			{Type: "HKQuantityTypeIdentifierActiveEnergyBurned", Sum: "300", Unit: "kcal"},
+		},
+	}
+
+	activity, ok := workoutToActivity(workout)
+	if !ok {
+		t.Fatalf("workoutToActivity returned ok=false")
+	}
+
+	if activity.AvgHR == nil || *activity.AvgHR != 145 {
+		t.Errorf("AvgHR = %v, want 145 (rounded from 145.4)", activity.AvgHR)
+	}
+	if activity.MaxHR == nil || *activity.MaxHR != 173 {
+		t.Errorf("MaxHR = %v, want 173 (rounded from 172.6)", activity.MaxHR)
+	}
+	// The per-statistic distance (5km) must win over the workout-level
+	// totalDistance attribute (1km).
+	if activity.DistanceM == nil || *activity.DistanceM != 5000 {
+		t.Errorf("DistanceM = %v, want 5000 (from statistic, not totalDistance)", activity.DistanceM)
+	}
+	// duration 1800s over 5km -> 360 s/km.
+	if activity.AvgPaceSPerKM == nil || *activity.AvgPaceSPerKM != 360 {
+		t.Errorf("AvgPaceSPerKM = %v, want 360", activity.AvgPaceSPerKM)
+	}
+}
+
+func TestWorkoutToActivityWithoutDistanceStatKeepsTotalDistance(t *testing.T) {
+	workout := appleWorkout{
+		WorkoutActivityType: "HKWorkoutActivityTypeRunning",
+		StartDate:           "2024-01-01 08:00:00 -0700",
+		EndDate:             "2024-01-01 08:30:00 -0700",
+		Duration:            "30",
+		DurationUnit:        "min",
+		TotalDistance:       "1",
+		TotalDistanceUnit:   "km",
+		SourceName:          "Watch",
+	}
+
+	activity, ok := workoutToActivity(workout)
+	if !ok {
+		t.Fatalf("workoutToActivity returned ok=false")
+	}
+	if activity.DistanceM == nil || *activity.DistanceM != 1000 {
+		t.Errorf("DistanceM = %v, want 1000 (from workout-level totalDistance)", activity.DistanceM)
+	}
+	if activity.AvgHR != nil || activity.MaxHR != nil {
+		t.Errorf("expected AvgHR/MaxHR to remain nil without a HeartRate statistic, got %v/%v", activity.AvgHR, activity.MaxHR)
+	}
+}
+
+func TestDeriveWorkoutLapsFromLapEvents(t *testing.T) {
+	workout := appleWorkout{
+		WorkoutActivityType: "HKWorkoutActivityTypeRunning",
+		StartDate:           "2024-01-01 08:00:00 -0700",
+		EndDate:             "2024-01-01 08:30:00 -0700",
+		Duration:            "30",
+		DurationUnit:        "min",
+		SourceName:          "Watch",
+		Events: []appleWorkoutEvent{
+			{Type: "HKWorkoutEventTypeLap", Date: "2024-01-01 08:10:00 -0700"},
+			{Type: "HKWorkoutEventTypeLap", Date: "2024-01-01 08:22:00 -0700"},
+		},
+	}
+
+	activity, ok := workoutToActivity(workout)
+	if !ok {
+		t.Fatalf("workoutToActivity returned ok=false")
+	}
+
+	if len(activity.Laps) != 2 {
+		t.Fatalf("expected 2 laps, got %d: %+v", len(activity.Laps), activity.Laps)
+	}
+
+	lap1 := activity.Laps[0]
+	if lap1.LapNo != 1 {
+		t.Errorf("lap1.LapNo = %d, want 1", lap1.LapNo)
+	}
+	if lap1.StartTs == nil || lap1.StartTs.Format("15:04:05") != "08:00:00" {
+		t.Errorf("lap1.StartTs = %v, want workout start (08:00:00)", lap1.StartTs)
+	}
+	if lap1.EndTs == nil || lap1.EndTs.Format("15:04:05") != "08:10:00" {
+		t.Errorf("lap1.EndTs = %v, want first lap event (08:10:00)", lap1.EndTs)
+	}
+	if lap1.DurationS == nil || *lap1.DurationS != 600 {
+		t.Errorf("lap1.DurationS = %v, want 600", lap1.DurationS)
+	}
+
+	lap2 := activity.Laps[1]
+	if lap2.LapNo != 2 {
+		t.Errorf("lap2.LapNo = %d, want 2", lap2.LapNo)
+	}
+	if lap2.StartTs == nil || lap2.StartTs.Format("15:04:05") != "08:10:00" {
+		t.Errorf("lap2.StartTs = %v, want prior lap boundary (08:10:00)", lap2.StartTs)
+	}
+	if lap2.EndTs == nil || lap2.EndTs.Format("15:04:05") != "08:22:00" {
+		t.Errorf("lap2.EndTs = %v, want second lap event (08:22:00)", lap2.EndTs)
+	}
+	if lap2.DurationS == nil || *lap2.DurationS != 720 {
+		t.Errorf("lap2.DurationS = %v, want 720", lap2.DurationS)
+	}
+}
+
+func TestDeriveWorkoutLapsMarkerOnlyProducesNoLaps(t *testing.T) {
+	workout := appleWorkout{
+		WorkoutActivityType: "HKWorkoutActivityTypeRunning",
+		StartDate:           "2024-01-01 08:00:00 -0700",
+		EndDate:             "2024-01-01 08:30:00 -0700",
+		Duration:            "30",
+		DurationUnit:        "min",
+		SourceName:          "Watch",
+		Events: []appleWorkoutEvent{
+			{Type: "HKWorkoutEventTypeMarker", Date: "2024-01-01 08:15:00 -0700"},
+		},
+	}
+
+	activity, ok := workoutToActivity(workout)
+	if !ok {
+		t.Fatalf("workoutToActivity returned ok=false")
+	}
+	if activity.Laps != nil {
+		t.Errorf("expected nil Laps for a marker-only workout, got %+v", activity.Laps)
+	}
+}
+
+func TestDeriveWorkoutLapsFallsBackToSegmentEvents(t *testing.T) {
+	workout := appleWorkout{
+		WorkoutActivityType: "HKWorkoutActivityTypeRunning",
+		StartDate:           "2024-01-01 08:00:00 -0700",
+		EndDate:             "2024-01-01 08:30:00 -0700",
+		Duration:            "30",
+		DurationUnit:        "min",
+		SourceName:          "Watch",
+		Events: []appleWorkoutEvent{
+			{Type: "HKWorkoutEventTypeSegment", Date: "2024-01-01 08:15:00 -0700"},
+		},
+	}
+
+	activity, ok := workoutToActivity(workout)
+	if !ok {
+		t.Fatalf("workoutToActivity returned ok=false")
+	}
+	if len(activity.Laps) != 1 {
+		t.Fatalf("expected 1 lap derived from the Segment event, got %d", len(activity.Laps))
+	}
+}
+
+func TestWorkoutContentHashChangesWithEvents(t *testing.T) {
+	base := appleWorkout{
+		WorkoutActivityType: "HKWorkoutActivityTypeRunning",
+		StartDate:           "2024-01-01 08:00:00 -0700",
+		EndDate:             "2024-01-01 08:30:00 -0700",
+		Duration:            "30",
+		DurationUnit:        "min",
+		SourceName:          "Watch",
+	}
+	baseHash := workoutContentHash(base)
+
+	withEvent := base
+	withEvent.Events = []appleWorkoutEvent{
+		{Type: "HKWorkoutEventTypeLap", Date: "2024-01-01 08:10:00 -0700"},
+	}
+	withEventHash := workoutContentHash(withEvent)
+	if withEventHash == baseHash {
+		t.Errorf("workoutContentHash should change when an event is added")
+	}
+
+	changedEventDate := base
+	changedEventDate.Events = []appleWorkoutEvent{
+		{Type: "HKWorkoutEventTypeLap", Date: "2024-01-01 08:11:00 -0700"},
+	}
+	changedEventDateHash := workoutContentHash(changedEventDate)
+	if changedEventDateHash == withEventHash {
+		t.Errorf("workoutContentHash should change when an event's date changes")
+	}
+}
+
 // newAppleWorkoutDecoderForTest is a tiny helper that exposes the decoded
 // appleWorkout structs (not just the resulting ParsedActivity) so the test
 // can assert on the newly captured nested fields.

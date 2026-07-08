@@ -317,6 +317,9 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 		if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
 			return err
 		}
+		if err := replaceLaps(tx, activityID, activity.Laps); err != nil {
+			return err
+		}
 		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
 			"content_hash":          activity.ContentHash,
 			"activity_id":           activityID,
@@ -330,6 +333,9 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 			return err
 		}
 		if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
+			return err
+		}
+		if err := replaceLaps(tx, activityID, activity.Laps); err != nil {
 			return err
 		}
 		itemID, err := ids.New()
@@ -367,6 +373,9 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed par
 			"ended_at":           parsed.EndedAt,
 			"distance_m":         parsed.DistanceM,
 			"duration_s":         parsed.DurationS,
+			"avg_hr":             parsed.AvgHR,
+			"max_hr":             parsed.MaxHR,
+			"avg_pace_s_per_km":  parsed.AvgPaceSPerKM,
 			"source_kind":        parsed.SourceKind,
 			"source_activity_id": parsed.SourceActivityID,
 			"updated_at":         now,
@@ -391,6 +400,9 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed par
 		EndedAt:          parsed.EndedAt,
 		DistanceM:        parsed.DistanceM,
 		DurationS:        parsed.DurationS,
+		AvgHR:            parsed.AvgHR,
+		MaxHR:            parsed.MaxHR,
+		AvgPaceSPerKM:    parsed.AvgPaceSPerKM,
 		SourceKind:       parsed.SourceKind,
 		SourceActivityID: parsed.SourceActivityID,
 		FirstRawFileID:   rawFile.ID,
@@ -414,6 +426,39 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed par
 	}
 
 	return activityID, nil
+}
+
+// replaceLaps deletes any existing laps for the activity and inserts the
+// newly parsed ones. Mirrors replaceRoutePoints, but laps are few per
+// workout so a simple create-slice loop (rather than a hand-built batched
+// multi-row INSERT) is fine here.
+func replaceLaps(tx *gorm.DB, activityID uuid.UUID, laps []parsers.ParsedLap) error {
+	if err := tx.Delete(&models.ActivityLap{}, "activity_id = ?", activityID).Error; err != nil {
+		return err
+	}
+	if len(laps) == 0 {
+		return nil
+	}
+
+	rows := make([]models.ActivityLap, 0, len(laps))
+	for _, lap := range laps {
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		rows = append(rows, models.ActivityLap{
+			ID:            id,
+			ActivityID:    activityID,
+			LapNo:         lap.LapNo,
+			StartTs:       lap.StartTs,
+			EndTs:         lap.EndTs,
+			DistanceM:     nil,
+			DurationS:     lap.DurationS,
+			AvgHR:         nil,
+			AvgPaceSPerKM: nil,
+		})
+	}
+	return tx.Create(&rows).Error
 }
 
 // routePointInsertBatchSize caps how many route points are inserted per

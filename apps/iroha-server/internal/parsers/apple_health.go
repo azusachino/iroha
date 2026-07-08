@@ -7,6 +7,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -235,7 +236,7 @@ func workoutToActivity(workout appleWorkout) (ParsedActivity, bool) {
 	externalID := stableWorkoutSourceKey(workout)
 	contentHash := workoutContentHash(workout)
 
-	return ParsedActivity{
+	activity := ParsedActivity{
 		Provider:         "apple_health",
 		ExternalID:       externalID,
 		SportType:        normalizeAppleSport(workout.WorkoutActivityType),
@@ -247,7 +248,117 @@ func workoutToActivity(workout appleWorkout) (ParsedActivity, bool) {
 		SourceKind:       "apple_health_export",
 		SourceActivityID: externalID,
 		ContentHash:      contentHash,
-	}, true
+	}
+
+	applyWorkoutStatistics(&activity, workout.Statistics)
+	activity.Laps = deriveWorkoutLaps(workout, startedAt)
+
+	return activity, true
+}
+
+// applyWorkoutStatistics populates the workout-level summary fields
+// (AvgHR/MaxHR/AvgPaceSPerKM, and DistanceM when a more authoritative
+// per-stat value is available) from the workout's WorkoutStatistics
+// entries. Energy statistics (active/basal calories) are intentionally
+// ignored - there's no column for them yet.
+func applyWorkoutStatistics(activity *ParsedActivity, stats []appleWorkoutStatistic) {
+	for _, stat := range stats {
+		switch stat.Type {
+		case "HKQuantityTypeIdentifierHeartRate":
+			if avg, err := strconv.ParseFloat(stat.Average, 64); err == nil {
+				rounded := int(math.Round(avg))
+				activity.AvgHR = &rounded
+			}
+			if maxVal, err := strconv.ParseFloat(stat.Maximum, 64); err == nil {
+				rounded := int(math.Round(maxVal))
+				activity.MaxHR = &rounded
+			}
+
+		case "HKQuantityTypeIdentifierDistanceWalkingRunning":
+			// The per-statistic distance is authoritative over the
+			// workout-level totalDistance attribute when present.
+			if distanceM := parseDistanceMeters(stat.Sum, stat.Unit); distanceM != nil {
+				activity.DistanceM = distanceM
+			}
+		}
+	}
+
+	if activity.DurationS != nil && activity.DistanceM != nil && *activity.DistanceM > 0 {
+		pace := float64(*activity.DurationS) / (*activity.DistanceM / 1000.0)
+		activity.AvgPaceSPerKM = &pace
+	}
+}
+
+// deriveWorkoutLaps derives timing-only laps from the workout's
+// lap-delimiting WorkoutEvents.
+//
+// Interpretation (a judgment call - flagged for review): HealthKit's
+// HKWorkoutEventTypeLap/Segment events mark the *end* of a lap, not a
+// standalone boundary. So for N such events, in chronological (document)
+// order, this produces exactly N laps: lap K spans
+// [boundary(K-1), event[K].Date], where boundary(0) is the workout's own
+// StartDate. The workout's EndDate is NOT appended as a trailing boundary,
+// so any tail after the last lap event (if the workout continued past its
+// last recorded lap) is not represented as a lap. This mirrors how fitness
+// devices commonly report "lap N completed at T" markers rather than
+// separate start/end markers per lap.
+//
+// Only HKWorkoutEventTypeLap events are used when present; if the workout
+// has none of those but has HKWorkoutEventTypeSegment events, those are
+// used instead. Marker/Pause/Resume events never contribute lap
+// boundaries. Workouts with no qualifying events produce no laps (nil).
+func deriveWorkoutLaps(workout appleWorkout, startedAt time.Time) []ParsedLap {
+	boundaryEvents := lapBoundaryEvents(workout.Events)
+	if len(boundaryEvents) == 0 {
+		return nil
+	}
+
+	var laps []ParsedLap
+	prevBoundary := startedAt
+	lapNo := 1
+	for _, event := range boundaryEvents {
+		eventDate, err := parseAppleTime(event.Date)
+		if err != nil {
+			// Guard against an unparseable date: skip this boundary
+			// entirely rather than producing a bogus lap.
+			continue
+		}
+
+		start := prevBoundary
+		end := eventDate
+		durationS := int(end.Sub(start).Seconds())
+		laps = append(laps, ParsedLap{
+			LapNo:     lapNo,
+			StartTs:   &start,
+			EndTs:     &end,
+			DurationS: &durationS,
+		})
+		lapNo++
+		prevBoundary = eventDate
+	}
+
+	return laps
+}
+
+// lapBoundaryEvents selects the WorkoutEvents that delimit laps:
+// HKWorkoutEventTypeLap events if any are present, otherwise
+// HKWorkoutEventTypeSegment events as a fallback. All other event types
+// (Marker, Pause, Resume, ...) are ignored for lap purposes.
+func lapBoundaryEvents(events []appleWorkoutEvent) []appleWorkoutEvent {
+	var laps []appleWorkoutEvent
+	var segments []appleWorkoutEvent
+	for _, event := range events {
+		switch event.Type {
+		case "HKWorkoutEventTypeLap":
+			laps = append(laps, event)
+		case "HKWorkoutEventTypeSegment":
+			segments = append(segments, event)
+		}
+	}
+	if len(laps) > 0 {
+		return laps
+	}
+	return segments
 }
 
 // stableWorkoutSourceKey builds an identity for an Apple Health workout that
@@ -304,9 +415,11 @@ func stableDeviceKey(device string) string {
 // fields of a workout: its own attrs (with device normalized via
 // stableDeviceKey, since the raw device string carries a volatile pointer
 // and creation date that would otherwise make every re-export look
-// "changed"), its WorkoutStatistics entries in document order, and its
-// workout-level MetadataEntry values deduped by key (real exports can
-// repeat metadata keys under one Workout) and sorted for determinism.
+// "changed"), its WorkoutStatistics entries in document order, its
+// WorkoutEvent entries in document order (laps are derived from these -
+// see deriveWorkoutLaps), and its workout-level MetadataEntry values
+// deduped by key (real exports can repeat metadata keys under one Workout)
+// and sorted for determinism.
 func workoutContentHash(workout appleWorkout) string {
 	var b strings.Builder
 
@@ -329,6 +442,15 @@ func workoutContentHash(workout appleWorkout) string {
 	for _, stat := range workout.Statistics {
 		fmt.Fprintf(&b, "stat:type=%s|sum=%s|avg=%s|max=%s|min=%s|unit=%s|start=%s|end=%s\n",
 			stat.Type, stat.Sum, stat.Average, stat.Maximum, stat.Minimum, stat.Unit, stat.StartDate, stat.EndDate)
+	}
+
+	// Events are not otherwise reflected in the hashed workout attrs, but
+	// laps are now derived from them (see deriveWorkoutLaps), so a change
+	// in events must be treated as a content change even though the
+	// workout-level attrs and statistics are unchanged.
+	for _, event := range workout.Events {
+		fmt.Fprintf(&b, "event:type=%s|date=%s|duration=%s|durationUnit=%s\n",
+			event.Type, event.Date, event.Duration, event.DurationUnit)
 	}
 
 	metadata := make(map[string]string, len(workout.MetadataEntries))

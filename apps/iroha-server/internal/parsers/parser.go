@@ -31,6 +31,19 @@ type ParsedActivity struct {
 	// (it always follows the plain upsert path).
 	ContentHash string
 	RoutePoints []RoutePoint
+
+	// AvgHR, MaxHR and AvgPaceSPerKM are derived from the source's
+	// per-workout statistics (e.g. Apple Health WorkoutStatistics), not
+	// computed from route/sample data. Nil when the source has no such
+	// statistic.
+	AvgHR         *int
+	MaxHR         *int
+	AvgPaceSPerKM *float64
+
+	// Laps are derived from lap-delimiting events in the source (e.g. Apple
+	// Health WorkoutEvent entries of type Lap/Segment). Nil when the source
+	// has no such events - most workouts won't have them.
+	Laps []ParsedLap
 }
 
 type RoutePoint struct {
@@ -38,6 +51,16 @@ type RoutePoint struct {
 	Lat        float64
 	Lon        float64
 	ElevationM *float64
+}
+
+// ParsedLap is a timing-only lap span derived from lap-boundary events.
+// Distance/HR/pace per lap require per-sample data (task-7) and are
+// deliberately left out here.
+type ParsedLap struct {
+	LapNo     int
+	StartTs   *time.Time
+	EndTs     *time.Time
+	DurationS *int
 }
 
 func Parse(input Input) ([]ParsedActivity, error) {
