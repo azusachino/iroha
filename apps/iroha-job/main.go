@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,7 +11,10 @@ import (
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
+	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -40,11 +44,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	service := jobs.NewService(db, logger, nil)
+	parserVersion := os.Getenv("IROHA_PARSER_VERSION")
+	if parserVersion == "" {
+		parserVersion = imports.DefaultParserVersion
+	}
+
+	var jobsService *jobs.Service
+
+	enqueuer := &jobEnqueuer{
+		getJobsService: func() *jobs.Service {
+			return jobsService
+		},
+	}
+	importService := imports.NewService(db, logger, parserVersion, enqueuer)
+
+	handlers := map[string]jobs.Handler{
+		"apple_import_parse": makeAppleImportParseHandler(importService),
+	}
+
+	jobsService = jobs.NewService(db, logger, handlers)
 	ctx := context.Background()
 
 	for {
-		if err := tick(ctx, service, logger, workerID); err != nil && !errors.Is(err, jobs.ErrNoJobAvailable) {
+		if err := tick(ctx, jobsService, logger, workerID); err != nil && !errors.Is(err, jobs.ErrNoJobAvailable) {
 			logger.Error("worker tick", "error", err)
 		}
 		if *once {
@@ -80,4 +102,38 @@ func defaultWorkerID() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s:%d", hostname, os.Getpid()), nil
+}
+
+type jobEnqueuer struct {
+	getJobsService func() *jobs.Service
+}
+
+func (e *jobEnqueuer) Enqueue(kind string, payload any) (models.Job, error) {
+	s := e.getJobsService()
+	if s == nil {
+		return models.Job{}, fmt.Errorf("jobs.Service not initialized yet")
+	}
+	return s.Enqueue(jobs.EnqueueInput{
+		Kind:    kind,
+		Payload: payload,
+	})
+}
+
+func makeAppleImportParseHandler(importService *imports.Service) jobs.Handler {
+	return func(ctx context.Context, job models.Job) error {
+		var payload struct {
+			ImportJobID string `json:"import_job_id"`
+		}
+		if err := json.Unmarshal(job.PayloadJSON, &payload); err != nil {
+			return fmt.Errorf("decode payload: %w", err)
+		}
+		if payload.ImportJobID == "" {
+			return fmt.Errorf("import_job_id is required in payload")
+		}
+		importJobID, err := uuid.Parse(payload.ImportJobID)
+		if err != nil {
+			return fmt.Errorf("invalid import_job_id UUID: %w", err)
+		}
+		return importService.Process(importJobID)
+	}
 }
