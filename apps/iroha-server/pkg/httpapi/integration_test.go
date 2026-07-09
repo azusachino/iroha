@@ -19,6 +19,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
@@ -134,19 +135,46 @@ func resetIntegrationDB(t *testing.T, db *gorm.DB) {
 	}
 }
 
+type syncEnqueuer struct {
+	importService **imports.Service
+}
+
+func (s *syncEnqueuer) Enqueue(kind string, payload any) (models.Job, error) {
+	m, ok := payload.(map[string]any)
+	if !ok {
+		return models.Job{}, nil
+	}
+	idStr, ok := m["import_job_id"].(string)
+	if !ok {
+		return models.Job{}, nil
+	}
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return models.Job{}, err
+	}
+	if s.importService != nil && *s.importService != nil {
+		go (*s.importService).ProcessAsync(id)
+	}
+	return models.Job{}, nil
+}
+
 func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 	t.Helper()
 	rawFileService, err := rawfiles.NewService(db, t.TempDir())
 	if err != nil {
 		t.Fatalf("new raw file service: %v", err)
 	}
+	enqueuer := &syncEnqueuer{}
+	importService := imports.NewService(db, slog.New(slog.NewTextHandler(io.Discard, nil)), "integration-test", enqueuer)
+	enqueuer.importService = &importService
+
 	return NewServer(Dependencies{
 		Config: config.Config{
 			Auth: config.AuthConfig{LocalNoAuth: true},
 		},
 		Logger:          slog.New(slog.NewTextHandler(io.Discard, nil)),
 		ActivityService: activities.NewService(db),
-		ImportService:   imports.NewService(db, slog.New(slog.NewTextHandler(io.Discard, nil)), "integration-test"),
+		ImportService:   importService,
 		RawFileService:  rawFileService,
 	})
 }

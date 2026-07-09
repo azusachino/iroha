@@ -10,6 +10,8 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -43,7 +45,9 @@ func main() {
 	if parserVersion == "" {
 		parserVersion = imports.DefaultParserVersion
 	}
-	importService := imports.NewService(db, logger, parserVersion)
+	jobsService := jobs.NewService(db, logger, nil)
+	enqueuer := &jobEnqueuer{jobsService: jobsService}
+	importService := imports.NewService(db, logger, parserVersion, enqueuer)
 	activityService := activities.NewService(db)
 	cacheClient := cache.New(cfg.Cache.URL)
 	defer func() {
@@ -68,4 +72,15 @@ func main() {
 		logger.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+type jobEnqueuer struct {
+	jobsService *jobs.Service
+}
+
+func (e *jobEnqueuer) Enqueue(kind string, payload any) (models.Job, error) {
+	return e.jobsService.Enqueue(jobs.EnqueueInput{
+		Kind:    kind,
+		Payload: payload,
+	})
 }

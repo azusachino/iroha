@@ -26,10 +26,15 @@ const (
 // rather than a duplicate append; bump this when parser semantics change.
 const DefaultParserVersion = "apple-health-2026-07"
 
+type Enqueuer interface {
+	Enqueue(kind string, payload any) (models.Job, error)
+}
+
 type Service struct {
 	db            *gorm.DB
 	logger        *slog.Logger
 	parserVersion string
+	enqueuer      Enqueuer
 }
 
 type CreateInput struct {
@@ -37,14 +42,14 @@ type CreateInput struct {
 	ParserKind string
 }
 
-func NewService(db *gorm.DB, logger *slog.Logger, parserVersion string) *Service {
+func NewService(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer) *Service {
 	if parserVersion == "" {
 		parserVersion = DefaultParserVersion
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{db: db, logger: logger, parserVersion: parserVersion}
+	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer}
 }
 
 func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
@@ -74,7 +79,14 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 		return models.ImportJob{}, err
 	}
 
-	go s.ProcessAsync(job.ID)
+	payload := map[string]any{
+		"import_job_id": job.ID.String(),
+	}
+	if _, err := s.enqueuer.Enqueue("apple_import_parse", payload); err != nil {
+		s.logger.Error("enqueue import job", "job_id", job.ID.String(), "error", err)
+		return models.ImportJob{}, err
+	}
+
 	return job, nil
 }
 
@@ -96,12 +108,12 @@ func (s *Service) Get(id string) (models.ImportJob, bool, error) {
 }
 
 func (s *Service) ProcessAsync(jobID uuid.UUID) {
-	if err := s.process(jobID); err != nil {
+	if err := s.Process(jobID); err != nil {
 		s.logger.Error("process import job", "job_id", jobID.String(), "error", err)
 	}
 }
 
-func (s *Service) process(jobID uuid.UUID) error {
+func (s *Service) Process(jobID uuid.UUID) error {
 	now := time.Now().UTC()
 	if err := s.db.Model(&models.ImportJob{}).
 		Where("id = ? and status = ?", jobID, StatusQueued).
