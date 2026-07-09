@@ -6,3 +6,7 @@ import { env } from '$env/dynamic/public';
 // PUBLIC_IROHA_API_BASE to an absolute URL when the API is on another origin
 // (e.g. a production deploy not fronted by a reverse proxy).
 export const API_BASE = (env.PUBLIC_IROHA_API_BASE ?? '').replace(/\/$/, '');
+
+// Scratch PostgREST spike base. Defaults through Vite's /_postgrest proxy so
+// the browser stays same-origin while PostgREST remains a host-local process.
+export const POSTGREST_BASE = (env.PUBLIC_IROHA_POSTGREST_BASE ?? '/_postgrest').replace(/\/$/, '');

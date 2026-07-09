@@ -16,6 +16,11 @@
 		<nav>
 			<a class="nav-link" class:active={page.url.pathname === '/'} href="/">Activities</a>
 			<a class="nav-link" class:active={page.url.pathname.startsWith('/u')} href="/u">Public</a>
+			<a
+				class="nav-link"
+				class:active={page.url.pathname.startsWith('/postgrest-spike')}
+				href="/postgrest-spike">PostgREST</a
+			>
 		</nav>
 	</header>
 	<main class="content">

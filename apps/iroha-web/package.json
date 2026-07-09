@@ -10,6 +10,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"postgrest:types": "node scripts/gen-postgrest-types.mjs",
 		"test": "vitest run"
 	},
 	"devDependencies": {
@@ -17,8 +18,10 @@
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@tailwindcss/vite": "4.3.2",
+		"openapi-typescript": "^7.13.0",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
+		"swagger2openapi": "^7.0.8",
 		"tailwindcss": "4.3.2",
 		"typescript": "^6.0.3",
 		"vite": "^8.0.16",

@@ -14,7 +14,11 @@ export default defineConfig({
 		// server stays bound to localhost; Vite forwards from the same machine.
 		proxy: {
 			'/api': 'http://127.0.0.1:8080',
-			'/public': 'http://127.0.0.1:8080'
+			'/public': 'http://127.0.0.1:8080',
+			'/_postgrest': {
+				target: 'http://127.0.0.1:3001',
+				rewrite: (path) => path.replace(/^\/_postgrest/, '')
+			}
 		}
 	},
 	plugins: [
