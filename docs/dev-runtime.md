@@ -73,6 +73,46 @@ We use a Go workspace to manage multiple modules (`apps/iroha-server` and `apps/
 
 The private frontend lives alongside the server at `apps/iroha-web` (SvelteKit, built with `bun`); see `apps/iroha-web/README.md`.
 
+### Frontend Browser Smoke
+
+Use the on-demand Playwright CLI for browser screenshots. Chrome is not assumed
+to exist on the local machine; if `playwright-cli open ... --headed` fails with
+`Chromium distribution 'chrome' is not found`, install WebKit once:
+
+```bash
+cd apps/iroha-web
+bunx -p @playwright/cli@latest playwright-cli install-browser webkit
+```
+
+Then run the web dev server:
+
+```bash
+make web-dev
+```
+
+Open a route and capture the current page:
+
+```bash
+cd apps/iroha-web
+bunx -p @playwright/cli@latest playwright-cli open "http://127.0.0.1:5173/dashboard" --browser webkit --headed
+bunx -p @playwright/cli@latest playwright-cli screenshot --full-page --filename=artifact.png
+```
+
+The screenshot command acts on the currently opened page. Use `--browser webkit`
+unless Chrome is intentionally installed.
+
+Pitfalls to avoid:
+
+- Kill stale Vite listeners on port 5173 before starting a new frontend smoke run.
+- Do not assume Chrome exists on this macOS host. The Playwright CLI defaults can
+  fail until an installed browser is selected explicitly.
+- `playwright-cli screenshot` is not a navigation command. Passing both a URL and
+  output path fails with `too many arguments`; open the page first, then capture
+  the current page.
+- Keep this as a browser smoke check. Unit/e2e behavior should stay in `make
+  web-test`, `make scripts-test`, and `make check` so CI does not depend on a
+  headed browser session.
+
 Do not use a Git submodule for `iroha-server` unless it must live in a separate repository with independent release ownership. In this product phase, `iroha-server` should be a subdirectory module inside the iroha repo, not an external Git submodule.
 
 ## Apple `container`

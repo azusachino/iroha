@@ -9,7 +9,7 @@ WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test test-integration build run run-job web-install web-check web-test web-build web-dev check validate db-up db-down db-status db-logs db-reset smoke-real-import
+.PHONY: help fmt fmt-check vet lint test test-integration scripts-test build run run-job web-install web-check web-test web-build web-dev check validate db-up db-down db-status db-logs db-reset smoke-real-import
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -38,6 +38,9 @@ test: ## Run Go tests
 test-integration: db-up ## Run DB-backed Go integration tests
 	$(NIX_DEV)env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -tags=integration ./...
 
+scripts-test: ## Run Python script unit tests
+	$(NIX_DEV)uv run python -m unittest discover -s scripts -p '*_test.py'
+
 build: ## Build the Go server and worker
 	$(NIX_DEV)go -C $(SERVER_DIR) build ./...
 	$(NIX_DEV)go -C $(JOB_DIR) build ./...
@@ -65,7 +68,7 @@ web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
 	cd $(WEB_DIR) && $(NIX_DEV)bun run dev --host 0.0.0.0
 
 ## --- Aggregate gates ---
-check: fmt-check vet lint test web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + web type-check + web tests
+check: fmt-check vet lint test scripts-test web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + script tests + web type-check + web tests
 validate: check build web-build ## Pre-PR gate: check + full server and web builds
 
 ## --- Dev database (Postgres/PostGIS via uv scripts) ---
