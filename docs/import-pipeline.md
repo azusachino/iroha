@@ -88,11 +88,14 @@ Known gaps:
 receive upload
   -> create tb_raw_files row
   -> store raw bytes unchanged
-  -> create tb_import_jobs row
+  -> create tb_import_jobs row (status: queued)
+  -> enqueue background job in tb_jobs (kind: apple_import_parse)
+  -> [iroha-job worker claims job from tb_jobs]
   -> detect parser
   -> parse into ParsedActivity[]
   -> dedupe and upsert canonical activities
-  -> mark import completed or failed
+  -> mark import completed or failed in tb_import_jobs
+  -> mark background job completed or failed in tb_jobs
 ```
 
 ## Parser Contract
