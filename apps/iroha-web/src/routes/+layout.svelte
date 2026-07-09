@@ -1,9 +1,16 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
 	import { page } from '$app/state';
+	import CommandPalette from '$lib/components/CommandPalette.svelte';
 	import './app.css';
 
 	let { children } = $props();
+
+	const shareActive = $derived(page.url.pathname.startsWith('/share'));
+
+	function openCommandPalette() {
+		window.dispatchEvent(new CustomEvent('iroha:command-palette:toggle'));
+	}
 </script>
 
 <svelte:head>
@@ -11,13 +18,17 @@
 </svelte:head>
 
 <div class="app">
-	<header class="topbar">
-		<a class="brand" href="/">iroha</a>
-		<nav>
-			<a class="nav-link" class:active={page.url.pathname === '/'} href="/">Activities</a>
-			<a class="nav-link" class:active={page.url.pathname.startsWith('/u')} href="/u">Public</a>
-		</nav>
+	<header class="appbar">
+		<a class="brand" href="/dashboard">iroha</a>
+		<div class="appbar-actions">
+			<button class="command-trigger" type="button" aria-label="Open command palette" onclick={openCommandPalette}>
+				<span>Command</span>
+				<kbd>⌘K</kbd>
+			</button>
+			<a class="share-link" class:active={shareActive} href="/share">Share</a>
+		</div>
 	</header>
+	<CommandPalette />
 	<main class="content">
 		{@render children()}
 	</main>

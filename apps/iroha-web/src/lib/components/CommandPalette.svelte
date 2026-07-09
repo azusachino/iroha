@@ -18,11 +18,14 @@
 	let selected = $state(0);
 
 	onMount(() => {
+		const onToggle = () => {
+			open = !open;
+			selected = 0;
+		};
 		const onKeydown = (event: KeyboardEvent) => {
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
 				event.preventDefault();
-				open = !open;
-				selected = 0;
+				onToggle();
 				return;
 			}
 			if (!open) return;
@@ -47,8 +50,12 @@
 			}
 		};
 
+		window.addEventListener('iroha:command-palette:toggle', onToggle);
 		window.addEventListener('keydown', onKeydown);
-		return () => window.removeEventListener('keydown', onKeydown);
+		return () => {
+			window.removeEventListener('iroha:command-palette:toggle', onToggle);
+			window.removeEventListener('keydown', onKeydown);
+		};
 	});
 
 	async function activate(command: Command) {

@@ -71,13 +71,18 @@ a:hover {
 	flex-direction: column;
 }
 
-.topbar {
+.appbar {
+	position: sticky;
+	top: 0;
+	z-index: 20;
 	display: flex;
 	align-items: center;
-	gap: 1.5rem;
+	justify-content: space-between;
+	gap: 1rem;
 	padding: 0.75rem 1.25rem;
 	border-bottom: 1px solid var(--border);
-	background: var(--surface);
+	background: color-mix(in srgb, var(--bg) 82%, transparent);
+	backdrop-filter: blur(14px);
 }
 
 .brand {
@@ -87,17 +92,57 @@ a:hover {
 	letter-spacing: 0.02em;
 }
 
-.topbar nav {
+.brand:hover {
+	text-decoration: none;
+}
+
+.appbar-actions {
 	display: flex;
-	gap: 1rem;
+	align-items: center;
+	gap: 0.65rem;
 }
 
-.nav-link {
+.command-trigger,
+.share-link {
+	min-height: 2.25rem;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--surface);
 	color: var(--text-muted);
+	font: inherit;
+	font-size: 0.86rem;
+	line-height: 1;
+	text-decoration: none;
 }
 
-.nav-link.active {
+.command-trigger {
+	padding: 0.45rem 0.5rem 0.45rem 0.7rem;
+	cursor: pointer;
+}
+
+.command-trigger kbd {
+	padding: 0.12rem 0.32rem;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--surface-2);
 	color: var(--text);
+	font: inherit;
+	font-size: 0.74rem;
+}
+
+.share-link {
+	padding: 0.55rem 0.75rem;
+}
+
+.share-link.active,
+.share-link:hover,
+.command-trigger:hover {
+	border-color: color-mix(in srgb, var(--accent), var(--border) 35%);
+	color: var(--text);
+	text-decoration: none;
 }
 
 .content {
