@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-server/internal/ids"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/models"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/go-chi/chi/v5"
 )
 

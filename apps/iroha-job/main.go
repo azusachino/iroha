@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-server/internal/config"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/jobs"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

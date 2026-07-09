@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-server/internal/ids"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/models"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/parsers"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/parsers"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

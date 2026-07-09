@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/azusachino/iroha/apps/iroha-server/internal/activities"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/cache"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/config"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/httpapi"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/imports"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

@@ -12,6 +12,7 @@ Postgres/PostGIS store and exposed through a private API/web app. First module: 
 
 ```
 apps/iroha-server/    Go service (cmd/iroha-server, internal/{httpapi,imports,parsers,activities,models,config,ids})
+apps/iroha-job/       Go background worker service
 apps/iroha-web/       Svelte 5 + Vite web app (bun)
 apps/iroha-server/db/migrations/   goose SQL migrations (00001_...)
 scripts/              uv-run Python dev scripts (dev_stack.py, real_import_smoke.py, db.py)

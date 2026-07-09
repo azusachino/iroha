@@ -67,7 +67,7 @@ Iroha needs a worker process for durable background work:
 
 ```text
 apps/iroha-server/cmd/iroha-server  HTTP API, auth boundary, upload/intake/read APIs
-apps/iroha-server/cmd/iroha-job     queued imports, connector syncs, triggers, projections
+apps/iroha-job                      queued imports, connector syncs, triggers, projections
 ```
 
 `iroha-server` accepts evidence and creates jobs. `iroha-job` claims jobs from
@@ -221,7 +221,7 @@ The first implementation is intentionally small:
 - `tb_job_schedules` turns regular syncs and one-shot triggers into queued jobs.
 - `internal/jobs` owns enqueue, claim, retry, complete, fail, and due-schedule
   enqueueing.
-- `cmd/iroha-job` runs the worker loop.
+- `apps/iroha-job` runs the worker loop.
 - `make run-job` starts a local worker.
 
 The skeleton should fail unknown job kinds visibly until concrete handlers are

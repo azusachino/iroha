@@ -6,6 +6,7 @@ SHELL := bash
 NIX_DEV := $(if $(IN_NIX_SHELL),,nix develop $(CURDIR) --command )
 SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
+JOB_DIR := apps/iroha-job
 
 .DEFAULT_GOAL := help
 .PHONY: help fmt fmt-check vet lint test test-integration build run run-job web-install web-check web-test web-build web-dev check validate db-up db-down db-status db-logs db-reset smoke-real-import
@@ -14,34 +15,38 @@ help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
 		awk 'BEGIN{FS=":.*## "}{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
 
-## --- Go server (apps/iroha-server) ---
+## --- Go server and jobs (apps/iroha-server, apps/iroha-job) ---
 fmt: ## Format Go code (gofumpt)
-	$(NIX_DEV)gofumpt -w $(SERVER_DIR)
+	$(NIX_DEV)gofumpt -w $(SERVER_DIR) $(JOB_DIR)
 
 fmt-check: ## Fail if any Go file is unformatted
-	@files=$$($(NIX_DEV)gofumpt -l $(SERVER_DIR)); \
+	@files=$$($(NIX_DEV)gofumpt -l $(SERVER_DIR) $(JOB_DIR)); \
 		if [ -n "$$files" ]; then echo "gofumpt needed:"; echo "$$files"; exit 1; fi
 
 vet: ## Run go vet
 	$(NIX_DEV)go -C $(SERVER_DIR) vet ./...
+	$(NIX_DEV)go -C $(JOB_DIR) vet ./...
 
 lint: ## Run golangci-lint (Uber Go Style Guide orientation)
 	cd $(SERVER_DIR) && $(NIX_DEV)golangci-lint run ./...
+	cd $(JOB_DIR) && $(NIX_DEV)golangci-lint run ./...
 
 test: ## Run Go tests
 	$(NIX_DEV)go -C $(SERVER_DIR) test ./...
+	$(NIX_DEV)go -C $(JOB_DIR) test ./...
 
 test-integration: db-up ## Run DB-backed Go integration tests
 	$(NIX_DEV)env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -tags=integration ./...
 
-build: ## Build the Go server
+build: ## Build the Go server and worker
 	$(NIX_DEV)go -C $(SERVER_DIR) build ./...
+	$(NIX_DEV)go -C $(JOB_DIR) build ./...
 
 run: db-up ## Run the server against the local dev stack (http://127.0.0.1:8080)
 	$(NIX_DEV)go -C $(SERVER_DIR) run ./cmd/iroha-server
 
 run-job: db-up ## Run one iroha-job polling worker against the local dev stack
-	$(NIX_DEV)go -C $(SERVER_DIR) run ./cmd/iroha-job
+	$(NIX_DEV)go -C $(JOB_DIR) run .
 
 ## --- Web frontend (apps/iroha-web, bun) ---
 web-install: ## Install web dependencies
