@@ -4,7 +4,10 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -19,6 +22,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/google/uuid"
@@ -135,27 +139,34 @@ func resetIntegrationDB(t *testing.T, db *gorm.DB) {
 	}
 }
 
-type syncEnqueuer struct {
-	importService **imports.Service
+type testJobEnqueuer struct {
+	jobsService *jobs.Service
 }
 
-func (s *syncEnqueuer) Enqueue(kind string, payload any) (models.Job, error) {
-	m, ok := payload.(map[string]any)
-	if !ok {
-		return models.Job{}, nil
+func (e *testJobEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error) {
+	return e.jobsService.EnqueueTx(tx, jobs.EnqueueInput{
+		Kind:    kind,
+		Payload: payload,
+	})
+}
+
+func makeImportParseHandler(importService **imports.Service) jobs.Handler {
+	return func(ctx context.Context, job models.Job) error {
+		var payload struct {
+			ImportJobID string `json:"import_job_id"`
+		}
+		if err := json.Unmarshal(job.PayloadJSON, &payload); err != nil {
+			return err
+		}
+		id, err := uuid.Parse(payload.ImportJobID)
+		if err != nil {
+			return err
+		}
+		if importService != nil && *importService != nil {
+			return (*importService).Process(id)
+		}
+		return fmt.Errorf("import service not set")
 	}
-	idStr, ok := m["import_job_id"].(string)
-	if !ok {
-		return models.Job{}, nil
-	}
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return models.Job{}, err
-	}
-	if s.importService != nil && *s.importService != nil {
-		go (*s.importService).ProcessAsync(id)
-	}
-	return models.Job{}, nil
 }
 
 func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
@@ -164,15 +175,45 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 	if err != nil {
 		t.Fatalf("new raw file service: %v", err)
 	}
-	enqueuer := &syncEnqueuer{}
-	importService := imports.NewService(db, slog.New(slog.NewTextHandler(io.Discard, nil)), "integration-test", enqueuer)
-	enqueuer.importService = &importService
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	var importService *imports.Service
+
+	handlers := map[string]jobs.Handler{
+		jobs.KindAppleImportParse:  makeImportParseHandler(&importService),
+		jobs.KindGPXImportParse:    makeImportParseHandler(&importService),
+		jobs.KindFITImportParse:    makeImportParseHandler(&importService),
+		jobs.KindTCXImportParse:    makeImportParseHandler(&importService),
+		jobs.KindStravaImportParse: makeImportParseHandler(&importService),
+	}
+
+	jobsService := jobs.NewService(db, logger, handlers)
+	enqueuer := &testJobEnqueuer{jobsService: jobsService}
+	importService = imports.NewService(db, logger, "integration-test", enqueuer)
+
+	// Start background test worker loop to process jobs from tb_jobs
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				_, err := jobsService.ProcessNext(ctx, "integration-test-worker")
+				if err != nil && !errors.Is(err, jobs.ErrNoJobAvailable) {
+					// ignore or log
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
+		}
+	}()
 
 	return NewServer(Dependencies{
 		Config: config.Config{
 			Auth: config.AuthConfig{LocalNoAuth: true},
 		},
-		Logger:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:          logger,
 		ActivityService: activities.NewService(db),
 		ImportService:   importService,
 		RawFileService:  rawFileService,

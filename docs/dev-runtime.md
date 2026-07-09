@@ -127,11 +127,20 @@ mkdir -p .iroha-data/imports
 cp ~/Downloads/export.zip .iroha-data/imports/apple-health-export.zip
 ```
 
-With `iroha-server` running locally, smoke the product HTTP route:
+With `iroha-server` running locally, smoke the product HTTP route.
 
-```bash
-make smoke-real-import FILE=.iroha-data/imports/apple-health-export.zip
-```
+> [!WARNING]
+> File imports are processed asynchronously via a database-backed queue. Therefore, running `make smoke-real-import` **requires** the `iroha-job` worker to be running alongside the server.
+> 
+> * Start the server: `make run`
+> * Start the worker in another terminal: `make run-job`
+>
+> **Workspace/Data Dir Warning**: If running from different subdirectories, make sure both processes point to the same directory by sharing `IROHA_DATA_DIR` (e.g. `export IROHA_DATA_DIR=$PWD/.iroha-data`).
+>
+> Run the smoke check:
+> ```bash
+> make smoke-real-import FILE=.iroha-data/imports/apple-health-export.zip
+> ```
 
 This script uses the same upload/import APIs an external client uses:
 

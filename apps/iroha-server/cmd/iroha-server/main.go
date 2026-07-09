@@ -78,8 +78,8 @@ type jobEnqueuer struct {
 	jobsService *jobs.Service
 }
 
-func (e *jobEnqueuer) Enqueue(kind string, payload any) (models.Job, error) {
-	return e.jobsService.Enqueue(jobs.EnqueueInput{
+func (e *jobEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error) {
+	return e.jobsService.EnqueueTx(tx, jobs.EnqueueInput{
 		Kind:    kind,
 		Payload: payload,
 	})

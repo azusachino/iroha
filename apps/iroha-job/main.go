@@ -49,20 +49,18 @@ func main() {
 		parserVersion = imports.DefaultParserVersion
 	}
 
-	var jobsService *jobs.Service
-
-	enqueuer := &jobEnqueuer{
-		getJobsService: func() *jobs.Service {
-			return jobsService
-		},
-	}
+	enqueuer := &noopEnqueuer{}
 	importService := imports.NewService(db, logger, parserVersion, enqueuer)
 
 	handlers := map[string]jobs.Handler{
-		"apple_import_parse": makeAppleImportParseHandler(importService),
+		jobs.KindAppleImportParse:  makeAppleImportParseHandler(importService),
+		jobs.KindGPXImportParse:    makeAppleImportParseHandler(importService),
+		jobs.KindFITImportParse:    makeAppleImportParseHandler(importService),
+		jobs.KindTCXImportParse:    makeAppleImportParseHandler(importService),
+		jobs.KindStravaImportParse: makeAppleImportParseHandler(importService),
 	}
 
-	jobsService = jobs.NewService(db, logger, handlers)
+	jobsService := jobs.NewService(db, logger, handlers)
 	ctx := context.Background()
 
 	for {
@@ -104,19 +102,10 @@ func defaultWorkerID() (string, error) {
 	return fmt.Sprintf("%s:%d", hostname, os.Getpid()), nil
 }
 
-type jobEnqueuer struct {
-	getJobsService func() *jobs.Service
-}
+type noopEnqueuer struct{}
 
-func (e *jobEnqueuer) Enqueue(kind string, payload any) (models.Job, error) {
-	s := e.getJobsService()
-	if s == nil {
-		return models.Job{}, fmt.Errorf("jobs.Service not initialized yet")
-	}
-	return s.Enqueue(jobs.EnqueueInput{
-		Kind:    kind,
-		Payload: payload,
-	})
+func (n *noopEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error) {
+	return models.Job{}, nil
 }
 
 func makeAppleImportParseHandler(importService *imports.Service) jobs.Handler {

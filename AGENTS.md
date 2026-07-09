@@ -60,8 +60,7 @@ docs/                 design docs
 ## Verification
 
 - Unit tests: `make test`. DB-backed: `make test-integration`.
-- Real end-to-end: run the server, then `make smoke-real-import FILE=...`; `real_import_smoke.py`
-  also has `--assert` (delta / no-dup checks) and `--assert-reprocess` modes.
+- Real end-to-end: run both the server (`make run`) and the background worker (`make run-job`) with a shared `IROHA_DATA_DIR` environment variable, then run `make smoke-real-import FILE=...`; `real_import_smoke.py` also has `--assert` (delta / no-dup checks) and `--assert-reprocess` modes.
 - Never run `make db-reset` casually — it wipes locally imported data.
 
 ## Gotchas

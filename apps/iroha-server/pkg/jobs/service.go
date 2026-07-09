@@ -22,6 +22,10 @@ const (
 	StatusCanceled  = "canceled"
 
 	KindAppleImportParse      = "apple_import_parse"
+	KindGPXImportParse        = "gpx_import_parse"
+	KindFITImportParse        = "fit_import_parse"
+	KindTCXImportParse        = "tcx_import_parse"
+	KindStravaImportParse     = "strava_import_parse"
 	KindMediaIntakeParse      = "media_intake_parse"
 	KindMediaConnectorSync    = "media_connector_sync"
 	KindHealthFullDumpRequest = "health_full_dump_request"
@@ -77,6 +81,10 @@ func NewService(db *gorm.DB, logger *slog.Logger, handlers map[string]Handler) *
 }
 
 func (s *Service) Enqueue(input EnqueueInput) (models.Job, error) {
+	return s.EnqueueTx(nil, input)
+}
+
+func (s *Service) EnqueueTx(tx *gorm.DB, input EnqueueInput) (models.Job, error) {
 	if input.Kind == "" {
 		return models.Job{}, fmt.Errorf("job kind is required")
 	}
@@ -112,7 +120,13 @@ func (s *Service) Enqueue(input EnqueueInput) (models.Job, error) {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if err := s.db.Create(&job).Error; err != nil {
+
+	db := s.db
+	if tx != nil {
+		db = tx
+	}
+
+	if err := db.Create(&job).Error; err != nil {
 		return models.Job{}, err
 	}
 	s.logger.Info("enqueued job", "job_id", job.ID.String(), "kind", job.Kind, "run_after", job.RunAfter)

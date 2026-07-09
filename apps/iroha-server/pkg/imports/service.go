@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/parsers"
 	"github.com/google/uuid"
@@ -27,7 +28,7 @@ const (
 const DefaultParserVersion = "apple-health-2026-07"
 
 type Enqueuer interface {
-	Enqueue(kind string, payload any) (models.Job, error)
+	EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error)
 }
 
 type Service struct {
@@ -62,6 +63,22 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 		return models.ImportJob{}, err
 	}
 
+	var jobKind string
+	switch input.ParserKind {
+	case "apple_health_export":
+		jobKind = jobs.KindAppleImportParse
+	case "gpx":
+		jobKind = jobs.KindGPXImportParse
+	case "fit":
+		jobKind = jobs.KindFITImportParse
+	case "tcx":
+		jobKind = jobs.KindTCXImportParse
+	case "strava_export":
+		jobKind = jobs.KindStravaImportParse
+	default:
+		return models.ImportJob{}, fmt.Errorf("unsupported parser kind: %s", input.ParserKind)
+	}
+
 	id, err := ids.New()
 	if err != nil {
 		return models.ImportJob{}, err
@@ -75,15 +92,22 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 		ParserVersion: s.parserVersion,
 		CreatedAt:     time.Now().UTC(),
 	}
-	if err := s.db.Create(&job).Error; err != nil {
-		return models.ImportJob{}, err
-	}
 
-	payload := map[string]any{
-		"import_job_id": job.ID.String(),
-	}
-	if _, err := s.enqueuer.Enqueue("apple_import_parse", payload); err != nil {
-		s.logger.Error("enqueue import job", "job_id", job.ID.String(), "error", err)
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&job).Error; err != nil {
+			return err
+		}
+
+		payload := map[string]any{
+			"import_job_id": job.ID.String(),
+		}
+		if _, err := s.enqueuer.EnqueueTx(tx, jobKind, payload); err != nil {
+			s.logger.Error("enqueue import job", "job_id", job.ID.String(), "error", err)
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return models.ImportJob{}, err
 	}
 
