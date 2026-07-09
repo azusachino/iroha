@@ -61,19 +61,15 @@ apps/
   iroha-server/
     go.mod
     cmd/iroha-server/
-    internal/
-packages/
-  iroha-go/
+    pkg/
+  iroha-job/
     go.mod
+    main.go
+  iroha-web/
+    package.json
 ```
 
-For MVP v0, start with one module if only the server exists:
-
-```text
-apps/iroha-server/go.mod
-```
-
-Add `go.work` when a second Go module becomes real, such as a shared client package, parser package, or separate worker binary.
+We use a Go workspace to manage multiple modules (`apps/iroha-server` and `apps/iroha-job`), resolving local dependencies cleanly with `replace` directives.
 
 The private frontend lives alongside the server at `apps/iroha-web` (SvelteKit, built with `bun`); see `apps/iroha-web/README.md`.
 

@@ -219,7 +219,7 @@ The first implementation is intentionally small:
 - `tb_intake_payloads` preserves non-file evidence and connector snapshots.
 - `tb_jobs` is the durable queue.
 - `tb_job_schedules` turns regular syncs and one-shot triggers into queued jobs.
-- `internal/jobs` owns enqueue, claim, retry, complete, fail, and due-schedule
+- `pkg/jobs` owns enqueue, claim, retry, complete, fail, and due-schedule
   enqueueing.
 - `apps/iroha-job` runs the worker loop.
 - `make run-job` starts a local worker.
