@@ -8,7 +8,7 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test test-integration build run web-install web-check web-test web-build web-dev check validate db-up db-down db-status db-logs db-reset smoke-real-import
+.PHONY: help fmt fmt-check vet lint test test-integration build run run-job web-install web-check web-test web-build web-dev check validate db-up db-down db-status db-logs db-reset smoke-real-import
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -39,6 +39,9 @@ build: ## Build the Go server
 
 run: db-up ## Run the server against the local dev stack (http://127.0.0.1:8080)
 	$(NIX_DEV)go -C $(SERVER_DIR) run ./cmd/iroha-server
+
+run-job: db-up ## Run one iroha-job polling worker against the local dev stack
+	$(NIX_DEV)go -C $(SERVER_DIR) run ./cmd/iroha-job
 
 ## --- Web frontend (apps/iroha-web, bun) ---
 web-install: ## Install web dependencies

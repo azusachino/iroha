@@ -178,7 +178,8 @@ adding external queue infrastructure.
 Tasks:
 
 - Add a Postgres-backed `tb_jobs` queue.
-- Add `apps/iroha-job` as the first worker binary.
+- Add `apps/iroha-server/cmd/iroha-job` as the first worker binary. Keep it in
+  the existing Go module until a second module is justified.
 - Move import execution from in-process API handling into job handlers.
 - Support retry, `run_after`, locking, attempts, and compact error reporting.
 - Add explicit job kinds for parser reprocess and projection refresh.

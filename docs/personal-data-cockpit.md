@@ -58,13 +58,16 @@ Large payloads should be stored in the filesystem and referenced by
 for quick inspection. Either way, parser improvements should not require the
 user to re-enter history.
 
+The first schema lives in
+`apps/iroha-server/db/migrations/00006_create_cockpit_jobs.sql`.
+
 ### Jobs
 
 Iroha needs a worker process for durable background work:
 
 ```text
-apps/iroha-server/  HTTP API, auth boundary, upload/intake/read APIs
-apps/iroha-job/     queued imports, connector syncs, triggers, projections
+apps/iroha-server/cmd/iroha-server  HTTP API, auth boundary, upload/intake/read APIs
+apps/iroha-server/cmd/iroha-job     queued imports, connector syncs, triggers, projections
 ```
 
 `iroha-server` accepts evidence and creates jobs. `iroha-job` claims jobs from
@@ -208,3 +211,19 @@ model without requiring new hardware access:
 
 This keeps Iroha's center of gravity in the product: capture data, preserve
 evidence, normalize it, and create useful private or public views.
+
+## First Implementation Slice
+
+The first implementation is intentionally small:
+
+- `tb_intake_payloads` preserves non-file evidence and connector snapshots.
+- `tb_jobs` is the durable queue.
+- `tb_job_schedules` turns regular syncs and one-shot triggers into queued jobs.
+- `internal/jobs` owns enqueue, claim, retry, complete, fail, and due-schedule
+  enqueueing.
+- `cmd/iroha-job` runs the worker loop.
+- `make run-job` starts a local worker.
+
+The skeleton should fail unknown job kinds visibly until concrete handlers are
+registered. That makes the queue safe to inspect before media, sync, and health
+dump handlers exist.

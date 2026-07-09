@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -148,4 +149,62 @@ type AppleSourceItem struct {
 
 func (AppleSourceItem) TableName() string {
 	return "tb_apple_source_items"
+}
+
+type IntakePayload struct {
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceKind    string
+	SourceActor   string
+	SourceEventID string
+	ContentType   string
+	SHA256        string `gorm:"column:sha256"`
+	SizeBytes     int64
+	StoragePath   string
+	PayloadJSON   *json.RawMessage `gorm:"column:payload_json;type:jsonb"`
+	ReceivedAt    time.Time
+	ParsedAt      *time.Time
+	CreatedAt     time.Time
+}
+
+func (IntakePayload) TableName() string {
+	return "tb_intake_payloads"
+}
+
+type Job struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Kind         string
+	Status       string
+	Priority     int
+	PayloadJSON  json.RawMessage `gorm:"column:payload_json;type:jsonb"`
+	Attempts     int
+	MaxAttempts  int
+	RunAfter     time.Time
+	LockedBy     *string
+	LockedAt     *time.Time
+	ErrorMessage *string
+	StartedAt    *time.Time
+	FinishedAt   *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (Job) TableName() string {
+	return "tb_jobs"
+}
+
+type JobSchedule struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Kind         string
+	Enabled      bool
+	ScheduleKind string
+	ScheduleExpr string
+	PayloadJSON  json.RawMessage `gorm:"column:payload_json;type:jsonb"`
+	NextRunAt    *time.Time
+	LastRunAt    *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (JobSchedule) TableName() string {
+	return "tb_job_schedules"
 }
