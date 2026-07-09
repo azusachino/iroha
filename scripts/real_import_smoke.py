@@ -91,7 +91,9 @@ def run_basic_mode(args: argparse.Namespace) -> int:
         print(f"import_error={final['error_message']}")
         return 1
 
-    activities = get_json(args.api_base, "/api/v1/activities?limit=5")
+    # The activities list endpoint returns an envelope: {items, next_cursor,
+    # has_more}. Route/samplings/laps endpoints stay bare arrays.
+    activities = get_json(args.api_base, "/api/v1/activities?limit=5")["items"]
     print(f"activities_list_len={len(activities)}")
     if activities:
         activity_id = activities[0]["id"]

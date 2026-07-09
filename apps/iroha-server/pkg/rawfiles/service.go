@@ -33,10 +33,18 @@ type CreateInput struct {
 }
 
 func NewService(db *gorm.DB, dataDir string) (*Service, error) {
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+	// Resolve to an absolute path so the persisted storage_path is
+	// independent of the process working directory. The import worker
+	// (iroha-job) runs from a different CWD than the server and opens the
+	// raw file by its stored path, so a relative path would not resolve.
+	absDataDir, err := filepath.Abs(dataDir)
+	if err != nil {
 		return nil, err
 	}
-	return &Service{db: db, dataDir: dataDir}, nil
+	if err := os.MkdirAll(absDataDir, 0o755); err != nil {
+		return nil, err
+	}
+	return &Service{db: db, dataDir: absDataDir}, nil
 }
 
 func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
