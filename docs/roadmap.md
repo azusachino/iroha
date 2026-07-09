@@ -1,10 +1,14 @@
 # Roadmap
 
-This roadmap tracks MVP v0. The product goal is to prove one vertical first: personal running data import, canonical storage, and private activity browsing.
+This roadmap tracks MVP v0. The product goal is to prove one vertical first:
+personal running data import, canonical storage, and private activity browsing.
+The broader cockpit direction is described in
+[Personal Data Cockpit Model](personal-data-cockpit.md).
 
 Implementation should stay narrow:
 
-- one Go app: `apps/iroha-server`
+- one public API app first: `apps/iroha-server`
+- one worker app once jobs need to outlive API requests: `apps/iroha-job`
 - no shared Go package until a second Go module exists
 - no in-repo Telegram bot
 - no private frontend until milestones 1-3 are complete
@@ -67,6 +71,7 @@ Tasks:
 - Run persisted jobs with an in-process worker first.
 - Store parser version and error message.
 - Model reprocessing as a new import job for the same raw file.
+- Keep the job contract compatible with a later `iroha-job` worker process.
 
 Exit criteria:
 
@@ -165,11 +170,36 @@ Exit criteria:
 
 - A public activity can be generated without exposing exact private route data.
 
+## Milestone 8: Durable Worker Backbone
+
+Goal: move long-running and repeatable work out of request handlers without
+adding external queue infrastructure.
+
+Tasks:
+
+- Add a Postgres-backed `tb_jobs` queue.
+- Add `apps/iroha-job` as the first worker binary.
+- Move import execution from in-process API handling into job handlers.
+- Support retry, `run_after`, locking, attempts, and compact error reporting.
+- Add explicit job kinds for parser reprocess and projection refresh.
+- Add a small schedule model for regular connector syncs.
+- Treat user-triggered dumps, such as requesting a fresh health-data export, as
+  durable trigger jobs even when the source device/client performs the dump.
+
+Exit criteria:
+
+- The API can enqueue work and return immediately.
+- The worker can claim and complete queued imports.
+- A regular sync job can be scheduled and inspected.
+- A manual "sync now" or "request full dump" action creates an observable job.
+
 ## Future Module: Reading and Watching Stats
 
 Goal: track personal media consumption without turning iroha into a social media clone.
 
 See [Reading and Watching History Research](media-history-research.md) for the researched data model, source connectors, and implementation boundary.
+See also [Personal Data Cockpit Model](personal-data-cockpit.md) for the shared
+intake, job, sync, and trigger model.
 
 This module should reuse the same three-layer pattern as running:
 
@@ -183,6 +213,7 @@ In scope for a first reading/watching module:
 
 - Manual entry for books, manga, articles, films, shows, and videos.
 - CSV/JSON import from existing trackers where available.
+- Manual and scheduled connector syncs where APIs are available.
 - Canonical `media_items` records for title, type, creators, release year, and external refs.
 - `media_events` records for started, progressed, completed, abandoned, reread, and rewatched events.
 - Progress units that fit the media type: pages, chapters, episodes, minutes, percent.
@@ -212,13 +243,11 @@ This should wait until running import, activity read API, and the first private 
 ## Deferred
 
 - Native iOS HealthKit sync app.
-- Background sync.
 - Strava API integration.
 - FIT and TCX full fidelity.
 - In-repo Telegram bot.
 - `go.work`.
 - Shared Go packages.
-- Separate worker binary.
 - Dedicated CLI.
 - Route clustering and similarity.
 - Heatmaps.
