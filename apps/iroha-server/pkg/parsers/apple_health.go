@@ -440,10 +440,9 @@ func workoutToActivity(workout appleWorkout) (ParsedActivity, bool) {
 }
 
 // applyWorkoutStatistics populates the workout-level summary fields
-// (AvgHR/MaxHR/AvgPaceSPerKM, and DistanceM when a more authoritative
+// (AvgHR/MaxHR/AvgPaceSPerKM, CaloriesKcal, and DistanceM when a more authoritative
 // per-stat value is available) from the workout's WorkoutStatistics
-// entries. Energy statistics (active/basal calories) are intentionally
-// ignored - there's no column for them yet.
+// entries.
 func applyWorkoutStatistics(activity *ParsedActivity, stats []appleWorkoutStatistic) {
 	for _, stat := range stats {
 		switch stat.Type {
@@ -462,6 +461,11 @@ func applyWorkoutStatistics(activity *ParsedActivity, stats []appleWorkoutStatis
 			// workout-level totalDistance attribute when present.
 			if distanceM := parseDistanceMeters(stat.Sum, stat.Unit); distanceM != nil {
 				activity.DistanceM = distanceM
+			}
+
+		case "HKQuantityTypeIdentifierActiveEnergyBurned":
+			if sumVal, err := strconv.ParseFloat(stat.Sum, 64); err == nil {
+				activity.CaloriesKcal = &sumVal
 			}
 		}
 	}

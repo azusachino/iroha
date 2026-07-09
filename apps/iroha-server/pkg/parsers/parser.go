@@ -39,6 +39,7 @@ type ParsedActivity struct {
 	AvgHR         *int
 	MaxHR         *int
 	AvgPaceSPerKM *float64
+	CaloriesKcal  *float64
 
 	// Laps are derived from lap-delimiting events in the source (e.g. Apple
 	// Health WorkoutEvent entries of type Lap/Segment). Nil when the source
@@ -73,10 +74,11 @@ type RoutePoint struct {
 // Distance/HR/pace per lap require per-sample data (task-7) and are
 // deliberately left out here.
 type ParsedLap struct {
-	LapNo     int
-	StartTs   *time.Time
-	EndTs     *time.Time
-	DurationS *int
+	LapNo        int
+	StartTs      *time.Time
+	EndTs        *time.Time
+	DurationS    *int
+	CaloriesKcal *float64
 }
 
 func Parse(input Input) ([]ParsedActivity, error) {

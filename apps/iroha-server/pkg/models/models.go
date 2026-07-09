@@ -53,6 +53,7 @@ type Activity struct {
 	AvgHR            *int
 	MaxHR            *int
 	AvgPaceSPerKM    *float64
+	CaloriesKcal     *float64
 	SourceKind       string
 	SourceActivityID string
 	FirstRawFileID   uuid.UUID `gorm:"type:uuid"`
@@ -116,6 +117,7 @@ type ActivityLap struct {
 	DurationS     *int
 	AvgHR         *int
 	AvgPaceSPerKM *float64
+	CaloriesKcal  *float64
 }
 
 func (ActivityLap) TableName() string {

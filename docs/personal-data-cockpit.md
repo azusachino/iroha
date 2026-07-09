@@ -59,7 +59,7 @@ for quick inspection. Either way, parser improvements should not require the
 user to re-enter history.
 
 The first schema lives in
-`apps/iroha-server/db/migrations/00006_create_cockpit_jobs.sql`.
+`apps/iroha-server/db/migrations/00005_create_cockpit_jobs.sql`.
 
 ### Jobs
 

@@ -102,6 +102,9 @@ func TestDecodeAppleWorkoutsProducesUnchangedActivity(t *testing.T) {
 	if activity.DistanceM == nil || *activity.DistanceM != 5000 {
 		t.Errorf("DistanceM = %v, want 5000", activity.DistanceM)
 	}
+	if activity.CaloriesKcal == nil || *activity.CaloriesKcal != 300 {
+		t.Errorf("CaloriesKcal = %v, want 300", activity.CaloriesKcal)
+	}
 	if activity.EndedAt == nil {
 		t.Errorf("EndedAt should not be nil")
 	}

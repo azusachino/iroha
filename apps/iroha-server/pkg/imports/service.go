@@ -477,6 +477,7 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed par
 		AvgHR:            parsed.AvgHR,
 		MaxHR:            parsed.MaxHR,
 		AvgPaceSPerKM:    parsed.AvgPaceSPerKM,
+		CaloriesKcal:     parsed.CaloriesKcal,
 		SourceKind:       parsed.SourceKind,
 		SourceActivityID: parsed.SourceActivityID,
 		FirstRawFileID:   rawFile.ID,
@@ -530,6 +531,7 @@ func replaceLaps(tx *gorm.DB, activityID uuid.UUID, laps []parsers.ParsedLap) er
 			DurationS:     lap.DurationS,
 			AvgHR:         nil,
 			AvgPaceSPerKM: nil,
+			CaloriesKcal:  lap.CaloriesKcal,
 		})
 	}
 	return tx.Create(&rows).Error
