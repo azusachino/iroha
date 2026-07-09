@@ -8,7 +8,7 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test test-integration build run web-install web-check web-test web-build web-dev check validate db-up db-down db-status db-logs db-reset smoke-real-import
+.PHONY: help fmt fmt-check vet lint test test-integration build run web-install web-check web-test web-build web-dev check validate db-up db-down db-status db-logs db-reset smoke-real-import postgrest
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -79,3 +79,12 @@ db-reset: ## Reset the local dev database stack and apply migrations
 smoke-real-import: ## Upload/import a real local file through the HTTP API (FILE=...)
 	@test -n "$(FILE)" || (echo "FILE is required, e.g. make smoke-real-import FILE=.iroha-data/imports/export.zip" >&2; exit 2)
 	$(NIX_DEV)uv run python scripts/real_import_smoke.py "$(FILE)" --api-base "$(or $(API_BASE),http://127.0.0.1:8080)"
+
+## --- PostgREST spike (host process, NOT in the compose stack) ---
+postgrest: ## Run PostgREST as a host process against the local dev DB (http://127.0.0.1:3001)
+	$(NIX_DEV)env \
+		PGRST_DB_URI="postgres://authenticator:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable" \
+		PGRST_DB_SCHEMAS=api \
+		PGRST_DB_ANON_ROLE=web_anon \
+		PGRST_SERVER_PORT=3001 \
+		postgrest

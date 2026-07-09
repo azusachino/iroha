@@ -23,6 +23,7 @@
             pkgs.bun
             pkgs.nodejs_24
             pkgs.postgresql_17
+            pkgs.postgrest
             pkgs.uv
           ];
 
