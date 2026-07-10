@@ -157,6 +157,87 @@
 	const anyChart = $derived(
 		!!paceChart || !!hrChart || !!elevationChart || !!hrSamplingChart
 	);
+
+	const isRun = $derived(activity?.sport_type?.toLowerCase() === 'run');
+
+	interface CalculatedLap {
+		lap_no: number;
+		distance_m: number;
+		duration_s: number;
+		avg_hr?: number;
+		avg_pace_s_per_km?: number;
+	}
+
+	function calculateLapsFromRoute(routePoints: RoutePoint[], sportType: string): CalculatedLap[] {
+		if (sportType.toLowerCase() !== 'run') return [];
+		if (routePoints.length < 2) return [];
+
+		// Filter and sort points that have distance and timestamp
+		const points = routePoints
+			.filter((p) => p.distance_m != null && p.ts != null)
+			.sort((a, b) => (a.distance_m as number) - (b.distance_m as number));
+
+		if (points.length < 2) return [];
+
+		const calculatedLaps: CalculatedLap[] = [];
+		let startIdx = 0;
+		let lapNo = 1;
+
+		for (let i = 1; i < points.length; i++) {
+			const startPoint = points[startIdx];
+			const currentPoint = points[i];
+			const segmentDist = (currentPoint.distance_m as number) - (startPoint.distance_m as number);
+
+			// When we cross a 1000m boundary, or if it's the very last point
+			const isLastPoint = i === points.length - 1;
+			if (segmentDist >= 1000 || (isLastPoint && segmentDist > 10)) {
+				const startTs = new Date(startPoint.ts as string).getTime();
+				const endTs = new Date(currentPoint.ts as string).getTime();
+				const durationS = (endTs - startTs) / 1000;
+
+				// Average HR in this segment
+				const hrs = points
+					.slice(startIdx, i + 1)
+					.map((p) => p.heart_rate)
+					.filter((hr): hr is number => hr != null && hr > 0);
+				const avgHr = hrs.length > 0 ? hrs.reduce((sum, h) => sum + h, 0) / hrs.length : undefined;
+
+				const avgPace = segmentDist > 0 ? durationS / (segmentDist / 1000) : undefined;
+
+				calculatedLaps.push({
+					lap_no: lapNo,
+					distance_m: segmentDist,
+					duration_s: durationS,
+					avg_hr: avgHr,
+					avg_pace_s_per_km: avgPace
+				});
+
+				lapNo++;
+				startIdx = i;
+			}
+		}
+
+		return calculatedLaps;
+	}
+
+	const displayLaps = $derived.by<CalculatedLap[]>(() => {
+		if (!activity || activity.sport_type.toLowerCase() !== 'run') return [];
+		if (route && route.length >= 2) {
+			const calculated = calculateLapsFromRoute(route, activity.sport_type);
+			if (calculated.length > 0) return calculated;
+		}
+		// If we don't have route points but we have laps from the database, map them.
+		if (laps && laps.length > 0) {
+			return laps.map((l) => ({
+				lap_no: l.lap_no,
+				distance_m: l.distance_m ?? 1000,
+				duration_s: l.duration_s ?? 0,
+				avg_hr: l.avg_hr,
+				avg_pace_s_per_km: l.avg_pace_s_per_km
+			}));
+		}
+		return [];
+	});
 </script>
 
 <p><a href="/">← Back to activities</a></p>
@@ -214,25 +295,43 @@
 		{/if}
 	{/if}
 
-	{#if laps.length > 0}
-		<h2>Laps</h2>
-		<ul class="activity-list">
-			{#each laps as lap (lap.id)}
-				<li class="activity-card">
-					<div class="meta">
-						<span class="badge">Lap {lap.lap_no}</span>
-						<span>{formatDistance(lap.distance_m)}</span>
-						<span>{formatDuration(lap.duration_s)}</span>
-						<span>{formatPace(lap.avg_pace_s_per_km)}</span>
-						<span>{formatHr(lap.avg_hr)}</span>
-					</div>
-				</li>
-			{/each}
-		</ul>
+	{#if isRun && displayLaps.length > 0}
+		<h2 class="section-title">Laps (1 km splits)</h2>
+		<div class="laps-container tile">
+			<table class="laps-table">
+				<thead>
+					<tr>
+						<th>Lap</th>
+						<th>Distance</th>
+						<th>Duration</th>
+						<th>Pace</th>
+						<th>Avg HR</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each displayLaps as lap (lap.lap_no)}
+						<tr>
+							<td><strong>{lap.lap_no}</strong></td>
+							<td>{formatDistance(lap.distance_m)}</td>
+							<td>{formatDuration(lap.duration_s)}</td>
+							<td>{formatPace(lap.avg_pace_s_per_km)}</td>
+							<td>{formatHr(lap.avg_hr)}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
 	{/if}
 {/if}
 
 <style>
 	.activity-meta { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
 	.activity-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+	.section-title { margin-top: 2rem; margin-bottom: 0.75rem; font-size: 1.25rem; font-weight: 700; }
+	.laps-container { overflow-x: auto; padding: 0.5rem; margin-bottom: 2rem; }
+	.laps-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+	.laps-table th { padding: 0.75rem 1rem; color: var(--text-muted); font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+	.laps-table td { padding: 0.75rem 1rem; color: var(--text); border-bottom: 1px solid var(--border); }
+	.laps-table tbody tr:last-child td { border-bottom: none; }
+	.laps-table tbody tr:hover td { background: var(--surface-2); }
 </style>

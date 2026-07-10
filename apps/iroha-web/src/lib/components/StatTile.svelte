@@ -42,6 +42,7 @@
 		font-weight: 750;
 		line-height: 1;
 		letter-spacing: 0;
+		white-space: nowrap;
 	}
 
 	.stat-sub {

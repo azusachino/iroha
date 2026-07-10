@@ -4,15 +4,13 @@
 	import SportBadge from '$lib/components/SportBadge.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
 	import { formatDate, formatDistance, formatDuration, formatPace } from '$lib/format';
-	import { sportColor } from '$lib/sport';
+	import { sportColor, sportLabel } from '$lib/sport';
 
 	// Draft filter inputs (bound to the form); committed to `applied` on submit
 	// so "Load more" keeps paging the same query the user actually ran.
 	let sportType = $state('');
-	let dateFrom = $state('');
-	let dateTo = $state('');
-	let minKm = $state('');
-	let maxKm = $state('');
+	let selectedYear = $state('');
+	let selectedMonth = $state('');
 	let applied = $state<ListActivitiesParams>({});
 
 	let activities = $state<Activity[]>([]);
@@ -25,15 +23,46 @@
 	let summary = $state<Summary | null>(null);
 	let summaryLoading = $state(true);
 
+	const months = [
+		{ value: '1', label: 'January' },
+		{ value: '2', label: 'February' },
+		{ value: '3', label: 'March' },
+		{ value: '4', label: 'April' },
+		{ value: '5', label: 'May' },
+		{ value: '6', label: 'June' },
+		{ value: '7', label: 'July' },
+		{ value: '8', label: 'August' },
+		{ value: '9', label: 'September' },
+		{ value: '10', label: 'October' },
+		{ value: '11', label: 'November' },
+		{ value: '12', label: 'December' }
+	];
+
+	const years = $derived(summary ? summary.by_year.map(b => b.key).sort((a, b) => b.localeCompare(a)) : [new Date().getFullYear().toString()]);
+
+	function handleYearChange() {
+		if (!selectedYear) {
+			selectedMonth = '';
+		}
+	}
+
 	function buildParams(): ListActivitiesParams {
 		const params: ListActivitiesParams = {};
 		if (sportType) params.sport_type = sportType;
-		// Widen date-only inputs to full-day UTC bounds (approximate; good enough
-		// for exploring — a real UI would honor the activity's own timezone).
-		if (dateFrom) params.started_from = `${dateFrom}T00:00:00Z`;
-		if (dateTo) params.started_to = `${dateTo}T23:59:59Z`;
-		if (minKm) params.min_distance_m = Number(minKm) * 1000;
-		if (maxKm) params.max_distance_m = Number(maxKm) * 1000;
+
+		if (selectedYear) {
+			const y = Number(selectedYear);
+			if (selectedMonth) {
+				const m = Number(selectedMonth);
+				const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
+				const end = new Date(Date.UTC(y, m, 0, 23, 59, 59));
+				params.started_from = start.toISOString();
+				params.started_to = end.toISOString();
+			} else {
+				params.started_from = new Date(Date.UTC(y, 0, 1, 0, 0, 0)).toISOString();
+				params.started_to = new Date(Date.UTC(y, 12, 0, 23, 59, 59)).toISOString();
+			}
+		}
 		return params;
 	}
 
@@ -72,10 +101,8 @@
 
 	function clear() {
 		sportType = '';
-		dateFrom = '';
-		dateTo = '';
-		minKm = '';
-		maxKm = '';
+		selectedYear = '';
+		selectedMonth = '';
 		applied = {};
 		cursor = null;
 		load(false);
@@ -120,13 +147,35 @@
 
 	<form class="activity-toolbar tile" onsubmit={apply}>
 		<div class="filter-fields">
-			<label>Sport <select bind:value={sportType}><option value="">All sports</option>{#each sportOptions as option (option)}<option value={option}>{option}</option>{/each}</select></label>
-			<label>From <input type="date" bind:value={dateFrom} /></label>
-			<label>To <input type="date" bind:value={dateTo} /></label>
-			<label>Min km <input type="number" min="0" step="0.1" bind:value={minKm} /></label>
-			<label>Max km <input type="number" min="0" step="0.1" bind:value={maxKm} /></label>
+			<label>Sport
+				<select bind:value={sportType}>
+					<option value="">All sports</option>
+					{#each sportOptions as option (option)}
+						<option value={option}>{sportLabel(option)}</option>
+					{/each}
+				</select>
+			</label>
+			<label>Year
+				<select bind:value={selectedYear} onchange={handleYearChange}>
+					<option value="">All years</option>
+					{#each years as year}
+						<option value={year}>{year}</option>
+					{/each}
+				</select>
+			</label>
+			<label>Month
+				<select bind:value={selectedMonth} disabled={!selectedYear}>
+					<option value="">All months</option>
+					{#each months as month}
+						<option value={month.value}>{month.label}</option>
+					{/each}
+				</select>
+			</label>
 		</div>
-		<div class="toolbar-actions"><button type="submit">Apply filters</button><button type="button" class="secondary" onclick={clear}>Clear</button></div>
+		<div class="toolbar-actions">
+			<button type="submit">Apply filters</button>
+			<button type="button" class="secondary" onclick={clear}>Clear</button>
+		</div>
 	</form>
 
 	{#if loading}
@@ -173,7 +222,7 @@
 	.card-top { display: flex; justify-content: space-between; gap: 0.5rem; }
 	.activity-date { color: var(--text-muted); font-size: 0.72rem; text-align: right; }
 	.activity-card h2 { margin: 0; font-size: 1rem; line-height: 1.25; }
-	.primary-metric { align-self: end; color: var(--text); font-size: clamp(1.45rem, 3vw, 2rem); font-weight: 750; line-height: 1; }
+	.primary-metric { align-self: end; color: var(--text); font-size: clamp(1.45rem, 3vw, 2rem); font-weight: 750; line-height: 1; white-space: nowrap; }
 	.card-metrics { display: flex; justify-content: space-between; gap: 0.5rem; color: var(--text-muted); font-size: 0.8rem; }
 	@media (max-width: 800px) { .stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .activity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .activity-toolbar { align-items: stretch; flex-direction: column; } }
 	@media (max-width: 560px) { .activity-grid { grid-template-columns: 1fr; } .toolbar-actions { width: 100%; } .toolbar-actions button { flex: 1; } .activity-date { max-width: 9rem; } }
