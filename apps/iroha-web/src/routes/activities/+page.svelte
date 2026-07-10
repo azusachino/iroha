@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { listActivities, type Activity, type ListActivitiesParams } from '$lib/api';
-	import { formatDistance, formatDuration, formatDate, formatSport } from '$lib/format';
+	import { onMount } from 'svelte';
+	import { getPublicSummary, listActivities, type Activity, type ListActivitiesParams, type Summary } from '$lib/api';
+	import SportBadge from '$lib/components/SportBadge.svelte';
+	import StatTile from '$lib/components/StatTile.svelte';
+	import { formatDate, formatDistance, formatDuration, formatPace } from '$lib/format';
+	import { sportColor } from '$lib/sport';
 
 	// Draft filter inputs (bound to the form); committed to `applied` on submit
 	// so "Load more" keeps paging the same query the user actually ran.
@@ -18,6 +22,8 @@
 	let cursor = $state<string | null>(null);
 	let hasMore = $state(false);
 	let error = $state<string | null>(null);
+	let summary = $state<Summary | null>(null);
+	let summaryLoading = $state(true);
 
 	function buildParams(): ListActivitiesParams {
 		const params: ListActivitiesParams = {};
@@ -75,73 +81,100 @@
 		load(false);
 	}
 
+	async function loadSummary() {
+		try {
+			summary = await getPublicSummary();
+		} finally {
+			summaryLoading = false;
+		}
+	}
+
+	const totalDuration = $derived(formatDuration(summary?.totals.moving_time_s || summary?.totals.duration_s));
+	const trackedSports = $derived(summary?.by_sport.length ?? 0);
+
 	// Initial unfiltered load (runs once — no reactive dependencies read).
 	$effect(() => {
 		load(false);
 	});
+
+	onMount(() => {
+		void loadSummary();
+	});
 </script>
 
-<h1>Activities</h1>
+<section class="activities-shell">
+	<header class="domain-header">
+		<div>
+			<p class="eyebrow">Activity domain</p>
+			<h1>Every session, in one place.</h1>
+			<p class="muted">Explore the record, then open an activity for its route and measurements.</p>
+		</div>
+	</header>
 
-<form class="filters" onsubmit={apply}>
-	<label>
-		Sport
-		<select bind:value={sportType}>
-			<option value="">All</option>
-			{#each sportOptions as option (option)}
-				<option value={option}>{option}</option>
+	<div class="stat-strip" aria-label="Activity summary">
+		<StatTile label="Activities" value={summaryLoading ? '—' : (summary?.totals.activity_count ?? 0).toLocaleString()} sub="Imported sessions" />
+		<StatTile label="Distance" value={summaryLoading ? '—' : formatDistance(summary?.totals.distance_m)} sub="Across all activities" />
+		<StatTile label="Total time" value={summaryLoading ? '—' : totalDuration} sub="Recorded duration" />
+		<StatTile label="Sports" value={summaryLoading ? '—' : trackedSports.toLocaleString()} sub="Activity types tracked" />
+	</div>
+
+	<form class="activity-toolbar tile" onsubmit={apply}>
+		<div class="filter-fields">
+			<label>Sport <select bind:value={sportType}><option value="">All sports</option>{#each sportOptions as option (option)}<option value={option}>{option}</option>{/each}</select></label>
+			<label>From <input type="date" bind:value={dateFrom} /></label>
+			<label>To <input type="date" bind:value={dateTo} /></label>
+			<label>Min km <input type="number" min="0" step="0.1" bind:value={minKm} /></label>
+			<label>Max km <input type="number" min="0" step="0.1" bind:value={maxKm} /></label>
+		</div>
+		<div class="toolbar-actions"><button type="submit">Apply filters</button><button type="button" class="secondary" onclick={clear}>Clear</button></div>
+	</form>
+
+	{#if loading}
+		<p class="muted">Loading activities…</p>
+	{:else if error}
+		<p class="error">Failed to load activities: {error}</p>
+	{:else if activities.length === 0}
+		<p class="muted">No activities found.</p>
+	{:else}
+		<p class="muted result-count">{activities.length} shown{hasMore ? ' (more available)' : ''}</p>
+		<ul class="activity-grid">
+			{#each activities as activity (activity.id)}
+				<li>
+					<a class="activity-card tile tile-interactive" href={`/activities/${activity.id}`} style={`--sport-color: ${sportColor(activity.sport_type)}`}>
+						<span class="accent" aria-hidden="true"></span>
+						<div class="card-top"><SportBadge sport={activity.sport_type} /><span class="activity-date">{formatDate(activity.started_at, activity.timezone)}</span></div>
+						<h2>{activity.title || 'Untitled activity'}</h2>
+						<div class="primary-metric">{formatDistance(activity.distance_m)}</div>
+						<div class="card-metrics"><span>{formatPace(activity.avg_pace_s_per_km)}</span><span>{formatDuration(activity.duration_s ?? activity.moving_time_s)}</span></div>
+					</a>
+				</li>
 			{/each}
-		</select>
-	</label>
-	<label>
-		From
-		<input type="date" bind:value={dateFrom} />
-	</label>
-	<label>
-		To
-		<input type="date" bind:value={dateTo} />
-	</label>
-	<label>
-		Min km
-		<input type="number" min="0" step="0.1" bind:value={minKm} />
-	</label>
-	<label>
-		Max km
-		<input type="number" min="0" step="0.1" bind:value={maxKm} />
-	</label>
-	<button type="submit">Apply</button>
-	<button type="button" class="secondary" onclick={clear}>Clear</button>
-</form>
-
-{#if loading}
-	<p class="muted">Loading activities…</p>
-{:else if error}
-	<p class="error">Failed to load activities: {error}</p>
-{:else if activities.length === 0}
-	<p class="muted">No activities found.</p>
-{:else}
-	<p class="muted result-count">
-		{activities.length} shown{hasMore ? ' (more available)' : ''}
-	</p>
-	<ul class="activity-list">
-		{#each activities as activity (activity.id)}
-			<li>
-				<a class="activity-card" href={`/activities/${activity.id}`}>
-					<div class="title">{activity.title || 'Untitled activity'}</div>
-					<div class="meta">
-						<span class="badge">{formatSport(activity.sport_type)}</span>
-						<span>{formatDate(activity.started_at, activity.timezone)}</span>
-						<span>{formatDistance(activity.distance_m)}</span>
-						<span>{formatDuration(activity.duration_s ?? activity.moving_time_s)}</span>
-					</div>
-				</a>
-			</li>
-		{/each}
-	</ul>
-
-	{#if hasMore}
-		<button class="load-more" onclick={() => load(true)} disabled={loadingMore}>
-			{loadingMore ? 'Loading…' : 'Load more'}
-		</button>
+		</ul>
+		{#if hasMore}<button class="load-more" onclick={() => load(true)} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more activities'}</button>{/if}
 	{/if}
-{/if}
+</section>
+
+<style>
+	.activities-shell { display: grid; gap: 1.25rem; }
+	.domain-header h1 { margin: 0; }
+	.domain-header .muted { margin: 0.4rem 0 0; }
+	.eyebrow { margin: 0 0 0.4rem; color: var(--accent); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+	.stat-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
+	.activity-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: 1rem; }
+	.filter-fields { display: flex; flex: 1; flex-wrap: wrap; gap: 0.75rem; }
+	.filter-fields label { display: flex; flex-direction: column; gap: 0.3rem; color: var(--text-muted); font-size: 0.76rem; font-weight: 650; }
+	.toolbar-actions { display: flex; gap: 0.5rem; }
+	.toolbar-actions button { border: 1px solid var(--accent); border-radius: var(--radius); background: var(--accent); color: var(--bg); padding: 0.5rem 0.75rem; font: inherit; font-size: 0.84rem; cursor: pointer; }
+	.toolbar-actions .secondary { border-color: var(--border); background: var(--surface-2); color: var(--text); }
+	.activity-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
+	.activity-card { position: relative; display: grid; gap: 0.75rem; min-height: 13rem; padding: 1rem; overflow: hidden; color: var(--text); text-decoration: none; }
+	.activity-card:hover { text-decoration: none; }
+	.accent { position: absolute; inset: 0 auto 0 0; width: 0.25rem; background: var(--sport-color); }
+	.card-top { display: flex; justify-content: space-between; gap: 0.5rem; }
+	.activity-date { color: var(--text-muted); font-size: 0.72rem; text-align: right; }
+	.activity-card h2 { margin: 0; font-size: 1rem; line-height: 1.25; }
+	.primary-metric { align-self: end; color: var(--text); font-size: clamp(1.45rem, 3vw, 2rem); font-weight: 750; line-height: 1; }
+	.card-metrics { display: flex; justify-content: space-between; gap: 0.5rem; color: var(--text-muted); font-size: 0.8rem; }
+	@media (max-width: 800px) { .stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .activity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .activity-toolbar { align-items: stretch; flex-direction: column; } }
+	@media (max-width: 560px) { .activity-grid { grid-template-columns: 1fr; } .toolbar-actions { width: 100%; } .toolbar-actions button { flex: 1; } .activity-date { max-width: 9rem; } }
+</style>
