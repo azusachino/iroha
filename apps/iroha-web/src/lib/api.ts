@@ -109,9 +109,14 @@ export function getActivityRoute(id: string, fetchFn: typeof fetch = fetch): Pro
 
 export function getActivitySamplings(
 	id: string,
+	types?: string[],
 	fetchFn: typeof fetch = fetch
 ): Promise<SamplingPoint[]> {
-	return getJSON<SamplingPoint[]>(`/api/v1/activities/${encodeURIComponent(id)}/samplings`, fetchFn);
+	const suffix = types && types.length ? `?type=${types.map(encodeURIComponent).join(',')}` : '';
+	return getJSON<SamplingPoint[]>(
+		`/api/v1/activities/${encodeURIComponent(id)}/samplings${suffix}`,
+		fetchFn
+	);
 }
 
 export function getActivityLaps(id: string, fetchFn: typeof fetch = fetch): Promise<Lap[]> {

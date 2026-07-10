@@ -46,8 +46,12 @@
 		}
 	}
 
+	// Smaller first page than the server's 50 default — lighter initial paint,
+	// and infinite scroll pages the rest in as you go.
+	const PAGE_SIZE = 24;
+
 	function buildParams(): ListActivitiesParams {
-		const params: ListActivitiesParams = {};
+		const params: ListActivitiesParams = { limit: PAGE_SIZE };
 		if (sportType) params.sport_type = sportType;
 
 		if (selectedYear) {

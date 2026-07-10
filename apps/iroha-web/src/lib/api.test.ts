@@ -190,7 +190,7 @@ describe('getActivityRoute', () => {
 describe('getActivitySamplings', () => {
 	it('builds correct path with id', async () => {
 		const { fakeFetch, getCapturedUrl } = createFakeFetch([]);
-		await getActivitySamplings('test-id', fakeFetch);
+		await getActivitySamplings('test-id', undefined, fakeFetch);
 
 		const url = getCapturedUrl();
 		expect(url).toContain('/api/v1/activities/test-id/samplings');
@@ -198,7 +198,7 @@ describe('getActivitySamplings', () => {
 
 	it('encodes special characters in id', async () => {
 		const { fakeFetch, getCapturedUrl } = createFakeFetch([]);
-		await getActivitySamplings('test?id', fakeFetch);
+		await getActivitySamplings('test?id', undefined, fakeFetch);
 
 		const url = getCapturedUrl();
 		expect(url).toContain(encodeURIComponent('test?id'));
@@ -223,7 +223,7 @@ describe('getActivitySamplings', () => {
 		];
 		const { fakeFetch } = createFakeFetch(mockSamplings);
 
-		const result = await getActivitySamplings('test-id', fakeFetch);
+		const result = await getActivitySamplings('test-id', undefined, fakeFetch);
 		expect(result).toEqual(mockSamplings);
 	});
 });

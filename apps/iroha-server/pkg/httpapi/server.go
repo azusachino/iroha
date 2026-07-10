@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"log/slog"
+	"net"
 	"net/http"
+	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
@@ -12,6 +14,16 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
+)
+
+// Per-IP request budgets (per minute). Keyed off middleware.RealIP. The
+// geocode proxy is stricter because each hit fans out to Nominatim, which
+// enforces its own ~1 req/s policy.
+const (
+	apiRateLimitPerMin     = 120
+	publicRateLimitPerMin  = 60
+	geocodeRateLimitPerMin = 10
 )
 
 type Dependencies struct {
@@ -59,6 +71,7 @@ func (s *Server) routes() {
 	s.mux.Route("/api/v1", func(r chi.Router) {
 		// Private API: CORS limited to configured origins.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
+		r.Use(limitByIP(apiRateLimitPerMin))
 		r.Route("/raw-files", func(r chi.Router) {
 			r.With(s.requireUploadAuth).Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
@@ -82,11 +95,26 @@ func (s *Server) routes() {
 	// CORS open to any origin since the data is already sanitized.
 	s.mux.Route("/public/v1", func(r chi.Router) {
 		r.Use(corsMiddleware([]string{"*"}))
+		r.Use(limitByIP(publicRateLimitPerMin))
 		r.Get("/summary", s.handlePublicSummary)
 		r.Get("/activities", s.handlePublicActivities)
 		r.Get("/routes", s.handlePublicRoutes)
-		r.Get("/geocode", s.handlePublicGeocode)
+		r.With(limitByIP(geocodeRateLimitPerMin)).Get("/geocode", s.handlePublicGeocode)
 	})
+}
+
+// limitByIP builds a per-IP rate limiter (per minute). It keys off the client
+// address resolved by middleware.RealIP into r.RemoteAddr, stated explicitly to
+// avoid the deprecated LimitByIP helper.
+func limitByIP(perMinute int) func(http.Handler) http.Handler {
+	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP)
+}
+
+func keyByRemoteIP(r *http.Request) (string, error) {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host, nil
+	}
+	return r.RemoteAddr, nil
 }
 
 // corsMiddleware builds a read-only CORS handler for the given origins.

@@ -434,14 +434,22 @@ func decimatePoints(points [][2]float64) [][2]float64 {
 	return out
 }
 
-func (s *Service) Samplings(id string) ([]models.ActivitySampling, bool, error) {
+// Samplings returns an activity's measurement stream. When types are given the
+// result is limited to those sampling_types — the detail view only charts
+// heart_rate, so it avoids pulling the (much larger) power/energy/speed streams.
+func (s *Service) Samplings(id string, types ...string) ([]models.ActivitySampling, bool, error) {
 	activity, found, err := s.Get(id)
 	if err != nil || !found {
 		return nil, found, err
 	}
 
+	q := s.db.Where("activity_id = ?", activity.ID)
+	if len(types) > 0 {
+		q = q.Where("sampling_type IN ?", types)
+	}
+
 	var samplings []models.ActivitySampling
-	err = s.db.Where("activity_id = ?", activity.ID).Order("sampling_type asc, ts asc").Find(&samplings).Error
+	err = q.Order("sampling_type asc, ts asc").Find(&samplings).Error
 	return samplings, true, err
 }
 

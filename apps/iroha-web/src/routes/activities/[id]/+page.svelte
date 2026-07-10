@@ -48,7 +48,8 @@
 			getActivity(activityId),
 			// Sub-resources are best-effort; an empty/failed one should not blank the page.
 			getActivityRoute(activityId).then(r => r ?? []).catch(() => [] as RoutePoint[]),
-			getActivitySamplings(activityId).then(s => s ?? []).catch(() => [] as SamplingPoint[]),
+			// The charts only use heart_rate; skip the larger power/energy/speed streams.
+			getActivitySamplings(activityId, ['heart_rate']).then(s => s ?? []).catch(() => [] as SamplingPoint[]),
 			getActivityLaps(activityId).then(l => l ?? []).catch(() => [] as Lap[])
 		])
 			.then(([a, r, s, l]) => {

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
@@ -135,7 +136,17 @@ func (s *Server) handleGetActivityRoute(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleGetActivitySamplings(w http.ResponseWriter, r *http.Request) {
-	samplings, found, err := s.deps.ActivityService.Samplings(chi.URLParam(r, "activityId"))
+	// Optional ?type=heart_rate,running_power narrows the stream to the requested
+	// sampling_types; omit for the full set.
+	var types []string
+	if raw := r.URL.Query().Get("type"); raw != "" {
+		for _, t := range strings.Split(raw, ",") {
+			if t = strings.TrimSpace(t); t != "" {
+				types = append(types, t)
+			}
+		}
+	}
+	samplings, found, err := s.deps.ActivityService.Samplings(chi.URLParam(r, "activityId"), types...)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid activity id")
 		return
