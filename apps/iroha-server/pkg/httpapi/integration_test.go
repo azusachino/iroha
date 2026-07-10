@@ -189,7 +189,7 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 
 	jobsService := jobs.NewService(db, logger, handlers)
 	enqueuer := &testJobEnqueuer{jobsService: jobsService}
-	importService = imports.NewService(db, logger, "integration-test", enqueuer)
+	importService = imports.NewService(db, logger, "integration-test", enqueuer, nil)
 
 	// Start background test worker loop to process jobs from tb_jobs
 	ctx, cancel := context.WithCancel(context.Background())

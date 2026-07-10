@@ -22,6 +22,13 @@
 	import LineChart, { type ChartSeries } from '$lib/components/LineChart.svelte';
 	import SportBadge from '$lib/components/SportBadge.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
+	import { sportLabel } from '$lib/sport';
+
+	function displayTitle(title?: string, sport?: string): string {
+		if (!title) return sportLabel(sport);
+		if (sportLabel(title) === sportLabel(sport)) return sportLabel(sport);
+		return title;
+	}
 
 	let activity = $state<Activity | null>(null);
 	let route = $state<RoutePoint[]>([]);
@@ -40,9 +47,9 @@
 		Promise.all([
 			getActivity(activityId),
 			// Sub-resources are best-effort; an empty/failed one should not blank the page.
-			getActivityRoute(activityId).catch(() => [] as RoutePoint[]),
-			getActivitySamplings(activityId).catch(() => [] as SamplingPoint[]),
-			getActivityLaps(activityId).catch(() => [] as Lap[])
+			getActivityRoute(activityId).then(r => r ?? []).catch(() => [] as RoutePoint[]),
+			getActivitySamplings(activityId).then(s => s ?? []).catch(() => [] as SamplingPoint[]),
+			getActivityLaps(activityId).then(l => l ?? []).catch(() => [] as Lap[])
 		])
 			.then(([a, r, s, l]) => {
 				activity = a;
@@ -58,6 +65,93 @@
 			});
 	});
 
+	function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+		const R = 6371e3; // Earth radius in meters
+		const phi1 = (lat1 * Math.PI) / 180;
+		const phi2 = (lat2 * Math.PI) / 180;
+		const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+		const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+		const a =
+			Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+			Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+		const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+		return R * c; // in meters
+	}
+
+	function populateRouteDistances(routePoints: RoutePoint[]): RoutePoint[] {
+		if (routePoints.length === 0) return [];
+		const points = routePoints.map((p) => ({ ...p }));
+		
+		if (points[0].distance_m == null) {
+			points[0].distance_m = 0;
+		}
+
+		for (let i = 1; i < points.length; i++) {
+			if (points[i].distance_m == null) {
+				const p1 = points[i - 1];
+				const p2 = points[i];
+				const dist = haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon);
+				points[i].distance_m = (p1.distance_m as number) + dist;
+			}
+		}
+		return points;
+	}
+
+	function populateSpeed(points: RoutePoint[]): RoutePoint[] {
+		for (let i = 1; i < points.length; i++) {
+			const p1 = points[i - 1];
+			const p2 = points[i];
+			if (p2.speed_mps == null && p1.ts && p2.ts && p1.distance_m != null && p2.distance_m != null) {
+				const timeDiff = (new Date(p2.ts).getTime() - new Date(p1.ts).getTime()) / 1000;
+				if (timeDiff > 0) {
+					const distDiff = p2.distance_m - p1.distance_m;
+					p2.speed_mps = distDiff / timeDiff;
+				}
+			}
+		}
+		return points;
+	}
+
+	function associateHeartRates(points: RoutePoint[], samplings: SamplingPoint[]): RoutePoint[] {
+		const hrs = samplings.filter((s) => /heart|(^|_)hr($|_)/i.test(s.sampling_type));
+		if (hrs.length === 0) return points;
+
+		const sortedHrs = [...hrs].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+		return points.map((p) => {
+			if (p.heart_rate != null || !p.ts) return p;
+			const pTime = new Date(p.ts).getTime();
+
+			let closestHr = sortedHrs[0];
+			let minDist = Math.abs(new Date(closestHr.ts).getTime() - pTime);
+
+			for (const hr of sortedHrs) {
+				const dist = Math.abs(new Date(hr.ts).getTime() - pTime);
+				if (dist < minDist) {
+					minDist = dist;
+					closestHr = hr;
+				} else if (dist > minDist) {
+					break;
+				}
+			}
+
+			if (minDist <= 15000) {
+				return { ...p, heart_rate: closestHr.value };
+			}
+			return p;
+		});
+	}
+
+	const processedRoute = $derived.by<RoutePoint[]>(() => {
+		if (!route || route.length === 0) return [];
+		let pts = populateRouteDistances(route);
+		pts = populateSpeed(pts);
+		pts = associateHeartRates(pts, samplings);
+		return pts;
+	});
+
 	// Choose an x-axis shared by all route-derived charts: distance if every
 	// point has it, else elapsed time, else the raw sequence number.
 	interface XAxis {
@@ -65,24 +159,24 @@
 		label: string;
 	}
 	const xAxis = $derived.by<XAxis>(() => {
-		if (route.length === 0) return { values: [], label: 'Point' };
-		if (route.every((p) => p.distance_m != null)) {
-			return { values: route.map((p) => (p.distance_m as number) / 1000), label: 'Distance (km)' };
+		if (processedRoute.length === 0) return { values: [], label: 'Point' };
+		if (processedRoute.every((p) => p.distance_m != null)) {
+			return { values: processedRoute.map((p) => (p.distance_m as number) / 1000), label: 'Distance (km)' };
 		}
-		if (route.every((p) => p.ts != null)) {
-			const t0 = new Date(route[0].ts as string).getTime();
+		if (processedRoute.every((p) => p.ts != null)) {
+			const t0 = new Date(processedRoute[0].ts as string).getTime();
 			return {
-				values: route.map((p) => (new Date(p.ts as string).getTime() - t0) / 60000),
+				values: processedRoute.map((p) => (new Date(p.ts as string).getTime() - t0) / 60000),
 				label: 'Time (min)'
 			};
 		}
-		return { values: route.map((p) => p.seq), label: 'Point' };
+		return { values: processedRoute.map((p) => p.seq), label: 'Point' };
 	});
 
-	function column<T>(get: (p: RoutePoint) => T | null | undefined): (number | null)[] {
-		return route.map((p) => {
+	function column(get: (p: RoutePoint) => number | null | undefined): (number | null)[] {
+		return processedRoute.map((p) => {
 			const v = get(p);
-			return v == null || !Number.isFinite(v as number) ? null : (v as number);
+			return v == null || !Number.isFinite(v) ? null : v;
 		});
 	}
 
@@ -92,7 +186,7 @@
 
 	// Pace derived from speed (s/km = 1000 / m/s); guard against zero/idle speed.
 	const paceSeries = $derived.by<(number | null)[]>(() =>
-		route.map((p) => {
+		processedRoute.map((p) => {
 			if (p.speed_mps == null || !Number.isFinite(p.speed_mps) || p.speed_mps <= 0) return null;
 			return 1000 / p.speed_mps;
 		})
@@ -105,7 +199,7 @@
 	// damp GPS noise) when the stored value is absent.
 	const elevationGainM = $derived.by<number | undefined>(() => {
 		if (activity?.elevation_gain_m != null) return activity.elevation_gain_m;
-		const elevs = route
+		const elevs = processedRoute
 			.map((p) => p.elevation_m)
 			.filter((e): e is number => e != null && Number.isFinite(e));
 		if (elevs.length < 2) return undefined;
@@ -152,7 +246,7 @@
 	);
 
 	const hasRouteLine = $derived(
-		route.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)).length >= 2
+		processedRoute.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)).length >= 2
 	);
 	const anyChart = $derived(
 		!!paceChart || !!hrChart || !!elevationChart || !!hrSamplingChart
@@ -222,8 +316,8 @@
 
 	const displayLaps = $derived.by<CalculatedLap[]>(() => {
 		if (!activity || activity.sport_type.toLowerCase() !== 'run') return [];
-		if (route && route.length >= 2) {
-			const calculated = calculateLapsFromRoute(route, activity.sport_type);
+		if (processedRoute && processedRoute.length >= 2) {
+			const calculated = calculateLapsFromRoute(processedRoute, activity.sport_type);
 			if (calculated.length > 0) return calculated;
 		}
 		// If we don't have route points but we have laps from the database, map them.
@@ -247,27 +341,37 @@
 {:else if error}
 	<p class="error">Failed to load activity: {error}</p>
 {:else if activity}
-	<h1>{activity.title || 'Untitled activity'}</h1>
+	<h1>{displayTitle(activity.title, activity.sport_type)}</h1>
 	<div class="activity-meta">
 		<SportBadge sport={activity.sport_type} />
 		<span class="muted">{formatDate(activity.started_at, activity.timezone)}</span>
 	</div>
 
 	<div class="activity-stats">
-		<StatTile label="Distance" value={formatDistance(activity.distance_m)} />
+		{#if activity.distance_m != null && activity.distance_m > 0}
+			<StatTile label="Distance" value={formatDistance(activity.distance_m)} />
+		{/if}
 		<StatTile label="Duration" value={formatDuration(activity.duration_s)} />
 		{#if activity.moving_time_s != null}
 			<StatTile label="Moving time" value={formatDuration(activity.moving_time_s)} />
 		{/if}
-		<StatTile label="Elevation gain" value={formatElevation(elevationGainM)} />
-		<StatTile label="Avg pace" value={formatPace(activity.avg_pace_s_per_km)} />
-		<StatTile label="Avg HR" value={formatHr(activity.avg_hr)} />
-		<StatTile label="Max HR" value={formatHr(activity.max_hr)} />
+		{#if elevationGainM != null && elevationGainM > 0}
+			<StatTile label="Elevation gain" value={formatElevation(elevationGainM)} />
+		{/if}
+		{#if activity.avg_pace_s_per_km != null && activity.avg_pace_s_per_km > 0}
+			<StatTile label="Avg pace" value={formatPace(activity.avg_pace_s_per_km)} />
+		{/if}
+		{#if activity.avg_hr != null && activity.avg_hr > 0}
+			<StatTile label="Avg HR" value={formatHr(activity.avg_hr)} />
+		{/if}
+		{#if activity.max_hr != null && activity.max_hr > 0}
+			<StatTile label="Max HR" value={formatHr(activity.max_hr)} />
+		{/if}
 	</div>
 
 	{#if hasRouteLine}
 		<h2>Route</h2>
-		<RouteMap points={route} />
+		<RouteMap points={processedRoute} />
 	{/if}
 
 	{#if anyChart}

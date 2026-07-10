@@ -1,12 +1,14 @@
 package imports
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
@@ -36,6 +38,7 @@ type Service struct {
 	logger        *slog.Logger
 	parserVersion string
 	enqueuer      Enqueuer
+	cacheClient   *cache.Client
 }
 
 type CreateInput struct {
@@ -43,14 +46,14 @@ type CreateInput struct {
 	ParserKind string
 }
 
-func NewService(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer) *Service {
+func NewService(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer, cacheClient *cache.Client) *Service {
 	if parserVersion == "" {
 		parserVersion = DefaultParserVersion
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer}
+	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer, cacheClient: cacheClient}
 }
 
 func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
@@ -213,10 +216,14 @@ func (s *Service) Process(jobID uuid.UUID) error {
 	}
 
 	finishedAt := time.Now().UTC()
-	return s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
+	err = s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
 		"status":      StatusCompleted,
 		"finished_at": &finishedAt,
 	}).Error
+	if err == nil {
+		s.flushCache()
+	}
+	return err
 }
 
 // priorCompletedImport looks up the most recent COMPLETED import job for a
@@ -253,10 +260,25 @@ func (s *Service) reuseCompletedImport(jobID uuid.UUID, existing models.ImportJo
 	)
 
 	finishedAt := time.Now().UTC()
-	return s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
+	err := s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
 		"status":      StatusCompleted,
 		"finished_at": &finishedAt,
 	}).Error
+	if err == nil {
+		s.flushCache()
+	}
+	return err
+}
+
+func (s *Service) flushCache() {
+	if s.cacheClient == nil {
+		return
+	}
+	s.logger.Info("flushing public cache keys after import job completion")
+	ctx := context.Background()
+	if err := s.cacheClient.DeletePattern(ctx, "public:*"); err != nil {
+		s.logger.Error("failed to flush public cache keys", "error", err)
+	}
 }
 
 func (s *Service) getByUUID(id uuid.UUID) (models.ImportJob, bool, error) {

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { getPublicSummary, listActivities, type Activity, type ListActivitiesParams, type Summary } from '$lib/api';
 	import SportBadge from '$lib/components/SportBadge.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
-	import { formatDate, formatDistance, formatDuration, formatPace, formatHr, formatElevation } from '$lib/format';
+	import { formatDate, formatDateOnly, formatDistance, formatDuration, formatPace, formatHr, formatElevation } from '$lib/format';
 	import { sportColor, sportLabel } from '$lib/sport';
 
 	// Draft filter inputs (bound to the form); committed to `applied` on submit
@@ -14,7 +14,6 @@
 	let applied = $state<ListActivitiesParams>({});
 
 	let activities = $state<Activity[]>([]);
-	let sportOptions = $state<string[]>([]);
 	let loading = $state(true);
 	let loadingMore = $state(false);
 	let cursor = $state<string | null>(null);
@@ -22,6 +21,7 @@
 	let error = $state<string | null>(null);
 	let summary = $state<Summary | null>(null);
 	let summaryLoading = $state(true);
+	const sportOptions = $derived(summary ? summary.by_sport.map((b) => b.key).sort() : []);
 
 	const months = [
 		{ value: '1', label: 'January' },
@@ -79,10 +79,7 @@
 			activities = append ? [...activities, ...page.items] : page.items;
 			cursor = page.next_cursor;
 			hasMore = page.has_more;
-			// Keep a stable, growing set of known sport types for the filter.
-			const known = new Set(sportOptions);
-			for (const a of activities) if (a.sport_type) known.add(a.sport_type);
-			sportOptions = [...known].sort();
+			// Handled statically via derived summary key mapping
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 			if (!append) activities = [];
@@ -192,13 +189,34 @@
 		const _y = selectedYear;
 		const _m = selectedMonth;
 
-		applied = buildParams();
-		cursor = null;
-		void load(false);
+		untrack(() => {
+			applied = buildParams();
+			cursor = null;
+			void load(false);
+		});
 	});
 
 	onMount(() => {
 		void loadSummary();
+	});
+
+	// Infinite scroll: when the sentinel below the grid scrolls near the
+	// viewport, page the next keyset window automatically. The "Load more"
+	// button stays as a manual fallback.
+	let sentinel = $state<HTMLElement | null>(null);
+	$effect(() => {
+		const el = sentinel;
+		if (!el) return;
+		const io = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+					void load(true);
+				}
+			},
+			{ rootMargin: '600px' }
+		);
+		io.observe(el);
+		return () => io.disconnect();
 	});
 
 	function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
@@ -234,6 +252,11 @@
 		const m = Math.floor(secPer100m / 60);
 		const s = Math.round(secPer100m % 60);
 		return `${m}:${String(s).padStart(2, '0')} /100m`;
+	}
+	function displayTitle(title?: string, sport?: string): string {
+		if (!title) return sportLabel(sport);
+		if (sportLabel(title) === sportLabel(sport)) return sportLabel(sport);
+		return title;
 	}
 </script>
 
@@ -298,13 +321,13 @@
 				<li>
 					<a class="activity-card tile tile-interactive" href={`/activities/${activity.id}`} style={`--sport-color: ${sportColor(activity.sport_type)}`}>
 						<span class="accent" aria-hidden="true"></span>
-						<div class="card-top"><SportBadge sport={activity.sport_type} /><span class="activity-date">{formatDate(activity.started_at, activity.timezone)}</span></div>
-						<h2>{activity.title || 'Untitled activity'}</h2>
+						<div class="card-top"><SportBadge sport={activity.sport_type} /><span class="activity-date">{formatDateOnly(activity.started_at, activity.timezone)}</span></div>
+						<h2>{displayTitle(activity.title, activity.sport_type)}</h2>
 						{#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
 							<div class="primary-metric">{formatDuration(activity.duration_s ?? activity.moving_time_s)}</div>
 							<div class="card-metrics">
 								<span>Avg HR: {formatHr(activity.avg_hr)}</span>
-								<span>Elevation: {formatElevation(activity.elevation_gain_m)}</span>
+								<span>Max HR: {formatHr(activity.max_hr)}</span>
 							</div>
 						{:else}
 							<div class="primary-metric">{formatDistance(activity.distance_m)}</div>
@@ -323,7 +346,11 @@
 				</li>
 			{/each}
 		</ul>
-		{#if hasMore}<button class="load-more" onclick={() => load(true)} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more activities'}</button>{/if}
+		{#if hasMore}
+			<div bind:this={sentinel} class="load-sentinel">
+				<button class="load-more" onclick={() => load(true)} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more activities'}</button>
+			</div>
+		{/if}
 	{/if}
 </section>
 
@@ -340,13 +367,13 @@
 	.toolbar-actions button { border: 1px solid var(--accent); border-radius: var(--radius); background: var(--accent); color: var(--bg); padding: 0.5rem 0.75rem; font: inherit; font-size: 0.84rem; cursor: pointer; }
 	.toolbar-actions .secondary { border-color: var(--border); background: var(--surface-2); color: var(--text); }
 	.activity-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
-	.activity-card { position: relative; display: grid; gap: 0.75rem; min-height: 13rem; padding: 1rem; overflow: hidden; color: var(--text); text-decoration: none; }
+	.activity-card { position: relative; display: grid; gap: 0.75rem; min-height: 13rem; padding: 1rem; overflow: hidden; color: var(--text); text-decoration: none; container-type: inline-size; background: linear-gradient(157deg, color-mix(in srgb, var(--sport-color) 13%, transparent) 0%, transparent 55%), var(--tile-surface); }
 	.activity-card:hover { text-decoration: none; }
 	.accent { position: absolute; inset: 0 auto 0 0; width: 0.25rem; background: var(--sport-color); }
 	.card-top { display: flex; justify-content: space-between; gap: 0.5rem; }
 	.activity-date { color: var(--text-muted); font-size: 0.72rem; text-align: right; }
 	.activity-card h2 { margin: 0; font-size: 1rem; line-height: 1.25; }
-	.primary-metric { align-self: end; color: var(--text); font-size: clamp(1.45rem, 3vw, 2rem); font-weight: 750; line-height: 1; white-space: nowrap; }
+	.primary-metric { align-self: end; color: var(--text); font-size: clamp(1.3rem, 13cqi, 2rem); font-weight: 750; line-height: 1; white-space: nowrap; }
 	.card-metrics { display: flex; justify-content: space-between; gap: 0.5rem; color: var(--text-muted); font-size: 0.8rem; }
 	@media (max-width: 800px) { .stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .activity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .activity-toolbar { align-items: stretch; flex-direction: column; } }
 	@media (max-width: 560px) { .activity-grid { grid-template-columns: 1fr; } .toolbar-actions { width: 100%; } .toolbar-actions button { flex: 1; } .activity-date { max-width: 9rem; } }

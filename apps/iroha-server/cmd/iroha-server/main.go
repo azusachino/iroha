@@ -45,16 +45,17 @@ func main() {
 	if parserVersion == "" {
 		parserVersion = imports.DefaultParserVersion
 	}
-	jobsService := jobs.NewService(db, logger, nil)
-	enqueuer := &jobEnqueuer{jobsService: jobsService}
-	importService := imports.NewService(db, logger, parserVersion, enqueuer)
-	activityService := activities.NewService(db)
 	cacheClient := cache.New(cfg.Cache.URL)
 	defer func() {
 		if err := cacheClient.Close(); err != nil {
 			logger.Warn("close cache client", "error", err)
 		}
 	}()
+
+	jobsService := jobs.NewService(db, logger, nil)
+	enqueuer := &jobEnqueuer{jobsService: jobsService}
+	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient)
+	activityService := activities.NewService(db)
 
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:          cfg,

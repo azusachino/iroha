@@ -13,7 +13,7 @@
 	import RoutesMap from '$lib/components/RoutesMap.svelte';
 	import SportBadge from '$lib/components/SportBadge.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
-	import { formatDate, formatDistance, formatDuration } from '$lib/format';
+	import { formatDate, formatDistance, formatDuration, formatHr, formatPace } from '$lib/format';
 	import { currentActivityStreak } from '$lib/streak';
 
 	const ACTIVITY_SWEEP_LIMIT = 500;
@@ -80,6 +80,40 @@
 		} finally {
 			routesLoading = false;
 		}
+	}
+
+	function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
+		if (!sport) return true;
+		if (distanceM == null || distanceM <= 0) return true;
+		const s = sport.toLowerCase();
+		return !['run', 'walk', 'hike', 'ride', 'cycl', 'swim'].some(k => s.includes(k));
+	}
+
+	function isCycling(sport?: string): boolean {
+		if (!sport) return false;
+		const s = sport.toLowerCase();
+		return s.includes('ride') || s.includes('cycl') || s.includes('bik');
+	}
+
+	function isSwimming(sport?: string): boolean {
+		if (!sport) return false;
+		return sport.toLowerCase().includes('swim');
+	}
+
+	function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
+		if (distanceM == null || durationS == null || durationS <= 0) return '—';
+		const km = distanceM / 1000;
+		const hours = durationS / 3600;
+		return `${(km / hours).toFixed(1)} km/h`;
+	}
+
+	function formatSwimmingPace(distanceM?: number, durationS?: number): string {
+		if (distanceM == null || durationS == null || durationS <= 0) return '—';
+		const units100m = distanceM / 100;
+		const paceSPer100m = durationS / units100m;
+		const mins = Math.floor(paceSPer100m / 60);
+		const secs = Math.round(paceSPer100m % 60);
+		return `${mins}:${String(secs).padStart(2, '0')}/100m`;
 	}
 
 	onMount(() => {
@@ -153,7 +187,22 @@
 								<SportBadge sport={activity.sport_type} />
 								<span class="recent-title">{activity.title || 'Untitled activity'}</span>
 								<span class="recent-metrics">
-									{formatDistance(activity.distance_m)} · {formatDuration(activity.duration_s ?? activity.moving_time_s)}
+									{#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+										{formatDuration(activity.duration_s ?? activity.moving_time_s)}
+										{#if activity.avg_hr}
+											· Avg HR: {formatHr(activity.avg_hr)}
+										{/if}
+									{:else}
+										{formatDistance(activity.distance_m)}
+										· {formatDuration(activity.duration_s ?? activity.moving_time_s)}
+										· {#if isCycling(activity.sport_type)}
+											{formatCyclingSpeed(activity.distance_m, activity.duration_s ?? activity.moving_time_s)}
+										{:else if isSwimming(activity.sport_type)}
+											{formatSwimmingPace(activity.distance_m, activity.duration_s ?? activity.moving_time_s)}
+										{:else}
+											{formatPace(activity.avg_pace_s_per_km)}
+										{/if}
+									{/if}
 								</span>
 								<span class="recent-date">{formatDate(activity.started_at, activity.timezone)}</span>
 							</a>
@@ -331,9 +380,18 @@
 
 	.recent-metrics,
 	.recent-date {
-		grid-column: 2;
 		color: var(--text-muted);
 		font-size: 0.78rem;
+	}
+
+	/* Span the full width under the title so the distance · duration · pace
+	   trio stays on one line instead of wrapping inside a narrow column. */
+	.recent-metrics {
+		grid-column: 1 / 3;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.recent-date {
@@ -397,6 +455,12 @@
 		.recent-title,
 		.recent-metrics {
 			grid-column: 1;
+		}
+
+		/* On narrow phones prefer wrapping over truncating the run metrics. */
+		.recent-metrics {
+			white-space: normal;
+			overflow: visible;
 		}
 
 		.recent-date {

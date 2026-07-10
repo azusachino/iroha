@@ -26,6 +26,12 @@
 	onMount(() => {
 		const data: uPlot.AlignedData = [xValues, ...series.map((s) => s.values)];
 
+		// Pull axis/grid colors from the active theme so the chart matches
+		// light and dark. Read at init; charts re-mount on navigation.
+		const cs = getComputedStyle(container);
+		const axisStroke = cs.getPropertyValue('--text-muted').trim() || '#9aa3b2';
+		const gridStroke = cs.getPropertyValue('--border').trim() || '#2a2f3a';
+
 		const opts: uPlot.Options = {
 			title,
 			width: container.clientWidth || 600,
@@ -33,8 +39,8 @@
 			cursor: { drag: { x: true, y: false } },
 			scales: { x: { time: false } },
 			axes: [
-				{ label: xLabel, stroke: '#9aa3b2', grid: { stroke: '#2a2f3a' }, ticks: { stroke: '#2a2f3a' } },
-				{ stroke: '#9aa3b2', grid: { stroke: '#2a2f3a' }, ticks: { stroke: '#2a2f3a' } }
+				{ label: xLabel, stroke: axisStroke, grid: { stroke: gridStroke }, ticks: { stroke: gridStroke } },
+				{ stroke: axisStroke, grid: { stroke: gridStroke }, ticks: { stroke: gridStroke } }
 			],
 			series: [
 				{ label: xLabel },

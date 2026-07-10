@@ -172,8 +172,22 @@ export interface Summary {
 	by_sport: SummaryBucket[];
 }
 
-export function getPublicSummary(fetchFn: typeof fetch = fetch): Promise<Summary> {
-	return getJSON<Summary>('/public/v1/summary', fetchFn);
+export interface PublicSummaryParams {
+	// Scope every breakdown to one calendar year and/or one sport_type. Omit for
+	// all-time / all-sport totals.
+	year?: string | null;
+	sport?: string | null;
+}
+
+export function getPublicSummary(
+	params: PublicSummaryParams = {},
+	fetchFn: typeof fetch = fetch
+): Promise<Summary> {
+	const query = new URLSearchParams();
+	if (params.year) query.set('year', params.year);
+	if (params.sport) query.set('sport', params.sport);
+	const suffix = query.toString() ? `?${query.toString()}` : '';
+	return getJSON<Summary>(`/public/v1/summary${suffix}`, fetchFn);
 }
 
 // A single public route line, rendered as a GeoJSON LineString. Coordinates
@@ -181,6 +195,8 @@ export function getPublicSummary(fetchFn: typeof fetch = fetch): Promise<Summary
 // decimated by the server.
 export interface RouteFeatureProperties {
 	sport_type: string;
+	year: string;
+	city?: string;
 }
 
 export interface RouteFeature {

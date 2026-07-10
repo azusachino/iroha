@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
@@ -49,8 +50,15 @@ func main() {
 		parserVersion = imports.DefaultParserVersion
 	}
 
+	cacheClient := cache.New(cfg.Cache.URL)
+	defer func() {
+		if err := cacheClient.Close(); err != nil {
+			logger.Warn("close cache client", "error", err)
+		}
+	}()
+
 	enqueuer := &noopEnqueuer{}
-	importService := imports.NewService(db, logger, parserVersion, enqueuer)
+	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient)
 
 	handlers := map[string]jobs.Handler{
 		jobs.KindAppleImportParse:  makeAppleImportParseHandler(importService),

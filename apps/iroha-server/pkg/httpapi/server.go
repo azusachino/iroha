@@ -85,6 +85,7 @@ func (s *Server) routes() {
 		r.Get("/summary", s.handlePublicSummary)
 		r.Get("/activities", s.handlePublicActivities)
 		r.Get("/routes", s.handlePublicRoutes)
+		r.Get("/geocode", s.handlePublicGeocode)
 	})
 }
 

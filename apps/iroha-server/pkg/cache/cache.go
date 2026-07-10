@@ -104,3 +104,46 @@ func set[T any](ctx context.Context, c *Client, key string, ttl time.Duration, v
 		slog.Warn("cache set failed", "key", key, "error", err)
 	}
 }
+
+// DeletePattern finds all keys matching pattern and deletes them.
+func (c *Client) DeletePattern(ctx context.Context, pattern string) error {
+	if c == nil || c.rdb == nil {
+		return nil
+	}
+
+	var cursor uint64
+	for {
+		var keys []string
+		var err error
+		keys, cursor, err = c.rdb.Scan(ctx, cursor, pattern, 0).Result()
+		if err != nil {
+			return err
+		}
+		if len(keys) > 0 {
+			if _, err := c.rdb.Del(ctx, keys...).Result(); err != nil {
+				return err
+			}
+		}
+		if cursor == 0 {
+			break
+		}
+	}
+	return nil
+}
+
+// Get wraps the unexported get function.
+func Get[T any](ctx context.Context, c *Client, key string) (T, bool) {
+	if c == nil || c.rdb == nil {
+		var zero T
+		return zero, false
+	}
+	return get[T](ctx, c, key)
+}
+
+// Set wraps the unexported set function.
+func Set[T any](ctx context.Context, c *Client, key string, ttl time.Duration, value T) {
+	if c == nil || c.rdb == nil {
+		return
+	}
+	set(ctx, c, key, ttl, value)
+}

@@ -150,11 +150,21 @@ const summaryMetrics = "count(*) as activity_count, " +
 // Summary computes aggregate totals overall and grouped by year, month, and
 // sport. Year/month are derived in the database session timezone (approximate
 // for the public rollup; not tied to each activity's own timezone).
-func (s *Service) Summary() (Summary, error) {
+func (s *Service) Summary(year, sport string) (Summary, error) {
 	base := func() *gorm.DB { return s.db.Model(&models.Activity{}) }
+	filtered := func() *gorm.DB {
+		db := base()
+		if year != "" {
+			db = db.Where("to_char(started_at, 'YYYY') = ?", year)
+		}
+		if sport != "" {
+			db = db.Where("sport_type = ?", sport)
+		}
+		return db
+	}
 
 	var totals SummaryTotals
-	if err := base().Select(summaryMetrics).Scan(&totals).Error; err != nil {
+	if err := filtered().Select(summaryMetrics).Scan(&totals).Error; err != nil {
 		return Summary{}, fmt.Errorf("summary totals: %w", err)
 	}
 
@@ -166,14 +176,14 @@ func (s *Service) Summary() (Summary, error) {
 	}
 
 	var byMonth []SummaryBucket
-	if err := base().
+	if err := filtered().
 		Select("to_char(started_at, 'YYYY-MM') as key, " + summaryMetrics).
 		Group("key").Order("key desc").Scan(&byMonth).Error; err != nil {
 		return Summary{}, fmt.Errorf("summary by month: %w", err)
 	}
 
 	var bySport []SummaryBucket
-	if err := base().
+	if err := filtered().
 		Select("sport_type as key, " + summaryMetrics).
 		Group("sport_type").Order("activity_count desc").Scan(&bySport).Error; err != nil {
 		return Summary{}, fmt.Errorf("summary by sport: %w", err)
@@ -225,6 +235,7 @@ func (s *Service) Route(id string) ([]models.ActivityRoutePoint, bool, error) {
 // coordinate order).
 type RouteLine struct {
 	SportType string
+	Year      string
 	Points    [][2]float64
 }
 
@@ -233,6 +244,7 @@ type RouteLine struct {
 type routePointRow struct {
 	ActivityID uuid.UUID
 	SportType  string
+	Year       string
 	Seq        int
 	Lat        *float64
 	Lon        *float64
@@ -248,7 +260,7 @@ type routePointRow struct {
 func (s *Service) RouteLines() ([]RouteLine, error) {
 	var rows []routePointRow
 	err := s.db.Table("tb_activity_route_points AS p").
-		Select("p.activity_id", "a.sport_type", "p.seq", "p.lat", "p.lon").
+		Select("p.activity_id", "a.sport_type", "to_char(a.started_at, 'YYYY') as year", "p.seq", "p.lat", "p.lon").
 		Joins("JOIN tb_activities AS a ON a.id = p.activity_id").
 		Order("p.activity_id, p.seq asc").
 		Find(&rows).Error
@@ -259,6 +271,7 @@ func (s *Service) RouteLines() ([]RouteLine, error) {
 	// Group ordered points into one coordinate track per activity.
 	type track struct {
 		sport  string
+		year   string
 		coords [][2]float64
 	}
 	var tracks []track
@@ -275,7 +288,7 @@ func (s *Service) RouteLines() ([]RouteLine, error) {
 		}
 		if row.ActivityID != currentID {
 			flush()
-			current = track{sport: row.SportType}
+			current = track{sport: row.SportType, year: row.Year}
 			currentID = row.ActivityID
 		}
 		current.coords = append(current.coords, [2]float64{*row.Lon, *row.Lat})
@@ -302,7 +315,7 @@ func (s *Service) RouteLines() ([]RouteLine, error) {
 			if len(segment) < routeMinPoints {
 				continue
 			}
-			lines = append(lines, RouteLine{SportType: t.sport, Points: segment})
+			lines = append(lines, RouteLine{SportType: t.sport, Year: t.year, Points: segment})
 		}
 	}
 	return lines, nil

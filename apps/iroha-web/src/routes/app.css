@@ -18,6 +18,7 @@
 }
 
 :root {
+	color-scheme: dark;
 	--bg: #0f1115;
 	--surface: #171a21;
 	--surface-2: #1f242d;
@@ -42,6 +43,33 @@
 		'Segoe UI',
 		Roboto,
 		sans-serif;
+}
+
+/* Light theme. Overrides both the Tailwind @theme tokens (--color-*, driving
+   utility classes like bg-surface) and the plain vars used by component
+   <style> blocks, so both styling systems flip together. Sport hues are kept
+   as-is (they always ship a text label). */
+:root[data-theme='light'] {
+	color-scheme: light;
+	--color-bg: #f5f7fa;
+	--color-surface: #ffffff;
+	--color-surface-2: #eef1f6;
+	--color-border: #d9dee6;
+	--color-text: #1a1e26;
+	--color-text-muted: #5b6472;
+	--color-accent: #2f6fe4;
+	--color-danger: #d64545;
+
+	--bg: #f5f7fa;
+	--surface: #ffffff;
+	--surface-2: #eef1f6;
+	--border: #d9dee6;
+	--text: #1a1e26;
+	--text-muted: #5b6472;
+	--accent: #2f6fe4;
+	--danger: #d64545;
+	--tile-surface: linear-gradient(180deg, rgb(0 0 0 / 0.015), rgb(0 0 0 / 0)) var(--surface);
+	--tile-shadow: 0 12px 32px rgb(20 30 60 / 0.1);
 }
 
 * {
@@ -143,6 +171,25 @@ a:hover {
 	border-color: color-mix(in srgb, var(--accent), var(--border) 35%);
 	color: var(--text);
 	text-decoration: none;
+}
+
+.theme-toggle {
+	min-height: 2.25rem;
+	width: 2.25rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--surface);
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.theme-toggle:hover {
+	border-color: color-mix(in srgb, var(--accent), var(--border) 35%);
+	color: var(--text);
 }
 
 .content {

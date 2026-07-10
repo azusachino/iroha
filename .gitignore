@@ -208,3 +208,7 @@ iroha.toml
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Go binaries
+apps/iroha-job/iroha-job
+apps/iroha-server/iroha-server
