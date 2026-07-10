@@ -13,6 +13,7 @@ create table tb_activities (
   avg_hr integer,
   max_hr integer,
   avg_pace_s_per_km numeric,
+  calories_kcal numeric,
   source_kind text not null,
   source_activity_id text not null default '',
   first_raw_file_id uuid not null references tb_raw_files(id),
@@ -70,6 +71,7 @@ create table tb_activity_laps (
   duration_s integer,
   avg_hr integer,
   avg_pace_s_per_km numeric,
+  calories_kcal numeric,
   unique(activity_id, lap_no)
 );
 

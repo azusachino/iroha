@@ -190,7 +190,7 @@ describe('getActivityRoute', () => {
 describe('getActivitySamplings', () => {
 	it('builds correct path with id', async () => {
 		const { fakeFetch, getCapturedUrl } = createFakeFetch([]);
-		await getActivitySamplings('test-id', fakeFetch);
+		await getActivitySamplings('test-id', undefined, fakeFetch);
 
 		const url = getCapturedUrl();
 		expect(url).toContain('/api/v1/activities/test-id/samplings');
@@ -198,7 +198,7 @@ describe('getActivitySamplings', () => {
 
 	it('encodes special characters in id', async () => {
 		const { fakeFetch, getCapturedUrl } = createFakeFetch([]);
-		await getActivitySamplings('test?id', fakeFetch);
+		await getActivitySamplings('test?id', undefined, fakeFetch);
 
 		const url = getCapturedUrl();
 		expect(url).toContain(encodeURIComponent('test?id'));
@@ -223,7 +223,7 @@ describe('getActivitySamplings', () => {
 		];
 		const { fakeFetch } = createFakeFetch(mockSamplings);
 
-		const result = await getActivitySamplings('test-id', fakeFetch);
+		const result = await getActivitySamplings('test-id', undefined, fakeFetch);
 		expect(result).toEqual(mockSamplings);
 	});
 });
@@ -280,7 +280,7 @@ describe('getPublicSummary', () => {
 			by_sport: []
 		};
 		const { fakeFetch, getCapturedUrl } = createFakeFetch(mockSummary);
-		await getPublicSummary(fakeFetch);
+		await getPublicSummary({}, fakeFetch);
 
 		const url = getCapturedUrl();
 		expect(url).toContain('/public/v1/summary');
@@ -299,8 +299,23 @@ describe('getPublicSummary', () => {
 		};
 		const { fakeFetch } = createFakeFetch(mockSummary);
 
-		const result = await getPublicSummary(fakeFetch);
+		const result = await getPublicSummary({}, fakeFetch);
 		expect(result).toEqual(mockSummary);
+	});
+
+	it('encodes year and sport params', async () => {
+		const mockSummary: Summary = {
+			totals: { activity_count: 0, distance_m: 0, duration_s: 0, moving_time_s: 0 },
+			by_year: [],
+			by_month: [],
+			by_sport: []
+		};
+		const { fakeFetch, getCapturedUrl } = createFakeFetch(mockSummary);
+		await getPublicSummary({ year: '2025', sport: 'run' }, fakeFetch);
+
+		const url = getCapturedUrl();
+		expect(url).toContain('year=2025');
+		expect(url).toContain('sport=run');
 	});
 });
 
@@ -386,7 +401,7 @@ describe('getPublicRoutes', () => {
 							[-0.11, 51.51]
 						]
 					},
-					properties: { sport_type: 'run' }
+					properties: { sport_type: 'run', year: '2026' }
 				}
 			]
 		};

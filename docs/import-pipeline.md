@@ -88,11 +88,14 @@ Known gaps:
 receive upload
   -> create tb_raw_files row
   -> store raw bytes unchanged
-  -> create tb_import_jobs row
+  -> create tb_import_jobs row (status: queued)
+  -> enqueue background job in tb_jobs (kind: apple_import_parse)
+  -> [iroha-job worker claims job from tb_jobs]
   -> detect parser
   -> parse into ParsedActivity[]
   -> dedupe and upsert canonical activities
-  -> mark import completed or failed
+  -> mark import completed or failed in tb_import_jobs
+  -> mark background job completed or failed in tb_jobs
 ```
 
 ## Parser Contract
@@ -148,3 +151,21 @@ Import jobs should expose:
 - `failed`
 
 Failures should keep the raw file and error message. Failed imports can be retried by creating another import job.
+
+## Adding a New Data Domain
+
+When introducing a new type of data to be parsed (for example, media/photo data or a new workout type):
+
+1. **Extend Parser Cases**: Implement the file format handler inside the `pkg/parsers` package.
+2. **Define SQL Tables**: Add appropriate goose SQL migrations under `apps/iroha-server/db/migrations/` to create the domain tables (e.g. `tb_activity_<domain>`).
+3. **Register Job Kind**: Define a job kind constant in `pkg/jobs/service.go` (e.g. `KindMediaIntakeParse`).
+4. **Register Job Handler**: Wire the job kind to its respective handler function inside `apps/iroha-job/main.go`.
+5. **Enqueue Job**: Map the parser kind or file type to the newly registered job kind and enqueue it inside the `imports.Service.Create` function (or a separate ingestion service).
+
+## Retry Safety and Idempotency
+
+All background import jobs are processed by the worker with `max_attempts = 3`. Therefore, the import execution pipeline must be entirely retry-safe and idempotent:
+
+1. **Atomic Ingestion**: The database operations inside `imports.Service.process()` run in a transaction. If a worker attempt dies midway, the database rolls back to keep state consistent.
+2. **Same-Version Skip**: The `dispositionSkip` rule compares the file's SHA256 and the parser version of prior completed imports. If the same parser has already completed the work, a retry attempt will instantly short-circuit and succeed.
+3. **Reprocess Purge Sequence**: If reprocessing is triggered, any previously persisted records derived from that raw file are purged first. Deleting source items *first* is load-bearing so GORM doesn't skip recreating activities due to cache hits or duplicate unique keys.

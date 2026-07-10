@@ -18,7 +18,10 @@ Running is the first vertical because it exercises the core system:
 - rendering rich private views
 - generating privacy-safe public projections
 
-Broader personal data integrations such as photos, location history, notes, and expenses are intentionally deferred until the running module proves the architecture.
+Broader personal data integrations such as media history, photos, location
+history, notes, and expenses should reuse the same evidence, job,
+canonical-record, and projection pattern once the running module proves the
+architecture. See [Personal Data Cockpit Model](personal-data-cockpit.md).
 
 ## Core Principles
 
@@ -29,6 +32,13 @@ Every original upload is stored unchanged. Parser bugs are fixed by reprocessing
 ### Imports Are Repeatable
 
 An import is a parsing attempt against a raw file. A raw file may have many import jobs over time as parsers improve.
+
+### Jobs Are Durable Work
+
+Long-running imports, regular connector syncs, parser reprocesses, projection
+refreshes, and explicit user triggers such as requesting a fresh health-data
+dump should be persisted as jobs. Request handlers may enqueue work, but they
+should not be the durable execution boundary.
 
 ### Activities Are Canonical Domain Objects
 
@@ -72,8 +82,8 @@ Out of scope:
 iPhone Health export / GPX / FIT / TCX / Strava archive / Telegram document
   -> iroha-server /api/v1/raw-files
   -> tb_raw_files row + immutable filesystem blob
-  -> tb_import_jobs row
-  -> parser creates ParsedActivity records
+  -> tb_import_jobs row / future tb_jobs row
+  -> iroha-job or in-process worker creates ParsedActivity records
   -> canonical activity tables
   -> private UI and future sanitized public projections
 ```

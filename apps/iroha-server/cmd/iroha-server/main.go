@@ -5,12 +5,14 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/azusachino/iroha/apps/iroha-server/internal/activities"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/cache"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/config"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/httpapi"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/imports"
-	"github.com/azusachino/iroha/apps/iroha-server/internal/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -43,14 +45,17 @@ func main() {
 	if parserVersion == "" {
 		parserVersion = imports.DefaultParserVersion
 	}
-	importService := imports.NewService(db, logger, parserVersion)
-	activityService := activities.NewService(db)
 	cacheClient := cache.New(cfg.Cache.URL)
 	defer func() {
 		if err := cacheClient.Close(); err != nil {
 			logger.Warn("close cache client", "error", err)
 		}
 	}()
+
+	jobsService := jobs.NewService(db, logger, nil)
+	enqueuer := &jobEnqueuer{jobsService: jobsService}
+	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient)
+	activityService := activities.NewService(db)
 
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:          cfg,
@@ -68,4 +73,15 @@ func main() {
 		logger.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+type jobEnqueuer struct {
+	jobsService *jobs.Service
+}
+
+func (e *jobEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error) {
+	return e.jobsService.EnqueueTx(tx, jobs.EnqueueInput{
+		Kind:    kind,
+		Payload: payload,
+	})
 }

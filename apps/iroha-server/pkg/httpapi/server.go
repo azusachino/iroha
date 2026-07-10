@@ -1,0 +1,132 @@
+package httpapi
+
+import (
+	"log/slog"
+	"net"
+	"net/http"
+	"time"
+
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
+)
+
+// Per-IP request budgets (per minute). Keyed off middleware.RealIP. The
+// geocode proxy is stricter because each hit fans out to Nominatim, which
+// enforces its own ~1 req/s policy.
+const (
+	apiRateLimitPerMin     = 120
+	publicRateLimitPerMin  = 60
+	geocodeRateLimitPerMin = 10
+)
+
+type Dependencies struct {
+	Config          config.Config
+	Logger          *slog.Logger
+	ActivityService *activities.Service
+	ImportService   *imports.Service
+	RawFileService  *rawfiles.Service
+	Cache           *cache.Client
+	MaxUploadBytes  int64
+	AllowedOrigins  []string
+}
+
+type Server struct {
+	deps Dependencies
+	mux  chi.Router
+}
+
+func NewServer(deps Dependencies) http.Handler {
+	if deps.Logger == nil {
+		deps.Logger = slog.Default()
+	}
+	if deps.MaxUploadBytes == 0 {
+		deps.MaxUploadBytes = 2 << 30
+	}
+
+	server := &Server{
+		deps: deps,
+		mux:  chi.NewRouter(),
+	}
+	server.routes()
+	return server
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.mux.ServeHTTP(w, r)
+}
+
+func (s *Server) routes() {
+	s.mux.Use(middleware.RequestID)
+	s.mux.Use(middleware.RealIP)
+	s.mux.Use(middleware.Recoverer)
+
+	s.mux.Get("/healthz", s.handleHealthz)
+	s.mux.Route("/api/v1", func(r chi.Router) {
+		// Private API: CORS limited to configured origins.
+		r.Use(corsMiddleware(s.deps.AllowedOrigins))
+		r.Use(limitByIP(apiRateLimitPerMin))
+		r.Route("/raw-files", func(r chi.Router) {
+			r.With(s.requireUploadAuth).Post("/", s.handleCreateRawFile)
+			r.Get("/", s.handleListRawFiles)
+			r.Get("/{rawFileId}", s.handleGetRawFile)
+		})
+		r.Route("/imports", func(r chi.Router) {
+			r.With(s.requireUploadAuth).Post("/", s.handleCreateImportJob)
+			r.Get("/", s.handleListImportJobs)
+			r.Get("/{importId}", s.handleGetImportJob)
+		})
+		r.Route("/activities", func(r chi.Router) {
+			r.Get("/", s.handleListActivities)
+			r.Get("/{activityId}", s.handleGetActivity)
+			r.Get("/{activityId}/route", s.handleGetActivityRoute)
+			r.Get("/{activityId}/samplings", s.handleGetActivitySamplings)
+			r.Get("/{activityId}/laps", s.handleGetActivityLaps)
+		})
+	})
+
+	// Public, sanitized, cache-backed views for the public page. No auth, and
+	// CORS open to any origin since the data is already sanitized.
+	s.mux.Route("/public/v1", func(r chi.Router) {
+		r.Use(corsMiddleware([]string{"*"}))
+		r.Use(limitByIP(publicRateLimitPerMin))
+		r.Get("/summary", s.handlePublicSummary)
+		r.Get("/activities", s.handlePublicActivities)
+		r.Get("/routes", s.handlePublicRoutes)
+		r.With(limitByIP(geocodeRateLimitPerMin)).Get("/geocode", s.handlePublicGeocode)
+	})
+}
+
+// limitByIP builds a per-IP rate limiter (per minute). It keys off the client
+// address resolved by middleware.RealIP into r.RemoteAddr, stated explicitly to
+// avoid the deprecated LimitByIP helper.
+func limitByIP(perMinute int) func(http.Handler) http.Handler {
+	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP)
+}
+
+func keyByRemoteIP(r *http.Request) (string, error) {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host, nil
+	}
+	return r.RemoteAddr, nil
+}
+
+// corsMiddleware builds a read-only CORS handler for the given origins.
+func corsMiddleware(origins []string) func(http.Handler) http.Handler {
+	return cors.Handler(cors.Options{
+		AllowedOrigins: origins,
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+		AllowedHeaders: []string{"Accept", "Content-Type"},
+		MaxAge:         300,
+	})
+}
+
+func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
