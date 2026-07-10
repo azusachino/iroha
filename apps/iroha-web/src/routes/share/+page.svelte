@@ -10,6 +10,9 @@
 	} from '$lib/api';
 	import { formatDistance, formatDuration, formatDate, formatSport } from '$lib/format';
 	import RoutesMap from '$lib/components/RoutesMap.svelte';
+	import SportBadge from '$lib/components/SportBadge.svelte';
+	import StatTile from '$lib/components/StatTile.svelte';
+	import { sportColor } from '$lib/sport';
 
 	const MONTH_LABELS = [
 		'Jan',
@@ -150,22 +153,9 @@
 {:else if summary}
 	<!-- Totals hero -->
 	<div class="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-		<div class="rounded-lg border border-border bg-surface p-5 text-center">
-			<div class="text-xs tracking-wide text-text-muted uppercase">Total distance</div>
-			<div class="mt-1 text-3xl font-bold text-text">
-				{formatDistance(summary.totals.distance_m)}
-			</div>
-		</div>
-		<div class="rounded-lg border border-border bg-surface p-5 text-center">
-			<div class="text-xs tracking-wide text-text-muted uppercase">Activities</div>
-			<div class="mt-1 text-3xl font-bold text-text">{summary.totals.activity_count}</div>
-		</div>
-		<div class="rounded-lg border border-border bg-surface p-5 text-center">
-			<div class="text-xs tracking-wide text-text-muted uppercase">Total time</div>
-			<div class="mt-1 text-3xl font-bold text-text">
-				{formatDuration(summary.totals.duration_s)}
-			</div>
-		</div>
+		<StatTile label="Total distance" value={formatDistance(summary.totals.distance_m)} />
+		<StatTile label="Activities" value={summary.totals.activity_count.toLocaleString()} />
+		<StatTile label="Total time" value={formatDuration(summary.totals.duration_s)} />
 	</div>
 
 	<!-- Year tabs -->
@@ -190,7 +180,7 @@
 		<div class="mb-8 rounded-lg border border-border bg-surface p-4">
 			<div class="mb-3 text-sm text-text-muted">Monthly {monthMetric === 'distance_m' ? 'distance' : 'activities'} — {selectedYear}</div>
 			<div class="flex h-40 items-stretch gap-2">
-				{#each monthSlots as slot (slot.key)}
+				{#each monthSlots as slot, idx (slot.key)}
 					{@const value = slot.bucket ? slot.bucket[monthMetric] : 0}
 					{@const heightPct = Math.max(2, (value / monthMax) * 100)}
 					<div class="group relative flex h-full flex-1 flex-col items-center justify-end gap-1">
@@ -202,8 +192,8 @@
 								: `${slot.bucket?.activity_count ?? 0} activities`}
 						</div>
 						<div
-							class="w-full rounded-t bg-accent transition-all"
-							style={`height: ${heightPct}%`}
+							class="w-full rounded-t transition-all"
+							style={`height: ${heightPct}%; background: color-mix(in srgb, var(--sport-run) ${35 + (idx % 4) * 15}%, var(--surface-2))`}
 						></div>
 						<div class="text-[10px] text-text-muted">{slot.label}</div>
 					</div>
@@ -222,17 +212,11 @@
 						class="flex items-center gap-3 rounded p-1 text-left transition-colors hover:bg-surface-2"
 						onclick={() => toggleSport(sport.key)}
 					>
-						<span
-							class="w-24 shrink-0 truncate text-sm capitalize"
-							class:text-text={sportFilter === null || sportFilter === sport.key}
-							class:text-text-muted={sportFilter !== null && sportFilter !== sport.key}
-						>
-							{formatSport(sport.key)}
-						</span>
+						<span class="w-24 shrink-0"><SportBadge sport={sport.key} /></span>
 						<div class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
 							<div
-								class="h-full rounded-full bg-accent"
-								style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%`}
+								class="h-full rounded-full"
+								style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
 							></div>
 						</div>
 						<span class="w-14 shrink-0 text-right text-xs text-text-muted"

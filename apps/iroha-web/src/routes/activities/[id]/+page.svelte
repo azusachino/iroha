@@ -16,11 +16,12 @@
 		formatPace,
 		formatElevation,
 		formatHr,
-		formatDate,
-		formatSport
+		formatDate
 	} from '$lib/format';
 	import RouteMap from '$lib/components/RouteMap.svelte';
 	import LineChart, { type ChartSeries } from '$lib/components/LineChart.svelte';
+	import SportBadge from '$lib/components/SportBadge.svelte';
+	import StatTile from '$lib/components/StatTile.svelte';
 
 	let activity = $state<Activity | null>(null);
 	let route = $state<RoutePoint[]>([]);
@@ -166,42 +167,21 @@
 	<p class="error">Failed to load activity: {error}</p>
 {:else if activity}
 	<h1>{activity.title || 'Untitled activity'}</h1>
-	<div class="filters">
-		<span class="badge">{formatSport(activity.sport_type)}</span>
+	<div class="activity-meta">
+		<SportBadge sport={activity.sport_type} />
 		<span class="muted">{formatDate(activity.started_at, activity.timezone)}</span>
 	</div>
 
-	<div class="metrics">
-		<div class="metric">
-			<div class="label">Distance</div>
-			<div class="value">{formatDistance(activity.distance_m)}</div>
-		</div>
-		<div class="metric">
-			<div class="label">Duration</div>
-			<div class="value">{formatDuration(activity.duration_s)}</div>
-		</div>
+	<div class="activity-stats">
+		<StatTile label="Distance" value={formatDistance(activity.distance_m)} />
+		<StatTile label="Duration" value={formatDuration(activity.duration_s)} />
 		{#if activity.moving_time_s != null}
-			<div class="metric">
-				<div class="label">Moving time</div>
-				<div class="value">{formatDuration(activity.moving_time_s)}</div>
-			</div>
+			<StatTile label="Moving time" value={formatDuration(activity.moving_time_s)} />
 		{/if}
-		<div class="metric">
-			<div class="label">Elevation gain</div>
-			<div class="value">{formatElevation(elevationGainM)}</div>
-		</div>
-		<div class="metric">
-			<div class="label">Avg pace</div>
-			<div class="value">{formatPace(activity.avg_pace_s_per_km)}</div>
-		</div>
-		<div class="metric">
-			<div class="label">Avg HR</div>
-			<div class="value">{formatHr(activity.avg_hr)}</div>
-		</div>
-		<div class="metric">
-			<div class="label">Max HR</div>
-			<div class="value">{formatHr(activity.max_hr)}</div>
-		</div>
+		<StatTile label="Elevation gain" value={formatElevation(elevationGainM)} />
+		<StatTile label="Avg pace" value={formatPace(activity.avg_pace_s_per_km)} />
+		<StatTile label="Avg HR" value={formatHr(activity.avg_hr)} />
+		<StatTile label="Max HR" value={formatHr(activity.max_hr)} />
 	</div>
 
 	{#if hasRouteLine}
@@ -251,3 +231,8 @@
 		</ul>
 	{/if}
 {/if}
+
+<style>
+	.activity-meta { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
+	.activity-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+</style>
