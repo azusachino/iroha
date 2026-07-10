@@ -68,16 +68,10 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 
 	var jobKind string
 	switch input.ParserKind {
-	case "apple_health_export":
+	case parsers.KindAppleHealthExport:
 		jobKind = jobs.KindAppleImportParse
-	case "gpx":
+	case parsers.KindGPX:
 		jobKind = jobs.KindGPXImportParse
-	case "fit":
-		jobKind = jobs.KindFITImportParse
-	case "tcx":
-		jobKind = jobs.KindTCXImportParse
-	case "strava_export":
-		jobKind = jobs.KindStravaImportParse
 	default:
 		return models.ImportJob{}, fmt.Errorf("unsupported parser kind: %s", input.ParserKind)
 	}

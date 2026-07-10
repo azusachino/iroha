@@ -81,14 +81,34 @@ type ParsedLap struct {
 	CaloriesKcal *float64
 }
 
+// Kind* are the parser kinds this package actually implements. They are the
+// single source of truth for what an import may request: the API rejects any
+// other parser_kind up front (see IsImplemented) rather than enqueuing a job
+// that can only fail. New formats (fit, tcx, strava_export) get a Kind* const
+// and a Parse case here once their parser lands.
+const (
+	KindGPX               = "gpx"
+	KindAppleHealthExport = "apple_health_export"
+)
+
+// IsImplemented reports whether Parse has a working parser for kind.
+func IsImplemented(kind string) bool {
+	switch kind {
+	case KindGPX, KindAppleHealthExport:
+		return true
+	default:
+		return false
+	}
+}
+
 func Parse(input Input) ([]ParsedActivity, error) {
 	switch input.ParserKind {
-	case "gpx":
+	case KindGPX:
 		return ParseGPXFile(input.StoragePath, GPXOptions{
 			Title:      titleFromFilename(input.OriginalFilename),
 			ExternalID: input.RawFileSHA256,
 		})
-	case "apple_health_export":
+	case KindAppleHealthExport:
 		return ParseAppleHealthExport(input.StoragePath, input.RawFileSHA256)
 	default:
 		return nil, fmt.Errorf("parser %q is not implemented yet", input.ParserKind)

@@ -8,16 +8,9 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/parsers"
 	"github.com/go-chi/chi/v5"
 )
-
-var allowedParserKinds = map[string]bool{
-	"apple_health_export": true,
-	"gpx":                 true,
-	"fit":                 true,
-	"tcx":                 true,
-	"strava_export":       true,
-}
 
 type createImportJobRequest struct {
 	RawFileID  string `json:"raw_file_id"`
@@ -46,8 +39,8 @@ func (s *Server) handleCreateImportJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "raw_file_id is required")
 		return
 	}
-	if !allowedParserKinds[request.ParserKind] {
-		writeError(w, http.StatusBadRequest, "invalid parser_kind")
+	if !parsers.IsImplemented(request.ParserKind) {
+		writeError(w, http.StatusBadRequest, "unsupported parser_kind")
 		return
 	}
 
