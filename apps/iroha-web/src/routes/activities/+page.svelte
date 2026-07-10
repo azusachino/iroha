@@ -3,7 +3,7 @@
 	import { getPublicSummary, listActivities, type Activity, type ListActivitiesParams, type Summary } from '$lib/api';
 	import SportBadge from '$lib/components/SportBadge.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
-	import { formatDate, formatDistance, formatDuration, formatPace } from '$lib/format';
+	import { formatDate, formatDistance, formatDuration, formatPace, formatHr, formatElevation } from '$lib/format';
 	import { sportColor, sportLabel } from '$lib/sport';
 
 	// Draft filter inputs (bound to the form); committed to `applied` on submit
@@ -116,17 +116,125 @@
 		}
 	}
 
-	const totalDuration = $derived(formatDuration(summary?.totals.moving_time_s || summary?.totals.duration_s));
+	interface DisplaySummary {
+		activity_count: number;
+		distance_m: number;
+		duration_s: number;
+	}
+
+	const displaySummary = $derived.by<DisplaySummary>(() => {
+		if (!summary) {
+			return { activity_count: 0, distance_m: 0, duration_s: 0 };
+		}
+
+		if (!sportType && !selectedYear) {
+			return {
+				activity_count: summary.totals.activity_count,
+				distance_m: summary.totals.distance_m,
+				duration_s: summary.totals.moving_time_s || summary.totals.duration_s
+			};
+		}
+
+		if (sportType && !selectedYear) {
+			const bucket = summary.by_sport.find(b => b.key.toLowerCase() === sportType.toLowerCase());
+			if (bucket) {
+				return {
+					activity_count: bucket.activity_count,
+					distance_m: bucket.distance_m,
+					duration_s: bucket.moving_time_s || bucket.duration_s
+				};
+			}
+		}
+
+		if (selectedYear && !sportType) {
+			if (selectedMonth) {
+				const monthKey = `${selectedYear}-${selectedMonth.padStart(2, '0')}`;
+				const bucket = summary.by_month.find(b => b.key === monthKey);
+				if (bucket) {
+					return {
+						activity_count: bucket.activity_count,
+						distance_m: bucket.distance_m,
+						duration_s: bucket.moving_time_s || bucket.duration_s
+					};
+				}
+			} else {
+				const bucket = summary.by_year.find(b => b.key === selectedYear);
+				if (bucket) {
+					return {
+						activity_count: bucket.activity_count,
+						distance_m: bucket.distance_m,
+						duration_s: bucket.moving_time_s || bucket.duration_s
+					};
+				}
+			}
+		}
+
+		let count = 0;
+		let dist = 0;
+		let dur = 0;
+		for (const act of activities) {
+			count++;
+			dist += act.distance_m || 0;
+			dur += act.moving_time_s || act.duration_s || 0;
+		}
+		return {
+			activity_count: count,
+			distance_m: dist,
+			duration_s: dur
+		};
+	});
+
 	const trackedSports = $derived(summary?.by_sport.length ?? 0);
 
-	// Initial unfiltered load (runs once — no reactive dependencies read).
+	// Reactive filtering effect: automatically re-runs query when filter states change.
 	$effect(() => {
-		load(false);
+		const _s = sportType;
+		const _y = selectedYear;
+		const _m = selectedMonth;
+
+		applied = buildParams();
+		cursor = null;
+		void load(false);
 	});
 
 	onMount(() => {
 		void loadSummary();
 	});
+
+	function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
+		if (!sport) return true;
+		if (distanceM == null || distanceM <= 0) return true;
+		const s = sport.toLowerCase();
+		return !['run', 'walk', 'hike', 'ride', 'cycl', 'swim'].some(k => s.includes(k));
+	}
+
+	function isCycling(sport?: string): boolean {
+		if (!sport) return false;
+		const s = sport.toLowerCase();
+		return s.includes('ride') || s.includes('cycl') || s.includes('bik');
+	}
+
+	function isSwimming(sport?: string): boolean {
+		if (!sport) return false;
+		const s = sport.toLowerCase();
+		return s.includes('swim');
+	}
+
+	function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
+		if (!distanceM || !durationS) return '—';
+		const km = distanceM / 1000;
+		const hours = durationS / 3600;
+		const kmh = km / hours;
+		return `${kmh.toFixed(1)} km/h`;
+	}
+
+	function formatSwimmingPace(distanceM?: number, durationS?: number): string {
+		if (!distanceM || !durationS || distanceM <= 0) return '—';
+		const secPer100m = (durationS / distanceM) * 100;
+		const m = Math.floor(secPer100m / 60);
+		const s = Math.round(secPer100m % 60);
+		return `${m}:${String(s).padStart(2, '0')} /100m`;
+	}
 </script>
 
 <section class="activities-shell">
@@ -139,13 +247,13 @@
 	</header>
 
 	<div class="stat-strip" aria-label="Activity summary">
-		<StatTile label="Activities" value={summaryLoading ? '—' : (summary?.totals.activity_count ?? 0).toLocaleString()} sub="Imported sessions" />
-		<StatTile label="Distance" value={summaryLoading ? '—' : formatDistance(summary?.totals.distance_m)} sub="Across all activities" />
-		<StatTile label="Total time" value={summaryLoading ? '—' : totalDuration} sub="Recorded duration" />
+		<StatTile label="Activities" value={summaryLoading ? '—' : displaySummary.activity_count.toLocaleString()} sub={sportType || selectedYear ? "Filtered count" : "Imported sessions"} />
+		<StatTile label="Distance" value={summaryLoading ? '—' : formatDistance(displaySummary.distance_m)} sub={sportType || selectedYear ? "Filtered distance" : "Across all activities"} />
+		<StatTile label="Total time" value={summaryLoading ? '—' : formatDuration(displaySummary.duration_s)} sub={sportType || selectedYear ? "Filtered duration" : "Recorded duration"} />
 		<StatTile label="Sports" value={summaryLoading ? '—' : trackedSports.toLocaleString()} sub="Activity types tracked" />
 	</div>
 
-	<form class="activity-toolbar tile" onsubmit={apply}>
+	<form class="activity-toolbar tile" onsubmit={(e) => e.preventDefault()}>
 		<div class="filter-fields">
 			<label>Sport
 				<select bind:value={sportType}>
@@ -173,8 +281,7 @@
 			</label>
 		</div>
 		<div class="toolbar-actions">
-			<button type="submit">Apply filters</button>
-			<button type="button" class="secondary" onclick={clear}>Clear</button>
+			<button type="button" class="secondary" onclick={clear}>Clear filters</button>
 		</div>
 	</form>
 
@@ -193,8 +300,25 @@
 						<span class="accent" aria-hidden="true"></span>
 						<div class="card-top"><SportBadge sport={activity.sport_type} /><span class="activity-date">{formatDate(activity.started_at, activity.timezone)}</span></div>
 						<h2>{activity.title || 'Untitled activity'}</h2>
-						<div class="primary-metric">{formatDistance(activity.distance_m)}</div>
-						<div class="card-metrics"><span>{formatPace(activity.avg_pace_s_per_km)}</span><span>{formatDuration(activity.duration_s ?? activity.moving_time_s)}</span></div>
+						{#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+							<div class="primary-metric">{formatDuration(activity.duration_s ?? activity.moving_time_s)}</div>
+							<div class="card-metrics">
+								<span>Avg HR: {formatHr(activity.avg_hr)}</span>
+								<span>Elevation: {formatElevation(activity.elevation_gain_m)}</span>
+							</div>
+						{:else}
+							<div class="primary-metric">{formatDistance(activity.distance_m)}</div>
+							<div class="card-metrics">
+								{#if isCycling(activity.sport_type)}
+									<span>{formatCyclingSpeed(activity.distance_m, activity.duration_s ?? activity.moving_time_s)}</span>
+								{:else if isSwimming(activity.sport_type)}
+									<span>{formatSwimmingPace(activity.distance_m, activity.duration_s ?? activity.moving_time_s)}</span>
+								{:else}
+									<span>{formatPace(activity.avg_pace_s_per_km)}</span>
+								{/if}
+								<span>{formatDuration(activity.duration_s ?? activity.moving_time_s)}</span>
+							</div>
+						{/if}
 					</a>
 				</li>
 			{/each}
