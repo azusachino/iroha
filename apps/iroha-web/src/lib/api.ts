@@ -24,6 +24,41 @@ export interface Activity {
 	updated_at: string;
 }
 
+export interface SleepSession {
+	id: string;
+	wake_date: string;
+	started_at: string;
+	ended_at: string;
+	time_in_bed_s: number;
+	asleep_s: number;
+	efficiency: number;
+	is_main_sleep: boolean;
+	core_s: number;
+	deep_s: number;
+	rem_s: number;
+	awake_s: number;
+	unspecified_s: number;
+	source: string;
+	first_raw_file_id: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface SleepSegment {
+	id: string;
+	stage: string;
+	started_at: string;
+	ended_at: string;
+	seq: number;
+}
+
+export interface ListSleepParams {
+	from?: string;
+	to?: string;
+	limit?: number;
+	cursor?: string;
+}
+
 export interface RoutePoint {
 	seq: number;
 	ts?: string;
@@ -97,6 +132,26 @@ export function listActivities(
 	if (params.cursor) query.set('cursor', params.cursor);
 	const suffix = query.toString() ? `?${query.toString()}` : '';
 	return getJSON<Page<Activity>>(`/api/v1/activities${suffix}`, fetchFn);
+}
+
+export function listSleep(
+	params: ListSleepParams = {},
+	fetchFn: typeof fetch = fetch
+): Promise<Page<SleepSession>> {
+	const query = new URLSearchParams();
+	if (params.from) query.set('from', params.from);
+	if (params.to) query.set('to', params.to);
+	if (params.limit != null) query.set('limit', String(params.limit));
+	if (params.cursor) query.set('cursor', params.cursor);
+	const suffix = query.toString() ? `?${query.toString()}` : '';
+	return getJSON<Page<SleepSession>>(`/api/v1/sleep${suffix}`, fetchFn);
+}
+
+export function getSleepSegments(id: string, fetchFn: typeof fetch = fetch): Promise<SleepSegment[]> {
+	return getJSON<SleepSegment[]>(
+		`/api/v1/sleep/${encodeURIComponent(id)}/segments`,
+		fetchFn
+	);
 }
 
 export function getActivity(id: string, fetchFn: typeof fetch = fetch): Promise<Activity> {

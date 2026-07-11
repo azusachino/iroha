@@ -11,6 +11,7 @@
 	const commands: Command[] = [
 		{ label: 'Dashboard', href: '/dashboard', hint: 'Cockpit overview' },
 		{ label: 'Activities', href: '/activities', hint: 'Private activity domain' },
+		{ label: 'Sleep', href: '/sleep', hint: 'Recovery and sleep sessions' },
 		{ label: 'Share', href: '/share', hint: 'Public activity view' }
 	];
 
