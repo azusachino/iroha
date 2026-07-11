@@ -21,6 +21,7 @@
 	let cursor = $state<string | null>(null);
 	let hasMore = $state(false);
 	let loadMoreSentinel = $state<HTMLDivElement>();
+	let nightListContainer = $state<HTMLDivElement>();
 	let segmentsLoading = $state(false);
 	let error = $state<string | null>(null);
 	let yearBuckets = $state<SleepAggregateBucket[]>([]);
@@ -140,12 +141,12 @@
 	}
 
 	$effect(() => {
-		if (!loadMoreSentinel || !hasMore) return;
+		if (!loadMoreSentinel || !nightListContainer || !hasMore) return;
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (entries.some((entry) => entry.isIntersecting)) void loadSessions(true);
 			},
-			{ rootMargin: '240px' }
+			{ root: nightListContainer, rootMargin: '120px' }
 		);
 		observer.observe(loadMoreSentinel);
 		return () => observer.disconnect();
@@ -317,12 +318,15 @@
 		<section class="night-panel tile">
 			<header class="section-heading"><div><p class="eyebrow">Drill down</p><h2>{nightsHeading}</h2><p class="muted">Select a night to see the stage timeline.</p></div><span class="section-note">{sessions.length}{hasMore ? '+' : ''} nights in period</span></header>
 			<div class="night-layout">
-				<div class="night-list">
+				<div bind:this={nightListContainer} class="night-list">
 					{#each sessions as session (session.id)}
 						<button class:selected={selected.id === session.id} class="night-row" type="button" onclick={() => selectSession(session)}>
 							<span class="night-date">{formatDateOnly(session.wake_date)}</span><span>{formatDuration(session.asleep_s)}</span><b>{Math.round(session.efficiency * 100)}%</b>
 						</button>
 					{/each}
+					<div bind:this={loadMoreSentinel} class="load-more-sentinel" aria-live="polite">
+						{#if loadingMore}<span>Loading more nights…</span>{:else if hasMore}<span>Scroll for more nights</span>{/if}
+					</div>
 				</div>
 				<div class="timeline-card">
 					<div class="timeline-meta"><span>{formatDateOnly(selected.wake_date)}</span><span>{selected.is_main_sleep ? 'Primary overnight sleep' : 'Short session'}</span></div>
@@ -330,9 +334,11 @@
 					<div class="timeline-axis"><span>{new Date(selected.started_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span><span>{new Date(selected.ended_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div>
 				</div>
 			</div>
-			<div bind:this={loadMoreSentinel} class="load-more-sentinel" aria-live="polite">
-				{#if loadingMore}<span>Loading more nights…</span>{:else if hasMore}<span>Scroll for more nights</span>{/if}
-			</div>
+			{#if hasMore}
+				<button class="load-more-button" type="button" disabled={loadingMore} onclick={() => loadSessions(true)}>
+					{loadingMore ? 'Loading…' : 'Load more nights'}
+				</button>
+			{/if}
 		</section>
 	{/if}
 </section>
@@ -409,6 +415,9 @@
 	.timeline-card { align-self: center; padding: 1.25rem; border: 1px solid var(--border); border-radius: 10px; background: rgb(255 255 255 / 0.025); }
 	.timeline-meta, .timeline-axis { display: flex; justify-content: space-between; gap: 1rem; color: var(--text-muted); font-size: 0.72rem; }
 	.load-more-sentinel { min-height: 2rem; display: grid; place-items: center; color: var(--text-muted); font-size: 0.72rem; }
+	.load-more-button { display: block; margin: 0.5rem auto 0; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 0.78rem; cursor: pointer; }
+	.load-more-button:hover { border-color: var(--accent); }
+	.load-more-button:disabled { cursor: wait; opacity: 0.6; }
 	.timeline { display: flex; min-height: 3.4rem; margin: 1rem 0 0.45rem; overflow: hidden; border-radius: 8px; background: var(--surface-2); }
 	.stage { min-width: 0.15rem; }
 	.stage-in_bed, .stage-asleep_unspecified { background: #788397; }
