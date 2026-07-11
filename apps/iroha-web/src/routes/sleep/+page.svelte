@@ -30,8 +30,10 @@
 	const averageEfficiency = $derived(
 		mainSleep.length ? mainSleep.reduce((total, session) => total + session.efficiency, 0) / mainSleep.length : 0
 	);
+	const monthlyBuckets = $derived(monthBuckets.slice().reverse());
+	const yearlyBuckets = $derived(yearBuckets.slice().reverse());
+	const monthMaxAsleep = $derived(Math.max(1, ...monthBuckets.map((bucket) => bucket.average_asleep_s)));
 	const yearMaxSessions = $derived(Math.max(1, ...yearBuckets.map((bucket) => bucket.session_count)));
-	const monthTotal = $derived(monthBuckets.reduce((total, bucket) => total + bucket.session_count, 0));
 
 	function errorMessage(value: unknown): string {
 		return value instanceof Error ? value.message : String(value);
@@ -50,7 +52,7 @@
 		}
 	}
 
-	async function load() {
+	async function loadSessions() {
 		loading = true;
 		error = null;
 		try {
@@ -98,8 +100,17 @@
 		return total > 0 ? Math.max(0.4, (duration / total) * 100) : 0;
 	}
 
+	function compositionStyle(session: SleepSession): string {
+		const total = session.core_s + session.deep_s + session.rem_s + session.awake_s + session.unspecified_s;
+		if (!total) return '';
+		const core = (session.core_s / total) * 100;
+		const deep = core + (session.deep_s / total) * 100;
+		const rem = deep + (session.rem_s / total) * 100;
+		return `background: conic-gradient(#5c8dff 0 ${core}%, #8870e8 ${core}% ${deep}%, #e879b4 ${deep}% ${rem}%, #d39a4c ${rem}% 100%);`;
+	}
+
 	onMount(() => {
-		void load();
+		void loadSessions();
 		void loadAggregates();
 	});
 </script>
@@ -111,168 +122,186 @@
 <section class="sleep-shell">
 	<header class="page-heading">
 		<div>
-			<p class="eyebrow">Sleep domain</p>
-			<h1>Recovery and sleep</h1>
-			<p class="muted">Nightly sessions reconstructed from Apple Health stage records.</p>
+			<p class="eyebrow">Sleep / personal history</p>
+			<h1>How are you recovering?</h1>
+			<p class="muted">A long-view of your nights, with the last one ready to inspect.</p>
 		</div>
 		<a class="back-link" href="/dashboard">Back to dashboard</a>
 	</header>
 
-	<div class="stats-grid" aria-label="Sleep totals">
-		<StatTile label="Sessions" value={loading ? '—' : sessions.length.toLocaleString()} sub="Most recent page" />
-		<StatTile label="Main sleep" value={loading ? '—' : mainSleep.length.toLocaleString()} sub="At least 3 hours asleep" />
-		<StatTile label="Avg asleep" value={loading ? '—' : formatDuration(averageAsleep)} sub="Main sleep sessions" />
-		<StatTile label="Efficiency" value={loading ? '—' : `${Math.round(averageEfficiency * 100)}%`} sub="Asleep / time in bed" />
-	</div>
-
-	<section class="aggregate-panel tile" aria-label="Sleep history aggregates">
-		<header class="tile-heading">
-			<div>
-				<h2>History at a glance</h2>
-				<p>Full-history yearly and monthly sleep trends.</p>
+	{#if loading}
+		<section class="status tile"><p>Loading your sleep history…</p></section>
+	{:else if error && !selected}
+		<section class="status tile"><p class="error">Sleep could not be loaded: {error}</p></section>
+	{:else if !selected}
+		<section class="status tile"><p class="muted">No sleep sessions imported yet.</p></section>
+	{:else}
+		<section class="hero tile">
+			<div class="hero-orb"></div>
+			<div class="hero-topline">
+				<div>
+					<p class="eyebrow">Last night · {formatDateOnly(selected.wake_date)}</p>
+					<h2>{formatDuration(selected.asleep_s)} <span>asleep</span></h2>
+				</div>
+				<div class="hero-status">
+					<span class="status-pill">{selected.is_main_sleep ? 'Primary overnight sleep' : 'Short session'}</span>
+					<button class="info-button" type="button" title="Primary overnight sleep means at least 3 hours asleep. Shorter sessions are treated as naps or fragments.">i</button>
+				</div>
 			</div>
-			<span class="source">{monthTotal.toLocaleString()} monthly sessions</span>
-		</header>
-		{#if aggregatesLoading}
-			<p class="muted aggregate-status">Loading history aggregates…</p>
-		{:else if aggregatesError}
-			<p class="error aggregate-status">Aggregates could not be loaded: {aggregatesError}</p>
-		{:else}
-			<div class="aggregate-grid">
-				<div class="yearly-panel">
-					<h3>By year</h3>
-					{#each yearBuckets as bucket (bucket.period)}
-						<div class="year-row">
-							<div class="aggregate-label"><strong>{formatPeriod(bucket.period, 'year')}</strong><span>{bucket.session_count} nights · {bucket.main_sleep_count} main</span></div>
-							<div class="bar-track"><span class="bar-fill" style={`width: ${(bucket.session_count / yearMaxSessions) * 100}%`}></span></div>
-							<div class="aggregate-metric">{formatDuration(bucket.average_asleep_s)} avg asleep · {Math.round(bucket.average_efficiency * 100)}%</div>
+			<p class="hero-copy">
+				{#if selected.is_main_sleep}
+					Your main overnight window was {formatDuration(selected.time_in_bed_s)} in bed, with {Math.round(selected.efficiency * 100)}% efficiency.
+				{:else}
+					This session is under three hours asleep, so iroha treats it as a nap or short fragment.
+				{/if}
+			</p>
+			<div class="hero-metrics">
+				<div><span>In bed</span><strong>{formatDuration(selected.time_in_bed_s)}</strong></div>
+				<div><span>Efficiency</span><strong>{Math.round(selected.efficiency * 100)}%</strong></div>
+				<div><span>Deep + REM</span><strong>{formatDuration(selected.deep_s + selected.rem_s)}</strong></div>
+				<div><span>Source</span><strong>{selected.source || 'Apple Health'}</strong></div>
+			</div>
+		</section>
+
+		<section class="insight-strip" aria-label="Recent sleep context">
+			<StatTile label="Recent main sleep" value={mainSleep.length.toLocaleString()} sub="In the loaded recent window" />
+			<StatTile label="Average asleep" value={formatDuration(averageAsleep)} sub="Recent main-sleep sessions" />
+			<StatTile label="Average efficiency" value={`${Math.round(averageEfficiency * 100)}%`} sub="Asleep / time in bed" />
+		</section>
+
+		<section class="trend-panel tile">
+			<header class="section-heading">
+				<div><p class="eyebrow">The long view</p><h2>Sleep over time</h2></div>
+				<span class="section-note">All imported history</span>
+			</header>
+			{#if aggregatesLoading}
+				<p class="muted panel-loading">Building your history…</p>
+			{:else if aggregatesError}
+				<p class="error panel-loading">History could not be loaded: {aggregatesError}</p>
+			{:else}
+				<div class="year-trend">
+					{#each yearlyBuckets as bucket (bucket.period)}
+						<div class="year-card">
+							<div class="year-heading"><strong>{formatPeriod(bucket.period, 'year')}</strong><span>{bucket.session_count} nights</span></div>
+							<div class="year-bar"><span style={`width: ${(bucket.session_count / yearMaxSessions) * 100}%`}></span></div>
+							<div class="year-detail"><span>{formatDuration(bucket.average_asleep_s)} avg asleep</span><b>{Math.round(bucket.average_efficiency * 100)}%</b></div>
 						</div>
 					{/each}
 				</div>
-				<div class="monthly-panel">
-					<h3>By month</h3>
-					<div class="month-table-wrap">
-						<table>
-							<thead><tr><th>Month</th><th>Nights</th><th>Asleep</th><th>Efficiency</th><th>Stages</th></tr></thead>
-							<tbody>
-								{#each monthBuckets as bucket (bucket.period)}
-									<tr>
-										<td>{formatPeriod(bucket.period, 'month')}</td>
-										<td>{bucket.session_count} <span class="muted">({bucket.main_sleep_count})</span></td>
-										<td>{formatDuration(bucket.average_asleep_s)}</td>
-										<td>{Math.round(bucket.average_efficiency * 100)}%</td>
-										<td class="stage-total">{formatDuration(bucket.core_s + bucket.deep_s + bucket.rem_s)} asleep stages</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
+				<div class="trend-legend"><span><i class="dot dot-session"></i>Recorded nights</span><span>Average efficiency shown per year</span></div>
+			{/if}
+		</section>
+
+		<div class="analysis-grid">
+			<section class="stage-panel tile">
+				<header class="section-heading"><div><p class="eyebrow">Last night</p><h2>Sleep architecture</h2></div></header>
+				<div class="architecture">
+					<div class="donut" style={compositionStyle(selected)}><div><strong>{formatDuration(selected.asleep_s)}</strong><span>asleep</span></div></div>
+					<div class="stage-list">
+						<div><i class="dot dot-core"></i><span>Core</span><b>{formatDuration(selected.core_s)}</b></div>
+						<div><i class="dot dot-deep"></i><span>Deep</span><b>{formatDuration(selected.deep_s)}</b></div>
+						<div><i class="dot dot-rem"></i><span>REM</span><b>{formatDuration(selected.rem_s)}</b></div>
+						<div><i class="dot dot-awake"></i><span>Awake</span><b>{formatDuration(selected.awake_s)}</b></div>
 					</div>
 				</div>
-			</div>
-		{/if}
-	</section>
+				<p class="panel-footnote">Stage estimates are reconstructed from Apple Health records and are best read as patterns, not clinical measurements.</p>
+			</section>
 
-	{#if loading}
-		<section class="status tile"><p>Loading sleep sessions…</p></section>
-	{:else if error && sessions.length === 0}
-		<section class="status tile"><p class="error">Sleep could not be loaded: {error}</p></section>
-	{:else if sessions.length === 0}
-		<section class="status tile"><p class="muted">No sleep sessions imported yet.</p></section>
-	{:else}
-		<div class="sleep-grid">
-			<section class="session-list tile" aria-label="Sleep sessions">
-				<header class="tile-heading">
-					<div>
-						<h2>Recent nights</h2>
-						<p>Choose a night to inspect its stage timeline.</p>
-					</div>
-				</header>
-				<div class="sessions">
+			<section class="month-panel tile">
+				<header class="section-heading"><div><p class="eyebrow">The rhythm</p><h2>Monthly pattern</h2></div><span class="section-note">Average asleep</span></header>
+				<div class="month-list">
+					{#each monthlyBuckets.slice(0, 12) as bucket (bucket.period)}
+						<div class="month-row"><span>{formatPeriod(bucket.period, 'month')}</span><div class="month-bar"><i style={`width: ${(bucket.average_asleep_s / monthMaxAsleep) * 100}%`}></i></div><b>{formatDuration(bucket.average_asleep_s)}</b></div>
+					{/each}
+				</div>
+			</section>
+		</div>
+
+		<section class="night-panel tile">
+			<header class="section-heading"><div><p class="eyebrow">Drill down</p><h2>Recent nights</h2><p class="muted">Select a night to see the stage timeline.</p></div><span class="section-note">{sessions.length} loaded</span></header>
+			<div class="night-layout">
+				<div class="night-list">
 					{#each sessions as session (session.id)}
-						<button class:selected={selected?.id === session.id} class="session-row" type="button" onclick={() => selectSession(session)}>
-							<span class="session-date">{formatDateOnly(session.wake_date)}</span>
-							<span class="session-duration">{formatDuration(session.asleep_s)}</span>
-							<span class="session-efficiency">{Math.round(session.efficiency * 100)}%</span>
-							<span class:main={session.is_main_sleep} class="session-kind">{session.is_main_sleep ? 'Main sleep' : 'Short'}</span>
+						<button class:selected={selected.id === session.id} class="night-row" type="button" onclick={() => selectSession(session)}>
+							<span class="night-date">{formatDateOnly(session.wake_date)}</span><span>{formatDuration(session.asleep_s)}</span><b>{Math.round(session.efficiency * 100)}%</b>
 						</button>
 					{/each}
 				</div>
-			</section>
-
-			<section class="detail tile">
-				{#if selected}
-					<header class="tile-heading">
-						<div>
-							<h2>{formatDateOnly(selected.wake_date)}</h2>
-							<p>{formatDuration(selected.time_in_bed_s)} in bed · {Math.round(selected.efficiency * 100)}% efficiency</p>
-						</div>
-						<span class="source">{selected.source || 'Apple Health'}</span>
-					</header>
-					<div class="stage-summary">
-						<span><i class="swatch core"></i>Core {formatDuration(selected.core_s)}</span>
-						<span><i class="swatch deep"></i>Deep {formatDuration(selected.deep_s)}</span>
-						<span><i class="swatch rem"></i>REM {formatDuration(selected.rem_s)}</span>
-						<span><i class="swatch awake"></i>Awake {formatDuration(selected.awake_s)}</span>
-					</div>
-					{#if segmentsLoading}
-						<p class="muted timeline-status">Loading stage timeline…</p>
-					{:else}
-						<div class="timeline" aria-label="Sleep stage timeline">
-							{#each segments as segment (segment.id)}
-								<span class={`stage ${stageClass(segment.stage)}`} style={`width: ${segmentWidth(segment)}%`} title={`${segment.stage} ${formatDuration((new Date(segment.ended_at).getTime() - new Date(segment.started_at).getTime()) / 1000)}`}></span>
-							{/each}
-						</div>
-					{/if}
-				{:else}
-					<p class="muted">Select a sleep session.</p>
-				{/if}
-			</section>
-		</div>
+				<div class="timeline-card">
+					<div class="timeline-meta"><span>{formatDateOnly(selected.wake_date)}</span><span>{selected.is_main_sleep ? 'Primary overnight sleep' : 'Short session'}</span></div>
+					{#if segmentsLoading}<p class="muted panel-loading">Loading stages…</p>{:else}<div class="timeline" aria-label="Sleep stage timeline">{#each segments as segment (segment.id)}<span class={`stage ${stageClass(segment.stage)}`} style={`width: ${segmentWidth(segment)}%`} title={`${segment.stage} ${formatDuration((new Date(segment.ended_at).getTime() - new Date(segment.started_at).getTime()) / 1000)}`}></span>{/each}</div>{/if}
+					<div class="timeline-axis"><span>{new Date(selected.started_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span><span>{new Date(selected.ended_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div>
+				</div>
+			</div>
+		</section>
 	{/if}
 </section>
 
 <style>
-	.sleep-shell { display: grid; gap: 1.25rem; }
-	.page-heading, .tile-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-	.page-heading h1, .tile-heading h2 { margin: 0; }
-	.page-heading .muted, .tile-heading p { margin: 0.35rem 0 0; }
-	.eyebrow { margin: 0 0 0.4rem; color: var(--accent); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-	.back-link { color: var(--text-muted); font-size: 0.86rem; }
-	.stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
-	.sleep-grid { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.4fr); gap: 1rem; }
-	.session-list, .detail { padding: 1rem; }
-	.status { min-height: 14rem; display: grid; place-items: center; }
-	.aggregate-panel { padding: 1rem; }
-	.aggregate-status { min-height: 8rem; display: grid; place-items: center; }
-	.aggregate-grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 2rem; margin-top: 1.5rem; }
-	.aggregate-grid h3 { margin: 0 0 0.8rem; font-size: 0.9rem; }
-	.year-row + .year-row { margin-top: 1rem; }
-	.aggregate-label { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.84rem; }
-	.aggregate-label span, .aggregate-metric { color: var(--text-muted); font-size: 0.76rem; }
-	.bar-track { height: 0.55rem; margin: 0.35rem 0; overflow: hidden; border-radius: 99px; background: var(--surface-muted); }
-	.bar-fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
-	.month-table-wrap { max-height: 19rem; overflow: auto; }
-	table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-	th, td { padding: 0.5rem 0.35rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
-	th { position: sticky; top: 0; background: var(--surface); color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
-	.stage-total { color: var(--text-muted); }
-	.sessions { margin-top: 1rem; }
-	.session-row { width: 100%; display: grid; grid-template-columns: 1fr auto auto auto; gap: 0.7rem; align-items: center; padding: 0.75rem 0; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
-	.session-row:hover, .session-row.selected { color: var(--accent); }
-	.session-date { font-weight: 650; }
-	.session-duration, .session-efficiency, .session-kind { color: var(--text-muted); font-size: 0.82rem; }
-	.session-kind.main { color: var(--accent); }
-	.source { color: var(--text-muted); font-size: 0.78rem; }
-	.stage-summary { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; margin: 2rem 0 1rem; color: var(--text-muted); font-size: 0.82rem; }
-	.swatch { display: inline-block; width: 0.55rem; height: 0.55rem; margin-right: 0.3rem; border-radius: 50%; }
-	.core, .stage-core { background: #3987e5; }
-	.deep, .stage-deep { background: #6551b8; }
-	.rem, .stage-rem { background: #d95926; }
-	.awake, .stage-awake { background: #c98500; }
-	.timeline { display: flex; min-height: 3rem; overflow: hidden; border-radius: var(--radius); background: var(--surface-muted); }
+	.sleep-shell { display: grid; gap: 1rem; }
+	.page-heading, .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+	.page-heading h1, .section-heading h2 { margin: 0; }
+	.page-heading .muted, .section-heading .muted { margin: 0.35rem 0 0; }
+	.eyebrow { margin: 0 0 0.35rem; color: var(--accent); font-size: 0.68rem; font-weight: 750; letter-spacing: 0.11em; text-transform: uppercase; }
+	.back-link, .section-note { color: var(--text-muted); font-size: 0.78rem; }
+	.hero { position: relative; overflow: hidden; min-height: 16rem; padding: 1.5rem; background: radial-gradient(circle at 92% 8%, rgb(99 123 255 / 0.28), transparent 34%), radial-gradient(circle at 70% 100%, rgb(125 74 193 / 0.18), transparent 42%), var(--surface); }
+	.hero-orb { position: absolute; width: 15rem; height: 15rem; right: -5rem; top: -7rem; border: 1px solid rgb(174 190 255 / 0.25); border-radius: 50%; box-shadow: 0 0 0 1.5rem rgb(120 134 255 / 0.04), 0 0 0 3rem rgb(120 134 255 / 0.025); }
+	.hero-topline, .hero-metrics { position: relative; z-index: 1; }
+	.hero-topline { display: flex; justify-content: space-between; gap: 1rem; }
+	.hero h2 { margin: 0; font-size: clamp(2.8rem, 8vw, 5.4rem); line-height: 0.95; letter-spacing: -0.07em; }
+	.hero h2 span { margin-left: 0.35rem; color: var(--text-muted); font-size: 0.28em; font-weight: 600; letter-spacing: -0.01em; }
+	.hero-status { display: flex; align-items: center; gap: 0.4rem; padding-top: 0.25rem; }
+	.status-pill { padding: 0.45rem 0.65rem; border: 1px solid rgb(128 163 255 / 0.38); border-radius: 99px; background: rgb(92 141 255 / 0.12); color: #b8caff; font-size: 0.75rem; font-weight: 700; }
+	.info-button { width: 1.4rem; height: 1.4rem; border: 1px solid var(--border); border-radius: 50%; background: transparent; color: var(--text-muted); cursor: help; }
+	.hero-copy { position: relative; max-width: 35rem; margin: 1.25rem 0 1.5rem; color: #c4ccdb; font-size: 0.92rem; line-height: 1.55; }
+	.hero-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; padding-top: 1rem; border-top: 1px solid rgb(255 255 255 / 0.1); }
+	.hero-metrics div { display: grid; gap: 0.25rem; }
+	.hero-metrics span { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; }
+	.hero-metrics strong { overflow: hidden; color: var(--text); font-size: 0.88rem; text-overflow: ellipsis; white-space: nowrap; }
+	.insight-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+	.trend-panel, .stage-panel, .month-panel, .night-panel { padding: 1.25rem; }
+	.trend-panel { background: linear-gradient(135deg, rgb(91 128 255 / 0.07), transparent 42%), var(--tile-surface); }
+	.panel-loading { min-height: 7rem; display: grid; place-items: center; }
+	.year-trend { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.75rem; margin-top: 1.5rem; }
+	.year-card { padding: 0.8rem; border: 1px solid var(--border); border-radius: 10px; background: rgb(255 255 255 / 0.025); }
+	.year-heading, .year-detail { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.78rem; }
+	.year-heading span, .year-detail span { color: var(--text-muted); }
+	.year-bar { height: 0.48rem; margin: 1rem 0 0.6rem; overflow: hidden; border-radius: 99px; background: var(--surface-2); }
+	.year-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #5c8dff, #9c72ef); }
+	.year-detail { font-size: 0.7rem; }
+	.year-detail b { color: #b8caff; }
+	.trend-legend { display: flex; gap: 1rem; margin-top: 1rem; color: var(--text-muted); font-size: 0.7rem; }
+	.analysis-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 1rem; }
+	.architecture { display: flex; align-items: center; gap: 1.5rem; margin: 1.5rem 0 1rem; }
+	.donut { display: grid; flex: 0 0 9rem; width: 9rem; height: 9rem; place-items: center; border-radius: 50%; }
+	.donut > div { display: grid; width: 6.4rem; height: 6.4rem; place-content: center; border-radius: 50%; background: var(--surface); text-align: center; }
+	.donut strong { font-size: 1.15rem; letter-spacing: -0.04em; }
+	.donut span { color: var(--text-muted); font-size: 0.7rem; }
+	.stage-list { display: grid; flex: 1; gap: 0.55rem; }
+	.stage-list div { display: grid; grid-template-columns: 0.65rem 1fr auto; gap: 0.45rem; align-items: center; color: var(--text-muted); font-size: 0.78rem; }
+	.stage-list b { color: var(--text); font-weight: 650; }
+	.dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%; }
+	.dot-session, .dot-core, .stage-core { background: #5c8dff; }
+	.dot-deep, .stage-deep { background: #8870e8; }
+	.dot-rem, .stage-rem { background: #e879b4; }
+	.dot-awake, .stage-awake { background: #d39a4c; }
+	.panel-footnote { margin: 0; color: var(--text-muted); font-size: 0.72rem; line-height: 1.45; }
+	.month-list { display: grid; gap: 0.75rem; margin-top: 1.5rem; }
+	.month-row { display: grid; grid-template-columns: 5.5rem 1fr auto; gap: 0.65rem; align-items: center; color: var(--text-muted); font-size: 0.75rem; }
+	.month-row b { color: var(--text); font-weight: 650; }
+	.month-bar { height: 0.42rem; overflow: hidden; border-radius: 99px; background: var(--surface-2); }
+	.month-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4d7fff, #c27de4); }
+	.night-layout { display: grid; grid-template-columns: minmax(15rem, 0.75fr) minmax(0, 1.25fr); gap: 1.5rem; margin-top: 1.25rem; }
+	.night-list { max-height: 19rem; overflow: auto; }
+	.night-row { display: grid; grid-template-columns: 1fr auto auto; width: 100%; gap: 0.75rem; padding: 0.7rem 0; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text-muted); text-align: left; cursor: pointer; font-size: 0.78rem; }
+	.night-row:hover, .night-row.selected { color: var(--text); }
+	.night-row.selected .night-date { color: var(--accent); }
+	.night-row b { color: var(--text); font-weight: 650; }
+	.timeline-card { align-self: center; padding: 1.25rem; border: 1px solid var(--border); border-radius: 10px; background: rgb(255 255 255 / 0.025); }
+	.timeline-meta, .timeline-axis { display: flex; justify-content: space-between; gap: 1rem; color: var(--text-muted); font-size: 0.72rem; }
+	.timeline { display: flex; min-height: 3.4rem; margin: 1rem 0 0.45rem; overflow: hidden; border-radius: 8px; background: var(--surface-2); }
 	.stage { min-width: 0.15rem; }
-	.stage-in_bed, .stage-asleep_unspecified { background: #7b8794; }
-	.timeline-status { min-height: 3rem; display: grid; place-items: center; }
-	@media (max-width: 760px) { .stats-grid, .sleep-grid, .aggregate-grid { grid-template-columns: 1fr 1fr; } .sleep-grid, .aggregate-grid { grid-column: 1 / -1; } .session-row { grid-template-columns: 1fr auto; } .session-efficiency, .session-kind { justify-self: end; } }
-	@media (max-width: 520px) { .stats-grid { grid-template-columns: 1fr 1fr; } .page-heading { flex-direction: column; } }
+	.stage-in_bed, .stage-asleep_unspecified { background: #788397; }
+	@media (max-width: 760px) { .hero-topline, .page-heading { flex-direction: column; } .hero-status { padding-top: 0; } .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr 1fr; } .analysis-grid, .night-layout { grid-column: 1 / -1; } .hero-metrics { gap: 0.7rem; } }
+	@media (max-width: 520px) { .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr; } .architecture { align-items: flex-start; } .donut { flex-basis: 7.5rem; width: 7.5rem; height: 7.5rem; } .donut > div { width: 5.4rem; height: 5.4rem; } }
 </style>
