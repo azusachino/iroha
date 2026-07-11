@@ -62,6 +62,13 @@
 				? yearBuckets.find((bucket) => bucket.period.startsWith(`${selectedYear}-`))
 				: null
 	);
+	const isPeriodFiltered = $derived(selectedYear !== 'all');
+	const heroEyebrow = $derived(
+		isPeriodFiltered
+			? `Selected night · ${selectedMonth !== 'all' ? formatPeriod(`${selectedMonth}-01T00:00:00Z`, 'month') : selectedYear}`
+			: `Last night · ${selected ? formatDateOnly(selected.wake_date) : ''}`
+	);
+	const nightsHeading = $derived(isPeriodFiltered ? 'Nights in selected period' : 'Recent nights');
 	const monthMaxAsleep = $derived(Math.max(1, ...monthBuckets.map((bucket) => bucket.average_asleep_s)));
 	const yearMaxSessions = $derived(Math.max(1, ...yearBuckets.map((bucket) => bucket.session_count)));
 
@@ -95,7 +102,11 @@
 	async function loadSessions(append = false) {
 		if (append && (!hasMore || !cursor || loadingMore)) return;
 		if (append) loadingMore = true;
-		else sessionsLoading = true;
+		else {
+			sessionsLoading = true;
+			cursor = null;
+			hasMore = false;
+		}
 		error = null;
 		try {
 			const page = await listSleep({ limit: PAGE_SIZE, cursor: append ? cursor ?? undefined : undefined, ...selectedRange() });
@@ -129,7 +140,7 @@
 	}
 
 	$effect(() => {
-		if (!loadMoreSentinel) return;
+		if (!loadMoreSentinel || !hasMore) return;
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (entries.some((entry) => entry.isIntersecting)) void loadSessions(true);
@@ -214,7 +225,7 @@
 			<div class="hero-orb"></div>
 			<div class="hero-topline">
 				<div>
-					<p class="eyebrow">Last night · {formatDateOnly(selected.wake_date)}</p>
+				<p class="eyebrow">{heroEyebrow}</p>
 					<h2>{formatDuration(selected.asleep_s)} <span>asleep</span></h2>
 				</div>
 				<div class="hero-status">
@@ -304,7 +315,7 @@
 		</div>
 
 		<section class="night-panel tile">
-			<header class="section-heading"><div><p class="eyebrow">Drill down</p><h2>Recent nights</h2><p class="muted">Select a night to see the stage timeline.</p></div><span class="section-note">{sessions.length}{hasMore ? '+' : ''} nights in period</span></header>
+			<header class="section-heading"><div><p class="eyebrow">Drill down</p><h2>{nightsHeading}</h2><p class="muted">Select a night to see the stage timeline.</p></div><span class="section-note">{sessions.length}{hasMore ? '+' : ''} nights in period</span></header>
 			<div class="night-layout">
 				<div class="night-list">
 					{#each sessions as session (session.id)}
