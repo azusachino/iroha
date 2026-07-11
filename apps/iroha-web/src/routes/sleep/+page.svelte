@@ -22,6 +22,8 @@
 	let monthBuckets = $state<SleepAggregateBucket[]>([]);
 	let aggregatesLoading = $state(true);
 	let aggregatesError = $state<string | null>(null);
+	let selectedYear = $state('all');
+	let selectedMonth = $state('all');
 
 	const mainSleep = $derived(sessions.filter((session) => session.is_main_sleep));
 	const averageAsleep = $derived(
@@ -32,6 +34,29 @@
 	);
 	const monthlyBuckets = $derived(monthBuckets.slice().reverse());
 	const yearlyBuckets = $derived(yearBuckets.slice().reverse());
+	const availableYears = $derived(yearBuckets.map((bucket) => String(new Date(bucket.period).getUTCFullYear())).reverse());
+	const availableMonths = $derived(
+		monthBuckets
+			.filter((bucket) => selectedYear === 'all' || bucket.period.startsWith(`${selectedYear}-`))
+			.map((bucket) => bucket.period.slice(0, 7))
+			.reverse()
+	);
+	const visibleYears = $derived(
+		selectedYear === 'all' ? yearlyBuckets : yearlyBuckets.filter((bucket) => bucket.period.startsWith(`${selectedYear}-`))
+	);
+	const visibleMonths = $derived(
+		monthlyBuckets.filter((bucket) => {
+			const period = bucket.period.slice(0, 7);
+			return (selectedYear === 'all' || period.startsWith(`${selectedYear}-`)) && (selectedMonth === 'all' || period === selectedMonth);
+		})
+	);
+	const focusedBucket = $derived(
+		selectedMonth !== 'all'
+			? monthBuckets.find((bucket) => bucket.period.startsWith(`${selectedMonth}-01`))
+			: selectedYear !== 'all'
+				? yearBuckets.find((bucket) => bucket.period.startsWith(`${selectedYear}-`))
+				: null
+	);
 	const monthMaxAsleep = $derived(Math.max(1, ...monthBuckets.map((bucket) => bucket.average_asleep_s)));
 	const yearMaxSessions = $derived(Math.max(1, ...yearBuckets.map((bucket) => bucket.session_count)));
 
@@ -52,11 +77,21 @@
 		}
 	}
 
+	function selectedRange(): { from?: string; to?: string } {
+		if (selectedMonth !== 'all') {
+			const [year, month] = selectedMonth.split('-').map(Number);
+			const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+			return { from: `${selectedMonth}-01`, to: `${selectedMonth}-${String(lastDay).padStart(2, '0')}` };
+		}
+		if (selectedYear !== 'all') return { from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` };
+		return {};
+	}
+
 	async function loadSessions() {
 		loading = true;
 		error = null;
 		try {
-			const page = await listSleep({ limit: PAGE_SIZE });
+			const page = await listSleep({ limit: PAGE_SIZE, ...selectedRange() });
 			sessions = page.items;
 			if (page.items[0]) await selectSession(page.items[0]);
 		} catch (value) {
@@ -64,6 +99,17 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	function changeYear(value: string) {
+		selectedYear = value;
+		selectedMonth = 'all';
+		void loadSessions();
+	}
+
+	function changeMonth(value: string) {
+		selectedMonth = value;
+		void loadSessions();
 	}
 
 	async function loadAggregates() {
@@ -172,7 +218,16 @@
 		<section class="trend-panel tile">
 			<header class="section-heading">
 				<div><p class="eyebrow">The long view</p><h2>Sleep over time</h2></div>
-				<span class="section-note">All imported history</span>
+				<div class="period-controls" aria-label="Sleep period filters">
+					<select aria-label="Filter by year" value={selectedYear} onchange={(event) => changeYear(event.currentTarget.value)}>
+						<option value="all">All years</option>
+						{#each availableYears as year (year)}<option value={year}>{year}</option>{/each}
+					</select>
+					<select aria-label="Filter by month" value={selectedMonth} onchange={(event) => changeMonth(event.currentTarget.value)} disabled={selectedYear === 'all'}>
+						<option value="all">All months</option>
+						{#each availableMonths as month (month)}<option value={month}>{formatPeriod(`${month}-01T00:00:00Z`, 'month')}</option>{/each}
+					</select>
+				</div>
 			</header>
 			{#if aggregatesLoading}
 				<p class="muted panel-loading">Building your history…</p>
@@ -180,7 +235,7 @@
 				<p class="error panel-loading">History could not be loaded: {aggregatesError}</p>
 			{:else}
 				<div class="year-trend">
-					{#each yearlyBuckets as bucket (bucket.period)}
+					{#each visibleYears as bucket (bucket.period)}
 						<div class="year-card">
 							<div class="year-heading"><strong>{formatPeriod(bucket.period, 'year')}</strong><span>{bucket.session_count} nights</span></div>
 							<div class="year-bar"><span style={`width: ${(bucket.session_count / yearMaxSessions) * 100}%`}></span></div>
@@ -188,6 +243,9 @@
 						</div>
 					{/each}
 				</div>
+				{#if focusedBucket}
+					<div class="focus-callout"><span>{selectedMonth !== 'all' ? formatPeriod(focusedBucket.period, 'month') : selectedYear}</span><strong>{focusedBucket.session_count} nights · {formatDuration(focusedBucket.average_asleep_s)} average asleep</strong><em>{focusedBucket.main_sleep_count} primary overnight sessions</em></div>
+				{/if}
 				<div class="trend-legend"><span><i class="dot dot-session"></i>Recorded nights</span><span>Average efficiency shown per year</span></div>
 			{/if}
 		</section>
@@ -210,7 +268,7 @@
 			<section class="month-panel tile">
 				<header class="section-heading"><div><p class="eyebrow">The rhythm</p><h2>Monthly pattern</h2></div><span class="section-note">Average asleep</span></header>
 				<div class="month-list">
-					{#each monthlyBuckets.slice(0, 12) as bucket (bucket.period)}
+					{#each visibleMonths.slice(0, 12) as bucket (bucket.period)}
 						<div class="month-row"><span>{formatPeriod(bucket.period, 'month')}</span><div class="month-bar"><i style={`width: ${(bucket.average_asleep_s / monthMaxAsleep) * 100}%`}></i></div><b>{formatDuration(bucket.average_asleep_s)}</b></div>
 					{/each}
 				</div>
@@ -244,6 +302,9 @@
 	.page-heading .muted, .section-heading .muted { margin: 0.35rem 0 0; }
 	.eyebrow { margin: 0 0 0.35rem; color: var(--accent); font-size: 0.68rem; font-weight: 750; letter-spacing: 0.11em; text-transform: uppercase; }
 	.back-link, .section-note { color: var(--text-muted); font-size: 0.78rem; }
+	.period-controls { display: flex; gap: 0.45rem; }
+	.period-controls select { min-height: 2rem; padding: 0.35rem 0.55rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 0.76rem; }
+	.period-controls select:disabled { opacity: 0.45; cursor: not-allowed; }
 	.hero { position: relative; overflow: hidden; min-height: 16rem; padding: 1.5rem; background: radial-gradient(circle at 92% 8%, rgb(99 123 255 / 0.28), transparent 34%), radial-gradient(circle at 70% 100%, rgb(125 74 193 / 0.18), transparent 42%), var(--surface); }
 	.hero-orb { position: absolute; width: 15rem; height: 15rem; right: -5rem; top: -7rem; border: 1px solid rgb(174 190 255 / 0.25); border-radius: 50%; box-shadow: 0 0 0 1.5rem rgb(120 134 255 / 0.04), 0 0 0 3rem rgb(120 134 255 / 0.025); }
 	.hero-topline, .hero-metrics { position: relative; z-index: 1; }
@@ -271,6 +332,10 @@
 	.year-detail { font-size: 0.7rem; }
 	.year-detail b { color: #b8caff; }
 	.trend-legend { display: flex; gap: 1rem; margin-top: 1rem; color: var(--text-muted); font-size: 0.7rem; }
+	.focus-callout { display: flex; align-items: baseline; gap: 0.75rem; margin-top: 1rem; padding: 0.75rem 0.9rem; border-left: 2px solid var(--accent); background: rgb(92 141 255 / 0.08); font-size: 0.78rem; }
+	.focus-callout span { color: var(--accent); font-weight: 750; }
+	.focus-callout strong { color: var(--text); }
+	.focus-callout em { color: var(--text-muted); font-style: normal; }
 	.analysis-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 1rem; }
 	.architecture { display: flex; align-items: center; gap: 1.5rem; margin: 1.5rem 0 1rem; }
 	.donut { display: grid; flex: 0 0 9rem; width: 9rem; height: 9rem; place-items: center; border-radius: 50%; }
@@ -302,6 +367,6 @@
 	.timeline { display: flex; min-height: 3.4rem; margin: 1rem 0 0.45rem; overflow: hidden; border-radius: 8px; background: var(--surface-2); }
 	.stage { min-width: 0.15rem; }
 	.stage-in_bed, .stage-asleep_unspecified { background: #788397; }
-	@media (max-width: 760px) { .hero-topline, .page-heading { flex-direction: column; } .hero-status { padding-top: 0; } .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr 1fr; } .analysis-grid, .night-layout { grid-column: 1 / -1; } .hero-metrics { gap: 0.7rem; } }
+	@media (max-width: 760px) { .hero-topline, .page-heading, .section-heading { flex-direction: column; } .hero-status { padding-top: 0; } .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr 1fr; } .analysis-grid, .night-layout { grid-column: 1 / -1; } .hero-metrics { gap: 0.7rem; } .period-controls { width: 100%; } .period-controls select { flex: 1; } .focus-callout { align-items: flex-start; flex-direction: column; gap: 0.25rem; } }
 	@media (max-width: 520px) { .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr; } .architecture { align-items: flex-start; } .donut { flex-basis: 7.5rem; width: 7.5rem; height: 7.5rem; } .donut > div { width: 5.4rem; height: 5.4rem; } }
 </style>
