@@ -52,6 +52,25 @@ export interface SleepSegment {
 	seq: number;
 }
 
+export interface SleepAggregateBucket {
+	period: string;
+	session_count: number;
+	main_sleep_count: number;
+	average_asleep_s: number;
+	average_time_in_bed_s: number;
+	average_efficiency: number;
+	core_s: number;
+	deep_s: number;
+	rem_s: number;
+	awake_s: number;
+	unspecified_s: number;
+}
+
+export interface SleepAggregates {
+	granularity: 'month' | 'year';
+	buckets: SleepAggregateBucket[];
+}
+
 export interface ListSleepParams {
 	from?: string;
 	to?: string;
@@ -152,6 +171,17 @@ export function getSleepSegments(id: string, fetchFn: typeof fetch = fetch): Pro
 		`/api/v1/sleep/${encodeURIComponent(id)}/segments`,
 		fetchFn
 	);
+}
+
+export function listSleepAggregates(
+	granularity: 'month' | 'year',
+	params: { from?: string; to?: string } = {},
+	fetchFn: typeof fetch = fetch
+): Promise<SleepAggregates> {
+	const query = new URLSearchParams({ granularity });
+	if (params.from) query.set('from', params.from);
+	if (params.to) query.set('to', params.to);
+	return getJSON<SleepAggregates>(`/api/v1/sleep/aggregates?${query.toString()}`, fetchFn);
 }
 
 export function getActivity(id: string, fetchFn: typeof fetch = fetch): Promise<Activity> {

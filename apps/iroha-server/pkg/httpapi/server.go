@@ -93,6 +93,7 @@ func (s *Server) routes() {
 		})
 		r.Route("/sleep", func(r chi.Router) {
 			r.Get("/", s.handleListSleep)
+			r.Get("/aggregates", s.handleSleepAggregates)
 			r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
 		})
 	})

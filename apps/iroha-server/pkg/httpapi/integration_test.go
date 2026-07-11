@@ -136,8 +136,8 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 			CoreS: 12000, DeepS: 6000, RemS: 7200, AwakeS: 3600, Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt,
 		},
 		{
-			ID: secondID, WakeDate: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-			StartedAt: time.Date(2023, time.December, 31, 23, 0, 0, 0, time.UTC), EndedAt: time.Date(2024, time.January, 1, 7, 0, 0, 0, time.UTC),
+			ID: secondID, WakeDate: time.Date(2023, time.December, 31, 0, 0, 0, 0, time.UTC),
+			StartedAt: time.Date(2023, time.December, 30, 23, 0, 0, 0, time.UTC), EndedAt: time.Date(2023, time.December, 31, 7, 0, 0, 0, time.UTC),
 			TimeInBedS: 28800, AsleepS: 21600, Efficiency: 0.75, IsMainSleep: true,
 			CoreS: 12000, DeepS: 3600, RemS: 6000, AwakeS: 7200, Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt,
 		},
@@ -171,6 +171,22 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 			t.Fatalf("date-filtered sleep page = %#v", body)
 		}
 	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/aggregates?granularity=year", "", http.StatusOK, func(body map[string]any) {
+		buckets := body["buckets"].([]any)
+		if body["granularity"] != "year" || len(buckets) != 2 {
+			t.Fatalf("yearly sleep aggregates = %#v", body)
+		}
+		if buckets[0].(map[string]any)["session_count"] != float64(1) {
+			t.Fatalf("yearly aggregate bucket = %#v", buckets[0])
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/aggregates?granularity=month&from=2024-01-01&to=2024-01-31", "", http.StatusOK, func(body map[string]any) {
+		buckets := body["buckets"].([]any)
+		if len(buckets) != 1 || buckets[0].(map[string]any)["session_count"] != float64(1) {
+			t.Fatalf("monthly sleep aggregates = %#v", body)
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/aggregates?granularity=week", "", http.StatusBadRequest, nil)
 	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/sleep_bad/segments", "", http.StatusBadRequest, nil)
 	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/"+ids.Encode(ids.SleepPrefix, firstID)+"/segments", "", http.StatusOK, func(body map[string]any) {
 		items := body["items"].([]any)

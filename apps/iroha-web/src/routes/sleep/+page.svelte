@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getSleepSegments, listSleep, type SleepSegment, type SleepSession } from '$lib/api';
+	import {
+		getSleepSegments,
+		listSleep,
+		listSleepAggregates,
+		type SleepAggregateBucket,
+		type SleepSegment,
+		type SleepSession
+	} from '$lib/api';
 	import StatTile from '$lib/components/StatTile.svelte';
 	import { formatDateOnly, formatDuration } from '$lib/format';
 
@@ -11,6 +18,10 @@
 	let loading = $state(true);
 	let segmentsLoading = $state(false);
 	let error = $state<string | null>(null);
+	let yearBuckets = $state<SleepAggregateBucket[]>([]);
+	let monthBuckets = $state<SleepAggregateBucket[]>([]);
+	let aggregatesLoading = $state(true);
+	let aggregatesError = $state<string | null>(null);
 
 	const mainSleep = $derived(sessions.filter((session) => session.is_main_sleep));
 	const averageAsleep = $derived(
@@ -19,6 +30,8 @@
 	const averageEfficiency = $derived(
 		mainSleep.length ? mainSleep.reduce((total, session) => total + session.efficiency, 0) / mainSleep.length : 0
 	);
+	const yearMaxSessions = $derived(Math.max(1, ...yearBuckets.map((bucket) => bucket.session_count)));
+	const monthTotal = $derived(monthBuckets.reduce((total, bucket) => total + bucket.session_count, 0));
 
 	function errorMessage(value: unknown): string {
 		return value instanceof Error ? value.message : String(value);
@@ -51,6 +64,29 @@
 		}
 	}
 
+	async function loadAggregates() {
+		aggregatesLoading = true;
+		aggregatesError = null;
+		try {
+			const [years, months] = await Promise.all([
+				listSleepAggregates('year'),
+				listSleepAggregates('month')
+			]);
+			yearBuckets = years.buckets;
+			monthBuckets = months.buckets;
+		} catch (value) {
+			aggregatesError = errorMessage(value);
+		} finally {
+			aggregatesLoading = false;
+		}
+	}
+
+	function formatPeriod(period: string, granularity: 'month' | 'year'): string {
+		const date = new Date(period);
+		if (granularity === 'year') return String(date.getUTCFullYear());
+		return new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date);
+	}
+
 	function stageClass(stage: string): string {
 		return `stage-${stage}`;
 	}
@@ -64,6 +100,7 @@
 
 	onMount(() => {
 		void load();
+		void loadAggregates();
 	});
 </script>
 
@@ -87,6 +124,53 @@
 		<StatTile label="Avg asleep" value={loading ? '—' : formatDuration(averageAsleep)} sub="Main sleep sessions" />
 		<StatTile label="Efficiency" value={loading ? '—' : `${Math.round(averageEfficiency * 100)}%`} sub="Asleep / time in bed" />
 	</div>
+
+	<section class="aggregate-panel tile" aria-label="Sleep history aggregates">
+		<header class="tile-heading">
+			<div>
+				<h2>History at a glance</h2>
+				<p>Full-history yearly and monthly sleep trends.</p>
+			</div>
+			<span class="source">{monthTotal.toLocaleString()} monthly sessions</span>
+		</header>
+		{#if aggregatesLoading}
+			<p class="muted aggregate-status">Loading history aggregates…</p>
+		{:else if aggregatesError}
+			<p class="error aggregate-status">Aggregates could not be loaded: {aggregatesError}</p>
+		{:else}
+			<div class="aggregate-grid">
+				<div class="yearly-panel">
+					<h3>By year</h3>
+					{#each yearBuckets as bucket (bucket.period)}
+						<div class="year-row">
+							<div class="aggregate-label"><strong>{formatPeriod(bucket.period, 'year')}</strong><span>{bucket.session_count} nights · {bucket.main_sleep_count} main</span></div>
+							<div class="bar-track"><span class="bar-fill" style={`width: ${(bucket.session_count / yearMaxSessions) * 100}%`}></span></div>
+							<div class="aggregate-metric">{formatDuration(bucket.average_asleep_s)} avg asleep · {Math.round(bucket.average_efficiency * 100)}%</div>
+						</div>
+					{/each}
+				</div>
+				<div class="monthly-panel">
+					<h3>By month</h3>
+					<div class="month-table-wrap">
+						<table>
+							<thead><tr><th>Month</th><th>Nights</th><th>Asleep</th><th>Efficiency</th><th>Stages</th></tr></thead>
+							<tbody>
+								{#each monthBuckets as bucket (bucket.period)}
+									<tr>
+										<td>{formatPeriod(bucket.period, 'month')}</td>
+										<td>{bucket.session_count} <span class="muted">({bucket.main_sleep_count})</span></td>
+										<td>{formatDuration(bucket.average_asleep_s)}</td>
+										<td>{Math.round(bucket.average_efficiency * 100)}%</td>
+										<td class="stage-total">{formatDuration(bucket.core_s + bucket.deep_s + bucket.rem_s)} asleep stages</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</section>
 
 	{#if loading}
 		<section class="status tile"><p>Loading sleep sessions…</p></section>
@@ -158,6 +242,20 @@
 	.sleep-grid { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.4fr); gap: 1rem; }
 	.session-list, .detail { padding: 1rem; }
 	.status { min-height: 14rem; display: grid; place-items: center; }
+	.aggregate-panel { padding: 1rem; }
+	.aggregate-status { min-height: 8rem; display: grid; place-items: center; }
+	.aggregate-grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 2rem; margin-top: 1.5rem; }
+	.aggregate-grid h3 { margin: 0 0 0.8rem; font-size: 0.9rem; }
+	.year-row + .year-row { margin-top: 1rem; }
+	.aggregate-label { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.84rem; }
+	.aggregate-label span, .aggregate-metric { color: var(--text-muted); font-size: 0.76rem; }
+	.bar-track { height: 0.55rem; margin: 0.35rem 0; overflow: hidden; border-radius: 99px; background: var(--surface-muted); }
+	.bar-fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+	.month-table-wrap { max-height: 19rem; overflow: auto; }
+	table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+	th, td { padding: 0.5rem 0.35rem; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+	th { position: sticky; top: 0; background: var(--surface); color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+	.stage-total { color: var(--text-muted); }
 	.sessions { margin-top: 1rem; }
 	.session-row { width: 100%; display: grid; grid-template-columns: 1fr auto auto auto; gap: 0.7rem; align-items: center; padding: 0.75rem 0; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
 	.session-row:hover, .session-row.selected { color: var(--accent); }
@@ -175,6 +273,6 @@
 	.stage { min-width: 0.15rem; }
 	.stage-in_bed, .stage-asleep_unspecified { background: #7b8794; }
 	.timeline-status { min-height: 3rem; display: grid; place-items: center; }
-	@media (max-width: 760px) { .stats-grid, .sleep-grid { grid-template-columns: 1fr 1fr; } .sleep-grid { grid-column: 1 / -1; } .session-row { grid-template-columns: 1fr auto; } .session-efficiency, .session-kind { justify-self: end; } }
+	@media (max-width: 760px) { .stats-grid, .sleep-grid, .aggregate-grid { grid-template-columns: 1fr 1fr; } .sleep-grid, .aggregate-grid { grid-column: 1 / -1; } .session-row { grid-template-columns: 1fr auto; } .session-efficiency, .session-kind { justify-self: end; } }
 	@media (max-width: 520px) { .stats-grid { grid-template-columns: 1fr 1fr; } .page-heading { flex-direction: column; } }
 </style>

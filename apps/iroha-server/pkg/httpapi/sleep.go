@@ -45,6 +45,11 @@ type sleepSegmentResponse struct {
 	Seq       int       `json:"seq"`
 }
 
+type sleepAggregateResponse struct {
+	Granularity string                  `json:"granularity"`
+	Buckets     []sleep.AggregateBucket `json:"buckets"`
+}
+
 func (s *Server) handleListSleep(w http.ResponseWriter, r *http.Request) {
 	filters, ok := parseSleepFilters(w, r)
 	if !ok {
@@ -91,6 +96,20 @@ func (s *Server) handleGetSleepSegments(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (s *Server) handleSleepAggregates(w http.ResponseWriter, r *http.Request) {
+	filters, ok := parseSleepAggregateFilters(w, r)
+	if !ok {
+		return
+	}
+	buckets, err := s.deps.SleepService.Aggregates(filters)
+	if err != nil {
+		s.deps.Logger.Error("aggregate sleep sessions", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to aggregate sleep sessions")
+		return
+	}
+	writeJSON(w, http.StatusOK, sleepAggregateResponse{Granularity: filters.Granularity, Buckets: buckets})
+}
+
 func parseSleepFilters(w http.ResponseWriter, r *http.Request) (sleep.ListFilters, bool) {
 	query := r.URL.Query()
 	filters := sleep.ListFilters{}
@@ -119,6 +138,30 @@ func parseSleepFilters(w http.ResponseWriter, r *http.Request) (sleep.ListFilter
 			return sleep.ListFilters{}, false
 		}
 		filters.Cursor = &cursor
+	}
+	return filters, true
+}
+
+func parseSleepAggregateFilters(w http.ResponseWriter, r *http.Request) (sleep.AggregateFilters, bool) {
+	query := r.URL.Query()
+	granularity := query.Get("granularity")
+	if granularity == "" {
+		granularity = "month"
+	}
+	if granularity != "month" && granularity != "year" {
+		writeError(w, http.StatusBadRequest, "invalid granularity")
+		return sleep.AggregateFilters{}, false
+	}
+	filters := sleep.AggregateFilters{Granularity: granularity}
+	for key, destination := range map[string]**time.Time{"from": &filters.From, "to": &filters.To} {
+		if value := query.Get(key); value != "" {
+			parsed, err := time.Parse("2006-01-02", value)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid "+key)
+				return sleep.AggregateFilters{}, false
+			}
+			*destination = &parsed
+		}
 	}
 	return filters, true
 }

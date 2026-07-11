@@ -57,6 +57,26 @@ type Page struct {
 	HasMore    bool
 }
 
+type AggregateFilters struct {
+	From        *time.Time
+	To          *time.Time
+	Granularity string
+}
+
+type AggregateBucket struct {
+	Period            time.Time `json:"period"`
+	SessionCount      int       `json:"session_count"`
+	MainSleepCount    int       `json:"main_sleep_count"`
+	AverageAsleepS    float64   `json:"average_asleep_s"`
+	AverageTimeInBedS float64   `json:"average_time_in_bed_s"`
+	AverageEfficiency float64   `json:"average_efficiency"`
+	CoreS             int       `json:"core_s"`
+	DeepS             int       `json:"deep_s"`
+	RemS              int       `json:"rem_s"`
+	AwakeS            int       `json:"awake_s"`
+	UnspecifiedS      int       `json:"unspecified_s"`
+}
+
 type Service struct {
 	db *gorm.DB
 }
@@ -94,6 +114,37 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		page.NextCursor = &Cursor{WakeDate: last.WakeDate, ID: last.ID}
 	}
 	return page, nil
+}
+
+func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error) {
+	periodExpression := "date_trunc('month', wake_date::timestamp)"
+	if filters.Granularity == "year" {
+		periodExpression = "date_trunc('year', wake_date::timestamp)"
+	}
+	query := s.db.Model(&models.SleepSession{}).
+		Select(periodExpression + ` as period,
+			count(*)::int as session_count,
+			count(*) filter (where is_main_sleep)::int as main_sleep_count,
+			coalesce(avg(asleep_s), 0) as average_asleep_s,
+			coalesce(avg(time_in_bed_s), 0) as average_time_in_bed_s,
+			coalesce(avg(efficiency), 0) as average_efficiency,
+			coalesce(sum(core_s), 0)::int as core_s,
+			coalesce(sum(deep_s), 0)::int as deep_s,
+			coalesce(sum(rem_s), 0)::int as rem_s,
+			coalesce(sum(awake_s), 0)::int as awake_s,
+			coalesce(sum(unspecified_s), 0)::int as unspecified_s`).
+		Group("period").Order("period asc")
+	if filters.From != nil {
+		query = query.Where("wake_date >= ?", *filters.From)
+	}
+	if filters.To != nil {
+		query = query.Where("wake_date <= ?", *filters.To)
+	}
+	var buckets []AggregateBucket
+	if err := query.Scan(&buckets).Error; err != nil {
+		return nil, err
+	}
+	return buckets, nil
 }
 
 func (s *Service) Get(id string) (models.SleepSession, bool, error) {
