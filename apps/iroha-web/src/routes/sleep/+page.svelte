@@ -10,6 +10,7 @@
 		type SleepSession
 	} from '$lib/api';
 	import StatTile from '$lib/components/StatTile.svelte';
+	import SleepArchitectureChart from '$lib/components/SleepArchitectureChart.svelte';
 	import { formatDateOnly, formatDuration } from '$lib/format';
 
 	const PAGE_SIZE = 24;
@@ -32,6 +33,8 @@
 	let aggregatesError = $state<string | null>(null);
 	let selectedYear = $state('all');
 	let selectedMonth = $state('all');
+	let selectedStage = $state('Core');
+	let hoveredStage = $state<string | null>(null);
 
 	const mainSleep = $derived(sessions.filter((session) => session.is_main_sleep));
 	const averageAsleep = $derived(
@@ -74,6 +77,17 @@
 	const nightsHeading = $derived(isPeriodFiltered ? 'Nights in selected period' : 'Recent nights');
 	const monthMaxAsleep = $derived(Math.max(1, ...monthBuckets.map((bucket) => bucket.average_asleep_s)));
 	const yearMaxSessions = $derived(Math.max(1, ...yearBuckets.map((bucket) => bucket.session_count)));
+	const architectureStages = $derived([
+		{ name: 'Core', value: selected?.core_s ?? 0, color: '#5c8dff' },
+		{ name: 'Deep', value: selected?.deep_s ?? 0, color: '#8870e8' },
+		{ name: 'REM', value: selected?.rem_s ?? 0, color: '#e879b4' },
+		{ name: 'Awake', value: selected?.awake_s ?? 0, color: '#d39a4c' },
+		...(selected?.unspecified_s ? [{ name: 'Unspecified', value: selected.unspecified_s, color: '#788397' }] : [])
+	]);
+	const activeStage = $derived(hoveredStage ?? selectedStage);
+	const activeStageSeconds = $derived(
+		activeStage === 'Core' ? (selected?.core_s ?? 0) : activeStage === 'Deep' ? (selected?.deep_s ?? 0) : activeStage === 'REM' ? (selected?.rem_s ?? 0) : activeStage === 'Awake' ? (selected?.awake_s ?? 0) : (selected?.unspecified_s ?? 0)
+	);
 
 	function errorMessage(value: unknown): string {
 		return value instanceof Error ? value.message : String(value);
@@ -197,15 +211,6 @@
 		return total > 0 ? Math.max(0.4, (duration / total) * 100) : 0;
 	}
 
-	function compositionStyle(session: SleepSession): string {
-		const total = session.core_s + session.deep_s + session.rem_s + session.awake_s + session.unspecified_s;
-		if (!total) return '';
-		const core = (session.core_s / total) * 100;
-		const deep = core + (session.deep_s / total) * 100;
-		const rem = deep + (session.rem_s / total) * 100;
-		return `background: conic-gradient(#5c8dff 0 ${core}%, #8870e8 ${core}% ${deep}%, #e879b4 ${deep}% ${rem}%, #d39a4c ${rem}% 100%);`;
-	}
-
 	onMount(() => {
 		void loadSessions(false);
 		void loadAggregates();
@@ -305,12 +310,12 @@
 			<section class="stage-panel tile">
 				<header class="section-heading"><div><p class="eyebrow">Last night</p><h2>Sleep architecture</h2></div></header>
 				<div class="architecture">
-					<div class="donut" style={compositionStyle(selected)}><div><strong>{formatDuration(selected.asleep_s)}</strong><span>asleep</span></div></div>
+					<SleepArchitectureChart stages={architectureStages} {selectedStage} onStageSelect={(stage) => (selectedStage = stage)} onStageHover={(stage) => (hoveredStage = stage)} />
 					<div class="stage-list">
-						<div><i class="dot dot-core"></i><span>Core</span><b>{formatDuration(selected.core_s)}</b></div>
-						<div><i class="dot dot-deep"></i><span>Deep</span><b>{formatDuration(selected.deep_s)}</b></div>
-						<div><i class="dot dot-rem"></i><span>REM</span><b>{formatDuration(selected.rem_s)}</b></div>
-						<div><i class="dot dot-awake"></i><span>Awake</span><b>{formatDuration(selected.awake_s)}</b></div>
+						{#each architectureStages as stage (stage.name)}
+							<button class:selected={selectedStage === stage.name} class="stage-button" onclick={() => (selectedStage = stage.name)}><i class="dot" style={`background: ${stage.color}`}></i><span>{stage.name}</span><b>{formatDuration(stage.value)}</b></button>
+						{/each}
+						<div class="stage-focus"><span>Selected stage</span><strong>{activeStage}</strong><b>{formatDuration(activeStageSeconds)}</b></div>
 					</div>
 				</div>
 				<p class="panel-footnote">Stage estimates are reconstructed from Apple Health records and are best read as patterns, not clinical measurements.</p>
@@ -407,13 +412,14 @@
 	.focus-callout em { color: var(--text-muted); font-style: normal; }
 	.analysis-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 1rem; }
 	.architecture { display: flex; align-items: center; gap: 1.5rem; margin: 1.5rem 0 1rem; }
-	.donut { display: grid; flex: 0 0 9rem; width: 9rem; height: 9rem; place-items: center; border-radius: 50%; }
-	.donut > div { display: grid; width: 6.4rem; height: 6.4rem; place-content: center; border-radius: 50%; background: var(--surface); text-align: center; }
-	.donut strong { font-size: 1.15rem; letter-spacing: -0.04em; }
-	.donut span { color: var(--text-muted); font-size: 0.7rem; }
 	.stage-list { display: grid; flex: 1; gap: 0.55rem; }
-	.stage-list div { display: grid; grid-template-columns: 0.65rem 1fr auto; gap: 0.45rem; align-items: center; color: var(--text-muted); font-size: 0.78rem; }
+	.stage-button { display: grid; grid-template-columns: 0.65rem 1fr auto; gap: 0.45rem; align-items: center; padding: 0.25rem 0.35rem; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text-muted); text-align: left; font: inherit; font-size: 0.78rem; cursor: pointer; }
+	.stage-button:hover, .stage-button:focus-visible, .stage-button.selected { border-color: var(--border); background: rgb(92 141 255 / 0.08); color: var(--text); outline: none; }
 	.stage-list b { color: var(--text); font-weight: 650; }
+	.stage-focus { display: grid; grid-template-columns: 1fr auto auto; gap: 0.5rem; align-items: baseline; margin-top: 0.25rem; padding-top: 0.65rem; border-top: 1px solid var(--border); font-size: 0.7rem; }
+	.stage-focus span { color: var(--text-muted); }
+	.stage-focus strong { color: var(--accent); }
+	.stage-focus b { color: var(--text); }
 	.dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%; }
 	.dot-session, .dot-core, .stage-core { background: #5c8dff; }
 	.dot-deep, .stage-deep { background: #8870e8; }
@@ -443,5 +449,5 @@
 	.stage { min-width: 0.15rem; }
 	.stage-in_bed, .stage-asleep_unspecified { background: #788397; }
 	@media (max-width: 760px) { .hero-topline, .page-heading, .section-heading { flex-direction: column; } .hero-status { padding-top: 0; } .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr 1fr; } .analysis-grid, .night-layout { grid-column: 1 / -1; } .hero-metrics { gap: 0.7rem; } .period-controls { width: 100%; } .period-controls select { flex: 1; } .focus-callout { align-items: flex-start; flex-direction: column; gap: 0.25rem; } }
-	@media (max-width: 520px) { .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr; } .architecture { align-items: flex-start; } .donut { flex-basis: 7.5rem; width: 7.5rem; height: 7.5rem; } .donut > div { width: 5.4rem; height: 5.4rem; } }
+	@media (max-width: 520px) { .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr; } .architecture { align-items: flex-start; gap: 0.75rem; } }
 </style>
