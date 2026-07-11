@@ -242,7 +242,7 @@
 					href="/activities"
 					state="active"
 				/>
-				<DomainTile name="Sleep" stat="Recovery and sleep sessions" state="soon" />
+				<DomainTile name="Sleep" stat="Recovery and sleep sessions" href="/sleep" state="active" />
 				<DomainTile name="Media" stat="Reading and watching history" state="soon" />
 			</div>
 		</section>

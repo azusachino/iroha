@@ -162,6 +162,21 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         f"counts1.source_items_workout={counts1['source_items_workout']}",
     )
     check(
+        "import#1 sleep sessions and segments > 0",
+        counts1["sleep_sessions_total"] > 0 and counts1["sleep_segments_total"] > 0,
+        f"sleep_sessions={counts1['sleep_sessions_total']} sleep_segments={counts1['sleep_segments_total']}",
+    )
+    check(
+        "import#1 sleep source items > 0",
+        counts1["source_items_sleep_session"] > 0,
+        f"counts1.source_items_sleep_session={counts1['source_items_sleep_session']}",
+    )
+    check(
+        "import#1 sleep rollups consistent",
+        counts1["sleep_rollup_mismatches"] == 0,
+        f"counts1.sleep_rollup_mismatches={counts1['sleep_rollup_mismatches']}",
+    )
+    check(
         "import#1 import_snapshots increased by exactly 1",
         d1["snapshots"] == 1,
         f"delta snapshots={d1['snapshots']} (baseline={baseline['snapshots']} -> {counts1['snapshots']})",
@@ -192,6 +207,11 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         "import#2 (reuse) apple_source_items unchanged",
         d2["source_items_total"] == 0,
         f"delta source_items_total={d2['source_items_total']} ({counts1['source_items_total']} -> {counts2['source_items_total']})",
+    )
+    check(
+        "import#2 (reuse) sleep rows unchanged",
+        d2["sleep_sessions_total"] == 0 and d2["sleep_segments_total"] == 0,
+        f"delta sleep_sessions={d2['sleep_sessions_total']} sleep_segments={d2['sleep_segments_total']}",
     )
     check(
         "import#2 (reuse) import_snapshots unchanged",
@@ -296,6 +316,11 @@ def run_assert_reprocess_mode(args: argparse.Namespace) -> int:
         f"delta source_items_total={d['source_items_total']} ({baseline['source_items_total']} -> {after['source_items_total']})",
     )
     check(
+        "reprocess: sleep rows unchanged in total",
+        d["sleep_sessions_total"] == 0 and d["sleep_segments_total"] == 0,
+        f"delta sleep_sessions={d['sleep_sessions_total']} sleep_segments={d['sleep_segments_total']}",
+    )
+    check(
         "reprocess: import_snapshots unchanged in total (old purged, one new persisted)",
         d["snapshots"] == 0,
         f"delta snapshots={d['snapshots']} ({baseline['snapshots']} -> {after['snapshots']})",
@@ -358,6 +383,9 @@ def capture_counts(dsn: str) -> dict:
         "source_items_workout": psql_int(
             dsn, "select count(*) from tb_apple_source_items where item_type = 'workout';"
         ),
+        "source_items_sleep_session": psql_int(
+            dsn, "select count(*) from tb_apple_source_items where item_type = 'sleep_session';"
+        ),
         "source_items_by_type": psql_rows(
             dsn,
             "select item_type, count(*) from tb_apple_source_items group by item_type order by item_type;",
@@ -374,6 +402,16 @@ def capture_counts(dsn: str) -> dict:
             select count(*)
             from tb_activity_route_points rp
             join tb_apple_source_items si on si.activity_id = rp.activity_id;
+            """,
+        ),
+        "sleep_sessions_total": psql_int(dsn, "select count(*) from tb_sleep_sessions;"),
+        "sleep_segments_total": psql_int(dsn, "select count(*) from tb_sleep_segments;"),
+        "sleep_rollup_mismatches": psql_int(
+            dsn,
+            """
+            select count(*)
+            from tb_sleep_sessions
+            where abs(asleep_s - (core_s + deep_s + rem_s + unspecified_s)) > 60;
             """,
         ),
     }

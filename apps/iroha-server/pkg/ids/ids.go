@@ -8,9 +8,11 @@ import (
 )
 
 const (
-	RawFilePrefix  = "raw"
-	ImportPrefix   = "imp"
-	ActivityPrefix = "act"
+	RawFilePrefix      = "raw"
+	ImportPrefix       = "imp"
+	ActivityPrefix     = "act"
+	SleepPrefix        = "sleep"
+	SleepSegmentPrefix = "sleepseg"
 )
 
 func New() (uuid.UUID, error) {

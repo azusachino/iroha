@@ -124,6 +124,43 @@ func (ActivityLap) TableName() string {
 	return "tb_activity_laps"
 }
 
+type SleepSession struct {
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
+	WakeDate       time.Time `gorm:"type:date"`
+	StartedAt      time.Time
+	EndedAt        time.Time
+	TimeInBedS     int
+	AsleepS        int
+	Efficiency     float64
+	IsMainSleep    bool
+	CoreS          int
+	DeepS          int
+	RemS           int
+	AwakeS         int
+	UnspecifiedS   int
+	Source         string
+	FirstRawFileID uuid.UUID `gorm:"type:uuid"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (SleepSession) TableName() string {
+	return "tb_sleep_sessions"
+}
+
+type SleepSegment struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SessionID uuid.UUID `gorm:"type:uuid"`
+	Stage     string
+	StartedAt time.Time
+	EndedAt   time.Time
+	Seq       int
+}
+
+func (SleepSegment) TableName() string {
+	return "tb_sleep_segments"
+}
+
 type ImportSnapshot struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ImportJobID   uuid.UUID `gorm:"type:uuid"`
@@ -144,6 +181,7 @@ type AppleSourceItem struct {
 	ItemType           string
 	ContentHash        string
 	ActivityID         *uuid.UUID `gorm:"type:uuid"`
+	SleepSessionID     *uuid.UUID `gorm:"type:uuid"`
 	LastSeenSnapshotID *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt          time.Time
 	UpdatedAt          time.Time

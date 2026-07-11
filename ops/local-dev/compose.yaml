@@ -2,7 +2,7 @@ name: iroha-dev
 
 services:
   db:
-    image: ghcr.io/baosystems/postgis:17-3.5
+    image: ghcr.io/baosystems/postgis:18-3.6
     environment:
       POSTGRES_DB: iroha
       POSTGRES_USER: iroha

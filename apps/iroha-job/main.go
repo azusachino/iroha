@@ -60,12 +60,13 @@ func main() {
 	enqueuer := &noopEnqueuer{}
 	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient)
 
+	// Both kinds run the same import pipeline (Process dispatches on the
+	// job's parser_kind); only the parser kinds parsers.IsImplemented allows
+	// are ever enqueued, so only those get a handler here.
+	importHandler := makeImportParseHandler(importService)
 	handlers := map[string]jobs.Handler{
-		jobs.KindAppleImportParse:  makeAppleImportParseHandler(importService),
-		jobs.KindGPXImportParse:    makeAppleImportParseHandler(importService),
-		jobs.KindFITImportParse:    makeAppleImportParseHandler(importService),
-		jobs.KindTCXImportParse:    makeAppleImportParseHandler(importService),
-		jobs.KindStravaImportParse: makeAppleImportParseHandler(importService),
+		jobs.KindAppleImportParse: importHandler,
+		jobs.KindGPXImportParse:   importHandler,
 	}
 
 	jobsService := jobs.NewService(db, logger, handlers)
@@ -116,7 +117,7 @@ func (n *noopEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (models.
 	return models.Job{}, nil
 }
 
-func makeAppleImportParseHandler(importService *imports.Service) jobs.Handler {
+func makeImportParseHandler(importService *imports.Service) jobs.Handler {
 	return func(ctx context.Context, job models.Job) error {
 		var payload struct {
 			ImportJobID string `json:"import_job_id"`

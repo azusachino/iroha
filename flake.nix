@@ -22,7 +22,7 @@
             pkgs.goose
             pkgs.bun
             pkgs.nodejs_24
-            pkgs.postgresql_17
+            pkgs.postgresql_18
             pkgs.uv
           ];
 

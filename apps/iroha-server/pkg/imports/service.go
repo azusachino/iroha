@@ -2,6 +2,8 @@ package imports
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -22,12 +24,15 @@ const (
 	StatusParsing   = "parsing"
 	StatusCompleted = "completed"
 	StatusFailed    = "failed"
+
+	appleSourceItemTypeWorkout      = "workout"
+	appleSourceItemTypeSleepSession = "sleep_session"
 )
 
 // DefaultParserVersion identifies the current parser build. A completed
 // import at a different version triggers a reprocess (purge + re-persist)
 // rather than a duplicate append; bump this when parser semantics change.
-const DefaultParserVersion = "apple-health-2026-07"
+const DefaultParserVersion = "apple-health-2026-07-sleep"
 
 type Enqueuer interface {
 	EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error)
@@ -68,16 +73,10 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 
 	var jobKind string
 	switch input.ParserKind {
-	case "apple_health_export":
+	case parsers.KindAppleHealthExport:
 		jobKind = jobs.KindAppleImportParse
-	case "gpx":
+	case parsers.KindGPX:
 		jobKind = jobs.KindGPXImportParse
-	case "fit":
-		jobKind = jobs.KindFITImportParse
-	case "tcx":
-		jobKind = jobs.KindTCXImportParse
-	case "strava_export":
-		jobKind = jobs.KindStravaImportParse
 	default:
 		return models.ImportJob{}, fmt.Errorf("unsupported parser kind: %s", input.ParserKind)
 	}
@@ -197,6 +196,13 @@ func (s *Service) Process(jobID uuid.UUID) error {
 	if err != nil {
 		return s.fail(jobID, err.Error())
 	}
+	var parsedSleep []parsers.ParsedSleepSession
+	if job.ParserKind == parsers.KindAppleHealthExport {
+		parsedSleep, err = parsers.ParseAppleHealthSleep(rawFile.StoragePath)
+		if err != nil {
+			return s.fail(jobID, err.Error())
+		}
+	}
 
 	snapshotID, err := ids.New()
 	if err != nil {
@@ -211,7 +217,7 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		CreatedAt:     time.Now().UTC(),
 	}
 
-	if err := s.persistActivities(rawFile, parsed, snapshot, reprocess); err != nil {
+	if err := s.persistActivities(rawFile, parsed, parsedSleep, snapshot, reprocess); err != nil {
 		return s.fail(jobID, err.Error())
 	}
 
@@ -352,8 +358,9 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 	if err := tx.Exec(`
 		delete from tb_apple_source_items
 		where activity_id in (select id from tb_activities where first_raw_file_id = ?)
+		   or sleep_session_id in (select id from tb_sleep_sessions where first_raw_file_id = ?)
 		   or last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?)
-	`, rawFileID, rawFileID).Error; err != nil {
+	`, rawFileID, rawFileID, rawFileID).Error; err != nil {
 		return err
 	}
 
@@ -365,10 +372,14 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 		return err
 	}
 
+	if err := tx.Where("first_raw_file_id = ?", rawFileID).Delete(&models.SleepSession{}).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ParsedActivity, snapshot models.ImportSnapshot, reprocess bool) error {
+func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ParsedActivity, parsedSleep []parsers.ParsedSleepSession, snapshot models.ImportSnapshot, reprocess bool) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if reprocess {
 			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
@@ -401,6 +412,11 @@ func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.Par
 			}
 
 			if err := s.persistAppleWorkout(tx, rawFile, activity, snapshot.ID); err != nil {
+				return err
+			}
+		}
+		for _, session := range parsedSleep {
+			if err := s.persistSleepSession(tx, rawFile, session, snapshot.ID); err != nil {
 				return err
 			}
 		}
@@ -477,7 +493,7 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 		item := models.AppleSourceItem{
 			ID:                 itemID,
 			SourceKey:          activity.ExternalID,
-			ItemType:           "workout",
+			ItemType:           appleSourceItemTypeWorkout,
 			ContentHash:        activity.ContentHash,
 			ActivityID:         &activityID,
 			LastSeenSnapshotID: &snapshotID,
@@ -486,6 +502,176 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 		}
 		return tx.Create(&item).Error
 	}
+}
+
+func sleepSessionSourceKey(session parsers.ParsedSleepSession) string {
+	return strings.Join([]string{
+		session.Source,
+		session.WakeDate.Format("2006-01-02"),
+		session.StartedAt.Format(time.RFC3339Nano),
+		session.EndedAt.Format(time.RFC3339Nano),
+	}, "|")
+}
+
+func sleepSessionContentHash(session parsers.ParsedSleepSession) string {
+	var content strings.Builder
+	for _, segment := range session.Segments {
+		fmt.Fprintf(
+			&content, "%s|%s|%s|%s\n",
+			segment.Stage,
+			segment.StartedAt.Format(time.RFC3339Nano),
+			segment.EndedAt.Format(time.RFC3339Nano),
+			segment.Source,
+		)
+	}
+	sum := sha256.Sum256([]byte(content.String()))
+	return hex.EncodeToString(sum[:])
+}
+
+func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, session parsers.ParsedSleepSession, snapshotID uuid.UUID) error {
+	sourceKey := sleepSessionSourceKey(session)
+	if sourceKey == "" {
+		return fmt.Errorf("parsed sleep session missing source key")
+	}
+	contentHash := sleepSessionContentHash(session)
+
+	var existing models.AppleSourceItem
+	res := tx.Limit(1).Find(&existing, "source_key = ?", sourceKey)
+	if res.Error != nil {
+		return res.Error
+	}
+	found := res.RowsAffected > 0
+	if found && existing.ItemType != appleSourceItemTypeSleepSession {
+		return fmt.Errorf("source key %q already belongs to item type %q", sourceKey, existing.ItemType)
+	}
+
+	var existingHash *string
+	if found {
+		existingHash = &existing.ContentHash
+	}
+	now := time.Now().UTC()
+	switch decideSourceItem(existingHash, contentHash) {
+	case sourceItemUnchanged:
+		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
+			"last_seen_snapshot_id": snapshotID,
+			"updated_at":            now,
+		}).Error
+	}
+
+	sessionID := uuid.Nil
+	if found && existing.SleepSessionID != nil {
+		sessionID = *existing.SleepSessionID
+	}
+	if sessionID == uuid.Nil {
+		var err error
+		sessionID, err = ids.New()
+		if err != nil {
+			return err
+		}
+	}
+	if err := upsertSleepSession(tx, rawFile, sessionID, session); err != nil {
+		return err
+	}
+	if err := replaceSleepSegments(tx, sessionID, session.Segments); err != nil {
+		return err
+	}
+
+	if found {
+		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
+			"content_hash":          contentHash,
+			"sleep_session_id":      sessionID,
+			"last_seen_snapshot_id": snapshotID,
+			"updated_at":            now,
+		}).Error
+	}
+	itemID, err := ids.New()
+	if err != nil {
+		return err
+	}
+	item := models.AppleSourceItem{
+		ID:                 itemID,
+		SourceKey:          sourceKey,
+		ItemType:           appleSourceItemTypeSleepSession,
+		ContentHash:        contentHash,
+		SleepSessionID:     &sessionID,
+		LastSeenSnapshotID: &snapshotID,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+	return tx.Create(&item).Error
+}
+
+func upsertSleepSession(tx *gorm.DB, rawFile models.RawFile, sessionID uuid.UUID, parsed parsers.ParsedSleepSession) error {
+	now := time.Now().UTC()
+	updates := map[string]any{
+		"wake_date":     parsed.WakeDate,
+		"started_at":    parsed.StartedAt,
+		"ended_at":      parsed.EndedAt,
+		"time_in_bed_s": parsed.TimeInBedS,
+		"asleep_s":      parsed.AsleepS,
+		"efficiency":    parsed.Efficiency,
+		"is_main_sleep": parsed.IsMainSleep,
+		"core_s":        parsed.CoreS,
+		"deep_s":        parsed.DeepS,
+		"rem_s":         parsed.RemS,
+		"awake_s":       parsed.AwakeS,
+		"unspecified_s": parsed.UnspecifiedS,
+		"source":        parsed.Source,
+		"updated_at":    now,
+	}
+	var existing models.SleepSession
+	if err := tx.First(&existing, "id = ?", sessionID).Error; err == nil {
+		return tx.Model(&models.SleepSession{}).Where("id = ?", sessionID).Updates(updates).Error
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	return tx.Create(&models.SleepSession{
+		ID:             sessionID,
+		WakeDate:       parsed.WakeDate,
+		StartedAt:      parsed.StartedAt,
+		EndedAt:        parsed.EndedAt,
+		TimeInBedS:     parsed.TimeInBedS,
+		AsleepS:        parsed.AsleepS,
+		Efficiency:     parsed.Efficiency,
+		IsMainSleep:    parsed.IsMainSleep,
+		CoreS:          parsed.CoreS,
+		DeepS:          parsed.DeepS,
+		RemS:           parsed.RemS,
+		AwakeS:         parsed.AwakeS,
+		UnspecifiedS:   parsed.UnspecifiedS,
+		Source:         parsed.Source,
+		FirstRawFileID: rawFile.ID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Error
+}
+
+const sleepSegmentInsertBatchSize = 1000
+
+func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []parsers.ParsedSleepSegment) error {
+	if err := tx.Delete(&models.SleepSegment{}, "session_id = ?", sessionID).Error; err != nil {
+		return err
+	}
+	if len(segments) == 0 {
+		return nil
+	}
+	rows := make([]models.SleepSegment, 0, len(segments))
+	for seq, segment := range segments {
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		rows = append(rows, models.SleepSegment{
+			ID:        id,
+			SessionID: sessionID,
+			Stage:     segment.Stage,
+			StartedAt: segment.StartedAt,
+			EndedAt:   segment.EndedAt,
+			Seq:       seq,
+		})
+	}
+	return tx.CreateInBatches(rows, sleepSegmentInsertBatchSize).Error
 }
 
 func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed parsers.ParsedActivity) (uuid.UUID, error) {

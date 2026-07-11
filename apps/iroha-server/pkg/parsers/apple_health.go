@@ -139,6 +139,219 @@ func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, erro
 	return activities, nil
 }
 
+// ParseAppleHealthSleep streams the sleep-analysis records from an Apple
+// Health export and groups them into sessions. Sleep is intentionally parsed
+// through its own path rather than being folded into ParsedActivity.
+func ParseAppleHealthSleep(path string) ([]ParsedSleepSession, error) {
+	reader, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = reader.Close() }()
+
+	for _, file := range reader.File {
+		if !strings.HasSuffix(file.Name, "export.xml") {
+			continue
+		}
+		opened, err := file.Open()
+		if err != nil {
+			return nil, err
+		}
+		segments, decodeErr := decodeAppleSleepSegments(opened)
+		_ = opened.Close()
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+		return sessionizeSleepSegments(segments, DefaultSleepSessionGap), nil
+	}
+	return nil, fmt.Errorf("apple health export.xml not found")
+}
+
+func decodeAppleSleepSegments(r io.Reader) ([]ParsedSleepSegment, error) {
+	decoder := xml.NewDecoder(r)
+	segments := make([]ParsedSleepSegment, 0)
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		start, ok := token.(xml.StartElement)
+		if !ok || start.Name.Local != "Record" {
+			continue
+		}
+		stage, selected := selectedAppleSleepStage(start)
+		if !selected {
+			if err := decoder.Skip(); err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		var record appleRecord
+		if err := decoder.DecodeElement(&record, &start); err != nil {
+			return nil, err
+		}
+		startedAt, err := parseAppleTime(record.StartDate)
+		if err != nil {
+			continue
+		}
+		endedAt, err := parseAppleTime(record.EndDate)
+		if err != nil || endedAt.Before(startedAt) {
+			continue
+		}
+		segments = append(segments, ParsedSleepSegment{
+			Stage:     stage,
+			StartedAt: startedAt,
+			EndedAt:   endedAt,
+			Source:    record.SourceName,
+		})
+	}
+
+	sort.SliceStable(segments, func(i, j int) bool {
+		return segments[i].StartedAt.Before(segments[j].StartedAt)
+	})
+	return segments, nil
+}
+
+func selectedAppleSleepStage(start xml.StartElement) (string, bool) {
+	var recordType, value string
+	for _, attr := range start.Attr {
+		switch attr.Name.Local {
+		case "type":
+			recordType = attr.Value
+		case "value":
+			value = attr.Value
+		}
+	}
+	if recordType != "HKCategoryTypeIdentifierSleepAnalysis" {
+		return "", false
+	}
+	stage, ok := appleSleepStages[value]
+	return stage, ok
+}
+
+func sessionizeSleepSegments(segments []ParsedSleepSegment, gap time.Duration) []ParsedSleepSession {
+	if len(segments) == 0 {
+		return nil
+	}
+	sorted := append([]ParsedSleepSegment(nil), segments...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return sorted[i].StartedAt.Before(sorted[j].StartedAt)
+	})
+
+	sessions := make([]ParsedSleepSession, 0)
+	current := []ParsedSleepSegment{sorted[0]}
+	currentEnd := sorted[0].EndedAt
+	for _, segment := range sorted[1:] {
+		if segment.StartedAt.Sub(currentEnd) <= gap {
+			current = append(current, segment)
+			if segment.EndedAt.After(currentEnd) {
+				currentEnd = segment.EndedAt
+			}
+			continue
+		}
+		sessions = append(sessions, buildSleepSession(current))
+		current = []ParsedSleepSegment{segment}
+		currentEnd = segment.EndedAt
+	}
+	sessions = append(sessions, buildSleepSession(current))
+	return sessions
+}
+
+func buildSleepSession(segments []ParsedSleepSegment) ParsedSleepSession {
+	byStage := make(map[string][]sleepInterval)
+	sources := make(map[string]struct{})
+	for _, segment := range segments {
+		byStage[segment.Stage] = append(byStage[segment.Stage], sleepInterval{start: segment.StartedAt, end: segment.EndedAt})
+		if segment.Source != "" {
+			sources[segment.Source] = struct{}{}
+		}
+	}
+
+	startedAt := segments[0].StartedAt
+	endedAt := segments[0].EndedAt
+	for _, segment := range segments[1:] {
+		if segment.EndedAt.After(endedAt) {
+			endedAt = segment.EndedAt
+		}
+	}
+	timeInBed := unionSleepSeconds(byStage[SleepStageInBed])
+	if timeInBed == 0 {
+		timeInBed = endedAt.Sub(startedAt).Seconds()
+	}
+	asleepIntervals := make([]sleepInterval, 0)
+	for _, stage := range []string{SleepStageCore, SleepStageDeep, SleepStageREM, SleepStageAsleepUnspecified} {
+		asleepIntervals = append(asleepIntervals, byStage[stage]...)
+	}
+	asleep := unionSleepSeconds(asleepIntervals)
+
+	stageSeconds := func(stage string) int {
+		return int(unionSleepSeconds(byStage[stage]))
+	}
+	timeInBedS := int(timeInBed)
+	asleepS := int(asleep)
+	efficiency := 0.0
+	if timeInBed > 0 {
+		efficiency = asleep / timeInBed
+	}
+	wakeDate := time.Date(endedAt.Year(), endedAt.Month(), endedAt.Day(), 0, 0, 0, 0, endedAt.Location())
+	return ParsedSleepSession{
+		WakeDate:     wakeDate,
+		StartedAt:    startedAt,
+		EndedAt:      endedAt,
+		TimeInBedS:   timeInBedS,
+		AsleepS:      asleepS,
+		Efficiency:   efficiency,
+		IsMainSleep:  asleep >= MainSleepThreshold.Seconds(),
+		CoreS:        stageSeconds(SleepStageCore),
+		DeepS:        stageSeconds(SleepStageDeep),
+		RemS:         stageSeconds(SleepStageREM),
+		AwakeS:       stageSeconds(SleepStageAwake),
+		UnspecifiedS: stageSeconds(SleepStageAsleepUnspecified),
+		Source:       strings.Join(sortedSleepSources(sources), ","),
+		Segments:     append([]ParsedSleepSegment(nil), segments...),
+	}
+}
+
+type sleepInterval struct {
+	start time.Time
+	end   time.Time
+}
+
+func unionSleepSeconds(intervals []sleepInterval) float64 {
+	if len(intervals) == 0 {
+		return 0
+	}
+	sorted := append([]sleepInterval(nil), intervals...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].start.Before(sorted[j].start) })
+	start, end := sorted[0].start, sorted[0].end
+	total := 0.0
+	for _, interval := range sorted[1:] {
+		if interval.start.After(end) {
+			total += end.Sub(start).Seconds()
+			start, end = interval.start, interval.end
+			continue
+		}
+		if interval.end.After(end) {
+			end = interval.end
+		}
+	}
+	return total + end.Sub(start).Seconds()
+}
+
+func sortedSleepSources(sources map[string]struct{}) []string {
+	values := make([]string, 0, len(sources))
+	for source := range sources {
+		values = append(values, source)
+	}
+	sort.Strings(values)
+	return values
+}
+
 func parseAppleWorkoutsRaw(file *zip.File) ([]appleWorkout, error) {
 	opened, err := file.Open()
 	if err != nil {
@@ -273,6 +486,15 @@ type appleRecord struct {
 	StartDate  string `xml:"startDate,attr"`
 	EndDate    string `xml:"endDate,attr"`
 	Value      string `xml:"value,attr"`
+}
+
+var appleSleepStages = map[string]string{
+	"HKCategoryValueSleepAnalysisInBed":             SleepStageInBed,
+	"HKCategoryValueSleepAnalysisAwake":             SleepStageAwake,
+	"HKCategoryValueSleepAnalysisAsleepCore":        SleepStageCore,
+	"HKCategoryValueSleepAnalysisAsleepDeep":        SleepStageDeep,
+	"HKCategoryValueSleepAnalysisAsleepREM":         SleepStageREM,
+	"HKCategoryValueSleepAnalysisAsleepUnspecified": SleepStageAsleepUnspecified,
 }
 
 // workoutWindow is a workout's [start, end] time span paired with a pointer
