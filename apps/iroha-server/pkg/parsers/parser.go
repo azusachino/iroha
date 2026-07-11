@@ -63,6 +63,42 @@ type ParsedSampling struct {
 	Unit         string
 }
 
+const (
+	SleepStageInBed             = "in_bed"
+	SleepStageAwake             = "awake"
+	SleepStageCore              = "core"
+	SleepStageDeep              = "deep"
+	SleepStageREM               = "rem"
+	SleepStageAsleepUnspecified = "asleep_unspecified"
+
+	DefaultSleepSessionGap = time.Hour
+	MainSleepThreshold     = 3 * time.Hour
+)
+
+type ParsedSleepSegment struct {
+	Stage     string
+	StartedAt time.Time
+	EndedAt   time.Time
+	Source    string
+}
+
+type ParsedSleepSession struct {
+	WakeDate     time.Time
+	StartedAt    time.Time
+	EndedAt      time.Time
+	TimeInBedS   int
+	AsleepS      int
+	Efficiency   float64
+	IsMainSleep  bool
+	CoreS        int
+	DeepS        int
+	RemS         int
+	AwakeS       int
+	UnspecifiedS int
+	Source       string
+	Segments     []ParsedSleepSegment
+}
+
 type RoutePoint struct {
 	Ts         *time.Time
 	Lat        float64

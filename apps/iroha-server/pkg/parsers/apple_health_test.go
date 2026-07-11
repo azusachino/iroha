@@ -67,6 +67,77 @@ func TestDecodeAppleWorkoutsCapturesNestedSubtree(t *testing.T) {
 	}
 }
 
+func TestDecodeAppleSleepSegmentsStreamsSelectedStages(t *testing.T) {
+	const sleepXML = `<HealthData>
+  <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Watch" startDate="2024-01-01 22:00:00 -0700" endDate="2024-01-01 22:01:00 -0700" value="60"/>
+  <Record type="HKCategoryTypeIdentifierSleepAnalysis" value="HKCategoryValueSleepAnalysisInBed" sourceName="Watch" startDate="2024-01-01 22:00:00 -0700" endDate="2024-01-02 06:00:00 -0700"/>
+  <Record type="HKCategoryTypeIdentifierSleepAnalysis" value="HKCategoryValueSleepAnalysisAsleepCore" sourceName="Watch" startDate="2024-01-01 23:00:00 -0700" endDate="2024-01-02 01:00:00 -0700"/>
+  <Record type="HKCategoryTypeIdentifierSleepAnalysis" value="HKCategoryValueSleepAnalysisAsleepDeep" sourceName="Watch" startDate="2024-01-02 00:30:00 -0700" endDate="2024-01-02 02:00:00 -0700"/>
+</HealthData>`
+
+	segments, err := decodeAppleSleepSegments(strings.NewReader(sleepXML))
+	if err != nil {
+		t.Fatalf("decodeAppleSleepSegments returned error: %v", err)
+	}
+	if len(segments) != 3 {
+		t.Fatalf("decoded %d sleep segments, want 3", len(segments))
+	}
+	if segments[0].Stage != SleepStageInBed || segments[1].Stage != SleepStageCore || segments[2].Stage != SleepStageDeep {
+		t.Fatalf("unexpected stages: %+v", segments)
+	}
+	if segments[0].Source != "Watch" {
+		t.Errorf("source = %q, want Watch", segments[0].Source)
+	}
+}
+
+func TestBuildSleepSessionUsesOverlapSafeRollups(t *testing.T) {
+	segments := []ParsedSleepSegment{
+		{Stage: SleepStageInBed, StartedAt: sleepTestTime("2024-01-01 22:00:00 -0700"), EndedAt: sleepTestTime("2024-01-02 04:00:00 -0700"), Source: "Watch"},
+		{Stage: SleepStageCore, StartedAt: sleepTestTime("2024-01-01 23:00:00 -0700"), EndedAt: sleepTestTime("2024-01-02 01:00:00 -0700"), Source: "Watch"},
+		{Stage: SleepStageDeep, StartedAt: sleepTestTime("2024-01-02 00:30:00 -0700"), EndedAt: sleepTestTime("2024-01-02 02:00:00 -0700"), Source: "Watch"},
+		{Stage: SleepStageREM, StartedAt: sleepTestTime("2024-01-02 02:00:00 -0700"), EndedAt: sleepTestTime("2024-01-02 03:00:00 -0700"), Source: "Watch"},
+	}
+
+	session := buildSleepSession(segments)
+	if session.TimeInBedS != 21600 {
+		t.Errorf("time in bed = %d, want 21600", session.TimeInBedS)
+	}
+	if session.AsleepS != 14400 {
+		t.Errorf("asleep = %d, want 14400 after unioning overlapping stages", session.AsleepS)
+	}
+	if session.CoreS != 7200 || session.DeepS != 5400 || session.RemS != 3600 {
+		t.Errorf("stage rollups = core %d, deep %d, rem %d; want 7200, 5400, 3600", session.CoreS, session.DeepS, session.RemS)
+	}
+	wakeYear, wakeMonth, wakeDay := session.WakeDate.Date()
+	endYear, endMonth, endDay := session.EndedAt.Date()
+	if !session.IsMainSleep || wakeYear != endYear || wakeMonth != endMonth || wakeDay != endDay {
+		t.Errorf("main sleep = %v, wake date = %v, ended at = %v", session.IsMainSleep, session.WakeDate, session.EndedAt)
+	}
+	if session.Efficiency != 2.0/3.0 {
+		t.Errorf("efficiency = %v, want %v", session.Efficiency, 2.0/3.0)
+	}
+}
+
+func TestSessionizeSleepSegmentsSplitsAfterConfiguredGap(t *testing.T) {
+	segments := []ParsedSleepSegment{
+		{Stage: SleepStageAsleepUnspecified, StartedAt: sleepTestTime("2024-01-01 22:00:00 -0700"), EndedAt: sleepTestTime("2024-01-01 23:00:00 -0700")},
+		{Stage: SleepStageAsleepUnspecified, StartedAt: sleepTestTime("2024-01-02 00:01:00 -0700"), EndedAt: sleepTestTime("2024-01-02 01:00:00 -0700")},
+	}
+
+	sessions := sessionizeSleepSegments(segments, time.Hour)
+	if len(sessions) != 2 {
+		t.Fatalf("sessionized into %d sessions, want 2", len(sessions))
+	}
+}
+
+func sleepTestTime(value string) time.Time {
+	parsed, err := time.Parse("2006-01-02 15:04:05 -0700", value)
+	if err != nil {
+		panic(err)
+	}
+	return parsed
+}
+
 func TestDecodeAppleWorkoutsProducesUnchangedActivity(t *testing.T) {
 	activities, err := decodeAppleWorkouts(strings.NewReader(sampleAppleExport))
 	if err != nil {
