@@ -37,15 +37,30 @@
 				formatter: (params: { name: string; value: number; percent: number }) =>
 					`${params.name}<br/><strong>${formatMinutes(params.value)}</strong> · ${params.percent}%`
 			},
+			legend: {
+				show: true,
+				bottom: 0,
+				left: 'center',
+				itemWidth: 8,
+				itemHeight: 8,
+				itemGap: 8,
+				textStyle: { color: styles.getPropertyValue('--text-muted').trim(), fontSize: 10 },
+				data: stages.map((stage) => stage.name)
+			},
 			series: [
 				{
 					type: 'pie',
-					radius: ['58%', '82%'],
-					center: ['50%', '50%'],
+					radius: ['48%', '70%'],
+					center: ['50%', '42%'],
 					avoidLabelOverlap: true,
 					itemStyle: { borderColor: styles.getPropertyValue('--surface').trim(), borderWidth: 3 },
 					label: { show: false },
 					emphasis: { scale: true, scaleSize: 5, label: { show: false } },
+					animationType: 'expansion',
+					animationDuration: 650,
+					animationEasing: 'cubicOut',
+					animationDurationUpdate: 500,
+					animationEasingUpdate: 'cubicInOut',
 					data: stages.map((stage) => ({ name: stage.name, value: stage.value, itemStyle: { color: stage.color } }))
 				}
 			]
