@@ -93,3 +93,33 @@ func TestBuildRoutePointsInsertSQL_Empty(t *testing.T) {
 		t.Fatalf("expected no placeholders for empty points, got %s", sql)
 	}
 }
+
+func TestSleepSessionSourceKeyAndContentHash(t *testing.T) {
+	startedAt := time.Date(2024, time.January, 1, 22, 0, 0, 0, time.FixedZone("-0700", -7*60*60))
+	endedAt := startedAt.Add(8 * time.Hour)
+	session := parsers.ParsedSleepSession{
+		Source:    "Watch",
+		WakeDate:  endedAt,
+		StartedAt: startedAt,
+		EndedAt:   endedAt,
+		Segments: []parsers.ParsedSleepSegment{{
+			Stage:     parsers.SleepStageInBed,
+			StartedAt: startedAt,
+			EndedAt:   endedAt,
+			Source:    "Watch",
+		}},
+	}
+
+	key := sleepSessionSourceKey(session)
+	if want := "Watch|2024-01-02|2024-01-01T22:00:00-07:00|2024-01-02T06:00:00-07:00"; key != want {
+		t.Errorf("sleepSessionSourceKey = %q, want %q", key, want)
+	}
+	hash := sleepSessionContentHash(session)
+	if hash == "" {
+		t.Fatal("sleepSessionContentHash returned empty hash")
+	}
+	session.Segments[0].Stage = parsers.SleepStageCore
+	if sleepSessionContentHash(session) == hash {
+		t.Fatal("sleepSessionContentHash did not change when a segment changed")
+	}
+}
