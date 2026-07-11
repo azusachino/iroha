@@ -11,6 +11,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -30,6 +31,7 @@ type Dependencies struct {
 	Config          config.Config
 	Logger          *slog.Logger
 	ActivityService *activities.Service
+	SleepService    *sleep.Service
 	ImportService   *imports.Service
 	RawFileService  *rawfiles.Service
 	Cache           *cache.Client
@@ -88,6 +90,10 @@ func (s *Server) routes() {
 			r.Get("/{activityId}/route", s.handleGetActivityRoute)
 			r.Get("/{activityId}/samplings", s.handleGetActivitySamplings)
 			r.Get("/{activityId}/laps", s.handleGetActivityLaps)
+		})
+		r.Route("/sleep", func(r chi.Router) {
+			r.Get("/", s.handleListSleep)
+			r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
 		})
 	})
 

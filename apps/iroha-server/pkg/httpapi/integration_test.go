@@ -25,6 +25,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -102,6 +103,79 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 	requestJSON(t, server, http.MethodGet, "/api/v1/activities/"+activityID+"/laps", "", http.StatusOK, func(body map[string]any) {
 		if len(body["items"].([]any)) != 0 {
 			t.Fatalf("laps = %#v, want none", body)
+		}
+	})
+}
+
+func TestIntegrationSleepEndpoints(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	rawFile := models.RawFile{
+		ID:               uuid.New(),
+		SHA256:           "sleep-integration",
+		OriginalFilename: "sleep.xml",
+		StoragePath:      "/tmp/sleep.xml",
+		SourceKind:       "apple_health_export",
+		UploadedVia:      "test",
+		CreatedAt:        time.Now().UTC(),
+	}
+	if err := db.Create(&rawFile).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+
+	firstID := uuid.New()
+	secondID := uuid.New()
+	createdAt := time.Now().UTC()
+	for _, session := range []models.SleepSession{
+		{
+			ID: firstID, WakeDate: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
+			StartedAt: time.Date(2024, time.January, 1, 22, 0, 0, 0, time.UTC), EndedAt: time.Date(2024, time.January, 2, 6, 0, 0, 0, time.UTC),
+			TimeInBedS: 28800, AsleepS: 25200, Efficiency: 0.875, IsMainSleep: true,
+			CoreS: 12000, DeepS: 6000, RemS: 7200, AwakeS: 3600, Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt,
+		},
+		{
+			ID: secondID, WakeDate: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+			StartedAt: time.Date(2023, time.December, 31, 23, 0, 0, 0, time.UTC), EndedAt: time.Date(2024, time.January, 1, 7, 0, 0, 0, time.UTC),
+			TimeInBedS: 28800, AsleepS: 21600, Efficiency: 0.75, IsMainSleep: true,
+			CoreS: 12000, DeepS: 3600, RemS: 6000, AwakeS: 7200, Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt,
+		},
+	} {
+		if err := db.Create(&session).Error; err != nil {
+			t.Fatalf("create sleep session: %v", err)
+		}
+	}
+	segmentID := uuid.New()
+	if err := db.Create(&models.SleepSegment{
+		ID: segmentID, SessionID: firstID, Stage: "core", StartedAt: time.Date(2024, time.January, 1, 23, 0, 0, 0, time.UTC), EndedAt: time.Date(2024, time.January, 2, 1, 0, 0, 0, time.UTC), Seq: 0,
+	}).Error; err != nil {
+		t.Fatalf("create sleep segment: %v", err)
+	}
+
+	server := newIntegrationServer(t, db)
+	firstPage := requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?limit=1", "", http.StatusOK, func(body map[string]any) {
+		if len(body["items"].([]any)) != 1 || body["has_more"] != true {
+			t.Fatalf("first sleep page = %#v", body)
+		}
+	})
+	cursor := stringValue(t, firstPage, "next_cursor")
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
+		items := body["items"].([]any)
+		if len(items) != 1 || body["has_more"] != false {
+			t.Fatalf("second sleep page = %#v", body)
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?from=2024-01-02&to=2024-01-02", "", http.StatusOK, func(body map[string]any) {
+		if len(body["items"].([]any)) != 1 {
+			t.Fatalf("date-filtered sleep page = %#v", body)
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/sleep_bad/segments", "", http.StatusBadRequest, nil)
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/"+ids.Encode(ids.SleepPrefix, firstID)+"/segments", "", http.StatusOK, func(body map[string]any) {
+		items := body["items"].([]any)
+		if len(items) != 1 || items[0].(map[string]any)["id"] != ids.Encode(ids.SleepSegmentPrefix, segmentID) {
+			t.Fatalf("sleep segments = %#v", body)
 		}
 	})
 }
@@ -215,6 +289,7 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 		},
 		Logger:          logger,
 		ActivityService: activities.NewService(db),
+		SleepService:    sleep.NewService(db),
 		ImportService:   importService,
 		RawFileService:  rawFileService,
 	})

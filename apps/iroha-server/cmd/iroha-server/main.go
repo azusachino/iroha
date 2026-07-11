@@ -13,6 +13,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -56,11 +57,13 @@ func main() {
 	enqueuer := &jobEnqueuer{jobsService: jobsService}
 	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient)
 	activityService := activities.NewService(db)
+	sleepService := sleep.NewService(db)
 
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:          cfg,
 		Logger:          logger,
 		ActivityService: activityService,
+		SleepService:    sleepService,
 		ImportService:   importService,
 		RawFileService:  rawFileService,
 		Cache:           cacheClient,
