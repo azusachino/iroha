@@ -22,6 +22,8 @@
 	let hasMore = $state(false);
 	let loadMoreSentinel = $state<HTMLDivElement>();
 	let nightListContainer = $state<HTMLDivElement>();
+	let segmentCache = $state<Record<string, SleepSegment[]>>({});
+	let selectionRequest = 0;
 	let segmentsLoading = $state(false);
 	let error = $state<string | null>(null);
 	let yearBuckets = $state<SleepAggregateBucket[]>([]);
@@ -78,10 +80,19 @@
 	}
 
 	async function selectSession(session: SleepSession) {
+		const requestId = ++selectionRequest;
 		selected = session;
 		segmentsLoading = true;
+		if (segmentCache[session.id]) {
+			segments = segmentCache[session.id];
+			segmentsLoading = false;
+			return;
+		}
 		try {
-			segments = await getSleepSegments(session.id);
+			const loaded = await getSleepSegments(session.id);
+			if (requestId !== selectionRequest) return;
+			segmentCache[session.id] = loaded;
+			segments = loaded;
 		} catch (value) {
 			error = errorMessage(value);
 			segments = [];
@@ -320,8 +331,16 @@
 			<div class="night-layout">
 				<div bind:this={nightListContainer} class="night-list">
 					{#each sessions as session (session.id)}
-						<button class:selected={selected.id === session.id} class="night-row" type="button" onclick={() => selectSession(session)}>
-							<span class="night-date">{formatDateOnly(session.wake_date)}</span><span>{formatDuration(session.asleep_s)}</span><b>{Math.round(session.efficiency * 100)}%</b>
+						<button
+							class:selected={selected.id === session.id}
+							class="night-row"
+							type="button"
+							onclick={() => selectSession(session)}
+							onmouseenter={() => selectSession(session)}
+							onfocus={() => selectSession(session)}
+							aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? 'primary overnight sleep' : 'short session'}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
+						>
+							<span class="night-date">{formatDateOnly(session.wake_date)}</span><span>{formatDuration(session.asleep_s)}</span><b>{Math.round(session.efficiency * 100)}%</b><em class:primary={session.is_main_sleep}>{session.is_main_sleep ? 'Primary' : 'Short'}</em>
 						</button>
 					{/each}
 					<div bind:this={loadMoreSentinel} class="load-more-sentinel" aria-live="polite">
@@ -408,10 +427,12 @@
 	.month-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4d7fff, #c27de4); }
 	.night-layout { display: grid; grid-template-columns: minmax(15rem, 0.75fr) minmax(0, 1.25fr); gap: 1.5rem; margin-top: 1.25rem; }
 	.night-list { max-height: 19rem; overflow: auto; }
-	.night-row { display: grid; grid-template-columns: 1fr auto auto; width: 100%; gap: 0.75rem; padding: 0.7rem 0; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text-muted); text-align: left; cursor: pointer; font-size: 0.78rem; }
-	.night-row:hover, .night-row.selected { color: var(--text); }
+	.night-row { display: grid; grid-template-columns: 1fr auto auto auto; width: 100%; gap: 0.75rem; padding: 0.7rem 0.45rem; border: 0; border-top: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--text-muted); text-align: left; cursor: pointer; font-size: 0.78rem; }
+	.night-row:hover, .night-row:focus-visible, .night-row.selected { background: rgb(92 141 255 / 0.08); color: var(--text); outline: none; }
 	.night-row.selected .night-date { color: var(--accent); }
 	.night-row b { color: var(--text); font-weight: 650; }
+	.night-row em { color: var(--text-muted); font-size: 0.68rem; font-style: normal; }
+	.night-row em.primary { color: var(--accent); }
 	.timeline-card { align-self: center; padding: 1.25rem; border: 1px solid var(--border); border-radius: 10px; background: rgb(255 255 255 / 0.025); }
 	.timeline-meta, .timeline-axis { display: flex; justify-content: space-between; gap: 1rem; color: var(--text-muted); font-size: 0.72rem; }
 	.load-more-sentinel { min-height: 2rem; display: grid; place-items: center; color: var(--text-muted); font-size: 0.72rem; }
