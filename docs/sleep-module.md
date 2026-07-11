@@ -101,7 +101,18 @@ existing workout + sampling passes — do not buffer the ~900MB file):
 
 - `GET /api/v1/sleep?from=&to=` — nightly sessions (rollups), keyset paginated.
 - `GET /api/v1/sleep/{id}/segments` — the stage timeline for one night.
-- Aggregates (weekly/monthly stage mix, duration trend) can be a follow-up.
+- Aggregates (weekly/monthly stage mix, duration trend) are a required follow-up
+  for the sleep cockpit; the first read API intentionally ships nightly rows
+  before the aggregate API exists.
+
+## User requirements side note (2026-07-11)
+
+The sleep cockpit must provide yearly and monthly aggregation across the full
+sleep history, not only statistics calculated from the currently loaded recent
+sessions page. At minimum, the aggregate view needs session/night count,
+average asleep duration, average time in bed, efficiency, main-sleep count,
+and stage-duration trends for the selected year/month range. The nightly
+timeline remains the drill-down view beneath those aggregates.
 
 ## Verification
 
