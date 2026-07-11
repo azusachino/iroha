@@ -11,7 +11,7 @@
 	} from '$lib/api';
 	import StatTile from '$lib/components/StatTile.svelte';
 	import SleepArchitectureChart from '$lib/components/SleepArchitectureChart.svelte';
-	import SleepNightBar from '$lib/components/SleepNightBar.svelte';
+	import SleepTimelineChart from '$lib/components/SleepTimelineChart.svelte';
 	import { formatDateOnly, formatDuration } from '$lib/format';
 
 	const PAGE_SIZE = 24;
@@ -201,27 +201,6 @@
 		return new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date);
 	}
 
-	function stageClass(stage: string): string {
-		return `stage-${stage}`;
-	}
-
-	function segmentWidth(segment: SleepSegment): number {
-		if (!selected) return 0;
-		const total = new Date(selected.ended_at).getTime() - new Date(selected.started_at).getTime();
-		const duration = new Date(segment.ended_at).getTime() - new Date(segment.started_at).getTime();
-		return total > 0 ? Math.max(0.4, (duration / total) * 100) : 0;
-	}
-
-	function nightStages(session: SleepSession) {
-		return [
-			{ name: 'Core', value: session.core_s, color: '#5c8dff' },
-			{ name: 'Deep', value: session.deep_s, color: '#8870e8' },
-			{ name: 'REM', value: session.rem_s, color: '#e879b4' },
-			{ name: 'Awake', value: session.awake_s, color: '#d39a4c' },
-			...(session.unspecified_s ? [{ name: 'Unspecified', value: session.unspecified_s, color: '#788397' }] : [])
-		];
-	}
-
 	onMount(() => {
 		void loadSessions(false);
 		void loadAggregates();
@@ -356,7 +335,7 @@
 							onfocus={() => selectSession(session)}
 							aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? 'primary overnight sleep' : 'short session'}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
 						>
-							<span class="night-date">{formatDateOnly(session.wake_date)}</span><SleepNightBar stages={nightStages(session)} /><span>{formatDuration(session.asleep_s)}</span><b>{Math.round(session.efficiency * 100)}%</b><em class:primary={session.is_main_sleep}>{session.is_main_sleep ? 'Primary' : 'Short'}</em>
+							<span class="night-date">{formatDateOnly(session.wake_date)}</span><span>{formatDuration(session.asleep_s)}</span><b>{Math.round(session.efficiency * 100)}%</b><em class:primary={session.is_main_sleep}>{session.is_main_sleep ? 'Primary' : 'Short'}</em>
 						</button>
 					{/each}
 					<div bind:this={loadMoreSentinel} class="load-more-sentinel" aria-live="polite">
@@ -365,7 +344,7 @@
 				</div>
 				<div class="timeline-card">
 					<div class="timeline-meta"><span>{formatDateOnly(selected.wake_date)}</span><span>{selected.is_main_sleep ? 'Primary overnight sleep' : 'Short session'}</span></div>
-					{#if segmentsLoading}<p class="muted panel-loading">Loading stages…</p>{:else}<div class="timeline" aria-label="Sleep stage timeline">{#each segments as segment (segment.id)}<span class={`stage ${stageClass(segment.stage)}`} style={`width: ${segmentWidth(segment)}%`} title={`${segment.stage} ${formatDuration((new Date(segment.ended_at).getTime() - new Date(segment.started_at).getTime()) / 1000)}`}></span>{/each}</div>{/if}
+					{#if segmentsLoading}<p class="muted panel-loading">Loading stages…</p>{:else}<SleepTimelineChart {segments} />{/if}
 					<div class="timeline-axis"><span>{new Date(selected.started_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span><span>{new Date(selected.ended_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div>
 				</div>
 			</div>
@@ -432,10 +411,7 @@
 	.stage-focus strong { color: var(--accent); }
 	.stage-focus b { color: var(--text); }
 	.dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 50%; }
-	.dot-session, .dot-core, .stage-core { background: #5c8dff; }
-	.dot-deep, .stage-deep { background: #8870e8; }
-	.dot-rem, .stage-rem { background: #e879b4; }
-	.dot-awake, .stage-awake { background: #d39a4c; }
+	.dot-session { background: #5c8dff; }
 	.panel-footnote { margin: 0; color: var(--text-muted); font-size: 0.72rem; line-height: 1.45; }
 	.month-list { display: grid; gap: 0.75rem; margin-top: 1.5rem; }
 	.month-row { display: grid; grid-template-columns: 5.5rem 1fr auto; gap: 0.65rem; align-items: center; color: var(--text-muted); font-size: 0.75rem; }
@@ -444,7 +420,7 @@
 	.month-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4d7fff, #c27de4); }
 	.night-layout { display: grid; grid-template-columns: minmax(15rem, 0.75fr) minmax(0, 1.25fr); gap: 1.5rem; margin-top: 1.25rem; }
 	.night-list { max-height: 19rem; overflow: auto; }
-	.night-row { display: grid; grid-template-columns: minmax(4rem, 1fr) 6rem auto auto auto; width: 100%; gap: 0.65rem; padding: 0.7rem 0.45rem; border: 0; border-top: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--text-muted); text-align: left; cursor: pointer; font-size: 0.78rem; }
+	.night-row { display: grid; grid-template-columns: 1fr auto auto auto; width: 100%; gap: 0.75rem; padding: 0.7rem 0.45rem; border: 0; border-top: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--text-muted); text-align: left; cursor: pointer; font-size: 0.78rem; }
 	.night-row:hover, .night-row:focus-visible, .night-row.selected { background: rgb(92 141 255 / 0.08); color: var(--text); outline: none; }
 	.night-row.selected .night-date { color: var(--accent); }
 	.night-row b { color: var(--text); font-weight: 650; }
@@ -456,9 +432,6 @@
 	.load-more-button { display: block; margin: 0.5rem auto 0; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 0.78rem; cursor: pointer; }
 	.load-more-button:hover { border-color: var(--accent); }
 	.load-more-button:disabled { cursor: wait; opacity: 0.6; }
-	.timeline { display: flex; min-height: 3.4rem; margin: 1rem 0 0.45rem; overflow: hidden; border-radius: 8px; background: var(--surface-2); }
-	.stage { min-width: 0.15rem; }
-	.stage-in_bed, .stage-asleep_unspecified { background: #788397; }
 	@media (max-width: 760px) { .hero-topline, .page-heading, .section-heading { flex-direction: column; } .hero-status { padding-top: 0; } .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr 1fr; } .analysis-grid, .night-layout { grid-column: 1 / -1; } .hero-metrics { gap: 0.7rem; } .period-controls { width: 100%; } .period-controls select { flex: 1; } .focus-callout { align-items: flex-start; flex-direction: column; gap: 0.25rem; } }
-	@media (max-width: 520px) { .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr; } .architecture { align-items: flex-start; gap: 0.75rem; } .night-row { grid-template-columns: minmax(4rem, 1fr) 4rem auto; } .night-row em { display: none; } }
+	@media (max-width: 520px) { .hero-metrics, .insight-strip, .analysis-grid, .night-layout { grid-template-columns: 1fr; } .architecture { align-items: flex-start; gap: 0.75rem; } .night-row em { display: none; } }
 </style>
