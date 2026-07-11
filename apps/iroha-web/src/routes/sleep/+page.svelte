@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ArrowLeft } from '@lucide/svelte';
 	import {
 		getSleepSegments,
 		listSleep,
@@ -15,7 +16,11 @@
 	let sessions = $state<SleepSession[]>([]);
 	let selected = $state<SleepSession | null>(null);
 	let segments = $state<SleepSegment[]>([]);
-	let loading = $state(true);
+	let sessionsLoading = $state(true);
+	let loadingMore = $state(false);
+	let cursor = $state<string | null>(null);
+	let hasMore = $state(false);
+	let loadMoreSentinel = $state<HTMLDivElement>();
 	let segmentsLoading = $state(false);
 	let error = $state<string | null>(null);
 	let yearBuckets = $state<SleepAggregateBucket[]>([]);
@@ -87,30 +92,53 @@
 		return {};
 	}
 
-	async function loadSessions() {
-		loading = true;
+	async function loadSessions(append = false) {
+		if (append && (!hasMore || !cursor || loadingMore)) return;
+		if (append) loadingMore = true;
+		else sessionsLoading = true;
 		error = null;
 		try {
-			const page = await listSleep({ limit: PAGE_SIZE, ...selectedRange() });
-			sessions = page.items;
-			if (page.items[0]) await selectSession(page.items[0]);
+			const page = await listSleep({ limit: PAGE_SIZE, cursor: append ? cursor ?? undefined : undefined, ...selectedRange() });
+			sessions = append ? [...sessions, ...page.items] : page.items;
+			cursor = page.next_cursor;
+			hasMore = page.has_more;
+			if (!append) {
+				if (page.items[0]) await selectSession(page.items[0]);
+				else {
+					selected = null;
+					segments = [];
+				}
+			}
 		} catch (value) {
 			error = errorMessage(value);
 		} finally {
-			loading = false;
+			sessionsLoading = false;
+			loadingMore = false;
 		}
 	}
 
 	function changeYear(value: string) {
 		selectedYear = value;
 		selectedMonth = 'all';
-		void loadSessions();
+		void loadSessions(false);
 	}
 
 	function changeMonth(value: string) {
 		selectedMonth = value;
-		void loadSessions();
+		void loadSessions(false);
 	}
+
+	$effect(() => {
+		if (!loadMoreSentinel) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) void loadSessions(true);
+			},
+			{ rootMargin: '240px' }
+		);
+		observer.observe(loadMoreSentinel);
+		return () => observer.disconnect();
+	});
 
 	async function loadAggregates() {
 		aggregatesLoading = true;
@@ -156,7 +184,7 @@
 	}
 
 	onMount(() => {
-		void loadSessions();
+		void loadSessions(false);
 		void loadAggregates();
 	});
 </script>
@@ -172,10 +200,10 @@
 			<h1>How are you recovering?</h1>
 			<p class="muted">A long-view of your nights, with the last one ready to inspect.</p>
 		</div>
-		<a class="back-link" href="/dashboard">Back to dashboard</a>
+		<a class="back-link" href="/dashboard"><ArrowLeft size={15} /> <span>Dashboard</span></a>
 	</header>
 
-	{#if loading}
+	{#if sessionsLoading && sessions.length === 0}
 		<section class="status tile"><p>Loading your sleep history…</p></section>
 	{:else if error && !selected}
 		<section class="status tile"><p class="error">Sleep could not be loaded: {error}</p></section>
@@ -276,7 +304,7 @@
 		</div>
 
 		<section class="night-panel tile">
-			<header class="section-heading"><div><p class="eyebrow">Drill down</p><h2>Recent nights</h2><p class="muted">Select a night to see the stage timeline.</p></div><span class="section-note">{sessions.length} loaded</span></header>
+			<header class="section-heading"><div><p class="eyebrow">Drill down</p><h2>Recent nights</h2><p class="muted">Select a night to see the stage timeline.</p></div><span class="section-note">{sessions.length}{hasMore ? '+' : ''} nights in period</span></header>
 			<div class="night-layout">
 				<div class="night-list">
 					{#each sessions as session (session.id)}
@@ -291,6 +319,9 @@
 					<div class="timeline-axis"><span>{new Date(selected.started_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span><span>{new Date(selected.ended_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div>
 				</div>
 			</div>
+			<div bind:this={loadMoreSentinel} class="load-more-sentinel" aria-live="polite">
+				{#if loadingMore}<span>Loading more nights…</span>{:else if hasMore}<span>Scroll for more nights</span>{/if}
+			</div>
 		</section>
 	{/if}
 </section>
@@ -302,6 +333,8 @@
 	.page-heading .muted, .section-heading .muted { margin: 0.35rem 0 0; }
 	.eyebrow { margin: 0 0 0.35rem; color: var(--accent); font-size: 0.68rem; font-weight: 750; letter-spacing: 0.11em; text-transform: uppercase; }
 	.back-link, .section-note { color: var(--text-muted); font-size: 0.78rem; }
+	.back-link { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); text-decoration: none; }
+	.back-link:hover { border-color: var(--accent); color: var(--text); text-decoration: none; }
 	.period-controls { display: flex; gap: 0.45rem; }
 	.period-controls select { min-height: 2rem; padding: 0.35rem 0.55rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 0.76rem; }
 	.period-controls select:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -364,6 +397,7 @@
 	.night-row b { color: var(--text); font-weight: 650; }
 	.timeline-card { align-self: center; padding: 1.25rem; border: 1px solid var(--border); border-radius: 10px; background: rgb(255 255 255 / 0.025); }
 	.timeline-meta, .timeline-axis { display: flex; justify-content: space-between; gap: 1rem; color: var(--text-muted); font-size: 0.72rem; }
+	.load-more-sentinel { min-height: 2rem; display: grid; place-items: center; color: var(--text-muted); font-size: 0.72rem; }
 	.timeline { display: flex; min-height: 3.4rem; margin: 1rem 0 0.45rem; overflow: hidden; border-radius: 8px; background: var(--surface-2); }
 	.stage { min-width: 0.15rem; }
 	.stage-in_bed, .stage-asleep_unspecified { background: #788397; }
