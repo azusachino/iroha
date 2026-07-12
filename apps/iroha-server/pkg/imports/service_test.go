@@ -123,3 +123,48 @@ func TestSleepSessionSourceKeyAndContentHash(t *testing.T) {
 		t.Fatal("sleepSessionContentHash did not change when a segment changed")
 	}
 }
+
+func TestDailySummarySourceKeyAndContentHash(t *testing.T) {
+	summary := parsers.ParsedDailySummary{
+		Day:             time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
+		MoveKcal:        600,
+		MoveGoalKcal:    500,
+		ExerciseMin:     45,
+		ExerciseGoalMin: 30,
+		StandHours:      10,
+		StandGoalHours:  12,
+		Source:          "apple_health_export",
+	}
+	if got, want := dailySummarySourceKey(summary), "2024-01-02"; got != want {
+		t.Errorf("dailySummarySourceKey = %q, want %q", got, want)
+	}
+	hash := dailySummaryContentHash(summary)
+	if hash == "" {
+		t.Fatal("dailySummaryContentHash returned empty hash")
+	}
+	summary.MoveKcal++
+	if dailySummaryContentHash(summary) == hash {
+		t.Fatal("dailySummaryContentHash did not change when a ring value changed")
+	}
+}
+
+func TestDailyMetricSourceKeyAndContentHash(t *testing.T) {
+	metric := parsers.ParsedDailyMetric{
+		Day:    time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
+		Metric: parsers.DailyMetricSteps,
+		Value:  1234,
+		Unit:   "count",
+		Source: "Watch",
+	}
+	if got, want := dailyMetricSourceKey(metric), "2024-01-02|steps"; got != want {
+		t.Errorf("dailyMetricSourceKey = %q, want %q", got, want)
+	}
+	hash := dailyMetricContentHash(metric)
+	if hash == "" {
+		t.Fatal("dailyMetricContentHash returned empty hash")
+	}
+	metric.Value++
+	if dailyMetricContentHash(metric) == hash {
+		t.Fatal("dailyMetricContentHash did not change when the metric value changed")
+	}
+}

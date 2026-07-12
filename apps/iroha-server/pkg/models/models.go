@@ -217,6 +217,8 @@ type AppleSourceItem struct {
 	ContentHash        string
 	ActivityID         *uuid.UUID `gorm:"type:uuid"`
 	SleepSessionID     *uuid.UUID `gorm:"type:uuid"`
+	DailySummaryID     *uuid.UUID `gorm:"type:uuid"`
+	DailyMetricID      *uuid.UUID `gorm:"type:uuid"`
 	LastSeenSnapshotID *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
