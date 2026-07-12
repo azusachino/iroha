@@ -167,6 +167,276 @@ func ParseAppleHealthSleep(path string) ([]ParsedSleepSession, error) {
 	return nil, fmt.Errorf("apple health export.xml not found")
 }
 
+// ParseAppleHealthDailyActivity streams ActivitySummary rings and daily
+// quantity records from an Apple Health export. Quantity records are retained
+// only for the supported metrics and are deduplicated by source-priority
+// interval union before being emitted as daily totals.
+func ParseAppleHealthDailyActivity(path string) ([]ParsedDailySummary, []ParsedDailyMetric, error) {
+	reader, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = reader.Close() }()
+
+	for _, file := range reader.File {
+		if !strings.HasSuffix(file.Name, "export.xml") {
+			continue
+		}
+		opened, err := file.Open()
+		if err != nil {
+			return nil, nil, err
+		}
+		summaries, records, decodeErr := decodeAppleDailyActivity(opened)
+		_ = opened.Close()
+		if decodeErr != nil {
+			return nil, nil, decodeErr
+		}
+		return summaries, rollupDailyMetrics(records), nil
+	}
+	return nil, nil, fmt.Errorf("apple health export.xml not found")
+}
+
+type dailyActivityRecord struct {
+	day       string
+	metric    string
+	unit      string
+	value     float64
+	startedAt time.Time
+	endedAt   time.Time
+	source    string
+}
+
+type dailyInterval struct {
+	start  time.Time
+	end    time.Time
+	value  float64
+	source string
+}
+
+var selectedDailyRecordTypes = map[string]string{
+	"HKQuantityTypeIdentifierStepCount":              DailyMetricSteps,
+	"HKQuantityTypeIdentifierDistanceWalkingRunning": DailyMetricDistanceKM,
+	"HKQuantityTypeIdentifierFlightsClimbed":         DailyMetricFlights,
+}
+
+func decodeAppleDailyActivity(r io.Reader) ([]ParsedDailySummary, []dailyActivityRecord, error) {
+	decoder := xml.NewDecoder(r)
+	summariesByDay := make(map[string]ParsedDailySummary)
+	records := make([]dailyActivityRecord, 0)
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+
+		start, ok := token.(xml.StartElement)
+		if !ok {
+			continue
+		}
+		switch start.Name.Local {
+		case "ActivitySummary":
+			var summary appleActivitySummary
+			if err := decoder.DecodeElement(&summary, &start); err != nil {
+				return nil, nil, err
+			}
+			parsed, ok := parseDailySummary(summary)
+			if ok {
+				summariesByDay[parsed.Day.Format("2006-01-02")] = parsed
+			}
+		case "Record":
+			metric, selected := selectedDailyMetric(start)
+			if !selected {
+				if err := decoder.Skip(); err != nil {
+					return nil, nil, err
+				}
+				continue
+			}
+			var record appleRecord
+			if err := decoder.DecodeElement(&record, &start); err != nil {
+				return nil, nil, err
+			}
+			parsed, ok := parseDailyRecord(record, metric)
+			if ok {
+				records = append(records, parsed)
+			}
+		}
+	}
+
+	days := make([]string, 0, len(summariesByDay))
+	for day := range summariesByDay {
+		days = append(days, day)
+	}
+	sort.Strings(days)
+	summaries := make([]ParsedDailySummary, 0, len(days))
+	for _, day := range days {
+		summaries = append(summaries, summariesByDay[day])
+	}
+	return summaries, records, nil
+}
+
+type appleActivitySummary struct {
+	DateComponents  string `xml:"dateComponents,attr"`
+	MoveKcal        string `xml:"activeEnergyBurned,attr"`
+	MoveGoalKcal    string `xml:"activeEnergyBurnedGoal,attr"`
+	ExerciseMin     string `xml:"appleExerciseTime,attr"`
+	ExerciseGoalMin string `xml:"appleExerciseTimeGoal,attr"`
+	StandHours      string `xml:"appleStandHours,attr"`
+	StandGoalHours  string `xml:"appleStandHoursGoal,attr"`
+	Source          string `xml:"sourceName,attr"`
+}
+
+func parseDailySummary(summary appleActivitySummary) (ParsedDailySummary, bool) {
+	day, err := parseAppleDate(summary.DateComponents)
+	if err != nil {
+		return ParsedDailySummary{}, false
+	}
+	parse := func(value string) float64 {
+		parsed, _ := strconv.ParseFloat(value, 64)
+		return parsed
+	}
+	source := summary.Source
+	if source == "" {
+		source = KindAppleHealthExport
+	}
+	return ParsedDailySummary{
+		Day:             day,
+		MoveKcal:        parse(summary.MoveKcal),
+		MoveGoalKcal:    parse(summary.MoveGoalKcal),
+		ExerciseMin:     parse(summary.ExerciseMin),
+		ExerciseGoalMin: parse(summary.ExerciseGoalMin),
+		StandHours:      parse(summary.StandHours),
+		StandGoalHours:  parse(summary.StandGoalHours),
+		Source:          source,
+	}, true
+}
+
+func parseDailyRecord(record appleRecord, metric string) (dailyActivityRecord, bool) {
+	startedAt, err := parseAppleTime(record.StartDate)
+	if err != nil {
+		return dailyActivityRecord{}, false
+	}
+	endedAt, err := parseAppleTime(record.EndDate)
+	if err != nil || endedAt.Before(startedAt) {
+		return dailyActivityRecord{}, false
+	}
+	value, err := strconv.ParseFloat(record.Value, 64)
+	if err != nil {
+		return dailyActivityRecord{}, false
+	}
+	if metric == DailyMetricDistanceKM && record.Unit == "mi" {
+		value *= 1.609344
+	}
+	day, err := parseAppleDate(record.StartDate)
+	if err != nil {
+		return dailyActivityRecord{}, false
+	}
+	unit := record.Unit
+	switch metric {
+	case DailyMetricDistanceKM:
+		unit = "km"
+	case DailyMetricSteps, DailyMetricFlights:
+		unit = "count"
+	}
+	return dailyActivityRecord{
+		day:       day.Format("2006-01-02"),
+		metric:    metric,
+		unit:      unit,
+		value:     value,
+		startedAt: startedAt,
+		endedAt:   endedAt,
+		source:    record.SourceName,
+	}, true
+}
+
+func selectedDailyMetric(start xml.StartElement) (string, bool) {
+	for _, attr := range start.Attr {
+		if attr.Name.Local == "type" {
+			metric, ok := selectedDailyRecordTypes[attr.Value]
+			return metric, ok
+		}
+	}
+	return "", false
+}
+
+func rollupDailyMetrics(records []dailyActivityRecord) []ParsedDailyMetric {
+	byDayMetric := make(map[string][]dailyActivityRecord)
+	for _, record := range records {
+		key := record.day + "\x00" + record.metric
+		byDayMetric[key] = append(byDayMetric[key], record)
+	}
+	keys := make([]string, 0, len(byDayMetric))
+	for key := range byDayMetric {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	metrics := make([]ParsedDailyMetric, 0, len(keys))
+	for _, key := range keys {
+		group := byDayMetric[key]
+		sort.SliceStable(group, func(i, j int) bool {
+			left, right := dailySourcePriority(group[i].source), dailySourcePriority(group[j].source)
+			if left != right {
+				return left > right
+			}
+			if !group[i].startedAt.Equal(group[j].startedAt) {
+				return group[i].startedAt.Before(group[j].startedAt)
+			}
+			return group[i].endedAt.Before(group[j].endedAt)
+		})
+		accepted := make([]dailyInterval, 0, len(group))
+		for _, record := range group {
+			interval := dailyInterval{start: record.startedAt, end: record.endedAt, value: record.value, source: record.source}
+			overlaps := false
+			for _, existing := range accepted {
+				if interval.start.Before(existing.end) && interval.end.After(existing.start) {
+					overlaps = true
+					break
+				}
+			}
+			if !overlaps {
+				accepted = append(accepted, interval)
+			}
+		}
+		if len(accepted) == 0 {
+			continue
+		}
+		day, _ := parseAppleDate(group[0].day)
+		value := 0.0
+		for _, interval := range accepted {
+			value += interval.value
+		}
+		metrics = append(metrics, ParsedDailyMetric{
+			Day:    day,
+			Metric: group[0].metric,
+			Value:  value,
+			Unit:   group[0].unit,
+			Source: accepted[0].source,
+		})
+	}
+	return metrics
+}
+
+func dailySourcePriority(source string) int {
+	source = strings.ToLower(source)
+	switch {
+	case strings.Contains(source, "watch"):
+		return 2
+	case strings.Contains(source, "iphone"):
+		return 1
+	default:
+		return 0
+	}
+}
+
+func parseAppleDate(value string) (time.Time, error) {
+	if len(value) < len("2006-01-02") {
+		return time.Time{}, fmt.Errorf("invalid Apple date %q", value)
+	}
+	return time.ParseInLocation("2006-01-02", value[:len("2006-01-02")], time.UTC)
+}
+
 func decodeAppleSleepSegments(r io.Reader) ([]ParsedSleepSegment, error) {
 	decoder := xml.NewDecoder(r)
 	segments := make([]ParsedSleepSegment, 0)

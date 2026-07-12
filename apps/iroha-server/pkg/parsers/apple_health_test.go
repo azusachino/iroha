@@ -90,6 +90,67 @@ func TestDecodeAppleSleepSegmentsStreamsSelectedStages(t *testing.T) {
 	}
 }
 
+func TestDecodeAppleDailyActivityRollsUpRingsAndPriorityIntervals(t *testing.T) {
+	const dailyXML = `<HealthData>
+  <ActivitySummary dateComponents="2024-01-01" activeEnergyBurned="600" activeEnergyBurnedGoal="500" appleExerciseTime="45" appleExerciseTimeGoal="30" appleStandHours="10" appleStandHoursGoal="12"/>
+  <Record type="HKQuantityTypeIdentifierStepCount" sourceName="iPhone" unit="count" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 09:00:00 -0700" value="200"/>
+  <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Watch" unit="count" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 09:00:00 -0700" value="100"/>
+  <Record type="HKQuantityTypeIdentifierStepCount" sourceName="iPhone" unit="count" startDate="2024-01-01 09:00:00 -0700" endDate="2024-01-01 10:00:00 -0700" value="50"/>
+  <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Third Party" unit="count" startDate="2024-01-01 08:30:00 -0700" endDate="2024-01-01 09:30:00 -0700" value="300"/>
+  <Record type="HKQuantityTypeIdentifierDistanceWalkingRunning" sourceName="Watch" unit="mi" startDate="2024-01-01 10:00:00 -0700" endDate="2024-01-01 10:30:00 -0700" value="1"/>
+  <Record type="HKQuantityTypeIdentifierFlightsClimbed" sourceName="Watch" unit="count" startDate="2024-01-01 11:00:00 -0700" endDate="2024-01-01 11:01:00 -0700" value="3"/>
+  <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Watch" unit="count/min" startDate="2024-01-01 11:00:00 -0700" endDate="2024-01-01 11:01:00 -0700" value="60"/>
+</HealthData>`
+
+	summaries, records, err := decodeAppleDailyActivity(strings.NewReader(dailyXML))
+	if err != nil {
+		t.Fatalf("decodeAppleDailyActivity returned error: %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("decoded %d summaries, want 1", len(summaries))
+	}
+	if summaries[0].MoveKcal != 600 || summaries[0].ExerciseMin != 45 || summaries[0].StandGoalHours != 12 {
+		t.Errorf("summary = %+v, want direct ActivitySummary values", summaries[0])
+	}
+	if summaries[0].Source != KindAppleHealthExport {
+		t.Errorf("summary source = %q, want %q", summaries[0].Source, KindAppleHealthExport)
+	}
+
+	metrics := rollupDailyMetrics(records)
+	if len(metrics) != 3 {
+		t.Fatalf("rolled up %d metrics, want 3: %+v", len(metrics), metrics)
+	}
+	byMetric := make(map[string]ParsedDailyMetric, len(metrics))
+	for _, metric := range metrics {
+		byMetric[metric.Metric] = metric
+	}
+	steps := byMetric[DailyMetricSteps]
+	if steps.Metric != DailyMetricSteps || steps.Value != 150 || steps.Source != "Watch" {
+		t.Errorf("steps metric = %+v, want watch 100 + non-overlapping iPhone 50", steps)
+	}
+	distance := byMetric[DailyMetricDistanceKM]
+	if distance.Metric != DailyMetricDistanceKM || distance.Unit != "km" || distance.Value != 1.609344 {
+		t.Errorf("distance metric = %+v, want converted miles", distance)
+	}
+	flights := byMetric[DailyMetricFlights]
+	if flights.Value != 3 {
+		t.Errorf("flights metric = %+v, want 3", flights)
+	}
+}
+
+func TestRollupDailyMetricsKeepsHybridIntervals(t *testing.T) {
+	day := "2024-01-01"
+	start := sleepTestTime("2024-01-01 08:00:00 -0700")
+	metrics := rollupDailyMetrics([]dailyActivityRecord{
+		{day: day, metric: DailyMetricSteps, unit: "count", value: 100, startedAt: start, endedAt: start.Add(time.Hour), source: "Watch"},
+		{day: day, metric: DailyMetricSteps, unit: "count", value: 200, startedAt: start.Add(30 * time.Minute), endedAt: start.Add(90 * time.Minute), source: "iPhone"},
+		{day: day, metric: DailyMetricSteps, unit: "count", value: 50, startedAt: start.Add(time.Hour), endedAt: start.Add(2 * time.Hour), source: "iPhone"},
+	})
+	if len(metrics) != 1 || metrics[0].Value != 150 {
+		t.Fatalf("hybrid rollup = %+v, want 150 from watch + non-overlapping iPhone interval", metrics)
+	}
+}
+
 func TestBuildSleepSessionUsesOverlapSafeRollups(t *testing.T) {
 	segments := []ParsedSleepSegment{
 		{Stage: SleepStageInBed, StartedAt: sleepTestTime("2024-01-01 22:00:00 -0700"), EndedAt: sleepTestTime("2024-01-02 04:00:00 -0700"), Source: "Watch"},
