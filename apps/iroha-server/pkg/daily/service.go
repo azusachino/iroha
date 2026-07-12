@@ -54,9 +54,17 @@ type ListFilters struct {
 
 type Row struct {
 	models.DailySummary
-	Steps      *float64
-	DistanceKM *float64
-	Flights    *float64
+	Steps           *float64
+	DistanceKM      *float64
+	Flights         *float64
+	RestingHR       *float64
+	WalkingHRAvg    *float64
+	HRVSDNN         *float64 `gorm:"column:hrv_sdnn"`
+	SpO2Avg         *float64
+	SpO2Min         *float64
+	RespiratoryRate *float64
+	VO2Max          *float64 `gorm:"column:vo2max"`
+	BodyMassKG      *float64
 }
 
 type Page struct {
@@ -79,27 +87,55 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		limit = defaultPageLimit
 	}
 
-	query := s.db.Table("tb_daily_summaries as s").
-		Select(`s.id, s.day, s.move_kcal, s.move_goal_kcal,
-			s.exercise_min, s.exercise_goal_min, s.stand_hours,
-			s.stand_goal_hours, s.source, s.first_raw_file_id,
-			s.created_at, s.updated_at,
-			steps.value as steps, distance.value as distance_km, flights.value as flights`).
-		Joins("left join tb_daily_metrics as steps on steps.day = s.day and steps.metric = 'steps'").
-		Joins("left join tb_daily_metrics as distance on distance.day = s.day and distance.metric = 'distance_km'").
-		Joins("left join tb_daily_metrics as flights on flights.day = s.day and flights.metric = 'flights'")
+	query := s.db.Table(`(
+		select day from tb_daily_summaries
+		union
+		select day from tb_daily_metrics
+	) as days`).
+		Select(`coalesce(s.id, anchor.id) as id, days.day,
+			coalesce(s.move_kcal, 0) as move_kcal,
+			coalesce(s.move_goal_kcal, 0) as move_goal_kcal,
+			coalesce(s.exercise_min, 0) as exercise_min,
+			coalesce(s.exercise_goal_min, 0) as exercise_goal_min,
+			coalesce(s.stand_hours, 0) as stand_hours,
+			coalesce(s.stand_goal_hours, 0) as stand_goal_hours,
+			coalesce(s.source, anchor.source, '') as source,
+			coalesce(s.first_raw_file_id, anchor.first_raw_file_id) as first_raw_file_id,
+			coalesce(s.created_at, anchor.created_at) as created_at,
+			coalesce(s.updated_at, anchor.updated_at) as updated_at,
+			steps.value as steps, distance.value as distance_km, flights.value as flights,
+			resting_hr.value as resting_hr, walking_hr_avg.value as walking_hr_avg,
+			hrv_sdnn.value as hrv_sdnn, spo2_avg.value as spo2_avg,
+			spo2_min.value as spo2_min, respiratory_rate.value as respiratory_rate,
+			vo2max.value as vo2max, body_mass_kg.value as body_mass_kg`).
+		Joins("left join tb_daily_summaries as s on s.day = days.day").
+		Joins(`left join lateral (
+			select id, first_raw_file_id, source, created_at, updated_at
+			from tb_daily_metrics where day = days.day order by id limit 1
+		) as anchor on true`).
+		Joins("left join tb_daily_metrics as steps on steps.day = days.day and steps.metric = 'steps'").
+		Joins("left join tb_daily_metrics as distance on distance.day = days.day and distance.metric = 'distance_km'").
+		Joins("left join tb_daily_metrics as flights on flights.day = days.day and flights.metric = 'flights'").
+		Joins("left join tb_daily_metrics as resting_hr on resting_hr.day = days.day and resting_hr.metric = 'resting_hr'").
+		Joins("left join tb_daily_metrics as walking_hr_avg on walking_hr_avg.day = days.day and walking_hr_avg.metric = 'walking_hr_avg'").
+		Joins("left join tb_daily_metrics as hrv_sdnn on hrv_sdnn.day = days.day and hrv_sdnn.metric = 'hrv_sdnn'").
+		Joins("left join tb_daily_metrics as spo2_avg on spo2_avg.day = days.day and spo2_avg.metric = 'spo2_avg'").
+		Joins("left join tb_daily_metrics as spo2_min on spo2_min.day = days.day and spo2_min.metric = 'spo2_min'").
+		Joins("left join tb_daily_metrics as respiratory_rate on respiratory_rate.day = days.day and respiratory_rate.metric = 'respiratory_rate'").
+		Joins("left join tb_daily_metrics as vo2max on vo2max.day = days.day and vo2max.metric = 'vo2max'").
+		Joins("left join tb_daily_metrics as body_mass_kg on body_mass_kg.day = days.day and body_mass_kg.metric = 'body_mass_kg'")
 	if filters.From != nil {
-		query = query.Where("s.day >= ?", *filters.From)
+		query = query.Where("days.day >= ?", *filters.From)
 	}
 	if filters.To != nil {
-		query = query.Where("s.day <= ?", *filters.To)
+		query = query.Where("days.day <= ?", *filters.To)
 	}
 	if filters.Cursor != nil {
-		query = query.Where("(s.day, s.id) < (?, ?)", filters.Cursor.Day, filters.Cursor.ID)
+		query = query.Where("(days.day, coalesce(s.id, anchor.id)) < (?, ?)", filters.Cursor.Day, filters.Cursor.ID)
 	}
 
 	var rows []Row
-	if err := query.Order("s.day desc, s.id desc").Limit(limit + 1).Scan(&rows).Error; err != nil {
+	if err := query.Order("days.day desc, coalesce(s.id, anchor.id) desc").Limit(limit + 1).Scan(&rows).Error; err != nil {
 		return Page{}, err
 	}
 	page := Page{Items: rows}

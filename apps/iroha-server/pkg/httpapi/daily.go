@@ -27,6 +27,14 @@ type dailyResponse struct {
 	Steps           *float64  `json:"steps,omitempty"`
 	DistanceKM      *float64  `json:"distance_km,omitempty"`
 	Flights         *float64  `json:"flights,omitempty"`
+	RestingHR       *float64  `json:"resting_hr,omitempty"`
+	WalkingHRAvg    *float64  `json:"walking_hr_avg,omitempty"`
+	HRVSDNN         *float64  `json:"hrv_sdnn,omitempty"`
+	SpO2Avg         *float64  `json:"spo2_avg,omitempty"`
+	SpO2Min         *float64  `json:"spo2_min,omitempty"`
+	RespiratoryRate *float64  `json:"respiratory_rate,omitempty"`
+	VO2Max          *float64  `json:"vo2max,omitempty"`
+	BodyMassKG      *float64  `json:"body_mass_kg,omitempty"`
 	Source          string    `json:"source"`
 	FirstRawFileID  string    `json:"first_raw_file_id"`
 	CreatedAt       time.Time `json:"created_at"`
@@ -102,6 +110,14 @@ func toDailyResponse(row daily.Row) dailyResponse {
 		Steps:           row.Steps,
 		DistanceKM:      row.DistanceKM,
 		Flights:         row.Flights,
+		RestingHR:       row.RestingHR,
+		WalkingHRAvg:    row.WalkingHRAvg,
+		HRVSDNN:         row.HRVSDNN,
+		SpO2Avg:         row.SpO2Avg,
+		SpO2Min:         row.SpO2Min,
+		RespiratoryRate: row.RespiratoryRate,
+		VO2Max:          row.VO2Max,
+		BodyMassKG:      row.BodyMassKG,
 		Source:          summary.Source,
 		FirstRawFileID:  ids.Encode(ids.RawFilePrefix, summary.FirstRawFileID),
 		CreatedAt:       summary.CreatedAt,

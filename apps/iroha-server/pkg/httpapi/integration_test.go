@@ -226,6 +226,15 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 			t.Fatalf("create daily metric: %v", err)
 		}
 	}
+	for _, metric := range []models.DailyMetric{
+		{ID: uuid.New(), Day: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC), Metric: "resting_hr", Value: 57, Unit: "count/min", Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt},
+		{ID: uuid.New(), Day: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC), Metric: "hrv_sdnn", Value: 42, Unit: "ms", Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt},
+		{ID: uuid.New(), Day: time.Date(2023, time.December, 31, 0, 0, 0, 0, time.UTC), Metric: "body_mass_kg", Value: 70.5, Unit: "kg", Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt},
+	} {
+		if err := db.Create(&metric).Error; err != nil {
+			t.Fatalf("create vitals metric: %v", err)
+		}
+	}
 
 	server := newIntegrationServer(t, db)
 	firstPage := requestJSON(t, server, http.MethodGet, "/api/v1/daily?limit=1", "", http.StatusOK, func(body map[string]any) {
@@ -234,15 +243,28 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 			t.Fatalf("first daily page = %#v", body)
 		}
 		item := items[0].(map[string]any)
-		if item["day"] != "2024-01-02T00:00:00Z" || item["steps"] != float64(1234) {
+		if item["day"] != "2024-01-02T00:00:00Z" || item["steps"] != float64(1234) || item["resting_hr"] != float64(57) || item["hrv_sdnn"] != float64(42) {
 			t.Fatalf("daily item = %#v", item)
 		}
 	})
 	cursor := stringValue(t, firstPage, "next_cursor")
-	requestJSON(t, server, http.MethodGet, "/api/v1/daily?cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
+	secondPage := requestJSON(t, server, http.MethodGet, "/api/v1/daily?limit=1&cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
+		items := body["items"].([]any)
+		if len(items) != 1 || body["has_more"] != true {
+			t.Fatalf("second daily page = %#v", body)
+		}
+		if items[0].(map[string]any)["day"] != "2024-01-01T00:00:00Z" {
+			t.Fatalf("second daily item = %#v", items[0])
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/daily?limit=1&cursor="+stringValue(t, secondPage, "next_cursor"), "", http.StatusOK, func(body map[string]any) {
 		items := body["items"].([]any)
 		if len(items) != 1 || body["has_more"] != false {
-			t.Fatalf("second daily page = %#v", body)
+			t.Fatalf("third daily page = %#v", body)
+		}
+		item := items[0].(map[string]any)
+		if item["day"] != "2023-12-31T00:00:00Z" || item["body_mass_kg"] != float64(70.5) {
+			t.Fatalf("metric-only daily item = %#v", item)
 		}
 	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/daily?from=bad", "", http.StatusBadRequest, nil)
