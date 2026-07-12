@@ -151,6 +151,43 @@ func TestRollupDailyMetricsKeepsHybridIntervals(t *testing.T) {
 	}
 }
 
+func TestRollupDailyMetricsReducesVitals(t *testing.T) {
+	const dailyXML = `<HealthData>
+  <Record type="HKQuantityTypeIdentifierRestingHeartRate" sourceName="Watch" unit="count/min" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 08:00:00 -0700" value="55"/>
+  <Record type="HKQuantityTypeIdentifierRestingHeartRate" sourceName="Watch" unit="count/min" startDate="2024-01-01 20:00:00 -0700" endDate="2024-01-01 20:00:00 -0700" value="60"/>
+  <Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" sourceName="Watch" unit="ms" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 08:00:00 -0700" value="40"/>
+  <Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" sourceName="Watch" unit="ms" startDate="2024-01-01 20:00:00 -0700" endDate="2024-01-01 20:00:00 -0700" value="60"/>
+  <Record type="HKQuantityTypeIdentifierOxygenSaturation" sourceName="Watch" unit="%" startDate="2024-01-01 08:00:00 -0700" endDate="2024-01-01 08:00:00 -0700" value="0.95"/>
+  <Record type="HKQuantityTypeIdentifierOxygenSaturation" sourceName="Watch" unit="%" startDate="2024-01-01 20:00:00 -0700" endDate="2024-01-01 20:00:00 -0700" value="0.98"/>
+  <Record type="HKQuantityTypeIdentifierBodyFatPercentage" sourceName="Watch" unit="%" startDate="2024-01-01 20:00:00 -0700" endDate="2024-01-01 20:00:00 -0700" value="20"/>
+</HealthData>`
+
+	_, records, err := decodeAppleDailyActivity(strings.NewReader(dailyXML))
+	if err != nil {
+		t.Fatalf("decodeAppleDailyActivity returned error: %v", err)
+	}
+	metrics := rollupDailyMetrics(records)
+	byMetric := make(map[string]ParsedDailyMetric, len(metrics))
+	for _, metric := range metrics {
+		byMetric[metric.Metric] = metric
+	}
+	if len(metrics) != 4 {
+		t.Fatalf("rolled up %d metrics, want 4: %+v", len(metrics), metrics)
+	}
+	if got := byMetric[DailyMetricRestingHR]; got.Value != 60 || got.Unit != "count/min" {
+		t.Errorf("resting HR = %+v, want latest value 60 count/min", got)
+	}
+	if got := byMetric[DailyMetricHRVSDNN]; got.Value != 50 || got.Unit != "ms" {
+		t.Errorf("HRV = %+v, want average 50 ms", got)
+	}
+	if got := byMetric[DailyMetricSpO2Avg]; got.Value != 96.5 || got.Unit != "%" {
+		t.Errorf("SpO2 average = %+v, want average normalized value 96.5%%", got)
+	}
+	if got := byMetric[DailyMetricSpO2Min]; got.Value != 95 || got.Unit != "%" {
+		t.Errorf("SpO2 minimum = %+v, want 95%%", got)
+	}
+}
+
 func TestBuildSleepSessionUsesOverlapSafeRollups(t *testing.T) {
 	segments := []ParsedSleepSegment{
 		{Stage: SleepStageInBed, StartedAt: sleepTestTime("2024-01-01 22:00:00 -0700"), EndedAt: sleepTestTime("2024-01-02 04:00:00 -0700"), Source: "Watch"},

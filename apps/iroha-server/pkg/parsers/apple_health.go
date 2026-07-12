@@ -214,9 +214,16 @@ type dailyInterval struct {
 }
 
 var selectedDailyRecordTypes = map[string]string{
-	"HKQuantityTypeIdentifierStepCount":              DailyMetricSteps,
-	"HKQuantityTypeIdentifierDistanceWalkingRunning": DailyMetricDistanceKM,
-	"HKQuantityTypeIdentifierFlightsClimbed":         DailyMetricFlights,
+	"HKQuantityTypeIdentifierStepCount":                DailyMetricSteps,
+	"HKQuantityTypeIdentifierDistanceWalkingRunning":   DailyMetricDistanceKM,
+	"HKQuantityTypeIdentifierFlightsClimbed":           DailyMetricFlights,
+	"HKQuantityTypeIdentifierRestingHeartRate":         DailyMetricRestingHR,
+	"HKQuantityTypeIdentifierWalkingHeartRateAverage":  DailyMetricWalkingHR,
+	"HKQuantityTypeIdentifierHeartRateVariabilitySDNN": DailyMetricHRVSDNN,
+	"HKQuantityTypeIdentifierVO2Max":                   DailyMetricVO2Max,
+	"HKQuantityTypeIdentifierBodyMass":                 DailyMetricBodyMassKG,
+	"HKQuantityTypeIdentifierOxygenSaturation":         DailyMetricSpO2Avg,
+	"HKQuantityTypeIdentifierRespiratoryRate":          DailyMetricRespiratoryRate,
 }
 
 func decodeAppleDailyActivity(r io.Reader) ([]ParsedDailySummary, []dailyActivityRecord, error) {
@@ -329,6 +336,9 @@ func parseDailyRecord(record appleRecord, metric string) (dailyActivityRecord, b
 	if metric == DailyMetricDistanceKM && record.Unit == "mi" {
 		value *= 1.609344
 	}
+	if metric == DailyMetricSpO2Avg && value <= 1 {
+		value *= 100
+	}
 	day, err := parseAppleDate(record.StartDate)
 	if err != nil {
 		return dailyActivityRecord{}, false
@@ -339,6 +349,16 @@ func parseDailyRecord(record appleRecord, metric string) (dailyActivityRecord, b
 		unit = "km"
 	case DailyMetricSteps, DailyMetricFlights:
 		unit = "count"
+	case DailyMetricRestingHR, DailyMetricWalkingHR, DailyMetricRespiratoryRate:
+		unit = "count/min"
+	case DailyMetricHRVSDNN:
+		unit = "ms"
+	case DailyMetricVO2Max:
+		unit = "ml/kg/min"
+	case DailyMetricBodyMassKG:
+		unit = "kg"
+	case DailyMetricSpO2Avg:
+		unit = "%"
 	}
 	return dailyActivityRecord{
 		day:       day.Format("2006-01-02"),
@@ -385,6 +405,13 @@ func rollupDailyMetrics(records []dailyActivityRecord) []ParsedDailyMetric {
 			}
 			return group[i].endedAt.Before(group[j].endedAt)
 		})
+		if metricKind(group[0].metric) != dailyMetricCumulative {
+			metrics = append(metrics, rollupPointMetric(group[0].day, group[0].metric, group[0].unit, group))
+			if group[0].metric == DailyMetricSpO2Avg {
+				metrics = append(metrics, rollupSpO2Min(group[0].day, group))
+			}
+			continue
+		}
 		accepted := make([]dailyInterval, 0, len(group))
 		for _, record := range group {
 			interval := dailyInterval{start: record.startedAt, end: record.endedAt, value: record.value, source: record.source}
@@ -416,6 +443,52 @@ func rollupDailyMetrics(records []dailyActivityRecord) []ParsedDailyMetric {
 		})
 	}
 	return metrics
+}
+
+type dailyMetricKind int
+
+const (
+	dailyMetricCumulative dailyMetricKind = iota
+	dailyMetricLatest
+	dailyMetricAverage
+)
+
+func metricKind(metric string) dailyMetricKind {
+	switch metric {
+	case DailyMetricHRVSDNN, DailyMetricRespiratoryRate:
+		return dailyMetricAverage
+	case DailyMetricRestingHR, DailyMetricWalkingHR, DailyMetricVO2Max, DailyMetricBodyMassKG:
+		return dailyMetricLatest
+	case DailyMetricSpO2Avg:
+		return dailyMetricAverage
+	default:
+		return dailyMetricCumulative
+	}
+}
+
+func rollupPointMetric(day, metric, unit string, records []dailyActivityRecord) ParsedDailyMetric {
+	sort.SliceStable(records, func(i, j int) bool {
+		return records[i].endedAt.Before(records[j].endedAt)
+	})
+	value := records[len(records)-1].value
+	if metricKind(metric) == dailyMetricAverage {
+		value = 0
+		for _, record := range records {
+			value += record.value
+		}
+		value /= float64(len(records))
+	}
+	parsedDay, _ := parseAppleDate(day)
+	return ParsedDailyMetric{Day: parsedDay, Metric: metric, Value: value, Unit: unit, Source: records[len(records)-1].source}
+}
+
+func rollupSpO2Min(day string, records []dailyActivityRecord) ParsedDailyMetric {
+	minimum := records[0].value
+	for _, record := range records[1:] {
+		minimum = min(minimum, record.value)
+	}
+	parsedDay, _ := parseAppleDate(day)
+	return ParsedDailyMetric{Day: parsedDay, Metric: DailyMetricSpO2Min, Value: minimum, Unit: "%", Source: records[len(records)-1].source}
 }
 
 func dailySourcePriority(source string) int {

@@ -100,9 +100,17 @@ type ParsedSleepSession struct {
 }
 
 const (
-	DailyMetricSteps      = "steps"
-	DailyMetricDistanceKM = "distance_km"
-	DailyMetricFlights    = "flights"
+	DailyMetricSteps           = "steps"
+	DailyMetricDistanceKM      = "distance_km"
+	DailyMetricFlights         = "flights"
+	DailyMetricRestingHR       = "resting_hr"
+	DailyMetricWalkingHR       = "walking_hr_avg"
+	DailyMetricHRVSDNN         = "hrv_sdnn"
+	DailyMetricVO2Max          = "vo2max"
+	DailyMetricBodyMassKG      = "body_mass_kg"
+	DailyMetricSpO2Avg         = "spo2_avg"
+	DailyMetricSpO2Min         = "spo2_min"
+	DailyMetricRespiratoryRate = "respiratory_rate"
 )
 
 type ParsedDailySummary struct {
