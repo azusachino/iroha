@@ -34,7 +34,7 @@ const (
 // DefaultParserVersion identifies the current parser build. A completed
 // import at a different version triggers a reprocess (purge + re-persist)
 // rather than a duplicate append; bump this when parser semantics change.
-const DefaultParserVersion = "apple-health-2026-07-daily-activity"
+const DefaultParserVersion = "apple-health-2026-07-body-vitals"
 
 type Enqueuer interface {
 	EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error)
