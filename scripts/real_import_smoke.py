@@ -29,6 +29,7 @@ import argparse
 import json
 import mimetypes
 import os
+import re
 import subprocess
 import sys
 import time
@@ -129,6 +130,9 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         return 1
     counts1 = capture_counts(args.dsn)
     print_counts(counts1)
+    # The daily endpoint is the first real read path for this module.
+    daily_rows = get_json(args.api_base, "/api/v1/daily?limit=1")["items"]
+    print(f"daily_api_rows={len(daily_rows)}")
 
     print("\n=== import #2 (same file; reuse guard expected) ===")
     raw2 = upload_raw_file(args)
@@ -177,6 +181,21 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         f"counts1.sleep_rollup_mismatches={counts1['sleep_rollup_mismatches']}",
     )
     check(
+        "import#1 daily summaries and metrics > 0",
+        counts1["daily_summaries_total"] > 0 and counts1["daily_metrics_total"] > 0,
+        f"daily_summaries={counts1['daily_summaries_total']} daily_metrics={counts1['daily_metrics_total']}",
+    )
+    check(
+        "import#1 daily source items > 0",
+        counts1["source_items_daily_summary"] > 0 and counts1["source_items_daily_metric"] > 0,
+        f"daily_summary_items={counts1['source_items_daily_summary']} daily_metric_items={counts1['source_items_daily_metric']}",
+    )
+    check(
+        "import#1 daily API returns rows",
+        len(daily_rows) > 0,
+        f"daily_api_rows={len(daily_rows)}",
+    )
+    check(
         "import#1 import_snapshots increased by exactly 1",
         d1["snapshots"] == 1,
         f"delta snapshots={d1['snapshots']} (baseline={baseline['snapshots']} -> {counts1['snapshots']})",
@@ -202,6 +221,28 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         f"new_gpx_activities_since_run_start={new_gpx_after_1}",
     )
 
+    explore = activity_explore_totals(args.file)
+    check(
+        "import#1 deduped steps are below naive all-source sum",
+        counts1["daily_steps_total"] < explore["steps_naive_total"],
+        f"deduped={counts1['daily_steps_total']} naive={explore['steps_naive_total']}",
+    )
+    max_source = explore["steps_max_source_total"]
+    max_source_delta = abs(counts1["daily_steps_total"] - max_source) / max_source if max_source else 1
+    check(
+        "import#1 deduped steps are near activity_explore per-day-max",
+        max_source > 0 and max_source_delta <= 0.2,
+        f"deduped={counts1['daily_steps_total']} per_day_max={max_source} relative_delta={max_source_delta:.3f}",
+    )
+    check(
+        "import#1 ring averages match activity_explore",
+        within_tolerance(counts1["daily_move_avg"], explore["move_avg"], 1.0)
+        and within_tolerance(counts1["daily_exercise_avg"], explore["exercise_avg"], 1.0)
+        and within_tolerance(counts1["daily_stand_avg"], explore["stand_avg"], 0.2),
+        f"db=({counts1['daily_move_avg']:.2f}, {counts1['daily_exercise_avg']:.2f}, {counts1['daily_stand_avg']:.2f}) "
+        f"explore=({explore['move_avg']:.2f}, {explore['exercise_avg']:.2f}, {explore['stand_avg']:.2f})",
+    )
+
     d2 = delta(counts1, counts2)
     check(
         "import#2 (reuse) apple_source_items unchanged",
@@ -212,6 +253,20 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         "import#2 (reuse) sleep rows unchanged",
         d2["sleep_sessions_total"] == 0 and d2["sleep_segments_total"] == 0,
         f"delta sleep_sessions={d2['sleep_sessions_total']} sleep_segments={d2['sleep_segments_total']}",
+    )
+    check(
+        "import#2 (reuse) daily rows unchanged",
+        d2["daily_summaries_total"] == 0 and d2["daily_metrics_total"] == 0,
+        f"delta daily_summaries={d2['daily_summaries_total']} daily_metrics={d2['daily_metrics_total']}",
+    )
+    check(
+        "import#2 (reuse) daily rollups unchanged",
+        d2["daily_steps_total"] == 0
+        and d2["daily_move_avg"] == 0
+        and d2["daily_exercise_avg"] == 0
+        and d2["daily_stand_avg"] == 0,
+        f"delta daily_steps={d2['daily_steps_total']} move_avg={d2['daily_move_avg']} "
+        f"exercise_avg={d2['daily_exercise_avg']} stand_avg={d2['daily_stand_avg']}",
     )
     check(
         "import#2 (reuse) import_snapshots unchanged",
@@ -321,6 +376,20 @@ def run_assert_reprocess_mode(args: argparse.Namespace) -> int:
         f"delta sleep_sessions={d['sleep_sessions_total']} sleep_segments={d['sleep_segments_total']}",
     )
     check(
+        "reprocess: daily rows unchanged in total",
+        d["daily_summaries_total"] == 0 and d["daily_metrics_total"] == 0,
+        f"delta daily_summaries={d['daily_summaries_total']} daily_metrics={d['daily_metrics_total']}",
+    )
+    check(
+        "reprocess: daily rollups unchanged in total",
+        d["daily_steps_total"] == 0
+        and d["daily_move_avg"] == 0
+        and d["daily_exercise_avg"] == 0
+        and d["daily_stand_avg"] == 0,
+        f"delta daily_steps={d['daily_steps_total']} move_avg={d['daily_move_avg']} "
+        f"exercise_avg={d['daily_exercise_avg']} stand_avg={d['daily_stand_avg']}",
+    )
+    check(
         "reprocess: import_snapshots unchanged in total (old purged, one new persisted)",
         d["snapshots"] == 0,
         f"delta snapshots={d['snapshots']} ({baseline['snapshots']} -> {after['snapshots']})",
@@ -386,6 +455,12 @@ def capture_counts(dsn: str) -> dict:
         "source_items_sleep_session": psql_int(
             dsn, "select count(*) from tb_apple_source_items where item_type = 'sleep_session';"
         ),
+        "source_items_daily_summary": psql_int(
+            dsn, "select count(*) from tb_apple_source_items where item_type = 'daily_summary';"
+        ),
+        "source_items_daily_metric": psql_int(
+            dsn, "select count(*) from tb_apple_source_items where item_type = 'daily_metric';"
+        ),
         "source_items_by_type": psql_rows(
             dsn,
             "select item_type, count(*) from tb_apple_source_items group by item_type order by item_type;",
@@ -406,6 +481,14 @@ def capture_counts(dsn: str) -> dict:
         ),
         "sleep_sessions_total": psql_int(dsn, "select count(*) from tb_sleep_sessions;"),
         "sleep_segments_total": psql_int(dsn, "select count(*) from tb_sleep_segments;"),
+        "daily_summaries_total": psql_int(dsn, "select count(*) from tb_daily_summaries;"),
+        "daily_metrics_total": psql_int(dsn, "select count(*) from tb_daily_metrics;"),
+        "daily_steps_total": psql_float(
+            dsn, "select coalesce(sum(value) filter (where metric = 'steps'), 0) from tb_daily_metrics;"
+        ),
+        "daily_move_avg": psql_float(dsn, "select coalesce(avg(move_kcal), 0) from tb_daily_summaries;"),
+        "daily_exercise_avg": psql_float(dsn, "select coalesce(avg(exercise_min), 0) from tb_daily_summaries;"),
+        "daily_stand_avg": psql_float(dsn, "select coalesce(avg(stand_hours), 0) from tb_daily_summaries;"),
         "sleep_rollup_mismatches": psql_int(
             dsn,
             """
@@ -442,6 +525,44 @@ def print_counts(counts: dict) -> None:
         print(f"  {key}={value}")
 
 
+def within_tolerance(value: float, expected: float, absolute: float) -> bool:
+    return abs(value - expected) <= max(absolute, abs(expected) * 0.02)
+
+
+def activity_explore_totals(path: Path) -> dict[str, float]:
+    script = Path(__file__).with_name("activity_explore.py")
+    result = subprocess.run(
+        [sys.executable, str(script), str(path), "--recent", "1"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    output = result.stdout
+
+    def number(pattern: str) -> float:
+        match = re.search(pattern, output)
+        if not match:
+            raise RuntimeError(f"activity_explore.py output missing {pattern!r}")
+        return float(match.group(1))
+
+    steps_section = re.search(r"=== steps ===(.*?)(?=\n===|\Z)", output, re.DOTALL)
+    if not steps_section:
+        raise RuntimeError("activity_explore.py output missing steps section")
+    steps = steps_section.group(1)
+    naive_match = re.search(r"naive sum-all-sources total: ([0-9.]+)", steps)
+    max_match = re.search(r"per-day max-source total: ([0-9.]+)", steps)
+    if not naive_match or not max_match:
+        raise RuntimeError("activity_explore.py output missing step totals")
+
+    return {
+        "steps_naive_total": float(naive_match.group(1)),
+        "steps_max_source_total": float(max_match.group(1)),
+        "move_avg": number(r"avg move: ([0-9.]+) kcal"),
+        "exercise_avg": number(r"avg exercise: ([0-9.]+) min"),
+        "stand_avg": number(r"avg stand: ([0-9.]+) h"),
+    }
+
+
 def psql_scalar(dsn: str, sql: str) -> str:
     result = subprocess.run(
         ["psql", dsn, "-tA", "-c", sql],
@@ -455,6 +576,11 @@ def psql_scalar(dsn: str, sql: str) -> str:
 def psql_int(dsn: str, sql: str) -> int:
     value = psql_scalar(dsn, sql)
     return int(value) if value else 0
+
+
+def psql_float(dsn: str, sql: str) -> float:
+    value = psql_scalar(dsn, sql)
+    return float(value) if value else 0.0
 
 
 def psql_rows(dsn: str, sql: str) -> list[tuple[str, ...]]:
