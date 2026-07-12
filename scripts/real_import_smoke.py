@@ -133,6 +133,7 @@ def run_assert_mode(args: argparse.Namespace) -> int:
     # The daily endpoint is the first real read path for this module.
     daily_rows = get_json(args.api_base, "/api/v1/daily?limit=1")["items"]
     print(f"daily_api_rows={len(daily_rows)}")
+    daily_probes = daily_vitals_probes(args, args.dsn)
 
     print("\n=== import #2 (same file; reuse guard expected) ===")
     raw2 = upload_raw_file(args)
@@ -196,6 +197,19 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         f"daily_api_rows={len(daily_rows)}",
     )
     check(
+        "import#1 daily API exposes vitals on a ring day",
+        daily_probes["ring"] is not None
+        and daily_probes["ring"].get("resting_hr") is not None,
+        f"ring_day={daily_probes['ring_day']} row={daily_probes['ring']}",
+    )
+    check(
+        "import#1 daily API exposes vitals on a non-ring day",
+        daily_probes["non_ring"] is not None
+        and daily_probes["non_ring"].get("body_mass_kg") is not None
+        and daily_probes["non_ring"].get("move_kcal") == 0,
+        f"non_ring_day={daily_probes['non_ring_day']} row={daily_probes['non_ring']}",
+    )
+    check(
         "import#1 import_snapshots increased by exactly 1",
         d1["snapshots"] == 1,
         f"delta snapshots={d1['snapshots']} (baseline={baseline['snapshots']} -> {counts1['snapshots']})",
@@ -222,6 +236,32 @@ def run_assert_mode(args: argparse.Namespace) -> int:
     )
 
     explore = activity_explore_totals(args.file)
+    vitals_explore = vitals_explore_totals(args.file)
+    metric_stats = counts1["daily_metric_stats"]
+    for metric in ("resting_hr", "hrv_sdnn", "respiratory_rate", "body_mass_kg"):
+        check(
+            f"import#1 {metric} day count matches vitals_explore",
+            metric in metric_stats and metric in vitals_explore and metric_stats[metric]["count"] == vitals_explore[metric]["days"],
+            f"db={metric_stats.get(metric)} explore={vitals_explore.get(metric)}",
+        )
+    check(
+        "import#1 SpO2 metrics are present and stored as percent",
+        "spo2_avg" in metric_stats
+        and "spo2_min" in metric_stats
+        and 75 <= metric_stats["spo2_min"]["min"] <= 100
+        and 75 <= metric_stats["spo2_avg"]["max"] <= 100,
+        f"spo2_avg={metric_stats.get('spo2_avg')} spo2_min={metric_stats.get('spo2_min')}",
+    )
+    check(
+        "import#1 HRV average is in the explored range",
+        "hrv_sdnn" in metric_stats and 6 <= metric_stats["hrv_sdnn"]["avg"] <= 269,
+        f"hrv_sdnn={metric_stats.get('hrv_sdnn')}",
+    )
+    check(
+        "import#1 respiratory rate average is near 16",
+        "respiratory_rate" in metric_stats and within_tolerance(metric_stats["respiratory_rate"]["avg"], 16, 2),
+        f"respiratory_rate={metric_stats.get('respiratory_rate')}",
+    )
     check(
         "import#1 deduped steps are below naive all-source sum",
         counts1["daily_steps_total"] < explore["steps_naive_total"],
@@ -489,6 +529,18 @@ def capture_counts(dsn: str) -> dict:
         "daily_move_avg": psql_float(dsn, "select coalesce(avg(move_kcal), 0) from tb_daily_summaries;"),
         "daily_exercise_avg": psql_float(dsn, "select coalesce(avg(exercise_min), 0) from tb_daily_summaries;"),
         "daily_stand_avg": psql_float(dsn, "select coalesce(avg(stand_hours), 0) from tb_daily_summaries;"),
+        "daily_metric_stats": {
+            row[0]: {
+                "count": int(row[1]),
+                "min": float(row[2]),
+                "avg": float(row[3]),
+                "max": float(row[4]),
+            }
+            for row in psql_rows(
+                dsn,
+                "select metric, count(*), min(value), avg(value), max(value) from tb_daily_metrics group by metric;",
+            )
+        },
         "sleep_rollup_mismatches": psql_int(
             dsn,
             """
@@ -560,6 +612,68 @@ def activity_explore_totals(path: Path) -> dict[str, float]:
         "move_avg": number(r"avg move: ([0-9.]+) kcal"),
         "exercise_avg": number(r"avg exercise: ([0-9.]+) min"),
         "stand_avg": number(r"avg stand: ([0-9.]+) h"),
+    }
+
+
+def vitals_explore_totals(path: Path) -> dict[str, dict[str, float]]:
+    script = Path(__file__).with_name("vitals_explore.py")
+    result = subprocess.run([sys.executable, str(script), str(path)], check=True, capture_output=True, text=True)
+    return parse_vitals_explore_output(result.stdout)
+
+
+def parse_vitals_explore_output(output: str) -> dict[str, dict[str, float]]:
+    totals: dict[str, dict[str, float]] = {}
+    row_pattern = re.compile(
+        r"^(\S+)\s+\S+\s+(\d+)\s+(\d+)\s+[\d.]+\s+\d+\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)"
+    )
+    for line in output.splitlines():
+        match = row_pattern.match(line.strip())
+        if not match:
+            continue
+        metric, records, days, minimum, average, maximum = match.groups()
+        totals[metric] = {
+            "records": float(records),
+            "days": float(days),
+            "min": float(minimum),
+            "avg": float(average),
+            "max": float(maximum),
+        }
+    if not totals:
+        raise RuntimeError("vitals_explore.py output contained no metric totals")
+    return totals
+
+
+def daily_vitals_probes(args: argparse.Namespace, dsn: str) -> dict[str, object]:
+    ring_day = psql_scalar(
+        dsn,
+        """
+        select min(s.day)::text
+        from tb_daily_summaries s
+        where exists (
+            select 1 from tb_daily_metrics m where m.day = s.day and m.metric = 'resting_hr'
+        );
+        """,
+    )
+    non_ring_day = psql_scalar(
+        dsn,
+        """
+        select min(m.day)::text
+        from tb_daily_metrics m
+        where m.metric = 'body_mass_kg'
+          and not exists (select 1 from tb_daily_summaries s where s.day = m.day);
+        """,
+    )
+
+    def row_for(day: str) -> dict | None:
+        if not day:
+            return None
+        return get_json(args.api_base, f"/api/v1/daily?from={day}&to={day}&limit=1")["items"][0]
+
+    return {
+        "ring_day": ring_day,
+        "ring": row_for(ring_day),
+        "non_ring_day": non_ring_day,
+        "non_ring": row_for(non_ring_day),
     }
 
 
