@@ -8,6 +8,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
@@ -58,12 +59,14 @@ func main() {
 	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient)
 	activityService := activities.NewService(db)
 	sleepService := sleep.NewService(db)
+	dailyService := daily.NewService(db)
 
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:          cfg,
 		Logger:          logger,
 		ActivityService: activityService,
 		SleepService:    sleepService,
+		DailyService:    dailyService,
 		ImportService:   importService,
 		RawFileService:  rawFileService,
 		Cache:           cacheClient,

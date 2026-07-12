@@ -13,6 +13,7 @@ const (
 	ActivityPrefix     = "act"
 	SleepPrefix        = "sleep"
 	SleepSegmentPrefix = "sleepseg"
+	DailySummaryPrefix = "daily"
 )
 
 func New() (uuid.UUID, error) {

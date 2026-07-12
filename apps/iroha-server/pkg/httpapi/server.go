@@ -9,6 +9,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
@@ -32,6 +33,7 @@ type Dependencies struct {
 	Logger          *slog.Logger
 	ActivityService *activities.Service
 	SleepService    *sleep.Service
+	DailyService    *daily.Service
 	ImportService   *imports.Service
 	RawFileService  *rawfiles.Service
 	Cache           *cache.Client
@@ -96,6 +98,7 @@ func (s *Server) routes() {
 			r.Get("/aggregates", s.handleSleepAggregates)
 			r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
 		})
+		r.Get("/daily", s.handleListDaily)
 	})
 
 	// Public, sanitized, cache-backed views for the public page. No auth, and
