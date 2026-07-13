@@ -511,6 +511,19 @@ type MediaResolutionTask struct {
 
 func (MediaResolutionTask) TableName() string { return "tb_media_resolution_tasks" }
 
+type MediaSyncState struct {
+	ID            uuid.UUID       `gorm:"type:uuid;primaryKey"`
+	ConnectorID   string          `gorm:"uniqueIndex"`
+	CursorJSON    json.RawMessage `gorm:"column:cursor_json;type:jsonb"`
+	Status        string
+	LastError     *string
+	LastFetchedAt *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (MediaSyncState) TableName() string { return "tb_media_sync_state" }
+
 type IntakePayload struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
 	SourceKind    string

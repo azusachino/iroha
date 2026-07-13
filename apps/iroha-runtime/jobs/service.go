@@ -28,6 +28,8 @@ const (
 	KindStravaImportParse     = "strava_import_parse"
 	KindMediaIntakeParse      = "media_intake_parse"
 	KindMediaConnectorSync    = "media_connector_sync"
+	KindMediaSyncAniList      = "media_sync_anilist"
+	KindMediaSyncBangumi      = "media_sync_bangumi"
 	KindHealthFullDumpRequest = "health_full_dump_request"
 	KindProjectionRefresh     = "projection_refresh"
 	KindPublicSummaryRefresh  = "public_summary_refresh"
