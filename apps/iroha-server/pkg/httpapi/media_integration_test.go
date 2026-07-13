@@ -67,13 +67,13 @@ func TestMediaAggregatesIntegration(t *testing.T) {
 		t.Fatalf("score_distribution = %+v, want 8:2 3:1", result.ScoreDistribution)
 	}
 
-	// Type split: anime (A,B) and book (C,D).
+	// Type split groups by item media_type: anime_season (A,B) and book (C,D).
 	byType := map[string]int{}
 	for _, bucket := range result.TypeSplit {
 		byType[bucket.Type] = bucket.Count
 	}
-	if byType["anime"] != 2 || byType["book"] != 2 {
-		t.Fatalf("type_split = %+v, want anime:2 book:2", result.TypeSplit)
+	if byType["anime_season"] != 2 || byType["book"] != 2 {
+		t.Fatalf("type_split = %+v, want anime_season:2 book:2", result.TypeSplit)
 	}
 
 	if result.Totals.ItemCount != 4 {

@@ -281,13 +281,14 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 			FROM completion_dates
 			GROUP BY media_item_id
 		), grouped AS (
-			SELECT coalesce(work.work_kind, item.media_type) AS type,
+			-- Kind lives on the item (media_type: anime_season, manga, movie…);
+			-- the parent work_kind is a generic 'media', so group by media_type.
+			SELECT item.media_type AS type,
 				count(*)::int AS count,
 				avg(latest_ratings.normalized_rating) AS average_rating,
 				count(latest_ratings.normalized_rating)::int AS rating_count,
 				count(completions.media_item_id)::int AS completed_count
 			FROM tb_media_items AS item
-			LEFT JOIN tb_media_works AS work ON work.id = item.work_id
 			LEFT JOIN latest_ratings ON latest_ratings.media_item_id = item.id
 			LEFT JOIN completions ON completions.media_item_id = item.id
 			GROUP BY type
