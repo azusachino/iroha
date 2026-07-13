@@ -3,6 +3,8 @@ name: iroha-dev
 services:
   db:
     image: ghcr.io/baosystems/postgis:18-3.6
+    cpus: 2
+    mem_limit: 2g
     environment:
       POSTGRES_DB: iroha
       POSTGRES_USER: iroha
@@ -15,6 +17,8 @@ services:
 
   valkey:
     image: valkey/valkey:8-alpine
+    cpus: 1
+    mem_limit: 256m
     ports:
       - "6379:6379"
     volumes:

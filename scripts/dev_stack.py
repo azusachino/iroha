@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 import os
+import json
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_FILE = ROOT / "ops" / "local-dev" / "compose.yaml"
+APP_COMPOSE_FILE = ROOT / "ops" / "local-dev" / "compose.app.yaml"
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable",
@@ -58,6 +61,51 @@ def bianpai_cmd() -> list[str]:
     return [binary, "--backend", "container", "-f", str(COMPOSE_FILE)]
 
 
+def container_ip(container_name: str) -> str:
+    result = subprocess.run(
+        ["container", "inspect", container_name],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(result.stdout)
+    try:
+        address = payload[0]["status"]["networks"][0]["ipv4Address"]
+    except (IndexError, KeyError) as exc:
+        raise RuntimeError(f"container {container_name} has no private IPv4 address") from exc
+    return address.split("/", 1)[0]
+
+
+def app_compose_file(server_ip: str = "127.0.0.1") -> Path:
+    db_ip = container_ip("iroha-dev_db_1")
+    valkey_ip = container_ip("iroha-dev_valkey_1")
+    content = APP_COMPOSE_FILE.read_text()
+    content = content.replace(
+        "__DATABASE_URL__",
+        f"postgres://iroha:iroha_dev@{db_ip}:5432/iroha?sslmode=disable",
+    )
+    content = content.replace("__VALKEY_URL__", f"redis://{valkey_ip}:6379/0")
+    content = content.replace("__SERVER_IP__", server_ip)
+    temporary = tempfile.NamedTemporaryFile(
+        mode="w",
+        prefix="iroha-app-",
+        suffix=".yaml",
+        dir=ROOT / "ops" / "local-dev",
+        delete=False,
+    )
+    with temporary:
+        temporary.write(content)
+    return Path(temporary.name)
+
+
+def app_bianpai_cmd(compose_file: Path) -> list[str]:
+    binary = bianpai_bin()
+    if not binary:
+        raise SystemExit(2)
+    return [binary, "--backend", "container", "-f", str(compose_file)]
+
+
 def wait_for_db(timeout_s: int = 60) -> int:
     deadline = time.monotonic() + timeout_s
     cmd = ["pg_isready", "-h", DB_HOST, "-p", DB_PORT, "-U", DB_USER, "-d", DB_NAME]
@@ -94,17 +142,45 @@ def main() -> int:
         check_call(cmd + ["up", "-d"])
         if wait_for_db() != 0:
             return 1
-        return migrate()
+        if migrate() != 0:
+            return 1
+        app_file = app_compose_file()
+        try:
+            if run(app_bianpai_cmd(app_file) + ["up", "--build", "-d", "server", "job"]) != 0:
+                return 1
+            server_ip = container_ip("iroha-dev_server_1")
+            web_file = app_compose_file(server_ip)
+            try:
+                return run(app_bianpai_cmd(web_file) + ["up", "--build", "-d", "web"])
+            finally:
+                web_file.unlink(missing_ok=True)
+        finally:
+            app_file.unlink(missing_ok=True)
 
     if action == "stop":
+        app_file = app_compose_file()
+        try:
+            run(app_bianpai_cmd(app_file) + ["down"])
+        finally:
+            app_file.unlink(missing_ok=True)
         return run(cmd + ["down"])
 
     if action == "status":
+        app_file = app_compose_file()
+        try:
+            run(app_bianpai_cmd(app_file) + ["ps"])
+        finally:
+            app_file.unlink(missing_ok=True)
         return run(cmd + ["ps"])
 
     if action == "logs":
         return run(cmd + ["logs", "db"])
 
+    app_file = app_compose_file()
+    try:
+        run(app_bianpai_cmd(app_file) + ["down", "-v"])
+    finally:
+        app_file.unlink(missing_ok=True)
     check_call(cmd + ["down", "-v"])
     check_call(["container", "system", "start"])
     check_call(cmd + ["up", "-d"])
