@@ -329,6 +329,201 @@ func (AppleSourceItem) TableName() string {
 	return "tb_apple_source_items"
 }
 
+type MediaWork struct {
+	ID               uuid.UUID `gorm:"type:uuid;primaryKey"`
+	WorkKind         string
+	PrimaryTitle     string
+	OriginalTitle    string
+	OriginalLanguage string
+	FirstReleaseDate *time.Time `gorm:"type:date"`
+	Description      string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+func (MediaWork) TableName() string { return "tb_media_works" }
+
+type MediaItem struct {
+	ID              uuid.UUID  `gorm:"type:uuid;primaryKey"`
+	WorkID          *uuid.UUID `gorm:"type:uuid"`
+	ParentItemID    *uuid.UUID `gorm:"type:uuid"`
+	MediaType       string
+	ItemRole        string
+	Title           string
+	SortTitle       string
+	OriginalTitle   string
+	Description     string
+	ReleaseDate     *time.Time `gorm:"type:date"`
+	SeasonNumber    *int
+	EpisodeNumber   *int
+	ChapterNumber   *float64
+	VolumeNumber    *float64
+	DurationSeconds *int
+	PageCount       *int
+	EpisodeCount    *int
+	ChapterCount    *int
+	Language        string
+	Country         string
+	CoverImageURL   string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (MediaItem) TableName() string { return "tb_media_items" }
+
+type MediaTitle struct {
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ScopeType  string
+	ScopeID    uuid.UUID `gorm:"type:uuid"`
+	Title      string
+	Language   string
+	Script     string
+	Region     string
+	TitleKind  string
+	Provider   string
+	IsPrimary  bool
+	Confidence *float64
+	CreatedAt  time.Time
+}
+
+func (MediaTitle) TableName() string { return "tb_media_titles" }
+
+type MediaRelation struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	FromType     string
+	FromID       uuid.UUID `gorm:"type:uuid"`
+	ToType       string
+	ToID         uuid.UUID `gorm:"type:uuid"`
+	RelationType string
+	Provider     string
+	Confidence   *float64
+	CreatedAt    time.Time
+}
+
+func (MediaRelation) TableName() string { return "tb_media_relations" }
+
+type MediaExternalRef struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ScopeType   string
+	ScopeID     uuid.UUID `gorm:"type:uuid"`
+	Provider    string
+	ExternalID  string
+	ExternalURL string
+	Confidence  *float64
+	MatchedBy   string
+	CreatedAt   time.Time
+}
+
+func (MediaExternalRef) TableName() string { return "tb_media_external_refs" }
+
+type MediaCreator struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Name         string
+	SortName     string
+	OriginalName string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (MediaCreator) TableName() string { return "tb_media_creators" }
+
+type MediaCreatorRole struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	CreatorID uuid.UUID `gorm:"type:uuid"`
+	ScopeType string
+	ScopeID   uuid.UUID `gorm:"type:uuid"`
+	Role      string
+	Provider  string
+	CreatedAt time.Time
+}
+
+func (MediaCreatorRole) TableName() string { return "tb_media_creator_roles" }
+
+type MediaConsumptionEvent struct {
+	ID              uuid.UUID `gorm:"type:uuid;primaryKey"`
+	MediaItemID     uuid.UUID `gorm:"type:uuid"`
+	EventType       string
+	EventAt         *time.Time
+	SourceKind      string
+	SourceEventID   string
+	Unit            string
+	Position        *float64
+	Total           *float64
+	ProgressPercent *float64
+	Rating          *float64
+	RatingScale     *float64
+	Note            string
+	RawFileID       *uuid.UUID `gorm:"type:uuid"`
+	CreatedAt       time.Time
+}
+
+func (MediaConsumptionEvent) TableName() string { return "tb_media_consumption_events" }
+
+type MediaProgress struct {
+	MediaItemID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Status             string
+	Unit               string
+	Position           *float64
+	Total              *float64
+	ProgressPercent    *float64
+	StartedAt          *time.Time
+	LastUpdateAt       *time.Time
+	FinishedAt         *time.Time
+	PlayCount          int
+	HiddenFromContinue bool
+	SourceKind         string
+	UpdatedAt          time.Time
+}
+
+func (MediaProgress) TableName() string { return "tb_media_progress" }
+
+type MediaList struct {
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Name          string
+	ListKind      string
+	SourceKind    string
+	ExternalRefID *uuid.UUID `gorm:"type:uuid"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (MediaList) TableName() string { return "tb_media_lists" }
+
+type MediaListItem struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ListID      uuid.UUID `gorm:"type:uuid"`
+	MediaItemID uuid.UUID `gorm:"type:uuid"`
+	Position    *float64
+	CreatedAt   time.Time
+}
+
+func (MediaListItem) TableName() string { return "tb_media_list_items" }
+
+type MediaResolutionTask struct {
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
+	TaskType       string
+	Status         string
+	CandidatesJSON json.RawMessage `gorm:"column:candidates_json;type:jsonb"`
+	ResolutionJSON json.RawMessage `gorm:"column:resolution_json;type:jsonb"`
+	CreatedAt      time.Time
+	ResolvedAt     *time.Time
+}
+
+func (MediaResolutionTask) TableName() string { return "tb_media_resolution_tasks" }
+
+type MediaSyncState struct {
+	ID            uuid.UUID       `gorm:"type:uuid;primaryKey"`
+	ConnectorID   string          `gorm:"uniqueIndex"`
+	CursorJSON    json.RawMessage `gorm:"column:cursor_json;type:jsonb"`
+	Status        string
+	LastError     *string
+	LastFetchedAt *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (MediaSyncState) TableName() string { return "tb_media_sync_state" }
+
 type IntakePayload struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
 	SourceKind    string

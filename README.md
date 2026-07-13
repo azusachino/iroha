@@ -82,6 +82,12 @@ The server is configured via `iroha.toml` and/or environment variables:
 | `IROHA_LOCAL_NO_AUTH`  | Disable auth for local dev           | `true`                         |
 | `IROHA_IMPORT_TOKEN`   | Bearer token for the upload contract | —                              |
 | `IROHA_PARSER_VERSION` | Parser build id; bump to reprocess   | `imports.DefaultParserVersion` |
+| `IROHA_ANILIST_USERNAME` | Public AniList username to sync       | —                              |
+| `IROHA_ANILIST_TOKEN`  | Optional AniList OAuth token           | —                              |
+| `IROHA_BANGUMI_USERNAME` | Public Bangumi username to sync        | —                              |
+| `IROHA_BANGUMI_TOKEN` | Optional Bangumi PAT                    | —                              |
+| `IROHA_BANGUMI_BRIDGE_PATH` | Optional Bangumi→MAL JSON cache path | — |
+| `IROHA_MAL_ANILIST_BRIDGE_PATH` | Optional MAL→AniList JSON cache path | — |
 
 Smoke-test a real import end to end:
 

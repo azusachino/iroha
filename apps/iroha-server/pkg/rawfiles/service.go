@@ -1,6 +1,7 @@
 package rawfiles
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	connector "github.com/azusachino/iroha/apps/iroha-core/connector/v1"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"gorm.io/gorm"
@@ -110,6 +112,58 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 	}
 
 	return rawFile, false, nil
+}
+
+func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot) (models.RawFile, error) {
+	if err := ctx.Err(); err != nil {
+		return models.RawFile{}, err
+	}
+	if snapshot.SourceKind == "" {
+		return models.RawFile{}, errors.New("snapshot source kind is required")
+	}
+	if len(snapshot.Body) == 0 {
+		return models.RawFile{}, errors.New("snapshot body is empty")
+	}
+	if snapshot.Filename == "" {
+		snapshot.Filename = snapshot.SourceKind + ".json"
+	}
+	now := time.Now().UTC()
+	hashBytes := sha256.Sum256(snapshot.Body)
+	hash := hex.EncodeToString(hashBytes[:])
+	existing, found, err := s.findByHash(hash)
+	if err != nil {
+		return models.RawFile{}, err
+	}
+	if found {
+		return existing, nil
+	}
+	id, err := ids.New()
+	if err != nil {
+		return models.RawFile{}, err
+	}
+	storagePath := s.storagePath(now, id.String(), snapshot.Filename)
+	if err := os.MkdirAll(filepath.Dir(storagePath), 0o755); err != nil {
+		return models.RawFile{}, err
+	}
+	if err := os.WriteFile(storagePath, snapshot.Body, 0o644); err != nil {
+		return models.RawFile{}, err
+	}
+	rawFile := models.RawFile{
+		ID:               id,
+		SHA256:           hash,
+		OriginalFilename: snapshot.Filename,
+		ContentType:      snapshot.ContentType,
+		SizeBytes:        int64(len(snapshot.Body)),
+		StoragePath:      storagePath,
+		SourceKind:       snapshot.SourceKind,
+		UploadedVia:      "connector",
+		CreatedAt:        now,
+	}
+	if err := s.db.Create(&rawFile).Error; err != nil {
+		_ = os.Remove(storagePath)
+		return models.RawFile{}, err
+	}
+	return rawFile, nil
 }
 
 func (s *Service) List(limit int) ([]models.RawFile, error) {

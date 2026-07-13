@@ -22,6 +22,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -34,6 +35,13 @@ const (
 	appleSourceItemTypeSleepSession = "sleep_session"
 	appleSourceItemTypeDailySummary = "daily_summary"
 	appleSourceItemTypeDailyMetric  = "daily_metric"
+
+	mediaWorkKind     = "media"
+	mediaItemRole     = "primary"
+	mediaEventType    = "list_state"
+	mediaListKind     = "library"
+	mediaScopeType    = "item"
+	mediaUnknownValue = "unknown"
 )
 
 // DefaultParserVersion identifies the current parser build. A completed
@@ -52,6 +60,7 @@ type Service struct {
 	enqueuer      Enqueuer
 	cacheClient   *cache.Client
 	providers     *provider.Registry
+	mediaBridge   MediaRefBridge
 }
 
 type CreateInput struct {
@@ -68,13 +77,17 @@ func NewService(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer
 }
 
 func NewServiceWithRegistry(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer, cacheClient *cache.Client, providers *provider.Registry) *Service {
+	return NewServiceWithRegistryAndBridge(db, logger, parserVersion, enqueuer, cacheClient, providers, nil)
+}
+
+func NewServiceWithRegistryAndBridge(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer, cacheClient *cache.Client, providers *provider.Registry, mediaBridge MediaRefBridge) *Service {
 	if parserVersion == "" {
 		parserVersion = DefaultParserVersion
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer, cacheClient: cacheClient, providers: providers}
+	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer, cacheClient: cacheClient, providers: providers, mediaBridge: mediaBridge}
 }
 
 func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
@@ -93,6 +106,8 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 		jobKind = jobs.KindAppleImportParse
 	case coreimports.KindGPX:
 		jobKind = jobs.KindGPXImportParse
+	case coreimports.KindAniList, coreimports.KindBangumi:
+		jobKind = jobs.KindMediaIntakeParse
 	default:
 		return models.ImportJob{}, fmt.Errorf("unsupported parser kind: %s", input.ParserKind)
 	}
@@ -217,14 +232,18 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		},
 	}
 	options := provider.ImportOptions{}
-	// TODO(media-sync): MediaImporter is not dispatched here yet — media has no
-	// canonical models/tables and ImportBatch carries no media. Wire ImportMedia
-	// (and its persistence) into this dispatch once the media schema lands.
+	var parsedMedia []observations.Media
 	var parsed []observations.Activity
 	var parsedSleep []observations.Sleep
 	var parsedDailySummaries []observations.DailySummary
 	var parsedDailyMetrics []observations.DailyMetric
-	if batchImporter, ok := adapter.(provider.BatchImporter); ok {
+	mediaImporter, mediaOK := adapter.(provider.MediaImporter)
+	if mediaOK {
+		parsedMedia, err = mediaImporter.ImportMedia(context.Background(), source, options)
+		if err != nil {
+			return s.fail(jobID, err.Error())
+		}
+	} else if batchImporter, ok := adapter.(provider.BatchImporter); ok {
 		batch, batchErr := batchImporter.ImportAll(context.Background(), source, options)
 		if batchErr != nil {
 			return s.fail(jobID, batchErr.Error())
@@ -271,7 +290,12 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		CreatedAt:     time.Now().UTC(),
 	}
 
-	if err := s.persistActivities(rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess); err != nil {
+	if mediaOK {
+		err = s.persistMedia(rawFile, parsedMedia, snapshot, reprocess)
+	} else {
+		err = s.persistActivities(rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess)
+	}
+	if err != nil {
 		return s.fail(jobID, err.Error())
 	}
 
@@ -400,7 +424,7 @@ func (s *Service) fail(jobID uuid.UUID, message string) error {
 //     this raw file, covering unchanged workouts that were never
 //     re-persisted but still got their last_seen bumped).
 //  2. tb_import_snapshots for this raw file, now safe to remove since no
-//     source item still references them.
+//     source item or source observation still references them.
 //  3. tb_activities with first_raw_file_id = this raw file. ON DELETE
 //     CASCADE removes tb_external_refs, tb_activity_route_points,
 //     tb_activity_samplings, and tb_activity_laps for those activities.
@@ -409,6 +433,10 @@ func (s *Service) fail(jobID uuid.UUID, message string) error {
 //     just null out the source items rather than removing them, defeating
 //     step (1)'s purpose.
 func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
+	if err := tx.Where("raw_file_id = ?", rawFileID).Delete(&models.MediaConsumptionEvent{}).Error; err != nil {
+		return err
+	}
+
 	if err := tx.Exec(`
 		delete from tb_apple_source_items
 		where activity_id in (select id from tb_activities where first_raw_file_id = ?)
@@ -417,6 +445,24 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 		   or daily_metric_id in (select id from tb_daily_metrics where first_raw_file_id = ?)
 		   or last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?)
 	`, rawFileID, rawFileID, rawFileID, rawFileID, rawFileID).Error; err != nil {
+		return err
+	}
+	for _, statement := range []string{
+		`update tb_activities set selected_observation_id = null where selected_observation_id in (select ao.id from tb_activity_observations ao join tb_source_observations so on so.id = ao.id where so.raw_file_id = ? or so.first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?) or so.last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?))`,
+		`update tb_sleep_sessions set selected_observation_id = null where selected_observation_id in (select so.id from tb_sleep_observations so join tb_source_observations src on src.id = so.id where src.raw_file_id = ? or src.first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?) or src.last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?))`,
+		`update tb_daily_summaries set selected_observation_id = null where selected_observation_id in (select so.id from tb_daily_summary_observations so join tb_source_observations src on src.id = so.id where src.raw_file_id = ? or src.first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?) or src.last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?))`,
+		`update tb_daily_metrics set selected_observation_id = null where selected_observation_id in (select so.id from tb_daily_metric_observations so join tb_source_observations src on src.id = so.id where src.raw_file_id = ? or src.first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?) or src.last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?))`,
+	} {
+		if err := tx.Exec(statement, rawFileID, rawFileID, rawFileID).Error; err != nil {
+			return err
+		}
+	}
+	if err := tx.Exec(`
+		delete from tb_source_observations
+		where raw_file_id = ?
+		   or first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?)
+		   or last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?)
+	`, rawFileID, rawFileID, rawFileID).Error; err != nil {
 		return err
 	}
 
@@ -441,6 +487,452 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (s *Service) persistMedia(rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot, reprocess bool) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if reprocess {
+			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Create(&snapshot).Error; err != nil {
+			return err
+		}
+		for _, media := range parsed {
+			if err := persistMediaObservation(tx, rawFile, media, s.mediaBridge); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observations.Media, bridge MediaRefBridge) error {
+	if media.Provider == "" {
+		return errors.New("parsed media missing provider")
+	}
+	if media.ExternalID == "" {
+		return errors.New("parsed media missing external id")
+	}
+	if media.Title == "" {
+		return errors.New("parsed media missing title")
+	}
+
+	resolution, err := resolveMediaItem(tx, media, bridge)
+	if err != nil {
+		return err
+	}
+	var externalRef models.MediaExternalRef
+	if resolution.ItemID == uuid.Nil {
+		workID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		itemID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		work := models.MediaWork{
+			ID:            workID,
+			WorkKind:      mediaWorkKind,
+			PrimaryTitle:  media.Title,
+			OriginalTitle: media.Title,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		}
+		if err := tx.Create(&work).Error; err != nil {
+			return err
+		}
+		item := models.MediaItem{
+			ID:              itemID,
+			WorkID:          &workID,
+			MediaType:       media.MediaType,
+			ItemRole:        itemRoleOrDefault(media.ItemRole),
+			Title:           media.Title,
+			OriginalTitle:   media.Title,
+			ReleaseDate:     media.ReleaseDate,
+			SeasonNumber:    media.SeasonNumber,
+			EpisodeNumber:   media.EpisodeNumber,
+			ChapterNumber:   media.ChapterNumber,
+			VolumeNumber:    media.VolumeNumber,
+			DurationSeconds: media.DurationSeconds,
+			PageCount:       media.PageCount,
+			EpisodeCount:    media.EpisodeCount,
+			ChapterCount:    media.ChapterCount,
+			Language:        media.Language,
+			Country:         media.Country,
+			CoverImageURL:   media.CoverImageURL,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}
+		if item.MediaType == "" {
+			item.MediaType = mediaUnknownValue
+		}
+		if err := tx.Create(&item).Error; err != nil {
+			return err
+		}
+		externalRefID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		externalRef = models.MediaExternalRef{
+			ID:         externalRefID,
+			ScopeType:  mediaScopeType,
+			ScopeID:    itemID,
+			Provider:   media.Provider,
+			ExternalID: media.ExternalID,
+			MatchedBy:  "provider_id",
+			CreatedAt:  now,
+		}
+		if err := tx.Create(&externalRef).Error; err != nil {
+			return err
+		}
+		resolution.ItemID = itemID
+	} else {
+		if err := requireMediaResolution(resolution); err != nil {
+			return err
+		}
+		itemID := resolution.ItemID
+		// The item is "owned" by this provider when its own primary ref already
+		// pointed here before this sync: then a fresh parse (e.g. a reprocess
+		// after a parser fix) may overwrite the item's core fields. If the item
+		// was reached via a bridge/title match from a different provider, only
+		// fill empty fields so we don't clobber the owner's values each sync.
+		ownedItem := true
+		lookupErr := tx.Where("scope_type = ? and scope_id = ? and provider = ? and external_id = ?", mediaScopeType, itemID, media.Provider, media.ExternalID).First(&externalRef).Error
+		if errors.Is(lookupErr, gorm.ErrRecordNotFound) {
+			ownedItem = false
+			refID, idErr := ids.New()
+			if idErr != nil {
+				return idErr
+			}
+			externalRef = models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
+			if err := tx.Create(&externalRef).Error; err != nil {
+				return err
+			}
+		} else if lookupErr != nil {
+			return lookupErr
+		}
+		if err := refreshMediaItemFields(tx, itemID, media, ownedItem); err != nil {
+			return err
+		}
+	}
+
+	itemID := resolution.ItemID
+	if err := persistMediaMetadata(tx, itemID, media); err != nil {
+		return err
+	}
+	listName := media.Provider + " library"
+	var list models.MediaList
+	result := tx.Where("source_kind = ? and name = ?", media.Provider, listName).First(&list)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		listID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		list = models.MediaList{
+			ID:         listID,
+			Name:       listName,
+			ListKind:   mediaListKind,
+			SourceKind: media.Provider,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		}
+		if err := tx.Create(&list).Error; err != nil {
+			return err
+		}
+	} else if result.Error != nil {
+		return result.Error
+	}
+	var listItem models.MediaListItem
+	result = tx.Where("list_id = ? and media_item_id = ?", list.ID, itemID).First(&listItem)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		listItemID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		if err := tx.Create(&models.MediaListItem{ID: listItemID, ListID: list.ID, MediaItemID: itemID, CreatedAt: time.Now().UTC()}).Error; err != nil {
+			return err
+		}
+	} else if result.Error != nil {
+		return result.Error
+	}
+
+	if err := persistMediaRelations(tx, itemID, media); err != nil {
+		return err
+	}
+	if err := persistMediaEvents(tx, rawFile, itemID, media); err != nil {
+		return err
+	}
+	return upsertMediaProgress(tx, rawFile, itemID, media)
+}
+
+// persistMediaRelations writes the provider relation graph (adaptation/sequel/
+// etc.) into tb_media_relations. Both endpoints must already resolve to items
+// via external refs; edges to items not (yet) in the collection are skipped
+// rather than materialized as stub items. The unique constraint dedupes edges
+// re-observed across syncs.
+func persistMediaRelations(tx *gorm.DB, itemID uuid.UUID, media observations.Media) error {
+	for _, rel := range media.Relations {
+		if rel.RelationType == "" || rel.ToExternalID == "" {
+			continue
+		}
+		toRef, err := findExternalRef(tx, rel.Provider, rel.ToExternalID)
+		if err != nil {
+			return err
+		}
+		if toRef == nil {
+			continue
+		}
+		fromID := itemID
+		if rel.FromExternalID != "" && rel.FromExternalID != media.ExternalID {
+			fromRef, err := findExternalRef(tx, rel.Provider, rel.FromExternalID)
+			if err != nil {
+				return err
+			}
+			if fromRef == nil {
+				continue
+			}
+			fromID = fromRef.ScopeID
+		}
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		relation := models.MediaRelation{
+			ID: id, FromType: mediaScopeType, FromID: fromID, ToType: mediaScopeType, ToID: toRef.ScopeID,
+			RelationType: rel.RelationType, Provider: rel.Provider, Confidence: rel.Confidence, CreatedAt: time.Now().UTC(),
+		}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&relation).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// persistMediaEvents appends the adapter's semantic events (list_state,
+// rewatch, ...) to the history log. It falls back to one synthesized
+// list_state event for providers that only emit flat state. Change-detection
+// skips re-appending an event whose stable source entry is unchanged, so
+// repeated full-list syncs don't bloat the log with duplicate rows.
+func persistMediaEvents(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, media observations.Media) error {
+	events := media.Events
+	if len(events) == 0 {
+		eventAt := media.CompletedAt
+		if eventAt == nil {
+			eventAt = media.StartedAt
+		}
+		events = []observations.MediaEvent{{
+			EventType:     mediaEventType,
+			EventAt:       eventAt,
+			SourceEventID: media.ExternalID,
+			Position:      media.Progress,
+			Rating:        media.Score,
+		}}
+	}
+	for _, event := range events {
+		if event.EventType == "" {
+			event.EventType = mediaEventType
+		}
+		unchanged, err := latestEventUnchanged(tx, itemID, rawFile.SourceKind, event)
+		if err != nil {
+			return err
+		}
+		if unchanged {
+			continue
+		}
+		eventAt := event.EventAt
+		if eventAt == nil {
+			now := time.Now().UTC()
+			eventAt = &now
+		}
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		if err := tx.Create(&models.MediaConsumptionEvent{
+			ID:              id,
+			MediaItemID:     itemID,
+			EventType:       event.EventType,
+			EventAt:         eventAt,
+			SourceKind:      rawFile.SourceKind,
+			SourceEventID:   event.SourceEventID,
+			Unit:            event.Unit,
+			Position:        event.Position,
+			Total:           event.Total,
+			ProgressPercent: event.ProgressPercent,
+			Rating:          event.Rating,
+			RatingScale:     event.RatingScale,
+			Note:            event.Note,
+			RawFileID:       &rawFile.ID,
+			CreatedAt:       time.Now().UTC(),
+		}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// latestEventUnchanged reports whether the most recent event for the same
+// source entry already records identical progress/rating/note, meaning a fresh
+// sync observed no change. Events without a stable source id always append.
+func latestEventUnchanged(tx *gorm.DB, itemID uuid.UUID, sourceKind string, event observations.MediaEvent) (bool, error) {
+	if event.SourceEventID == "" {
+		return false, nil
+	}
+	var existing models.MediaConsumptionEvent
+	err := tx.Where("media_item_id = ? and source_kind = ? and source_event_id = ? and event_type = ?",
+		itemID, sourceKind, event.SourceEventID, event.EventType).
+		Order("event_at desc, created_at desc").
+		First(&existing).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return floatPtrEqual(existing.Position, event.Position) &&
+		floatPtrEqual(existing.Rating, event.Rating) &&
+		floatPtrEqual(existing.ProgressPercent, event.ProgressPercent) &&
+		existing.Note == event.Note, nil
+}
+
+// upsertMediaProgress recomputes the current-progress projection, preferring
+// the adapter's rich ProgressState (unit/play_count/last_update/hidden) and
+// falling back to flat fields. A cross-source status disagreement is routed to
+// the inbox instead of silently overwriting.
+func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, media observations.Media) error {
+	progress := models.MediaProgress{
+		MediaItemID: itemID,
+		Status:      media.Status,
+		Position:    media.Progress,
+		StartedAt:   media.StartedAt,
+		FinishedAt:  media.CompletedAt,
+		SourceKind:  rawFile.SourceKind,
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if ps := media.ProgressState; ps != nil {
+		progress.Status = ps.Status
+		progress.Unit = ps.Unit
+		progress.Position = ps.Position
+		progress.Total = ps.Total
+		progress.ProgressPercent = ps.ProgressPercent
+		progress.StartedAt = ps.StartedAt
+		progress.LastUpdateAt = ps.LastUpdateAt
+		progress.FinishedAt = ps.FinishedAt
+		progress.PlayCount = ps.PlayCount
+		progress.HiddenFromContinue = ps.HiddenFromContinue
+	}
+	if progress.Status == "" {
+		progress.Status = mediaUnknownValue
+	}
+	var existing models.MediaProgress
+	result := tx.Where("media_item_id = ?", itemID).First(&existing)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return tx.Create(&progress).Error
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	if existing.SourceKind != "" && existing.SourceKind != rawFile.SourceKind && existing.Status != progress.Status {
+		return createProgressConflictTask(tx, media, itemID, existing.Status, progress.Status)
+	}
+	return tx.Model(&existing).Updates(map[string]any{
+		"status":               progress.Status,
+		"unit":                 progress.Unit,
+		"position":             progress.Position,
+		"total":                progress.Total,
+		"progress_percent":     progress.ProgressPercent,
+		"started_at":           progress.StartedAt,
+		"last_update_at":       progress.LastUpdateAt,
+		"finished_at":          progress.FinishedAt,
+		"play_count":           progress.PlayCount,
+		"hidden_from_continue": progress.HiddenFromContinue,
+		"source_kind":          progress.SourceKind,
+		"updated_at":           progress.UpdatedAt,
+	}).Error
+}
+
+func floatPtrEqual(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func itemRoleOrDefault(role string) string {
+	if role == "" {
+		return mediaItemRole
+	}
+	return role
+}
+
+// refreshMediaItemFields updates the core columns of an already-existing item
+// from a fresh observation. When owned (the item's own provider is syncing) a
+// non-empty incoming value overwrites, so a reprocess after a parser fix
+// re-applies; otherwise only empty columns are filled, so a bridge/title match
+// from another provider never clobbers the owner's data.
+func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Media, owned bool) error {
+	var item models.MediaItem
+	if err := tx.First(&item, "id = ?", itemID).Error; err != nil {
+		return err
+	}
+	updates := map[string]any{}
+	setStr := func(col, existing, incoming string) {
+		if incoming == "" || incoming == existing {
+			return
+		}
+		if owned || existing == "" {
+			updates[col] = incoming
+		}
+	}
+	setInt := func(col string, existing, incoming *int) {
+		if incoming == nil {
+			return
+		}
+		if owned || existing == nil {
+			updates[col] = *incoming
+		}
+	}
+	setFloat := func(col string, existing, incoming *float64) {
+		if incoming == nil {
+			return
+		}
+		if owned || existing == nil {
+			updates[col] = *incoming
+		}
+	}
+
+	if media.MediaType != "" && media.MediaType != mediaUnknownValue {
+		setStr("media_type", item.MediaType, media.MediaType)
+	}
+	if media.ItemRole != "" {
+		setStr("item_role", item.ItemRole, media.ItemRole)
+	}
+	if media.ReleaseDate != nil && (owned || item.ReleaseDate == nil) {
+		updates["release_date"] = media.ReleaseDate
+	}
+	setInt("season_number", item.SeasonNumber, media.SeasonNumber)
+	setInt("episode_number", item.EpisodeNumber, media.EpisodeNumber)
+	setFloat("chapter_number", item.ChapterNumber, media.ChapterNumber)
+	setFloat("volume_number", item.VolumeNumber, media.VolumeNumber)
+	setInt("duration_seconds", item.DurationSeconds, media.DurationSeconds)
+	setInt("page_count", item.PageCount, media.PageCount)
+	setInt("episode_count", item.EpisodeCount, media.EpisodeCount)
+	setInt("chapter_count", item.ChapterCount, media.ChapterCount)
+	setStr("language", item.Language, media.Language)
+	setStr("country", item.Country, media.Country)
+	setStr("cover_image_url", item.CoverImageURL, media.CoverImageURL)
+
+	if len(updates) == 0 {
+		return nil
+	}
+	updates["updated_at"] = time.Now().UTC()
+	return tx.Model(&models.MediaItem{}).Where("id = ?", itemID).Updates(updates).Error
 }
 
 func (s *Service) persistActivities(rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {

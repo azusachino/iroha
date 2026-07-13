@@ -10,13 +10,18 @@ import (
 	"os"
 	"time"
 
+	connector "github.com/azusachino/iroha/apps/iroha-core/connector/v1"
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
+	"github.com/azusachino/iroha/apps/iroha-providers/anilist"
+	"github.com/azusachino/iroha/apps/iroha-providers/bangumi"
+	connectorregistry "github.com/azusachino/iroha/apps/iroha-providers/connectors"
 	providerregistry "github.com/azusachino/iroha/apps/iroha-providers/registry"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -59,13 +64,37 @@ func main() {
 		}
 	}()
 
-	enqueuer := &noopEnqueuer{}
+	var jobsService *jobs.Service
+	enqueuer := &workerEnqueuer{service: &jobsService}
 	providers, err := providerregistry.New()
 	if err != nil {
 		logger.Error("build provider registry", "error", err)
 		os.Exit(1)
 	}
-	importService := imports.NewServiceWithRegistry(db, logger, parserVersion, enqueuer, cacheClient, providers)
+	var mediaBridge imports.MediaRefBridge
+	if os.Getenv(config.EnvBangumiBridge) != "" || os.Getenv(config.EnvMALAniListBridge) != "" {
+		bridge, err := imports.LoadTwoHopMediaRefBridge(os.Getenv(config.EnvBangumiBridge), os.Getenv(config.EnvMALAniListBridge))
+		if err != nil {
+			logger.Error("load media bridge", "error", err)
+			os.Exit(1)
+		}
+		mediaBridge = bridge
+	}
+	importService := imports.NewServiceWithRegistryAndBridge(db, logger, parserVersion, enqueuer, cacheClient, providers, mediaBridge)
+	rawFileService, err := rawfiles.NewService(db, cfg.Storage.DataDir)
+	if err != nil {
+		logger.Error("create raw file service", "error", err)
+		os.Exit(1)
+	}
+	connectors, err := connectorregistry.New(
+		anilist.NewConnector(os.Getenv(config.EnvAniListUsername), os.Getenv(config.EnvAniListToken)),
+		bangumi.NewConnector(os.Getenv(config.EnvBangumiUsername), os.Getenv(config.EnvBangumiToken)),
+	)
+	if err != nil {
+		logger.Error("build connector registry", "error", err)
+		os.Exit(1)
+	}
+	syncRunner := imports.NewSyncRunner(db, connectors, rawFileService, importService)
 
 	// Both kinds run the same import pipeline (Process dispatches on the
 	// job's parser_kind); only the parser kinds parsers.IsImplemented allows
@@ -74,9 +103,12 @@ func main() {
 	handlers := map[string]jobs.Handler{
 		jobs.KindAppleImportParse: importHandler,
 		jobs.KindGPXImportParse:   importHandler,
+		jobs.KindMediaIntakeParse: importHandler,
+		jobs.KindMediaSyncAniList: makeMediaSyncHandler(syncRunner, "anilist"),
+		jobs.KindMediaSyncBangumi: makeMediaSyncHandler(syncRunner, "bangumi"),
 	}
 
-	jobsService := jobs.NewService(db, logger, handlers)
+	jobsService = jobs.NewService(db, logger, handlers)
 	ctx := context.Background()
 
 	for {
@@ -118,10 +150,15 @@ func defaultWorkerID() (string, error) {
 	return fmt.Sprintf("%s:%d", hostname, os.Getpid()), nil
 }
 
-type noopEnqueuer struct{}
+type workerEnqueuer struct {
+	service **jobs.Service
+}
 
-func (n *noopEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error) {
-	return models.Job{}, nil
+func (e *workerEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error) {
+	if e.service == nil || *e.service == nil {
+		return models.Job{}, errors.New("job service is not initialized")
+	}
+	return (*e.service).EnqueueTx(tx, jobs.EnqueueInput{Kind: kind, Payload: payload})
 }
 
 func makeImportParseHandler(importService *imports.Service) jobs.Handler {
@@ -140,5 +177,21 @@ func makeImportParseHandler(importService *imports.Service) jobs.Handler {
 			return fmt.Errorf("invalid import_job_id UUID: %w", err)
 		}
 		return importService.Process(importJobID)
+	}
+}
+
+func makeMediaSyncHandler(runner *imports.SyncRunner, connectorID string) jobs.Handler {
+	return func(ctx context.Context, job models.Job) error {
+		var payload struct {
+			ConnectorID string                `json:"connector_id"`
+			Credentials connector.Credentials `json:"credentials"`
+		}
+		if err := json.Unmarshal(job.PayloadJSON, &payload); err != nil {
+			return fmt.Errorf("decode media sync payload: %w", err)
+		}
+		if payload.ConnectorID == "" {
+			payload.ConnectorID = connectorID
+		}
+		return runner.Run(ctx, payload.ConnectorID, payload.Credentials)
 	}
 }
