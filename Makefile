@@ -9,7 +9,7 @@ WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test test-integration scripts-test build run run-job web-install web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate db-up db-down db-status db-logs db-reset smoke-real-import
+.PHONY: help fmt fmt-check vet lint test test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate db-up db-down db-status db-logs db-reset smoke-real-import
 
 PRETTIER := bunx prettier@3.4.2
 DOCS_GLOB := **/*.{md,yaml,yml,json}
@@ -55,6 +55,12 @@ run-job: db-up ## Run one iroha-job polling worker against the local dev stack
 web-install: ## Install web dependencies
 	cd $(WEB_DIR) && $(NIX_DEV)bun install
 
+web-fmt: ## Format the web app (prettier + prettier-plugin-svelte: spaces, double quotes)
+	cd $(WEB_DIR) && $(NIX_DEV)bun run format
+
+web-fmt-check: ## Fail if any web file is unformatted
+	cd $(WEB_DIR) && $(NIX_DEV)bun run format:check
+
 web-check: ## Type-check the web app (svelte-check)
 	cd $(WEB_DIR) && $(NIX_DEV)bun run check
 
@@ -75,7 +81,7 @@ fmt-docs-check: ## Fail if any doc/config file is unformatted
 	$(NIX_DEV)$(PRETTIER) --check "$(DOCS_GLOB)"
 
 ## --- Aggregate gates ---
-check: fmt-check vet lint test scripts-test web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + script tests + web type-check + web tests
+check: fmt-check vet lint test scripts-test web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + script tests + web fmt-check + web type-check + web tests
 validate: check build web-build ## Pre-PR gate: check + full server and web builds
 
 ## --- Dev database (Postgres/PostGIS via uv scripts) ---
