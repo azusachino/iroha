@@ -81,15 +81,92 @@ type DailyMetric struct {
 }
 
 type Media struct {
+	Provider         string
+	ExternalID       string
+	MediaType        string
+	ItemRole         string
+	Title            string
+	WorkExternalID   string
+	WorkKind         string
+	WorkTitle        string
+	ParentExternalID string
+	ReleaseDate      *time.Time
+	SeasonNumber     *int
+	EpisodeNumber    *int
+	ChapterNumber    *float64
+	VolumeNumber     *float64
+	DurationSeconds  *int
+	PageCount        *int
+	EpisodeCount     *int
+	ChapterCount     *int
+	Language         string
+	Country          string
+	CoverImageURL    string
+	Status           string
+	Progress         *float64
+	Score            *float64
+	StartedAt        *time.Time
+	CompletedAt      *time.Time
+	Titles           []MediaTitle
+	ExternalRefs     []MediaExternalRef
+	Relations        []MediaRelation
+	Events           []MediaEvent
+	ProgressState    *MediaProgress
+}
+
+type MediaTitle struct {
+	Title      string
+	Language   string
+	Script     string
+	Region     string
+	TitleKind  string
+	Provider   string
+	IsPrimary  bool
+	Confidence *float64
+}
+
+type MediaExternalRef struct {
 	Provider    string
 	ExternalID  string
-	MediaType   string
-	Title       string
-	Status      string
-	Progress    *float64
-	Score       *float64
-	StartedAt   *time.Time
-	CompletedAt *time.Time
+	ExternalURL string
+	MatchedBy   string
+	Confidence  *float64
+}
+
+type MediaRelation struct {
+	FromType       string
+	FromExternalID string
+	ToType         string
+	ToExternalID   string
+	RelationType   string
+	Provider       string
+	Confidence     *float64
+}
+
+type MediaEvent struct {
+	EventType       string
+	EventAt         *time.Time
+	SourceEventID   string
+	Unit            string
+	Position        *float64
+	Total           *float64
+	ProgressPercent *float64
+	Rating          *float64
+	RatingScale     *float64
+	Note            string
+}
+
+type MediaProgress struct {
+	Status             string
+	Unit               string
+	Position           *float64
+	Total              *float64
+	ProgressPercent    *float64
+	StartedAt          *time.Time
+	LastUpdateAt       *time.Time
+	FinishedAt         *time.Time
+	PlayCount          int
+	HiddenFromContinue bool
 }
 
 type RoutePoint struct {
