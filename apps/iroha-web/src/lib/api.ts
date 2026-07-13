@@ -120,6 +120,54 @@ export interface ListActivitiesParams {
   cursor?: string;
 }
 
+export interface MediaRow {
+  id: string;
+  title: string;
+  media_type: string;
+  item_role: string;
+  cover_image_url?: string;
+  status?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  last_update_at: string;
+  rating?: number;
+}
+
+export interface ListMediaParams {
+  status?: string;
+  media_type?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface MediaCompletionBucket {
+  year: number;
+  count: number;
+}
+
+export interface MediaScoreBucket {
+  score: number;
+  count: number;
+}
+
+export interface MediaTypeBucket {
+  type: string;
+  count: number;
+}
+
+export interface MediaAggregates {
+  totals: {
+    item_count: number;
+    completed_count: number;
+    this_year_completed: number;
+    average_rating: number;
+  };
+  completions_by_year: MediaCompletionBucket[];
+  score_distribution: MediaScoreBucket[];
+  type_split: MediaTypeBucket[];
+}
+
 // One keyset page. `next_cursor` is null when no further rows exist.
 export interface Page<T> {
   items: T[];
@@ -226,6 +274,25 @@ export function listActivities(
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<Page<Activity>>(`/api/v1/activities${suffix}`, fetchFn);
+}
+
+export function listMedia(
+  params: ListMediaParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Page<MediaRow>> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.media_type) query.set("media_type", params.media_type);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.cursor) query.set("cursor", params.cursor);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<Page<MediaRow>>(`/api/v1/media${suffix}`, fetchFn);
+}
+
+export function getMediaAggregates(
+  fetchFn: typeof fetch = fetch,
+): Promise<MediaAggregates> {
+  return getJSON<MediaAggregates>("/api/v1/media/aggregates", fetchFn);
 }
 
 export function listSleep(

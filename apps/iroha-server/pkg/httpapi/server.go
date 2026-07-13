@@ -11,6 +11,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/go-chi/chi/v5"
@@ -38,6 +39,7 @@ type Dependencies struct {
 	ActivityService *activities.Service
 	SleepService    *sleep.Service
 	DailyService    *daily.Service
+	MediaService    *media.Service
 	ImportService   *imports.Service
 	RawFileService  *rawfiles.Service
 	Cache           *cache.Client
@@ -110,6 +112,10 @@ func (s *Server) routes() {
 		r.Route("/daily", func(r chi.Router) {
 			r.Get("/", s.handleListDaily)
 			r.Get("/aggregates", s.handleDailyAggregates)
+		})
+		r.Route("/media", func(r chi.Router) {
+			r.Get("/aggregates", s.handleMediaAggregates)
+			r.Get("/", s.handleListMedia)
 		})
 	})
 

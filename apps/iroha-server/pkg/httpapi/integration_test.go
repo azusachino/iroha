@@ -25,6 +25,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/google/uuid"
@@ -381,6 +382,7 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 		ActivityService: activities.NewService(db),
 		SleepService:    sleep.NewService(db),
 		DailyService:    daily.NewService(db),
+		MediaService:    media.NewService(db),
 		ImportService:   importService,
 		RawFileService:  rawFileService,
 	})

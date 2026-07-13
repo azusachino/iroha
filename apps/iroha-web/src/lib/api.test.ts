@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   listActivities,
+  getMediaAggregates,
   getActivity,
   getActivityRoute,
   getActivitySamplings,
@@ -112,6 +113,15 @@ describe("listActivities", () => {
 
     const result = await listActivities({}, fakeFetch);
     expect(result).toEqual(mockPage);
+  });
+});
+
+describe("getMediaAggregates", () => {
+  it("requests the media aggregates endpoint", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMediaAggregates(fakeFetch);
+
+    expect(getCapturedUrl()).toContain("/api/v1/media/aggregates");
   });
 });
 

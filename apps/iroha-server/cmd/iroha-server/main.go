@@ -13,6 +13,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"gorm.io/driver/postgres"
@@ -60,6 +61,7 @@ func main() {
 	activityService := activities.NewService(db)
 	sleepService := sleep.NewService(db)
 	dailyService := daily.NewService(db)
+	mediaService := media.NewService(db)
 
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:          cfg,
@@ -67,6 +69,7 @@ func main() {
 		ActivityService: activityService,
 		SleepService:    sleepService,
 		DailyService:    dailyService,
+		MediaService:    mediaService,
 		ImportService:   importService,
 		RawFileService:  rawFileService,
 		Cache:           cacheClient,
