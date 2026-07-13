@@ -59,6 +59,7 @@ type Service struct {
 	enqueuer      Enqueuer
 	cacheClient   *cache.Client
 	providers     *provider.Registry
+	mediaBridge   MediaRefBridge
 }
 
 type CreateInput struct {
@@ -75,13 +76,17 @@ func NewService(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer
 }
 
 func NewServiceWithRegistry(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer, cacheClient *cache.Client, providers *provider.Registry) *Service {
+	return NewServiceWithRegistryAndBridge(db, logger, parserVersion, enqueuer, cacheClient, providers, nil)
+}
+
+func NewServiceWithRegistryAndBridge(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer, cacheClient *cache.Client, providers *provider.Registry, mediaBridge MediaRefBridge) *Service {
 	if parserVersion == "" {
 		parserVersion = DefaultParserVersion
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer, cacheClient: cacheClient, providers: providers}
+	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer, cacheClient: cacheClient, providers: providers, mediaBridge: mediaBridge}
 }
 
 func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
@@ -495,7 +500,7 @@ func (s *Service) persistMedia(rawFile models.RawFile, parsed []observations.Med
 			return err
 		}
 		for _, media := range parsed {
-			if err := persistMediaObservation(tx, rawFile, media); err != nil {
+			if err := persistMediaObservation(tx, rawFile, media, s.mediaBridge); err != nil {
 				return err
 			}
 		}
@@ -503,7 +508,7 @@ func (s *Service) persistMedia(rawFile models.RawFile, parsed []observations.Med
 	})
 }
 
-func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observations.Media) error {
+func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observations.Media, bridge MediaRefBridge) error {
 	if media.Provider == "" {
 		return errors.New("parsed media missing provider")
 	}
@@ -514,12 +519,12 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 		return errors.New("parsed media missing title")
 	}
 
-	var externalRef models.MediaExternalRef
-	result := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&externalRef)
-	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return result.Error
+	resolution, err := resolveMediaItem(tx, media, bridge)
+	if err != nil {
+		return err
 	}
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	var externalRef models.MediaExternalRef
+	if resolution.ItemID == uuid.Nil {
 		workID, err := ids.New()
 		if err != nil {
 			return err
@@ -541,14 +546,26 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 			return err
 		}
 		item := models.MediaItem{
-			ID:            itemID,
-			WorkID:        &workID,
-			MediaType:     media.MediaType,
-			ItemRole:      mediaItemRole,
-			Title:         media.Title,
-			OriginalTitle: media.Title,
-			CreatedAt:     now,
-			UpdatedAt:     now,
+			ID:              itemID,
+			WorkID:          &workID,
+			MediaType:       media.MediaType,
+			ItemRole:        mediaItemRole,
+			Title:           media.Title,
+			OriginalTitle:   media.Title,
+			ReleaseDate:     media.ReleaseDate,
+			SeasonNumber:    media.SeasonNumber,
+			EpisodeNumber:   media.EpisodeNumber,
+			ChapterNumber:   media.ChapterNumber,
+			VolumeNumber:    media.VolumeNumber,
+			DurationSeconds: media.DurationSeconds,
+			PageCount:       media.PageCount,
+			EpisodeCount:    media.EpisodeCount,
+			ChapterCount:    media.ChapterCount,
+			Language:        media.Language,
+			Country:         media.Country,
+			CoverImageURL:   media.CoverImageURL,
+			CreatedAt:       now,
+			UpdatedAt:       now,
 		}
 		if item.MediaType == "" {
 			item.MediaType = mediaUnknownValue
@@ -572,14 +589,33 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 		if err := tx.Create(&externalRef).Error; err != nil {
 			return err
 		}
-	} else if externalRef.ScopeType != mediaScopeType {
-		return fmt.Errorf("media external ref %s/%s has unsupported scope %q", media.Provider, media.ExternalID, externalRef.ScopeType)
+		resolution.ItemID = itemID
+	} else {
+		if err := requireMediaResolution(resolution); err != nil {
+			return err
+		}
+		itemID := resolution.ItemID
+		if err := tx.Where("scope_type = ? and scope_id = ? and provider = ? and external_id = ?", mediaScopeType, itemID, media.Provider, media.ExternalID).First(&externalRef).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			refID, idErr := ids.New()
+			if idErr != nil {
+				return idErr
+			}
+			externalRef = models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
+			if err := tx.Create(&externalRef).Error; err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		}
 	}
 
-	itemID := externalRef.ScopeID
+	itemID := resolution.ItemID
+	if err := persistMediaMetadata(tx, itemID, media); err != nil {
+		return err
+	}
 	listName := media.Provider + " library"
 	var list models.MediaList
-	result = tx.Where("source_kind = ? and name = ?", media.Provider, listName).First(&list)
+	result := tx.Where("source_kind = ? and name = ?", media.Provider, listName).First(&list)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		listID, err := ids.New()
 		if err != nil {
@@ -658,6 +694,9 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 	}
 	if result.Error != nil {
 		return result.Error
+	}
+	if existingProgress.SourceKind != "" && existingProgress.SourceKind != rawFile.SourceKind && existingProgress.Status != progress.Status {
+		return createProgressConflictTask(tx, media, itemID, existingProgress.Status, progress.Status)
 	}
 	return tx.Model(&existingProgress).Updates(map[string]any{
 		"status":      progress.Status,

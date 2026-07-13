@@ -171,6 +171,29 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 		t.Fatalf("persisted media item/event counts = %d/%d, want 1/1", itemCount, eventCount)
 	}
 
+	bridgeMedia := observations.Media{
+		Provider: "bangumi", ExternalID: "bangumi-" + rawFileID.String(), MediaType: "anime",
+		Title: media.Title, Status: media.Status,
+		ExternalRefs: []observations.MediaExternalRef{{Provider: "bangumi", ExternalID: "bangumi-" + rawFileID.String()}},
+	}
+	bridge := TwoHopMediaRefBridge{
+		BangumiToMAL: map[string]string{bridgeMedia.ExternalID: "mal-" + rawFileID.String()},
+		MALToAniList: map[string]string{"mal-" + rawFileID.String(): media.ExternalID},
+	}
+	if err := persistMediaObservation(db, models.RawFile{ID: rawFileID, SourceKind: parsers.KindBangumi}, bridgeMedia, bridge); err != nil {
+		t.Fatalf("persist bridged Bangumi media: %v", err)
+	}
+	var bridgedRef models.MediaExternalRef
+	if err := db.Where("provider = ? and external_id = ?", bridgeMedia.Provider, bridgeMedia.ExternalID).First(&bridgedRef).Error; err != nil {
+		t.Fatalf("find bridged Bangumi ref: %v", err)
+	}
+	if bridgedRef.ScopeID == uuid.Nil {
+		t.Fatal("bridged Bangumi ref has no item scope")
+	}
+	if err := db.Exec("delete from tb_media_external_refs where provider = ? and external_id = ?", bridgeMedia.Provider, bridgeMedia.ExternalID).Error; err != nil {
+		t.Fatalf("cleanup bridged ref: %v", err)
+	}
+
 	snapshot2 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "media-snapshot-2", ParserVersion: "media-reprocess", CreatedAt: now.Add(time.Second)}
 	if err := (&Service{db: db}).persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList}, []observations.Media{media}, snapshot2, true); err != nil {
 		t.Fatalf("reprocess media: %v", err)
