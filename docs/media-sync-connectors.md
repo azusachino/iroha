@@ -136,8 +136,9 @@ Keep the emitted observation provider-neutral: both connectors map their native 
 
 ## 6. Bangumi.tv connector
 
-- **API**: REST, OpenAPI v0, `https://api.bgm.tv`. Auth via personal access token (Bearer) for private collections; public collections readable by username. Set a descriptive `User-Agent` (Bangumi
-  requires it and rejects generic agents).
+- **API**: REST, OpenAPI v0, `https://api.bgm.tv`. Auth via personal access token (Bearer) for private collections; public collections readable by username. Read endpoints work without a `User-Agent`
+  (verified: subject reads return 200 with empty/generic/descriptive UA), but send a descriptive UA identifying iroha as good practice. The subject `infobox` carries no MAL/AniList id — cross-linking
+  needs an external dataset (see §7), not an in-band ref.
 - **Endpoints**: `GET /v0/users/{username}/collections` (paginated `limit`/`offset`). Per row: subject id/type, `type` (collection type: wish/collect/do/on_hold/dropped), `rate`, `comment`, `tags`,
   `ep_status`, `vol_status`, `private`, `updated_at`, and slim `subject` metadata (name, name_cn, images, eps, volumes, date). Enrich per-subject via `GET /v0/subjects/{id}` when the slim shape is
   insufficient.
@@ -158,13 +159,16 @@ Keep the emitted observation provider-neutral: both connectors map their native 
 `tb_media_external_refs (provider, external_id) unique` is the dedupe backbone. Resolution order when an observation arrives:
 
 1. Match on `(provider, external_id)` → existing item. Done.
-2. Match via a **bridge ref** (AniList `idMal`, or a Bangumi↔AniList mapping) → existing item; attach the new provider ref.
+2. Match via a **bridge ref** → existing item; attach the new provider ref. AniList media carries `idMal` in-band (verified). Bangumi has no in-band ref, so bridge it via a static dataset: **Bangumi
+   subject id → MAL id** through [Rhilip/BangumiExtLinker](https://github.com/Rhilip/BangumiExtLinker) (Bangumi-keyed, exposes `mal_id`, CC BY 4.0), then **MAL id → AniList id** through
+   [Fribb/anime-lists](https://github.com/Fribb/anime-lists) (`mal_id`↔`anilist_id`, verified). Cache both datasets locally and refresh periodically.
 3. Conservative title+year match across `tb_media_titles` → **low-confidence** candidate → create a `tb_media_resolution_task` (inbox) rather than auto-merging.
 4. No match → create new work + item + titles + ref, `matched_by = provider_id`.
 
 Cross-provider linking is what makes AniList + Bangumi complementary rather than duplicative: AniList supplies `idMal` and romaji/english titles; Bangumi supplies Chinese titles and its own subject
-id. When both connectors see the same anime, they converge on one `tb_media_items` row with three provider refs and four+ title rows. A later AniList↔Bangumi id map (community-maintained datasets
-exist) upgrades step 2.
+id. When both connectors see the same anime, the two-hop bridge (Bangumi→MAL→AniList) converges them on one `tb_media_items` row with three provider refs and four+ title rows. The bridge is not total
+— CN databases split some works differently than MAL/AniList, so the split-entry tail falls through to step 3 (title+year → inbox). The spike (`iroha:media-connector-spike`) quantifies that tail
+against a real collection before we commit the resolver.
 
 ## 8. Sync semantics
 
@@ -179,7 +183,8 @@ exist) upgrades step 2.
 
 - AniList public username: no secret. AniList OAuth + Bangumi PAT: per-user secrets. Store connector credentials in server config / a `tb_media_connector_accounts` row (not in raw files, not in git);
   reference the existing config pattern. Local dev stays `LocalNoAuth`.
-- Both connectors must send a descriptive `User-Agent` identifying iroha.
+- Both connectors must send a descriptive `User-Agent` identifying iroha. AniList's Cloudflare **403s the default `Python-urllib`/no-UA request** (verified), so a UA is mandatory there; Bangumi reads
+  work without one but send it anyway.
 
 ## 10. Proposed epic breakdown
 
@@ -195,3 +200,16 @@ Ordered smallest → biggest to build momentum; each ends green on `make check`.
 
 Deferred (explicitly out of this draft's scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Letterboxd/Goodreads/WeRead CSV; TMDb/Open Library enrichment; self-hosted
 (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/inbox/history).
+
+## 11. Spike results (2026-07-13, verified on real accounts)
+
+Measured by `scripts/anilist_explore.py`, `scripts/bangumi_explore.py`, `scripts/media_bridge_explore.py` against AniList `azusachino` (512 anime / 1062 manga) and Bangumi `mikufan2039` (425
+collections). See epic `iroha:media-connector-spike`.
+
+- **v1 must include book/manga.** Bangumi is **61% book** (261) vs 136 anime — anime-only would drop two-thirds of the collection. `media_type` maps Bangumi `subject_type` 1→manga/light_novel
+  (disambiguate via `platform`), 2→anime; AniList `format` covers TV/TV_SHORT/MOVIE/OVA/ONA/SPECIAL/MANGA/ONE_SHOT/NOVEL.
+- **Ratings are sparse** (AniList score 6–11%, Bangumi rate 1%) — `score`/`rating` must be nullable and never required.
+- **AniList→MAL bridge is reliable**: `idMal` coverage 100% anime / 97% manga.
+- **Bangumi→AniList auto-bridge = ~66%** of anime (two-hop via BangumiExtLinker + Fribb). The **~34% tail is almost entirely 2024–2026 seasonal anime** the datasets haven't mapped yet — so title+year
+  candidate + `tb_media_resolution_tasks` inbox is **required for an active watcher's recent list**, not a nicety. Cache both datasets locally and refresh periodically.
+- **Dedupe is load-bearing**: 63 of the 136 Bangumi anime are also in the AniList list (same `idMal`) — real cross-account collisions the `external_refs` ladder must merge onto one item.
