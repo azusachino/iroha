@@ -6,12 +6,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
+	"github.com/azusachino/iroha/apps/iroha-providers/internal/materialize"
 	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
 )
 
@@ -41,7 +40,7 @@ func (a Adapter) ImportAll(ctx context.Context, source provider.Source, options 
 	if err := provider.ValidateRequested(a, options); err != nil {
 		return provider.ImportBatch{}, err
 	}
-	path, cleanup, err := materialize(ctx, source, "apple-health-*.zip")
+	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-*.zip")
 	if err != nil {
 		return provider.ImportBatch{}, err
 	}
@@ -65,7 +64,7 @@ func (a Adapter) ImportActivities(ctx context.Context, source provider.Source, o
 	if err := provider.ValidateRequested(a, options); err != nil {
 		return nil, err
 	}
-	path, cleanup, err := materialize(ctx, source, "apple-health-*.zip")
+	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-*.zip")
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +80,7 @@ func (a Adapter) ImportSleep(ctx context.Context, source provider.Source, option
 	if err := provider.ValidateRequested(a, options); err != nil {
 		return nil, err
 	}
-	path, cleanup, err := materialize(ctx, source, "apple-health-*.zip")
+	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-*.zip")
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +96,7 @@ func (a Adapter) ImportDaily(ctx context.Context, source provider.Source, option
 	if err := provider.ValidateRequested(a, options); err != nil {
 		return provider.DailyObservations{}, err
 	}
-	path, cleanup, err := materialize(ctx, source, "apple-health-*.zip")
+	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-*.zip")
 	if err != nil {
 		return provider.DailyObservations{}, err
 	}
@@ -107,51 +106,6 @@ func (a Adapter) ImportDaily(ctx context.Context, source provider.Source, option
 		return provider.DailyObservations{}, adaptError(source, "parse_daily", err)
 	}
 	return provider.DailyObservations{Summaries: summaries, Metrics: metrics}, nil
-}
-
-func materialize(ctx context.Context, source provider.Source, pattern string) (string, func(), error) {
-	if source.Open == nil {
-		return "", func() {}, adaptError(source, "open_source", errors.New("source opener is required"))
-	}
-	reader, err := source.Open(ctx)
-	if err != nil {
-		return "", func() {}, adaptError(source, "open_source", err)
-	}
-	temp, err := os.CreateTemp("", pattern)
-	if err != nil {
-		_ = reader.Close()
-		return "", func() {}, adaptError(source, "create_temp_source", err)
-	}
-	path := temp.Name()
-	cleanup := func() { _ = os.Remove(path) }
-	_, copyErr := io.Copy(temp, contextReader{ctx: ctx, reader: reader})
-	closeReaderErr := reader.Close()
-	closeTempErr := temp.Close()
-	if copyErr != nil {
-		cleanup()
-		return "", func() {}, adaptError(source, "copy_source", copyErr)
-	}
-	if closeReaderErr != nil {
-		cleanup()
-		return "", func() {}, adaptError(source, "close_source", closeReaderErr)
-	}
-	if closeTempErr != nil {
-		cleanup()
-		return "", func() {}, adaptError(source, "close_temp_source", closeTempErr)
-	}
-	return path, cleanup, nil
-}
-
-type contextReader struct {
-	ctx    context.Context
-	reader io.Reader
-}
-
-func (r contextReader) Read(p []byte) (int, error) {
-	if err := r.ctx.Err(); err != nil {
-		return 0, err
-	}
-	return r.reader.Read(p)
 }
 
 func adaptError(source provider.Source, operation string, err error) error {

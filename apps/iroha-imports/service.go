@@ -187,8 +187,9 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		return err
 	}
 	priorSameVersion := priorFound && prior.ParserVersion == job.ParserVersion
+	disposition := decideImportDisposition(priorSameVersion, priorFound)
 
-	switch decideImportDisposition(priorSameVersion, priorFound) {
+	switch disposition {
 	case dispositionSkip:
 		return s.reuseCompletedImport(jobID, prior)
 	case dispositionReprocess:
@@ -201,7 +202,7 @@ func (s *Service) Process(jobID uuid.UUID) error {
 			"sha256", rawFile.SHA256,
 		)
 	}
-	reprocess := priorFound && !priorSameVersion
+	reprocess := disposition == dispositionReprocess
 
 	adapter, ok := s.providers.GetBySourceKind(job.ParserKind)
 	if !ok {
