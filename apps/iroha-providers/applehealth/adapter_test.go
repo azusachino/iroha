@@ -6,11 +6,9 @@ import (
 	"errors"
 	"io"
 	"os"
-	"strings"
 	"testing"
 
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
-	"github.com/azusachino/iroha/apps/iroha-providers/internal/materialize"
 )
 
 func TestAdapterDescriptor(t *testing.T) {
@@ -24,22 +22,13 @@ func TestAdapterDescriptor(t *testing.T) {
 }
 
 func TestAdapterRejectsSourceWithoutOpener(t *testing.T) {
-	_, err := New().ImportActivities(context.Background(), provider.Source{Kind: "zip"}, provider.ImportOptions{})
+	_, err := New().ImportAll(context.Background(), provider.Source{Kind: "zip"}, provider.ImportOptions{})
 	if err == nil {
-		t.Fatal("ImportActivities() accepted source without opener")
+		t.Fatal("ImportAll() accepted source without opener")
 	}
 	var providerErr *provider.Error
 	if !errors.As(err, &providerErr) || providerErr.Kind != provider.ErrorInvalidSource {
 		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestContextReaderStopsAfterCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	_, err := materialize.NewContextReader(ctx, strings.NewReader("data")).Read(make([]byte, 4))
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("Read() error = %v", err)
 	}
 }
 

@@ -27,7 +27,7 @@ func Source(ctx context.Context, source provider.Source, providerID, pattern str
 	}
 	path := temp.Name()
 	cleanup := func() { _ = os.Remove(path) }
-	_, copyErr := io.Copy(temp, ContextReader{ctx: ctx, Reader: reader})
+	_, copyErr := io.Copy(temp, contextReader{ctx: ctx, reader: reader})
 	readerErr := reader.Close()
 	tempErr := temp.Close()
 	if copyErr != nil {
@@ -45,28 +45,27 @@ func Source(ctx context.Context, source provider.Source, providerID, pattern str
 	return path, cleanup, nil
 }
 
-type ContextReader struct {
+type contextReader struct {
 	ctx    context.Context
-	Reader io.Reader
+	reader io.Reader
 }
 
-func NewContextReader(ctx context.Context, reader io.Reader) io.Reader {
-	return ContextReader{ctx: ctx, Reader: reader}
-}
-
-func (r ContextReader) Read(p []byte) (int, error) {
+func (r contextReader) Read(p []byte) (int, error) {
 	if err := r.ctx.Err(); err != nil {
 		return 0, err
 	}
-	return r.Reader.Read(p)
+	return r.reader.Read(p)
 }
 
 func sourceError(providerID string, source provider.Source, operation string, err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
+	// open_source / copy_source blame the source itself; temp-file and
+	// reader-close failures are our own I/O, not an invalid source.
 	kind := provider.ErrorInvalidSource
-	if operation == "create_temp_source" || operation == "close_temp_source" {
+	switch operation {
+	case "create_temp_source", "close_temp_source", "close_source":
 		kind = provider.ErrorInternal
 	}
 	return &provider.Error{

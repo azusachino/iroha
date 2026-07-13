@@ -222,16 +222,21 @@ func ValidateAdapter(adapter Adapter) error {
 }
 
 func implementsCapability(adapter Adapter, capability Capability) bool {
+	// A BatchImporter derives every health observation from one materialized
+	// source, so it satisfies the health capabilities without also needing the
+	// per-capability importer interfaces. Media is not carried by ImportBatch,
+	// so it always requires a MediaImporter.
+	_, batch := adapter.(BatchImporter)
 	switch capability {
 	case CapabilityHealthActivities:
 		_, ok := adapter.(ActivityImporter)
-		return ok
+		return ok || batch
 	case CapabilityHealthSleep:
 		_, ok := adapter.(SleepImporter)
-		return ok
+		return ok || batch
 	case CapabilityHealthDailySummary, CapabilityHealthDailyMetrics:
 		_, ok := adapter.(DailyImporter)
-		return ok
+		return ok || batch
 	case CapabilityMediaLibrary, CapabilityMediaProgress, CapabilityMediaRating:
 		_, ok := adapter.(MediaImporter)
 		return ok

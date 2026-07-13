@@ -217,6 +217,9 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		},
 	}
 	options := provider.ImportOptions{}
+	// TODO(media-sync): MediaImporter is not dispatched here yet — media has no
+	// canonical models/tables and ImportBatch carries no media. Wire ImportMedia
+	// (and its persistence) into this dispatch once the media schema lands.
 	var parsed []observations.Activity
 	var parsedSleep []observations.Sleep
 	var parsedDailySummaries []observations.DailySummary
