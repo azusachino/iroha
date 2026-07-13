@@ -13,6 +13,7 @@ describe("cockpit route layout", () => {
     expect(routePages["./daily/+page.svelte"]).toBeDefined();
     expect(routePages["./activities/+page.svelte"]).toBeDefined();
     expect(routePages["./media/+page.svelte"]).toBeDefined();
+    expect(routePages["./media/[id]/+page.svelte"]).toBeDefined();
     expect(routePages["./share/+page.svelte"]).toBeDefined();
   });
 

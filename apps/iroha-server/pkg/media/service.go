@@ -70,6 +70,66 @@ type Aggregates struct {
 	TypeSplit         []TypeBucket       `json:"type_split"`
 }
 
+type WorkDetail struct {
+	ID               uuid.UUID  `gorm:"column:id"`
+	WorkKind         string     `gorm:"column:work_kind"`
+	PrimaryTitle     string     `gorm:"column:primary_title"`
+	OriginalTitle    string     `gorm:"column:original_title"`
+	OriginalLanguage string     `gorm:"column:original_language"`
+	FirstReleaseDate *time.Time `gorm:"column:first_release_date"`
+	Description      string     `gorm:"column:description"`
+}
+
+type CreatorDetail struct {
+	ID   uuid.UUID `gorm:"column:id"`
+	Name string    `gorm:"column:name"`
+	Role string    `gorm:"column:role"`
+}
+
+type RelationDetail struct {
+	ID            uuid.UUID `gorm:"column:id"`
+	RelationType  string    `gorm:"column:relation_type"`
+	Direction     string    `gorm:"column:direction"`
+	RelatedItemID uuid.UUID `gorm:"column:related_item_id"`
+	RelatedTitle  string    `gorm:"column:related_title"`
+	RelatedType   string    `gorm:"column:related_type"`
+	CoverImageURL string    `gorm:"column:cover_image_url"`
+}
+
+type EventDetail struct {
+	ID              uuid.UUID  `gorm:"column:id"`
+	EventType       string     `gorm:"column:event_type"`
+	EventAt         *time.Time `gorm:"column:event_at"`
+	Unit            string     `gorm:"column:unit"`
+	Position        *float64   `gorm:"column:position"`
+	Total           *float64   `gorm:"column:total"`
+	ProgressPercent *float64   `gorm:"column:progress_percent"`
+	Rating          *float64   `gorm:"column:rating"`
+	RatingScale     *float64   `gorm:"column:rating_scale"`
+	Note            string     `gorm:"column:note"`
+}
+
+type ProgressDetail struct {
+	Status          string     `gorm:"column:status"`
+	Unit            string     `gorm:"column:unit"`
+	Position        *float64   `gorm:"column:position"`
+	Total           *float64   `gorm:"column:total"`
+	ProgressPercent *float64   `gorm:"column:progress_percent"`
+	StartedAt       *time.Time `gorm:"column:started_at"`
+	LastUpdateAt    *time.Time `gorm:"column:last_update_at"`
+	FinishedAt      *time.Time `gorm:"column:finished_at"`
+	PlayCount       int        `gorm:"column:play_count"`
+}
+
+type Detail struct {
+	Item      Item
+	Work      WorkDetail
+	Progress  *ProgressDetail
+	Creators  []CreatorDetail
+	Relations []RelationDetail
+	Events    []EventDetail
+}
+
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
@@ -243,4 +303,100 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 		}
 	}
 	return result, nil
+}
+
+func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
+	var row struct {
+		ID               uuid.UUID  `gorm:"column:id"`
+		Title            string     `gorm:"column:title"`
+		MediaType        string     `gorm:"column:media_type"`
+		ItemRole         string     `gorm:"column:item_role"`
+		CoverImageURL    string     `gorm:"column:cover_image_url"`
+		Status           *string    `gorm:"column:status"`
+		Position         *float64   `gorm:"column:position"`
+		Total            *float64   `gorm:"column:total"`
+		ProgressPercent  *float64   `gorm:"column:progress_percent"`
+		LastUpdateAt     time.Time  `gorm:"column:last_update_at"`
+		Rating           *float64   `gorm:"column:rating"`
+		RatingScale      *float64   `gorm:"column:rating_scale"`
+		WorkID           uuid.UUID  `gorm:"column:work_id"`
+		WorkKind         string     `gorm:"column:work_kind"`
+		PrimaryTitle     string     `gorm:"column:primary_title"`
+		OriginalTitle    string     `gorm:"column:original_title"`
+		OriginalLanguage string     `gorm:"column:original_language"`
+		FirstReleaseDate *time.Time `gorm:"column:first_release_date"`
+		Description      string     `gorm:"column:description"`
+	}
+	result := s.db.Table("tb_media_items AS item").
+		Select(`item.id, item.title, item.media_type, item.item_role, item.cover_image_url,
+			progress.status, progress.position, progress.total, progress.progress_percent,
+			coalesce(progress.last_update_at, item.updated_at) AS last_update_at,
+			rating.rating, rating.rating_scale,
+			work.id AS work_id, work.work_kind, work.primary_title, work.original_title,
+			work.original_language, work.first_release_date, work.description`).
+		Joins("LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id").
+		Joins("LEFT JOIN tb_media_works AS work ON work.id = item.work_id").
+		Joins(`LEFT JOIN LATERAL (
+			SELECT event.rating, event.rating_scale
+			FROM tb_media_consumption_events AS event
+			WHERE event.media_item_id = item.id AND event.rating IS NOT NULL
+			ORDER BY event.event_at DESC NULLS LAST, event.created_at DESC, event.id DESC
+			LIMIT 1
+		) AS rating ON true`).
+		Where("item.id = ?", id).
+		Scan(&row)
+	if result.Error != nil {
+		return Detail{}, false, result.Error
+	}
+	if row.ID == uuid.Nil {
+		return Detail{}, false, nil
+	}
+
+	detail := Detail{
+		Item: Item{
+			ID: row.ID, Title: row.Title, MediaType: row.MediaType, ItemRole: row.ItemRole,
+			CoverImageURL: row.CoverImageURL, Status: row.Status, Position: row.Position,
+			Total: row.Total, ProgressPercent: row.ProgressPercent, LastUpdateAt: row.LastUpdateAt,
+			Rating: row.Rating, RatingScale: row.RatingScale,
+		},
+		Work: WorkDetail{
+			ID: row.WorkID, WorkKind: row.WorkKind, PrimaryTitle: row.PrimaryTitle,
+			OriginalTitle: row.OriginalTitle, OriginalLanguage: row.OriginalLanguage,
+			FirstReleaseDate: row.FirstReleaseDate, Description: row.Description,
+		},
+	}
+
+	var progress ProgressDetail
+	if err := s.db.Table("tb_media_progress").Where("media_item_id = ?", id).Scan(&progress).Error; err != nil {
+		return Detail{}, false, err
+	}
+	if progress.Status != "" {
+		detail.Progress = &progress
+	}
+
+	if err := s.db.Raw(`
+		SELECT creator.id, creator.name, role.role
+		FROM tb_media_creator_roles AS role
+		JOIN tb_media_creators AS creator ON creator.id = role.creator_id
+		WHERE role.scope_type = 'item' AND role.scope_id = ?
+		ORDER BY role.role, creator.sort_name, creator.name`, id).Scan(&detail.Creators).Error; err != nil {
+		return Detail{}, false, err
+	}
+	if err := s.db.Raw(`
+		SELECT relation.id, relation.relation_type,
+			CASE WHEN relation.from_id = ? THEN 'outgoing' ELSE 'incoming' END AS direction,
+			related.id AS related_item_id, related.title AS related_title,
+			related.media_type AS related_type, related.cover_image_url
+		FROM tb_media_relations AS relation
+		JOIN tb_media_items AS related
+			ON related.id = CASE WHEN relation.from_id = ? THEN relation.to_id ELSE relation.from_id END
+		WHERE relation.from_type = 'item' AND relation.to_type = 'item'
+			AND (relation.from_id = ? OR relation.to_id = ?)
+		ORDER BY relation.relation_type, related.sort_title, related.title`, id, id, id, id).Scan(&detail.Relations).Error; err != nil {
+		return Detail{}, false, err
+	}
+	if err := s.db.Table("tb_media_consumption_events").Where("media_item_id = ?", id).Order("event_at DESC NULLS LAST, created_at DESC, id DESC").Scan(&detail.Events).Error; err != nil {
+		return Detail{}, false, err
+	}
+	return detail, true, nil
 }

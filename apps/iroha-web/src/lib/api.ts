@@ -168,6 +168,51 @@ export interface MediaAggregates {
   type_split: MediaTypeBucket[];
 }
 
+export interface MediaDetail {
+  item: MediaRow;
+  work: {
+    id: string;
+    work_kind: string;
+    primary_title: string;
+    original_title: string;
+    original_language: string;
+    first_release_date?: string;
+    description: string;
+  };
+  progress?: {
+    status: string;
+    unit: string;
+    position?: number;
+    total?: number;
+    progress_percent?: number;
+    started_at?: string;
+    last_update_at?: string;
+    finished_at?: string;
+    play_count: number;
+  };
+  creators: { id: string; name: string; role: string }[];
+  relations: {
+    id: string;
+    relation_type: string;
+    direction: string;
+    related_item_id: string;
+    related_title: string;
+    related_type: string;
+    cover_image_url?: string;
+  }[];
+  events: {
+    id: string;
+    event_type: string;
+    event_at?: string;
+    unit?: string;
+    position?: number;
+    total?: number;
+    progress_percent?: number;
+    rating?: number;
+    note?: string;
+  }[];
+}
+
 // One keyset page. `next_cursor` is null when no further rows exist.
 export interface Page<T> {
   items: T[];
@@ -293,6 +338,16 @@ export function getMediaAggregates(
   fetchFn: typeof fetch = fetch,
 ): Promise<MediaAggregates> {
   return getJSON<MediaAggregates>("/api/v1/media/aggregates", fetchFn);
+}
+
+export function getMedia(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<MediaDetail> {
+  return getJSON<MediaDetail>(
+    `/api/v1/media/${encodeURIComponent(id)}`,
+    fetchFn,
+  );
 }
 
 export function listSleep(

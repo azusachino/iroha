@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   listActivities,
   getMediaAggregates,
+  getMedia,
   getActivity,
   getActivityRoute,
   getActivitySamplings,
@@ -122,6 +123,15 @@ describe("getMediaAggregates", () => {
     await getMediaAggregates(fakeFetch);
 
     expect(getCapturedUrl()).toContain("/api/v1/media/aggregates");
+  });
+});
+
+describe("getMedia", () => {
+  it("encodes the media id in the detail path", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMedia("media_123/unsafe", fakeFetch);
+
+    expect(getCapturedUrl()).toContain("/api/v1/media/media_123%2Funsafe");
   });
 });
 
