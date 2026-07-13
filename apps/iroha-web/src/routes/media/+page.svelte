@@ -10,18 +10,25 @@
 
   let aggregates = $state<MediaAggregates | null>(null);
   let items = $state<MediaRow[]>([]);
+  let nextCursor = $state<string | null>(null);
+  let hasMore = $state(false);
+  let loadingMore = $state(false);
   let loading = $state(true);
   let error = $state<string | null>(null);
 
-  const continueItems = $derived(
-    items.filter((item) => item.status === "in_progress").slice(0, 6),
-  );
+  // Only actively-in-progress items belong in the "continue" strip; paused /
+  // on-hold entries keep status=in_progress but carry hidden_from_continue.
+  const isContinuing = (item: MediaRow) =>
+    item.status === "in_progress" && !item.hidden_from_continue;
+  const continueItems = $derived(items.filter(isContinuing).slice(0, 6));
   const groupedItems = $derived(
     items
-      .filter((item) => item.status !== "in_progress")
+      .filter((item) => !isContinuing(item))
       .reduce(
         (groups, item) => {
-          const key = item.status || "unknown";
+          // Paused items share the in_progress status; give them their own shelf.
+          const key =
+            item.status === "in_progress" ? "paused" : item.status || "unknown";
           (groups[key] ??= []).push(item);
           return groups;
         },
@@ -61,10 +68,27 @@
       ]);
       aggregates = nextAggregates;
       items = page.items;
+      nextCursor = page.next_cursor;
+      hasMore = page.has_more;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    loadingMore = true;
+    try {
+      const page = await listMedia({ limit: 100, cursor: nextCursor });
+      items = [...items, ...page.items];
+      nextCursor = page.next_cursor;
+      hasMore = page.has_more;
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      loadingMore = false;
     }
   }
 
@@ -302,6 +326,11 @@
         {/each}
       {:else}
         <div class="empty-panel tile">No media items found.</div>
+      {/if}
+      {#if hasMore}
+        <button class="load-more" onclick={loadMore} disabled={loadingMore}>
+          {loadingMore ? "Loading…" : "Load more"}
+        </button>
       {/if}
     </section>
   {/if}
@@ -564,6 +593,25 @@
   }
   .empty-panel {
     padding: 1rem;
+  }
+  .load-more {
+    justify-self: center;
+    padding: 0.55rem 1.4rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .load-more:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .load-more:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
   .error {
     color: var(--danger);
