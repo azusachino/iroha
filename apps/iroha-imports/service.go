@@ -22,6 +22,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -650,31 +651,150 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 		return result.Error
 	}
 
-	eventAt := time.Now().UTC()
-	if media.CompletedAt != nil {
-		eventAt = media.CompletedAt.UTC()
-	} else if media.StartedAt != nil {
-		eventAt = media.StartedAt.UTC()
-	}
-	eventID, err := ids.New()
-	if err != nil {
+	if err := persistMediaRelations(tx, itemID, media); err != nil {
 		return err
 	}
-	if err := tx.Create(&models.MediaConsumptionEvent{
-		ID:            eventID,
-		MediaItemID:   itemID,
-		EventType:     mediaEventType,
-		EventAt:       &eventAt,
-		SourceKind:    rawFile.SourceKind,
-		SourceEventID: media.ExternalID,
-		Position:      media.Progress,
-		Rating:        media.Score,
-		RawFileID:     &rawFile.ID,
-		CreatedAt:     time.Now().UTC(),
-	}).Error; err != nil {
+	if err := persistMediaEvents(tx, rawFile, itemID, media); err != nil {
 		return err
 	}
+	return upsertMediaProgress(tx, rawFile, itemID, media)
+}
 
+// persistMediaRelations writes the provider relation graph (adaptation/sequel/
+// etc.) into tb_media_relations. Both endpoints must already resolve to items
+// via external refs; edges to items not (yet) in the collection are skipped
+// rather than materialized as stub items. The unique constraint dedupes edges
+// re-observed across syncs.
+func persistMediaRelations(tx *gorm.DB, itemID uuid.UUID, media observations.Media) error {
+	for _, rel := range media.Relations {
+		if rel.RelationType == "" || rel.ToExternalID == "" {
+			continue
+		}
+		toRef, err := findExternalRef(tx, rel.Provider, rel.ToExternalID)
+		if err != nil {
+			return err
+		}
+		if toRef == nil {
+			continue
+		}
+		fromID := itemID
+		if rel.FromExternalID != "" && rel.FromExternalID != media.ExternalID {
+			fromRef, err := findExternalRef(tx, rel.Provider, rel.FromExternalID)
+			if err != nil {
+				return err
+			}
+			if fromRef == nil {
+				continue
+			}
+			fromID = fromRef.ScopeID
+		}
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		relation := models.MediaRelation{
+			ID: id, FromType: mediaScopeType, FromID: fromID, ToType: mediaScopeType, ToID: toRef.ScopeID,
+			RelationType: rel.RelationType, Provider: rel.Provider, Confidence: rel.Confidence, CreatedAt: time.Now().UTC(),
+		}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&relation).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// persistMediaEvents appends the adapter's semantic events (list_state,
+// rewatch, ...) to the history log. It falls back to one synthesized
+// list_state event for providers that only emit flat state. Change-detection
+// skips re-appending an event whose stable source entry is unchanged, so
+// repeated full-list syncs don't bloat the log with duplicate rows.
+func persistMediaEvents(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, media observations.Media) error {
+	events := media.Events
+	if len(events) == 0 {
+		eventAt := media.CompletedAt
+		if eventAt == nil {
+			eventAt = media.StartedAt
+		}
+		events = []observations.MediaEvent{{
+			EventType:     mediaEventType,
+			EventAt:       eventAt,
+			SourceEventID: media.ExternalID,
+			Position:      media.Progress,
+			Rating:        media.Score,
+		}}
+	}
+	for _, event := range events {
+		if event.EventType == "" {
+			event.EventType = mediaEventType
+		}
+		unchanged, err := latestEventUnchanged(tx, itemID, rawFile.SourceKind, event)
+		if err != nil {
+			return err
+		}
+		if unchanged {
+			continue
+		}
+		eventAt := event.EventAt
+		if eventAt == nil {
+			now := time.Now().UTC()
+			eventAt = &now
+		}
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		if err := tx.Create(&models.MediaConsumptionEvent{
+			ID:              id,
+			MediaItemID:     itemID,
+			EventType:       event.EventType,
+			EventAt:         eventAt,
+			SourceKind:      rawFile.SourceKind,
+			SourceEventID:   event.SourceEventID,
+			Unit:            event.Unit,
+			Position:        event.Position,
+			Total:           event.Total,
+			ProgressPercent: event.ProgressPercent,
+			Rating:          event.Rating,
+			RatingScale:     event.RatingScale,
+			Note:            event.Note,
+			RawFileID:       &rawFile.ID,
+			CreatedAt:       time.Now().UTC(),
+		}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// latestEventUnchanged reports whether the most recent event for the same
+// source entry already records identical progress/rating/note, meaning a fresh
+// sync observed no change. Events without a stable source id always append.
+func latestEventUnchanged(tx *gorm.DB, itemID uuid.UUID, sourceKind string, event observations.MediaEvent) (bool, error) {
+	if event.SourceEventID == "" {
+		return false, nil
+	}
+	var existing models.MediaConsumptionEvent
+	err := tx.Where("media_item_id = ? and source_kind = ? and source_event_id = ? and event_type = ?",
+		itemID, sourceKind, event.SourceEventID, event.EventType).
+		Order("event_at desc, created_at desc").
+		First(&existing).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return floatPtrEqual(existing.Position, event.Position) &&
+		floatPtrEqual(existing.Rating, event.Rating) &&
+		floatPtrEqual(existing.ProgressPercent, event.ProgressPercent) &&
+		existing.Note == event.Note, nil
+}
+
+// upsertMediaProgress recomputes the current-progress projection, preferring
+// the adapter's rich ProgressState (unit/play_count/last_update/hidden) and
+// falling back to flat fields. A cross-source status disagreement is routed to
+// the inbox instead of silently overwriting.
+func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, media observations.Media) error {
 	progress := models.MediaProgress{
 		MediaItemID: itemID,
 		Status:      media.Status,
@@ -684,28 +804,53 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 		SourceKind:  rawFile.SourceKind,
 		UpdatedAt:   time.Now().UTC(),
 	}
+	if ps := media.ProgressState; ps != nil {
+		progress.Status = ps.Status
+		progress.Unit = ps.Unit
+		progress.Position = ps.Position
+		progress.Total = ps.Total
+		progress.ProgressPercent = ps.ProgressPercent
+		progress.StartedAt = ps.StartedAt
+		progress.LastUpdateAt = ps.LastUpdateAt
+		progress.FinishedAt = ps.FinishedAt
+		progress.PlayCount = ps.PlayCount
+		progress.HiddenFromContinue = ps.HiddenFromContinue
+	}
 	if progress.Status == "" {
 		progress.Status = mediaUnknownValue
 	}
-	var existingProgress models.MediaProgress
-	result = tx.Where("media_item_id = ?", itemID).First(&existingProgress)
+	var existing models.MediaProgress
+	result := tx.Where("media_item_id = ?", itemID).First(&existing)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return tx.Create(&progress).Error
 	}
 	if result.Error != nil {
 		return result.Error
 	}
-	if existingProgress.SourceKind != "" && existingProgress.SourceKind != rawFile.SourceKind && existingProgress.Status != progress.Status {
-		return createProgressConflictTask(tx, media, itemID, existingProgress.Status, progress.Status)
+	if existing.SourceKind != "" && existing.SourceKind != rawFile.SourceKind && existing.Status != progress.Status {
+		return createProgressConflictTask(tx, media, itemID, existing.Status, progress.Status)
 	}
-	return tx.Model(&existingProgress).Updates(map[string]any{
-		"status":      progress.Status,
-		"position":    progress.Position,
-		"started_at":  progress.StartedAt,
-		"finished_at": progress.FinishedAt,
-		"source_kind": progress.SourceKind,
-		"updated_at":  progress.UpdatedAt,
+	return tx.Model(&existing).Updates(map[string]any{
+		"status":               progress.Status,
+		"unit":                 progress.Unit,
+		"position":             progress.Position,
+		"total":                progress.Total,
+		"progress_percent":     progress.ProgressPercent,
+		"started_at":           progress.StartedAt,
+		"last_update_at":       progress.LastUpdateAt,
+		"finished_at":          progress.FinishedAt,
+		"play_count":           progress.PlayCount,
+		"hidden_from_continue": progress.HiddenFromContinue,
+		"source_kind":          progress.SourceKind,
+		"updated_at":           progress.UpdatedAt,
 	}).Error
+}
+
+func floatPtrEqual(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 func (s *Service) persistActivities(rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {

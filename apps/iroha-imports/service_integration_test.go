@@ -209,6 +209,105 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	}
 }
 
+func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	svc := &Service{db: db}
+	suffix := uuid.New().String()
+	idA := "anilist-A-" + suffix
+	idB := "anilist-B-" + suffix
+	titleA := "Rich Media A " + suffix
+	titleB := "Rich Media B " + suffix
+
+	t.Cleanup(func() {
+		db.Exec("delete from tb_media_relations where provider = 'anilist' and (from_id in (select id from tb_media_items where title in (?, ?)) or to_id in (select id from tb_media_items where title in (?, ?)))", titleA, titleB, titleA, titleB)
+		db.Exec("delete from tb_media_consumption_events where source_event_id like ?", "%"+suffix)
+		db.Exec("delete from tb_media_progress where media_item_id in (select id from tb_media_items where title in (?, ?))", titleA, titleB)
+		db.Exec("delete from tb_media_external_refs where external_id in (?, ?)", idA, idB)
+		db.Exec("delete from tb_media_items where title in (?, ?)", titleA, titleB)
+		db.Exec("delete from tb_media_works where primary_title in (?, ?)", titleA, titleB)
+		db.Exec("delete from tb_media_lists where source_kind = 'anilist' and name = 'anilist library'")
+		db.Exec("delete from tb_import_snapshots where sha256 like ?", "rich-snap-%"+suffix)
+		db.Exec("delete from tb_import_jobs where parser_version = ? and raw_file_id in (select id from tb_raw_files where sha256 like ?)", "rich-"+suffix, "rich-%"+suffix)
+		db.Exec("delete from tb_raw_files where sha256 like ?", "rich-%"+suffix)
+	})
+
+	persist := func(tag string, media observations.Media, reprocess bool) {
+		t.Helper()
+		rawFileID := uuid.New()
+		if err := db.Create(&models.RawFile{ID: rawFileID, SHA256: "rich-" + tag + "-" + suffix, OriginalFilename: "anilist.json", StoragePath: "/tmp/anilist.json", SourceKind: parsers.KindAniList, UploadedVia: "integration", CreatedAt: time.Now().UTC()}).Error; err != nil {
+			t.Fatalf("create raw file %s: %v", tag, err)
+		}
+		jobID := uuid.New()
+		if err := db.Create(&models.ImportJob{ID: jobID, RawFileID: rawFileID, Status: StatusCompleted, ParserKind: parsers.KindAniList, ParserVersion: "rich-" + suffix, CreatedAt: time.Now().UTC()}).Error; err != nil {
+			t.Fatalf("create import job %s: %v", tag, err)
+		}
+		snap := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "rich-snap-" + tag + "-" + suffix, ParserVersion: DefaultParserVersion, CreatedAt: time.Now().UTC()}
+		if err := svc.persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList}, []observations.Media{media}, snap, reprocess); err != nil {
+			t.Fatalf("persist %s: %v", tag, err)
+		}
+	}
+
+	mediaA := func(position float64) observations.Media {
+		return observations.Media{
+			Provider: "anilist", ExternalID: idA, MediaType: "anime_season", Title: titleA, Status: "in_progress",
+			ExternalRefs:  []observations.MediaExternalRef{{Provider: "anilist", ExternalID: idA, MatchedBy: "provider_id"}},
+			ProgressState: &observations.MediaProgress{Status: "in_progress", Unit: "episodes", Position: float64Ptr(position), PlayCount: 2},
+			Events:        []observations.MediaEvent{{EventType: "list_state", SourceEventID: "entry-A-" + suffix, Unit: "episodes", Position: float64Ptr(position)}},
+		}
+	}
+
+	// First sync: item + progress (rich fields) + one event.
+	persist("a1", mediaA(12), false)
+	var progress models.MediaProgress
+	if err := db.Joins("join tb_media_items on tb_media_items.id = tb_media_progress.media_item_id").Where("tb_media_items.title = ?", titleA).First(&progress).Error; err != nil {
+		t.Fatalf("load progress: %v", err)
+	}
+	if progress.Unit != "episodes" || progress.PlayCount != 2 {
+		t.Fatalf("progress unit/play_count = %q/%d, want episodes/2 (ProgressState dropped)", progress.Unit, progress.PlayCount)
+	}
+	countEvents := func() int64 {
+		var n int64
+		db.Model(&models.MediaConsumptionEvent{}).Where("source_event_id = ?", "entry-A-"+suffix).Count(&n)
+		return n
+	}
+	if got := countEvents(); got != 1 {
+		t.Fatalf("events after first sync = %d, want 1", got)
+	}
+
+	// Re-sync unchanged (new raw file, not reprocess): must NOT append a duplicate event.
+	persist("a2", mediaA(12), false)
+	if got := countEvents(); got != 1 {
+		t.Fatalf("events after unchanged re-sync = %d, want 1 (dedup failed)", got)
+	}
+
+	// Re-sync with real progress change: append a new history point.
+	persist("a3", mediaA(13), false)
+	if got := countEvents(); got != 2 {
+		t.Fatalf("events after changed re-sync = %d, want 2", got)
+	}
+
+	// Relation: B -> A. Both endpoints resolve, so the edge must persist.
+	mediaB := observations.Media{
+		Provider: "anilist", ExternalID: idB, MediaType: "anime_season", Title: titleB, Status: "planned",
+		ExternalRefs: []observations.MediaExternalRef{{Provider: "anilist", ExternalID: idB, MatchedBy: "provider_id"}},
+		Relations:    []observations.MediaRelation{{FromType: "item", FromExternalID: idB, ToType: "item", ToExternalID: idA, RelationType: "SEQUEL", Provider: "anilist"}},
+	}
+	persist("b1", mediaB, false)
+	var relationCount int64
+	if err := db.Model(&models.MediaRelation{}).Where("relation_type = 'SEQUEL' and to_id in (select id from tb_media_items where title = ?)", titleA).Count(&relationCount).Error; err != nil {
+		t.Fatalf("count relations: %v", err)
+	}
+	if relationCount != 1 {
+		t.Fatalf("SEQUEL relations persisted = %d, want 1 (tb_media_relations not written)", relationCount)
+	}
+	// Idempotent: re-syncing B must not duplicate the edge.
+	persist("b2", mediaB, false)
+	db.Model(&models.MediaRelation{}).Where("relation_type = 'SEQUEL' and to_id in (select id from tb_media_items where title = ?)", titleA).Count(&relationCount)
+	if relationCount != 1 {
+		t.Fatalf("SEQUEL relations after re-sync = %d, want 1 (edge duplicated)", relationCount)
+	}
+}
+
 func float64Ptr(value float64) *float64 { return &value }
 
 func openImportsIntegrationDB(t *testing.T) *gorm.DB {

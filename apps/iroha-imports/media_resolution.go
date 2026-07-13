@@ -109,7 +109,12 @@ type mediaResolution struct {
 }
 
 func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridge) (mediaResolution, error) {
-	for _, ref := range media.ExternalRefs {
+	// The media's own identity is the primary ref; adapters may or may not
+	// also echo it into ExternalRefs, so check it explicitly to avoid
+	// re-creating a duplicate item (and tripping the unique ref constraint)
+	// on every sync of the same entry.
+	refs := append([]observations.MediaExternalRef{{Provider: media.Provider, ExternalID: media.ExternalID}}, media.ExternalRefs...)
+	for _, ref := range refs {
 		matched, err := findExternalRef(tx, ref.Provider, ref.ExternalID)
 		if err != nil {
 			return mediaResolution{}, err
@@ -119,7 +124,7 @@ func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBrid
 		}
 	}
 	if bridge != nil {
-		for _, ref := range media.ExternalRefs {
+		for _, ref := range refs {
 			bridgeRef, ok := bridge.Lookup(ref.Provider, ref.ExternalID)
 			if !ok {
 				continue
@@ -295,6 +300,15 @@ func persistMediaMetadata(tx *gorm.DB, itemID uuid.UUID, media observations.Medi
 }
 
 func createProgressConflictTask(tx *gorm.DB, media observations.Media, itemID uuid.UUID, localStatus, remoteStatus string) error {
+	var open int64
+	if err := tx.Model(&models.MediaResolutionTask{}).
+		Where("task_type = ? and status = ? and candidates_json->>'media_item_id' = ?", mediaResolutionConflict, mediaResolutionOpen, itemID.String()).
+		Count(&open).Error; err != nil {
+		return err
+	}
+	if open > 0 {
+		return nil
+	}
 	payload, err := json.Marshal(map[string]any{
 		"provider": media.Provider, "external_id": media.ExternalID, "media_item_id": itemID,
 		"local_status": localStatus, "remote_status": remoteStatus,
