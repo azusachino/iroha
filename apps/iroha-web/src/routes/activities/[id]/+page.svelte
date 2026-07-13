@@ -19,7 +19,7 @@
 		formatDate
 	} from '$lib/format';
 	import RouteMap from '$lib/components/RouteMap.svelte';
-	import LineChart, { type ChartSeries } from '$lib/components/LineChart.svelte';
+	import FusedActivityChart from '$lib/components/FusedActivityChart.svelte';
 	import SportBadge from '$lib/components/SportBadge.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
 	import { sportLabel } from '$lib/sport';
@@ -36,6 +36,7 @@
 	let laps = $state<Lap[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let selectedRouteIndex = $state<number | null>(null);
 
 	const id = $derived(page.params.id ?? '');
 
@@ -234,24 +235,23 @@
 		};
 	});
 
-	const paceChart = $derived.by<ChartSeries[] | null>(() =>
-		hasData(paceSeries) ? [{ label: 'Pace (s/km)', values: paceSeries, stroke: '#4f8cff' }] : null
-	);
-	const hrChart = $derived.by<ChartSeries[] | null>(() =>
-		hasData(hrSeries) ? [{ label: 'Heart rate (bpm)', values: hrSeries, stroke: '#ff6b6b' }] : null
-	);
-	const elevationChart = $derived.by<ChartSeries[] | null>(() =>
-		hasData(elevationSeries)
-			? [{ label: 'Elevation (m)', values: elevationSeries, stroke: '#3ecf8e' }]
-			: null
-	);
-
 	const hasRouteLine = $derived(
 		processedRoute.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)).length >= 2
 	);
-	const anyChart = $derived(
-		!!paceChart || !!hrChart || !!elevationChart || !!hrSamplingChart
-	);
+	const anyChart = $derived(hasData(paceSeries) || hasData(hrSeries) || hasData(elevationSeries) || !!hrSamplingChart);
+
+	const hrZones = $derived.by(() => {
+		const values = hrSeries.filter((value): value is number => value != null && value > 0);
+		if (!values.length) return [];
+		const zones = [
+			{ label: 'Easy', min: 0, max: 0.7, color: '#3ecf8e' },
+			{ label: 'Steady', min: 0.7, max: 0.8, color: '#f5c451' },
+			{ label: 'Tempo', min: 0.8, max: 0.9, color: '#ff9f43' },
+			{ label: 'Hard', min: 0.9, max: 2, color: '#ff6b6b' }
+		];
+		const maxHr = Math.max(...values);
+		return zones.map((zone) => ({ ...zone, count: values.filter((value) => value <= maxHr * zone.max && value > maxHr * zone.min).length })).filter((zone) => zone.count > 0);
+	});
 
 	const isRun = $derived(activity?.sport_type?.toLowerCase() === 'run');
 
@@ -372,37 +372,29 @@
 
 	{#if hasRouteLine}
 		<h2>Route</h2>
-		<RouteMap points={processedRoute} />
+		<RouteMap points={processedRoute} selectedIndex={selectedRouteIndex} />
 	{/if}
 
 	{#if anyChart}
 		<h2>Charts</h2>
-		{#if paceChart}
-			<LineChart title="Pace" xValues={xAxis.values} xLabel={xAxis.label} series={paceChart} />
-		{/if}
-		{#if hrChart}
-			<LineChart title="Heart rate" xValues={xAxis.values} xLabel={xAxis.label} series={hrChart} />
-		{:else if hrSamplingChart}
-			<LineChart
-				title="Heart rate"
-				xValues={hrSamplingChart.x}
-				xLabel="Time (min)"
-				series={[{ label: 'Heart rate (bpm)', values: hrSamplingChart.values, stroke: '#ff6b6b' }]}
-			/>
-		{/if}
-		{#if elevationChart}
-			<LineChart
-				title="Elevation"
-				xValues={xAxis.values}
-				xLabel={xAxis.label}
-				series={elevationChart}
-			/>
+		<FusedActivityChart xValues={xAxis.values} xLabel={xAxis.label} pace={paceSeries} heartRate={hrSeries} elevation={elevationSeries} onHover={(index) => (selectedRouteIndex = index)} />
+		{#if hrZones.length > 0}
+			<div class="zone-card tile">
+				<div class="card-heading"><strong>Heart-rate zones</strong><span class="muted">time distribution</span></div>
+				<div class="zone-bar">{#each hrZones as zone}<span style={`flex: ${zone.count}; background: ${zone.color}`} title={`${zone.label}: ${Math.round((zone.count / hrSeries.filter((v) => v != null).length) * 100)}%`}></span>{/each}</div>
+				<div class="zone-legend">{#each hrZones as zone}<span><i style={`background: ${zone.color}`}></i>{zone.label}</span>{/each}</div>
+			</div>
 		{/if}
 	{/if}
 
 	{#if isRun && displayLaps.length > 0}
 		<h2 class="section-title">Laps (1 km splits)</h2>
 		<div class="laps-container tile">
+			<div class="split-bars" aria-label="Split pace bars">
+				{#each displayLaps as lap (lap.lap_no)}
+					<div class="split-row"><span class="split-label">{lap.lap_no}</span><span class="split-track"><span class="split-fill" style={`width: ${Math.min(100, ((lap.avg_pace_s_per_km ?? 0) / Math.max(...displayLaps.map((l) => l.avg_pace_s_per_km ?? 0), 1)) * 100)}%`}></span></span><strong>{formatPace(lap.avg_pace_s_per_km)}</strong></div>
+				{/each}
+			</div>
 			<table class="laps-table">
 				<thead>
 					<tr>
@@ -434,6 +426,18 @@
 	.activity-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
 	.section-title { margin-top: 2rem; margin-bottom: 0.75rem; font-size: 1.25rem; font-weight: 700; }
 	.laps-container { overflow-x: auto; padding: 0.5rem; margin-bottom: 2rem; }
+	.zone-card { padding: 1rem; margin-bottom: 1.5rem; }
+	.card-heading, .zone-legend { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; }
+	.zone-bar { display: flex; height: 0.65rem; overflow: hidden; border-radius: 999px; margin: 1rem 0 0.75rem; background: var(--surface-3); }
+	.zone-bar span { min-width: 0.35rem; }
+	.zone-legend { justify-content: flex-start; flex-wrap: wrap; color: var(--text-muted); font-size: 0.76rem; }
+	.zone-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+	.zone-legend i { width: 0.45rem; height: 0.45rem; border-radius: 50%; }
+	.split-bars { display: grid; gap: 0.45rem; padding: 0.75rem 1rem 1rem; border-bottom: 1px solid var(--border); }
+	.split-row { display: grid; grid-template-columns: 1.5rem 1fr auto; align-items: center; gap: 0.6rem; font-size: 0.8rem; }
+	.split-label { color: var(--text-muted); }
+	.split-track { height: 0.45rem; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+	.split-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--sport-run), var(--sport-cycling)); }
 	.laps-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
 	.laps-table th { padding: 0.75rem 1rem; color: var(--text-muted); font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
 	.laps-table td { padding: 0.75rem 1rem; color: var(--text); border-bottom: 1px solid var(--border); }

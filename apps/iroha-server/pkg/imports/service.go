@@ -27,12 +27,14 @@ const (
 
 	appleSourceItemTypeWorkout      = "workout"
 	appleSourceItemTypeSleepSession = "sleep_session"
+	appleSourceItemTypeDailySummary = "daily_summary"
+	appleSourceItemTypeDailyMetric  = "daily_metric"
 )
 
 // DefaultParserVersion identifies the current parser build. A completed
 // import at a different version triggers a reprocess (purge + re-persist)
 // rather than a duplicate append; bump this when parser semantics change.
-const DefaultParserVersion = "apple-health-2026-07-sleep"
+const DefaultParserVersion = "apple-health-2026-07-body-vitals"
 
 type Enqueuer interface {
 	EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error)
@@ -197,8 +199,14 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		return s.fail(jobID, err.Error())
 	}
 	var parsedSleep []parsers.ParsedSleepSession
+	var parsedDailySummaries []parsers.ParsedDailySummary
+	var parsedDailyMetrics []parsers.ParsedDailyMetric
 	if job.ParserKind == parsers.KindAppleHealthExport {
 		parsedSleep, err = parsers.ParseAppleHealthSleep(rawFile.StoragePath)
+		if err != nil {
+			return s.fail(jobID, err.Error())
+		}
+		parsedDailySummaries, parsedDailyMetrics, err = parsers.ParseAppleHealthDailyActivity(rawFile.StoragePath)
 		if err != nil {
 			return s.fail(jobID, err.Error())
 		}
@@ -217,7 +225,7 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		CreatedAt:     time.Now().UTC(),
 	}
 
-	if err := s.persistActivities(rawFile, parsed, parsedSleep, snapshot, reprocess); err != nil {
+	if err := s.persistActivities(rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess); err != nil {
 		return s.fail(jobID, err.Error())
 	}
 
@@ -359,8 +367,10 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 		delete from tb_apple_source_items
 		where activity_id in (select id from tb_activities where first_raw_file_id = ?)
 		   or sleep_session_id in (select id from tb_sleep_sessions where first_raw_file_id = ?)
+		   or daily_summary_id in (select id from tb_daily_summaries where first_raw_file_id = ?)
+		   or daily_metric_id in (select id from tb_daily_metrics where first_raw_file_id = ?)
 		   or last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?)
-	`, rawFileID, rawFileID, rawFileID).Error; err != nil {
+	`, rawFileID, rawFileID, rawFileID, rawFileID, rawFileID).Error; err != nil {
 		return err
 	}
 
@@ -376,10 +386,18 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 		return err
 	}
 
+	if err := tx.Where("first_raw_file_id = ?", rawFileID).Delete(&models.DailyMetric{}).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Where("first_raw_file_id = ?", rawFileID).Delete(&models.DailySummary{}).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ParsedActivity, parsedSleep []parsers.ParsedSleepSession, snapshot models.ImportSnapshot, reprocess bool) error {
+func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ParsedActivity, parsedSleep []parsers.ParsedSleepSession, parsedDailySummaries []parsers.ParsedDailySummary, parsedDailyMetrics []parsers.ParsedDailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if reprocess {
 			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
@@ -417,6 +435,16 @@ func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.Par
 		}
 		for _, session := range parsedSleep {
 			if err := s.persistSleepSession(tx, rawFile, session, snapshot.ID); err != nil {
+				return err
+			}
+		}
+		for _, summary := range parsedDailySummaries {
+			if err := s.persistDailySummary(tx, rawFile, summary, snapshot.ID); err != nil {
+				return err
+			}
+		}
+		for _, metric := range parsedDailyMetrics {
+			if err := s.persistDailyMetric(tx, rawFile, metric, snapshot.ID); err != nil {
 				return err
 			}
 		}
@@ -672,6 +700,224 @@ func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []parsers.P
 		})
 	}
 	return tx.CreateInBatches(rows, sleepSegmentInsertBatchSize).Error
+}
+
+func dailySummarySourceKey(summary parsers.ParsedDailySummary) string {
+	return summary.Day.Format("2006-01-02")
+}
+
+func dailySummaryContentHash(summary parsers.ParsedDailySummary) string {
+	content := fmt.Sprintf(
+		"%s|%.17g|%.17g|%.17g|%.17g|%.17g|%.17g|%s",
+		dailySummarySourceKey(summary),
+		summary.MoveKcal,
+		summary.MoveGoalKcal,
+		summary.ExerciseMin,
+		summary.ExerciseGoalMin,
+		summary.StandHours,
+		summary.StandGoalHours,
+		summary.Source,
+	)
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])
+}
+
+func dailyMetricSourceKey(metric parsers.ParsedDailyMetric) string {
+	return strings.Join([]string{metric.Day.Format("2006-01-02"), metric.Metric}, "|")
+}
+
+func dailyMetricContentHash(metric parsers.ParsedDailyMetric) string {
+	content := fmt.Sprintf("%s|%.17g|%s|%s", dailyMetricSourceKey(metric), metric.Value, metric.Unit, metric.Source)
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])
+}
+
+func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summary parsers.ParsedDailySummary, snapshotID uuid.UUID) error {
+	sourceKey := dailySummarySourceKey(summary)
+	if sourceKey == "" {
+		return fmt.Errorf("parsed daily summary missing source key")
+	}
+	contentHash := dailySummaryContentHash(summary)
+
+	var existing models.AppleSourceItem
+	res := tx.Limit(1).Find(&existing, "source_key = ?", sourceKey)
+	if res.Error != nil {
+		return res.Error
+	}
+	found := res.RowsAffected > 0
+	if found && existing.ItemType != appleSourceItemTypeDailySummary {
+		return fmt.Errorf("source key %q already belongs to item type %q", sourceKey, existing.ItemType)
+	}
+	if found && existing.ContentHash == contentHash {
+		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
+			"last_seen_snapshot_id": snapshotID,
+			"updated_at":            time.Now().UTC(),
+		}).Error
+	}
+
+	summaryID := uuid.Nil
+	if found && existing.DailySummaryID != nil {
+		summaryID = *existing.DailySummaryID
+	}
+	if summaryID == uuid.Nil {
+		var err error
+		summaryID, err = ids.New()
+		if err != nil {
+			return err
+		}
+	}
+	if err := upsertDailySummary(tx, rawFile, summaryID, summary); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if found {
+		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
+			"content_hash":          contentHash,
+			"daily_summary_id":      summaryID,
+			"last_seen_snapshot_id": snapshotID,
+			"updated_at":            now,
+		}).Error
+	}
+	itemID, err := ids.New()
+	if err != nil {
+		return err
+	}
+	return tx.Create(&models.AppleSourceItem{
+		ID:                 itemID,
+		SourceKey:          sourceKey,
+		ItemType:           appleSourceItemTypeDailySummary,
+		ContentHash:        contentHash,
+		DailySummaryID:     &summaryID,
+		LastSeenSnapshotID: &snapshotID,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}).Error
+}
+
+func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID, parsed parsers.ParsedDailySummary) error {
+	now := time.Now().UTC()
+	updates := map[string]any{
+		"day":               parsed.Day,
+		"move_kcal":         parsed.MoveKcal,
+		"move_goal_kcal":    parsed.MoveGoalKcal,
+		"exercise_min":      parsed.ExerciseMin,
+		"exercise_goal_min": parsed.ExerciseGoalMin,
+		"stand_hours":       parsed.StandHours,
+		"stand_goal_hours":  parsed.StandGoalHours,
+		"source":            parsed.Source,
+		"updated_at":        now,
+	}
+	var existing models.DailySummary
+	if err := tx.First(&existing, "id = ?", summaryID).Error; err == nil {
+		return tx.Model(&models.DailySummary{}).Where("id = ?", summaryID).Updates(updates).Error
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return tx.Create(&models.DailySummary{
+		ID:              summaryID,
+		Day:             parsed.Day,
+		MoveKcal:        parsed.MoveKcal,
+		MoveGoalKcal:    parsed.MoveGoalKcal,
+		ExerciseMin:     parsed.ExerciseMin,
+		ExerciseGoalMin: parsed.ExerciseGoalMin,
+		StandHours:      parsed.StandHours,
+		StandGoalHours:  parsed.StandGoalHours,
+		Source:          parsed.Source,
+		FirstRawFileID:  rawFile.ID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}).Error
+}
+
+func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric parsers.ParsedDailyMetric, snapshotID uuid.UUID) error {
+	sourceKey := dailyMetricSourceKey(metric)
+	if sourceKey == "" {
+		return fmt.Errorf("parsed daily metric missing source key")
+	}
+	contentHash := dailyMetricContentHash(metric)
+
+	var existing models.AppleSourceItem
+	res := tx.Limit(1).Find(&existing, "source_key = ?", sourceKey)
+	if res.Error != nil {
+		return res.Error
+	}
+	found := res.RowsAffected > 0
+	if found && existing.ItemType != appleSourceItemTypeDailyMetric {
+		return fmt.Errorf("source key %q already belongs to item type %q", sourceKey, existing.ItemType)
+	}
+	if found && existing.ContentHash == contentHash {
+		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
+			"last_seen_snapshot_id": snapshotID,
+			"updated_at":            time.Now().UTC(),
+		}).Error
+	}
+
+	metricID := uuid.Nil
+	if found && existing.DailyMetricID != nil {
+		metricID = *existing.DailyMetricID
+	}
+	if metricID == uuid.Nil {
+		var err error
+		metricID, err = ids.New()
+		if err != nil {
+			return err
+		}
+	}
+	if err := upsertDailyMetric(tx, rawFile, metricID, metric); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if found {
+		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
+			"content_hash":          contentHash,
+			"daily_metric_id":       metricID,
+			"last_seen_snapshot_id": snapshotID,
+			"updated_at":            now,
+		}).Error
+	}
+	itemID, err := ids.New()
+	if err != nil {
+		return err
+	}
+	return tx.Create(&models.AppleSourceItem{
+		ID:                 itemID,
+		SourceKey:          sourceKey,
+		ItemType:           appleSourceItemTypeDailyMetric,
+		ContentHash:        contentHash,
+		DailyMetricID:      &metricID,
+		LastSeenSnapshotID: &snapshotID,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}).Error
+}
+
+func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, parsed parsers.ParsedDailyMetric) error {
+	now := time.Now().UTC()
+	updates := map[string]any{
+		"day":        parsed.Day,
+		"metric":     parsed.Metric,
+		"value":      parsed.Value,
+		"unit":       parsed.Unit,
+		"source":     parsed.Source,
+		"updated_at": now,
+	}
+	var existing models.DailyMetric
+	if err := tx.First(&existing, "id = ?", metricID).Error; err == nil {
+		return tx.Model(&models.DailyMetric{}).Where("id = ?", metricID).Updates(updates).Error
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return tx.Create(&models.DailyMetric{
+		ID:             metricID,
+		Day:            parsed.Day,
+		Metric:         parsed.Metric,
+		Value:          parsed.Value,
+		Unit:           parsed.Unit,
+		Source:         parsed.Source,
+		FirstRawFileID: rawFile.ID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Error
 }
 
 func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed parsers.ParsedActivity) (uuid.UUID, error) {

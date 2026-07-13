@@ -99,6 +99,39 @@ type ParsedSleepSession struct {
 	Segments     []ParsedSleepSegment
 }
 
+const (
+	DailyMetricSteps           = "steps"
+	DailyMetricDistanceKM      = "distance_km"
+	DailyMetricFlights         = "flights"
+	DailyMetricRestingHR       = "resting_hr"
+	DailyMetricWalkingHR       = "walking_hr_avg"
+	DailyMetricHRVSDNN         = "hrv_sdnn"
+	DailyMetricVO2Max          = "vo2max"
+	DailyMetricBodyMassKG      = "body_mass_kg"
+	DailyMetricSpO2Avg         = "spo2_avg"
+	DailyMetricSpO2Min         = "spo2_min"
+	DailyMetricRespiratoryRate = "respiratory_rate"
+)
+
+type ParsedDailySummary struct {
+	Day             time.Time
+	MoveKcal        float64
+	MoveGoalKcal    float64
+	ExerciseMin     float64
+	ExerciseGoalMin float64
+	StandHours      float64
+	StandGoalHours  float64
+	Source          string
+}
+
+type ParsedDailyMetric struct {
+	Day    time.Time
+	Metric string
+	Value  float64
+	Unit   string
+	Source string
+}
+
 type RoutePoint struct {
 	Ts         *time.Time
 	Lat        float64

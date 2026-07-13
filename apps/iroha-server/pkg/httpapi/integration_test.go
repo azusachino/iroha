@@ -20,6 +20,7 @@ import (
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
@@ -196,6 +197,79 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 	})
 }
 
+func TestIntegrationDailyEndpoint(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	rawFile := models.RawFile{
+		ID:               uuid.New(),
+		SHA256:           "daily-integration",
+		OriginalFilename: "daily.xml",
+		StoragePath:      "/tmp/daily.xml",
+		SourceKind:       "apple_health_export",
+		UploadedVia:      "test",
+		CreatedAt:        time.Now().UTC(),
+	}
+	if err := db.Create(&rawFile).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	createdAt := time.Now().UTC()
+	for _, summary := range []models.DailySummary{
+		{ID: uuid.New(), Day: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC), MoveKcal: 600, MoveGoalKcal: 500, ExerciseMin: 45, ExerciseGoalMin: 30, StandHours: 10, StandGoalHours: 12, Source: "apple_health_export", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt},
+		{ID: uuid.New(), Day: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC), MoveKcal: 400, MoveGoalKcal: 500, ExerciseMin: 20, ExerciseGoalMin: 30, StandHours: 8, StandGoalHours: 12, Source: "apple_health_export", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt},
+	} {
+		if err := db.Create(&summary).Error; err != nil {
+			t.Fatalf("create daily summary: %v", err)
+		}
+		if err := db.Create(&models.DailyMetric{ID: uuid.New(), Day: summary.Day, Metric: "steps", Value: 1234, Unit: "count", Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt}).Error; err != nil {
+			t.Fatalf("create daily metric: %v", err)
+		}
+	}
+	for _, metric := range []models.DailyMetric{
+		{ID: uuid.New(), Day: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC), Metric: "resting_hr", Value: 57, Unit: "count/min", Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt},
+		{ID: uuid.New(), Day: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC), Metric: "hrv_sdnn", Value: 42, Unit: "ms", Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt},
+		{ID: uuid.New(), Day: time.Date(2023, time.December, 31, 0, 0, 0, 0, time.UTC), Metric: "body_mass_kg", Value: 70.5, Unit: "kg", Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt},
+	} {
+		if err := db.Create(&metric).Error; err != nil {
+			t.Fatalf("create vitals metric: %v", err)
+		}
+	}
+
+	server := newIntegrationServer(t, db)
+	firstPage := requestJSON(t, server, http.MethodGet, "/api/v1/daily?limit=1", "", http.StatusOK, func(body map[string]any) {
+		items := body["items"].([]any)
+		if len(items) != 1 || body["has_more"] != true {
+			t.Fatalf("first daily page = %#v", body)
+		}
+		item := items[0].(map[string]any)
+		if item["day"] != "2024-01-02T00:00:00Z" || item["steps"] != float64(1234) || item["resting_hr"] != float64(57) || item["hrv_sdnn"] != float64(42) {
+			t.Fatalf("daily item = %#v", item)
+		}
+	})
+	cursor := stringValue(t, firstPage, "next_cursor")
+	secondPage := requestJSON(t, server, http.MethodGet, "/api/v1/daily?limit=1&cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
+		items := body["items"].([]any)
+		if len(items) != 1 || body["has_more"] != true {
+			t.Fatalf("second daily page = %#v", body)
+		}
+		if items[0].(map[string]any)["day"] != "2024-01-01T00:00:00Z" {
+			t.Fatalf("second daily item = %#v", items[0])
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/daily?limit=1&cursor="+stringValue(t, secondPage, "next_cursor"), "", http.StatusOK, func(body map[string]any) {
+		items := body["items"].([]any)
+		if len(items) != 1 || body["has_more"] != false {
+			t.Fatalf("third daily page = %#v", body)
+		}
+		item := items[0].(map[string]any)
+		if item["day"] != "2023-12-31T00:00:00Z" || item["body_mass_kg"] != float64(70.5) {
+			t.Fatalf("metric-only daily item = %#v", item)
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/daily?from=bad", "", http.StatusBadRequest, nil)
+}
+
 func openIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("DATABASE_URL")
@@ -306,6 +380,7 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 		Logger:          logger,
 		ActivityService: activities.NewService(db),
 		SleepService:    sleep.NewService(db),
+		DailyService:    daily.NewService(db),
 		ImportService:   importService,
 		RawFileService:  rawFileService,
 	})

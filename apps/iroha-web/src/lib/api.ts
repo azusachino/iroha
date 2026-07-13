@@ -127,6 +127,71 @@ export interface Page<T> {
 	has_more: boolean;
 }
 
+// One day of the daily-activity + body-vitals module. Rings are always present
+// (zeroed on non-ring days); every scalar metric is optional because a day may
+// have some vitals but no ring, or vice versa.
+export interface DailyRow {
+	id: string;
+	day: string;
+	move_kcal: number;
+	move_goal_kcal: number;
+	exercise_min: number;
+	exercise_goal_min: number;
+	stand_hours: number;
+	stand_goal_hours: number;
+	steps?: number;
+	distance_km?: number;
+	flights?: number;
+	resting_hr?: number;
+	walking_hr_avg?: number;
+	hrv_sdnn?: number;
+	spo2_avg?: number;
+	spo2_min?: number;
+	respiratory_rate?: number;
+	vo2max?: number;
+	body_mass_kg?: number;
+	source: string;
+	first_raw_file_id: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ListDailyParams {
+	from?: string;
+	to?: string;
+	limit?: number;
+	cursor?: string;
+}
+
+// One month/year rollup. Ring fields are per-day averages over ring days;
+// `metrics` is a per-day average keyed by metric slug (steps, resting_hr, …),
+// open-ended to match tb_daily_metrics.
+export interface DailyAggregateBucket {
+	period: string;
+	days: number;
+	move_kcal_avg: number;
+	exercise_min_avg: number;
+	stand_hours_avg: number;
+	move_closed_pct: number;
+	metrics: Record<string, number>;
+}
+
+export interface DailyAggregates {
+	granularity: 'month' | 'year';
+	buckets: DailyAggregateBucket[];
+}
+
+export function listDailyAggregates(
+	granularity: 'month' | 'year',
+	params: { from?: string; to?: string } = {},
+	fetchFn: typeof fetch = fetch
+): Promise<DailyAggregates> {
+	const query = new URLSearchParams({ granularity });
+	if (params.from) query.set('from', params.from);
+	if (params.to) query.set('to', params.to);
+	return getJSON<DailyAggregates>(`/api/v1/daily/aggregates?${query.toString()}`, fetchFn);
+}
+
 async function getJSON<T>(path: string, fetchFn: typeof fetch = fetch): Promise<T> {
 	const res = await fetchFn(`${API_BASE}${path}`, {
 		headers: { accept: 'application/json' }
@@ -182,6 +247,19 @@ export function listSleepAggregates(
 	if (params.from) query.set('from', params.from);
 	if (params.to) query.set('to', params.to);
 	return getJSON<SleepAggregates>(`/api/v1/sleep/aggregates?${query.toString()}`, fetchFn);
+}
+
+export function listDaily(
+	params: ListDailyParams = {},
+	fetchFn: typeof fetch = fetch
+): Promise<Page<DailyRow>> {
+	const query = new URLSearchParams();
+	if (params.from) query.set('from', params.from);
+	if (params.to) query.set('to', params.to);
+	if (params.limit != null) query.set('limit', String(params.limit));
+	if (params.cursor) query.set('cursor', params.cursor);
+	const suffix = query.toString() ? `?${query.toString()}` : '';
+	return getJSON<Page<DailyRow>>(`/api/v1/daily${suffix}`, fetchFn);
 }
 
 export function getActivity(id: string, fetchFn: typeof fetch = fetch): Promise<Activity> {

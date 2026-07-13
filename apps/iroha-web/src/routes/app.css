@@ -7,7 +7,7 @@
 	--color-border: #2a2f3a;
 	--color-text: #e6e8ec;
 	--color-text-muted: #9aa3b2;
-	--color-accent: #4f8cff;
+	--color-accent: #39c5bb;
 	--color-danger: #ff6b6b;
 	--sport-run: #3987e5;
 	--sport-walk: #199e70;
@@ -25,8 +25,19 @@
 	--border: #2a2f3a;
 	--text: #e6e8ec;
 	--text-muted: #9aa3b2;
-	--accent: #4f8cff;
+	--accent: #39c5bb;
 	--danger: #ff6b6b;
+	/* Miku two-tier palette (validated, decision:miku-palette).
+	   NEON = chrome/glow/identity only. MARK = data fills (in L 0.48–0.67 band). */
+	--accent-2: #ff5c8a; /* neon magenta, secondary highlight */
+	--accent-glow: 0 0 24px rgb(57 197 187 / 0.28);
+	--accent-2-glow: 0 0 24px rgb(255 92 138 / 0.26);
+	--mark-teal: #14a89b;
+	--mark-magenta: #e0447a;
+	--mark-amber: #c98500;
+	--ring-move: #e0447a;
+	--ring-exercise: #c98500;
+	--ring-stand: #14a89b;
 	--sport-run: #3987e5;
 	--sport-walk: #199e70;
 	--sport-hike: #008300;
@@ -57,7 +68,7 @@
 	--color-border: #d9dee6;
 	--color-text: #1a1e26;
 	--color-text-muted: #5b6472;
-	--color-accent: #2f6fe4;
+	--color-accent: #0e8f86;
 	--color-danger: #d64545;
 
 	--bg: #f5f7fa;
@@ -66,8 +77,11 @@
 	--border: #d9dee6;
 	--text: #1a1e26;
 	--text-muted: #5b6472;
-	--accent: #2f6fe4;
+	--accent: #0e8f86; /* darker Miku teal for link/text contrast on light */
 	--danger: #d64545;
+	--accent-2: #d63f74; /* darker magenta for light */
+	--accent-glow: 0 0 20px rgb(14 143 134 / 0.2);
+	--accent-2-glow: 0 0 20px rgb(214 63 116 / 0.18);
 	--tile-surface: linear-gradient(180deg, rgb(0 0 0 / 0.015), rgb(0 0 0 / 0)) var(--surface);
 	--tile-shadow: 0 12px 32px rgb(20 30 60 / 0.1);
 }

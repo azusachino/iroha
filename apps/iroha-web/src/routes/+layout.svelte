@@ -21,7 +21,7 @@
 
 <div class="app">
 	<header class="appbar">
-		<a class="brand" href="/dashboard">iroha</a>
+		<a class="brand" href="/">iroha</a>
 		<div class="appbar-actions">
 			<button class="command-trigger" type="button" aria-label="Open command palette" onclick={openCommandPalette}>
 				<Command size={15} />

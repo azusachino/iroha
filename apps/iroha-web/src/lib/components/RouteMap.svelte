@@ -4,9 +4,11 @@
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import type { RoutePoint } from '$lib/api';
 
-	let { points }: { points: RoutePoint[] } = $props();
+	let { points, selectedIndex = null }: { points: RoutePoint[]; selectedIndex?: number | null } = $props();
 
 	let container: HTMLDivElement;
+	let map: maplibregl.Map;
+	let marker: maplibregl.Marker | undefined;
 
 	// Key-free raster style backed by OpenStreetMap tiles (no API token needed).
 	const style: maplibregl.StyleSpecification = {
@@ -27,7 +29,7 @@
 			.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
 			.map((p) => [p.lon, p.lat] as [number, number]);
 
-		const map = new maplibregl.Map({
+		map = new maplibregl.Map({
 			container,
 			style,
 			center: coords.length ? coords[0] : [0, 0],
@@ -54,6 +56,7 @@
 				layout: { 'line-join': 'round', 'line-cap': 'round' },
 				paint: { 'line-color': '#4f8cff', 'line-width': 4 }
 			});
+			marker = new maplibregl.Marker({ color: '#ff6b6b' }).setLngLat(coords[0]).addTo(map);
 
 			// Fit the viewport to the full track.
 			const bounds = coords.reduce(
@@ -64,6 +67,12 @@
 		});
 
 		return () => map.remove();
+	});
+
+	$effect(() => {
+		if (!marker || selectedIndex == null) return;
+		const point = points[selectedIndex];
+		if (point && Number.isFinite(point.lat) && Number.isFinite(point.lon)) marker.setLngLat([point.lon, point.lat]);
 	});
 </script>
 

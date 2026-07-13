@@ -161,6 +161,41 @@ func (SleepSegment) TableName() string {
 	return "tb_sleep_segments"
 }
 
+type DailySummary struct {
+	ID              uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Day             time.Time `gorm:"type:date"`
+	MoveKcal        float64
+	MoveGoalKcal    float64
+	ExerciseMin     float64
+	ExerciseGoalMin float64
+	StandHours      float64
+	StandGoalHours  float64
+	Source          string
+	FirstRawFileID  uuid.UUID `gorm:"type:uuid"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (DailySummary) TableName() string {
+	return "tb_daily_summaries"
+}
+
+type DailyMetric struct {
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Day            time.Time `gorm:"type:date"`
+	Metric         string
+	Value          float64
+	Unit           string
+	Source         string
+	FirstRawFileID uuid.UUID `gorm:"type:uuid"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (DailyMetric) TableName() string {
+	return "tb_daily_metrics"
+}
+
 type ImportSnapshot struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
 	ImportJobID   uuid.UUID `gorm:"type:uuid"`
@@ -182,6 +217,8 @@ type AppleSourceItem struct {
 	ContentHash        string
 	ActivityID         *uuid.UUID `gorm:"type:uuid"`
 	SleepSessionID     *uuid.UUID `gorm:"type:uuid"`
+	DailySummaryID     *uuid.UUID `gorm:"type:uuid"`
+	DailyMetricID      *uuid.UUID `gorm:"type:uuid"`
 	LastSeenSnapshotID *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
