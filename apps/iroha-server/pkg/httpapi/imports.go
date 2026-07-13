@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/parsers"
 	"github.com/go-chi/chi/v5"
 )
 

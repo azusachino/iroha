@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/parsers"
+	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
 	"github.com/google/uuid"
 )
 

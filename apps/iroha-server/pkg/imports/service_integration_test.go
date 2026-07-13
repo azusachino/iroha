@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/parsers"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
