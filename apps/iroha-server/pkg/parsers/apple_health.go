@@ -81,14 +81,14 @@ type appleMetadataEntry struct {
 	Value string `xml:"value,attr"`
 }
 
-func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, error) {
+func ParseAppleHealthExport(path string, rawHash string) ([]ActivityObservation, error) {
 	reader, err := zip.OpenReader(path)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = reader.Close() }()
 
-	var activities []ParsedActivity
+	var activities []ActivityObservation
 	for _, file := range reader.File {
 		if !strings.HasSuffix(file.Name, "export.xml") {
 			continue
@@ -99,7 +99,7 @@ func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, erro
 			return nil, err
 		}
 
-		fileActivities := make([]ParsedActivity, 0, len(workouts))
+		fileActivities := make([]ActivityObservation, 0, len(workouts))
 		for _, workout := range workouts {
 			activity, ok := workoutToActivity(workout)
 			if !ok {
@@ -141,8 +141,8 @@ func ParseAppleHealthExport(path string, rawHash string) ([]ParsedActivity, erro
 
 // ParseAppleHealthSleep streams the sleep-analysis records from an Apple
 // Health export and groups them into sessions. Sleep is intentionally parsed
-// through its own path rather than being folded into ParsedActivity.
-func ParseAppleHealthSleep(path string) ([]ParsedSleepSession, error) {
+// through its own path rather than being folded into ActivityObservation.
+func ParseAppleHealthSleep(path string) ([]SleepObservation, error) {
 	reader, err := zip.OpenReader(path)
 	if err != nil {
 		return nil, err
@@ -171,7 +171,7 @@ func ParseAppleHealthSleep(path string) ([]ParsedSleepSession, error) {
 // quantity records from an Apple Health export. Quantity records are retained
 // only for the supported metrics and are deduplicated by source-priority
 // interval union before being emitted as daily totals.
-func ParseAppleHealthDailyActivity(path string) ([]ParsedDailySummary, []ParsedDailyMetric, error) {
+func ParseAppleHealthDailyActivity(path string) ([]DailySummaryObservation, []DailyMetricObservation, error) {
 	reader, err := zip.OpenReader(path)
 	if err != nil {
 		return nil, nil, err
@@ -226,9 +226,9 @@ var selectedDailyRecordTypes = map[string]string{
 	"HKQuantityTypeIdentifierRespiratoryRate":          DailyMetricRespiratoryRate,
 }
 
-func decodeAppleDailyActivity(r io.Reader) ([]ParsedDailySummary, []dailyActivityRecord, error) {
+func decodeAppleDailyActivity(r io.Reader) ([]DailySummaryObservation, []dailyActivityRecord, error) {
 	decoder := xml.NewDecoder(r)
-	summariesByDay := make(map[string]ParsedDailySummary)
+	summariesByDay := make(map[string]DailySummaryObservation)
 	records := make([]dailyActivityRecord, 0)
 	for {
 		token, err := decoder.Token()
@@ -277,7 +277,7 @@ func decodeAppleDailyActivity(r io.Reader) ([]ParsedDailySummary, []dailyActivit
 		days = append(days, day)
 	}
 	sort.Strings(days)
-	summaries := make([]ParsedDailySummary, 0, len(days))
+	summaries := make([]DailySummaryObservation, 0, len(days))
 	for _, day := range days {
 		summaries = append(summaries, summariesByDay[day])
 	}
@@ -295,10 +295,10 @@ type appleActivitySummary struct {
 	Source          string `xml:"sourceName,attr"`
 }
 
-func parseDailySummary(summary appleActivitySummary) (ParsedDailySummary, bool) {
+func parseDailySummary(summary appleActivitySummary) (DailySummaryObservation, bool) {
 	day, err := parseAppleDate(summary.DateComponents)
 	if err != nil {
-		return ParsedDailySummary{}, false
+		return DailySummaryObservation{}, false
 	}
 	parse := func(value string) float64 {
 		parsed, _ := strconv.ParseFloat(value, 64)
@@ -308,7 +308,7 @@ func parseDailySummary(summary appleActivitySummary) (ParsedDailySummary, bool) 
 	if source == "" {
 		source = KindAppleHealthExport
 	}
-	return ParsedDailySummary{
+	return DailySummaryObservation{
 		Day:             day,
 		MoveKcal:        parse(summary.MoveKcal),
 		MoveGoalKcal:    parse(summary.MoveGoalKcal),
@@ -381,7 +381,7 @@ func selectedDailyMetric(start xml.StartElement) (string, bool) {
 	return "", false
 }
 
-func rollupDailyMetrics(records []dailyActivityRecord) []ParsedDailyMetric {
+func rollupDailyMetrics(records []dailyActivityRecord) []DailyMetricObservation {
 	byDayMetric := make(map[string][]dailyActivityRecord)
 	for _, record := range records {
 		key := record.day + "\x00" + record.metric
@@ -392,7 +392,7 @@ func rollupDailyMetrics(records []dailyActivityRecord) []ParsedDailyMetric {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	metrics := make([]ParsedDailyMetric, 0, len(keys))
+	metrics := make([]DailyMetricObservation, 0, len(keys))
 	for _, key := range keys {
 		group := byDayMetric[key]
 		sort.SliceStable(group, func(i, j int) bool {
@@ -434,7 +434,7 @@ func rollupDailyMetrics(records []dailyActivityRecord) []ParsedDailyMetric {
 		for _, interval := range accepted {
 			value += interval.value
 		}
-		metrics = append(metrics, ParsedDailyMetric{
+		metrics = append(metrics, DailyMetricObservation{
 			Day:    day,
 			Metric: group[0].metric,
 			Value:  value,
@@ -466,7 +466,7 @@ func metricKind(metric string) dailyMetricKind {
 	}
 }
 
-func rollupPointMetric(day, metric, unit string, records []dailyActivityRecord) ParsedDailyMetric {
+func rollupPointMetric(day, metric, unit string, records []dailyActivityRecord) DailyMetricObservation {
 	sort.SliceStable(records, func(i, j int) bool {
 		return records[i].endedAt.Before(records[j].endedAt)
 	})
@@ -479,16 +479,16 @@ func rollupPointMetric(day, metric, unit string, records []dailyActivityRecord) 
 		value /= float64(len(records))
 	}
 	parsedDay, _ := parseAppleDate(day)
-	return ParsedDailyMetric{Day: parsedDay, Metric: metric, Value: value, Unit: unit, Source: records[len(records)-1].source}
+	return DailyMetricObservation{Day: parsedDay, Metric: metric, Value: value, Unit: unit, Source: records[len(records)-1].source}
 }
 
-func rollupSpO2Min(day string, records []dailyActivityRecord) ParsedDailyMetric {
+func rollupSpO2Min(day string, records []dailyActivityRecord) DailyMetricObservation {
 	minimum := records[0].value
 	for _, record := range records[1:] {
 		minimum = min(minimum, record.value)
 	}
 	parsedDay, _ := parseAppleDate(day)
-	return ParsedDailyMetric{Day: parsedDay, Metric: DailyMetricSpO2Min, Value: minimum, Unit: "%", Source: records[len(records)-1].source}
+	return DailyMetricObservation{Day: parsedDay, Metric: DailyMetricSpO2Min, Value: minimum, Unit: "%", Source: records[len(records)-1].source}
 }
 
 func dailySourcePriority(source string) int {
@@ -510,9 +510,9 @@ func parseAppleDate(value string) (time.Time, error) {
 	return time.ParseInLocation("2006-01-02", value[:len("2006-01-02")], time.UTC)
 }
 
-func decodeAppleSleepSegments(r io.Reader) ([]ParsedSleepSegment, error) {
+func decodeAppleSleepSegments(r io.Reader) ([]SleepSegmentObservation, error) {
 	decoder := xml.NewDecoder(r)
-	segments := make([]ParsedSleepSegment, 0)
+	segments := make([]SleepSegmentObservation, 0)
 	for {
 		token, err := decoder.Token()
 		if err == io.EOF {
@@ -546,7 +546,7 @@ func decodeAppleSleepSegments(r io.Reader) ([]ParsedSleepSegment, error) {
 		if err != nil || endedAt.Before(startedAt) {
 			continue
 		}
-		segments = append(segments, ParsedSleepSegment{
+		segments = append(segments, SleepSegmentObservation{
 			Stage:     stage,
 			StartedAt: startedAt,
 			EndedAt:   endedAt,
@@ -577,17 +577,17 @@ func selectedAppleSleepStage(start xml.StartElement) (string, bool) {
 	return stage, ok
 }
 
-func sessionizeSleepSegments(segments []ParsedSleepSegment, gap time.Duration) []ParsedSleepSession {
+func sessionizeSleepSegments(segments []SleepSegmentObservation, gap time.Duration) []SleepObservation {
 	if len(segments) == 0 {
 		return nil
 	}
-	sorted := append([]ParsedSleepSegment(nil), segments...)
+	sorted := append([]SleepSegmentObservation(nil), segments...)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		return sorted[i].StartedAt.Before(sorted[j].StartedAt)
 	})
 
-	sessions := make([]ParsedSleepSession, 0)
-	current := []ParsedSleepSegment{sorted[0]}
+	sessions := make([]SleepObservation, 0)
+	current := []SleepSegmentObservation{sorted[0]}
 	currentEnd := sorted[0].EndedAt
 	for _, segment := range sorted[1:] {
 		if segment.StartedAt.Sub(currentEnd) <= gap {
@@ -598,14 +598,14 @@ func sessionizeSleepSegments(segments []ParsedSleepSegment, gap time.Duration) [
 			continue
 		}
 		sessions = append(sessions, buildSleepSession(current))
-		current = []ParsedSleepSegment{segment}
+		current = []SleepSegmentObservation{segment}
 		currentEnd = segment.EndedAt
 	}
 	sessions = append(sessions, buildSleepSession(current))
 	return sessions
 }
 
-func buildSleepSession(segments []ParsedSleepSegment) ParsedSleepSession {
+func buildSleepSession(segments []SleepSegmentObservation) SleepObservation {
 	byStage := make(map[string][]sleepInterval)
 	sources := make(map[string]struct{})
 	for _, segment := range segments {
@@ -642,7 +642,7 @@ func buildSleepSession(segments []ParsedSleepSegment) ParsedSleepSession {
 		efficiency = asleep / timeInBed
 	}
 	wakeDate := time.Date(endedAt.Year(), endedAt.Month(), endedAt.Day(), 0, 0, 0, 0, endedAt.Location())
-	return ParsedSleepSession{
+	return SleepObservation{
 		WakeDate:     wakeDate,
 		StartedAt:    startedAt,
 		EndedAt:      endedAt,
@@ -656,7 +656,7 @@ func buildSleepSession(segments []ParsedSleepSegment) ParsedSleepSession {
 		AwakeS:       stageSeconds(SleepStageAwake),
 		UnspecifiedS: stageSeconds(SleepStageAsleepUnspecified),
 		Source:       strings.Join(sortedSleepSources(sources), ","),
-		Segments:     append([]ParsedSleepSegment(nil), segments...),
+		Segments:     append([]SleepSegmentObservation(nil), segments...),
 	}
 }
 
@@ -710,7 +710,7 @@ func parseAppleWorkoutsRaw(file *zip.File) ([]appleWorkout, error) {
 // them to activity.RoutePoints. Workouts without a route, or whose
 // referenced gpx entry is missing from the zip, are left with empty
 // RoutePoints - this must never fail the overall import.
-func attachWorkoutRoute(activity *ParsedActivity, workout appleWorkout, reader *zip.ReadCloser) {
+func attachWorkoutRoute(activity *ActivityObservation, workout appleWorkout, reader *zip.ReadCloser) {
 	if workout.WorkoutRoute == nil || workout.WorkoutRoute.FileReference == nil {
 		return
 	}
@@ -758,13 +758,13 @@ func findRouteZipFile(files []*zip.File, refPath string) *zip.File {
 // <Workout> element's full subtree while skipping everything else (notably
 // the potentially millions of sibling <Record> elements). It must remain
 // streaming rather than reading the whole document into memory.
-func decodeAppleWorkouts(r io.Reader) ([]ParsedActivity, error) {
+func decodeAppleWorkouts(r io.Reader) ([]ActivityObservation, error) {
 	workouts, err := decodeAppleWorkoutsRaw(r)
 	if err != nil {
 		return nil, err
 	}
 
-	var activities []ParsedActivity
+	var activities []ActivityObservation
 	for _, workout := range workouts {
 		activity, ok := workoutToActivity(workout)
 		if ok {
@@ -777,7 +777,7 @@ func decodeAppleWorkouts(r io.Reader) ([]ParsedActivity, error) {
 // decodeAppleWorkoutsRaw performs the streaming token walk over an
 // export.xml document and returns the decoded appleWorkout structs
 // (including their nested subtrees) without converting them to
-// ParsedActivity. Exposed separately so tests can assert on the captured
+// ActivityObservation. Exposed separately so tests can assert on the captured
 // nested data directly.
 func decodeAppleWorkoutsRaw(r io.Reader) ([]appleWorkout, error) {
 	decoder := xml.NewDecoder(r)
@@ -846,7 +846,7 @@ var appleSleepStages = map[string]string{
 type workoutWindow struct {
 	start    time.Time
 	end      time.Time
-	activity *ParsedActivity
+	activity *ActivityObservation
 }
 
 // buildWorkoutWindows builds the sorted-by-start window list used to
@@ -854,7 +854,7 @@ type workoutWindow struct {
 // a valid EndedAt are included (an open-ended workout has no window to test
 // against). Callers must not append to activities after calling this - see
 // the caution at ParseAppleHealthExport's call site.
-func buildWorkoutWindows(activities []ParsedActivity) []workoutWindow {
+func buildWorkoutWindows(activities []ActivityObservation) []workoutWindow {
 	windows := make([]workoutWindow, 0, len(activities))
 	for i := range activities {
 		if activities[i].EndedAt == nil {
@@ -879,7 +879,7 @@ func buildWorkoutWindows(activities []ParsedActivity) []workoutWindow {
 // If workout windows overlap (rare in practice), the rightmost
 // start-matching window is used rather than searching earlier windows too -
 // an accepted approximation per the task spec.
-func findOwningActivity(windows []workoutWindow, ts time.Time) *ParsedActivity {
+func findOwningActivity(windows []workoutWindow, ts time.Time) *ActivityObservation {
 	idx := sort.Search(len(windows), func(i int) bool {
 		return windows[i].start.After(ts)
 	}) - 1
@@ -895,7 +895,7 @@ func findOwningActivity(windows []workoutWindow, ts time.Time) *ParsedActivity {
 
 // decodeAppleSamplings is pass 2 over export.xml: it streams top-level
 // <Record> elements and, for each whose type is in selectedRecordTypes and
-// whose startDate falls inside a workout window, appends a ParsedSampling
+// whose startDate falls inside a workout window, appends a ActivitySampling
 // to that window's activity (via the activity pointer captured in
 // workoutWindow).
 //
@@ -946,7 +946,7 @@ func decodeAppleSamplings(r io.Reader, windows []workoutWindow) error {
 		if activity == nil {
 			continue
 		}
-		activity.Samplings = append(activity.Samplings, ParsedSampling{
+		activity.Samplings = append(activity.Samplings, ActivitySampling{
 			SamplingType: samplingType,
 			Ts:           ts,
 			Value:        value,
@@ -969,10 +969,10 @@ func selectedRecordSamplingType(start xml.StartElement) (string, bool) {
 	return "", false
 }
 
-func workoutToActivity(workout appleWorkout) (ParsedActivity, bool) {
+func workoutToActivity(workout appleWorkout) (ActivityObservation, bool) {
 	startedAt, err := parseAppleTime(workout.StartDate)
 	if err != nil {
-		return ParsedActivity{}, false
+		return ActivityObservation{}, false
 	}
 	var endedAt *time.Time
 	if parsed, err := parseAppleTime(workout.EndDate); err == nil {
@@ -984,7 +984,7 @@ func workoutToActivity(workout appleWorkout) (ParsedActivity, bool) {
 	externalID := stableWorkoutSourceKey(workout)
 	contentHash := workoutContentHash(workout)
 
-	activity := ParsedActivity{
+	activity := ActivityObservation{
 		Provider:         "apple_health",
 		ExternalID:       externalID,
 		SportType:        normalizeAppleSport(workout.WorkoutActivityType),
@@ -1008,7 +1008,7 @@ func workoutToActivity(workout appleWorkout) (ParsedActivity, bool) {
 // (AvgHR/MaxHR/AvgPaceSPerKM, CaloriesKcal, and DistanceM when a more authoritative
 // per-stat value is available) from the workout's WorkoutStatistics
 // entries.
-func applyWorkoutStatistics(activity *ParsedActivity, stats []appleWorkoutStatistic) {
+func applyWorkoutStatistics(activity *ActivityObservation, stats []appleWorkoutStatistic) {
 	for _, stat := range stats {
 		switch stat.Type {
 		case "HKQuantityTypeIdentifierHeartRate":
@@ -1059,13 +1059,13 @@ func applyWorkoutStatistics(activity *ParsedActivity, stats []appleWorkoutStatis
 // has none of those but has HKWorkoutEventTypeSegment events, those are
 // used instead. Marker/Pause/Resume events never contribute lap
 // boundaries. Workouts with no qualifying events produce no laps (nil).
-func deriveWorkoutLaps(workout appleWorkout, startedAt time.Time) []ParsedLap {
+func deriveWorkoutLaps(workout appleWorkout, startedAt time.Time) []ActivityLap {
 	boundaryEvents := lapBoundaryEvents(workout.Events)
 	if len(boundaryEvents) == 0 {
 		return nil
 	}
 
-	var laps []ParsedLap
+	var laps []ActivityLap
 	prevBoundary := startedAt
 	lapNo := 1
 	for _, event := range boundaryEvents {
@@ -1079,7 +1079,7 @@ func deriveWorkoutLaps(workout appleWorkout, startedAt time.Time) []ParsedLap {
 		start := prevBoundary
 		end := eventDate
 		durationS := int(end.Sub(start).Seconds())
-		laps = append(laps, ParsedLap{
+		laps = append(laps, ActivityLap{
 			LapNo:     lapNo,
 			StartTs:   &start,
 			EndTs:     &end,

@@ -97,12 +97,12 @@ func TestBuildRoutePointsInsertSQL_Empty(t *testing.T) {
 func TestSleepSessionSourceKeyAndContentHash(t *testing.T) {
 	startedAt := time.Date(2024, time.January, 1, 22, 0, 0, 0, time.FixedZone("-0700", -7*60*60))
 	endedAt := startedAt.Add(8 * time.Hour)
-	session := parsers.ParsedSleepSession{
+	session := parsers.SleepObservation{
 		Source:    "Watch",
 		WakeDate:  endedAt,
 		StartedAt: startedAt,
 		EndedAt:   endedAt,
-		Segments: []parsers.ParsedSleepSegment{{
+		Segments: []parsers.SleepSegmentObservation{{
 			Stage:     parsers.SleepStageInBed,
 			StartedAt: startedAt,
 			EndedAt:   endedAt,
@@ -125,7 +125,7 @@ func TestSleepSessionSourceKeyAndContentHash(t *testing.T) {
 }
 
 func TestDailySummarySourceKeyAndContentHash(t *testing.T) {
-	summary := parsers.ParsedDailySummary{
+	summary := parsers.DailySummaryObservation{
 		Day:             time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
 		MoveKcal:        600,
 		MoveGoalKcal:    500,
@@ -149,7 +149,7 @@ func TestDailySummarySourceKeyAndContentHash(t *testing.T) {
 }
 
 func TestDailyMetricSourceKeyAndContentHash(t *testing.T) {
-	metric := parsers.ParsedDailyMetric{
+	metric := parsers.DailyMetricObservation{
 		Day:    time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
 		Metric: parsers.DailyMetricSteps,
 		Value:  1234,

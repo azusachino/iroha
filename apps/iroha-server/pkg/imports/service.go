@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
@@ -34,7 +35,7 @@ const (
 // DefaultParserVersion identifies the current parser build. A completed
 // import at a different version triggers a reprocess (purge + re-persist)
 // rather than a duplicate append; bump this when parser semantics change.
-const DefaultParserVersion = "apple-health-2026-07-body-vitals"
+const DefaultParserVersion = coreimports.DefaultParserVersion
 
 type Enqueuer interface {
 	EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error)
@@ -198,9 +199,9 @@ func (s *Service) Process(jobID uuid.UUID) error {
 	if err != nil {
 		return s.fail(jobID, err.Error())
 	}
-	var parsedSleep []parsers.ParsedSleepSession
-	var parsedDailySummaries []parsers.ParsedDailySummary
-	var parsedDailyMetrics []parsers.ParsedDailyMetric
+	var parsedSleep []parsers.SleepObservation
+	var parsedDailySummaries []parsers.DailySummaryObservation
+	var parsedDailyMetrics []parsers.DailyMetricObservation
 	if job.ParserKind == parsers.KindAppleHealthExport {
 		parsedSleep, err = parsers.ParseAppleHealthSleep(rawFile.StoragePath)
 		if err != nil {
@@ -397,7 +398,7 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 	return nil
 }
 
-func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ParsedActivity, parsedSleep []parsers.ParsedSleepSession, parsedDailySummaries []parsers.ParsedDailySummary, parsedDailyMetrics []parsers.ParsedDailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {
+func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ActivityObservation, parsedSleep []parsers.SleepObservation, parsedDailySummaries []parsers.DailySummaryObservation, parsedDailyMetrics []parsers.DailyMetricObservation, snapshot models.ImportSnapshot, reprocess bool) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if reprocess {
 			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
@@ -457,7 +458,7 @@ func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.Par
 // ContentHash): unchanged workouts skip both the activity upsert and the
 // route point rewrite entirely, only bumping the source item's
 // last_seen_snapshot_id so we know it was still present in this export.
-func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activity parsers.ParsedActivity, snapshotID uuid.UUID) error {
+func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activity parsers.ActivityObservation, snapshotID uuid.UUID) error {
 	var existing models.AppleSourceItem
 	res := tx.Limit(1).Find(&existing, "source_key = ?", activity.ExternalID)
 	if res.Error != nil {
@@ -532,7 +533,7 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 	}
 }
 
-func sleepSessionSourceKey(session parsers.ParsedSleepSession) string {
+func sleepSessionSourceKey(session parsers.SleepObservation) string {
 	return strings.Join([]string{
 		session.Source,
 		session.WakeDate.Format("2006-01-02"),
@@ -541,7 +542,7 @@ func sleepSessionSourceKey(session parsers.ParsedSleepSession) string {
 	}, "|")
 }
 
-func sleepSessionContentHash(session parsers.ParsedSleepSession) string {
+func sleepSessionContentHash(session parsers.SleepObservation) string {
 	var content strings.Builder
 	for _, segment := range session.Segments {
 		fmt.Fprintf(
@@ -556,7 +557,7 @@ func sleepSessionContentHash(session parsers.ParsedSleepSession) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, session parsers.ParsedSleepSession, snapshotID uuid.UUID) error {
+func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, session parsers.SleepObservation, snapshotID uuid.UUID) error {
 	sourceKey := sleepSessionSourceKey(session)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed sleep session missing source key")
@@ -629,7 +630,7 @@ func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, sessi
 	return tx.Create(&item).Error
 }
 
-func upsertSleepSession(tx *gorm.DB, rawFile models.RawFile, sessionID uuid.UUID, parsed parsers.ParsedSleepSession) error {
+func upsertSleepSession(tx *gorm.DB, rawFile models.RawFile, sessionID uuid.UUID, parsed parsers.SleepObservation) error {
 	now := time.Now().UTC()
 	updates := map[string]any{
 		"wake_date":     parsed.WakeDate,
@@ -677,7 +678,7 @@ func upsertSleepSession(tx *gorm.DB, rawFile models.RawFile, sessionID uuid.UUID
 
 const sleepSegmentInsertBatchSize = 1000
 
-func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []parsers.ParsedSleepSegment) error {
+func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []parsers.SleepSegmentObservation) error {
 	if err := tx.Delete(&models.SleepSegment{}, "session_id = ?", sessionID).Error; err != nil {
 		return err
 	}
@@ -702,11 +703,11 @@ func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []parsers.P
 	return tx.CreateInBatches(rows, sleepSegmentInsertBatchSize).Error
 }
 
-func dailySummarySourceKey(summary parsers.ParsedDailySummary) string {
+func dailySummarySourceKey(summary parsers.DailySummaryObservation) string {
 	return summary.Day.Format("2006-01-02")
 }
 
-func dailySummaryContentHash(summary parsers.ParsedDailySummary) string {
+func dailySummaryContentHash(summary parsers.DailySummaryObservation) string {
 	content := fmt.Sprintf(
 		"%s|%.17g|%.17g|%.17g|%.17g|%.17g|%.17g|%s",
 		dailySummarySourceKey(summary),
@@ -722,17 +723,17 @@ func dailySummaryContentHash(summary parsers.ParsedDailySummary) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func dailyMetricSourceKey(metric parsers.ParsedDailyMetric) string {
+func dailyMetricSourceKey(metric parsers.DailyMetricObservation) string {
 	return strings.Join([]string{metric.Day.Format("2006-01-02"), metric.Metric}, "|")
 }
 
-func dailyMetricContentHash(metric parsers.ParsedDailyMetric) string {
+func dailyMetricContentHash(metric parsers.DailyMetricObservation) string {
 	content := fmt.Sprintf("%s|%.17g|%s|%s", dailyMetricSourceKey(metric), metric.Value, metric.Unit, metric.Source)
 	sum := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summary parsers.ParsedDailySummary, snapshotID uuid.UUID) error {
+func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summary parsers.DailySummaryObservation, snapshotID uuid.UUID) error {
 	sourceKey := dailySummarySourceKey(summary)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed daily summary missing source key")
@@ -794,7 +795,7 @@ func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summa
 	}).Error
 }
 
-func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID, parsed parsers.ParsedDailySummary) error {
+func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID, parsed parsers.DailySummaryObservation) error {
 	now := time.Now().UTC()
 	updates := map[string]any{
 		"day":               parsed.Day,
@@ -829,7 +830,7 @@ func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID
 	}).Error
 }
 
-func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric parsers.ParsedDailyMetric, snapshotID uuid.UUID) error {
+func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric parsers.DailyMetricObservation, snapshotID uuid.UUID) error {
 	sourceKey := dailyMetricSourceKey(metric)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed daily metric missing source key")
@@ -891,7 +892,7 @@ func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric
 	}).Error
 }
 
-func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, parsed parsers.ParsedDailyMetric) error {
+func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, parsed parsers.DailyMetricObservation) error {
 	now := time.Now().UTC()
 	updates := map[string]any{
 		"day":        parsed.Day,
@@ -920,7 +921,7 @@ func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, 
 	}).Error
 }
 
-func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed parsers.ParsedActivity) (uuid.UUID, error) {
+func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed parsers.ActivityObservation) (uuid.UUID, error) {
 	var externalRef models.ExternalRef
 	res := tx.Limit(1).Find(&externalRef, "provider = ? and external_id = ?", parsed.Provider, parsed.ExternalID)
 	if res.Error != nil {
@@ -997,7 +998,7 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed par
 // newly parsed ones. Mirrors replaceRoutePoints, but laps are few per
 // workout so a simple create-slice loop (rather than a hand-built batched
 // multi-row INSERT) is fine here.
-func replaceLaps(tx *gorm.DB, activityID uuid.UUID, laps []parsers.ParsedLap) error {
+func replaceLaps(tx *gorm.DB, activityID uuid.UUID, laps []parsers.ActivityLap) error {
 	if err := tx.Delete(&models.ActivityLap{}, "activity_id = ?", activityID).Error; err != nil {
 		return err
 	}
@@ -1038,7 +1039,7 @@ const samplingInsertBatchSize = 1000
 // has unchanged samples, and re-writing thousands of samples per unchanged
 // workout would be wasted work over ~2M source records) and not called on
 // the non-Apple import path.
-func replaceSamplings(tx *gorm.DB, activityID uuid.UUID, samplings []parsers.ParsedSampling) error {
+func replaceSamplings(tx *gorm.DB, activityID uuid.UUID, samplings []parsers.ActivitySampling) error {
 	if err := tx.Delete(&models.ActivitySampling{}, "activity_id = ?", activityID).Error; err != nil {
 		return err
 	}

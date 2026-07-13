@@ -18,7 +18,7 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	rawFileID := uuid.New()
 	jobID := uuid.New()
-	metric := parsers.ParsedDailyMetric{
+	metric := parsers.DailyMetricObservation{
 		Day:    time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
 		Metric: parsers.DailyMetricRestingHR,
 		Value:  57.5,

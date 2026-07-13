@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
@@ -47,7 +48,7 @@ func main() {
 
 	parserVersion := os.Getenv("IROHA_PARSER_VERSION")
 	if parserVersion == "" {
-		parserVersion = imports.DefaultParserVersion
+		parserVersion = coreimports.DefaultParserVersion
 	}
 
 	cacheClient := cache.New(cfg.Cache.URL)

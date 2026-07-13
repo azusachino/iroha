@@ -40,12 +40,55 @@ func (ImportJob) TableName() string {
 }
 
 type Activity struct {
+	ID                    uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SportType             string
+	Title                 string
+	StartedAt             time.Time
+	EndedAt               *time.Time
+	Timezone              string
+	DistanceM             *float64
+	DurationS             *int
+	MovingTimeS           *int
+	ElevationGainM        *float64
+	AvgHR                 *int
+	MaxHR                 *int
+	AvgPaceSPerKM         *float64
+	CaloriesKcal          *float64
+	SourceKind            string
+	SourceActivityID      string
+	FirstRawFileID        uuid.UUID `gorm:"type:uuid"`
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	SelectedObservationID *uuid.UUID `gorm:"type:uuid"`
+}
+
+func (Activity) TableName() string {
+	return "tb_activities"
+}
+
+type SourceObservation struct {
+	ID                  uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Provider            string
+	SourceKind          string
+	SourceKey           string
+	ContentHash         string
+	RawFileID           uuid.UUID  `gorm:"type:uuid"`
+	FirstSeenSnapshotID *uuid.UUID `gorm:"type:uuid"`
+	LastSeenSnapshotID  *uuid.UUID `gorm:"type:uuid"`
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+func (SourceObservation) TableName() string { return "tb_source_observations" }
+
+type ActivityObservation struct {
 	ID               uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ActivityID       uuid.UUID `gorm:"type:uuid"`
+	SourceActivityID string
 	SportType        string
 	Title            string
 	StartedAt        time.Time
 	EndedAt          *time.Time
-	Timezone         string
 	DistanceM        *float64
 	DurationS        *int
 	MovingTimeS      *int
@@ -54,16 +97,13 @@ type Activity struct {
 	MaxHR            *int
 	AvgPaceSPerKM    *float64
 	CaloriesKcal     *float64
-	SourceKind       string
-	SourceActivityID string
-	FirstRawFileID   uuid.UUID `gorm:"type:uuid"`
+	MatchStatus      string
+	MatchConfidence  *float64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
 
-func (Activity) TableName() string {
-	return "tb_activities"
-}
+func (ActivityObservation) TableName() string { return "tb_activity_observations" }
 
 type ExternalRef struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -125,28 +165,53 @@ func (ActivityLap) TableName() string {
 }
 
 type SleepSession struct {
-	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
-	WakeDate       time.Time `gorm:"type:date"`
-	StartedAt      time.Time
-	EndedAt        time.Time
-	TimeInBedS     int
-	AsleepS        int
-	Efficiency     float64
-	IsMainSleep    bool
-	CoreS          int
-	DeepS          int
-	RemS           int
-	AwakeS         int
-	UnspecifiedS   int
-	Source         string
-	FirstRawFileID uuid.UUID `gorm:"type:uuid"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                    uuid.UUID `gorm:"type:uuid;primaryKey"`
+	WakeDate              time.Time `gorm:"type:date"`
+	StartedAt             time.Time
+	EndedAt               time.Time
+	TimeInBedS            int
+	AsleepS               int
+	Efficiency            float64
+	IsMainSleep           bool
+	CoreS                 int
+	DeepS                 int
+	RemS                  int
+	AwakeS                int
+	UnspecifiedS          int
+	Source                string
+	FirstRawFileID        uuid.UUID `gorm:"type:uuid"`
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	SelectedObservationID *uuid.UUID `gorm:"type:uuid"`
 }
 
 func (SleepSession) TableName() string {
 	return "tb_sleep_sessions"
 }
+
+type SleepObservation struct {
+	ID              uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SleepSessionID  uuid.UUID `gorm:"type:uuid"`
+	WakeDate        time.Time `gorm:"type:date"`
+	StartedAt       time.Time
+	EndedAt         time.Time
+	TimeInBedS      int
+	AsleepS         int
+	Efficiency      float64
+	IsMainSleep     bool
+	CoreS           int
+	DeepS           int
+	RemS            int
+	AwakeS          int
+	UnspecifiedS    int
+	Source          string
+	MatchStatus     string
+	MatchConfidence *float64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (SleepObservation) TableName() string { return "tb_sleep_observations" }
 
 type SleepSegment struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -162,7 +227,28 @@ func (SleepSegment) TableName() string {
 }
 
 type DailySummary struct {
+	ID                    uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Day                   time.Time `gorm:"type:date"`
+	MoveKcal              float64
+	MoveGoalKcal          float64
+	ExerciseMin           float64
+	ExerciseGoalMin       float64
+	StandHours            float64
+	StandGoalHours        float64
+	Source                string
+	FirstRawFileID        uuid.UUID `gorm:"type:uuid"`
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	SelectedObservationID *uuid.UUID `gorm:"type:uuid"`
+}
+
+func (DailySummary) TableName() string {
+	return "tb_daily_summaries"
+}
+
+type DailySummaryObservation struct {
 	ID              uuid.UUID `gorm:"type:uuid;primaryKey"`
+	DailySummaryID  uuid.UUID `gorm:"type:uuid"`
 	Day             time.Time `gorm:"type:date"`
 	MoveKcal        float64
 	MoveGoalKcal    float64
@@ -171,30 +257,45 @@ type DailySummary struct {
 	StandHours      float64
 	StandGoalHours  float64
 	Source          string
-	FirstRawFileID  uuid.UUID `gorm:"type:uuid"`
+	MatchStatus     string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
 
-func (DailySummary) TableName() string {
-	return "tb_daily_summaries"
-}
+func (DailySummaryObservation) TableName() string { return "tb_daily_summary_observations" }
 
 type DailyMetric struct {
-	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Day            time.Time `gorm:"type:date"`
-	Metric         string
-	Value          float64
-	Unit           string
-	Source         string
-	FirstRawFileID uuid.UUID `gorm:"type:uuid"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                    uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Day                   time.Time `gorm:"type:date"`
+	Metric                string
+	Value                 float64
+	Unit                  string
+	Source                string
+	FirstRawFileID        uuid.UUID `gorm:"type:uuid"`
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	SelectedObservationID *uuid.UUID `gorm:"type:uuid"`
 }
 
 func (DailyMetric) TableName() string {
 	return "tb_daily_metrics"
 }
+
+type DailyMetricObservation struct {
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
+	DailyMetricID uuid.UUID `gorm:"type:uuid"`
+	Day           time.Time `gorm:"type:date"`
+	Metric        string
+	Value         float64
+	Unit          string
+	Source        string
+	Reducer       string
+	MatchStatus   string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (DailyMetricObservation) TableName() string { return "tb_daily_metric_observations" }
 
 type ImportSnapshot struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`

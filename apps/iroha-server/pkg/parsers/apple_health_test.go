@@ -120,7 +120,7 @@ func TestDecodeAppleDailyActivityRollsUpRingsAndPriorityIntervals(t *testing.T) 
 	if len(metrics) != 3 {
 		t.Fatalf("rolled up %d metrics, want 3: %+v", len(metrics), metrics)
 	}
-	byMetric := make(map[string]ParsedDailyMetric, len(metrics))
+	byMetric := make(map[string]DailyMetricObservation, len(metrics))
 	for _, metric := range metrics {
 		byMetric[metric.Metric] = metric
 	}
@@ -167,7 +167,7 @@ func TestRollupDailyMetricsReducesVitals(t *testing.T) {
 		t.Fatalf("decodeAppleDailyActivity returned error: %v", err)
 	}
 	metrics := rollupDailyMetrics(records)
-	byMetric := make(map[string]ParsedDailyMetric, len(metrics))
+	byMetric := make(map[string]DailyMetricObservation, len(metrics))
 	for _, metric := range metrics {
 		byMetric[metric.Metric] = metric
 	}
@@ -189,7 +189,7 @@ func TestRollupDailyMetricsReducesVitals(t *testing.T) {
 }
 
 func TestBuildSleepSessionUsesOverlapSafeRollups(t *testing.T) {
-	segments := []ParsedSleepSegment{
+	segments := []SleepSegmentObservation{
 		{Stage: SleepStageInBed, StartedAt: sleepTestTime("2024-01-01 22:00:00 -0700"), EndedAt: sleepTestTime("2024-01-02 04:00:00 -0700"), Source: "Watch"},
 		{Stage: SleepStageCore, StartedAt: sleepTestTime("2024-01-01 23:00:00 -0700"), EndedAt: sleepTestTime("2024-01-02 01:00:00 -0700"), Source: "Watch"},
 		{Stage: SleepStageDeep, StartedAt: sleepTestTime("2024-01-02 00:30:00 -0700"), EndedAt: sleepTestTime("2024-01-02 02:00:00 -0700"), Source: "Watch"},
@@ -217,7 +217,7 @@ func TestBuildSleepSessionUsesOverlapSafeRollups(t *testing.T) {
 }
 
 func TestSessionizeSleepSegmentsSplitsAfterConfiguredGap(t *testing.T) {
-	segments := []ParsedSleepSegment{
+	segments := []SleepSegmentObservation{
 		{Stage: SleepStageAsleepUnspecified, StartedAt: sleepTestTime("2024-01-01 22:00:00 -0700"), EndedAt: sleepTestTime("2024-01-01 23:00:00 -0700")},
 		{Stage: SleepStageAsleepUnspecified, StartedAt: sleepTestTime("2024-01-02 00:01:00 -0700"), EndedAt: sleepTestTime("2024-01-02 01:00:00 -0700")},
 	}
@@ -856,8 +856,8 @@ func TestFindOwningActivityBinarySearchEdges(t *testing.T) {
 		return ts
 	}
 
-	act1 := &ParsedActivity{Title: "first"}
-	act2 := &ParsedActivity{Title: "second"}
+	act1 := &ActivityObservation{Title: "first"}
+	act2 := &ActivityObservation{Title: "second"}
 	windows := []workoutWindow{
 		{start: mkTime("2024-01-01 08:00:00 -0700"), end: mkTime("2024-01-01 08:30:00 -0700"), activity: act1},
 		{start: mkTime("2024-01-01 09:00:00 -0700"), end: mkTime("2024-01-01 09:15:00 -0700"), activity: act2},
@@ -866,7 +866,7 @@ func TestFindOwningActivityBinarySearchEdges(t *testing.T) {
 	cases := []struct {
 		name string
 		ts   string
-		want *ParsedActivity
+		want *ActivityObservation
 	}{
 		{"before all windows", "2024-01-01 07:00:00 -0700", nil},
 		{"exactly first window start", "2024-01-01 08:00:00 -0700", act1},
@@ -890,7 +890,7 @@ func TestFindOwningActivityBinarySearchEdges(t *testing.T) {
 }
 
 // newAppleWorkoutDecoderForTest is a tiny helper that exposes the decoded
-// appleWorkout structs (not just the resulting ParsedActivity) so the test
+// appleWorkout structs (not just the resulting ActivityObservation) so the test
 // can assert on the newly captured nested fields.
 type testAppleWorkoutCapture struct {
 	workouts []appleWorkout

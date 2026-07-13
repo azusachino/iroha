@@ -33,7 +33,7 @@ type gpxPoint struct {
 	Time      string   `xml:"time"`
 }
 
-func ParseGPXFile(path string, options GPXOptions) ([]ParsedActivity, error) {
+func ParseGPXFile(path string, options GPXOptions) ([]ActivityObservation, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func ParseGPXFile(path string, options GPXOptions) ([]ParsedActivity, error) {
 		return nil, err
 	}
 
-	var activities []ParsedActivity
+	var activities []ActivityObservation
 	for trackIndex, track := range doc.Tracks {
 		points := flattenGPXPoints(track)
 		if len(points) == 0 {
@@ -71,7 +71,7 @@ func ParseGPXFile(path string, options GPXOptions) ([]ParsedActivity, error) {
 			externalID = fmt.Sprintf("%s#%d", externalID, trackIndex+1)
 		}
 
-		activities = append(activities, ParsedActivity{
+		activities = append(activities, ActivityObservation{
 			Provider:         "gpx",
 			ExternalID:       externalID,
 			SportType:        "run",
