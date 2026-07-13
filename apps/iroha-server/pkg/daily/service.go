@@ -3,6 +3,7 @@ package daily
 import (
 	"encoding/base64"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
@@ -71,6 +72,26 @@ type Page struct {
 	Items      []Row
 	NextCursor *Cursor
 	HasMore    bool
+}
+
+type AggregateFilters struct {
+	From        *time.Time
+	To          *time.Time
+	Granularity string
+}
+
+// AggregateBucket is one period's rollup. Ring fields are per-day averages over
+// real ring days; Metrics holds a per-day average per metric slug (steps,
+// vitals, …) so new metrics need no API change — same open-ended shape as
+// tb_daily_metrics.
+type AggregateBucket struct {
+	Period         time.Time          `json:"period"`
+	Days           int                `json:"days"`
+	MoveKcalAvg    float64            `json:"move_kcal_avg"`
+	ExerciseMinAvg float64            `json:"exercise_min_avg"`
+	StandHoursAvg  float64            `json:"stand_hours_avg"`
+	MoveClosedPct  float64            `json:"move_closed_pct"`
+	Metrics        map[string]float64 `json:"metrics"`
 }
 
 type Service struct {
@@ -146,4 +167,108 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		page.NextCursor = &Cursor{Day: last.Day, ID: last.ID}
 	}
 	return page, nil
+}
+
+// Aggregates rolls daily rows up per month/year. Rings and metrics live in
+// different tables (tb_daily_summaries vs the long tb_daily_metrics), so this
+// merges three grouped queries by period: ring averages + move-ring-closed
+// share, per-metric averages, and a distinct-day count across both tables.
+func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error) {
+	period := "date_trunc('month', day::timestamp)"
+	if filters.Granularity == "year" {
+		period = "date_trunc('year', day::timestamp)"
+	}
+	applyRange := func(q *gorm.DB) *gorm.DB {
+		if filters.From != nil {
+			q = q.Where("day >= ?", *filters.From)
+		}
+		if filters.To != nil {
+			q = q.Where("day <= ?", *filters.To)
+		}
+		return q
+	}
+
+	// Q1: ring averages — only real ring days live in tb_daily_summaries.
+	type ringRow struct {
+		Period      time.Time
+		MoveAvg     float64
+		ExerciseAvg float64
+		StandAvg    float64
+		RingDays    int
+		MoveClosed  int
+	}
+	var ringRows []ringRow
+	if err := applyRange(s.db.Table("tb_daily_summaries")).
+		Select(period + ` as period,
+			coalesce(avg(move_kcal),0) as move_avg,
+			coalesce(avg(exercise_min),0) as exercise_avg,
+			coalesce(avg(stand_hours),0) as stand_avg,
+			count(*)::int as ring_days,
+			count(*) filter (where move_goal_kcal > 0 and move_kcal >= move_goal_kcal)::int as move_closed`).
+		Group("period").Scan(&ringRows).Error; err != nil {
+		return nil, err
+	}
+
+	// Q2: per-metric per-day averages from the long metrics table.
+	type metricRow struct {
+		Period time.Time
+		Metric string
+		Avg    float64
+	}
+	var metricRows []metricRow
+	if err := applyRange(s.db.Table("tb_daily_metrics")).
+		Select(period + ` as period, metric, coalesce(avg(value),0) as avg`).
+		Group("period, metric").Scan(&metricRows).Error; err != nil {
+		return nil, err
+	}
+
+	// Q3: distinct calendar days per period across both tables.
+	type dayRow struct {
+		Period time.Time
+		Days   int
+	}
+	var dayRows []dayRow
+	if err := applyRange(s.db.Table(`(
+		select day from tb_daily_summaries
+		union
+		select day from tb_daily_metrics
+	) as d`)).
+		Select(period + ` as period, count(distinct day)::int as days`).
+		Group("period").Scan(&dayRows).Error; err != nil {
+		return nil, err
+	}
+
+	byKey := map[int64]*AggregateBucket{}
+	var order []int64
+	getb := func(p time.Time) *AggregateBucket {
+		k := p.UnixNano()
+		b, ok := byKey[k]
+		if !ok {
+			b = &AggregateBucket{Period: p, Metrics: map[string]float64{}}
+			byKey[k] = b
+			order = append(order, k)
+		}
+		return b
+	}
+	for _, r := range ringRows {
+		b := getb(r.Period)
+		b.MoveKcalAvg = r.MoveAvg
+		b.ExerciseMinAvg = r.ExerciseAvg
+		b.StandHoursAvg = r.StandAvg
+		if r.RingDays > 0 {
+			b.MoveClosedPct = float64(r.MoveClosed) / float64(r.RingDays) * 100
+		}
+	}
+	for _, r := range dayRows {
+		getb(r.Period).Days = r.Days
+	}
+	for _, r := range metricRows {
+		getb(r.Period).Metrics[r.Metric] = r.Avg
+	}
+	sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
+	buckets := make([]AggregateBucket, 0, len(order))
+	for _, k := range order {
+		buckets = append(buckets, *byKey[k])
+	}
+	return buckets, nil
 }

@@ -26,6 +26,10 @@ const (
 	apiRateLimitPerMin     = 120
 	publicRateLimitPerMin  = 60
 	geocodeRateLimitPerMin = 10
+	// Local dev (LocalNoAuth) is single-user and does history-wide sweeps, so
+	// the per-IP budgets are lifted well clear of normal browsing. The geocode
+	// limit is NOT lifted — it protects the external Nominatim service, not us.
+	localRateLimitPerMin = 6000
 )
 
 type Dependencies struct {
@@ -71,11 +75,16 @@ func (s *Server) routes() {
 	s.mux.Use(middleware.RealIP)
 	s.mux.Use(middleware.Recoverer)
 
+	apiLimit, publicLimit := apiRateLimitPerMin, publicRateLimitPerMin
+	if s.deps.Config.Auth.LocalNoAuth {
+		apiLimit, publicLimit = localRateLimitPerMin, localRateLimitPerMin
+	}
+
 	s.mux.Get("/healthz", s.handleHealthz)
 	s.mux.Route("/api/v1", func(r chi.Router) {
 		// Private API: CORS limited to configured origins.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
-		r.Use(limitByIP(apiRateLimitPerMin))
+		r.Use(limitByIP(apiLimit))
 		r.Route("/raw-files", func(r chi.Router) {
 			r.With(s.requireUploadAuth).Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
@@ -98,14 +107,17 @@ func (s *Server) routes() {
 			r.Get("/aggregates", s.handleSleepAggregates)
 			r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
 		})
-		r.Get("/daily", s.handleListDaily)
+		r.Route("/daily", func(r chi.Router) {
+			r.Get("/", s.handleListDaily)
+			r.Get("/aggregates", s.handleDailyAggregates)
+		})
 	})
 
 	// Public, sanitized, cache-backed views for the public page. No auth, and
 	// CORS open to any origin since the data is already sanitized.
 	s.mux.Route("/public/v1", func(r chi.Router) {
 		r.Use(corsMiddleware([]string{"*"}))
-		r.Use(limitByIP(publicRateLimitPerMin))
+		r.Use(limitByIP(publicLimit))
 		r.Get("/summary", s.handlePublicSummary)
 		r.Get("/activities", s.handlePublicActivities)
 		r.Get("/routes", s.handlePublicRoutes)

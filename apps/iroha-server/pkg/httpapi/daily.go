@@ -64,6 +64,49 @@ func (s *Server) handleListDaily(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
+type dailyAggregateResponse struct {
+	Granularity string                  `json:"granularity"`
+	Buckets     []daily.AggregateBucket `json:"buckets"`
+}
+
+func (s *Server) handleDailyAggregates(w http.ResponseWriter, r *http.Request) {
+	filters, ok := parseDailyAggregateFilters(w, r)
+	if !ok {
+		return
+	}
+	buckets, err := s.deps.DailyService.Aggregates(filters)
+	if err != nil {
+		s.deps.Logger.Error("aggregate daily activity", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to aggregate daily activity")
+		return
+	}
+	writeJSON(w, http.StatusOK, dailyAggregateResponse{Granularity: filters.Granularity, Buckets: buckets})
+}
+
+func parseDailyAggregateFilters(w http.ResponseWriter, r *http.Request) (daily.AggregateFilters, bool) {
+	query := r.URL.Query()
+	granularity := query.Get("granularity")
+	if granularity == "" {
+		granularity = "month"
+	}
+	if granularity != "month" && granularity != "year" {
+		writeError(w, http.StatusBadRequest, "invalid granularity")
+		return daily.AggregateFilters{}, false
+	}
+	filters := daily.AggregateFilters{Granularity: granularity}
+	for key, destination := range map[string]**time.Time{"from": &filters.From, "to": &filters.To} {
+		if value := query.Get(key); value != "" {
+			parsed, err := time.Parse("2006-01-02", value)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid "+key)
+				return daily.AggregateFilters{}, false
+			}
+			*destination = &parsed
+		}
+	}
+	return filters, true
+}
+
 func parseDailyFilters(w http.ResponseWriter, r *http.Request) (daily.ListFilters, bool) {
 	query := r.URL.Query()
 	filters := daily.ListFilters{}
