@@ -1,9 +1,7 @@
 # Roadmap
 
-This roadmap tracks MVP v0. The product goal is to prove one vertical first:
-personal running data import, canonical storage, and private activity browsing.
-The broader cockpit direction is described in
-[Personal Data Cockpit Model](personal-data-cockpit.md).
+This roadmap tracks MVP v0. The product goal is to prove one vertical first: personal running data import, canonical storage, and private activity browsing. The broader cockpit direction is described
+in [Personal Data Cockpit Model](personal-data-cockpit.md).
 
 Implementation should stay narrow:
 
@@ -172,8 +170,7 @@ Exit criteria:
 
 ## Milestone 8: Durable Worker Backbone
 
-Goal: move long-running and repeatable work out of request handlers without
-adding external queue infrastructure.
+Goal: move long-running and repeatable work out of request handlers without adding external queue infrastructure.
 
 Tasks:
 
@@ -183,8 +180,7 @@ Tasks:
 - Support retry, `run_after`, locking, attempts, and compact error reporting.
 - Add explicit job kinds for parser reprocess and projection refresh.
 - Add a small schedule model for regular connector syncs.
-- Treat user-triggered dumps, such as requesting a fresh health-data export, as
-  durable trigger jobs even when the source device/client performs the dump.
+- Treat user-triggered dumps, such as requesting a fresh health-data export, as durable trigger jobs even when the source device/client performs the dump.
 
 Exit criteria:
 
@@ -197,9 +193,8 @@ Exit criteria:
 
 Goal: track personal media consumption without turning iroha into a social media clone.
 
-See [Reading and Watching History Research](media-history-research.md) for the researched data model, source connectors, and implementation boundary.
-See also [Personal Data Cockpit Model](personal-data-cockpit.md) for the shared
-intake, job, sync, and trigger model.
+See [Reading and Watching History Research](media-history-research.md) for the researched data model, source connectors, and implementation boundary. See also
+[Personal Data Cockpit Model](personal-data-cockpit.md) for the shared intake, job, sync, and trigger model.
 
 This module should reuse the same three-layer pattern as running:
 

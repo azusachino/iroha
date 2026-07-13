@@ -6,6 +6,7 @@ labels: enhancement
 ---
 
 ## Problem / motivation
+
 <!-- What are you trying to do that iroha doesn't support today? -->
 
 ## Proposed solution

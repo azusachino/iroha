@@ -12,12 +12,16 @@ intake payloads, raw imports, and connector snapshots
   -> private dashboards and optional sanitized summaries
 ```
 
-The main lesson from OSS media tools is that "the thing" and "my state on the thing" must stay separate. Jellyfin stores rich media-library items and exposes per-user data such as played/favorite/rating state through user-data endpoints. Audiobookshelf has the clearest progress model: `duration`, `progress`, `currentTime`, `isFinished`, `hideFromContinueListening`, `lastUpdate`, `startedAt`, and `finishedAt`. Komga exposes the same domain idea for books/comics with `read_status` filters such as unread, read, and in-progress. Seerr/Jellyseerr/Overseerr are useful for library discovery and request workflows, but they are not the source of truth for personal reading/watching history.
+The main lesson from OSS media tools is that "the thing" and "my state on the thing" must stay separate. Jellyfin stores rich media-library items and exposes per-user data such as
+played/favorite/rating state through user-data endpoints. Audiobookshelf has the clearest progress model: `duration`, `progress`, `currentTime`, `isFinished`, `hideFromContinueListening`,
+`lastUpdate`, `startedAt`, and `finishedAt`. Komga exposes the same domain idea for books/comics with `read_status` filters such as unread, read, and in-progress. Seerr/Jellyseerr/Overseerr are useful
+for library discovery and request workflows, but they are not the source of truth for personal reading/watching history.
 
 For Iroha, the stable design should be ontology-first and event-backed:
 
 - `tb_media_works`: abstract creative identity such as a franchise, story, or intellectual work.
-- `tb_media_items`: concrete consumable or listable things: anime series, season, episode, OVA, movie, manga series, volume, chapter, light novel edition, book edition, article, video, audiobook, podcast episode.
+- `tb_media_items`: concrete consumable or listable things: anime series, season, episode, OVA, movie, manga series, volume, chapter, light novel edition, book edition, article, video, audiobook,
+  podcast episode.
 - `tb_media_titles`: original titles, translated titles, romanizations, aliases, search aliases, and user aliases.
 - `tb_media_relations`: adaptations, sequels, prequels, side stories, compilations, alternate versions, and provider-specific graph edges.
 - `tb_media_external_refs`: provider IDs such as TMDb, IMDb, TVDb, Open Library, ISBN, AniList, MAL, YouTube, Jellyfin item ID, Komga book ID, or Audiobookshelf item ID.
@@ -26,7 +30,8 @@ For Iroha, the stable design should be ontology-first and event-backed:
 - `tb_media_sources` and `tb_media_import_jobs`: connector/scraper runs, following `tb_raw_files` and `tb_import_jobs`.
 - `tb_media_notes`: private notes, quotes, bookmarks, review text, and spoiler flags.
 
-Do not collapse all media into one flat item table. A single named work can have light novels, manga, anime seasons, OVAs, movies, games, specials, localized editions, alternate cuts, recap films, and translated aliases. The model must preserve those distinctions from the start.
+Do not collapse all media into one flat item table. A single named work can have light novels, manga, anime seasons, OVAs, movies, games, specials, localized editions, alternate cuts, recap films, and
+translated aliases. The model must preserve those distinctions from the start.
 
 ## What Raw Imports Mean Here
 
@@ -41,7 +46,8 @@ For reading and watching history, original data can come from more shapes:
 - A metadata lookup payload: TMDb, Open Library, AniList, ISBN lookup, RSS/Atom feed item, or YouTube/oEmbed-style metadata.
 - A manual edit payload from the web UI.
 
-The rule is not "everything must be a user-uploaded file". The rule is "preserve the original evidence for every state change". If a Telegram bot calls an Iroha API, the original JSON request is the raw evidence. If Iroha queries TMDb to resolve the title, the provider response is another raw payload. If the user later corrects the match, that correction is also an event, not a silent overwrite.
+The rule is not "everything must be a user-uploaded file". The rule is "preserve the original evidence for every state change". If a Telegram bot calls an Iroha API, the original JSON request is the
+raw evidence. If Iroha queries TMDb to resolve the title, the provider response is another raw payload. If the user later corrects the match, that correction is also an event, not a silent overwrite.
 
 That suggests a more general intake model than `tb_raw_files`:
 
@@ -57,7 +63,8 @@ tb_intake_payloads
   parsed_at
 ```
 
-Large files can still live in `tb_raw_files`; media history can either reuse that table or add `tb_intake_payloads` as the generalized sibling once the module starts. The important product behavior is that the user never has to re-explain their history after parser or matcher improvements.
+Large files can still live in `tb_raw_files`; media history can either reuse that table or add `tb_intake_payloads` as the generalized sibling once the module starts. The important product behavior is
+that the user never has to re-explain their history after parser or matcher improvements.
 
 ## UX Direction
 
@@ -65,7 +72,8 @@ The first UX should optimize for fast capture with later cleanup.
 
 ### Telegram Capture
 
-The Telegram bot should stay an external client, like the existing upload-client model. It should not parse, scrape, or decide canonical identity. It should forward the user's intent to `iroha-server`.
+The Telegram bot should stay an external client, like the existing upload-client model. It should not parse, scrape, or decide canonical identity. It should forward the user's intent to
+`iroha-server`.
 
 Flow:
 
@@ -110,7 +118,8 @@ The web UI should provide three surfaces:
 - Inbox: unresolved intake jobs, low-confidence matches, duplicate candidates, and provider conflicts.
 - History/detail: canonical timeline, progress, notes, ratings, rereads/rewatches, and source evidence.
 
-The user should be able to capture now and fix later. The system should be honest about confidence: "matched by TMDb ID" is strong; "matched by title/year" needs a visible source and an easy correction path.
+The user should be able to capture now and fix later. The system should be honest about confidence: "matched by TMDb ID" is strong; "matched by title/year" needs a visible source and an easy
+correction path.
 
 ### Server Responsibilities
 
@@ -127,7 +136,8 @@ When the bot or UI adds a record, `iroha-server` should own the whole durable wo
 - Detect duplicates and ask for confirmation when confidence is low.
 - Return a compact result that a bot can display.
 
-This keeps external clients thin. The Telegram bot, browser extension, or share-sheet client only needs to authenticate and send user intent; Iroha remains the source of parsing, matching, dedupe, and persistence.
+This keeps external clients thin. The Telegram bot, browser extension, or share-sheet client only needs to authenticate and send user intent; Iroha remains the source of parsing, matching, dedupe, and
+persistence.
 
 ### Suggested Intake API
 
@@ -225,7 +235,8 @@ Required:
 - `id`
 - `work_id`
 - `parent_item_id`
-- `media_type`: `light_novel`, `book`, `manga`, `comic`, `anime`, `anime_season`, `episode`, `ova`, `ona`, `special`, `movie`, `recap_movie`, `live_action`, `game`, `article`, `video`, `podcast`, `podcast_episode`, `audiobook`
+- `media_type`: `light_novel`, `book`, `manga`, `comic`, `anime`, `anime_season`, `episode`, `ova`, `ona`, `special`, `movie`, `recap_movie`, `live_action`, `game`, `article`, `video`, `podcast`,
+  `podcast_episode`, `audiobook`
 - `item_role`: `series`, `season`, `volume`, `chapter`, `episode`, `edition`, `cut`, `standalone`
 - `title`
 - `sort_title`
@@ -347,7 +358,8 @@ created_at
 updated_at
 ```
 
-Use this table aggressively. Media identities are messy: a book work differs from an edition; a show differs from an episode; a YouTube upload can later be renamed; manga scan/source titles drift. Provider refs are the dedupe backbone.
+Use this table aggressively. Media identities are messy: a book work differs from an edition; a show differs from an episode; a YouTube upload can later be renamed; manga scan/source titles drift.
+Provider refs are the dedupe backbone.
 
 ### Consumption Event
 
@@ -433,16 +445,21 @@ These are the safest first sources because they produce raw files Iroha can pres
 
 These are closer to Iroha's product goal than generic metadata APIs because they contain the user's own state.
 
-- AniList: use its GraphQL API for anime/manga list state. The relevant user-list shape is media type (`ANIME`, `MANGA`), list status (`CURRENT`, `PLANNING`, `COMPLETED`, `DROPPED`, `PAUSED`, `REPEATING`), score, progress, progress volumes, repeat count, private flag, notes, custom lists, hidden-from-status-lists, started date, completed date, created timestamp, updated timestamp, and linked media metadata.
-- Bangumi.tv: use its OpenAPI collection endpoints as a first-class source. User subject collections include subject ID/type, collection type, rating, comment, tags, episode progress, volume progress, updated timestamp, private flag, and slim subject metadata. The write API can modify collection type, rating, episode/volume progress, comment, privacy, and tags.
+- AniList: use its GraphQL API for anime/manga list state. The relevant user-list shape is media type (`ANIME`, `MANGA`), list status (`CURRENT`, `PLANNING`, `COMPLETED`, `DROPPED`, `PAUSED`,
+  `REPEATING`), score, progress, progress volumes, repeat count, private flag, notes, custom lists, hidden-from-status-lists, started date, completed date, created timestamp, updated timestamp, and
+  linked media metadata.
+- Bangumi.tv: use its OpenAPI collection endpoints as a first-class source. User subject collections include subject ID/type, collection type, rating, comment, tags, episode progress, volume progress,
+  updated timestamp, private flag, and slim subject metadata. The write API can modify collection type, rating, episode/volume progress, comment, privacy, and tags.
 - Trakt: useful for movie/show watched history and watchlists if the user already uses it.
 - Letterboxd: start with CSV export before considering scraping.
 
-For AniList and Bangumi, Iroha should treat imported list entries as user-state events and current progress, not just metadata. A later connector sync should not erase locally added Telegram/web events; conflicts go to the inbox.
+For AniList and Bangumi, Iroha should treat imported list entries as user-state events and current progress, not just metadata. A later connector sync should not erase locally added Telegram/web
+events; conflicts go to the inbox.
 
 ### Phase 3: Self-Hosted App Connectors
 
-- Jellyfin: import watched state, favorite/rating state, playback progress, play count, last played, and item identity. This fits Iroha well because Jellyfin already separates media items from user item data.
+- Jellyfin: import watched state, favorite/rating state, playback progress, play count, last played, and item identity. This fits Iroha well because Jellyfin already separates media items from user
+  item data.
 - Komga: import book/comic library items plus read status and progress.
 - Audiobookshelf: import media progress, bookmarks, continue-listening visibility, started/finished timestamps, and podcast/audiobook item metadata.
 - Seerr/Jellyseerr/Overseerr: import watchlist/blocklist/request/library-availability signals only. Do not treat it as watched history.
@@ -458,7 +475,8 @@ Self-hosted connectors should store connector snapshots as raw JSON, then normal
 - MusicBrainz/ListenBrainz only if music listening history enters scope later.
 - RSS/Atom feeds for article and podcast episode metadata.
 
-Metadata enrichment should be idempotent and replaceable. External provider payloads should not overwrite user-entered titles, notes, ratings, or completion history unless the user explicitly accepts the match.
+Metadata enrichment should be idempotent and replaceable. External provider payloads should not overwrite user-entered titles, notes, ratings, or completion history unless the user explicitly accepts
+the match.
 
 ### Phase 5: Activity Capture
 
@@ -489,7 +507,8 @@ This should come after manual/file imports because live activity capture creates
 
 ## Stable Schema
 
-The stable schema is intentionally broader than the first UI. It should be able to represent provider sync, manual capture, translations, editions, parts, adaptations, rereads, rewatches, and later write-back without destructive migrations.
+The stable schema is intentionally broader than the first UI. It should be able to represent provider sync, manual capture, translations, editions, parts, adaptations, rereads, rewatches, and later
+write-back without destructive migrations.
 
 ```sql
 create table tb_media_works (
@@ -682,7 +701,8 @@ create table tb_media_resolution_tasks (
 );
 ```
 
-Polymorphic `scope_type/scope_id` references are deliberate here. Provider refs, titles, creators, and relations can target either an abstract work or a concrete item. Application code must enforce valid scope IDs because SQL foreign keys cannot directly target multiple tables.
+Polymorphic `scope_type/scope_id` references are deliberate here. Provider refs, titles, creators, and relations can target either an abstract work or a concrete item. Application code must enforce
+valid scope IDs because SQL foreign keys cannot directly target multiple tables.
 
 ## Stable Workflow
 
@@ -745,12 +765,17 @@ Ambiguous natural language must resolve at the correct level:
 
 ## Source Notes
 
-- Jellyfin describes itself as a free media system for managing and streaming media, and its API exposes user-data operations such as favorite/rating updates and latest-media queries with played filters and optional user data.
-- Seerr is a request and discovery manager for Jellyfin/Plex/Emby; its feature list emphasizes user import, library scans, requests, watchlisting, and blocklisting rather than personal consumption history.
-- Audiobookshelf explicitly models media progress updates with duration, percent progress, current time, finished state, continue-listening visibility, started time, and finished time; it also syncs local and server progress by `lastUpdate`.
+- Jellyfin describes itself as a free media system for managing and streaming media, and its API exposes user-data operations such as favorite/rating updates and latest-media queries with played
+  filters and optional user data.
+- Seerr is a request and discovery manager for Jellyfin/Plex/Emby; its feature list emphasizes user import, library scans, requests, watchlisting, and blocklisting rather than personal consumption
+  history.
+- Audiobookshelf explicitly models media progress updates with duration, percent progress, current time, finished state, continue-listening visibility, started time, and finished time; it also syncs
+  local and server progress by `lastUpdate`.
 - Komga's OpenAPI exposes book listing filters for `read_status` values including unread, read, and in-progress, and supports API-key/session authentication.
-- AniList's GraphQL API exposes user media-list state for anime and manga, including status, score, progress, volume progress, repeat count, privacy, notes, custom lists, started/completed dates, and created/updated timestamps.
-- Bangumi.tv's OpenAPI exposes user subject collections and collection modification endpoints, including subject identity/type, collection type, rating, comments, tags, episode and volume progress, privacy, and update timestamps.
+- AniList's GraphQL API exposes user media-list state for anime and manga, including status, score, progress, volume progress, repeat count, privacy, notes, custom lists, started/completed dates, and
+  created/updated timestamps.
+- Bangumi.tv's OpenAPI exposes user subject collections and collection modification endpoints, including subject identity/type, collection type, rating, comments, tags, episode and volume progress,
+  privacy, and update timestamps.
 - Open Library provides APIs for book discovery and lookup but explicitly asks clients to cache responses, identify themselves, avoid HTML scraping, and avoid bulk harvesting through the live API.
 - TMDb exposes movie, TV, actor, and image API methods; it is the obvious enrichment source for movies/shows, not the canonical user-history store.
 - AniList exposes anime and manga data through GraphQL and is appropriate for metadata enrichment or user-list import where credentials are available.

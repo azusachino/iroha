@@ -11,10 +11,8 @@ Provider implementations:
 - [Goodreads](capabilities/providers/goodreads.md)
 - [WeRead](capabilities/providers/weread.md)
 
-This document describes how external data providers implement Iroha's core
-domain capabilities. It is intentionally written in trait/implementation
-style even though the Go code uses interfaces, registries, and concrete
-adapters rather than language traits.
+This document describes how external data providers implement Iroha's core domain capabilities. It is intentionally written in trait/implementation style even though the Go code uses interfaces,
+registries, and concrete adapters rather than language traits.
 
 The purpose is to make provider expansion explicit:
 
@@ -25,20 +23,17 @@ core capability contract
   -> canonical projection
 ```
 
-A provider does not need to implement every capability. Unsupported
-capabilities must be declared, not represented as fabricated zero values.
+A provider does not need to implement every capability. Unsupported capabilities must be declared, not represented as fabricated zero values.
 
 ## Contract vocabulary
 
 ### Provider
 
-A producer of evidence or metadata: `apple_health`, `garmin`, `gpx`, `anilist`,
-or `bangumi`.
+A producer of evidence or metadata: `apple_health`, `garmin`, `gpx`, `anilist`, or `bangumi`.
 
 ### Observation
 
-The provider's report, preserved with provider identity, source key, content
-hash, device/source metadata, and raw evidence reference.
+The provider's report, preserved with provider identity, source key, content hash, device/source metadata, and raw evidence reference.
 
 ### Canonical record
 
@@ -46,8 +41,7 @@ Iroha's domain-level record. It may have zero, one, or many observations.
 
 ### Capability
 
-A domain contract an adapter can implement. Capabilities describe semantics,
-not file formats.
+A domain contract an adapter can implement. Capabilities describe semantics, not file formats.
 
 ## Adapter shape
 
@@ -61,9 +55,7 @@ type ProviderAdapter interface {
 }
 ```
 
-The first implementation does not need to force every provider through one
-large Go interface. Domain-specific observation methods may remain strongly
-typed:
+The first implementation does not need to force every provider through one large Go interface. Domain-specific observation methods may remain strongly typed:
 
 ```go
 type ActivityObserver interface {
@@ -79,16 +71,13 @@ type DailyMetricObserver interface {
 }
 ```
 
-The important rule is naming: adapter output is an observation, never a
-`Parsed*` canonical type.
+The important rule is naming: adapter output is an observation, never a `Parsed*` canonical type.
 
 ## Core capability contracts
 
 ### Activity session
 
-Produces a bounded activity interval with a sport/type, source identity, and
-optional summary metrics. Canonical targets are `tb_activities` and
-`tb_activity_observations`.
+Produces a bounded activity interval with a sport/type, source identity, and optional summary metrics. Canonical targets are `tb_activities` and `tb_activity_observations`.
 
 Required observation fields:
 
@@ -97,13 +86,11 @@ provider, source_kind, source_key, content_hash
 started_at, ended_at or duration, sport_type
 ```
 
-Optional metrics retain units and provenance: distance, calories, heart rate,
-pace, elevation, and moving time.
+Optional metrics retain units and provenance: distance, calories, heart rate, pace, elevation, and moving time.
 
 ### Route, sampling, and lap
 
-These capabilities produce child measurements belonging to one activity
-observation:
+These capabilities produce child measurements belonging to one activity observation:
 
 ```text
 tb_activity_observation_routes
@@ -111,14 +98,12 @@ tb_activity_observation_samplings
 tb_activity_observation_laps
 ```
 
-Providers without a capability declare `unsupported`; they do not emit empty
-or fabricated rows. Missing per-lap distance or heart rate stays nullable
-unless the capability explicitly defines a derivation.
+Providers without a capability declare `unsupported`; they do not emit empty or fabricated rows. Missing per-lap distance or heart rate stays nullable unless the capability explicitly defines a
+derivation.
 
 ### Sleep episode
 
-Produces one provider report for a sleep interval, including stage segments and
-provider-specific summary metrics.
+Produces one provider report for a sleep interval, including stage segments and provider-specific summary metrics.
 
 Canonical targets:
 
@@ -128,15 +113,12 @@ tb_sleep_observations
 tb_sleep_observation_segments
 ```
 
-Providers may disagree about boundaries or stages. The adapter preserves the
-report; matching and preferred-value selection happen later.
+Providers may disagree about boundaries or stages. The adapter preserves the report; matching and preferred-value selection happen later.
 
 ### Daily summary and metric
 
-Daily summaries produce ring/goal facts such as move, exercise, and stand.
-Daily metrics produce scalars or reducer inputs such as steps, distance,
-resting heart rate, HRV, VO2 max, body mass, oxygen saturation, and respiratory
-rate.
+Daily summaries produce ring/goal facts such as move, exercise, and stand. Daily metrics produce scalars or reducer inputs such as steps, distance, resting heart rate, HRV, VO2 max, body mass, oxygen
+saturation, and respiratory rate.
 
 Canonical targets:
 
@@ -147,14 +129,11 @@ tb_daily_metrics
 tb_daily_metric_observations
 ```
 
-Every metric declares reducer semantics such as `latest`, `average`,
-`minimum`, `maximum`, `interval_union`, or `source_priority`. Generic
-last-write-wins is not a valid default for health metrics.
+Every metric declares reducer semantics such as `latest`, `average`, `minimum`, `maximum`, `interval_union`, or `source_priority`. Generic last-write-wins is not a valid default for health metrics.
 
 ### Media catalog identity
 
-Produces provider records for a canonical media work/item, not user
-consumption history.
+Produces provider records for a canonical media work/item, not user consumption history.
 
 ```text
 tb_media_works
@@ -162,14 +141,12 @@ tb_media_items
 tb_media_external_refs
 ```
 
-AniList and Bangumi implement this capability independently while linking to
-one canonical work/item when identity matching succeeds.
+AniList and Bangumi implement this capability independently while linking to one canonical work/item when identity matching succeeds.
 
 ### Media consumption event
 
-Produces user events such as started, progressed, completed, abandoned, read,
-watched, reread, or rewatched. Provider list state may be converted into an
-event, but the original provider snapshot remains evidence.
+Produces user events such as started, progressed, completed, abandoned, read, watched, reread, or rewatched. Provider list state may be converted into an event, but the original provider snapshot
+remains evidence.
 
 ```text
 tb_media_consumption_events
@@ -178,18 +155,17 @@ tb_media_progress
 
 ## Provider matrix
 
-| Provider | Activity | Route | Sampling | Laps | Sleep | Daily summary | Daily metrics | Media identity | Consumption |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Apple Health | implemented | implemented | implemented | implemented | implemented | implemented | implemented | - | - |
-| GPX | implemented | implemented | - | - | - | - | - | - | - |
-| Garmin | planned | planned | planned | planned | planned | planned | planned | - | - |
-| AniList | - | - | - | - | - | - | - | planned | planned |
-| Bangumi | - | - | - | - | - | - | - | planned | planned |
-| Goodreads | - | - | - | - | - | - | - | deferred | deferred |
-| WeRead | - | - | - | - | - | - | - | deferred | deferred |
+| Provider     | Activity    | Route       | Sampling    | Laps        | Sleep       | Daily summary | Daily metrics | Media identity | Consumption |
+| ------------ | ----------- | ----------- | ----------- | ----------- | ----------- | ------------- | ------------- | -------------- | ----------- |
+| Apple Health | implemented | implemented | implemented | implemented | implemented | implemented   | implemented   | -              | -           |
+| GPX          | implemented | implemented | -           | -           | -           | -             | -             | -              | -           |
+| Garmin       | planned     | planned     | planned     | planned     | planned     | planned       | planned       | -              | -           |
+| AniList      | -           | -           | -           | -           | -           | -             | -             | planned        | planned     |
+| Bangumi      | -           | -           | -           | -           | -           | -             | -             | planned        | planned     |
+| Goodreads    | -           | -           | -           | -           | -           | -             | -             | deferred       | deferred    |
+| WeRead       | -           | -           | -           | -           | -           | -             | -             | deferred       | deferred    |
 
-“Implemented” means parser/adapter, persistence, and verification exist. A
-possible file format is “planned,” not implemented.
+“Implemented” means parser/adapter, persistence, and verification exist. A possible file format is “planned,” not implemented.
 
 ## Current Apple Health implementation
 
@@ -206,10 +182,8 @@ Apple export zip
   -> daily metric observations
 ```
 
-Its current code still uses `Parsed*` names and `tb_apple_source_items`; the
-canonical-layer refactor migrates those to the observation contracts described
-here. This document defines the target contract, not a claim that the current
-implementation already satisfies every target table.
+Its current code still uses `Parsed*` names and `tb_apple_source_items`; the canonical-layer refactor migrates those to the observation contracts described here. This document defines the target
+contract, not a claim that the current implementation already satisfies every target table.
 
 ## Capability declaration requirements
 
@@ -235,6 +209,5 @@ Provider support must not multiply canonical read complexity:
 - the web/API default path reads canonical projections;
 - provider comparison is an explicit opt-in view.
 
-Adding a provider should add an adapter, fixtures, capability registration, and
-any required observation columns. It should not add provider conditionals
-through every domain service or frontend component.
+Adding a provider should add an adapter, fixtures, capability registration, and any required observation columns. It should not add provider conditionals through every domain service or frontend
+component.

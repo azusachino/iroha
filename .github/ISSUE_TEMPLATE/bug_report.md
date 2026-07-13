@@ -10,13 +10,16 @@ labels: bug
 ## What you expected
 
 ## Steps to reproduce
+
 1.
 2.
 
 ## Environment
+
 - iroha commit / version:
 - OS:
 - Postgres/PostGIS version:
 
 ## Logs / output
+
 <!-- Relevant server logs or command output. Redact any personal data. -->

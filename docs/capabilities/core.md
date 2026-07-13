@@ -1,14 +1,11 @@
 # Iroha core capabilities
 
-This is the provider-independent contract for the parts of Iroha that are
-stable enough to expose publicly. Provider documents explain how Apple Health,
-Garmin, AniList, and other sources implement these capabilities.
+This is the provider-independent contract for the parts of Iroha that are stable enough to expose publicly. Provider documents explain how Apple Health, Garmin, AniList, and other sources implement
+these capabilities.
 
 ## Evidence and intake
 
-Iroha accepts immutable evidence from files, connector snapshots, and manual
-payloads. The original evidence remains reprocessable and is never replaced
-by a normalized result.
+Iroha accepts immutable evidence from files, connector snapshots, and manual payloads. The original evidence remains reprocessable and is never replaced by a normalized result.
 
 ```text
 evidence -> durable job -> provider observation -> canonical projection
@@ -49,8 +46,7 @@ Iroha can represent day-level summaries and metrics such as:
 - HRV, VO2 max, body mass;
 - oxygen saturation and respiratory rate.
 
-Each metric has explicit reducer and source-selection semantics. Missing data
-is distinct from zero.
+Each metric has explicit reducer and source-selection semantics. Missing data is distinct from zero.
 
 ### Media identity and history
 
@@ -58,8 +54,7 @@ Iroha can represent:
 
 - canonical media works and concrete items;
 - titles, aliases, relations, and external provider references;
-- consumption events such as started, progressed, completed, abandoned, read,
-  watched, reread, and rewatched;
+- consumption events such as started, progressed, completed, abandoned, read, watched, reread, and rewatched;
 - current progress as a projection of event history;
 - provider comparison and unresolved identity matches.
 
@@ -67,19 +62,14 @@ Iroha can represent:
 
 - Provider observations retain source identity and raw evidence references.
 - Re-importing unchanged evidence is idempotent.
-- Parser or adapter upgrades can reprocess evidence without duplicate
-  canonical records.
-- Canonical list reads use selected projections and do not require provenance
-  joins.
+- Parser or adapter upgrades can reprocess evidence without duplicate canonical records.
+- Canonical list reads use selected projections and do not require provenance joins.
 - Provider disagreement is preserved and visible in comparison views.
 - Public views are sanitized projections, never direct raw or private reads.
 - Durable jobs survive API and worker restarts.
 
 ## Public versus private surface
 
-The core capability contract is public documentation. The default data is not
-public. Private canonical APIs expose the user's full records; public APIs
-expose only explicitly sanitized projections.
+The core capability contract is public documentation. The default data is not public. Private canonical APIs expose the user's full records; public APIs expose only explicitly sanitized projections.
 
-Provider-specific quirks, source keys, parser limitations, and support status
-belong in the provider documents, not in this contract.
+Provider-specific quirks, source keys, parser limitations, and support status belong in the provider documents, not in this contract.
