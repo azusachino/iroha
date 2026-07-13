@@ -63,6 +63,27 @@ func TestNewRegistryRejectsCapabilityWithoutInterface(t *testing.T) {
 	}
 }
 
+func TestNewRegistryRejectsDuplicateSourceKind(t *testing.T) {
+	first := fakeHealthAdapter{fakeAdapter{descriptor: Descriptor{
+		ID:             "first",
+		AdapterVersion: "test-v1",
+		Domains:        []Domain{DomainHealth},
+		SourceKinds:    []string{"shared_export"},
+		Capabilities:   []Capability{CapabilityHealthActivities},
+	}}}
+	second := fakeHealthAdapter{fakeAdapter{descriptor: Descriptor{
+		ID:             "second",
+		AdapterVersion: "test-v1",
+		Domains:        []Domain{DomainHealth},
+		SourceKinds:    []string{"shared_export"},
+		Capabilities:   []Capability{CapabilityHealthActivities},
+	}}}
+
+	if _, err := NewRegistry(first, second); err == nil {
+		t.Fatal("NewRegistry() accepted duplicate source kinds")
+	}
+}
+
 func TestValidateRequestedRejectsUnsupportedCapability(t *testing.T) {
 	adapter := fakeHealthAdapter{fakeAdapter{descriptor: Descriptor{
 		ID:             "apple_health",

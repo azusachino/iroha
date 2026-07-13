@@ -114,11 +114,15 @@ func (e *Error) Error() string {
 func (e *Error) Unwrap() error { return e.Err }
 
 type Registry struct {
-	adapters map[string]Adapter
+	adapters     map[string]Adapter
+	bySourceKind map[string]Adapter
 }
 
 func NewRegistry(adapters ...Adapter) (*Registry, error) {
-	registry := &Registry{adapters: make(map[string]Adapter, len(adapters))}
+	registry := &Registry{
+		adapters:     make(map[string]Adapter, len(adapters)),
+		bySourceKind: make(map[string]Adapter),
+	}
 	for _, adapter := range adapters {
 		if err := ValidateAdapter(adapter); err != nil {
 			return nil, err
@@ -126,6 +130,12 @@ func NewRegistry(adapters ...Adapter) (*Registry, error) {
 		id := adapter.Descriptor().ID
 		if _, exists := registry.adapters[id]; exists {
 			return nil, fmt.Errorf("provider %q is registered more than once", id)
+		}
+		for _, sourceKind := range adapter.Descriptor().SourceKinds {
+			if existing, exists := registry.bySourceKind[sourceKind]; exists {
+				return nil, fmt.Errorf("source kind %q is registered by both %q and %q", sourceKind, existing.Descriptor().ID, id)
+			}
+			registry.bySourceKind[sourceKind] = adapter
 		}
 		registry.adapters[id] = adapter
 	}
@@ -138,14 +148,8 @@ func (r *Registry) Get(providerID string) (Adapter, bool) {
 }
 
 func (r *Registry) GetBySourceKind(sourceKind string) (Adapter, bool) {
-	for _, adapter := range r.adapters {
-		for _, kind := range adapter.Descriptor().SourceKinds {
-			if kind == sourceKind {
-				return adapter, true
-			}
-		}
-	}
-	return nil, false
+	adapter, ok := r.bySourceKind[sourceKind]
+	return adapter, ok
 }
 
 func (r *Registry) List() []Descriptor {
