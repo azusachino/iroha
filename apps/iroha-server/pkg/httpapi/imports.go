@@ -6,7 +6,7 @@ import (
 	"time"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
-	"github.com/azusachino/iroha/apps/iroha-imports"
+	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/go-chi/chi/v5"

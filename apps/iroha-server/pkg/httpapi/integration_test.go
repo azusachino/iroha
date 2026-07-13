@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-imports"
+	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"

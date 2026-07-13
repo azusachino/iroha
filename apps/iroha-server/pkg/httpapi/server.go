@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-imports"
+	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"

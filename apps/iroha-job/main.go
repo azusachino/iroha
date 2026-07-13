@@ -11,7 +11,7 @@ import (
 	"time"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
-	"github.com/azusachino/iroha/apps/iroha-imports"
+	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	providerregistry "github.com/azusachino/iroha/apps/iroha-providers/registry"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
