@@ -67,9 +67,23 @@ type DailyImporter interface {
 	ImportDaily(context.Context, Source, ImportOptions) (DailyObservations, error)
 }
 
+// BatchImporter is an optional optimization for file-backed providers that
+// can materialize one source and derive several capabilities from it. The
+// import pipeline falls back to the individual capability interfaces when it
+// is not implemented.
+type BatchImporter interface {
+	ImportAll(context.Context, Source, ImportOptions) (ImportBatch, error)
+}
+
 type DailyObservations struct {
 	Summaries []observations.DailySummary
 	Metrics   []observations.DailyMetric
+}
+
+type ImportBatch struct {
+	Activities []observations.Activity
+	Sleep      []observations.Sleep
+	Daily      DailyObservations
 }
 
 type Severity string

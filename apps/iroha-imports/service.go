@@ -216,30 +216,42 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		},
 	}
 	options := provider.ImportOptions{}
-	activityImporter, ok := adapter.(provider.ActivityImporter)
-	if !ok {
-		return s.fail(jobID, fmt.Sprintf("provider %q does not implement activity import", adapter.Descriptor().ID))
-	}
-	parsed, err := activityImporter.ImportActivities(context.Background(), source, options)
-	if err != nil {
-		return s.fail(jobID, err.Error())
-	}
+	var parsed []observations.Activity
 	var parsedSleep []observations.Sleep
 	var parsedDailySummaries []observations.DailySummary
 	var parsedDailyMetrics []observations.DailyMetric
-	if sleepImporter, ok := adapter.(provider.SleepImporter); ok {
-		parsedSleep, err = sleepImporter.ImportSleep(context.Background(), source, options)
+	if batchImporter, ok := adapter.(provider.BatchImporter); ok {
+		batch, batchErr := batchImporter.ImportAll(context.Background(), source, options)
+		if batchErr != nil {
+			return s.fail(jobID, batchErr.Error())
+		}
+		parsed = batch.Activities
+		parsedSleep = batch.Sleep
+		parsedDailySummaries = batch.Daily.Summaries
+		parsedDailyMetrics = batch.Daily.Metrics
+	} else {
+		activityImporter, activityOK := adapter.(provider.ActivityImporter)
+		if !activityOK {
+			return s.fail(jobID, fmt.Sprintf("provider %q does not implement activity import", adapter.Descriptor().ID))
+		}
+		parsed, err = activityImporter.ImportActivities(context.Background(), source, options)
 		if err != nil {
 			return s.fail(jobID, err.Error())
 		}
-	}
-	if dailyImporter, ok := adapter.(provider.DailyImporter); ok {
-		daily, dailyErr := dailyImporter.ImportDaily(context.Background(), source, options)
-		if dailyErr != nil {
-			return s.fail(jobID, dailyErr.Error())
+		if sleepImporter, sleepOK := adapter.(provider.SleepImporter); sleepOK {
+			parsedSleep, err = sleepImporter.ImportSleep(context.Background(), source, options)
+			if err != nil {
+				return s.fail(jobID, err.Error())
+			}
 		}
-		parsedDailySummaries = daily.Summaries
-		parsedDailyMetrics = daily.Metrics
+		if dailyImporter, dailyOK := adapter.(provider.DailyImporter); dailyOK {
+			daily, dailyErr := dailyImporter.ImportDaily(context.Background(), source, options)
+			if dailyErr != nil {
+				return s.fail(jobID, dailyErr.Error())
+			}
+			parsedDailySummaries = daily.Summaries
+			parsedDailyMetrics = daily.Metrics
+		}
 	}
 
 	snapshotID, err := ids.New()

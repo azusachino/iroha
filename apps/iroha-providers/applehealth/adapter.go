@@ -37,6 +37,30 @@ func (Adapter) Descriptor() provider.Descriptor {
 	}
 }
 
+func (a Adapter) ImportAll(ctx context.Context, source provider.Source, options provider.ImportOptions) (provider.ImportBatch, error) {
+	if err := provider.ValidateRequested(a, options); err != nil {
+		return provider.ImportBatch{}, err
+	}
+	path, cleanup, err := materialize(ctx, source, "apple-health-*.zip")
+	if err != nil {
+		return provider.ImportBatch{}, err
+	}
+	defer cleanup()
+	activities, err := parsers.ParseAppleHealthExport(path, source.SHA256)
+	if err != nil {
+		return provider.ImportBatch{}, adaptError(source, "parse_activities", err)
+	}
+	sleep, err := parsers.ParseAppleHealthSleep(path)
+	if err != nil {
+		return provider.ImportBatch{}, adaptError(source, "parse_sleep", err)
+	}
+	summaries, metrics, err := parsers.ParseAppleHealthDailyActivity(path)
+	if err != nil {
+		return provider.ImportBatch{}, adaptError(source, "parse_daily", err)
+	}
+	return provider.ImportBatch{Activities: activities, Sleep: sleep, Daily: provider.DailyObservations{Summaries: summaries, Metrics: metrics}}, nil
+}
+
 func (a Adapter) ImportActivities(ctx context.Context, source provider.Source, options provider.ImportOptions) ([]observations.Activity, error) {
 	if err := provider.ValidateRequested(a, options); err != nil {
 		return nil, err
