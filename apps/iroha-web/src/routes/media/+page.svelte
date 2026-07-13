@@ -37,21 +37,44 @@
   );
   const completionMax = $derived(
     Math.max(
-      ...(aggregates?.completions_by_year.map((bucket) => bucket.count) ?? [1]),
+      ...(aggregates?.completions_by_year?.map((bucket) => bucket.count) ?? [
+        1,
+      ]),
       1,
     ),
   );
   const scoreMax = $derived(
     Math.max(
-      ...(aggregates?.score_distribution.map((bucket) => bucket.count) ?? [1]),
+      ...(aggregates?.score_distribution?.map((bucket) => bucket.count) ?? [1]),
       1,
     ),
   );
+  // The API splits by raw media_type (anime_season, manga, movie, ova…);
+  // collapse those into display families for the "By kind" chart.
+  function typeFamily(type: string): string {
+    if (["manga", "one_shot", "light_novel", "book", "novel"].includes(type))
+      return "Manga & books";
+    if (["anime_season", "movie", "ona", "ova", "special"].includes(type))
+      return "Anime";
+    if (type === "game") return "Games";
+    return "Other";
+  }
+  const typeFamilies = $derived(
+    Object.entries(
+      (aggregates?.type_split ?? []).reduce(
+        (families, bucket) => {
+          const key = typeFamily(bucket.type);
+          families[key] = (families[key] ?? 0) + bucket.count;
+          return families;
+        },
+        {} as Record<string, number>,
+      ),
+    )
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count),
+  );
   const typeMax = $derived(
-    Math.max(
-      ...(aggregates?.type_split.map((bucket) => bucket.count) ?? [1]),
-      1,
-    ),
+    Math.max(...typeFamilies.map((bucket) => bucket.count), 1),
   );
 
   onMount(() => {
@@ -176,7 +199,7 @@
           </div>
           <span class="chart-total">{aggregates.totals.completed_count}</span>
         </div>
-        {#if aggregates.completions_by_year.length}
+        {#if aggregates.completions_by_year?.length}
           <div class="year-bars" aria-label="Completions by year">
             {#each aggregates.completions_by_year as bucket}
               <div class="year-bar">
@@ -203,7 +226,7 @@
           </div>
           <span class="chart-total">0–10</span>
         </div>
-        {#if aggregates.score_distribution.length}
+        {#if aggregates.score_distribution?.length}
           <div class="score-bars" aria-label="Score distribution">
             {#each aggregates.score_distribution as bucket}
               <div class="score-bar">
@@ -225,14 +248,12 @@
             <h2>By kind</h2>
           </div>
         </div>
-        {#if aggregates.type_split.length}
+        {#if typeFamilies.length}
           <div class="type-list">
-            {#each aggregates.type_split as bucket}
+            {#each typeFamilies as bucket}
               <div class="type-row">
                 <div class="type-meta">
-                  <span>{mediaKind(bucket.type)}</span><strong
-                    >{bucket.count}</strong
-                  >
+                  <span>{bucket.type}</span><strong>{bucket.count}</strong>
                 </div>
                 <div class="type-track">
                   <span style={`width: ${(bucket.count / typeMax) * 100}%`}
