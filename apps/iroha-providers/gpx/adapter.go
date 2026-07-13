@@ -29,9 +29,6 @@ func (Adapter) Descriptor() provider.Descriptor {
 }
 
 func (a Adapter) ImportActivities(ctx context.Context, source provider.Source, options provider.ImportOptions) ([]observations.Activity, error) {
-	if err := provider.ValidateRequested(a, options); err != nil {
-		return nil, err
-	}
 	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "iroha-gpx-*.gpx")
 	if err != nil {
 		return nil, err

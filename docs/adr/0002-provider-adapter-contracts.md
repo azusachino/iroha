@@ -90,7 +90,6 @@ type Source struct {
 }
 
 type ImportOptions struct {
-	Requested []Capability
 }
 ```
 
@@ -254,31 +253,9 @@ The adapter contract does not accept a logger. This keeps logging policy at the
 application boundary and prevents every provider from choosing incompatible
 logging fields or levels.
 
-### Diagnostics and metrics
-
-Non-fatal provider findings are returned as bounded diagnostics rather than
-being silently logged or treated as errors:
-
-```go
-type Diagnostic struct {
-	Code     string
-	Severity Severity
-	Message  string
-	Count    int
-}
-
-type ImportResult[T any] struct {
-	Items       []T
-	Diagnostics []Diagnostic
-}
-```
-
-Messages must be safe for logs and UI. A provider must cap diagnostic cardinality
-and aggregate repeated findings.
-
 The pipeline owns metrics, using provider/capability labels only. At minimum it
 records import duration, success/failure count, retry count, bytes read,
-observation counts, and diagnostic counts. It must not use source keys, user
+observation counts. It must not use source keys, user
 titles, raw filenames, or external IDs as metric labels.
 
 ### Context, cancellation, and timeouts

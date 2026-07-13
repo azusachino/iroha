@@ -104,21 +104,6 @@ func TestNewRegistryAcceptsMediaCapabilityWithMediaImporter(t *testing.T) {
 	}
 }
 
-func TestValidateRequestedRejectsUnsupportedCapability(t *testing.T) {
-	adapter := fakeHealthAdapter{fakeAdapter{descriptor: Descriptor{
-		ID:             "apple_health",
-		AdapterVersion: "test-v1",
-		Domains:        []Domain{DomainHealth},
-		SourceKinds:    []string{"apple_health_export"},
-		Capabilities:   []Capability{CapabilityHealthActivities},
-	}}}
-
-	err := ValidateRequested(adapter, ImportOptions{Requested: []Capability{CapabilityHealthSleep}})
-	if err == nil {
-		t.Fatal("ValidateRequested() accepted an unsupported capability")
-	}
-}
-
 func TestSourceOpenIsProviderAgnostic(t *testing.T) {
 	source := Source{
 		Kind:   "apple_health_export",

@@ -37,9 +37,6 @@ func (Adapter) Descriptor() provider.Descriptor {
 }
 
 func (a Adapter) ImportAll(ctx context.Context, source provider.Source, options provider.ImportOptions) (provider.ImportBatch, error) {
-	if err := provider.ValidateRequested(a, options); err != nil {
-		return provider.ImportBatch{}, err
-	}
 	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-*.zip")
 	if err != nil {
 		return provider.ImportBatch{}, err
@@ -61,9 +58,6 @@ func (a Adapter) ImportAll(ctx context.Context, source provider.Source, options 
 }
 
 func (a Adapter) ImportActivities(ctx context.Context, source provider.Source, options provider.ImportOptions) ([]observations.Activity, error) {
-	if err := provider.ValidateRequested(a, options); err != nil {
-		return nil, err
-	}
 	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-*.zip")
 	if err != nil {
 		return nil, err
@@ -77,9 +71,6 @@ func (a Adapter) ImportActivities(ctx context.Context, source provider.Source, o
 }
 
 func (a Adapter) ImportSleep(ctx context.Context, source provider.Source, options provider.ImportOptions) ([]observations.Sleep, error) {
-	if err := provider.ValidateRequested(a, options); err != nil {
-		return nil, err
-	}
 	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-*.zip")
 	if err != nil {
 		return nil, err
@@ -93,9 +84,6 @@ func (a Adapter) ImportSleep(ctx context.Context, source provider.Source, option
 }
 
 func (a Adapter) ImportDaily(ctx context.Context, source provider.Source, options provider.ImportOptions) (provider.DailyObservations, error) {
-	if err := provider.ValidateRequested(a, options); err != nil {
-		return provider.DailyObservations{}, err
-	}
 	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-*.zip")
 	if err != nil {
 		return provider.DailyObservations{}, err

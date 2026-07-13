@@ -24,7 +24,7 @@ func TestAdapterDescriptor(t *testing.T) {
 }
 
 func TestAdapterRejectsSourceWithoutOpener(t *testing.T) {
-	_, err := New().ImportActivities(context.Background(), provider.Source{Kind: "zip"}, provider.ImportOptions{Requested: []provider.Capability{provider.CapabilityHealthActivities}})
+	_, err := New().ImportActivities(context.Background(), provider.Source{Kind: "zip"}, provider.ImportOptions{})
 	if err == nil {
 		t.Fatal("ImportActivities() accepted source without opener")
 	}

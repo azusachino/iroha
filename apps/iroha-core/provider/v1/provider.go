@@ -47,9 +47,7 @@ type Source struct {
 	Open             func(context.Context) (io.ReadCloser, error)
 }
 
-type ImportOptions struct {
-	Requested []Capability
-}
+type ImportOptions struct{}
 
 type Adapter interface {
 	Descriptor() Descriptor
@@ -88,20 +86,6 @@ type ImportBatch struct {
 	Activities []observations.Activity
 	Sleep      []observations.Sleep
 	Daily      DailyObservations
-}
-
-type Severity string
-
-const (
-	SeverityInfo    Severity = "info"
-	SeverityWarning Severity = "warning"
-)
-
-type Diagnostic struct {
-	Code     string
-	Severity Severity
-	Message  string
-	Count    int
 }
 
 type ErrorKind string
@@ -232,22 +216,6 @@ func ValidateAdapter(adapter Adapter) error {
 		seen[capability] = struct{}{}
 		if !implementsCapability(adapter, capability) {
 			return fmt.Errorf("provider %q declares capability %q without implementing it", descriptor.ID, capability)
-		}
-	}
-	return nil
-}
-
-func ValidateRequested(adapter Adapter, options ImportOptions) error {
-	if err := ValidateAdapter(adapter); err != nil {
-		return err
-	}
-	declared := make(map[Capability]struct{}, len(adapter.Descriptor().Capabilities))
-	for _, capability := range adapter.Descriptor().Capabilities {
-		declared[capability] = struct{}{}
-	}
-	for _, capability := range options.Requested {
-		if _, ok := declared[capability]; !ok {
-			return fmt.Errorf("provider %q does not support requested capability %q", adapter.Descriptor().ID, capability)
 		}
 	}
 	return nil
