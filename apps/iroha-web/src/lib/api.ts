@@ -213,6 +213,27 @@ export interface MediaDetail {
   }[];
 }
 
+export interface MediaHomeEvent {
+  id: string;
+  media_id: string;
+  title: string;
+  cover_image_url?: string;
+  event_type: string;
+  occurred_at: string;
+  unit?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  rating?: number;
+}
+
+export interface ListMediaEventsParams {
+  from?: string;
+  to?: string;
+  limit?: number;
+  cursor?: string;
+}
+
 // One keyset page. `next_cursor` is null when no further rows exist.
 export interface Page<T> {
   items: T[];
@@ -346,6 +367,22 @@ export function getMedia(
 ): Promise<MediaDetail> {
   return getJSON<MediaDetail>(
     `/api/v1/media/${encodeURIComponent(id)}`,
+    fetchFn,
+  );
+}
+
+export function listMediaEvents(
+  params: ListMediaEventsParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Page<MediaHomeEvent>> {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.cursor) query.set("cursor", params.cursor);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<Page<MediaHomeEvent>>(
+    `/api/v1/media/events${suffix}`,
     fetchFn,
   );
 }

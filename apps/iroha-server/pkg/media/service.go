@@ -130,6 +130,34 @@ type Detail struct {
 	Events    []EventDetail
 }
 
+type Event struct {
+	ID              uuid.UUID `gorm:"column:id"`
+	MediaItemID     uuid.UUID `gorm:"column:media_item_id"`
+	Title           string    `gorm:"column:title"`
+	CoverImageURL   string    `gorm:"column:cover_image_url"`
+	EventType       string    `gorm:"column:event_type"`
+	OccurredAt      time.Time `gorm:"column:occurred_at"`
+	Unit            string    `gorm:"column:unit"`
+	Position        *float64  `gorm:"column:position"`
+	Total           *float64  `gorm:"column:total"`
+	ProgressPercent *float64  `gorm:"column:progress_percent"`
+	Rating          *float64  `gorm:"column:rating"`
+	RatingScale     *float64  `gorm:"column:rating_scale"`
+}
+
+type EventListFilters struct {
+	From   *time.Time
+	To     *time.Time
+	Limit  int
+	Cursor *Cursor
+}
+
+type EventPage struct {
+	Items      []Event
+	NextCursor *Cursor
+	HasMore    bool
+}
+
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
@@ -399,4 +427,38 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 		return Detail{}, false, err
 	}
 	return detail, true, nil
+}
+
+func (s *Service) Events(filters EventListFilters) (EventPage, error) {
+	limit := filters.Limit
+	if limit <= 0 || limit > 100 {
+		limit = defaultPageLimit
+	}
+	query := s.db.Table("tb_media_consumption_events AS event").
+		Select(`event.id, event.media_item_id, item.title, item.cover_image_url,
+			event.event_type, coalesce(event.event_at, event.created_at) AS occurred_at,
+			event.unit, event.position, event.total, event.progress_percent,
+			event.rating, event.rating_scale`).
+		Joins("JOIN tb_media_items AS item ON item.id = event.media_item_id")
+	if filters.From != nil {
+		query = query.Where("coalesce(event.event_at, event.created_at) >= ?", *filters.From)
+	}
+	if filters.To != nil {
+		query = query.Where("coalesce(event.event_at, event.created_at) < ?", *filters.To)
+	}
+	if filters.Cursor != nil {
+		query = query.Where("(coalesce(event.event_at, event.created_at), event.id) < (?, ?)", filters.Cursor.LastUpdateAt, filters.Cursor.ID)
+	}
+	var rows []Event
+	if err := query.Order("occurred_at DESC, event.id DESC").Limit(limit + 1).Scan(&rows).Error; err != nil {
+		return EventPage{}, err
+	}
+	page := EventPage{Items: rows}
+	if len(rows) > limit {
+		page.Items = rows[:limit]
+		page.HasMore = true
+		last := page.Items[len(page.Items)-1]
+		page.NextCursor = &Cursor{LastUpdateAt: last.OccurredAt, ID: last.ID}
+	}
+	return page, nil
 }

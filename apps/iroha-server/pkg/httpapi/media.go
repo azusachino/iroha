@@ -89,6 +89,26 @@ type mediaEventResponse struct {
 	Note            string     `json:"note,omitempty"`
 }
 
+type mediaEventListResponse struct {
+	Items      []mediaHomeEventResponse `json:"items"`
+	NextCursor *string                  `json:"next_cursor"`
+	HasMore    bool                     `json:"has_more"`
+}
+
+type mediaHomeEventResponse struct {
+	ID              string    `json:"id"`
+	MediaID         string    `json:"media_id"`
+	Title           string    `json:"title"`
+	CoverImageURL   string    `json:"cover_image_url,omitempty"`
+	EventType       string    `json:"event_type"`
+	OccurredAt      time.Time `json:"occurred_at"`
+	Unit            string    `json:"unit,omitempty"`
+	Position        *float64  `json:"position,omitempty"`
+	Total           *float64  `json:"total,omitempty"`
+	ProgressPercent *float64  `json:"progress_percent,omitempty"`
+	Rating          *float64  `json:"rating,omitempty"`
+}
+
 func (s *Server) handleListMedia(w http.ResponseWriter, r *http.Request) {
 	filters, ok := parseMediaFilters(w, r)
 	if !ok {
@@ -121,6 +141,34 @@ func (s *Server) handleMediaAggregates(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, aggregates)
+}
+
+func (s *Server) handleListMediaEvents(w http.ResponseWriter, r *http.Request) {
+	filters, ok := parseMediaEventFilters(w, r)
+	if !ok {
+		return
+	}
+	page, err := s.deps.MediaService.Events(filters)
+	if err != nil {
+		s.deps.Logger.Error("list media events", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to list media events")
+		return
+	}
+	items := make([]mediaHomeEventResponse, 0, len(page.Items))
+	for _, event := range page.Items {
+		items = append(items, mediaHomeEventResponse{
+			ID: ids.Encode(ids.MediaPrefix, event.ID), MediaID: ids.Encode(ids.MediaPrefix, event.MediaItemID),
+			Title: event.Title, CoverImageURL: event.CoverImageURL, EventType: event.EventType,
+			OccurredAt: event.OccurredAt, Unit: event.Unit, Position: event.Position, Total: event.Total,
+			ProgressPercent: event.ProgressPercent, Rating: normalizedRating(event.Rating, event.RatingScale),
+		})
+	}
+	response := mediaEventListResponse{Items: items, HasMore: page.HasMore}
+	if page.NextCursor != nil {
+		cursor := media.EncodeCursor(*page.NextCursor)
+		response.NextCursor = &cursor
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
@@ -204,6 +252,41 @@ func parseMediaFilters(w http.ResponseWriter, r *http.Request) (media.ListFilter
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid cursor")
 			return media.ListFilters{}, false
+		}
+		filters.Cursor = &cursor
+	}
+	return filters, true
+}
+
+func parseMediaEventFilters(w http.ResponseWriter, r *http.Request) (media.EventListFilters, bool) {
+	query := r.URL.Query()
+	filters := media.EventListFilters{}
+	for key, destination := range map[string]**time.Time{"from": &filters.From, "to": &filters.To} {
+		if value := query.Get(key); value != "" {
+			parsed, err := time.Parse("2006-01-02", value)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid "+key)
+				return media.EventListFilters{}, false
+			}
+			if key == "to" {
+				parsed = parsed.Add(24 * time.Hour)
+			}
+			*destination = &parsed
+		}
+	}
+	if value := query.Get("limit"); value != "" {
+		limit, err := strconv.Atoi(value)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid limit")
+			return media.EventListFilters{}, false
+		}
+		filters.Limit = limit
+	}
+	if value := query.Get("cursor"); value != "" {
+		cursor, err := media.DecodeCursor(value)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid cursor")
+			return media.EventListFilters{}, false
 		}
 		filters.Cursor = &cursor
 	}

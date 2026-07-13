@@ -4,10 +4,12 @@
     listDaily,
     listSleep,
     listActivities,
+    listMediaEvents,
     type DailyRow,
     type SleepSession,
     type Activity,
     type Page,
+    type MediaHomeEvent,
   } from "$lib/api";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
@@ -22,6 +24,7 @@
   let dailyByDay = $state(new Map<string, DailyRow>());
   let sleepByDay = $state(new Map<string, SleepSession[]>());
   let actByDay = $state(new Map<string, Activity[]>());
+  let mediaByDay = $state(new Map<string, MediaHomeEvent[]>());
   let daysWithData = $state<string[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -56,6 +59,7 @@
   const nights = $derived(sleepByDay.get(day) ?? []);
   const mainNight = $derived(nights.find((n) => n.is_main_sleep) ?? nights[0]);
   const acts = $derived(actByDay.get(day) ?? []);
+  const mediaEvents = $derived(mediaByDay.get(day) ?? []);
   const hasRing = $derived(!!dRow && dRow.move_goal_kcal > 0);
   const ringData = $derived<Ring[]>(
     hasRing && dRow
@@ -111,7 +115,10 @@
     daysWithData.length > 0 && day === daysWithData[daysWithData.length - 1],
   );
   const dayHasData = $derived(
-    dailyByDay.has(day) || sleepByDay.has(day) || actByDay.has(day),
+    dailyByDay.has(day) ||
+      sleepByDay.has(day) ||
+      actByDay.has(day) ||
+      mediaByDay.has(day),
   );
   const daysSet = $derived(new Set(daysWithData));
   const maxDay = $derived(daysWithData[daysWithData.length - 1]);
@@ -150,19 +157,26 @@
     try {
       // 100 = the list endpoints' max page size (>100 is clamped to 50), so
       // this sweeps history in the fewest requests.
-      const [daily, sleep, activities] = await Promise.all([
+      const [daily, sleep, activities, mediaEvents] = await Promise.all([
         sweep<DailyRow>((c) => listDaily({ limit: 100, cursor: c })),
         sweep<SleepSession>((c) => listSleep({ limit: 100, cursor: c })),
         sweep<Activity>((c) => listActivities({ limit: 100, cursor: c })),
+        sweep<MediaHomeEvent>((c) =>
+          listMediaEvents({ limit: 100, cursor: c }),
+        ),
       ]);
       dailyByDay = new Map(daily.map((r) => [r.day.slice(0, 10), r]));
       sleepByDay = group(sleep, (s) => s.wake_date.slice(0, 10));
       actByDay = group(activities, (a) => a.started_at.slice(0, 10));
+      mediaByDay = group(mediaEvents, (event) =>
+        event.occurred_at.slice(0, 10),
+      );
       daysWithData = [
         ...new Set([
           ...dailyByDay.keys(),
           ...sleepByDay.keys(),
           ...actByDay.keys(),
+          ...mediaByDay.keys(),
         ]),
       ].sort();
       if (daysWithData.length) day = daysWithData[daysWithData.length - 1];
@@ -172,6 +186,15 @@
       loading = false;
     }
   });
+
+  function mediaEventVerb(event: MediaHomeEvent): string {
+    if (event.rating != null) return "Rated";
+    if (event.progress_percent != null && event.progress_percent >= 100)
+      return "Finished";
+    if (event.position != null || event.progress_percent != null)
+      return "Progressed";
+    return "Updated library";
+  }
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -301,10 +324,38 @@
         {/if}
       </div>
 
-      <!-- Media placeholder -->
-      <div class="card tile soon">
-        <header><span class="ic">▤</span> Media</header>
-        <p class="empty">Reading &amp; watching — coming soon</p>
+      <!-- Media events: the selected-day slice of the media history. -->
+      <div class="card tile wide media-card">
+        <header>
+          <span class="ic">▤</span>
+          <a class="hdr-link" href="/media">Media</a>
+        </header>
+        {#if mediaEvents.length}
+          <ul class="media-events">
+            {#each mediaEvents as event (event.id)}
+              <li>
+                <a class="media-event-row" href={`/media/${event.media_id}`}>
+                  {#if event.cover_image_url}
+                    <img src={event.cover_image_url} alt="" loading="lazy" />
+                  {:else}
+                    <span class="media-thumb" aria-hidden="true"
+                      >{event.title.slice(0, 1)}</span
+                    >
+                  {/if}
+                  <span class="media-event-copy">
+                    <strong>{event.title}</strong>
+                    <span>{mediaEventVerb(event)}</span>
+                  </span>
+                  {#if event.rating != null}<span class="media-score"
+                      >{event.rating.toFixed(1)}</span
+                    >{/if}
+                </a>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="empty">No media events this day</p>
+        {/if}
       </div>
     </div>
   {/if}
@@ -429,9 +480,6 @@
   .card.wide {
     grid-column: span 2;
   }
-  .card.soon {
-    opacity: 0.7;
-  }
   .card header {
     display: flex;
     align-items: center;
@@ -534,6 +582,59 @@
     color: var(--text-muted);
     font-size: 0.8rem;
     overflow-wrap: anywhere;
+  }
+  .media-events {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.55rem;
+  }
+  .media-event-row {
+    display: grid;
+    grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    color: var(--text);
+  }
+  .media-event-row:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .media-event-row img,
+  .media-thumb {
+    width: 2.2rem;
+    height: 2.2rem;
+    object-fit: cover;
+    border-radius: 4px;
+  }
+  .media-thumb {
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    color: var(--accent);
+    font-weight: 800;
+  }
+  .media-event-copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.15rem;
+  }
+  .media-event-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.82rem;
+  }
+  .media-event-copy span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+  .media-score {
+    color: var(--accent);
+    font-size: 0.78rem;
+    font-weight: 750;
   }
 
   @media (max-width: 820px) {

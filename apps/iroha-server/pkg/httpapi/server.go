@@ -115,6 +115,7 @@ func (s *Server) routes() {
 		})
 		r.Route("/media", func(r chi.Router) {
 			r.Get("/aggregates", s.handleMediaAggregates)
+			r.Get("/events", s.handleListMediaEvents)
 			r.Get("/", s.handleListMedia)
 			r.Get("/{mediaId}", s.handleGetMedia)
 		})

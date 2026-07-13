@@ -3,6 +3,7 @@ import {
   listActivities,
   getMediaAggregates,
   getMedia,
+  listMediaEvents,
   getActivity,
   getActivityRoute,
   getActivitySamplings,
@@ -132,6 +133,20 @@ describe("getMedia", () => {
     await getMedia("media_123/unsafe", fakeFetch);
 
     expect(getCapturedUrl()).toContain("/api/v1/media/media_123%2Funsafe");
+  });
+});
+
+describe("listMediaEvents", () => {
+  it("builds the date-filtered events URL", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await listMediaEvents(
+      { from: "2026-01-01", to: "2026-01-31", limit: 20 },
+      fakeFetch,
+    );
+
+    expect(getCapturedUrl()).toContain("/api/v1/media/events");
+    expect(getCapturedUrl()).toContain("from=2026-01-01");
+    expect(getCapturedUrl()).toContain("to=2026-01-31");
   });
 });
 
