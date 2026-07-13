@@ -16,6 +16,12 @@ func (f fakeAdapter) Descriptor() Descriptor { return f.descriptor }
 
 type fakeHealthAdapter struct{ fakeAdapter }
 
+type fakeMediaAdapter struct{ fakeAdapter }
+
+func (fakeMediaAdapter) ImportMedia(context.Context, Source, ImportOptions) ([]observations.Media, error) {
+	return nil, nil
+}
+
 func (fakeHealthAdapter) ImportActivities(context.Context, Source, ImportOptions) ([]observations.Activity, error) {
 	return nil, nil
 }
@@ -81,6 +87,20 @@ func TestNewRegistryRejectsDuplicateSourceKind(t *testing.T) {
 
 	if _, err := NewRegistry(first, second); err == nil {
 		t.Fatal("NewRegistry() accepted duplicate source kinds")
+	}
+}
+
+func TestNewRegistryAcceptsMediaCapabilityWithMediaImporter(t *testing.T) {
+	adapter := fakeMediaAdapter{fakeAdapter{descriptor: Descriptor{
+		ID:             "anilist",
+		AdapterVersion: "test-v1",
+		Domains:        []Domain{DomainMedia},
+		SourceKinds:    []string{"anilist_api"},
+		Capabilities:   []Capability{CapabilityMediaLibrary, CapabilityMediaProgress, CapabilityMediaRating},
+	}}}
+
+	if _, err := NewRegistry(adapter); err != nil {
+		t.Fatalf("NewRegistry() rejected media adapter: %v", err)
 	}
 }
 

@@ -80,6 +80,18 @@ type DailyMetric struct {
 	Source string
 }
 
+type Media struct {
+	Provider    string
+	ExternalID  string
+	MediaType   string
+	Title       string
+	Status      string
+	Progress    *float64
+	Score       *float64
+	StartedAt   *time.Time
+	CompletedAt *time.Time
+}
+
 type RoutePoint struct {
 	Ts         *time.Time
 	Lat        float64

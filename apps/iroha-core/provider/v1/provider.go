@@ -67,6 +67,10 @@ type DailyImporter interface {
 	ImportDaily(context.Context, Source, ImportOptions) (DailyObservations, error)
 }
 
+type MediaImporter interface {
+	ImportMedia(context.Context, Source, ImportOptions) ([]observations.Media, error)
+}
+
 // BatchImporter is an optional optimization for file-backed providers that
 // can materialize one source and derive several capabilities from it. The
 // import pipeline falls back to the individual capability interfaces when it
@@ -261,7 +265,8 @@ func implementsCapability(adapter Adapter, capability Capability) bool {
 		_, ok := adapter.(DailyImporter)
 		return ok
 	case CapabilityMediaLibrary, CapabilityMediaProgress, CapabilityMediaRating:
-		return false
+		_, ok := adapter.(MediaImporter)
+		return ok
 	default:
 		return false
 	}

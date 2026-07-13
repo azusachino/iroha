@@ -41,17 +41,28 @@ type Descriptor struct {
 	ID             string
 	DisplayName    string
 	AdapterVersion string
+	SourceKinds    []string
+	Domains        []Domain
 	Capabilities   []Capability
 }
 
 type Capability string
 
 const (
-	CapabilityHealthActivities    Capability = "activities"
-	CapabilityHealthSleep         Capability = "sleep"
-	CapabilityHealthDailySummary Capability = "daily_summary"
-	CapabilityHealthDailyMetrics Capability = "daily_metrics"
-	CapabilityMedia        Capability = "media"
+	CapabilityHealthActivities   Capability = "health.activities"
+	CapabilityHealthSleep        Capability = "health.sleep"
+	CapabilityHealthDailySummary Capability = "health.daily_summary"
+	CapabilityHealthDailyMetrics Capability = "health.daily_metrics"
+	CapabilityMediaLibrary       Capability = "media.library"
+	CapabilityMediaProgress      Capability = "media.progress"
+	CapabilityMediaRating        Capability = "media.rating"
+)
+
+type Domain string
+
+const (
+	DomainHealth Domain = "health"
+	DomainMedia  Domain = "media"
 )
 ```
 
@@ -60,8 +71,10 @@ const (
 `AdapterVersion` changes when the adapter's interpretation of source data
 changes. It participates in import reprocessing decisions.
 
-Capabilities are declarative metadata. They are also checked at runtime by
-the import pipeline before invoking an optional capability interface.
+Capabilities are declarative metadata. The domain prefix groups related
+capabilities, while `Domains` makes the provider's supported domains explicit.
+They are also checked at runtime by the import pipeline before invoking an
+optional capability interface.
 
 ### Source input
 
@@ -120,10 +133,16 @@ type DailyObservations struct {
 	Summaries []observations.DailySummary
 	Metrics   []observations.DailyMetric
 }
+
+type MediaImporter interface {
+	ImportMedia(context.Context, Source, ImportOptions) ([]observations.Media, error)
+}
 ```
 
-Media capabilities will use typed media observation contracts when that domain
-is introduced. They will not be forced into health-specific observations.
+Media capabilities use typed media observation contracts. They are not forced
+into health-specific observations. `MediaImporter` is shared by the library,
+progress, and rating capabilities; the descriptor declares which of those
+outputs a provider actually supports.
 
 The import pipeline uses type assertions after checking the descriptor:
 
