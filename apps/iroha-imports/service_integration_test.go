@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
@@ -102,6 +103,90 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 		t.Fatalf("reprocessed metric count = %d, want 1", metricCount)
 	}
 }
+
+func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	rawFileID := uuid.New()
+	jobID := uuid.New()
+	now := time.Now().UTC()
+	startedAt := now.Add(-time.Hour)
+	completedAt := now.Add(-30 * time.Minute)
+	media := observations.Media{
+		Provider:    "anilist",
+		ExternalID:  "media-integration-" + rawFileID.String(),
+		MediaType:   "anime",
+		Title:       "Integration Media",
+		Status:      "completed",
+		Progress:    float64Ptr(12),
+		Score:       float64Ptr(9),
+		StartedAt:   &startedAt,
+		CompletedAt: &completedAt,
+	}
+	if err := db.Create(&models.RawFile{
+		ID:               rawFileID,
+		SHA256:           "media-integration-" + rawFileID.String(),
+		OriginalFilename: "anilist.json",
+		StoragePath:      "/tmp/anilist.json",
+		SourceKind:       parsers.KindAniList,
+		UploadedVia:      "integration",
+		CreatedAt:        now,
+	}).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Exec("delete from tb_media_consumption_events where raw_file_id = ?", rawFileID).Error
+		_ = db.Exec("delete from tb_media_list_items where media_item_id in (select id from tb_media_items where title = ?)", media.Title).Error
+		_ = db.Exec("delete from tb_media_lists where source_kind = ? and name = ?", media.Provider, media.Provider+" library").Error
+		_ = db.Exec("delete from tb_media_external_refs where external_id = ?", media.ExternalID).Error
+		_ = db.Exec("delete from tb_media_progress where media_item_id in (select id from tb_media_items where title = ?)", media.Title).Error
+		_ = db.Exec("delete from tb_media_items where title = ?", media.Title).Error
+		_ = db.Exec("delete from tb_media_works where primary_title = ?", media.Title).Error
+		_ = db.Exec("delete from tb_import_snapshots where raw_file_id = ?", rawFileID).Error
+		_ = db.Exec("delete from tb_import_jobs where id = ?", jobID).Error
+		_ = db.Exec("delete from tb_raw_files where id = ?", rawFileID).Error
+	})
+	if err := db.Create(&models.ImportJob{
+		ID:            jobID,
+		RawFileID:     rawFileID,
+		Status:        StatusCompleted,
+		ParserKind:    parsers.KindAniList,
+		ParserVersion: DefaultParserVersion,
+		CreatedAt:     now,
+	}).Error; err != nil {
+		t.Fatalf("create import job: %v", err)
+	}
+
+	snapshot1 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "media-snapshot-1", ParserVersion: DefaultParserVersion, CreatedAt: now}
+	if err := (&Service{db: db}).persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList}, []observations.Media{media}, snapshot1, false); err != nil {
+		t.Fatalf("persist media: %v", err)
+	}
+	var itemCount, eventCount int64
+	if err := db.Model(&models.MediaItem{}).Where("title = ?", media.Title).Count(&itemCount).Error; err != nil {
+		t.Fatalf("count media items: %v", err)
+	}
+	if err := db.Model(&models.MediaConsumptionEvent{}).Where("raw_file_id = ?", rawFileID).Count(&eventCount).Error; err != nil {
+		t.Fatalf("count media events: %v", err)
+	}
+	if itemCount != 1 || eventCount != 1 {
+		t.Fatalf("persisted media item/event counts = %d/%d, want 1/1", itemCount, eventCount)
+	}
+
+	snapshot2 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "media-snapshot-2", ParserVersion: "media-reprocess", CreatedAt: now.Add(time.Second)}
+	if err := (&Service{db: db}).persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList}, []observations.Media{media}, snapshot2, true); err != nil {
+		t.Fatalf("reprocess media: %v", err)
+	}
+	if err := db.Model(&models.MediaItem{}).Where("title = ?", media.Title).Count(&itemCount).Error; err != nil {
+		t.Fatalf("count reprocessed media items: %v", err)
+	}
+	if err := db.Model(&models.MediaConsumptionEvent{}).Where("raw_file_id = ?", rawFileID).Count(&eventCount).Error; err != nil {
+		t.Fatalf("count reprocessed media events: %v", err)
+	}
+	if itemCount != 1 || eventCount != 1 {
+		t.Fatalf("reprocessed media item/event counts = %d/%d, want 1/1", itemCount, eventCount)
+	}
+}
+
+func float64Ptr(value float64) *float64 { return &value }
 
 func openImportsIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()

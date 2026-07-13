@@ -74,6 +74,7 @@ func main() {
 	handlers := map[string]jobs.Handler{
 		jobs.KindAppleImportParse: importHandler,
 		jobs.KindGPXImportParse:   importHandler,
+		jobs.KindMediaIntakeParse: importHandler,
 	}
 
 	jobsService := jobs.NewService(db, logger, handlers)

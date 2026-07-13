@@ -34,6 +34,13 @@ const (
 	appleSourceItemTypeSleepSession = "sleep_session"
 	appleSourceItemTypeDailySummary = "daily_summary"
 	appleSourceItemTypeDailyMetric  = "daily_metric"
+
+	mediaWorkKind     = "media"
+	mediaItemRole     = "primary"
+	mediaEventType    = "list_state"
+	mediaListKind     = "library"
+	mediaScopeType    = "item"
+	mediaUnknownValue = "unknown"
 )
 
 // DefaultParserVersion identifies the current parser build. A completed
@@ -93,6 +100,8 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 		jobKind = jobs.KindAppleImportParse
 	case coreimports.KindGPX:
 		jobKind = jobs.KindGPXImportParse
+	case coreimports.KindAniList, coreimports.KindBangumi:
+		jobKind = jobs.KindMediaIntakeParse
 	default:
 		return models.ImportJob{}, fmt.Errorf("unsupported parser kind: %s", input.ParserKind)
 	}
@@ -217,14 +226,18 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		},
 	}
 	options := provider.ImportOptions{}
-	// TODO(media-sync): MediaImporter is not dispatched here yet — media has no
-	// canonical models/tables and ImportBatch carries no media. Wire ImportMedia
-	// (and its persistence) into this dispatch once the media schema lands.
+	var parsedMedia []observations.Media
 	var parsed []observations.Activity
 	var parsedSleep []observations.Sleep
 	var parsedDailySummaries []observations.DailySummary
 	var parsedDailyMetrics []observations.DailyMetric
-	if batchImporter, ok := adapter.(provider.BatchImporter); ok {
+	mediaImporter, mediaOK := adapter.(provider.MediaImporter)
+	if mediaOK {
+		parsedMedia, err = mediaImporter.ImportMedia(context.Background(), source, options)
+		if err != nil {
+			return s.fail(jobID, err.Error())
+		}
+	} else if batchImporter, ok := adapter.(provider.BatchImporter); ok {
 		batch, batchErr := batchImporter.ImportAll(context.Background(), source, options)
 		if batchErr != nil {
 			return s.fail(jobID, batchErr.Error())
@@ -271,7 +284,12 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		CreatedAt:     time.Now().UTC(),
 	}
 
-	if err := s.persistActivities(rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess); err != nil {
+	if mediaOK {
+		err = s.persistMedia(rawFile, parsedMedia, snapshot, reprocess)
+	} else {
+		err = s.persistActivities(rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess)
+	}
+	if err != nil {
 		return s.fail(jobID, err.Error())
 	}
 
@@ -400,7 +418,7 @@ func (s *Service) fail(jobID uuid.UUID, message string) error {
 //     this raw file, covering unchanged workouts that were never
 //     re-persisted but still got their last_seen bumped).
 //  2. tb_import_snapshots for this raw file, now safe to remove since no
-//     source item still references them.
+//     source item or source observation still references them.
 //  3. tb_activities with first_raw_file_id = this raw file. ON DELETE
 //     CASCADE removes tb_external_refs, tb_activity_route_points,
 //     tb_activity_samplings, and tb_activity_laps for those activities.
@@ -409,6 +427,10 @@ func (s *Service) fail(jobID uuid.UUID, message string) error {
 //     just null out the source items rather than removing them, defeating
 //     step (1)'s purpose.
 func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
+	if err := tx.Where("raw_file_id = ?", rawFileID).Delete(&models.MediaConsumptionEvent{}).Error; err != nil {
+		return err
+	}
+
 	if err := tx.Exec(`
 		delete from tb_apple_source_items
 		where activity_id in (select id from tb_activities where first_raw_file_id = ?)
@@ -417,6 +439,24 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 		   or daily_metric_id in (select id from tb_daily_metrics where first_raw_file_id = ?)
 		   or last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?)
 	`, rawFileID, rawFileID, rawFileID, rawFileID, rawFileID).Error; err != nil {
+		return err
+	}
+	for _, statement := range []string{
+		`update tb_activities set selected_observation_id = null where selected_observation_id in (select ao.id from tb_activity_observations ao join tb_source_observations so on so.id = ao.id where so.raw_file_id = ? or so.first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?) or so.last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?))`,
+		`update tb_sleep_sessions set selected_observation_id = null where selected_observation_id in (select so.id from tb_sleep_observations so join tb_source_observations src on src.id = so.id where src.raw_file_id = ? or src.first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?) or src.last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?))`,
+		`update tb_daily_summaries set selected_observation_id = null where selected_observation_id in (select so.id from tb_daily_summary_observations so join tb_source_observations src on src.id = so.id where src.raw_file_id = ? or src.first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?) or src.last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?))`,
+		`update tb_daily_metrics set selected_observation_id = null where selected_observation_id in (select so.id from tb_daily_metric_observations so join tb_source_observations src on src.id = so.id where src.raw_file_id = ? or src.first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?) or src.last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?))`,
+	} {
+		if err := tx.Exec(statement, rawFileID, rawFileID, rawFileID).Error; err != nil {
+			return err
+		}
+	}
+	if err := tx.Exec(`
+		delete from tb_source_observations
+		where raw_file_id = ?
+		   or first_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?)
+		   or last_seen_snapshot_id in (select id from tb_import_snapshots where raw_file_id = ?)
+	`, rawFileID, rawFileID, rawFileID).Error; err != nil {
 		return err
 	}
 
@@ -441,6 +481,192 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (s *Service) persistMedia(rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot, reprocess bool) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if reprocess {
+			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Create(&snapshot).Error; err != nil {
+			return err
+		}
+		for _, media := range parsed {
+			if err := persistMediaObservation(tx, rawFile, media); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observations.Media) error {
+	if media.Provider == "" {
+		return errors.New("parsed media missing provider")
+	}
+	if media.ExternalID == "" {
+		return errors.New("parsed media missing external id")
+	}
+	if media.Title == "" {
+		return errors.New("parsed media missing title")
+	}
+
+	var externalRef models.MediaExternalRef
+	result := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&externalRef)
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return result.Error
+	}
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		workID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		itemID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		work := models.MediaWork{
+			ID:            workID,
+			WorkKind:      mediaWorkKind,
+			PrimaryTitle:  media.Title,
+			OriginalTitle: media.Title,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		}
+		if err := tx.Create(&work).Error; err != nil {
+			return err
+		}
+		item := models.MediaItem{
+			ID:            itemID,
+			WorkID:        &workID,
+			MediaType:     media.MediaType,
+			ItemRole:      mediaItemRole,
+			Title:         media.Title,
+			OriginalTitle: media.Title,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		}
+		if item.MediaType == "" {
+			item.MediaType = mediaUnknownValue
+		}
+		if err := tx.Create(&item).Error; err != nil {
+			return err
+		}
+		externalRefID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		externalRef = models.MediaExternalRef{
+			ID:         externalRefID,
+			ScopeType:  mediaScopeType,
+			ScopeID:    itemID,
+			Provider:   media.Provider,
+			ExternalID: media.ExternalID,
+			MatchedBy:  "provider_id",
+			CreatedAt:  now,
+		}
+		if err := tx.Create(&externalRef).Error; err != nil {
+			return err
+		}
+	} else if externalRef.ScopeType != mediaScopeType {
+		return fmt.Errorf("media external ref %s/%s has unsupported scope %q", media.Provider, media.ExternalID, externalRef.ScopeType)
+	}
+
+	itemID := externalRef.ScopeID
+	listName := media.Provider + " library"
+	var list models.MediaList
+	result = tx.Where("source_kind = ? and name = ?", media.Provider, listName).First(&list)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		listID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		list = models.MediaList{
+			ID:         listID,
+			Name:       listName,
+			ListKind:   mediaListKind,
+			SourceKind: media.Provider,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		}
+		if err := tx.Create(&list).Error; err != nil {
+			return err
+		}
+	} else if result.Error != nil {
+		return result.Error
+	}
+	var listItem models.MediaListItem
+	result = tx.Where("list_id = ? and media_item_id = ?", list.ID, itemID).First(&listItem)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		listItemID, err := ids.New()
+		if err != nil {
+			return err
+		}
+		if err := tx.Create(&models.MediaListItem{ID: listItemID, ListID: list.ID, MediaItemID: itemID, CreatedAt: time.Now().UTC()}).Error; err != nil {
+			return err
+		}
+	} else if result.Error != nil {
+		return result.Error
+	}
+
+	eventAt := time.Now().UTC()
+	if media.CompletedAt != nil {
+		eventAt = media.CompletedAt.UTC()
+	} else if media.StartedAt != nil {
+		eventAt = media.StartedAt.UTC()
+	}
+	eventID, err := ids.New()
+	if err != nil {
+		return err
+	}
+	if err := tx.Create(&models.MediaConsumptionEvent{
+		ID:            eventID,
+		MediaItemID:   itemID,
+		EventType:     mediaEventType,
+		EventAt:       &eventAt,
+		SourceKind:    rawFile.SourceKind,
+		SourceEventID: media.ExternalID,
+		Position:      media.Progress,
+		Rating:        media.Score,
+		RawFileID:     &rawFile.ID,
+		CreatedAt:     time.Now().UTC(),
+	}).Error; err != nil {
+		return err
+	}
+
+	progress := models.MediaProgress{
+		MediaItemID: itemID,
+		Status:      media.Status,
+		Position:    media.Progress,
+		StartedAt:   media.StartedAt,
+		FinishedAt:  media.CompletedAt,
+		SourceKind:  rawFile.SourceKind,
+		UpdatedAt:   time.Now().UTC(),
+	}
+	if progress.Status == "" {
+		progress.Status = mediaUnknownValue
+	}
+	var existingProgress models.MediaProgress
+	result = tx.Where("media_item_id = ?", itemID).First(&existingProgress)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return tx.Create(&progress).Error
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+	return tx.Model(&existingProgress).Updates(map[string]any{
+		"status":      progress.Status,
+		"position":    progress.Position,
+		"started_at":  progress.StartedAt,
+		"finished_at": progress.FinishedAt,
+		"source_kind": progress.SourceKind,
+		"updated_at":  progress.UpdatedAt,
+	}).Error
 }
 
 func (s *Service) persistActivities(rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {

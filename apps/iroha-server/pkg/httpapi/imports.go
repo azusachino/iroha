@@ -39,7 +39,10 @@ func (s *Server) handleCreateImportJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "raw_file_id is required")
 		return
 	}
-	if request.ParserKind != coreimports.KindAppleHealthExport && request.ParserKind != coreimports.KindGPX {
+	if request.ParserKind != coreimports.KindAppleHealthExport &&
+		request.ParserKind != coreimports.KindGPX &&
+		request.ParserKind != coreimports.KindAniList &&
+		request.ParserKind != coreimports.KindBangumi {
 		writeError(w, http.StatusBadRequest, "unsupported parser_kind")
 		return
 	}

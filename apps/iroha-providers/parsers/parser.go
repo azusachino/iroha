@@ -72,12 +72,14 @@ type ActivityLap = observations.Lap
 const (
 	KindGPX               = coreimports.KindGPX
 	KindAppleHealthExport = coreimports.KindAppleHealthExport
+	KindAniList           = coreimports.KindAniList
+	KindBangumi           = coreimports.KindBangumi
 )
 
 // IsImplemented reports whether Parse has a working parser for kind.
 func IsImplemented(kind string) bool {
 	switch kind {
-	case KindGPX, KindAppleHealthExport:
+	case KindGPX, KindAppleHealthExport, KindAniList, KindBangumi:
 		return true
 	default:
 		return false
