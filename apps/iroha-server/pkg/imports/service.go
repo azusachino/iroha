@@ -6,12 +6,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
-	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
+	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
+	providerregistry "github.com/azusachino/iroha/apps/iroha-providers/registry"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
@@ -47,6 +51,7 @@ type Service struct {
 	parserVersion string
 	enqueuer      Enqueuer
 	cacheClient   *cache.Client
+	providers     *provider.Registry
 }
 
 type CreateInput struct {
@@ -55,13 +60,21 @@ type CreateInput struct {
 }
 
 func NewService(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer, cacheClient *cache.Client) *Service {
+	providers, err := providerregistry.New()
+	if err != nil {
+		panic(fmt.Sprintf("build provider registry: %v", err))
+	}
+	return NewServiceWithRegistry(db, logger, parserVersion, enqueuer, cacheClient, providers)
+}
+
+func NewServiceWithRegistry(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer, cacheClient *cache.Client, providers *provider.Registry) *Service {
 	if parserVersion == "" {
 		parserVersion = DefaultParserVersion
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer, cacheClient: cacheClient}
+	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer, cacheClient: cacheClient, providers: providers}
 }
 
 func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
@@ -76,9 +89,9 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 
 	var jobKind string
 	switch input.ParserKind {
-	case parsers.KindAppleHealthExport:
+	case coreimports.KindAppleHealthExport:
 		jobKind = jobs.KindAppleImportParse
-	case parsers.KindGPX:
+	case coreimports.KindGPX:
 		jobKind = jobs.KindGPXImportParse
 	default:
 		return models.ImportJob{}, fmt.Errorf("unsupported parser kind: %s", input.ParserKind)
@@ -190,27 +203,43 @@ func (s *Service) Process(jobID uuid.UUID) error {
 	}
 	reprocess := priorFound && !priorSameVersion
 
-	parsed, err := parsers.Parse(parsers.Input{
-		ParserKind:       job.ParserKind,
-		StoragePath:      rawFile.StoragePath,
+	adapter, ok := s.providers.GetBySourceKind(job.ParserKind)
+	if !ok {
+		return s.fail(jobID, fmt.Sprintf("no provider adapter for source kind %q", job.ParserKind))
+	}
+	source := provider.Source{
+		Kind:             job.ParserKind,
 		OriginalFilename: rawFile.OriginalFilename,
-		RawFileSHA256:    rawFile.SHA256,
-	})
+		SHA256:           rawFile.SHA256,
+		Open: func(context.Context) (io.ReadCloser, error) {
+			return os.Open(rawFile.StoragePath)
+		},
+	}
+	options := provider.ImportOptions{}
+	activityImporter, ok := adapter.(provider.ActivityImporter)
+	if !ok {
+		return s.fail(jobID, fmt.Sprintf("provider %q does not implement activity import", adapter.Descriptor().ID))
+	}
+	parsed, err := activityImporter.ImportActivities(context.Background(), source, options)
 	if err != nil {
 		return s.fail(jobID, err.Error())
 	}
-	var parsedSleep []parsers.SleepObservation
-	var parsedDailySummaries []parsers.DailySummaryObservation
-	var parsedDailyMetrics []parsers.DailyMetricObservation
-	if job.ParserKind == parsers.KindAppleHealthExport {
-		parsedSleep, err = parsers.ParseAppleHealthSleep(rawFile.StoragePath)
+	var parsedSleep []observations.Sleep
+	var parsedDailySummaries []observations.DailySummary
+	var parsedDailyMetrics []observations.DailyMetric
+	if sleepImporter, ok := adapter.(provider.SleepImporter); ok {
+		parsedSleep, err = sleepImporter.ImportSleep(context.Background(), source, options)
 		if err != nil {
 			return s.fail(jobID, err.Error())
 		}
-		parsedDailySummaries, parsedDailyMetrics, err = parsers.ParseAppleHealthDailyActivity(rawFile.StoragePath)
-		if err != nil {
-			return s.fail(jobID, err.Error())
+	}
+	if dailyImporter, ok := adapter.(provider.DailyImporter); ok {
+		daily, dailyErr := dailyImporter.ImportDaily(context.Background(), source, options)
+		if dailyErr != nil {
+			return s.fail(jobID, dailyErr.Error())
 		}
+		parsedDailySummaries = daily.Summaries
+		parsedDailyMetrics = daily.Metrics
 	}
 
 	snapshotID, err := ids.New()
@@ -398,7 +427,7 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 	return nil
 }
 
-func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.ActivityObservation, parsedSleep []parsers.SleepObservation, parsedDailySummaries []parsers.DailySummaryObservation, parsedDailyMetrics []parsers.DailyMetricObservation, snapshot models.ImportSnapshot, reprocess bool) error {
+func (s *Service) persistActivities(rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if reprocess {
 			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
@@ -458,7 +487,7 @@ func (s *Service) persistActivities(rawFile models.RawFile, parsed []parsers.Act
 // ContentHash): unchanged workouts skip both the activity upsert and the
 // route point rewrite entirely, only bumping the source item's
 // last_seen_snapshot_id so we know it was still present in this export.
-func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activity parsers.ActivityObservation, snapshotID uuid.UUID) error {
+func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activity observations.Activity, snapshotID uuid.UUID) error {
 	var existing models.AppleSourceItem
 	res := tx.Limit(1).Find(&existing, "source_key = ?", activity.ExternalID)
 	if res.Error != nil {
@@ -533,7 +562,7 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 	}
 }
 
-func sleepSessionSourceKey(session parsers.SleepObservation) string {
+func sleepSessionSourceKey(session observations.Sleep) string {
 	return strings.Join([]string{
 		session.Source,
 		session.WakeDate.Format("2006-01-02"),
@@ -542,7 +571,7 @@ func sleepSessionSourceKey(session parsers.SleepObservation) string {
 	}, "|")
 }
 
-func sleepSessionContentHash(session parsers.SleepObservation) string {
+func sleepSessionContentHash(session observations.Sleep) string {
 	var content strings.Builder
 	for _, segment := range session.Segments {
 		fmt.Fprintf(
@@ -557,7 +586,7 @@ func sleepSessionContentHash(session parsers.SleepObservation) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, session parsers.SleepObservation, snapshotID uuid.UUID) error {
+func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, session observations.Sleep, snapshotID uuid.UUID) error {
 	sourceKey := sleepSessionSourceKey(session)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed sleep session missing source key")
@@ -630,7 +659,7 @@ func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, sessi
 	return tx.Create(&item).Error
 }
 
-func upsertSleepSession(tx *gorm.DB, rawFile models.RawFile, sessionID uuid.UUID, parsed parsers.SleepObservation) error {
+func upsertSleepSession(tx *gorm.DB, rawFile models.RawFile, sessionID uuid.UUID, parsed observations.Sleep) error {
 	now := time.Now().UTC()
 	updates := map[string]any{
 		"wake_date":     parsed.WakeDate,
@@ -678,7 +707,7 @@ func upsertSleepSession(tx *gorm.DB, rawFile models.RawFile, sessionID uuid.UUID
 
 const sleepSegmentInsertBatchSize = 1000
 
-func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []parsers.SleepSegmentObservation) error {
+func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []observations.SleepSegment) error {
 	if err := tx.Delete(&models.SleepSegment{}, "session_id = ?", sessionID).Error; err != nil {
 		return err
 	}
@@ -703,11 +732,11 @@ func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []parsers.S
 	return tx.CreateInBatches(rows, sleepSegmentInsertBatchSize).Error
 }
 
-func dailySummarySourceKey(summary parsers.DailySummaryObservation) string {
+func dailySummarySourceKey(summary observations.DailySummary) string {
 	return summary.Day.Format("2006-01-02")
 }
 
-func dailySummaryContentHash(summary parsers.DailySummaryObservation) string {
+func dailySummaryContentHash(summary observations.DailySummary) string {
 	content := fmt.Sprintf(
 		"%s|%.17g|%.17g|%.17g|%.17g|%.17g|%.17g|%s",
 		dailySummarySourceKey(summary),
@@ -723,17 +752,17 @@ func dailySummaryContentHash(summary parsers.DailySummaryObservation) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func dailyMetricSourceKey(metric parsers.DailyMetricObservation) string {
+func dailyMetricSourceKey(metric observations.DailyMetric) string {
 	return strings.Join([]string{metric.Day.Format("2006-01-02"), metric.Metric}, "|")
 }
 
-func dailyMetricContentHash(metric parsers.DailyMetricObservation) string {
+func dailyMetricContentHash(metric observations.DailyMetric) string {
 	content := fmt.Sprintf("%s|%.17g|%s|%s", dailyMetricSourceKey(metric), metric.Value, metric.Unit, metric.Source)
 	sum := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summary parsers.DailySummaryObservation, snapshotID uuid.UUID) error {
+func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, snapshotID uuid.UUID) error {
 	sourceKey := dailySummarySourceKey(summary)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed daily summary missing source key")
@@ -795,7 +824,7 @@ func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summa
 	}).Error
 }
 
-func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID, parsed parsers.DailySummaryObservation) error {
+func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID, parsed observations.DailySummary) error {
 	now := time.Now().UTC()
 	updates := map[string]any{
 		"day":               parsed.Day,
@@ -830,7 +859,7 @@ func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID
 	}).Error
 }
 
-func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric parsers.DailyMetricObservation, snapshotID uuid.UUID) error {
+func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, snapshotID uuid.UUID) error {
 	sourceKey := dailyMetricSourceKey(metric)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed daily metric missing source key")
@@ -892,7 +921,7 @@ func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric
 	}).Error
 }
 
-func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, parsed parsers.DailyMetricObservation) error {
+func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, parsed observations.DailyMetric) error {
 	now := time.Now().UTC()
 	updates := map[string]any{
 		"day":        parsed.Day,
@@ -921,7 +950,7 @@ func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, 
 	}).Error
 }
 
-func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed parsers.ActivityObservation) (uuid.UUID, error) {
+func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed observations.Activity) (uuid.UUID, error) {
 	var externalRef models.ExternalRef
 	res := tx.Limit(1).Find(&externalRef, "provider = ? and external_id = ?", parsed.Provider, parsed.ExternalID)
 	if res.Error != nil {
@@ -998,7 +1027,7 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed par
 // newly parsed ones. Mirrors replaceRoutePoints, but laps are few per
 // workout so a simple create-slice loop (rather than a hand-built batched
 // multi-row INSERT) is fine here.
-func replaceLaps(tx *gorm.DB, activityID uuid.UUID, laps []parsers.ActivityLap) error {
+func replaceLaps(tx *gorm.DB, activityID uuid.UUID, laps []observations.Lap) error {
 	if err := tx.Delete(&models.ActivityLap{}, "activity_id = ?", activityID).Error; err != nil {
 		return err
 	}
@@ -1039,7 +1068,7 @@ const samplingInsertBatchSize = 1000
 // has unchanged samples, and re-writing thousands of samples per unchanged
 // workout would be wasted work over ~2M source records) and not called on
 // the non-Apple import path.
-func replaceSamplings(tx *gorm.DB, activityID uuid.UUID, samplings []parsers.ActivitySampling) error {
+func replaceSamplings(tx *gorm.DB, activityID uuid.UUID, samplings []observations.Sampling) error {
 	if err := tx.Delete(&models.ActivitySampling{}, "activity_id = ?", activityID).Error; err != nil {
 		return err
 	}
@@ -1070,7 +1099,7 @@ func replaceSamplings(tx *gorm.DB, activityID uuid.UUID, samplings []parsers.Act
 // binds 8000 params - well under PostgreSQL's 65535 bind-parameter limit.
 const routePointInsertBatchSize = 1000
 
-func replaceRoutePoints(tx *gorm.DB, activityID uuid.UUID, points []parsers.RoutePoint) error {
+func replaceRoutePoints(tx *gorm.DB, activityID uuid.UUID, points []observations.RoutePoint) error {
 	if err := tx.Delete(&models.ActivityRoutePoint{}, "activity_id = ?", activityID).Error; err != nil {
 		return err
 	}
@@ -1091,7 +1120,7 @@ func replaceRoutePoints(tx *gorm.DB, activityID uuid.UUID, points []parsers.Rout
 // its flat arg list) for one batch of route points. startSeq is the
 // absolute index of points[0] within the full slice passed to
 // replaceRoutePoints, so seq numbering stays correct across chunks.
-func buildRoutePointsInsertSQL(activityID uuid.UUID, points []parsers.RoutePoint, startSeq int) (string, []any) {
+func buildRoutePointsInsertSQL(activityID uuid.UUID, points []observations.RoutePoint, startSeq int) (string, []any) {
 	var sb strings.Builder
 	sb.WriteString(`insert into tb_activity_route_points
 		  (activity_id, seq, ts, lat, lon, elevation_m, geom)

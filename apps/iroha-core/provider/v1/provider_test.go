@@ -32,7 +32,9 @@ func TestNewRegistryValidatesDeclaredCapabilities(t *testing.T) {
 	adapter := fakeHealthAdapter{fakeAdapter{descriptor: Descriptor{
 		ID:             "apple_health",
 		AdapterVersion: "test-v1",
-		Capabilities:   []Capability{CapabilityActivities, CapabilitySleep, CapabilityDailyMetrics},
+		Domains:        []Domain{DomainHealth},
+		SourceKinds:    []string{"apple_health_export"},
+		Capabilities:   []Capability{CapabilityHealthActivities, CapabilityHealthSleep, CapabilityHealthDailyMetrics},
 	}}}
 
 	registry, err := NewRegistry(adapter)
@@ -51,7 +53,9 @@ func TestNewRegistryRejectsCapabilityWithoutInterface(t *testing.T) {
 	adapter := fakeAdapter{descriptor: Descriptor{
 		ID:             "garmin",
 		AdapterVersion: "test-v1",
-		Capabilities:   []Capability{CapabilityActivities},
+		Domains:        []Domain{DomainHealth},
+		SourceKinds:    []string{"garmin_export"},
+		Capabilities:   []Capability{CapabilityHealthActivities},
 	}}
 
 	if _, err := NewRegistry(adapter); err == nil {
@@ -63,10 +67,12 @@ func TestValidateRequestedRejectsUnsupportedCapability(t *testing.T) {
 	adapter := fakeHealthAdapter{fakeAdapter{descriptor: Descriptor{
 		ID:             "apple_health",
 		AdapterVersion: "test-v1",
-		Capabilities:   []Capability{CapabilityActivities},
+		Domains:        []Domain{DomainHealth},
+		SourceKinds:    []string{"apple_health_export"},
+		Capabilities:   []Capability{CapabilityHealthActivities},
 	}}}
 
-	err := ValidateRequested(adapter, ImportOptions{Requested: []Capability{CapabilitySleep}})
+	err := ValidateRequested(adapter, ImportOptions{Requested: []Capability{CapabilityHealthSleep}})
 	if err == nil {
 		t.Fatal("ValidateRequested() accepted an unsupported capability")
 	}

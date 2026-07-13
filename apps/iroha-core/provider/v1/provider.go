@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
 )
@@ -14,17 +15,28 @@ import (
 type Capability string
 
 const (
-	CapabilityActivities   Capability = "activities"
-	CapabilitySleep        Capability = "sleep"
-	CapabilityDailySummary Capability = "daily_summary"
-	CapabilityDailyMetrics Capability = "daily_metrics"
-	CapabilityMedia        Capability = "media"
+	CapabilityHealthActivities   Capability = "health.activities"
+	CapabilityHealthSleep        Capability = "health.sleep"
+	CapabilityHealthDailySummary Capability = "health.daily_summary"
+	CapabilityHealthDailyMetrics Capability = "health.daily_metrics"
+	CapabilityMediaLibrary       Capability = "media.library"
+	CapabilityMediaProgress      Capability = "media.progress"
+	CapabilityMediaRating        Capability = "media.rating"
+)
+
+type Domain string
+
+const (
+	DomainHealth Domain = "health"
+	DomainMedia  Domain = "media"
 )
 
 type Descriptor struct {
 	ID             string
 	DisplayName    string
 	AdapterVersion string
+	SourceKinds    []string
+	Domains        []Domain
 	Capabilities   []Capability
 }
 
@@ -125,6 +137,17 @@ func (r *Registry) Get(providerID string) (Adapter, bool) {
 	return adapter, ok
 }
 
+func (r *Registry) GetBySourceKind(sourceKind string) (Adapter, bool) {
+	for _, adapter := range r.adapters {
+		for _, kind := range adapter.Descriptor().SourceKinds {
+			if kind == sourceKind {
+				return adapter, true
+			}
+		}
+	}
+	return nil, false
+}
+
 func (r *Registry) List() []Descriptor {
 	descriptors := make([]Descriptor, 0, len(r.adapters))
 	for _, adapter := range r.adapters {
@@ -145,6 +168,32 @@ func ValidateAdapter(adapter Adapter) error {
 	if descriptor.AdapterVersion == "" {
 		return fmt.Errorf("provider %q adapter version is required", descriptor.ID)
 	}
+	if len(descriptor.SourceKinds) == 0 {
+		return fmt.Errorf("provider %q must declare at least one source kind", descriptor.ID)
+	}
+	if len(descriptor.Domains) == 0 {
+		return fmt.Errorf("provider %q must declare at least one domain", descriptor.ID)
+	}
+	seenDomains := make(map[Domain]struct{}, len(descriptor.Domains))
+	for _, domain := range descriptor.Domains {
+		if domain == "" {
+			return fmt.Errorf("provider %q declares an empty domain", descriptor.ID)
+		}
+		if _, exists := seenDomains[domain]; exists {
+			return fmt.Errorf("provider %q declares domain %q more than once", descriptor.ID, domain)
+		}
+		seenDomains[domain] = struct{}{}
+	}
+	seenSourceKinds := make(map[string]struct{}, len(descriptor.SourceKinds))
+	for _, sourceKind := range descriptor.SourceKinds {
+		if sourceKind == "" {
+			return fmt.Errorf("provider %q declares an empty source kind", descriptor.ID)
+		}
+		if _, exists := seenSourceKinds[sourceKind]; exists {
+			return fmt.Errorf("provider %q declares source kind %q more than once", descriptor.ID, sourceKind)
+		}
+		seenSourceKinds[sourceKind] = struct{}{}
+	}
 	seen := make(map[Capability]struct{}, len(descriptor.Capabilities))
 	for _, capability := range descriptor.Capabilities {
 		if capability == "" {
@@ -152,6 +201,11 @@ func ValidateAdapter(adapter Adapter) error {
 		}
 		if _, exists := seen[capability]; exists {
 			return fmt.Errorf("provider %q declares capability %q more than once", descriptor.ID, capability)
+		}
+		capabilityDomainName, _, _ := strings.Cut(string(capability), ".")
+		capabilityDomain := Domain(capabilityDomainName)
+		if _, exists := seenDomains[capabilityDomain]; !exists {
+			return fmt.Errorf("provider %q capability %q belongs to undeclared domain %q", descriptor.ID, capability, capabilityDomain)
 		}
 		seen[capability] = struct{}{}
 		if !implementsCapability(adapter, capability) {
@@ -179,16 +233,16 @@ func ValidateRequested(adapter Adapter, options ImportOptions) error {
 
 func implementsCapability(adapter Adapter, capability Capability) bool {
 	switch capability {
-	case CapabilityActivities:
+	case CapabilityHealthActivities:
 		_, ok := adapter.(ActivityImporter)
 		return ok
-	case CapabilitySleep:
+	case CapabilityHealthSleep:
 		_, ok := adapter.(SleepImporter)
 		return ok
-	case CapabilityDailySummary, CapabilityDailyMetrics:
+	case CapabilityHealthDailySummary, CapabilityHealthDailyMetrics:
 		_, ok := adapter.(DailyImporter)
 		return ok
-	case CapabilityMedia:
+	case CapabilityMediaLibrary, CapabilityMediaProgress, CapabilityMediaRating:
 		return false
 	default:
 		return false

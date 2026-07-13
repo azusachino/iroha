@@ -11,6 +11,7 @@ import (
 	"time"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
+	providerregistry "github.com/azusachino/iroha/apps/iroha-providers/registry"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
@@ -59,7 +60,12 @@ func main() {
 	}()
 
 	enqueuer := &noopEnqueuer{}
-	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient)
+	providers, err := providerregistry.New()
+	if err != nil {
+		logger.Error("build provider registry", "error", err)
+		os.Exit(1)
+	}
+	importService := imports.NewServiceWithRegistry(db, logger, parserVersion, enqueuer, cacheClient, providers)
 
 	// Both kinds run the same import pipeline (Process dispatches on the
 	// job's parser_kind); only the parser kinds parsers.IsImplemented allows

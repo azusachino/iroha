@@ -26,11 +26,13 @@ func (Adapter) Descriptor() provider.Descriptor {
 		ID:             ProviderID,
 		DisplayName:    "Apple Health",
 		AdapterVersion: coreimports.DefaultParserVersion,
+		Domains:        []provider.Domain{provider.DomainHealth},
+		SourceKinds:    []string{coreimports.KindAppleHealthExport},
 		Capabilities: []provider.Capability{
-			provider.CapabilityActivities,
-			provider.CapabilitySleep,
-			provider.CapabilityDailySummary,
-			provider.CapabilityDailyMetrics,
+			provider.CapabilityHealthActivities,
+			provider.CapabilityHealthSleep,
+			provider.CapabilityHealthDailySummary,
+			provider.CapabilityHealthDailyMetrics,
 		},
 	}
 }
