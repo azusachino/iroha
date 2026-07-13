@@ -13,6 +13,7 @@ import (
 	connector "github.com/azusachino/iroha/apps/iroha-core/connector/v1"
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
+	"github.com/azusachino/iroha/apps/iroha-providers/anilist"
 	connectorregistry "github.com/azusachino/iroha/apps/iroha-providers/connectors"
 	providerregistry "github.com/azusachino/iroha/apps/iroha-providers/registry"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
@@ -75,7 +76,7 @@ func main() {
 		logger.Error("create raw file service", "error", err)
 		os.Exit(1)
 	}
-	connectors, err := connectorregistry.New()
+	connectors, err := connectorregistry.New(anilist.NewConnector(os.Getenv("IROHA_ANILIST_USERNAME"), os.Getenv("IROHA_ANILIST_TOKEN")))
 	if err != nil {
 		logger.Error("build connector registry", "error", err)
 		os.Exit(1)

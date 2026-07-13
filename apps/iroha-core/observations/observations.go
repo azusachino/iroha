@@ -167,6 +167,7 @@ type MediaProgress struct {
 	FinishedAt         *time.Time
 	PlayCount          int
 	HiddenFromContinue bool
+	Paused             bool
 }
 
 type RoutePoint struct {
