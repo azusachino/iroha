@@ -132,6 +132,7 @@ export interface MediaRow {
   progress_percent?: number;
   last_update_at: string;
   rating?: number;
+  hidden_from_continue?: boolean;
 }
 
 export interface ListMediaParams {

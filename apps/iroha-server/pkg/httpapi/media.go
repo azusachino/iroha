@@ -17,17 +17,18 @@ type mediaListResponse struct {
 }
 
 type mediaResponse struct {
-	ID              string    `json:"id"`
-	Title           string    `json:"title"`
-	MediaType       string    `json:"media_type"`
-	ItemRole        string    `json:"item_role"`
-	CoverImageURL   string    `json:"cover_image_url,omitempty"`
-	Status          *string   `json:"status,omitempty"`
-	Position        *float64  `json:"position,omitempty"`
-	Total           *float64  `json:"total,omitempty"`
-	ProgressPercent *float64  `json:"progress_percent,omitempty"`
-	LastUpdateAt    time.Time `json:"last_update_at"`
-	Rating          *float64  `json:"rating,omitempty"`
+	ID                 string    `json:"id"`
+	Title              string    `json:"title"`
+	MediaType          string    `json:"media_type"`
+	ItemRole           string    `json:"item_role"`
+	CoverImageURL      string    `json:"cover_image_url,omitempty"`
+	Status             *string   `json:"status,omitempty"`
+	Position           *float64  `json:"position,omitempty"`
+	Total              *float64  `json:"total,omitempty"`
+	ProgressPercent    *float64  `json:"progress_percent,omitempty"`
+	LastUpdateAt       time.Time `json:"last_update_at"`
+	Rating             *float64  `json:"rating,omitempty"`
+	HiddenFromContinue bool      `json:"hidden_from_continue"`
 }
 
 type mediaDetailResponse struct {
@@ -295,17 +296,18 @@ func parseMediaEventFilters(w http.ResponseWriter, r *http.Request) (media.Event
 
 func toMediaResponse(row media.Item) mediaResponse {
 	return mediaResponse{
-		ID:              ids.Encode(ids.MediaPrefix, row.ID),
-		Title:           row.Title,
-		MediaType:       row.MediaType,
-		ItemRole:        row.ItemRole,
-		CoverImageURL:   row.CoverImageURL,
-		Status:          row.Status,
-		Position:        row.Position,
-		Total:           row.Total,
-		ProgressPercent: row.ProgressPercent,
-		LastUpdateAt:    row.LastUpdateAt,
-		Rating:          normalizedRating(row.Rating, row.RatingScale),
+		ID:                 ids.Encode(ids.MediaPrefix, row.ID),
+		Title:              row.Title,
+		MediaType:          row.MediaType,
+		ItemRole:           row.ItemRole,
+		CoverImageURL:      row.CoverImageURL,
+		Status:             row.Status,
+		Position:           row.Position,
+		Total:              row.Total,
+		ProgressPercent:    row.ProgressPercent,
+		LastUpdateAt:       row.LastUpdateAt,
+		Rating:             normalizedRating(row.Rating, row.RatingScale),
+		HiddenFromContinue: row.HiddenFromContinue,
 	}
 }
 

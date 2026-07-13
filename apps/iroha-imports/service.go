@@ -825,7 +825,9 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 		progress.LastUpdateAt = ps.LastUpdateAt
 		progress.FinishedAt = ps.FinishedAt
 		progress.PlayCount = ps.PlayCount
-		progress.HiddenFromContinue = ps.HiddenFromContinue
+		// Paused/on-hold entries stay status=in_progress but must not surface in
+		// the "continue" strip; fold the adapter's Paused flag into the column.
+		progress.HiddenFromContinue = ps.HiddenFromContinue || ps.Paused
 	}
 	if progress.Status == "" {
 		progress.Status = mediaUnknownValue

@@ -21,18 +21,19 @@ type ListFilters struct {
 }
 
 type Item struct {
-	ID              uuid.UUID
-	Title           string
-	MediaType       string
-	ItemRole        string
-	CoverImageURL   string
-	Status          *string
-	Position        *float64
-	Total           *float64
-	ProgressPercent *float64
-	LastUpdateAt    time.Time
-	Rating          *float64
-	RatingScale     *float64
+	ID                 uuid.UUID
+	Title              string
+	MediaType          string
+	ItemRole           string
+	CoverImageURL      string
+	Status             *string
+	Position           *float64
+	Total              *float64
+	ProgressPercent    *float64
+	LastUpdateAt       time.Time
+	Rating             *float64
+	RatingScale        *float64
+	HiddenFromContinue bool
 }
 
 type Page struct {
@@ -181,7 +182,8 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 			progress.progress_percent,
 			coalesce(progress.last_update_at, item.updated_at) AS last_update_at,
 			rating.rating,
-			rating.rating_scale`).
+			rating.rating_scale,
+			coalesce(progress.hidden_from_continue, false) AS hidden_from_continue`).
 		Joins("LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id").
 		Joins(`LEFT JOIN LATERAL (
 			SELECT event.rating, event.rating_scale
@@ -290,7 +292,7 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 			LEFT JOIN completions ON completions.media_item_id = item.id
 			GROUP BY type
 		)
-		SELECT type, count, average_rating, completed_count,
+		SELECT type, count, average_rating, rating_count, completed_count,
 			sum(count) OVER ()::int AS item_count
 		FROM grouped
 		ORDER BY type`
@@ -335,31 +337,33 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 
 func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 	var row struct {
-		ID               uuid.UUID  `gorm:"column:id"`
-		Title            string     `gorm:"column:title"`
-		MediaType        string     `gorm:"column:media_type"`
-		ItemRole         string     `gorm:"column:item_role"`
-		CoverImageURL    string     `gorm:"column:cover_image_url"`
-		Status           *string    `gorm:"column:status"`
-		Position         *float64   `gorm:"column:position"`
-		Total            *float64   `gorm:"column:total"`
-		ProgressPercent  *float64   `gorm:"column:progress_percent"`
-		LastUpdateAt     time.Time  `gorm:"column:last_update_at"`
-		Rating           *float64   `gorm:"column:rating"`
-		RatingScale      *float64   `gorm:"column:rating_scale"`
-		WorkID           uuid.UUID  `gorm:"column:work_id"`
-		WorkKind         string     `gorm:"column:work_kind"`
-		PrimaryTitle     string     `gorm:"column:primary_title"`
-		OriginalTitle    string     `gorm:"column:original_title"`
-		OriginalLanguage string     `gorm:"column:original_language"`
-		FirstReleaseDate *time.Time `gorm:"column:first_release_date"`
-		Description      string     `gorm:"column:description"`
+		ID                 uuid.UUID  `gorm:"column:id"`
+		Title              string     `gorm:"column:title"`
+		MediaType          string     `gorm:"column:media_type"`
+		ItemRole           string     `gorm:"column:item_role"`
+		CoverImageURL      string     `gorm:"column:cover_image_url"`
+		Status             *string    `gorm:"column:status"`
+		Position           *float64   `gorm:"column:position"`
+		Total              *float64   `gorm:"column:total"`
+		ProgressPercent    *float64   `gorm:"column:progress_percent"`
+		LastUpdateAt       time.Time  `gorm:"column:last_update_at"`
+		Rating             *float64   `gorm:"column:rating"`
+		RatingScale        *float64   `gorm:"column:rating_scale"`
+		HiddenFromContinue bool       `gorm:"column:hidden_from_continue"`
+		WorkID             uuid.UUID  `gorm:"column:work_id"`
+		WorkKind           string     `gorm:"column:work_kind"`
+		PrimaryTitle       string     `gorm:"column:primary_title"`
+		OriginalTitle      string     `gorm:"column:original_title"`
+		OriginalLanguage   string     `gorm:"column:original_language"`
+		FirstReleaseDate   *time.Time `gorm:"column:first_release_date"`
+		Description        string     `gorm:"column:description"`
 	}
 	result := s.db.Table("tb_media_items AS item").
 		Select(`item.id, item.title, item.media_type, item.item_role, item.cover_image_url,
 			progress.status, progress.position, progress.total, progress.progress_percent,
 			coalesce(progress.last_update_at, item.updated_at) AS last_update_at,
 			rating.rating, rating.rating_scale,
+			coalesce(progress.hidden_from_continue, false) AS hidden_from_continue,
 			work.id AS work_id, work.work_kind, work.primary_title, work.original_title,
 			work.original_language, work.first_release_date, work.description`).
 		Joins("LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id").
@@ -385,7 +389,7 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 			ID: row.ID, Title: row.Title, MediaType: row.MediaType, ItemRole: row.ItemRole,
 			CoverImageURL: row.CoverImageURL, Status: row.Status, Position: row.Position,
 			Total: row.Total, ProgressPercent: row.ProgressPercent, LastUpdateAt: row.LastUpdateAt,
-			Rating: row.Rating, RatingScale: row.RatingScale,
+			Rating: row.Rating, RatingScale: row.RatingScale, HiddenFromContinue: row.HiddenFromContinue,
 		},
 		Work: WorkDetail{
 			ID: row.WorkID, WorkKind: row.WorkKind, PrimaryTitle: row.PrimaryTitle,
