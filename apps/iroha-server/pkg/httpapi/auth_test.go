@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
+	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 )
 
 func TestRequireUploadAuth(t *testing.T) {

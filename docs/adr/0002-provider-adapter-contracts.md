@@ -354,6 +354,9 @@ iroha-providers
 iroha-imports
   registry, source lifecycle, reconciliation, persistence boundary
 
+iroha-runtime
+  shared IDs, persistence models, cache client, and Postgres-backed job service
+
 iroha-server
   HTTP/read services and enqueue commands
 
@@ -363,7 +366,8 @@ iroha-job
 
 Provider packages may depend on `iroha-core` and narrowly scoped upstream
 client libraries. They must not depend on `iroha-server`, `iroha-job`, or
-database models.
+database models. Runtime infrastructure is kept in `iroha-runtime` so the
+import pipeline and both executable services share it without a module cycle.
 
 ## Alternatives considered
 

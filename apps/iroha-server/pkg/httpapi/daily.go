@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
 )
 
 type dailyListResponse struct {

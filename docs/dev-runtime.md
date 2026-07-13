@@ -69,7 +69,12 @@ apps/
     package.json
 ```
 
-We use a Go workspace to manage multiple modules (`apps/iroha-server` and `apps/iroha-job`), resolving local dependencies cleanly with `replace` directives.
+The repo currently uses independent Go modules for `iroha-core`,
+`iroha-providers`, `iroha-runtime`, `iroha-imports`, `iroha-server`, and
+`iroha-job`, resolving local dependencies with `replace` directives. The
+dependency direction is one-way: provider contracts sit in core, runtime
+infrastructure is shared by imports and both executables, and the server/job
+modules consume the import pipeline.
 
 The private frontend lives alongside the server at `apps/iroha-web` (SvelteKit, built with `bun`); see `apps/iroha-web/README.md`.
 

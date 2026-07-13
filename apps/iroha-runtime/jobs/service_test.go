@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 )
 
 func TestMarshalPayloadDefaultsNilToObject(t *testing.T) {

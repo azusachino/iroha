@@ -11,7 +11,8 @@ Postgres/PostGIS store and exposed through a private API/web app. First module: 
 ## Layout
 
 ```
-apps/iroha-server/    Go service (cmd/iroha-server, internal/{httpapi,imports,parsers,activities,models,config,ids})
+apps/iroha-runtime/   Shared runtime packages (cache, IDs, jobs, persistence models)
+apps/iroha-server/    Go service (cmd/iroha-server, pkg/{httpapi,activities,daily,sleep,config,rawfiles})
 apps/iroha-job/       Go background worker service
 apps/iroha-web/       Svelte 5 + Vite web app (bun)
 apps/iroha-server/db/migrations/   goose SQL migrations (00001_...)

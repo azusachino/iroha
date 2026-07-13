@@ -5,5 +5,6 @@ use (
 	./apps/iroha-imports
 	./apps/iroha-job
 	./apps/iroha-providers
+	./apps/iroha-runtime
 	./apps/iroha-server
 )

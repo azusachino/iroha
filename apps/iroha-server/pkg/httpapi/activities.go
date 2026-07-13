@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/go-chi/chi/v5"
 )
 

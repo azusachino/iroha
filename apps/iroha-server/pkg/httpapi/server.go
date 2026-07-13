@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-imports"
+	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
+	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
