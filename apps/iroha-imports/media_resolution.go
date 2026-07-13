@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -46,6 +47,37 @@ func (b StaticMediaRefBridge) Lookup(provider, externalID string) (observations.
 type TwoHopMediaRefBridge struct {
 	BangumiToMAL map[string]string
 	MALToAniList map[string]string
+}
+
+// LoadTwoHopMediaRefBridge loads the two provider-maintained maps from local
+// JSON cache files. Each file is a JSON object keyed by the source ID. Keeping
+// refresh/download policy outside the importer avoids network access in jobs.
+func LoadTwoHopMediaRefBridge(bangumiPath, malAniListPath string) (TwoHopMediaRefBridge, error) {
+	var bridge TwoHopMediaRefBridge
+	if bangumiPath != "" {
+		if err := loadStringMap(bangumiPath, &bridge.BangumiToMAL); err != nil {
+			return TwoHopMediaRefBridge{}, fmt.Errorf("load Bangumi bridge: %w", err)
+		}
+	}
+	if malAniListPath != "" {
+		if err := loadStringMap(malAniListPath, &bridge.MALToAniList); err != nil {
+			return TwoHopMediaRefBridge{}, fmt.Errorf("load MAL/AniList bridge: %w", err)
+		}
+	}
+	return bridge, nil
+}
+
+func loadStringMap(path string, target *map[string]string) error {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var values map[string]string
+	if err := json.Unmarshal(body, &values); err != nil {
+		return err
+	}
+	*target = values
+	return nil
 }
 
 func (b TwoHopMediaRefBridge) Lookup(provider, externalID string) (observations.MediaExternalRef, bool) {
