@@ -9,9 +9,11 @@
 	};
 
 	const commands: Command[] = [
-		{ label: 'Dashboard', href: '/dashboard', hint: 'Cockpit overview' },
+		{ label: 'Cockpit', href: '/', hint: 'Any-day cross-domain view' },
+		{ label: 'Dashboard', href: '/dashboard', hint: 'Activity overview' },
 		{ label: 'Activities', href: '/activities', hint: 'Private activity domain' },
 		{ label: 'Sleep', href: '/sleep', hint: 'Recovery and sleep sessions' },
+		{ label: 'Daily & Vitals', href: '/daily', hint: 'Rings, movement and body vitals' },
 		{ label: 'Share', href: '/share', hint: 'Public activity view' }
 	];
 

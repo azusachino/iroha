@@ -1,23 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { load } from './+page';
 
 const routePages = import.meta.glob('./**/+page.svelte', { eager: true });
 
 describe('root route', () => {
-	it('redirects to the dashboard cockpit', () => {
-		try {
-			load();
-			throw new Error('expected redirect');
-		} catch (error: any) {
-			expect(error.status).toBe(307);
-			expect(error.location).toBe('/dashboard');
-		}
+	it('renders the day-aggregator cockpit directly (no redirect)', () => {
+		expect(routePages['./+page.svelte']).toBeDefined();
 	});
 });
 
 describe('cockpit route layout', () => {
-	it('has concrete route files for the dashboard, activities domain, and share page', () => {
-		expect(routePages['./dashboard/+page.svelte']).toBeDefined();
+	it('has concrete route files for the daily, activities domain, and share page', () => {
+		expect(routePages['./daily/+page.svelte']).toBeDefined();
 		expect(routePages['./activities/+page.svelte']).toBeDefined();
 		expect(routePages['./share/+page.svelte']).toBeDefined();
 	});
