@@ -12,6 +12,13 @@ import (
 // Valkey speaks the Redis protocol, so a redis:// URL works unmodified.
 const defaultCacheURL = "redis://localhost:6379/0"
 
+const (
+	EnvAniListUsername = "IROHA_ANILIST_USERNAME"
+	EnvAniListToken    = "IROHA_ANILIST_TOKEN"
+	EnvBangumiUsername = "IROHA_BANGUMI_USERNAME"
+	EnvBangumiToken    = "IROHA_BANGUMI_TOKEN"
+)
+
 // defaultAllowedOrigins lets the local web dev server reach the private API.
 var defaultAllowedOrigins = []string{"http://localhost:5173", "http://127.0.0.1:5173"}
 
