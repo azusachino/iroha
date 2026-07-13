@@ -933,6 +933,9 @@ func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summa
 	if err := upsertDailySummary(tx, rawFile, summaryID, summary); err != nil {
 		return err
 	}
+	if err := s.persistDailySummaryObservation(tx, rawFile, summary, summaryID, snapshotID); err != nil {
+		return err
+	}
 	now := time.Now().UTC()
 	if found {
 		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
@@ -993,6 +996,30 @@ func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID
 	}).Error
 }
 
+func (s *Service) persistDailySummaryObservation(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, summaryID, snapshotID uuid.UUID) error {
+	observationID, err := upsertSourceObservation(tx, rawFile, "daily_summary", "apple_health", dailySummarySourceKey(summary), dailySummaryContentHash(summary), snapshotID)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	row := models.DailySummaryObservation{ID: observationID, DailySummaryID: summaryID, Day: summary.Day, MoveKcal: summary.MoveKcal, MoveGoalKcal: summary.MoveGoalKcal, ExerciseMin: summary.ExerciseMin, ExerciseGoalMin: summary.ExerciseGoalMin, StandHours: summary.StandHours, StandGoalHours: summary.StandGoalHours, Source: summary.Source, MatchStatus: "canonical", CreatedAt: now, UpdatedAt: now}
+	var existing models.DailySummaryObservation
+	if err := tx.First(&existing, "id = ?", observationID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if err := tx.Model(&models.DailySummaryObservation{}).Where("id = ?", observationID).Updates(map[string]any{
+		"daily_summary_id": summaryID, "day": summary.Day, "move_kcal": summary.MoveKcal, "move_goal_kcal": summary.MoveGoalKcal,
+		"exercise_min": summary.ExerciseMin, "exercise_goal_min": summary.ExerciseGoalMin, "stand_hours": summary.StandHours,
+		"stand_goal_hours": summary.StandGoalHours, "source": summary.Source, "updated_at": now,
+	}).Error; err != nil {
+		return err
+	}
+	return tx.Model(&models.DailySummary{}).Where("id = ?", summaryID).Update("selected_observation_id", observationID).Error
+}
+
 func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, snapshotID uuid.UUID) error {
 	sourceKey := dailyMetricSourceKey(metric)
 	if sourceKey == "" {
@@ -1028,6 +1055,9 @@ func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric
 		}
 	}
 	if err := upsertDailyMetric(tx, rawFile, metricID, metric); err != nil {
+		return err
+	}
+	if err := s.persistDailyMetricObservation(tx, rawFile, metric, metricID, snapshotID); err != nil {
 		return err
 	}
 	now := time.Now().UTC()
@@ -1082,6 +1112,29 @@ func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, 
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}).Error
+}
+
+func (s *Service) persistDailyMetricObservation(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, metricID, snapshotID uuid.UUID) error {
+	observationID, err := upsertSourceObservation(tx, rawFile, "daily_metric", "apple_health", dailyMetricSourceKey(metric), dailyMetricContentHash(metric), snapshotID)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	row := models.DailyMetricObservation{ID: observationID, DailyMetricID: metricID, Day: metric.Day, Metric: metric.Metric, Value: metric.Value, Unit: metric.Unit, Source: metric.Source, Reducer: "source_priority", MatchStatus: "canonical", CreatedAt: now, UpdatedAt: now}
+	var existing models.DailyMetricObservation
+	if err := tx.First(&existing, "id = ?", observationID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if err := tx.Model(&models.DailyMetricObservation{}).Where("id = ?", observationID).Updates(map[string]any{
+		"daily_metric_id": metricID, "day": metric.Day, "metric": metric.Metric, "value": metric.Value,
+		"unit": metric.Unit, "source": metric.Source, "updated_at": now,
+	}).Error; err != nil {
+		return err
+	}
+	return tx.Model(&models.DailyMetric{}).Where("id = ?", metricID).Update("selected_observation_id", observationID).Error
 }
 
 func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed observations.Activity) (uuid.UUID, error) {
