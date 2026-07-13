@@ -1,0 +1,48 @@
+name: iroha-dev
+
+services:
+  server:
+    cpus: 1
+    mem_limit: 512m
+    build:
+      context: ../..
+      dockerfile: ops/local-dev/Containerfile.server
+      target: server
+    environment:
+      IROHA_SERVER_ADDR: 0.0.0.0:8080
+      IROHA_DATABASE_URL: __DATABASE_URL__
+      IROHA_VALKEY_URL: __VALKEY_URL__
+      IROHA_DATA_DIR: /data
+      IROHA_LOCAL_NO_AUTH: "true"
+      IROHA_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://harus-macmini:5173
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../.iroha-data:/data
+
+  job:
+    cpus: 1
+    mem_limit: 1g
+    build:
+      context: ../..
+      dockerfile: ops/local-dev/Containerfile.server
+      target: job
+    environment:
+      IROHA_DATABASE_URL: __DATABASE_URL__
+      IROHA_VALKEY_URL: __VALKEY_URL__
+      IROHA_DATA_DIR: /data
+    volumes:
+      - ../../.iroha-data:/data
+
+  web:
+    cpus: 1
+    mem_limit: 256m
+    build:
+      context: ../..
+      dockerfile: ops/local-dev/Containerfile.web
+      args:
+        PUBLIC_IROHA_API_BASE: ""
+    environment:
+      IROHA_SERVER_UPSTREAM: __SERVER_IP__:8080
+    ports:
+      - "5173:80"

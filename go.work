@@ -1,6 +1,10 @@
 go 1.26.4
 
 use (
+	./apps/iroha-core
+	./apps/iroha-imports
 	./apps/iroha-job
+	./apps/iroha-providers
+	./apps/iroha-runtime
 	./apps/iroha-server
 )

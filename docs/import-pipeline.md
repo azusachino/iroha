@@ -61,7 +61,8 @@ Strava is a legacy import adapter only. Strava IDs may be stored as external ref
 
 Telegram is an optional inbox. The personal bot is an external upload client only: it forwards files to iroha-server and does not parse them.
 
-The bot uploads with `uploaded_via=telegram`, sending a bearer token when auth is enabled, then creates an import job and polls its status. All parsing and dedupe stay inside iroha-server. See the External Upload Client Contract in `iroha-server.md` for the exact request and response shapes.
+The bot uploads with `uploaded_via=telegram`, sending a bearer token when auth is enabled, then creates an import job and polls its status. All parsing and dedupe stay inside iroha-server. See the
+External Upload Client Contract in `iroha-server.md` for the exact request and response shapes.
 
 ## Real Apple Health Export Findings
 
@@ -167,5 +168,7 @@ When introducing a new type of data to be parsed (for example, media/photo data 
 All background import jobs are processed by the worker with `max_attempts = 3`. Therefore, the import execution pipeline must be entirely retry-safe and idempotent:
 
 1. **Atomic Ingestion**: The database operations inside `imports.Service.process()` run in a transaction. If a worker attempt dies midway, the database rolls back to keep state consistent.
-2. **Same-Version Skip**: The `dispositionSkip` rule compares the file's SHA256 and the parser version of prior completed imports. If the same parser has already completed the work, a retry attempt will instantly short-circuit and succeed.
-3. **Reprocess Purge Sequence**: If reprocessing is triggered, any previously persisted records derived from that raw file are purged first. Deleting source items *first* is load-bearing so GORM doesn't skip recreating activities due to cache hits or duplicate unique keys.
+2. **Same-Version Skip**: The `dispositionSkip` rule compares the file's SHA256 and the parser version of prior completed imports. If the same parser has already completed the work, a retry attempt
+   will instantly short-circuit and succeed.
+3. **Reprocess Purge Sequence**: If reprocessing is triggered, any previously persisted records derived from that raw file are purged first. Deleting source items _first_ is load-bearing so GORM
+   doesn't skip recreating activities due to cache hits or duplicate unique keys.

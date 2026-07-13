@@ -7,7 +7,7 @@
 		type DailyAggregateBucket
 	} from '$lib/api';
 	import RingGauge, { type Ring } from '$lib/components/RingGauge.svelte';
-	import Sparkline from '$lib/components/Sparkline.svelte';
+	import DailySmallMultiples, { type SmallMultiple } from '$lib/components/DailySmallMultiples.svelte';
 	import { formatDateOnly } from '$lib/format';
 
 	type Gran = 'day' | 'month' | 'year';
@@ -19,6 +19,8 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let gran = $state<Gran>('month');
+	let rangeFrom = $state<string | undefined>(undefined);
+	let rangeTo = $state<string | undefined>(undefined);
 
 	// Hero uses the latest real ring day, independent of the chosen granularity.
 	const latestRingDay = $derived(dayRows.find((r) => r.move_goal_kcal > 0));
@@ -104,8 +106,14 @@
 	const aggregated = $derived(gran !== 'day');
 
 	function ser(pick: (d: Disp) => number | null): number[] {
-		return chrono.map(pick).filter((v): v is number => v != null);
+		return chrono.map((d) => pick(d) ?? Number.NaN);
 	}
+	const trendCharts = $derived.by<SmallMultiple[]>(() => [
+		{ label: 'Steps', values: ser((d) => d.steps), color: 'var(--accent)', unit: 'steps' },
+		{ label: 'Resting HR', values: ser((d) => d.resting_hr), color: 'var(--sport-run)', unit: 'bpm' },
+		{ label: 'HRV', values: ser((d) => d.hrv_sdnn), color: 'var(--sport-cycling)', unit: 'ms' },
+		{ label: 'Move ring closed', values: ser((d) => d.moveClosedPct), color: 'var(--ring-move)', unit: '%' }
+	]);
 	function fmt(v: number | null | undefined, digits: number): string {
 		if (typeof v !== 'number' || !Number.isFinite(v)) return '—';
 		return v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -113,10 +121,13 @@
 
 	onMount(async () => {
 		try {
-			const [d, m, y] = await Promise.all([
-				listDaily({ limit: DAY_FETCH }),
-				listDailyAggregates('month'),
-				listDailyAggregates('year')
+			const d = await listDaily({ limit: DAY_FETCH });
+			const days = d.items.map((row) => row.day.slice(0, 10)).sort();
+			rangeFrom = days[0];
+			rangeTo = days[days.length - 1];
+			const [m, y] = await Promise.all([
+				listDailyAggregates('month', { from: rangeFrom, to: rangeTo }),
+				listDailyAggregates('year', { from: rangeFrom, to: rangeTo })
 			]);
 			dayRows = d.items;
 			monthly = m.buckets;
@@ -169,15 +180,12 @@
 					recent {chrono.length} days
 				{/if}
 			</span>
+			{#if rangeFrom && rangeTo}<span class="muted small">Range: {rangeFrom} → {rangeTo}</span>{/if}
 		</div>
 
-		<div class="trends">
-			{#each [{ l: 'Steps', s: ser((d) => d.steps) }, { l: 'Resting HR', s: ser((d) => d.resting_hr) }, { l: 'HRV', s: ser((d) => d.hrv_sdnn) }, { l: 'Move ring closed %', s: ser((d) => d.moveClosedPct) }] as t}
-				<div class="trend tile">
-					<span class="t-label">{t.l}</span>
-					<Sparkline values={t.s} width={160} height={38} />
-				</div>
-			{/each}
+		<div class="trend-panel tile">
+			<div class="trend-heading"><div><span class="t-label">Daily signals</span><h2>Small multiples</h2></div><span class="muted small">Move the crosshair to compare one period</span></div>
+			<DailySmallMultiples labels={chrono.map((d) => d.label)} charts={trendCharts} />
 		</div>
 
 		<div class="table-wrap tile">
@@ -322,16 +330,9 @@
 		font-weight: 650;
 	}
 
-	.trends {
-		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 0.9rem;
-	}
-	.trend {
-		padding: 0.85rem 1rem;
-		display: grid;
-		gap: 0.45rem;
-	}
+	.trend-panel { padding: 1rem; }
+	.trend-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+	.trend-heading h2 { margin: 0.2rem 0 0; font-size: 1rem; }
 	.t-label {
 		font-size: 0.78rem;
 		color: var(--text-muted);
@@ -371,9 +372,5 @@
 		text-align: left;
 	}
 
-	@media (max-width: 720px) {
-		.trends {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
+	@media (max-width: 720px) { .trend-heading { align-items: flex-start; flex-direction: column; } }
 </style>

@@ -1,0 +1,28 @@
+FROM golang:1.26-bookworm AS build
+
+WORKDIR /src
+COPY apps/iroha-core/go.mod ./apps/iroha-core/
+COPY apps/iroha-imports/go.mod ./apps/iroha-imports/
+COPY apps/iroha-providers/go.mod ./apps/iroha-providers/
+COPY apps/iroha-runtime/go.mod apps/iroha-runtime/go.sum ./apps/iroha-runtime/
+COPY apps/iroha-server/go.mod apps/iroha-server/go.sum ./apps/iroha-server/
+COPY apps/iroha-job/go.mod apps/iroha-job/go.sum ./apps/iroha-job/
+RUN go -C apps/iroha-server mod download && go -C apps/iroha-job mod download
+
+COPY apps/iroha-core ./apps/iroha-core
+COPY apps/iroha-imports ./apps/iroha-imports
+COPY apps/iroha-providers ./apps/iroha-providers
+COPY apps/iroha-runtime ./apps/iroha-runtime
+COPY apps/iroha-server ./apps/iroha-server
+COPY apps/iroha-job ./apps/iroha-job
+RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-server ./cmd/iroha-server
+RUN CGO_ENABLED=0 go -C apps/iroha-job build -mod=mod -o /out/iroha-job .
+
+FROM debian:bookworm-slim AS server
+COPY --from=build /out/iroha-server /usr/local/bin/iroha-server
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/iroha-server"]
+
+FROM debian:bookworm-slim AS job
+COPY --from=build /out/iroha-job /usr/local/bin/iroha-job
+ENTRYPOINT ["/usr/local/bin/iroha-job"]

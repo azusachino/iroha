@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/parsers"
+	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
+	imports "github.com/azusachino/iroha/apps/iroha-imports"
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -39,7 +39,7 @@ func (s *Server) handleCreateImportJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "raw_file_id is required")
 		return
 	}
-	if !parsers.IsImplemented(request.ParserKind) {
+	if request.ParserKind != coreimports.KindAppleHealthExport && request.ParserKind != coreimports.KindGPX {
 		writeError(w, http.StatusBadRequest, "unsupported parser_kind")
 		return
 	}

@@ -1,0 +1,10 @@
+.git
+.gitignore
+.iroha-data
+.uv-cache
+.venv
+node_modules
+apps/iroha-web/node_modules
+dist
+build
+tmp

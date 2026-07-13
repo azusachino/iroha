@@ -8,10 +8,22 @@ require (
 	github.com/go-chi/cors v1.2.2
 	github.com/go-chi/httprate v0.16.0
 	github.com/google/uuid v1.6.0
+	github.com/azusachino/iroha/apps/iroha-core v0.1.0
+	github.com/azusachino/iroha/apps/iroha-imports v0.1.0
+	github.com/azusachino/iroha/apps/iroha-providers v0.1.0
+	github.com/azusachino/iroha/apps/iroha-runtime v0.1.0
 	github.com/redis/go-redis/v9 v9.21.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
+
+replace github.com/azusachino/iroha/apps/iroha-core => ../iroha-core
+
+replace github.com/azusachino/iroha/apps/iroha-imports => ../iroha-imports
+
+replace github.com/azusachino/iroha/apps/iroha-providers => ../iroha-providers
+
+replace github.com/azusachino/iroha/apps/iroha-runtime => ../iroha-runtime
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

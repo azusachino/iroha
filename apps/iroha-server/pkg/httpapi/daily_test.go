@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/google/uuid"
 )
 

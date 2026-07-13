@@ -9,31 +9,32 @@ WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test test-integration scripts-test build run run-job web-install web-check web-test web-build web-dev check validate db-up db-down db-status db-logs db-reset smoke-real-import
+.PHONY: help fmt fmt-check vet lint test test-integration scripts-test build run run-job web-install web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate db-up db-down db-status db-logs db-reset smoke-real-import
+
+PRETTIER := bunx prettier@3.4.2
+DOCS_GLOB := **/*.{md,yaml,yml,json}
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
 		awk 'BEGIN{FS=":.*## "}{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
 
-## --- Go server and jobs (apps/iroha-server, apps/iroha-job) ---
-fmt: ## Format Go code (gofumpt)
-	$(NIX_DEV)gofumpt -w $(SERVER_DIR) $(JOB_DIR)
+## --- Go (all workspace modules; discovered from go.work by scripts/go_tasks.py) ---
+# Each target enters the devShell once; go_tasks.py fans the task out over every
+# module in go.work, so a new module is covered with no Makefile edit.
+fmt: ## Format Go code across all modules (gofumpt + goimports)
+	$(NIX_DEV)uv run python scripts/go_tasks.py fmt
 
-fmt-check: ## Fail if any Go file is unformatted
-	@files=$$($(NIX_DEV)gofumpt -l $(SERVER_DIR) $(JOB_DIR)); \
-		if [ -n "$$files" ]; then echo "gofumpt needed:"; echo "$$files"; exit 1; fi
+fmt-check: ## Fail if any Go file is unformatted (all modules)
+	$(NIX_DEV)uv run python scripts/go_tasks.py fmt-check
 
-vet: ## Run go vet
-	$(NIX_DEV)go -C $(SERVER_DIR) vet ./...
-	$(NIX_DEV)go -C $(JOB_DIR) vet ./...
+vet: ## Run go vet across all modules
+	$(NIX_DEV)uv run python scripts/go_tasks.py vet
 
-lint: ## Run golangci-lint (Uber Go Style Guide orientation)
-	cd $(SERVER_DIR) && $(NIX_DEV)golangci-lint run ./...
-	cd $(JOB_DIR) && $(NIX_DEV)golangci-lint run ./...
+lint: ## Run golangci-lint across all modules (Uber Go Style Guide orientation)
+	$(NIX_DEV)uv run python scripts/go_tasks.py lint
 
-test: ## Run Go tests
-	$(NIX_DEV)go -C $(SERVER_DIR) test ./...
-	$(NIX_DEV)go -C $(JOB_DIR) test ./...
+test: ## Run Go tests across all modules
+	$(NIX_DEV)uv run python scripts/go_tasks.py test
 
 test-integration: db-up ## Run DB-backed Go integration tests
 	$(NIX_DEV)env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -tags=integration ./...
@@ -41,9 +42,8 @@ test-integration: db-up ## Run DB-backed Go integration tests
 scripts-test: ## Run Python script unit tests
 	$(NIX_DEV)uv run python -m unittest discover -s scripts -p '*_test.py'
 
-build: ## Build the Go server and worker
-	$(NIX_DEV)go -C $(SERVER_DIR) build ./...
-	$(NIX_DEV)go -C $(JOB_DIR) build ./...
+build: ## Build all Go modules
+	$(NIX_DEV)uv run python scripts/go_tasks.py build
 
 run: db-up ## Run the server against the local dev stack (http://127.0.0.1:8080)
 	$(NIX_DEV)go -C $(SERVER_DIR) run ./cmd/iroha-server
@@ -66,6 +66,13 @@ web-build: ## Production build of the web app
 
 web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
 	cd $(WEB_DIR) && $(NIX_DEV)bun run dev --host 0.0.0.0
+
+## --- Docs and config formatting (prettier; Go/web/SQL out of scope) ---
+fmt-docs: ## Format docs and config files (markdown wraps at 200)
+	$(NIX_DEV)$(PRETTIER) --write "$(DOCS_GLOB)"
+
+fmt-docs-check: ## Fail if any doc/config file is unformatted
+	$(NIX_DEV)$(PRETTIER) --check "$(DOCS_GLOB)"
 
 ## --- Aggregate gates ---
 check: fmt-check vet lint test scripts-test web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + script tests + web type-check + web tests

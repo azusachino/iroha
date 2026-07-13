@@ -1,0 +1,10 @@
+# Prettier scope: docs + config only (md/yaml/json). The web app keeps its own
+# SvelteKit style (tabs + single quotes) via svelte-check; Go, SQL, and Python
+# are formatted by their own toolchains.
+node_modules/
+.git/
+apps/iroha-web/
+.iroha-data/
+**/dist/
+**/build/
+**/.svelte-kit/

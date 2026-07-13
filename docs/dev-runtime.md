@@ -2,7 +2,8 @@
 
 ## Current Assumption
 
-Iroha development happens on macOS. Nix is the universal manager for tools and developer entrypoints. The repo uses `uv` for Python-based scripts inside that Nix-managed environment and can use Apple `container` for local containerized services.
+Iroha development happens on macOS. Nix is the universal manager for tools and developer entrypoints. The repo uses `uv` for Python-based scripts inside that Nix-managed environment and can use Apple
+`container` for local containerized services.
 
 The runtime design should be capability-based. Do not assume Docker Compose compatibility unless it has been tested locally.
 
@@ -69,14 +70,15 @@ apps/
     package.json
 ```
 
-We use a Go workspace to manage multiple modules (`apps/iroha-server` and `apps/iroha-job`), resolving local dependencies cleanly with `replace` directives.
+The repo currently uses independent Go modules for `iroha-core`, `iroha-providers`, `iroha-runtime`, `iroha-imports`, `iroha-server`, and `iroha-job`, resolving local dependencies with `replace`
+directives. The dependency direction is one-way: provider contracts sit in core, runtime infrastructure is shared by imports and both executables, and the server/job modules consume the import
+pipeline.
 
 The private frontend lives alongside the server at `apps/iroha-web` (SvelteKit, built with `bun`); see `apps/iroha-web/README.md`.
 
 ### Frontend Browser Smoke
 
-Use the on-demand Playwright CLI for browser screenshots. Chrome is not assumed
-to exist on the local machine; if `playwright-cli open ... --headed` fails with
+Use the on-demand Playwright CLI for browser screenshots. Chrome is not assumed to exist on the local machine; if `playwright-cli open ... --headed` fails with
 `Chromium distribution 'chrome' is not found`, install WebKit once:
 
 ```bash
@@ -98,22 +100,17 @@ bunx -p @playwright/cli@latest playwright-cli open "http://127.0.0.1:5173/dashbo
 bunx -p @playwright/cli@latest playwright-cli screenshot --full-page --filename=artifact.png
 ```
 
-The screenshot command acts on the currently opened page. Use `--browser webkit`
-unless Chrome is intentionally installed.
+The screenshot command acts on the currently opened page. Use `--browser webkit` unless Chrome is intentionally installed.
 
 Pitfalls to avoid:
 
 - Kill stale Vite listeners on port 5173 before starting a new frontend smoke run.
-- Do not assume Chrome exists on this macOS host. The Playwright CLI defaults can
-  fail until an installed browser is selected explicitly.
-- `playwright-cli screenshot` is not a navigation command. Passing both a URL and
-  output path fails with `too many arguments`; open the page first, then capture
-  the current page.
-- Keep this as a browser smoke check. Unit/e2e behavior should stay in `make
-  web-test`, `make scripts-test`, and `make check` so CI does not depend on a
-  headed browser session.
+- Do not assume Chrome exists on this macOS host. The Playwright CLI defaults can fail until an installed browser is selected explicitly.
+- `playwright-cli screenshot` is not a navigation command. Passing both a URL and output path fails with `too many arguments`; open the page first, then capture the current page.
+- Keep this as a browser smoke check. Unit/e2e behavior should stay in `make web-test`, `make scripts-test`, and `make check` so CI does not depend on a headed browser session.
 
-Do not use a Git submodule for `iroha-server` unless it must live in a separate repository with independent release ownership. In this product phase, `iroha-server` should be a subdirectory module inside the iroha repo, not an external Git submodule.
+Do not use a Git submodule for `iroha-server` unless it must live in a separate repository with independent release ownership. In this product phase, `iroha-server` should be a subdirectory module
+inside the iroha repo, not an external Git submodule.
 
 ## Apple `container`
 
@@ -136,7 +133,8 @@ Upstream facts to preserve:
 
 ## Practical Rule
 
-Use Apple `container` for explicit local services, not as a transparent Docker Compose replacement. The repo uses `bianpai --backend container` as the local orchestration layer for supported host-published services.
+Use Apple `container` for explicit local services, not as a transparent Docker Compose replacement. The repo uses `bianpai --backend container` as the local orchestration layer for supported
+host-published services.
 
 For MVP v0, the important local service is Postgres with PostGIS.
 
@@ -169,15 +167,16 @@ cp ~/Downloads/export.zip .iroha-data/imports/apple-health-export.zip
 
 With `iroha-server` running locally, smoke the product HTTP route.
 
-> [!WARNING]
-> File imports are processed asynchronously via a database-backed queue. Therefore, running `make smoke-real-import` **requires** the `iroha-job` worker to be running alongside the server.
-> 
-> * Start the server: `make run`
-> * Start the worker in another terminal: `make run-job`
+> [!WARNING] File imports are processed asynchronously via a database-backed queue. Therefore, running `make smoke-real-import` **requires** the `iroha-job` worker to be running alongside the server.
 >
-> **Workspace/Data Dir Warning**: If running from different subdirectories, make sure both processes point to the same directory by sharing `IROHA_DATA_DIR` (e.g. `export IROHA_DATA_DIR=$PWD/.iroha-data`).
+> - Start the server: `make run`
+> - Start the worker in another terminal: `make run-job`
+>
+> **Workspace/Data Dir Warning**: If running from different subdirectories, make sure both processes point to the same directory by sharing `IROHA_DATA_DIR` (e.g.
+> `export IROHA_DATA_DIR=$PWD/.iroha-data`).
 >
 > Run the smoke check:
+>
 > ```bash
 > make smoke-real-import FILE=.iroha-data/imports/apple-health-export.zip
 > ```
@@ -196,7 +195,8 @@ No manual `uv` environment setup is needed. Run repo scripts through `make` or `
 
 ## Postgres/PostGIS Runtime Shape
 
-Use an OCI image that supports arm64. The validated local image is `ghcr.io/baosystems/postgis:17-3.5`. The upstream `postgis/postgis:17-3.5` image failed under bianpai on this Apple Silicon host with `unsupported platform ... linux/arm64`.
+Use an OCI image that supports arm64. The validated local image is `ghcr.io/baosystems/postgis:17-3.5`. The upstream `postgis/postgis:17-3.5` image failed under bianpai on this Apple Silicon host with
+`unsupported platform ... linux/arm64`.
 
 Runtime requirements:
 

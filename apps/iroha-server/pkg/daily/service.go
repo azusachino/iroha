@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -92,6 +92,26 @@ type AggregateBucket struct {
 	StandHoursAvg  float64            `json:"stand_hours_avg"`
 	MoveClosedPct  float64            `json:"move_closed_pct"`
 	Metrics        map[string]float64 `json:"metrics"`
+}
+
+type ringAggregateRow struct {
+	Period      time.Time
+	MoveAvg     float64
+	ExerciseAvg float64
+	StandAvg    float64
+	RingDays    int
+	MoveClosed  int
+}
+
+type metricAggregateRow struct {
+	Period time.Time
+	Metric string
+	Avg    float64
+}
+
+type dayAggregateRow struct {
+	Period time.Time
+	Days   int
 }
 
 type Service struct {
@@ -189,15 +209,7 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 	}
 
 	// Q1: ring averages — only real ring days live in tb_daily_summaries.
-	type ringRow struct {
-		Period      time.Time
-		MoveAvg     float64
-		ExerciseAvg float64
-		StandAvg    float64
-		RingDays    int
-		MoveClosed  int
-	}
-	var ringRows []ringRow
+	var ringRows []ringAggregateRow
 	if err := applyRange(s.db.Table("tb_daily_summaries")).
 		Select(period + ` as period,
 			coalesce(avg(move_kcal),0) as move_avg,
@@ -210,12 +222,7 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 	}
 
 	// Q2: per-metric per-day averages from the long metrics table.
-	type metricRow struct {
-		Period time.Time
-		Metric string
-		Avg    float64
-	}
-	var metricRows []metricRow
+	var metricRows []metricAggregateRow
 	if err := applyRange(s.db.Table("tb_daily_metrics")).
 		Select(period + ` as period, metric, coalesce(avg(value),0) as avg`).
 		Group("period, metric").Scan(&metricRows).Error; err != nil {
@@ -223,11 +230,7 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 	}
 
 	// Q3: distinct calendar days per period across both tables.
-	type dayRow struct {
-		Period time.Time
-		Days   int
-	}
-	var dayRows []dayRow
+	var dayRows []dayAggregateRow
 	if err := applyRange(s.db.Table(`(
 		select day from tb_daily_summaries
 		union
@@ -238,6 +241,10 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 		return nil, err
 	}
 
+	return mergeAggregateRows(ringRows, metricRows, dayRows), nil
+}
+
+func mergeAggregateRows(ringRows []ringAggregateRow, metricRows []metricAggregateRow, dayRows []dayAggregateRow) []AggregateBucket {
 	byKey := map[int64]*AggregateBucket{}
 	var order []int64
 	getb := func(p time.Time) *AggregateBucket {
@@ -270,5 +277,5 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 	for _, k := range order {
 		buckets = append(buckets, *byKey[k])
 	}
-	return buckets, nil
+	return buckets
 }
