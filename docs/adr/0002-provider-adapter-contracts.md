@@ -47,10 +47,10 @@ type Descriptor struct {
 type Capability string
 
 const (
-	CapabilityActivities    Capability = "activities"
-	CapabilitySleep         Capability = "sleep"
-	CapabilityDailySummary Capability = "daily_summary"
-	CapabilityDailyMetrics Capability = "daily_metrics"
+	CapabilityHealthActivities    Capability = "activities"
+	CapabilityHealthSleep         Capability = "sleep"
+	CapabilityHealthDailySummary Capability = "daily_summary"
+	CapabilityHealthDailyMetrics Capability = "daily_metrics"
 	CapabilityMedia        Capability = "media"
 )
 ```
