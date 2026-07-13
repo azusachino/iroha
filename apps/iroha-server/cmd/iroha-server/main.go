@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"

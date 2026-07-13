@@ -456,6 +456,9 @@ func (s *Service) persistActivities(rawFile models.RawFile, parsed []observation
 				if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
 					return err
 				}
+				if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshot.ID); err != nil {
+					return err
+				}
 				continue
 			}
 
@@ -523,6 +526,9 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 		if err := replaceSamplings(tx, activityID, activity.Samplings); err != nil {
 			return err
 		}
+		if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshotID); err != nil {
+			return err
+		}
 		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
 			"content_hash":          activity.ContentHash,
 			"activity_id":           activityID,
@@ -544,6 +550,9 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 		if err := replaceSamplings(tx, activityID, activity.Samplings); err != nil {
 			return err
 		}
+		if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshotID); err != nil {
+			return err
+		}
 		itemID, err := ids.New()
 		if err != nil {
 			return err
@@ -560,6 +569,91 @@ func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activ
 		}
 		return tx.Create(&item).Error
 	}
+}
+
+func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile, activity observations.Activity, activityID, snapshotID uuid.UUID) error {
+	observationID, err := upsertSourceObservation(tx, rawFile, "activity", activity.Provider, activity.ExternalID, activity.ContentHash, snapshotID)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	row := models.ActivityObservation{
+		ID:               observationID,
+		ActivityID:       activityID,
+		SourceActivityID: activity.SourceActivityID,
+		SportType:        activity.SportType,
+		Title:            activity.Title,
+		StartedAt:        activity.StartedAt,
+		EndedAt:          activity.EndedAt,
+		DistanceM:        activity.DistanceM,
+		DurationS:        activity.DurationS,
+		AvgHR:            activity.AvgHR,
+		MaxHR:            activity.MaxHR,
+		AvgPaceSPerKM:    activity.AvgPaceSPerKM,
+		CaloriesKcal:     activity.CaloriesKcal,
+		MatchStatus:      "canonical",
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+	var existing models.ActivityObservation
+	if err := tx.First(&existing, "id = ?", observationID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if err := tx.Model(&models.ActivityObservation{}).Where("id = ?", observationID).Updates(map[string]any{
+		"activity_id": activityID, "source_activity_id": activity.SourceActivityID, "sport_type": activity.SportType,
+		"title": activity.Title, "started_at": activity.StartedAt, "ended_at": activity.EndedAt,
+		"distance_m": activity.DistanceM, "duration_s": activity.DurationS, "avg_hr": activity.AvgHR,
+		"max_hr": activity.MaxHR, "avg_pace_s_per_km": activity.AvgPaceSPerKM, "calories_kcal": activity.CaloriesKcal,
+		"updated_at": now,
+	}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&models.Activity{}).Where("id = ?", activityID).Update("selected_observation_id", observationID).Error; err != nil {
+		return err
+	}
+	if err := tx.Exec(`delete from tb_activity_observation_route_points where activity_observation_id = ?`, observationID).Error; err != nil {
+		return err
+	}
+	if err := tx.Exec(`insert into tb_activity_observation_route_points (activity_observation_id, seq, ts, lat, lon, elevation_m, distance_m, speed_mps, heart_rate, geom)
+select ?, seq, ts, lat, lon, elevation_m, distance_m, speed_mps, heart_rate, geom from tb_activity_route_points where activity_id = ?`, observationID, activityID).Error; err != nil {
+		return err
+	}
+	if err := tx.Exec(`delete from tb_activity_observation_samplings where activity_observation_id = ?`, observationID).Error; err != nil {
+		return err
+	}
+	if err := tx.Exec(`insert into tb_activity_observation_samplings (id, activity_observation_id, sampling_type, ts, value, unit)
+select id, ?, sampling_type, ts, value, unit from tb_activity_samplings where activity_id = ?`, observationID, activityID).Error; err != nil {
+		return err
+	}
+	if err := tx.Exec(`delete from tb_activity_observation_laps where activity_observation_id = ?`, observationID).Error; err != nil {
+		return err
+	}
+	return tx.Exec(`insert into tb_activity_observation_laps (id, activity_observation_id, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal)
+select id, ?, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal from tb_activity_laps where activity_id = ?`, observationID, activityID).Error
+}
+
+func upsertSourceObservation(tx *gorm.DB, rawFile models.RawFile, sourceKind, provider, sourceKey, contentHash string, snapshotID uuid.UUID) (uuid.UUID, error) {
+	var existing models.SourceObservation
+	err := tx.Where("provider = ? and source_kind = ? and source_key = ?", provider, sourceKind, sourceKey).First(&existing).Error
+	now := time.Now().UTC()
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		id, idErr := ids.New()
+		if idErr != nil {
+			return uuid.Nil, idErr
+		}
+		first := snapshotID
+		row := models.SourceObservation{ID: id, Provider: provider, SourceKind: sourceKind, SourceKey: sourceKey, ContentHash: contentHash, RawFileID: rawFile.ID, FirstSeenSnapshotID: &first, LastSeenSnapshotID: &snapshotID, CreatedAt: now, UpdatedAt: now}
+		return id, tx.Create(&row).Error
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return existing.ID, tx.Model(&models.SourceObservation{}).Where("id = ?", existing.ID).Updates(map[string]any{
+		"content_hash": contentHash, "raw_file_id": rawFile.ID, "last_seen_snapshot_id": snapshotID, "updated_at": now,
+	}).Error
 }
 
 func sleepSessionSourceKey(session observations.Sleep) string {
@@ -631,6 +725,9 @@ func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, sessi
 		return err
 	}
 	if err := replaceSleepSegments(tx, sessionID, session.Segments); err != nil {
+		return err
+	}
+	if err := s.persistSleepObservation(tx, rawFile, session, sessionID, snapshotID); err != nil {
 		return err
 	}
 
@@ -730,6 +827,43 @@ func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []observati
 		})
 	}
 	return tx.CreateInBatches(rows, sleepSegmentInsertBatchSize).Error
+}
+
+func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, session observations.Sleep, sessionID, snapshotID uuid.UUID) error {
+	contentHash := sleepSessionContentHash(session)
+	observationID, err := upsertSourceObservation(tx, rawFile, "sleep", "apple_health", sleepSessionSourceKey(session), contentHash, snapshotID)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	row := models.SleepObservation{ID: observationID, SleepSessionID: sessionID, WakeDate: session.WakeDate, StartedAt: session.StartedAt, EndedAt: session.EndedAt, TimeInBedS: session.TimeInBedS, AsleepS: session.AsleepS, Efficiency: session.Efficiency, IsMainSleep: session.IsMainSleep, CoreS: session.CoreS, DeepS: session.DeepS, RemS: session.RemS, AwakeS: session.AwakeS, UnspecifiedS: session.UnspecifiedS, Source: session.Source, MatchStatus: "canonical", CreatedAt: now, UpdatedAt: now}
+	var existing models.SleepObservation
+	if err := tx.First(&existing, "id = ?", observationID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if err := tx.Model(&models.SleepObservation{}).Where("id = ?", observationID).Updates(map[string]any{
+		"sleep_session_id": sessionID, "wake_date": session.WakeDate, "started_at": session.StartedAt, "ended_at": session.EndedAt,
+		"time_in_bed_s": session.TimeInBedS, "asleep_s": session.AsleepS, "efficiency": session.Efficiency, "is_main_sleep": session.IsMainSleep,
+		"core_s": session.CoreS, "deep_s": session.DeepS, "rem_s": session.RemS, "awake_s": session.AwakeS, "unspecified_s": session.UnspecifiedS,
+		"source": session.Source, "updated_at": now,
+	}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&models.SleepSession{}).Where("id = ?", sessionID).Update("selected_observation_id", observationID).Error; err != nil {
+		return err
+	}
+	if err := tx.Exec(`insert into tb_sleep_session_observations (sleep_session_id, sleep_observation_id, is_preferred)
+values (?, ?, true) on conflict (sleep_session_id, sleep_observation_id) do update set is_preferred = excluded.is_preferred`, sessionID, observationID).Error; err != nil {
+		return err
+	}
+	if err := tx.Exec(`delete from tb_sleep_observation_segments where sleep_observation_id = ?`, observationID).Error; err != nil {
+		return err
+	}
+	return tx.Exec(`insert into tb_sleep_observation_segments (id, sleep_observation_id, stage, started_at, ended_at, seq)
+select id, ?, stage, started_at, ended_at, seq from tb_sleep_segments where session_id = ?`, observationID, sessionID).Error
 }
 
 func dailySummarySourceKey(summary observations.DailySummary) string {

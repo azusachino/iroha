@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"

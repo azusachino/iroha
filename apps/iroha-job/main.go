@@ -11,10 +11,10 @@ import (
 	"time"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
+	"github.com/azusachino/iroha/apps/iroha-imports"
 	providerregistry "github.com/azusachino/iroha/apps/iroha-providers/registry"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/cache"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/config"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/jobs"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/google/uuid"

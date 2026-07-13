@@ -6,8 +6,8 @@ import (
 	"time"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
+	"github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/ids"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/imports"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/models"
 	"github.com/go-chi/chi/v5"
 )
