@@ -97,8 +97,8 @@ selected observation by default. Comparison APIs can expose all observations.
 
 ### Sleep
 
-`tb_sleep_sessions` becomes a canonical sleep episode. Existing Apple rows are
-backfilled into one Apple observation per session.
+`tb_sleep_sessions` remains a canonical sleep episode. Each provider import
+creates one or more sleep observations linked to that episode.
 
 ```text
 tb_sleep_sessions
@@ -161,24 +161,23 @@ adapter registry, not a large generic provider framework.
 
 ## Migration strategy
 
-The migration is additive and preserves current Apple data:
+The migration is a clean current-schema install. Raw exports are the canonical
+evidence, and the local database is intentionally rebuildable, so there is no
+SQL backfill of the old Apple-derived rows.
 
-1. Add provider-observation tables and links.
-2. Backfill every existing Apple activity, sleep, and daily row into exactly
-   one observation with `match_status = canonical`.
-3. Repoint route, sampling, lap, and sleep-segment ownership to observation
-   IDs while preserving canonical read projections.
-4. Move Apple reconciliation from `tb_apple_source_items` into the shared
-   observation identity path.
-5. Update API services and import persistence to read/write observations plus
-   canonical projections.
-6. Add provider comparison reads and tests.
-7. Retire `tb_apple_source_items` only after a full reprocess and real-export
-   count comparison pass.
+1. Replace the historical migration chain with one current-schema migration.
+2. Create provider-observation tables and nullable selected-observation links;
+   leave them empty.
+3. Switch source adapters and persistence to write observations plus canonical
+   projections.
+4. Bump the parser version and re-import the raw Apple ZIP. The import job
+   recreates the current canonical data and its observations from that evidence.
+5. Retire `tb_apple_source_items` only after the new import and read APIs pass
+   integration and real-import smoke checks.
 
-The first migration must be reversible at the application level: old Apple
-rows remain queryable until the new observation-backed reads pass integration
-and real-import smoke checks.
+This keeps migration SQL focused on structure. Data transformation belongs to
+the importer, where the raw ZIP, parser version, reconciliation rules, and
+failure handling are visible and testable.
 
 ## Alternatives considered
 
@@ -262,7 +261,8 @@ Costs:
   observation join cost.
 - Existing route/sampling/lap APIs need a canonical-to-observation selection
   rule.
-- The first migration is substantial and must include backfill verification.
+- Existing local data must be re-imported from raw evidence after the schema
+  reset; this is an explicit operational step, not hidden migration work.
 - Conflict and match states become product concepts that need UI later.
 
 ## Non-goals
