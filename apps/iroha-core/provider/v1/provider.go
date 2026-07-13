@@ -1,5 +1,5 @@
-// Package v1alpha1 contains the versioned provider adapter contract.
-package v1alpha1
+// Package v1 contains the versioned provider adapter contract.
+package v1
 
 import (
 	"context"
