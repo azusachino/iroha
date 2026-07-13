@@ -21,6 +21,7 @@ const (
 )
 
 const mediaListQuery = `query($userName:String!,$type:MediaType!,$chunk:Int!,$perChunk:Int!){
+  User(name:$userName){mediaListOptions{scoreFormat}}
   MediaListCollection(userName:$userName,type:$type,chunk:$chunk,perChunk:$perChunk){
     lists{entries{id status score progress progressVolumes repeat notes updatedAt startedAt{year month day} completedAt{year month day}
       media{id idMal type format episodes chapters volumes startDate{year month day} title{romaji english native}

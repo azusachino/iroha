@@ -4,7 +4,7 @@ import "testing"
 
 func TestParseSnapshotMapsAnimeEntryToMediaGraph(t *testing.T) {
 	entries, err := ParseSnapshot([]byte(`{
-  "data": {"MediaListCollection": {"lists": [{"entries": [{
+  "data": {"User": {"mediaListOptions": {"scoreFormat": "POINT_100"}}, "MediaListCollection": {"lists": [{"entries": [{
     "id": 7, "status": "REPEATING", "score": 85, "progress": 9, "repeat": 2,
     "notes": "great season", "startedAt": {"year": 2024, "month": 1, "day": 2},
     "completedAt": {"year": 2024, "month": 3, "day": 4}, "updatedAt": 1709500000,
@@ -33,6 +33,9 @@ func TestParseSnapshotMapsAnimeEntryToMediaGraph(t *testing.T) {
 	}
 	if len(media.Events) != 3 {
 		t.Fatalf("mapped events = %d, want list state + 2 rewatches", len(media.Events))
+	}
+	if media.Events[0].RatingScale == nil || *media.Events[0].RatingScale != 100 {
+		t.Fatalf("list_state RatingScale = %v, want 100 (POINT_100 scoreFormat)", media.Events[0].RatingScale)
 	}
 }
 

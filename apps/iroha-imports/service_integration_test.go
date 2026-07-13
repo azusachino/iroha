@@ -286,6 +286,18 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 		t.Fatalf("events after changed re-sync = %d, want 2", got)
 	}
 
+	// M2: the owning provider re-syncing a corrected core field overwrites it.
+	corrected := mediaA(13)
+	corrected.MediaType = "anime"
+	persist("a4", corrected, false)
+	var item models.MediaItem
+	if err := db.Where("title = ?", titleA).First(&item).Error; err != nil {
+		t.Fatalf("load item: %v", err)
+	}
+	if item.MediaType != "anime" {
+		t.Fatalf("item media_type after owner re-sync = %q, want anime (M2 refresh)", item.MediaType)
+	}
+
 	// Relation: B -> A. Both endpoints resolve, so the edge must persist.
 	mediaB := observations.Media{
 		Provider: "anilist", ExternalID: idB, MediaType: "anime_season", Title: titleB, Status: "planned",

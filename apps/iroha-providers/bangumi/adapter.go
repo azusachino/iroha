@@ -112,15 +112,22 @@ func mapRecord(record collectionRecord) observations.Media {
 	if unit == "" {
 		result.ProgressState.Unit = "unknown"
 	}
-	result.Events = []observations.MediaEvent{{
+	rating := normalizeRate(record.Rate)
+	listEvent := observations.MediaEvent{
 		EventType:     "list_state",
 		EventAt:       updatedAt,
 		SourceEventID: strconv.Itoa(subject.ID),
 		Unit:          unit,
 		Position:      position,
-		Rating:        normalizeRate(record.Rate),
+		Rating:        rating,
 		Note:          strings.Join(record.Tags, ", ") + noteSuffix(record.Comment),
-	}}
+	}
+	if rating != nil {
+		// Bangumi ratings are a fixed 0-10 scale.
+		scale := 10.0
+		listEvent.RatingScale = &scale
+	}
+	result.Events = []observations.MediaEvent{listEvent}
 	return result
 }
 

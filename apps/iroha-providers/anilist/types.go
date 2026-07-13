@@ -4,11 +4,18 @@ import "time"
 
 type graphQLResponse struct {
 	Data struct {
+		User                *anilistUser         `json:"User"`
 		MediaListCollection *mediaListCollection `json:"MediaListCollection"`
 	} `json:"data"`
 	Errors []struct {
 		Message string `json:"message"`
 	} `json:"errors"`
+}
+
+type anilistUser struct {
+	MediaListOptions struct {
+		ScoreFormat string `json:"scoreFormat"`
+	} `json:"mediaListOptions"`
 }
 
 type mediaListCollection struct {

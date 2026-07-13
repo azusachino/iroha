@@ -550,7 +550,7 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 			ID:              itemID,
 			WorkID:          &workID,
 			MediaType:       media.MediaType,
-			ItemRole:        mediaItemRole,
+			ItemRole:        itemRoleOrDefault(media.ItemRole),
 			Title:           media.Title,
 			OriginalTitle:   media.Title,
 			ReleaseDate:     media.ReleaseDate,
@@ -596,7 +596,15 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 			return err
 		}
 		itemID := resolution.ItemID
-		if err := tx.Where("scope_type = ? and scope_id = ? and provider = ? and external_id = ?", mediaScopeType, itemID, media.Provider, media.ExternalID).First(&externalRef).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		// The item is "owned" by this provider when its own primary ref already
+		// pointed here before this sync: then a fresh parse (e.g. a reprocess
+		// after a parser fix) may overwrite the item's core fields. If the item
+		// was reached via a bridge/title match from a different provider, only
+		// fill empty fields so we don't clobber the owner's values each sync.
+		ownedItem := true
+		lookupErr := tx.Where("scope_type = ? and scope_id = ? and provider = ? and external_id = ?", mediaScopeType, itemID, media.Provider, media.ExternalID).First(&externalRef).Error
+		if errors.Is(lookupErr, gorm.ErrRecordNotFound) {
+			ownedItem = false
 			refID, idErr := ids.New()
 			if idErr != nil {
 				return idErr
@@ -605,7 +613,10 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 			if err := tx.Create(&externalRef).Error; err != nil {
 				return err
 			}
-		} else if err != nil {
+		} else if lookupErr != nil {
+			return lookupErr
+		}
+		if err := refreshMediaItemFields(tx, itemID, media, ownedItem); err != nil {
 			return err
 		}
 	}
@@ -851,6 +862,77 @@ func floatPtrEqual(a, b *float64) bool {
 		return a == b
 	}
 	return *a == *b
+}
+
+func itemRoleOrDefault(role string) string {
+	if role == "" {
+		return mediaItemRole
+	}
+	return role
+}
+
+// refreshMediaItemFields updates the core columns of an already-existing item
+// from a fresh observation. When owned (the item's own provider is syncing) a
+// non-empty incoming value overwrites, so a reprocess after a parser fix
+// re-applies; otherwise only empty columns are filled, so a bridge/title match
+// from another provider never clobbers the owner's data.
+func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Media, owned bool) error {
+	var item models.MediaItem
+	if err := tx.First(&item, "id = ?", itemID).Error; err != nil {
+		return err
+	}
+	updates := map[string]any{}
+	setStr := func(col, existing, incoming string) {
+		if incoming == "" || incoming == existing {
+			return
+		}
+		if owned || existing == "" {
+			updates[col] = incoming
+		}
+	}
+	setInt := func(col string, existing, incoming *int) {
+		if incoming == nil {
+			return
+		}
+		if owned || existing == nil {
+			updates[col] = *incoming
+		}
+	}
+	setFloat := func(col string, existing, incoming *float64) {
+		if incoming == nil {
+			return
+		}
+		if owned || existing == nil {
+			updates[col] = *incoming
+		}
+	}
+
+	if media.MediaType != "" && media.MediaType != mediaUnknownValue {
+		setStr("media_type", item.MediaType, media.MediaType)
+	}
+	if media.ItemRole != "" {
+		setStr("item_role", item.ItemRole, media.ItemRole)
+	}
+	if media.ReleaseDate != nil && (owned || item.ReleaseDate == nil) {
+		updates["release_date"] = media.ReleaseDate
+	}
+	setInt("season_number", item.SeasonNumber, media.SeasonNumber)
+	setInt("episode_number", item.EpisodeNumber, media.EpisodeNumber)
+	setFloat("chapter_number", item.ChapterNumber, media.ChapterNumber)
+	setFloat("volume_number", item.VolumeNumber, media.VolumeNumber)
+	setInt("duration_seconds", item.DurationSeconds, media.DurationSeconds)
+	setInt("page_count", item.PageCount, media.PageCount)
+	setInt("episode_count", item.EpisodeCount, media.EpisodeCount)
+	setInt("chapter_count", item.ChapterCount, media.ChapterCount)
+	setStr("language", item.Language, media.Language)
+	setStr("country", item.Country, media.Country)
+	setStr("cover_image_url", item.CoverImageURL, media.CoverImageURL)
+
+	if len(updates) == 0 {
+		return nil
+	}
+	updates["updated_at"] = time.Now().UTC()
+	return tx.Model(&models.MediaItem{}).Where("id = ?", itemID).Updates(updates).Error
 }
 
 func (s *Service) persistActivities(rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {

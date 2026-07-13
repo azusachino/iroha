@@ -62,19 +62,43 @@ func ParseSnapshot(body []byte) ([]observations.Media, error) {
 	if response.Data.MediaListCollection == nil {
 		return nil, nil
 	}
+	var scoreScale *float64
+	if response.Data.User != nil {
+		scoreScale = scoreFormatScale(response.Data.User.MediaListOptions.ScoreFormat)
+	}
 	entries := make([]observations.Media, 0)
 	for _, list := range response.Data.MediaListCollection.Lists {
 		for _, entry := range list.Entries {
 			if entry.Media.ID == 0 {
 				return nil, fmt.Errorf("anilist entry %d has no media id", entry.ID)
 			}
-			entries = append(entries, mapEntry(entry))
+			entries = append(entries, mapEntry(entry, scoreScale))
 		}
 	}
 	return entries, nil
 }
 
-func mapEntry(entry mediaListEntry) observations.Media {
+// scoreFormatScale converts AniList's per-user scoreFormat into the numeric
+// rating scale, so a stored score (e.g. 8.5) is not ambiguous between a /10
+// and a /100 scale.
+func scoreFormatScale(format string) *float64 {
+	var scale float64
+	switch format {
+	case "POINT_100":
+		scale = 100
+	case "POINT_10", "POINT_10_DECIMAL":
+		scale = 10
+	case "POINT_5":
+		scale = 5
+	case "POINT_3":
+		scale = 3
+	default:
+		return nil
+	}
+	return &scale
+}
+
+func mapEntry(entry mediaListEntry, scoreScale *float64) observations.Media {
 	media := entry.Media
 	primaryTitle := firstNonEmpty(media.Title.English, media.Title.Romaji, media.Title.Native)
 	mediaType, itemRole := mapMediaType(media.Type, media.Format)
@@ -135,6 +159,9 @@ func mapEntry(entry mediaListEntry) observations.Media {
 		Position:      position,
 		Rating:        score,
 		Note:          entry.Notes,
+	}
+	if score != nil {
+		listEvent.RatingScale = scoreScale
 	}
 	if listEvent.EventAt == nil {
 		listEvent.EventAt = startedAt
