@@ -1,15 +1,11 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import {
-    listDaily,
-    listSleep,
-    listActivities,
-    listMediaEvents,
+    getBriefing,
     type DailyRow,
     type SleepSession,
     type Activity,
-    type Page,
     type MediaHomeEvent,
+    type BriefingResponse,
   } from "$lib/api";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
@@ -21,11 +17,7 @@
     formatHr,
   } from "$lib/format";
 
-  let dailyByDay = $state(new Map<string, DailyRow>());
-  let sleepByDay = $state(new Map<string, SleepSession[]>());
-  let actByDay = $state(new Map<string, Activity[]>());
-  let mediaByDay = $state(new Map<string, MediaHomeEvent[]>());
-  let daysWithData = $state<string[]>([]);
+  let briefing = $state<BriefingResponse | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -33,33 +25,24 @@
   let day = $state<string>(new Date().toISOString().slice(0, 10));
   let pickerOpen = $state(false);
 
-  async function sweep<T>(
-    fn: (cursor?: string) => Promise<Page<T>>,
-  ): Promise<T[]> {
-    const out: T[] = [];
-    let cursor: string | undefined;
-    for (let i = 0; i < 30; i++) {
-      const p = await fn(cursor);
-      out.push(...p.items);
-      if (!p.has_more || !p.next_cursor) break;
-      cursor = p.next_cursor;
-    }
-    return out;
-  }
-  function group<T>(arr: T[], key: (t: T) => string): Map<string, T[]> {
-    const m = new Map<string, T[]>();
-    for (const t of arr) {
-      const k = key(t);
-      (m.get(k) ?? m.set(k, []).get(k)!).push(t);
-    }
-    return m;
+  type BriefingList<T> = { items: T[]; has_more: boolean };
+  function sectionData<T>(key: string): BriefingList<T> {
+    const section = briefing?.sections.find((item) => item.key === key);
+    return (section?.data as BriefingList<T> | undefined) ?? {
+      items: [],
+      has_more: false,
+    };
   }
 
-  const dRow = $derived(dailyByDay.get(day));
-  const nights = $derived(sleepByDay.get(day) ?? []);
+  const daily = $derived(sectionData<DailyRow>("daily"));
+  const sleep = $derived(sectionData<SleepSession>("sleep"));
+  const activities = $derived(sectionData<Activity>("activities"));
+  const media = $derived(sectionData<MediaHomeEvent>("media"));
+  const dRow = $derived(daily.items[0]);
+  const nights = $derived(sleep.items);
   const mainNight = $derived(nights.find((n) => n.is_main_sleep) ?? nights[0]);
-  const acts = $derived(actByDay.get(day) ?? []);
-  const mediaEvents = $derived(mediaByDay.get(day) ?? []);
+  const acts = $derived(activities.items);
+  const mediaEvents = $derived(media.items);
   const hasRing = $derived(!!dRow && dRow.move_goal_kcal > 0);
   const ringData = $derived<Ring[]>(
     hasRing && dRow
@@ -111,17 +94,14 @@
       timeZone: "UTC",
     }),
   );
-  const isLatest = $derived(
-    daysWithData.length > 0 && day === daysWithData[daysWithData.length - 1],
-  );
   const dayHasData = $derived(
-    dailyByDay.has(day) ||
-      sleepByDay.has(day) ||
-      actByDay.has(day) ||
-      mediaByDay.has(day),
+    briefing?.sections.some(
+      (section) =>
+        section.state === "ready" &&
+        (section.data as { items?: unknown[] }).items?.length,
+    ) ?? false,
   );
-  const daysSet = $derived(new Set(daysWithData));
-  const maxDay = $derived(daysWithData[daysWithData.length - 1]);
+  const daysSet = $derived(new Set([day]));
 
   function shift(delta: number) {
     // All in UTC: parsing local midnight then emitting toISOString (UTC)
@@ -142,9 +122,6 @@
     else if (e.key === "ArrowRight") shift(1);
     else if (e.key === "Escape") pickerOpen = false;
   }
-  function jumpLatest() {
-    if (daysWithData.length) day = daysWithData[daysWithData.length - 1];
-  }
   function num(v: number | null | undefined, digits: number): string {
     if (typeof v !== "number" || !Number.isFinite(v)) return "—";
     return v.toLocaleString(undefined, {
@@ -153,38 +130,21 @@
     });
   }
 
-  onMount(async () => {
+  async function loadBriefing(selectedDay: string) {
+    loading = true;
+    error = null;
     try {
-      // 100 = the list endpoints' max page size (>100 is clamped to 50), so
-      // this sweeps history in the fewest requests.
-      const [daily, sleep, activities, mediaEvents] = await Promise.all([
-        sweep<DailyRow>((c) => listDaily({ limit: 100, cursor: c })),
-        sweep<SleepSession>((c) => listSleep({ limit: 100, cursor: c })),
-        sweep<Activity>((c) => listActivities({ limit: 100, cursor: c })),
-        sweep<MediaHomeEvent>((c) =>
-          listMediaEvents({ limit: 100, cursor: c }),
-        ),
-      ]);
-      dailyByDay = new Map(daily.map((r) => [r.day.slice(0, 10), r]));
-      sleepByDay = group(sleep, (s) => s.wake_date.slice(0, 10));
-      actByDay = group(activities, (a) => a.started_at.slice(0, 10));
-      mediaByDay = group(mediaEvents, (event) =>
-        event.occurred_at.slice(0, 10),
-      );
-      daysWithData = [
-        ...new Set([
-          ...dailyByDay.keys(),
-          ...sleepByDay.keys(),
-          ...actByDay.keys(),
-          ...mediaByDay.keys(),
-        ]),
-      ].sort();
-      if (daysWithData.length) day = daysWithData[daysWithData.length - 1];
+      const next = await getBriefing(selectedDay);
+      if (selectedDay === day) briefing = next;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
       loading = false;
     }
+  }
+
+  $effect(() => {
+    void loadBriefing(day);
   });
 
   function mediaEventVerb(event: MediaHomeEvent): string {
@@ -215,10 +175,6 @@
     </button>
     <button class="nav" aria-label="Next day" onclick={() => shift(1)}>›</button
     >
-    {#if !isLatest}
-      <button class="latest" onclick={jumpLatest}>Latest ›|</button>
-    {/if}
-
     {#if pickerOpen}
       <button
         class="pk-backdrop"
@@ -229,7 +185,6 @@
         <DayPicker
           value={day}
           days={daysSet}
-          max={maxDay}
           onselect={(d) => {
             day = d;
             pickerOpen = false;
@@ -444,21 +399,6 @@
     border-color: var(--accent);
     color: var(--accent);
   }
-  .latest {
-    appearance: none;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-muted);
-    padding: 0.35rem 0.6rem;
-    border-radius: var(--radius);
-    font-size: 0.78rem;
-    cursor: pointer;
-  }
-  .latest:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-
   .bento {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

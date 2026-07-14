@@ -246,6 +246,30 @@ export interface Page<T> {
   has_more: boolean;
 }
 
+export interface BriefingSection<T = unknown> {
+  key: string;
+  schema: string;
+  state: "ready" | "empty" | "unavailable";
+  data: T;
+}
+
+export interface BriefingResponse {
+  date: string;
+  previous_date: string;
+  next_date: string;
+  sections: BriefingSection[];
+}
+
+export function getBriefing(
+  date: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<BriefingResponse> {
+  return getJSON<BriefingResponse>(
+    `/api/v1/briefing?date=${encodeURIComponent(date)}`,
+    fetchFn,
+  );
+}
+
 // One day of the daily-activity + body-vitals module. Rings are always present
 // (zeroed on non-ring days); every scalar metric is optional because a day may
 // have some vitals but no ring, or vice versa.
