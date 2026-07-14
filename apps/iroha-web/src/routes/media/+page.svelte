@@ -211,7 +211,9 @@
   }
 
   function statusLabel(status: string): string {
-    return status.replaceAll("_", " ").replace(/^./, (char) => char.toUpperCase());
+    return status
+      .replaceAll("_", " ")
+      .replace(/^./, (char) => char.toUpperCase());
   }
   function statusTone(status: string): string {
     if (status === "completed") return "completed";
@@ -380,7 +382,9 @@
             <p class="eyebrow">Keep going</p>
             <h2>Watching &amp; reading</h2>
           </div>
-          <span class="muted">{activeCount} active{activeCount > 6 ? " · showing 6" : ""}</span>
+          <span class="muted"
+            >{activeCount} active{activeCount > 6 ? " · showing 6" : ""}</span
+          >
         </header>
         <div class="continue-grid">
           {#each continueItems as item (item.id)}
@@ -433,7 +437,10 @@
           <div class="status-group">
             <header class="status-head">
               <h3>
-                <span class={`status-dot ${statusTone(status)}`} aria-hidden="true"></span>
+                <span
+                  class={`status-dot ${statusTone(status)}`}
+                  aria-hidden="true"
+                ></span>
                 {statusLabel(status)}
               </h3>
               <span>{statusCounts[status] ?? group.length}</span>

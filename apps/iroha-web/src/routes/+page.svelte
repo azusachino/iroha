@@ -28,10 +28,12 @@
   type BriefingList<T> = { items: T[]; has_more: boolean };
   function sectionData<T>(key: string): BriefingList<T> {
     const section = briefing?.sections.find((item) => item.key === key);
-    return (section?.data as BriefingList<T> | undefined) ?? {
-      items: [],
-      has_more: false,
-    };
+    return (
+      (section?.data as BriefingList<T> | undefined) ?? {
+        items: [],
+        has_more: false,
+      }
+    );
   }
 
   const daily = $derived(sectionData<DailyRow>("daily"));
