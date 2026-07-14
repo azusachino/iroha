@@ -14,10 +14,25 @@ type Service struct {
 }
 
 type ListFilters struct {
-	Status    string
-	MediaType string
-	Limit     int
-	Cursor    *Cursor
+	Status        string
+	MediaType     string
+	Family        string
+	CompletedYear *int
+	Limit         int
+	Cursor        *Cursor
+}
+
+// familyMediaTypes maps a coarse family filter to the granular media_type
+// values the sync stores, so the UI can offer an anime/manga-books/games filter.
+var familyMediaTypes = map[string][]string{
+	"anime":      {"anime_season", "movie", "ona", "ova", "special"},
+	"manga_book": {"manga", "one_shot", "light_novel", "book"},
+	"game":       {"game"},
+}
+
+func IsFamily(value string) bool {
+	_, ok := familyMediaTypes[value]
+	return ok
 }
 
 type Item struct {
@@ -29,11 +44,13 @@ type Item struct {
 	Status             *string
 	Position           *float64
 	Total              *float64
+	Unit               *string
 	ProgressPercent    *float64
 	LastUpdateAt       time.Time
 	Rating             *float64
 	RatingScale        *float64
 	HiddenFromContinue bool
+	NativeTitle        *string
 }
 
 type Page struct {
@@ -178,12 +195,19 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 			item.cover_image_url,
 			progress.status,
 			progress.position,
-			progress.total,
+			coalesce(progress.total, case
+				when progress.unit = 'episodes' then item.episode_count
+				when progress.unit = 'chapters' then item.chapter_count
+			end) AS total,
+			progress.unit,
 			progress.progress_percent,
 			coalesce(progress.last_update_at, item.updated_at) AS last_update_at,
 			rating.rating,
 			rating.rating_scale,
-			coalesce(progress.hidden_from_continue, false) AS hidden_from_continue`).
+			coalesce(progress.hidden_from_continue, false) AS hidden_from_continue,
+			(SELECT t.title FROM tb_media_titles t
+			 WHERE t.scope_type = 'item' AND t.scope_id = item.id AND t.title_kind = 'original'
+			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title`).
 		Joins("LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id").
 		Joins(`LEFT JOIN LATERAL (
 			SELECT event.rating, event.rating_scale
@@ -192,12 +216,32 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 			ORDER BY event.event_at DESC NULLS LAST, event.created_at DESC, event.id DESC
 			LIMIT 1
 		) AS rating ON true`)
+	query = query.Joins(`LEFT JOIN LATERAL (
+		SELECT max(completed_at) AS completed_at
+		FROM (
+			SELECT finished_at AS completed_at
+			FROM tb_media_progress
+			WHERE media_item_id = item.id AND finished_at IS NOT NULL
+			UNION ALL
+			SELECT event_at AS completed_at
+			FROM tb_media_consumption_events
+			WHERE media_item_id = item.id
+				AND event_type IN ('finished', 'completed')
+				AND event_at IS NOT NULL
+		) AS completion_dates
+	) AS completion ON true`)
 
 	if filters.Status != "" {
 		query = query.Where("progress.status = ?", filters.Status)
 	}
 	if filters.MediaType != "" {
 		query = query.Where("item.media_type = ?", filters.MediaType)
+	}
+	if types, ok := familyMediaTypes[filters.Family]; ok {
+		query = query.Where("item.media_type IN ?", types)
+	}
+	if filters.CompletedYear != nil {
+		query = query.Where("extract(year from completion.completed_at) = ?", *filters.CompletedYear)
 	}
 	if filters.Cursor != nil {
 		query = query.Where("(coalesce(progress.last_update_at, item.updated_at), item.id) < (?, ?)", filters.Cursor.LastUpdateAt, filters.Cursor.ID)
@@ -351,6 +395,7 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 		Rating             *float64   `gorm:"column:rating"`
 		RatingScale        *float64   `gorm:"column:rating_scale"`
 		HiddenFromContinue bool       `gorm:"column:hidden_from_continue"`
+		NativeTitle        *string    `gorm:"column:native_title"`
 		WorkID             uuid.UUID  `gorm:"column:work_id"`
 		WorkKind           string     `gorm:"column:work_kind"`
 		PrimaryTitle       string     `gorm:"column:primary_title"`
@@ -365,6 +410,9 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 			coalesce(progress.last_update_at, item.updated_at) AS last_update_at,
 			rating.rating, rating.rating_scale,
 			coalesce(progress.hidden_from_continue, false) AS hidden_from_continue,
+			(SELECT t.title FROM tb_media_titles t
+			 WHERE t.scope_type = 'item' AND t.scope_id = item.id AND t.title_kind = 'original'
+			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title,
 			work.id AS work_id, work.work_kind, work.primary_title, work.original_title,
 			work.original_language, work.first_release_date, work.description`).
 		Joins("LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id").
@@ -391,6 +439,7 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 			CoverImageURL: row.CoverImageURL, Status: row.Status, Position: row.Position,
 			Total: row.Total, ProgressPercent: row.ProgressPercent, LastUpdateAt: row.LastUpdateAt,
 			Rating: row.Rating, RatingScale: row.RatingScale, HiddenFromContinue: row.HiddenFromContinue,
+			NativeTitle: row.NativeTitle,
 		},
 		Work: WorkDetail{
 			ID: row.WorkID, WorkKind: row.WorkKind, PrimaryTitle: row.PrimaryTitle,

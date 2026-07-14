@@ -25,10 +25,12 @@ type mediaResponse struct {
 	Status             *string   `json:"status,omitempty"`
 	Position           *float64  `json:"position,omitempty"`
 	Total              *float64  `json:"total,omitempty"`
+	Unit               *string   `json:"unit,omitempty"`
 	ProgressPercent    *float64  `json:"progress_percent,omitempty"`
 	LastUpdateAt       time.Time `json:"last_update_at"`
 	Rating             *float64  `json:"rating,omitempty"`
 	HiddenFromContinue bool      `json:"hidden_from_continue"`
+	NativeTitle        *string   `json:"native_title,omitempty"`
 }
 
 type mediaDetailResponse struct {
@@ -239,6 +241,19 @@ func parseMediaFilters(w http.ResponseWriter, r *http.Request) (media.ListFilter
 	filters := media.ListFilters{
 		Status:    query.Get("status"),
 		MediaType: query.Get("media_type"),
+		Family:    query.Get("family"),
+	}
+	if filters.Family != "" && !media.IsFamily(filters.Family) {
+		writeError(w, http.StatusBadRequest, "invalid family")
+		return media.ListFilters{}, false
+	}
+	if value := query.Get("completed_year"); value != "" {
+		year, err := strconv.Atoi(value)
+		if err != nil || year < 1 || year > 9999 {
+			writeError(w, http.StatusBadRequest, "invalid completed_year")
+			return media.ListFilters{}, false
+		}
+		filters.CompletedYear = &year
 	}
 	if value := query.Get("limit"); value != "" {
 		limit, err := strconv.Atoi(value)
@@ -304,10 +319,12 @@ func toMediaResponse(row media.Item) mediaResponse {
 		Status:             row.Status,
 		Position:           row.Position,
 		Total:              row.Total,
+		Unit:               row.Unit,
 		ProgressPercent:    row.ProgressPercent,
 		LastUpdateAt:       row.LastUpdateAt,
 		Rating:             normalizedRating(row.Rating, row.RatingScale),
 		HiddenFromContinue: row.HiddenFromContinue,
+		NativeTitle:        row.NativeTitle,
 	}
 }
 

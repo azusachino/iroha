@@ -129,15 +129,19 @@ export interface MediaRow {
   status?: string;
   position?: number;
   total?: number;
+  unit?: string;
   progress_percent?: number;
   last_update_at: string;
   rating?: number;
   hidden_from_continue?: boolean;
+  native_title?: string;
 }
 
 export interface ListMediaParams {
   status?: string;
   media_type?: string;
+  family?: string;
+  completed_year?: number;
   limit?: number;
   cursor?: string;
 }
@@ -350,6 +354,9 @@ export function listMedia(
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
   if (params.media_type) query.set("media_type", params.media_type);
+  if (params.family) query.set("family", params.family);
+  if (params.completed_year != null)
+    query.set("completed_year", String(params.completed_year));
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";
