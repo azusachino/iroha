@@ -38,6 +38,9 @@ func TestRegistryBuildsOrderedSectionsAndIsolatesErrors(t *testing.T) {
 	if response.Date != "2026-07-14" {
 		t.Fatalf("date = %q", response.Date)
 	}
+	if response.PreviousDate != "2026-07-13" || response.NextDate != "2026-07-15" {
+		t.Fatalf("navigation = %q -> %q", response.PreviousDate, response.NextDate)
+	}
 	if got := []string{response.Sections[0].Key, response.Sections[1].Key, response.Sections[2].Key}; !reflect.DeepEqual(got, []string{"daily", "sleep", "media"}) {
 		t.Fatalf("section order = %v", got)
 	}

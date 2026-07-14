@@ -41,8 +41,10 @@ type Section struct {
 }
 
 type Response struct {
-	Date     string    `json:"date"`
-	Sections []Section `json:"sections"`
+	Date         string    `json:"date"`
+	PreviousDate string    `json:"previous_date"`
+	NextDate     string    `json:"next_date"`
+	Sections     []Section `json:"sections"`
 }
 
 type Contributor interface {
@@ -94,5 +96,10 @@ func (r *Registry) Build(ctx context.Context, day Day) Response {
 		}
 		sections = append(sections, section)
 	}
-	return Response{Date: day.Date.Format(dateLayout), Sections: sections}
+	return Response{
+		Date:         day.Date.Format(dateLayout),
+		PreviousDate: day.Date.AddDate(0, 0, -1).Format(dateLayout),
+		NextDate:     day.Date.AddDate(0, 0, 1).Format(dateLayout),
+		Sections:     sections,
+	}
 }

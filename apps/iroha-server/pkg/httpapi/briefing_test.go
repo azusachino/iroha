@@ -33,7 +33,7 @@ func TestHandleBriefingReturnsVersionedSections(t *testing.T) {
 	if got := recorder.Header().Get("Content-Type"); got != "application/json" {
 		t.Fatalf("content type = %q", got)
 	}
-	want := `{"date":"2026-07-14","sections":[{"key":"daily","schema":"daily.day.v1","state":"ready","data":{"steps":3}}]}` + "\n"
+	want := `{"date":"2026-07-14","previous_date":"2026-07-13","next_date":"2026-07-15","sections":[{"key":"daily","schema":"daily.day.v1","state":"ready","data":{"steps":3}}]}` + "\n"
 	if recorder.Body.String() != want {
 		t.Fatalf("body = %s, want %s", recorder.Body.String(), want)
 	}
