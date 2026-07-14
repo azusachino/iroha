@@ -11,9 +11,11 @@ import (
 )
 
 type mediaListResponse struct {
-	Items      []mediaResponse `json:"items"`
-	NextCursor *string         `json:"next_cursor"`
-	HasMore    bool            `json:"has_more"`
+	Items        []mediaResponse `json:"items"`
+	NextCursor   *string         `json:"next_cursor"`
+	HasMore      bool            `json:"has_more"`
+	StatusCounts map[string]int  `json:"status_counts"`
+	ActiveCount  int             `json:"active_count"`
 }
 
 type mediaResponse struct {
@@ -128,7 +130,10 @@ func (s *Server) handleListMedia(w http.ResponseWriter, r *http.Request) {
 	for _, row := range page.Items {
 		items = append(items, toMediaResponse(row))
 	}
-	response := mediaListResponse{Items: items, HasMore: page.HasMore}
+	response := mediaListResponse{
+		Items: items, HasMore: page.HasMore,
+		StatusCounts: page.StatusCounts, ActiveCount: page.ActiveCount,
+	}
 	if page.NextCursor != nil {
 		cursor := media.EncodeCursor(*page.NextCursor)
 		response.NextCursor = &cursor

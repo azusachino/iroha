@@ -54,9 +54,11 @@ type Item struct {
 }
 
 type Page struct {
-	Items      []Item
-	NextCursor *Cursor
-	HasMore    bool
+	Items        []Item
+	NextCursor   *Cursor
+	HasMore      bool
+	StatusCounts map[string]int
+	ActiveCount  int
 }
 
 type CompletionBucket struct {
@@ -252,7 +254,11 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		return Page{}, err
 	}
 
-	page := Page{Items: rows}
+	statusCounts, activeCount, err := s.Counts(filters)
+	if err != nil {
+		return Page{}, err
+	}
+	page := Page{Items: rows, StatusCounts: statusCounts, ActiveCount: activeCount}
 	if len(rows) > limit {
 		last := rows[limit-1]
 		page.Items = rows[:limit]
@@ -260,6 +266,50 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		page.NextCursor = &Cursor{LastUpdateAt: last.LastUpdateAt, ID: last.ID}
 	}
 	return page, nil
+}
+
+// Counts returns exact status totals for the current family/completion-year
+// facet. Status itself is intentionally ignored so the UI can keep category
+// counts visible while one status is selected. ActiveCount excludes paused
+// items hidden from the continue shelf.
+func (s *Service) Counts(filters ListFilters) (map[string]int, int, error) {
+	query := s.db.Table("tb_media_items AS item").
+		Select("case when progress.status = 'in_progress' and coalesce(progress.hidden_from_continue, false) then 'paused' else coalesce(progress.status, 'unknown') end AS status, count(*)::int AS count, count(*) filter (where progress.status = 'in_progress' and coalesce(progress.hidden_from_continue, false) = false)::int AS active_count").
+		Joins("LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id").
+		Joins(`LEFT JOIN LATERAL (
+			SELECT max(completed_at) AS completed_at
+			FROM (
+				SELECT finished_at AS completed_at FROM tb_media_progress
+				WHERE media_item_id = item.id AND finished_at IS NOT NULL
+				UNION ALL
+				SELECT event_at AS completed_at FROM tb_media_consumption_events
+				WHERE media_item_id = item.id
+					AND event_type IN ('finished', 'completed')
+					AND event_at IS NOT NULL
+			) AS completion_dates
+		) AS completion ON true`)
+	if types, ok := familyMediaTypes[filters.Family]; ok {
+		query = query.Where("item.media_type IN ?", types)
+	}
+	if filters.CompletedYear != nil {
+		query = query.Where("extract(year from completion.completed_at) = ?", *filters.CompletedYear)
+	}
+	type statusCountRow struct {
+		Status      string `gorm:"column:status"`
+		Count       int    `gorm:"column:count"`
+		ActiveCount int    `gorm:"column:active_count"`
+	}
+	var rows []statusCountRow
+	if err := query.Group("progress.status, progress.hidden_from_continue").Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	counts := make(map[string]int, len(rows))
+	activeCount := 0
+	for _, row := range rows {
+		counts[row.Status] = row.Count
+		activeCount += row.ActiveCount
+	}
+	return counts, activeCount, nil
 }
 
 func (s *Service) Aggregates(now time.Time) (Aggregates, error) {

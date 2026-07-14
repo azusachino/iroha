@@ -7,6 +7,7 @@
     type MediaRow,
   } from "$lib/api";
   import StatTile from "$lib/components/StatTile.svelte";
+  import MediaBarChart from "$lib/components/MediaBarChart.svelte";
 
   let aggregates = $state<MediaAggregates | null>(null);
   let items = $state<MediaRow[]>([]);
@@ -15,40 +16,55 @@
   let loadingMore = $state(false);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let family = $state("");
+  let status = $state("");
+  let completedYear = $state("");
+  let statusCounts = $state<Record<string, number>>({});
+  let activeCount = $state(0);
+
+  const FAMILIES = [
+    { value: "", label: "All" },
+    { value: "anime", label: "Anime" },
+    { value: "manga_book", label: "Manga & books" },
+    { value: "game", label: "Games" },
+  ];
 
   // Only actively-in-progress items belong in the "continue" strip; paused /
   // on-hold entries keep status=in_progress but carry hidden_from_continue.
   const isContinuing = (item: MediaRow) =>
     item.status === "in_progress" && !item.hidden_from_continue;
   const continueItems = $derived(items.filter(isContinuing).slice(0, 6));
+
+  const STATUS_ORDER = [
+    "paused",
+    "completed",
+    "planned",
+    "abandoned",
+    "unknown",
+  ];
   const groupedItems = $derived(
-    items
-      .filter((item) => !isContinuing(item))
-      .reduce(
-        (groups, item) => {
-          // Paused items share the in_progress status; give them their own shelf.
-          const key =
-            item.status === "in_progress" ? "paused" : item.status || "unknown";
-          (groups[key] ??= []).push(item);
-          return groups;
-        },
-        {} as Record<string, MediaRow[]>,
-      ),
-  );
-  const completionMax = $derived(
-    Math.max(
-      ...(aggregates?.completions_by_year?.map((bucket) => bucket.count) ?? [
-        1,
-      ]),
-      1,
+    Object.entries(
+      items
+        .filter((item) => !isContinuing(item))
+        .reduce(
+          (groups, item) => {
+            // Paused items share the in_progress status; give them a shelf.
+            const key =
+              item.status === "in_progress"
+                ? "paused"
+                : item.status || "unknown";
+            (groups[key] ??= []).push(item);
+            return groups;
+          },
+          {} as Record<string, MediaRow[]>,
+        ),
+    ).sort(
+      ([a], [b]) =>
+        (STATUS_ORDER.indexOf(a) + 1 || 99) -
+        (STATUS_ORDER.indexOf(b) + 1 || 99),
     ),
   );
-  const scoreMax = $derived(
-    Math.max(
-      ...(aggregates?.score_distribution?.map((bucket) => bucket.count) ?? [1]),
-      1,
-    ),
-  );
+
   // The API splits by raw media_type (anime_season, manga, movie, ova…);
   // collapse those into display families for the "By kind" chart.
   function typeFamily(type: string): string {
@@ -73,8 +89,11 @@
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => b.count - a.count),
   );
-  const typeMax = $derived(
-    Math.max(...typeFamilies.map((bucket) => bucket.count), 1),
+
+  const completions = $derived(aggregates?.completions_by_year ?? []);
+  const scores = $derived(aggregates?.score_distribution ?? []);
+  const yearOptions = $derived(
+    [...completions].sort((a, b) => b.year - a.year),
   );
 
   onMount(() => {
@@ -87,12 +106,55 @@
     try {
       const [nextAggregates, page] = await Promise.all([
         getMediaAggregates(),
-        listMedia({ limit: 100 }),
+        listMedia({
+          limit: 100,
+          family: family || undefined,
+          status: status || undefined,
+          completed_year: completedYear ? Number(completedYear) : undefined,
+        }),
       ]);
       aggregates = nextAggregates;
       items = page.items;
       nextCursor = page.next_cursor;
       hasMore = page.has_more;
+      statusCounts = page.status_counts ?? {};
+      activeCount = page.active_count ?? 0;
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function selectFamily(value: string) {
+    if (value === family) return;
+    family = value;
+    await reloadItems();
+  }
+
+  async function selectStatus() {
+    await reloadItems();
+  }
+
+  async function selectYear() {
+    await reloadItems();
+  }
+
+  async function reloadItems() {
+    loading = true;
+    error = null;
+    try {
+      const page = await listMedia({
+        limit: 100,
+        family: family || undefined,
+        status: status || undefined,
+        completed_year: completedYear ? Number(completedYear) : undefined,
+      });
+      items = page.items;
+      nextCursor = page.next_cursor;
+      hasMore = page.has_more;
+      statusCounts = page.status_counts ?? {};
+      activeCount = page.active_count ?? 0;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -104,7 +166,13 @@
     if (!nextCursor || loadingMore) return;
     loadingMore = true;
     try {
-      const page = await listMedia({ limit: 100, cursor: nextCursor });
+      const page = await listMedia({
+        limit: 100,
+        cursor: nextCursor,
+        family: family || undefined,
+        status: status || undefined,
+        completed_year: completedYear ? Number(completedYear) : undefined,
+      });
       items = [...items, ...page.items];
       nextCursor = page.next_cursor;
       hasMore = page.has_more;
@@ -115,33 +183,64 @@
     }
   }
 
-  function mediaKind(type: string): string {
-    if (
-      type.includes("manga") ||
-      type.includes("novel") ||
-      type.includes("book")
-    ) {
-      return "Reading";
-    }
-    if (type.includes("anime")) return "Watching";
-    return type.replaceAll("_", " ");
+  const TYPE_LABELS: Record<string, string> = {
+    anime_season: "Anime",
+    movie: "Movie",
+    ona: "ONA",
+    ova: "OVA",
+    special: "Special",
+    manga: "Manga",
+    one_shot: "One-shot",
+    light_novel: "Light novel",
+    book: "Book",
+    game: "Game",
+    real: "Live action",
+    music: "Music",
+  };
+  function typeLabel(type: string): string {
+    return TYPE_LABELS[type] ?? type.replaceAll("_", " ");
+  }
+  // Small family-colored dot so anime / manga-books / games read apart at a
+  // glance; the text label still carries the meaning (color is not the only cue).
+  function familyColor(type: string): string {
+    const fam = typeFamily(type);
+    if (fam === "Anime") return "var(--mark-teal)";
+    if (fam === "Manga & books") return "var(--mark-magenta)";
+    if (fam === "Games") return "var(--mark-amber)";
+    return "var(--text-muted)";
   }
 
   function statusLabel(status: string): string {
-    return status.replaceAll("_", " ");
+    return status.replaceAll("_", " ").replace(/^./, (char) => char.toUpperCase());
+  }
+  function statusTone(status: string): string {
+    if (status === "completed") return "completed";
+    if (status === "planned") return "planned";
+    if (status === "abandoned") return "abandoned";
+    if (status === "paused") return "paused";
+    return "unknown";
   }
 
   function progressValue(item: MediaRow): number {
     if (item.progress_percent != null)
       return Math.min(Math.max(item.progress_percent, 0), 100);
-    if (item.position != null && item.total) {
+    if (item.position != null && item.total)
       return Math.min(Math.max((item.position / item.total) * 100, 0), 100);
-    }
     return 0;
   }
 
-  function scoreFor(item: MediaRow): string {
-    return item.rating == null ? "—" : item.rating.toFixed(1);
+  // Default to the native (Japanese) title; keep the English/romaji as a
+  // secondary line when it differs.
+  function primaryTitle(item: MediaRow): string {
+    return item.native_title || item.title;
+  }
+  function altTitle(item: MediaRow): string {
+    return item.native_title && item.native_title !== item.title
+      ? item.title
+      : "";
+  }
+  function initial(item: MediaRow): string {
+    return primaryTitle(item).slice(0, 1);
   }
 </script>
 
@@ -151,25 +250,59 @@
 
 <section class="media-shell">
   <header class="domain-header">
-    <div>
-      <p class="eyebrow">Media domain</p>
-      <h1>Stories that stay with you.</h1>
-      <p class="muted">
-        A quiet index of what you watch, read, finish, and remember.
-      </p>
-    </div>
+    <p class="eyebrow">Media</p>
+    <h1>Watchlist &amp; bookshelf</h1>
+    <p class="muted">
+      Everything you follow on AniList and Bangumi, on one shelf.
+    </p>
   </header>
+
+  <div class="filter-bar" role="tablist" aria-label="Filter by kind">
+    {#each FAMILIES as f (f.value)}
+      <button
+        class="chip"
+        class:active={family === f.value}
+        role="tab"
+        aria-selected={family === f.value}
+        onclick={() => selectFamily(f.value)}
+      >
+        {f.label}
+      </button>
+    {/each}
+  </div>
+
+  <div class="filter-options" aria-label="Media filters">
+    <label>
+      <span>Status</span>
+      <select bind:value={status} onchange={() => selectStatus()}>
+        <option value="">All statuses</option>
+        <option value="in_progress">In progress</option>
+        <option value="completed">Completed</option>
+        <option value="planned">Planned</option>
+        <option value="abandoned">Abandoned</option>
+      </select>
+    </label>
+    <label>
+      <span>Completed year</span>
+      <select bind:value={completedYear} onchange={() => selectYear()}>
+        <option value="">All years</option>
+        {#each yearOptions as option (option.year)}
+          <option value={option.year}>{option.year}</option>
+        {/each}
+      </select>
+    </label>
+  </div>
 
   {#if loading}
     <p class="muted">Loading media history…</p>
   {:else if error}
     <p class="error">Failed to load media: {error}</p>
   {:else if aggregates}
-    <div class="stat-strip" aria-label="Media summary">
+    <div class="stat-strip">
       <StatTile
         label="Library"
         value={aggregates.totals.item_count.toLocaleString()}
-        sub="Tracked items"
+        sub="Tracked titles"
       />
       <StatTile
         label="Completed"
@@ -177,11 +310,11 @@
         sub={`${aggregates.totals.this_year_completed} this year`}
       />
       <StatTile
-        label="Average score"
+        label="Avg score"
         value={aggregates.totals.average_rating
           ? aggregates.totals.average_rating.toFixed(1)
           : "—"}
-        sub="Normalized to 10"
+        sub="Out of 10"
       />
       <StatTile
         label="In progress"
@@ -192,166 +325,153 @@
 
     <div class="analytics-grid">
       <section class="chart-card tile">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Momentum</p>
-            <h2>Completions by year</h2>
-          </div>
+        <header class="chart-head">
+          <h2>Completions by year</h2>
           <span class="chart-total">{aggregates.totals.completed_count}</span>
-        </div>
-        {#if aggregates.completions_by_year?.length}
-          <div class="year-bars" aria-label="Completions by year">
-            {#each aggregates.completions_by_year as bucket}
-              <div class="year-bar">
-                <span class="bar-value">{bucket.count}</span>
-                <div class="bar-track">
-                  <span
-                    style={`height: ${(bucket.count / completionMax) * 100}%`}
-                  ></span>
-                </div>
-                <span class="bar-label">{bucket.year}</span>
-              </div>
-            {/each}
-          </div>
+        </header>
+        {#if completions.length}
+          <MediaBarChart
+            labels={completions.map((b) => b.year)}
+            values={completions.map((b) => b.count)}
+            color="--accent"
+          />
         {:else}
           <p class="empty-copy">No completed items yet.</p>
         {/if}
       </section>
 
       <section class="chart-card tile">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Taste</p>
-            <h2>Score distribution</h2>
-          </div>
+        <header class="chart-head">
+          <h2>Score distribution</h2>
           <span class="chart-total">0–10</span>
-        </div>
-        {#if aggregates.score_distribution?.length}
-          <div class="score-bars" aria-label="Score distribution">
-            {#each aggregates.score_distribution as bucket}
-              <div class="score-bar">
-                <span style={`height: ${(bucket.count / scoreMax) * 100}%`}
-                ></span>
-                <small>{bucket.score}</small>
-              </div>
-            {/each}
-          </div>
+        </header>
+        {#if scores.length}
+          <MediaBarChart
+            labels={scores.map((b) => b.score)}
+            values={scores.map((b) => b.count)}
+            color="--accent-2"
+          />
         {:else}
-          <p class="empty-copy">Ratings will appear here as you score items.</p>
+          <p class="empty-copy">No ratings yet.</p>
         {/if}
       </section>
 
-      <section class="chart-card type-card tile">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Shape of the library</p>
-            <h2>By kind</h2>
-          </div>
-        </div>
+      <section class="chart-card tile">
+        <header class="chart-head">
+          <h2>By kind</h2>
+        </header>
         {#if typeFamilies.length}
-          <div class="type-list">
-            {#each typeFamilies as bucket}
-              <div class="type-row">
-                <div class="type-meta">
-                  <span>{bucket.type}</span><strong>{bucket.count}</strong>
-                </div>
-                <div class="type-track">
-                  <span style={`width: ${(bucket.count / typeMax) * 100}%`}
-                  ></span>
-                </div>
-              </div>
-            {/each}
-          </div>
+          <MediaBarChart
+            labels={typeFamilies.map((f) => f.type)}
+            values={typeFamilies.map((f) => f.count)}
+            color="--mark-teal"
+            horizontal
+          />
         {:else}
           <p class="empty-copy">Your collection will take shape here.</p>
         {/if}
       </section>
     </div>
 
-    <section class="continue-section">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Keep going</p>
-          <h2>Watching & reading</h2>
-        </div>
-        <span class="muted">{continueItems.length} active</span>
-      </div>
-      {#if continueItems.length}
+    {#if continueItems.length}
+      <section class="shelf">
+        <header class="shelf-head">
+          <div>
+            <p class="eyebrow">Keep going</p>
+            <h2>Watching &amp; reading</h2>
+          </div>
+          <span class="muted">{activeCount} active{activeCount > 6 ? " · showing 6" : ""}</span>
+        </header>
         <div class="continue-grid">
           {#each continueItems as item (item.id)}
-            <a
-              class="continue-card tile tile-interactive"
-              href={`/media/${item.id}`}
-            >
-              {#if item.cover_image_url}
-                <img src={item.cover_image_url} alt="" loading="lazy" />
-              {:else}
-                <div class="cover-placeholder" aria-hidden="true">
-                  {item.title.slice(0, 1)}
-                </div>
-              {/if}
+            <a class="continue-card tile" href={`/media/${item.id}`}>
+              <div class="thumb">
+                {#if item.cover_image_url}
+                  <img src={item.cover_image_url} alt="" loading="lazy" />
+                {:else}
+                  <span class="thumb-ph" aria-hidden="true"
+                    >{initial(item)}</span
+                  >
+                {/if}
+              </div>
               <div class="continue-copy">
-                <span class="card-kicker">{mediaKind(item.media_type)}</span>
-                <h3>{item.title}</h3>
-                <div class="progress-track">
-                  <span style={`width: ${progressValue(item)}%`}></span>
-                </div>
-                <span class="progress-label"
-                  >{Math.round(progressValue(item))}% complete</span
-                >
+                <span class="kicker">
+                  <span
+                    class="dot"
+                    style={`background:${familyColor(item.media_type)}`}
+                  ></span>{typeLabel(item.media_type)}
+                </span>
+                <h3>{primaryTitle(item)}</h3>
+                {#if altTitle(item)}<span class="alt">{altTitle(item)}</span
+                  >{/if}
+                {#if item.total}
+                  <div class="progress-track">
+                    <span style={`width:${progressValue(item)}%`}></span>
+                  </div>
+                {/if}
+                <span class="progress-label">
+                  {item.position ?? 0}{item.total ? ` / ${item.total}` : ""}
+                  {item.unit ?? ""}
+                </span>
               </div>
             </a>
           {/each}
         </div>
-      {:else}
-        <div class="empty-panel tile">Nothing in progress right now.</div>
-      {/if}
-    </section>
+      </section>
+    {/if}
 
-    <section class="collection-section">
-      <div class="section-heading">
+    <section class="shelf">
+      <header class="shelf-head">
         <div>
           <p class="eyebrow">Collection</p>
           <h2>Everything in the index</h2>
         </div>
         <span class="muted">{items.length} shown</span>
-      </div>
-      {#if Object.keys(groupedItems).length}
-        {#each Object.entries(groupedItems) as [status, group]}
+      </header>
+      {#if groupedItems.length}
+        {#each groupedItems as [status, group] (status)}
           <div class="status-group">
-            <div class="status-heading">
-              <h3>{statusLabel(status)}</h3>
-              <span>{group.length}</span>
-            </div>
-            <div class="cover-grid">
+            <header class="status-head">
+              <h3>
+                <span class={`status-dot ${statusTone(status)}`} aria-hidden="true"></span>
+                {statusLabel(status)}
+              </h3>
+              <span>{statusCounts[status] ?? group.length}</span>
+            </header>
+            <div class="poster-grid">
               {#each group as item (item.id)}
-                <a
-                  class="media-card tile tile-interactive"
-                  href={`/media/${item.id}`}
-                >
-                  {#if item.cover_image_url}
-                    <img src={item.cover_image_url} alt="" loading="lazy" />
-                  {:else}
-                    <div class="cover-placeholder" aria-hidden="true">
-                      {item.title.slice(0, 1)}
-                    </div>
-                  {/if}
-                  <div class="media-card-copy">
-                    <h3>{item.title}</h3>
-                    <span>{mediaKind(item.media_type)} · {scoreFor(item)}</span>
+                <a class="poster" href={`/media/${item.id}`}>
+                  <div class="cover">
+                    {#if item.cover_image_url}
+                      <img src={item.cover_image_url} alt="" loading="lazy" />
+                    {:else}
+                      <span class="cover-ph" aria-hidden="true"
+                        >{initial(item)}</span
+                      >
+                    {/if}
+                    {#if item.rating != null}
+                      <span class="score-badge">{item.rating.toFixed(1)}</span>
+                    {/if}
                   </div>
+                  <h3 title={primaryTitle(item)}>{primaryTitle(item)}</h3>
+                  <span class="poster-sub">
+                    <span
+                      class="dot"
+                      style={`background:${familyColor(item.media_type)}`}
+                    ></span>{typeLabel(item.media_type)}
+                  </span>
                 </a>
               {/each}
             </div>
           </div>
         {/each}
+        {#if hasMore}
+          <button class="load-more" onclick={loadMore} disabled={loadingMore}>
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
+        {/if}
       {:else}
         <div class="empty-panel tile">No media items found.</div>
-      {/if}
-      {#if hasMore}
-        <button class="load-more" onclick={loadMore} disabled={loadingMore}>
-          {loadingMore ? "Loading…" : "Load more"}
-        </button>
       {/if}
     </section>
   {/if}
@@ -360,264 +480,362 @@
 <style>
   .media-shell {
     display: grid;
-    gap: 1.5rem;
+    gap: 1.75rem;
   }
-  .stat-strip {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.75rem;
-  }
-  .analytics-grid {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr 0.9fr;
-    gap: 0.75rem;
-  }
-  .chart-card {
-    min-height: 14.5rem;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.1rem;
-  }
-  .section-heading {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-  }
+  h1,
   h2,
   h3,
   p {
     margin: 0;
   }
-  h2 {
-    font-size: 1.05rem;
+  .domain-header h1 {
+    font-size: 1.5rem;
     letter-spacing: -0.02em;
   }
-  h3 {
-    font-size: 0.9rem;
-  }
-  .eyebrow,
-  .card-kicker {
+  .eyebrow {
     color: var(--text-muted);
     font-size: 0.68rem;
     font-weight: 750;
-    letter-spacing: 0.09em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+  }
+  .muted {
+    color: var(--text-muted);
+  }
+  .error {
+    color: var(--danger);
+  }
+
+  /* Filter */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: -0.75rem;
+  }
+  .chip {
+    padding: 0.32rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      color 0.12s ease,
+      border-color 0.12s ease,
+      background 0.12s ease;
+  }
+  .chip:hover {
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  }
+  .chip.active {
+    color: var(--bg);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .filter-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: -1rem;
+  }
+  .filter-options label {
+    display: grid;
+    gap: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .filter-options select {
+    min-width: 10rem;
+    padding: 0.4rem 1.9rem 0.4rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.78rem;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  .filter-options select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Stats */
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  /* Analytics */
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr 0.85fr;
+    gap: 0.85rem;
+  }
+  .chart-card {
+    padding: 1rem 1.1rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .chart-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .chart-head h2 {
+    font-size: 0.9rem;
+    letter-spacing: -0.01em;
   }
   .chart-total {
     color: var(--accent);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 750;
   }
-  .year-bars {
-    min-height: 9rem;
-    display: flex;
-    align-items: end;
-    gap: clamp(0.45rem, 2vw, 1rem);
-    padding: 0 0.2rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .year-bar {
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: end;
-    gap: 0.35rem;
-  }
-  .bar-track {
-    height: 7rem;
-    width: min(2.25rem, 100%);
-    display: flex;
-    align-items: end;
-  }
-  .bar-track span {
-    width: 100%;
-    min-height: 0.2rem;
-    border-radius: 4px 4px 0 0;
-    background: linear-gradient(
-      180deg,
-      var(--accent),
-      color-mix(in srgb, var(--accent), var(--accent-2) 35%)
-    );
-  }
-  .bar-value {
-    color: var(--text);
-    font-size: 0.72rem;
-    font-weight: 700;
-  }
-  .bar-label,
-  .score-bar small {
+  .empty-copy {
     color: var(--text-muted);
-    font-size: 0.65rem;
+    font-size: 0.82rem;
+    padding: 2rem 0;
   }
-  .score-bars {
-    min-height: 9rem;
-    display: flex;
-    align-items: end;
-    gap: 0.35rem;
-    padding: 0 0.2rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .score-bar {
-    flex: 1;
-    min-width: 0;
-    height: 8rem;
-    display: flex;
-    align-items: center;
-    flex-direction: column;
-    justify-content: end;
-    gap: 0.35rem;
-  }
-  .score-bar span {
-    width: 100%;
-    min-height: 0.2rem;
-    border-radius: 3px 3px 0 0;
-    background: var(--mark-magenta);
-    opacity: 0.8;
-  }
-  .type-list {
+
+  /* Shelves */
+  .shelf {
     display: grid;
     gap: 1rem;
-    margin-top: 0.35rem;
   }
-  .type-row {
-    display: grid;
-    gap: 0.4rem;
-  }
-  .type-meta {
+  .shelf-head {
     display: flex;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 1rem;
-    font-size: 0.82rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.6rem;
   }
-  .type-meta strong {
-    color: var(--text-muted);
+  .shelf-head h2 {
+    font-size: 1.1rem;
+    letter-spacing: -0.02em;
   }
-  .type-track,
-  .progress-track {
-    height: 0.4rem;
-    overflow: hidden;
-    border-radius: 999px;
-    background: var(--surface-2);
-  }
-  .type-track span,
-  .progress-track span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--mark-teal);
-  }
-  .continue-section,
-  .collection-section {
-    display: grid;
-    gap: 0.85rem;
-  }
+
+  /* Continue strip */
   .continue-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.75rem;
+    gap: 0.85rem;
   }
   .continue-card {
-    min-width: 0;
-    padding: 0.65rem;
     display: flex;
-    gap: 0.75rem;
+    gap: 0.85rem;
+    padding: 0.75rem;
+    min-width: 0;
     color: var(--text);
+    transition:
+      transform 0.12s ease,
+      border-color 0.12s ease;
   }
-  .continue-card img,
-  .continue-card .cover-placeholder {
-    width: 3.4rem;
-    height: 4.8rem;
+  .continue-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+    text-decoration: none;
+  }
+  .thumb,
+  .thumb-ph {
+    width: 3.2rem;
+    height: 4.6rem;
     flex: 0 0 auto;
-  }
-  img {
-    display: block;
-    object-fit: cover;
-    background: var(--surface-2);
-  }
-  .cover-placeholder {
-    display: grid;
-    place-items: center;
-    border: 1px solid var(--border);
-    background: linear-gradient(145deg, var(--surface-2), var(--surface));
-    color: var(--accent);
-    font-size: 1.5rem;
-    font-weight: 800;
+    border-radius: 5px;
+    overflow: hidden;
   }
   .continue-copy {
     min-width: 0;
     display: grid;
     align-content: center;
-    gap: 0.42rem;
+    gap: 0.28rem;
   }
-  .continue-copy h3,
-  .media-card-copy h3 {
+  .kicker {
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .continue-copy h3 {
+    font-size: 0.86rem;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .alt {
+    color: var(--text-muted);
+    font-size: 0.68rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .progress-label,
-  .media-card-copy span {
+  .progress-track {
+    height: 0.35rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--surface-2);
+    margin-top: 0.15rem;
+  }
+  .progress-track span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  .progress-label {
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: 0.68rem;
   }
-  .collection-section {
-    padding-top: 0.5rem;
-  }
+
+  /* Collection posters */
   .status-group {
     display: grid;
-    gap: 0.65rem;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
   }
-  .status-heading {
+  .status-head {
     display: flex;
     align-items: baseline;
-    gap: 0.5rem;
+    gap: 0.55rem;
   }
-  .status-heading h3 {
+  .status-head h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.82rem;
+    font-weight: 700;
     text-transform: capitalize;
   }
-  .status-heading span {
+  .status-head span {
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
   }
-  .cover-grid {
+  .status-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--text-muted);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-muted) 14%, transparent);
+  }
+  .status-dot.completed {
+    background: var(--mark-teal);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mark-teal) 16%, transparent);
+  }
+  .status-dot.planned {
+    background: var(--mark-amber);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mark-amber) 16%, transparent);
+  }
+  .status-dot.abandoned {
+    background: var(--danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent);
+  }
+  .status-dot.paused {
+    background: var(--accent-2);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 16%, transparent);
+  }
+  .poster-grid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    gap: 0.9rem 0.8rem;
   }
-  .media-card {
+  .poster {
+    display: grid;
+    gap: 0.35rem;
     min-width: 0;
-    overflow: hidden;
     color: var(--text);
   }
-  .media-card img,
-  .media-card .cover-placeholder {
-    width: 100%;
+  .cover {
+    position: relative;
     aspect-ratio: 2 / 3;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    transition:
+      transform 0.12s ease,
+      box-shadow 0.12s ease;
   }
-  .media-card-copy {
-    min-width: 0;
-    padding: 0.65rem;
+  .poster:hover .cover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 26px rgb(0 0 0 / 0.35);
+  }
+  .cover img,
+  .cover-ph,
+  .thumb img,
+  .thumb-ph {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .cover-ph,
+  .thumb-ph {
     display: grid;
-    gap: 0.3rem;
+    place-items: center;
+    background: linear-gradient(145deg, var(--surface-2), var(--surface));
+    color: var(--accent);
+    font-size: 1.4rem;
+    font-weight: 800;
   }
-  .media-card-copy h3 {
-    font-size: 0.78rem;
+  .score-badge {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    padding: 0.08rem 0.34rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    backdrop-filter: blur(4px);
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 750;
+    line-height: 1.4;
   }
-  .empty-panel,
-  .empty-copy {
+  .poster h3 {
+    font-size: 0.75rem;
+    line-height: 1.25;
+    font-weight: 600;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .poster-sub {
     color: var(--text-muted);
+    font-size: 0.66rem;
   }
+  .dot {
+    display: inline-block;
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    margin-right: 0.35rem;
+    vertical-align: middle;
+  }
+
   .empty-panel {
-    padding: 1rem;
+    padding: 1.1rem;
+    color: var(--text-muted);
   }
   .load-more {
     justify-self: center;
-    padding: 0.55rem 1.4rem;
+    padding: 0.55rem 1.5rem;
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--surface);
@@ -634,32 +852,16 @@
     opacity: 0.6;
     cursor: default;
   }
-  .error {
-    color: var(--danger);
-  }
+
   @media (max-width: 900px) {
-    .analytics-grid {
+    .stat-strip {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .type-card {
-      grid-column: span 2;
+    .analytics-grid {
+      grid-template-columns: 1fr;
     }
-    .cover-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-  }
-  @media (max-width: 640px) {
-    .stat-strip,
-    .analytics-grid,
     .continue-grid {
-      grid-template-columns: 1fr 1fr;
-    }
-    .type-card {
-      grid-column: span 2;
-    }
-    .cover-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.55rem;
+      grid-template-columns: 1fr;
     }
   }
 </style>

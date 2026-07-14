@@ -1,27 +1,29 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { onMount } from "svelte";
   import { getMedia, type MediaDetail } from "$lib/api";
 
   let detail = $state<MediaDetail | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
-  const mediaId = $derived(page.params.id ?? "");
 
-  onMount(() => {
-    void load();
+  // Re-fetch whenever the route param changes. SvelteKit reuses this component
+  // across /media/[id] navigations, so onMount would fire only once and
+  // clicking a related title would change the URL without reloading the page.
+  $effect(() => {
+    void load(page.params.id ?? "");
   });
 
-  async function load() {
+  async function load(id: string) {
     loading = true;
     error = null;
-    if (!mediaId) {
+    detail = null;
+    if (!id) {
       error = "Missing media id";
       loading = false;
       return;
     }
     try {
-      detail = await getMedia(mediaId);
+      detail = await getMedia(id);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -80,13 +82,13 @@
       {/if}
       <div class="hero-copy">
         <p class="eyebrow">{detail.item.media_type.replaceAll("_", " ")}</p>
-        <h1>{detail.item.title}</h1>
-        {#if detail.work.original_title && detail.work.original_title !== detail.item.title}
-          <p class="original-title">{detail.work.original_title}</p>
+        <h1>{detail.item.native_title || detail.item.title}</h1>
+        {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
+          <p class="original-title">{detail.item.title}</p>
         {/if}
-        <p class="work-description">
-          {detail.work.description || "No description recorded."}
-        </p>
+        {#if detail.work.description}
+          <p class="work-description">{detail.work.description}</p>
+        {/if}
         <div class="hero-meta">
           <span>{detail.item.status?.replaceAll("_", " ") ?? "Untracked"}</span>
           {#if detail.item.rating != null}<span class="score"
@@ -108,13 +110,17 @@
                 <p class="eyebrow">Progress</p>
                 <h2>{detail.progress.unit || "Current position"}</h2>
               </div>
-              <strong>{Math.round(progressValue())}%</strong>
+              {#if detail.progress.total != null}
+                <strong>{Math.round(progressValue())}%</strong>
+              {/if}
             </div>
-            <div class="progress-track">
-              <span
-                style={`width: ${Math.min(Math.max(progressValue(), 0), 100)}%`}
-              ></span>
-            </div>
+            {#if detail.progress.total != null}
+              <div class="progress-track">
+                <span
+                  style={`width: ${Math.min(Math.max(progressValue(), 0), 100)}%`}
+                ></span>
+              </div>
+            {/if}
             <div class="progress-meta">
               <span
                 >{detail.progress.position ?? 0}{detail.progress.total != null

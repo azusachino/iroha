@@ -244,6 +244,8 @@ export interface Page<T> {
   items: T[];
   next_cursor: string | null;
   has_more: boolean;
+  status_counts?: Record<string, number>;
+  active_count?: number;
 }
 
 export interface BriefingSection<T = unknown> {
