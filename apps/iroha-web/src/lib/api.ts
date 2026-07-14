@@ -120,11 +120,156 @@ export interface ListActivitiesParams {
   cursor?: string;
 }
 
+export interface MediaRow {
+  id: string;
+  title: string;
+  media_type: string;
+  item_role: string;
+  cover_image_url?: string;
+  status?: string;
+  position?: number;
+  total?: number;
+  unit?: string;
+  progress_percent?: number;
+  last_update_at: string;
+  rating?: number;
+  hidden_from_continue?: boolean;
+  native_title?: string;
+}
+
+export interface ListMediaParams {
+  status?: string;
+  media_type?: string;
+  family?: string;
+  completed_year?: number;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface MediaCompletionBucket {
+  year: number;
+  count: number;
+}
+
+export interface MediaScoreBucket {
+  score: number;
+  count: number;
+}
+
+export interface MediaTypeBucket {
+  type: string;
+  count: number;
+}
+
+export interface MediaAggregates {
+  totals: {
+    item_count: number;
+    completed_count: number;
+    this_year_completed: number;
+    average_rating: number;
+  };
+  completions_by_year: MediaCompletionBucket[];
+  score_distribution: MediaScoreBucket[];
+  type_split: MediaTypeBucket[];
+}
+
+export interface MediaDetail {
+  item: MediaRow;
+  work: {
+    id: string;
+    work_kind: string;
+    primary_title: string;
+    original_title: string;
+    original_language: string;
+    first_release_date?: string;
+    description: string;
+  };
+  progress?: {
+    status: string;
+    unit: string;
+    position?: number;
+    total?: number;
+    progress_percent?: number;
+    started_at?: string;
+    last_update_at?: string;
+    finished_at?: string;
+    play_count: number;
+  };
+  creators: { id: string; name: string; role: string }[];
+  relations: {
+    id: string;
+    relation_type: string;
+    direction: string;
+    related_item_id: string;
+    related_title: string;
+    related_type: string;
+    cover_image_url?: string;
+  }[];
+  events: {
+    id: string;
+    event_type: string;
+    event_at?: string;
+    unit?: string;
+    position?: number;
+    total?: number;
+    progress_percent?: number;
+    rating?: number;
+    note?: string;
+  }[];
+}
+
+export interface MediaHomeEvent {
+  id: string;
+  media_id: string;
+  title: string;
+  cover_image_url?: string;
+  event_type: string;
+  occurred_at: string;
+  unit?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  rating?: number;
+}
+
+export interface ListMediaEventsParams {
+  from?: string;
+  to?: string;
+  limit?: number;
+  cursor?: string;
+}
+
 // One keyset page. `next_cursor` is null when no further rows exist.
 export interface Page<T> {
   items: T[];
   next_cursor: string | null;
   has_more: boolean;
+  status_counts?: Record<string, number>;
+  active_count?: number;
+}
+
+export interface BriefingSection<T = unknown> {
+  key: string;
+  schema: string;
+  state: "ready" | "empty" | "unavailable";
+  data: T;
+}
+
+export interface BriefingResponse {
+  date: string;
+  previous_date: string;
+  next_date: string;
+  sections: BriefingSection[];
+}
+
+export function getBriefing(
+  date: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<BriefingResponse> {
+  return getJSON<BriefingResponse>(
+    `/api/v1/briefing?date=${encodeURIComponent(date)}`,
+    fetchFn,
+  );
 }
 
 // One day of the daily-activity + body-vitals module. Rings are always present
@@ -226,6 +371,54 @@ export function listActivities(
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<Page<Activity>>(`/api/v1/activities${suffix}`, fetchFn);
+}
+
+export function listMedia(
+  params: ListMediaParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Page<MediaRow>> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.media_type) query.set("media_type", params.media_type);
+  if (params.family) query.set("family", params.family);
+  if (params.completed_year != null)
+    query.set("completed_year", String(params.completed_year));
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.cursor) query.set("cursor", params.cursor);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<Page<MediaRow>>(`/api/v1/media${suffix}`, fetchFn);
+}
+
+export function getMediaAggregates(
+  fetchFn: typeof fetch = fetch,
+): Promise<MediaAggregates> {
+  return getJSON<MediaAggregates>("/api/v1/media/aggregates", fetchFn);
+}
+
+export function getMedia(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<MediaDetail> {
+  return getJSON<MediaDetail>(
+    `/api/v1/media/${encodeURIComponent(id)}`,
+    fetchFn,
+  );
+}
+
+export function listMediaEvents(
+  params: ListMediaEventsParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Page<MediaHomeEvent>> {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.cursor) query.set("cursor", params.cursor);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<Page<MediaHomeEvent>>(
+    `/api/v1/media/events${suffix}`,
+    fetchFn,
+  );
 }
 
 export function listSleep(

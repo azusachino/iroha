@@ -12,6 +12,8 @@ describe("cockpit route layout", () => {
   it("has concrete route files for the daily, activities domain, and share page", () => {
     expect(routePages["./daily/+page.svelte"]).toBeDefined();
     expect(routePages["./activities/+page.svelte"]).toBeDefined();
+    expect(routePages["./media/+page.svelte"]).toBeDefined();
+    expect(routePages["./media/[id]/+page.svelte"]).toBeDefined();
     expect(routePages["./share/+page.svelte"]).toBeDefined();
   });
 

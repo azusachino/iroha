@@ -19,10 +19,18 @@ RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-server ./
 RUN CGO_ENABLED=0 go -C apps/iroha-job build -mod=mod -o /out/iroha-job .
 
 FROM debian:bookworm-slim AS server
+# CA certs are required for outbound HTTPS (e.g. Nominatim geocoding).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /out/iroha-server /usr/local/bin/iroha-server
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/iroha-server"]
 
 FROM debian:bookworm-slim AS job
+# CA certs are required for outbound HTTPS (AniList/Bangumi media sync).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /out/iroha-job /usr/local/bin/iroha-job
 ENTRYPOINT ["/usr/local/bin/iroha-job"]

@@ -1,13 +1,11 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import {
-    listDaily,
-    listSleep,
-    listActivities,
+    getBriefing,
     type DailyRow,
     type SleepSession,
     type Activity,
-    type Page,
+    type MediaHomeEvent,
+    type BriefingResponse,
   } from "$lib/api";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
@@ -19,10 +17,7 @@
     formatHr,
   } from "$lib/format";
 
-  let dailyByDay = $state(new Map<string, DailyRow>());
-  let sleepByDay = $state(new Map<string, SleepSession[]>());
-  let actByDay = $state(new Map<string, Activity[]>());
-  let daysWithData = $state<string[]>([]);
+  let briefing = $state<BriefingResponse | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -30,32 +25,26 @@
   let day = $state<string>(new Date().toISOString().slice(0, 10));
   let pickerOpen = $state(false);
 
-  async function sweep<T>(
-    fn: (cursor?: string) => Promise<Page<T>>,
-  ): Promise<T[]> {
-    const out: T[] = [];
-    let cursor: string | undefined;
-    for (let i = 0; i < 30; i++) {
-      const p = await fn(cursor);
-      out.push(...p.items);
-      if (!p.has_more || !p.next_cursor) break;
-      cursor = p.next_cursor;
-    }
-    return out;
-  }
-  function group<T>(arr: T[], key: (t: T) => string): Map<string, T[]> {
-    const m = new Map<string, T[]>();
-    for (const t of arr) {
-      const k = key(t);
-      (m.get(k) ?? m.set(k, []).get(k)!).push(t);
-    }
-    return m;
+  type BriefingList<T> = { items: T[]; has_more: boolean };
+  function sectionData<T>(key: string): BriefingList<T> {
+    const section = briefing?.sections.find((item) => item.key === key);
+    return (
+      (section?.data as BriefingList<T> | undefined) ?? {
+        items: [],
+        has_more: false,
+      }
+    );
   }
 
-  const dRow = $derived(dailyByDay.get(day));
-  const nights = $derived(sleepByDay.get(day) ?? []);
+  const daily = $derived(sectionData<DailyRow>("daily"));
+  const sleep = $derived(sectionData<SleepSession>("sleep"));
+  const activities = $derived(sectionData<Activity>("activities"));
+  const media = $derived(sectionData<MediaHomeEvent>("media"));
+  const dRow = $derived(daily.items[0]);
+  const nights = $derived(sleep.items);
   const mainNight = $derived(nights.find((n) => n.is_main_sleep) ?? nights[0]);
-  const acts = $derived(actByDay.get(day) ?? []);
+  const acts = $derived(activities.items);
+  const mediaEvents = $derived(media.items);
   const hasRing = $derived(!!dRow && dRow.move_goal_kcal > 0);
   const ringData = $derived<Ring[]>(
     hasRing && dRow
@@ -107,14 +96,14 @@
       timeZone: "UTC",
     }),
   );
-  const isLatest = $derived(
-    daysWithData.length > 0 && day === daysWithData[daysWithData.length - 1],
-  );
   const dayHasData = $derived(
-    dailyByDay.has(day) || sleepByDay.has(day) || actByDay.has(day),
+    briefing?.sections.some(
+      (section) =>
+        section.state === "ready" &&
+        (section.data as { items?: unknown[] }).items?.length,
+    ) ?? false,
   );
-  const daysSet = $derived(new Set(daysWithData));
-  const maxDay = $derived(daysWithData[daysWithData.length - 1]);
+  const daysSet = $derived(new Set([day]));
 
   function shift(delta: number) {
     // All in UTC: parsing local midnight then emitting toISOString (UTC)
@@ -135,9 +124,6 @@
     else if (e.key === "ArrowRight") shift(1);
     else if (e.key === "Escape") pickerOpen = false;
   }
-  function jumpLatest() {
-    if (daysWithData.length) day = daysWithData[daysWithData.length - 1];
-  }
   function num(v: number | null | undefined, digits: number): string {
     if (typeof v !== "number" || !Number.isFinite(v)) return "—";
     return v.toLocaleString(undefined, {
@@ -146,32 +132,31 @@
     });
   }
 
-  onMount(async () => {
+  async function loadBriefing(selectedDay: string) {
+    loading = true;
+    error = null;
     try {
-      // 100 = the list endpoints' max page size (>100 is clamped to 50), so
-      // this sweeps history in the fewest requests.
-      const [daily, sleep, activities] = await Promise.all([
-        sweep<DailyRow>((c) => listDaily({ limit: 100, cursor: c })),
-        sweep<SleepSession>((c) => listSleep({ limit: 100, cursor: c })),
-        sweep<Activity>((c) => listActivities({ limit: 100, cursor: c })),
-      ]);
-      dailyByDay = new Map(daily.map((r) => [r.day.slice(0, 10), r]));
-      sleepByDay = group(sleep, (s) => s.wake_date.slice(0, 10));
-      actByDay = group(activities, (a) => a.started_at.slice(0, 10));
-      daysWithData = [
-        ...new Set([
-          ...dailyByDay.keys(),
-          ...sleepByDay.keys(),
-          ...actByDay.keys(),
-        ]),
-      ].sort();
-      if (daysWithData.length) day = daysWithData[daysWithData.length - 1];
+      const next = await getBriefing(selectedDay);
+      if (selectedDay === day) briefing = next;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
       loading = false;
     }
+  }
+
+  $effect(() => {
+    void loadBriefing(day);
   });
+
+  function mediaEventVerb(event: MediaHomeEvent): string {
+    if (event.rating != null) return "Rated";
+    if (event.progress_percent != null && event.progress_percent >= 100)
+      return "Finished";
+    if (event.position != null || event.progress_percent != null)
+      return "Progressed";
+    return "Updated library";
+  }
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -192,10 +177,6 @@
     </button>
     <button class="nav" aria-label="Next day" onclick={() => shift(1)}>›</button
     >
-    {#if !isLatest}
-      <button class="latest" onclick={jumpLatest}>Latest ›|</button>
-    {/if}
-
     {#if pickerOpen}
       <button
         class="pk-backdrop"
@@ -206,7 +187,6 @@
         <DayPicker
           value={day}
           days={daysSet}
-          max={maxDay}
           onselect={(d) => {
             day = d;
             pickerOpen = false;
@@ -301,10 +281,38 @@
         {/if}
       </div>
 
-      <!-- Media placeholder -->
-      <div class="card tile soon">
-        <header><span class="ic">▤</span> Media</header>
-        <p class="empty">Reading &amp; watching — coming soon</p>
+      <!-- Media events: the selected-day slice of the media history. -->
+      <div class="card tile wide media-card">
+        <header>
+          <span class="ic">▤</span>
+          <a class="hdr-link" href="/media">Media</a>
+        </header>
+        {#if mediaEvents.length}
+          <ul class="media-events">
+            {#each mediaEvents as event (event.id)}
+              <li>
+                <a class="media-event-row" href={`/media/${event.media_id}`}>
+                  {#if event.cover_image_url}
+                    <img src={event.cover_image_url} alt="" loading="lazy" />
+                  {:else}
+                    <span class="media-thumb" aria-hidden="true"
+                      >{event.title.slice(0, 1)}</span
+                    >
+                  {/if}
+                  <span class="media-event-copy">
+                    <strong>{event.title}</strong>
+                    <span>{mediaEventVerb(event)}</span>
+                  </span>
+                  {#if event.rating != null}<span class="media-score"
+                      >{event.rating.toFixed(1)}</span
+                    >{/if}
+                </a>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="empty">No media events this day</p>
+        {/if}
       </div>
     </div>
   {/if}
@@ -393,21 +401,6 @@
     border-color: var(--accent);
     color: var(--accent);
   }
-  .latest {
-    appearance: none;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-muted);
-    padding: 0.35rem 0.6rem;
-    border-radius: var(--radius);
-    font-size: 0.78rem;
-    cursor: pointer;
-  }
-  .latest:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-
   .bento {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -428,9 +421,6 @@
   }
   .card.wide {
     grid-column: span 2;
-  }
-  .card.soon {
-    opacity: 0.7;
   }
   .card header {
     display: flex;
@@ -534,6 +524,59 @@
     color: var(--text-muted);
     font-size: 0.8rem;
     overflow-wrap: anywhere;
+  }
+  .media-events {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.55rem;
+  }
+  .media-event-row {
+    display: grid;
+    grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    color: var(--text);
+  }
+  .media-event-row:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .media-event-row img,
+  .media-thumb {
+    width: 2.2rem;
+    height: 2.2rem;
+    object-fit: cover;
+    border-radius: 4px;
+  }
+  .media-thumb {
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    color: var(--accent);
+    font-weight: 800;
+  }
+  .media-event-copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.15rem;
+  }
+  .media-event-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.82rem;
+  }
+  .media-event-copy span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+  .media-score {
+    color: var(--accent);
+    font-size: 0.78rem;
+    font-weight: 750;
   }
 
   @media (max-width: 820px) {

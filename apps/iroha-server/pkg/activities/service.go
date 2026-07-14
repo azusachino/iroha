@@ -51,13 +51,14 @@ type Cursor struct {
 }
 
 type ListFilters struct {
-	SportType    string
-	StartedFrom  *time.Time
-	StartedTo    *time.Time
-	DistanceMinM *float64
-	DistanceMaxM *float64
-	Limit        int
-	Cursor       *Cursor
+	SportType     string
+	StartedFrom   *time.Time
+	StartedTo     *time.Time
+	StartedBefore *time.Time
+	DistanceMinM  *float64
+	DistanceMaxM  *float64
+	Limit         int
+	Cursor        *Cursor
 }
 
 // Page is one keyset window; NextCursor is nil when no further rows exist.
@@ -86,6 +87,9 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 	}
 	if filters.StartedTo != nil {
 		query = query.Where("started_at <= ?", *filters.StartedTo)
+	}
+	if filters.StartedBefore != nil {
+		query = query.Where("started_at < ?", *filters.StartedBefore)
 	}
 	// Distance filters naturally exclude rows with a NULL distance_m.
 	if filters.DistanceMinM != nil {

@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   listActivities,
+  getMediaAggregates,
+  getMedia,
+  listMediaEvents,
   getActivity,
   getActivityRoute,
   getActivitySamplings,
@@ -112,6 +115,38 @@ describe("listActivities", () => {
 
     const result = await listActivities({}, fakeFetch);
     expect(result).toEqual(mockPage);
+  });
+});
+
+describe("getMediaAggregates", () => {
+  it("requests the media aggregates endpoint", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMediaAggregates(fakeFetch);
+
+    expect(getCapturedUrl()).toContain("/api/v1/media/aggregates");
+  });
+});
+
+describe("getMedia", () => {
+  it("encodes the media id in the detail path", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMedia("media_123/unsafe", fakeFetch);
+
+    expect(getCapturedUrl()).toContain("/api/v1/media/media_123%2Funsafe");
+  });
+});
+
+describe("listMediaEvents", () => {
+  it("builds the date-filtered events URL", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await listMediaEvents(
+      { from: "2026-01-01", to: "2026-01-31", limit: 20 },
+      fakeFetch,
+    );
+
+    expect(getCapturedUrl()).toContain("/api/v1/media/events");
+    expect(getCapturedUrl()).toContain("from=2026-01-01");
+    expect(getCapturedUrl()).toContain("to=2026-01-31");
   });
 });
 

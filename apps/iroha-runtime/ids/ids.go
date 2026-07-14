@@ -14,6 +14,7 @@ const (
 	SleepPrefix        = "sleep"
 	SleepSegmentPrefix = "sleepseg"
 	DailySummaryPrefix = "daily"
+	MediaPrefix        = "media"
 )
 
 func New() (uuid.UUID, error) {

@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	connector "github.com/azusachino/iroha/apps/iroha-core/connector/v1"
@@ -29,7 +30,8 @@ import (
 
 func main() {
 	once := flag.Bool("once", false, "process at most one due schedule and one queued job")
-	pollInterval := flag.Duration("poll-interval", 5*time.Second, "delay between polling attempts")
+	pollInterval := flag.Duration("poll-interval", time.Second, "idle backoff between polls when the queue is empty")
+	concurrency := flag.Int("concurrency", 4, "number of worker goroutines draining the queue")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -96,47 +98,38 @@ func main() {
 	}
 	syncRunner := imports.NewSyncRunner(db, connectors, rawFileService, importService)
 
-	// Both kinds run the same import pipeline (Process dispatches on the
-	// job's parser_kind); only the parser kinds parsers.IsImplemented allows
-	// are ever enqueued, so only those get a handler here.
-	importHandler := makeImportParseHandler(importService)
-	handlers := map[string]jobs.Handler{
-		jobs.KindAppleImportParse: importHandler,
-		jobs.KindGPXImportParse:   importHandler,
-		jobs.KindMediaIntakeParse: importHandler,
-		jobs.KindMediaSyncAniList: makeMediaSyncHandler(syncRunner, "anilist"),
-		jobs.KindMediaSyncBangumi: makeMediaSyncHandler(syncRunner, "bangumi"),
-	}
+	// Both import kinds run the same pipeline (Process dispatches on the job's
+	// parser_kind); only parsers.IsImplemented kinds are ever enqueued, so only
+	// those get a handler. Register couples each kind to its typed payload.
+	registry := jobs.NewRegistry()
+	importHandler := importParseHandler(importService)
+	jobs.Register(registry, jobs.KindAppleImportParse, importHandler)
+	jobs.Register(registry, jobs.KindGPXImportParse, importHandler)
+	jobs.Register(registry, jobs.KindMediaIntakeParse, importHandler)
+	jobs.Register(registry, jobs.KindMediaSyncAniList, mediaSyncHandler(syncRunner, "anilist"))
+	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
 
-	jobsService = jobs.NewService(db, logger, handlers)
-	ctx := context.Background()
+	jobsService = jobs.NewService(db, logger, registry.Handlers())
 
-	for {
-		if err := tick(ctx, jobsService, logger, workerID); err != nil && !errors.Is(err, jobs.ErrNoJobAvailable) {
-			logger.Error("worker tick", "error", err)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if *once {
+		if _, err := jobsService.EnqueueDueSchedules(1); err != nil {
+			logger.Error("enqueue due schedules", "error", err)
 		}
-		if *once {
-			return
+		if _, err := jobsService.ProcessNext(ctx, workerID); err != nil && !errors.Is(err, jobs.ErrNoJobAvailable) {
+			logger.Error("process job", "error", err)
 		}
-		time.Sleep(*pollInterval)
-	}
-}
-
-func tick(ctx context.Context, service *jobs.Service, logger *slog.Logger, workerID string) error {
-	enqueued, err := service.EnqueueDueSchedules(1)
-	if err != nil {
-		return err
-	}
-	if enqueued > 0 {
-		logger.Info("enqueued due schedules", "count", enqueued)
+		return
 	}
 
-	job, err := service.ProcessNext(ctx, workerID)
-	if err != nil {
-		return err
-	}
-	logger.Info("processed job", "job_id", job.ID.String(), "kind", job.Kind)
-	return nil
+	logger.Info("worker pool starting", "concurrency", *concurrency, "poll_interval", pollInterval.String())
+	jobsService.Run(ctx, jobs.RunConfig{
+		WorkerID:     workerID,
+		Concurrency:  *concurrency,
+		PollInterval: *pollInterval,
+	})
 }
 
 func defaultWorkerID() (string, error) {
@@ -161,14 +154,12 @@ func (e *workerEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (model
 	return (*e.service).EnqueueTx(tx, jobs.EnqueueInput{Kind: kind, Payload: payload})
 }
 
-func makeImportParseHandler(importService *imports.Service) jobs.Handler {
-	return func(ctx context.Context, job models.Job) error {
-		var payload struct {
-			ImportJobID string `json:"import_job_id"`
-		}
-		if err := json.Unmarshal(job.PayloadJSON, &payload); err != nil {
-			return fmt.Errorf("decode payload: %w", err)
-		}
+type importParsePayload struct {
+	ImportJobID string `json:"import_job_id"`
+}
+
+func importParseHandler(importService *imports.Service) func(context.Context, importParsePayload) error {
+	return func(ctx context.Context, payload importParsePayload) error {
 		if payload.ImportJobID == "" {
 			return fmt.Errorf("import_job_id is required in payload")
 		}
@@ -180,15 +171,13 @@ func makeImportParseHandler(importService *imports.Service) jobs.Handler {
 	}
 }
 
-func makeMediaSyncHandler(runner *imports.SyncRunner, connectorID string) jobs.Handler {
-	return func(ctx context.Context, job models.Job) error {
-		var payload struct {
-			ConnectorID string                `json:"connector_id"`
-			Credentials connector.Credentials `json:"credentials"`
-		}
-		if err := json.Unmarshal(job.PayloadJSON, &payload); err != nil {
-			return fmt.Errorf("decode media sync payload: %w", err)
-		}
+type mediaSyncPayload struct {
+	ConnectorID string                `json:"connector_id"`
+	Credentials connector.Credentials `json:"credentials"`
+}
+
+func mediaSyncHandler(runner *imports.SyncRunner, connectorID string) func(context.Context, mediaSyncPayload) error {
+	return func(ctx context.Context, payload mediaSyncPayload) error {
 		if payload.ConnectorID == "" {
 			payload.ConnectorID = connectorID
 		}
