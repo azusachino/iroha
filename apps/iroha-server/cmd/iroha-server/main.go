@@ -62,19 +62,25 @@ func main() {
 	sleepService := sleep.NewService(db)
 	dailyService := daily.NewService(db)
 	mediaService := media.NewService(db)
+	briefingRegistry, err := httpapi.NewBriefingRegistry(dailyService, sleepService, activityService, mediaService)
+	if err != nil {
+		logger.Error("create briefing registry", "error", err)
+		os.Exit(1)
+	}
 
 	server := httpapi.NewServer(httpapi.Dependencies{
-		Config:          cfg,
-		Logger:          logger,
-		ActivityService: activityService,
-		SleepService:    sleepService,
-		DailyService:    dailyService,
-		MediaService:    mediaService,
-		ImportService:   importService,
-		RawFileService:  rawFileService,
-		Cache:           cacheClient,
-		MaxUploadBytes:  2 << 30,
-		AllowedOrigins:  cfg.Server.AllowedOrigins,
+		Config:           cfg,
+		Logger:           logger,
+		ActivityService:  activityService,
+		SleepService:     sleepService,
+		DailyService:     dailyService,
+		MediaService:     mediaService,
+		BriefingRegistry: briefingRegistry,
+		ImportService:    importService,
+		RawFileService:   rawFileService,
+		Cache:            cacheClient,
+		MaxUploadBytes:   2 << 30,
+		AllowedOrigins:   cfg.Server.AllowedOrigins,
 	})
 
 	logger.Info("starting iroha-server", "addr", cfg.Server.Addr)
