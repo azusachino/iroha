@@ -10,6 +10,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
@@ -34,17 +35,18 @@ const (
 )
 
 type Dependencies struct {
-	Config          config.Config
-	Logger          *slog.Logger
-	ActivityService *activities.Service
-	SleepService    *sleep.Service
-	DailyService    *daily.Service
-	MediaService    *media.Service
-	ImportService   *imports.Service
-	RawFileService  *rawfiles.Service
-	Cache           *cache.Client
-	MaxUploadBytes  int64
-	AllowedOrigins  []string
+	Config           config.Config
+	Logger           *slog.Logger
+	ActivityService  *activities.Service
+	SleepService     *sleep.Service
+	DailyService     *daily.Service
+	MediaService     *media.Service
+	BriefingRegistry *briefing.Registry
+	ImportService    *imports.Service
+	RawFileService   *rawfiles.Service
+	Cache            *cache.Client
+	MaxUploadBytes   int64
+	AllowedOrigins   []string
 }
 
 type Server struct {
@@ -63,6 +65,9 @@ func NewServer(deps Dependencies) http.Handler {
 	server := &Server{
 		deps: deps,
 		mux:  chi.NewRouter(),
+	}
+	if server.deps.BriefingRegistry == nil {
+		server.deps.BriefingRegistry, _ = briefing.NewRegistry()
 	}
 	server.routes()
 	return server
@@ -87,6 +92,7 @@ func (s *Server) routes() {
 		// Private API: CORS limited to configured origins.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
 		r.Use(limitByIP(apiLimit))
+		r.Get("/briefing", s.handleBriefing)
 		r.Route("/raw-files", func(r chi.Router) {
 			r.With(s.requireUploadAuth).Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
