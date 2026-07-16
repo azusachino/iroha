@@ -2,10 +2,10 @@
 
 ## Current Assumption
 
-Iroha development happens on macOS. Nix is the universal manager for tools and developer entrypoints. The repo uses `uv` for Python-based scripts inside that Nix-managed environment and can use Apple
-`container` for local containerized services.
+Iroha development happens on macOS. Nix is the universal manager for tools and developer entrypoints. The repo uses `uv` for Python-based scripts inside that Nix-managed environment and Podman with
+`podman-compose` for local containerized services.
 
-The runtime design should be capability-based. Do not assume Docker Compose compatibility unless it has been tested locally.
+The runtime design should be capability-based. The checked-in Compose files target the OCI-compatible Podman runtime; Docker compatibility is incidental and not the supported local contract.
 
 ## Nix
 
@@ -24,7 +24,7 @@ nix develop
 
 Nix should manage tool availability and versions. Project scripts should assume they are running inside `nix develop`, but keep commands plain enough that CI can reuse them.
 
-Apple `container` may remain a macOS system install if it is not practical to package through Nix. In that case, Nix-managed scripts should detect it and report a clear missing-runtime error.
+Podman and `podman-compose` may remain macOS system tools if it is not practical to package them through Nix. The uv-managed runner detects missing tools and reports a clear prerequisite error.
 
 ## `uv`
 
@@ -112,29 +112,20 @@ Pitfalls to avoid:
 Do not use a Git submodule for `iroha-server` unless it must live in a separate repository with independent release ownership. In this product phase, `iroha-server` should be a subdirectory module
 inside the iroha repo, not an external Git submodule.
 
-## Apple `container`
+## Podman
 
-Apple `container` is the preferred macOS container runtime candidate for local services.
+Podman is the supported local container runtime. On macOS it runs the containers inside a Podman machine; the machine disk is separate from the repository and should be sized deliberately rather than
+using an oversized default.
 
-Verified local fact:
+Verified local tools on the development host:
 
 ```text
-container CLI version 1.1.0
+podman 5.8.2
+podman-compose 1.5.0
 ```
 
-Upstream facts to preserve:
-
-- `container` runs Linux containers as lightweight VMs on Apple silicon Macs.
-- It consumes and produces OCI-compatible images.
-- It can build images from Dockerfiles or Containerfiles.
-- The service is started with `container system start`.
-- Basic workflows include `container build`, `container run`, `container list`, `container logs`, `container exec`, and `container stop`.
-- Newer upstream docs describe macOS 26 as the supported target and note limitations on macOS 15 networking.
-
-## Practical Rule
-
-Use Apple `container` for explicit local services, not as a transparent Docker Compose replacement. The repo uses `bianpai --backend container` as the local orchestration layer for supported
-host-published services.
+Initialize a lean machine once when needed, then start it before using the stack. Do not run `podman system prune` or remove volumes as part of normal development; raw imports remain in `.iroha-data`,
+while database/cache volumes are explicitly managed by the stack.
 
 For MVP v0, the important local service is Postgres with PostGIS.
 
@@ -142,13 +133,15 @@ Target shape:
 
 ```text
 ops/local-dev/compose.yaml
-  -> single Postgres/PostGIS service
-  -> publishes 5432 to localhost
-  -> uses a named persistent volume
+  -> Postgres/PostGIS and Valkey dependencies
+  -> server, worker, and web services
+  -> fixed private service names plus host-published developer ports
+  -> named database/cache volumes and a shared `.iroha-data` bind mount
 
 scripts/dev_stack.py
-  start     -> start Apple container + bianpai stack, wait for DB, apply migrations
-  stop      -> stop and remove stack containers/networks
+  start     -> start/build the complete Podman Compose stack, wait for DB, apply migrations
+  deps      -> start only Postgres/Valkey, wait for DB, apply migrations
+  stop      -> stop and remove stack containers/network
   status    -> show stack status
   logs      -> show database logs
   reset     -> recreate local dev database volume, wait for DB, apply migrations
@@ -195,8 +188,7 @@ No manual `uv` environment setup is needed. Run repo scripts through `make` or `
 
 ## Postgres/PostGIS Runtime Shape
 
-Use an OCI image that supports arm64. The validated local image is `ghcr.io/baosystems/postgis:17-3.5`. The upstream `postgis/postgis:17-3.5` image failed under bianpai on this Apple Silicon host with
-`unsupported platform ... linux/arm64`.
+Use an OCI image that supports arm64. The validated local image is `ghcr.io/baosystems/postgis:18-3.6`.
 
 Runtime requirements:
 
@@ -264,35 +256,31 @@ IROHA_LOCAL_NO_AUTH
 IROHA_IMPORT_TOKEN
 ```
 
-## Networking Constraint
-
-Do not design local dev around container-to-container service DNS yet.
-
-Safer MVP shape:
-
-```text
-Postgres/PostGIS container
-  -> publishes 5432 to localhost
-
-iroha-server
-  -> runs on host during early development
-  -> connects to localhost:5432
-```
-
-Later, if Apple `container` networking proves reliable for this repo, the app server can also run in a container.
-
-## Open Checks Before Implementation
-
-Before writing runtime scripts, verify on the local machine:
+## Commands
 
 ```bash
-container system start
-container build --help
-container run --help
-container volume --help
-container network --help
+make db-up       # Postgres/PostGIS + Valkey, migrations, host-process development
+make dev-up      # complete Podman Compose stack: db, Valkey, server, job, web
+make dev-watch   # rebuild changed server/job/web services while developing
+make db-status
+make db-logs
+make db-down
+make db-reset    # destructive: removes database/cache volumes, then migrates
 ```
 
-If local help output does not expose subcommand flags, test with a disposable image before encoding flags in scripts.
+The Makefile is intentionally thin. Lifecycle, readiness, migration, and command construction live in `scripts/dev_stack.py`; business/import exploration and smoke assertions live in uv scripts.
 
-The first runtime script should be conservative and easy to replace.
+`make dev-watch` polls source mtimes and rebuilds only affected Compose services. Go changes rebuild `server` and `job`; web changes rebuild `web`; Compose changes rebuild the affected profile. It is
+deliberately dependency-free and runs inside the same Podman machine.
+
+The real import smoke runs against host-published ports while the worker remains a container:
+
+```bash
+make smoke-local FILE=.iroha-data/imports/apple-health-export.zip
+```
+
+For a non-mutating local-stack soak, use the same boundary:
+
+```bash
+make soak-local SOAK_ARGS="--duration-s 300 --interval-s 2"
+```

@@ -9,7 +9,7 @@ WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate db-up db-down db-status db-logs db-reset smoke-real-import
+.PHONY: help fmt fmt-check vet lint test test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local
 
 PRETTIER := bunx prettier@3.4.2
 DOCS_GLOB := **/*.{md,yaml,yml,json}
@@ -84,9 +84,15 @@ fmt-docs-check: ## Fail if any doc/config file is unformatted
 check: fmt-check vet lint test scripts-test web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + script tests + web fmt-check + web type-check + web tests
 validate: check build web-build ## Pre-PR gate: check + full server and web builds
 
-## --- Dev database (Postgres/PostGIS via uv scripts) ---
-db-up: ## Start the local dev database stack and apply migrations
+## --- Dev stack (Podman Compose via uv scripts) ---
+dev-up: ## Start the complete local stack and apply migrations
 	$(NIX_DEV)uv run python scripts/dev_stack.py start
+
+dev-watch: ## Rebuild changed Podman Compose application services
+	$(NIX_DEV)uv run python scripts/dev_watch.py
+
+db-up: ## Start only Postgres/PostGIS and Valkey, then apply migrations
+	$(NIX_DEV)uv run python scripts/dev_stack.py deps
 
 db-down: ## Stop the local dev database
 	$(NIX_DEV)uv run python scripts/dev_stack.py stop
@@ -103,3 +109,10 @@ db-reset: ## Reset the local dev database stack and apply migrations
 smoke-real-import: ## Upload/import a real local file through the HTTP API (FILE=...)
 	@test -n "$(FILE)" || (echo "FILE is required, e.g. make smoke-real-import FILE=.iroha-data/imports/export.zip" >&2; exit 2)
 	$(NIX_DEV)uv run python scripts/real_import_smoke.py "$(FILE)" --api-base "$(or $(API_BASE),http://127.0.0.1:8080)"
+
+smoke-local: ## Run real import smoke against the Podman Compose server and worker
+	@test -n "$(FILE)" || (echo "FILE is required, e.g. make smoke-local FILE=.iroha-data/imports/export.zip" >&2; exit 2)
+	$(NIX_DEV)uv run python scripts/real_import_smoke.py "$(FILE)" --assert --api-base "$(or $(API_BASE),http://127.0.0.1:8080)"
+
+soak-local: ## Run non-mutating HTTP soak checks against the Podman Compose stack
+	$(NIX_DEV)uv run python scripts/local_stack_soak.py $(SOAK_ARGS)

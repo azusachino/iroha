@@ -10,13 +10,16 @@ services:
       target: server
     environment:
       IROHA_SERVER_ADDR: 0.0.0.0:8080
-      IROHA_DATABASE_URL: __DATABASE_URL__
-      IROHA_VALKEY_URL: __VALKEY_URL__
+      IROHA_DATABASE_URL: postgres://iroha:iroha_dev@db:5432/iroha?sslmode=disable
+      IROHA_VALKEY_URL: redis://valkey:6379/0
       IROHA_DATA_DIR: /data
       IROHA_LOCAL_NO_AUTH: "true"
       IROHA_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://harus-macmini:5173
     ports:
       - "8080:8080"
+    depends_on:
+      - db
+      - valkey
     volumes:
       - ../../.iroha-data:/data
 
@@ -28,11 +31,16 @@ services:
       dockerfile: ops/local-dev/Containerfile.server
       target: job
     environment:
-      IROHA_DATABASE_URL: __DATABASE_URL__
-      IROHA_VALKEY_URL: __VALKEY_URL__
+      IROHA_DATABASE_URL: postgres://iroha:iroha_dev@db:5432/iroha?sslmode=disable
+      IROHA_VALKEY_URL: redis://valkey:6379/0
       IROHA_DATA_DIR: /data
+      IROHA_ANILIST_USERNAME: azusachino
+      IROHA_BANGUMI_USERNAME: mikufan2039
     volumes:
       - ../../.iroha-data:/data
+    depends_on:
+      - db
+      - valkey
 
   web:
     cpus: 1
@@ -43,6 +51,8 @@ services:
       args:
         PUBLIC_IROHA_API_BASE: ""
     environment:
-      IROHA_SERVER_UPSTREAM: __SERVER_IP__:8080
+      IROHA_SERVER_UPSTREAM: server:8080
     ports:
       - "5173:80"
+    depends_on:
+      - server
