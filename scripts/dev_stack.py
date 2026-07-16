@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 import os
-import json
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -23,22 +21,30 @@ DB_NAME = os.environ.get("IROHA_DB_NAME", "iroha")
 
 
 def usage() -> int:
-    print("usage: uv run python scripts/dev_stack.py {start|stop|status|logs|reset|wait}", file=sys.stderr)
+    print("usage: uv run python scripts/dev_stack.py {start|deps|stop|status|logs|reset|wait}", file=sys.stderr)
     return 2
 
 
-def bianpai_bin() -> str:
-    configured = os.environ.get("BIANPAI")
+def podman_bin() -> str:
+    configured = os.environ.get("PODMAN")
     if configured:
         return configured
-    found = shutil.which("bianpai")
+    found = shutil.which("podman")
     if found:
         return found
-    fallback = Path("/private/tmp/bianpai")
-    if fallback.exists():
-        return str(fallback)
+    print("podman is required. Install it or set PODMAN=/path/to/podman.", file=sys.stderr)
+    return ""
+
+
+def compose_bin() -> str:
+    configured = os.environ.get("PODMAN_COMPOSE")
+    if configured:
+        return configured
+    found = shutil.which("podman-compose")
+    if found:
+        return found
     print(
-        "bianpai is required. Set BIANPAI=/path/to/bianpai or install it on PATH.",
+        "podman-compose is required. Install it or set PODMAN_COMPOSE=/path/to/podman-compose.",
         file=sys.stderr,
     )
     return ""
@@ -54,56 +60,30 @@ def check_call(cmd: list[str], env: dict[str, str] | None = None) -> None:
     subprocess.check_call(cmd, cwd=ROOT, env=env)
 
 
-def bianpai_cmd() -> list[str]:
-    binary = bianpai_bin()
-    if not binary:
+def podman_cmd() -> list[str]:
+    binary = podman_bin()
+    compose = compose_bin()
+    if not binary or not compose:
         raise SystemExit(2)
-    return [binary, "--backend", "container", "-f", str(COMPOSE_FILE)]
+    return [compose, "-f", str(COMPOSE_FILE), "-f", str(APP_COMPOSE_FILE), "-p", "iroha-dev"]
 
 
-def container_ip(container_name: str) -> str:
-    result = subprocess.run(
-        ["container", "inspect", container_name],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    payload = json.loads(result.stdout)
-    try:
-        address = payload[0]["status"]["networks"][0]["ipv4Address"]
-    except (IndexError, KeyError) as exc:
-        raise RuntimeError(f"container {container_name} has no private IPv4 address") from exc
-    return address.split("/", 1)[0]
-
-
-def app_compose_file(server_ip: str = "127.0.0.1") -> Path:
-    db_ip = container_ip("iroha-dev_db_1")
-    valkey_ip = container_ip("iroha-dev_valkey_1")
-    content = APP_COMPOSE_FILE.read_text()
-    content = content.replace(
-        "__DATABASE_URL__",
-        f"postgres://iroha:iroha_dev@{db_ip}:5432/iroha?sslmode=disable",
-    )
-    content = content.replace("__VALKEY_URL__", f"redis://{valkey_ip}:6379/0")
-    content = content.replace("__SERVER_IP__", server_ip)
-    temporary = tempfile.NamedTemporaryFile(
-        mode="w",
-        prefix="iroha-app-",
-        suffix=".yaml",
-        dir=ROOT / "ops" / "local-dev",
-        delete=False,
-    )
-    with temporary:
-        temporary.write(content)
-    return Path(temporary.name)
-
-
-def app_bianpai_cmd(compose_file: Path) -> list[str]:
-    binary = bianpai_bin()
-    if not binary:
+def ensure_machine() -> None:
+    podman = podman_bin()
+    if not podman:
         raise SystemExit(2)
-    return [binary, "--backend", "container", "-f", str(compose_file)]
+    result = subprocess.run([podman, "info"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    if result.returncode == 0:
+        return
+    start = subprocess.run([podman, "machine", "start"], cwd=ROOT, capture_output=True, text=True)
+    if start.returncode == 0:
+        return
+    print(
+        "Podman is unavailable. Start an existing machine with `podman machine start`; "
+        "if none exists, initialize one with a deliberate disk size (for example `--disk-size 30`).",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
 
 
 def wait_for_db(timeout_s: int = 60) -> int:
@@ -130,60 +110,33 @@ def main() -> int:
         return usage()
 
     action = sys.argv[1]
-    if action not in {"start", "stop", "status", "logs", "reset", "wait"}:
+    if action not in {"start", "deps", "stop", "status", "logs", "reset", "wait"}:
         return usage()
 
     if action == "wait":
         return wait_for_db()
 
-    cmd = bianpai_cmd()
-    if action == "start":
-        check_call(["container", "system", "start"])
-        check_call(cmd + ["up", "-d"])
+    ensure_machine()
+    if action in {"start", "deps"}:
+        services = [] if action == "start" else ["db", "valkey"]
+        check_call(podman_cmd() + ["up", "--build", "-d", *services])
         if wait_for_db() != 0:
             return 1
         if migrate() != 0:
             return 1
-        app_file = app_compose_file()
-        try:
-            if run(app_bianpai_cmd(app_file) + ["up", "--build", "-d", "server", "job"]) != 0:
-                return 1
-            server_ip = container_ip("iroha-dev_server_1")
-            web_file = app_compose_file(server_ip)
-            try:
-                return run(app_bianpai_cmd(web_file) + ["up", "--build", "-d", "web"])
-            finally:
-                web_file.unlink(missing_ok=True)
-        finally:
-            app_file.unlink(missing_ok=True)
+        return 0
 
     if action == "stop":
-        app_file = app_compose_file()
-        try:
-            run(app_bianpai_cmd(app_file) + ["down"])
-        finally:
-            app_file.unlink(missing_ok=True)
-        return run(cmd + ["down"])
+        return run(podman_cmd() + ["down"])
 
     if action == "status":
-        app_file = app_compose_file()
-        try:
-            run(app_bianpai_cmd(app_file) + ["ps"])
-        finally:
-            app_file.unlink(missing_ok=True)
-        return run(cmd + ["ps"])
+        return run(podman_cmd() + ["ps"])
 
     if action == "logs":
-        return run(cmd + ["logs", "db"])
+        return run(podman_cmd() + ["logs", "db"])
 
-    app_file = app_compose_file()
-    try:
-        run(app_bianpai_cmd(app_file) + ["down", "-v"])
-    finally:
-        app_file.unlink(missing_ok=True)
-    check_call(cmd + ["down", "-v"])
-    check_call(["container", "system", "start"])
-    check_call(cmd + ["up", "-d"])
+    check_call(podman_cmd() + ["down", "-v"])
+    check_call(podman_cmd() + ["up", "-d"])
     if wait_for_db() != 0:
         return 1
     return migrate()

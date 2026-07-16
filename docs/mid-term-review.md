@@ -20,9 +20,7 @@ raw file on shared storage
 The core design is coherent enough to continue adding domains. The main mid-term risk is not another domain schema; it is that the runtime and docs still describe the earlier MVP while the code
 already assumes a separate worker, Valkey, absolute shared file paths, and multiple Go modules.
 
-The local stack should move toward fully containerized application services, but this should be a staged runtime migration. The checked-in compose file is currently only a description consumed by
-`bianpai`; Apple `container` itself does not expose a Compose command on this machine. A `Containerfile` plus a small repo-owned runner is therefore the appropriate target, with Compose kept as a
-portable service description where useful.
+The local stack should use fully containerized application services. The checked-in Compose files are now consumed by `podman-compose`, while a small uv-managed runner owns readiness and migrations.
 
 ## What is working well
 
@@ -37,14 +35,12 @@ portable service description where useful.
 
 ### P0 — make one runtime contract authoritative
 
-`make db-up`, `make run`, `make run-job`, integration tests, and the real import smoke currently depend on a host process plus a database/cache stack. The database runner calls `bianpai`, but
-`bianpai` is not installed on this host; the native `container` CLI has no Compose subcommand. This makes the documented happy path unavailable even though the application itself is healthy.
+`make db-up`, `make run`, `make run-job`, integration tests, and the real import smoke use Podman for Postgres/Valkey. `make dev-up` runs the server, worker, and web containers as well.
 
 The next runtime milestone should define one supported local command path:
 
 ```text
 make dev-up
-  -> container system start
   -> build or pull db, valkey, server, job, and web images
   -> create a shared network and persistent volumes
   -> start migrations once
@@ -108,9 +104,8 @@ and teardown. It should not duplicate schema or application logic. A future Dock
 
 1. Add a runtime contract test/spec for service names, mounts, ports, required environment, and health checks. Keep the current database-only path green.
 2. Add server and worker `Containerfile` targets and prove a one-shot worker can process a small fixture through the real HTTP route.
-3. Replace the `bianpai` dependency in the default Apple-container runner with native `container` lifecycle calls; retain a clear optional compatibility path only if another host still needs it.
-4. Add the web production image and a separate optional host-dev profile for hot reload. Do not make frontend hot reload a prerequisite for backend development.
-5. Run the real Apple Health smoke against the fully containerized server and worker, then update runtime docs and the roadmap.
+3. Keep Podman Compose as the default local runtime and retain the host-process `make db-up` compatibility path.
+4. Run the real Apple Health smoke against the fully containerized server and worker, then update runtime docs and the roadmap.
 
 ## Explicit non-goals
 

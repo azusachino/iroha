@@ -60,7 +60,8 @@ Requires [Nix](https://nixos.org/download) with flakes enabled.
 
 ```sh
 nix develop            # enter the dev shell (all tools come from here)
-make db-up             # start Postgres/PostGIS and apply migrations
+make db-up             # start Postgres/PostGIS + Valkey and apply migrations
+make dev-up            # start the complete Podman Compose stack
 make check             # fmt-check + vet + tests + web checks
 make build             # build server and web
 
@@ -74,20 +75,20 @@ make run-job
 
 The server is configured via `iroha.toml` and/or environment variables:
 
-| Env var                | Purpose                              | Default                        |
-| ---------------------- | ------------------------------------ | ------------------------------ |
-| `IROHA_SERVER_ADDR`    | Listen address                       | `127.0.0.1:8080`               |
-| `IROHA_DATABASE_URL`   | Postgres DSN                         | local dev DSN                  |
-| `IROHA_DATA_DIR`       | Raw-file storage dir                 | `.iroha-data`                  |
-| `IROHA_LOCAL_NO_AUTH`  | Disable auth for local dev           | `true`                         |
-| `IROHA_IMPORT_TOKEN`   | Bearer token for the upload contract | —                              |
-| `IROHA_PARSER_VERSION` | Parser build id; bump to reprocess   | `imports.DefaultParserVersion` |
-| `IROHA_ANILIST_USERNAME` | Public AniList username to sync       | —                              |
-| `IROHA_ANILIST_TOKEN`  | Optional AniList OAuth token           | —                              |
-| `IROHA_BANGUMI_USERNAME` | Public Bangumi username to sync        | —                              |
-| `IROHA_BANGUMI_TOKEN` | Optional Bangumi PAT                    | —                              |
-| `IROHA_BANGUMI_BRIDGE_PATH` | Optional Bangumi→MAL JSON cache path | — |
-| `IROHA_MAL_ANILIST_BRIDGE_PATH` | Optional MAL→AniList JSON cache path | — |
+| Env var                         | Purpose                              | Default                        |
+| ------------------------------- | ------------------------------------ | ------------------------------ |
+| `IROHA_SERVER_ADDR`             | Listen address                       | `127.0.0.1:8080`               |
+| `IROHA_DATABASE_URL`            | Postgres DSN                         | local dev DSN                  |
+| `IROHA_DATA_DIR`                | Raw-file storage dir                 | `.iroha-data`                  |
+| `IROHA_LOCAL_NO_AUTH`           | Disable auth for local dev           | `true`                         |
+| `IROHA_IMPORT_TOKEN`            | Bearer token for the upload contract | —                              |
+| `IROHA_PARSER_VERSION`          | Parser build id; bump to reprocess   | `imports.DefaultParserVersion` |
+| `IROHA_ANILIST_USERNAME`        | Public AniList username to sync      | —                              |
+| `IROHA_ANILIST_TOKEN`           | Optional AniList OAuth token         | —                              |
+| `IROHA_BANGUMI_USERNAME`        | Public Bangumi username to sync      | —                              |
+| `IROHA_BANGUMI_TOKEN`           | Optional Bangumi PAT                 | —                              |
+| `IROHA_BANGUMI_BRIDGE_PATH`     | Optional Bangumi→MAL JSON cache path | —                              |
+| `IROHA_MAL_ANILIST_BRIDGE_PATH` | Optional MAL→AniList JSON cache path | —                              |
 
 Smoke-test a real import end to end:
 

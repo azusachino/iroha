@@ -12,7 +12,7 @@ Implementation should stay narrow:
 - no private frontend until milestones 1-3 are complete
 - Nix as the universal developer environment
 - `uv` for repo scripts and local operational helpers
-- Apple `container` for local Postgres/PostGIS on macOS
+- Podman + podman-compose for the local Postgres/PostGIS stack on macOS
 
 ## Milestone 0: Data Rescue
 
@@ -35,7 +35,7 @@ Tasks:
 
 - Add Nix flake for universal local tooling.
 - Add `uv`-driven repo scripts for local checks and operational helpers.
-- Add Apple `container`-based local Postgres/PostGIS runtime scripts for macOS.
+- Add Podman Compose-based local Postgres/PostGIS runtime scripts for macOS.
 - Create Go server skeleton under `apps/iroha-server`.
 - Do not add `go.work` yet unless another Go module exists.
 - Add GORM for application database access.

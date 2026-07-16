@@ -41,8 +41,8 @@ The date is a UTC calendar day. The response is an ordered registry of versioned
 ```
 
 Each contributor owns its section key/schema and returns `ready` or `empty`; query failures become `unavailable` for that section so one domain does not take down the cockpit. The current contributors
-are `daily`, `sleep`, `activities`, and `media`, each capped at 20 rows. A domain page remains responsible for full history and pagination. `previous_date` and `next_date` are calendar navigation,
-not a historical availability index, so empty days remain selectable without a history sweep.
+are `daily`, `sleep`, `activities`, and `media`, each capped at 20 rows. A domain page remains responsible for full history and pagination. `previous_date` and `next_date` are calendar navigation, not
+a historical availability index, so empty days remain selectable without a history sweep.
 
 The endpoint queries each domain with `[date 00:00 UTC, date + 1 day)` predicates and does not call HTTP list endpoints or perform cursor pagination internally. Empty domains are successful empty
 sections, not errors. Go keeps typed contributors; the wire envelope is extensible and the web ignores unknown section keys.
