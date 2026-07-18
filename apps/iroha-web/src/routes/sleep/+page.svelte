@@ -13,6 +13,8 @@
   import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
+  import GrapherSleep from "$lib/themes/grapher/Sleep.svelte";
+  import { getDesignLanguage, type DesignLanguage } from "$lib/design-language";
 
   const PAGE_SIZE = 24;
   let sessions = $state<SleepSession[]>([]);
@@ -36,6 +38,7 @@
   let selectedMonth = $state("all");
   let selectedStage = $state("Core");
   let hoveredStage = $state<string | null>(null);
+  let language = $state<DesignLanguage>("field-journal");
 
   const mainSleep = $derived(
     sessions.filter((session) => session.is_main_sleep),
@@ -267,6 +270,19 @@
     void loadSessions(false);
     void loadAggregates();
   });
+
+  onMount(() => {
+    language = getDesignLanguage();
+    const onLanguageChange = (event: Event) => {
+      language = (event as CustomEvent<DesignLanguage>).detail;
+    };
+    window.addEventListener("iroha:design-language-change", onLanguageChange);
+    return () =>
+      window.removeEventListener(
+        "iroha:design-language-change",
+        onLanguageChange,
+      );
+  });
 </script>
 
 <svelte:head>
@@ -274,317 +290,343 @@
 </svelte:head>
 
 <section class="sleep-shell">
-  <RouteIntro
-    eyebrow="Night / recovery history"
-    title="How are you recovering?"
-    description="A long view of your nights, with the latest one ready to inspect and the longer rhythm close at hand."
-    actionHref="/"
-    actionLabel="Back to Today"
-  />
-
-  {#if sessionsLoading && sessions.length === 0}
-    <section class="status tile"><p>Loading your sleep history…</p></section>
-  {:else if error && !selected}
-    <section class="status tile">
-      <p class="error">Sleep could not be loaded: {error}</p>
-    </section>
-  {:else if !selected}
-    <section class="status tile">
-      <p class="muted">No sleep sessions imported yet.</p>
-    </section>
+  {#if language === "grapher"}
+    {#if sessionsLoading && sessions.length === 0}
+      <section class="status tile"><p>Loading sleep data…</p></section>
+    {:else if error && !selected}
+      <section class="status tile">
+        <p class="error">Sleep could not be loaded: {error}</p>
+      </section>
+    {:else if sessions.length === 0}
+      <section class="status tile">
+        <p class="muted">No sleep sessions imported yet.</p>
+      </section>
+    {:else}
+      <GrapherSleep
+        {sessions}
+        {selected}
+        {averageAsleep}
+        {averageEfficiency}
+        onSelect={(session) => (selected = session)}
+      />
+    {/if}
   {:else}
-    <section class="hero tile">
-      <div class="hero-orb"></div>
-      <div class="hero-topline">
-        <div>
-          <p class="eyebrow">{heroEyebrow}</p>
-          <h2>{formatDuration(selected.asleep_s)} <span>asleep</span></h2>
-        </div>
-        <div class="hero-status">
-          <span class="status-pill"
-            >{selected.is_main_sleep
-              ? "Primary overnight sleep"
-              : "Short session"}</span
-          >
-          <button
-            class="info-button"
-            type="button"
-            aria-label="Explain sleep classification"
-            title="Primary overnight sleep means at least 3 hours asleep. Shorter sessions are treated as naps or fragments."
-            >i</button
-          >
-        </div>
-      </div>
-      <p class="hero-copy">
-        {#if selected.is_main_sleep}
-          Your main overnight window was {formatDuration(
-            selected.time_in_bed_s,
-          )} in bed, with {Math.round(selected.efficiency * 100)}% efficiency.
-        {:else}
-          This session is under three hours asleep, so iroha treats it as a nap
-          or short fragment.
-        {/if}
-      </p>
-      <div class="hero-metrics">
-        <div>
-          <span>In bed</span><strong
-            >{formatDuration(selected.time_in_bed_s)}</strong
-          >
-        </div>
-        <div>
-          <span>Efficiency</span><strong
-            >{Math.round(selected.efficiency * 100)}%</strong
-          >
-        </div>
-        <div>
-          <span>Deep + REM</span><strong
-            >{formatDuration(selected.deep_s + selected.rem_s)}</strong
-          >
-        </div>
-        <div>
-          <span>Source</span><strong>{selected.source || "Apple Health"}</strong
-          >
-        </div>
-      </div>
-    </section>
+    <RouteIntro
+      eyebrow="Night / recovery history"
+      title="How are you recovering?"
+      description="A long view of your nights, with the latest one ready to inspect and the longer rhythm close at hand."
+      actionHref="/"
+      actionLabel="Back to Today"
+    />
 
-    <section class="insight-strip" aria-label="Recent sleep context">
-      <StatTile
-        label="Recent main sleep"
-        value={mainSleep.length.toLocaleString()}
-        sub="In the loaded recent window"
-      />
-      <StatTile
-        label="Average asleep"
-        value={formatDuration(averageAsleep)}
-        sub="Recent main-sleep sessions"
-      />
-      <StatTile
-        label="Average efficiency"
-        value={`${Math.round(averageEfficiency * 100)}%`}
-        sub="Asleep / time in bed"
-      />
-    </section>
-
-    <section class="trend-panel tile">
-      <header class="section-heading">
-        <div>
-          <p class="eyebrow">The long view</p>
-          <h2>Sleep over time</h2>
-        </div>
-        <div class="period-controls" aria-label="Sleep period filters">
-          <select
-            aria-label="Filter by year"
-            value={selectedYear}
-            onchange={(event) => changeYear(event.currentTarget.value)}
-          >
-            <option value="all">All years</option>
-            {#each availableYears as year (year)}<option value={year}
-                >{year}</option
-              >{/each}
-          </select>
-          <select
-            aria-label="Filter by month"
-            value={selectedMonth}
-            onchange={(event) => changeMonth(event.currentTarget.value)}
-            disabled={selectedYear === "all"}
-          >
-            <option value="all">All months</option>
-            {#each availableMonths as month (month)}<option value={month}
-                >{formatPeriod(`${month}-01T00:00:00Z`, "month")}</option
-              >{/each}
-          </select>
-        </div>
-      </header>
-      {#if aggregatesLoading}
-        <p class="muted panel-loading">Building your history…</p>
-      {:else if aggregatesError}
-        <p class="error panel-loading">
-          History could not be loaded: {aggregatesError}
-        </p>
-      {:else}
-        <div class="year-trend">
-          {#each visibleYears as bucket (bucket.period)}
-            <div class="year-card">
-              <div class="year-heading">
-                <strong>{formatPeriod(bucket.period, "year")}</strong><span
-                  >{bucket.session_count} nights</span
-                >
-              </div>
-              <div class="year-bar">
-                <span
-                  style={`width: ${(bucket.session_count / yearMaxSessions) * 100}%`}
-                ></span>
-              </div>
-              <div class="year-detail">
-                <span>{formatDuration(bucket.average_asleep_s)} avg asleep</span
-                ><b>{Math.round(bucket.average_efficiency * 100)}%</b>
-              </div>
-            </div>
-          {/each}
-        </div>
-        {#if focusedBucket}
-          <div class="focus-callout">
-            <span
-              >{selectedMonth !== "all"
-                ? formatPeriod(focusedBucket.period, "month")
-                : selectedYear}</span
-            ><strong
-              >{focusedBucket.session_count} nights · {formatDuration(
-                focusedBucket.average_asleep_s,
-              )} average asleep</strong
-            ><em>{focusedBucket.main_sleep_count} primary overnight sessions</em
-            >
-          </div>
-        {/if}
-        <div class="trend-legend">
-          <span><i class="dot dot-session"></i>Recorded nights</span><span
-            >Average efficiency shown per year</span
-          >
-        </div>
-      {/if}
-    </section>
-
-    <div class="analysis-grid">
-      <section class="stage-panel tile">
-        <header class="section-heading">
-          <div>
-            <p class="eyebrow">Last night</p>
-            <h2>Sleep architecture</h2>
-          </div>
-        </header>
-        <div class="architecture">
-          <SleepArchitectureChart
-            stages={architectureStages}
-            {selectedStage}
-            onStageSelect={(stage) => (selectedStage = stage)}
-            onStageHover={(stage) => (hoveredStage = stage)}
-          />
-          <div class="stage-list">
-            {#each architectureStages as stage (stage.name)}
-              <button
-                class:selected={selectedStage === stage.name}
-                class="stage-button"
-                onclick={() => (selectedStage = stage.name)}
-                ><i class="dot" style={`background: ${stage.color}`}></i><span
-                  >{stage.name}</span
-                ><b>{formatDuration(stage.value)}</b></button
-              >
-            {/each}
-            <div class="stage-focus">
-              <span>Selected stage</span><strong>{activeStage}</strong><b
-                >{formatDuration(activeStageSeconds)}</b
-              >
-            </div>
-          </div>
-        </div>
-        <p class="panel-footnote">
-          Stage estimates are reconstructed from Apple Health records and are
-          best read as patterns, not clinical measurements.
-        </p>
+    {#if sessionsLoading && sessions.length === 0}
+      <section class="status tile"><p>Loading your sleep history…</p></section>
+    {:else if error && !selected}
+      <section class="status tile">
+        <p class="error">Sleep could not be loaded: {error}</p>
       </section>
-
-      <section class="month-panel tile">
-        <header class="section-heading">
-          <div>
-            <p class="eyebrow">The rhythm</p>
-            <h2>Monthly pattern</h2>
-          </div>
-          <span class="section-note">Average asleep</span>
-        </header>
-        <div class="month-list">
-          {#each visibleMonths.slice(0, 12) as bucket (bucket.period)}
-            <div class="month-row">
-              <span>{formatPeriod(bucket.period, "month")}</span>
-              <div class="month-bar">
-                <i
-                  style={`width: ${(bucket.average_asleep_s / monthMaxAsleep) * 100}%`}
-                ></i>
-              </div>
-              <b>{formatDuration(bucket.average_asleep_s)}</b>
-            </div>
-          {/each}
-        </div>
+    {:else if !selected}
+      <section class="status tile">
+        <p class="muted">No sleep sessions imported yet.</p>
       </section>
-    </div>
-
-    <section class="night-panel tile">
-      <header class="section-heading">
-        <div>
-          <p class="eyebrow">Drill down</p>
-          <h2>{nightsHeading}</h2>
-          <p class="muted">Select a night to see the stage timeline.</p>
-        </div>
-        <span class="section-note"
-          >{sessions.length}{hasMore ? "+" : ""} nights in period</span
-        >
-      </header>
-      <div class="night-layout">
-        <div bind:this={nightListContainer} class="night-list">
-          {#each sessions as session (session.id)}
-            <button
-              class:selected={selected.id === session.id}
-              class="night-row"
-              type="button"
-              onclick={() => selectSession(session)}
-              onmouseenter={() => selectSession(session)}
-              onfocus={() => selectSession(session)}
-              aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? "primary overnight sleep" : "short session"}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
-            >
-              <span class="night-date">{formatDateOnly(session.wake_date)}</span
-              ><span>{formatDuration(session.asleep_s)}</span><b
-                >{Math.round(session.efficiency * 100)}%</b
-              ><em class:primary={session.is_main_sleep}
-                >{session.is_main_sleep ? "Primary" : "Short"}</em
-              >
-            </button>
-          {/each}
-          <div
-            bind:this={loadMoreSentinel}
-            class="load-more-sentinel"
-            aria-live="polite"
-          >
-            {#if loadingMore}<span>Loading more nights…</span
-              >{:else if hasMore}<span>Scroll for more nights</span>{/if}
+    {:else}
+      <section class="hero tile">
+        <div class="hero-orb"></div>
+        <div class="hero-topline">
+          <div>
+            <p class="eyebrow">{heroEyebrow}</p>
+            <h2>{formatDuration(selected.asleep_s)} <span>asleep</span></h2>
           </div>
-        </div>
-        <div class="timeline-card">
-          <div class="timeline-meta">
-            <span>{formatDateOnly(selected.wake_date)}</span><span
+          <div class="hero-status">
+            <span class="status-pill"
               >{selected.is_main_sleep
                 ? "Primary overnight sleep"
                 : "Short session"}</span
             >
-          </div>
-          {#if segmentsLoading}<p class="muted panel-loading">
-              Loading stages…
-            </p>{:else}<SleepTimelineChart {segments} />{/if}
-          <div class="timeline-axis">
-            <span
-              >{new Date(selected.started_at).toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              })}</span
-            ><span
-              >{new Date(selected.ended_at).toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              })}</span
+            <button
+              class="info-button"
+              type="button"
+              aria-label="Explain sleep classification"
+              title="Primary overnight sleep means at least 3 hours asleep. Shorter sessions are treated as naps or fragments."
+              >i</button
             >
           </div>
         </div>
+        <p class="hero-copy">
+          {#if selected.is_main_sleep}
+            Your main overnight window was {formatDuration(
+              selected.time_in_bed_s,
+            )} in bed, with {Math.round(selected.efficiency * 100)}% efficiency.
+          {:else}
+            This session is under three hours asleep, so iroha treats it as a
+            nap or short fragment.
+          {/if}
+        </p>
+        <div class="hero-metrics">
+          <div>
+            <span>In bed</span><strong
+              >{formatDuration(selected.time_in_bed_s)}</strong
+            >
+          </div>
+          <div>
+            <span>Efficiency</span><strong
+              >{Math.round(selected.efficiency * 100)}%</strong
+            >
+          </div>
+          <div>
+            <span>Deep + REM</span><strong
+              >{formatDuration(selected.deep_s + selected.rem_s)}</strong
+            >
+          </div>
+          <div>
+            <span>Source</span><strong
+              >{selected.source || "Apple Health"}</strong
+            >
+          </div>
+        </div>
+      </section>
+
+      <section class="insight-strip" aria-label="Recent sleep context">
+        <StatTile
+          label="Recent main sleep"
+          value={mainSleep.length.toLocaleString()}
+          sub="In the loaded recent window"
+        />
+        <StatTile
+          label="Average asleep"
+          value={formatDuration(averageAsleep)}
+          sub="Recent main-sleep sessions"
+        />
+        <StatTile
+          label="Average efficiency"
+          value={`${Math.round(averageEfficiency * 100)}%`}
+          sub="Asleep / time in bed"
+        />
+      </section>
+
+      <section class="trend-panel tile">
+        <header class="section-heading">
+          <div>
+            <p class="eyebrow">The long view</p>
+            <h2>Sleep over time</h2>
+          </div>
+          <div class="period-controls" aria-label="Sleep period filters">
+            <select
+              aria-label="Filter by year"
+              value={selectedYear}
+              onchange={(event) => changeYear(event.currentTarget.value)}
+            >
+              <option value="all">All years</option>
+              {#each availableYears as year (year)}<option value={year}
+                  >{year}</option
+                >{/each}
+            </select>
+            <select
+              aria-label="Filter by month"
+              value={selectedMonth}
+              onchange={(event) => changeMonth(event.currentTarget.value)}
+              disabled={selectedYear === "all"}
+            >
+              <option value="all">All months</option>
+              {#each availableMonths as month (month)}<option value={month}
+                  >{formatPeriod(`${month}-01T00:00:00Z`, "month")}</option
+                >{/each}
+            </select>
+          </div>
+        </header>
+        {#if aggregatesLoading}
+          <p class="muted panel-loading">Building your history…</p>
+        {:else if aggregatesError}
+          <p class="error panel-loading">
+            History could not be loaded: {aggregatesError}
+          </p>
+        {:else}
+          <div class="year-trend">
+            {#each visibleYears as bucket (bucket.period)}
+              <div class="year-card">
+                <div class="year-heading">
+                  <strong>{formatPeriod(bucket.period, "year")}</strong><span
+                    >{bucket.session_count} nights</span
+                  >
+                </div>
+                <div class="year-bar">
+                  <span
+                    style={`width: ${(bucket.session_count / yearMaxSessions) * 100}%`}
+                  ></span>
+                </div>
+                <div class="year-detail">
+                  <span
+                    >{formatDuration(bucket.average_asleep_s)} avg asleep</span
+                  ><b>{Math.round(bucket.average_efficiency * 100)}%</b>
+                </div>
+              </div>
+            {/each}
+          </div>
+          {#if focusedBucket}
+            <div class="focus-callout">
+              <span
+                >{selectedMonth !== "all"
+                  ? formatPeriod(focusedBucket.period, "month")
+                  : selectedYear}</span
+              ><strong
+                >{focusedBucket.session_count} nights · {formatDuration(
+                  focusedBucket.average_asleep_s,
+                )} average asleep</strong
+              ><em
+                >{focusedBucket.main_sleep_count} primary overnight sessions</em
+              >
+            </div>
+          {/if}
+          <div class="trend-legend">
+            <span><i class="dot dot-session"></i>Recorded nights</span><span
+              >Average efficiency shown per year</span
+            >
+          </div>
+        {/if}
+      </section>
+
+      <div class="analysis-grid">
+        <section class="stage-panel tile">
+          <header class="section-heading">
+            <div>
+              <p class="eyebrow">Last night</p>
+              <h2>Sleep architecture</h2>
+            </div>
+          </header>
+          <div class="architecture">
+            <SleepArchitectureChart
+              stages={architectureStages}
+              {selectedStage}
+              onStageSelect={(stage) => (selectedStage = stage)}
+              onStageHover={(stage) => (hoveredStage = stage)}
+            />
+            <div class="stage-list">
+              {#each architectureStages as stage (stage.name)}
+                <button
+                  class:selected={selectedStage === stage.name}
+                  class="stage-button"
+                  onclick={() => (selectedStage = stage.name)}
+                  ><i class="dot" style={`background: ${stage.color}`}></i><span
+                    >{stage.name}</span
+                  ><b>{formatDuration(stage.value)}</b></button
+                >
+              {/each}
+              <div class="stage-focus">
+                <span>Selected stage</span><strong>{activeStage}</strong><b
+                  >{formatDuration(activeStageSeconds)}</b
+                >
+              </div>
+            </div>
+          </div>
+          <p class="panel-footnote">
+            Stage estimates are reconstructed from Apple Health records and are
+            best read as patterns, not clinical measurements.
+          </p>
+        </section>
+
+        <section class="month-panel tile">
+          <header class="section-heading">
+            <div>
+              <p class="eyebrow">The rhythm</p>
+              <h2>Monthly pattern</h2>
+            </div>
+            <span class="section-note">Average asleep</span>
+          </header>
+          <div class="month-list">
+            {#each visibleMonths.slice(0, 12) as bucket (bucket.period)}
+              <div class="month-row">
+                <span>{formatPeriod(bucket.period, "month")}</span>
+                <div class="month-bar">
+                  <i
+                    style={`width: ${(bucket.average_asleep_s / monthMaxAsleep) * 100}%`}
+                  ></i>
+                </div>
+                <b>{formatDuration(bucket.average_asleep_s)}</b>
+              </div>
+            {/each}
+          </div>
+        </section>
       </div>
-      {#if hasMore}
-        <button
-          class="load-more-button"
-          type="button"
-          disabled={loadingMore}
-          onclick={() => loadSessions(true)}
-        >
-          {loadingMore ? "Loading…" : "Load more nights"}
-        </button>
-      {/if}
-    </section>
+
+      <section class="night-panel tile">
+        <header class="section-heading">
+          <div>
+            <p class="eyebrow">Drill down</p>
+            <h2>{nightsHeading}</h2>
+            <p class="muted">Select a night to see the stage timeline.</p>
+          </div>
+          <span class="section-note"
+            >{sessions.length}{hasMore ? "+" : ""} nights in period</span
+          >
+        </header>
+        <div class="night-layout">
+          <div bind:this={nightListContainer} class="night-list">
+            {#each sessions as session (session.id)}
+              <button
+                class:selected={selected.id === session.id}
+                class="night-row"
+                type="button"
+                onclick={() => selectSession(session)}
+                onmouseenter={() => selectSession(session)}
+                onfocus={() => selectSession(session)}
+                aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? "primary overnight sleep" : "short session"}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
+              >
+                <span class="night-date"
+                  >{formatDateOnly(session.wake_date)}</span
+                ><span>{formatDuration(session.asleep_s)}</span><b
+                  >{Math.round(session.efficiency * 100)}%</b
+                ><em class:primary={session.is_main_sleep}
+                  >{session.is_main_sleep ? "Primary" : "Short"}</em
+                >
+              </button>
+            {/each}
+            <div
+              bind:this={loadMoreSentinel}
+              class="load-more-sentinel"
+              aria-live="polite"
+            >
+              {#if loadingMore}<span>Loading more nights…</span
+                >{:else if hasMore}<span>Scroll for more nights</span>{/if}
+            </div>
+          </div>
+          <div class="timeline-card">
+            <div class="timeline-meta">
+              <span>{formatDateOnly(selected.wake_date)}</span><span
+                >{selected.is_main_sleep
+                  ? "Primary overnight sleep"
+                  : "Short session"}</span
+              >
+            </div>
+            {#if segmentsLoading}<p class="muted panel-loading">
+                Loading stages…
+              </p>{:else}<SleepTimelineChart {segments} />{/if}
+            <div class="timeline-axis">
+              <span
+                >{new Date(selected.started_at).toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}</span
+              ><span
+                >{new Date(selected.ended_at).toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}</span
+              >
+            </div>
+          </div>
+        </div>
+        {#if hasMore}
+          <button
+            class="load-more-button"
+            type="button"
+            disabled={loadingMore}
+            onclick={() => loadSessions(true)}
+          >
+            {loadingMore ? "Loading…" : "Load more nights"}
+          </button>
+        {/if}
+      </section>
+    {/if}
   {/if}
 </section>
 
