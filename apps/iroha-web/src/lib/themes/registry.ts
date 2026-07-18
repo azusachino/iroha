@@ -29,6 +29,11 @@ import AtlasActivities from "$lib/themes/atlas/Activities.svelte";
 import PhenologyActivities from "$lib/themes/phenology/Activities.svelte";
 import SoundMapActivities from "$lib/themes/sound-map/Activities.svelte";
 import ArchiveActivities from "$lib/themes/archive/Activities.svelte";
+import AtlasSleep from "$lib/themes/atlas/Sleep.svelte";
+import FieldJournalSleep from "$lib/themes/field-journal/Sleep.svelte";
+import PhenologySleep from "$lib/themes/phenology/Sleep.svelte";
+import SoundMapSleep from "$lib/themes/sound-map/Sleep.svelte";
+import ArchiveSleep from "$lib/themes/archive/Sleep.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -37,12 +42,13 @@ export const THEME_DEFINITIONS = [
     hint: "places and routes",
     description: "A cartographic language for movement, places, and distance.",
     implementation: "preview",
-    routes: ["today", "daily", "activities"],
+    routes: ["today", "daily", "activities", "sleep"],
     components: {
       shell: AtlasShell,
       today: AtlasToday,
       daily: AtlasDaily,
       activities: AtlasActivities,
+      sleep: AtlasSleep,
     },
   },
   {
@@ -67,12 +73,13 @@ export const THEME_DEFINITIONS = [
     hint: "days and evidence",
     description: "A dated, narrative language for the shape of a day.",
     implementation: "preview",
-    routes: ["today", "daily", "activities"],
+    routes: ["today", "daily", "activities", "sleep"],
     components: {
       shell: FieldJournalShell,
       today: FieldJournalToday,
       daily: FieldJournalDaily,
       activities: FieldJournalActivities,
+      sleep: FieldJournalSleep,
     },
   },
   {
@@ -82,12 +89,13 @@ export const THEME_DEFINITIONS = [
     description:
       "A cyclical language for recovery, rest, and unfolding patterns.",
     implementation: "preview",
-    routes: ["today", "daily", "activities"],
+    routes: ["today", "daily", "activities", "sleep"],
     components: {
       shell: PhenologyShell,
       today: PhenologyToday,
       daily: PhenologyDaily,
       activities: PhenologyActivities,
+      sleep: PhenologySleep,
     },
   },
   {
@@ -96,12 +104,13 @@ export const THEME_DEFINITIONS = [
     hint: "rhythm and intensity",
     description: "A rhythmic language for cadence, intensity, and flow.",
     implementation: "preview",
-    routes: ["today", "daily", "activities"],
+    routes: ["today", "daily", "activities", "sleep"],
     components: {
       shell: SoundMapShell,
       today: SoundMapToday,
       daily: SoundMapDaily,
       activities: SoundMapActivities,
+      sleep: SoundMapSleep,
     },
   },
   {
@@ -110,12 +119,13 @@ export const THEME_DEFINITIONS = [
     hint: "media and history",
     description: "A chronological language for collections and memory.",
     implementation: "preview",
-    routes: ["today", "daily", "activities"],
+    routes: ["today", "daily", "activities", "sleep"],
     components: {
       shell: ArchiveShell,
       today: ArchiveToday,
       daily: ArchiveDaily,
       activities: ArchiveActivities,
+      sleep: ArchiveSleep,
     },
   },
 ] as const satisfies readonly ThemeDefinition[];
