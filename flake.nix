@@ -22,6 +22,7 @@
             pkgs.goose
             pkgs.bun
             pkgs.nodejs_24
+            pkgs.prettier
             pkgs.postgresql_18
             pkgs.uv
           ];

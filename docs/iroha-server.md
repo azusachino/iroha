@@ -106,6 +106,25 @@ contract.
 
 Public pages read the existing sanitized `/public/v1` projections rather than these deferred mutation resources.
 
+The following routes remain planned and are not part of the active contract:
+
+```text
+GET    /api/v1/gear
+POST   /api/v1/gear
+PATCH  /api/v1/gear/{gearId}
+POST   /api/v1/activities/{activityId}/gear
+DELETE /api/v1/activities/{activityId}/gear/{gearId}
+
+GET    /api/v1/privacy-zones
+POST   /api/v1/privacy-zones
+PATCH  /api/v1/privacy-zones/{privacyZoneId}
+DELETE /api/v1/privacy-zones/{privacyZoneId}
+
+POST   /api/v1/published-tb_activities
+GET    /api/v1/published-tb_activities/{publishedActivityId}
+DELETE /api/v1/published-tb_activities/{publishedActivityId}
+```
+
 ## Upload Flow
 
 MVP direct upload:

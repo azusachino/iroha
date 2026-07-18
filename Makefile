@@ -11,7 +11,7 @@ JOB_DIR := apps/iroha-job
 .DEFAULT_GOAL := help
 .PHONY: help fmt fmt-check vet lint test test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local
 
-PRETTIER := bunx prettier@3.4.2
+PRETTIER := prettier
 DOCS_GLOB := **/*.{md,yaml,yml,json}
 
 help: ## List available targets
