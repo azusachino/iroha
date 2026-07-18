@@ -114,12 +114,22 @@ func (s *Service) EnqueueRefresh(ctx context.Context, latitude, longitude float6
 
 		var row struct {
 			RefreshQueuedAt *time.Time `gorm:"column:refresh_queued_at"`
+			LastError       *string    `gorm:"column:last_error"`
+			UpdatedAt       time.Time  `gorm:"column:updated_at"`
 		}
-		result := tx.Raw(`select refresh_queued_at from tb_geocode_cache where coordinate_key = ? for update`, key).Scan(&row)
+		result := tx.Raw(`
+		select refresh_queued_at, last_error, updated_at
+		from tb_geocode_cache
+		where coordinate_key = ?
+		for update
+	`, key).Scan(&row)
 		if result.Error != nil {
 			return result.Error
 		}
 		if result.RowsAffected > 0 && row.RefreshQueuedAt != nil && row.RefreshQueuedAt.After(now.Add(-queueLease)) {
+			return nil
+		}
+		if result.RowsAffected > 0 && row.LastError != nil && row.UpdatedAt.After(now.Add(-defaultRetryAfter)) {
 			return nil
 		}
 		if err := tx.Exec(`update tb_geocode_cache set refresh_queued_at = ?, last_error = null, updated_at = ? where coordinate_key = ?`, now, now, key).Error; err != nil {
