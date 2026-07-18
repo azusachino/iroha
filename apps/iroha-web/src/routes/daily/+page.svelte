@@ -12,8 +12,8 @@
   } from "$lib/components/DailySmallMultiples.svelte";
   import { formatDateOnly } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
-  import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
-  import { getDesignLanguage, type DesignLanguage } from "$lib/design-language";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
   type Gran = "day" | "month" | "year";
   const DAY_FETCH = 90;
@@ -26,7 +26,7 @@
   let gran = $state<Gran>("month");
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
-  let language = $state<DesignLanguage>("field-journal");
+  const theme = useTheme();
 
   // Hero uses the latest real ring day, independent of the chosen granularity.
   const latestRingDay = $derived(dayRows.find((r) => r.move_goal_kcal > 0));
@@ -189,23 +189,10 @@
       loading = false;
     }
   });
-
-  onMount(() => {
-    language = getDesignLanguage();
-    const onLanguageChange = (event: Event) => {
-      language = (event as CustomEvent<DesignLanguage>).detail;
-    };
-    window.addEventListener("iroha:design-language-change", onLanguageChange);
-    return () =>
-      window.removeEventListener(
-        "iroha:design-language-change",
-        onLanguageChange,
-      );
-  });
 </script>
 
 <section class="daily">
-  {#if language === "grapher"}
+  {#if theme.definition().components?.daily}
     {#if loading}
       <p class="muted status">Loading time-series data…</p>
     {:else if error}
@@ -213,7 +200,10 @@
     {:else if dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
-      <GrapherDaily {chrono} {gran} onGran={(value) => (gran = value)} />
+      <ThemeRouteRenderer
+        route="daily"
+        props={{ chrono, gran, onGran: (value: Gran) => (gran = value) }}
+      />
     {/if}
   {:else}
     <RouteIntro

@@ -13,12 +13,19 @@ describe("Iroha theme registry", () => {
     ]);
   });
 
-  it("does not present palette-only entries as complete themes", () => {
+  it("marks only themes with a complete renderer set as curated", () => {
+    expect(getThemeDefinition("grapher").implementation).toBe("curated");
+    expect(getThemeDefinition("grapher").components).toMatchObject({
+      today: expect.anything(),
+      daily: expect.anything(),
+      activities: expect.anything(),
+      sleep: expect.anything(),
+      share: expect.anything(),
+    });
     expect(
-      THEME_DEFINITIONS.every(
+      THEME_DEFINITIONS.filter(
         (theme) => theme.implementation === "palette-only",
       ),
-    ).toBe(true);
-    expect(getThemeDefinition("grapher").description).toContain("evidence");
+    ).toHaveLength(5);
   });
 });

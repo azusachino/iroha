@@ -12,8 +12,8 @@
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import DayPicker from "$lib/components/DayPicker.svelte";
-  import GrapherToday from "$lib/themes/grapher/Today.svelte";
-  import { getDesignLanguage, type DesignLanguage } from "$lib/design-language";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
   import {
     formatDistance,
     formatDuration,
@@ -28,7 +28,7 @@
   // The selected day — the spine everything on this page snapshots to.
   let day = $state<string>(new Date().toISOString().slice(0, 10));
   let pickerOpen = $state(false);
-  let language = $state<DesignLanguage>("field-journal");
+  const theme = useTheme();
   let availableDays = $state<Set<string>>(new Set());
   const today = new Date().toISOString().slice(0, 10);
 
@@ -183,17 +183,7 @@
   });
 
   onMount(() => {
-    language = getDesignLanguage();
-    const onLanguageChange = (event: Event) => {
-      language = (event as CustomEvent<DesignLanguage>).detail;
-    };
-    window.addEventListener("iroha:design-language-change", onLanguageChange);
     void loadAvailableDays();
-    return () =>
-      window.removeEventListener(
-        "iroha:design-language-change",
-        onLanguageChange,
-      );
   });
 
   function mediaEventVerb(event: MediaHomeEvent): string {
@@ -264,8 +254,11 @@
     <p class="error status">Could not load data: {error}</p>
   {:else if !dayHasData}
     <p class="muted status">No data recorded for {dayLabel}.</p>
-  {:else if language === "grapher"}
-    <GrapherToday {dayLabel} {day} {dRow} {mainNight} {acts} />
+  {:else if theme.definition().components?.today}
+    <ThemeRouteRenderer
+      route="today"
+      props={{ dayLabel, day, dRow, mainNight, acts }}
+    />
   {:else}
     <header class="command-heading tile hero-surface">
       <div>

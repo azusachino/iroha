@@ -24,8 +24,8 @@
   import StatTile from "$lib/components/StatTile.svelte";
   import YearProgressChart from "$lib/components/YearProgressChart.svelte";
   import { sportColor } from "$lib/sport";
-  import GrapherShare from "$lib/themes/grapher/Share.svelte";
-  import { getDesignLanguage, type DesignLanguage } from "$lib/design-language";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
   const MONTH_LABELS = [
     "Jan",
@@ -101,7 +101,7 @@
   let summaryError = $state<string | null>(null);
   let selectedYear = $state<string | null>(null);
   let sportFilter = $state<string | null>(null);
-  let language = $state<DesignLanguage>("field-journal");
+  const theme = useTheme();
 
   let initialLoaded = $state(false);
   let loadedYear = $state<string | null>(null);
@@ -196,19 +196,6 @@
   let activitiesError = $state<string | null>(null);
   let cursor = $state<string | null>(null);
   let hasMore = $state(false);
-
-  onMount(() => {
-    language = getDesignLanguage();
-    const onLanguageChange = (event: Event) => {
-      language = (event as CustomEvent<DesignLanguage>).detail;
-    };
-    window.addEventListener("iroha:design-language-change", onLanguageChange);
-    return () =>
-      window.removeEventListener(
-        "iroha:design-language-change",
-        onLanguageChange,
-      );
-  });
 
   async function loadActivities(append: boolean) {
     if (append) activitiesLoadingMore = true;
@@ -376,22 +363,25 @@
 </script>
 
 <section class="share-shell">
-  {#if language === "grapher"}
+  {#if theme.definition().components?.share}
     {#if summaryLoading}
       <p class="muted">Loading public data…</p>
     {:else if summaryError}
       <p class="error">Failed to load public data: {summaryError}</p>
     {:else if summary}
-      <GrapherShare
-        {summary}
-        {fullSummary}
-        {selectedYear}
-        {selectedYearTotals}
-        {years}
-        {monthSlots}
-        {monthMetric}
-        {monthMax}
-        {sportFilter}
+      <ThemeRouteRenderer
+        route="share"
+        props={{
+          summary,
+          fullSummary,
+          selectedYear,
+          selectedYearTotals,
+          years,
+          monthSlots,
+          monthMetric,
+          monthMax,
+          sportFilter,
+        }}
       />
     {/if}
   {:else}

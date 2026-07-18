@@ -13,8 +13,8 @@
   import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
-  import GrapherSleep from "$lib/themes/grapher/Sleep.svelte";
-  import { getDesignLanguage, type DesignLanguage } from "$lib/design-language";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
   const PAGE_SIZE = 24;
   let sessions = $state<SleepSession[]>([]);
@@ -38,7 +38,7 @@
   let selectedMonth = $state("all");
   let selectedStage = $state("Core");
   let hoveredStage = $state<string | null>(null);
-  let language = $state<DesignLanguage>("field-journal");
+  const theme = useTheme();
 
   const mainSleep = $derived(
     sessions.filter((session) => session.is_main_sleep),
@@ -270,19 +270,6 @@
     void loadSessions(false);
     void loadAggregates();
   });
-
-  onMount(() => {
-    language = getDesignLanguage();
-    const onLanguageChange = (event: Event) => {
-      language = (event as CustomEvent<DesignLanguage>).detail;
-    };
-    window.addEventListener("iroha:design-language-change", onLanguageChange);
-    return () =>
-      window.removeEventListener(
-        "iroha:design-language-change",
-        onLanguageChange,
-      );
-  });
 </script>
 
 <svelte:head>
@@ -290,7 +277,7 @@
 </svelte:head>
 
 <section class="sleep-shell">
-  {#if language === "grapher"}
+  {#if theme.definition().components?.sleep}
     {#if sessionsLoading && sessions.length === 0}
       <section class="status tile"><p>Loading sleep data…</p></section>
     {:else if error && !selected}
@@ -302,12 +289,15 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
-      <GrapherSleep
-        {sessions}
-        {selected}
-        {averageAsleep}
-        {averageEfficiency}
-        onSelect={(session) => (selected = session)}
+      <ThemeRouteRenderer
+        route="sleep"
+        props={{
+          sessions,
+          selected,
+          averageAsleep,
+          averageEfficiency,
+          onSelect: (session: SleepSession) => (selected = session),
+        }}
       />
     {/if}
   {:else}

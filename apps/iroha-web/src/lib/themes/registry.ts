@@ -1,4 +1,10 @@
 import type { DesignLanguage, ThemeDefinition } from "$lib/themes/types";
+import GrapherActivities from "$lib/themes/grapher/Activities.svelte";
+import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
+import GrapherShare from "$lib/themes/grapher/Share.svelte";
+import GrapherShell from "$lib/themes/grapher/Shell.svelte";
+import GrapherSleep from "$lib/themes/grapher/Sleep.svelte";
+import GrapherToday from "$lib/themes/grapher/Today.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -13,7 +19,15 @@ export const THEME_DEFINITIONS = [
     label: "Iroha Grapher",
     hint: "trends and comparisons",
     description: "An evidence-first language for comparison and change.",
-    implementation: "palette-only",
+    implementation: "curated",
+    components: {
+      shell: GrapherShell,
+      today: GrapherToday,
+      daily: GrapherDaily,
+      activities: GrapherActivities,
+      sleep: GrapherSleep,
+      share: GrapherShare,
+    },
   },
   {
     id: "field-journal",

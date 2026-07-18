@@ -22,8 +22,8 @@ export const THEME_IDS = [
 export type DesignLanguage = (typeof THEME_IDS)[number];
 export type ThemeImplementationStatus = "palette-only" | "curated";
 
-export type ThemeComponentSet = Record<ThemeRoute, Component> & {
-  shell: Component;
+export type ThemeComponentSet = Partial<Record<ThemeRoute, Component<any>>> & {
+  shell: Component<any>;
 };
 
 export type ThemeDefinition = {

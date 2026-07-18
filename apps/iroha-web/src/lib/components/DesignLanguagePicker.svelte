@@ -1,30 +1,24 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import {
-    DESIGN_LANGUAGES,
-    getDesignLanguage,
-    setDesignLanguage,
-    type DesignLanguage,
-  } from "$lib/design-language";
+  import { DESIGN_LANGUAGES } from "$lib/design-language";
+  import { useTheme } from "$lib/themes/context.svelte";
 
-  let language = $state<DesignLanguage>("field-journal");
-
-  onMount(() => {
-    language = getDesignLanguage();
-  });
+  const theme = useTheme();
 
   function onChange(event: Event) {
     const value = (event.currentTarget as HTMLSelectElement).value;
     const next = DESIGN_LANGUAGES.find((item) => item.id === value);
     if (!next) return;
-    language = next.id;
-    setDesignLanguage(language);
+    theme.select(next.id);
   }
 </script>
 
 <label class="language-picker">
   <span>Design language</span>
-  <select aria-label="Design language" value={language} onchange={onChange}>
+  <select
+    aria-label="Design language"
+    value={theme.language()}
+    onchange={onChange}
+  >
     {#each DESIGN_LANGUAGES as item}
       <option value={item.id}>{item.label}</option>
     {/each}

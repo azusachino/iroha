@@ -20,8 +20,8 @@
   } from "$lib/format";
   import { sportColor, sportLabel } from "$lib/sport";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
-  import GrapherActivities from "$lib/themes/grapher/Activities.svelte";
-  import { getDesignLanguage, type DesignLanguage } from "$lib/design-language";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
   // Draft filter inputs (bound to the form); committed to `applied` on submit
   // so "Load more" keeps paging the same query the user actually ran.
@@ -38,7 +38,7 @@
   let error = $state<string | null>(null);
   let summary = $state<Summary | null>(null);
   let summaryLoading = $state(true);
-  let language = $state<DesignLanguage>("field-journal");
+  const theme = useTheme();
   const sportOptions = $derived(
     summary ? summary.by_sport.map((b) => b.key).sort() : [],
   );
@@ -231,17 +231,7 @@
   });
 
   onMount(() => {
-    language = getDesignLanguage();
-    const onLanguageChange = (event: Event) => {
-      language = (event as CustomEvent<DesignLanguage>).detail;
-    };
-    window.addEventListener("iroha:design-language-change", onLanguageChange);
     void loadSummary();
-    return () =>
-      window.removeEventListener(
-        "iroha:design-language-change",
-        onLanguageChange,
-      );
   });
 
   // Infinite scroll: when the sentinel below the grid scrolls near the
@@ -307,27 +297,30 @@
 </script>
 
 <section class="activities-shell">
-  {#if language === "grapher"}
-    <GrapherActivities
-      {activities}
-      {displaySummary}
-      {sportType}
-      {selectedYear}
-      {selectedMonth}
-      {years}
-      {sportOptions}
-      {months}
-      {loading}
-      {error}
-      {hasMore}
-      {loadingMore}
-      onSportType={(value) => (sportType = value)}
-      onYear={(value) => {
-        selectedYear = value;
-        handleYearChange();
+  {#if theme.definition().components?.activities}
+    <ThemeRouteRenderer
+      route="activities"
+      props={{
+        activities,
+        displaySummary,
+        sportType,
+        selectedYear,
+        selectedMonth,
+        years,
+        sportOptions,
+        months,
+        loading,
+        error,
+        hasMore,
+        loadingMore,
+        onSportType: (value: string) => (sportType = value),
+        onYear: (value: string) => {
+          selectedYear = value;
+          handleYearChange();
+        },
+        onMonth: (value: string) => (selectedMonth = value),
+        onLoadMore: () => void load(true),
       }}
-      onMonth={(value) => (selectedMonth = value)}
-      onLoadMore={() => void load(true)}
     />
   {:else}
     <RouteIntro
