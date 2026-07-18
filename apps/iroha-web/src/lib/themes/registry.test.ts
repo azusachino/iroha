@@ -17,7 +17,7 @@ describe("Iroha theme registry", () => {
     ]);
   });
 
-  it("marks only themes with a complete renderer set as curated", () => {
+  it("distinguishes complete and preview renderer sets", () => {
     expect(getThemeDefinition("grapher").implementation).toBe("curated");
     expect(hasThemeRoute(getThemeDefinition("grapher"), "today")).toBe(true);
     expect(hasThemeRoute(getThemeDefinition("grapher"), "dashboard")).toBe(
@@ -30,10 +30,14 @@ describe("Iroha theme registry", () => {
       sleep: expect.anything(),
       share: expect.anything(),
     });
+    expect(getThemeDefinition("field-journal").implementation).toBe("preview");
+    expect(hasThemeRoute(getThemeDefinition("field-journal"), "today")).toBe(
+      true,
+    );
     expect(
       THEME_DEFINITIONS.filter(
         (theme) => theme.implementation === "palette-only",
       ),
-    ).toHaveLength(5);
+    ).toHaveLength(4);
   });
 });

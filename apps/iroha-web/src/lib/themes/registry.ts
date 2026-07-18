@@ -9,6 +9,8 @@ import GrapherShare from "$lib/themes/grapher/Share.svelte";
 import GrapherShell from "$lib/themes/grapher/Shell.svelte";
 import GrapherSleep from "$lib/themes/grapher/Sleep.svelte";
 import GrapherToday from "$lib/themes/grapher/Today.svelte";
+import FieldJournalShell from "$lib/themes/field-journal/Shell.svelte";
+import FieldJournalToday from "$lib/themes/field-journal/Today.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -39,7 +41,12 @@ export const THEME_DEFINITIONS = [
     label: "Iroha Field Journal",
     hint: "days and evidence",
     description: "A dated, narrative language for the shape of a day.",
-    implementation: "palette-only",
+    implementation: "preview",
+    routes: ["today"],
+    components: {
+      shell: FieldJournalShell,
+      today: FieldJournalToday,
+    },
   },
   {
     id: "phenology",

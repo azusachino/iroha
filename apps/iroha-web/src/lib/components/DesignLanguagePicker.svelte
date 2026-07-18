@@ -20,8 +20,12 @@
     onchange={onChange}
   >
     {#each DESIGN_LANGUAGES as item}
-      <option value={item.id} disabled={item.implementation !== "curated"}>
-        {item.label}{item.implementation === "curated" ? "" : " · planned"}
+      <option value={item.id} disabled={item.implementation === "palette-only"}>
+        {item.label}{item.implementation === "preview"
+          ? " · preview"
+          : item.implementation === "palette-only"
+            ? " · planned"
+            : ""}
       </option>
     {/each}
   </select>
