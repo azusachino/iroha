@@ -14,6 +14,7 @@
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   type Gran = "day" | "month" | "year";
   const DAY_FETCH = 90;
@@ -192,7 +193,7 @@
 </script>
 
 <section class="daily">
-  {#if theme.definition().components?.daily}
+  {#if hasThemeRoute(theme.definition(), "daily")}
     {#if loading}
       <p class="muted status">Loading time-series data…</p>
     {:else if error}

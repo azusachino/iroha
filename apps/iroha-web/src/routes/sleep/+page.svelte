@@ -15,6 +15,7 @@
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   const PAGE_SIZE = 24;
   let sessions = $state<SleepSession[]>([]);
@@ -277,7 +278,7 @@
 </svelte:head>
 
 <section class="sleep-shell">
-  {#if theme.definition().components?.sleep}
+  {#if hasThemeRoute(theme.definition(), "sleep")}
     {#if sessionsLoading && sessions.length === 0}
       <section class="status tile"><p>Loading sleep data…</p></section>
     {:else if error && !selected}

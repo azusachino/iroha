@@ -2,10 +2,13 @@ import type { Component } from "svelte";
 
 export const THEME_ROUTES = [
   "today",
+  "dashboard",
   "daily",
   "activities",
+  "activity-detail",
   "sleep",
   "media",
+  "media-detail",
   "share",
 ] as const;
 
@@ -32,5 +35,6 @@ export type ThemeDefinition = {
   hint: string;
   description: string;
   implementation: ThemeImplementationStatus;
+  routes?: readonly ThemeRoute[];
   components?: ThemeComponentSet;
 };

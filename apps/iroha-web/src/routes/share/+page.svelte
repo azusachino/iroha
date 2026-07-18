@@ -26,6 +26,7 @@
   import { sportColor } from "$lib/sport";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   const MONTH_LABELS = [
     "Jan",
@@ -363,7 +364,7 @@
 </script>
 
 <section class="share-shell">
-  {#if theme.definition().components?.share}
+  {#if hasThemeRoute(theme.definition(), "share")}
     {#if summaryLoading}
       <p class="muted">Loading public data…</p>
     {:else if summaryError}

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { THEME_DEFINITIONS, getThemeDefinition } from "./registry";
+import {
+  THEME_DEFINITIONS,
+  getThemeDefinition,
+  hasThemeRoute,
+} from "./registry";
 
 describe("Iroha theme registry", () => {
   it("keeps the six language identities explicit", () => {
@@ -15,6 +19,10 @@ describe("Iroha theme registry", () => {
 
   it("marks only themes with a complete renderer set as curated", () => {
     expect(getThemeDefinition("grapher").implementation).toBe("curated");
+    expect(hasThemeRoute(getThemeDefinition("grapher"), "today")).toBe(true);
+    expect(hasThemeRoute(getThemeDefinition("grapher"), "dashboard")).toBe(
+      false,
+    );
     expect(getThemeDefinition("grapher").components).toMatchObject({
       today: expect.anything(),
       daily: expect.anything(),

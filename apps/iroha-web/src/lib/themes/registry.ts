@@ -1,4 +1,8 @@
-import type { DesignLanguage, ThemeDefinition } from "$lib/themes/types";
+import {
+  THEME_ROUTES,
+  type DesignLanguage,
+  type ThemeDefinition,
+} from "$lib/themes/types";
 import GrapherActivities from "$lib/themes/grapher/Activities.svelte";
 import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
 import GrapherShare from "$lib/themes/grapher/Share.svelte";
@@ -20,6 +24,7 @@ export const THEME_DEFINITIONS = [
     hint: "trends and comparisons",
     description: "An evidence-first language for comparison and change.",
     implementation: "curated",
+    routes: ["today", "daily", "activities", "sleep", "share"],
     components: {
       shell: GrapherShell,
       today: GrapherToday,
@@ -70,4 +75,11 @@ export function getThemeDefinition(language: DesignLanguage): ThemeDefinition {
   const theme = THEME_DEFINITIONS.find((item) => item.id === language);
   if (!theme) throw new Error(`Unknown Iroha design language: ${language}`);
   return theme;
+}
+
+export function hasThemeRoute(
+  theme: ThemeDefinition,
+  route: (typeof THEME_ROUTES)[number],
+): boolean {
+  return theme.routes?.includes(route) ?? false;
 }

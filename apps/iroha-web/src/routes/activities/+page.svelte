@@ -22,6 +22,7 @@
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   // Draft filter inputs (bound to the form); committed to `applied` on submit
   // so "Load more" keeps paging the same query the user actually ran.
@@ -297,7 +298,7 @@
 </script>
 
 <section class="activities-shell">
-  {#if theme.definition().components?.activities}
+  {#if hasThemeRoute(theme.definition(), "activities")}
     <ThemeRouteRenderer
       route="activities"
       props={{
