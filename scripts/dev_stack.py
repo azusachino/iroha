@@ -118,7 +118,7 @@ def main() -> int:
 
     ensure_machine()
     if action in {"start", "deps"}:
-        services = [] if action == "start" else ["db", "valkey"]
+        services = [] if action == "start" else ["db"]
         check_call(podman_cmd() + ["up", "--build", "-d", *services])
         if wait_for_db() != 0:
             return 1

@@ -50,7 +50,11 @@ func main() {
 	if parserVersion == "" {
 		parserVersion = imports.DefaultParserVersion
 	}
-	cacheClient := cache.New(cfg.Cache.URL)
+	cacheClient, err := cache.NewBackend(cfg.Cache.Backend, cfg.Cache.URL, db)
+	if err != nil {
+		logger.Error("create cache", "error", err)
+		os.Exit(1)
+	}
 	defer func() {
 		if err := cacheClient.Close(); err != nil {
 			logger.Warn("close cache client", "error", err)

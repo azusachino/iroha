@@ -8,10 +8,6 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// defaultCacheURL points at the valkey instance from ops/local-dev/compose.yaml.
-// Valkey speaks the Redis protocol, so a redis:// URL works unmodified.
-const defaultCacheURL = "redis://localhost:6379/0"
-
 const (
 	EnvJWTSecret        = "IROHA_JWT_SECRET"
 	EnvJWTIssuer        = "IROHA_JWT_ISSUER"
@@ -58,7 +54,8 @@ type AuthConfig struct {
 }
 
 type CacheConfig struct {
-	URL string `toml:"url"`
+	Backend string `toml:"backend"`
+	URL     string `toml:"url"`
 }
 
 func Load(path string) (Config, error) {
@@ -93,7 +90,7 @@ func Default() Config {
 			JWTAudience: "iroha-api",
 		},
 		Cache: CacheConfig{
-			URL: defaultCacheURL,
+			Backend: "postgres",
 		},
 	}
 }
@@ -124,6 +121,9 @@ func applyEnv(cfg *Config) {
 	}
 	if value := os.Getenv("IROHA_VALKEY_URL"); value != "" {
 		cfg.Cache.URL = value
+	}
+	if value := os.Getenv("IROHA_CACHE_BACKEND"); value != "" {
+		cfg.Cache.Backend = value
 	}
 	if value := os.Getenv("IROHA_ALLOWED_ORIGINS"); value != "" {
 		origins := make([]string, 0)

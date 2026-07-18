@@ -16,6 +16,13 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
+)
+
+const (
+	BackendNone     = "none"
+	BackendPostgres = "postgres"
+	BackendValkey   = "valkey"
 )
 
 // Store is the backend contract for shared cache data. Namespace is a logical
@@ -60,6 +67,24 @@ func New(url string) *Client {
 // NewWithStore builds a Client around any Store implementation.
 func NewWithStore(store Store) *Client {
 	return &Client{store: store, flights: make(map[string]*cacheFlight)}
+}
+
+// NewBackend selects a configured cache backend. Cache data is disposable, so
+// switching between backends does not require data migration.
+func NewBackend(backend, valkeyURL string, db *gorm.DB) (*Client, error) {
+	switch backend {
+	case "", BackendPostgres:
+		if db == nil {
+			return nil, errors.New("postgres cache backend requires database")
+		}
+		return NewWithStore(NewPostgresStore(db)), nil
+	case BackendValkey:
+		return New(valkeyURL), nil
+	case BackendNone:
+		return New(""), nil
+	default:
+		return nil, fmt.Errorf("unsupported cache backend %q", backend)
+	}
 }
 
 // Close releases the backend connection, if any.
