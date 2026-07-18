@@ -80,7 +80,9 @@ The server is configured via `iroha.toml` and/or environment variables:
 | `IROHA_SERVER_ADDR`             | Listen address                       | `127.0.0.1:8080`               |
 | `IROHA_DATABASE_URL`            | Postgres DSN                         | local dev DSN                  |
 | `IROHA_DATA_DIR`                | Raw-file storage dir                 | `.iroha-data`                  |
+| `IROHA_VALKEY_URL`              | Valkey/Redis DSN                     | local Valkey DSN               |
 | `IROHA_LOCAL_NO_AUTH`           | Disable auth for local dev           | `true`                         |
+| `IROHA_ALLOWED_ORIGINS`         | Private browser origins              | local web origins              |
 | `IROHA_JWT_SECRET`              | JWT verification secret              | —                              |
 | `IROHA_JWT_ISSUER`              | Expected JWT issuer                  | `iroha`                        |
 | `IROHA_JWT_AUDIENCE`            | Expected JWT audience                | `iroha-api`                    |
@@ -91,6 +93,9 @@ The server is configured via `iroha.toml` and/or environment variables:
 | `IROHA_BANGUMI_TOKEN`           | Optional Bangumi PAT                 | —                              |
 | `IROHA_BANGUMI_BRIDGE_PATH`     | Optional Bangumi→MAL JSON cache path | —                              |
 | `IROHA_MAL_ANILIST_BRIDGE_PATH` | Optional MAL→AniList JSON cache path | —                              |
+
+For a private authenticated deployment, set `IROHA_LOCAL_NO_AUTH=false`, provide `IROHA_JWT_SECRET` only to `iroha-server`, and set matching issuer/audience values. Build the static web image with a
+read-only `PUBLIC_IROHA_API_TOKEN`. That token is visible to visitors of the private site by design; never put the JWT signing secret or a write-capable token in the web build.
 
 Smoke-test a real import end to end:
 

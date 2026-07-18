@@ -20,12 +20,20 @@ npm/pnpm/yarn.
 ## Configuration
 
 The API base URL is read from `PUBLIC_IROHA_API_BASE` and defaults to
-`http://127.0.0.1:8080` (where `iroha-server` listens locally).
+`http://127.0.0.1:8080` (where `iroha-server` listens locally). In a same-origin
+container deployment, set it to an empty value so the browser uses the Caddy
+`/api` proxy.
 
 ```bash
 cp .env.example .env
 # then edit PUBLIC_IROHA_API_BASE if the server is elsewhere
 ```
+
+`PUBLIC_IROHA_API_TOKEN` is an optional deployment-provided, read-only JWT for
+authenticated private API mode. It is compiled into the static browser bundle
+and is therefore not a secret. Do not use a signing secret or an
+`iroha:write` token here. The web image accepts it as the
+`PUBLIC_IROHA_API_TOKEN` build argument.
 
 ## Develop
 

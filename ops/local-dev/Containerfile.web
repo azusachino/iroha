@@ -5,7 +5,9 @@ COPY apps/iroha-web/package.json apps/iroha-web/bun.lock ./
 RUN bun install --frozen-lockfile
 COPY apps/iroha-web ./
 ARG PUBLIC_IROHA_API_BASE=http://127.0.0.1:8080
+ARG PUBLIC_IROHA_API_TOKEN=""
 ENV PUBLIC_IROHA_API_BASE=$PUBLIC_IROHA_API_BASE
+ENV PUBLIC_IROHA_API_TOKEN=$PUBLIC_IROHA_API_TOKEN
 RUN bun run build
 
 FROM caddy:2-alpine

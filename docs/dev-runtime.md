@@ -252,11 +252,16 @@ Environment variables should override matching TOML fields:
 IROHA_SERVER_ADDR
 IROHA_DATABASE_URL
 IROHA_DATA_DIR
+IROHA_VALKEY_URL
 IROHA_LOCAL_NO_AUTH
+IROHA_ALLOWED_ORIGINS
 IROHA_JWT_SECRET
 IROHA_JWT_ISSUER
 IROHA_JWT_AUDIENCE
 ```
+
+The server and job receive the database, Valkey, and shared data-directory settings. Only the server receives the JWT verification secret and private CORS origins. For an authenticated static web
+deployment, pass a read-only `PUBLIC_IROHA_API_TOKEN` as the web image build argument; it is intentionally public within the private site and must not be a signing secret or write token.
 
 ## Commands
 
