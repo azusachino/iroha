@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import {
     getBriefing,
+    listDaily,
     type DailyRow,
     type SleepSession,
     type Activity,
@@ -24,6 +26,8 @@
   // The selected day — the spine everything on this page snapshots to.
   let day = $state<string>(new Date().toISOString().slice(0, 10));
   let pickerOpen = $state(false);
+  let availableDays = $state<Set<string>>(new Set());
+  const today = new Date().toISOString().slice(0, 10);
 
   type BriefingList<T> = { items: T[]; has_more: boolean };
   function sectionData<T>(key: string): BriefingList<T> {
@@ -103,14 +107,31 @@
         (section.data as { items?: unknown[] }).items?.length,
     ) ?? false,
   );
-  const daysSet = $derived(new Set([day]));
+  const daysSet = $derived(
+    availableDays.size > 0 ? availableDays : new Set([day]),
+  );
+  const canMoveNext = $derived(day < today);
+  const daySignal = $derived(
+    mainNight
+      ? {
+          value: `${Math.round(mainNight.efficiency * 100)}%`,
+          label: "sleep efficiency",
+        }
+      : dRow && dRow.move_goal_kcal > 0
+        ? {
+            value: `${Math.round((dRow.move_kcal / dRow.move_goal_kcal) * 100)}%`,
+            label: "move goal",
+          }
+        : { value: "—", label: "no baseline" },
+  );
 
   function shift(delta: number) {
     // All in UTC: parsing local midnight then emitting toISOString (UTC)
     // silently dropped a day in +hh zones — hence "left = two days back".
     const d = new Date(day + "T00:00:00Z");
     d.setUTCDate(d.getUTCDate() + delta);
-    day = d.toISOString().slice(0, 10);
+    const next = d.toISOString().slice(0, 10);
+    if (next <= today) day = next;
   }
   // Arrow keys scrub days (ignored while typing in a field); Escape closes the picker.
   function onKey(e: KeyboardEvent) {
@@ -145,8 +166,21 @@
     }
   }
 
+  async function loadAvailableDays() {
+    try {
+      const page = await listDaily({ limit: 100 });
+      availableDays = new Set(page.items.map((row) => row.day.slice(0, 10)));
+    } catch {
+      // The briefing remains useful even when the calendar index is unavailable.
+    }
+  }
+
   $effect(() => {
     void loadBriefing(day);
+  });
+
+  onMount(() => {
+    void loadAvailableDays();
   });
 
   function mediaEventVerb(event: MediaHomeEvent): string {
@@ -173,9 +207,13 @@
       onclick={() => (pickerOpen = !pickerOpen)}
     >
       <span class="day-main">{dayLabel}</span>
-      <span class="day-hint">tap to pick · ← → to scrub</span>
+      <span class="day-hint">pick a day · ← → to move</span>
     </button>
-    <button class="nav" aria-label="Next day" onclick={() => shift(1)}>›</button
+    <button
+      class="nav"
+      aria-label="Next day"
+      disabled={!canMoveNext}
+      onclick={() => shift(1)}>›</button
     >
     {#if pickerOpen}
       <button
@@ -187,11 +225,22 @@
         <DayPicker
           value={day}
           days={daysSet}
+          max={today}
           onselect={(d) => {
             day = d;
             pickerOpen = false;
           }}
         />
+        <button
+          class="today-link"
+          type="button"
+          onclick={() => {
+            day = today;
+            pickerOpen = false;
+          }}
+        >
+          Return to today
+        </button>
       </div>
     {/if}
   </div>
@@ -203,6 +252,72 @@
   {:else if !dayHasData}
     <p class="muted status">No data recorded for {dayLabel}.</p>
   {:else}
+    <header class="command-heading">
+      <div>
+        <p class="eyebrow">Private command center / {dayLabel}</p>
+        <h1>Keep the signal visible.</h1>
+        <p class="heading-copy">
+          A calm operating view of movement, recovery, and the things you
+          touched today.
+        </p>
+        <p class="data-note">
+          Imported snapshot · {day === today
+            ? "latest available day"
+            : "historical day"}
+        </p>
+      </div>
+      <div class="day-orbit" aria-label="Day signal">
+        <div class="orbit orbit-one"></div>
+        <div class="orbit orbit-two"></div>
+        <div class="orbit-core">
+          <strong>{daySignal.value}</strong>
+          <span>{daySignal.label}</span>
+        </div>
+        <i class="orbit-star star-one"></i>
+        <i class="orbit-star star-two"></i>
+      </div>
+    </header>
+    <div class="home-kpis" aria-label="Today summary">
+      <div class="home-kpi tile">
+        <span>Move</span>
+        <strong>{num(dRow?.move_kcal, 0)}<small> kcal</small></strong>
+        <i
+          style={"--fill:" +
+            Math.min(
+              100,
+              ((dRow?.move_kcal ?? 0) / (dRow?.move_goal_kcal || 1)) * 100,
+            ) +
+            "%"}
+        ></i>
+      </div>
+      <div class="home-kpi tile">
+        <span>Exercise</span>
+        <strong>{num(dRow?.exercise_min, 0)}<small> min</small></strong>
+        <i
+          style={"--fill:" +
+            Math.min(
+              100,
+              ((dRow?.exercise_min ?? 0) / (dRow?.exercise_goal_min || 1)) *
+                100,
+            ) +
+            "%"}
+        ></i>
+      </div>
+      <div class="home-kpi tile">
+        <span>Steps</span>
+        <strong>{num(dRow?.steps, 0)}</strong>
+        <small class="kpi-note">{num(dRow?.distance_km, 1)} km walked</small>
+      </div>
+      <div class="home-kpi tile">
+        <span>Recovery</span>
+        <strong
+          >{mainNight
+            ? Math.round(mainNight.efficiency * 100) + "%"
+            : "—"}</strong
+        >
+        <small class="kpi-note">sleep efficiency</small>
+      </div>
+    </div>
     <div class="bento">
       <!-- Rings -->
       <a class="card tile" href="/daily">
@@ -329,6 +444,160 @@
   .error {
     color: var(--danger);
   }
+  .command-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    min-height: 20rem;
+    padding: 2rem 0 1rem;
+  }
+  .eyebrow {
+    margin: 0 0 0.45rem;
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 750;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .command-heading h1 {
+    margin: 0;
+    max-width: 9ch;
+    font-size: clamp(3.2rem, 8vw, 7rem);
+    letter-spacing: -0.1em;
+    line-height: 0.84;
+  }
+  .heading-copy {
+    max-width: 34rem;
+    margin: 0.7rem 0 0;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  .data-note {
+    margin: 0.75rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+  }
+  .day-orbit {
+    position: relative;
+    display: grid;
+    width: min(32rem, 44vw);
+    min-width: 18rem;
+    height: 18rem;
+    place-items: center;
+    overflow: hidden;
+  }
+  .orbit {
+    position: absolute;
+    width: 13rem;
+    height: 13rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+    border-radius: 50%;
+    transform: rotate(30deg) scaleX(1.55);
+  }
+  .orbit-two {
+    width: 9rem;
+    height: 9rem;
+    border-color: color-mix(in srgb, var(--accent-2) 48%, transparent);
+    transform: rotate(-38deg) scaleX(1.7);
+  }
+  .orbit-core {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 8.5rem;
+    height: 8.5rem;
+    place-items: center;
+    align-content: center;
+    border: 1px solid color-mix(in srgb, var(--accent) 62%, transparent);
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at 35% 25%,
+      color-mix(in srgb, var(--accent) 30%, transparent),
+      var(--surface-2) 72%
+    );
+    box-shadow: 0 0 60px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .orbit-core strong {
+    font-size: 4rem;
+    letter-spacing: -0.12em;
+    line-height: 0.75;
+  }
+  .orbit-core span {
+    margin-top: 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .orbit-star {
+    position: absolute;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 16px var(--accent);
+  }
+  .star-one {
+    top: 22%;
+    left: 20%;
+  }
+  .star-two {
+    right: 16%;
+    bottom: 22%;
+    background: var(--accent-2);
+    box-shadow: 0 0 16px var(--accent-2);
+  }
+  .home-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+  .home-kpi {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.9rem;
+  }
+  .home-kpi > span {
+    color: var(--text-muted);
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .home-kpi strong {
+    font-size: 1.45rem;
+    letter-spacing: -0.06em;
+  }
+  .home-kpi strong small {
+    color: var(--text-muted);
+    font-size: 0.45em;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+  .home-kpi > i {
+    display: block;
+    width: 100%;
+    height: 0.2rem;
+    border-radius: 99px;
+    background: linear-gradient(
+      90deg,
+      var(--accent) var(--fill, 0%),
+      var(--surface-2) var(--fill, 0%)
+    );
+  }
+  .home-kpi:nth-child(2) > i {
+    background: linear-gradient(
+      90deg,
+      var(--ring-exercise) var(--fill, 0%),
+      var(--surface-2) var(--fill, 0%)
+    );
+  }
+  .kpi-note {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
 
   /* Date scrubber — the spine control, gets the neon chrome glow. */
   .scrubber {
@@ -400,6 +669,27 @@
   .nav:hover {
     border-color: var(--accent);
     color: var(--accent);
+  }
+  .nav:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+  .today-link {
+    display: block;
+    width: calc(100% - 1.5rem);
+    margin: 0 auto 0.7rem;
+    padding: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .today-link:hover {
+    border-color: var(--accent);
+    color: var(--text);
   }
   .bento {
     display: grid;
@@ -580,6 +870,21 @@
   }
 
   @media (max-width: 820px) {
+    .command-heading {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .command-heading {
+      min-height: 0;
+    }
+    .day-orbit {
+      width: 100%;
+      min-width: 0;
+      height: 15rem;
+    }
+    .home-kpis {
+      grid-template-columns: repeat(2, 1fr);
+    }
     .bento {
       grid-template-columns: 1fr;
     }
