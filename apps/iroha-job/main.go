@@ -22,6 +22,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
@@ -110,6 +111,11 @@ func main() {
 	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
 
 	jobsService = jobs.NewService(db, logger, registry.Handlers())
+	geocodeService := geocode.NewService(db, nil, nil)
+	jobs.Register(registry, jobs.KindGeocodeRefresh, func(ctx context.Context, payload geocode.RefreshPayload) error {
+		return geocodeService.Refresh(ctx, payload)
+	})
+	jobsService = jobs.NewService(db, logger, registry.Handlers())
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -167,7 +173,7 @@ func importParseHandler(importService *imports.Service) func(context.Context, im
 		if err != nil {
 			return fmt.Errorf("invalid import_job_id UUID: %w", err)
 		}
-		return importService.Process(importJobID)
+		return importService.ProcessContext(ctx, importJobID)
 	}
 }
 

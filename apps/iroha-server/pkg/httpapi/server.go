@@ -12,6 +12,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
@@ -45,6 +46,7 @@ type Dependencies struct {
 	ImportService    *imports.Service
 	RawFileService   *rawfiles.Service
 	Cache            *cache.Client
+	GeocodeService   *geocode.Service
 	MaxUploadBytes   int64
 	AllowedOrigins   []string
 }

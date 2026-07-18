@@ -13,6 +13,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
@@ -59,6 +60,7 @@ func main() {
 	jobsService := jobs.NewService(db, logger, nil)
 	enqueuer := &jobEnqueuer{jobsService: jobsService}
 	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient)
+	geocodeService := geocode.NewService(db, enqueuer, cacheClient)
 	activityService := activities.NewService(db)
 	sleepService := sleep.NewService(db)
 	dailyService := daily.NewService(db)
@@ -80,6 +82,7 @@ func main() {
 		ImportService:    importService,
 		RawFileService:   rawFileService,
 		Cache:            cacheClient,
+		GeocodeService:   geocodeService,
 		MaxUploadBytes:   2 << 30,
 		AllowedOrigins:   cfg.Server.AllowedOrigins,
 	})
