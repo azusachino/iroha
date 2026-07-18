@@ -269,6 +269,11 @@ IROHA_JWT_AUDIENCE
 The server and job receive the database, Postgres-backed cache, and shared data-directory settings. Set `IROHA_CACHE_BACKEND=valkey` only for compatibility deployments that still provide a Valkey URL. Only the server receives the JWT verification secret and private CORS origins. For an authenticated static web
 deployment, pass a read-only `PUBLIC_IROHA_API_TOKEN` as the web image build argument; it is intentionally public within the private site and must not be a signing secret or write token.
 
+The cache cutover is reversible because cache entries are disposable. Postgres is
+the default; a compatibility rollback uses `IROHA_CACHE_BACKEND=valkey` and
+`IROHA_VALKEY_URL=redis://...` with the Valkey service restored. Switching
+backends causes misses and regeneration, not data migration.
+
 ## Commands
 
 ```bash

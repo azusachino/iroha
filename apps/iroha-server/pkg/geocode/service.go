@@ -126,7 +126,7 @@ func (s *Service) Refresh(ctx context.Context, payload RefreshPayload) error {
 	if err != nil {
 		return s.recordFailure(payload.CoordinateKey, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return s.recordFailure(payload.CoordinateKey, fmt.Errorf("geocoder returned HTTP %d", resp.StatusCode))
 	}
