@@ -13,7 +13,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"

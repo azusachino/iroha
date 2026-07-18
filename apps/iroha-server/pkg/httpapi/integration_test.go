@@ -26,7 +26,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
