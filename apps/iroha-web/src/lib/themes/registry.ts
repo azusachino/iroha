@@ -12,6 +12,10 @@ import GrapherToday from "$lib/themes/grapher/Today.svelte";
 import FieldJournalShell from "$lib/themes/field-journal/Shell.svelte";
 import FieldJournalToday from "$lib/themes/field-journal/Today.svelte";
 import FieldJournalDaily from "$lib/themes/field-journal/Daily.svelte";
+import AtlasShell from "$lib/themes/atlas/Shell.svelte";
+import PhenologyShell from "$lib/themes/phenology/Shell.svelte";
+import SoundMapShell from "$lib/themes/sound-map/Shell.svelte";
+import ArchiveShell from "$lib/themes/archive/Shell.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -19,7 +23,8 @@ export const THEME_DEFINITIONS = [
     label: "Iroha Atlas",
     hint: "places and routes",
     description: "A cartographic language for movement, places, and distance.",
-    implementation: "palette-only",
+    implementation: "preview",
+    components: { shell: AtlasShell },
   },
   {
     id: "grapher",
@@ -56,21 +61,24 @@ export const THEME_DEFINITIONS = [
     hint: "sleep and seasons",
     description:
       "A cyclical language for recovery, rest, and unfolding patterns.",
-    implementation: "palette-only",
+    implementation: "preview",
+    components: { shell: PhenologyShell },
   },
   {
     id: "sound-map",
     label: "Iroha Sound Map",
     hint: "rhythm and intensity",
     description: "A rhythmic language for cadence, intensity, and flow.",
-    implementation: "palette-only",
+    implementation: "preview",
+    components: { shell: SoundMapShell },
   },
   {
     id: "archive",
     label: "Iroha Archive",
     hint: "media and history",
     description: "A chronological language for collections and memory.",
-    implementation: "palette-only",
+    implementation: "preview",
+    components: { shell: ArchiveShell },
   },
 ] as const satisfies readonly ThemeDefinition[];
 

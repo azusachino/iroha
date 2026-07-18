@@ -20,12 +20,8 @@
     onchange={onChange}
   >
     {#each DESIGN_LANGUAGES as item}
-      <option value={item.id} disabled={item.implementation === "palette-only"}>
-        {item.label}{item.implementation === "preview"
-          ? " · preview"
-          : item.implementation === "palette-only"
-            ? " · planned"
-            : ""}
+      <option value={item.id}>
+        {item.label}{item.implementation === "preview" ? " · preview" : ""}
       </option>
     {/each}
   </select>

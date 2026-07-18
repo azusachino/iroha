@@ -18,6 +18,9 @@ describe("Iroha theme registry", () => {
   });
 
   it("distinguishes complete and preview renderer sets", () => {
+    expect(THEME_DEFINITIONS.every((theme) => theme.components?.shell)).toBe(
+      true,
+    );
     expect(getThemeDefinition("grapher").implementation).toBe("curated");
     expect(hasThemeRoute(getThemeDefinition("grapher"), "today")).toBe(true);
     expect(hasThemeRoute(getThemeDefinition("grapher"), "dashboard")).toBe(
@@ -38,9 +41,7 @@ describe("Iroha theme registry", () => {
       true,
     );
     expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "palette-only",
-      ),
-    ).toHaveLength(4);
+      THEME_DEFINITIONS.filter((theme) => theme.implementation === "preview"),
+    ).toHaveLength(5);
   });
 });
