@@ -116,6 +116,60 @@
   --tile-shadow: 0 12px 32px rgb(20 30 60 / 0.1);
 }
 
+/* Design languages change the meaning and mood of the render; light/dark
+   remains an independent contrast mode. Each language keeps the same semantic
+   roles so charts and data do not change meaning when the language changes. */
+:root[data-language="atlas"] {
+  --accent: #58c7c0;
+  --accent-2: #e7b65a;
+  --ring-move: #e7b65a;
+  --ring-exercise: #e07b58;
+  --ring-stand: #58c7c0;
+  --radius: 10px;
+}
+
+:root[data-language="grapher"] {
+  --accent: #6da9ff;
+  --accent-2: #f07c78;
+  --ring-move: #f07c78;
+  --ring-exercise: #e7b65a;
+  --ring-stand: #6da9ff;
+  --radius: 6px;
+}
+
+:root[data-language="field-journal"] {
+  --accent: #39c5bb;
+  --accent-2: #ff5c8a;
+  --radius: 14px;
+}
+
+:root[data-language="phenology"] {
+  --accent: #d68bba;
+  --accent-2: #a5c76a;
+  --ring-move: #d68bba;
+  --ring-exercise: #e7b65a;
+  --ring-stand: #a5c76a;
+  --radius: 20px;
+}
+
+:root[data-language="sound-map"] {
+  --accent: #63b7ff;
+  --accent-2: #ff9c66;
+  --ring-move: #ff9c66;
+  --ring-exercise: #b5e36b;
+  --ring-stand: #63b7ff;
+  --radius: 5px;
+}
+
+:root[data-language="archive"] {
+  --accent: #b8a0ff;
+  --accent-2: #d9b56d;
+  --ring-move: #d9b56d;
+  --ring-exercise: #c786a9;
+  --ring-stand: #b8a0ff;
+  --radius: 3px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -277,6 +331,38 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+}
+
+.language-picker {
+  display: inline-flex;
+  align-items: center;
+}
+
+.language-picker > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.language-picker select {
+  min-height: 2.25rem;
+  max-width: 9.5rem;
+  padding: 0.38rem 1.8rem 0.38rem 0.65rem;
+  border-radius: 999px;
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.language-picker select:hover {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .command-trigger,

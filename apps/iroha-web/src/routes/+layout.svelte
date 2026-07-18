@@ -12,6 +12,7 @@
   } from "@lucide/svelte";
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
+  import DesignLanguagePicker from "$lib/components/DesignLanguagePicker.svelte";
   import "./app.css";
 
   let { children } = $props();
@@ -74,6 +75,7 @@
         <Share2 size={15} />
         <span>Share</span>
       </a>
+      <DesignLanguagePicker />
       <ThemeToggle />
     </div>
   </header>
