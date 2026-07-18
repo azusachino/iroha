@@ -22,6 +22,7 @@
   import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
+  import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { sportLabel } from "$lib/sport";
 
   function displayTitle(title?: string, sport?: string): string {
@@ -411,7 +412,13 @@
 {:else if error}
   <p class="error">Failed to load activity: {error}</p>
 {:else if activity}
-  <h1>{displayTitle(activity.title, activity.sport_type)}</h1>
+  <RouteIntro
+    eyebrow="Motion / performance report"
+    title={displayTitle(activity.title, activity.sport_type)}
+    description="A measured record of this session, from the route and effort to the details worth revisiting."
+    actionHref="/activities"
+    actionLabel="Back to archive"
+  />
   <div class="activity-meta">
     <SportBadge sport={activity.sport_type} />
     <span class="muted"
