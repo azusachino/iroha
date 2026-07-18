@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import favicon from "$lib/assets/favicon.svg";
   import { page } from "$app/state";
   import {
@@ -13,9 +14,25 @@
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import DesignLanguagePicker from "$lib/components/DesignLanguagePicker.svelte";
+  import GrapherShell from "$lib/themes/grapher/Shell.svelte";
+  import { getDesignLanguage, type DesignLanguage } from "$lib/design-language";
   import "./app.css";
 
   let { children } = $props();
+  let language = $state<DesignLanguage>("field-journal");
+
+  onMount(() => {
+    language = getDesignLanguage();
+    const onLanguageChange = (event: Event) => {
+      language = (event as CustomEvent<DesignLanguage>).detail;
+    };
+    window.addEventListener("iroha:design-language-change", onLanguageChange);
+    return () =>
+      window.removeEventListener(
+        "iroha:design-language-change",
+        onLanguageChange,
+      );
+  });
 
   const shareActive = $derived(page.url.pathname.startsWith("/share"));
   const mediaActive = $derived(page.url.pathname.startsWith("/media"));
@@ -80,8 +97,14 @@
     </div>
   </header>
   <CommandPalette />
-  <main class="content">
-    {@render children()}
-  </main>
-  <footer class="footer">Private activity viewer</footer>
+  {#if language === "grapher"}
+    <GrapherShell>
+      {@render children()}
+    </GrapherShell>
+  {:else}
+    <main class="content">
+      {@render children()}
+    </main>
+    <footer class="footer">Private activity viewer</footer>
+  {/if}
 </div>

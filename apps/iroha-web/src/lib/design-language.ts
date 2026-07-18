@@ -17,6 +17,11 @@ export function getDesignLanguage(): DesignLanguage {
 export function setDesignLanguage(language: DesignLanguage): void {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.language = language;
+  window.dispatchEvent(
+    new CustomEvent<DesignLanguage>("iroha:design-language-change", {
+      detail: language,
+    }),
+  );
   try {
     localStorage.setItem(STORAGE_KEY, language);
   } catch {
