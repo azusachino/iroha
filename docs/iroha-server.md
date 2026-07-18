@@ -165,10 +165,10 @@ Normal Telegram Bot API file downloads may be too small for full Apple Health ex
 
 ### Upload Contract
 
-All write requests carry the bearer token when auth is enabled (see [Auth](#auth)):
+Authenticated API requests carry the JWT bearer token when auth is enabled (see [Auth](#auth)):
 
 ```text
-Authorization: Bearer <import_token>
+Authorization: Bearer <jwt>
 ```
 
 Step 1 — push the raw file as multipart form data:
@@ -247,25 +247,32 @@ GET /api/v1/imports/{importId}
 
 ## Auth
 
-MVP auth is intentionally simple:
+Authentication is deployment-configurable:
 
-- no auth for local-only development (`local_no_auth = true`)
-- bearer token when external upload clients such as a personal Telegram bot are enabled (`local_no_auth = false`, `import_token = "<secret>"`)
+- trusted local development may bypass authentication (`local_no_auth = true`)
+- authenticated mode requires a JWT bearer token for `/api/v1`
+- `/public/v1` and `/healthz` remain anonymous
+- reads require `iroha:read`; writes require `iroha:write` (write implies read)
 
-Only the write endpoints are guarded:
+Private API requests use:
 
 ```text
-POST /api/v1/raw-files   requires Authorization: Bearer <import_token>
-POST /api/v1/imports     requires Authorization: Bearer <import_token>
+Authorization: Bearer <jwt>
 ```
 
-The read endpoints (`GET /api/v1/raw-files`, `GET /api/v1/imports`, `GET /api/v1/activities...`) are not guarded. A missing or wrong bearer token on a guarded endpoint returns `401 Unauthorized`:
+Authenticated mode validates the configured JWT issuer, audience, signature, and expiry. A missing or invalid token returns `401`; an insufficient scope returns `403`. The signing secret is supplied
+through `IROHA_JWT_SECRET` and is never logged or sent to the browser.
 
 ```json
-{ "error": "unauthorized" }
+{
+  "code": "unauthorized",
+  "message": "invalid or missing bearer token",
+  "request_id": "req_01..."
+}
 ```
 
-OIDC can be added later if iroha becomes network-exposed or multi-device access becomes awkward.
+The private web viewer can receive a deployment-provided `PUBLIC_IROHA_API_TOKEN`. This is a bearer credential exposed to the trusted private network, not a signing secret. Do not use this mode for an
+untrusted or public deployment.
 
 ## Configuration
 
@@ -291,7 +298,9 @@ data_dir = ".iroha-data"
 
 [auth]
 local_no_auth = true
-import_token = ""
+jwt_secret = ""
+jwt_issuer = "iroha"
+jwt_audience = "iroha-api"
 ```
 
 Environment variables override TOML:
@@ -301,5 +310,7 @@ IROHA_SERVER_ADDR
 IROHA_DATABASE_URL
 IROHA_DATA_DIR
 IROHA_LOCAL_NO_AUTH
-IROHA_IMPORT_TOKEN
+IROHA_JWT_SECRET
+IROHA_JWT_ISSUER
+IROHA_JWT_AUDIENCE
 ```

@@ -4,14 +4,14 @@ go 1.26.4
 
 require (
 	github.com/BurntSushi/toml v1.5.0
-	github.com/go-chi/chi/v5 v5.2.3
-	github.com/go-chi/cors v1.2.2
-	github.com/go-chi/httprate v0.16.0
-	github.com/google/uuid v1.6.0
 	github.com/azusachino/iroha/apps/iroha-core v0.1.0
 	github.com/azusachino/iroha/apps/iroha-imports v0.1.0
 	github.com/azusachino/iroha/apps/iroha-providers v0.1.0
 	github.com/azusachino/iroha/apps/iroha-runtime v0.1.0
+	github.com/go-chi/chi/v5 v5.2.3
+	github.com/go-chi/cors v1.2.2
+	github.com/go-chi/httprate v0.16.0
+	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.21.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
@@ -27,6 +27,7 @@ replace github.com/azusachino/iroha/apps/iroha-runtime => ../iroha-runtime
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.6.0 // indirect

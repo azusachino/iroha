@@ -91,15 +91,16 @@ func (s *Server) routes() {
 	s.mux.Route("/api/v1", func(r chi.Router) {
 		// Private API: CORS limited to configured origins.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
-		r.Use(limitByIP(apiLimit))
+		r.Use(s.requireJWT("iroha:read"))
+		r.Use(limitByIdentity(apiLimit))
 		r.Get("/briefing", s.handleBriefing)
 		r.Route("/raw-files", func(r chi.Router) {
-			r.With(s.requireUploadAuth).Post("/", s.handleCreateRawFile)
+			r.With(s.requireJWT("iroha:write")).Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
 			r.Get("/{rawFileId}", s.handleGetRawFile)
 		})
 		r.Route("/imports", func(r chi.Router) {
-			r.With(s.requireUploadAuth).Post("/", s.handleCreateImportJob)
+			r.With(s.requireJWT("iroha:write")).Post("/", s.handleCreateImportJob)
 			r.Get("/", s.handleListImportJobs)
 			r.Get("/{importId}", s.handleGetImportJob)
 		})
@@ -143,7 +144,20 @@ func (s *Server) routes() {
 // address resolved by middleware.RealIP into r.RemoteAddr, stated explicitly to
 // avoid the deprecated LimitByIP helper.
 func limitByIP(perMinute int) func(http.Handler) http.Handler {
-	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP)
+	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP, httprate.WithLimitHandler(rateLimitResponse))
+}
+
+func limitByIdentity(perMinute int) func(http.Handler) http.Handler {
+	return httprate.LimitBy(perMinute, time.Minute, func(r *http.Request) (string, error) {
+		if subject := authSubject(r); subject != "" {
+			return "subject:" + subject, nil
+		}
+		return keyByRemoteIP(r)
+	}, httprate.WithLimitHandler(rateLimitResponse))
+}
+
+func rateLimitResponse(w http.ResponseWriter, _ *http.Request) {
+	writeContractError(w, http.StatusTooManyRequests, "rate_limited", "rate limit exceeded")
 }
 
 func keyByRemoteIP(r *http.Request) (string, error) {

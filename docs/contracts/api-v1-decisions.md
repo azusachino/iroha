@@ -66,7 +66,8 @@ Authentication is deployment-configurable:
 The required claims are `iss`, `sub`, `aud`, `iat`, `exp`, `jti`, and `scope`. Signing algorithm, key rotation, and token issuance are deployment concerns, not domain response semantics. Expired,
 malformed, wrong-audience, and insufficient-scope tokens return the common `401`/`403` errors.
 
-The browser client must have an explicit token/session flow before authenticated private reads are enabled. A token embedded in public static JavaScript is not considered a secret.
+The current browser client supports a deployment-provided bearer token through `PUBLIC_IROHA_API_TOKEN`. This is suitable only for a trusted private self-hosted network: a token embedded in public
+static JavaScript is not considered a secret. A future multi-user deployment needs a real login/session flow and must not reuse this static-token path.
 
 ## Rate limiting
 

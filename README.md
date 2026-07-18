@@ -81,7 +81,9 @@ The server is configured via `iroha.toml` and/or environment variables:
 | `IROHA_DATABASE_URL`            | Postgres DSN                         | local dev DSN                  |
 | `IROHA_DATA_DIR`                | Raw-file storage dir                 | `.iroha-data`                  |
 | `IROHA_LOCAL_NO_AUTH`           | Disable auth for local dev           | `true`                         |
-| `IROHA_IMPORT_TOKEN`            | Bearer token for the upload contract | —                              |
+| `IROHA_JWT_SECRET`              | JWT verification secret              | —                              |
+| `IROHA_JWT_ISSUER`              | Expected JWT issuer                  | `iroha`                        |
+| `IROHA_JWT_AUDIENCE`            | Expected JWT audience                | `iroha-api`                    |
 | `IROHA_PARSER_VERSION`          | Parser build id; bump to reprocess   | `imports.DefaultParserVersion` |
 | `IROHA_ANILIST_USERNAME`        | Public AniList username to sync      | —                              |
 | `IROHA_ANILIST_TOKEN`           | Optional AniList OAuth token         | —                              |

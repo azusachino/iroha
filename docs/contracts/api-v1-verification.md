@@ -76,7 +76,17 @@ JWT client
 
 The same fixture must run against the supported local runtime path and the containerized server/worker path. A green database check alone is insufficient.
 
+## Current implementation evidence
+
+- `make contract-check` passes against the registered private/public route inventory.
+- JWT tests cover local bypass, missing/malformed/expired/wrong-issuer/wrong-audience tokens, signature and scope behavior.
+- Rate-limit tests cover `429`, the common error body, and `Retry-After`.
+- `make check` passes, including the frontend formatter, Svelte check, and frontend tests.
+- The private web client sends `PUBLIC_IROHA_API_TOKEN` when configured; the value is a deployment credential, not a signing secret.
+
+The end-to-end worker/import rehearsal remains a release-candidate check because it requires the supported local and containerized runtime paths.
+
 ## Completion rule
 
-Task 5 may implement the gate only when the route inventory and contract decisions are reviewed. Task 6 may implement JWT and rate limiting only when the contract gate is green and the frontend
-authentication flow is specified.
+The route inventory and contract decisions must be reviewed before implementation. JWT and rate limiting may be considered contract-gated once the checks above remain green and the release-candidate
+rehearsal is completed.

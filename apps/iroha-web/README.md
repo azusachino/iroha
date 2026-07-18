@@ -4,7 +4,8 @@ Private, read-only SvelteKit viewer for the iroha activity data. It consumes the
 `iroha-server` read API and renders an activity list plus a per-activity detail
 page with a MapLibre route map and uPlot pace / heart-rate / elevation charts.
 
-This is a personal single-user viewer. It sends no auth headers and performs no
+This is a personal single-user viewer. It sends an optional deployment-provided
+JWT bearer header and performs no
 writes.
 
 ## Stack

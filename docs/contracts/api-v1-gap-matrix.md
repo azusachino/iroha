@@ -34,7 +34,7 @@ Gear, privacy-zone management, published-activity mutation, and activity mutatio
 | Pagination                | PARTIAL         | List responses use `items`, `next_cursor`, and `has_more`; cursor opacity, limits, and invalid-cursor behavior are undocumented.          |
 | Errors                    | PARTIAL         | Errors currently use `{ "error": "..." }`; error codes, request correlation, and the complete status matrix are not defined.              |
 | Private/public projection | PRESENT         | Public DTOs are separate from private activity DTOs and have a leakage test. Other public response contracts still need fixture coverage. |
-| Upload authentication     | PRESENT/PARTIAL | Optional bearer-token protection exists for upload and import writes. JWT claims, scopes, issuance, and expiry are not defined.           |
+| JWT authentication        | PRESENT/PARTIAL | JWT validation now protects private API mode; token issuance, rotation, and browser/session policy remain deployment concerns.            |
 | Rate limiting             | PRESENT/PARTIAL | IP-based limits exist for private, public, and geocode routes. The `429` response and `Retry-After` contract are not defined.             |
 | Frontend compatibility    | PARTIAL         | The Svelte client consumes private reads without auth headers; JWT adoption requires an explicit browser/session flow.                    |
 | Runtime contract          | PARTIAL         | Podman Compose runs server, worker, web, database, and Valkey; the full upload-to-worker contract still needs an executable gate.         |

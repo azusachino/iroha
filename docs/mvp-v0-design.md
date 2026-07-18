@@ -110,7 +110,7 @@ Preferred MVP stack:
 - Frontend: SvelteKit
 - Maps: MapLibre
 - Charts: ECharts, Observable Plot, or uPlot
-- Auth: no auth for local MVP; add bearer tokens when external upload clients are enabled
+- Auth: local MVP may bypass auth; authenticated deployments use JWT bearer tokens
 - Config: TOML file with environment variable overrides
 - IDs: UUIDv7 stored in Postgres UUID columns, exposed as prefixed API IDs
 - Universal tool manager: Nix flake
