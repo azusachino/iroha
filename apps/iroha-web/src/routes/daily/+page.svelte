@@ -11,6 +11,7 @@
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
   import { formatDateOnly } from "$lib/format";
+  import RouteIntro from "$lib/components/RouteIntro.svelte";
 
   type Gran = "day" | "month" | "year";
   const DAY_FETCH = 90;
@@ -188,14 +189,13 @@
 </script>
 
 <section class="daily">
-  <header class="head">
-    <div>
-      <p class="eyebrow">Domain</p>
-      <h1>Daily &amp; Vitals</h1>
-      <p class="muted">Rings, movement and body vitals across your history.</p>
-    </div>
-    <a class="back" href="/dashboard">← Cockpit</a>
-  </header>
+  <RouteIntro
+    eyebrow="Patterns / personal history"
+    title="Daily & Vitals"
+    description="Rings, movement, and body signals across your history. Start with the latest day, then zoom out to see the pattern."
+    actionHref="/"
+    actionLabel="Today"
+  />
 
   {#if loading}
     <p class="muted status">Loading daily history…</p>
@@ -254,6 +254,19 @@
       />
     </div>
 
+    <section class="atlas-note tile" aria-label="Pattern reading guide">
+      <div>
+        <span class="t-label">Reading the atlas</span>
+        <h2>{gran[0].toUpperCase() + gran.slice(1)} view</h2>
+      </div>
+      <p>
+        Compare movement and body signals at this scale, then use the table as
+        the precise record. Missing values remain unfilled rather than being
+        treated as zero.
+      </p>
+      <span class="muted small">{chrono.length} periods in view</span>
+    </section>
+
     <div class="table-wrap tile">
       <table>
         <thead>
@@ -308,40 +321,6 @@
   .daily {
     display: grid;
     gap: 1.25rem;
-  }
-  .head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-  .head h1 {
-    margin: 0;
-  }
-  .eyebrow {
-    margin: 0 0 0.35rem;
-    color: var(--accent);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .head .muted {
-    margin: 0.35rem 0 0;
-    color: var(--text-muted);
-  }
-  .back {
-    flex: 0 0 auto;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 0.86rem;
-  }
-  .back:hover {
-    border-color: var(--accent);
-    text-decoration: none;
   }
   .status {
     padding: 2rem 0;
@@ -413,6 +392,27 @@
   .trend-panel {
     padding: 1rem;
   }
+
+  .atlas-note {
+    display: grid;
+    grid-template-columns: minmax(12rem, 0.8fr) minmax(0, 1.6fr) auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+    border-left: 3px solid var(--accent);
+  }
+
+  .atlas-note h2 {
+    margin: 0.2rem 0 0;
+    font-size: 1.05rem;
+  }
+
+  .atlas-note p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
   .trend-heading {
     display: flex;
     justify-content: space-between;
@@ -463,6 +463,10 @@
   }
 
   @media (max-width: 720px) {
+    .atlas-note {
+      grid-template-columns: 1fr;
+    }
+
     .trend-heading {
       align-items: flex-start;
       flex-direction: column;

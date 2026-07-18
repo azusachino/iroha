@@ -9,6 +9,7 @@
     type Summary,
   } from "$lib/api";
   import DomainTile from "$lib/components/DomainTile.svelte";
+  import RouteIntro from "$lib/components/RouteIntro.svelte";
   import Heatmap from "$lib/components/Heatmap.svelte";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
@@ -135,14 +136,13 @@
 </script>
 
 <section class="dashboard-shell">
-  <header class="dashboard-heading">
-    <div>
-      <p class="eyebrow">Dashboard</p>
-      <h1>Your data cockpit</h1>
-      <p class="muted">A living view of your activity record.</p>
-    </div>
-    <a class="activity-link" href="/activities">Explore activities</a>
-  </header>
+  <RouteIntro
+    eyebrow="Observatory / long view"
+    title="See the footprint."
+    description="A long view of the movement archive: accumulated distance, recent sessions, route footprint, and the data domains available to explore."
+    actionHref="/activities"
+    actionLabel="Browse Motion"
+  />
 
   <div class="stats-grid" aria-label="Activity totals">
     <StatTile
@@ -300,7 +300,8 @@
         <DomainTile
           name="Media"
           stat="Reading and watching history"
-          state="soon"
+          href="/media"
+          state="active"
         />
       </div>
     </section>
@@ -313,7 +314,6 @@
     gap: 1.25rem;
   }
 
-  .dashboard-heading,
   .tile-heading {
     display: flex;
     align-items: flex-start;
@@ -321,41 +321,14 @@
     gap: 1rem;
   }
 
-  .dashboard-heading h1,
   .tile-heading h2,
   .domains-heading h2 {
     margin: 0;
   }
 
-  .dashboard-heading .muted,
   .tile-heading p,
   .domains-heading p {
     margin: 0.35rem 0 0;
-  }
-
-  .eyebrow {
-    margin: 0 0 0.4rem;
-    color: var(--accent);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .activity-link {
-    flex: 0 0 auto;
-    padding: 0.55rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 0.86rem;
-    text-decoration: none;
-  }
-
-  .activity-link:hover {
-    border-color: var(--accent);
-    text-decoration: none;
   }
 
   .stats-grid {
@@ -496,14 +469,8 @@
   }
 
   @media (max-width: 560px) {
-    .dashboard-heading,
     .tile-heading {
       flex-direction: column;
-    }
-
-    .activity-link {
-      width: 100%;
-      text-align: center;
     }
 
     .recent-row {
