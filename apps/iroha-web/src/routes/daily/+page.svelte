@@ -12,6 +12,8 @@
   } from "$lib/components/DailySmallMultiples.svelte";
   import { formatDateOnly } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
+  import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
+  import { getDesignLanguage, type DesignLanguage } from "$lib/design-language";
 
   type Gran = "day" | "month" | "year";
   const DAY_FETCH = 90;
@@ -24,6 +26,7 @@
   let gran = $state<Gran>("month");
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
+  let language = $state<DesignLanguage>("field-journal");
 
   // Hero uses the latest real ring day, independent of the chosen granularity.
   const latestRingDay = $derived(dayRows.find((r) => r.move_goal_kcal > 0));
@@ -186,134 +189,160 @@
       loading = false;
     }
   });
+
+  onMount(() => {
+    language = getDesignLanguage();
+    const onLanguageChange = (event: Event) => {
+      language = (event as CustomEvent<DesignLanguage>).detail;
+    };
+    window.addEventListener("iroha:design-language-change", onLanguageChange);
+    return () =>
+      window.removeEventListener(
+        "iroha:design-language-change",
+        onLanguageChange,
+      );
+  });
 </script>
 
 <section class="daily">
-  <RouteIntro
-    eyebrow="Patterns / personal history"
-    title="Daily & Vitals"
-    description="Rings, movement, and body signals across your history. Start with the latest day, then zoom out to see the pattern."
-    actionHref="/"
-    actionLabel="Today"
-  />
-
-  {#if loading}
-    <p class="muted status">Loading daily history…</p>
-  {:else if error}
-    <p class="error status">Could not load daily data: {error}</p>
-  {:else if dayRows.length === 0}
-    <p class="muted status">No daily data imported yet.</p>
+  {#if language === "grapher"}
+    {#if loading}
+      <p class="muted status">Loading time-series data…</p>
+    {:else if error}
+      <p class="error status">Could not load daily data: {error}</p>
+    {:else if dayRows.length === 0}
+      <p class="muted status">No daily data imported yet.</p>
+    {:else}
+      <GrapherDaily {chrono} {gran} onGran={(value) => (gran = value)} />
+    {/if}
   {:else}
-    <div class="hero tile glow">
-      <div class="hero-head">
-        <span class="hero-kicker">Latest rings</span>
-        {#if latestRingDay}<span class="hero-date"
-            >{formatDateOnly(latestRingDay.day)}</span
+    <RouteIntro
+      eyebrow="Patterns / personal history"
+      title="Daily & Vitals"
+      description="Rings, movement, and body signals across your history. Start with the latest day, then zoom out to see the pattern."
+      actionHref="/"
+      actionLabel="Today"
+    />
+
+    {#if loading}
+      <p class="muted status">Loading daily history…</p>
+    {:else if error}
+      <p class="error status">Could not load daily data: {error}</p>
+    {:else if dayRows.length === 0}
+      <p class="muted status">No daily data imported yet.</p>
+    {:else}
+      <div class="hero tile glow">
+        <div class="hero-head">
+          <span class="hero-kicker">Latest rings</span>
+          {#if latestRingDay}<span class="hero-date"
+              >{formatDateOnly(latestRingDay.day)}</span
+            >{/if}
+        </div>
+        <RingGauge rings={ringData} />
+      </div>
+
+      <div class="controls">
+        <div class="seg" role="tablist" aria-label="Aggregation granularity">
+          {#each ["day", "month", "year"] as const as g}
+            <button
+              role="tab"
+              aria-selected={gran === g}
+              class:active={gran === g}
+              onclick={() => (gran = g)}
+            >
+              {g[0].toUpperCase() + g.slice(1)}
+            </button>
+          {/each}
+        </div>
+        <span class="muted small">
+          {#if aggregated}
+            {chrono.length} {gran}s · per-day averages
+          {:else}
+            recent {chrono.length} days
+          {/if}
+        </span>
+        {#if rangeFrom && rangeTo}<span class="muted small"
+            >Range: {rangeFrom} → {rangeTo}</span
           >{/if}
       </div>
-      <RingGauge rings={ringData} />
-    </div>
 
-    <div class="controls">
-      <div class="seg" role="tablist" aria-label="Aggregation granularity">
-        {#each ["day", "month", "year"] as const as g}
-          <button
-            role="tab"
-            aria-selected={gran === g}
-            class:active={gran === g}
-            onclick={() => (gran = g)}
+      <div class="trend-panel tile">
+        <div class="trend-heading">
+          <div>
+            <span class="t-label">Daily signals</span>
+            <h2>Small multiples</h2>
+          </div>
+          <span class="muted small"
+            >Move the crosshair to compare one period</span
           >
-            {g[0].toUpperCase() + g.slice(1)}
-          </button>
-        {/each}
-      </div>
-      <span class="muted small">
-        {#if aggregated}
-          {chrono.length} {gran}s · per-day averages
-        {:else}
-          recent {chrono.length} days
-        {/if}
-      </span>
-      {#if rangeFrom && rangeTo}<span class="muted small"
-          >Range: {rangeFrom} → {rangeTo}</span
-        >{/if}
-    </div>
-
-    <div class="trend-panel tile">
-      <div class="trend-heading">
-        <div>
-          <span class="t-label">Daily signals</span>
-          <h2>Small multiples</h2>
         </div>
-        <span class="muted small">Move the crosshair to compare one period</span
-        >
+        <DailySmallMultiples
+          labels={chrono.map((d) => d.label)}
+          charts={trendCharts}
+        />
       </div>
-      <DailySmallMultiples
-        labels={chrono.map((d) => d.label)}
-        charts={trendCharts}
-      />
-    </div>
 
-    <section class="atlas-note tile" aria-label="Pattern reading guide">
-      <div>
-        <span class="t-label">Reading the atlas</span>
-        <h2>{gran[0].toUpperCase() + gran.slice(1)} view</h2>
-      </div>
-      <p>
-        Compare movement and body signals at this scale, then use the table as
-        the precise record. Missing values remain unfilled rather than being
-        treated as zero.
-      </p>
-      <span class="muted small">{chrono.length} periods in view</span>
-    </section>
+      <section class="atlas-note tile" aria-label="Pattern reading guide">
+        <div>
+          <span class="t-label">Reading the atlas</span>
+          <h2>{gran[0].toUpperCase() + gran.slice(1)} view</h2>
+        </div>
+        <p>
+          Compare movement and body signals at this scale, then use the table as
+          the precise record. Missing values remain unfilled rather than being
+          treated as zero.
+        </p>
+        <span class="muted small">{chrono.length} periods in view</span>
+      </section>
 
-    <div class="table-wrap tile">
-      <table>
-        <thead>
-          <tr>
-            <th class="l"
-              >{gran === "day"
-                ? "Day"
-                : gran === "month"
-                  ? "Month"
-                  : "Year"}</th
-            >
-            {#if aggregated}<th>Days</th>{/if}
-            <th>Move</th><th>Exer</th><th>Stand</th><th>Move ✓</th>
-            <th>Steps{aggregated ? "/d" : ""}</th><th
-              >Dist{aggregated ? "/d" : ""}</th
-            >
-            <th>rHR</th><th>HRV</th><th>SpO₂</th><th>Resp</th><th>VO₂</th><th
-              >Mass</th
-            >
-          </tr>
-        </thead>
-        <tbody>
-          {#each table as d}
+      <div class="table-wrap tile">
+        <table>
+          <thead>
             <tr>
-              <td class="l">{d.label}</td>
-              {#if aggregated}<td>{d.days}</td>{/if}
-              <td>{fmt(d.move, 0)}</td>
-              <td>{fmt(d.exercise, 0)}</td>
-              <td>{fmt(d.stand, 0)}</td>
-              <td
-                >{d.moveClosedPct == null
-                  ? "—"
-                  : `${Math.round(d.moveClosedPct)}%`}</td
+              <th class="l"
+                >{gran === "day"
+                  ? "Day"
+                  : gran === "month"
+                    ? "Month"
+                    : "Year"}</th
               >
-              <td>{fmt(d.steps, 0)}</td>
-              <td>{fmt(d.distance, 1)}</td>
-              <td>{fmt(d.resting_hr, 0)}</td>
-              <td>{fmt(d.hrv_sdnn, 0)}</td>
-              <td>{fmt(d.spo2_avg, 1)}</td>
-              <td>{fmt(d.respiratory_rate, 1)}</td>
-              <td>{fmt(d.vo2max, 1)}</td>
-              <td>{fmt(d.body_mass_kg, 1)}</td>
+              {#if aggregated}<th>Days</th>{/if}
+              <th>Move</th><th>Exer</th><th>Stand</th><th>Move ✓</th>
+              <th>Steps{aggregated ? "/d" : ""}</th><th
+                >Dist{aggregated ? "/d" : ""}</th
+              >
+              <th>rHR</th><th>HRV</th><th>SpO₂</th><th>Resp</th><th>VO₂</th><th
+                >Mass</th
+              >
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {#each table as d}
+              <tr>
+                <td class="l">{d.label}</td>
+                {#if aggregated}<td>{d.days}</td>{/if}
+                <td>{fmt(d.move, 0)}</td>
+                <td>{fmt(d.exercise, 0)}</td>
+                <td>{fmt(d.stand, 0)}</td>
+                <td
+                  >{d.moveClosedPct == null
+                    ? "—"
+                    : `${Math.round(d.moveClosedPct)}%`}</td
+                >
+                <td>{fmt(d.steps, 0)}</td>
+                <td>{fmt(d.distance, 1)}</td>
+                <td>{fmt(d.resting_hr, 0)}</td>
+                <td>{fmt(d.hrv_sdnn, 0)}</td>
+                <td>{fmt(d.spo2_avg, 1)}</td>
+                <td>{fmt(d.respiratory_rate, 1)}</td>
+                <td>{fmt(d.vo2max, 1)}</td>
+                <td>{fmt(d.body_mass_kg, 1)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
   {/if}
 </section>
 
