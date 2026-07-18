@@ -6,3 +6,8 @@ import { env } from "$env/dynamic/public";
 // PUBLIC_IROHA_API_BASE to an absolute URL when the API is on another origin
 // (e.g. a production deploy not fronted by a reverse proxy).
 export const API_BASE = (env.PUBLIC_IROHA_API_BASE ?? "").replace(/\/$/, "");
+
+// This is a deployment-provided bearer token for a trusted private network.
+// It is intentionally a public runtime value in the browser bundle, never a
+// signing secret.
+export const API_TOKEN = env.PUBLIC_IROHA_API_TOKEN ?? "";

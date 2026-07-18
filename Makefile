@@ -9,9 +9,9 @@ WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local
 
-PRETTIER := bunx prettier@3.4.2
+PRETTIER := prettier
 DOCS_GLOB := **/*.{md,yaml,yml,json}
 
 help: ## List available targets
@@ -35,6 +35,9 @@ lint: ## Run golangci-lint across all modules (Uber Go Style Guide orientation)
 
 test: ## Run Go tests across all modules
 	$(NIX_DEV)uv run python scripts/go_tasks.py test
+
+contract-check: ## Verify the registered HTTP route inventory
+	$(NIX_DEV)go -C $(SERVER_DIR) test ./pkg/httpapi -run '^TestActiveRouteInventory$$'
 
 test-integration: db-up ## Run DB-backed Go integration tests
 	$(NIX_DEV)env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -tags=integration ./...
@@ -81,7 +84,7 @@ fmt-docs-check: ## Fail if any doc/config file is unformatted
 	$(NIX_DEV)$(PRETTIER) --check "$(DOCS_GLOB)"
 
 ## --- Aggregate gates ---
-check: fmt-check vet lint test scripts-test web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + script tests + web fmt-check + web type-check + web tests
+check: fmt-check vet lint test contract-check scripts-test web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + web checks
 validate: check build web-build ## Pre-PR gate: check + full server and web builds
 
 ## --- Dev stack (Podman Compose via uv scripts) ---

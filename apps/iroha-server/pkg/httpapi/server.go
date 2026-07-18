@@ -79,8 +79,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) routes() {
 	s.mux.Use(middleware.RequestID)
+	s.mux.Use(requestIDResponseHeader)
 	s.mux.Use(middleware.RealIP)
 	s.mux.Use(middleware.Recoverer)
+	s.mux.Use(s.accessLog)
 
 	apiLimit, publicLimit := apiRateLimitPerMin, publicRateLimitPerMin
 	if s.deps.Config.Auth.LocalNoAuth {
@@ -91,15 +93,18 @@ func (s *Server) routes() {
 	s.mux.Route("/api/v1", func(r chi.Router) {
 		// Private API: CORS limited to configured origins.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
-		r.Use(limitByIP(apiLimit))
+		// Rate limiting runs before auth so malformed or missing-token floods are
+		// bounded too. Valid JWTs are still keyed by subject when available.
+		r.Use(limitByIdentity(apiLimit, s.deps.Config.Auth))
+		r.Use(s.requireJWT("iroha:read"))
 		r.Get("/briefing", s.handleBriefing)
 		r.Route("/raw-files", func(r chi.Router) {
-			r.With(s.requireUploadAuth).Post("/", s.handleCreateRawFile)
+			r.With(s.requireJWT("iroha:write")).Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
 			r.Get("/{rawFileId}", s.handleGetRawFile)
 		})
 		r.Route("/imports", func(r chi.Router) {
-			r.With(s.requireUploadAuth).Post("/", s.handleCreateImportJob)
+			r.With(s.requireJWT("iroha:write")).Post("/", s.handleCreateImportJob)
 			r.Get("/", s.handleListImportJobs)
 			r.Get("/{importId}", s.handleGetImportJob)
 		})
@@ -143,7 +148,32 @@ func (s *Server) routes() {
 // address resolved by middleware.RealIP into r.RemoteAddr, stated explicitly to
 // avoid the deprecated LimitByIP helper.
 func limitByIP(perMinute int) func(http.Handler) http.Handler {
-	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP)
+	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP, httprate.WithLimitHandler(rateLimitResponse))
+}
+
+func limitByIdentity(perMinute int, auth config.AuthConfig) func(http.Handler) http.Handler {
+	return httprate.LimitBy(perMinute, time.Minute, func(r *http.Request) (string, error) {
+		if claims, err := parseJWT(r, auth); err == nil && claims.Subject != "" {
+			return "subject:" + claims.Subject, nil
+		}
+		if subject := authSubject(r); subject != "" {
+			return "subject:" + subject, nil
+		}
+		return keyByRemoteIP(r)
+	}, httprate.WithLimitHandler(rateLimitResponse))
+}
+
+func requestIDResponseHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requestID := middleware.GetReqID(r.Context()); requestID != "" {
+			w.Header().Set("X-Request-ID", requestID)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func rateLimitResponse(w http.ResponseWriter, _ *http.Request) {
+	writeContractError(w, http.StatusTooManyRequests, "rate_limited", "rate limit exceeded")
 }
 
 func keyByRemoteIP(r *http.Request) (string, error) {
@@ -157,9 +187,32 @@ func keyByRemoteIP(r *http.Request) (string, error) {
 func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins: origins,
-		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
-		AllowedHeaders: []string{"Accept", "Content-Type"},
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodOptions},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
+		ExposedHeaders: []string{"Retry-After", "X-Request-ID"},
 		MaxAge:         300,
+	})
+}
+
+func (s *Server) accessLog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wrapped := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		started := time.Now()
+		next.ServeHTTP(wrapped, r)
+
+		route := "unknown"
+		if routeContext := chi.RouteContext(r.Context()); routeContext != nil && routeContext.RoutePattern() != "" {
+			route = routeContext.RoutePattern()
+		}
+		s.deps.Logger.InfoContext(r.Context(), "http request",
+			"request_id", middleware.GetReqID(r.Context()),
+			"method", r.Method,
+			"route", route,
+			"status", wrapped.Status(),
+			"bytes", wrapped.BytesWritten(),
+			"duration_ms", time.Since(started).Milliseconds(),
+			"subject", authSubject(r),
+		)
 	})
 }
 

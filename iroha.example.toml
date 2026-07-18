@@ -9,7 +9,9 @@ data_dir = ".iroha-data"
 
 [auth]
 local_no_auth = true
-import_token = ""
+jwt_secret = ""
+jwt_issuer = "iroha"
+jwt_audience = "iroha-api"
 
 [cache]
 url = "redis://localhost:6379/0"

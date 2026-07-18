@@ -1,0 +1,807 @@
+openapi: 3.1.0
+info:
+  title: Iroha API
+  version: 0.0.0-pre-release
+  description: |
+    Active-development contract for Iroha's private data cockpit.
+    /api/v1 evolves in place until the first release. This document is the
+    current implementation target, not a released compatibility promise.
+servers:
+  - url: /
+    description: Same-origin or reverse-proxy deployment
+tags:
+  - name: system
+  - name: imports
+  - name: activities
+  - name: sleep
+  - name: daily
+  - name: media
+  - name: public
+paths:
+  /healthz:
+    get:
+      tags: [system]
+      security: []
+      responses:
+        "200":
+          description: Server is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+  /api/v1/briefing:
+    get:
+      tags: [system]
+      parameters:
+        - $ref: "#/components/parameters/Date"
+      responses:
+        "200":
+          description: Day briefing with versioned sections.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Briefing"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/raw-files:
+    get:
+      tags: [imports]
+      responses:
+        "200":
+          description: Most recent raw files.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RawFile"
+    post:
+      tags: [imports]
+      security:
+        - bearerJwt: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, source_kind]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                source_kind:
+                  $ref: "#/components/schemas/SourceKind"
+                uploaded_via:
+                  $ref: "#/components/schemas/UploadSource"
+      responses:
+        "201":
+          description: Raw file stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RawFile"
+        "200":
+          description: File content was already stored; duplicate is true.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RawFile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/raw-files/{rawFileId}:
+    get:
+      tags: [imports]
+      parameters:
+        - $ref: "#/components/parameters/RawFileId"
+      responses:
+        "200":
+          description: Raw file metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RawFile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/imports:
+    get:
+      tags: [imports]
+      responses:
+        "200":
+          description: Most recent import jobs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImportJob"
+    post:
+      tags: [imports]
+      security:
+        - bearerJwt: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateImport"
+      responses:
+        "202":
+          description: Import job queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportJob"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/imports/{importId}:
+    get:
+      tags: [imports]
+      parameters:
+        - $ref: "#/components/parameters/ImportId"
+      responses:
+        "200":
+          description: Import job status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportJob"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activities:
+    get:
+      tags: [activities]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: sport_type
+          in: query
+          schema: { type: string }
+        - name: started_from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: started_to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: min_distance_m
+          in: query
+          schema: { type: number }
+        - name: max_distance_m
+          in: query
+          schema: { type: number }
+      responses:
+        "200":
+          description: Activity page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/activities/{activityId}:
+    get:
+      tags: [activities]
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      responses:
+        "200":
+          description: Activity detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activities/{activityId}/route:
+    get:
+      tags: [activities]
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      responses:
+        "200":
+          description: Ordered route points.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoutePoint"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activities/{activityId}/samplings:
+    get:
+      tags: [activities]
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      responses:
+        "200":
+          description: Activity sampling records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sampling"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activities/{activityId}/laps:
+    get:
+      tags: [activities]
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      responses:
+        "200":
+          description: Activity laps.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lap"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/sleep:
+    get:
+      tags: [sleep]
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Sleep session page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SleepPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/sleep/aggregates:
+    get:
+      tags: [sleep]
+      parameters:
+        - $ref: "#/components/parameters/Granularity"
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+      responses:
+        "200":
+          description: Sleep aggregate buckets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/sleep/{sleepId}/segments:
+    get:
+      tags: [sleep]
+      parameters:
+        - $ref: "#/components/parameters/SleepId"
+      responses:
+        "200":
+          description: Sleep stage segments.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SleepSegment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/daily:
+    get:
+      tags: [daily]
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Daily summary page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/daily/aggregates:
+    get:
+      tags: [daily]
+      parameters:
+        - $ref: "#/components/parameters/Granularity"
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+      responses:
+        "200":
+          description: Daily aggregate buckets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/media:
+    get:
+      tags: [media]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: media_type
+          in: query
+          schema: { type: string }
+        - name: family
+          in: query
+          schema: { type: string }
+        - name: completed_year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Media library page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/media/events:
+    get:
+      tags: [media]
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Media event page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaEventPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/media/aggregates:
+    get:
+      tags: [media]
+      responses:
+        "200":
+          description: Media aggregate data.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/media/{mediaId}:
+    get:
+      tags: [media]
+      parameters:
+        - $ref: "#/components/parameters/MediaId"
+      responses:
+        "200":
+          description: Media detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /public/v1/summary:
+    get:
+      tags: [public]
+      security: []
+      parameters:
+        - name: year
+          in: query
+          schema: { type: string }
+        - name: sport
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Sanitized activity summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /public/v1/activities:
+    get:
+      tags: [public]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: sport_type
+          in: query
+          schema: { type: string }
+        - name: started_from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: started_to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Sanitized activity page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicActivityPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /public/v1/routes:
+    get:
+      tags: [public]
+      security: []
+      responses:
+        "200":
+          description: Sanitized GeoJSON route collection.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [type, features]
+                properties:
+                  type: { type: string, const: FeatureCollection }
+                  features:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+  /public/v1/geocode:
+    get:
+      tags: [public]
+      security: []
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number }
+        - name: lon
+          in: query
+          required: true
+          schema: { type: number }
+      responses:
+        "200":
+          description: Geocoded public place label.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+components:
+  securitySchemes:
+    bearerJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT with the scope required by the operation.
+  parameters:
+    RawFileId:
+      name: rawFileId
+      in: path
+      required: true
+      schema: { type: string }
+    ImportId:
+      name: importId
+      in: path
+      required: true
+      schema: { type: string }
+    ActivityId:
+      name: activityId
+      in: path
+      required: true
+      schema: { type: string }
+    SleepId:
+      name: sleepId
+      in: path
+      required: true
+      schema: { type: string }
+    MediaId:
+      name: mediaId
+      in: path
+      required: true
+      schema: { type: string }
+    Date:
+      name: date
+      in: query
+      required: true
+      schema: { type: string, format: date }
+    DateFrom:
+      name: from
+      in: query
+      schema: { type: string, format: date }
+    DateTo:
+      name: to
+      in: query
+      schema: { type: string, format: date }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    Granularity:
+      name: granularity
+      in: query
+      schema: { type: string, enum: [month, year], default: month }
+  responses:
+    BadRequest:
+      description: Request could not be parsed or validated.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid JWT.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource was not found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [code, message, request_id]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        request_id: { type: string }
+    SourceKind:
+      type: string
+      enum: [apple_health_export, gpx, fit, tcx, strava_export]
+    UploadSource:
+      type: string
+      enum: [web, telegram, cli, ios_bridge]
+    CreateImport:
+      type: object
+      required: [raw_file_id, parser_kind]
+      properties:
+        raw_file_id: { type: string }
+        parser_kind:
+          type: string
+          enum: [apple_health_export, gpx, anilist, bangumi]
+    RawFile:
+      type: object
+      required:
+        [
+          id,
+          sha256,
+          original_filename,
+          content_type,
+          size_bytes,
+          source_kind,
+          uploaded_via,
+          created_at,
+        ]
+      properties:
+        id: { type: string }
+        sha256: { type: string }
+        original_filename: { type: string }
+        content_type: { type: string }
+        size_bytes: { type: integer, format: int64 }
+        source_kind: { $ref: "#/components/schemas/SourceKind" }
+        uploaded_via: { $ref: "#/components/schemas/UploadSource" }
+        created_at: { type: string, format: date-time }
+        duplicate: { type: boolean }
+    ImportJob:
+      type: object
+      required:
+        [id, raw_file_id, status, parser_kind, parser_version, created_at]
+      properties:
+        id: { type: string }
+        raw_file_id: { type: string }
+        status: { type: string, enum: [queued, parsing, completed, failed] }
+        parser_kind: { type: string }
+        parser_version: { type: string }
+        error_message: { type: string }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    Activity:
+      type: object
+      required:
+        [
+          id,
+          sport_type,
+          title,
+          started_at,
+          timezone,
+          source_kind,
+          first_raw_file_id,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        id: { type: string }
+        sport_type: { type: string }
+        title: { type: string }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        timezone: { type: string }
+        distance_m: { type: number }
+        duration_s: { type: integer }
+        moving_time_s: { type: integer }
+        elevation_gain_m: { type: number }
+        avg_hr: { type: integer }
+        max_hr: { type: integer }
+        avg_pace_s_per_km: { type: number }
+        source_kind: { type: string }
+        source_activity_id: { type: string }
+        first_raw_file_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ActivityPage:
+      allOf: [{ $ref: "#/components/schemas/Page" }]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Activity" }
+    Page:
+      type: object
+      required: [items, next_cursor, has_more]
+      properties:
+        items: { type: array, items: {} }
+        next_cursor: { type: string, nullable: true }
+        has_more: { type: boolean }
+    RoutePoint:
+      type: object
+      required: [seq, lat, lon]
+      properties:
+        seq: { type: integer }
+        ts: { type: string, format: date-time }
+        lat: { type: number }
+        lon: { type: number }
+        elevation_m: { type: number }
+        distance_m: { type: number }
+        speed_mps: { type: number }
+        heart_rate: { type: integer }
+    Sampling:
+      type: object
+      required: [id, sampling_type, ts, value, unit]
+      properties:
+        id: { type: string }
+        sampling_type: { type: string }
+        ts: { type: string, format: date-time }
+        value: { type: number }
+        unit: { type: string }
+    Lap:
+      type: object
+      required: [id, lap_no]
+      properties:
+        id: { type: string }
+        lap_no: { type: integer }
+        start_ts: { type: string, format: date-time }
+        end_ts: { type: string, format: date-time }
+        distance_m: { type: number }
+        duration_s: { type: integer }
+        avg_hr: { type: integer }
+        avg_pace_s_per_km: { type: number }
+    Sleep:
+      type: object
+      additionalProperties: true
+    SleepPage:
+      allOf: [{ $ref: "#/components/schemas/Page" }]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Sleep" } }
+    SleepSegment:
+      type: object
+      required: [id, stage, started_at, ended_at, seq]
+      properties:
+        id: { type: string }
+        stage: { type: string }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        seq: { type: integer }
+    Daily:
+      type: object
+      additionalProperties: true
+    DailyPage:
+      allOf: [{ $ref: "#/components/schemas/Page" }]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Daily" } }
+    AggregateResponse:
+      type: object
+      required: [granularity, buckets]
+      properties:
+        granularity: { type: string }
+        buckets:
+          { type: array, items: { type: object, additionalProperties: true } }
+    Media:
+      type: object
+      additionalProperties: true
+    MediaPage:
+      allOf: [{ $ref: "#/components/schemas/Page" }]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Media" } }
+        status_counts: { type: object, additionalProperties: { type: integer } }
+        active_count: { type: integer }
+    MediaEventPage:
+      allOf: [{ $ref: "#/components/schemas/Page" }]
+      properties:
+        items:
+          { type: array, items: { type: object, additionalProperties: true } }
+    MediaDetail:
+      type: object
+      required: [item, work, creators, relations, events]
+      properties:
+        item: { $ref: "#/components/schemas/Media" }
+        work: { type: object, additionalProperties: true }
+        progress: { type: object, nullable: true, additionalProperties: true }
+        creators:
+          { type: array, items: { type: object, additionalProperties: true } }
+        relations:
+          { type: array, items: { type: object, additionalProperties: true } }
+        events:
+          { type: array, items: { type: object, additionalProperties: true } }
+    PublicActivityPage:
+      allOf: [{ $ref: "#/components/schemas/Page" }]
+      properties:
+        items:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/PublicActivity" },
+          }
+    PublicActivity:
+      type: object
+      required: [id, sport_type, title, started_at, timezone]
+      properties:
+        id: { type: string }
+        sport_type: { type: string }
+        title: { type: string }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        timezone: { type: string }
+        distance_m: { type: number }
+        duration_s: { type: integer }
+        moving_time_s: { type: integer }
+        elevation_gain_m: { type: number }
+        avg_hr: { type: integer }
+        max_hr: { type: integer }
+        avg_pace_s_per_km: { type: number }
+    Briefing:
+      type: object
+      required: [date, previous_date, next_date, sections]
+      properties:
+        date: { type: string, format: date }
+        previous_date: { type: string, format: date }
+        next_date: { type: string, format: date }
+        sections:
+          { type: array, items: { type: object, additionalProperties: true } }
+security:
+  - bearerJwt: []

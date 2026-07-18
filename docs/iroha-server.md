@@ -59,16 +59,17 @@ Request body:
 
 Reprocessing is modeled as another import job for the same raw file, not as mutation of an old job.
 
-Import jobs are persisted jobs. MVP execution can be an in-process worker, but job state must live in Postgres so status survives process crashes and future worker extraction.
+Import jobs are persisted jobs. `iroha-server` enqueues them into the durable Postgres-backed queue and the separate `iroha-job` process claims and executes them. The server and worker must share the
+configured raw-file data directory.
 
-Initial task-2 behavior:
+Current behavior:
 
 ```text
 POST /api/v1/imports
   -> creates queued import job
   -> returns 202 Accepted
-  -> in-process worker moves it to parsing
-  -> worker records failed with parser-not-implemented until task 3 adds real parsers
+  -> iroha-job claims the persisted job
+  -> worker parses and reconciles the raw evidence
 ```
 
 Response shape:
@@ -77,10 +78,9 @@ Response shape:
 {
   "id": "imp_019f...",
   "raw_file_id": "raw_019f...",
-  "status": "failed",
+  "status": "completed",
   "parser_kind": "apple_health_export",
   "parser_version": "dev",
-  "error_message": "parser \"apple_health_export\" is not implemented yet",
   "started_at": "2026-07-07T00:00:00Z",
   "finished_at": "2026-07-07T00:00:01Z",
   "created_at": "2026-07-07T00:00:00Z"
@@ -92,7 +92,6 @@ Response shape:
 ```text
 GET   /api/v1/activities
 GET   /api/v1/activities/{activityId}
-PATCH /api/v1/activities/{activityId}
 GET   /api/v1/activities/{activityId}/route
 GET   /api/v1/activities/{activityId}/samplings
 GET   /api/v1/activities/{activityId}/laps
@@ -100,7 +99,14 @@ GET   /api/v1/activities/{activityId}/laps
 
 Activity reads serve private canonical data.
 
-### Gear
+### Deferred resources
+
+Gear, privacy-zone management, published-activity mutation, and activity mutation are roadmap items. They are not currently registered routes and are intentionally excluded from the active API
+contract.
+
+Public pages read the existing sanitized `/public/v1` projections rather than these deferred mutation resources.
+
+The following routes remain planned and are not part of the active contract:
 
 ```text
 GET    /api/v1/gear
@@ -108,30 +114,16 @@ POST   /api/v1/gear
 PATCH  /api/v1/gear/{gearId}
 POST   /api/v1/activities/{activityId}/gear
 DELETE /api/v1/activities/{activityId}/gear/{gearId}
-```
 
-Gear is deferred until import and activity detail work.
-
-### Privacy Zones
-
-```text
 GET    /api/v1/privacy-zones
 POST   /api/v1/privacy-zones
 PATCH  /api/v1/privacy-zones/{privacyZoneId}
 DELETE /api/v1/privacy-zones/{privacyZoneId}
-```
 
-Privacy zones define locations to remove or blur before publishing.
-
-### Published Activities
-
-```text
 POST   /api/v1/published-tb_activities
 GET    /api/v1/published-tb_activities/{publishedActivityId}
 DELETE /api/v1/published-tb_activities/{publishedActivityId}
 ```
-
-Publishing writes a sanitized projection. Public pages should read this projection, not private activity tables.
 
 ## Upload Flow
 
@@ -173,10 +165,10 @@ Normal Telegram Bot API file downloads may be too small for full Apple Health ex
 
 ### Upload Contract
 
-All write requests carry the bearer token when auth is enabled (see [Auth](#auth)):
+Authenticated API requests carry the JWT bearer token when auth is enabled (see [Auth](#auth)):
 
 ```text
-Authorization: Bearer <import_token>
+Authorization: Bearer <jwt>
 ```
 
 Step 1 — push the raw file as multipart form data:
@@ -255,25 +247,39 @@ GET /api/v1/imports/{importId}
 
 ## Auth
 
-MVP auth is intentionally simple:
+Authentication is deployment-configurable:
 
-- no auth for local-only development (`local_no_auth = true`)
-- bearer token when external upload clients such as a personal Telegram bot are enabled (`local_no_auth = false`, `import_token = "<secret>"`)
+- trusted local development may bypass authentication (`local_no_auth = true`)
+- authenticated mode requires a JWT bearer token for `/api/v1`
+- `/public/v1` and `/healthz` remain anonymous
+- reads require `iroha:read`; writes require `iroha:write` (write implies read)
 
-Only the write endpoints are guarded:
+Private API requests use:
 
 ```text
-POST /api/v1/raw-files   requires Authorization: Bearer <import_token>
-POST /api/v1/imports     requires Authorization: Bearer <import_token>
+Authorization: Bearer <jwt>
 ```
 
-The read endpoints (`GET /api/v1/raw-files`, `GET /api/v1/imports`, `GET /api/v1/activities...`) are not guarded. A missing or wrong bearer token on a guarded endpoint returns `401 Unauthorized`:
+Authenticated mode validates the configured JWT issuer, audience, signature, and expiry. A missing or invalid token returns `401`; an insufficient scope returns `403`. The signing secret is supplied
+through `IROHA_JWT_SECRET` and is never logged or sent to the browser.
 
 ```json
-{ "error": "unauthorized" }
+{
+  "code": "unauthorized",
+  "message": "invalid or missing bearer token",
+  "request_id": "req_01..."
+}
 ```
 
-OIDC can be added later if iroha becomes network-exposed or multi-device access becomes awkward.
+The private web viewer can receive a deployment-provided `PUBLIC_IROHA_API_TOKEN`. This is a bearer credential exposed to the trusted private network, not a signing secret. Do not use this mode for an
+untrusted or public deployment.
+
+## HTTP hardening
+
+- Configured private origins may use `GET`, `POST`, and `OPTIONS` with `Authorization`, `Accept`, and `Content-Type` headers. The public projection remains anonymous and cacheable.
+- JSON request bodies are limited to 1 MiB and reject unknown fields and trailing JSON values. Multipart raw-file uploads use the separate configured upload limit.
+- The server applies a 10-second header timeout, a 15-minute request-read timeout for large uploads, a 2-minute write/idle timeout, and a 1 MiB maximum header size.
+- Structured access logs include the request ID, route, status, duration, response size, and authenticated subject when available. Credentials and request bodies are not logged.
 
 ## Configuration
 
@@ -299,7 +305,9 @@ data_dir = ".iroha-data"
 
 [auth]
 local_no_auth = true
-import_token = ""
+jwt_secret = ""
+jwt_issuer = "iroha"
+jwt_audience = "iroha-api"
 ```
 
 Environment variables override TOML:
@@ -309,5 +317,7 @@ IROHA_SERVER_ADDR
 IROHA_DATABASE_URL
 IROHA_DATA_DIR
 IROHA_LOCAL_NO_AUTH
-IROHA_IMPORT_TOKEN
+IROHA_JWT_SECRET
+IROHA_JWT_ISSUER
+IROHA_JWT_AUDIENCE
 ```

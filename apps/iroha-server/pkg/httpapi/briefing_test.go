@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
 )
 
@@ -22,7 +23,10 @@ func TestHandleBriefingReturnsVersionedSections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new registry: %v", err)
 	}
-	server := NewServer(Dependencies{BriefingRegistry: registry})
+	server := NewServer(Dependencies{
+		Config:           config.Config{Auth: config.AuthConfig{LocalNoAuth: true}},
+		BriefingRegistry: registry,
+	})
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/briefing?date=2026-07-14", nil)
 	server.ServeHTTP(recorder, request)
@@ -40,7 +44,7 @@ func TestHandleBriefingReturnsVersionedSections(t *testing.T) {
 }
 
 func TestHandleBriefingRejectsInvalidDate(t *testing.T) {
-	server := NewServer(Dependencies{})
+	server := NewServer(Dependencies{Config: config.Config{Auth: config.AuthConfig{LocalNoAuth: true}}})
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/briefing?date=bad", nil)
 	server.ServeHTTP(recorder, request)

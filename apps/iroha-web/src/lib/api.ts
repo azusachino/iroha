@@ -1,4 +1,4 @@
-import { API_BASE } from "./config";
+import { API_BASE, API_TOKEN } from "./config";
 
 // Types mirror the iroha-server read API JSON contract (snake_case).
 // Optional fields use `?` because the server omits them when absent.
@@ -344,8 +344,12 @@ async function getJSON<T>(
   path: string,
   fetchFn: typeof fetch = fetch,
 ): Promise<T> {
+  const headers: HeadersInit = { accept: "application/json" };
+  if (API_TOKEN) {
+    headers.authorization = `Bearer ${API_TOKEN}`;
+  }
   const res = await fetchFn(`${API_BASE}${path}`, {
-    headers: { accept: "application/json" },
+    headers,
   });
   if (!res.ok) {
     throw new Error(
