@@ -252,7 +252,7 @@
   {:else if !dayHasData}
     <p class="muted status">No data recorded for {dayLabel}.</p>
   {:else}
-    <header class="command-heading">
+    <header class="command-heading tile hero-surface">
       <div>
         <p class="eyebrow">Private command center / {dayLabel}</p>
         <h1>Keep the signal visible.</h1>
@@ -318,9 +318,9 @@
         <small class="kpi-note">sleep efficiency</small>
       </div>
     </div>
-    <div class="bento">
+    <div class="bento signal-layout">
       <!-- Rings -->
-      <a class="card tile" href="/daily">
+      <a class="card tile feature-card" href="/daily">
         <header><span class="ic">◎</span> Activity rings</header>
         {#if hasRing}
           <RingGauge rings={ringData} size={116} />
@@ -335,7 +335,7 @@
       </a>
 
       <!-- Vitals -->
-      <a class="card tile" href="/daily">
+      <a class="card tile vitals-card" href="/daily">
         <header><span class="ic">♥</span> Body vitals</header>
         {#if vitals.length}
           <dl class="vitals">
@@ -352,7 +352,7 @@
       </a>
 
       <!-- Sleep -->
-      <a class="card tile" href="/sleep">
+      <a class="card tile sleep-card" href="/sleep">
         <header><span class="ic">☾</span> Sleep</header>
         {#if mainNight}
           <div class="sleep-hero">{formatDuration(mainNight.asleep_s)}</div>
@@ -367,7 +367,7 @@
       </a>
 
       <!-- Activities: each row links to its own detail page. -->
-      <div class="card tile wide">
+      <div class="card tile wide activity-card">
         <header>
           <span class="ic">⚡</span>
           <a class="hdr-link" href="/activities">Activities</a>
@@ -445,12 +445,43 @@
     color: var(--danger);
   }
   .command-heading {
+    position: relative;
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
     gap: 1.5rem;
-    min-height: 20rem;
-    padding: 2rem 0 1rem;
+    min-height: 22rem;
+    padding: 2.5rem 2.5rem 2rem;
+    overflow: hidden;
+  }
+  .hero-surface {
+    background:
+      radial-gradient(
+        circle at 78% 45%,
+        color-mix(in srgb, var(--accent) 18%, transparent),
+        transparent 19rem
+      ),
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--surface) 92%, var(--accent)),
+        var(--surface)
+      );
+  }
+  .hero-surface::before {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 0 48%,
+      color-mix(in srgb, var(--accent) 8%, transparent) 48.2% 48.5%,
+      transparent 48.7%
+    );
+    content: "";
+    pointer-events: none;
+  }
+  .command-heading > div:first-child {
+    position: relative;
+    z-index: 1;
   }
   .eyebrow {
     margin: 0 0 0.45rem;
@@ -553,11 +584,15 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0.75rem;
+    position: relative;
+    z-index: 1;
   }
   .home-kpi {
     display: grid;
     gap: 0.35rem;
     padding: 0.9rem;
+    border-radius: calc(var(--radius) - 4px);
+    background: color-mix(in srgb, var(--surface) 78%, transparent);
   }
   .home-kpi > span {
     color: var(--text-muted);
@@ -693,7 +728,7 @@
   }
   .bento {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 1rem;
   }
   .card {
@@ -704,13 +739,52 @@
     color: var(--text);
     min-height: 11rem;
     overflow: hidden;
+    border-radius: calc(var(--radius) + 2px);
+    background:
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--surface) 96%, var(--accent)),
+        var(--surface)
+      ),
+      var(--surface);
   }
   .card:hover {
     text-decoration: none;
     border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   }
   .card.wide {
-    grid-column: span 2;
+    grid-column: span 7;
+  }
+  .feature-card {
+    grid-column: span 5;
+    grid-row: span 2;
+    min-height: 24rem;
+    justify-content: space-between;
+    background:
+      radial-gradient(
+        circle at 90% 10%,
+        color-mix(in srgb, var(--accent-2) 17%, transparent),
+        transparent 14rem
+      ),
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--surface) 86%, var(--accent)),
+        var(--surface)
+      );
+  }
+  .vitals-card {
+    grid-column: span 7;
+    min-height: 11.5rem;
+  }
+  .sleep-card {
+    grid-column: span 7;
+    min-height: 11.5rem;
+  }
+  .activity-card {
+    min-height: 16rem;
+  }
+  .media-card {
+    min-height: 16rem;
   }
   .card header {
     display: flex;
@@ -721,6 +795,8 @@
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   }
   .ic {
     color: var(--accent);
@@ -873,6 +949,7 @@
     .command-heading {
       align-items: flex-start;
       flex-direction: column;
+      padding: 1.5rem;
     }
     .command-heading {
       min-height: 0;
@@ -888,8 +965,12 @@
     .bento {
       grid-template-columns: 1fr;
     }
-    .card.wide {
+    .card.wide,
+    .feature-card,
+    .vitals-card,
+    .sleep-card {
       grid-column: span 1;
+      grid-row: auto;
     }
   }
 </style>

@@ -64,7 +64,7 @@
     )
     var(--surface);
   --tile-shadow: 0 16px 48px rgb(0 0 0 / 0.22);
-  --radius: 8px;
+  --radius: 14px;
   font-family:
     system-ui,
     -apple-system,
@@ -131,6 +131,8 @@ body {
 
 body {
   background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 0.02) 1px, transparent 1px),
     radial-gradient(
       circle at 88% 4%,
       rgb(57 197 187 / 0.08),
@@ -142,6 +144,12 @@ body {
       transparent 22rem
     ),
     var(--bg);
+  background-size:
+    4rem 4rem,
+    4rem 4rem,
+    auto,
+    auto,
+    auto;
   background-attachment: fixed;
 }
 
@@ -336,7 +344,7 @@ textarea {
 .content {
   flex: 1;
   width: 100%;
-  max-width: 1120px;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 1.5rem 1.25rem;
 }
@@ -345,6 +353,7 @@ textarea {
   border: 1px solid var(--border);
   background: var(--tile-surface);
   box-shadow: var(--tile-shadow);
+  border-radius: var(--radius);
   transition:
     border-color 180ms ease,
     transform 180ms ease,

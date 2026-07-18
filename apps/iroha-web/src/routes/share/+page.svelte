@@ -60,6 +60,10 @@
     return sport.toLowerCase().includes("swim");
   }
 
+  function cityLabel(city: string): string {
+    return city === "Unknown" ? "Location pending" : city;
+  }
+
   function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
     if (distanceM == null || durationS == null || durationS <= 0) return "—";
     const km = distanceM / 1000;
@@ -304,6 +308,9 @@
   const maxRunCount = $derived(
     Math.max(1, ...cityGroups.map((g) => g.runCount)),
   );
+  const hasPendingLocations = $derived(
+    cityGroups.some((g) => g.city === "Unknown"),
+  );
 
   // Clicking a city card narrows the map to that city's routes.
   let cityFilter = $state<string | null>(null);
@@ -353,7 +360,7 @@
 </script>
 
 <section class="share-shell">
-  <header class="share-heading">
+  <header class="share-heading tile share-hero">
     <p class="eyebrow">A window into the archive</p>
     <h1>Share the shape of your movement.</h1>
     <p class="muted">
@@ -372,8 +379,8 @@
     <p class="error">Failed to load summary: {summaryError}</p>
   {:else if summary}
     <!-- Totals hero -->
-    <div class="mb-2 text-sm text-text-muted">Totals — {selectedYear}</div>
-    <div class="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div class="section-kicker">Archive pulse <span>{selectedYear}</span></div>
+    <div class="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 share-stat-grid">
       <StatTile
         label="Total distance"
         value={formatDistance(selectedYearTotals?.distance_m ?? 0)}
@@ -492,7 +499,15 @@
   {/if}
 
   <!-- All-routes map & Cities heatmap -->
-  <h2>Routes & Cities</h2>
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Geography of the archive</p>
+      <h2>Routes & Cities</h2>
+    </div>
+    {#if hasPendingLocations}
+      <p class="location-note">Some locations are waiting for geocoding.</p>
+    {/if}
+  </div>
   {#if routesLoading}
     <p class="muted">Loading routes…</p>
   {:else if routesError}
@@ -551,7 +566,7 @@
               >
                 <div class="min-w-0">
                   <div class="font-bold text-sm truncate" title={group.city}>
-                    {group.city}
+                    {cityLabel(group.city)}
                   </div>
                   <div class="text-[9px] opacity-75 truncate mt-1">
                     {Array.from(group.sports)
@@ -681,7 +696,35 @@
   }
 
   .share-heading {
-    padding: 0.75rem 0 0.5rem;
+    position: relative;
+    padding: 2.5rem;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        circle at 85% 10%,
+        color-mix(in srgb, var(--accent-2) 15%, transparent),
+        transparent 18rem
+      ),
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--surface) 90%, var(--accent)),
+        var(--surface)
+      );
+  }
+
+  .share-heading::after {
+    position: absolute;
+    right: 8%;
+    bottom: -6rem;
+    width: 18rem;
+    height: 18rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+    border-radius: 50%;
+    box-shadow:
+      0 0 0 2rem color-mix(in srgb, var(--accent) 5%, transparent),
+      0 0 0 4rem color-mix(in srgb, var(--accent) 3%, transparent);
+    content: "";
+    pointer-events: none;
   }
 
   .share-heading h1 {
@@ -705,6 +748,47 @@
     letter-spacing: 0.02em;
   }
 
+  .section-kicker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .section-kicker span {
+    color: var(--accent);
+  }
+
+  .share-stat-grid :global(.stat-tile),
+  .share-stat-grid > :global(*) {
+    border-radius: calc(var(--radius) - 2px);
+  }
+
+  .section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .section-heading h2 {
+    margin: 0.2rem 0 0;
+    font-size: clamp(1.6rem, 3vw, 2.5rem);
+    letter-spacing: -0.07em;
+  }
+
+  .location-note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+
   .eyebrow {
     margin: 0 0 0.4rem;
     color: var(--accent);
@@ -712,5 +796,16 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+  }
+
+  @media (max-width: 620px) {
+    .share-heading {
+      padding: 1.5rem;
+    }
+
+    .section-heading {
+      align-items: flex-start;
+      flex-direction: column;
+    }
   }
 </style>
