@@ -22,6 +22,9 @@
     formatPace,
   } from "$lib/format";
   import { currentActivityStreak } from "$lib/streak";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   const ACTIVITY_SWEEP_LIMIT = 500;
   const RECENT_ACTIVITY_LIMIT = 5;
@@ -37,6 +40,7 @@
   let routes = $state<RouteFeatureCollection | null>(null);
   let routesError = $state<string | null>(null);
   let routesLoading = $state(true);
+  const theme = useTheme();
 
   const recentActivities = $derived(activities.slice(0, RECENT_ACTIVITY_LIMIT));
   const heatmapDates = $derived(
@@ -136,176 +140,190 @@
 </script>
 
 <section class="dashboard-shell">
-  <RouteIntro
-    eyebrow="Observatory / long view"
-    title="See the footprint."
-    description="A long view of the movement archive: accumulated distance, recent sessions, route footprint, and the data domains available to explore."
-    actionHref="/activities"
-    actionLabel="Browse Motion"
-  />
+  {#if hasThemeRoute(theme.definition(), "dashboard")}
+    <ThemeRouteRenderer
+      route="dashboard"
+      props={{
+        summary,
+        activities,
+        routes,
+        streak: streakValue,
+        loading: summaryLoading || activitiesLoading || routesLoading,
+        error: summaryError || activitiesError || routesError,
+      }}
+    />
+  {:else}
+    <RouteIntro
+      eyebrow="Observatory / long view"
+      title="See the footprint."
+      description="A long view of the movement archive: accumulated distance, recent sessions, route footprint, and the data domains available to explore."
+      actionHref="/activities"
+      actionLabel="Browse Motion"
+    />
 
-  <div class="stats-grid" aria-label="Activity totals">
-    <StatTile
-      label="Total distance"
-      value={summaryLoading || summaryError ? "—" : totalDistance}
-      sub={summaryLoading
-        ? "Loading totals…"
-        : summaryError
-          ? "Summary unavailable"
-          : undefined}
-    />
-    <StatTile
-      label="Activities"
-      value={summaryLoading || summaryError
-        ? "—"
-        : activityCount.toLocaleString()}
-      sub={summaryLoading
-        ? "Loading totals…"
-        : summaryError
-          ? "Summary unavailable"
-          : undefined}
-    />
-    <StatTile
-      label="Total time"
-      value={summaryLoading || summaryError ? "—" : totalDuration}
-      sub={summaryLoading
-        ? "Loading totals…"
-        : summaryError
-          ? "Summary unavailable"
-          : undefined}
-    />
-    <StatTile
-      label="Current streak"
-      value={activitiesLoading || activitiesError ? "—" : streakValue}
-      sub={activitiesLoading
-        ? "Loading activity days…"
-        : activitiesError
-          ? "Activity history unavailable"
-          : "Consecutive days ending today"}
-    />
-  </div>
+    <div class="stats-grid" aria-label="Activity totals">
+      <StatTile
+        label="Total distance"
+        value={summaryLoading || summaryError ? "—" : totalDistance}
+        sub={summaryLoading
+          ? "Loading totals…"
+          : summaryError
+            ? "Summary unavailable"
+            : undefined}
+      />
+      <StatTile
+        label="Activities"
+        value={summaryLoading || summaryError
+          ? "—"
+          : activityCount.toLocaleString()}
+        sub={summaryLoading
+          ? "Loading totals…"
+          : summaryError
+            ? "Summary unavailable"
+            : undefined}
+      />
+      <StatTile
+        label="Total time"
+        value={summaryLoading || summaryError ? "—" : totalDuration}
+        sub={summaryLoading
+          ? "Loading totals…"
+          : summaryError
+            ? "Summary unavailable"
+            : undefined}
+      />
+      <StatTile
+        label="Current streak"
+        value={activitiesLoading || activitiesError ? "—" : streakValue}
+        sub={activitiesLoading
+          ? "Loading activity days…"
+          : activitiesError
+            ? "Activity history unavailable"
+            : "Consecutive days ending today"}
+      />
+    </div>
 
-  <div class="bento-grid">
-    {#if activitiesLoading}
-      <section class="status-tile tile heatmap-tile">
-        <p>Loading activity history…</p>
-      </section>
-    {:else if activitiesError}
-      <section class="status-tile tile heatmap-tile">
-        <p>Activity history could not be loaded.</p>
-      </section>
-    {:else}
-      <Heatmap dates={heatmapDates} title="Activity history" />
-    {/if}
-
-    <section class="recent-tile tile">
-      <header class="tile-heading">
-        <div>
-          <h2>Recent activity</h2>
-          <p>Start where you last left off.</p>
-        </div>
-        <a href="/activities">View all</a>
-      </header>
+    <div class="bento-grid">
       {#if activitiesLoading}
-        <p class="muted">Loading activities…</p>
+        <section class="status-tile tile heatmap-tile">
+          <p>Loading activity history…</p>
+        </section>
       {:else if activitiesError}
-        <p class="error">Recent activity could not be loaded.</p>
-      {:else if recentActivities.length === 0}
-        <p class="muted">No activities imported yet.</p>
+        <section class="status-tile tile heatmap-tile">
+          <p>Activity history could not be loaded.</p>
+        </section>
       {:else}
-        <ul class="recent-list">
-          {#each recentActivities as activity (activity.id)}
-            <li>
-              <a class="recent-row" href={`/activities/${activity.id}`}>
-                <SportBadge sport={activity.sport_type} />
-                <span class="recent-title"
-                  >{activity.title || "Untitled activity"}</span
-                >
-                <span class="recent-metrics">
-                  {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                    {formatDuration(
-                      activity.duration_s ?? activity.moving_time_s,
-                    )}
-                    {#if activity.avg_hr}
-                      · Avg HR: {formatHr(activity.avg_hr)}
-                    {/if}
-                  {:else}
-                    {formatDistance(activity.distance_m)}
-                    · {formatDuration(
-                      activity.duration_s ?? activity.moving_time_s,
-                    )}
-                    · {#if isCycling(activity.sport_type)}
-                      {formatCyclingSpeed(
-                        activity.distance_m,
+        <Heatmap dates={heatmapDates} title="Activity history" />
+      {/if}
+
+      <section class="recent-tile tile">
+        <header class="tile-heading">
+          <div>
+            <h2>Recent activity</h2>
+            <p>Start where you last left off.</p>
+          </div>
+          <a href="/activities">View all</a>
+        </header>
+        {#if activitiesLoading}
+          <p class="muted">Loading activities…</p>
+        {:else if activitiesError}
+          <p class="error">Recent activity could not be loaded.</p>
+        {:else if recentActivities.length === 0}
+          <p class="muted">No activities imported yet.</p>
+        {:else}
+          <ul class="recent-list">
+            {#each recentActivities as activity (activity.id)}
+              <li>
+                <a class="recent-row" href={`/activities/${activity.id}`}>
+                  <SportBadge sport={activity.sport_type} />
+                  <span class="recent-title"
+                    >{activity.title || "Untitled activity"}</span
+                  >
+                  <span class="recent-metrics">
+                    {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                      {formatDuration(
                         activity.duration_s ?? activity.moving_time_s,
                       )}
-                    {:else if isSwimming(activity.sport_type)}
-                      {formatSwimmingPace(
-                        activity.distance_m,
-                        activity.duration_s ?? activity.moving_time_s,
-                      )}
+                      {#if activity.avg_hr}
+                        · Avg HR: {formatHr(activity.avg_hr)}
+                      {/if}
                     {:else}
-                      {formatPace(activity.avg_pace_s_per_km)}
+                      {formatDistance(activity.distance_m)}
+                      · {formatDuration(
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}
+                      · {#if isCycling(activity.sport_type)}
+                        {formatCyclingSpeed(
+                          activity.distance_m,
+                          activity.duration_s ?? activity.moving_time_s,
+                        )}
+                      {:else if isSwimming(activity.sport_type)}
+                        {formatSwimmingPace(
+                          activity.distance_m,
+                          activity.duration_s ?? activity.moving_time_s,
+                        )}
+                      {:else}
+                        {formatPace(activity.avg_pace_s_per_km)}
+                      {/if}
                     {/if}
-                  {/if}
-                </span>
-                <span class="recent-date"
-                  >{formatDate(activity.started_at, activity.timezone)}</span
-                >
-              </a>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
+                  </span>
+                  <span class="recent-date"
+                    >{formatDate(activity.started_at, activity.timezone)}</span
+                  >
+                </a>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
 
-    <section class="routes-tile tile">
-      <header class="tile-heading">
-        <div>
-          <h2>All routes</h2>
-          <p>Your privacy-trimmed route footprint.</p>
+      <section class="routes-tile tile">
+        <header class="tile-heading">
+          <div>
+            <h2>All routes</h2>
+            <p>Your privacy-trimmed route footprint.</p>
+          </div>
+        </header>
+        {#if routesLoading}
+          <p class="muted">Loading routes…</p>
+        {:else if routesError}
+          <p class="error">Routes could not be loaded.</p>
+        {:else if hasRoutes && routes}
+          <div class="dashboard-map"><RoutesMap data={routes} /></div>
+        {:else}
+          <p class="muted">No routes available yet.</p>
+        {/if}
+      </section>
+
+      <section class="domains-tile">
+        <header class="domains-heading">
+          <h2>Data domains</h2>
+          <p>Expand your cockpit as more of your life arrives here.</p>
+        </header>
+        <div class="domain-grid">
+          <DomainTile
+            name="Activity"
+            stat={summaryLoading || summaryError
+              ? "Loading activity count…"
+              : `${activityCount.toLocaleString()} activities`}
+            href="/activities"
+            state="active"
+          />
+          <DomainTile
+            name="Sleep"
+            stat="Recovery and sleep sessions"
+            href="/sleep"
+            state="active"
+          />
+          <DomainTile
+            name="Media"
+            stat="Reading and watching history"
+            href="/media"
+            state="active"
+          />
         </div>
-      </header>
-      {#if routesLoading}
-        <p class="muted">Loading routes…</p>
-      {:else if routesError}
-        <p class="error">Routes could not be loaded.</p>
-      {:else if hasRoutes && routes}
-        <div class="dashboard-map"><RoutesMap data={routes} /></div>
-      {:else}
-        <p class="muted">No routes available yet.</p>
-      {/if}
-    </section>
-
-    <section class="domains-tile">
-      <header class="domains-heading">
-        <h2>Data domains</h2>
-        <p>Expand your cockpit as more of your life arrives here.</p>
-      </header>
-      <div class="domain-grid">
-        <DomainTile
-          name="Activity"
-          stat={summaryLoading || summaryError
-            ? "Loading activity count…"
-            : `${activityCount.toLocaleString()} activities`}
-          href="/activities"
-          state="active"
-        />
-        <DomainTile
-          name="Sleep"
-          stat="Recovery and sleep sessions"
-          href="/sleep"
-          state="active"
-        />
-        <DomainTile
-          name="Media"
-          stat="Reading and watching history"
-          href="/media"
-          state="active"
-        />
-      </div>
-    </section>
-  </div>
+      </section>
+    </div>
+  {/if}
 </section>
 
 <style>

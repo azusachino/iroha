@@ -44,6 +44,11 @@ import FieldJournalMedia from "$lib/themes/field-journal/Media.svelte";
 import PhenologyMedia from "$lib/themes/phenology/Media.svelte";
 import SoundMapMedia from "$lib/themes/sound-map/Media.svelte";
 import ArchiveMedia from "$lib/themes/archive/Media.svelte";
+import AtlasDashboard from "$lib/themes/atlas/Dashboard.svelte";
+import FieldJournalDashboard from "$lib/themes/field-journal/Dashboard.svelte";
+import PhenologyDashboard from "$lib/themes/phenology/Dashboard.svelte";
+import SoundMapDashboard from "$lib/themes/sound-map/Dashboard.svelte";
+import ArchiveDashboard from "$lib/themes/archive/Dashboard.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -52,7 +57,15 @@ export const THEME_DEFINITIONS = [
     hint: "places and routes",
     description: "A cartographic language for movement, places, and distance.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep", "media", "share"],
+    routes: [
+      "today",
+      "dashboard",
+      "daily",
+      "activities",
+      "sleep",
+      "media",
+      "share",
+    ],
     components: {
       shell: AtlasShell,
       today: AtlasToday,
@@ -61,6 +74,7 @@ export const THEME_DEFINITIONS = [
       sleep: AtlasSleep,
       share: AtlasShare,
       media: AtlasMedia,
+      dashboard: AtlasDashboard,
     },
   },
   {
@@ -69,7 +83,7 @@ export const THEME_DEFINITIONS = [
     hint: "trends and comparisons",
     description: "An evidence-first language for comparison and change.",
     implementation: "curated",
-    routes: ["today", "daily", "activities", "sleep", "media", "share"],
+    routes: ["today", "daily", "activities", "sleep", "share"],
     components: {
       shell: GrapherShell,
       today: GrapherToday,
@@ -85,7 +99,15 @@ export const THEME_DEFINITIONS = [
     hint: "days and evidence",
     description: "A dated, narrative language for the shape of a day.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep", "share"],
+    routes: [
+      "today",
+      "dashboard",
+      "daily",
+      "activities",
+      "sleep",
+      "media",
+      "share",
+    ],
     components: {
       shell: FieldJournalShell,
       today: FieldJournalToday,
@@ -94,6 +116,7 @@ export const THEME_DEFINITIONS = [
       sleep: FieldJournalSleep,
       share: FieldJournalShare,
       media: FieldJournalMedia,
+      dashboard: FieldJournalDashboard,
     },
   },
   {
@@ -103,7 +126,15 @@ export const THEME_DEFINITIONS = [
     description:
       "A cyclical language for recovery, rest, and unfolding patterns.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep", "media", "share"],
+    routes: [
+      "today",
+      "dashboard",
+      "daily",
+      "activities",
+      "sleep",
+      "media",
+      "share",
+    ],
     components: {
       shell: PhenologyShell,
       today: PhenologyToday,
@@ -112,6 +143,7 @@ export const THEME_DEFINITIONS = [
       sleep: PhenologySleep,
       share: PhenologyShare,
       media: PhenologyMedia,
+      dashboard: PhenologyDashboard,
     },
   },
   {
@@ -120,7 +152,15 @@ export const THEME_DEFINITIONS = [
     hint: "rhythm and intensity",
     description: "A rhythmic language for cadence, intensity, and flow.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep", "media", "share"],
+    routes: [
+      "today",
+      "dashboard",
+      "daily",
+      "activities",
+      "sleep",
+      "media",
+      "share",
+    ],
     components: {
       shell: SoundMapShell,
       today: SoundMapToday,
@@ -129,6 +169,7 @@ export const THEME_DEFINITIONS = [
       sleep: SoundMapSleep,
       share: SoundMapShare,
       media: SoundMapMedia,
+      dashboard: SoundMapDashboard,
     },
   },
   {
@@ -137,7 +178,15 @@ export const THEME_DEFINITIONS = [
     hint: "media and history",
     description: "A chronological language for collections and memory.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep", "media", "share"],
+    routes: [
+      "today",
+      "dashboard",
+      "daily",
+      "activities",
+      "sleep",
+      "media",
+      "share",
+    ],
     components: {
       shell: ArchiveShell,
       today: ArchiveToday,
@@ -146,6 +195,7 @@ export const THEME_DEFINITIONS = [
       sleep: ArchiveSleep,
       share: ArchiveShare,
       media: ArchiveMedia,
+      dashboard: ArchiveDashboard,
     },
   },
 ] as const satisfies readonly ThemeDefinition[];
