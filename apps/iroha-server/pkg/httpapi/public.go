@@ -48,7 +48,7 @@ type publicActivityListResponse struct {
 func (s *Server) handlePublicSummary(w http.ResponseWriter, r *http.Request) {
 	yearParam := r.URL.Query().Get("year")
 	sportParam := r.URL.Query().Get("sport")
-	cacheKey := fmt.Sprintf("public:summary:v1:%s:%s", yearParam, sportParam)
+	cacheKey := fmt.Sprintf("v1:%s:%s", yearParam, sportParam)
 
 	ttl := publicCacheTTL
 	currentYear := time.Now().Format("2006")
@@ -57,7 +57,7 @@ func (s *Server) handlePublicSummary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	summary, err := cache.GetOrLoad(
-		r.Context(), s.deps.Cache, cacheKey, ttl,
+		r.Context(), s.deps.Cache, "public_summary", cacheKey, ttl,
 		func() (activities.Summary, error) { return s.deps.ActivityService.Summary(yearParam, sportParam) },
 	)
 	if err != nil {
@@ -76,9 +76,9 @@ func (s *Server) handlePublicActivities(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	key := "public:activities:v1:" + r.URL.Query().Encode()
+	key := "v1:" + r.URL.Query().Encode()
 	response, err := cache.GetOrLoad(
-		r.Context(), s.deps.Cache, key, publicCacheTTL,
+		r.Context(), s.deps.Cache, "public_activities", key, publicCacheTTL,
 		func() (publicActivityListResponse, error) {
 			page, err := s.deps.ActivityService.List(filters)
 			if err != nil {
@@ -132,7 +132,7 @@ type routeLineProps struct {
 
 func (s *Server) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 	response, err := cache.GetOrLoad(
-		r.Context(), s.deps.Cache, "public:routes:v2", 5*time.Minute,
+		r.Context(), s.deps.Cache, "public_routes", "v2", 5*time.Minute,
 		func() (geoJSONFeatureCollection, error) {
 			lines, err := s.deps.ActivityService.RouteLines()
 			if err != nil {
@@ -145,8 +145,8 @@ func (s *Server) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 				if len(line.Points) > 0 {
 					lon := line.Points[0][0]
 					lat := line.Points[0][1]
-					key := fmt.Sprintf("geocode:v1:%.2f:%.2f", lat, lon)
-					if val, ok := cache.Get[string](r.Context(), s.deps.Cache, key); ok {
+					key := fmt.Sprintf("v1:%.2f:%.2f", lat, lon)
+					if val, ok := cache.Get[string](r.Context(), s.deps.Cache, "geocode", key); ok {
 						city = val
 					} else {
 						s.enqueueBackgroundGeocode(lat, lon)
@@ -256,7 +256,7 @@ func (s *Server) enqueueBackgroundGeocode(lat, lon float64) {
 func (s *Server) startGeocodeWorker() {
 	for coord := range geocodeChan {
 		lat, lon := coord[0], coord[1]
-		key := fmt.Sprintf("geocode:v1:%.2f:%.2f", lat, lon)
+		key := fmt.Sprintf("v1:%.2f:%.2f", lat, lon)
 
 		// Respect the rate limit: sleep 1 second between requests
 		time.Sleep(1 * time.Second)
@@ -312,10 +312,10 @@ func (s *Server) startGeocodeWorker() {
 			city = "Unknown"
 		}
 
-		cache.Set(context.Background(), s.deps.Cache, key, 365*24*time.Hour, city)
+		cache.Set(context.Background(), s.deps.Cache, "geocode", key, 365*24*time.Hour, city)
 
-		// Invalidate public:routes cache key to trigger reload
-		_ = s.deps.Cache.DeletePattern(context.Background(), "public:routes:*")
+		// Invalidate the route namespace so the next request includes the city.
+		_ = s.deps.Cache.InvalidateNamespace(context.Background(), "public_routes")
 
 		s.releasePending(key)
 	}
