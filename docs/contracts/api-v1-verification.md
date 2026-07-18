@@ -10,6 +10,9 @@ The contract gate verifies the active `/api/v1` surface in place. It is not a ba
 
 The registered routes in `apps/iroha-server/pkg/httpapi/server.go` must match the active paths in `docs/contracts/openapi.yaml`.
 
+The first executable slice is `make contract-check`, which walks the Chi router and asserts the current active method/path inventory. The OpenAPI path set remains a reviewed artifact until a
+schema-aware validator is added.
+
 - deferred roadmap routes must not appear in the active OpenAPI paths;
 - public routes must remain explicitly anonymous;
 - health must remain separate from application data routes;
