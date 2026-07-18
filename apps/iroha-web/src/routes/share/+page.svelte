@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import {
     getPublicSummary,
     listPublicActivities,
@@ -24,6 +24,8 @@
   import StatTile from "$lib/components/StatTile.svelte";
   import YearProgressChart from "$lib/components/YearProgressChart.svelte";
   import { sportColor } from "$lib/sport";
+  import GrapherShare from "$lib/themes/grapher/Share.svelte";
+  import { getDesignLanguage, type DesignLanguage } from "$lib/design-language";
 
   const MONTH_LABELS = [
     "Jan",
@@ -99,6 +101,7 @@
   let summaryError = $state<string | null>(null);
   let selectedYear = $state<string | null>(null);
   let sportFilter = $state<string | null>(null);
+  let language = $state<DesignLanguage>("field-journal");
 
   let initialLoaded = $state(false);
   let loadedYear = $state<string | null>(null);
@@ -193,6 +196,19 @@
   let activitiesError = $state<string | null>(null);
   let cursor = $state<string | null>(null);
   let hasMore = $state(false);
+
+  onMount(() => {
+    language = getDesignLanguage();
+    const onLanguageChange = (event: Event) => {
+      language = (event as CustomEvent<DesignLanguage>).detail;
+    };
+    window.addEventListener("iroha:design-language-change", onLanguageChange);
+    return () =>
+      window.removeEventListener(
+        "iroha:design-language-change",
+        onLanguageChange,
+      );
+  });
 
   async function loadActivities(append: boolean) {
     if (append) activitiesLoadingMore = true;
@@ -360,141 +376,165 @@
 </script>
 
 <section class="share-shell">
-  <header class="share-heading tile share-hero">
-    <p class="eyebrow">A window into the archive</p>
-    <h1>Share the shape of your movement.</h1>
-    <p class="muted">
-      A calm, read-only view of the years, routes, and sessions you choose to
-      make visible.
-    </p>
-    <p class="privacy-note">
-      Public projection · private daily, sleep, and media details stay out of
-      this view.
-    </p>
-  </header>
-
-  {#if summaryLoading}
-    <p class="muted">Loading summary…</p>
-  {:else if summaryError}
-    <p class="error">Failed to load summary: {summaryError}</p>
-  {:else if summary}
-    <!-- Totals hero -->
-    <div class="section-kicker">Archive pulse <span>{selectedYear}</span></div>
-    <div class="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 share-stat-grid">
-      <StatTile
-        label="Total distance"
-        value={formatDistance(selectedYearTotals?.distance_m ?? 0)}
+  {#if language === "grapher"}
+    {#if summaryLoading}
+      <p class="muted">Loading public data…</p>
+    {:else if summaryError}
+      <p class="error">Failed to load public data: {summaryError}</p>
+    {:else if summary}
+      <GrapherShare
+        {summary}
+        {fullSummary}
+        {selectedYear}
+        {selectedYearTotals}
+        {years}
+        {monthSlots}
+        {monthMetric}
+        {monthMax}
+        {sportFilter}
       />
-      <StatTile
-        label="Activities"
-        value={(selectedYearTotals?.activity_count ?? 0).toLocaleString()}
-      />
-      <StatTile
-        label="Total time"
-        value={formatDuration(selectedYearTotals?.duration_s ?? 0)}
-      />
-    </div>
-
-    <!-- Year tabs -->
-    {#if years.length > 0}
-      <div class="mb-4 flex flex-wrap gap-2">
-        {#each years as year (year)}
-          <button
-            class="rounded-full border px-4 py-1 text-sm font-medium transition-colors"
-            class:border-accent={selectedYear === year}
-            class:text-text={selectedYear === year}
-            class:bg-surface-2={selectedYear === year}
-            class:border-border={selectedYear !== year}
-            class:text-text-muted={selectedYear !== year}
-            onclick={() => selectYear(year)}
-          >
-            {year}
-          </button>
-        {/each}
-      </div>
-
-      <!-- Year-over-year cumulative distance -->
-      {#if fullSummary && selectedYear}
-        <div class="mb-8">
-          <YearProgressChart
-            byMonth={fullSummary.by_month}
-            year={selectedYear}
-            sportName={sportFilter ? formatSport(sportFilter) : undefined}
-          />
-        </div>
-      {/if}
-
-      <!-- Per-month bar chart -->
-      <div class="mb-8 rounded-lg border border-border bg-surface p-4">
-        <div class="mb-3 text-sm text-text-muted">
-          Monthly {monthMetric === "distance_m" ? "distance" : "activities"} — {selectedYear}
-        </div>
-        <div class="flex h-40 items-stretch gap-2">
-          {#each monthSlots as slot, idx (slot.key)}
-            {@const value = slot.bucket ? slot.bucket[monthMetric] : 0}
-            {@const heightPct = Math.max(2, (value / monthMax) * 100)}
-            <div
-              class="group relative flex h-full flex-1 flex-col items-center justify-end gap-1"
-            >
-              <div
-                class="pointer-events-none absolute -top-6 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] whitespace-nowrap text-text opacity-0 transition-opacity group-hover:opacity-100"
-              >
-                {monthMetric === "distance_m"
-                  ? formatDistance(slot.bucket?.distance_m)
-                  : `${slot.bucket?.activity_count ?? 0} activities`}
-              </div>
-              <div
-                class="w-full rounded-t transition-all"
-                style={`height: ${heightPct}%; background: color-mix(in srgb, var(--sport-run) ${35 + (idx % 4) * 15}%, var(--surface-2))`}
-              ></div>
-              <div class="text-[10px] text-text-muted">{slot.label}</div>
-            </div>
-          {/each}
-        </div>
-      </div>
     {/if}
+  {:else}
+    <header class="share-heading tile share-hero">
+      <p class="eyebrow">A window into the archive</p>
+      <h1>Share the shape of your movement.</h1>
+      <p class="muted">
+        A calm, read-only view of the years, routes, and sessions you choose to
+        make visible.
+      </p>
+      <p class="privacy-note">
+        Public projection · private daily, sleep, and media details stay out of
+        this view.
+      </p>
+    </header>
 
-    <!-- By-sport breakdown -->
-    {#if summary.by_sport.length > 0}
-      <div class="mb-8 rounded-lg border border-border bg-surface p-4">
-        <div class="mb-3 text-sm text-text-muted">By sport</div>
-        <div class="flex flex-col gap-2">
-          {#each summary.by_sport as sport (sport.key)}
+    {#if summaryLoading}
+      <p class="muted">Loading summary…</p>
+    {:else if summaryError}
+      <p class="error">Failed to load summary: {summaryError}</p>
+    {:else if summary}
+      <!-- Totals hero -->
+      <div class="section-kicker">
+        Archive pulse <span>{selectedYear}</span>
+      </div>
+      <div class="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 share-stat-grid">
+        <StatTile
+          label="Total distance"
+          value={formatDistance(selectedYearTotals?.distance_m ?? 0)}
+        />
+        <StatTile
+          label="Activities"
+          value={(selectedYearTotals?.activity_count ?? 0).toLocaleString()}
+        />
+        <StatTile
+          label="Total time"
+          value={formatDuration(selectedYearTotals?.duration_s ?? 0)}
+        />
+      </div>
+
+      <!-- Year tabs -->
+      {#if years.length > 0}
+        <div class="mb-4 flex flex-wrap gap-2">
+          {#each years as year (year)}
             <button
-              class="flex items-center gap-3 rounded p-1 text-left transition-colors hover:bg-surface-2"
-              onclick={() => toggleSport(sport.key)}
+              class="rounded-full border px-4 py-1 text-sm font-medium transition-colors"
+              class:border-accent={selectedYear === year}
+              class:text-text={selectedYear === year}
+              class:bg-surface-2={selectedYear === year}
+              class:border-border={selectedYear !== year}
+              class:text-text-muted={selectedYear !== year}
+              onclick={() => selectYear(year)}
             >
-              <div class="w-48 shrink-0 flex items-center min-w-0">
-                <SportBadge sport={sport.key} />
-              </div>
-              <div class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-                <div
-                  class="h-full rounded-full"
-                  style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
-                ></div>
-              </div>
-              <span class="w-14 shrink-0 text-right text-xs text-text-muted"
-                >{sport.activity_count}×</span
-              >
-              <span class="w-20 shrink-0 text-right text-xs text-text-muted">
-                {#if isNonDistanceSport(sport.key, sport.distance_m)}
-                  {formatDuration(sport.duration_s)}
-                {:else}
-                  {formatDistance(sport.distance_m)}
-                {/if}
-              </span>
+              {year}
             </button>
           {/each}
         </div>
-        {#if sportFilter}
-          <button
-            class="mt-2 text-xs text-accent underline"
-            onclick={() => toggleSport(sportFilter!)}
-          >
-            Clear sport filter ({formatSport(sportFilter)})
-          </button>
+
+        <!-- Year-over-year cumulative distance -->
+        {#if fullSummary && selectedYear}
+          <div class="mb-8">
+            <YearProgressChart
+              byMonth={fullSummary.by_month}
+              year={selectedYear}
+              sportName={sportFilter ? formatSport(sportFilter) : undefined}
+            />
+          </div>
         {/if}
-      </div>
+
+        <!-- Per-month bar chart -->
+        <div class="mb-8 rounded-lg border border-border bg-surface p-4">
+          <div class="mb-3 text-sm text-text-muted">
+            Monthly {monthMetric === "distance_m" ? "distance" : "activities"} — {selectedYear}
+          </div>
+          <div class="flex h-40 items-stretch gap-2">
+            {#each monthSlots as slot, idx (slot.key)}
+              {@const value = slot.bucket ? slot.bucket[monthMetric] : 0}
+              {@const heightPct = Math.max(2, (value / monthMax) * 100)}
+              <div
+                class="group relative flex h-full flex-1 flex-col items-center justify-end gap-1"
+              >
+                <div
+                  class="pointer-events-none absolute -top-6 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] whitespace-nowrap text-text opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  {monthMetric === "distance_m"
+                    ? formatDistance(slot.bucket?.distance_m)
+                    : `${slot.bucket?.activity_count ?? 0} activities`}
+                </div>
+                <div
+                  class="w-full rounded-t transition-all"
+                  style={`height: ${heightPct}%; background: color-mix(in srgb, var(--sport-run) ${35 + (idx % 4) * 15}%, var(--surface-2))`}
+                ></div>
+                <div class="text-[10px] text-text-muted">{slot.label}</div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- By-sport breakdown -->
+      {#if summary.by_sport.length > 0}
+        <div class="mb-8 rounded-lg border border-border bg-surface p-4">
+          <div class="mb-3 text-sm text-text-muted">By sport</div>
+          <div class="flex flex-col gap-2">
+            {#each summary.by_sport as sport (sport.key)}
+              <button
+                class="flex items-center gap-3 rounded p-1 text-left transition-colors hover:bg-surface-2"
+                onclick={() => toggleSport(sport.key)}
+              >
+                <div class="w-48 shrink-0 flex items-center min-w-0">
+                  <SportBadge sport={sport.key} />
+                </div>
+                <div
+                  class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2"
+                >
+                  <div
+                    class="h-full rounded-full"
+                    style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
+                  ></div>
+                </div>
+                <span class="w-14 shrink-0 text-right text-xs text-text-muted"
+                  >{sport.activity_count}×</span
+                >
+                <span class="w-20 shrink-0 text-right text-xs text-text-muted">
+                  {#if isNonDistanceSport(sport.key, sport.distance_m)}
+                    {formatDuration(sport.duration_s)}
+                  {:else}
+                    {formatDistance(sport.distance_m)}
+                  {/if}
+                </span>
+              </button>
+            {/each}
+          </div>
+          {#if sportFilter}
+            <button
+              class="mt-2 text-xs text-accent underline"
+              onclick={() => toggleSport(sportFilter!)}
+            >
+              Clear sport filter ({formatSport(sportFilter)})
+            </button>
+          {/if}
+        </div>
+      {/if}
     {/if}
   {/if}
 
