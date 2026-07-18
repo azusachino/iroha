@@ -49,6 +49,11 @@ import FieldJournalDashboard from "$lib/themes/field-journal/Dashboard.svelte";
 import PhenologyDashboard from "$lib/themes/phenology/Dashboard.svelte";
 import SoundMapDashboard from "$lib/themes/sound-map/Dashboard.svelte";
 import ArchiveDashboard from "$lib/themes/archive/Dashboard.svelte";
+import AtlasActivityDetail from "$lib/themes/atlas/ActivityDetail.svelte";
+import FieldJournalActivityDetail from "$lib/themes/field-journal/ActivityDetail.svelte";
+import PhenologyActivityDetail from "$lib/themes/phenology/ActivityDetail.svelte";
+import SoundMapActivityDetail from "$lib/themes/sound-map/ActivityDetail.svelte";
+import ArchiveActivityDetail from "$lib/themes/archive/ActivityDetail.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -62,6 +67,7 @@ export const THEME_DEFINITIONS = [
       "dashboard",
       "daily",
       "activities",
+      "activity-detail",
       "sleep",
       "media",
       "share",
@@ -71,6 +77,7 @@ export const THEME_DEFINITIONS = [
       today: AtlasToday,
       daily: AtlasDaily,
       activities: AtlasActivities,
+      "activity-detail": AtlasActivityDetail,
       sleep: AtlasSleep,
       share: AtlasShare,
       media: AtlasMedia,
@@ -104,6 +111,7 @@ export const THEME_DEFINITIONS = [
       "dashboard",
       "daily",
       "activities",
+      "activity-detail",
       "sleep",
       "media",
       "share",
@@ -113,6 +121,7 @@ export const THEME_DEFINITIONS = [
       today: FieldJournalToday,
       daily: FieldJournalDaily,
       activities: FieldJournalActivities,
+      "activity-detail": FieldJournalActivityDetail,
       sleep: FieldJournalSleep,
       share: FieldJournalShare,
       media: FieldJournalMedia,
@@ -131,6 +140,7 @@ export const THEME_DEFINITIONS = [
       "dashboard",
       "daily",
       "activities",
+      "activity-detail",
       "sleep",
       "media",
       "share",
@@ -140,6 +150,7 @@ export const THEME_DEFINITIONS = [
       today: PhenologyToday,
       daily: PhenologyDaily,
       activities: PhenologyActivities,
+      "activity-detail": PhenologyActivityDetail,
       sleep: PhenologySleep,
       share: PhenologyShare,
       media: PhenologyMedia,
@@ -157,6 +168,7 @@ export const THEME_DEFINITIONS = [
       "dashboard",
       "daily",
       "activities",
+      "activity-detail",
       "sleep",
       "media",
       "share",
@@ -166,6 +178,7 @@ export const THEME_DEFINITIONS = [
       today: SoundMapToday,
       daily: SoundMapDaily,
       activities: SoundMapActivities,
+      "activity-detail": SoundMapActivityDetail,
       sleep: SoundMapSleep,
       share: SoundMapShare,
       media: SoundMapMedia,
@@ -183,6 +196,7 @@ export const THEME_DEFINITIONS = [
       "dashboard",
       "daily",
       "activities",
+      "activity-detail",
       "sleep",
       "media",
       "share",
@@ -192,6 +206,7 @@ export const THEME_DEFINITIONS = [
       today: ArchiveToday,
       daily: ArchiveDaily,
       activities: ArchiveActivities,
+      "activity-detail": ArchiveActivityDetail,
       sleep: ArchiveSleep,
       share: ArchiveShare,
       media: ArchiveMedia,
