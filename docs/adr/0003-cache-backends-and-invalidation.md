@@ -116,10 +116,16 @@ JWT validation remains stateless and local. There is no authentication cache.
 If token revocation is required later, revocations become logged authorization
 state keyed by token ID and expiry, not cache entries.
 
-The current rate limiter is process-local. That is acceptable for the supported
-single-server self-hosted deployment. Multi-instance rate-limit coordination
-must be solved at the reverse proxy or with an explicitly designed shared
-limiter; it must not be implied by the response-cache backend.
+The current rate limiter is process-local. That is the supported behavior for
+the single-server self-hosted deployment. Rate limiting is a separate contract
+from response caching because it requires atomic counters and an explicit
+failure policy; cache misses and namespace invalidation must never affect
+limits.
+
+If multi-instance deployment becomes a supported target, Valkey may be added as
+an optional `Limiter` backend for atomic short-lived counters. It is not a
+required cache or job-queue dependency, and a distributed limiter must not be
+implied by selecting the Postgres response-cache backend.
 
 ### Backend selection and migration
 
@@ -150,6 +156,6 @@ Accepted trade-offs:
 - namespace generation and cleanup add a small amount of schema and maintenance
   logic;
 - a shared rate limiter is intentionally deferred for multi-instance hosting;
+- Valkey remains an optional future limiter backend, not a required runtime service;
 - an `UNLOGGED` cache backend is not the default because stable historical cache
   behavior is more valuable than premature WAL reduction.
-
