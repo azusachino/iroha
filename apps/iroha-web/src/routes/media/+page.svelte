@@ -8,6 +8,7 @@
   } from "$lib/api";
   import StatTile from "$lib/components/StatTile.svelte";
   import MediaBarChart from "$lib/components/MediaBarChart.svelte";
+  import RouteIntro from "$lib/components/RouteIntro.svelte";
 
   let aggregates = $state<MediaAggregates | null>(null);
   let items = $state<MediaRow[]>([]);
@@ -251,21 +252,23 @@
 </svelte:head>
 
 <section class="media-shell">
-  <header class="domain-header">
-    <p class="eyebrow">Media</p>
-    <h1>Watchlist &amp; bookshelf</h1>
-    <p class="muted">
-      Everything you follow on AniList and Bangumi, on one shelf.
-    </p>
-  </header>
+  <RouteIntro
+    eyebrow="Library / things in orbit"
+    title="Watchlist & bookshelf"
+    description="Keep reading, watching, and playing visible without turning your interests into a backlog."
+    actionHref="/"
+    actionLabel="Back to Today"
+  />
 
   <div class="filter-bar" role="tablist" aria-label="Filter by kind">
     {#each FAMILIES as f (f.value)}
       <button
+        type="button"
         class="chip"
         class:active={family === f.value}
         role="tab"
         aria-selected={family === f.value}
+        aria-label={`Filter media by ${f.label}`}
         onclick={() => selectFamily(f.value)}
       >
         {f.label}
@@ -296,9 +299,9 @@
   </div>
 
   {#if loading}
-    <p class="muted">Loading media history…</p>
+    <p class="muted" aria-live="polite">Loading media history…</p>
   {:else if error}
-    <p class="error">Failed to load media: {error}</p>
+    <p class="error" aria-live="assertive">Failed to load media: {error}</p>
   {:else if aggregates}
     <div class="stat-strip">
       <StatTile
@@ -489,15 +492,10 @@
     display: grid;
     gap: 1.75rem;
   }
-  h1,
   h2,
   h3,
   p {
     margin: 0;
-  }
-  .domain-header h1 {
-    font-size: 1.5rem;
-    letter-spacing: -0.02em;
   }
   .eyebrow {
     color: var(--text-muted);

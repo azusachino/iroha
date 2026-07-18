@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ArrowLeft } from "@lucide/svelte";
   import {
     getSleepSegments,
     listSleep,
@@ -13,6 +12,7 @@
   import SleepArchitectureChart from "$lib/components/SleepArchitectureChart.svelte";
   import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
+  import RouteIntro from "$lib/components/RouteIntro.svelte";
 
   const PAGE_SIZE = 24;
   let sessions = $state<SleepSession[]>([]);
@@ -274,18 +274,13 @@
 </svelte:head>
 
 <section class="sleep-shell">
-  <header class="page-heading">
-    <div>
-      <p class="eyebrow">Sleep / personal history</p>
-      <h1>How are you recovering?</h1>
-      <p class="muted">
-        A long-view of your nights, with the last one ready to inspect.
-      </p>
-    </div>
-    <a class="back-link" href="/dashboard"
-      ><ArrowLeft size={15} /> <span>Dashboard</span></a
-    >
-  </header>
+  <RouteIntro
+    eyebrow="Night / recovery history"
+    title="How are you recovering?"
+    description="A long view of your nights, with the latest one ready to inspect and the longer rhythm close at hand."
+    actionHref="/"
+    actionLabel="Back to Today"
+  />
 
   {#if sessionsLoading && sessions.length === 0}
     <section class="status tile"><p>Loading your sleep history…</p></section>
@@ -314,6 +309,7 @@
           <button
             class="info-button"
             type="button"
+            aria-label="Explain sleep classification"
             title="Primary overnight sleep means at least 3 hours asleep. Shorter sessions are treated as naps or fragments."
             >i</button
           >
@@ -597,18 +593,15 @@
     display: grid;
     gap: 1rem;
   }
-  .page-heading,
   .section-heading {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
   }
-  .page-heading h1,
   .section-heading h2 {
     margin: 0;
   }
-  .page-heading .muted,
   .section-heading .muted {
     margin: 0.35rem 0 0;
   }
@@ -620,25 +613,9 @@
     letter-spacing: 0.11em;
     text-transform: uppercase;
   }
-  .back-link,
   .section-note {
     color: var(--text-muted);
     font-size: 0.78rem;
-  }
-  .back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.5rem 0.65rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    text-decoration: none;
-  }
-  .back-link:hover {
-    border-color: var(--accent);
-    color: var(--text);
-    text-decoration: none;
   }
   .period-controls {
     display: flex;
@@ -1054,7 +1031,6 @@
   }
   @media (max-width: 760px) {
     .hero-topline,
-    .page-heading,
     .section-heading {
       flex-direction: column;
     }
