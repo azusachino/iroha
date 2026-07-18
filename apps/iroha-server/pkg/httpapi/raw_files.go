@@ -6,7 +6,7 @@ import (
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/go-chi/chi/v5"
 )
 
