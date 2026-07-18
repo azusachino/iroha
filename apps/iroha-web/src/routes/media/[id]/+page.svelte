@@ -1,10 +1,14 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { getMedia, type MediaDetail } from "$lib/api";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   let detail = $state<MediaDetail | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  const theme = useTheme();
 
   // Re-fetch whenever the route param changes. SvelteKit reuses this component
   // across /media/[id] navigations, so onMount would fire only once and
@@ -65,160 +69,171 @@
 </svelte:head>
 
 <section class="detail-shell">
-  <p><a class="back-link" href="/media">← Back to media</a></p>
+  {#if hasThemeRoute(theme.definition(), "media-detail") && !loading && !error && detail}
+    <ThemeRouteRenderer
+      route="media-detail"
+      props={{ detail, progress: progressValue() }}
+    />
+  {:else}
+    <p><a class="back-link" href="/media">← Back to media</a></p>
 
-  {#if loading}
-    <p class="muted">Loading item…</p>
-  {:else if error}
-    <p class="error">Failed to load item: {error}</p>
-  {:else if detail}
-    <section class="hero tile">
-      {#if detail.item.cover_image_url}
-        <img class="hero-cover" src={detail.item.cover_image_url} alt="" />
-      {:else}
-        <div class="hero-cover cover-placeholder" aria-hidden="true">
-          {detail.item.title.slice(0, 1)}
-        </div>
-      {/if}
-      <div class="hero-copy">
-        <p class="eyebrow">{detail.item.media_type.replaceAll("_", " ")}</p>
-        <h1>{detail.item.native_title || detail.item.title}</h1>
-        {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
-          <p class="original-title">{detail.item.title}</p>
+    {#if loading}
+      <p class="muted">Loading item…</p>
+    {:else if error}
+      <p class="error">Failed to load item: {error}</p>
+    {:else if detail}
+      <section class="hero tile">
+        {#if detail.item.cover_image_url}
+          <img class="hero-cover" src={detail.item.cover_image_url} alt="" />
+        {:else}
+          <div class="hero-cover cover-placeholder" aria-hidden="true">
+            {detail.item.title.slice(0, 1)}
+          </div>
         {/if}
-        {#if detail.work.description}
-          <p class="work-description">{detail.work.description}</p>
-        {/if}
-        <div class="hero-meta">
-          <span>{detail.item.status?.replaceAll("_", " ") ?? "Untracked"}</span>
-          {#if detail.item.rating != null}<span class="score"
-              >{detail.item.rating.toFixed(1)} / 10</span
-            >{/if}
-          {#if detail.work.first_release_date}<span
-              >{detail.work.first_release_date.slice(0, 4)}</span
-            >{/if}
+        <div class="hero-copy">
+          <p class="eyebrow">{detail.item.media_type.replaceAll("_", " ")}</p>
+          <h1>{detail.item.native_title || detail.item.title}</h1>
+          {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
+            <p class="original-title">{detail.item.title}</p>
+          {/if}
+          {#if detail.work.description}
+            <p class="work-description">{detail.work.description}</p>
+          {/if}
+          <div class="hero-meta">
+            <span
+              >{detail.item.status?.replaceAll("_", " ") ?? "Untracked"}</span
+            >
+            {#if detail.item.rating != null}<span class="score"
+                >{detail.item.rating.toFixed(1)} / 10</span
+              >{/if}
+            {#if detail.work.first_release_date}<span
+                >{detail.work.first_release_date.slice(0, 4)}</span
+              >{/if}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <div class="detail-grid">
-      <div class="main-column">
-        {#if detail.progress}
-          <section class="progress-panel tile">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Progress</p>
-                <h2>{detail.progress.unit || "Current position"}</h2>
+      <div class="detail-grid">
+        <div class="main-column">
+          {#if detail.progress}
+            <section class="progress-panel tile">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Progress</p>
+                  <h2>{detail.progress.unit || "Current position"}</h2>
+                </div>
+                {#if detail.progress.total != null}
+                  <strong>{Math.round(progressValue())}%</strong>
+                {/if}
               </div>
               {#if detail.progress.total != null}
-                <strong>{Math.round(progressValue())}%</strong>
+                <div class="progress-track">
+                  <span
+                    style={`width: ${Math.min(Math.max(progressValue(), 0), 100)}%`}
+                  ></span>
+                </div>
               {/if}
-            </div>
-            {#if detail.progress.total != null}
-              <div class="progress-track">
+              <div class="progress-meta">
                 <span
-                  style={`width: ${Math.min(Math.max(progressValue(), 0), 100)}%`}
-                ></span>
+                  >{detail.progress.position ?? 0}{detail.progress.total != null
+                    ? ` / ${detail.progress.total}`
+                    : ""}</span
+                >
+                <span
+                  >{detail.progress.play_count
+                    ? `${detail.progress.play_count} replays`
+                    : ""}</span
+                >
               </div>
-            {/if}
-            <div class="progress-meta">
-              <span
-                >{detail.progress.position ?? 0}{detail.progress.total != null
-                  ? ` / ${detail.progress.total}`
-                  : ""}</span
-              >
-              <span
-                >{detail.progress.play_count
-                  ? `${detail.progress.play_count} replays`
-                  : ""}</span
-              >
-            </div>
-          </section>
-        {/if}
-
-        <section class="timeline-section">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">History</p>
-              <h2>Events</h2>
-            </div>
-            <span class="muted">{detail.events.length}</span>
-          </div>
-          {#if detail.events.length}
-            <ol class="timeline">
-              {#each detail.events as event (event.id)}
-                <li>
-                  <span class="timeline-dot" aria-hidden="true"></span>
-                  <div class="timeline-card tile">
-                    <div class="event-head">
-                      <strong>{eventLabel(event.event_type)}</strong><time
-                        >{eventDate(event.event_at)}</time
-                      >
-                    </div>
-                    <div class="event-detail">
-                      {#if event.progress_percent != null}<span
-                          >{Math.round(event.progress_percent)}% complete</span
-                        >{/if}
-                      {#if event.position != null}<span
-                          >{event.position}{event.total != null
-                            ? ` / ${event.total}`
-                            : ""}
-                          {event.unit}</span
-                        >{/if}
-                      {#if event.rating != null}<span class="score"
-                          >Rated {event.rating.toFixed(1)} / 10</span
-                        >{/if}
-                    </div>
-                    {#if event.note}<p class="event-note">{event.note}</p>{/if}
-                  </div>
-                </li>
-              {/each}
-            </ol>
-          {:else}
-            <div class="empty-panel tile">No event history recorded.</div>
+            </section>
           {/if}
-        </section>
-      </div>
 
-      <aside class="side-column">
-        {#if detail.creators.length}
-          <section class="side-panel tile">
-            <p class="eyebrow">Credits</p>
-            <h2>People</h2>
-            <ul class="creator-list">
-              {#each detail.creators as creator (creator.id)}<li>
-                  <span>{creator.name}</span><small>{creator.role}</small>
-                </li>{/each}
-            </ul>
-          </section>
-        {/if}
-        {#if detail.relations.length}
-          <section class="side-panel tile">
-            <p class="eyebrow">Connections</p>
-            <h2>Related</h2>
-            <div class="relation-list">
-              {#each detail.relations as relation (relation.id)}<a
-                  class="relation-card"
-                  href={`/media/${relation.related_item_id}`}
-                  >{#if relation.cover_image_url}<img
-                      src={relation.cover_image_url}
-                      alt=""
-                    />{:else}<div
-                      class="relation-placeholder"
-                      aria-hidden="true"
-                    >
-                      {relation.related_title.slice(0, 1)}
-                    </div>{/if}<span
-                    ><strong>{relation.related_title}</strong><small
-                      >{relationLabel(relation.relation_type)}</small
-                    ></span
-                  ></a
-                >{/each}
+          <section class="timeline-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">History</p>
+                <h2>Events</h2>
+              </div>
+              <span class="muted">{detail.events.length}</span>
             </div>
+            {#if detail.events.length}
+              <ol class="timeline">
+                {#each detail.events as event (event.id)}
+                  <li>
+                    <span class="timeline-dot" aria-hidden="true"></span>
+                    <div class="timeline-card tile">
+                      <div class="event-head">
+                        <strong>{eventLabel(event.event_type)}</strong><time
+                          >{eventDate(event.event_at)}</time
+                        >
+                      </div>
+                      <div class="event-detail">
+                        {#if event.progress_percent != null}<span
+                            >{Math.round(event.progress_percent)}% complete</span
+                          >{/if}
+                        {#if event.position != null}<span
+                            >{event.position}{event.total != null
+                              ? ` / ${event.total}`
+                              : ""}
+                            {event.unit}</span
+                          >{/if}
+                        {#if event.rating != null}<span class="score"
+                            >Rated {event.rating.toFixed(1)} / 10</span
+                          >{/if}
+                      </div>
+                      {#if event.note}<p class="event-note">
+                          {event.note}
+                        </p>{/if}
+                    </div>
+                  </li>
+                {/each}
+              </ol>
+            {:else}
+              <div class="empty-panel tile">No event history recorded.</div>
+            {/if}
           </section>
-        {/if}
-      </aside>
-    </div>
+        </div>
+
+        <aside class="side-column">
+          {#if detail.creators.length}
+            <section class="side-panel tile">
+              <p class="eyebrow">Credits</p>
+              <h2>People</h2>
+              <ul class="creator-list">
+                {#each detail.creators as creator (creator.id)}<li>
+                    <span>{creator.name}</span><small>{creator.role}</small>
+                  </li>{/each}
+              </ul>
+            </section>
+          {/if}
+          {#if detail.relations.length}
+            <section class="side-panel tile">
+              <p class="eyebrow">Connections</p>
+              <h2>Related</h2>
+              <div class="relation-list">
+                {#each detail.relations as relation (relation.id)}<a
+                    class="relation-card"
+                    href={`/media/${relation.related_item_id}`}
+                    >{#if relation.cover_image_url}<img
+                        src={relation.cover_image_url}
+                        alt=""
+                      />{:else}<div
+                        class="relation-placeholder"
+                        aria-hidden="true"
+                      >
+                        {relation.related_title.slice(0, 1)}
+                      </div>{/if}<span
+                      ><strong>{relation.related_title}</strong><small
+                        >{relationLabel(relation.relation_type)}</small
+                      ></span
+                    ></a
+                  >{/each}
+              </div>
+            </section>
+          {/if}
+        </aside>
+      </div>
+    {/if}
   {/if}
 </section>
 

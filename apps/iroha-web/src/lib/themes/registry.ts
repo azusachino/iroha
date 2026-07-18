@@ -54,6 +54,11 @@ import FieldJournalActivityDetail from "$lib/themes/field-journal/ActivityDetail
 import PhenologyActivityDetail from "$lib/themes/phenology/ActivityDetail.svelte";
 import SoundMapActivityDetail from "$lib/themes/sound-map/ActivityDetail.svelte";
 import ArchiveActivityDetail from "$lib/themes/archive/ActivityDetail.svelte";
+import AtlasMediaDetail from "$lib/themes/atlas/MediaDetail.svelte";
+import FieldJournalMediaDetail from "$lib/themes/field-journal/MediaDetail.svelte";
+import PhenologyMediaDetail from "$lib/themes/phenology/MediaDetail.svelte";
+import SoundMapMediaDetail from "$lib/themes/sound-map/MediaDetail.svelte";
+import ArchiveMediaDetail from "$lib/themes/archive/MediaDetail.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -70,6 +75,7 @@ export const THEME_DEFINITIONS = [
       "activity-detail",
       "sleep",
       "media",
+      "media-detail",
       "share",
     ],
     components: {
@@ -81,6 +87,7 @@ export const THEME_DEFINITIONS = [
       sleep: AtlasSleep,
       share: AtlasShare,
       media: AtlasMedia,
+      "media-detail": AtlasMediaDetail,
       dashboard: AtlasDashboard,
     },
   },
@@ -114,6 +121,7 @@ export const THEME_DEFINITIONS = [
       "activity-detail",
       "sleep",
       "media",
+      "media-detail",
       "share",
     ],
     components: {
@@ -125,6 +133,7 @@ export const THEME_DEFINITIONS = [
       sleep: FieldJournalSleep,
       share: FieldJournalShare,
       media: FieldJournalMedia,
+      "media-detail": FieldJournalMediaDetail,
       dashboard: FieldJournalDashboard,
     },
   },
@@ -143,6 +152,7 @@ export const THEME_DEFINITIONS = [
       "activity-detail",
       "sleep",
       "media",
+      "media-detail",
       "share",
     ],
     components: {
@@ -154,6 +164,7 @@ export const THEME_DEFINITIONS = [
       sleep: PhenologySleep,
       share: PhenologyShare,
       media: PhenologyMedia,
+      "media-detail": PhenologyMediaDetail,
       dashboard: PhenologyDashboard,
     },
   },
@@ -171,6 +182,7 @@ export const THEME_DEFINITIONS = [
       "activity-detail",
       "sleep",
       "media",
+      "media-detail",
       "share",
     ],
     components: {
@@ -182,6 +194,7 @@ export const THEME_DEFINITIONS = [
       sleep: SoundMapSleep,
       share: SoundMapShare,
       media: SoundMapMedia,
+      "media-detail": SoundMapMediaDetail,
       dashboard: SoundMapDashboard,
     },
   },
@@ -199,6 +212,7 @@ export const THEME_DEFINITIONS = [
       "activity-detail",
       "sleep",
       "media",
+      "media-detail",
       "share",
     ],
     components: {
@@ -210,6 +224,7 @@ export const THEME_DEFINITIONS = [
       sleep: ArchiveSleep,
       share: ArchiveShare,
       media: ArchiveMedia,
+      "media-detail": ArchiveMediaDetail,
       dashboard: ArchiveDashboard,
     },
   },

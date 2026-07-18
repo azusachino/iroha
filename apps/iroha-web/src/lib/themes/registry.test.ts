@@ -61,6 +61,11 @@ describe("Iroha theme registry", () => {
         (theme) => theme.implementation === "preview",
       ).every((theme) => hasThemeRoute(theme, "activity-detail")),
     ).toBe(true);
+    expect(
+      THEME_DEFINITIONS.filter(
+        (theme) => theme.implementation === "preview",
+      ).every((theme) => hasThemeRoute(theme, "media-detail")),
+    ).toBe(true);
     expect(getThemeDefinition("grapher").implementation).toBe("curated");
     expect(hasThemeRoute(getThemeDefinition("grapher"), "today")).toBe(true);
     expect(hasThemeRoute(getThemeDefinition("grapher"), "dashboard")).toBe(
@@ -69,6 +74,9 @@ describe("Iroha theme registry", () => {
     expect(
       hasThemeRoute(getThemeDefinition("grapher"), "activity-detail"),
     ).toBe(false);
+    expect(hasThemeRoute(getThemeDefinition("grapher"), "media-detail")).toBe(
+      false,
+    );
     expect(getThemeDefinition("grapher").components).toMatchObject({
       today: expect.anything(),
       daily: expect.anything(),
