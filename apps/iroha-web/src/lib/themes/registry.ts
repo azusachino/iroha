@@ -34,6 +34,11 @@ import FieldJournalSleep from "$lib/themes/field-journal/Sleep.svelte";
 import PhenologySleep from "$lib/themes/phenology/Sleep.svelte";
 import SoundMapSleep from "$lib/themes/sound-map/Sleep.svelte";
 import ArchiveSleep from "$lib/themes/archive/Sleep.svelte";
+import AtlasShare from "$lib/themes/atlas/Share.svelte";
+import FieldJournalShare from "$lib/themes/field-journal/Share.svelte";
+import PhenologyShare from "$lib/themes/phenology/Share.svelte";
+import SoundMapShare from "$lib/themes/sound-map/Share.svelte";
+import ArchiveShare from "$lib/themes/archive/Share.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -42,13 +47,14 @@ export const THEME_DEFINITIONS = [
     hint: "places and routes",
     description: "A cartographic language for movement, places, and distance.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep"],
+    routes: ["today", "daily", "activities", "sleep", "share"],
     components: {
       shell: AtlasShell,
       today: AtlasToday,
       daily: AtlasDaily,
       activities: AtlasActivities,
       sleep: AtlasSleep,
+      share: AtlasShare,
     },
   },
   {
@@ -73,13 +79,14 @@ export const THEME_DEFINITIONS = [
     hint: "days and evidence",
     description: "A dated, narrative language for the shape of a day.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep"],
+    routes: ["today", "daily", "activities", "sleep", "share"],
     components: {
       shell: FieldJournalShell,
       today: FieldJournalToday,
       daily: FieldJournalDaily,
       activities: FieldJournalActivities,
       sleep: FieldJournalSleep,
+      share: FieldJournalShare,
     },
   },
   {
@@ -89,13 +96,14 @@ export const THEME_DEFINITIONS = [
     description:
       "A cyclical language for recovery, rest, and unfolding patterns.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep"],
+    routes: ["today", "daily", "activities", "sleep", "share"],
     components: {
       shell: PhenologyShell,
       today: PhenologyToday,
       daily: PhenologyDaily,
       activities: PhenologyActivities,
       sleep: PhenologySleep,
+      share: PhenologyShare,
     },
   },
   {
@@ -104,13 +112,14 @@ export const THEME_DEFINITIONS = [
     hint: "rhythm and intensity",
     description: "A rhythmic language for cadence, intensity, and flow.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep"],
+    routes: ["today", "daily", "activities", "sleep", "share"],
     components: {
       shell: SoundMapShell,
       today: SoundMapToday,
       daily: SoundMapDaily,
       activities: SoundMapActivities,
       sleep: SoundMapSleep,
+      share: SoundMapShare,
     },
   },
   {
@@ -119,13 +128,14 @@ export const THEME_DEFINITIONS = [
     hint: "media and history",
     description: "A chronological language for collections and memory.",
     implementation: "preview",
-    routes: ["today", "daily", "activities", "sleep"],
+    routes: ["today", "daily", "activities", "sleep", "share"],
     components: {
       shell: ArchiveShell,
       today: ArchiveToday,
       daily: ArchiveDaily,
       activities: ArchiveActivities,
       sleep: ArchiveSleep,
+      share: ArchiveShare,
     },
   },
 ] as const satisfies readonly ThemeDefinition[];
