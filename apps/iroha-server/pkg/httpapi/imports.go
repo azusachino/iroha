@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -31,7 +30,7 @@ type importJobResponse struct {
 
 func (s *Server) handleCreateImportJob(w http.ResponseWriter, r *http.Request) {
 	var request createImportJobRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	if err := decodeJSONBody(w, r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json body")
 		return
 	}

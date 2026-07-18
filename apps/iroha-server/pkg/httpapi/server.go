@@ -82,6 +82,7 @@ func (s *Server) routes() {
 	s.mux.Use(requestIDResponseHeader)
 	s.mux.Use(middleware.RealIP)
 	s.mux.Use(middleware.Recoverer)
+	s.mux.Use(s.accessLog)
 
 	apiLimit, publicLimit := apiRateLimitPerMin, publicRateLimitPerMin
 	if s.deps.Config.Auth.LocalNoAuth {
@@ -186,9 +187,32 @@ func keyByRemoteIP(r *http.Request) (string, error) {
 func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins: origins,
-		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
-		AllowedHeaders: []string{"Accept", "Content-Type"},
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodOptions},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
+		ExposedHeaders: []string{"Retry-After", "X-Request-ID"},
 		MaxAge:         300,
+	})
+}
+
+func (s *Server) accessLog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wrapped := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		started := time.Now()
+		next.ServeHTTP(wrapped, r)
+
+		route := "unknown"
+		if routeContext := chi.RouteContext(r.Context()); routeContext != nil && routeContext.RoutePattern() != "" {
+			route = routeContext.RoutePattern()
+		}
+		s.deps.Logger.InfoContext(r.Context(), "http request",
+			"request_id", middleware.GetReqID(r.Context()),
+			"method", r.Method,
+			"route", route,
+			"status", wrapped.Status(),
+			"bytes", wrapped.BytesWritten(),
+			"duration_ms", time.Since(started).Milliseconds(),
+			"subject", authSubject(r),
+		)
 	})
 }
 

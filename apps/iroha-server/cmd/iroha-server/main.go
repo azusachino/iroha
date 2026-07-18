@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
@@ -84,7 +85,16 @@ func main() {
 	})
 
 	logger.Info("starting iroha-server", "addr", cfg.Server.Addr)
-	if err := http.ListenAndServe(cfg.Server.Addr, server); err != nil {
+	httpServer := &http.Server{
+		Addr:              cfg.Server.Addr,
+		Handler:           server,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       15 * time.Minute,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    1 << 20,
+	}
+	if err := httpServer.ListenAndServe(); err != nil {
 		logger.Error("server stopped", "error", err)
 		os.Exit(1)
 	}

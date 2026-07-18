@@ -274,6 +274,13 @@ through `IROHA_JWT_SECRET` and is never logged or sent to the browser.
 The private web viewer can receive a deployment-provided `PUBLIC_IROHA_API_TOKEN`. This is a bearer credential exposed to the trusted private network, not a signing secret. Do not use this mode for an
 untrusted or public deployment.
 
+## HTTP hardening
+
+- Configured private origins may use `GET`, `POST`, and `OPTIONS` with `Authorization`, `Accept`, and `Content-Type` headers. The public projection remains anonymous and cacheable.
+- JSON request bodies are limited to 1 MiB and reject unknown fields and trailing JSON values. Multipart raw-file uploads use the separate configured upload limit.
+- The server applies a 10-second header timeout, a 15-minute request-read timeout for large uploads, a 2-minute write/idle timeout, and a 1 MiB maximum header size.
+- Structured access logs include the request ID, route, status, duration, response size, and authenticated subject when available. Credentials and request bodies are not logged.
+
 ## Configuration
 
 Use TOML config with environment variable overrides.
