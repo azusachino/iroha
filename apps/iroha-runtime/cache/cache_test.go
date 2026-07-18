@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -114,5 +115,37 @@ func TestClient_UsesBackendNamespaceContract(t *testing.T) {
 	}
 	if store.invalidated != "public_summary" {
 		t.Fatalf("invalidated namespace = %q, want public_summary", store.invalidated)
+	}
+}
+
+func TestGetOrLoad_CoalescesConcurrentMisses(t *testing.T) {
+	c := NewWithStore(&fakeStore{})
+	var mu sync.Mutex
+	calls := 0
+	loader := func() (string, error) {
+		mu.Lock()
+		calls++
+		mu.Unlock()
+		time.Sleep(20 * time.Millisecond)
+		return "loaded", nil
+	}
+
+	var wg sync.WaitGroup
+	values := make([]string, 2)
+	for i := range values {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			value, err := GetOrLoad(context.Background(), c, "public", "same", time.Minute, loader)
+			if err != nil {
+				t.Errorf("load: %v", err)
+				return
+			}
+			values[index] = value
+		}(i)
+	}
+	wg.Wait()
+	if calls != 1 || values[0] != "loaded" || values[1] != "loaded" {
+		t.Fatalf("calls = %d, values = %#v", calls, values)
 	}
 }

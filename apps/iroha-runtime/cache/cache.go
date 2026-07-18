@@ -9,7 +9,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
+	"reflect"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -27,7 +30,15 @@ type Store interface {
 // Client is the cache facade used by application packages. It owns encoding
 // and fail-open behavior; Store owns backend details.
 type Client struct {
-	store Store
+	store    Store
+	flightMu sync.Mutex
+	flights  map[string]*cacheFlight
+}
+
+type cacheFlight struct {
+	done  chan struct{}
+	value any
+	err   error
 }
 
 // New builds a Valkey-backed Client for url. An empty or malformed URL
@@ -48,7 +59,7 @@ func New(url string) *Client {
 
 // NewWithStore builds a Client around any Store implementation.
 func NewWithStore(store Store) *Client {
-	return &Client{store: store}
+	return &Client{store: store, flights: make(map[string]*cacheFlight)}
 }
 
 // Close releases the backend connection, if any.
@@ -65,14 +76,45 @@ func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl
 	if value, ok := Get[T](ctx, c, namespace, key); ok {
 		return value, nil
 	}
+	if c == nil || c.store == nil {
+		return loader()
+	}
+
+	flightKey := namespace + "\x00" + key + "\x00" + reflect.TypeOf((*T)(nil)).Elem().String()
+	c.flightMu.Lock()
+	if flight, ok := c.flights[flightKey]; ok {
+		c.flightMu.Unlock()
+		select {
+		case <-flight.done:
+			value, ok := flight.value.(T)
+			if !ok {
+				var zero T
+				return zero, flight.err
+			}
+			return value, flight.err
+		case <-ctx.Done():
+			var zero T
+			return zero, ctx.Err()
+		}
+	}
+	flight := &cacheFlight{done: make(chan struct{})}
+	c.flights[flightKey] = flight
+	c.flightMu.Unlock()
 
 	value, err := loader()
+	if err == nil {
+		Set(ctx, c, namespace, key, ttl, value)
+	}
+	c.flightMu.Lock()
+	flight.value = value
+	flight.err = err
+	delete(c.flights, flightKey)
+	close(flight.done)
+	c.flightMu.Unlock()
 	if err != nil {
 		var zero T
 		return zero, err
 	}
-
-	Set(ctx, c, namespace, key, ttl, value)
 	return value, nil
 }
 
@@ -131,7 +173,11 @@ type valkeyStore struct {
 }
 
 func (s *valkeyStore) Get(ctx context.Context, namespace, key string) ([]byte, bool, error) {
-	raw, err := s.client.Get(ctx, namespacedKey(namespace, key)).Bytes()
+	generation, err := s.generation(ctx, namespace)
+	if err != nil {
+		return nil, false, err
+	}
+	raw, err := s.client.Get(ctx, namespacedKey(namespace, generation, key)).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil, false, nil
@@ -142,33 +188,41 @@ func (s *valkeyStore) Get(ctx context.Context, namespace, key string) ([]byte, b
 }
 
 func (s *valkeyStore) Set(ctx context.Context, namespace, key string, raw []byte, ttl time.Duration) error {
-	return s.client.Set(ctx, namespacedKey(namespace, key), raw, ttl).Err()
+	generation, err := s.generation(ctx, namespace)
+	if err != nil {
+		return err
+	}
+	return s.client.Set(ctx, namespacedKey(namespace, generation, key), raw, ttl).Err()
 }
 
 func (s *valkeyStore) InvalidateNamespace(ctx context.Context, namespace string) error {
-	var cursor uint64
-	pattern := namespacedKey(namespace, "*")
-	for {
-		keys, next, err := s.client.Scan(ctx, cursor, pattern, 0).Result()
-		if err != nil {
-			return err
-		}
-		if len(keys) > 0 {
-			if _, err := s.client.Del(ctx, keys...).Result(); err != nil {
-				return err
-			}
-		}
-		cursor = next
-		if cursor == 0 {
-			return nil
-		}
-	}
+	_, err := s.client.Incr(ctx, generationKey(namespace)).Result()
+	return err
 }
 
 func (s *valkeyStore) Close() error {
 	return s.client.Close()
 }
 
-func namespacedKey(namespace, key string) string {
-	return namespace + ":" + key
+func (s *valkeyStore) generation(ctx context.Context, namespace string) (int64, error) {
+	key := generationKey(namespace)
+	generation, err := s.client.Get(ctx, key).Int64()
+	if err == nil {
+		return generation, nil
+	}
+	if !errors.Is(err, redis.Nil) {
+		return 0, err
+	}
+	if _, err := s.client.SetNX(ctx, key, 1, 0).Result(); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
+func generationKey(namespace string) string {
+	return namespace + ":__generation"
+}
+
+func namespacedKey(namespace string, generation int64, key string) string {
+	return namespace + ":g" + fmt.Sprint(generation) + ":" + key
 }
