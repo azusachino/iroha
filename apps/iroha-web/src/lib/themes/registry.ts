@@ -20,6 +20,10 @@ import AtlasToday from "$lib/themes/atlas/Today.svelte";
 import PhenologyToday from "$lib/themes/phenology/Today.svelte";
 import SoundMapToday from "$lib/themes/sound-map/Today.svelte";
 import ArchiveToday from "$lib/themes/archive/Today.svelte";
+import AtlasDaily from "$lib/themes/atlas/Daily.svelte";
+import PhenologyDaily from "$lib/themes/phenology/Daily.svelte";
+import SoundMapDaily from "$lib/themes/sound-map/Daily.svelte";
+import ArchiveDaily from "$lib/themes/archive/Daily.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -28,8 +32,8 @@ export const THEME_DEFINITIONS = [
     hint: "places and routes",
     description: "A cartographic language for movement, places, and distance.",
     implementation: "preview",
-    routes: ["today"],
-    components: { shell: AtlasShell, today: AtlasToday },
+    routes: ["today", "daily"],
+    components: { shell: AtlasShell, today: AtlasToday, daily: AtlasDaily },
   },
   {
     id: "grapher",
@@ -67,8 +71,12 @@ export const THEME_DEFINITIONS = [
     description:
       "A cyclical language for recovery, rest, and unfolding patterns.",
     implementation: "preview",
-    routes: ["today"],
-    components: { shell: PhenologyShell, today: PhenologyToday },
+    routes: ["today", "daily"],
+    components: {
+      shell: PhenologyShell,
+      today: PhenologyToday,
+      daily: PhenologyDaily,
+    },
   },
   {
     id: "sound-map",
@@ -76,8 +84,12 @@ export const THEME_DEFINITIONS = [
     hint: "rhythm and intensity",
     description: "A rhythmic language for cadence, intensity, and flow.",
     implementation: "preview",
-    routes: ["today"],
-    components: { shell: SoundMapShell, today: SoundMapToday },
+    routes: ["today", "daily"],
+    components: {
+      shell: SoundMapShell,
+      today: SoundMapToday,
+      daily: SoundMapDaily,
+    },
   },
   {
     id: "archive",
@@ -85,8 +97,12 @@ export const THEME_DEFINITIONS = [
     hint: "media and history",
     description: "A chronological language for collections and memory.",
     implementation: "preview",
-    routes: ["today"],
-    components: { shell: ArchiveShell, today: ArchiveToday },
+    routes: ["today", "daily"],
+    components: {
+      shell: ArchiveShell,
+      today: ArchiveToday,
+      daily: ArchiveDaily,
+    },
   },
 ] as const satisfies readonly ThemeDefinition[];
 

@@ -26,6 +26,11 @@ describe("Iroha theme registry", () => {
         (theme) => theme.implementation === "preview",
       ).every((theme) => hasThemeRoute(theme, "today")),
     ).toBe(true);
+    expect(
+      THEME_DEFINITIONS.filter(
+        (theme) => theme.implementation === "preview",
+      ).every((theme) => hasThemeRoute(theme, "daily")),
+    ).toBe(true);
     expect(getThemeDefinition("grapher").implementation).toBe("curated");
     expect(hasThemeRoute(getThemeDefinition("grapher"), "today")).toBe(true);
     expect(hasThemeRoute(getThemeDefinition("grapher"), "dashboard")).toBe(
