@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
@@ -18,11 +19,26 @@ import (
 )
 
 const (
-	providerID       = "nominatim"
-	geocodeUserAgent = "Iroha-Fitness-Cockpit/1.0"
-	geocodeTTL       = 365 * 24 * time.Hour
-	queueLease       = 10 * time.Minute
+	providerID        = "nominatim"
+	geocodeUserAgent  = "Iroha-Fitness-Cockpit/1.0"
+	geocodeTTL        = 365 * 24 * time.Hour
+	queueLease        = 10 * time.Minute
+	requestInterval   = 1100 * time.Millisecond
+	defaultRetryAfter = 15 * time.Minute
 )
+
+type RetryAfterError struct {
+	Cause error
+	Delay time.Duration
+}
+
+func (e *RetryAfterError) Error() string { return e.Cause.Error() }
+
+func (e *RetryAfterError) Unwrap() error { return e.Cause }
+
+func (e *RetryAfterError) RetryAfterDuration() (time.Duration, bool) {
+	return e.Delay, e.Delay > 0
+}
 
 type Enqueuer interface {
 	EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error)
@@ -35,10 +51,12 @@ type RefreshPayload struct {
 }
 
 type Service struct {
-	db       *gorm.DB
-	enqueuer Enqueuer
-	cache    *cache.Client
-	client   *http.Client
+	db          *gorm.DB
+	enqueuer    Enqueuer
+	cache       *cache.Client
+	client      *http.Client
+	requestMu   sync.Mutex
+	nextRequest time.Time
 }
 
 func NewService(db *gorm.DB, enqueuer Enqueuer, responseCache *cache.Client) *Service {
@@ -121,6 +139,9 @@ func (s *Service) Refresh(ctx context.Context, payload RefreshPayload) error {
 	if err != nil {
 		return s.recordFailure(payload.CoordinateKey, err)
 	}
+	if err := s.waitForRequest(ctx); err != nil {
+		return s.recordFailure(payload.CoordinateKey, err)
+	}
 	req.Header.Set("User-Agent", geocodeUserAgent)
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -128,7 +149,14 @@ func (s *Service) Refresh(ctx context.Context, payload RefreshPayload) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return s.recordFailure(payload.CoordinateKey, fmt.Errorf("geocoder returned HTTP %d", resp.StatusCode))
+		cause := fmt.Errorf("geocoder returned HTTP %d", resp.StatusCode)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return s.recordFailure(payload.CoordinateKey, &RetryAfterError{
+				Cause: cause,
+				Delay: retryAfter(resp.Header.Get("Retry-After")),
+			})
+		}
+		return s.recordFailure(payload.CoordinateKey, cause)
 	}
 
 	var data struct {
@@ -164,6 +192,44 @@ func (s *Service) Refresh(ctx context.Context, payload RefreshPayload) error {
 		_ = s.cache.InvalidateNamespace(ctx, "public_routes")
 	}
 	return nil
+}
+
+func (s *Service) waitForRequest(ctx context.Context) error {
+	s.requestMu.Lock()
+	wait := time.Until(s.nextRequest)
+	if wait < 0 {
+		wait = 0
+	}
+	s.nextRequest = time.Now().Add(wait + requestInterval)
+	s.requestMu.Unlock()
+
+	if wait == 0 {
+		return nil
+	}
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func retryAfter(value string) time.Duration {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return defaultRetryAfter
+	}
+	if seconds, err := strconv.Atoi(value); err == nil && seconds >= 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	if at, err := http.ParseTime(value); err == nil {
+		if delay := time.Until(at); delay > 0 {
+			return delay
+		}
+	}
+	return defaultRetryAfter
 }
 
 func (s *Service) recordFailure(key string, cause error) error {
