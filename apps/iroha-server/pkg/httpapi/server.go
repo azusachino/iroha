@@ -79,6 +79,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) routes() {
 	s.mux.Use(middleware.RequestID)
+	s.mux.Use(requestIDResponseHeader)
 	s.mux.Use(middleware.RealIP)
 	s.mux.Use(middleware.Recoverer)
 
@@ -91,8 +92,10 @@ func (s *Server) routes() {
 	s.mux.Route("/api/v1", func(r chi.Router) {
 		// Private API: CORS limited to configured origins.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
+		// Rate limiting runs before auth so malformed or missing-token floods are
+		// bounded too. Valid JWTs are still keyed by subject when available.
+		r.Use(limitByIdentity(apiLimit, s.deps.Config.Auth))
 		r.Use(s.requireJWT("iroha:read"))
-		r.Use(limitByIdentity(apiLimit))
 		r.Get("/briefing", s.handleBriefing)
 		r.Route("/raw-files", func(r chi.Router) {
 			r.With(s.requireJWT("iroha:write")).Post("/", s.handleCreateRawFile)
@@ -147,13 +150,25 @@ func limitByIP(perMinute int) func(http.Handler) http.Handler {
 	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP, httprate.WithLimitHandler(rateLimitResponse))
 }
 
-func limitByIdentity(perMinute int) func(http.Handler) http.Handler {
+func limitByIdentity(perMinute int, auth config.AuthConfig) func(http.Handler) http.Handler {
 	return httprate.LimitBy(perMinute, time.Minute, func(r *http.Request) (string, error) {
+		if claims, err := parseJWT(r, auth); err == nil && claims.Subject != "" {
+			return "subject:" + claims.Subject, nil
+		}
 		if subject := authSubject(r); subject != "" {
 			return "subject:" + subject, nil
 		}
 		return keyByRemoteIP(r)
 	}, httprate.WithLimitHandler(rateLimitResponse))
+}
+
+func requestIDResponseHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requestID := middleware.GetReqID(r.Context()); requestID != "" {
+			w.Header().Set("X-Request-ID", requestID)
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func rateLimitResponse(w http.ResponseWriter, _ *http.Request) {

@@ -1,12 +1,14 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -115,6 +117,57 @@ func TestRateLimitResponse(t *testing.T) {
 	}
 	if rec.Header().Get("Content-Type") != "application/json" {
 		t.Fatalf("content type = %q, want application/json", rec.Header().Get("Content-Type"))
+	}
+}
+
+func TestPrivateRateLimitPrecedesJWT(t *testing.T) {
+	auth := config.AuthConfig{
+		JWTSecret:   testJWTSecret,
+		JWTIssuer:   testJWTIssuer,
+		JWTAudience: testJWTAudience,
+	}
+	private := limitByIdentity(1, auth)(
+		(&Server{deps: Dependencies{Config: config.Config{Auth: auth}}}).requireJWT("iroha:read")(
+			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }),
+		),
+	)
+
+	first := httptest.NewRequest(http.MethodGet, "/api/v1/activities", nil)
+	first.RemoteAddr = "192.0.2.11:1234"
+	first.Header.Set("Authorization", "Bearer malformed")
+	firstRec := httptest.NewRecorder()
+	private.ServeHTTP(firstRec, first)
+	if firstRec.Code != http.StatusUnauthorized {
+		t.Fatalf("first status = %d, want %d", firstRec.Code, http.StatusUnauthorized)
+	}
+
+	second := httptest.NewRequest(http.MethodGet, "/api/v1/activities", nil)
+	second.RemoteAddr = "192.0.2.11:5678"
+	second.Header.Set("Authorization", "Bearer malformed")
+	secondRec := httptest.NewRecorder()
+	private.ServeHTTP(secondRec, second)
+	if secondRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second status = %d, want %d", secondRec.Code, http.StatusTooManyRequests)
+	}
+}
+
+func TestRequestIDResponseHeaderAndErrorBody(t *testing.T) {
+	handler := middleware.RequestID(requestIDResponseHeader(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeContractError(w, http.StatusBadRequest, "bad_request", "invalid request")
+	})))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/activities", nil))
+
+	requestID := rec.Header().Get("X-Request-ID")
+	if requestID == "" {
+		t.Fatal("X-Request-ID header is missing")
+	}
+	var body errorResponse
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.RequestID != requestID {
+		t.Fatalf("body request_id = %q, want %q", body.RequestID, requestID)
 	}
 }
 
