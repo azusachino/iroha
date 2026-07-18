@@ -59,16 +59,17 @@ Request body:
 
 Reprocessing is modeled as another import job for the same raw file, not as mutation of an old job.
 
-Import jobs are persisted jobs. MVP execution can be an in-process worker, but job state must live in Postgres so status survives process crashes and future worker extraction.
+Import jobs are persisted jobs. `iroha-server` enqueues them into the durable Postgres-backed queue and the separate `iroha-job` process claims and executes them. The server and worker must share the
+configured raw-file data directory.
 
-Initial task-2 behavior:
+Current behavior:
 
 ```text
 POST /api/v1/imports
   -> creates queued import job
   -> returns 202 Accepted
-  -> in-process worker moves it to parsing
-  -> worker records failed with parser-not-implemented until task 3 adds real parsers
+  -> iroha-job claims the persisted job
+  -> worker parses and reconciles the raw evidence
 ```
 
 Response shape:
@@ -77,10 +78,9 @@ Response shape:
 {
   "id": "imp_019f...",
   "raw_file_id": "raw_019f...",
-  "status": "failed",
+  "status": "completed",
   "parser_kind": "apple_health_export",
   "parser_version": "dev",
-  "error_message": "parser \"apple_health_export\" is not implemented yet",
   "started_at": "2026-07-07T00:00:00Z",
   "finished_at": "2026-07-07T00:00:01Z",
   "created_at": "2026-07-07T00:00:00Z"
@@ -92,7 +92,6 @@ Response shape:
 ```text
 GET   /api/v1/activities
 GET   /api/v1/activities/{activityId}
-PATCH /api/v1/activities/{activityId}
 GET   /api/v1/activities/{activityId}/route
 GET   /api/v1/activities/{activityId}/samplings
 GET   /api/v1/activities/{activityId}/laps
@@ -100,38 +99,12 @@ GET   /api/v1/activities/{activityId}/laps
 
 Activity reads serve private canonical data.
 
-### Gear
+### Deferred resources
 
-```text
-GET    /api/v1/gear
-POST   /api/v1/gear
-PATCH  /api/v1/gear/{gearId}
-POST   /api/v1/activities/{activityId}/gear
-DELETE /api/v1/activities/{activityId}/gear/{gearId}
-```
+Gear, privacy-zone management, published-activity mutation, and activity mutation are roadmap items. They are not currently registered routes and are intentionally excluded from the active API
+contract.
 
-Gear is deferred until import and activity detail work.
-
-### Privacy Zones
-
-```text
-GET    /api/v1/privacy-zones
-POST   /api/v1/privacy-zones
-PATCH  /api/v1/privacy-zones/{privacyZoneId}
-DELETE /api/v1/privacy-zones/{privacyZoneId}
-```
-
-Privacy zones define locations to remove or blur before publishing.
-
-### Published Activities
-
-```text
-POST   /api/v1/published-tb_activities
-GET    /api/v1/published-tb_activities/{publishedActivityId}
-DELETE /api/v1/published-tb_activities/{publishedActivityId}
-```
-
-Publishing writes a sanitized projection. Public pages should read this projection, not private activity tables.
+Public pages read the existing sanitized `/public/v1` projections rather than these deferred mutation resources.
 
 ## Upload Flow
 
