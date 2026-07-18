@@ -34,6 +34,9 @@ describe("Iroha theme registry", () => {
     expect(hasThemeRoute(getThemeDefinition("field-journal"), "today")).toBe(
       true,
     );
+    expect(hasThemeRoute(getThemeDefinition("field-journal"), "daily")).toBe(
+      true,
+    );
     expect(
       THEME_DEFINITIONS.filter(
         (theme) => theme.implementation === "palette-only",

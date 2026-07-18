@@ -11,6 +11,7 @@ import GrapherSleep from "$lib/themes/grapher/Sleep.svelte";
 import GrapherToday from "$lib/themes/grapher/Today.svelte";
 import FieldJournalShell from "$lib/themes/field-journal/Shell.svelte";
 import FieldJournalToday from "$lib/themes/field-journal/Today.svelte";
+import FieldJournalDaily from "$lib/themes/field-journal/Daily.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -42,10 +43,11 @@ export const THEME_DEFINITIONS = [
     hint: "days and evidence",
     description: "A dated, narrative language for the shape of a day.",
     implementation: "preview",
-    routes: ["today"],
+    routes: ["today", "daily"],
     components: {
       shell: FieldJournalShell,
       today: FieldJournalToday,
+      daily: FieldJournalDaily,
     },
   },
   {
