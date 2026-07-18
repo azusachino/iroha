@@ -16,6 +16,10 @@ import AtlasShell from "$lib/themes/atlas/Shell.svelte";
 import PhenologyShell from "$lib/themes/phenology/Shell.svelte";
 import SoundMapShell from "$lib/themes/sound-map/Shell.svelte";
 import ArchiveShell from "$lib/themes/archive/Shell.svelte";
+import AtlasToday from "$lib/themes/atlas/Today.svelte";
+import PhenologyToday from "$lib/themes/phenology/Today.svelte";
+import SoundMapToday from "$lib/themes/sound-map/Today.svelte";
+import ArchiveToday from "$lib/themes/archive/Today.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -24,7 +28,8 @@ export const THEME_DEFINITIONS = [
     hint: "places and routes",
     description: "A cartographic language for movement, places, and distance.",
     implementation: "preview",
-    components: { shell: AtlasShell },
+    routes: ["today"],
+    components: { shell: AtlasShell, today: AtlasToday },
   },
   {
     id: "grapher",
@@ -62,7 +67,8 @@ export const THEME_DEFINITIONS = [
     description:
       "A cyclical language for recovery, rest, and unfolding patterns.",
     implementation: "preview",
-    components: { shell: PhenologyShell },
+    routes: ["today"],
+    components: { shell: PhenologyShell, today: PhenologyToday },
   },
   {
     id: "sound-map",
@@ -70,7 +76,8 @@ export const THEME_DEFINITIONS = [
     hint: "rhythm and intensity",
     description: "A rhythmic language for cadence, intensity, and flow.",
     implementation: "preview",
-    components: { shell: SoundMapShell },
+    routes: ["today"],
+    components: { shell: SoundMapShell, today: SoundMapToday },
   },
   {
     id: "archive",
@@ -78,7 +85,8 @@ export const THEME_DEFINITIONS = [
     hint: "media and history",
     description: "A chronological language for collections and memory.",
     implementation: "preview",
-    components: { shell: ArchiveShell },
+    routes: ["today"],
+    components: { shell: ArchiveShell, today: ArchiveToday },
   },
 ] as const satisfies readonly ThemeDefinition[];
 
