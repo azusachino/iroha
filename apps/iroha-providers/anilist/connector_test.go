@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	connector "github.com/azusachino/iroha/apps/iroha-core/connector/v1"
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
@@ -58,6 +59,9 @@ func TestConnectorMapsRateLimit(t *testing.T) {
 	providerErr, ok := err.(*provider.Error)
 	if !ok || providerErr.Kind != provider.ErrorRateLimited || !strings.Contains(providerErr.Error(), "Retry-After=12") {
 		t.Fatalf("rate limit error = %#v", err)
+	}
+	if providerErr.RetryAfter == nil || *providerErr.RetryAfter != 12*time.Second {
+		t.Fatalf("retry after = %v, want 12s", providerErr.RetryAfter)
 	}
 }
 

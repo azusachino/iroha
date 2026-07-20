@@ -172,3 +172,13 @@ All background import jobs are processed by the worker with `max_attempts = 3`. 
    will instantly short-circuit and succeed.
 3. **Reprocess Purge Sequence**: If reprocessing is triggered, any previously persisted records derived from that raw file are purged first. Deleting source items _first_ is load-bearing so GORM
    doesn't skip recreating activities due to cache hits or duplicate unique keys.
+
+The Postgres queue also recovers jobs whose worker lease has expired. A worker
+crash therefore returns an abandoned `running` job to the queue (unless it has
+already consumed its final attempt), instead of leaving it permanently stuck.
+
+Connector syncs persist the current page cursor after each successfully stored
+snapshot. A connector failure, including HTTP 429, preserves that cursor so
+the next attempt resumes at the failed page. Providers expose a parsed
+`Retry-After` delay to the queue; when present, the job's next `run_after`
+honors that delay instead of applying the generic retry backoff.

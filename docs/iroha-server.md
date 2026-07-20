@@ -72,6 +72,11 @@ POST /api/v1/imports
   -> worker parses and reconciles the raw evidence
 ```
 
+Queue execution is lease-based: abandoned running jobs are reclaimed after
+the worker lease timeout, and retryable provider errors may supply their own
+`Retry-After` delay. Connector sync cursors are checkpointed per snapshot and
+are retained when a page fails, so a retry resumes from the failed page.
+
 Response shape:
 
 ```json

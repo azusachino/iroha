@@ -105,6 +105,16 @@ def migrate() -> int:
     return run(["uv", "run", "python", "scripts/db.py", "apply"], env=env)
 
 
+def start_database() -> None:
+    check_call(podman_cmd() + ["up", "-d", "db"])
+    if wait_for_db() != 0:
+        raise SystemExit(1)
+
+
+def start_app() -> int:
+    return run(podman_cmd() + ["up", "--build", "-d", "server", "job", "web"])
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         return usage()
@@ -118,12 +128,11 @@ def main() -> int:
 
     ensure_machine()
     if action in {"start", "deps"}:
-        services = [] if action == "start" else ["db"]
-        check_call(podman_cmd() + ["up", "--build", "-d", *services])
-        if wait_for_db() != 0:
-            return 1
+        start_database()
         if migrate() != 0:
             return 1
+        if action == "start":
+            return start_app()
         return 0
 
     if action == "stop":
@@ -136,10 +145,10 @@ def main() -> int:
         return run(podman_cmd() + ["logs", "db"])
 
     check_call(podman_cmd() + ["down", "-v"])
-    check_call(podman_cmd() + ["up", "-d"])
-    if wait_for_db() != 0:
+    start_database()
+    if migrate() != 0:
         return 1
-    return migrate()
+    return start_app()
 
 
 if __name__ == "__main__":

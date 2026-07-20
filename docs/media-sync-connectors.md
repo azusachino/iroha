@@ -172,8 +172,9 @@ against a real collection before we commit the resolver.
 
 ## 8. Sync semantics
 
-- **Incremental**: persist a per-connector cursor/watermark; re-fetch only entries changed since last `updated_at`. Full re-sync on demand (or on parser_version bump → reprocess from stored
-  snapshots).
+- **Current implementation boundary**: the AniList and Bangumi adapters checkpoint their page cursor while a sync is running, so a retry resumes from the failed page. Their current upstream requests do not expose a reliable changed-since filter, so a completed sync starts a new full pagination pass. Persistence is still incremental: unchanged snapshot pages and source records are content-hash deduplicated, while changed and new records are upserted.
+- **Future network incrementality**: persist a per-connector cursor/watermark once a provider-specific changed-since API is available; then fetch only entries changed since the last `updated_at`. Full re-sync remains available on demand (or on a parser_version bump → reprocess from stored snapshots).
+- **Rate limits and failures**: a connector error preserves the current cursor. HTTP 429 responses parse both delta-seconds and HTTP-date `Retry-After` values; the job queue honors that delay, with bounded exponential backoff as the fallback.
 - **User state is authoritative history, not a mirror**: a connector sync must **not** erase locally added Telegram/web events. Imported list state becomes events + current progress; conflicts (e.g.
   local "completed" vs remote "dropped") go to the inbox (`tb_media_resolution_tasks`), never a silent overwrite. This is the same append-only-events + projection discipline health uses.
 - **Rewatches/rereads**: AniList `repeat` and re-`completed` transitions create new events, not overwrites.
