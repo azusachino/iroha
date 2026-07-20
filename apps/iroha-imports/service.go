@@ -165,12 +165,19 @@ func (s *Service) Get(id string) (models.ImportJob, bool, error) {
 }
 
 func (s *Service) ProcessAsync(jobID uuid.UUID) {
-	if err := s.Process(jobID); err != nil {
+	if err := s.ProcessContext(context.Background(), jobID); err != nil {
 		s.logger.Error("process import job", "job_id", jobID.String(), "error", err)
 	}
 }
 
 func (s *Service) Process(jobID uuid.UUID) error {
+	return s.ProcessContext(context.Background(), jobID)
+}
+
+func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	now := time.Now().UTC()
 	if err := s.db.Model(&models.ImportJob{}).
 		Where("id = ? and status = ?", jobID, StatusQueued).
@@ -239,12 +246,12 @@ func (s *Service) Process(jobID uuid.UUID) error {
 	var parsedDailyMetrics []observations.DailyMetric
 	mediaImporter, mediaOK := adapter.(provider.MediaImporter)
 	if mediaOK {
-		parsedMedia, err = mediaImporter.ImportMedia(context.Background(), source, options)
+		parsedMedia, err = mediaImporter.ImportMedia(ctx, source, options)
 		if err != nil {
 			return s.fail(jobID, err.Error())
 		}
 	} else if batchImporter, ok := adapter.(provider.BatchImporter); ok {
-		batch, batchErr := batchImporter.ImportAll(context.Background(), source, options)
+		batch, batchErr := batchImporter.ImportAll(ctx, source, options)
 		if batchErr != nil {
 			return s.fail(jobID, batchErr.Error())
 		}
@@ -257,18 +264,18 @@ func (s *Service) Process(jobID uuid.UUID) error {
 		if !activityOK {
 			return s.fail(jobID, fmt.Sprintf("provider %q does not implement activity import", adapter.Descriptor().ID))
 		}
-		parsed, err = activityImporter.ImportActivities(context.Background(), source, options)
+		parsed, err = activityImporter.ImportActivities(ctx, source, options)
 		if err != nil {
 			return s.fail(jobID, err.Error())
 		}
 		if sleepImporter, sleepOK := adapter.(provider.SleepImporter); sleepOK {
-			parsedSleep, err = sleepImporter.ImportSleep(context.Background(), source, options)
+			parsedSleep, err = sleepImporter.ImportSleep(ctx, source, options)
 			if err != nil {
 				return s.fail(jobID, err.Error())
 			}
 		}
 		if dailyImporter, dailyOK := adapter.(provider.DailyImporter); dailyOK {
-			daily, dailyErr := dailyImporter.ImportDaily(context.Background(), source, options)
+			daily, dailyErr := dailyImporter.ImportDaily(ctx, source, options)
 			if dailyErr != nil {
 				return s.fail(jobID, dailyErr.Error())
 			}
@@ -358,10 +365,12 @@ func (s *Service) flushCache() {
 	if s.cacheClient == nil {
 		return
 	}
-	s.logger.Info("flushing public cache keys after import job completion")
+	s.logger.Info("invalidating public cache namespaces after import job completion")
 	ctx := context.Background()
-	if err := s.cacheClient.DeletePattern(ctx, "public:*"); err != nil {
-		s.logger.Error("failed to flush public cache keys", "error", err)
+	for _, namespace := range []string{"public_summary", "public_activities", "public_routes"} {
+		if err := s.cacheClient.InvalidateNamespace(ctx, namespace); err != nil {
+			s.logger.Error("failed to invalidate public cache namespace", "namespace", namespace, "error", err)
+		}
 	}
 }
 
@@ -991,8 +1000,75 @@ func (s *Service) persistActivities(rawFile models.RawFile, parsed []observation
 				return err
 			}
 		}
+		if rawFile.SourceKind == coreimports.KindAppleHealthExport {
+			if err := reconcileCompleteAppleSnapshot(tx, snapshot.ID); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
+}
+
+// reconcileCompleteAppleSnapshot removes source items that disappeared from
+// the latest complete Apple export. Raw files and import snapshots remain as
+// immutable evidence; only the current canonical projection is reconciled.
+// Source items are deleted before their derived rows because their foreign
+// keys use ON DELETE SET NULL and would otherwise erase the IDs needed for
+// cleanup.
+func reconcileCompleteAppleSnapshot(tx *gorm.DB, snapshotID uuid.UUID) error {
+	var stale []models.AppleSourceItem
+	if err := tx.Where("last_seen_snapshot_id is distinct from ?", snapshotID).Find(&stale).Error; err != nil {
+		return err
+	}
+	if len(stale) == 0 {
+		return nil
+	}
+
+	activityIDs := make([]uuid.UUID, 0, len(stale))
+	sleepIDs := make([]uuid.UUID, 0, len(stale))
+	dailySummaryIDs := make([]uuid.UUID, 0, len(stale))
+	dailyMetricIDs := make([]uuid.UUID, 0, len(stale))
+	itemIDs := make([]uuid.UUID, 0, len(stale))
+	for _, item := range stale {
+		itemIDs = append(itemIDs, item.ID)
+		if item.ActivityID != nil {
+			activityIDs = append(activityIDs, *item.ActivityID)
+		}
+		if item.SleepSessionID != nil {
+			sleepIDs = append(sleepIDs, *item.SleepSessionID)
+		}
+		if item.DailySummaryID != nil {
+			dailySummaryIDs = append(dailySummaryIDs, *item.DailySummaryID)
+		}
+		if item.DailyMetricID != nil {
+			dailyMetricIDs = append(dailyMetricIDs, *item.DailyMetricID)
+		}
+	}
+
+	if err := tx.Where("id IN ?", itemIDs).Delete(&models.AppleSourceItem{}).Error; err != nil {
+		return err
+	}
+	if len(activityIDs) > 0 {
+		if err := tx.Where("id IN ?", activityIDs).Delete(&models.Activity{}).Error; err != nil {
+			return err
+		}
+	}
+	if len(sleepIDs) > 0 {
+		if err := tx.Where("id IN ?", sleepIDs).Delete(&models.SleepSession{}).Error; err != nil {
+			return err
+		}
+	}
+	if len(dailySummaryIDs) > 0 {
+		if err := tx.Where("id IN ?", dailySummaryIDs).Delete(&models.DailySummary{}).Error; err != nil {
+			return err
+		}
+	}
+	if len(dailyMetricIDs) > 0 {
+		if err := tx.Where("id IN ?", dailyMetricIDs).Delete(&models.DailyMetric{}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // persistAppleWorkout applies per-workout change detection for a parsed

@@ -20,11 +20,12 @@ import (
 	providerregistry "github.com/azusachino/iroha/apps/iroha-providers/registry"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
+	"github.com/azusachino/iroha/apps/iroha-runtime/dbconnect"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/google/uuid"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +43,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := gorm.Open(postgres.Open(cfg.Database.URL), &gorm.Config{})
+	db, err := dbconnect.Connect(cfg.Database.URL, &gorm.Config{}, logger)
 	if err != nil {
 		logger.Error("open database", "error", err)
 		os.Exit(1)
@@ -59,7 +60,11 @@ func main() {
 		parserVersion = coreimports.DefaultParserVersion
 	}
 
-	cacheClient := cache.New(cfg.Cache.URL)
+	cacheClient, err := cache.NewBackend(cfg.Cache.Backend, cfg.Cache.URL, db)
+	if err != nil {
+		logger.Error("create cache", "error", err)
+		os.Exit(1)
+	}
 	defer func() {
 		if err := cacheClient.Close(); err != nil {
 			logger.Warn("close cache client", "error", err)
@@ -109,6 +114,11 @@ func main() {
 	jobs.Register(registry, jobs.KindMediaSyncAniList, mediaSyncHandler(syncRunner, "anilist"))
 	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
 
+	jobsService = jobs.NewService(db, logger, registry.Handlers())
+	geocodeService := geocode.NewService(db, nil, nil)
+	jobs.Register(registry, jobs.KindGeocodeRefresh, func(ctx context.Context, payload geocode.RefreshPayload) error {
+		return geocodeService.Refresh(ctx, payload)
+	})
 	jobsService = jobs.NewService(db, logger, registry.Handlers())
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -167,7 +177,7 @@ func importParseHandler(importService *imports.Service) func(context.Context, im
 		if err != nil {
 			return fmt.Errorf("invalid import_job_id UUID: %w", err)
 		}
-		return importService.Process(importJobID)
+		return importService.ProcessContext(ctx, importJobID)
 	}
 }
 

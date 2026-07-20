@@ -7,7 +7,7 @@ _iro & hana_ — a personal data cockpit.
 [![Built with Nix](https://img.shields.io/badge/built%20with-Nix-5277C3?logo=nixos&logoColor=white)](flake.nix)
 
 Iroha lets you own your personal data end to end: keep the **raw exports**, normalize them into a **durable Postgres/PostGIS store**, and publish only **sanitized derived views**. Running and fitness,
-sleep, and daily Apple Health activity are the current data domains; the architecture generalizes to reading, watching, and other personal-history sources.
+sleep, daily Apple Health activity, and media (AniList/Bangumi) consumption history are the current data domains; the architecture generalizes to other personal-history sources.
 
 ## Architecture
 
@@ -28,9 +28,10 @@ The current canonical domains are:
 - `tb_activities` — workouts, routes, laps, and time-series samplings.
 - `tb_sleep_sessions` — sleep sessions and stage segments.
 - `tb_daily_summaries` + `tb_daily_metrics` — Apple Move/Exercise/Stand rings and cross-source-deduplicated daily steps, distance, and flights.
+- `tb_media_items` + `tb_media_events` — AniList/Bangumi-synced media consumption history.
 
-Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, and `/api/v1/daily`. Sanitized activity and route projections are also available under `/public/v1`; the public surface is a
-derived view, never the canonical store.
+Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/daily`, and `/api/v1/media`, protected by JWT auth and per-route rate limiting — see
+[API v1 Contract](docs/contracts/openapi.yaml). Sanitized activity and route projections are also available under `/public/v1`; the public surface is a derived view, never the canonical store.
 
 ## Features
 
@@ -44,6 +45,10 @@ derived view, never the canonical store.
 - **Background jobs + read surfaces** — `iroha-server` owns ingestion and reads, `iroha-job` claims persisted jobs, and the Svelte cockpit consumes the private API. Public activity/route views are
   sanitized projections.
 - **PostGIS canonical store** — Strava is a legacy import/export adapter only.
+- **Media sync** — AniList and Bangumi connectors sync watch/read history into canonical media items and events, with a MAL↔AniList/Bangumi bridge cache for cross-provider resolution.
+- **Private auth + rate limiting** — JWT-authenticated private API, per-route rate limits, and a route-inventory test that fails the build if a live route drifts from the OpenAPI contract.
+- **Durable geocode** — reverse-geocoded activity locations are cached and refreshed through the job queue, with backoff against upstream rate limits instead of retry storms.
+- **Themed cockpit** — a switchable multi-design frontend (grapher, field journal, atlas, phenology, sound-map, and archive themes) sharing one typed theme registry.
 
 ## Tech stack
 
@@ -51,6 +56,8 @@ derived view, never the canonical store.
 | -------- | ----------------------------------------------------------------------------- |
 | Services | Go 1.26 (`apps/iroha-server`, `apps/iroha-job`), GORM                         |
 | Database | PostgreSQL 18 + PostGIS, [goose](https://github.com/pressly/goose) migrations |
+| Cache    | Postgres-backed by default (`tb_cache_entries`); Valkey/Redis is optional     |
+| Auth     | JWT (`golang-jwt/jwt/v5`) + per-route rate limiting (`go-chi/httprate`)       |
 | Web      | Svelte 5 + Vite (`apps/iroha-web`, [bun](https://bun.sh))                     |
 | Tooling  | Nix devShell, `make` task runner, `uv` for dev scripts                        |
 
@@ -81,6 +88,7 @@ The server is configured via `iroha.toml` and/or environment variables:
 | `IROHA_DATABASE_URL`            | Postgres DSN                         | local dev DSN                  |
 | `IROHA_DATA_DIR`                | Raw-file storage dir                 | `.iroha-data`                  |
 | `IROHA_VALKEY_URL`              | Valkey/Redis DSN                     | local Valkey DSN               |
+| `IROHA_CACHE_BACKEND`           | Cache backend (`postgres`/`valkey`)  | `postgres`                     |
 | `IROHA_LOCAL_NO_AUTH`           | Disable auth for local dev           | `true`                         |
 | `IROHA_ALLOWED_ORIGINS`         | Private browser origins              | local web origins              |
 | `IROHA_JWT_SECRET`              | JWT verification secret              | —                              |
@@ -113,9 +121,14 @@ uv run python scripts/real_import_smoke.py .iroha-data/imports/your_export.zip -
 - [Data Model](docs/data-model.md)
 - [Daily Activity Module](docs/activity-module.md)
 - [Sleep Module](docs/sleep-module.md)
+- [Media Sync Connectors](docs/media-sync-connectors.md)
 - [Reading and Watching History Research](docs/media-history-research.md)
+- [API v1 Contract](docs/contracts/openapi.yaml) ([decisions](docs/contracts/api-v1-decisions.md), [gap matrix](docs/contracts/api-v1-gap-matrix.md))
+- [Frontend Design Contract](docs/frontend-design-contract.md) and [Theme Architecture](docs/frontend-theme-architecture.md)
+- [Cache Backends and Invalidation (ADR)](docs/adr/0003-cache-backends-and-invalidation.md)
 - [Development Runtime](docs/dev-runtime.md)
 - [Roadmap](docs/roadmap.md)
+- [Changelog](CHANGELOG.md)
 
 ## Contributing
 

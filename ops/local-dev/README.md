@@ -4,13 +4,16 @@ The supported Podman Compose profile runs the stateful local dependencies:
 
 ```text
 PostgreSQL 18 + PostGIS 3.6  -> localhost:5432
-Valkey 8                    -> localhost:6379
+
+The local database uses the pinned multi-architecture image
+`docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21`.
+Cache                       -> Postgres (`tb_cache_entries`)
 ```
 
 The full profile also runs `iroha-server`, `iroha-job`, and a Caddy edge container. Caddy serves the static Svelte app on `:5173` and proxies `/api/*` and `/public/*` to the server over the private
 container network. The browser therefore uses same-origin requests, including when opened as `http://harus-macmini:5173`.
 
-The profile uses explicit local-development budgets: db `2 CPU / 2 GiB`, Valkey `1 CPU / 256 MiB`, server `1 CPU / 512 MiB`, job `1 CPU / 1 GiB`, and web `1 CPU / 256 MiB`.
+The profile uses explicit local-development budgets: db `2 CPU / 2 GiB`, server `1 CPU / 512 MiB`, job `1 CPU / 1 GiB`, and web `1 CPU / 256 MiB`.
 
 The checked-in profile runs with `IROHA_LOCAL_NO_AUTH=true`. For an authenticated private deployment, set that value to `false`, provide `IROHA_JWT_SECRET` to the server only, set
 `IROHA_ALLOWED_ORIGINS` to the web origin, and rebuild the web image with a read-only `PUBLIC_IROHA_API_TOKEN`:
@@ -47,7 +50,7 @@ outer Nix shell is unavailable.
 
 ## Podman boundary
 
-On macOS, Podman isolates containers in a Podman machine. `podman-compose` provides the private project network, so server and worker use `db` and `valkey` service names rather than generated host
+On macOS, Podman isolates containers in a Podman machine. `podman-compose` provides the private project network, so server and worker use the `db` service name rather than generated host
 IPs.
 
 The full application profile uses the repo-local `.iroha-data` bind mount for raw files because Apple container VMs can share host bind mounts reliably while named-volume attachment across isolated

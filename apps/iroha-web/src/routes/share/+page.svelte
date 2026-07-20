@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import {
     getPublicSummary,
     listPublicActivities,
@@ -24,6 +24,9 @@
   import StatTile from "$lib/components/StatTile.svelte";
   import YearProgressChart from "$lib/components/YearProgressChart.svelte";
   import { sportColor } from "$lib/sport";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   const MONTH_LABELS = [
     "Jan",
@@ -58,6 +61,13 @@
   function isSwimming(sport?: string): boolean {
     if (!sport) return false;
     return sport.toLowerCase().includes("swim");
+  }
+
+  function cityLabel(city: string, status?: string): string {
+    if (status === "pending") return "Location pending";
+    if (status === "unknown" || city === "Unknown")
+      return "Location unavailable";
+    return city;
   }
 
   function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
@@ -95,6 +105,7 @@
   let summaryError = $state<string | null>(null);
   let selectedYear = $state<string | null>(null);
   let sportFilter = $state<string | null>(null);
+  const theme = useTheme();
 
   let initialLoaded = $state(false);
   let loadedYear = $state<string | null>(null);
@@ -277,14 +288,29 @@
   const cityGroups = $derived.by(() => {
     const groups: Record<
       string,
-      { city: string; count: number; runCount: number; sports: Set<string> }
+      {
+        city: string;
+        status: string;
+        count: number;
+        runCount: number;
+        sports: Set<string>;
+      }
     > = {};
 
     for (const r of filteredRoutes) {
       const city = r.properties.city || "Unknown";
+      const status =
+        r.properties.city_status ||
+        (city === "Unknown" ? "pending" : "resolved");
 
       if (!groups[city]) {
-        groups[city] = { city, count: 0, runCount: 0, sports: new Set() };
+        groups[city] = {
+          city,
+          status,
+          count: 0,
+          runCount: 0,
+          sports: new Set(),
+        };
       }
       groups[city].count++;
       if (r.properties.sport_type === "run") {
@@ -303,6 +329,9 @@
 
   const maxRunCount = $derived(
     Math.max(1, ...cityGroups.map((g) => g.runCount)),
+  );
+  const hasPendingLocations = $derived(
+    cityGroups.some((g) => g.status === "pending"),
   );
 
   // Clicking a city card narrows the map to that city's routes.
@@ -352,219 +381,269 @@
   });
 </script>
 
-<h1>Public activity log</h1>
+<section class="share-shell">
+  {#if hasThemeRoute(theme.definition(), "share")}
+    {#if summaryLoading}
+      <p class="muted">Loading public data…</p>
+    {:else if summaryError}
+      <p class="error">Failed to load public data: {summaryError}</p>
+    {:else if summary}
+      <ThemeRouteRenderer
+        route="share"
+        props={{
+          summary,
+          fullSummary,
+          selectedYear,
+          selectedYearTotals,
+          years,
+          monthSlots,
+          monthMetric,
+          monthMax,
+          sportFilter,
+        }}
+      />
+    {/if}
+  {:else}
+    <header class="share-heading tile share-hero">
+      <p class="eyebrow">A window into the archive</p>
+      <h1>Share the shape of your movement.</h1>
+      <p class="muted">
+        A calm, read-only view of the years, routes, and sessions you choose to
+        make visible.
+      </p>
+      <p class="privacy-note">
+        Public projection · private daily, sleep, and media details stay out of
+        this view.
+      </p>
+    </header>
 
-{#if summaryLoading}
-  <p class="muted">Loading summary…</p>
-{:else if summaryError}
-  <p class="error">Failed to load summary: {summaryError}</p>
-{:else if summary}
-  <!-- Totals hero -->
-  <div class="mb-2 text-sm text-text-muted">Totals — {selectedYear}</div>
-  <div class="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-    <StatTile
-      label="Total distance"
-      value={formatDistance(selectedYearTotals?.distance_m ?? 0)}
-    />
-    <StatTile
-      label="Activities"
-      value={(selectedYearTotals?.activity_count ?? 0).toLocaleString()}
-    />
-    <StatTile
-      label="Total time"
-      value={formatDuration(selectedYearTotals?.duration_s ?? 0)}
-    />
-  </div>
-
-  <!-- Year tabs -->
-  {#if years.length > 0}
-    <div class="mb-4 flex flex-wrap gap-2">
-      {#each years as year (year)}
-        <button
-          class="rounded-full border px-4 py-1 text-sm font-medium transition-colors"
-          class:border-accent={selectedYear === year}
-          class:text-text={selectedYear === year}
-          class:bg-surface-2={selectedYear === year}
-          class:border-border={selectedYear !== year}
-          class:text-text-muted={selectedYear !== year}
-          onclick={() => selectYear(year)}
-        >
-          {year}
-        </button>
-      {/each}
-    </div>
-
-    <!-- Year-over-year cumulative distance -->
-    {#if fullSummary && selectedYear}
-      <div class="mb-8">
-        <YearProgressChart
-          byMonth={fullSummary.by_month}
-          year={selectedYear}
-          sportName={sportFilter ? formatSport(sportFilter) : undefined}
+    {#if summaryLoading}
+      <p class="muted">Loading summary…</p>
+    {:else if summaryError}
+      <p class="error">Failed to load summary: {summaryError}</p>
+    {:else if summary}
+      <!-- Totals hero -->
+      <div class="section-kicker">
+        Archive pulse <span>{selectedYear}</span>
+      </div>
+      <div class="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 share-stat-grid">
+        <StatTile
+          label="Total distance"
+          value={formatDistance(selectedYearTotals?.distance_m ?? 0)}
+        />
+        <StatTile
+          label="Activities"
+          value={(selectedYearTotals?.activity_count ?? 0).toLocaleString()}
+        />
+        <StatTile
+          label="Total time"
+          value={formatDuration(selectedYearTotals?.duration_s ?? 0)}
         />
       </div>
-    {/if}
 
-    <!-- Per-month bar chart -->
-    <div class="mb-8 rounded-lg border border-border bg-surface p-4">
-      <div class="mb-3 text-sm text-text-muted">
-        Monthly {monthMetric === "distance_m" ? "distance" : "activities"} — {selectedYear}
-      </div>
-      <div class="flex h-40 items-stretch gap-2">
-        {#each monthSlots as slot, idx (slot.key)}
-          {@const value = slot.bucket ? slot.bucket[monthMetric] : 0}
-          {@const heightPct = Math.max(2, (value / monthMax) * 100)}
-          <div
-            class="group relative flex h-full flex-1 flex-col items-center justify-end gap-1"
-          >
-            <div
-              class="pointer-events-none absolute -top-6 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] whitespace-nowrap text-text opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              {monthMetric === "distance_m"
-                ? formatDistance(slot.bucket?.distance_m)
-                : `${slot.bucket?.activity_count ?? 0} activities`}
-            </div>
-            <div
-              class="w-full rounded-t transition-all"
-              style={`height: ${heightPct}%; background: color-mix(in srgb, var(--sport-run) ${35 + (idx % 4) * 15}%, var(--surface-2))`}
-            ></div>
-            <div class="text-[10px] text-text-muted">{slot.label}</div>
-          </div>
-        {/each}
-      </div>
-    </div>
-  {/if}
-
-  <!-- By-sport breakdown -->
-  {#if summary.by_sport.length > 0}
-    <div class="mb-8 rounded-lg border border-border bg-surface p-4">
-      <div class="mb-3 text-sm text-text-muted">By sport</div>
-      <div class="flex flex-col gap-2">
-        {#each summary.by_sport as sport (sport.key)}
-          <button
-            class="flex items-center gap-3 rounded p-1 text-left transition-colors hover:bg-surface-2"
-            onclick={() => toggleSport(sport.key)}
-          >
-            <div class="w-48 shrink-0 flex items-center min-w-0">
-              <SportBadge sport={sport.key} />
-            </div>
-            <div class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-              <div
-                class="h-full rounded-full"
-                style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
-              ></div>
-            </div>
-            <span class="w-14 shrink-0 text-right text-xs text-text-muted"
-              >{sport.activity_count}×</span
-            >
-            <span class="w-20 shrink-0 text-right text-xs text-text-muted">
-              {#if isNonDistanceSport(sport.key, sport.distance_m)}
-                {formatDuration(sport.duration_s)}
-              {:else}
-                {formatDistance(sport.distance_m)}
-              {/if}
-            </span>
-          </button>
-        {/each}
-      </div>
-      {#if sportFilter}
-        <button
-          class="mt-2 text-xs text-accent underline"
-          onclick={() => toggleSport(sportFilter!)}
-        >
-          Clear sport filter ({formatSport(sportFilter)})
-        </button>
-      {/if}
-    </div>
-  {/if}
-{/if}
-
-<!-- All-routes map & Cities heatmap -->
-<h2>Routes & Cities</h2>
-{#if routesLoading}
-  <p class="muted">Loading routes…</p>
-{:else if routesError}
-  <p class="error">Failed to load routes: {routesError}</p>
-{:else if !routes || routes.features.length === 0}
-  <p class="muted">No routes found.</p>
-{:else}
-  <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 mb-8">
-    <div class="lg:col-span-2">
-      <RoutesMap data={{ type: "FeatureCollection", features: mappedRoutes }} />
-    </div>
-    <div
-      class="rounded-lg border border-border bg-surface p-4 flex flex-col max-h-[400px]"
-    >
-      <div class="mb-3 flex items-baseline justify-between gap-2">
-        <h3 class="text-sm font-semibold text-text-muted">
-          {sportFilter
-            ? `${formatSport(sportFilter)} cities`
-            : "Cities visited"} in {selectedYear}
-        </h3>
-        {#if cityFilter}
-          <button
-            class="text-xs text-accent underline"
-            onclick={() => (cityFilter = null)}
-          >
-            Show all
-          </button>
-        {/if}
-      </div>
-      {#if cityGroups.length === 0}
-        <p class="text-xs text-text-muted">
-          No route coordinates available for this year.
-        </p>
-      {:else}
-        <div class="grid grid-cols-2 gap-2 overflow-y-auto pr-1">
-          {#each cityGroups as group}
-            {@const intensity = group.runCount / maxRunCount}
-            {@const heatClass =
-              intensity >= 0.8
-                ? "bg-accent text-white border-accent shadow-lg shadow-accent/15"
-                : intensity >= 0.5
-                  ? "bg-accent/40 border-accent/40 text-text"
-                  : intensity >= 0.25
-                    ? "bg-accent/20 border-accent/25 text-text"
-                    : group.runCount > 0
-                      ? "bg-accent/10 border-accent/15 text-text"
-                      : "bg-surface-2 border-border text-text-muted"}
-            {@const selected = cityFilter === group.city}
+      <!-- Year tabs -->
+      {#if years.length > 0}
+        <div class="mb-4 flex flex-wrap gap-2">
+          {#each years as year (year)}
             <button
-              type="button"
-              onclick={() => toggleCity(group.city)}
-              aria-pressed={selected}
-              class={`flex flex-col justify-between rounded-lg border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm focus:outline-none ${heatClass} ${selected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""} ${cityFilter && !selected ? "opacity-50" : ""}`}
+              class="rounded-full border px-4 py-1 text-sm font-medium transition-colors"
+              class:border-accent={selectedYear === year}
+              class:text-text={selectedYear === year}
+              class:bg-surface-2={selectedYear === year}
+              class:border-border={selectedYear !== year}
+              class:text-text-muted={selectedYear !== year}
+              onclick={() => selectYear(year)}
             >
-              <div class="min-w-0">
-                <div class="font-bold text-sm truncate" title={group.city}>
-                  {group.city}
-                </div>
-                <div class="text-[9px] opacity-75 truncate mt-1">
-                  {Array.from(group.sports)
-                    .map((s) => formatSport(s))
-                    .join(", ")}
-                </div>
-              </div>
-              <div class="mt-3 flex items-center justify-between">
-                <span
-                  class="text-[10px] font-semibold uppercase tracking-wider opacity-90"
-                >
-                  {group.runCount}
-                  {group.runCount === 1 ? "run" : "runs"}
-                </span>
-                {#if group.count > group.runCount}
-                  <span class="text-[9px] opacity-60">
-                    (+{group.count - group.runCount} other)
-                  </span>
-                {/if}
-              </div>
+              {year}
             </button>
           {/each}
         </div>
+
+        <!-- Year-over-year cumulative distance -->
+        {#if fullSummary && selectedYear}
+          <div class="mb-8">
+            <YearProgressChart
+              byMonth={fullSummary.by_month}
+              year={selectedYear}
+              sportName={sportFilter ? formatSport(sportFilter) : undefined}
+            />
+          </div>
+        {/if}
+
+        <!-- Per-month bar chart -->
+        <div class="mb-8 rounded-lg border border-border bg-surface p-4">
+          <div class="mb-3 text-sm text-text-muted">
+            Monthly {monthMetric === "distance_m" ? "distance" : "activities"} — {selectedYear}
+          </div>
+          <div class="flex h-40 items-stretch gap-2">
+            {#each monthSlots as slot, idx (slot.key)}
+              {@const value = slot.bucket ? slot.bucket[monthMetric] : 0}
+              {@const heightPct = Math.max(2, (value / monthMax) * 100)}
+              <div
+                class="group relative flex h-full flex-1 flex-col items-center justify-end gap-1"
+              >
+                <div
+                  class="pointer-events-none absolute -top-6 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] whitespace-nowrap text-text opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  {monthMetric === "distance_m"
+                    ? formatDistance(slot.bucket?.distance_m)
+                    : `${slot.bucket?.activity_count ?? 0} activities`}
+                </div>
+                <div
+                  class="w-full rounded-t transition-all"
+                  style={`height: ${heightPct}%; background: color-mix(in srgb, var(--sport-run) ${35 + (idx % 4) * 15}%, var(--surface-2))`}
+                ></div>
+                <div class="text-[10px] text-text-muted">{slot.label}</div>
+              </div>
+            {/each}
+          </div>
+        </div>
       {/if}
+
+      <!-- By-sport breakdown -->
+      {#if summary.by_sport.length > 0}
+        <div class="mb-8 rounded-lg border border-border bg-surface p-4">
+          <div class="mb-3 text-sm text-text-muted">By sport</div>
+          <div class="flex flex-col gap-2">
+            {#each summary.by_sport as sport (sport.key)}
+              <button
+                class="flex items-center gap-3 rounded p-1 text-left transition-colors hover:bg-surface-2"
+                onclick={() => toggleSport(sport.key)}
+              >
+                <div class="w-48 shrink-0 flex items-center min-w-0">
+                  <SportBadge sport={sport.key} />
+                </div>
+                <div
+                  class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2"
+                >
+                  <div
+                    class="h-full rounded-full"
+                    style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
+                  ></div>
+                </div>
+                <span class="w-14 shrink-0 text-right text-xs text-text-muted"
+                  >{sport.activity_count}×</span
+                >
+                <span class="w-20 shrink-0 text-right text-xs text-text-muted">
+                  {#if isNonDistanceSport(sport.key, sport.distance_m)}
+                    {formatDuration(sport.duration_s)}
+                  {:else}
+                    {formatDistance(sport.distance_m)}
+                  {/if}
+                </span>
+              </button>
+            {/each}
+          </div>
+          {#if sportFilter}
+            <button
+              class="mt-2 text-xs text-accent underline"
+              onclick={() => toggleSport(sportFilter!)}
+            >
+              Clear sport filter ({formatSport(sportFilter)})
+            </button>
+          {/if}
+        </div>
+      {/if}
+    {/if}
+  {/if}
+
+  <!-- All-routes map & Cities heatmap -->
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Geography of the archive</p>
+      <h2>Routes & Cities</h2>
     </div>
+    {#if hasPendingLocations}
+      <p class="location-note">Some locations are waiting for geocoding.</p>
+    {/if}
   </div>
-{/if}
+  {#if routesLoading}
+    <p class="muted">Loading routes…</p>
+  {:else if routesError}
+    <p class="error">Failed to load routes: {routesError}</p>
+  {:else if !routes || routes.features.length === 0}
+    <p class="muted">No routes found.</p>
+  {:else}
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 mb-8">
+      <div class="lg:col-span-2">
+        <RoutesMap
+          data={{ type: "FeatureCollection", features: mappedRoutes }}
+        />
+      </div>
+      <div
+        class="rounded-lg border border-border bg-surface p-4 flex flex-col max-h-[400px]"
+      >
+        <div class="mb-3 flex items-baseline justify-between gap-2">
+          <h3 class="text-sm font-semibold text-text-muted">
+            {sportFilter
+              ? `${formatSport(sportFilter)} cities`
+              : "Cities visited"} in {selectedYear}
+          </h3>
+          {#if cityFilter}
+            <button
+              class="text-xs text-accent underline"
+              onclick={() => (cityFilter = null)}
+            >
+              Show all
+            </button>
+          {/if}
+        </div>
+        {#if cityGroups.length === 0}
+          <p class="text-xs text-text-muted">
+            No route coordinates available for this year.
+          </p>
+        {:else}
+          <div class="grid grid-cols-2 gap-2 overflow-y-auto pr-1">
+            {#each cityGroups as group}
+              {@const intensity = group.runCount / maxRunCount}
+              {@const heatClass =
+                intensity >= 0.8
+                  ? "bg-accent text-white border-accent shadow-lg shadow-accent/15"
+                  : intensity >= 0.5
+                    ? "bg-accent/40 border-accent/40 text-text"
+                    : intensity >= 0.25
+                      ? "bg-accent/20 border-accent/25 text-text"
+                      : group.runCount > 0
+                        ? "bg-accent/10 border-accent/15 text-text"
+                        : "bg-surface-2 border-border text-text-muted"}
+              {@const selected = cityFilter === group.city}
+              <button
+                type="button"
+                onclick={() => toggleCity(group.city)}
+                aria-pressed={selected}
+                class={`flex flex-col justify-between rounded-lg border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm focus:outline-none ${heatClass} ${selected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""} ${cityFilter && !selected ? "opacity-50" : ""}`}
+              >
+                <div class="min-w-0">
+                  <div class="font-bold text-sm truncate" title={group.city}>
+                    {cityLabel(group.city, group.status)}
+                  </div>
+                  <div class="text-[9px] opacity-75 truncate mt-1">
+                    {Array.from(group.sports)
+                      .map((s) => formatSport(s))
+                      .join(", ")}
+                  </div>
+                </div>
+                <div class="mt-3 flex items-center justify-between">
+                  <span
+                    class="text-[10px] font-semibold uppercase tracking-wider opacity-90"
+                  >
+                    {group.runCount}
+                    {group.runCount === 1 ? "run" : "runs"}
+                  </span>
+                  {#if group.count > group.runCount}
+                    <span class="text-[9px] opacity-60">
+                      (+{group.count - group.runCount} other)
+                    </span>
+                  {/if}
+                </div>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
+</section>
 
 <!-- Activity table -->
 <h2>Activities</h2>
@@ -658,3 +737,124 @@
     </div>
   {/if}
 {/if}
+
+<style>
+  .share-shell {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .share-heading {
+    position: relative;
+    padding: 2.5rem;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        circle at 85% 10%,
+        color-mix(in srgb, var(--accent-2) 15%, transparent),
+        transparent 18rem
+      ),
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--surface) 90%, var(--accent)),
+        var(--surface)
+      );
+  }
+
+  .share-heading::after {
+    position: absolute;
+    right: 8%;
+    bottom: -6rem;
+    width: 18rem;
+    height: 18rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+    border-radius: 50%;
+    box-shadow:
+      0 0 0 2rem color-mix(in srgb, var(--accent) 5%, transparent),
+      0 0 0 4rem color-mix(in srgb, var(--accent) 3%, transparent);
+    content: "";
+    pointer-events: none;
+  }
+
+  .share-heading h1 {
+    max-width: 13ch;
+    margin: 0;
+    font-size: clamp(2.25rem, 6vw, 4rem);
+    letter-spacing: -0.07em;
+    line-height: 0.98;
+  }
+
+  .share-heading .muted {
+    max-width: 40rem;
+    margin: 0.7rem 0 0;
+    font-size: 1rem;
+  }
+
+  .privacy-note {
+    margin: 0.8rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    letter-spacing: 0.02em;
+  }
+
+  .section-kicker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .section-kicker span {
+    color: var(--accent);
+  }
+
+  .share-stat-grid :global(.stat-tile),
+  .share-stat-grid > :global(*) {
+    border-radius: calc(var(--radius) - 2px);
+  }
+
+  .section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .section-heading h2 {
+    margin: 0.2rem 0 0;
+    font-size: clamp(1.6rem, 3vw, 2.5rem);
+    letter-spacing: -0.07em;
+  }
+
+  .location-note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+
+  .eyebrow {
+    margin: 0 0 0.4rem;
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 620px) {
+    .share-heading {
+      padding: 1.5rem;
+    }
+
+    .section-heading {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+</style>

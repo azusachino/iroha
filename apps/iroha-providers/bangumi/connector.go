@@ -90,7 +90,12 @@ func (c Connector) Fetch(ctx context.Context, credentials connector.Credentials,
 		return connector.Snapshot{}, nil, &provider.Error{Kind: provider.ErrorUnavailable, Provider: ProviderID, SourceKind: SourceKind, Op: "read_response", Err: err}
 	}
 	if response.StatusCode == http.StatusTooManyRequests {
-		return connector.Snapshot{}, nil, &provider.Error{Kind: provider.ErrorRateLimited, Provider: ProviderID, SourceKind: SourceKind, Op: "fetch", Err: fmt.Errorf("HTTP 429 Retry-After=%s", response.Header.Get("Retry-After"))}
+		retryAfter, hasRetryAfter := provider.ParseRetryAfter(response.Header.Get("Retry-After"), time.Now().UTC())
+		providerErr := &provider.Error{Kind: provider.ErrorRateLimited, Provider: ProviderID, SourceKind: SourceKind, Op: "fetch", Err: fmt.Errorf("HTTP 429 Retry-After=%s", response.Header.Get("Retry-After"))}
+		if hasRetryAfter {
+			providerErr.RetryAfter = &retryAfter
+		}
+		return connector.Snapshot{}, nil, providerErr
 	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return connector.Snapshot{}, nil, &provider.Error{Kind: provider.ErrorUnavailable, Provider: ProviderID, SourceKind: SourceKind, Op: "fetch", Err: fmt.Errorf("HTTP %s", response.Status)}

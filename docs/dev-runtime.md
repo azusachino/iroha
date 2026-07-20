@@ -5,7 +5,7 @@
 Iroha development happens on macOS. Nix is the universal manager for tools and developer entrypoints. The repo uses `uv` for Python-based scripts inside that Nix-managed environment and Podman with
 `podman-compose` for local containerized services.
 
-The runtime design should be capability-based. The checked-in Compose files target the OCI-compatible Podman runtime; Docker compatibility is incidental and not the supported local contract.
+The runtime design should be capability-based. The checked-in Compose files target the OCI-compatible Podman runtime; Docker compatibility is incidental and not the supported local contract. `make dev-up` starts the database first, waits for `pg_isready`, applies migrations, and then starts server, worker, and web so application containers do not race database initialization.
 
 ## Nix
 
@@ -125,7 +125,7 @@ podman-compose 1.5.0
 ```
 
 Initialize a lean machine once when needed, then start it before using the stack. Do not run `podman system prune` or remove volumes as part of normal development; raw imports remain in `.iroha-data`,
-while database/cache volumes are explicitly managed by the stack.
+while the database volume is explicitly managed by the stack.
 
 For MVP v0, the important local service is Postgres with PostGIS.
 
@@ -133,14 +133,14 @@ Target shape:
 
 ```text
 ops/local-dev/compose.yaml
-  -> Postgres/PostGIS and Valkey dependencies
+  -> Postgres/PostGIS dependency (cache is Postgres-backed)
   -> server, worker, and web services
   -> fixed private service names plus host-published developer ports
-  -> named database/cache volumes and a shared `.iroha-data` bind mount
+  -> named database volume and a shared `.iroha-data` bind mount
 
 scripts/dev_stack.py
   start     -> start/build the complete Podman Compose stack, wait for DB, apply migrations
-  deps      -> start only Postgres/Valkey, wait for DB, apply migrations
+  deps      -> start only Postgres, wait for DB, apply migrations
   stop      -> stop and remove stack containers/network
   status    -> show stack status
   logs      -> show database logs
@@ -188,14 +188,15 @@ No manual `uv` environment setup is needed. Run repo scripts through `make` or `
 
 ## Postgres/PostGIS Runtime Shape
 
-Use an OCI image that supports arm64. The validated local image is `ghcr.io/baosystems/postgis:18-3.6`.
+Use OCI images that support arm64. The validated local image is `docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21`. The Kartoza image is a temporary local
+development choice; production deployments should pin and validate their own PostGIS image separately.
 
 Runtime requirements:
 
 ```text
-POSTGRES_DB=iroha
-POSTGRES_USER=iroha
-POSTGRES_PASSWORD=iroha_dev
+POSTGRES_DBNAME=iroha
+POSTGRES_USER=postgres
+POSTGRES_PASS=iroha_dev
 published port: 5432
 persistent local data volume
 ```
@@ -205,6 +206,11 @@ Application config should use a normal database URL:
 ```text
 DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable
 ```
+
+Kartoza uses `POSTGRES_PASS` and `POSTGRES_DBNAME` for initialization. The
+local bootstrap keeps `postgres` as the image’s bootstrap superuser and creates
+the application-owned `iroha` role through
+`ops/local-dev/initdb/001-iroha-user.sql`.
 
 ## Database Migrations
 
@@ -252,7 +258,7 @@ Environment variables should override matching TOML fields:
 IROHA_SERVER_ADDR
 IROHA_DATABASE_URL
 IROHA_DATA_DIR
-IROHA_VALKEY_URL
+IROHA_CACHE_BACKEND
 IROHA_LOCAL_NO_AUTH
 IROHA_ALLOWED_ORIGINS
 IROHA_JWT_SECRET
@@ -260,19 +266,24 @@ IROHA_JWT_ISSUER
 IROHA_JWT_AUDIENCE
 ```
 
-The server and job receive the database, Valkey, and shared data-directory settings. Only the server receives the JWT verification secret and private CORS origins. For an authenticated static web
+The server and job receive the database, Postgres-backed cache, and shared data-directory settings. Set `IROHA_CACHE_BACKEND=valkey` only for compatibility deployments that still provide a Valkey URL. Only the server receives the JWT verification secret and private CORS origins. For an authenticated static web
 deployment, pass a read-only `PUBLIC_IROHA_API_TOKEN` as the web image build argument; it is intentionally public within the private site and must not be a signing secret or write token.
+
+The cache cutover is reversible because cache entries are disposable. Postgres is
+the default; a compatibility rollback uses `IROHA_CACHE_BACKEND=valkey` and
+`IROHA_VALKEY_URL=redis://...` with the Valkey service restored. Switching
+backends causes misses and regeneration, not data migration.
 
 ## Commands
 
 ```bash
-make db-up       # Postgres/PostGIS + Valkey, migrations, host-process development
-make dev-up      # complete Podman Compose stack: db, Valkey, server, job, web
+make db-up       # Postgres/PostGIS, migrations, host-process development
+make dev-up      # complete Podman Compose stack: db, server, job, web
 make dev-watch   # rebuild changed server/job/web services while developing
 make db-status
 make db-logs
 make db-down
-make db-reset    # destructive: removes database/cache volumes, then migrates
+make db-reset    # destructive: removes the database volume, then migrates
 ```
 
 The Makefile is intentionally thin. Lifecycle, readiness, migration, and command construction live in `scripts/dev_stack.py`; business/import exploration and smoke assertions live in uv scripts.

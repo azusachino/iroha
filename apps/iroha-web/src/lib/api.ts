@@ -599,6 +599,7 @@ export interface RouteFeatureProperties {
   sport_type: string;
   year: string;
   city?: string;
+  city_status?: "pending" | "resolved" | "unknown";
 }
 
 export interface RouteFeature {

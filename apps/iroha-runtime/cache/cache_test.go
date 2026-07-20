@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -17,7 +18,7 @@ func TestGetOrLoad_DisabledClient_CallsLoaderOnce(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	value, err := GetOrLoad(ctx, c, "some-key", time.Minute, loader)
+	value, err := GetOrLoad(ctx, c, "test", "some-key", time.Minute, loader)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -43,7 +44,7 @@ func TestGetOrLoad_UnreachableRedis_FallsBackToLoader(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	value, err := GetOrLoad(ctx, c, "another-key", time.Minute, loader)
+	value, err := GetOrLoad(ctx, c, "test", "another-key", time.Minute, loader)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -64,8 +65,87 @@ func TestGetOrLoad_LoaderError_Propagates(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := GetOrLoad(ctx, c, "err-key", time.Minute, loader)
+	_, err := GetOrLoad(ctx, c, "test", "err-key", time.Minute, loader)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("got error %v, want %v", err, wantErr)
+	}
+}
+
+type fakeStore struct {
+	values      map[string][]byte
+	namespace   string
+	invalidated string
+}
+
+func (s *fakeStore) Get(_ context.Context, namespace, key string) ([]byte, bool, error) {
+	value, ok := s.values[namespace+":"+key]
+	return value, ok, nil
+}
+
+func (s *fakeStore) Set(_ context.Context, namespace, key string, value []byte, _ time.Duration) error {
+	if s.values == nil {
+		s.values = make(map[string][]byte)
+	}
+	s.namespace = namespace
+	s.values[namespace+":"+key] = value
+	return nil
+}
+
+func (s *fakeStore) InvalidateNamespace(_ context.Context, namespace string) error {
+	s.invalidated = namespace
+	return nil
+}
+
+func (s *fakeStore) Close() error { return nil }
+
+func TestClient_UsesBackendNamespaceContract(t *testing.T) {
+	store := &fakeStore{}
+	c := NewWithStore(store)
+
+	Set(context.Background(), c, "public_summary", "v1:2024", time.Minute, "cached")
+	value, ok := Get[string](context.Background(), c, "public_summary", "v1:2024")
+	if !ok || value != "cached" {
+		t.Fatalf("got %q/%v, want cached/true", value, ok)
+	}
+	if store.namespace != "public_summary" {
+		t.Fatalf("namespace = %q, want public_summary", store.namespace)
+	}
+	if err := c.InvalidateNamespace(context.Background(), "public_summary"); err != nil {
+		t.Fatalf("invalidate namespace: %v", err)
+	}
+	if store.invalidated != "public_summary" {
+		t.Fatalf("invalidated namespace = %q, want public_summary", store.invalidated)
+	}
+}
+
+func TestGetOrLoad_CoalescesConcurrentMisses(t *testing.T) {
+	c := NewWithStore(&fakeStore{})
+	var mu sync.Mutex
+	calls := 0
+	loader := func() (string, error) {
+		mu.Lock()
+		calls++
+		mu.Unlock()
+		time.Sleep(20 * time.Millisecond)
+		return "loaded", nil
+	}
+
+	var wg sync.WaitGroup
+	values := make([]string, 2)
+	for i := range values {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			value, err := GetOrLoad(context.Background(), c, "public", "same", time.Minute, loader)
+			if err != nil {
+				t.Errorf("load: %v", err)
+				return
+			}
+			values[index] = value
+		}(i)
+	}
+	wg.Wait()
+	if calls != 1 || values[0] != "loaded" || values[1] != "loaded" {
+		t.Fatalf("calls = %d, values = %#v", calls, values)
 	}
 }

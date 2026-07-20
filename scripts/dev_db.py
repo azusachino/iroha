@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import subprocess
 import sys
+from pathlib import Path
 
 
 CONTAINER_NAME = "iroha-postgres"
 VOLUME_NAME = "iroha-postgres-data"
-IMAGE = "postgis/postgis:17-3.5"
+IMAGE = "docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21"
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def run(cmd: list[str]) -> int:
@@ -31,15 +33,17 @@ def main() -> int:
                 CONTAINER_NAME,
                 "--detach",
                 "--env",
-                "POSTGRES_DB=iroha",
+                "POSTGRES_DBNAME=iroha",
                 "--env",
-                "POSTGRES_USER=iroha",
+                "POSTGRES_USER=postgres",
                 "--env",
-                "POSTGRES_PASSWORD=iroha_dev",
+                "POSTGRES_PASS=iroha_dev",
                 "--publish",
                 "5432:5432",
                 "--volume",
                 f"{VOLUME_NAME}:/var/lib/postgresql/data",
+                "--volume",
+                f"{ROOT / 'ops/local-dev/initdb/001-iroha-user.sql'}:/docker-entrypoint-initdb.d/001-iroha-user.sql",
                 IMAGE,
             ]
         )

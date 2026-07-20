@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="text-scale" content="scale" />
     <script>
-      // Apply the saved (or system) theme before first paint to avoid a flash.
+      // Apply saved visual modes before first paint to avoid a flash.
       (function () {
         try {
           var t = localStorage.getItem("iroha-theme");
@@ -15,8 +15,23 @@
               : "dark";
           }
           document.documentElement.dataset.theme = t;
+          var language = localStorage.getItem("iroha-design-language");
+          var languages = [
+            "atlas",
+            "grapher",
+            "field-journal",
+            "phenology",
+            "sound-map",
+            "archive",
+          ];
+          document.documentElement.dataset.language = languages.includes(
+            language,
+          )
+            ? language
+            : "field-journal";
         } catch (e) {
           document.documentElement.dataset.theme = "dark";
+          document.documentElement.dataset.language = "field-journal";
         }
       })();
     </script>

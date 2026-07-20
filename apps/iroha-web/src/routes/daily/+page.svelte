@@ -11,6 +11,10 @@
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
   import { formatDateOnly } from "$lib/format";
+  import RouteIntro from "$lib/components/RouteIntro.svelte";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   type Gran = "day" | "month" | "year";
   const DAY_FETCH = 90;
@@ -23,6 +27,7 @@
   let gran = $state<Gran>("month");
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
+  const theme = useTheme();
 
   // Hero uses the latest real ring day, independent of the chosen granularity.
   const latestRingDay = $derived(dayRows.find((r) => r.move_goal_kcal > 0));
@@ -188,119 +193,147 @@
 </script>
 
 <section class="daily">
-  <header class="head">
-    <div>
-      <p class="eyebrow">Domain</p>
-      <h1>Daily &amp; Vitals</h1>
-      <p class="muted">Rings, movement and body vitals across your history.</p>
-    </div>
-    <a class="back" href="/dashboard">← Cockpit</a>
-  </header>
-
-  {#if loading}
-    <p class="muted status">Loading daily history…</p>
-  {:else if error}
-    <p class="error status">Could not load daily data: {error}</p>
-  {:else if dayRows.length === 0}
-    <p class="muted status">No daily data imported yet.</p>
+  {#if hasThemeRoute(theme.definition(), "daily")}
+    {#if loading}
+      <p class="muted status">Loading time-series data…</p>
+    {:else if error}
+      <p class="error status">Could not load daily data: {error}</p>
+    {:else if dayRows.length === 0}
+      <p class="muted status">No daily data imported yet.</p>
+    {:else}
+      <ThemeRouteRenderer
+        route="daily"
+        props={{ chrono, gran, onGran: (value: Gran) => (gran = value) }}
+      />
+    {/if}
   {:else}
-    <div class="hero tile glow">
-      <div class="hero-head">
-        <span class="hero-kicker">Latest rings</span>
-        {#if latestRingDay}<span class="hero-date"
-            >{formatDateOnly(latestRingDay.day)}</span
+    <RouteIntro
+      eyebrow="Patterns / personal history"
+      title="Daily & Vitals"
+      description="Rings, movement, and body signals across your history. Start with the latest day, then zoom out to see the pattern."
+      actionHref="/"
+      actionLabel="Today"
+    />
+
+    {#if loading}
+      <p class="muted status">Loading daily history…</p>
+    {:else if error}
+      <p class="error status">Could not load daily data: {error}</p>
+    {:else if dayRows.length === 0}
+      <p class="muted status">No daily data imported yet.</p>
+    {:else}
+      <div class="hero tile glow">
+        <div class="hero-head">
+          <span class="hero-kicker">Latest rings</span>
+          {#if latestRingDay}<span class="hero-date"
+              >{formatDateOnly(latestRingDay.day)}</span
+            >{/if}
+        </div>
+        <RingGauge rings={ringData} />
+      </div>
+
+      <div class="controls">
+        <div class="seg" role="tablist" aria-label="Aggregation granularity">
+          {#each ["day", "month", "year"] as const as g}
+            <button
+              role="tab"
+              aria-selected={gran === g}
+              class:active={gran === g}
+              onclick={() => (gran = g)}
+            >
+              {g[0].toUpperCase() + g.slice(1)}
+            </button>
+          {/each}
+        </div>
+        <span class="muted small">
+          {#if aggregated}
+            {chrono.length} {gran}s · per-day averages
+          {:else}
+            recent {chrono.length} days
+          {/if}
+        </span>
+        {#if rangeFrom && rangeTo}<span class="muted small"
+            >Range: {rangeFrom} → {rangeTo}</span
           >{/if}
       </div>
-      <RingGauge rings={ringData} />
-    </div>
 
-    <div class="controls">
-      <div class="seg" role="tablist" aria-label="Aggregation granularity">
-        {#each ["day", "month", "year"] as const as g}
-          <button
-            role="tab"
-            aria-selected={gran === g}
-            class:active={gran === g}
-            onclick={() => (gran = g)}
+      <div class="trend-panel tile">
+        <div class="trend-heading">
+          <div>
+            <span class="t-label">Daily signals</span>
+            <h2>Small multiples</h2>
+          </div>
+          <span class="muted small"
+            >Move the crosshair to compare one period</span
           >
-            {g[0].toUpperCase() + g.slice(1)}
-          </button>
-        {/each}
-      </div>
-      <span class="muted small">
-        {#if aggregated}
-          {chrono.length} {gran}s · per-day averages
-        {:else}
-          recent {chrono.length} days
-        {/if}
-      </span>
-      {#if rangeFrom && rangeTo}<span class="muted small"
-          >Range: {rangeFrom} → {rangeTo}</span
-        >{/if}
-    </div>
-
-    <div class="trend-panel tile">
-      <div class="trend-heading">
-        <div>
-          <span class="t-label">Daily signals</span>
-          <h2>Small multiples</h2>
         </div>
-        <span class="muted small">Move the crosshair to compare one period</span
-        >
+        <DailySmallMultiples
+          labels={chrono.map((d) => d.label)}
+          charts={trendCharts}
+        />
       </div>
-      <DailySmallMultiples
-        labels={chrono.map((d) => d.label)}
-        charts={trendCharts}
-      />
-    </div>
 
-    <div class="table-wrap tile">
-      <table>
-        <thead>
-          <tr>
-            <th class="l"
-              >{gran === "day"
-                ? "Day"
-                : gran === "month"
-                  ? "Month"
-                  : "Year"}</th
-            >
-            {#if aggregated}<th>Days</th>{/if}
-            <th>Move</th><th>Exer</th><th>Stand</th><th>Move ✓</th>
-            <th>Steps{aggregated ? "/d" : ""}</th><th
-              >Dist{aggregated ? "/d" : ""}</th
-            >
-            <th>rHR</th><th>HRV</th><th>SpO₂</th><th>Resp</th><th>VO₂</th><th
-              >Mass</th
-            >
-          </tr>
-        </thead>
-        <tbody>
-          {#each table as d}
+      <section class="atlas-note tile" aria-label="Pattern reading guide">
+        <div>
+          <span class="t-label">Reading the atlas</span>
+          <h2>{gran[0].toUpperCase() + gran.slice(1)} view</h2>
+        </div>
+        <p>
+          Compare movement and body signals at this scale, then use the table as
+          the precise record. Missing values remain unfilled rather than being
+          treated as zero.
+        </p>
+        <span class="muted small">{chrono.length} periods in view</span>
+      </section>
+
+      <div class="table-wrap tile">
+        <table>
+          <thead>
             <tr>
-              <td class="l">{d.label}</td>
-              {#if aggregated}<td>{d.days}</td>{/if}
-              <td>{fmt(d.move, 0)}</td>
-              <td>{fmt(d.exercise, 0)}</td>
-              <td>{fmt(d.stand, 0)}</td>
-              <td
-                >{d.moveClosedPct == null
-                  ? "—"
-                  : `${Math.round(d.moveClosedPct)}%`}</td
+              <th class="l"
+                >{gran === "day"
+                  ? "Day"
+                  : gran === "month"
+                    ? "Month"
+                    : "Year"}</th
               >
-              <td>{fmt(d.steps, 0)}</td>
-              <td>{fmt(d.distance, 1)}</td>
-              <td>{fmt(d.resting_hr, 0)}</td>
-              <td>{fmt(d.hrv_sdnn, 0)}</td>
-              <td>{fmt(d.spo2_avg, 1)}</td>
-              <td>{fmt(d.respiratory_rate, 1)}</td>
-              <td>{fmt(d.vo2max, 1)}</td>
-              <td>{fmt(d.body_mass_kg, 1)}</td>
+              {#if aggregated}<th>Days</th>{/if}
+              <th>Move</th><th>Exer</th><th>Stand</th><th>Move ✓</th>
+              <th>Steps{aggregated ? "/d" : ""}</th><th
+                >Dist{aggregated ? "/d" : ""}</th
+              >
+              <th>rHR</th><th>HRV</th><th>SpO₂</th><th>Resp</th><th>VO₂</th><th
+                >Mass</th
+              >
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {#each table as d}
+              <tr>
+                <td class="l">{d.label}</td>
+                {#if aggregated}<td>{d.days}</td>{/if}
+                <td>{fmt(d.move, 0)}</td>
+                <td>{fmt(d.exercise, 0)}</td>
+                <td>{fmt(d.stand, 0)}</td>
+                <td
+                  >{d.moveClosedPct == null
+                    ? "—"
+                    : `${Math.round(d.moveClosedPct)}%`}</td
+                >
+                <td>{fmt(d.steps, 0)}</td>
+                <td>{fmt(d.distance, 1)}</td>
+                <td>{fmt(d.resting_hr, 0)}</td>
+                <td>{fmt(d.hrv_sdnn, 0)}</td>
+                <td>{fmt(d.spo2_avg, 1)}</td>
+                <td>{fmt(d.respiratory_rate, 1)}</td>
+                <td>{fmt(d.vo2max, 1)}</td>
+                <td>{fmt(d.body_mass_kg, 1)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
   {/if}
 </section>
 
@@ -308,40 +341,6 @@
   .daily {
     display: grid;
     gap: 1.25rem;
-  }
-  .head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-  .head h1 {
-    margin: 0;
-  }
-  .eyebrow {
-    margin: 0 0 0.35rem;
-    color: var(--accent);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .head .muted {
-    margin: 0.35rem 0 0;
-    color: var(--text-muted);
-  }
-  .back {
-    flex: 0 0 auto;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 0.86rem;
-  }
-  .back:hover {
-    border-color: var(--accent);
-    text-decoration: none;
   }
   .status {
     padding: 2rem 0;
@@ -413,6 +412,27 @@
   .trend-panel {
     padding: 1rem;
   }
+
+  .atlas-note {
+    display: grid;
+    grid-template-columns: minmax(12rem, 0.8fr) minmax(0, 1.6fr) auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+    border-left: 3px solid var(--accent);
+  }
+
+  .atlas-note h2 {
+    margin: 0.2rem 0 0;
+    font-size: 1.05rem;
+  }
+
+  .atlas-note p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
   .trend-heading {
     display: flex;
     justify-content: space-between;
@@ -463,6 +483,10 @@
   }
 
   @media (max-width: 720px) {
+    .atlas-note {
+      grid-template-columns: 1fr;
+    }
+
     .trend-heading {
       align-items: flex-start;
       flex-direction: column;

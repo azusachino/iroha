@@ -19,6 +19,10 @@
     formatElevation,
   } from "$lib/format";
   import { sportColor, sportLabel } from "$lib/sport";
+  import RouteIntro from "$lib/components/RouteIntro.svelte";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   // Draft filter inputs (bound to the form); committed to `applied` on submit
   // so "Load more" keeps paging the same query the user actually ran.
@@ -35,6 +39,7 @@
   let error = $state<string | null>(null);
   let summary = $state<Summary | null>(null);
   let summaryLoading = $state(true);
+  const theme = useTheme();
   const sportOptions = $derived(
     summary ? summary.by_sport.map((b) => b.key).sort() : [],
   );
@@ -293,159 +298,188 @@
 </script>
 
 <section class="activities-shell">
-  <header class="domain-header">
-    <div>
-      <p class="eyebrow">Activity domain</p>
-      <h1>Every session, in one place.</h1>
-      <p class="muted">
-        Explore the record, then open an activity for its route and
-        measurements.
-      </p>
-    </div>
-  </header>
-
-  <div class="stat-strip" aria-label="Activity summary">
-    <StatTile
-      label="Activities"
-      value={summaryLoading
-        ? "—"
-        : displaySummary.activity_count.toLocaleString()}
-      sub={sportType || selectedYear ? "Filtered count" : "Imported sessions"}
+  {#if hasThemeRoute(theme.definition(), "activities")}
+    <ThemeRouteRenderer
+      route="activities"
+      props={{
+        activities,
+        displaySummary,
+        sportType,
+        selectedYear,
+        selectedMonth,
+        years,
+        sportOptions,
+        months,
+        loading,
+        error,
+        hasMore,
+        loadingMore,
+        onSportType: (value: string) => (sportType = value),
+        onYear: (value: string) => {
+          selectedYear = value;
+          handleYearChange();
+        },
+        onMonth: (value: string) => (selectedMonth = value),
+        onLoadMore: () => void load(true),
+      }}
     />
-    <StatTile
-      label="Distance"
-      value={summaryLoading ? "—" : formatDistance(displaySummary.distance_m)}
-      sub={sportType || selectedYear
-        ? "Filtered distance"
-        : "Across all activities"}
-    />
-    <StatTile
-      label="Total time"
-      value={summaryLoading ? "—" : formatDuration(displaySummary.duration_s)}
-      sub={sportType || selectedYear
-        ? "Filtered duration"
-        : "Recorded duration"}
-    />
-    <StatTile
-      label="Sports"
-      value={summaryLoading ? "—" : trackedSports.toLocaleString()}
-      sub="Activity types tracked"
-    />
-  </div>
-
-  <form class="activity-toolbar tile" onsubmit={(e) => e.preventDefault()}>
-    <div class="filter-fields">
-      <label
-        >Sport
-        <select bind:value={sportType}>
-          <option value="">All sports</option>
-          {#each sportOptions as option (option)}
-            <option value={option}>{sportLabel(option)}</option>
-          {/each}
-        </select>
-      </label>
-      <label
-        >Year
-        <select bind:value={selectedYear} onchange={handleYearChange}>
-          <option value="">All years</option>
-          {#each years as year}
-            <option value={year}>{year}</option>
-          {/each}
-        </select>
-      </label>
-      <label
-        >Month
-        <select bind:value={selectedMonth} disabled={!selectedYear}>
-          <option value="">All months</option>
-          {#each months as month}
-            <option value={month.value}>{month.label}</option>
-          {/each}
-        </select>
-      </label>
-    </div>
-    <div class="toolbar-actions">
-      <button type="button" class="secondary" onclick={clear}
-        >Clear filters</button
-      >
-    </div>
-  </form>
-
-  {#if loading}
-    <p class="muted">Loading activities…</p>
-  {:else if error}
-    <p class="error">Failed to load activities: {error}</p>
-  {:else if activities.length === 0}
-    <p class="muted">No activities found.</p>
   {:else}
-    <p class="muted result-count">
-      {activities.length} shown{hasMore ? " (more available)" : ""}
-    </p>
-    <ul class="activity-grid">
-      {#each activities as activity (activity.id)}
-        <li>
-          <a
-            class="activity-card tile tile-interactive"
-            href={`/activities/${activity.id}`}
-            style={`--sport-color: ${sportColor(activity.sport_type)}`}
-          >
-            <span class="accent" aria-hidden="true"></span>
-            <div class="card-top">
-              <SportBadge sport={activity.sport_type} /><span
-                class="activity-date"
-                >{formatDateOnly(activity.started_at, activity.timezone)}</span
-              >
-            </div>
-            <h2>{displayTitle(activity.title, activity.sport_type)}</h2>
-            {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-              <div class="primary-metric">
-                {formatDuration(activity.duration_s ?? activity.moving_time_s)}
-              </div>
-              <div class="card-metrics">
-                <span>Avg HR: {formatHr(activity.avg_hr)}</span>
-                <span>Max HR: {formatHr(activity.max_hr)}</span>
-              </div>
-            {:else}
-              <div class="primary-metric">
-                {formatDistance(activity.distance_m)}
-              </div>
-              <div class="card-metrics">
-                {#if isCycling(activity.sport_type)}
-                  <span
-                    >{formatCyclingSpeed(
-                      activity.distance_m,
-                      activity.duration_s ?? activity.moving_time_s,
-                    )}</span
-                  >
-                {:else if isSwimming(activity.sport_type)}
-                  <span
-                    >{formatSwimmingPace(
-                      activity.distance_m,
-                      activity.duration_s ?? activity.moving_time_s,
-                    )}</span
-                  >
-                {:else}
-                  <span>{formatPace(activity.avg_pace_s_per_km)}</span>
-                {/if}
-                <span
-                  >{formatDuration(
-                    activity.duration_s ?? activity.moving_time_s,
+    <RouteIntro
+      eyebrow="Motion / activity archive"
+      title="Every session, in one place."
+      description="Find a movement session quickly, narrow the archive, and open the record when you want its route and measurements."
+      actionHref="/"
+      actionLabel="Back to Today"
+    />
+
+    <div class="stat-strip" aria-label="Activity summary">
+      <StatTile
+        label="Activities"
+        value={summaryLoading
+          ? "—"
+          : displaySummary.activity_count.toLocaleString()}
+        sub={sportType || selectedYear ? "Filtered count" : "Imported sessions"}
+      />
+      <StatTile
+        label="Distance"
+        value={summaryLoading ? "—" : formatDistance(displaySummary.distance_m)}
+        sub={sportType || selectedYear
+          ? "Filtered distance"
+          : "Across all activities"}
+      />
+      <StatTile
+        label="Total time"
+        value={summaryLoading ? "—" : formatDuration(displaySummary.duration_s)}
+        sub={sportType || selectedYear
+          ? "Filtered duration"
+          : "Recorded duration"}
+      />
+      <StatTile
+        label="Sports"
+        value={summaryLoading ? "—" : trackedSports.toLocaleString()}
+        sub="Activity types tracked"
+      />
+    </div>
+
+    <form class="activity-toolbar tile" onsubmit={(e) => e.preventDefault()}>
+      <div class="filter-fields">
+        <label
+          >Sport
+          <select bind:value={sportType}>
+            <option value="">All sports</option>
+            {#each sportOptions as option (option)}
+              <option value={option}>{sportLabel(option)}</option>
+            {/each}
+          </select>
+        </label>
+        <label
+          >Year
+          <select bind:value={selectedYear} onchange={handleYearChange}>
+            <option value="">All years</option>
+            {#each years as year}
+              <option value={year}>{year}</option>
+            {/each}
+          </select>
+        </label>
+        <label
+          >Month
+          <select bind:value={selectedMonth} disabled={!selectedYear}>
+            <option value="">All months</option>
+            {#each months as month}
+              <option value={month.value}>{month.label}</option>
+            {/each}
+          </select>
+        </label>
+      </div>
+      <div class="toolbar-actions">
+        <button type="button" class="secondary" onclick={clear}
+          >Clear filters</button
+        >
+      </div>
+    </form>
+
+    {#if loading}
+      <p class="muted">Loading activities…</p>
+    {:else if error}
+      <p class="error">Failed to load activities: {error}</p>
+    {:else if activities.length === 0}
+      <p class="muted">No activities found.</p>
+    {:else}
+      <p class="muted result-count">
+        {activities.length} shown{hasMore ? " (more available)" : ""}
+      </p>
+      <ul class="activity-grid">
+        {#each activities as activity (activity.id)}
+          <li>
+            <a
+              class="activity-card tile tile-interactive"
+              href={`/activities/${activity.id}`}
+              style={`--sport-color: ${sportColor(activity.sport_type)}`}
+            >
+              <span class="accent" aria-hidden="true"></span>
+              <div class="card-top">
+                <SportBadge sport={activity.sport_type} /><span
+                  class="activity-date"
+                  >{formatDateOnly(
+                    activity.started_at,
+                    activity.timezone,
                   )}</span
                 >
               </div>
-            {/if}
-          </a>
-        </li>
-      {/each}
-    </ul>
-    {#if hasMore}
-      <div bind:this={sentinel} class="load-sentinel">
-        <button
-          class="load-more"
-          onclick={() => load(true)}
-          disabled={loadingMore}
-          >{loadingMore ? "Loading…" : "Load more activities"}</button
-        >
-      </div>
+              <h2>{displayTitle(activity.title, activity.sport_type)}</h2>
+              {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                <div class="primary-metric">
+                  {formatDuration(
+                    activity.duration_s ?? activity.moving_time_s,
+                  )}
+                </div>
+                <div class="card-metrics">
+                  <span>Avg HR: {formatHr(activity.avg_hr)}</span>
+                  <span>Max HR: {formatHr(activity.max_hr)}</span>
+                </div>
+              {:else}
+                <div class="primary-metric">
+                  {formatDistance(activity.distance_m)}
+                </div>
+                <div class="card-metrics">
+                  {#if isCycling(activity.sport_type)}
+                    <span
+                      >{formatCyclingSpeed(
+                        activity.distance_m,
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}</span
+                    >
+                  {:else if isSwimming(activity.sport_type)}
+                    <span
+                      >{formatSwimmingPace(
+                        activity.distance_m,
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}</span
+                    >
+                  {:else}
+                    <span>{formatPace(activity.avg_pace_s_per_km)}</span>
+                  {/if}
+                  <span
+                    >{formatDuration(
+                      activity.duration_s ?? activity.moving_time_s,
+                    )}</span
+                  >
+                </div>
+              {/if}
+            </a>
+          </li>
+        {/each}
+      </ul>
+      {#if hasMore}
+        <div bind:this={sentinel} class="load-sentinel">
+          <button
+            class="load-more"
+            onclick={() => load(true)}
+            disabled={loadingMore}
+            >{loadingMore ? "Loading…" : "Load more activities"}</button
+          >
+        </div>
+      {/if}
     {/if}
   {/if}
 </section>
@@ -454,20 +488,6 @@
   .activities-shell {
     display: grid;
     gap: 1.25rem;
-  }
-  .domain-header h1 {
-    margin: 0;
-  }
-  .domain-header .muted {
-    margin: 0.4rem 0 0;
-  }
-  .eyebrow {
-    margin: 0 0 0.4rem;
-    color: var(--accent);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
   .stat-strip {
     display: grid;

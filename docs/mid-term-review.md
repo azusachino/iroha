@@ -18,7 +18,7 @@ raw file on shared storage
 ```
 
 The core design is coherent enough to continue adding domains. The main mid-term risk is not another domain schema; it is that the runtime and docs still describe the earlier MVP while the code
-already assumes a separate worker, Valkey, absolute shared file paths, and multiple Go modules.
+already assumes a separate worker, Postgres-backed cache state, absolute shared file paths, and multiple Go modules.
 
 The local stack should use fully containerized application services. The checked-in Compose files are now consumed by `podman-compose`, while a small uv-managed runner owns readiness and migrations.
 
@@ -35,13 +35,13 @@ The local stack should use fully containerized application services. The checked
 
 ### P0 — make one runtime contract authoritative
 
-`make db-up`, `make run`, `make run-job`, integration tests, and the real import smoke use Podman for Postgres/Valkey. `make dev-up` runs the server, worker, and web containers as well.
+`make db-up`, `make run`, `make run-job`, integration tests, and the real import smoke use Podman for Postgres. `make dev-up` runs the server, worker, and web containers as well.
 
 The next runtime milestone should define one supported local command path:
 
 ```text
 make dev-up
-  -> build or pull db, valkey, server, job, and web images
+  -> build or pull db, server, job, and web images
   -> create a shared network and persistent volumes
   -> start migrations once
   -> start server, worker, and web
@@ -79,8 +79,8 @@ providers. Before media sync or another Apple family lands, document the invaria
 
 ### P2 — keep optional infrastructure optional at request time
 
-Valkey is correctly treated as a cache rather than a source of truth. The containerized stack should preserve that behavior: server startup and private reads should remain useful when Valkey is
-unavailable, while the database and raw storage remain hard dependencies.
+The cache is now backed by Postgres by default and remains best-effort at request time. Valkey is a compatibility backend rather than a required service; database and raw storage remain hard
+dependencies.
 
 ## Recommended container target
 
@@ -89,12 +89,11 @@ Use these services for the first fully containerized local profile:
 | Service  | Image source                                 | Persistent data                         | Network role                                  |
 | -------- | -------------------------------------------- | --------------------------------------- | --------------------------------------------- |
 | `db`     | PostGIS image with verified arm64 support    | named Postgres volume                   | internal, optionally host-published for debug |
-| `valkey` | Valkey image                                 | named cache volume or disposable volume | internal                                      |
 | `server` | repo `Containerfile.server`                  | shared `iroha-data` volume              | HTTP API                                      |
 | `job`    | repo `Containerfile.server` or worker target | same `iroha-data` volume                | queue consumer                                |
 | `web`    | repo `Containerfile.web`                     | none                                    | frontend HTTP                                 |
 
-The first implementation should use fixed service names and a private network, with the server configured for `db` and `valkey` service DNS. Host-published ports remain useful for browser and smoke
+The first implementation should use fixed service names and a private network, with the server configured for `db` service DNS. Host-published ports remain useful for browser and smoke
 access. The server and worker must share the same `IROHA_DATA_DIR` mount; this is the critical boundary.
 
 The runner should own only lifecycle mechanics that Apple `container` does not provide declaratively: network/volume creation, image build, ordered startup, health waits, migration execution, logs,

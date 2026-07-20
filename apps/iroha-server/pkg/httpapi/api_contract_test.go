@@ -51,6 +51,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /public/v1/routes",
 		"GET /public/v1/summary",
 		"POST /api/v1/imports",
+		"POST /api/v1/media/sync/{connectorId}",
 		"POST /api/v1/raw-files",
 	}
 	sort.Strings(want)

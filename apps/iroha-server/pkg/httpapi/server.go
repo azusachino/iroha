@@ -9,11 +9,12 @@ import (
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -45,6 +46,8 @@ type Dependencies struct {
 	ImportService    *imports.Service
 	RawFileService   *rawfiles.Service
 	Cache            *cache.Client
+	GeocodeService   *geocode.Service
+	JobEnqueuer      imports.Enqueuer
 	MaxUploadBytes   int64
 	AllowedOrigins   []string
 }
@@ -125,6 +128,7 @@ func (s *Server) routes() {
 			r.Get("/aggregates", s.handleDailyAggregates)
 		})
 		r.Route("/media", func(r chi.Router) {
+			r.With(s.requireJWT("iroha:write")).Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
 			r.Get("/aggregates", s.handleMediaAggregates)
 			r.Get("/events", s.handleListMediaEvents)
 			r.Get("/", s.handleListMedia)

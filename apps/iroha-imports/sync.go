@@ -49,7 +49,7 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 	}
 	cursor, err := decodeCursor(state.CursorJSON)
 	if err != nil {
-		return s.failSyncState(state, err)
+		return s.failSyncState(state, err, nil)
 	}
 	if err := s.updateSyncState(state, mediaSyncStatusRunning, nil, cursor, false); err != nil {
 		return err
@@ -58,26 +58,26 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 	for {
 		snapshot, nextCursor, fetchErr := item.Fetch(ctx, credentials, cursor)
 		if fetchErr != nil {
-			return s.failSyncState(state, fetchErr)
+			return s.failSyncState(state, fetchErr, cursor)
 		}
 		if snapshot.SourceKind == "" {
 			snapshot.SourceKind = item.Descriptor().SourceKind
 		}
 		if snapshot.SourceKind != item.Descriptor().SourceKind {
-			return s.failSyncState(state, fmt.Errorf("connector %q returned source kind %q, want %q", connectorID, snapshot.SourceKind, item.Descriptor().SourceKind))
+			return s.failSyncState(state, fmt.Errorf("connector %q returned source kind %q, want %q", connectorID, snapshot.SourceKind, item.Descriptor().SourceKind), cursor)
 		}
 		if snapshot.Filename == "" {
 			snapshot.Filename = connectorID + ".json"
 		}
 		rawFile, err := s.snapshots.StoreSnapshot(ctx, snapshot)
 		if err != nil {
-			return s.failSyncState(state, err)
+			return s.failSyncState(state, err, cursor)
 		}
 		if _, err := s.imports.Create(CreateInput{
 			RawFileID:  ids.Encode(ids.RawFilePrefix, rawFile.ID),
 			ParserKind: snapshot.SourceKind,
 		}); err != nil {
-			return s.failSyncState(state, err)
+			return s.failSyncState(state, err, cursor)
 		}
 
 		if err := s.updateSyncState(state, mediaSyncStatusRunning, nil, nextCursor, true); err != nil {
@@ -127,8 +127,8 @@ func (s *SyncRunner) updateSyncState(state models.MediaSyncState, status string,
 	return s.db.Model(&models.MediaSyncState{}).Where("id = ?", state.ID).Updates(updates).Error
 }
 
-func (s *SyncRunner) failSyncState(state models.MediaSyncState, cause error) error {
-	if err := s.updateSyncState(state, mediaSyncStatusFailed, cause, nil, false); err != nil {
+func (s *SyncRunner) failSyncState(state models.MediaSyncState, cause error, cursor *connector.Cursor) error {
+	if err := s.updateSyncState(state, mediaSyncStatusFailed, cause, cursor, false); err != nil {
 		return err
 	}
 	return cause

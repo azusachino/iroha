@@ -83,6 +83,26 @@ class DevStackScriptTest(unittest.TestCase):
             self.assertEqual(dev_stack.main(), 0)
         wait_for_db.assert_called_once_with()
 
+    def test_start_database_waits_after_bringing_up_db(self) -> None:
+        with (
+            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+            mock.patch.object(dev_stack, "check_call") as check_call,
+            mock.patch.object(dev_stack, "wait_for_db", return_value=0) as wait_for_db,
+        ):
+            dev_stack.start_database()
+
+        check_call.assert_called_once_with(["compose", "up", "-d", "db"])
+        wait_for_db.assert_called_once_with()
+
+    def test_start_app_only_starts_application_services(self) -> None:
+        with (
+            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+            mock.patch.object(dev_stack, "run", return_value=0) as run,
+        ):
+            self.assertEqual(dev_stack.start_app(), 0)
+
+        run.assert_called_once_with(["compose", "up", "--build", "-d", "server", "job", "web"])
+
     def test_compose_files_stay_repo_local(self) -> None:
         self.assertEqual(dev_stack.COMPOSE_FILE, Path(dev_stack.ROOT) / "ops" / "local-dev" / "compose.yaml")
         self.assertEqual(dev_stack.APP_COMPOSE_FILE, Path(dev_stack.ROOT) / "ops" / "local-dev" / "compose.app.yaml")

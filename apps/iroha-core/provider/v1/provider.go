@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
 )
@@ -104,6 +106,7 @@ type Error struct {
 	SourceKind string
 	Op         string
 	Err        error
+	RetryAfter *time.Duration
 }
 
 func (e *Error) Error() string {
@@ -114,6 +117,37 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Unwrap() error { return e.Err }
+
+// RetryAfterDuration exposes a provider-supplied retry delay to the durable
+// job queue without making the runtime depend on a concrete provider package.
+func (e *Error) RetryAfterDuration() (time.Duration, bool) {
+	if e == nil || e.RetryAfter == nil || *e.RetryAfter < 0 {
+		return 0, false
+	}
+	return *e.RetryAfter, true
+}
+
+// ParseRetryAfter accepts both HTTP delta-seconds and HTTP-date values.
+func ParseRetryAfter(value string, now time.Time) (time.Duration, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false
+	}
+	if seconds, err := time.ParseDuration(value + "s"); err == nil {
+		if seconds < 0 {
+			return 0, false
+		}
+		return seconds, true
+	}
+	when, err := http.ParseTime(value)
+	if err != nil {
+		return 0, false
+	}
+	if when.Before(now) {
+		return 0, true
+	}
+	return when.Sub(now), true
+}
 
 type Registry struct {
 	adapters     map[string]Adapter

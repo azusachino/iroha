@@ -22,7 +22,11 @@
   import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
+  import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { sportLabel } from "$lib/sport";
+  import { useTheme } from "$lib/themes/context.svelte";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute } from "$lib/themes/registry";
 
   function displayTitle(title?: string, sport?: string): string {
     if (!title) return sportLabel(sport);
@@ -37,6 +41,7 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let selectedRouteIndex = $state<number | null>(null);
+  const theme = useTheme();
 
   const id = $derived(page.params.id ?? "");
 
@@ -404,128 +409,151 @@
   });
 </script>
 
-<p><a href="/">← Back to activities</a></p>
+{#if hasThemeRoute(theme.definition(), "activity-detail") && !loading && !error && activity}
+  <ThemeRouteRenderer
+    route="activity-detail"
+    props={{
+      activity,
+      route,
+      samplings,
+      laps,
+      selectedRouteIndex,
+      onSelectRoute: (index: number | null) => (selectedRouteIndex = index),
+    }}
+  />
+{:else}
+  <p><a href="/">← Back to activities</a></p>
 
-{#if loading}
-  <p class="muted">Loading activity…</p>
-{:else if error}
-  <p class="error">Failed to load activity: {error}</p>
-{:else if activity}
-  <h1>{displayTitle(activity.title, activity.sport_type)}</h1>
-  <div class="activity-meta">
-    <SportBadge sport={activity.sport_type} />
-    <span class="muted"
-      >{formatDate(activity.started_at, activity.timezone)}</span
-    >
-  </div>
-
-  <div class="activity-stats">
-    {#if activity.distance_m != null && activity.distance_m > 0}
-      <StatTile label="Distance" value={formatDistance(activity.distance_m)} />
-    {/if}
-    <StatTile label="Duration" value={formatDuration(activity.duration_s)} />
-    {#if activity.moving_time_s != null}
-      <StatTile
-        label="Moving time"
-        value={formatDuration(activity.moving_time_s)}
-      />
-    {/if}
-    {#if elevationGainM != null && elevationGainM > 0}
-      <StatTile
-        label="Elevation gain"
-        value={formatElevation(elevationGainM)}
-      />
-    {/if}
-    {#if activity.avg_pace_s_per_km != null && activity.avg_pace_s_per_km > 0}
-      <StatTile
-        label="Avg pace"
-        value={formatPace(activity.avg_pace_s_per_km)}
-      />
-    {/if}
-    {#if activity.avg_hr != null && activity.avg_hr > 0}
-      <StatTile label="Avg HR" value={formatHr(activity.avg_hr)} />
-    {/if}
-    {#if activity.max_hr != null && activity.max_hr > 0}
-      <StatTile label="Max HR" value={formatHr(activity.max_hr)} />
-    {/if}
-  </div>
-
-  {#if hasRouteLine}
-    <h2>Route</h2>
-    <RouteMap points={processedRoute} selectedIndex={selectedRouteIndex} />
-  {/if}
-
-  {#if anyChart}
-    <h2>Charts</h2>
-    <FusedActivityChart
-      xValues={xAxis.values}
-      xLabel={xAxis.label}
-      pace={paceSeries}
-      heartRate={hrSeries}
-      elevation={elevationSeries}
-      onHover={(index) => (selectedRouteIndex = index)}
+  {#if loading}
+    <p class="muted">Loading activity…</p>
+  {:else if error}
+    <p class="error">Failed to load activity: {error}</p>
+  {:else if activity}
+    <RouteIntro
+      eyebrow="Motion / performance report"
+      title={displayTitle(activity.title, activity.sport_type)}
+      description="A measured record of this session, from the route and effort to the details worth revisiting."
+      actionHref="/activities"
+      actionLabel="Back to archive"
     />
-    {#if hrZones.length > 0}
-      <div class="zone-card tile">
-        <div class="card-heading">
-          <strong>Heart-rate zones</strong><span class="muted"
-            >time distribution</span
-          >
+    <div class="activity-meta">
+      <SportBadge sport={activity.sport_type} />
+      <span class="muted"
+        >{formatDate(activity.started_at, activity.timezone)}</span
+      >
+    </div>
+
+    <div class="activity-stats">
+      {#if activity.distance_m != null && activity.distance_m > 0}
+        <StatTile
+          label="Distance"
+          value={formatDistance(activity.distance_m)}
+        />
+      {/if}
+      <StatTile label="Duration" value={formatDuration(activity.duration_s)} />
+      {#if activity.moving_time_s != null}
+        <StatTile
+          label="Moving time"
+          value={formatDuration(activity.moving_time_s)}
+        />
+      {/if}
+      {#if elevationGainM != null && elevationGainM > 0}
+        <StatTile
+          label="Elevation gain"
+          value={formatElevation(elevationGainM)}
+        />
+      {/if}
+      {#if activity.avg_pace_s_per_km != null && activity.avg_pace_s_per_km > 0}
+        <StatTile
+          label="Avg pace"
+          value={formatPace(activity.avg_pace_s_per_km)}
+        />
+      {/if}
+      {#if activity.avg_hr != null && activity.avg_hr > 0}
+        <StatTile label="Avg HR" value={formatHr(activity.avg_hr)} />
+      {/if}
+      {#if activity.max_hr != null && activity.max_hr > 0}
+        <StatTile label="Max HR" value={formatHr(activity.max_hr)} />
+      {/if}
+    </div>
+
+    {#if hasRouteLine}
+      <h2>Route</h2>
+      <RouteMap points={processedRoute} selectedIndex={selectedRouteIndex} />
+    {/if}
+
+    {#if anyChart}
+      <h2>Charts</h2>
+      <FusedActivityChart
+        xValues={xAxis.values}
+        xLabel={xAxis.label}
+        pace={paceSeries}
+        heartRate={hrSeries}
+        elevation={elevationSeries}
+        onHover={(index) => (selectedRouteIndex = index)}
+      />
+      {#if hrZones.length > 0}
+        <div class="zone-card tile">
+          <div class="card-heading">
+            <strong>Heart-rate zones</strong><span class="muted"
+              >time distribution</span
+            >
+          </div>
+          <div class="zone-bar">
+            {#each hrZones as zone}<span
+                style={`flex: ${zone.count}; background: ${zone.color}`}
+                title={`${zone.label}: ${Math.round((zone.count / hrSeries.filter((v) => v != null).length) * 100)}%`}
+              ></span>{/each}
+          </div>
+          <div class="zone-legend">
+            {#each hrZones as zone}<span
+                ><i style={`background: ${zone.color}`}></i>{zone.label}</span
+              >{/each}
+          </div>
         </div>
-        <div class="zone-bar">
-          {#each hrZones as zone}<span
-              style={`flex: ${zone.count}; background: ${zone.color}`}
-              title={`${zone.label}: ${Math.round((zone.count / hrSeries.filter((v) => v != null).length) * 100)}%`}
-            ></span>{/each}
+      {/if}
+    {/if}
+
+    {#if isRun && displayLaps.length > 0}
+      <h2 class="section-title">Laps (1 km splits)</h2>
+      <div class="laps-container tile">
+        <div class="split-bars" aria-label="Split pace bars">
+          {#each displayLaps as lap (lap.lap_no)}
+            <div class="split-row">
+              <span class="split-label">{lap.lap_no}</span><span
+                class="split-track"
+                ><span
+                  class="split-fill"
+                  style={`width: ${Math.min(100, ((lap.avg_pace_s_per_km ?? 0) / Math.max(...displayLaps.map((l) => l.avg_pace_s_per_km ?? 0), 1)) * 100)}%`}
+                ></span></span
+              ><strong>{formatPace(lap.avg_pace_s_per_km)}</strong>
+            </div>
+          {/each}
         </div>
-        <div class="zone-legend">
-          {#each hrZones as zone}<span
-              ><i style={`background: ${zone.color}`}></i>{zone.label}</span
-            >{/each}
-        </div>
+        <table class="laps-table">
+          <thead>
+            <tr>
+              <th>Lap</th>
+              <th>Distance</th>
+              <th>Duration</th>
+              <th>Pace</th>
+              <th>Avg HR</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each displayLaps as lap (lap.lap_no)}
+              <tr>
+                <td><strong>{lap.lap_no}</strong></td>
+                <td>{formatDistance(lap.distance_m)}</td>
+                <td>{formatDuration(lap.duration_s)}</td>
+                <td>{formatPace(lap.avg_pace_s_per_km)}</td>
+                <td>{formatHr(lap.avg_hr)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
     {/if}
-  {/if}
-
-  {#if isRun && displayLaps.length > 0}
-    <h2 class="section-title">Laps (1 km splits)</h2>
-    <div class="laps-container tile">
-      <div class="split-bars" aria-label="Split pace bars">
-        {#each displayLaps as lap (lap.lap_no)}
-          <div class="split-row">
-            <span class="split-label">{lap.lap_no}</span><span
-              class="split-track"
-              ><span
-                class="split-fill"
-                style={`width: ${Math.min(100, ((lap.avg_pace_s_per_km ?? 0) / Math.max(...displayLaps.map((l) => l.avg_pace_s_per_km ?? 0), 1)) * 100)}%`}
-              ></span></span
-            ><strong>{formatPace(lap.avg_pace_s_per_km)}</strong>
-          </div>
-        {/each}
-      </div>
-      <table class="laps-table">
-        <thead>
-          <tr>
-            <th>Lap</th>
-            <th>Distance</th>
-            <th>Duration</th>
-            <th>Pace</th>
-            <th>Avg HR</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each displayLaps as lap (lap.lap_no)}
-            <tr>
-              <td><strong>{lap.lap_no}</strong></td>
-              <td>{formatDistance(lap.distance_m)}</td>
-              <td>{formatDuration(lap.duration_s)}</td>
-              <td>{formatPace(lap.avg_pace_s_per_km)}</td>
-              <td>{formatHr(lap.avg_hr)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
   {/if}
 {/if}
 

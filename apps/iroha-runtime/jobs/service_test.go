@@ -60,3 +60,23 @@ func TestNextScheduleRunManualDisablesAfterRun(t *testing.T) {
 		t.Fatalf("next = %v, want nil", next)
 	}
 }
+
+type retryAfterTestError struct{ delay time.Duration }
+
+func (e retryAfterTestError) Error() string { return "rate limited" }
+
+func (e retryAfterTestError) RetryAfterDuration() (time.Duration, bool) {
+	return e.delay, true
+}
+
+func TestRetryDelayForUsesProviderDelay(t *testing.T) {
+	if got := retryDelayFor(retryAfterTestError{delay: 17 * time.Second}, 1); got != 17*time.Second {
+		t.Fatalf("retry delay = %s, want 17s", got)
+	}
+}
+
+func TestRetryDelayForFallsBackToAttemptBackoff(t *testing.T) {
+	if got := retryDelayFor(nil, 2); got != 2*time.Minute {
+		t.Fatalf("retry delay = %s, want 2m", got)
+	}
+}

@@ -2,28 +2,20 @@ name: iroha-dev
 
 services:
   db:
-    image: ghcr.io/baosystems/postgis:18-3.6
+    image: docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21
     cpus: 2
     mem_limit: 2g
     environment:
-      POSTGRES_DB: iroha
-      POSTGRES_USER: iroha
-      POSTGRES_PASSWORD: iroha_dev
+      POSTGRES_DBNAME: iroha
+      POSTGRES_USER: postgres
+      POSTGRES_PASS: iroha_dev
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-
-  valkey:
-    image: valkey/valkey:8-alpine
-    cpus: 1
-    mem_limit: 256m
-    ports:
-      - "6379:6379"
-    volumes:
-      - valkeydata:/data
+      - ./initdb/001-iroha-user.sql:/docker-entrypoint-initdb.d/001-iroha-user.sql
 
 volumes:
   pgdata:
-  valkeydata:
+    name: iroha-dev_pgdata-kartoza

@@ -34,12 +34,14 @@ const (
 	KindProjectionRefresh     = "projection_refresh"
 	KindPublicSummaryRefresh  = "public_summary_refresh"
 	KindParserReprocess       = "parser_reprocess"
+	KindGeocodeRefresh        = "geocode_refresh"
 
 	ScheduleKindInterval = "interval"
 	ScheduleKindManual   = "manual"
 
-	DefaultMaxAttempts = 3
-	DefaultLimit       = 50
+	DefaultMaxAttempts  = 3
+	DefaultLimit        = 50
+	DefaultLeaseTimeout = 5 * time.Minute
 )
 
 var (
@@ -143,6 +145,9 @@ func (s *Service) ClaimNext(workerID string) (models.Job, error) {
 	now := time.Now().UTC()
 	var job models.Job
 	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := recoverExpiredJobs(tx, now); err != nil {
+			return err
+		}
 		result := tx.Raw(`
 			update tb_jobs
 			set status = ?,
@@ -209,7 +214,7 @@ func (s *Service) Fail(job models.Job, cause error) error {
 		nextStatus = StatusFailed
 		updates["finished_at"] = &now
 	} else {
-		updates["run_after"] = now.Add(retryDelay(job.Attempts))
+		updates["run_after"] = now.Add(retryDelayFor(cause, job.Attempts))
 	}
 	updates["status"] = nextStatus
 
@@ -233,7 +238,11 @@ func (s *Service) ProcessNext(ctx context.Context, workerID string) (models.Job,
 		return job, err
 	}
 
-	if err := handler(ctx, job); err != nil {
+	workCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go s.refreshLeaseLoop(workCtx, job.ID, workerID)
+
+	if err := handler(workCtx, job); err != nil {
 		if failErr := s.Fail(job, err); failErr != nil {
 			return job, failErr
 		}
@@ -244,6 +253,28 @@ func (s *Service) ProcessNext(ctx context.Context, workerID string) (models.Job,
 		return job, err
 	}
 	return job, nil
+}
+
+func (s *Service) refreshLeaseLoop(ctx context.Context, jobID uuid.UUID, workerID string) {
+	ticker := time.NewTicker(DefaultLeaseTimeout / 3)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			result := s.db.Model(&models.Job{}).
+				Where("id = ? and status = ? and locked_by = ?", jobID, StatusRunning, workerID).
+				Updates(map[string]any{"locked_at": now.UTC(), "updated_at": now.UTC()})
+			if result.Error != nil {
+				s.logger.Error("refresh job lease", "job_id", jobID.String(), "worker", workerID, "error", result.Error)
+				return
+			}
+			if result.RowsAffected == 0 {
+				return
+			}
+		}
+	}
 }
 
 func (s *Service) CreateSchedule(input ScheduleInput) (models.JobSchedule, error) {
@@ -302,16 +333,41 @@ func (s *Service) EnqueueDueSchedules(limit int) (int, error) {
 
 	enqueued := 0
 	for _, schedule := range schedules {
-		if err := s.enqueueSchedule(schedule, now); err != nil {
+		claimed, err := s.enqueueSchedule(schedule, now)
+		if err != nil {
 			return enqueued, err
 		}
-		enqueued++
+		if claimed {
+			enqueued++
+		}
 	}
 	return enqueued, nil
 }
 
-func (s *Service) enqueueSchedule(schedule models.JobSchedule, now time.Time) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
+func (s *Service) enqueueSchedule(schedule models.JobSchedule, now time.Time) (bool, error) {
+	claimed := false
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		nextRunAt, enabled, err := nextScheduleRun(schedule, now)
+		if err != nil {
+			return err
+		}
+		updates := map[string]any{
+			"last_run_at": &now,
+			"next_run_at": nextRunAt,
+			"enabled":     enabled,
+			"updated_at":  now,
+		}
+		result := tx.Model(&models.JobSchedule{}).
+			Where("id = ? and enabled = ? and next_run_at is not null and next_run_at <= ?", schedule.ID, true, now).
+			Updates(updates)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return nil
+		}
+		claimed = true
+
 		id, err := ids.New()
 		if err != nil {
 			return err
@@ -330,20 +386,9 @@ func (s *Service) enqueueSchedule(schedule models.JobSchedule, now time.Time) er
 		if err := tx.Create(&job).Error; err != nil {
 			return err
 		}
-
-		updates := map[string]any{
-			"last_run_at": &now,
-			"updated_at":  now,
-		}
-		nextRunAt, enabled, err := nextScheduleRun(schedule, now)
-		if err != nil {
-			return err
-		}
-		updates["next_run_at"] = nextRunAt
-		updates["enabled"] = enabled
-
-		return tx.Model(&models.JobSchedule{}).Where("id = ?", schedule.ID).Updates(updates).Error
+		return nil
 	})
+	return claimed, err
 }
 
 func nextScheduleRun(schedule models.JobSchedule, now time.Time) (*time.Time, bool, error) {
@@ -371,6 +416,35 @@ func retryDelay(attempts int) time.Duration {
 		return 10 * time.Minute
 	}
 	return delay
+}
+
+type retryAfterError interface {
+	RetryAfterDuration() (time.Duration, bool)
+}
+
+func retryDelayFor(cause error, attempts int) time.Duration {
+	var retryAfter retryAfterError
+	if errors.As(cause, &retryAfter) {
+		if delay, ok := retryAfter.RetryAfterDuration(); ok {
+			return delay
+		}
+	}
+	return retryDelay(attempts)
+}
+
+func recoverExpiredJobs(tx *gorm.DB, now time.Time) error {
+	leaseExpiredAt := now.Add(-DefaultLeaseTimeout)
+	return tx.Exec(`
+		update tb_jobs
+		set status = case when attempts >= max_attempts then ? else ? end,
+		    run_after = case when attempts >= max_attempts then run_after else ? end,
+		    finished_at = case when attempts >= max_attempts then ? else finished_at end,
+		    locked_by = null,
+		    locked_at = null,
+		    error_message = coalesce(error_message, 'worker lease expired'),
+		    updated_at = ?
+		where status = ? and locked_at is not null and locked_at <= ?
+	`, StatusFailed, StatusQueued, now, now, now, StatusRunning, leaseExpiredAt).Error
 }
 
 func marshalPayload(payload any) (json.RawMessage, error) {
