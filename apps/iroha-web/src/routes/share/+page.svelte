@@ -63,8 +63,10 @@
     return sport.toLowerCase().includes("swim");
   }
 
-  function cityLabel(city: string): string {
-    return city === "Unknown" ? "Location pending" : city;
+  function cityLabel(city: string, status?: string): string {
+    if (status === "pending") return "Location pending";
+    if (status === "unknown" || city === "Unknown") return "Location unavailable";
+    return city;
   }
 
   function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
@@ -285,14 +287,22 @@
   const cityGroups = $derived.by(() => {
     const groups: Record<
       string,
-      { city: string; count: number; runCount: number; sports: Set<string> }
+      {
+        city: string;
+        status: string;
+        count: number;
+        runCount: number;
+        sports: Set<string>;
+      }
     > = {};
 
     for (const r of filteredRoutes) {
       const city = r.properties.city || "Unknown";
+      const status =
+        r.properties.city_status || (city === "Unknown" ? "pending" : "resolved");
 
       if (!groups[city]) {
-        groups[city] = { city, count: 0, runCount: 0, sports: new Set() };
+        groups[city] = { city, status, count: 0, runCount: 0, sports: new Set() };
       }
       groups[city].count++;
       if (r.properties.sport_type === "run") {
@@ -313,7 +323,7 @@
     Math.max(1, ...cityGroups.map((g) => g.runCount)),
   );
   const hasPendingLocations = $derived(
-    cityGroups.some((g) => g.city === "Unknown"),
+    cityGroups.some((g) => g.status === "pending"),
   );
 
   // Clicking a city card narrows the map to that city's routes.
@@ -597,7 +607,7 @@
               >
                 <div class="min-w-0">
                   <div class="font-bold text-sm truncate" title={group.city}>
-                    {cityLabel(group.city)}
+                    {cityLabel(group.city, group.status)}
                   </div>
                   <div class="text-[9px] opacity-75 truncate mt-1">
                     {Array.from(group.sports)

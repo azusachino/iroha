@@ -123,9 +123,10 @@ type geoJSONLineString struct {
 }
 
 type routeLineProps struct {
-	SportType string `json:"sport_type"`
-	Year      string `json:"year"`
-	City      string `json:"city"`
+	SportType  string `json:"sport_type"`
+	Year       string `json:"year"`
+	City       string `json:"city"`
+	CityStatus string `json:"city_status"`
 }
 
 func (s *Server) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
@@ -140,24 +141,27 @@ func (s *Server) handlePublicRoutes(w http.ResponseWriter, r *http.Request) {
 			features := make([]geoJSONFeature, 0, len(lines))
 			for _, line := range lines {
 				city := "Unknown"
+				cityStatus := "pending"
 				if len(line.Points) > 0 {
 					lon := line.Points[0][0]
 					lat := line.Points[0][1]
 					if s.deps.GeocodeService != nil {
 						if val, ok, err := s.deps.GeocodeService.LookupCity(r.Context(), lat, lon); err == nil && ok {
 							city = val
+							cityStatus = "resolved"
 						} else if err := s.deps.GeocodeService.EnqueueRefresh(r.Context(), lat, lon); err != nil {
 							s.deps.Logger.Warn("enqueue geocode refresh", "error", err)
 						}
 					} else if val, ok := cache.Get[string](r.Context(), s.deps.Cache, "geocode", fmt.Sprintf("v1:%.2f:%.2f", lat, lon)); ok {
 						city = val
+						cityStatus = "resolved"
 					}
 				}
 
 				features = append(features, geoJSONFeature{
 					Type:       "Feature",
 					Geometry:   geoJSONLineString{Type: "LineString", Coordinates: line.Points},
-					Properties: routeLineProps{SportType: line.SportType, Year: line.Year, City: city},
+					Properties: routeLineProps{SportType: line.SportType, Year: line.Year, City: city, CityStatus: cityStatus},
 				})
 			}
 			return geoJSONFeatureCollection{Type: "FeatureCollection", Features: features}, nil

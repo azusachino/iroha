@@ -511,7 +511,33 @@ paths:
                   type: { type: string, const: FeatureCollection }
                   features:
                     type: array
-                    items: { type: object, additionalProperties: true }
+                    items:
+                      type: object
+                      required: [type, geometry, properties]
+                      properties:
+                        type: { type: string, const: Feature }
+                        geometry:
+                          type: object
+                          required: [type, coordinates]
+                          properties:
+                            type: { type: string, const: LineString }
+                            coordinates:
+                              type: array
+                              items:
+                                type: array
+                                minItems: 2
+                                maxItems: 2
+                                items: { type: number }
+                        properties:
+                          type: object
+                          required: [sport_type, year, city, city_status]
+                          properties:
+                            sport_type: { type: string }
+                            year: { type: string }
+                            city: { type: string }
+                            city_status:
+                              type: string
+                              enum: [pending, resolved, unknown]
   /public/v1/geocode:
     get:
       tags: [public]
