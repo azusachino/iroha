@@ -1,14 +1,19 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
+	"github.com/azusachino/iroha/apps/iroha-runtime/dbconnect"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
@@ -18,7 +23,6 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -30,8 +34,11 @@ func main() {
 		logger.Error("load config", "error", err)
 		os.Exit(1)
 	}
+	if cfg.Auth.LocalNoAuth {
+		logger.Warn("starting with auth disabled (IROHA_LOCAL_NO_AUTH=true) — every request is treated as authenticated")
+	}
 
-	db, err := gorm.Open(postgres.Open(cfg.Database.URL), &gorm.Config{})
+	db, err := dbconnect.Connect(cfg.Database.URL, &gorm.Config{}, logger)
 	if err != nil {
 		logger.Error("open database", "error", err)
 		os.Exit(1)
@@ -102,9 +109,29 @@ func main() {
 		IdleTimeout:       2 * time.Minute,
 		MaxHeaderBytes:    1 << 20,
 	}
-	if err := httpServer.ListenAndServe(); err != nil {
-		logger.Error("server stopped", "error", err)
-		os.Exit(1)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	serveErr := make(chan error, 1)
+	go func() {
+		serveErr <- httpServer.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serveErr:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("server stopped", "error", err)
+			os.Exit(1)
+		}
+	case <-ctx.Done():
+		logger.Info("shutdown signal received, draining connections")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("graceful shutdown failed", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("server shut down cleanly")
 	}
 }
 
