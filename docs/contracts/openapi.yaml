@@ -372,6 +372,41 @@ paths:
                 $ref: "#/components/schemas/MediaPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/media/sync/{connectorId}:
+    post:
+      tags: [media]
+      security:
+        - bearerJwt: []
+      summary: Queue a configured media connector sync.
+      description: |
+        Queues a sync for a connector configured by the deployment. Credentials
+        are resolved by the worker environment and are never accepted in this
+        request body. The pre-release API currently supports `anilist` and
+        `bangumi`.
+      parameters:
+        - name: connectorId
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [anilist, bangumi]
+      responses:
+        "202":
+          description: Sync job queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          description: Job dispatcher is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/v1/media/events:
     get:
       tags: [media]
@@ -632,6 +667,14 @@ components:
         error_message: { type: string }
         started_at: { type: string, format: date-time }
         finished_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    Job:
+      type: object
+      required: [id, kind, status, created_at]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [media_sync_anilist, media_sync_bangumi] }
+        status: { type: string, enum: [queued, running, completed, failed, canceled] }
         created_at: { type: string, format: date-time }
     Activity:
       type: object

@@ -87,6 +87,7 @@ func main() {
 		RawFileService:   rawFileService,
 		Cache:            cacheClient,
 		GeocodeService:   geocodeService,
+		JobEnqueuer:      enqueuer,
 		MaxUploadBytes:   2 << 30,
 		AllowedOrigins:   cfg.Server.AllowedOrigins,
 	})

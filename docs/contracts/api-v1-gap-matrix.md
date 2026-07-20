@@ -18,7 +18,7 @@ The source of truth for the route inventory is `apps/iroha-server/pkg/httpapi/se
 | Activities       | `GET /api/v1/activities`, detail, route, samplings, laps                               | PRESENT |
 | Sleep            | list, aggregates, and segments under `/api/v1/sleep`                                   | PRESENT |
 | Daily            | list and aggregates under `/api/v1/daily`                                              | PRESENT |
-| Media            | list, detail, events, and aggregates under `/api/v1/media`                             | PRESENT |
+| Media            | list, detail, events, aggregates, and `POST /api/v1/media/sync/{connectorId}` under `/api/v1/media` | PRESENT |
 | Public views     | summary, activities, routes, and geocode under `/public/v1`                            | PRESENT |
 
 Gear, privacy-zone management, published-activity mutation, and activity mutation are roadmap items, not shipped routes.
@@ -37,7 +37,7 @@ Gear, privacy-zone management, published-activity mutation, and activity mutatio
 | JWT authentication        | PRESENT/PARTIAL | JWT validation now protects private API mode; token issuance, rotation, and browser/session policy remain deployment concerns.            |
 | Rate limiting             | PRESENT/PARTIAL | IP-based limits exist for private, public, and geocode routes. The `429` response and `Retry-After` contract are not defined.             |
 | Frontend compatibility    | PARTIAL         | The Svelte client consumes private reads without auth headers; JWT adoption requires an explicit browser/session flow.                    |
-| Runtime contract          | PARTIAL         | Podman Compose runs server, worker, web, database, and Valkey; the full upload-to-worker contract still needs an executable gate.         |
+| Runtime contract          | PARTIAL         | Podman Compose runs server, worker, web, database, and Valkey; local startup now gates application services on database readiness, while the full upload-to-worker contract still needs an executable gate. |
 | Release stability         | UNKNOWN         | Stability is evaluated against the release candidate, not the current active-development branch.                                          |
 
 ## Required next decisions

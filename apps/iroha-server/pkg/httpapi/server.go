@@ -47,6 +47,7 @@ type Dependencies struct {
 	RawFileService   *rawfiles.Service
 	Cache            *cache.Client
 	GeocodeService   *geocode.Service
+	JobEnqueuer      imports.Enqueuer
 	MaxUploadBytes   int64
 	AllowedOrigins   []string
 }
@@ -127,6 +128,7 @@ func (s *Server) routes() {
 			r.Get("/aggregates", s.handleDailyAggregates)
 		})
 		r.Route("/media", func(r chi.Router) {
+			r.With(s.requireJWT("iroha:write")).Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
 			r.Get("/aggregates", s.handleMediaAggregates)
 			r.Get("/events", s.handleListMediaEvents)
 			r.Get("/", s.handleListMedia)
