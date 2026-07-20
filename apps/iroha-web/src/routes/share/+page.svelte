@@ -65,7 +65,8 @@
 
   function cityLabel(city: string, status?: string): string {
     if (status === "pending") return "Location pending";
-    if (status === "unknown" || city === "Unknown") return "Location unavailable";
+    if (status === "unknown" || city === "Unknown")
+      return "Location unavailable";
     return city;
   }
 
@@ -299,10 +300,17 @@
     for (const r of filteredRoutes) {
       const city = r.properties.city || "Unknown";
       const status =
-        r.properties.city_status || (city === "Unknown" ? "pending" : "resolved");
+        r.properties.city_status ||
+        (city === "Unknown" ? "pending" : "resolved");
 
       if (!groups[city]) {
-        groups[city] = { city, status, count: 0, runCount: 0, sports: new Set() };
+        groups[city] = {
+          city,
+          status,
+          count: 0,
+          runCount: 0,
+          sports: new Set(),
+        };
       }
       groups[city].count++;
       if (r.properties.sport_type === "run") {
