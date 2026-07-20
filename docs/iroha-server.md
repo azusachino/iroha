@@ -170,11 +170,7 @@ Normal Telegram Bot API file downloads may be too small for full Apple Health ex
 
 ### Upload Contract
 
-Authenticated API requests carry the JWT bearer token when auth is enabled (see [Auth](#auth)):
-
-```text
-Authorization: Bearer <jwt>
-```
+The private API is unauthenticated (see [Auth](#auth)); the bot only needs network access to `iroha-server`.
 
 Step 1 — push the raw file as multipart form data:
 
@@ -252,39 +248,17 @@ GET /api/v1/imports/{importId}
 
 ## Auth
 
-Authentication is deployment-configurable:
+`/api/v1`, `/public/v1`, and `/healthz` are all unauthenticated. iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security control, not an application-level
+credential. Do not expose `iroha-server` to an untrusted network — `/public/v1` is the only surface designed for eventual public exposure, and it only ever serves sanitized data.
 
-- trusted local development may bypass authentication (`local_no_auth = true`)
-- authenticated mode requires a JWT bearer token for `/api/v1`
-- `/public/v1` and `/healthz` remain anonymous
-- reads require `iroha:read`; writes require `iroha:write` (write implies read)
-
-Private API requests use:
-
-```text
-Authorization: Bearer <jwt>
-```
-
-Authenticated mode validates the configured JWT issuer, audience, signature, and expiry. A missing or invalid token returns `401`; an insufficient scope returns `403`. The signing secret is supplied
-through `IROHA_JWT_SECRET` and is never logged or sent to the browser.
-
-```json
-{
-  "code": "unauthorized",
-  "message": "invalid or missing bearer token",
-  "request_id": "req_01..."
-}
-```
-
-The private web viewer can receive a deployment-provided `PUBLIC_IROHA_API_TOKEN`. This is a bearer credential exposed to the trusted private network, not a signing secret. Do not use this mode for an
-untrusted or public deployment.
+Per-IP rate limiting still applies to both `/api/v1` and `/public/v1` as a basic abuse guard; see [HTTP hardening](#http-hardening).
 
 ## HTTP hardening
 
-- Configured private origins may use `GET`, `POST`, and `OPTIONS` with `Authorization`, `Accept`, and `Content-Type` headers. The public projection remains anonymous and cacheable.
+- Configured private origins may use `GET`, `POST`, and `OPTIONS` with `Accept` and `Content-Type` headers. The public projection remains anonymous and cacheable.
 - JSON request bodies are limited to 1 MiB and reject unknown fields and trailing JSON values. Multipart raw-file uploads use the separate configured upload limit.
 - The server applies a 10-second header timeout, a 15-minute request-read timeout for large uploads, a 2-minute write/idle timeout, and a 1 MiB maximum header size.
-- Structured access logs include the request ID, route, status, duration, response size, and authenticated subject when available. Credentials and request bodies are not logged.
+- Structured access logs include the request ID, route, status, duration, and response size. Request bodies are not logged.
 
 ## Configuration
 
@@ -307,12 +281,6 @@ url = "postgres://iroha:iroha_dev@localhost:5432/iroha"
 
 [storage]
 data_dir = ".iroha-data"
-
-[auth]
-local_no_auth = true
-jwt_secret = ""
-jwt_issuer = "iroha"
-jwt_audience = "iroha-api"
 ```
 
 Environment variables override TOML:
@@ -321,8 +289,4 @@ Environment variables override TOML:
 IROHA_SERVER_ADDR
 IROHA_DATABASE_URL
 IROHA_DATA_DIR
-IROHA_LOCAL_NO_AUTH
-IROHA_JWT_SECRET
-IROHA_JWT_ISSUER
-IROHA_JWT_AUDIENCE
 ```

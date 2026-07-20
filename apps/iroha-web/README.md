@@ -4,9 +4,9 @@ Private, read-only SvelteKit viewer for the iroha activity data. It consumes the
 `iroha-server` read API and renders an activity list plus a per-activity detail
 page with a MapLibre route map and uPlot pace / heart-rate / elevation charts.
 
-This is a personal single-user viewer. It sends an optional deployment-provided
-JWT bearer header and performs no
-writes.
+This is a personal single-user viewer. The private API is unauthenticated; the
+deployment's network boundary is the security control, not an application
+credential. The viewer performs no writes.
 
 ## Stack
 
@@ -28,12 +28,6 @@ container deployment, set it to an empty value so the browser uses the Caddy
 cp .env.example .env
 # then edit PUBLIC_IROHA_API_BASE if the server is elsewhere
 ```
-
-`PUBLIC_IROHA_API_TOKEN` is an optional deployment-provided, read-only JWT for
-authenticated private API mode. It is compiled into the static browser bundle
-and is therefore not a secret. Do not use a signing secret or an
-`iroha:write` token here. The web image accepts it as the
-`PUBLIC_IROHA_API_TOKEN` build argument.
 
 ## Develop
 

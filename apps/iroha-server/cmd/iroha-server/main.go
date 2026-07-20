@@ -34,9 +34,6 @@ func main() {
 		logger.Error("load config", "error", err)
 		os.Exit(1)
 	}
-	if cfg.Auth.LocalNoAuth {
-		logger.Warn("starting with auth disabled (IROHA_LOCAL_NO_AUTH=true) — every request is treated as authenticated")
-	}
 
 	db, err := dbconnect.Connect(cfg.Database.URL, &gorm.Config{}, logger)
 	if err != nil {

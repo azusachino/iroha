@@ -30,8 +30,9 @@ The current canonical domains are:
 - `tb_daily_summaries` + `tb_daily_metrics` — Apple Move/Exercise/Stand rings and cross-source-deduplicated daily steps, distance, and flights.
 - `tb_media_items` + `tb_media_events` — AniList/Bangumi-synced media consumption history.
 
-Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/daily`, and `/api/v1/media`, protected by JWT auth and per-route rate limiting — see
-[API v1 Contract](docs/contracts/openapi.yaml). Sanitized activity and route projections are also available under `/public/v1`; the public surface is a derived view, never the canonical store.
+Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/daily`, and `/api/v1/media` — see [API v1 Contract](docs/contracts/openapi.yaml). This surface is unauthenticated by
+design: iroha is a single-user personal deployment, and the network boundary (private LAN/NAS, never exposed publicly) is the security control, not an application credential. Sanitized activity and
+route projections are also available under `/public/v1`; the public surface is a derived view, never the canonical store, and is the only surface meant for eventual public exposure.
 
 ## Features
 
@@ -46,7 +47,8 @@ Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/d
   sanitized projections.
 - **PostGIS canonical store** — Strava is a legacy import/export adapter only.
 - **Media sync** — AniList and Bangumi connectors sync watch/read history into canonical media items and events, with a MAL↔AniList/Bangumi bridge cache for cross-provider resolution.
-- **Private auth + rate limiting** — JWT-authenticated private API, per-route rate limits, and a route-inventory test that fails the build if a live route drifts from the OpenAPI contract.
+- **Contract-checked private API** — per-route rate limiting and a route-inventory test that fails the build if a live route drifts from the OpenAPI contract. Unauthenticated by design; see
+  [Auth](docs/iroha-server.md#auth) for the deployment model.
 - **Durable geocode** — reverse-geocoded activity locations are cached and refreshed through the job queue, with backoff against upstream rate limits instead of retry storms.
 - **Themed cockpit** — a switchable multi-design frontend (grapher, field journal, atlas, phenology, sound-map, and archive themes) sharing one typed theme registry.
 
@@ -57,7 +59,6 @@ Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/d
 | Services | Go 1.26 (`apps/iroha-server`, `apps/iroha-job`), GORM                         |
 | Database | PostgreSQL 18 + PostGIS, [goose](https://github.com/pressly/goose) migrations |
 | Cache    | Postgres-backed by default (`tb_cache_entries`); Valkey/Redis is optional     |
-| Auth     | JWT (`golang-jwt/jwt/v5`) + per-route rate limiting (`go-chi/httprate`)       |
 | Web      | Svelte 5 + Vite (`apps/iroha-web`, [bun](https://bun.sh))                     |
 | Tooling  | Nix devShell, `make` task runner, `uv` for dev scripts                        |
 
@@ -89,11 +90,7 @@ The server is configured via `iroha.toml` and/or environment variables:
 | `IROHA_DATA_DIR`                | Raw-file storage dir                 | `.iroha-data`                  |
 | `IROHA_VALKEY_URL`              | Valkey/Redis DSN                     | local Valkey DSN               |
 | `IROHA_CACHE_BACKEND`           | Cache backend (`postgres`/`valkey`)  | `postgres`                     |
-| `IROHA_LOCAL_NO_AUTH`           | Disable auth for local dev           | `true`                         |
 | `IROHA_ALLOWED_ORIGINS`         | Private browser origins              | local web origins              |
-| `IROHA_JWT_SECRET`              | JWT verification secret              | —                              |
-| `IROHA_JWT_ISSUER`              | Expected JWT issuer                  | `iroha`                        |
-| `IROHA_JWT_AUDIENCE`            | Expected JWT audience                | `iroha-api`                    |
 | `IROHA_PARSER_VERSION`          | Parser build id; bump to reprocess   | `imports.DefaultParserVersion` |
 | `IROHA_ANILIST_USERNAME`        | Public AniList username to sync      | —                              |
 | `IROHA_ANILIST_TOKEN`           | Optional AniList OAuth token         | —                              |
@@ -102,8 +99,8 @@ The server is configured via `iroha.toml` and/or environment variables:
 | `IROHA_BANGUMI_BRIDGE_PATH`     | Optional Bangumi→MAL JSON cache path | —                              |
 | `IROHA_MAL_ANILIST_BRIDGE_PATH` | Optional MAL→AniList JSON cache path | —                              |
 
-For a private authenticated deployment, set `IROHA_LOCAL_NO_AUTH=false`, provide `IROHA_JWT_SECRET` only to `iroha-server`, and set matching issuer/audience values. Build the static web image with a
-read-only `PUBLIC_IROHA_API_TOKEN`. That token is visible to visitors of the private site by design; never put the JWT signing secret or a write-capable token in the web build.
+The private API (`/api/v1`) is unauthenticated by design — iroha is a single-user personal deployment, and the network boundary (private LAN/NAS) is the security control. Do not expose
+`iroha-server` directly to an untrusted network; set `IROHA_ALLOWED_ORIGINS` to the web origin(s) that should be allowed to call it.
 
 Smoke-test a real import end to end:
 

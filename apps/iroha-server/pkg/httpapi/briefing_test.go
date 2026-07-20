@@ -24,7 +24,7 @@ func TestHandleBriefingReturnsVersionedSections(t *testing.T) {
 		t.Fatalf("new registry: %v", err)
 	}
 	server := NewServer(Dependencies{
-		Config:           config.Config{Auth: config.AuthConfig{LocalNoAuth: true}},
+		Config:           config.Config{},
 		BriefingRegistry: registry,
 	})
 	recorder := httptest.NewRecorder()
@@ -44,7 +44,7 @@ func TestHandleBriefingReturnsVersionedSections(t *testing.T) {
 }
 
 func TestHandleBriefingRejectsInvalidDate(t *testing.T) {
-	server := NewServer(Dependencies{Config: config.Config{Auth: config.AuthConfig{LocalNoAuth: true}}})
+	server := NewServer(Dependencies{Config: config.Config{}})
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/briefing?date=bad", nil)
 	server.ServeHTTP(recorder, request)

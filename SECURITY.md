@@ -16,5 +16,6 @@ You can expect an acknowledgement within a few days. Since iroha handles persona
 
 ## Scope
 
-iroha is currently a personal, self-hosted project. There is no hosted production deployment; the default local configuration disables authentication (`IROHA_LOCAL_NO_AUTH=true`) and is intended for
-localhost only — do not expose it to untrusted networks without enabling auth.
+iroha is currently a personal, self-hosted project with no application-level authentication on the private API (`/api/v1`) — the deployment's network boundary (private LAN/NAS, not exposed publicly)
+is the intended security control. Do not expose `iroha-server` to an untrusted network. `/public/v1` is the only surface designed for eventual public exposure; it serves sanitized, non-sensitive data
+only.
