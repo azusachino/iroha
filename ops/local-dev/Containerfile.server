@@ -18,28 +18,25 @@ COPY apps/iroha-job ./apps/iroha-job
 RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-server ./cmd/iroha-server
 RUN CGO_ENABLED=0 go -C apps/iroha-job build -mod=mod -o /out/iroha-job .
 
-FROM debian:bookworm-slim AS server
-# CA certs are required for outbound HTTPS (e.g. Nominatim geocoding).
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/* \
-  && groupadd -r iroha && useradd -r -g iroha -d /data iroha \
+FROM alpine:3.22 AS server
+# ca-certificates is required for outbound HTTPS (e.g. Nominatim geocoding);
+# tini is PID 1 so signals reach the Go process and no zombies accumulate.
+RUN apk add --no-cache ca-certificates tini \
+  && addgroup -S iroha && adduser -S -G iroha -H -h /data iroha \
   && mkdir -p /data && chown iroha:iroha /data
 COPY --from=build /out/iroha-server /usr/local/bin/iroha-server
 USER iroha
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/iroha-server"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-server"]
 
-FROM debian:bookworm-slim AS job
-# CA certs are required for outbound HTTPS (AniList/Bangumi media sync).
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/* \
-  && groupadd -r iroha && useradd -r -g iroha -d /data iroha \
+FROM alpine:3.22 AS job
+# ca-certificates is required for outbound HTTPS (AniList/Bangumi media sync).
+RUN apk add --no-cache ca-certificates tini \
+  && addgroup -S iroha && adduser -S -G iroha -H -h /data iroha \
   && mkdir -p /data && chown iroha:iroha /data
 COPY --from=build /out/iroha-job /usr/local/bin/iroha-job
 USER iroha
-ENTRYPOINT ["/usr/local/bin/iroha-job"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-job"]
 
 FROM golang:1.26-bookworm AS goose
 RUN go install github.com/pressly/goose/v3/cmd/goose@v3.27.2
@@ -47,15 +44,13 @@ RUN go install github.com/pressly/goose/v3/cmd/goose@v3.27.2
 # Standalone migration runner image: run as a k8s Job/initContainer ahead of
 # the server rollout. Reads DATABASE_URL or IROHA_DATABASE_URL, same as
 # scripts/db.py, and defaults to the "up" action.
-FROM debian:bookworm-slim AS migrate
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/* \
-  && groupadd -r iroha && useradd -r -g iroha iroha
+FROM alpine:3.22 AS migrate
+RUN apk add --no-cache ca-certificates tini \
+  && addgroup -S iroha && adduser -S -G iroha iroha
 COPY --from=goose /go/bin/goose /usr/local/bin/goose
 COPY apps/iroha-server/db/migrations /migrations
 COPY ops/local-dev/migrate-entrypoint.sh /usr/local/bin/migrate-entrypoint.sh
 RUN chmod +x /usr/local/bin/migrate-entrypoint.sh
 USER iroha
-ENTRYPOINT ["/usr/local/bin/migrate-entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/migrate-entrypoint.sh"]
 CMD ["up"]
