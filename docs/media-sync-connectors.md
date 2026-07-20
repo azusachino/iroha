@@ -1,12 +1,14 @@
 # Media Sync Connectors: AniList + Bangumi
 
-Draft design. Companion to [`media-history-research.md`](./media-history-research.md), which defines the media _ontology_ (works/items/titles/relations/external_refs/consumption_events/progress) and
+Implementation note (updated 2026-07-20). Companion to [`media-history-research.md`](./media-history-research.md), which defines the media _ontology_ (works/items/titles/relations/external_refs/consumption_events/progress) and
 the product direction. This document bridges that ontology to iroha's **actual provider abstraction** and specifies the first two API connectors: AniList (GraphQL) and Bangumi.tv (REST v0).
+
+The first connector slice is shipped: AniList and Bangumi fetchers, durable cursor state, raw snapshot persistence, media parsing, retry-aware worker jobs, and the private trigger endpoint are implemented. The full ontology and cross-provider resolution work remain future scope.
 
 Scope decision (2026-07-13): adopt the **full stable schema** from the research doc up front, then build the two connectors on top of it. This avoids destructive migrations once translations,
 editions, parts, adaptations, and rewatches arrive.
 
-## 1. The gap: file-backed import vs API-pull connector
+## 1. The pipeline: file-backed import and API-pull connector
 
 The current import pipeline is entirely **file-backed**:
 
@@ -20,8 +22,7 @@ client uploads raw file -> tb_raw_files (sha256, storage_path)
 ```
 
 `provider.Source` is a file handle: `Open(ctx) (io.ReadCloser, error)` over `rawFile.StoragePath`. Apple Health and GPX adapters are **pure parsers**: bytes in, `[]observations.X` out. No adapter
-reaches the network. `imports.Process` (`apps/iroha-imports/service.go`) reads the raw file, then type-asserts `BatchImporter`/`ActivityImporter`/`SleepImporter`/`DailyImporter`. **`MediaImporter` is
-never dispatched** — see the `TODO(media-sync)` at the dispatch site and pitfall `media-not-wired`.
+reaches the network. `imports.Process` (`apps/iroha-imports/service.go`) dispatches media snapshots through `MediaImporter` and persists them under the same raw-evidence and parser-version rules as health imports.
 
 AniList and Bangumi break the file assumption: there is no user-uploaded file. The user's list state lives behind an authenticated API and must be **fetched and paginated** by iroha itself.
 
@@ -44,7 +45,7 @@ The connector owns **auth, pagination, rate-limiting, and evidence capture**. Th
 new thing is _who produces the bytes_. The whole reuse/reprocess machine (sha256 + parser_version) works unchanged: a connector snapshot is content-addressed like any raw file, so re-fetching
 identical list state is a cheap skip, and bumping the media parser version reprocesses from the stored snapshot.
 
-## 2. The connector abstraction (new)
+## 2. The connector abstraction
 
 A connector is a scheduled, credentialed producer of snapshots. Proposed contract, living beside the provider contracts in `iroha-core` (e.g. `iroha-core/connector/v1`):
 
@@ -70,7 +71,8 @@ type Snapshot struct {
 
 Ownership:
 
-- **iroha-server** exposes connector config/trigger endpoints and runs the fetch loop.
+- **iroha-server** exposes `POST /api/v1/media/sync/{connectorId}` for configured `anilist` and `bangumi` connectors. It queues work and returns a typed job ID; it does not accept credentials in the request body.
+- **iroha-job** runs the fetch loop. Credentials are resolved from worker environment variables, keeping secrets out of `tb_jobs` and browser traffic.
 - **Scheduling** reuses the existing durable `tb_jobs` + `EnqueueDueSchedules` interval mechanism (jobs.Service already supports interval schedules with `ClaimNext` + `FOR UPDATE SKIP LOCKED`). A
   media sync is a scheduled job kind (`media_sync_anilist`, `media_sync_bangumi`) that runs `Fetch` in a loop until the cursor is exhausted, creating one import job per snapshot page.
 - **Cursor durability**: store per-connector sync cursor (page number / `updatedAfter` watermark) in a small `tb_media_sync_state` row so incremental syncs resume and only pull changed entries.
@@ -78,17 +80,14 @@ Ownership:
 Connectors are registered in a connector registry sibling to the provider registry (`iroha-providers/registry`), and their snapshots' `SourceKind` must match a registered `MediaImporter` adapter's
 declared source kind.
 
-## 3. Wiring `ImportMedia` into `Process` (resolves `media-not-wired`)
+## 3. Media dispatch (shipped)
 
-Two concrete changes, both required before either connector can persist anything:
+The formerly planned dispatch and persistence changes are complete:
 
-1. **Dispatch** — in `imports.Process`, after the existing activity/sleep/daily branch, add a media branch that type-asserts `provider.MediaImporter` and calls `ImportMedia(ctx, source, options)`. The
-   `BatchImporter` path stays health-only; media is always via `MediaImporter` (matches the existing `implementsCapability` comment in `provider.go`: "Media is not carried by ImportBatch").
-2. **Persistence** — add `persistMedia(...)` alongside `persistActivities(...)`, writing into the new `tb_media_*` tables under the same `tb_import_snapshots` + reprocess/purge discipline that health
-   uses. Reprocess purge order matters (see the apple-reprocess pitfall): purge derived media rows for the raw file _before_ deleting parent rows, or change-detection silently skips re-creation.
+1. **Dispatch** — `imports.Process` type-asserts `provider.MediaImporter` and calls `ImportMedia(ctx, source, options)`; media is not carried by `ImportBatch`.
+2. **Persistence** — `persistMedia(...)` writes canonical media rows under the same snapshot dedupe and parser-version reprocess discipline used by health imports.
 
-Register the two media source kinds in `parsers`/`coreimports` `Kind*` + `IsImplemented` so `imports.Create` accepts `parser_kind = "anilist" | "bangumi"` (today it rejects anything but apple/gpx up
-front — the same guard that stopped media jobs from failing 3x on retry).
+The `anilist` and `bangumi` source kinds are registered in the parser/provider registries and accepted by `imports.Create`.
 
 ## 4. Full-schema adoption
 
@@ -182,22 +181,17 @@ against a real collection before we commit the resolver.
 
 ## 9. Auth & config
 
-- AniList public username: no secret. AniList OAuth + Bangumi PAT: per-user secrets. Store connector credentials in server config / a `tb_media_connector_accounts` row (not in raw files, not in git);
-  reference the existing config pattern. Local dev stays `LocalNoAuth`.
+- AniList public username and Bangumi username/token are currently deployment credentials supplied to `iroha-job` through environment variables (not raw files, `tb_jobs`, or git). Per-user account storage and AniList OAuth remain future work. Local dev stays `LocalNoAuth`.
 - Both connectors must send a descriptive `User-Agent` identifying iroha. AniList's Cloudflare **403s the default `Python-urllib`/no-UA request** (verified), so a UA is mandatory there; Bangumi reads
   work without one but send it anyway.
 
-## 10. Proposed epic breakdown
+## 10. Delivery status and remaining work
 
 Ordered smallest → biggest to build momentum; each ends green on `make check`.
 
-1. **Schema migration** — full `tb_media_*` stable schema (one migration + Go models). No behavior yet.
-2. **Wire `ImportMedia` + `persistMedia`** — dispatch in `Process`, register `anilist`/`bangumi` source kinds, resolve pitfall `media-not-wired`. Prove with a fixture snapshot → rows.
-3. **Grow `observations.Media`** — titles[]/external_refs[]/item fields/event+progress; keep neutral.
-4. **Connector abstraction + scheduling** — `Connector` contract, snapshot→tb*raw_files, cursor state, `media_sync*\*` job kinds on the existing interval scheduler.
-5. **AniList connector** — GraphQL fetch + pagination + mapping; pure-parser adapter for `anilist` snapshots; fixture + one real public-username smoke.
-6. **Bangumi connector** — REST fetch + pagination + mapping; adapter for `bangumi` snapshots; fixture + real smoke.
-7. **Cross-provider dedup + inbox** — external-ref resolution ladder, `tb_media_resolution_tasks`, AniList `idMal` bridge. (Web inbox UI is a later web epic.)
+1. **Shipped** — schema, media dispatch/persistence, connector contract, cursor state, AniList/Bangumi pagination, raw snapshot evidence, worker retry handling, and private sync trigger.
+2. **Next** — broaden observations to the full ontology (titles, external refs, work/item linkage, events, and progress projections).
+3. **Later** — cross-provider dedup/inbox, bridge dataset refresh, connector account storage, and web inbox UI.
 
 Deferred (explicitly out of this draft's scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Letterboxd/Goodreads/WeRead CSV; TMDb/Open Library enrichment; self-hosted
 (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/inbox/history).

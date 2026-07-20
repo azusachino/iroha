@@ -5,7 +5,7 @@
 Iroha development happens on macOS. Nix is the universal manager for tools and developer entrypoints. The repo uses `uv` for Python-based scripts inside that Nix-managed environment and Podman with
 `podman-compose` for local containerized services.
 
-The runtime design should be capability-based. The checked-in Compose files target the OCI-compatible Podman runtime; Docker compatibility is incidental and not the supported local contract.
+The runtime design should be capability-based. The checked-in Compose files target the OCI-compatible Podman runtime; Docker compatibility is incidental and not the supported local contract. `make dev-up` starts the database first, waits for `pg_isready`, applies migrations, and then starts server, worker, and web so application containers do not race database initialization.
 
 ## Nix
 

@@ -189,6 +189,8 @@ Exit criteria:
 - A regular sync job can be scheduled and inspected.
 - A manual "sync now" or "request full dump" action creates an observable job.
 
+Status: shipped for imports, geocoding, and the first AniList/Bangumi connector syncs. The private API queues media sync jobs at `POST /api/v1/media/sync/{connectorId}`; remaining media work is ontology expansion and cross-provider resolution.
+
 ## Future Module: Reading and Watching Stats
 
 Goal: track personal media consumption without turning iroha into a social media clone.
