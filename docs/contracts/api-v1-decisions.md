@@ -54,31 +54,22 @@ The common error response is:
 `code` is a stable machine value for the endpoint family; `message` is for diagnostics and may change. `request_id` correlates a response with server logs. The OpenAPI document will define the
 status/code matrix for each route.
 
-## JWT authentication
+## Authentication
 
-Authentication is deployment-configurable:
+`/api/v1`, `/public/v1`, and `/healthz` are all unauthenticated. iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security control, not an application-level
+credential. A prior revision of this contract carried JWT bearer authentication on `/api/v1`, but the only clients are the operator's own private-network web viewer and personal automation (e.g. a
+Telegram bot) — neither obtains credentials through a login flow, so the token was always a self-issued static secret standing in for network-level access control. It added an extra
+secret-provisioning step without changing who could reach the API. `/public/v1` remains the only surface designed for eventual public exposure, and it only ever serves sanitized data.
 
-- authenticated mode requires `Authorization: Bearer <JWT>` on `/api/v1`;
-- trusted local mode may bypass authentication with `IROHA_LOCAL_NO_AUTH=true`;
-- `/public/v1` and `/healthz` remain anonymous;
-- read operations require `iroha:read` and write operations require `iroha:write` scopes.
-
-The required claims are `iss`, `sub`, `aud`, `iat`, `exp`, `jti`, and `scope`. Signing algorithm, key rotation, and token issuance are deployment concerns, not domain response semantics. Expired,
-malformed, wrong-audience, and insufficient-scope tokens return the common `401`/`403` errors.
-
-The current browser client supports a deployment-provided bearer token through `PUBLIC_IROHA_API_TOKEN`. This is suitable only for a trusted private self-hosted network: a token embedded in public
-static JavaScript is not considered a secret. A future multi-user deployment needs a real login/session flow and must not reuse this static-token path.
+A future multi-user or public-write deployment would need a real login/session flow rather than reintroducing a static bearer token.
 
 ## Rate limiting
 
-Rate limiting is part of the HTTP behavior:
+Rate limiting is part of the HTTP behavior, keyed by client IP:
 
-- private API: 120 requests per minute in authenticated deployment mode;
+- private API: 6000 requests per minute — generous, since the API is reachable only from the operator's own private network;
 - public API: 60 requests per minute;
 - geocode: 10 requests per minute;
-- local no-auth development may use the existing elevated private/public budget;
-- authenticated requests are keyed by JWT subject where available, otherwise by client IP;
-- anonymous requests are keyed by client IP;
 - exhausted budgets return `429 Too Many Requests`, the common error body, and `Retry-After` in seconds.
 
 These are initial defaults, not domain invariants. They are configurable by deployment, while the status/header/error behavior remains stable.

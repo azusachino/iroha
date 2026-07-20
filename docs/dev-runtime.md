@@ -259,15 +259,11 @@ IROHA_SERVER_ADDR
 IROHA_DATABASE_URL
 IROHA_DATA_DIR
 IROHA_CACHE_BACKEND
-IROHA_LOCAL_NO_AUTH
 IROHA_ALLOWED_ORIGINS
-IROHA_JWT_SECRET
-IROHA_JWT_ISSUER
-IROHA_JWT_AUDIENCE
 ```
 
-The server and job receive the database, Postgres-backed cache, and shared data-directory settings. Set `IROHA_CACHE_BACKEND=valkey` only for compatibility deployments that still provide a Valkey URL. Only the server receives the JWT verification secret and private CORS origins. For an authenticated static web
-deployment, pass a read-only `PUBLIC_IROHA_API_TOKEN` as the web image build argument; it is intentionally public within the private site and must not be a signing secret or write token.
+The server and job receive the database, Postgres-backed cache, and shared data-directory settings. Set `IROHA_CACHE_BACKEND=valkey` only for compatibility deployments that still provide a Valkey URL. Only the server receives private CORS origins (`IROHA_ALLOWED_ORIGINS`). The private API is unauthenticated by design — the deployment's network boundary is the security control, not an
+application credential; see `docs/iroha-server.md#auth`.
 
 The cache cutover is reversible because cache entries are disposable. Postgres is
 the default; a compatibility rollback uses `IROHA_CACHE_BACKEND=valkey` and

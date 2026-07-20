@@ -7,6 +7,15 @@ follow strict semantic versioning guarantees — pre-1.0 releases may change the
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-07-20
+
+### Removed
+
+- **JWT authentication.** `/api/v1` is now unauthenticated, matching the actual deployment model: iroha is a single-user personal project running on a private NAS, and only the (not yet exposed)
+  `/public/v1` share surface is ever meant to be reachable from outside that network. The JWT layer was always a self-signed static credential standing in for network-level access control — it added
+  a secret-provisioning step (`IROHA_JWT_SECRET`, token minting) without changing who could actually reach the API. Removed `golang-jwt/jwt/v5`, the `AuthConfig`/`IROHA_LOCAL_NO_AUTH`/`IROHA_JWT_*`
+  config surface, and the web client's `PUBLIC_IROHA_API_TOKEN` build argument. Rate limiting is unchanged and still guards both `/api/v1` and `/public/v1`.
+
 ## [0.1.0] — 2026-07-20
 
 First tagged release. Iroha owns personal running/fitness, sleep, daily activity, and media-consumption history
@@ -47,5 +56,6 @@ end to end: raw exports in, canonical Postgres/PostGIS facts out, private and sa
 - Geocode retry storms now back off instead of hammering Nominatim on rate-limit responses.
 - Local stack startup sequencing (dependencies before app containers, migrations before server).
 
-[Unreleased]: https://github.com/azusachino/iroha/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/azusachino/iroha/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/azusachino/iroha/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/azusachino/iroha/releases/tag/v0.1.0

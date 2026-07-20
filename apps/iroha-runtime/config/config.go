@@ -2,16 +2,12 @@ package config
 
 import (
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 )
 
 const (
-	EnvJWTSecret        = "IROHA_JWT_SECRET"
-	EnvJWTIssuer        = "IROHA_JWT_ISSUER"
-	EnvJWTAudience      = "IROHA_JWT_AUDIENCE"
 	EnvAniListUsername  = "IROHA_ANILIST_USERNAME"
 	EnvAniListToken     = "IROHA_ANILIST_TOKEN"
 	EnvBangumiUsername  = "IROHA_BANGUMI_USERNAME"
@@ -27,7 +23,6 @@ type Config struct {
 	Server   ServerConfig   `toml:"server"`
 	Database DatabaseConfig `toml:"database"`
 	Storage  StorageConfig  `toml:"storage"`
-	Auth     AuthConfig     `toml:"auth"`
 	Cache    CacheConfig    `toml:"cache"`
 }
 
@@ -44,13 +39,6 @@ type DatabaseConfig struct {
 
 type StorageConfig struct {
 	DataDir string `toml:"data_dir"`
-}
-
-type AuthConfig struct {
-	LocalNoAuth bool   `toml:"local_no_auth"`
-	JWTSecret   string `toml:"jwt_secret"`
-	JWTIssuer   string `toml:"jwt_issuer"`
-	JWTAudience string `toml:"jwt_audience"`
 }
 
 type CacheConfig struct {
@@ -84,11 +72,6 @@ func Default() Config {
 		Storage: StorageConfig{
 			DataDir: ".iroha-data",
 		},
-		Auth: AuthConfig{
-			LocalNoAuth: true,
-			JWTIssuer:   "iroha",
-			JWTAudience: "iroha-api",
-		},
 		Cache: CacheConfig{
 			Backend: "postgres",
 		},
@@ -104,20 +87,6 @@ func applyEnv(cfg *Config) {
 	}
 	if value := os.Getenv("IROHA_DATA_DIR"); value != "" {
 		cfg.Storage.DataDir = value
-	}
-	if value := os.Getenv("IROHA_LOCAL_NO_AUTH"); value != "" {
-		if parsed, err := strconv.ParseBool(value); err == nil {
-			cfg.Auth.LocalNoAuth = parsed
-		}
-	}
-	if value := os.Getenv(EnvJWTSecret); value != "" {
-		cfg.Auth.JWTSecret = value
-	}
-	if value := os.Getenv(EnvJWTIssuer); value != "" {
-		cfg.Auth.JWTIssuer = value
-	}
-	if value := os.Getenv(EnvJWTAudience); value != "" {
-		cfg.Auth.JWTAudience = value
 	}
 	if value := os.Getenv("IROHA_VALKEY_URL"); value != "" {
 		cfg.Cache.URL = value

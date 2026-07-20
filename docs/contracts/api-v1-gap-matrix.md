@@ -2,7 +2,7 @@
 
 Status: active development, pre-release
 
-This matrix records the current contract evidence before OpenAPI, JWT, and rate-limit work. `/api/v1` is intentionally evolved in place until the first release; this document does not establish a
+This matrix records the current contract evidence before OpenAPI and rate-limit work. `/api/v1` is intentionally evolved in place until the first release; this document does not establish a
 released compatibility promise or introduce an `/api/v2` policy.
 
 ## Current surfaces
@@ -34,9 +34,9 @@ Gear, privacy-zone management, published-activity mutation, and activity mutatio
 | Pagination                | PARTIAL         | List responses use `items`, `next_cursor`, and `has_more`; cursor opacity, limits, and invalid-cursor behavior are undocumented.          |
 | Errors                    | PARTIAL         | Errors currently use `{ "error": "..." }`; error codes, request correlation, and the complete status matrix are not defined.              |
 | Private/public projection | PRESENT         | Public DTOs are separate from private activity DTOs and have a leakage test. Other public response contracts still need fixture coverage. |
-| JWT authentication        | PRESENT/PARTIAL | JWT validation now protects private API mode; token issuance, rotation, and browser/session policy remain deployment concerns.            |
+| Authentication             | N/A             | `/api/v1` is intentionally unauthenticated; the deployment's network boundary is the security control (see `api-v1-decisions.md#authentication`). |
 | Rate limiting             | PRESENT/PARTIAL | IP-based limits exist for private, public, and geocode routes. The `429` response and `Retry-After` contract are not defined.             |
-| Frontend compatibility    | PARTIAL         | The Svelte client consumes private reads without auth headers; JWT adoption requires an explicit browser/session flow.                    |
+| Frontend compatibility    | PRESENT         | The Svelte client consumes private reads directly; no auth headers are required.                                                          |
 | Runtime contract          | PARTIAL         | Podman Compose runs server, worker, web, database, and Valkey; local startup now gates application services on database readiness, while the full upload-to-worker contract still needs an executable gate. |
 | Release stability         | UNKNOWN         | Stability is evaluated against the release candidate, not the current active-development branch.                                          |
 
@@ -44,6 +44,5 @@ Gear, privacy-zone management, published-activity mutation, and activity mutatio
 
 1. Define the current `/api/v1` resource and field semantics in OpenAPI.
 2. Define common pagination and error schemas.
-3. Define JWT claims and private/public security requirements.
-4. Define rate-limit buckets, identity, `429`, and `Retry-After` behavior.
-5. Add contract fixtures and drift checks before changing handlers.
+3. Define rate-limit buckets, `429`, and `Retry-After` behavior.
+4. Add contract fixtures and drift checks before changing handlers.

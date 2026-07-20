@@ -25,14 +25,17 @@ import (
 // Per-IP request budgets (per minute). Keyed off middleware.RealIP. The
 // geocode proxy is stricter because each hit fans out to Nominatim, which
 // enforces its own ~1 req/s policy.
+//
+// The private API is unauthenticated by design: iroha is a single-user
+// personal deployment (NAS/private network), and access control is the
+// network boundary, not an application-level credential. The budget is
+// lifted well clear of normal browsing/history-wide sweeps accordingly.
+// /public/v1 is the only surface meant for eventual public exposure, so it
+// keeps a stricter budget.
 const (
-	apiRateLimitPerMin     = 120
+	apiRateLimitPerMin     = 6000
 	publicRateLimitPerMin  = 60
 	geocodeRateLimitPerMin = 10
-	// Local dev (LocalNoAuth) is single-user and does history-wide sweeps, so
-	// the per-IP budgets are lifted well clear of normal browsing. The geocode
-	// limit is NOT lifted — it protects the external Nominatim service, not us.
-	localRateLimitPerMin = 6000
 )
 
 type Dependencies struct {
@@ -87,27 +90,20 @@ func (s *Server) routes() {
 	s.mux.Use(middleware.Recoverer)
 	s.mux.Use(s.accessLog)
 
-	apiLimit, publicLimit := apiRateLimitPerMin, publicRateLimitPerMin
-	if s.deps.Config.Auth.LocalNoAuth {
-		apiLimit, publicLimit = localRateLimitPerMin, localRateLimitPerMin
-	}
-
 	s.mux.Get("/healthz", s.handleHealthz)
 	s.mux.Route("/api/v1", func(r chi.Router) {
-		// Private API: CORS limited to configured origins.
+		// Private API: CORS limited to configured origins. Unauthenticated —
+		// see the rate-limit budget comment above for why.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
-		// Rate limiting runs before auth so malformed or missing-token floods are
-		// bounded too. Valid JWTs are still keyed by subject when available.
-		r.Use(limitByIdentity(apiLimit, s.deps.Config.Auth))
-		r.Use(s.requireJWT("iroha:read"))
+		r.Use(limitByIP(apiRateLimitPerMin))
 		r.Get("/briefing", s.handleBriefing)
 		r.Route("/raw-files", func(r chi.Router) {
-			r.With(s.requireJWT("iroha:write")).Post("/", s.handleCreateRawFile)
+			r.Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
 			r.Get("/{rawFileId}", s.handleGetRawFile)
 		})
 		r.Route("/imports", func(r chi.Router) {
-			r.With(s.requireJWT("iroha:write")).Post("/", s.handleCreateImportJob)
+			r.Post("/", s.handleCreateImportJob)
 			r.Get("/", s.handleListImportJobs)
 			r.Get("/{importId}", s.handleGetImportJob)
 		})
@@ -128,7 +124,7 @@ func (s *Server) routes() {
 			r.Get("/aggregates", s.handleDailyAggregates)
 		})
 		r.Route("/media", func(r chi.Router) {
-			r.With(s.requireJWT("iroha:write")).Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
+			r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
 			r.Get("/aggregates", s.handleMediaAggregates)
 			r.Get("/events", s.handleListMediaEvents)
 			r.Get("/", s.handleListMedia)
@@ -140,7 +136,7 @@ func (s *Server) routes() {
 	// CORS open to any origin since the data is already sanitized.
 	s.mux.Route("/public/v1", func(r chi.Router) {
 		r.Use(corsMiddleware([]string{"*"}))
-		r.Use(limitByIP(publicLimit))
+		r.Use(limitByIP(publicRateLimitPerMin))
 		r.Get("/summary", s.handlePublicSummary)
 		r.Get("/activities", s.handlePublicActivities)
 		r.Get("/routes", s.handlePublicRoutes)
@@ -153,18 +149,6 @@ func (s *Server) routes() {
 // avoid the deprecated LimitByIP helper.
 func limitByIP(perMinute int) func(http.Handler) http.Handler {
 	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP, httprate.WithLimitHandler(rateLimitResponse))
-}
-
-func limitByIdentity(perMinute int, auth config.AuthConfig) func(http.Handler) http.Handler {
-	return httprate.LimitBy(perMinute, time.Minute, func(r *http.Request) (string, error) {
-		if claims, err := parseJWT(r, auth); err == nil && claims.Subject != "" {
-			return "subject:" + claims.Subject, nil
-		}
-		if subject := authSubject(r); subject != "" {
-			return "subject:" + subject, nil
-		}
-		return keyByRemoteIP(r)
-	}, httprate.WithLimitHandler(rateLimitResponse))
 }
 
 func requestIDResponseHeader(next http.Handler) http.Handler {
@@ -192,7 +176,7 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins: origins,
 		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodOptions},
-		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
+		AllowedHeaders: []string{"Accept", "Content-Type"},
 		ExposedHeaders: []string{"Retry-After", "X-Request-ID"},
 		MaxAge:         300,
 	})
@@ -215,7 +199,6 @@ func (s *Server) accessLog(next http.Handler) http.Handler {
 			"status", wrapped.Status(),
 			"bytes", wrapped.BytesWritten(),
 			"duration_ms", time.Since(started).Milliseconds(),
-			"subject", authSubject(r),
 		)
 	})
 }

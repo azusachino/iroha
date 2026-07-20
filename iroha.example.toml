@@ -7,11 +7,5 @@ url = "postgres://iroha:iroha_dev@localhost:5432/iroha?sslmode=disable"
 [storage]
 data_dir = ".iroha-data"
 
-[auth]
-local_no_auth = true
-jwt_secret = ""
-jwt_issuer = "iroha"
-jwt_audience = "iroha-api"
-
 [cache]
 url = "redis://localhost:6379/0"

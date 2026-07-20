@@ -15,17 +15,8 @@ container network. The browser therefore uses same-origin requests, including wh
 
 The profile uses explicit local-development budgets: db `2 CPU / 2 GiB`, server `1 CPU / 512 MiB`, job `1 CPU / 1 GiB`, and web `1 CPU / 256 MiB`.
 
-The checked-in profile runs with `IROHA_LOCAL_NO_AUTH=true`. For an authenticated private deployment, set that value to `false`, provide `IROHA_JWT_SECRET` to the server only, set
-`IROHA_ALLOWED_ORIGINS` to the web origin, and rebuild the web image with a read-only `PUBLIC_IROHA_API_TOKEN`:
-
-```bash
-export IROHA_JWT_SECRET='deployment-signing-secret'
-export PUBLIC_IROHA_API_TOKEN='read-only-jwt'
-podman-compose -f ops/local-dev/compose.yaml -f ops/local-dev/compose.app.yaml build web
-podman-compose -f ops/local-dev/compose.yaml -f ops/local-dev/compose.app.yaml up -d
-```
-
-The browser token is embedded in the static bundle and is not a secret. Keep write-capable tokens in CLI or automation environments instead.
+The private API (`/api/v1`) is unauthenticated by design: iroha is a single-user personal deployment, and the network boundary (private LAN/NAS, not exposed publicly) is the security boundary rather
+than an application-level credential. Set `IROHA_ALLOWED_ORIGINS` to the web origin(s) that should be allowed to call it; do not expose `iroha-server` directly to an untrusted network.
 
 The application profile is started by the same runner and shares the host `.iroha-data` directory between the server and worker. The host-process mode remains available for development when needed:
 

@@ -21,7 +21,6 @@ paths:
   /healthz:
     get:
       tags: [system]
-      security: []
       responses:
         "200":
           description: Server is alive.
@@ -62,8 +61,6 @@ paths:
                   $ref: "#/components/schemas/RawFile"
     post:
       tags: [imports]
-      security:
-        - bearerJwt: []
       requestBody:
         required: true
         content:
@@ -94,8 +91,6 @@ paths:
                 $ref: "#/components/schemas/RawFile"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /api/v1/raw-files/{rawFileId}:
     get:
       tags: [imports]
@@ -126,8 +121,6 @@ paths:
                   $ref: "#/components/schemas/ImportJob"
     post:
       tags: [imports]
-      security:
-        - bearerJwt: []
       requestBody:
         required: true
         content:
@@ -143,8 +136,6 @@ paths:
                 $ref: "#/components/schemas/ImportJob"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /api/v1/imports/{importId}:
     get:
       tags: [imports]
@@ -375,8 +366,6 @@ paths:
   /api/v1/media/sync/{connectorId}:
     post:
       tags: [media]
-      security:
-        - bearerJwt: []
       summary: Queue a configured media connector sync.
       description: |
         Queues a sync for a connector configured by the deployment. Credentials
@@ -399,8 +388,6 @@ paths:
                 $ref: "#/components/schemas/Job"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
         "503":
           description: Job dispatcher is unavailable.
           content:
@@ -454,7 +441,6 @@ paths:
   /public/v1/summary:
     get:
       tags: [public]
-      security: []
       parameters:
         - name: year
           in: query
@@ -473,7 +459,6 @@ paths:
   /public/v1/activities:
     get:
       tags: [public]
-      security: []
       parameters:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
@@ -498,7 +483,6 @@ paths:
   /public/v1/routes:
     get:
       tags: [public]
-      security: []
       responses:
         "200":
           description: Sanitized GeoJSON route collection.
@@ -541,7 +525,6 @@ paths:
   /public/v1/geocode:
     get:
       tags: [public]
-      security: []
       parameters:
         - name: lat
           in: query
@@ -562,12 +545,6 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 components:
-  securitySchemes:
-    bearerJwt:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT with the scope required by the operation.
   parameters:
     RawFileId:
       name: rawFileId
@@ -622,11 +599,6 @@ components:
   responses:
     BadRequest:
       description: Request could not be parsed or validated.
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
-    Unauthorized:
-      description: Missing or invalid JWT.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -872,5 +844,3 @@ components:
         next_date: { type: string, format: date }
         sections:
           { type: array, items: { type: object, additionalProperties: true } }
-security:
-  - bearerJwt: []

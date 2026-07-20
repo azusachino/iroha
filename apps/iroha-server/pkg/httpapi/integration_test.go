@@ -375,9 +375,7 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 	}()
 
 	return NewServer(Dependencies{
-		Config: config.Config{
-			Auth: config.AuthConfig{LocalNoAuth: true},
-		},
+		Config:          config.Config{},
 		Logger:          logger,
 		ActivityService: activities.NewService(db),
 		SleepService:    sleep.NewService(db),
