@@ -13,6 +13,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -280,20 +281,29 @@ func persistMediaMetadata(tx *gorm.DB, itemID uuid.UUID, media observations.Medi
 		if ref.Provider == "" || ref.ExternalID == "" {
 			continue
 		}
-		var existing models.MediaExternalRef
-		result := tx.Where("provider = ? and external_id = ?", ref.Provider, ref.ExternalID).First(&existing)
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			id, err := ids.New()
-			if err != nil {
-				return err
-			}
-			if err := tx.Create(&models.MediaExternalRef{ID: id, ScopeType: mediaScopeType, ScopeID: itemID, Provider: ref.Provider, ExternalID: ref.ExternalID, ExternalURL: ref.ExternalURL, MatchedBy: ref.MatchedBy, Confidence: ref.Confidence, CreatedAt: now}).Error; err != nil {
-				return err
-			}
-		} else if result.Error != nil {
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		// INSERT ... ON CONFLICT DO NOTHING, not lookup-then-insert: concurrent
+		// workers can resolve the same (provider, external_id) at once, and a
+		// plain check-then-create races the unique constraint.
+		newRef := models.MediaExternalRef{ID: id, ScopeType: mediaScopeType, ScopeID: itemID, Provider: ref.Provider, ExternalID: ref.ExternalID, ExternalURL: ref.ExternalURL, MatchedBy: ref.MatchedBy, Confidence: ref.Confidence, CreatedAt: now}
+		result := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "provider"}, {Name: "external_id"}},
+			DoNothing: true,
+		}).Create(&newRef)
+		if result.Error != nil {
 			return result.Error
-		} else if existing.ScopeID != itemID {
-			return createExternalRefConflictTask(tx, itemID, ref, existing.ScopeID)
+		}
+		if result.RowsAffected == 0 {
+			var existing models.MediaExternalRef
+			if err := tx.Where("provider = ? and external_id = ?", ref.Provider, ref.ExternalID).First(&existing).Error; err != nil {
+				return err
+			}
+			if existing.ScopeID != itemID {
+				return createExternalRefConflictTask(tx, itemID, ref, existing.ScopeID)
+			}
 		}
 	}
 	return nil

@@ -35,7 +35,7 @@ func main() {
 	concurrency := flag.Int("concurrency", 4, "number of worker goroutines draining the queue")
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	cfg, err := config.Load("iroha.toml")
 	if err != nil {

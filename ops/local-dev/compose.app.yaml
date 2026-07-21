@@ -6,7 +6,7 @@ services:
     mem_limit: 512m
     build:
       context: ../..
-      dockerfile: ops/local-dev/Containerfile.server
+      dockerfile: ops/images/Containerfile.server
       target: server
     environment:
       IROHA_SERVER_ADDR: 0.0.0.0:8080
@@ -25,7 +25,7 @@ services:
     mem_limit: 1g
     build:
       context: ../..
-      dockerfile: ops/local-dev/Containerfile.server
+      dockerfile: ops/images/Containerfile.server
       target: job
     environment:
       IROHA_DATABASE_URL: postgres://iroha:iroha_dev@db:5432/iroha?sslmode=disable
@@ -42,7 +42,7 @@ services:
     mem_limit: 256m
     build:
       context: ../..
-      dockerfile: ops/local-dev/Containerfile.web
+      dockerfile: ops/images/Containerfile.web
       args:
         PUBLIC_IROHA_API_BASE: ""
     environment:

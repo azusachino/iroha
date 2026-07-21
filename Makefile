@@ -7,9 +7,11 @@ NIX_DEV := $(if $(IN_NIX_SHELL),,nix develop $(CURDIR) --command )
 SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
+IMAGE_NS := azusachino.icu
+TAG := v0.1.1
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web images
 
 PRETTIER := prettier
 DOCS_GLOB := **/*.{md,yaml,yml,json}
@@ -119,3 +121,22 @@ smoke-local: ## Run real import smoke against the Podman Compose server and work
 
 soak-local: ## Run non-mutating HTTP soak checks against the Podman Compose stack
 	$(NIX_DEV)uv run python scripts/local_stack_soak.py $(SOAK_ARGS)
+
+## --- k3s local images (build with Podman, import straight into containerd; no registry) ---
+image-server: ## Build iroha-server and import it into the local k3s containerd store (TAG=v0.1.1)
+	podman build --target server -t $(IMAGE_NS)/iroha-server:$(TAG) -f ops/images/Containerfile.server .
+	podman save $(IMAGE_NS)/iroha-server:$(TAG) | sudo k3s ctr images import -
+
+image-job: ## Build iroha-job and import it into the local k3s containerd store (TAG=v0.1.1)
+	podman build --target job -t $(IMAGE_NS)/iroha-job:$(TAG) -f ops/images/Containerfile.server .
+	podman save $(IMAGE_NS)/iroha-job:$(TAG) | sudo k3s ctr images import -
+
+image-db-migrate: ## Build iroha-db-migrate and import it into the local k3s containerd store (TAG=v0.1.1)
+	podman build --target db-migrate -t $(IMAGE_NS)/iroha-db-migrate:$(TAG) -f ops/images/Containerfile.server .
+	podman save $(IMAGE_NS)/iroha-db-migrate:$(TAG) | sudo k3s ctr images import -
+
+image-web: ## Build iroha-web and import it into the local k3s containerd store (TAG=v0.1.1)
+	podman build -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= .
+	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import -
+
+images: image-server image-job image-db-migrate image-web ## Build and import all iroha images into the local k3s containerd store

@@ -618,9 +618,28 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 			if idErr != nil {
 				return idErr
 			}
-			externalRef = models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
-			if err := tx.Create(&externalRef).Error; err != nil {
-				return err
+			// INSERT ... ON CONFLICT DO NOTHING: (provider, external_id) is
+			// unique across all items, so a concurrent job may have already
+			// claimed this ref for a different item while we were resolving.
+			newRef := models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
+			result := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "provider"}, {Name: "external_id"}},
+				DoNothing: true,
+			}).Create(&newRef)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				var existing models.MediaExternalRef
+				if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&existing).Error; err != nil {
+					return err
+				}
+				if existing.ScopeID != itemID {
+					return createExternalRefConflictTask(tx, itemID, observations.MediaExternalRef{Provider: media.Provider, ExternalID: media.ExternalID}, existing.ScopeID)
+				}
+				externalRef = existing
+			} else {
+				externalRef = newRef
 			}
 		} else if lookupErr != nil {
 			return lookupErr
