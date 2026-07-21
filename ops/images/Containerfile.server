@@ -49,7 +49,7 @@ RUN apk add --no-cache ca-certificates tini \
   && addgroup -S iroha && adduser -S -G iroha iroha
 COPY --from=goose /go/bin/goose /usr/local/bin/goose
 COPY apps/iroha-server/db/migrations /migrations
-COPY ops/local-dev/migrate-entrypoint.sh /usr/local/bin/migrate-entrypoint.sh
+COPY ops/images/migrate-entrypoint.sh /usr/local/bin/migrate-entrypoint.sh
 RUN chmod +x /usr/local/bin/migrate-entrypoint.sh
 USER iroha
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/migrate-entrypoint.sh"]
