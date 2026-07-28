@@ -8,7 +8,6 @@
     HeartPulse,
     LayoutDashboard,
     Moon,
-    Share2,
   } from "@lucide/svelte";
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
@@ -18,7 +17,6 @@
   import "./app.css";
 
   let { children } = $props();
-  const shareActive = $derived(page.url.pathname.startsWith("/share"));
   const mediaActive = $derived(page.url.pathname.startsWith("/media"));
   const homeActive = $derived(page.url.pathname === "/");
   const dashboardActive = $derived(page.url.pathname.startsWith("/dashboard"));
@@ -73,10 +71,6 @@
           <span>Command</span>
           <kbd>⌘K</kbd>
         </button>
-        <a class="share-link" class:active={shareActive} href="/share">
-          <Share2 size={15} />
-          <span>Share</span>
-        </a>
         <DesignLanguagePicker />
         <ThemeToggle />
       </div>

@@ -5,7 +5,6 @@ import {
 } from "$lib/themes/types";
 import GrapherActivities from "$lib/themes/grapher/Activities.svelte";
 import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
-import GrapherShare from "$lib/themes/grapher/Share.svelte";
 import GrapherShell from "$lib/themes/grapher/Shell.svelte";
 import GrapherSleep from "$lib/themes/grapher/Sleep.svelte";
 import GrapherToday from "$lib/themes/grapher/Today.svelte";
@@ -34,11 +33,6 @@ import FieldJournalSleep from "$lib/themes/field-journal/Sleep.svelte";
 import PhenologySleep from "$lib/themes/phenology/Sleep.svelte";
 import SoundMapSleep from "$lib/themes/sound-map/Sleep.svelte";
 import ArchiveSleep from "$lib/themes/archive/Sleep.svelte";
-import AtlasShare from "$lib/themes/atlas/Share.svelte";
-import FieldJournalShare from "$lib/themes/field-journal/Share.svelte";
-import PhenologyShare from "$lib/themes/phenology/Share.svelte";
-import SoundMapShare from "$lib/themes/sound-map/Share.svelte";
-import ArchiveShare from "$lib/themes/archive/Share.svelte";
 import AtlasMedia from "$lib/themes/atlas/Media.svelte";
 import FieldJournalMedia from "$lib/themes/field-journal/Media.svelte";
 import PhenologyMedia from "$lib/themes/phenology/Media.svelte";
@@ -76,7 +70,6 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
-      "share",
     ],
     components: {
       shell: AtlasShell,
@@ -85,7 +78,6 @@ export const THEME_DEFINITIONS = [
       activities: AtlasActivities,
       "activity-detail": AtlasActivityDetail,
       sleep: AtlasSleep,
-      share: AtlasShare,
       media: AtlasMedia,
       "media-detail": AtlasMediaDetail,
       dashboard: AtlasDashboard,
@@ -97,14 +89,13 @@ export const THEME_DEFINITIONS = [
     hint: "trends and comparisons",
     description: "An evidence-first language for comparison and change.",
     implementation: "curated",
-    routes: ["today", "daily", "activities", "sleep", "share"],
+    routes: ["today", "daily", "activities", "sleep"],
     components: {
       shell: GrapherShell,
       today: GrapherToday,
       daily: GrapherDaily,
       activities: GrapherActivities,
       sleep: GrapherSleep,
-      share: GrapherShare,
     },
   },
   {
@@ -122,7 +113,6 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
-      "share",
     ],
     components: {
       shell: FieldJournalShell,
@@ -131,7 +121,6 @@ export const THEME_DEFINITIONS = [
       activities: FieldJournalActivities,
       "activity-detail": FieldJournalActivityDetail,
       sleep: FieldJournalSleep,
-      share: FieldJournalShare,
       media: FieldJournalMedia,
       "media-detail": FieldJournalMediaDetail,
       dashboard: FieldJournalDashboard,
@@ -153,7 +142,6 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
-      "share",
     ],
     components: {
       shell: PhenologyShell,
@@ -162,7 +150,6 @@ export const THEME_DEFINITIONS = [
       activities: PhenologyActivities,
       "activity-detail": PhenologyActivityDetail,
       sleep: PhenologySleep,
-      share: PhenologyShare,
       media: PhenologyMedia,
       "media-detail": PhenologyMediaDetail,
       dashboard: PhenologyDashboard,
@@ -183,7 +170,6 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
-      "share",
     ],
     components: {
       shell: SoundMapShell,
@@ -192,7 +178,6 @@ export const THEME_DEFINITIONS = [
       activities: SoundMapActivities,
       "activity-detail": SoundMapActivityDetail,
       sleep: SoundMapSleep,
-      share: SoundMapShare,
       media: SoundMapMedia,
       "media-detail": SoundMapMediaDetail,
       dashboard: SoundMapDashboard,
@@ -213,7 +198,6 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
-      "share",
     ],
     components: {
       shell: ArchiveShell,
@@ -222,7 +206,6 @@ export const THEME_DEFINITIONS = [
       activities: ArchiveActivities,
       "activity-detail": ArchiveActivityDetail,
       sleep: ArchiveSleep,
-      share: ArchiveShare,
       media: ArchiveMedia,
       "media-detail": ArchiveMediaDetail,
       dashboard: ArchiveDashboard,

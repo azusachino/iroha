@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import {
-    getPublicSummary,
+    getActivitySummary,
     listActivities,
     type Activity,
     type ListActivitiesParams,
@@ -140,7 +140,7 @@
 
   async function loadSummary() {
     try {
-      summary = await getPublicSummary();
+      summary = await getActivitySummary();
     } finally {
       summaryLoading = false;
     }

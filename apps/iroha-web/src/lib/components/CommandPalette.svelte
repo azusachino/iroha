@@ -23,7 +23,6 @@
       hint: "Rings, movement and body vitals",
     },
     { label: "Media", href: "/media", hint: "Watch and reading history" },
-    { label: "Share", href: "/share", hint: "Public activity view" },
   ];
 
   let open = $state(false);

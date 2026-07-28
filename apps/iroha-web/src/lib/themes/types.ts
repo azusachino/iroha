@@ -9,7 +9,6 @@ export const THEME_ROUTES = [
   "sleep",
   "media",
   "media-detail",
-  "share",
 ] as const;
 
 export type ThemeRoute = (typeof THEME_ROUTES)[number];
