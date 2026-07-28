@@ -10,16 +10,21 @@ contract between minor versions.
 ### Removed
 
 - **`/public/v1`.** The sanitized public API surface, and the in-app `/share` page that rendered it, were never actually exposed to the internet — dead weight of an open-CORS route, a second
-  rate-limit budget, and six themed frontend variants serving a page nobody could reach. A separate static site, deployable to GitHub Pages and kept fresh by a NAS-side export cron (not a self-hosted
-  GitHub Actions runner — see [roadmap Milestone 7](docs/roadmap.md#milestone-7-privacy-and-publishing)), takes over that role instead.
+  rate-limit budget, and six themed frontend variants serving a page nobody could reach. A separate static site, deployable to GitHub Pages and kept fresh by a k3s CronJob (not a self-hosted GitHub
+  Actions runner — see [roadmap Milestone 7](docs/roadmap.md#milestone-7-privacy-and-publishing)), takes over that role instead.
 
 ### Added
 
 - `GET /api/v1/activities/summary` and `GET /api/v1/activities/routes` — private equivalents of the removed public endpoints. The dashboard and activities pages depended on the public routes directly
   for their own totals/routes-map widgets, not only the removed share page.
-- `apps/iroha-server/pkg/publicexport` — the sanitized activity DTO and query logic, extracted out of the HTTP layer so both the new private routes and an upcoming static-export CLI can reuse it.
-- `make image-server` / `image-job` / `image-db-migrate` / `image-web` / `images` — build with Podman and import straight into the local k3s node's containerd store, for the `azusachino.icu/iroha-*`
-  local image naming already used elsewhere in the homelab.
+- `apps/iroha-server/pkg/publicexport` — the sanitized activity DTO and query logic, extracted out of the HTTP layer so both the new private routes and the static-export CLI below reuse it.
+- `apps/iroha-server/cmd/iroha-export-public` — writes a static `summary.json`/`activities.json`/`routes.geojson` snapshot for the public site (`make export-public`, `OUT=...`).
+- `apps/iroha-public-site` — a new SvelteKit app (adapter-static, fully prerendered) rendering that snapshot, deployable to GitHub Pages as a project page (`make public-site-build`,
+  `BASE_PATH=/iroha`).
+- `ops/scripts/export-public-cron.sh` and the `export-public` target in `ops/images/Containerfile.server` — the k3s CronJob container that regenerates and pushes the snapshot from inside the private
+  network (the CronJob resource itself lives in harus-k3s). `.github/workflows/public-site.yml` builds and deploys the site on an ordinary GitHub-hosted runner whenever that push lands.
+- `make image-server` / `image-job` / `image-db-migrate` / `image-web` / `image-export-public` / `images` — build with Podman and import straight into the local k3s node's containerd store, for the
+  `azusachino.icu/iroha-*` local image naming already used elsewhere in the homelab.
 
 ### Changed
 
