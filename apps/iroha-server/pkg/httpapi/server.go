@@ -22,21 +22,13 @@ import (
 	"github.com/go-chi/httprate"
 )
 
-// Per-IP request budgets (per minute). Keyed off middleware.RealIP. The
-// geocode proxy is stricter because each hit fans out to Nominatim, which
-// enforces its own ~1 req/s policy.
-//
-// The private API is unauthenticated by design: iroha is a single-user
-// personal deployment (NAS/private network), and access control is the
-// network boundary, not an application-level credential. The budget is
-// lifted well clear of normal browsing/history-wide sweeps accordingly.
-// /public/v1 is the only surface meant for eventual public exposure, so it
-// keeps a stricter budget.
-const (
-	apiRateLimitPerMin     = 6000
-	publicRateLimitPerMin  = 60
-	geocodeRateLimitPerMin = 10
-)
+// apiRateLimitPerMin is the per-IP request budget (per minute), keyed off
+// middleware.RealIP. The private API is unauthenticated by design: iroha is
+// a single-user personal deployment (NAS/private network), and access
+// control is the network boundary, not an application-level credential. The
+// budget is lifted well clear of normal browsing/history-wide sweeps
+// accordingly.
+const apiRateLimitPerMin = 6000
 
 type Dependencies struct {
 	Config           config.Config
@@ -130,17 +122,6 @@ func (s *Server) routes() {
 			r.Get("/", s.handleListMedia)
 			r.Get("/{mediaId}", s.handleGetMedia)
 		})
-	})
-
-	// Public, sanitized, cache-backed views for the public page. No auth, and
-	// CORS open to any origin since the data is already sanitized.
-	s.mux.Route("/public/v1", func(r chi.Router) {
-		r.Use(corsMiddleware([]string{"*"}))
-		r.Use(limitByIP(publicRateLimitPerMin))
-		r.Get("/summary", s.handlePublicSummary)
-		r.Get("/activities", s.handlePublicActivities)
-		r.Get("/routes", s.handlePublicRoutes)
-		r.With(limitByIP(geocodeRateLimitPerMin)).Get("/geocode", s.handlePublicGeocode)
 	})
 }
 
