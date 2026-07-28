@@ -78,15 +78,26 @@ describe("Iroha theme registry", () => {
       activities: expect.anything(),
       sleep: expect.anything(),
     });
-    expect(getThemeDefinition("field-journal").implementation).toBe("preview");
+    expect(getThemeDefinition("field-journal").implementation).toBe("curated");
     expect(hasThemeRoute(getThemeDefinition("field-journal"), "today")).toBe(
       true,
     );
     expect(hasThemeRoute(getThemeDefinition("field-journal"), "daily")).toBe(
       true,
     );
+    expect(getThemeDefinition("field-journal").components).toMatchObject({
+      shell: expect.anything(),
+      today: expect.anything(),
+      daily: expect.anything(),
+      activities: expect.anything(),
+      sleep: expect.anything(),
+      media: expect.anything(),
+      dashboard: expect.anything(),
+      "activity-detail": expect.anything(),
+      "media-detail": expect.anything(),
+    });
     expect(
       THEME_DEFINITIONS.filter((theme) => theme.implementation === "preview"),
-    ).toHaveLength(5);
+    ).toHaveLength(4);
   });
 });
