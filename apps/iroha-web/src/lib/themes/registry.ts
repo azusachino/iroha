@@ -60,7 +60,7 @@ export const THEME_DEFINITIONS = [
     label: "Iroha Atlas",
     hint: "places and routes",
     description: "A cartographic language for movement, places, and distance.",
-    implementation: "preview",
+    implementation: "curated",
     routes: [
       "today",
       "dashboard",

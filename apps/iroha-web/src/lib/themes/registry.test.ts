@@ -78,6 +78,20 @@ describe("Iroha theme registry", () => {
       activities: expect.anything(),
       sleep: expect.anything(),
     });
+    expect(getThemeDefinition("atlas").implementation).toBe("curated");
+    expect(hasThemeRoute(getThemeDefinition("atlas"), "today")).toBe(true);
+    expect(hasThemeRoute(getThemeDefinition("atlas"), "daily")).toBe(true);
+    expect(getThemeDefinition("atlas").components).toMatchObject({
+      shell: expect.anything(),
+      today: expect.anything(),
+      daily: expect.anything(),
+      activities: expect.anything(),
+      sleep: expect.anything(),
+      media: expect.anything(),
+      dashboard: expect.anything(),
+      "activity-detail": expect.anything(),
+      "media-detail": expect.anything(),
+    });
     expect(getThemeDefinition("field-journal").implementation).toBe("curated");
     expect(hasThemeRoute(getThemeDefinition("field-journal"), "today")).toBe(
       true,
@@ -98,6 +112,6 @@ describe("Iroha theme registry", () => {
     });
     expect(
       THEME_DEFINITIONS.filter((theme) => theme.implementation === "preview"),
-    ).toHaveLength(4);
+    ).toHaveLength(3);
   });
 });
