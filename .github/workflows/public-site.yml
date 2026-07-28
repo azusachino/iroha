@@ -1,0 +1,50 @@
+name: Public site
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/iroha-public-site/static/data/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Install public-site dependencies
+        run: nix develop . --command make public-site-install
+
+      - name: Build public site
+        env:
+          BASE_PATH: /iroha
+        run: nix develop . --command make public-site-build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload build artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/iroha-public-site/build
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
