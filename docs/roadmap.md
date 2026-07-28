@@ -157,27 +157,23 @@ Full Apple Health export zips may exceed normal Telegram Bot API file limits, so
 
 Goal: separate private canonical data from public output.
 
-Status: privacy zones and sanitized activity projections are implemented — `apps/iroha-server/pkg/activities` trims route endpoints and masks auto-detected private zones (home, work, and other
-frequent start/end hubs) across every route, and `apps/iroha-server/pkg/publicexport` builds the sanitized activity/summary/route projection from that. The original design served this from a
+Status: shipped. Privacy zones and sanitized activity projections are implemented — `apps/iroha-server/pkg/activities` trims route endpoints and masks auto-detected private zones (home, work, and
+other frequent start/end hubs) across every route, and `apps/iroha-server/pkg/publicexport` builds the sanitized activity/summary/route projection from that. The original design served this from a
 `/public/v1` HTTP surface living in the same process as the private API; that surface has been removed (it was never actually exposed to the internet — an open-CORS route and a second rate-limit
 budget serving a page nobody could reach). The replacement is a static export instead of a second live API surface:
 
 ```text
 apps/iroha-server/cmd/iroha-export-public (sanitized JSON/GeoJSON snapshot)
-  -> committed by a NAS-side cron, from inside the private network
+  -> committed by a k3s CronJob (ops/images/Containerfile.server's export-public target;
+     the CronJob resource itself is defined in harus-k3s, not this repo), from inside the
+     private network
   -> apps/iroha-public-site (static SvelteKit app) built and deployed to GitHub Pages
      by an ordinary GitHub-hosted Actions workflow, triggered by that commit
 ```
 
 No self-hosted GitHub Actions runner is used anywhere in this design. iroha's repo is public, and GitHub's own guidance is to avoid attaching self-hosted runners to public repos — a workflow change
 merged through a PR can execute on that runner, turning it into a path from "a PR gets merged" to code execution inside the private network. The export step instead runs entirely outside GitHub
-Actions, on infrastructure GitHub never touches.
-
-Remaining tasks:
-
-- Build `apps/iroha-server/cmd/iroha-export-public`.
-- Build `apps/iroha-public-site` (static site, deployed as a GitHub Pages project page).
-- Add the NAS-side export cron script and the GitHub-hosted Pages deploy workflow.
+Actions, on infrastructure GitHub never touches (`ops/scripts/export-public-cron.sh` clones a disposable copy of the repo, runs the export, and pushes only if the data actually changed).
 
 Exit criteria:
 

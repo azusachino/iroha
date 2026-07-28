@@ -13,7 +13,7 @@ TAG := v0.1.1
 OUT := ./dist/public-data
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public web-install web-fmt web-fmt-check web-check web-test web-build web-dev public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public web-install web-fmt web-fmt-check web-check web-test web-build web-dev public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_GLOB := **/*.{md,yaml,yml,json}
@@ -160,4 +160,8 @@ image-web: ## Build iroha-web and import it into the local k3s containerd store 
 	podman build -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= .
 	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import -
 
-images: image-server image-job image-db-migrate image-web ## Build and import all iroha images into the local k3s containerd store
+image-export-public: ## Build iroha-export-public and import it into the local k3s containerd store (TAG=v0.1.1)
+	podman build --target export-public -t $(IMAGE_NS)/iroha-export-public:$(TAG) -f ops/images/Containerfile.server .
+	podman save $(IMAGE_NS)/iroha-export-public:$(TAG) | sudo k3s ctr images import -
+
+images: image-server image-job image-db-migrate image-web image-export-public ## Build and import all iroha images into the local k3s containerd store
