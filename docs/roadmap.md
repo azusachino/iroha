@@ -157,16 +157,31 @@ Full Apple Health export zips may exceed normal Telegram Bot API file limits, so
 
 Goal: separate private canonical data from public output.
 
-Tasks:
+Status: privacy zones and sanitized activity projections are implemented — `apps/iroha-server/pkg/activities` trims route endpoints and masks auto-detected private zones (home, work, and other
+frequent start/end hubs) across every route, and `apps/iroha-server/pkg/publicexport` builds the sanitized activity/summary/route projection from that. The original design served this from a
+`/public/v1` HTTP surface living in the same process as the private API; that surface has been removed (it was never actually exposed to the internet — an open-CORS route and a second rate-limit
+budget serving a page nobody could reach). The replacement is a static export instead of a second live API surface:
 
-- Add privacy zones.
-- Add sanitized activity projection generation.
-- Add `tb_published_activities`.
-- Add public read path backed by sanitized payloads.
+```text
+apps/iroha-server/cmd/iroha-export-public (sanitized JSON/GeoJSON snapshot)
+  -> committed by a NAS-side cron, from inside the private network
+  -> apps/iroha-public-site (static SvelteKit app) built and deployed to GitHub Pages
+     by an ordinary GitHub-hosted Actions workflow, triggered by that commit
+```
+
+No self-hosted GitHub Actions runner is used anywhere in this design. iroha's repo is public, and GitHub's own guidance is to avoid attaching self-hosted runners to public repos — a workflow change
+merged through a PR can execute on that runner, turning it into a path from "a PR gets merged" to code execution inside the private network. The export step instead runs entirely outside GitHub
+Actions, on infrastructure GitHub never touches.
+
+Remaining tasks:
+
+- Build `apps/iroha-server/cmd/iroha-export-public`.
+- Build `apps/iroha-public-site` (static site, deployed as a GitHub Pages project page).
+- Add the NAS-side export cron script and the GitHub-hosted Pages deploy workflow.
 
 Exit criteria:
 
-- A public activity can be generated without exposing exact private route data.
+- A public activity can be browsed on the GitHub Pages site without exposing exact private route data or any other private-only field.
 
 ## Milestone 8: Durable Worker Backbone
 
@@ -189,7 +204,8 @@ Exit criteria:
 - A regular sync job can be scheduled and inspected.
 - A manual "sync now" or "request full dump" action creates an observable job.
 
-Status: shipped for imports, geocoding, and the first AniList/Bangumi connector syncs. The private API queues media sync jobs at `POST /api/v1/media/sync/{connectorId}`; remaining media work is ontology expansion and cross-provider resolution.
+Status: shipped for imports, geocoding, and the first AniList/Bangumi connector syncs. The private API queues media sync jobs at `POST /api/v1/media/sync/{connectorId}`; remaining media work is
+ontology expansion and cross-provider resolution.
 
 ## Future Module: Reading and Watching Stats
 
