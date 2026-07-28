@@ -40,18 +40,17 @@ The interface should therefore feel observant and composed, not clinical, compet
 
 ## Page archetypes
 
-| Archetype          | Route(s)          | User question                        | Structural rule                                                                              |
-| ------------------ | ----------------- | ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| Field Console      | `/`               | What is the shape of this day?       | One daily signal, a small set of priorities, then contextual moments.                        |
-| Observatory        | `/dashboard`      | What has accumulated over time?      | Overview wall with totals, streaks, routes, and domains; do not duplicate Today’s narrative. |
-| Pattern Atlas      | `/daily`          | What rhythms or changes can I see?   | Calendar/heatmap and trend bands lead; detailed day inspection follows.                      |
-| Movement Archive   | `/activities`     | What have I done?                    | Chronological record with visual filters and compact route/context previews.                 |
-| Performance Report | `/activities/:id` | What happened in this activity?      | Route and headline facts first; charts, zones, splits, and metadata form the report.         |
-| Night Report       | `/sleep`          | How did the night unfold?            | Circadian timeline and architecture lead; history is selectable but subordinate.             |
-| Personal Library   | `/media`          | What am I collecting or continuing?  | Shelves and progress lead; aggregates support the collection instead of dominating it.       |
-| Library Entry      | `/media/:id`      | What is the history of this item?    | Cover/title context, progress, event timeline, people, and related items.                    |
-| Editorial Report   | `/share`          | What can I safely show someone else? | Privacy-safe narrative with explicit public projection boundaries.                           |
-| Design Archive     | `/design`         | Which directions have we explored?   | Review-only reference; never becomes a hidden production dependency.                         |
+| Archetype          | Route(s)          | User question                       | Structural rule                                                                              |
+| ------------------ | ----------------- | ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| Field Console      | `/`               | What is the shape of this day?      | One daily signal, a small set of priorities, then contextual moments.                        |
+| Observatory        | `/dashboard`      | What has accumulated over time?     | Overview wall with totals, streaks, routes, and domains; do not duplicate Today’s narrative. |
+| Pattern Atlas      | `/daily`          | What rhythms or changes can I see?  | Calendar/heatmap and trend bands lead; detailed day inspection follows.                      |
+| Movement Archive   | `/activities`     | What have I done?                   | Chronological record with visual filters and compact route/context previews.                 |
+| Performance Report | `/activities/:id` | What happened in this activity?     | Route and headline facts first; charts, zones, splits, and metadata form the report.         |
+| Night Report       | `/sleep`          | How did the night unfold?           | Circadian timeline and architecture lead; history is selectable but subordinate.             |
+| Personal Library   | `/media`          | What am I collecting or continuing? | Shelves and progress lead; aggregates support the collection instead of dominating it.       |
+| Library Entry      | `/media/:id`      | What is the history of this item?   | Cover/title context, progress, event timeline, people, and related items.                    |
+| Design Archive     | `/design`         | Which directions have we explored?  | Review-only reference; never becomes a hidden production dependency.                         |
 
 ## Visual language
 
@@ -178,7 +177,8 @@ Motion should explain state changes, not decorate every surface.
 
 ## Data and privacy boundaries
 
-Private surfaces consume `/api/v1`. The Share surface consumes `/public/v1` and must not infer private fields from private API responses.
+Private surfaces consume `/api/v1`. There is no in-app public surface: the sanitized public projection is built by a standalone export (`apps/iroha-server/pkg/publicexport`) and rendered by a separate
+static site, not fetched live from this app.
 
 The frontend must preserve:
 
@@ -186,7 +186,6 @@ The frontend must preserve:
 - pagination and cursor behavior;
 - stable activity/media/sleep IDs;
 - UTC day interpretation;
-- public projection restrictions;
 - truthful empty and partial states.
 
 Any new derived presentation metric needs:

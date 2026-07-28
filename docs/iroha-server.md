@@ -72,10 +72,8 @@ POST /api/v1/imports
   -> worker parses and reconciles the raw evidence
 ```
 
-Queue execution is lease-based: abandoned running jobs are reclaimed after
-the worker lease timeout, and retryable provider errors may supply their own
-`Retry-After` delay. Connector sync cursors are checkpointed per snapshot and
-are retained when a page fails, so a retry resumes from the failed page.
+Queue execution is lease-based: abandoned running jobs are reclaimed after the worker lease timeout, and retryable provider errors may supply their own `Retry-After` delay. Connector sync cursors are
+checkpointed per snapshot and are retained when a page fails, so a retry resumes from the failed page.
 
 Response shape:
 
@@ -96,20 +94,25 @@ Response shape:
 
 ```text
 GET   /api/v1/activities
+GET   /api/v1/activities/summary
+GET   /api/v1/activities/routes
 GET   /api/v1/activities/{activityId}
 GET   /api/v1/activities/{activityId}/route
 GET   /api/v1/activities/{activityId}/samplings
 GET   /api/v1/activities/{activityId}/laps
 ```
 
-Activity reads serve private canonical data.
+Activity reads serve private canonical data. `summary` and `routes` back the dashboard/activities aggregate widgets; both reuse `apps/iroha-server/pkg/publicexport`'s sanitized query logic even though
+this is a private route — the aggregates it builds never carried private fields to begin with.
 
 ### Deferred resources
 
 Gear, privacy-zone management, published-activity mutation, and activity mutation are roadmap items. They are not currently registered routes and are intentionally excluded from the active API
 contract.
 
-Public pages read the existing sanitized `/public/v1` projections rather than these deferred mutation resources.
+There is no separate public-facing HTTP surface for these sanitized projections (the previous `/public/v1` was removed — it was never actually exposed to the internet). The planned replacement is a
+standalone export built on `publicexport` that produces a static snapshot for a separate GitHub Pages site instead of a second live API — see
+[roadmap Milestone 7](roadmap.md#milestone-7-privacy-and-publishing).
 
 The following routes remain planned and are not part of the active contract:
 
@@ -248,14 +251,14 @@ GET /api/v1/imports/{importId}
 
 ## Auth
 
-`/api/v1`, `/public/v1`, and `/healthz` are all unauthenticated. iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security control, not an application-level
-credential. Do not expose `iroha-server` to an untrusted network — `/public/v1` is the only surface designed for eventual public exposure, and it only ever serves sanitized data.
+`/api/v1` and `/healthz` are the only surfaces this process serves, and both are unauthenticated. iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security
+control, not an application-level credential. Do not expose `iroha-server` to an untrusted network.
 
-Per-IP rate limiting still applies to both `/api/v1` and `/public/v1` as a basic abuse guard; see [HTTP hardening](#http-hardening).
+Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTTP hardening](#http-hardening).
 
 ## HTTP hardening
 
-- Configured private origins may use `GET`, `POST`, and `OPTIONS` with `Accept` and `Content-Type` headers. The public projection remains anonymous and cacheable.
+- Configured private origins may use `GET`, `POST`, and `OPTIONS` with `Accept` and `Content-Type` headers.
 - JSON request bodies are limited to 1 MiB and reject unknown fields and trailing JSON values. Multipart raw-file uploads use the separate configured upload limit.
 - The server applies a 10-second header timeout, a 15-minute request-read timeout for large uploads, a 2-minute write/idle timeout, and a 1 MiB maximum header size.
 - Structured access logs include the request ID, route, status, duration, and response size. Request bodies are not logged.
