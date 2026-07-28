@@ -119,11 +119,12 @@ type RouteFeatureProps struct {
 
 // Routes returns every activity route line, trimmed and privacy-masked by
 // activities.Service.RouteLines, with a best-effort city label resolved from
-// the existing geocode cache. Unlike the old live /public/v1/routes handler,
-// this never triggers a new geocode refresh job on a cache miss — an export
-// run is read-only by design; the geocode cache is kept warm by the regular
-// server-side lookups that already happen during normal private-API use.
-func Routes(ctx context.Context, activitySvc *activities.Service, geocodeSvc *geocode.Service) (RouteFeatureCollection, error) {
+// the existing geocode cache. EnqueueRefresh is the only place that ever
+// warms the geocode cache, so refreshOnMiss must be true for the live
+// /api/v1/activities/routes handler (it's how city labels resolve at all over
+// time); the read-only iroha-export-public CLI passes false, since a static
+// export run shouldn't be triggering new background lookups.
+func Routes(ctx context.Context, activitySvc *activities.Service, geocodeSvc *geocode.Service, refreshOnMiss bool) (RouteFeatureCollection, error) {
 	lines, err := activitySvc.RouteLines()
 	if err != nil {
 		return RouteFeatureCollection{}, fmt.Errorf("route lines: %w", err)
@@ -139,6 +140,8 @@ func Routes(ctx context.Context, activitySvc *activities.Service, geocodeSvc *ge
 			if val, ok, err := geocodeSvc.LookupCity(ctx, lat, lon); err == nil && ok {
 				city = val
 				cityStatus = "resolved"
+			} else if refreshOnMiss {
+				_ = geocodeSvc.EnqueueRefresh(ctx, lat, lon)
 			}
 		}
 

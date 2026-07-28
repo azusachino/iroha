@@ -181,6 +181,66 @@ paths:
                 $ref: "#/components/schemas/ActivityPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/activities/summary:
+    get:
+      tags: [activities]
+      parameters:
+        - name: year
+          in: query
+          schema: { type: string }
+        - name: sport
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Activity summary aggregates (totals, by year/month/sport).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/activities/routes:
+    get:
+      tags: [activities]
+      responses:
+        "200":
+          description: Trimmed, privacy-masked GeoJSON route collection for every activity.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [type, features]
+                properties:
+                  type: { type: string, const: FeatureCollection }
+                  features:
+                    type: array
+                    items:
+                      type: object
+                      required: [type, geometry, properties]
+                      properties:
+                        type: { type: string, const: Feature }
+                        geometry:
+                          type: object
+                          required: [type, coordinates]
+                          properties:
+                            type: { type: string, const: LineString }
+                            coordinates:
+                              type: array
+                              items:
+                                type: array
+                                minItems: 2
+                                maxItems: 2
+                                items: { type: number }
+                        properties:
+                          type: object
+                          required: [sport_type, year, city, city_status]
+                          properties:
+                            sport_type: { type: string }
+                            year: { type: string }
+                            city: { type: string }
+                            city_status:
+                              type: string
+                              enum: [pending, resolved, unknown]
   /api/v1/activities/{activityId}:
     get:
       tags: [activities]

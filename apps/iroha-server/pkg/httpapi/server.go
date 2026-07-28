@@ -101,6 +101,8 @@ func (s *Server) routes() {
 		})
 		r.Route("/activities", func(r chi.Router) {
 			r.Get("/", s.handleListActivities)
+			r.Get("/summary", s.handleActivitySummary)
+			r.Get("/routes", s.handleActivityRoutes)
 			r.Get("/{activityId}", s.handleGetActivity)
 			r.Get("/{activityId}/route", s.handleGetActivityRoute)
 			r.Get("/{activityId}/samplings", s.handleGetActivitySamplings)

@@ -27,6 +27,8 @@ func TestActiveRouteInventory(t *testing.T) {
 
 	want := []string{
 		"GET /api/v1/activities",
+		"GET /api/v1/activities/routes",
+		"GET /api/v1/activities/summary",
 		"GET /api/v1/activities/{activityId}",
 		"GET /api/v1/activities/{activityId}/laps",
 		"GET /api/v1/activities/{activityId}/route",
