@@ -7,11 +7,13 @@ NIX_DEV := $(if $(IN_NIX_SHELL),,nix develop $(CURDIR) --command )
 SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
+PUBLIC_SITE_DIR := apps/iroha-public-site
 IMAGE_NS := azusachino.icu
 TAG := v0.1.1
+OUT := ./dist/public-data
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public web-install web-fmt web-fmt-check web-check web-test web-build web-dev public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web images
 
 PRETTIER := prettier
 DOCS_GLOB := **/*.{md,yaml,yml,json}
@@ -56,6 +58,9 @@ run: db-up ## Run the server against the local dev stack (http://127.0.0.1:8080)
 run-job: db-up ## Run one iroha-job polling worker against the local dev stack
 	$(NIX_DEV)go -C $(JOB_DIR) run .
 
+export-public: db-up ## Export sanitized public data as static JSON/GeoJSON (OUT=./dist/public-data)
+	$(NIX_DEV)go -C $(SERVER_DIR) run ./cmd/iroha-export-public --out $(abspath $(OUT))
+
 ## --- Web frontend (apps/iroha-web, bun) ---
 web-install: ## Install web dependencies
 	cd $(WEB_DIR) && $(NIX_DEV)bun install
@@ -77,6 +82,22 @@ web-build: ## Production build of the web app
 
 web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
 	cd $(WEB_DIR) && $(NIX_DEV)bun run dev --host 0.0.0.0
+
+## --- Public static site (apps/iroha-public-site, bun) ---
+public-site-install: ## Install public-site dependencies
+	cd $(PUBLIC_SITE_DIR) && $(NIX_DEV)bun install
+
+public-site-fmt-check: ## Fail if any public-site file is unformatted
+	cd $(PUBLIC_SITE_DIR) && $(NIX_DEV)bun run format:check
+
+public-site-check: ## Type-check the public site (svelte-check)
+	cd $(PUBLIC_SITE_DIR) && $(NIX_DEV)bun run check
+
+public-site-build: ## Production build of the public site (BASE_PATH=/iroha for GitHub Pages)
+	cd $(PUBLIC_SITE_DIR) && $(NIX_DEV)bun run build
+
+public-site-dev: ## Run the public-site dev server
+	cd $(PUBLIC_SITE_DIR) && $(NIX_DEV)bun run dev
 
 ## --- Docs and config formatting (prettier; Go/web/SQL out of scope) ---
 fmt-docs: ## Format docs and config files (markdown wraps at 200)

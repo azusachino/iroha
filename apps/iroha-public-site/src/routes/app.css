@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0f1115;
+  --color-surface: #171a21;
+  --color-surface-2: #1f242d;
+  --color-border: #2a2f3a;
+  --color-text: #e6e8ec;
+  --color-text-muted: #9aa3b2;
+  --color-accent: #39c5bb;
+  --sport-run: #3987e5;
+  --sport-walk: #199e70;
+  --sport-hike: #008300;
+  --sport-ride: #c98500;
+  --sport-swim: #9085e9;
+  --sport-other: #d95926;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --surface: #171a21;
+  --surface-2: #1f242d;
+  --border: #2a2f3a;
+  --text: #e6e8ec;
+  --text-muted: #9aa3b2;
+  --accent: #39c5bb;
+  --sport-run: #3987e5;
+  --sport-walk: #199e70;
+  --sport-hike: #008300;
+  --sport-ride: #c98500;
+  --sport-swim: #9085e9;
+  --sport-other: #d95926;
+  --tile-surface: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.035),
+      rgb(255 255 255 / 0)
+    )
+    var(--surface);
+  --radius: 14px;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+
+/* Light theme via prefers-color-scheme -- no theme toggle on a public page
+   with no persisted per-visitor preference to switch it manually. */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f5f7fa;
+    --surface: #ffffff;
+    --surface-2: #eef1f6;
+    --border: #d9dee6;
+    --text: #1a1e26;
+    --text-muted: #5b6472;
+    --accent: #0e8f86;
+    --tile-surface: linear-gradient(180deg, rgb(0 0 0 / 0.015), rgb(0 0 0 / 0))
+      var(--surface);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+button {
+  font: inherit;
+}
+
+.tile {
+  border: 1px solid var(--border);
+  background: var(--tile-surface);
+  border-radius: var(--radius);
+}
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+
+.footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.muted {
+  color: var(--text-muted);
+}

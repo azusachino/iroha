@@ -193,6 +193,19 @@ func (s *Service) Summary(year, sport string) (Summary, error) {
 		return Summary{}, fmt.Errorf("summary by sport: %w", err)
 	}
 
+	// GORM's Scan leaves the destination nil when zero rows match, which
+	// marshals to JSON null instead of [] and crashes any frontend for-of/map
+	// over an empty year/month/sport breakdown.
+	if byYear == nil {
+		byYear = []SummaryBucket{}
+	}
+	if byMonth == nil {
+		byMonth = []SummaryBucket{}
+	}
+	if bySport == nil {
+		bySport = []SummaryBucket{}
+	}
+
 	return Summary{Totals: totals, ByYear: byYear, ByMonth: byMonth, BySport: bySport}, nil
 }
 
