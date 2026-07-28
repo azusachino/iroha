@@ -9,9 +9,10 @@ WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 IMAGE_NS := azusachino.icu
 TAG := v0.1.1
+OUT := ./dist/public-data
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public web-install web-fmt web-fmt-check web-check web-test web-build web-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web images
 
 PRETTIER := prettier
 DOCS_GLOB := **/*.{md,yaml,yml,json}
@@ -55,6 +56,9 @@ run: db-up ## Run the server against the local dev stack (http://127.0.0.1:8080)
 
 run-job: db-up ## Run one iroha-job polling worker against the local dev stack
 	$(NIX_DEV)go -C $(JOB_DIR) run .
+
+export-public: db-up ## Export sanitized public data as static JSON/GeoJSON (OUT=./dist/public-data)
+	$(NIX_DEV)go -C $(SERVER_DIR) run ./cmd/iroha-export-public --out $(abspath $(OUT))
 
 ## --- Web frontend (apps/iroha-web, bun) ---
 web-install: ## Install web dependencies
