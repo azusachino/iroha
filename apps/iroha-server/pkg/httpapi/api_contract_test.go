@@ -27,6 +27,8 @@ func TestActiveRouteInventory(t *testing.T) {
 
 	want := []string{
 		"GET /api/v1/activities",
+		"GET /api/v1/activities/routes",
+		"GET /api/v1/activities/summary",
 		"GET /api/v1/activities/{activityId}",
 		"GET /api/v1/activities/{activityId}/laps",
 		"GET /api/v1/activities/{activityId}/route",
@@ -46,10 +48,6 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/sleep/aggregates",
 		"GET /api/v1/sleep/{sleepId}/segments",
 		"GET /healthz",
-		"GET /public/v1/activities",
-		"GET /public/v1/geocode",
-		"GET /public/v1/routes",
-		"GET /public/v1/summary",
 		"POST /api/v1/imports",
 		"POST /api/v1/media/sync/{connectorId}",
 		"POST /api/v1/raw-files",

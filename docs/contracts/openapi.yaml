@@ -16,7 +16,6 @@ tags:
   - name: sleep
   - name: daily
   - name: media
-  - name: public
 paths:
   /healthz:
     get:
@@ -182,6 +181,66 @@ paths:
                 $ref: "#/components/schemas/ActivityPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/activities/summary:
+    get:
+      tags: [activities]
+      parameters:
+        - name: year
+          in: query
+          schema: { type: string }
+        - name: sport
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Activity summary aggregates (totals, by year/month/sport).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/v1/activities/routes:
+    get:
+      tags: [activities]
+      responses:
+        "200":
+          description: Trimmed, privacy-masked GeoJSON route collection for every activity.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [type, features]
+                properties:
+                  type: { type: string, const: FeatureCollection }
+                  features:
+                    type: array
+                    items:
+                      type: object
+                      required: [type, geometry, properties]
+                      properties:
+                        type: { type: string, const: Feature }
+                        geometry:
+                          type: object
+                          required: [type, coordinates]
+                          properties:
+                            type: { type: string, const: LineString }
+                            coordinates:
+                              type: array
+                              items:
+                                type: array
+                                minItems: 2
+                                maxItems: 2
+                                items: { type: number }
+                        properties:
+                          type: object
+                          required: [sport_type, year, city, city_status]
+                          properties:
+                            sport_type: { type: string }
+                            year: { type: string }
+                            city: { type: string }
+                            city_status:
+                              type: string
+                              enum: [pending, resolved, unknown]
   /api/v1/activities/{activityId}:
     get:
       tags: [activities]
@@ -438,112 +497,6 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
-  /public/v1/summary:
-    get:
-      tags: [public]
-      parameters:
-        - name: year
-          in: query
-          schema: { type: string }
-        - name: sport
-          in: query
-          schema: { type: string }
-      responses:
-        "200":
-          description: Sanitized activity summary.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-  /public/v1/activities:
-    get:
-      tags: [public]
-      parameters:
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-        - name: sport_type
-          in: query
-          schema: { type: string }
-        - name: started_from
-          in: query
-          schema: { type: string, format: date-time }
-        - name: started_to
-          in: query
-          schema: { type: string, format: date-time }
-      responses:
-        "200":
-          description: Sanitized activity page.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PublicActivityPage"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-  /public/v1/routes:
-    get:
-      tags: [public]
-      responses:
-        "200":
-          description: Sanitized GeoJSON route collection.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [type, features]
-                properties:
-                  type: { type: string, const: FeatureCollection }
-                  features:
-                    type: array
-                    items:
-                      type: object
-                      required: [type, geometry, properties]
-                      properties:
-                        type: { type: string, const: Feature }
-                        geometry:
-                          type: object
-                          required: [type, coordinates]
-                          properties:
-                            type: { type: string, const: LineString }
-                            coordinates:
-                              type: array
-                              items:
-                                type: array
-                                minItems: 2
-                                maxItems: 2
-                                items: { type: number }
-                        properties:
-                          type: object
-                          required: [sport_type, year, city, city_status]
-                          properties:
-                            sport_type: { type: string }
-                            year: { type: string }
-                            city: { type: string }
-                            city_status:
-                              type: string
-                              enum: [pending, resolved, unknown]
-  /public/v1/geocode:
-    get:
-      tags: [public]
-      parameters:
-        - name: lat
-          in: query
-          required: true
-          schema: { type: number }
-        - name: lon
-          in: query
-          required: true
-          schema: { type: number }
-      responses:
-        "200":
-          description: Geocoded public place label.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          $ref: "#/components/responses/BadRequest"
 components:
   parameters:
     RawFileId:
@@ -810,31 +763,6 @@ components:
           { type: array, items: { type: object, additionalProperties: true } }
         events:
           { type: array, items: { type: object, additionalProperties: true } }
-    PublicActivityPage:
-      allOf: [{ $ref: "#/components/schemas/Page" }]
-      properties:
-        items:
-          {
-            type: array,
-            items: { $ref: "#/components/schemas/PublicActivity" },
-          }
-    PublicActivity:
-      type: object
-      required: [id, sport_type, title, started_at, timezone]
-      properties:
-        id: { type: string }
-        sport_type: { type: string }
-        title: { type: string }
-        started_at: { type: string, format: date-time }
-        ended_at: { type: string, format: date-time }
-        timezone: { type: string }
-        distance_m: { type: number }
-        duration_s: { type: integer }
-        moving_time_s: { type: integer }
-        elevation_gain_m: { type: number }
-        avg_hr: { type: integer }
-        max_hr: { type: integer }
-        avg_pace_s_per_km: { type: number }
     Briefing:
       type: object
       required: [date, previous_date, next_date, sections]

@@ -9,6 +9,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/publicexport"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -194,6 +195,30 @@ func (s *Server) handleGetActivityLaps(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+// handleActivitySummary and handleActivityRoutes back the dashboard/activities
+// aggregate widgets. Both reuse publicexport (originally the sanitized
+// /public/v1 query logic) since the aggregates it builds carry no private
+// fields to begin with — there's nothing left to sanitize away.
+func (s *Server) handleActivitySummary(w http.ResponseWriter, r *http.Request) {
+	summary, err := publicexport.Summary(s.deps.ActivityService, r.URL.Query().Get("year"), r.URL.Query().Get("sport"))
+	if err != nil {
+		s.deps.Logger.Error("activity summary", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load summary")
+		return
+	}
+	writeJSON(w, http.StatusOK, summary)
+}
+
+func (s *Server) handleActivityRoutes(w http.ResponseWriter, r *http.Request) {
+	collection, err := publicexport.Routes(r.Context(), s.deps.ActivityService, s.deps.GeocodeService, true)
+	if err != nil {
+		s.deps.Logger.Error("activity routes", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load routes")
+		return
+	}
+	writeJSON(w, http.StatusOK, collection)
 }
 
 func parseActivityFilters(w http.ResponseWriter, r *http.Request) (activities.ListFilters, bool) {

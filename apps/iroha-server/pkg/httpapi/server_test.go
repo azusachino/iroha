@@ -55,11 +55,11 @@ func TestRateLimitResponse(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	handler := limitByIP(1)(next)
 
-	first := httptest.NewRequest(http.MethodGet, "/public/v1/summary", nil)
+	first := httptest.NewRequest(http.MethodGet, "/api/v1/example", nil)
 	first.RemoteAddr = "192.0.2.10:1234"
 	handler.ServeHTTP(httptest.NewRecorder(), first)
 
-	second := httptest.NewRequest(http.MethodGet, "/public/v1/summary", nil)
+	second := httptest.NewRequest(http.MethodGet, "/api/v1/example", nil)
 	second.RemoteAddr = "192.0.2.10:1234"
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, second)
