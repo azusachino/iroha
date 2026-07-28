@@ -365,8 +365,7 @@ textarea {
   color: var(--text);
 }
 
-.command-trigger,
-.share-link {
+.command-trigger {
   min-height: 2.25rem;
   display: inline-flex;
   align-items: center;
@@ -379,9 +378,6 @@ textarea {
   font-size: 0.86rem;
   line-height: 1;
   text-decoration: none;
-}
-
-.command-trigger {
   padding: 0.45rem 0.5rem 0.45rem 0.7rem;
   cursor: pointer;
 }
@@ -396,12 +392,6 @@ textarea {
   font-size: 0.74rem;
 }
 
-.share-link {
-  padding: 0.55rem 0.75rem;
-}
-
-.share-link.active,
-.share-link:hover,
 .command-trigger:hover {
   border-color: color-mix(in srgb, var(--accent), var(--border) 35%);
   color: var(--text);
@@ -486,13 +476,11 @@ textarea {
     gap: 0.35rem;
   }
 
-  .command-trigger span,
-  .share-link span {
+  .command-trigger span {
     display: none;
   }
 
-  .command-trigger,
-  .share-link {
+  .command-trigger {
     width: 2.25rem;
     justify-content: center;
     padding: 0.45rem;

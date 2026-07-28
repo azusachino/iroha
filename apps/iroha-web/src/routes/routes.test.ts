@@ -9,12 +9,11 @@ describe("root route", () => {
 });
 
 describe("cockpit route layout", () => {
-  it("has concrete route files for the daily, activities domain, and share page", () => {
+  it("has concrete route files for the daily, activities, and media domains", () => {
     expect(routePages["./daily/+page.svelte"]).toBeDefined();
     expect(routePages["./activities/+page.svelte"]).toBeDefined();
     expect(routePages["./media/+page.svelte"]).toBeDefined();
     expect(routePages["./media/[id]/+page.svelte"]).toBeDefined();
-    expect(routePages["./share/+page.svelte"]).toBeDefined();
   });
 
   it("does not keep the old /u page route", () => {

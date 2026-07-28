@@ -6,10 +6,6 @@
     reverse_proxy {$IROHA_SERVER_UPSTREAM}
   }
 
-  handle /public/* {
-    reverse_proxy {$IROHA_SERVER_UPSTREAM}
-  }
-
   handle {
     try_files {path} /index.html
     file_server

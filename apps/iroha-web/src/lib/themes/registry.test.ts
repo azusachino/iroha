@@ -44,11 +44,6 @@ describe("Iroha theme registry", () => {
     expect(
       THEME_DEFINITIONS.filter(
         (theme) => theme.implementation === "preview",
-      ).every((theme) => hasThemeRoute(theme, "share")),
-    ).toBe(true);
-    expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "preview",
       ).every((theme) => hasThemeRoute(theme, "media")),
     ).toBe(true);
     expect(
@@ -82,7 +77,6 @@ describe("Iroha theme registry", () => {
       daily: expect.anything(),
       activities: expect.anything(),
       sleep: expect.anything(),
-      share: expect.anything(),
     });
     expect(getThemeDefinition("field-journal").implementation).toBe("preview");
     expect(hasThemeRoute(getThemeDefinition("field-journal"), "today")).toBe(

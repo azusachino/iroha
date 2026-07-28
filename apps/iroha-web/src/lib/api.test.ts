@@ -8,16 +8,14 @@ import {
   getActivityRoute,
   getActivitySamplings,
   getActivityLaps,
-  getPublicSummary,
-  listPublicActivities,
-  getPublicRoutes,
+  getActivitySummary,
+  getActivityRoutes,
   type Activity,
   type Page,
   type RoutePoint,
   type SamplingPoint,
   type Lap,
   type Summary,
-  type PublicActivity,
   type RouteFeatureCollection,
 } from "./api";
 
@@ -315,7 +313,7 @@ describe("getActivityLaps", () => {
   });
 });
 
-describe("getPublicSummary", () => {
+describe("getActivitySummary", () => {
   it("builds correct path", async () => {
     const mockSummary: Summary = {
       totals: {
@@ -329,10 +327,10 @@ describe("getPublicSummary", () => {
       by_sport: [],
     };
     const { fakeFetch, getCapturedUrl } = createFakeFetch(mockSummary);
-    await getPublicSummary({}, fakeFetch);
+    await getActivitySummary({}, fakeFetch);
 
     const url = getCapturedUrl();
-    expect(url).toContain("/public/v1/summary");
+    expect(url).toContain("/api/v1/activities/summary");
   });
 
   it("returns the summary object", async () => {
@@ -373,7 +371,7 @@ describe("getPublicSummary", () => {
     };
     const { fakeFetch } = createFakeFetch(mockSummary);
 
-    const result = await getPublicSummary({}, fakeFetch);
+    const result = await getActivitySummary({}, fakeFetch);
     expect(result).toEqual(mockSummary);
   });
 
@@ -390,7 +388,7 @@ describe("getPublicSummary", () => {
       by_sport: [],
     };
     const { fakeFetch, getCapturedUrl } = createFakeFetch(mockSummary);
-    await getPublicSummary({ year: "2025", sport: "run" }, fakeFetch);
+    await getActivitySummary({ year: "2025", sport: "run" }, fakeFetch);
 
     const url = getCapturedUrl();
     expect(url).toContain("year=2025");
@@ -398,79 +396,17 @@ describe("getPublicSummary", () => {
   });
 });
 
-describe("listPublicActivities", () => {
-  it("builds URL without params", async () => {
-    const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyPage);
-    await listPublicActivities({}, fakeFetch);
-
-    const url = getCapturedUrl();
-    expect(url).toContain("/public/v1/activities");
-    expect(url).not.toContain("?");
-  });
-
-  it("adds sport_type param when provided", async () => {
-    const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyPage);
-    await listPublicActivities({ sport_type: "ride" }, fakeFetch);
-
-    const url = getCapturedUrl();
-    expect(url).toContain("sport_type=ride");
-  });
-
-  it("adds limit and cursor params when provided", async () => {
-    const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyPage);
-    await listPublicActivities({ limit: 20, cursor: "abc123" }, fakeFetch);
-
-    const url = getCapturedUrl();
-    expect(url).toContain("limit=20");
-    expect(url).toContain("cursor=abc123");
-  });
-
-  it("adds distance bound params when provided", async () => {
-    const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyPage);
-    await listPublicActivities(
-      { min_distance_m: 1000, max_distance_m: 5000 },
-      fakeFetch,
-    );
-
-    const url = getCapturedUrl();
-    expect(url).toContain("min_distance_m=1000");
-    expect(url).toContain("max_distance_m=5000");
-  });
-
-  it("returns the public activities page envelope", async () => {
-    const mockPage: Page<PublicActivity> = {
-      items: [
-        {
-          id: "act1",
-          sport_type: "run",
-          title: "Morning Run",
-          started_at: "2026-01-01T08:00:00Z",
-          timezone: "UTC",
-          distance_m: 5000,
-          duration_s: 1500,
-        },
-      ],
-      next_cursor: null,
-      has_more: false,
-    };
-    const { fakeFetch } = createFakeFetch(mockPage);
-
-    const result = await listPublicActivities({}, fakeFetch);
-    expect(result).toEqual(mockPage);
-  });
-});
-
-describe("getPublicRoutes", () => {
+describe("getActivityRoutes", () => {
   it("builds correct path", async () => {
     const emptyCollection: RouteFeatureCollection = {
       type: "FeatureCollection",
       features: [],
     };
     const { fakeFetch, getCapturedUrl } = createFakeFetch(emptyCollection);
-    await getPublicRoutes(fakeFetch);
+    await getActivityRoutes(fakeFetch);
 
     const url = getCapturedUrl();
-    expect(url).toContain("/public/v1/routes");
+    expect(url).toContain("/api/v1/activities/routes");
   });
 
   it("returns the route feature collection", async () => {
@@ -492,7 +428,7 @@ describe("getPublicRoutes", () => {
     };
     const { fakeFetch } = createFakeFetch(mockCollection);
 
-    const result = await getPublicRoutes(fakeFetch);
+    const result = await getActivityRoutes(fakeFetch);
     expect(result).toEqual(mockCollection);
   });
 });

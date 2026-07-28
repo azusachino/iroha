@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    getPublicRoutes,
-    getPublicSummary,
+    getActivityRoutes,
+    getActivitySummary,
     listActivities,
     type Activity,
     type RouteFeatureCollection,
@@ -63,7 +63,7 @@
     summaryLoading = true;
     summaryError = null;
     try {
-      summary = await getPublicSummary();
+      summary = await getActivitySummary();
     } catch (error) {
       summaryError = errorMessage(error);
     } finally {
@@ -88,7 +88,7 @@
     routesLoading = true;
     routesError = null;
     try {
-      routes = await getPublicRoutes();
+      routes = await getActivityRoutes();
     } catch (error) {
       routesError = errorMessage(error);
     } finally {
