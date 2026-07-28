@@ -13,7 +13,7 @@ TAG := v0.1.1
 OUT := ./dist/public-data
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public web-install web-fmt web-fmt-check web-check web-test web-build web-dev public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_GLOB := **/*.{md,yaml,yml,json}
@@ -82,6 +82,12 @@ web-build: ## Production build of the web app
 
 web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
 	cd $(WEB_DIR) && $(NIX_DEV)bun run dev --host 0.0.0.0
+
+web-visual-install: ## One-time: install the Chromium binary for web-visual-check
+	cd $(WEB_DIR) && $(NIX_DEV)bunx playwright install chromium
+
+web-visual-check: ## Screenshot themed routes with a real browser (THEME=field-journal); needs web-dev + iroha-server + db-up already running
+	cd $(WEB_DIR) && $(NIX_DEV)bun run visual-check -- --theme $(or $(THEME),field-journal)
 
 ## --- Public static site (apps/iroha-public-site, bun) ---
 public-site-install: ## Install public-site dependencies
