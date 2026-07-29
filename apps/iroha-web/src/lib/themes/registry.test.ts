@@ -138,8 +138,22 @@ describe("Iroha theme registry", () => {
       "activity-detail": expect.anything(),
       "media-detail": expect.anything(),
     });
+    expect(getThemeDefinition("archive").implementation).toBe("curated");
+    expect(hasThemeRoute(getThemeDefinition("archive"), "today")).toBe(true);
+    expect(hasThemeRoute(getThemeDefinition("archive"), "daily")).toBe(true);
+    expect(getThemeDefinition("archive").components).toMatchObject({
+      shell: expect.anything(),
+      today: expect.anything(),
+      daily: expect.anything(),
+      activities: expect.anything(),
+      sleep: expect.anything(),
+      media: expect.anything(),
+      dashboard: expect.anything(),
+      "activity-detail": expect.anything(),
+      "media-detail": expect.anything(),
+    });
     expect(
       THEME_DEFINITIONS.filter((theme) => theme.implementation === "preview"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 });
