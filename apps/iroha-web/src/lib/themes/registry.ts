@@ -132,7 +132,7 @@ export const THEME_DEFINITIONS = [
     hint: "sleep and seasons",
     description:
       "A cyclical language for recovery, rest, and unfolding patterns.",
-    implementation: "preview",
+    implementation: "curated",
     routes: [
       "today",
       "dashboard",
