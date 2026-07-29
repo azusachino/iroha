@@ -110,8 +110,22 @@ describe("Iroha theme registry", () => {
       "activity-detail": expect.anything(),
       "media-detail": expect.anything(),
     });
+    expect(getThemeDefinition("phenology").implementation).toBe("curated");
+    expect(hasThemeRoute(getThemeDefinition("phenology"), "today")).toBe(true);
+    expect(hasThemeRoute(getThemeDefinition("phenology"), "daily")).toBe(true);
+    expect(getThemeDefinition("phenology").components).toMatchObject({
+      shell: expect.anything(),
+      today: expect.anything(),
+      daily: expect.anything(),
+      activities: expect.anything(),
+      sleep: expect.anything(),
+      media: expect.anything(),
+      dashboard: expect.anything(),
+      "activity-detail": expect.anything(),
+      "media-detail": expect.anything(),
+    });
     expect(
       THEME_DEFINITIONS.filter((theme) => theme.implementation === "preview"),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
   });
 });
