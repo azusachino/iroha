@@ -2,6 +2,7 @@ import {
   THEME_ROUTES,
   type DesignLanguage,
   type ThemeDefinition,
+  type ThemeImplementationStatus,
 } from "$lib/themes/types";
 import GrapherActivities from "$lib/themes/grapher/Activities.svelte";
 import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
@@ -188,7 +189,12 @@ export const THEME_DEFINITIONS = [
     label: "Iroha Archive",
     hint: "media and history",
     description: "A chronological language for collections and memory.",
-    implementation: "preview",
+    // Cast (rather than a bare literal) so `as const` below doesn't narrow
+    // every entry's `implementation` to the literal "curated" -- that would
+    // make `=== "preview"` checks elsewhere (registry.test.ts,
+    // DesignLanguagePicker) unreachable at the type level now that no theme
+    // is still in preview.
+    implementation: "curated" as ThemeImplementationStatus,
     routes: [
       "today",
       "dashboard",
