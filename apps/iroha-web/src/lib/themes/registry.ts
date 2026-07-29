@@ -160,7 +160,7 @@ export const THEME_DEFINITIONS = [
     label: "Iroha Sound Map",
     hint: "rhythm and intensity",
     description: "A rhythmic language for cadence, intensity, and flow.",
-    implementation: "preview",
+    implementation: "curated",
     routes: [
       "today",
       "dashboard",

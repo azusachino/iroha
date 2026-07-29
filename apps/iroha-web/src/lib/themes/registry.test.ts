@@ -124,8 +124,22 @@ describe("Iroha theme registry", () => {
       "activity-detail": expect.anything(),
       "media-detail": expect.anything(),
     });
+    expect(getThemeDefinition("sound-map").implementation).toBe("curated");
+    expect(hasThemeRoute(getThemeDefinition("sound-map"), "today")).toBe(true);
+    expect(hasThemeRoute(getThemeDefinition("sound-map"), "daily")).toBe(true);
+    expect(getThemeDefinition("sound-map").components).toMatchObject({
+      shell: expect.anything(),
+      today: expect.anything(),
+      daily: expect.anything(),
+      activities: expect.anything(),
+      sleep: expect.anything(),
+      media: expect.anything(),
+      dashboard: expect.anything(),
+      "activity-detail": expect.anything(),
+      "media-detail": expect.anything(),
+    });
     expect(
       THEME_DEFINITIONS.filter((theme) => theme.implementation === "preview"),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
 });
