@@ -151,7 +151,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-weight: 700;
     letter-spacing: -0.01em;
   }
@@ -166,7 +166,7 @@
   .folio-kicker {
     margin: 0 0 0.45rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -198,7 +198,7 @@
     height: 100%;
     place-items: center;
     color: var(--accent);
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 3.6rem;
     font-weight: 700;
   }
@@ -211,7 +211,7 @@
     padding: 0.15rem 0.4rem;
     background: color-mix(in srgb, var(--bg) 60%, transparent);
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.62rem;
     letter-spacing: 0.03em;
   }
@@ -233,7 +233,7 @@
     flex-wrap: wrap;
     gap: 0.8rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -278,12 +278,12 @@
   }
   .panel-heading > span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
   }
   .progress-readout {
     color: var(--accent);
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 2.2rem;
     font-weight: 700;
   }
@@ -316,7 +316,7 @@
     flex-direction: column;
     gap: 0.5rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
   }
   dl {
@@ -330,12 +330,12 @@
   }
   dt {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.74rem;
   }
   dd {
     margin: 0;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
   }
   ol {
     display: grid;
@@ -350,7 +350,7 @@
     gap: 1rem;
     border-top: 1px solid var(--border);
     padding: 0.75rem 0;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.78rem;
   }
   li b {
@@ -379,7 +379,7 @@
   }
   .relations small {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
   }
   @media (max-width: 700px) {
     .media-hero,

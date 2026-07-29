@@ -173,6 +173,8 @@
   --ring-exercise: #c786a9;
   --ring-stand: #b8a0ff;
   --radius: 3px;
+  --font-serif: "Rockwell", "Roboto Slab", Georgia, serif;
+  --font-mono: "Courier New", "Consolas", ui-monospace, monospace;
 }
 
 * {

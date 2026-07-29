@@ -174,7 +174,7 @@
   .folio-kicker {
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -182,7 +182,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-weight: 700;
     letter-spacing: -0.01em;
   }
@@ -212,14 +212,14 @@
   }
   .folio-readout strong {
     color: var(--accent);
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 3.3rem;
     font-weight: 700;
     white-space: nowrap;
   }
   .folio-readout span {
     margin-top: 0.5rem;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     text-transform: uppercase;
   }
@@ -259,13 +259,13 @@
   }
   .folio-summary span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
   .folio-summary strong {
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.4rem;
     font-weight: 700;
   }
@@ -278,7 +278,7 @@
   .folio-core header > span,
   .folio-ledger header > span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.68rem;
     text-align: right;
   }
@@ -346,7 +346,7 @@
   }
   .core-row strong {
     overflow: hidden;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.76rem;
     font-weight: 400;
     text-overflow: ellipsis;
@@ -355,7 +355,7 @@
   .core-row span {
     overflow: hidden;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.68rem;
     text-align: right;
     text-overflow: ellipsis;
@@ -367,7 +367,7 @@
   }
   .folio-note strong {
     display: block;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.5rem;
     font-weight: 700;
   }
@@ -375,7 +375,7 @@
     display: block;
     margin-top: 0.35rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.72rem;
   }
   .folio-ledger {
@@ -392,7 +392,7 @@
     width: 100%;
     min-width: 38rem;
     border-collapse: collapse;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.76rem;
   }
   th {
@@ -420,7 +420,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.8rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;

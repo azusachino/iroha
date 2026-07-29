@@ -283,7 +283,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-weight: 700;
     letter-spacing: -0.01em;
   }
@@ -298,7 +298,7 @@
   .folio-kicker {
     margin: 0 0 0.45rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -307,7 +307,7 @@
   .panel-heading > span,
   .panel-note {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
   }
   .accession-tag {
@@ -318,7 +318,7 @@
     border-radius: var(--radius);
     padding: 0.5rem 0.8rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.82rem;
     letter-spacing: 0.04em;
     white-space: nowrap;
@@ -340,7 +340,7 @@
   }
   .metric-grid span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     text-transform: uppercase;
   }
@@ -420,7 +420,7 @@
     margin: 0;
     padding: 1rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.8rem;
     text-align: center;
   }
@@ -442,12 +442,12 @@
   }
   dt {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.72rem;
   }
   dd {
     margin: 0;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.8rem;
     text-align: right;
   }
@@ -462,7 +462,7 @@
     gap: 1rem;
     border-top: 1px solid var(--border);
     padding-top: 0.65rem;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.78rem;
   }
   .lap-list b {

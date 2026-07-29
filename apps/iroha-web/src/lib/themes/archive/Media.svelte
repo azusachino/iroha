@@ -226,7 +226,7 @@
   .folio-kicker {
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -234,7 +234,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-weight: 700;
     letter-spacing: -0.01em;
   }
@@ -265,14 +265,14 @@
   }
   .folio-readout strong {
     color: var(--accent);
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 3.2rem;
     font-weight: 700;
     white-space: nowrap;
   }
   .folio-readout span {
     margin-top: 0.5rem;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     text-transform: uppercase;
   }
@@ -288,7 +288,7 @@
     background: transparent;
     color: var(--text-muted);
     font: inherit;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -309,7 +309,7 @@
     display: grid;
     gap: 0.3rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -360,13 +360,13 @@
   }
   .folio-stats span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
   .folio-stats strong {
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.5rem;
     font-weight: 700;
   }
@@ -377,7 +377,7 @@
   }
   .folio-core header > span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.68rem;
     text-align: right;
   }
@@ -425,13 +425,13 @@
     border-top: 0;
   }
   .core-row strong {
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.85rem;
     font-weight: 700;
   }
   .core-row span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.68rem;
   }
   .folio-shelf {
@@ -447,7 +447,7 @@
   }
   .folio-shelf > header > span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.7rem;
     text-align: right;
   }
@@ -474,7 +474,7 @@
     padding: 0.1rem 0.35rem;
     background: color-mix(in srgb, var(--bg) 55%, transparent);
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.58rem;
     letter-spacing: 0.03em;
   }
@@ -491,13 +491,13 @@
     display: grid;
     place-items: center;
     color: var(--accent);
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 2.4rem;
     font-weight: 700;
   }
   .folio-card strong {
     overflow: hidden;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.88rem;
     font-weight: 700;
     text-overflow: ellipsis;
@@ -506,7 +506,7 @@
   .folio-card small {
     overflow: hidden;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -533,7 +533,7 @@
     background: transparent;
     color: var(--accent);
     font: inherit;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -546,7 +546,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.8rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;

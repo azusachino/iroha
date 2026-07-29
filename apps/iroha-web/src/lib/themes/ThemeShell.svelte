@@ -187,6 +187,7 @@
     --surface-1: #f4ecd9;
     --text: #33271f;
     --text-muted: #796656;
+    --font-serif: Georgia, "Times New Roman", serif;
     background:
       repeating-linear-gradient(
         0deg,
@@ -194,7 +195,7 @@
         transparent 1px 4px
       ),
       var(--bg);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
   }
 
   .theme-preview-archive .theme-preview-heading {

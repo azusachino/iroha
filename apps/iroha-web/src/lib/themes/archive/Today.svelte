@@ -228,7 +228,7 @@
   .folio-kicker {
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -236,7 +236,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-weight: 700;
     letter-spacing: -0.01em;
   }
@@ -266,7 +266,7 @@
     display: block;
     margin-top: 1rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.7rem;
   }
   .accession-tag {
@@ -277,7 +277,7 @@
     border-radius: var(--radius);
     padding: 0.45rem 0.75rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.78rem;
     letter-spacing: 0.04em;
     white-space: nowrap;
@@ -307,7 +307,7 @@
   }
   .folio-focus strong {
     display: block;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: clamp(2.4rem, 6.5vw, 4.6rem);
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -393,14 +393,14 @@
   }
   dt {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
   dd {
     margin: 0;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
   }
   .folio-sessions {
     border: 1px solid var(--border);
@@ -466,13 +466,13 @@
   }
   .core-row b {
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-weight: 400;
   }
   .core-row strong {
     overflow: hidden;
     color: var(--text);
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.95rem;
     font-weight: 400;
     text-overflow: ellipsis;
@@ -481,7 +481,7 @@
   .core-row span {
     overflow: hidden;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.7rem;
     text-align: right;
     text-overflow: ellipsis;
@@ -491,7 +491,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.9rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
