@@ -159,7 +159,7 @@
   .atlas-today {
     display: grid;
     gap: 1.5rem;
-    font-family: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+    font-family: var(--font-sans);
   }
   .atlas-kicker {
     display: flex;
@@ -167,7 +167,7 @@
     gap: 0.4rem;
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -210,7 +210,7 @@
     border-radius: var(--radius);
     padding: 0.6rem 0.9rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     text-align: right;
   }
   .grid-ref span {
@@ -287,7 +287,7 @@
     top: -1.55rem;
     transform: translateX(-50%);
     color: var(--accent);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.72rem;
     white-space: nowrap;
   }
@@ -296,7 +296,7 @@
     justify-content: space-between;
     margin-top: 0.4rem;
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.62rem;
   }
   .today-grid {
@@ -310,7 +310,7 @@
   }
   .today-grid h2 small {
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
     font-weight: 400;
     letter-spacing: 0;
@@ -338,7 +338,7 @@
   }
   dd {
     margin: 0;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
   }
   .route-log-heading {
     display: flex;
@@ -348,7 +348,7 @@
   }
   .route-log-heading > span {
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.72rem;
   }
   .waypoint-list {
@@ -372,7 +372,7 @@
     border-radius: 50%;
     padding: 0.15rem 0;
     color: var(--accent);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.65rem;
     text-align: center;
   }
@@ -388,7 +388,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.9rem;
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
   }
   @media (max-width: 680px) {

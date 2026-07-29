@@ -155,7 +155,7 @@
   .folio-kicker {
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -163,7 +163,7 @@
   h1 {
     max-width: 13ch;
     margin: 0;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: clamp(2.5rem, 6.5vw, 5.2rem);
     font-weight: 700;
     letter-spacing: -0.01em;
@@ -189,14 +189,14 @@
   }
   .folio-readout strong {
     color: var(--accent);
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 3.3rem;
     font-weight: 700;
     white-space: nowrap;
   }
   .folio-readout span {
     margin-top: 0.5rem;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     text-transform: uppercase;
   }
@@ -211,7 +211,7 @@
     display: grid;
     gap: 0.3rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -236,7 +236,7 @@
     width: 100%;
     min-width: 50rem;
     border-collapse: collapse;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.76rem;
   }
   th {
@@ -259,7 +259,7 @@
   }
   td a {
     color: var(--text);
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     text-decoration: none;
   }
   td a:hover {
@@ -283,7 +283,7 @@
     background: transparent;
     color: var(--accent);
     font: inherit;
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;

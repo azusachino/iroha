@@ -53,7 +53,7 @@
     padding: 1rem max(1rem, calc((100% - 1160px) / 2));
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-family: var(--font-mono);
     font-size: 0.65rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -78,7 +78,7 @@
   .atlas-compass text {
     fill: var(--text-muted);
     font-size: 8px;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
   }
 
   @media (max-width: 640px) {

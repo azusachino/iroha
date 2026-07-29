@@ -34,7 +34,7 @@
       ),
       var(--bg);
     color: var(--text);
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
   }
 
   .vault-content {
@@ -55,7 +55,7 @@
     padding: 1rem max(1rem, calc((100% - 1180px) / 2));
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.65rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -69,7 +69,7 @@
     border: 1px solid var(--accent);
     border-radius: var(--radius);
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.95rem;
   }
 

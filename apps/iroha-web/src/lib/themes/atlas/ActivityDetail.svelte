@@ -259,7 +259,7 @@
   .atlas-plot {
     display: grid;
     gap: 1.5rem;
-    font-family: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+    font-family: var(--font-sans);
   }
   .atlas-kicker {
     display: flex;
@@ -267,7 +267,7 @@
     gap: 0.4rem;
     margin: 0 0 0.45rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -300,7 +300,7 @@
   .plot-date {
     margin: 0.8rem 0 0;
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.85rem;
   }
   .grid-ref {
@@ -310,7 +310,7 @@
     border-radius: var(--radius);
     padding: 0.55rem 0.85rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     text-align: right;
   }
   .grid-ref span {
@@ -340,11 +340,11 @@
   }
   .metric-grid span {
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.65rem;
   }
   .metric-grid strong {
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 1rem;
     font-weight: 600;
   }
@@ -392,7 +392,7 @@
   }
   .panel-heading > span {
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.72rem;
   }
   .trace-map {
@@ -420,7 +420,7 @@
     right: 0.7rem;
     z-index: 1;
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.68rem;
   }
   .trace-map svg {
@@ -484,7 +484,7 @@
   }
   .coord-readout dd {
     margin: 0;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.78rem;
     text-align: right;
   }
@@ -512,7 +512,7 @@
   }
   dd {
     margin: 0;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.8rem;
     text-align: right;
   }
@@ -527,7 +527,7 @@
     gap: 1rem;
     border-top: 1px solid var(--border);
     padding-top: 0.6rem;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.78rem;
   }
   .lap-list b {
@@ -538,7 +538,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.85rem;
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
   }
   @media (max-width: 800px) {

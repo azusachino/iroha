@@ -122,6 +122,7 @@
     --surface-1: #f8fbf8;
     --text: #18343a;
     --text-muted: #5f787c;
+    --font-sans: "Avenir Next", sans-serif;
     background-color: var(--bg);
     background-image:
       linear-gradient(
@@ -134,7 +135,7 @@
         transparent 1px
       );
     background-size: 2rem 2rem;
-    font-family: "Avenir Next", sans-serif;
+    font-family: var(--font-sans);
   }
 
   .theme-preview-atlas .theme-preview-mark {
@@ -147,10 +148,11 @@
     --surface-1: #fffaf1;
     --text: #3f3029;
     --text-muted: #866f61;
+    --font-serif: "Iowan Old Style", Georgia, serif;
     background:
       radial-gradient(circle at 80% 8%, #e4c7a5 0 0.25rem, transparent 0.3rem),
       var(--bg);
-    font-family: "Iowan Old Style", Georgia, serif;
+    font-family: var(--font-serif);
   }
 
   .theme-preview-phenology .theme-preview-mark {
@@ -164,8 +166,9 @@
     --surface-1: #112328;
     --text: #e2fff4;
     --text-muted: #7da59b;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
     background: var(--bg);
-    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-family: var(--font-mono);
   }
 
   .theme-preview-sound-map .theme-preview-heading,
@@ -184,6 +187,7 @@
     --surface-1: #f4ecd9;
     --text: #33271f;
     --text-muted: #796656;
+    --font-serif: Georgia, "Times New Roman", serif;
     background:
       repeating-linear-gradient(
         0deg,
@@ -191,7 +195,7 @@
         transparent 1px 4px
       ),
       var(--bg);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
   }
 
   .theme-preview-archive .theme-preview-heading {

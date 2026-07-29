@@ -172,7 +172,7 @@
   .bloom-today {
     display: grid;
     gap: 1.75rem;
-    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-family: var(--font-serif);
   }
   .bloom-kicker {
     margin: 0 0 0.5rem;
@@ -185,7 +185,6 @@
   h2 {
     margin: 0;
     font-weight: 400;
-    font-style: italic;
     letter-spacing: -0.02em;
   }
   h1 {

@@ -148,7 +148,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
     font-weight: 400;
     letter-spacing: -0.04em;
   }
@@ -178,7 +178,7 @@
   }
   .night-stamp strong {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 3.2rem;
     font-weight: 400;
     line-height: 0.85;
@@ -194,7 +194,7 @@
     align-items: center;
     gap: 1rem;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.8rem;
     font-style: italic;
   }
@@ -226,7 +226,7 @@
   }
   dd {
     margin: 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.35rem;
   }
   .night-card,
@@ -329,7 +329,7 @@
   }
   td:first-child {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   tbody tr {
     cursor: pointer;

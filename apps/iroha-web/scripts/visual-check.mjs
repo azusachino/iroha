@@ -77,16 +77,24 @@ async function main() {
 
     await page.goto(base + path, { waitUntil: "networkidle" });
     await page.waitForTimeout(400);
-    await page.screenshot({
-      path: `${out}/${theme}-${name}-desktop.png`,
-      fullPage: true,
-    });
-    await page.setViewportSize({ width: 640, height: 900 });
-    await page.waitForTimeout(200);
-    await page.screenshot({
-      path: `${out}/${theme}-${name}-mobile.png`,
-      fullPage: true,
-    });
+
+    const viewports = [
+      { width: 1280, label: "desktop" },
+      { width: 768, label: "768" },
+      { width: 640, label: "mobile" },
+      { width: 414, label: "414" },
+      { width: 375, label: "375" },
+      { width: 320, label: "320" },
+    ];
+
+    for (const vp of viewports) {
+      await page.setViewportSize({ width: vp.width, height: 900 });
+      await page.waitForTimeout(200);
+      await page.screenshot({
+        path: `${out}/${theme}-${name}-${vp.label}.png`,
+        fullPage: true,
+      });
+    }
     await page.setViewportSize({ width: 1280, height: 900 });
 
     page.off("console", onConsole);

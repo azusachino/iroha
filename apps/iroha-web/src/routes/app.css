@@ -126,6 +126,8 @@
   --ring-exercise: #e07b58;
   --ring-stand: #58c7c0;
   --radius: 10px;
+  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
 }
 
 :root[data-language="grapher"] {
@@ -141,6 +143,7 @@
   --accent: #39c5bb;
   --accent-2: #ff5c8a;
   --radius: 14px;
+  --font-serif: Georgia, "Times New Roman", serif;
 }
 
 :root[data-language="phenology"] {
@@ -150,6 +153,8 @@
   --ring-exercise: #e7b65a;
   --ring-stand: #a5c76a;
   --radius: 20px;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --season-summer-accent: #e7b65a;
 }
 
 :root[data-language="sound-map"] {
@@ -159,6 +164,7 @@
   --ring-exercise: #b5e36b;
   --ring-stand: #63b7ff;
   --radius: 5px;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
 }
 
 :root[data-language="archive"] {
@@ -168,6 +174,8 @@
   --ring-exercise: #c786a9;
   --ring-stand: #b8a0ff;
   --radius: 3px;
+  --font-serif: "Rockwell", "Roboto Slab", Georgia, serif;
+  --font-mono: "Courier New", "Consolas", ui-monospace, monospace;
 }
 
 * {

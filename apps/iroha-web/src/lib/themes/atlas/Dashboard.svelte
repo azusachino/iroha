@@ -123,7 +123,7 @@
   .atlas-master {
     display: grid;
     gap: 1.5rem;
-    font-family: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+    font-family: var(--font-sans);
   }
   .atlas-kicker {
     display: flex;
@@ -131,7 +131,7 @@
     gap: 0.4rem;
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -174,7 +174,7 @@
     border-radius: var(--radius);
     padding: 0.6rem 0.9rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     text-align: right;
   }
   .grid-ref span {
@@ -233,7 +233,7 @@
   .master-stats strong {
     display: block;
     margin-top: 0.35rem;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 1.4rem;
     font-weight: 600;
   }
@@ -253,7 +253,7 @@
   }
   .entries-heading > span {
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.7rem;
   }
   .waypoint-list {
@@ -277,7 +277,7 @@
     border-radius: 50%;
     padding: 0.15rem 0;
     color: var(--accent);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.62rem;
     text-align: center;
   }
@@ -321,7 +321,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.8rem;
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
   }
   @media (max-width: 760px) {

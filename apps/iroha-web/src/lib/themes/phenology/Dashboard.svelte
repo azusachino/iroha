@@ -192,9 +192,9 @@
   .bloom-view {
     display: grid;
     gap: 1.5rem;
-    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-family: var(--font-serif);
     --season-spring: var(--accent-2);
-    --season-summer: #e7b65a;
+    --season-summer: var(--season-summer-accent);
     --season-autumn: var(--accent);
     --season-winter: var(--text-muted);
   }
@@ -209,7 +209,6 @@
   h2 {
     margin: 0;
     font-weight: 400;
-    font-style: italic;
     letter-spacing: -0.02em;
   }
   h1 {

@@ -172,7 +172,7 @@
   .folio-kicker {
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -180,7 +180,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-weight: 700;
     letter-spacing: -0.01em;
   }
@@ -212,7 +212,7 @@
     border-radius: var(--radius);
     padding: 0.45rem 0.75rem;
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.78rem;
     letter-spacing: 0.04em;
     white-space: nowrap;
@@ -262,13 +262,13 @@
   }
   .folio-stats span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
   .folio-stats strong {
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.5rem;
     font-weight: 700;
   }
@@ -294,7 +294,7 @@
   }
   .folio-panel > header > span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.7rem;
   }
   .folio-panel h2 {
@@ -316,18 +316,18 @@
   }
   li b {
     color: var(--accent);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-weight: 400;
   }
   li strong {
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.92rem;
     font-weight: 700;
   }
   li span,
   .folio-empty {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
   }
   .core-log {
     display: flex;
@@ -374,14 +374,14 @@
   }
   .core-row strong {
     overflow: hidden;
-    font-family: "Rockwell", "Roboto Slab", Georgia, serif;
+    font-family: var(--font-serif);
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .core-row span {
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
   }
   .map-frame {
     height: 11rem;
@@ -397,7 +397,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.8rem;
     color: var(--text-muted);
-    font-family: "Courier New", "Consolas", ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;

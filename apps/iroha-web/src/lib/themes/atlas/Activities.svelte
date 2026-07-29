@@ -157,7 +157,7 @@
   .atlas-index {
     display: grid;
     gap: 1.5rem;
-    font-family: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+    font-family: var(--font-sans);
   }
   .atlas-kicker {
     display: flex;
@@ -165,7 +165,7 @@
     gap: 0.4rem;
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -202,7 +202,7 @@
     border-radius: var(--radius);
     padding: 0.6rem 0.9rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     text-align: right;
   }
   .grid-ref span {
@@ -226,7 +226,7 @@
     display: grid;
     gap: 0.3rem;
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.62rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -290,7 +290,7 @@
   }
   th {
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.62rem;
     font-weight: 400;
     letter-spacing: 0.06em;
@@ -305,13 +305,13 @@
     white-space: nowrap;
   }
   td {
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
   }
   .manifest-index {
     color: var(--accent);
   }
   td:nth-child(3) {
-    font-family: "Avenir Next", sans-serif;
+    font-family: var(--font-sans);
     font-weight: 600;
   }
   td a {
@@ -340,7 +340,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.8rem;
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
   }
   @media (max-width: 680px) {

@@ -193,7 +193,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
     font-weight: 400;
     letter-spacing: -0.04em;
   }
@@ -214,7 +214,7 @@
   .entry-date {
     margin: 0.9rem 0 0;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.95rem;
   }
   .entry-stamp {
@@ -230,7 +230,7 @@
     transform: rotate(-6deg);
   }
   .entry-stamp span {
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.3rem;
   }
   .entry-stamp small {
@@ -245,7 +245,7 @@
     align-items: center;
     gap: 1rem;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.8rem;
     font-style: italic;
   }
@@ -277,7 +277,7 @@
   }
   dd {
     margin: 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1rem;
   }
   .entry-grid {
@@ -391,7 +391,7 @@
   }
   td:first-child {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   .journal-source {
     display: flex;

@@ -184,7 +184,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
     font-weight: 400;
     letter-spacing: -0.04em;
   }
@@ -215,7 +215,7 @@
   }
   .shelf-stamp strong {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 3.2rem;
     font-weight: 400;
     line-height: 0.85;
@@ -231,7 +231,7 @@
     align-items: center;
     gap: 1rem;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.8rem;
     font-style: italic;
   }
@@ -284,7 +284,7 @@
     padding: 0.5rem;
     background: color-mix(in srgb, var(--surface-1) 84%, transparent);
     color: var(--text);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.85rem;
   }
   .shelf-summary {
@@ -309,7 +309,7 @@
   }
   dd {
     margin: 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.35rem;
   }
   .shelf-card {
@@ -358,12 +358,12 @@
     display: grid;
     place-items: center;
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 2.4rem;
   }
   .shelf-clipping strong {
     overflow: hidden;
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.88rem;
     font-weight: 400;
     text-overflow: ellipsis;
@@ -394,7 +394,7 @@
     padding: 0.6rem 1.2rem;
     background: transparent;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-style: italic;
     font-size: 0.85rem;
     cursor: pointer;

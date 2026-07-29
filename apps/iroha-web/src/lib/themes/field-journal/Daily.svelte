@@ -197,7 +197,7 @@
   }
   h1,
   h2 {
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
     font-weight: 400;
     letter-spacing: -0.04em;
   }
@@ -224,7 +224,7 @@
   }
   .period-count strong {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 3.5rem;
     font-weight: 400;
     line-height: 0.8;
@@ -239,7 +239,7 @@
     align-items: center;
     gap: 1rem;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.8rem;
     font-style: italic;
   }
@@ -293,7 +293,7 @@
   }
   .latest-note strong {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.5rem;
     font-weight: 400;
   }
@@ -372,7 +372,7 @@
   }
   dd {
     margin: 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   .period-ledger {
     padding: 1.5rem;
@@ -404,7 +404,7 @@
   }
   td:first-child {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   .journal-source {
     border-top: 1px solid var(--border);
