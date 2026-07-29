@@ -69,7 +69,7 @@
     border: 1px solid var(--accent);
     border-radius: var(--radius);
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.95rem;
   }
 
