@@ -122,6 +122,7 @@
     --surface-1: #f8fbf8;
     --text: #18343a;
     --text-muted: #5f787c;
+    --font-sans: "Avenir Next", sans-serif;
     background-color: var(--bg);
     background-image:
       linear-gradient(
@@ -134,7 +135,7 @@
         transparent 1px
       );
     background-size: 2rem 2rem;
-    font-family: "Avenir Next", sans-serif;
+    font-family: var(--font-sans);
   }
 
   .theme-preview-atlas .theme-preview-mark {

@@ -129,7 +129,7 @@
   .atlas-nights {
     display: grid;
     gap: 1.5rem;
-    font-family: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+    font-family: var(--font-sans);
   }
   .atlas-kicker {
     display: flex;
@@ -137,7 +137,7 @@
     gap: 0.4rem;
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -180,7 +180,7 @@
     border-radius: var(--radius);
     padding: 0.6rem 0.9rem;
     color: var(--accent);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     text-align: right;
   }
   .grid-ref span {
@@ -230,7 +230,7 @@
   .nights-summary strong {
     display: block;
     margin-top: 0.3rem;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 1.5rem;
     font-weight: 600;
   }
@@ -264,7 +264,7 @@
   .chart-heading > span,
   .ledger-heading > span {
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.72rem;
   }
   .nights-bars {
@@ -301,7 +301,7 @@
   .nights-bars small {
     overflow: hidden;
     margin-top: 0.5rem;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.55rem;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -313,7 +313,7 @@
     background: color-mix(in srgb, var(--accent) 8%, var(--surface-1));
   }
   .selected-note strong {
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 1.4rem;
     font-weight: 600;
   }
@@ -333,7 +333,7 @@
   }
   th {
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.62rem;
     font-weight: 400;
     letter-spacing: 0.06em;
@@ -346,7 +346,7 @@
     padding: 0.8rem 0.5rem;
     text-align: left;
     white-space: nowrap;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
   }
   tbody tr {
     cursor: pointer;
@@ -358,7 +358,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.8rem;
     color: var(--text-muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 0.66rem;
   }
   @media (max-width: 680px) {

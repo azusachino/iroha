@@ -126,6 +126,8 @@
   --ring-exercise: #e07b58;
   --ring-stand: #58c7c0;
   --radius: 10px;
+  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
 }
 
 :root[data-language="grapher"] {
