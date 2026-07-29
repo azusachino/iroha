@@ -199,7 +199,7 @@
   .bloom-log {
     display: grid;
     gap: 1.5rem;
-    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-family: var(--font-serif);
   }
   .bloom-kicker {
     margin: 0 0 0.5rem;
@@ -212,7 +212,6 @@
     max-width: 13ch;
     margin: 0;
     font-size: clamp(2.4rem, 6vw, 4.6rem);
-    font-style: italic;
     font-weight: 400;
     letter-spacing: -0.02em;
     line-height: 0.95;

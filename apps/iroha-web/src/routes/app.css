@@ -150,6 +150,7 @@
   --ring-exercise: #e7b65a;
   --ring-stand: #a5c76a;
   --radius: 20px;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
 }
 
 :root[data-language="sound-map"] {

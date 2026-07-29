@@ -147,10 +147,11 @@
     --surface-1: #fffaf1;
     --text: #3f3029;
     --text-muted: #866f61;
+    --font-serif: "Iowan Old Style", Georgia, serif;
     background:
       radial-gradient(circle at 80% 8%, #e4c7a5 0 0.25rem, transparent 0.3rem),
       var(--bg);
-    font-family: "Iowan Old Style", Georgia, serif;
+    font-family: var(--font-serif);
   }
 
   .theme-preview-phenology .theme-preview-mark {
