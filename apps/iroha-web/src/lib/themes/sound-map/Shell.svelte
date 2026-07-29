@@ -36,7 +36,7 @@
       ),
       var(--bg);
     color: var(--text);
-    font-family: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+    font-family: var(--font-mono);
   }
 
   .mix-content {

@@ -164,8 +164,9 @@
     --surface-1: #112328;
     --text: #e2fff4;
     --text-muted: #7da59b;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
     background: var(--bg);
-    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    font-family: var(--font-mono);
   }
 
   .theme-preview-sound-map .theme-preview-heading,

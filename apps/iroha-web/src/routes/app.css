@@ -159,6 +159,7 @@
   --ring-exercise: #b5e36b;
   --ring-stand: #63b7ff;
   --radius: 5px;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
 }
 
 :root[data-language="archive"] {
