@@ -182,7 +182,7 @@
   }
   h1,
   h2 {
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
     font-weight: 400;
     letter-spacing: -0.04em;
   }
@@ -199,7 +199,7 @@
   .journal-date {
     margin: 1rem 0 0;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.05rem;
   }
   .journal-stamp {
@@ -222,7 +222,7 @@
   }
   .journal-stamp strong {
     margin: 0.25rem 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.1rem;
     font-weight: 400;
     line-height: 0.9;
@@ -232,7 +232,7 @@
     align-items: center;
     gap: 1rem;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.8rem;
     font-style: italic;
   }
@@ -293,7 +293,7 @@
   }
   .signal-gauge strong {
     top: 3.35rem;
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1.55rem;
     font-weight: 400;
   }
@@ -331,7 +331,7 @@
   }
   dd {
     margin: 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   .sleep-entry > p {
     line-height: 1.6;
@@ -376,11 +376,11 @@
   }
   .session-index {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   .session-name {
     color: var(--text);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 1rem;
   }
   .journal-empty {

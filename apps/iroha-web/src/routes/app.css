@@ -141,6 +141,7 @@
   --accent: #39c5bb;
   --accent-2: #ff5c8a;
   --radius: 14px;
+  --font-serif: Georgia, "Times New Roman", serif;
 }
 
 :root[data-language="phenology"] {

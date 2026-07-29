@@ -157,7 +157,7 @@
   h1,
   h2 {
     margin: 0;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
     font-weight: 400;
     letter-spacing: -0.04em;
   }
@@ -192,7 +192,7 @@
     height: 100%;
     place-items: center;
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 3.5rem;
   }
   .hero-copy {
@@ -217,14 +217,14 @@
   }
   .meta-row strong {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   .journal-rule {
     display: flex;
     align-items: center;
     gap: 1rem;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.8rem;
     font-style: italic;
   }
@@ -260,7 +260,7 @@
   }
   .panel-heading > strong {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 2.2rem;
     font-weight: 400;
   }
@@ -295,7 +295,7 @@
   }
   dd {
     margin: 0;
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   ol {
     display: grid;
@@ -316,14 +316,14 @@
   }
   .timeline-index {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   .timeline-date {
     color: var(--accent);
   }
   li strong {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-weight: 400;
   }
   .journal-empty {

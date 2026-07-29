@@ -189,7 +189,7 @@
   h1 {
     max-width: 12ch;
     margin: 0;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-serif);
     font-weight: 400;
     letter-spacing: -0.05em;
     font-size: clamp(2.6rem, 6vw, 4.6rem);
@@ -213,7 +213,7 @@
   }
   .log-stamp strong {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 3.2rem;
     font-weight: 400;
     line-height: 0.85;
@@ -229,7 +229,7 @@
     align-items: center;
     gap: 1rem;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.8rem;
     font-style: italic;
   }
@@ -262,7 +262,7 @@
     padding: 0.5rem;
     background: color-mix(in srgb, var(--surface-1) 84%, transparent);
     color: var(--text);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-size: 0.85rem;
   }
   .log-status {
@@ -304,10 +304,10 @@
   }
   .log-index {
     color: var(--accent);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   td:nth-child(3) {
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
   }
   td a {
     color: var(--text);
@@ -323,7 +323,7 @@
     padding: 0.6rem 1.2rem;
     background: transparent;
     color: var(--text-muted);
-    font-family: Georgia, serif;
+    font-family: var(--font-serif);
     font-style: italic;
     font-size: 0.85rem;
     cursor: pointer;
