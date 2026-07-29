@@ -194,7 +194,7 @@
     gap: 1.5rem;
     font-family: var(--font-serif);
     --season-spring: var(--accent-2);
-    --season-summer: #e7b65a;
+    --season-summer: var(--season-summer-accent);
     --season-autumn: var(--accent);
     --season-winter: var(--text-muted);
   }

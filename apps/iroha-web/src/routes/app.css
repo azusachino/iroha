@@ -154,6 +154,7 @@
   --ring-stand: #a5c76a;
   --radius: 20px;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --season-summer-accent: #e7b65a;
 }
 
 :root[data-language="sound-map"] {
