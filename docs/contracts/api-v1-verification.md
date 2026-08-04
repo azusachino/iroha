@@ -78,5 +78,5 @@ The end-to-end worker/import rehearsal remains a release-candidate check because
 
 ## Completion rule
 
-The route inventory and contract decisions must be reviewed before implementation. Rate limiting may be considered contract-gated once the checks above remain green and the release-candidate
-rehearsal is completed.
+The route inventory and contract decisions must be reviewed before implementation. Rate limiting may be considered contract-gated once the checks above remain green and the release-candidate rehearsal
+is completed.

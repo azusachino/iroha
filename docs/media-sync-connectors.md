@@ -1,9 +1,11 @@
 # Media Sync Connectors: AniList + Bangumi
 
-Implementation note (updated 2026-07-20). Companion to [`media-history-research.md`](./media-history-research.md), which defines the media _ontology_ (works/items/titles/relations/external_refs/consumption_events/progress) and
-the product direction. This document bridges that ontology to iroha's **actual provider abstraction** and specifies the first two API connectors: AniList (GraphQL) and Bangumi.tv (REST v0).
+Implementation note (updated 2026-07-20). Companion to [`media-history-research.md`](./media-history-research.md), which defines the media _ontology_
+(works/items/titles/relations/external_refs/consumption_events/progress) and the product direction. This document bridges that ontology to iroha's **actual provider abstraction** and specifies the
+first two API connectors: AniList (GraphQL) and Bangumi.tv (REST v0).
 
-The first connector slice is shipped: AniList and Bangumi fetchers, durable cursor state, raw snapshot persistence, media parsing, retry-aware worker jobs, and the private trigger endpoint are implemented. The full ontology and cross-provider resolution work remain future scope.
+The first connector slice is shipped: AniList and Bangumi fetchers, durable cursor state, raw snapshot persistence, media parsing, retry-aware worker jobs, and the private trigger endpoint are
+implemented. The full ontology and cross-provider resolution work remain future scope.
 
 Scope decision (2026-07-13): adopt the **full stable schema** from the research doc up front, then build the two connectors on top of it. This avoids destructive migrations once translations,
 editions, parts, adaptations, and rewatches arrive.
@@ -22,7 +24,8 @@ client uploads raw file -> tb_raw_files (sha256, storage_path)
 ```
 
 `provider.Source` is a file handle: `Open(ctx) (io.ReadCloser, error)` over `rawFile.StoragePath`. Apple Health and GPX adapters are **pure parsers**: bytes in, `[]observations.X` out. No adapter
-reaches the network. `imports.Process` (`apps/iroha-imports/service.go`) dispatches media snapshots through `MediaImporter` and persists them under the same raw-evidence and parser-version rules as health imports.
+reaches the network. `imports.Process` (`apps/iroha-imports/service.go`) dispatches media snapshots through `MediaImporter` and persists them under the same raw-evidence and parser-version rules as
+health imports.
 
 AniList and Bangumi break the file assumption: there is no user-uploaded file. The user's list state lives behind an authenticated API and must be **fetched and paginated** by iroha itself.
 
@@ -71,7 +74,8 @@ type Snapshot struct {
 
 Ownership:
 
-- **iroha-server** exposes `POST /api/v1/media/sync/{connectorId}` for configured `anilist` and `bangumi` connectors. It queues work and returns a typed job ID; it does not accept credentials in the request body.
+- **iroha-server** exposes `POST /api/v1/media/sync/{connectorId}` for configured `anilist` and `bangumi` connectors. It queues work and returns a typed job ID; it does not accept credentials in the
+  request body.
 - **iroha-job** runs the fetch loop. Credentials are resolved from worker environment variables, keeping secrets out of `tb_jobs` and browser traffic.
 - **Scheduling** reuses the existing durable `tb_jobs` + `EnqueueDueSchedules` interval mechanism (jobs.Service already supports interval schedules with `ClaimNext` + `FOR UPDATE SKIP LOCKED`). A
   media sync is a scheduled job kind (`media_sync_anilist`, `media_sync_bangumi`) that runs `Fetch` in a loop until the cursor is exhausted, creating one import job per snapshot page.
@@ -171,9 +175,13 @@ against a real collection before we commit the resolver.
 
 ## 8. Sync semantics
 
-- **Current implementation boundary**: the AniList and Bangumi adapters checkpoint their page cursor while a sync is running, so a retry resumes from the failed page. Their current upstream requests do not expose a reliable changed-since filter, so a completed sync starts a new full pagination pass. Persistence is still incremental: unchanged snapshot pages and source records are content-hash deduplicated, while changed and new records are upserted.
-- **Future network incrementality**: persist a per-connector cursor/watermark once a provider-specific changed-since API is available; then fetch only entries changed since the last `updated_at`. Full re-sync remains available on demand (or on a parser_version bump → reprocess from stored snapshots).
-- **Rate limits and failures**: a connector error preserves the current cursor. HTTP 429 responses parse both delta-seconds and HTTP-date `Retry-After` values; the job queue honors that delay, with bounded exponential backoff as the fallback.
+- **Current implementation boundary**: the AniList and Bangumi adapters checkpoint their page cursor while a sync is running, so a retry resumes from the failed page. Their current upstream requests
+  do not expose a reliable changed-since filter, so a completed sync starts a new full pagination pass. Persistence is still incremental: unchanged snapshot pages and source records are content-hash
+  deduplicated, while changed and new records are upserted.
+- **Future network incrementality**: persist a per-connector cursor/watermark once a provider-specific changed-since API is available; then fetch only entries changed since the last `updated_at`. Full
+  re-sync remains available on demand (or on a parser_version bump → reprocess from stored snapshots).
+- **Rate limits and failures**: a connector error preserves the current cursor. HTTP 429 responses parse both delta-seconds and HTTP-date `Retry-After` values; the job queue honors that delay, with
+  bounded exponential backoff as the fallback.
 - **User state is authoritative history, not a mirror**: a connector sync must **not** erase locally added Telegram/web events. Imported list state becomes events + current progress; conflicts (e.g.
   local "completed" vs remote "dropped") go to the inbox (`tb_media_resolution_tasks`), never a silent overwrite. This is the same append-only-events + projection discipline health uses.
 - **Rewatches/rereads**: AniList `repeat` and re-`completed` transitions create new events, not overwrites.
@@ -181,7 +189,8 @@ against a real collection before we commit the resolver.
 
 ## 9. Auth & config
 
-- AniList public username and Bangumi username/token are currently deployment credentials supplied to `iroha-job` through environment variables (not raw files, `tb_jobs`, or git). Per-user account storage and AniList OAuth remain future work. Local dev stays `LocalNoAuth`.
+- AniList public username and Bangumi username/token are currently deployment credentials supplied to `iroha-job` through environment variables (not raw files, `tb_jobs`, or git). Per-user account
+  storage and AniList OAuth remain future work. Local dev stays `LocalNoAuth`.
 - Both connectors must send a descriptive `User-Agent` identifying iroha. AniList's Cloudflare **403s the default `Python-urllib`/no-UA request** (verified), so a UA is mandatory there; Bangumi reads
   work without one but send it anyway.
 

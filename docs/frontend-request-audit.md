@@ -44,17 +44,18 @@ For a local frontend against the deployed API, use `--api-base` while the Vite s
 bun run request-audit -- --base http://127.0.0.1:5174 --api-base https://iroha.h.azusachino.icu
 ```
 
-The audit asserts that Admin makes one task request and one scoped job request, Daily does not sweep the entire history or fetch yearly aggregates before the Year tab is selected, Year makes one lazy yearly request, and Day requests at most one selected month with `limit=31`. The current post-fix initial traffic is:
+The audit asserts that Admin makes one task request and one scoped job request, Daily does not sweep the entire history or fetch yearly aggregates before the Year tab is selected, Year makes one lazy
+yearly request, and Day requests at most one selected month with `limit=31`. The current post-fix initial traffic is:
 
-| Route | Initial API requests |
-| --- | ---: |
-| `/` | 3 |
-| `/dashboard` | 6 |
-| `/activities` | 2 |
-| `/daily` | 2 |
-| `/design` | 1 |
-| `/media` | 2 |
-| `/sleep` | 4 |
-| `/admin` | 2 |
+| Route         | Initial API requests |
+| ------------- | -------------------: |
+| `/`           |                    3 |
+| `/dashboard`  |                    6 |
+| `/activities` |                    2 |
+| `/daily`      |                    2 |
+| `/design`     |                    1 |
+| `/media`      |                    2 |
+| `/sleep`      |                    4 |
+| `/admin`      |                    2 |
 
 API URL coverage remains in `src/lib/api.test.ts`; the normal `make check` gate covers type checking, formatting, backend tests, and frontend tests.

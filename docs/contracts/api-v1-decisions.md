@@ -51,8 +51,8 @@ The common error response is:
 }
 ```
 
-`code` is a stable machine value for the endpoint family; `message` is for diagnostics and may change. `request_id` correlates a response with server logs. The OpenAPI document defines the
-status/code matrix for each route.
+`code` is a stable machine value for the endpoint family; `message` is for diagnostics and may change. `request_id` correlates a response with server logs. The OpenAPI document defines the status/code
+matrix for each route.
 
 ## Authentication
 

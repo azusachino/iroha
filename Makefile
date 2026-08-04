@@ -17,7 +17,7 @@ OUT := ./dist/public-data
 .PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
-DOCS_GLOB := **/*.{md,yaml,yml,json}
+DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -108,10 +108,10 @@ public-site-dev: ## Run the public-site dev server
 
 ## --- Docs and config formatting (prettier; Go/web/SQL out of scope) ---
 fmt-docs: ## Format docs and config files (markdown wraps at 200)
-	$(TOOL_ENV)$(PRETTIER) --write "$(DOCS_GLOB)"
+	$(TOOL_ENV)$(PRETTIER) --write $(DOCS_FILES)
 
 fmt-docs-check: ## Fail if any doc/config file is unformatted
-	$(TOOL_ENV)$(PRETTIER) --check "$(DOCS_GLOB)"
+	$(TOOL_ENV)$(PRETTIER) --check $(DOCS_FILES)
 
 ## --- Aggregate gates ---
 check: fmt-check vet lint test contract-check scripts-test web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + web checks

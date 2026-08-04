@@ -37,8 +37,8 @@ The current canonical domains are:
 
 Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/daily`, and `/api/v1/media`; the private control room adds personal tasks and named job actions under `/api/v1/tasks`,
 `/api/v1/jobs`, and `/api/v1/actions` — see [API v1 Contract](docs/contracts/openapi.yaml). This surface is unauthenticated by design: iroha is a single-user personal deployment, and the network
-boundary (private LAN/NAS, never exposed publicly) is the security control, not an application credential. Sanitized activity and route projections are exported by `make export-public` and published by
-the separate static `apps/iroha-public-site`; there is no live `/public/v1` route. The export is a derived view, never the canonical store, and is the only surface meant for public exposure.
+boundary (private LAN/NAS, never exposed publicly) is the security control, not an application credential. Sanitized activity and route projections are exported by `make export-public` and published
+by the separate static `apps/iroha-public-site`; there is no live `/public/v1` route. The export is a derived view, never the canonical store, and is the only surface meant for public exposure.
 
 ## Features
 
