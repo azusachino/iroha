@@ -41,6 +41,12 @@
       minimumFractionDigits: digits,
     });
   }
+
+  function axisLabel(label: string): string {
+    if (gran !== "day") return label;
+    const date = new Date(`${label}T00:00:00Z`);
+    return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
+  }
 </script>
 
 <section class="grapher-daily" aria-labelledby="daily-data-title">
@@ -87,7 +93,7 @@
             style={`height: ${Math.max(2, ((item.steps ?? 0) / maxSteps) * 100)}%`}
           ></i>
           <small class:axis-label-muted={!showAxisLabel(index)}
-            >{item.label}</small
+            >{axisLabel(item.label)}</small
           >
         </div>
       {/each}

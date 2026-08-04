@@ -7,6 +7,7 @@
     type DailyAggregateBucket,
   } from "$lib/api";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import DailyScopeControls from "$lib/components/DailyScopeControls.svelte";
   import DailySmallMultiples, {
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
@@ -25,9 +26,35 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let gran = $state<Gran>("month");
+  let selectedMonth = $state("");
+  let selectedYear = $state("");
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
   const theme = useTheme();
+
+  const availableMonths = $derived(
+    [...new Set(dayRows.map((row) => row.day.slice(0, 7)))].sort().reverse(),
+  );
+  const availableYears = $derived(
+    [...new Set(monthly.map((bucket) => bucket.period.slice(0, 4)))]
+      .sort()
+      .reverse(),
+  );
+  const activeMonth = $derived(selectedMonth || availableMonths[0] || "");
+  const activeYear = $derived(selectedYear || availableYears[0] || "");
+  const monthOptions = $derived(
+    availableMonths.map((value) => ({
+      value,
+      label: new Date(`${value}-01T00:00:00Z`).toLocaleDateString(undefined, {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      }),
+    })),
+  );
+  const yearOptions = $derived(
+    availableYears.map((value) => ({ value, label: value })),
+  );
 
   // Hero uses the latest real ring day, independent of the chosen granularity.
   const latestRingDay = $derived(dayRows.find((r) => r.move_goal_kcal > 0));
@@ -128,12 +155,19 @@
 
   // Chronological (oldest→newest) for sparklines; table is its reverse.
   const chrono = $derived.by<Disp[]>(() => {
-    if (gran === "day") return [...dayRows].reverse().map(dayToDisp);
-    return (gran === "month" ? monthly : yearly).map(aggToDisp);
+    if (gran === "day") {
+      return [...dayRows]
+        .filter((row) => !activeMonth || row.day.startsWith(activeMonth))
+        .reverse()
+        .map(dayToDisp);
+    }
+    if (gran === "month") {
+      return monthly
+        .filter((bucket) => !activeYear || bucket.period.startsWith(activeYear))
+        .map(aggToDisp);
+    }
+    return yearly.map(aggToDisp);
   });
-  // Keep themed day views to a readable recent window; month/year retain the
-  // complete archive without turning a thousand daily bars into noise.
-  const themeChrono = $derived(gran === "day" ? chrono.slice(-90) : chrono);
   const table = $derived([...chrono].reverse());
   const aggregated = $derived(gran !== "day");
 
@@ -204,10 +238,25 @@
     {:else if dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
+      {#if gran === "day"}
+        <DailyScopeControls
+          label="Month"
+          options={monthOptions}
+          value={activeMonth}
+          onChange={(value) => (selectedMonth = value)}
+        />
+      {:else if gran === "month"}
+        <DailyScopeControls
+          label="Year"
+          options={yearOptions}
+          value={activeYear}
+          onChange={(value) => (selectedYear = value)}
+        />
+      {/if}
       <ThemeRouteRenderer
         route="daily"
         props={{
-          chrono: themeChrono,
+          chrono,
           gran,
           onGran: (value: Gran) => (gran = value),
         }}
@@ -239,6 +288,22 @@
         <RingGauge rings={ringData} />
       </div>
 
+      {#if gran === "day"}
+        <DailyScopeControls
+          label="Month"
+          options={monthOptions}
+          value={activeMonth}
+          onChange={(value) => (selectedMonth = value)}
+        />
+      {:else if gran === "month"}
+        <DailyScopeControls
+          label="Year"
+          options={yearOptions}
+          value={activeYear}
+          onChange={(value) => (selectedYear = value)}
+        />
+      {/if}
+
       <div class="controls">
         <div class="seg" role="tablist" aria-label="Aggregation granularity">
           {#each ["day", "month", "year"] as const as g}
@@ -254,9 +319,9 @@
         </div>
         <span class="muted small">
           {#if aggregated}
-            {chrono.length} {gran}s · per-day averages
+            {chrono.length} {gran}s in selected year · per-day averages
           {:else}
-            recent {chrono.length} days
+            {chrono.length} days in selected month
           {/if}
         </span>
         {#if rangeFrom && rangeTo}<span class="muted small"
