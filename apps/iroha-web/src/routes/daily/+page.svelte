@@ -114,7 +114,7 @@
       move,
       exercise: b.exercise_min_avg || null,
       stand: b.stand_hours_avg || null,
-      moveClosedPct: move == null ? null : b.move_closed_pct,
+      moveClosedPct: move == null ? null : Math.round(b.move_closed_pct),
       steps: m.steps ?? null,
       distance: m.distance_km ?? null,
       resting_hr: m.resting_hr ?? null,
@@ -131,6 +131,9 @@
     if (gran === "day") return [...dayRows].reverse().map(dayToDisp);
     return (gran === "month" ? monthly : yearly).map(aggToDisp);
   });
+  // A full archive is useful in the ledger and month/year views, but putting
+  // more than a thousand daily bars on one chart turns it into noise.
+  const themeChrono = $derived(gran === "day" ? chrono.slice(-90) : chrono);
   const table = $derived([...chrono].reverse());
   const aggregated = $derived(gran !== "day");
 
@@ -203,7 +206,11 @@
     {:else}
       <ThemeRouteRenderer
         route="daily"
-        props={{ chrono, gran, onGran: (value: Gran) => (gran = value) }}
+        props={{
+          chrono: themeChrono,
+          gran,
+          onGran: (value: Gran) => (gran = value),
+        }}
       />
     {/if}
   {:else}
