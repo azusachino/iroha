@@ -1,6 +1,6 @@
 # API v1 contract decisions
 
-Status: pre-release design for active development
+Status: release-candidate decision record for v0.1.4
 
 These decisions apply to the current `/api/v1` surface in place. They do not freeze a released v1 and do not introduce `/api/v2`. Until the first release, the contract, implementation, and frontend
 may change together when the verification gate is updated in the same change.
@@ -8,7 +8,7 @@ may change together when the verification gate is updated in the same change.
 ## Surface ownership
 
 - `/api/v1` is the private application API.
-- `/public/v1` is an anonymous sanitized projection API.
+- The sanitized public projection is a static JSON/GeoJSON export consumed by `apps/iroha-public-site`; there is no live `/public/v1` API.
 - `/healthz` is an anonymous liveness endpoint and is not an application data contract.
 - Roadmap-only resources are excluded from OpenAPI until their handlers exist.
 
@@ -51,15 +51,15 @@ The common error response is:
 }
 ```
 
-`code` is a stable machine value for the endpoint family; `message` is for diagnostics and may change. `request_id` correlates a response with server logs. The OpenAPI document will define the
+`code` is a stable machine value for the endpoint family; `message` is for diagnostics and may change. `request_id` correlates a response with server logs. The OpenAPI document defines the
 status/code matrix for each route.
 
 ## Authentication
 
-`/api/v1`, `/public/v1`, and `/healthz` are all unauthenticated. iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security control, not an application-level
-credential. A prior revision of this contract carried JWT bearer authentication on `/api/v1`, but the only clients are the operator's own private-network web viewer and personal automation (e.g. a
-Telegram bot) — neither obtains credentials through a login flow, so the token was always a self-issued static secret standing in for network-level access control. It added an extra
-secret-provisioning step without changing who could reach the API. `/public/v1` remains the only surface designed for eventual public exposure, and it only ever serves sanitized data.
+`/api/v1` and `/healthz` are unauthenticated. iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security control, not an application-level credential. A prior
+revision of this contract carried JWT bearer authentication on `/api/v1`, but the only clients are the operator's own private-network web viewer and personal automation (e.g. a Telegram bot) — neither
+obtains credentials through a login flow, so the token was always a self-issued static secret standing in for network-level access control. It added an extra secret-provisioning step without changing
+who could reach the API. The static export site is the only surface designed for public exposure, and it only ever serves sanitized data.
 
 A future multi-user or public-write deployment would need a real login/session flow rather than reintroducing a static bearer token.
 
@@ -68,7 +68,7 @@ A future multi-user or public-write deployment would need a real login/session f
 Rate limiting is part of the HTTP behavior, keyed by client IP:
 
 - private API: 6000 requests per minute — generous, since the API is reachable only from the operator's own private network;
-- public API: 60 requests per minute;
+- static public export: no live request budget;
 - geocode: 10 requests per minute;
 - exhausted budgets return `429 Too Many Requests`, the common error body, and `Retry-After` in seconds.
 

@@ -110,7 +110,7 @@ this is a private route — the aggregates it builds never carried private field
 Gear, privacy-zone management, published-activity mutation, and activity mutation are roadmap items. They are not currently registered routes and are intentionally excluded from the active API
 contract.
 
-There is no separate public-facing HTTP surface for these sanitized projections (the previous `/public/v1` was removed — it was never actually exposed to the internet). The planned replacement is a
+There is no separate public-facing HTTP surface for these sanitized projections (the previous `/public/v1` was removed — it was never actually exposed to the internet). The replacement is implemented as a
 standalone export built on `publicexport` that produces a static snapshot for a separate GitHub Pages site instead of a second live API — see
 [roadmap Milestone 7](roadmap.md#milestone-7-privacy-and-publishing).
 

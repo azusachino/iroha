@@ -7,6 +7,10 @@ contract between minor versions.
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.1.4] — 2026-08-04
+
 ### Added
 
 - **Private control room** — `/admin` and the front-page Daily to-go lane provide personal task tracking, recent durable-job visibility, and named AniList/Bangumi sync triggers.
@@ -89,6 +93,7 @@ sanitized-public read surfaces on top.
 - Geocode retry storms now back off instead of hammering Nominatim on rate-limit responses.
 - Local stack startup sequencing (dependencies before app containers, migrations before server).
 
-[Unreleased]: https://github.com/azusachino/iroha/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/azusachino/iroha/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/azusachino/iroha/compare/v0.1.1...v0.1.4
 [0.1.1]: https://github.com/azusachino/iroha/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/azusachino/iroha/releases/tag/v0.1.0
