@@ -95,7 +95,7 @@ All lifecycle commands remain Make targets. See [`docs/dev-runtime.md`](docs/dev
 ### Release versioning
 
 `VERSION` is the canonical Iroha product release version. The Makefile derives container tags as `v$(VERSION)`, injects the same value into the web build, and the cockpit shows it subtly in the
-brand/footer. A release is marked with the matching Git tag, for example `v0.1.3`.
+brand/footer. A release is marked with the matching Git tag, for example `v0.1.4`.
 
 The Go modules under `apps/` intentionally keep their own `v0.1.0` local requirements because `go.work` and local `replace` directives make them workspace modules, not independently published
 libraries. `IROHA_PARSER_VERSION` is separate: it identifies parser behavior and should only change when imports need reprocessing.

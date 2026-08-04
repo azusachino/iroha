@@ -11,6 +11,7 @@ contract between minor versions.
 
 - **Private control room** — `/admin` and the front-page Daily to-go lane provide personal task tracking, recent durable-job visibility, and named AniList/Bangumi sync triggers.
 - **Release identity** — the root `VERSION` file drives image tags and the frontend's subtle version note; sleep sessions now have a detail endpoint/page as well.
+- **Frontend request audit** — persisted route-by-route traffic findings, a scoped control-room job feed, and lazy Daily history loading with browser regression coverage.
 
 ### Removed
 

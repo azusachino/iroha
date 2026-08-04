@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    listAllDaily,
+    listDaily,
     listDailyAggregates,
     type DailyRow,
     type DailyAggregateBucket,
@@ -18,22 +18,28 @@
   import { hasThemeRoute } from "$lib/themes/registry";
 
   type Gran = "day" | "month" | "year";
-  const DAILY_HISTORY_LIMIT = 2000;
-
   let dayRows = $state<DailyRow[]>([]);
+  let latestDay = $state<DailyRow | null>(null);
   let monthly = $state<DailyAggregateBucket[]>([]);
   let yearly = $state<DailyAggregateBucket[]>([]);
   let loading = $state(true);
+  let dayRowsLoading = $state(false);
   let error = $state<string | null>(null);
   let gran = $state<Gran>("month");
   let selectedMonth = $state("");
   let selectedYear = $state("");
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
+  let monthlyLoaded = false;
+  let yearlyLoaded = false;
+  let loadedDayMonth = "";
   const theme = useTheme();
 
   const availableMonths = $derived(
-    [...new Set(dayRows.map((row) => row.day.slice(0, 7)))].sort().reverse(),
+    monthly
+      .map((bucket) => bucket.period.slice(0, 7))
+      .sort()
+      .reverse(),
   );
   const availableYears = $derived(
     [...new Set(monthly.map((bucket) => bucket.period.slice(0, 4)))]
@@ -57,7 +63,7 @@
   );
 
   // Hero uses the latest real ring day, independent of the chosen granularity.
-  const latestRingDay = $derived(dayRows.find((r) => r.move_goal_kcal > 0));
+  const latestRingDay = $derived(latestDay);
   const ringData = $derived<Ring[]>(
     latestRingDay
       ? [
@@ -208,24 +214,73 @@
     });
   }
 
-  onMount(async () => {
+  async function loadMonthly() {
+    if (monthlyLoaded) return;
     try {
-      const dailyRows = await listAllDaily({}, DAILY_HISTORY_LIMIT);
-      const days = dailyRows.map((row) => row.day.slice(0, 10)).sort();
-      rangeFrom = days[0];
-      rangeTo = days[days.length - 1];
-      const [m, y] = await Promise.all([
-        listDailyAggregates("month", { from: rangeFrom, to: rangeTo }),
-        listDailyAggregates("year", { from: rangeFrom, to: rangeTo }),
-      ]);
-      dayRows = dailyRows;
-      monthly = m.buckets;
-      yearly = y.buckets;
+      const result = await listDailyAggregates("month");
+      monthly = result.buckets;
+      monthlyLoaded = true;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function loadLatestDay() {
+    try {
+      const result = await listDaily({ limit: 1 });
+      latestDay = result.items[0] ?? null;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function loadYearly() {
+    if (yearlyLoaded) return;
+    try {
+      const result = await listDailyAggregates("year");
+      yearly = result.buckets;
+      yearlyLoaded = true;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function loadDays(month: string) {
+    if (!month || loadedDayMonth === month || dayRowsLoading) return;
+    const [year, monthNumber] = month.split("-").map(Number);
+    const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+    rangeFrom = `${month}-01`;
+    rangeTo = `${month}-${String(lastDay).padStart(2, "0")}`;
+    dayRowsLoading = true;
+    try {
+      const result = await listDaily({
+        from: rangeFrom,
+        to: rangeTo,
+        limit: 31,
+      });
+      dayRows = result.items;
+      loadedDayMonth = month;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
-      loading = false;
+      dayRowsLoading = false;
     }
+  }
+
+  async function changeGranularity(value: Gran) {
+    gran = value;
+    if (value === "year") await loadYearly();
+    if (value === "day") await loadDays(activeMonth);
+  }
+
+  function changeDayMonth(value: string) {
+    selectedMonth = value;
+    void loadDays(value);
+  }
+
+  onMount(async () => {
+    await Promise.all([loadMonthly(), loadLatestDay()]);
+    loading = false;
   });
 </script>
 
@@ -235,7 +290,7 @@
       <p class="muted status">Loading time-series data…</p>
     {:else if error}
       <p class="error status">Could not load daily data: {error}</p>
-    {:else if dayRows.length === 0}
+    {:else if monthly.length === 0 && dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
       {#if gran === "day"}
@@ -243,8 +298,8 @@
           label="Month"
           options={monthOptions}
           value={activeMonth}
-          summary={`${chrono.length} days`}
-          onChange={(value) => (selectedMonth = value)}
+          summary={dayRowsLoading ? "Loading…" : `${chrono.length} days`}
+          onChange={changeDayMonth}
         />
       {:else if gran === "month"}
         <DailyScopeControls
@@ -260,7 +315,7 @@
         props={{
           chrono,
           gran,
-          onGran: (value: Gran) => (gran = value),
+          onGran: (value: Gran) => void changeGranularity(value),
         }}
       />
     {/if}
@@ -296,7 +351,7 @@
           options={monthOptions}
           value={activeMonth}
           summary={`${chrono.length} days`}
-          onChange={(value) => (selectedMonth = value)}
+          onChange={changeDayMonth}
         />
       {:else if gran === "month"}
         <DailyScopeControls
@@ -315,7 +370,7 @@
               role="tab"
               aria-selected={gran === g}
               class:active={gran === g}
-              onclick={() => (gran = g)}
+              onclick={() => void changeGranularity(g)}
             >
               {g[0].toUpperCase() + g.slice(1)}
             </button>

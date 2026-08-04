@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
@@ -39,9 +40,20 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = parsed
 	}
-	rows, err := s.deps.JobsService.List(jobs.ListFilters{
-		Kind: r.URL.Query().Get("kind"), Status: r.URL.Query().Get("status"), Limit: limit,
-	})
+	kind := r.URL.Query().Get("kind")
+	kinds := make([]string, 0)
+	for _, value := range strings.Split(kind, ",") {
+		if value = strings.TrimSpace(value); value != "" {
+			kinds = append(kinds, value)
+		}
+	}
+	filters := jobs.ListFilters{Status: r.URL.Query().Get("status"), Limit: limit}
+	if len(kinds) == 1 {
+		filters.Kind = kinds[0]
+	} else if len(kinds) > 1 {
+		filters.Kinds = kinds
+	}
+	rows, err := s.deps.JobsService.List(filters)
 	if err != nil {
 		s.deps.Logger.Error("list jobs", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list jobs")

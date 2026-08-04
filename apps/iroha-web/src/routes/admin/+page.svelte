@@ -17,13 +17,18 @@
   let completedTasks = $state<Task[]>([]);
   let jobs = $state<Job[]>([]);
   let title = $state("");
+  let notes = $state("");
   let dueDate = $state(today);
+  let priority = $state("0");
   let loading = $state(true);
   let saving = $state(false);
   let error = $state<string | null>(null);
 
   const activeJobs = $derived(
     jobs.filter((job) => job.status === "queued" || job.status === "running"),
+  );
+  const activeActionKinds = $derived(
+    new Set(activeJobs.map((job) => job.kind)),
   );
 
   onMount(() => {
@@ -38,13 +43,19 @@
     loading = true;
     error = null;
     try {
-      const [open, completed, recentJobs] = await Promise.all([
-        listTasks({ status: "open", limit: 50 }),
-        listTasks({ status: "completed", due: today, limit: 10 }),
-        listJobs({ limit: 30 }),
+      const [taskRows, recentJobs] = await Promise.all([
+        listTasks({ limit: 100 }),
+        listJobs({
+          kind: "media_sync_anilist,media_sync_bangumi",
+          limit: 30,
+        }),
       ]);
-      openTasks = open;
-      completedTasks = completed;
+      openTasks = taskRows.filter((task) => task.status === "open");
+      completedTasks = taskRows
+        .filter(
+          (task) => task.status === "completed" && task.due_date === today,
+        )
+        .slice(0, 10);
       jobs = recentJobs;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
@@ -66,9 +77,16 @@
     saving = true;
     error = null;
     try {
-      const task = await createTask({ title, due_date: dueDate || undefined });
+      const task = await createTask({
+        title,
+        notes: notes.trim() || undefined,
+        due_date: dueDate || undefined,
+        priority: Number(priority) || 0,
+      });
       openTasks = [task, ...openTasks];
       title = "";
+      notes = "";
+      priority = "0";
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -89,6 +107,7 @@
   async function runAction(
     action: "media-sync-anilist" | "media-sync-bangumi",
   ) {
+    if (activeActionKinds.has(action.replaceAll("-", "_"))) return;
     try {
       const job = await triggerAction(action);
       jobs = [job, ...jobs.filter((item) => item.id !== job.id)];
@@ -105,6 +124,14 @@
 
   function statusLabel(status: string): string {
     return status.replaceAll("_", " ");
+  }
+
+  function actionKind(action: string): string {
+    return action.replaceAll("-", "_");
+  }
+
+  function actionIsActive(action: string): boolean {
+    return activeActionKinds.has(actionKind(action));
   }
 </script>
 
@@ -153,7 +180,21 @@
             aria-label="New task"
           />
           <input bind:value={dueDate} type="date" aria-label="Task due date" />
+          <input
+            bind:value={priority}
+            type="number"
+            min="0"
+            max="9"
+            aria-label="Task priority"
+            title="Priority, 0–9"
+          />
           <button type="submit" disabled={saving || !title.trim()}>Add</button>
+          <textarea
+            bind:value={notes}
+            placeholder="Context or next step (optional)…"
+            aria-label="Task notes"
+            rows="2"
+          ></textarea>
         </form>
 
         {#if openTasks.length}
@@ -170,11 +211,15 @@
                 </button>
                 <span class="task-copy">
                   <strong>{task.title}</strong>
-                  <small
-                    >{task.due_date === today
+                  {#if task.notes}<p>{task.notes}</p>{/if}
+                  <small>
+                    {task.due_date === today
                       ? "Today"
-                      : (task.due_date ?? "No due date")}</small
-                  >
+                      : (task.due_date ?? "No due date")}
+                    · p{task.priority} · {task.source} · added {new Date(
+                      task.created_at,
+                    ).toLocaleDateString()}
+                  </small>
                 </span>
               </li>
             {/each}
@@ -186,8 +231,9 @@
         {#if completedTasks.length}
           <div class="completed-block">
             <p class="eyebrow">Completed today</p>
-            {#each completedTasks as task (task.id)}<span>{task.title}</span
-              >{/each}
+            {#each completedTasks as task (task.id)}
+              <span>{task.title} · p{task.priority}</span>
+            {/each}
           </div>
         {/if}
       </section>
@@ -204,15 +250,29 @@
           These use the durable worker queue and can be safely followed below.
         </p>
         <div class="action-list">
-          <button type="button" onclick={() => runAction("media-sync-anilist")}>
+          <button
+            type="button"
+            disabled={actionIsActive("media-sync-anilist")}
+            onclick={() => runAction("media-sync-anilist")}
+          >
             <span
-              ><strong>AniList</strong><small>Refresh anime and manga</small
+              ><strong>AniList</strong><small
+                >{actionIsActive("media-sync-anilist")
+                  ? "Sync already running"
+                  : "Refresh anime and manga"}</small
               ></span
             ><Play size={15} />
           </button>
-          <button type="button" onclick={() => runAction("media-sync-bangumi")}>
+          <button
+            type="button"
+            disabled={actionIsActive("media-sync-bangumi")}
+            onclick={() => runAction("media-sync-bangumi")}
+          >
             <span
-              ><strong>Bangumi</strong><small>Refresh the Chinese catalog</small
+              ><strong>Bangumi</strong><small
+                >{actionIsActive("media-sync-bangumi")
+                  ? "Sync already running"
+                  : "Refresh the Chinese catalog"}</small
               ></span
             ><Play size={15} />
           </button>
@@ -224,7 +284,7 @@
       <header class="panel-head">
         <div>
           <p class="eyebrow">System work</p>
-          <h2 id="queue-title">Recent jobs</h2>
+          <h2 id="queue-title">Recent syncs</h2>
         </div>
         <button
           class="refresh"
@@ -233,6 +293,10 @@
           aria-label="Refresh jobs"><RefreshCw size={15} /></button
         >
       </header>
+      <p class="panel-copy queue-note">
+        Only top-level AniList/Bangumi syncs are shown here. Their importer jobs
+        stay out of this personal control room.
+      </p>
       {#if jobs.length}
         <div class="job-list">
           {#each jobs as job (job.id)}
@@ -242,7 +306,7 @@
                 ><strong>{actionLabel(job.kind)}</strong><small
                   >{job.status === "failed" && job.error_message
                     ? job.error_message
-                    : statusLabel(job.status)}</small
+                    : `${statusLabel(job.status)} · ${job.attempts}/${job.max_attempts} attempts`}</small
                 ></span
               >
               <time datetime={job.created_at}
@@ -342,11 +406,12 @@
   }
   .task-form {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) auto 5rem auto;
     gap: 0.45rem;
     margin: 1rem 0;
   }
   input,
+  textarea,
   .task-form button {
     min-height: 2.45rem;
     border: 1px solid var(--border);
@@ -358,6 +423,12 @@
   input {
     min-width: 0;
     padding: 0 0.7rem;
+  }
+  textarea {
+    grid-column: 1 / -1;
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    resize: vertical;
   }
   .task-form button,
   .action-list button {
@@ -415,10 +486,20 @@
     white-space: nowrap;
   }
   .task-copy small,
+  .task-copy p,
   .job-copy small,
   .job-row time {
     color: var(--text-muted);
     font-size: 0.72rem;
+  }
+  .task-copy p {
+    margin: 0;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .completed-block {
     display: grid;
@@ -462,6 +543,9 @@
   .queue-panel {
     display: grid;
     gap: 1rem;
+  }
+  .queue-note {
+    margin: -0.35rem 0 0;
   }
   .job-dot {
     flex: 0 0 auto;

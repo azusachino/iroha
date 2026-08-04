@@ -76,6 +76,7 @@ type ScheduleInput struct {
 
 type ListFilters struct {
 	Kind   string
+	Kinds  []string
 	Status string
 	Limit  int
 }
@@ -149,7 +150,9 @@ func (s *Service) List(filters ListFilters) ([]models.Job, error) {
 		limit = DefaultLimit
 	}
 	query := s.db.Model(&models.Job{})
-	if filters.Kind != "" {
+	if len(filters.Kinds) > 0 {
+		query = query.Where("kind in ?", filters.Kinds)
+	} else if filters.Kind != "" {
 		query = query.Where("kind = ?", filters.Kind)
 	}
 	if filters.Status != "" {

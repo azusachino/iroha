@@ -49,6 +49,13 @@ describe("control room API", () => {
     expect(getCapturedUrl()).toContain("/api/v1/tasks/task_1");
     await listJobs({ status: "running" }, fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/jobs?status=running");
+    await listJobs(
+      { kind: "media_sync_anilist,media_sync_bangumi" },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain(
+      "kind=media_sync_anilist%2Cmedia_sync_bangumi",
+    );
     await getJob("job_1", fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/jobs/job_1");
     await triggerAction("media-sync-anilist", fakeFetch);
