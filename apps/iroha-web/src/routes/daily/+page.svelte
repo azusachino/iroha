@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import {
-    listDaily,
+    listAllDaily,
     listDailyAggregates,
     type DailyRow,
     type DailyAggregateBucket,
@@ -17,7 +17,7 @@
   import { hasThemeRoute } from "$lib/themes/registry";
 
   type Gran = "day" | "month" | "year";
-  const DAY_FETCH = 90;
+  const DAILY_HISTORY_LIMIT = 2000;
 
   let dayRows = $state<DailyRow[]>([]);
   let monthly = $state<DailyAggregateBucket[]>([]);
@@ -173,15 +173,15 @@
 
   onMount(async () => {
     try {
-      const d = await listDaily({ limit: DAY_FETCH });
-      const days = d.items.map((row) => row.day.slice(0, 10)).sort();
+      const dailyRows = await listAllDaily({}, DAILY_HISTORY_LIMIT);
+      const days = dailyRows.map((row) => row.day.slice(0, 10)).sort();
       rangeFrom = days[0];
       rangeTo = days[days.length - 1];
       const [m, y] = await Promise.all([
         listDailyAggregates("month", { from: rangeFrom, to: rangeTo }),
         listDailyAggregates("year", { from: rangeFrom, to: rangeTo }),
       ]);
-      dayRows = d.items;
+      dayRows = dailyRows;
       monthly = m.buckets;
       yearly = y.buckets;
     } catch (e) {

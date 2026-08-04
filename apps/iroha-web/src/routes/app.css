@@ -392,6 +392,14 @@ textarea {
   text-decoration: underline;
 }
 
+.activity-row {
+  cursor: pointer;
+}
+
+.activity-row:hover td {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
 .command-trigger {
   min-height: 2.25rem;
   display: inline-flex;

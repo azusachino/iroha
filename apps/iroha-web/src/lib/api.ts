@@ -497,6 +497,32 @@ export function listDaily(
   return getJSON<Page<DailyRow>>(`/api/v1/daily${suffix}`, fetchFn);
 }
 
+// Walk the keyset pages for history views. The daily endpoint caps any single
+// request at 100 rows, so a larger historical window must follow cursors.
+export async function listAllDaily(
+  params: ListDailyParams = {},
+  maxItems = 2000,
+  fetchFn: typeof fetch = fetch,
+): Promise<DailyRow[]> {
+  if (maxItems <= 0) return [];
+
+  const pageLimit = Math.min(Math.max(params.limit ?? 100, 1), 100);
+  const rows: DailyRow[] = [];
+  let cursor = params.cursor;
+
+  while (rows.length < maxItems) {
+    const page = await listDaily(
+      { ...params, limit: pageLimit, cursor },
+      fetchFn,
+    );
+    rows.push(...page.items);
+    if (!page.has_more || !page.next_cursor) break;
+    cursor = page.next_cursor;
+  }
+
+  return rows.slice(0, maxItems);
+}
+
 export function getActivity(
   id: string,
   fetchFn: typeof fetch = fetch,

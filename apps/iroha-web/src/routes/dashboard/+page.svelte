@@ -11,7 +11,7 @@
   import DomainTile from "$lib/components/DomainTile.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import Heatmap from "$lib/components/Heatmap.svelte";
-  import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
   import {
@@ -39,7 +39,8 @@
 
   let routes = $state<RouteFeatureCollection | null>(null);
   let routesError = $state<string | null>(null);
-  let routesLoading = $state(true);
+  let routesLoading = $state(false);
+  let routesRequested = $state(false);
   const theme = useTheme();
 
   const recentActivities = $derived(activities.slice(0, RECENT_ACTIVITY_LIMIT));
@@ -47,7 +48,6 @@
     activities.map((activity) => activity.started_at),
   );
   const streak = $derived(currentActivityStreak(heatmapDates));
-  const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
   const activityCount = $derived(summary?.totals.activity_count ?? 0);
   const totalDistance = $derived(formatDistance(summary?.totals.distance_m));
   const totalDuration = $derived(
@@ -84,6 +84,7 @@
   }
 
   async function loadRoutes() {
+    routesRequested = true;
     routesLoading = true;
     routesError = null;
     try {
@@ -96,7 +97,9 @@
   }
 
   async function reloadDashboard() {
-    await Promise.all([loadSummary(), loadActivities(), loadRoutes()]);
+    const loads = [loadSummary(), loadActivities()];
+    if (routesRequested) loads.push(loadRoutes());
+    await Promise.all(loads);
   }
 
   function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
@@ -151,8 +154,11 @@
         activities,
         routes,
         streak: streakValue,
-        loading: summaryLoading || activitiesLoading || routesLoading,
-        error: summaryError || activitiesError || routesError,
+        loading: summaryLoading || activitiesLoading,
+        error: summaryError || activitiesError,
+        routesLoading,
+        routesError,
+        onLoadRoutes: () => void loadRoutes(),
         onRetry: () => void reloadDashboard(),
       }}
     />
@@ -287,15 +293,14 @@
             <p>Your privacy-trimmed route footprint.</p>
           </div>
         </header>
-        {#if routesLoading}
-          <p class="muted">Loading routes…</p>
-        {:else if routesError}
-          <p class="error">Routes could not be loaded.</p>
-        {:else if hasRoutes && routes}
-          <div class="dashboard-map"><RoutesMap data={routes} /></div>
-        {:else}
-          <p class="muted">No routes available yet.</p>
-        {/if}
+        <div class="dashboard-map">
+          <RouteFootprint
+            {routes}
+            loading={routesLoading}
+            error={routesError}
+            onLoad={() => void loadRoutes()}
+          />
+        </div>
       </section>
 
       <section class="domains-tile">

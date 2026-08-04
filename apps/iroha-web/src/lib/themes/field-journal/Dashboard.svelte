@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
-  import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
   import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
@@ -12,6 +12,9 @@
     loading,
     error,
     onRetry,
+    routesLoading,
+    routesError,
+    onLoadRoutes,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -20,9 +23,10 @@
     loading: boolean;
     error: string | null;
     onRetry: () => void;
+    routesLoading: boolean;
+    routesError: string | null;
+    onLoadRoutes: () => void;
   } = $props();
-
-  const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
 </script>
 
 <section class="journal-long-view" aria-labelledby="journal-long-view-title">
@@ -109,12 +113,19 @@
 
       <section class="map-card">
         <p class="journal-kicker">Geography</p>
-        <h2>{routes?.features.length ?? 0} route traces</h2>
-        {#if hasRoutes && routes}
-          <div class="map-frame"><RoutesMap data={routes} /></div>
-        {:else}
-          <p class="journal-empty">No routes recorded yet.</p>
-        {/if}
+        <h2>
+          {routes
+            ? `${routes.features.length} route traces`
+            : "Route footprint"}
+        </h2>
+        <div class="map-frame">
+          <RouteFootprint
+            {routes}
+            loading={routesLoading}
+            error={routesError}
+            onLoad={onLoadRoutes}
+          />
+        </div>
         <p>
           Routes stay linked to their source activity and remain inspectable
           from the journal.

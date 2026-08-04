@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   listActivities,
   listAllActivities,
+  listDaily,
+  listAllDaily,
   getMediaAggregates,
   getMedia,
   listMediaEvents,
@@ -12,6 +14,7 @@ import {
   getActivitySummary,
   getActivityRoutes,
   type Activity,
+  type DailyRow,
   type Page,
   type RoutePoint,
   type SamplingPoint,
@@ -33,6 +36,21 @@ const emptyActivity: Activity = {
   started_at: "2026-01-01T00:00:00Z",
   timezone: "UTC",
   source_kind: "test",
+  first_raw_file_id: "file",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const emptyDailyRow: DailyRow = {
+  id: "daily",
+  day: "2026-01-01T00:00:00Z",
+  move_kcal: 0,
+  move_goal_kcal: 0,
+  exercise_min: 0,
+  exercise_goal_min: 0,
+  stand_hours: 0,
+  stand_goal_hours: 0,
+  source: "test",
   first_raw_file_id: "file",
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
@@ -175,6 +193,54 @@ describe("listAllActivities", () => {
     const result = await listAllActivities({}, 1, fakeFetch);
 
     expect(result.map((activity) => activity.id)).toEqual(["first"]);
+  });
+});
+
+describe("listAllDaily", () => {
+  it("walks cursor pages for historical daily data", async () => {
+    const firstPage: Page<DailyRow> = {
+      items: [{ ...emptyDailyRow, id: "first" }],
+      next_cursor: "day-2",
+      has_more: true,
+    };
+    const secondPage: Page<DailyRow> = {
+      items: [{ ...emptyDailyRow, id: "second" }],
+      next_cursor: null,
+      has_more: false,
+    };
+    const urls: string[] = [];
+    const fakeFetch = (async (input: string | Request | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () =>
+          url.includes("cursor=day-2") ? secondPage : firstPage,
+      };
+    }) as typeof fetch;
+
+    const result = await listAllDaily({}, 10, fakeFetch);
+
+    expect(result.map((row) => row.id)).toEqual(["first", "second"]);
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain("/api/v1/daily");
+    expect(urls[0]).toContain("limit=100");
+    expect(urls[1]).toContain("cursor=day-2");
+  });
+
+  it("keeps the single-page daily API available for callers", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({
+      items: [],
+      next_cursor: null,
+      has_more: false,
+    });
+
+    await listDaily({ limit: 24 }, fakeFetch);
+
+    expect(getCapturedUrl()).toContain("/api/v1/daily");
+    expect(getCapturedUrl()).toContain("limit=24");
   });
 });
 

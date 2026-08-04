@@ -312,7 +312,8 @@
     margin-top: 0.5rem;
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: 0.55rem;
+    font-size: 0.7rem;
+    font-weight: 650;
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
