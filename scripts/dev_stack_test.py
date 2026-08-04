@@ -57,7 +57,7 @@ class DevStackScriptTest(unittest.TestCase):
         captured_env: dict[str, str] = {}
 
         def fake_run(cmd: list[str], env: dict[str, str] | None = None) -> int:
-            self.assertEqual(cmd, ["uv", "run", "python", "scripts/db.py", "apply"])
+            self.assertEqual(cmd, [dev_stack.sys.executable, "scripts/db.py", "apply"])
             self.assertIsNotNone(env)
             captured_env.update(env or {})
             return 0
@@ -69,11 +69,14 @@ class DevStackScriptTest(unittest.TestCase):
 
     def test_wait_for_db_returns_success_after_ready_probe(self) -> None:
         result = mock.Mock(returncode=0, stdout="ready\n")
-        with mock.patch.object(dev_stack.subprocess, "run", return_value=result) as run:
+        with (
+            mock.patch.object(dev_stack.subprocess, "run", return_value=result) as run,
+            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+        ):
             self.assertEqual(dev_stack.wait_for_db(timeout_s=1), 0)
 
         cmd = run.call_args.args[0]
-        self.assertEqual(cmd[:2], ["pg_isready", "-h"])
+        self.assertEqual(cmd[:5], ["compose", "exec", "-T", "db", "pg_isready"])
 
     def test_main_wait_delegates_to_wait_for_db(self) -> None:
         with (

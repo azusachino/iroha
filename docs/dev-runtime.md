@@ -2,14 +2,42 @@
 
 ## Current Assumption
 
-Iroha development happens on macOS. Nix is the universal manager for tools and developer entrypoints. The repo uses `uv` for Python-based scripts inside that Nix-managed environment and Podman with
-`podman-compose` for local containerized services.
+Iroha development happens on macOS. mise manages the project tools, while
+Podman with `podman-compose` owns the containerized services. Make remains the
+only task and lifecycle entrypoint; `scripts/dev_stack.py` implements its
+backend behavior.
 
 The runtime design should be capability-based. The checked-in Compose files target the OCI-compatible Podman runtime; Docker compatibility is incidental and not the supported local contract. `make dev-up` starts the database first, waits for `pg_isready`, applies migrations, and then starts server, worker, and web so application containers do not race database initialization.
 
-## Nix
+## mise tool management
 
-Use a flake as the outer contract for local development.
+Use the checked-in `.mise.toml` to install the project tools:
+
+```bash
+mise install
+```
+
+The config pins Go, Python, uv, Goose, golangci-lint, Node, Bun, and Prettier.
+Podman and its machine remain host prerequisites because they are the container
+runtime, not project tools. Database readiness is checked with `pg_isready`
+inside the PostGIS container, so a separate host PostgreSQL installation is not
+required.
+
+Make automatically uses `mise exec --` when it is run outside an activated
+mise or Nix environment, so the normal workflow stays unchanged:
+
+```bash
+make db-up
+make run
+make run-job
+make dev-up
+make db-down
+```
+
+## Nix compatibility
+
+The flake remains available for reproducible CI and existing workflows. When
+Make runs inside `nix develop`, it uses the tools already provided there.
 
 Expected responsibilities:
 
@@ -22,7 +50,8 @@ nix develop
   -> exposes repo checks
 ```
 
-Nix should manage tool availability and versions. Project scripts should assume they are running inside `nix develop`, but keep commands plain enough that CI can reuse them.
+Project scripts should keep commands plain enough that both mise-backed local
+development and Nix-backed CI can reuse them.
 
 Podman and `podman-compose` may remain macOS system tools if it is not practical to package them through Nix. The uv-managed runner detects missing tools and reports a clear prerequisite error.
 
@@ -48,7 +77,8 @@ uv run python scripts/<name>.py
 
 Future scripts should prefer Python under `scripts/` or `pyscripts/` over shell when the logic is more than a thin command wrapper.
 
-`uv` is not the universal tool manager here. It manages Python script dependencies under the Nix-provided Python/uv layer.
+`uv` manages Python script dependencies under the mise- or Nix-provided
+Python/uv layer.
 
 ## Go Workspace
 
@@ -184,7 +214,9 @@ GET  /api/v1/activities
 GET  /api/v1/activities/{activityId}/route
 ```
 
-No manual `uv` environment setup is needed. Run repo scripts through `make` or `nix develop ... uv run`; `uv` uses the existing `pyproject.toml` and `uv.lock`.
+No manual `uv` environment setup is needed. Run repo scripts through mise,
+Make, or `nix develop ... uv run`; `uv` uses the existing `pyproject.toml` and
+`uv.lock`.
 
 ## Postgres/PostGIS Runtime Shape
 
@@ -228,7 +260,8 @@ Preferred CLI:
 Goose
 ```
 
-The CLI should come from Nix. A `uv` script can wrap common operations:
+The CLI comes from mise for local development and Nix for the reproducible
+check/build environment. A `uv` script wraps common operations:
 
 ```bash
 uv run python scripts/db.py apply

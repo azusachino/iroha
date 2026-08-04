@@ -65,26 +65,32 @@ route projections are also available under `/public/v1`; the public surface is a
 | Database | PostgreSQL 18 + PostGIS, [goose](https://github.com/pressly/goose) migrations |
 | Cache    | Postgres-backed by default (`tb_cache_entries`); Valkey/Redis is optional     |
 | Web      | Svelte 5 + Vite (`apps/iroha-web`, [bun](https://bun.sh))                     |
-| Tooling  | Nix devShell, `make` task runner, `uv` for dev scripts                        |
+| Tooling  | mise for tools, `make` task runner, Nix-compatible CI                         |
 
 ## Quickstart
 
-Requires [Nix](https://nixos.org/download) with flakes enabled.
+Requires [mise](https://mise.jdx.dev/) and Podman for local backend development.
+Nix remains available for CI and reproducible checks.
 
 ```sh
-nix develop            # enter the dev shell (all tools come from here)
-make db-up             # start Postgres/PostGIS + Valkey and apply migrations
+mise install           # install the pinned project tools
+make db-up             # start Postgres/PostGIS and apply migrations
 make dev-up            # start the complete Podman Compose stack
-make check             # fmt-check + vet + tests + web checks
-make build             # build server and web
+make db-down           # stop local backend containers
 
 # run the server against the dev database (terminal 1)
-IROHA_DATABASE_URL="postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable" \
-  go -C apps/iroha-server run ./cmd/iroha-server
+make run
 
 # run the persisted import worker in another terminal
 make run-job
+
+# checks/builds use the same Makefile
+make check
+make build
 ```
+
+All lifecycle commands remain Make targets. See [`docs/dev-runtime.md`](docs/dev-runtime.md)
+for the toolchain boundary and backend workflow.
 
 The server is configured via `iroha.toml` and/or environment variables:
 
