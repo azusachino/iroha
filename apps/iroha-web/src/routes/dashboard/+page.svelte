@@ -141,7 +141,6 @@
   onMount(() => {
     void loadSummary();
     void loadActivities();
-    void loadRoutes();
   });
 </script>
 
