@@ -2,6 +2,7 @@
   import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
     summary,
@@ -10,6 +11,7 @@
     streak,
     loading,
     error,
+    onRetry,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -17,6 +19,7 @@
     streak: string;
     loading: boolean;
     error: string | null;
+    onRetry: () => void;
   } = $props();
 
   const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
@@ -91,7 +94,7 @@
   {#if loading}
     <p class="view-status">Gathering the long view…</p>
   {:else if error}
-    <p class="view-status error">{error}</p>
+    <RetryNotice message={error} {onRetry} />
   {:else}
     <dl class="view-summary">
       <div>
@@ -254,9 +257,6 @@
     border-radius: var(--radius);
     padding: 2rem;
     color: var(--text-muted);
-  }
-  .view-status.error {
-    color: var(--sport-run);
   }
   .view-summary {
     display: grid;

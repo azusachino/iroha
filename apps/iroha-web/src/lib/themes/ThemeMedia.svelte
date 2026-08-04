@@ -5,7 +5,7 @@
     MediaRow,
     MediaScoreBucket,
   } from "$lib/api";
-  import { formatDateOnly } from "$lib/format";
+  import { boundPercent, formatDateOnly, formatPercent } from "$lib/format";
 
   export type MediaVariant =
     "atlas" | "field-journal" | "phenology" | "sound-map" | "archive";
@@ -123,8 +123,12 @@
               loading="lazy"
             />{:else}<span class="media-initial">{item.title.slice(0, 1)}</span
             >{/if}<strong>{item.native_title || item.title}</strong><small
-            >{item.status || "unknown"} · {item.progress_percent ?? 0}%</small
-          ><i><b style={`width: ${item.progress_percent ?? 0}%`}></b></i></a
+            >{item.status || "unknown"} · {formatPercent(
+              item.progress_percent ?? 0,
+            )}</small
+          ><i
+            ><b style={`width: ${boundPercent(item.progress_percent)}%`}></b></i
+          ></a
         >{/each}
     </div>
     {#if items.length === 0}<p class="media-empty">

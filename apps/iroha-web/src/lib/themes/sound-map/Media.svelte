@@ -5,6 +5,7 @@
     MediaRow,
     MediaScoreBucket,
   } from "$lib/api";
+  import { boundPercent, formatPercent } from "$lib/format";
 
   let {
     items,
@@ -134,11 +135,13 @@
             {/if}
             <strong>{item.native_title || item.title}</strong>
             <small
-              >{item.status || "unknown"} · {item.progress_percent ?? 0}%</small
+              >{item.status || "unknown"} · {formatPercent(
+                item.progress_percent ?? 0,
+              )}</small
             >
             <div class="mix-scrub">
-              <i style={`width: ${item.progress_percent ?? 0}%`}></i>
-              <b style={`left: ${item.progress_percent ?? 0}%`}></b>
+              <i style={`width: ${boundPercent(item.progress_percent)}%`}></i>
+              <b style={`left: ${boundPercent(item.progress_percent)}%`}></b>
             </div>
           </a>
         {/each}

@@ -1,13 +1,16 @@
 import { describe, it, expect } from "vitest";
 import {
+  boundPercent,
   formatDistance,
   formatDuration,
+  formatPercent,
   formatPace,
   formatElevation,
   formatHr,
   formatDate,
   formatDateOnly,
   formatSport,
+  formatSwimmingPace,
 } from "./format";
 
 const DASH = "—";
@@ -209,5 +212,30 @@ describe("formatDateOnly", () => {
 
   it("returns iso string for invalid ISO date", () => {
     expect(formatDateOnly("not-a-date")).toBe("not-a-date");
+  });
+});
+
+describe("formatPercent", () => {
+  it("rounds and bounds percentages for display", () => {
+    expect(formatPercent(93.54838709677419)).toBe("94%");
+    expect(formatPercent(-4)).toBe("0%");
+    expect(formatPercent(104)).toBe("100%");
+    expect(boundPercent(42.5)).toBe(42.5);
+  });
+
+  it("returns an em dash for missing or invalid percentages", () => {
+    expect(formatPercent(undefined)).toBe(DASH);
+    expect(formatPercent(NaN)).toBe(DASH);
+  });
+});
+
+describe("formatSwimmingPace", () => {
+  it("formats derived open-water pace per 100 metres", () => {
+    expect(formatSwimmingPace(1000, 1500)).toBe("2:30 /100m");
+  });
+
+  it("returns an em dash when distance or duration is unavailable", () => {
+    expect(formatSwimmingPace(undefined, 1500)).toBe(DASH);
+    expect(formatSwimmingPace(1000, undefined)).toBe(DASH);
   });
 });

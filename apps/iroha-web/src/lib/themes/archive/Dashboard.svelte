@@ -8,6 +8,7 @@
   // duplication for no visual gain. Same documented exception atlas,
   // field-journal, phenology, and sound-map took for their Dashboards.
   import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
     summary,
@@ -16,6 +17,7 @@
     streak,
     loading,
     error,
+    onRetry,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -23,6 +25,7 @@
     streak: string;
     loading: boolean;
     error: string | null;
+    onRetry: () => void;
   } = $props();
 
   const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
@@ -63,7 +66,7 @@
   {#if loading}
     <p class="folio-status">Retrieving the long view…</p>
   {:else if error}
-    <p class="folio-status error">{error}</p>
+    <RetryNotice message={error} {onRetry} />
   {:else}
     <div class="folio-stats catalog-card">
       <div>
@@ -222,9 +225,6 @@
     border-radius: var(--radius);
     padding: 2rem;
     color: var(--text-muted);
-  }
-  .error {
-    color: var(--sport-run);
   }
   .catalog-card {
     position: relative;

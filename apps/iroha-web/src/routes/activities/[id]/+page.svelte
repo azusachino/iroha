@@ -11,9 +11,14 @@
     type Lap,
   } from "$lib/api";
   import {
+    deriveRouteDistanceM,
+    populateRouteDistances,
+  } from "$lib/activity-metrics";
+  import {
     formatDistance,
     formatDuration,
     formatPace,
+    formatSwimmingPace,
     formatElevation,
     formatHr,
     formatDate,
@@ -23,7 +28,7 @@
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
-  import { sportLabel } from "$lib/sport";
+  import { isSwimming, sportLabel } from "$lib/sport";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
@@ -77,48 +82,6 @@
         loading = false;
       });
   });
-
-  function haversineDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
-    const R = 6371e3; // Earth radius in meters
-    const phi1 = (lat1 * Math.PI) / 180;
-    const phi2 = (lat2 * Math.PI) / 180;
-    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-      Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-      Math.cos(phi1) *
-        Math.cos(phi2) *
-        Math.sin(deltaLambda / 2) *
-        Math.sin(deltaLambda / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // in meters
-  }
-
-  function populateRouteDistances(routePoints: RoutePoint[]): RoutePoint[] {
-    if (routePoints.length === 0) return [];
-    const points = routePoints.map((p) => ({ ...p }));
-
-    if (points[0].distance_m == null) {
-      points[0].distance_m = 0;
-    }
-
-    for (let i = 1; i < points.length; i++) {
-      if (points[i].distance_m == null) {
-        const p1 = points[i - 1];
-        const p2 = points[i];
-        const dist = haversineDistance(p1.lat, p1.lon, p2.lat, p2.lon);
-        points[i].distance_m = (p1.distance_m as number) + dist;
-      }
-    }
-    return points;
-  }
 
   function populateSpeed(points: RoutePoint[]): RoutePoint[] {
     for (let i = 1; i < points.length; i++) {
@@ -187,6 +150,14 @@
     return pts;
   });
 
+  const derivedDistanceM = $derived(
+    activity?.distance_m == null ? deriveRouteDistanceM(route) : undefined,
+  );
+  const displayDistanceM = $derived(
+    activity?.distance_m ??
+      (isSwimming(activity?.sport_type) ? derivedDistanceM : undefined),
+  );
+
   // Choose an x-axis shared by all route-derived charts: distance if every
   // point has it, else elapsed time, else the raw sequence number.
   interface XAxis {
@@ -246,6 +217,7 @@
   // damp GPS noise) when the stored value is absent.
   const elevationGainM = $derived.by<number | undefined>(() => {
     if (activity?.elevation_gain_m != null) return activity.elevation_gain_m;
+    if (isSwimming(activity?.sport_type)) return undefined;
     const elevs = processedRoute
       .map((p) => p.elevation_m)
       .filter((e): e is number => e != null && Number.isFinite(e));
@@ -319,6 +291,7 @@
   const isRun = $derived(activity?.sport_type?.toLowerCase() === "run");
 
   interface CalculatedLap {
+    id: string;
     lap_no: number;
     distance_m: number;
     duration_s: number;
@@ -371,6 +344,7 @@
           segmentDist > 0 ? durationS / (segmentDist / 1000) : undefined;
 
         calculatedLaps.push({
+          id: `derived-lap-${lapNo}`,
           lap_no: lapNo,
           distance_m: segmentDist,
           duration_s: durationS,
@@ -386,8 +360,15 @@
     return calculatedLaps;
   }
 
-  const displayLaps = $derived.by<CalculatedLap[]>(() => {
-    if (!activity || activity.sport_type.toLowerCase() !== "run") return [];
+  const displayLaps = $derived.by<Lap[]>(() => {
+    const hasMeasuredLap = laps.some(
+      (lap) =>
+        (lap.distance_m ?? 0) > 0 ||
+        (lap.duration_s ?? 0) > 0 ||
+        lap.avg_hr != null ||
+        lap.avg_pace_s_per_km != null,
+    );
+    if (!activity) return [];
     if (processedRoute && processedRoute.length >= 2) {
       const calculated = calculateLapsFromRoute(
         processedRoute,
@@ -395,17 +376,7 @@
       );
       if (calculated.length > 0) return calculated;
     }
-    // If we don't have route points but we have laps from the database, map them.
-    if (laps && laps.length > 0) {
-      return laps.map((l) => ({
-        lap_no: l.lap_no,
-        distance_m: l.distance_m ?? 1000,
-        duration_s: l.duration_s ?? 0,
-        avg_hr: l.avg_hr,
-        avg_pace_s_per_km: l.avg_pace_s_per_km,
-      }));
-    }
-    return [];
+    return hasMeasuredLap ? laps : [];
   });
 </script>
 
@@ -414,9 +385,10 @@
     route="activity-detail"
     props={{
       activity,
+      derivedDistanceM,
       route,
       samplings,
-      laps,
+      laps: displayLaps,
       selectedRouteIndex,
       onSelectRoute: (index: number | null) => (selectedRouteIndex = index),
     }}
@@ -444,13 +416,19 @@
     </div>
 
     <div class="activity-stats">
-      {#if activity.distance_m != null && activity.distance_m > 0}
+      {#if displayDistanceM != null && displayDistanceM > 0}
         <StatTile
-          label="Distance"
-          value={formatDistance(activity.distance_m)}
+          label={isSwimming(activity.sport_type) ? "GPS distance" : "Distance"}
+          value={formatDistance(displayDistanceM)}
         />
       {/if}
       <StatTile label="Duration" value={formatDuration(activity.duration_s)} />
+      {#if isSwimming(activity.sport_type)}
+        <StatTile
+          label="Pace / 100m"
+          value={formatSwimmingPace(displayDistanceM, activity.duration_s)}
+        />
+      {/if}
       {#if activity.moving_time_s != null}
         <StatTile
           label="Moving time"
@@ -480,6 +458,11 @@
     {#if hasRouteLine}
       <h2>Route</h2>
       <RouteMap points={processedRoute} selectedIndex={selectedRouteIndex} />
+      {#if isSwimming(activity.sport_type)}
+        <p class="muted swim-note">
+          Open-water GPS route; no pool intervals are inferred from this record.
+        </p>
+      {/if}
     {/if}
 
     {#if anyChart}

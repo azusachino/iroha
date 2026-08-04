@@ -103,7 +103,8 @@ export const THEME_DEFINITIONS = [
     id: "field-journal",
     label: "Iroha Field Journal",
     hint: "days and evidence",
-    description: "A dated, narrative language for the shape of a day.",
+    description:
+      "A dated, observational language for entries, continuity, and the shape of a day.",
     implementation: "curated",
     routes: [
       "today",

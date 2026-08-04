@@ -2,6 +2,7 @@
   import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
     summary,
@@ -10,6 +11,7 @@
     streak,
     loading,
     error,
+    onRetry,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -17,6 +19,7 @@
     streak: string;
     loading: boolean;
     error: string | null;
+    onRetry: () => void;
   } = $props();
 
   const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
@@ -26,10 +29,10 @@
   <header class="view-opening">
     <div>
       <p class="journal-kicker">Long view · standing entry</p>
-      <h1 id="journal-long-view-title">The archive, kept whole.</h1>
+      <h1 id="journal-long-view-title">The days, kept in view.</h1>
       <p>
-        Distance, sessions, and routes read together, without turning the record
-        into a verdict.
+        Distance, sessions, and routes read together as a continuing record,
+        without turning the day into a verdict.
       </p>
     </div>
     <div class="view-stamp" aria-label="Current streak">
@@ -43,7 +46,7 @@
   {#if loading}
     <p class="view-status">Gathering the long view…</p>
   {:else if error}
-    <p class="view-status error">{error}</p>
+    <RetryNotice message={error} {onRetry} />
   {:else}
     <dl class="view-summary">
       <div>
@@ -112,7 +115,7 @@
         {/if}
         <p>
           Routes stay linked to their source activity and remain inspectable
-          from the archive.
+          from the journal.
         </p>
       </section>
     </div>
@@ -199,9 +202,6 @@
     border: 1px dashed var(--border);
     padding: 2rem;
     color: var(--text-muted);
-  }
-  .view-status.error {
-    color: var(--sport-run);
   }
   .view-summary {
     display: grid;

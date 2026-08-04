@@ -6,14 +6,16 @@
     formatDuration,
     formatHr,
     formatPace,
+    formatSwimmingPace,
   } from "$lib/format";
-  import { sportLabel } from "$lib/sport";
+  import { isSwimming, sportLabel } from "$lib/sport";
 
   export type ActivityDetailVariant =
     "atlas" | "field-journal" | "phenology" | "sound-map" | "archive";
   let {
     variant,
     activity,
+    derivedDistanceM,
     route,
     samplings,
     laps,
@@ -22,6 +24,7 @@
   }: {
     variant: ActivityDetailVariant;
     activity: Activity;
+    derivedDistanceM?: number;
     route: RoutePoint[];
     samplings: SamplingPoint[];
     laps: Lap[];
@@ -39,6 +42,8 @@
       (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon),
     ),
   );
+  const swimming = $derived(isSwimming(activity.sport_type));
+  const distanceM = $derived(activity.distance_m ?? derivedDistanceM);
 </script>
 
 <article class={`theme-activity-detail theme-activity-detail-${variant}`}>
@@ -61,7 +66,8 @@
 
   <div class="metric-grid">
     <div>
-      <span>Distance</span><strong>{formatDistance(activity.distance_m)}</strong
+      <span>{swimming ? "GPS distance" : "Distance"}</span><strong
+        >{formatDistance(distanceM)}</strong
       >
     </div>
     <div>
@@ -69,8 +75,10 @@
       >
     </div>
     <div>
-      <span>Avg pace</span><strong
-        >{formatPace(activity.avg_pace_s_per_km)}</strong
+      <span>{swimming ? "Pace / 100m" : "Avg pace"}</span><strong
+        >{swimming
+          ? formatSwimmingPace(distanceM, activity.duration_s)
+          : formatPace(activity.avg_pace_s_per_km)}</strong
       >
     </div>
     <div>
@@ -91,7 +99,7 @@
       <div class="panel-heading">
         <div>
           <p class="theme-kicker">Evidence stream</p>
-          <h2>Route trace</h2>
+          <h2>{swimming ? "Open-water trace" : "Route trace"}</h2>
         </div>
         <span
           >{selectedRouteIndex == null
@@ -113,8 +121,9 @@
         {:else}<p>No route geometry was recorded for this session.</p>{/if}
       </div>
       <p class="panel-note">
-        The presentation keeps the source trace visible without hiding the
-        underlying record.
+        {swimming
+          ? "GPS fixes remain visible as an open-water trace; no pool intervals are inferred."
+          : "The presentation keeps the source trace visible without hiding the underlying record."}
       </p>
     </section>
     <aside class="context-panel">
@@ -167,6 +176,8 @@
   .theme-activity-detail {
     display: grid;
     gap: 1.25rem;
+    min-width: 0;
+    max-width: 100%;
   }
   .detail-hero {
     display: flex;
@@ -220,7 +231,8 @@
   }
   .metric-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    min-width: 0;
     border: 1px solid var(--border);
   }
   .metric-grid div {
@@ -228,6 +240,7 @@
     gap: 0.35rem;
     padding: 0.9rem;
     border-right: 1px solid var(--border);
+    min-width: 0;
   }
   .metric-grid div:last-child {
     border-right: 0;
@@ -242,8 +255,9 @@
   }
   .record-grid {
     display: grid;
-    grid-template-columns: 1.55fr 0.85fr;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.85fr);
     gap: 1.25rem;
+    min-width: 0;
   }
   .trace-panel,
   .context-panel,
@@ -251,6 +265,7 @@
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface-1) 88%, transparent);
     padding: 1.25rem;
+    min-width: 0;
   }
   .panel-heading {
     display: flex;
@@ -342,7 +357,7 @@
   }
   @media (max-width: 800px) {
     .metric-grid {
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .metric-grid div:nth-child(3) {
       border-right: 0;
@@ -359,7 +374,7 @@
       display: none;
     }
     .metric-grid {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .metric-grid div:nth-child(3) {
       border-right: 1px solid var(--border);

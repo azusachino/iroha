@@ -9,6 +9,11 @@ _iro & hana_ — a personal data cockpit.
 Iroha lets you own your personal data end to end: keep the **raw exports**, normalize them into a **durable Postgres/PostGIS store**, and publish only **sanitized derived views**. Running and fitness,
 sleep, daily Apple Health activity, and media (AniList/Bangumi) consumption history are the current data domains; the architecture generalizes to other personal-history sources.
 
+The cockpit can express the same evidence through six visual languages — atlas, grapher, field journal, phenology, sound map, and archive — without changing the underlying data model. The design lab
+below uses sample data so it is safe to share:
+
+![Iroha design languages](docs/assets/iroha-design-languages.png)
+
 ## Architecture
 
 Raw files are canonical evidence. The server stores each upload, creates a durable import job, and the separate `iroha-job` worker parses it into typed domain records. Reconciliation uses stable
@@ -99,8 +104,8 @@ The server is configured via `iroha.toml` and/or environment variables:
 | `IROHA_BANGUMI_BRIDGE_PATH`     | Optional Bangumi→MAL JSON cache path | —                              |
 | `IROHA_MAL_ANILIST_BRIDGE_PATH` | Optional MAL→AniList JSON cache path | —                              |
 
-The private API (`/api/v1`) is unauthenticated by design — iroha is a single-user personal deployment, and the network boundary (private LAN/NAS) is the security control. Do not expose
-`iroha-server` directly to an untrusted network; set `IROHA_ALLOWED_ORIGINS` to the web origin(s) that should be allowed to call it.
+The private API (`/api/v1`) is unauthenticated by design — iroha is a single-user personal deployment, and the network boundary (private LAN/NAS) is the security control. Do not expose `iroha-server`
+directly to an untrusted network; set `IROHA_ALLOWED_ORIGINS` to the web origin(s) that should be allowed to call it.
 
 Smoke-test a real import end to end:
 

@@ -90,6 +90,57 @@ async function main() {
     for (const vp of viewports) {
       await page.setViewportSize({ width: vp.width, height: 900 });
       await page.waitForTimeout(200);
+      const overflow = await page.evaluate(() => {
+        const viewport = document.documentElement.clientWidth;
+        function isContainedInScroller(element) {
+          let parent = element.parentElement;
+          while (parent && parent !== document.body) {
+            const overflowX = getComputedStyle(parent).overflowX;
+            if (overflowX === "auto" || overflowX === "scroll") return true;
+            parent = parent.parentElement;
+          }
+          return false;
+        }
+        const offenders = [...document.querySelectorAll("body *")]
+          .map((element) => {
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return {
+              element,
+              right: rect.right,
+              left: rect.left,
+              width: rect.width,
+              visible:
+                style.display !== "none" &&
+                style.visibility !== "hidden" &&
+                rect.width > 0 &&
+                rect.height > 0,
+            };
+          })
+          .filter(
+            ({ left, right, visible }) =>
+              visible && (left < -1 || right > viewport + 1),
+          )
+          .filter(({ element }) => !isContainedInScroller(element))
+          .sort((a, b) => b.right - a.right)
+          .slice(0, 5)
+          .map(({ element, left, right, width }) => ({
+            tag: element.tagName.toLowerCase(),
+            className:
+              typeof element.className === "string" ? element.className : "",
+            left: Math.round(left),
+            right: Math.round(right),
+            width: Math.round(width),
+          }));
+
+        return { viewport, offenders };
+      });
+      if (overflow.offenders.length > 0) {
+        console.log(
+          `  OVERFLOW at ${vp.width}px: ${JSON.stringify(overflow.offenders)}`,
+        );
+        failures += 1;
+      }
       await page.screenshot({
         path: `${out}/${theme}-${name}-${vp.label}.png`,
         fullPage: true,

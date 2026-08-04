@@ -96,6 +96,10 @@
     }
   }
 
+  async function reloadDashboard() {
+    await Promise.all([loadSummary(), loadActivities(), loadRoutes()]);
+  }
+
   function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
     if (!sport) return true;
     if (distanceM == null || distanceM <= 0) return true;
@@ -150,6 +154,7 @@
         streak: streakValue,
         loading: summaryLoading || activitiesLoading || routesLoading,
         error: summaryError || activitiesError || routesError,
+        onRetry: () => void reloadDashboard(),
       }}
     />
   {:else}

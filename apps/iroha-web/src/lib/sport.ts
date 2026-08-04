@@ -26,3 +26,7 @@ export function sportColor(sport?: string | null): string {
 export function sportLabel(sport?: string | null): string {
   return formatSport(sport ?? undefined);
 }
+
+export function isSwimming(sport?: string | null): boolean {
+  return sport?.toLowerCase().includes("swim") ?? false;
+}

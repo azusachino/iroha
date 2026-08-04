@@ -6,11 +6,13 @@
     formatDuration,
     formatHr,
     formatPace,
+    formatSwimmingPace,
   } from "$lib/format";
-  import { sportLabel } from "$lib/sport";
+  import { isSwimming, sportLabel } from "$lib/sport";
 
   let {
     activity,
+    derivedDistanceM,
     route,
     samplings,
     laps,
@@ -18,6 +20,7 @@
     onSelectRoute,
   }: {
     activity: Activity;
+    derivedDistanceM?: number;
     route: RoutePoint[];
     samplings: SamplingPoint[];
     laps: Lap[];
@@ -35,6 +38,8 @@
       (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon),
     ),
   );
+  const swimming = $derived(isSwimming(activity.sport_type));
+  const distanceM = $derived(activity.distance_m ?? derivedDistanceM);
 
   // Plot the real recorded lat/lon as a normalized polyline instead of a
   // synthetic waveform: atlas is the "places and routes" language, so the
@@ -108,7 +113,8 @@
 
   <div class="metric-grid">
     <div>
-      <span>Distance</span><strong>{formatDistance(activity.distance_m)}</strong
+      <span>{swimming ? "GPS distance" : "Distance"}</span><strong
+        >{formatDistance(distanceM)}</strong
       >
     </div>
     <div>
@@ -116,8 +122,10 @@
       >
     </div>
     <div>
-      <span>Avg pace</span><strong
-        >{formatPace(activity.avg_pace_s_per_km)}</strong
+      <span>{swimming ? "Pace / 100m" : "Avg pace"}</span><strong
+        >{swimming
+          ? formatSwimmingPace(distanceM, activity.duration_s)
+          : formatPace(activity.avg_pace_s_per_km)}</strong
       >
     </div>
     <div>
@@ -138,7 +146,7 @@
       <div class="panel-heading">
         <div>
           <p class="atlas-kicker">Plotted trace</p>
-          <h2>Route plate</h2>
+          <h2>{swimming ? "Open-water plate" : "Route plate"}</h2>
         </div>
         <span
           >{selectedRouteIndex == null
@@ -201,8 +209,9 @@
         </dl>
       {/if}
       <p class="panel-note">
-        Plotted directly from the recorded fixes — the shape is real, the source
-        trace stays visible rather than hidden behind a summary.
+        {swimming
+          ? "Plotted directly from the recorded GPS fixes — an open-water trace, not a pool interval model."
+          : "Plotted directly from the recorded fixes — the shape is real, the source trace stays visible rather than hidden behind a summary."}
       </p>
     </section>
     <aside class="atlas-plate notes-plate">
@@ -259,6 +268,8 @@
   .atlas-plot {
     display: grid;
     gap: 1.5rem;
+    min-width: 0;
+    max-width: 100%;
     font-family: var(--font-sans);
   }
   .atlas-kicker {
@@ -325,7 +336,8 @@
   }
   .metric-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    min-width: 0;
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
@@ -334,6 +346,7 @@
     gap: 0.35rem;
     padding: 0.9rem;
     border-right: 1px solid var(--border);
+    min-width: 0;
   }
   .metric-grid div:last-child {
     border-right: 0;
@@ -350,8 +363,9 @@
   }
   .plot-grid {
     display: grid;
-    grid-template-columns: 1.55fr 0.85fr;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.85fr);
     gap: 1.25rem;
+    min-width: 0;
   }
   .atlas-plate {
     position: relative;
@@ -383,6 +397,7 @@
   .notes-plate,
   .laps-plate {
     padding: 1.25rem;
+    min-width: 0;
   }
   .panel-heading {
     display: flex;
@@ -543,7 +558,7 @@
   }
   @media (max-width: 800px) {
     .metric-grid {
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .metric-grid div:nth-child(3) {
       border-right: 0;
@@ -560,7 +575,7 @@
       display: none;
     }
     .metric-grid {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .metric-grid div:nth-child(3) {
       border-right: 1px solid var(--border);

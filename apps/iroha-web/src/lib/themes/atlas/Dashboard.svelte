@@ -7,6 +7,7 @@
   // theme would be pure duplication for no visual gain. Same documented
   // exception field-journal took for its Dashboard.
   import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
     summary,
@@ -15,6 +16,7 @@
     streak,
     loading,
     error,
+    onRetry,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -22,6 +24,7 @@
     streak: string;
     loading: boolean;
     error: string | null;
+    onRetry: () => void;
   } = $props();
 
   const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
@@ -46,7 +49,7 @@
   {#if loading}
     <p class="master-status">Compiling the master sheet…</p>
   {:else if error}
-    <p class="master-status error">{error}</p>
+    <RetryNotice message={error} {onRetry} />
   {:else}
     <div class="master-stats">
       <div class="atlas-plate">
@@ -192,9 +195,6 @@
     border-radius: var(--radius);
     padding: 2rem;
     color: var(--text-muted);
-  }
-  .master-status.error {
-    color: var(--sport-run);
   }
   .atlas-plate {
     position: relative;
