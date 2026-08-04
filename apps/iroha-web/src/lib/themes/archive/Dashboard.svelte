@@ -98,7 +98,9 @@
             <p class="folio-kicker">Recent accessions</p>
             <h2>Movement, lately.</h2>
           </div>
-          <span>{activities.length} loaded</span>
+          <span
+            >{Math.min(8, activities.length)} of {activities.length} loaded</span
+          >
         </header>
         <ol>
           {#each activities.slice(0, 8) as activity, index (activity.id)}<li>

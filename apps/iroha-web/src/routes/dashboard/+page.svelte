@@ -3,7 +3,7 @@
   import {
     getActivityRoutes,
     getActivitySummary,
-    listActivities,
+    listAllActivities,
     type Activity,
     type RouteFeatureCollection,
     type Summary,
@@ -75,8 +75,7 @@
     activitiesLoading = true;
     activitiesError = null;
     try {
-      activities = (await listActivities({ limit: ACTIVITY_SWEEP_LIMIT }))
-        .items;
+      activities = await listAllActivities({}, ACTIVITY_SWEEP_LIMIT);
     } catch (error) {
       activitiesError = errorMessage(error);
     } finally {

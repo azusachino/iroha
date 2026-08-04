@@ -5,6 +5,7 @@
     Activity,
     BookOpen,
     Command,
+    Footprints,
     HeartPulse,
     LayoutDashboard,
     Moon,
@@ -54,7 +55,9 @@
         <a class:active={dailyActive} href="/daily"
           ><Activity size={14} />Patterns</a
         >
-        <a class:active={activitiesActive} href="/activities">Motion</a>
+        <a class:active={activitiesActive} href="/activities"
+          ><Footprints size={14} />Motion</a
+        >
         <a class:active={sleepActive} href="/sleep"><Moon size={14} />Night</a>
         <a class:active={mediaActive} href="/media"
           ><BookOpen size={14} />Library</a

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   listActivities,
+  listAllActivities,
   getMediaAggregates,
   getMedia,
   listMediaEvents,
@@ -23,6 +24,18 @@ const emptyPage: Page<Activity> = {
   items: [],
   next_cursor: null,
   has_more: false,
+};
+
+const emptyActivity: Activity = {
+  id: "activity",
+  sport_type: "run",
+  title: "",
+  started_at: "2026-01-01T00:00:00Z",
+  timezone: "UTC",
+  source_kind: "test",
+  first_raw_file_id: "file",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
 };
 
 // Helper to create a fake fetch function that captures the URL and returns a response
@@ -113,6 +126,55 @@ describe("listActivities", () => {
 
     const result = await listActivities({}, fakeFetch);
     expect(result).toEqual(mockPage);
+  });
+});
+
+describe("listAllActivities", () => {
+  it("walks cursor pages until the complete sweep is loaded", async () => {
+    const firstPage: Page<Activity> = {
+      items: [{ ...emptyActivity, id: "first" }],
+      next_cursor: "page-2",
+      has_more: true,
+    };
+    const secondPage: Page<Activity> = {
+      items: [{ ...emptyActivity, id: "second" }],
+      next_cursor: null,
+      has_more: false,
+    };
+    const urls: string[] = [];
+    const fakeFetch = (async (input: string | Request | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () =>
+          url.includes("cursor=page-2") ? secondPage : firstPage,
+      };
+    }) as typeof fetch;
+
+    const result = await listAllActivities({}, 10, fakeFetch);
+
+    expect(result.map((activity) => activity.id)).toEqual(["first", "second"]);
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain("limit=100");
+    expect(urls[1]).toContain("cursor=page-2");
+  });
+
+  it("honors the requested item cap", async () => {
+    const { fakeFetch } = createFakeFetch({
+      items: [
+        { ...emptyActivity, id: "first" },
+        { ...emptyActivity, id: "second" },
+      ],
+      next_cursor: "ignored",
+      has_more: true,
+    });
+
+    const result = await listAllActivities({}, 1, fakeFetch);
+
+    expect(result.map((activity) => activity.id)).toEqual(["first"]);
   });
 });
 

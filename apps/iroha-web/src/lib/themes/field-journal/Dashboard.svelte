@@ -78,7 +78,9 @@
             <p class="journal-kicker">03 · movement notes</p>
             <h2>Recent entries</h2>
           </div>
-          <span>{activities.length} loaded</span>
+          <span
+            >{Math.min(8, activities.length)} of {activities.length} loaded</span
+          >
         </div>
         {#if activities.length}
           <ol>

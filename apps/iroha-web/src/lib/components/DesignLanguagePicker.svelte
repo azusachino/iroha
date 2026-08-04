@@ -10,18 +10,25 @@
     if (!next) return;
     theme.select(next.id);
   }
+
+  function compactLabel(label: string): string {
+    return label.replace(/^Iroha\s+/, "");
+  }
 </script>
 
 <label class="language-picker">
   <span>Design language</span>
   <select
     aria-label="Design language"
+    title={theme.definition().label}
     value={theme.language()}
     onchange={onChange}
   >
     {#each DESIGN_LANGUAGES as item}
       <option value={item.id}>
-        {item.label}{item.implementation === "preview" ? " · preview" : ""}
+        {compactLabel(item.label)}{item.implementation === "preview"
+          ? " · preview"
+          : ""}
       </option>
     {/each}
   </select>

@@ -377,6 +377,21 @@ textarea {
   color: var(--text);
 }
 
+.detail-back {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+}
+
+.detail-back a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.detail-back a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .command-trigger {
   min-height: 2.25rem;
   display: inline-flex;

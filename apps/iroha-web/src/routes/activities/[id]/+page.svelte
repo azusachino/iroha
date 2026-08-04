@@ -394,7 +394,7 @@
     }}
   />
 {:else}
-  <p><a href="/">← Back to activities</a></p>
+  <p class="detail-back"><a href="/activities">← Back to Motion</a></p>
 
   {#if loading}
     <p class="muted">Loading activity…</p>

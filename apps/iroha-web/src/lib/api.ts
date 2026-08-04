@@ -373,6 +373,32 @@ export function listActivities(
   return getJSON<Page<Activity>>(`/api/v1/activities${suffix}`, fetchFn);
 }
 
+// Walk the keyset pages for views that need a complete activity sweep (the
+// server intentionally caps any single page at 100 rows).
+export async function listAllActivities(
+  params: ListActivitiesParams = {},
+  maxItems = 500,
+  fetchFn: typeof fetch = fetch,
+): Promise<Activity[]> {
+  if (maxItems <= 0) return [];
+
+  const pageLimit = Math.min(Math.max(params.limit ?? 100, 1), 100);
+  const activities: Activity[] = [];
+  let cursor = params.cursor;
+
+  while (activities.length < maxItems) {
+    const page = await listActivities(
+      { ...params, limit: pageLimit, cursor },
+      fetchFn,
+    );
+    activities.push(...page.items);
+    if (!page.has_more || !page.next_cursor) break;
+    cursor = page.next_cursor;
+  }
+
+  return activities.slice(0, maxItems);
+}
+
 export function listMedia(
   params: ListMediaParams = {},
   fetchFn: typeof fetch = fetch,
