@@ -6,11 +6,11 @@
 
 ## Context
 
-Iroha currently uses Valkey for a small cache-aside layer. The cache stores public summary responses, public activity pages, public route GeoJSON, and background reverse-geocoding results. It is not
-the source of truth for canonical data, jobs, sync cursors, authentication, or authorization.
+Iroha uses a backend-neutral cache-aside layer for imported-data reads and durable reverse-geocoding results. The HTTP layer caches successful JSON responses for briefing, activities, sleep, daily,
+and media reads. It is not the source of truth for canonical data, jobs, sync cursors, authentication, or authorization.
 
-The current cache package is coupled to the Redis protocol and exposes a Redis-specific pattern deletion operation. This makes a cache backend change a caller change, and it treats historical public
-data as a short-lived TTL cache even though imports are the real source of invalidation.
+Imported data is effectively static between successful import or connector-sync jobs, so namespace generation invalidation is the primary freshness mechanism. A 24-hour TTL remains a safety net for
+abandoned entries and backend cleanup.
 
 Iroha is a self-hosted application with Postgres already required for canonical data and durable jobs. The cache must remain best-effort: losing a cache entry must cause a reload, not a request
 failure.
@@ -30,17 +30,17 @@ The public contract is intentionally small:
 
 ```go
 type Store interface {
-	Get(ctx context.Context, namespace, key string, dst any) (hit bool, err error)
-	Set(ctx context.Context, namespace, key string, value any, ttl time.Duration) error
-	Invalidate(ctx context.Context, namespace string) error
+	Get(context.Context, string, string) ([]byte, bool, error)
+	Set(context.Context, string, string, []byte, time.Duration) error
+	InvalidateNamespace(context.Context, string) error
 }
 ```
 
-The runtime cache facade owns JSON encoding, cache-key validation, and fail-open behavior. A backend may return an operational error for metrics and diagnostics, but callers treat backend errors as
-cache misses and continue to the loader. Cache writes and invalidation are best effort unless the caller is explicitly running a cache maintenance operation.
+The runtime cache facade owns JSON encoding and fail-open behavior. A backend may return an operational error for metrics and diagnostics, but callers treat backend errors as cache misses and continue
+to the loader. Cache writes and invalidation are best effort unless the caller is explicitly running a cache maintenance operation.
 
-`Invalidate` is namespace-based. Callers must not use backend-specific pattern scans such as `public:*`. A Valkey backend can map namespaces to key prefixes; the Postgres backend can advance a
-namespace generation and leave old rows for bounded cleanup.
+`InvalidateNamespace` is namespace-based. Callers must not use backend-specific pattern scans such as `public:*`. A Valkey backend advances a generation key and maps entries to an application-prefixed
+key; the Postgres backend advances a namespace generation and leaves old rows for bounded cleanup.
 
 ### Cache entry semantics
 
@@ -56,15 +56,17 @@ introduced later.
 
 ### Namespace policies
 
-| Namespace           | Data                             | Policy                                                                    |
-| ------------------- | -------------------------------- | ------------------------------------------------------------------------- |
-| `public_summary`    | aggregate public summary         | short TTL for current periods; generation invalidation after import       |
-| `public_activities` | sanitized activity pages         | generation invalidation after import; historical pages may use a long TTL |
-| `public_routes`     | sanitized route GeoJSON          | generation invalidation after route/geocode changes                       |
-| `geocode`           | temporary provider lookup result | separate durable geocode table; not a generic response-cache entry        |
+| Namespace         | Data                             | Policy                                                             |
+| ----------------- | -------------------------------- | ------------------------------------------------------------------ |
+| `read_briefing`   | private briefing JSON            | 24-hour TTL; generation invalidation after import                  |
+| `read_activities` | activity pages and details       | 24-hour TTL; generation invalidation after import                  |
+| `read_sleep`      | sleep lists, trends, and details | 24-hour TTL; generation invalidation after import                  |
+| `read_daily`      | daily rows and aggregates        | 24-hour TTL; generation invalidation after import                  |
+| `read_media`      | media lists, events, and details | 24-hour TTL; generation invalidation after media import/sync       |
+| `geocode`         | temporary provider lookup result | separate durable geocode table; not a generic response-cache entry |
 
-Historical public responses are stable until an import or projection refresh changes their source data. Their cache identity therefore includes the current public projection generation rather than
-relying only on a fixed 24-hour TTL. Current-period responses retain short TTLs because the active period changes frequently.
+Read responses are stable until an import or connector sync changes their source data. Their cache identity includes the current namespace generation in backend storage and the complete request query
+string; the TTL is only a recovery boundary, not the freshness contract.
 
 ### Durable versus disposable data
 
@@ -103,18 +105,18 @@ The cutover sequence is:
 
 1. introduce the `Store` contract and retain Valkey;
 2. add and test the Postgres backend;
-3. migrate callers to namespaces and generation invalidation;
+3. route private imported-data reads through allowlisted namespaces and generation invalidation;
 4. run backend-parity and real-stack checks;
-5. switch local and deployment configuration to Postgres;
-6. remove Valkey only after rollback to the Valkey backend remains verified.
+5. switch local and deployment configuration between backends when operationally useful;
+6. retain rollback to the Valkey backend because cache data is disposable.
 
 ## Consequences
 
 Positive consequences:
 
 - cache callers no longer depend on Redis commands or key scans;
-- Postgres becomes the only required stateful service;
-- historical public data can remain warm until its projection generation changes;
+- both Postgres and Valkey can serve the same read-cache contract;
+- imported historical data can remain warm until its read namespace generation changes;
 - cache loss remains harmless and observable;
 - geocoding becomes restart-safe and recoverable.
 
@@ -123,5 +125,5 @@ Accepted trade-offs:
 - Postgres handles cache reads and writes in addition to canonical queries;
 - namespace generation and cleanup add a small amount of schema and maintenance logic;
 - a shared rate limiter is intentionally deferred for multi-instance hosting;
-- Valkey remains an optional future limiter backend, not a required runtime service;
+- Valkey remains an optional cache/limiter backend, not a required runtime service;
 - an `UNLOGGED` cache backend is not the default because stable historical cache behavior is more valuable than premature WAL reduction.

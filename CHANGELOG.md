@@ -38,6 +38,8 @@ No unreleased changes.
 
 ### Changed
 
+- **Read response cache** — successful JSON reads for briefing, activities, sleep, daily, and media are cached by canonical method/path/query keys. Import completion advances all five read namespaces,
+  and Valkey keys use the `iroha:cache:v1:` application prefix; tasks, jobs, and mutations remain uncached.
 - GORM query logs are routed through the app's `*slog.Logger` instead of GORM's own ANSI-colored default logger; `iroha-server`/`iroha-job` now emit uniform JSON log lines throughout.
 - `ops/local-dev/` split into `ops/local-dev/` (Podman Compose orchestration: compose files, initdb, README) and `ops/images/` (environment-agnostic build definitions: both Containerfiles, Caddyfile,
   migrate-entrypoint.sh) — these were always consumed by both local dev and manual production builds, but living under a folder named "local-dev" obscured that.

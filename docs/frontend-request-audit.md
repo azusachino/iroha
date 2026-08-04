@@ -58,4 +58,11 @@ yearly request, and Day requests at most one selected month with `limit=31`. The
 | `/sleep`      |                    4 |
 | `/admin`      |                    2 |
 
+## Read cache boundary
+
+The server cache-aside layer covers successful `GET` responses under `/api/v1/briefing`, `/activities`, `/sleep`, `/daily`, and `/media`. Keys include the method, path, and canonical encoded query
+string, so repeated exact reads can be served without another database aggregation. The cache is best effort with a 24-hour safety TTL; successful import completion advances every read namespace, so
+imported data is refreshed immediately. Tasks, jobs, raw files, imports, sync actions, and other mutations are intentionally live. `X-Iroha-Cache: HIT|MISS` is available for browser and deployment
+verification.
+
 API URL coverage remains in `src/lib/api.test.ts`; the normal `make check` gate covers type checking, formatting, backend tests, and frontend tests.

@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
@@ -31,6 +33,8 @@ import (
 // budget is lifted well clear of normal browsing/history-wide sweeps
 // accordingly.
 const apiRateLimitPerMin = 6000
+
+const readCacheTTL = 24 * time.Hour
 
 type Dependencies struct {
 	Config           config.Config
@@ -92,6 +96,7 @@ func (s *Server) routes() {
 		// see the rate-limit budget comment above for why.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
 		r.Use(limitByIP(apiRateLimitPerMin))
+		r.Use(s.readCache)
 		r.Get("/briefing", s.handleBriefing)
 		r.Route("/raw-files", func(r chi.Router) {
 			r.Post("/", s.handleCreateRawFile)
@@ -175,9 +180,96 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 		AllowedOrigins: origins,
 		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodOptions},
 		AllowedHeaders: []string{"Accept", "Content-Type"},
-		ExposedHeaders: []string{"Retry-After", "X-Request-ID"},
+		ExposedHeaders: []string{"Retry-After", "X-Request-ID", "X-Iroha-Cache"},
 		MaxAge:         300,
 	})
+}
+
+// readCache caches successful JSON reads over the imported, single-user data.
+// The import pipeline advances each namespace generation after a successful
+// write, so a long TTL is only a safety net for data that is otherwise static.
+func (s *Server) readCache(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		namespace, ok := readCacheNamespace(r)
+		if !ok || s.deps.Cache == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		key := readCacheKey(r)
+		if body, ok := cache.Get[[]byte](r.Context(), s.deps.Cache, namespace, key); ok {
+			w.Header().Set("X-Iroha-Cache", "HIT")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(body)
+			return
+		}
+
+		w.Header().Set("X-Iroha-Cache", "MISS")
+		wrapped := &readCacheResponseWriter{ResponseWriter: w}
+		next.ServeHTTP(wrapped, r)
+		if wrapped.status != http.StatusOK || wrapped.body.Len() == 0 || !isJSONContentType(wrapped.Header().Get("Content-Type")) {
+			return
+		}
+		cache.Set(r.Context(), s.deps.Cache, namespace, key, readCacheTTL, wrapped.body.Bytes())
+	})
+}
+
+type readCacheResponseWriter struct {
+	http.ResponseWriter
+	body   bytes.Buffer
+	status int
+}
+
+func (w *readCacheResponseWriter) WriteHeader(status int) {
+	if w.status != 0 {
+		return
+	}
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *readCacheResponseWriter) Write(body []byte) (int, error) {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	if w.status == http.StatusOK {
+		_, _ = w.body.Write(body)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+func readCacheNamespace(r *http.Request) (string, bool) {
+	if r.Method != http.MethodGet {
+		return "", false
+	}
+	if r.URL.Path == "/api/v1/media/sync" || strings.HasPrefix(r.URL.Path, "/api/v1/media/sync/") {
+		return "", false
+	}
+	for prefix, namespace := range map[string]string{
+		"/api/v1/activities": cache.NamespaceActivities,
+		"/api/v1/briefing":   cache.NamespaceBriefing,
+		"/api/v1/daily":      cache.NamespaceDaily,
+		"/api/v1/media":      cache.NamespaceMedia,
+		"/api/v1/sleep":      cache.NamespaceSleep,
+	} {
+		if r.URL.Path == prefix || strings.HasPrefix(r.URL.Path, prefix+"/") {
+			return namespace, true
+		}
+	}
+	return "", false
+}
+
+func readCacheKey(r *http.Request) string {
+	key := r.Method + " " + r.URL.Path
+	if query := r.URL.Query().Encode(); query != "" {
+		key += "?" + query
+	}
+	return key
+}
+
+func isJSONContentType(value string) bool {
+	return strings.HasPrefix(strings.ToLower(value), "application/json")
 }
 
 func (s *Server) accessLog(next http.Handler) http.Handler {

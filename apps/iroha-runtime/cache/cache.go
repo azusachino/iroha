@@ -23,6 +23,13 @@ const (
 	BackendNone     = "none"
 	BackendPostgres = "postgres"
 	BackendValkey   = "valkey"
+	keyPrefix       = "iroha:cache:v1:"
+
+	NamespaceBriefing   = "read_briefing"
+	NamespaceActivities = "read_activities"
+	NamespaceSleep      = "read_sleep"
+	NamespaceDaily      = "read_daily"
+	NamespaceMedia      = "read_media"
 )
 
 // Store is the backend contract for shared cache data. Namespace is a logical
@@ -245,9 +252,9 @@ func (s *valkeyStore) generation(ctx context.Context, namespace string) (int64, 
 }
 
 func generationKey(namespace string) string {
-	return namespace + ":__generation"
+	return keyPrefix + namespace + ":__generation"
 }
 
 func namespacedKey(namespace string, generation int64, key string) string {
-	return namespace + ":g" + fmt.Sprint(generation) + ":" + key
+	return keyPrefix + namespace + ":g" + fmt.Sprint(generation) + ":" + key
 }
