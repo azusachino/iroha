@@ -210,6 +210,52 @@ func (s *Service) Summary(year, sport string) (Summary, error) {
 		bySport = []SummaryBucket{}
 	}
 
+	// Apple Health open-water swims may have no source distance even though
+	// their route points are available. Keep the SQL aggregate fast for the
+	// normal case, then add those read-model distances to every affected rollup.
+	var missingSwimDistances []models.Activity
+	if err := s.db.Model(&models.Activity{}).
+		Where("distance_m IS NULL").
+		Where("sport_type ILIKE ?", "%swim%").
+		Find(&missingSwimDistances).Error; err != nil {
+		return Summary{}, fmt.Errorf("summary swimming distances: %w", err)
+	}
+	if err := s.hydrateSwimmingDistances(missingSwimDistances); err != nil {
+		return Summary{}, fmt.Errorf("summary swimming distances: %w", err)
+	}
+
+	byYearIndex := make(map[string]int, len(byYear))
+	for i := range byYear {
+		byYearIndex[byYear[i].Key] = i
+	}
+	byMonthIndex := make(map[string]int, len(byMonth))
+	for i := range byMonth {
+		byMonthIndex[byMonth[i].Key] = i
+	}
+	bySportIndex := make(map[string]int, len(bySport))
+	for i := range bySport {
+		bySportIndex[bySport[i].Key] = i
+	}
+	for _, activity := range missingSwimDistances {
+		if activity.DistanceM == nil {
+			continue
+		}
+		yearKey := activity.StartedAt.Format("2006")
+		monthKey := activity.StartedAt.Format("2006-01")
+		if i, ok := byYearIndex[yearKey]; ok {
+			byYear[i].DistanceM += *activity.DistanceM
+		}
+		if (year == "" || yearKey == year) && (sport == "" || activity.SportType == sport) {
+			if i, ok := byMonthIndex[monthKey]; ok {
+				byMonth[i].DistanceM += *activity.DistanceM
+			}
+			if i, ok := bySportIndex[activity.SportType]; ok {
+				bySport[i].DistanceM += *activity.DistanceM
+			}
+			totals.DistanceM += *activity.DistanceM
+		}
+	}
+
 	return Summary{Totals: totals, ByYear: byYear, ByMonth: byMonth, BySport: bySport}, nil
 }
 
