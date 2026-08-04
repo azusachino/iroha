@@ -131,8 +131,8 @@
     if (gran === "day") return [...dayRows].reverse().map(dayToDisp);
     return (gran === "month" ? monthly : yearly).map(aggToDisp);
   });
-  // A full archive is useful in the ledger and month/year views, but putting
-  // more than a thousand daily bars on one chart turns it into noise.
+  // Keep themed day views to a readable recent window; month/year retain the
+  // complete archive without turning a thousand daily bars into noise.
   const themeChrono = $derived(gran === "day" ? chrono.slice(-90) : chrono);
   const table = $derived([...chrono].reverse());
   const aggregated = $derived(gran !== "day");
