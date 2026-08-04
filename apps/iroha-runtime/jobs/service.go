@@ -74,6 +74,12 @@ type ScheduleInput struct {
 	Enabled      bool
 }
 
+type ListFilters struct {
+	Kind   string
+	Status string
+	Limit  int
+}
+
 func NewService(db *gorm.DB, logger *slog.Logger, handlers map[string]Handler) *Service {
 	if logger == nil {
 		logger = slog.Default()
@@ -135,6 +141,37 @@ func (s *Service) EnqueueTx(tx *gorm.DB, input EnqueueInput) (models.Job, error)
 	}
 	s.logger.Info("enqueued job", "job_id", job.ID.String(), "kind", job.Kind, "run_after", job.RunAfter)
 	return job, nil
+}
+
+func (s *Service) List(filters ListFilters) ([]models.Job, error) {
+	limit := filters.Limit
+	if limit <= 0 || limit > 100 {
+		limit = DefaultLimit
+	}
+	query := s.db.Model(&models.Job{})
+	if filters.Kind != "" {
+		query = query.Where("kind = ?", filters.Kind)
+	}
+	if filters.Status != "" {
+		query = query.Where("status = ?", filters.Status)
+	}
+	var result []models.Job
+	if err := query.Order("created_at desc").Limit(limit).Find(&result).Error; err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *Service) Get(id uuid.UUID) (models.Job, bool, error) {
+	var job models.Job
+	result := s.db.First(&job, "id = ?", id)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return models.Job{}, false, nil
+		}
+		return models.Job{}, false, result.Error
+	}
+	return job, true, nil
 }
 
 func (s *Service) ClaimNext(workerID string) (models.Job, error) {

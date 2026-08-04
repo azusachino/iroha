@@ -173,6 +173,33 @@ export interface MediaAggregates {
   type_split: MediaTypeBucket[];
 }
 
+export interface Task {
+  id: string;
+  title: string;
+  notes?: string;
+  status: "open" | "completed" | "canceled";
+  due_date?: string;
+  priority: number;
+  source: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Job {
+  id: string;
+  kind: string;
+  status: "queued" | "running" | "completed" | "failed" | "canceled";
+  attempts: number;
+  max_attempts: number;
+  run_after: string;
+  error_message?: string;
+  started_at?: string;
+  finished_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MediaDetail {
   item: MediaRow;
   work: {
@@ -340,12 +367,14 @@ export function listDailyAggregates(
   );
 }
 
-async function getJSON<T>(
+async function requestJSON<T>(
   path: string,
+  init: RequestInit = {},
   fetchFn: typeof fetch = fetch,
 ): Promise<T> {
   const res = await fetchFn(`${API_BASE}${path}`, {
-    headers: { accept: "application/json" },
+    ...init,
+    headers: { accept: "application/json", ...init.headers },
   });
   if (!res.ok) {
     throw new Error(
@@ -353,6 +382,90 @@ async function getJSON<T>(
     );
   }
   return (await res.json()) as T;
+}
+
+async function getJSON<T>(path: string, fetchFn: typeof fetch = fetch) {
+  return requestJSON<T>(path, {}, fetchFn);
+}
+
+async function mutateJSON<T>(
+  path: string,
+  method: "POST" | "PATCH",
+  body: unknown,
+  fetchFn: typeof fetch = fetch,
+): Promise<T> {
+  return requestJSON<T>(
+    path,
+    {
+      method,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    fetchFn,
+  );
+}
+
+export function listTasks(
+  params: { status?: Task["status"]; due?: string; limit?: number } = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Task[]> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.due) query.set("due", params.due);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<Task[]>(`/api/v1/tasks${suffix}`, fetchFn);
+}
+
+export function createTask(
+  input: {
+    title: string;
+    notes?: string;
+    due_date?: string;
+    priority?: number;
+  },
+  fetchFn: typeof fetch = fetch,
+): Promise<Task> {
+  return mutateJSON<Task>("/api/v1/tasks", "POST", input, fetchFn);
+}
+
+export function updateTask(
+  id: string,
+  status: "completed" | "canceled",
+  fetchFn: typeof fetch = fetch,
+): Promise<Task> {
+  return mutateJSON<Task>(
+    `/api/v1/tasks/${encodeURIComponent(id)}`,
+    "PATCH",
+    { status },
+    fetchFn,
+  );
+}
+
+export function listJobs(
+  params: { status?: Job["status"]; kind?: string; limit?: number } = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Job[]> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.kind) query.set("kind", params.kind);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<Job[]>(`/api/v1/jobs${suffix}`, fetchFn);
+}
+
+export function getJob(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<Job> {
+  return getJSON<Job>(`/api/v1/jobs/${encodeURIComponent(id)}`, fetchFn);
+}
+
+export function triggerAction(
+  action: "media-sync-anilist" | "media-sync-bangumi",
+  fetchFn: typeof fetch = fetch,
+): Promise<Job> {
+  return mutateJSON<Job>(`/api/v1/actions/${action}`, "POST", {}, fetchFn);
 }
 
 export function listActivities(
@@ -458,6 +571,16 @@ export function listSleep(
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<Page<SleepSession>>(`/api/v1/sleep${suffix}`, fetchFn);
+}
+
+export function getSleep(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<SleepSession> {
+  return getJSON<SleepSession>(
+    `/api/v1/sleep/${encodeURIComponent(id)}`,
+    fetchFn,
+  );
 }
 
 export function getSleepSegments(

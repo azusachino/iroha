@@ -581,3 +581,20 @@ type JobSchedule struct {
 func (JobSchedule) TableName() string {
 	return "tb_job_schedules"
 }
+
+type Task struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Title       string
+	Notes       string
+	Status      string
+	DueDate     *time.Time `gorm:"column:due_date;type:date"`
+	Priority    int
+	Source      string
+	CompletedAt *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (Task) TableName() string {
+	return "tb_tasks"
+}

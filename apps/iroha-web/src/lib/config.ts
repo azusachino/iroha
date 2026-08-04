@@ -6,3 +6,4 @@ import { env } from "$env/dynamic/public";
 // PUBLIC_IROHA_API_BASE to an absolute URL when the API is on another origin
 // (e.g. a production deploy not fronted by a reverse proxy).
 export const API_BASE = (env.PUBLIC_IROHA_API_BASE ?? "").replace(/\/$/, "");
+export const APP_VERSION = env.PUBLIC_IROHA_VERSION ?? "dev";

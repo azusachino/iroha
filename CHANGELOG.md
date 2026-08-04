@@ -7,6 +7,11 @@ contract between minor versions.
 
 ## [Unreleased]
 
+### Added
+
+- **Private control room** — `/admin` and the front-page Daily to-go lane provide personal task tracking, recent durable-job visibility, and named AniList/Bangumi sync triggers.
+- **Release identity** — the root `VERSION` file drives image tags and the frontend's subtle version note; sleep sessions now have a detail endpoint/page as well.
+
 ### Removed
 
 - **`/public/v1`.** The sanitized public API surface, and the in-app `/share` page that rendered it, were never actually exposed to the internet — dead weight of an open-CORS route, a second

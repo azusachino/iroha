@@ -1,5 +1,6 @@
 <script lang="ts">
   import favicon from "$lib/assets/favicon.svg";
+  import { APP_VERSION } from "$lib/config";
   import { page } from "$app/state";
   import {
     Activity,
@@ -8,6 +9,7 @@
     Footprints,
     HeartPulse,
     LayoutDashboard,
+    ListTodo,
     Moon,
   } from "@lucide/svelte";
   import CommandPalette from "$lib/components/CommandPalette.svelte";
@@ -26,6 +28,7 @@
     page.url.pathname.startsWith("/activities"),
   );
   const sleepActive = $derived(page.url.pathname.startsWith("/sleep"));
+  const adminActive = $derived(page.url.pathname.startsWith("/admin"));
 
   function openCommandPalette() {
     window.dispatchEvent(new CustomEvent("iroha:command-palette:toggle"));
@@ -46,6 +49,7 @@
       >
         <span class="brand-mark" aria-hidden="true">✽</span>
         <span>iroha</span>
+        <small class="brand-version">v{APP_VERSION}</small>
       </a>
       <nav class="main-nav" aria-label="Primary navigation">
         <a class:active={homeActive} href="/"><HeartPulse size={14} />Today</a>
@@ -61,6 +65,9 @@
         <a class:active={sleepActive} href="/sleep"><Moon size={14} />Night</a>
         <a class:active={mediaActive} href="/media"
           ><BookOpen size={14} />Library</a
+        >
+        <a class:active={adminActive} href="/admin"
+          ><ListTodo size={14} />To-go</a
         >
       </nav>
       <div class="appbar-actions">

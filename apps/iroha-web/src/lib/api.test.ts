@@ -11,8 +11,15 @@ import {
   getActivityRoute,
   getActivitySamplings,
   getActivityLaps,
+  getSleep,
   getActivitySummary,
   getActivityRoutes,
+  listTasks,
+  createTask,
+  updateTask,
+  listJobs,
+  getJob,
+  triggerAction,
   type Activity,
   type DailyRow,
   type Page,
@@ -22,6 +29,38 @@ import {
   type Summary,
   type RouteFeatureCollection,
 } from "./api";
+
+describe("control room API", () => {
+  it("lists tasks with status and due filters", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch([]);
+    await listTasks({ status: "open", due: "2026-08-04", limit: 5 }, fakeFetch);
+    const url = getCapturedUrl();
+    expect(url).toContain("/api/v1/tasks?");
+    expect(url).toContain("status=open");
+    expect(url).toContain("due=2026-08-04");
+    expect(url).toContain("limit=5");
+  });
+
+  it("uses named task and job actions", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await createTask({ title: "Review sleep" }, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/tasks");
+    await updateTask("task_1", "completed", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/tasks/task_1");
+    await listJobs({ status: "running" }, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/jobs?status=running");
+    await getJob("job_1", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/jobs/job_1");
+    await triggerAction("media-sync-anilist", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/actions/media-sync-anilist");
+  });
+
+  it("builds the sleep detail URL", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getSleep("sleep_1", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/sleep/sleep_1");
+  });
+});
 
 const emptyPage: Page<Activity> = {
   items: [],

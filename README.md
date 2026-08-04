@@ -35,9 +35,10 @@ The current canonical domains are:
 - `tb_daily_summaries` + `tb_daily_metrics` — Apple Move/Exercise/Stand rings and cross-source-deduplicated daily steps, distance, and flights.
 - `tb_media_items` + `tb_media_events` — AniList/Bangumi-synced media consumption history.
 
-Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/daily`, and `/api/v1/media` — see [API v1 Contract](docs/contracts/openapi.yaml). This surface is unauthenticated by
-design: iroha is a single-user personal deployment, and the network boundary (private LAN/NAS, never exposed publicly) is the security control, not an application credential. Sanitized activity and
-route projections are also available under `/public/v1`; the public surface is a derived view, never the canonical store, and is the only surface meant for eventual public exposure.
+Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/daily`, and `/api/v1/media`; the private control room adds personal tasks and named job actions under `/api/v1/tasks`,
+`/api/v1/jobs`, and `/api/v1/actions` — see [API v1 Contract](docs/contracts/openapi.yaml). This surface is unauthenticated by design: iroha is a single-user personal deployment, and the network
+boundary (private LAN/NAS, never exposed publicly) is the security control, not an application credential. Sanitized activity and route projections are also available under `/public/v1`; the public
+surface is a derived view, never the canonical store, and is the only surface meant for eventual public exposure.
 
 ## Features
 
@@ -50,6 +51,7 @@ route projections are also available under `/public/v1`; the public surface is a
   from ~millions of `Record` rows via streaming.
 - **Background jobs + read surfaces** — `iroha-server` owns ingestion and reads, `iroha-job` claims persisted jobs, and the Svelte cockpit consumes the private API. Public activity/route views are
   sanitized projections.
+- **Private control room** — `/admin` keeps daily personal tasks beside recent durable jobs and allowlisted media-sync triggers; the front page exposes the same daily to-go lane for quick access.
 - **PostGIS canonical store** — Strava is a legacy import/export adapter only.
 - **Media sync** — AniList and Bangumi connectors sync watch/read history into canonical media items and events, with a MAL↔AniList/Bangumi bridge cache for cross-provider resolution.
 - **Contract-checked private API** — per-route rate limiting and a route-inventory test that fails the build if a live route drifts from the OpenAPI contract. Unauthenticated by design; see
@@ -69,8 +71,7 @@ route projections are also available under `/public/v1`; the public surface is a
 
 ## Quickstart
 
-Requires [mise](https://mise.jdx.dev/) and Podman for local backend development.
-Nix remains available for CI and reproducible checks.
+Requires [mise](https://mise.jdx.dev/) and Podman for local backend development. Nix remains available for CI and reproducible checks.
 
 ```sh
 mise install           # install the pinned project tools
@@ -89,8 +90,15 @@ make check
 make build
 ```
 
-All lifecycle commands remain Make targets. See [`docs/dev-runtime.md`](docs/dev-runtime.md)
-for the toolchain boundary and backend workflow.
+All lifecycle commands remain Make targets. See [`docs/dev-runtime.md`](docs/dev-runtime.md) for the toolchain boundary and backend workflow.
+
+### Release versioning
+
+`VERSION` is the canonical Iroha product release version. The Makefile derives container tags as `v$(VERSION)`, injects the same value into the web build, and the cockpit shows it subtly in the
+brand/footer. A release is marked with the matching Git tag, for example `v0.1.3`.
+
+The Go modules under `apps/` intentionally keep their own `v0.1.0` local requirements because `go.work` and local `replace` directives make them workspace modules, not independently published
+libraries. `IROHA_PARSER_VERSION` is separate: it identifies parser behavior and should only change when imports need reprocessing.
 
 The server is configured via `iroha.toml` and/or environment variables:
 

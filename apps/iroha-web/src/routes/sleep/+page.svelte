@@ -553,23 +553,28 @@
         <div class="night-layout">
           <div bind:this={nightListContainer} class="night-list">
             {#each sessions as session (session.id)}
-              <button
-                class:selected={selected.id === session.id}
-                class="night-row"
-                type="button"
-                onclick={() => selectSession(session)}
-                onmouseenter={() => selectSession(session)}
-                onfocus={() => selectSession(session)}
-                aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? "primary overnight sleep" : "short session"}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
-              >
-                <span class="night-date"
-                  >{formatDateOnly(session.wake_date)}</span
-                ><span>{formatDuration(session.asleep_s)}</span><b
-                  >{Math.round(session.efficiency * 100)}%</b
-                ><em class:primary={session.is_main_sleep}
-                  >{session.is_main_sleep ? "Primary" : "Short"}</em
+              <div class="night-row-wrap">
+                <button
+                  class:selected={selected.id === session.id}
+                  class="night-row"
+                  type="button"
+                  onclick={() => selectSession(session)}
+                  onmouseenter={() => selectSession(session)}
+                  onfocus={() => selectSession(session)}
+                  aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? "primary overnight sleep" : "short session"}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
                 >
-              </button>
+                  <span class="night-date"
+                    >{formatDateOnly(session.wake_date)}</span
+                  ><span>{formatDuration(session.asleep_s)}</span><b
+                    >{Math.round(session.efficiency * 100)}%</b
+                  ><em class:primary={session.is_main_sleep}
+                    >{session.is_main_sleep ? "Primary" : "Short"}</em
+                  >
+                </button>
+                <a class="night-detail-link" href={`/sleep/${session.id}`}
+                  >Open</a
+                >
+              </div>
             {/each}
             <div
               bind:this={loadMoreSentinel}
@@ -984,6 +989,12 @@
     max-height: 19rem;
     overflow: auto;
   }
+  .night-row-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    border-top: 1px solid var(--border);
+  }
   .night-row {
     display: grid;
     grid-template-columns: 1fr auto auto auto;
@@ -991,7 +1002,7 @@
     gap: 0.75rem;
     padding: 0.7rem 0.45rem;
     border: 0;
-    border-top: 1px solid var(--border);
+    border-top: 0;
     border-radius: 7px;
     background: transparent;
     color: var(--text-muted);
@@ -1020,6 +1031,16 @@
   }
   .night-row em.primary {
     color: var(--accent);
+  }
+  .night-detail-link {
+    padding: 0.35rem 0.45rem;
+    color: var(--accent);
+    font-size: 0.72rem;
+    text-decoration: none;
+  }
+  .night-detail-link:hover,
+  .night-detail-link:focus-visible {
+    text-decoration: underline;
   }
   .timeline-card {
     align-self: center;

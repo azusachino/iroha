@@ -73,6 +73,19 @@ func (s *Server) handleListSleep(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (s *Server) handleGetSleep(w http.ResponseWriter, r *http.Request) {
+	session, found, err := s.deps.SleepService.Get(chi.URLParam(r, "sleepId"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid sleep id")
+		return
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, "sleep session not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, toSleepResponse(session))
+}
+
 func (s *Server) handleGetSleepSegments(w http.ResponseWriter, r *http.Request) {
 	segments, found, err := s.deps.SleepService.Segments(chi.URLParam(r, "sleepId"))
 	if err != nil {

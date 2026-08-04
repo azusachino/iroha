@@ -9,6 +9,7 @@ import (
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
+	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
@@ -16,6 +17,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/tasks"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -43,6 +45,8 @@ type Dependencies struct {
 	Cache            *cache.Client
 	GeocodeService   *geocode.Service
 	JobEnqueuer      imports.Enqueuer
+	JobsService      *jobs.Service
+	TaskService      *tasks.Service
 	MaxUploadBytes   int64
 	AllowedOrigins   []string
 }
@@ -111,6 +115,7 @@ func (s *Server) routes() {
 		r.Route("/sleep", func(r chi.Router) {
 			r.Get("/", s.handleListSleep)
 			r.Get("/aggregates", s.handleSleepAggregates)
+			r.Get("/{sleepId}", s.handleGetSleep)
 			r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
 		})
 		r.Route("/daily", func(r chi.Router) {
@@ -124,6 +129,16 @@ func (s *Server) routes() {
 			r.Get("/", s.handleListMedia)
 			r.Get("/{mediaId}", s.handleGetMedia)
 		})
+		r.Route("/tasks", func(r chi.Router) {
+			r.Get("/", s.handleListTasks)
+			r.Post("/", s.handleCreateTask)
+			r.Patch("/{taskId}", s.handleUpdateTask)
+		})
+		r.Route("/jobs", func(r chi.Router) {
+			r.Get("/", s.handleListJobs)
+			r.Get("/{jobId}", s.handleGetJob)
+		})
+		r.Post("/actions/{action}", s.handleAction)
 	})
 }
 
@@ -158,7 +173,7 @@ func keyByRemoteIP(r *http.Request) (string, error) {
 func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins: origins,
-		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodOptions},
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodOptions},
 		AllowedHeaders: []string{"Accept", "Content-Type"},
 		ExposedHeaders: []string{"Retry-After", "X-Request-ID"},
 		MaxAge:         300,

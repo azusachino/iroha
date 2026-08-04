@@ -23,6 +23,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/tasks"
 	"gorm.io/gorm"
 )
 
@@ -73,6 +74,7 @@ func main() {
 	sleepService := sleep.NewService(db)
 	dailyService := daily.NewService(db)
 	mediaService := media.NewService(db)
+	taskService := tasks.NewService(db)
 	briefingRegistry, err := httpapi.NewBriefingRegistry(dailyService, sleepService, activityService, mediaService)
 	if err != nil {
 		logger.Error("create briefing registry", "error", err)
@@ -92,6 +94,8 @@ func main() {
 		Cache:            cacheClient,
 		GeocodeService:   geocodeService,
 		JobEnqueuer:      enqueuer,
+		JobsService:      jobsService,
+		TaskService:      taskService,
 		MaxUploadBytes:   2 << 30,
 		AllowedOrigins:   cfg.Server.AllowedOrigins,
 	})

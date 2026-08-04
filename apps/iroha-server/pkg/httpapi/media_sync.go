@@ -18,12 +18,15 @@ type mediaSyncJobResponse struct {
 }
 
 func (s *Server) handleEnqueueMediaSync(w http.ResponseWriter, r *http.Request) {
+	s.enqueueMediaSync(w, chi.URLParam(r, "connectorId"))
+}
+
+func (s *Server) enqueueMediaSync(w http.ResponseWriter, connectorID string) {
 	if s.deps.JobEnqueuer == nil {
 		writeError(w, http.StatusServiceUnavailable, "job dispatcher unavailable")
 		return
 	}
 
-	connectorID := chi.URLParam(r, "connectorId")
 	kind, ok := mediaSyncJobKind(connectorID)
 	if !ok {
 		writeError(w, http.StatusBadRequest, "unsupported media connector")

@@ -9,7 +9,8 @@ WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 PUBLIC_SITE_DIR := apps/iroha-public-site
 IMAGE_NS := azusachino.icu
-TAG := v0.1.1
+VERSION := $(shell tr -d '\n' < VERSION)
+TAG := v$(VERSION)
 OUT := ./dist/public-data
 
 .DEFAULT_GOAL := help
@@ -78,10 +79,10 @@ web-test: ## Run unit tests for the web app (vitest)
 	cd $(WEB_DIR) && $(TOOL_ENV)bun run test
 
 web-build: ## Production build of the web app
-	cd $(WEB_DIR) && $(TOOL_ENV)bun run build
+	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) $(TOOL_ENV)bun run build
 
 web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
-	cd $(WEB_DIR) && $(TOOL_ENV)bun run dev --host 0.0.0.0
+	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) $(TOOL_ENV)bun run dev --host 0.0.0.0
 
 web-visual-install: ## One-time: install the Chromium binary for web-visual-check
 	cd $(WEB_DIR) && $(TOOL_ENV)bunx playwright install chromium
@@ -150,23 +151,23 @@ soak-local: ## Run non-mutating HTTP soak checks against the Podman Compose stac
 	$(TOOL_ENV)uv run python scripts/local_stack_soak.py $(SOAK_ARGS)
 
 ## --- k3s local images (build with Podman, import straight into containerd; no registry) ---
-image-server: ## Build iroha-server and import it into the local k3s containerd store (TAG=v0.1.1)
+image-server: ## Build iroha-server and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target server -t $(IMAGE_NS)/iroha-server:$(TAG) -f ops/images/Containerfile.server .
 	podman save $(IMAGE_NS)/iroha-server:$(TAG) | sudo k3s ctr images import -
 
-image-job: ## Build iroha-job and import it into the local k3s containerd store (TAG=v0.1.1)
+image-job: ## Build iroha-job and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target job -t $(IMAGE_NS)/iroha-job:$(TAG) -f ops/images/Containerfile.server .
 	podman save $(IMAGE_NS)/iroha-job:$(TAG) | sudo k3s ctr images import -
 
-image-db-migrate: ## Build iroha-db-migrate and import it into the local k3s containerd store (TAG=v0.1.1)
+image-db-migrate: ## Build iroha-db-migrate and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target db-migrate -t $(IMAGE_NS)/iroha-db-migrate:$(TAG) -f ops/images/Containerfile.server .
 	podman save $(IMAGE_NS)/iroha-db-migrate:$(TAG) | sudo k3s ctr images import -
 
-image-web: ## Build iroha-web and import it into the local k3s containerd store (TAG=v0.1.1)
-	podman build -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= .
+image-web: ## Build iroha-web and import it into the local k3s containerd store (TAG=$(TAG))
+	podman build -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) .
 	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import -
 
-image-export-public: ## Build iroha-export-public and import it into the local k3s containerd store (TAG=v0.1.1)
+image-export-public: ## Build iroha-export-public and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target export-public -t $(IMAGE_NS)/iroha-export-public:$(TAG) -f ops/images/Containerfile.server .
 	podman save $(IMAGE_NS)/iroha-export-public:$(TAG) | sudo k3s ctr images import -
 

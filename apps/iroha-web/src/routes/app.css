@@ -298,6 +298,15 @@ textarea {
   box-shadow: var(--accent-glow);
 }
 
+.brand-version {
+  align-self: flex-end;
+  margin: 0 0 0.12rem -0.25rem;
+  color: var(--text-muted);
+  font-size: 0.56rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
 .main-nav {
   display: flex;
   align-items: center;
