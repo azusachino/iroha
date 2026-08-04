@@ -118,6 +118,15 @@ func TestClient_UsesBackendNamespaceContract(t *testing.T) {
 	}
 }
 
+func TestValkeyKeysUseApplicationPrefix(t *testing.T) {
+	if got, want := generationKey("read_daily"), "iroha:cache:v1:read_daily:__generation"; got != want {
+		t.Fatalf("generation key = %q, want %q", got, want)
+	}
+	if got, want := namespacedKey("read_daily", 3, "GET /api/v1/daily"), "iroha:cache:v1:read_daily:g3:GET /api/v1/daily"; got != want {
+		t.Fatalf("entry key = %q, want %q", got, want)
+	}
+}
+
 func TestGetOrLoad_CoalescesConcurrentMisses(t *testing.T) {
 	c := NewWithStore(&fakeStore{})
 	var mu sync.Mutex

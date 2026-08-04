@@ -36,13 +36,12 @@ uv run python scripts/dev_stack.py logs
 uv run python scripts/dev_stack.py stop
 ```
 
-`make db-up` is the preferred dependency entrypoint because it enters the Nix shell and provides the pinned `goose` migration CLI. The direct `uv` command is useful for diagnosing the runner when the
-outer Nix shell is unavailable.
+`make db-up` is the preferred dependency entrypoint because it uses the pinned `goose` migration CLI from the active mise toolchain. The direct `uv` command is useful for diagnosing the runner when
+the outer Nix shell is unavailable.
 
 ## Podman boundary
 
-On macOS, Podman isolates containers in a Podman machine. `podman-compose` provides the private project network, so server and worker use the `db` service name rather than generated host
-IPs.
+On macOS, Podman isolates containers in a Podman machine. `podman-compose` provides the private project network, so server and worker use the `db` service name rather than generated host IPs.
 
 The full application profile uses the repo-local `.iroha-data` bind mount for raw files because Apple container VMs can share host bind mounts reliably while named-volume attachment across isolated
 application VMs is not required by the Podman profile. The server and worker mount it at `/data`.

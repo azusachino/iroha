@@ -23,6 +23,11 @@
       hint: "Rings, movement and body vitals",
     },
     { label: "Media", href: "/media", hint: "Watch and reading history" },
+    {
+      label: "To-go / Control room",
+      href: "/admin",
+      hint: "Tasks and background jobs",
+    },
   ];
 
   let open = $state(false);

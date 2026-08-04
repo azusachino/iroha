@@ -7,6 +7,7 @@
     type DailyAggregateBucket,
   } from "$lib/api";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import DailyScopeControls from "$lib/components/DailyScopeControls.svelte";
   import DailySmallMultiples, {
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
@@ -17,20 +18,52 @@
   import { hasThemeRoute } from "$lib/themes/registry";
 
   type Gran = "day" | "month" | "year";
-  const DAY_FETCH = 90;
-
   let dayRows = $state<DailyRow[]>([]);
+  let latestDay = $state<DailyRow | null>(null);
   let monthly = $state<DailyAggregateBucket[]>([]);
   let yearly = $state<DailyAggregateBucket[]>([]);
   let loading = $state(true);
+  let dayRowsLoading = $state(false);
   let error = $state<string | null>(null);
   let gran = $state<Gran>("month");
+  let selectedMonth = $state("");
+  let selectedYear = $state("");
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
+  let monthlyLoaded = false;
+  let yearlyLoaded = false;
+  let loadedDayMonth = "";
   const theme = useTheme();
 
+  const availableMonths = $derived(
+    monthly
+      .map((bucket) => bucket.period.slice(0, 7))
+      .sort()
+      .reverse(),
+  );
+  const availableYears = $derived(
+    [...new Set(monthly.map((bucket) => bucket.period.slice(0, 4)))]
+      .sort()
+      .reverse(),
+  );
+  const activeMonth = $derived(selectedMonth || availableMonths[0] || "");
+  const activeYear = $derived(selectedYear || availableYears[0] || "");
+  const monthOptions = $derived(
+    availableMonths.map((value) => ({
+      value,
+      label: new Date(`${value}-01T00:00:00Z`).toLocaleDateString(undefined, {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      }),
+    })),
+  );
+  const yearOptions = $derived(
+    availableYears.map((value) => ({ value, label: value })),
+  );
+
   // Hero uses the latest real ring day, independent of the chosen granularity.
-  const latestRingDay = $derived(dayRows.find((r) => r.move_goal_kcal > 0));
+  const latestRingDay = $derived(latestDay);
   const ringData = $derived<Ring[]>(
     latestRingDay
       ? [
@@ -114,7 +147,7 @@
       move,
       exercise: b.exercise_min_avg || null,
       stand: b.stand_hours_avg || null,
-      moveClosedPct: move == null ? null : b.move_closed_pct,
+      moveClosedPct: move == null ? null : Math.round(b.move_closed_pct),
       steps: m.steps ?? null,
       distance: m.distance_km ?? null,
       resting_hr: m.resting_hr ?? null,
@@ -128,8 +161,18 @@
 
   // Chronological (oldest→newest) for sparklines; table is its reverse.
   const chrono = $derived.by<Disp[]>(() => {
-    if (gran === "day") return [...dayRows].reverse().map(dayToDisp);
-    return (gran === "month" ? monthly : yearly).map(aggToDisp);
+    if (gran === "day") {
+      return [...dayRows]
+        .filter((row) => !activeMonth || row.day.startsWith(activeMonth))
+        .reverse()
+        .map(dayToDisp);
+    }
+    if (gran === "month") {
+      return monthly
+        .filter((bucket) => !activeYear || bucket.period.startsWith(activeYear))
+        .map(aggToDisp);
+    }
+    return yearly.map(aggToDisp);
   });
   const table = $derived([...chrono].reverse());
   const aggregated = $derived(gran !== "day");
@@ -171,24 +214,73 @@
     });
   }
 
-  onMount(async () => {
+  async function loadMonthly() {
+    if (monthlyLoaded) return;
     try {
-      const d = await listDaily({ limit: DAY_FETCH });
-      const days = d.items.map((row) => row.day.slice(0, 10)).sort();
-      rangeFrom = days[0];
-      rangeTo = days[days.length - 1];
-      const [m, y] = await Promise.all([
-        listDailyAggregates("month", { from: rangeFrom, to: rangeTo }),
-        listDailyAggregates("year", { from: rangeFrom, to: rangeTo }),
-      ]);
-      dayRows = d.items;
-      monthly = m.buckets;
-      yearly = y.buckets;
+      const result = await listDailyAggregates("month");
+      monthly = result.buckets;
+      monthlyLoaded = true;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function loadLatestDay() {
+    try {
+      const result = await listDaily({ limit: 1 });
+      latestDay = result.items[0] ?? null;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function loadYearly() {
+    if (yearlyLoaded) return;
+    try {
+      const result = await listDailyAggregates("year");
+      yearly = result.buckets;
+      yearlyLoaded = true;
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function loadDays(month: string) {
+    if (!month || loadedDayMonth === month || dayRowsLoading) return;
+    const [year, monthNumber] = month.split("-").map(Number);
+    const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+    rangeFrom = `${month}-01`;
+    rangeTo = `${month}-${String(lastDay).padStart(2, "0")}`;
+    dayRowsLoading = true;
+    try {
+      const result = await listDaily({
+        from: rangeFrom,
+        to: rangeTo,
+        limit: 31,
+      });
+      dayRows = result.items;
+      loadedDayMonth = month;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
-      loading = false;
+      dayRowsLoading = false;
     }
+  }
+
+  async function changeGranularity(value: Gran) {
+    gran = value;
+    if (value === "year") await loadYearly();
+    if (value === "day") await loadDays(activeMonth);
+  }
+
+  function changeDayMonth(value: string) {
+    selectedMonth = value;
+    void loadDays(value);
+  }
+
+  onMount(async () => {
+    await Promise.all([loadMonthly(), loadLatestDay()]);
+    loading = false;
   });
 </script>
 
@@ -198,12 +290,33 @@
       <p class="muted status">Loading time-series data…</p>
     {:else if error}
       <p class="error status">Could not load daily data: {error}</p>
-    {:else if dayRows.length === 0}
+    {:else if monthly.length === 0 && dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
+      {#if gran === "day"}
+        <DailyScopeControls
+          label="Month"
+          options={monthOptions}
+          value={activeMonth}
+          summary={dayRowsLoading ? "Loading…" : `${chrono.length} days`}
+          onChange={changeDayMonth}
+        />
+      {:else if gran === "month"}
+        <DailyScopeControls
+          label="Year"
+          options={yearOptions}
+          value={activeYear}
+          summary={`${chrono.length} months`}
+          onChange={(value) => (selectedYear = value)}
+        />
+      {/if}
       <ThemeRouteRenderer
         route="daily"
-        props={{ chrono, gran, onGran: (value: Gran) => (gran = value) }}
+        props={{
+          chrono,
+          gran,
+          onGran: (value: Gran) => void changeGranularity(value),
+        }}
       />
     {/if}
   {:else}
@@ -232,6 +345,24 @@
         <RingGauge rings={ringData} />
       </div>
 
+      {#if gran === "day"}
+        <DailyScopeControls
+          label="Month"
+          options={monthOptions}
+          value={activeMonth}
+          summary={`${chrono.length} days`}
+          onChange={changeDayMonth}
+        />
+      {:else if gran === "month"}
+        <DailyScopeControls
+          label="Year"
+          options={yearOptions}
+          value={activeYear}
+          summary={`${chrono.length} months`}
+          onChange={(value) => (selectedYear = value)}
+        />
+      {/if}
+
       <div class="controls">
         <div class="seg" role="tablist" aria-label="Aggregation granularity">
           {#each ["day", "month", "year"] as const as g}
@@ -239,7 +370,7 @@
               role="tab"
               aria-selected={gran === g}
               class:active={gran === g}
-              onclick={() => (gran = g)}
+              onclick={() => void changeGranularity(g)}
             >
               {g[0].toUpperCase() + g.slice(1)}
             </button>
@@ -247,9 +378,9 @@
         </div>
         <span class="muted small">
           {#if aggregated}
-            {chrono.length} {gran}s · per-day averages
+            {chrono.length} {gran}s in selected year · per-day averages
           {:else}
-            recent {chrono.length} days
+            {chrono.length} days in selected month
           {/if}
         </span>
         {#if rangeFrom && rangeTo}<span class="muted small"

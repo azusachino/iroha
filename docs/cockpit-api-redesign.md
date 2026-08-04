@@ -1,6 +1,8 @@
 # Cockpit API redesign
 
-Status: implemented, runtime verification pending, 2026-07-14
+Status: implemented; initial request shape verified by the v0.1.4 browser audit, 2026-08-04
+
+The request counts below are the historical pre-redesign baseline. Current route-by-route traffic and regression commands live in [frontend-request-audit.md](frontend-request-audit.md).
 
 ## Why the current root route is unacceptable
 

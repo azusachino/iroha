@@ -14,8 +14,6 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable",
 )
-DB_HOST = os.environ.get("IROHA_DB_HOST", "127.0.0.1")
-DB_PORT = os.environ.get("IROHA_DB_PORT", "5432")
 DB_USER = os.environ.get("IROHA_DB_USER", "iroha")
 DB_NAME = os.environ.get("IROHA_DB_NAME", "iroha")
 
@@ -88,7 +86,20 @@ def ensure_machine() -> None:
 
 def wait_for_db(timeout_s: int = 60) -> int:
     deadline = time.monotonic() + timeout_s
-    cmd = ["pg_isready", "-h", DB_HOST, "-p", DB_PORT, "-U", DB_USER, "-d", DB_NAME]
+    cmd = podman_cmd() + [
+        "exec",
+        "-T",
+        "db",
+        "pg_isready",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "5432",
+        "-U",
+        DB_USER,
+        "-d",
+        DB_NAME,
+    ]
     while time.monotonic() < deadline:
         result = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         if result.returncode == 0:
@@ -102,7 +113,7 @@ def wait_for_db(timeout_s: int = 60) -> int:
 def migrate() -> int:
     env = os.environ.copy()
     env["DATABASE_URL"] = DATABASE_URL
-    return run(["uv", "run", "python", "scripts/db.py", "apply"], env=env)
+    return run([sys.executable, "scripts/db.py", "apply"], env=env)
 
 
 def start_database() -> None:

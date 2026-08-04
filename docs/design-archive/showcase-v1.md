@@ -8,10 +8,8 @@ The adopted pieces now live in `apps/iroha-web/src/routes/+page.svelte`.
 
 ## Intent
 
-Make a first visit feel like hearing a day take shape and seeing it bloom: the
-day is a pattern to notice, not a spreadsheet to operate. The page uses a large
-editorial promise, a central readiness signal, instrument cards, and a short
-activity / recovery narrative.
+Make a first visit feel like hearing a day take shape and seeing it bloom: the day is a pattern to notice, not a spreadsheet to operate. The page uses a large editorial promise, a central readiness
+signal, instrument cards, and a short activity / recovery narrative.
 
 ## Keep
 
@@ -24,14 +22,12 @@ activity / recovery narrative.
 ## Do not copy blindly
 
 - The constellation is a concept surface, not the primary navigation model.
-- Decorative orbit geometry must never obscure the actual value, date, or
-  provenance of a measurement.
+- Decorative orbit geometry must never obscure the actual value, date, or provenance of a measurement.
 - “Explore” is not a replacement for task-oriented routes and filters.
 
 ## Production consequences
 
-The production app uses the showcase tone for page hierarchy and visual
-weight, while each domain remains task-first:
+The production app uses the showcase tone for page hierarchy and visual weight, while each domain remains task-first:
 
 - Today answers “what should I notice now?”
 - Patterns answers “what changed over time?”

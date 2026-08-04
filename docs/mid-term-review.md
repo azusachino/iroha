@@ -86,15 +86,15 @@ dependencies.
 
 Use these services for the first fully containerized local profile:
 
-| Service  | Image source                                 | Persistent data                         | Network role                                  |
-| -------- | -------------------------------------------- | --------------------------------------- | --------------------------------------------- |
-| `db`     | PostGIS image with verified arm64 support    | named Postgres volume                   | internal, optionally host-published for debug |
-| `server` | repo `Containerfile.server`                  | shared `iroha-data` volume              | HTTP API                                      |
-| `job`    | repo `Containerfile.server` or worker target | same `iroha-data` volume                | queue consumer                                |
-| `web`    | repo `Containerfile.web`                     | none                                    | frontend HTTP                                 |
+| Service  | Image source                                 | Persistent data            | Network role                                  |
+| -------- | -------------------------------------------- | -------------------------- | --------------------------------------------- |
+| `db`     | PostGIS image with verified arm64 support    | named Postgres volume      | internal, optionally host-published for debug |
+| `server` | repo `Containerfile.server`                  | shared `iroha-data` volume | HTTP API                                      |
+| `job`    | repo `Containerfile.server` or worker target | same `iroha-data` volume   | queue consumer                                |
+| `web`    | repo `Containerfile.web`                     | none                       | frontend HTTP                                 |
 
-The first implementation should use fixed service names and a private network, with the server configured for `db` service DNS. Host-published ports remain useful for browser and smoke
-access. The server and worker must share the same `IROHA_DATA_DIR` mount; this is the critical boundary.
+The first implementation should use fixed service names and a private network, with the server configured for `db` service DNS. Host-published ports remain useful for browser and smoke access. The
+server and worker must share the same `IROHA_DATA_DIR` mount; this is the critical boundary.
 
 The runner should own only lifecycle mechanics that Apple `container` does not provide declaratively: network/volume creation, image build, ordered startup, health waits, migration execution, logs,
 and teardown. It should not duplicate schema or application logic. A future Docker/Compose adapter can consume the same service names and environment contract.

@@ -1,13 +1,17 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { Check, ListTodo } from "@lucide/svelte";
   import {
     getBriefing,
     listDaily,
+    listTasks,
+    updateTask,
     type DailyRow,
     type SleepSession,
     type Activity,
     type MediaHomeEvent,
     type BriefingResponse,
+    type Task,
   } from "$lib/api";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
@@ -25,6 +29,8 @@
   let briefing = $state<BriefingResponse | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let toGoTasks = $state<Task[]>([]);
+  let taskError = $state<string | null>(null);
 
   // The selected day — the spine everything on this page snapshots to.
   let day = $state<string>(new Date().toISOString().slice(0, 10));
@@ -181,6 +187,7 @@
 
   $effect(() => {
     void loadBriefing(day);
+    void loadTasks(day);
   });
 
   onMount(() => {
@@ -194,6 +201,28 @@
     if (event.position != null || event.progress_percent != null)
       return "Progressed";
     return "Updated library";
+  }
+
+  async function loadTasks(selectedDay: string) {
+    taskError = null;
+    try {
+      toGoTasks = await listTasks({
+        status: "open",
+        due: selectedDay,
+        limit: 5,
+      });
+    } catch (cause) {
+      taskError = cause instanceof Error ? cause.message : String(cause);
+    }
+  }
+
+  async function finishTask(task: Task) {
+    try {
+      await updateTask(task.id, "completed");
+      toGoTasks = toGoTasks.filter((item) => item.id !== task.id);
+    } catch (cause) {
+      taskError = cause instanceof Error ? cause.message : String(cause);
+    }
   }
 </script>
 
@@ -246,6 +275,41 @@
           Return to today
         </button>
       </div>
+    {/if}
+
+    {#if !taskError}
+      <section class="to-go-strip tile" aria-labelledby="to-go-title">
+        <div class="to-go-heading">
+          <span class="to-go-icon" aria-hidden="true"
+            ><ListTodo size={17} /></span
+          >
+          <div>
+            <p class="eyebrow">Daily to-go</p>
+            <h2 id="to-go-title">
+              {toGoTasks.length
+                ? `${toGoTasks.length} things to carry`
+                : "A clear next step"}
+            </h2>
+          </div>
+        </div>
+        <div class="to-go-items">
+          {#if toGoTasks.length}
+            {#each toGoTasks as task (task.id)}
+              <div class="to-go-task">
+                <button
+                  type="button"
+                  aria-label={`Complete ${task.title}`}
+                  onclick={() => finishTask(task)}><Check size={14} /></button
+                >
+                <span>{task.title}</span>
+              </div>
+            {/each}
+          {:else}
+            <span class="to-go-empty">No open tasks for this day.</span>
+          {/if}
+        </div>
+        <a class="to-go-link" href="/admin">Open control room →</a>
+      </section>
     {/if}
   </div>
 
@@ -446,6 +510,79 @@
   .cockpit {
     display: grid;
     gap: 1.25rem;
+  }
+  .to-go-strip {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.8rem 1rem;
+    background: color-mix(in srgb, var(--surface) 92%, var(--accent));
+  }
+  .to-go-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+  .to-go-icon {
+    display: grid;
+    width: 2.2rem;
+    height: 2.2rem;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+    border-radius: 50%;
+    color: var(--accent);
+  }
+  .to-go-heading .eyebrow {
+    margin-bottom: 0.1rem;
+  }
+  .to-go-heading h2 {
+    margin: 0;
+    font-size: 0.98rem;
+  }
+  .to-go-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.8rem;
+    min-width: 0;
+  }
+  .to-go-task {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .to-go-task span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .to-go-task button {
+    display: grid;
+    flex: 0 0 auto;
+    width: 1.35rem;
+    height: 1.35rem;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .to-go-task button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .to-go-empty {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .to-go-link {
+    color: var(--accent);
+    font-size: 0.75rem;
+    white-space: nowrap;
   }
   .status {
     padding: 2rem 0;
@@ -955,6 +1092,13 @@
   }
 
   @media (max-width: 820px) {
+    .to-go-strip {
+      grid-template-columns: 1fr auto;
+    }
+    .to-go-items {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
     .command-heading {
       align-items: flex-start;
       flex-direction: column;

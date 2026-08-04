@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
-  import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
+  import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
     summary,
@@ -10,6 +11,10 @@
     streak,
     loading,
     error,
+    onRetry,
+    routesLoading,
+    routesError,
+    onLoadRoutes,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -17,19 +22,21 @@
     streak: string;
     loading: boolean;
     error: string | null;
+    onRetry: () => void;
+    routesLoading: boolean;
+    routesError: string | null;
+    onLoadRoutes: () => void;
   } = $props();
-
-  const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
 </script>
 
 <section class="journal-long-view" aria-labelledby="journal-long-view-title">
   <header class="view-opening">
     <div>
       <p class="journal-kicker">Long view · standing entry</p>
-      <h1 id="journal-long-view-title">The archive, kept whole.</h1>
+      <h1 id="journal-long-view-title">The days, kept in view.</h1>
       <p>
-        Distance, sessions, and routes read together, without turning the record
-        into a verdict.
+        Distance, sessions, and routes read together as a continuing record,
+        without turning the day into a verdict.
       </p>
     </div>
     <div class="view-stamp" aria-label="Current streak">
@@ -43,7 +50,7 @@
   {#if loading}
     <p class="view-status">Gathering the long view…</p>
   {:else if error}
-    <p class="view-status error">{error}</p>
+    <RetryNotice message={error} {onRetry} />
   {:else}
     <dl class="view-summary">
       <div>
@@ -75,7 +82,9 @@
             <p class="journal-kicker">03 · movement notes</p>
             <h2>Recent entries</h2>
           </div>
-          <span>{activities.length} loaded</span>
+          <span
+            >{Math.min(8, activities.length)} of {activities.length} loaded</span
+          >
         </div>
         {#if activities.length}
           <ol>
@@ -104,15 +113,22 @@
 
       <section class="map-card">
         <p class="journal-kicker">Geography</p>
-        <h2>{routes?.features.length ?? 0} route traces</h2>
-        {#if hasRoutes && routes}
-          <div class="map-frame"><RoutesMap data={routes} /></div>
-        {:else}
-          <p class="journal-empty">No routes recorded yet.</p>
-        {/if}
+        <h2>
+          {routes
+            ? `${routes.features.length} route traces`
+            : "Route footprint"}
+        </h2>
+        <div class="map-frame">
+          <RouteFootprint
+            {routes}
+            loading={routesLoading}
+            error={routesError}
+            onLoad={onLoadRoutes}
+          />
+        </div>
         <p>
           Routes stay linked to their source activity and remain inspectable
-          from the archive.
+          from the journal.
         </p>
       </section>
     </div>
@@ -199,9 +215,6 @@
     border: 1px dashed var(--border);
     padding: 2rem;
     color: var(--text-muted);
-  }
-  .view-status.error {
-    color: var(--sport-run);
   }
   .view-summary {
     display: grid;

@@ -173,6 +173,11 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 			t.Fatalf("date-filtered sleep page = %#v", body)
 		}
 	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/"+ids.Encode(ids.SleepPrefix, firstID), "", http.StatusOK, func(body map[string]any) {
+		if body["id"] != ids.Encode(ids.SleepPrefix, firstID) {
+			t.Fatalf("sleep detail = %#v", body)
+		}
+	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/aggregates?granularity=year", "", http.StatusOK, func(body map[string]any) {
 		buckets := body["buckets"].([]any)
 		if body["granularity"] != "year" || len(buckets) != 2 {

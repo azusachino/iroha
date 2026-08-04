@@ -154,7 +154,11 @@
         </thead>
         <tbody>
           {#each activities as activity (activity.id)}
-            <tr>
+            <tr
+              class="activity-row"
+              ondblclick={() =>
+                (window.location.href = `/activities/${activity.id}`)}
+            >
               <td>{formatDateOnly(activity.started_at)}</td>
               <td>
                 {#if seasonOf(activity.started_at)}

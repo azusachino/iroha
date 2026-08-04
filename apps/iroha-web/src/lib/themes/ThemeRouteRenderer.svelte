@@ -19,5 +19,8 @@
 </script>
 
 {#if Renderer}
+  {#if route === "activity-detail"}
+    <p class="detail-back"><a href="/activities">← Back to Motion</a></p>
+  {/if}
   <Renderer {...props} />
 {/if}

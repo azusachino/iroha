@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: Iroha API
-  version: 0.0.0-pre-release
+  version: 0.1.4
   description: |
     Active-development contract for Iroha's private data cockpit.
-    /api/v1 evolves in place until the first release. This document is the
-    current implementation target, not a released compatibility promise.
+    /api/v1 is still pre-1.0 and may evolve between minor releases. This
+    document is the implementation target for release 0.1.4.
 servers:
   - url: /
     description: Same-origin or reverse-proxy deployment
@@ -16,6 +16,7 @@ tags:
   - name: sleep
   - name: daily
   - name: media
+  - name: control-room
 paths:
   /healthz:
     get:
@@ -344,6 +345,22 @@ paths:
                 $ref: "#/components/schemas/AggregateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/sleep/{sleepId}:
+    get:
+      tags: [sleep]
+      parameters:
+        - $ref: "#/components/parameters/SleepId"
+      responses:
+        "200":
+          description: Sleep session detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sleep"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/sleep/{sleepId}/segments:
     get:
       tags: [sleep]
@@ -497,6 +514,138 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/tasks:
+    get:
+      tags: [control-room]
+      summary: List personal control-room tasks.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - name: status
+          in: query
+          schema: { type: string, enum: [open, completed, canceled] }
+        - name: due
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Personal tasks.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Task" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [control-room]
+      summary: Create a personal control-room task.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTask"
+      responses:
+        "201":
+          description: Task created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/tasks/{taskId}:
+    patch:
+      tags: [control-room]
+      summary: Complete or cancel a personal task.
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [completed, canceled] }
+      responses:
+        "200":
+          description: Updated task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/jobs:
+    get:
+      tags: [control-room]
+      summary: List durable system jobs.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - name: kind
+          in: query
+          description: Exact kind, or comma-separated kinds.
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Recent durable jobs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Job" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/jobs/{jobId}:
+    get:
+      tags: [control-room]
+      summary: Read one durable system job.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Durable job detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/actions/{action}:
+    post:
+      tags: [control-room]
+      summary: Trigger one named safe action.
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [media-sync-anilist, media-sync-bangumi]
+      responses:
+        "202":
+          description: Action queued as a durable job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          description: Job dispatcher is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   parameters:
     RawFileId:
@@ -521,6 +670,16 @@ components:
       schema: { type: string }
     MediaId:
       name: mediaId
+      in: path
+      required: true
+      schema: { type: string }
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema: { type: string }
+    JobId:
+      name: jobId
       in: path
       required: true
       schema: { type: string }
@@ -621,12 +780,52 @@ components:
         created_at: { type: string, format: date-time }
     Job:
       type: object
-      required: [id, kind, status, created_at]
+      required:
+        [
+          id,
+          kind,
+          status,
+          attempts,
+          max_attempts,
+          run_after,
+          created_at,
+          updated_at,
+        ]
       properties:
         id: { type: string }
-        kind: { type: string, enum: [media_sync_anilist, media_sync_bangumi] }
-        status: { type: string, enum: [queued, running, completed, failed, canceled] }
+        kind: { type: string }
+        status:
+          { type: string, enum: [queued, running, completed, failed, canceled] }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        run_after: { type: string, format: date-time }
+        error_message: { type: string }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CreateTask:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1 }
+        notes: { type: string }
+        due_date: { type: string, format: date }
+        priority: { type: integer }
+    Task:
+      type: object
+      required: [id, title, status, priority, source, created_at, updated_at]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        notes: { type: string }
+        status: { type: string, enum: [open, completed, canceled] }
+        due_date: { type: string, format: date }
+        priority: { type: integer }
+        source: { type: string }
+        completed_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     Activity:
       type: object
       required:

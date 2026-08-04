@@ -60,6 +60,38 @@ func TestHandleEnqueueMediaSyncRejectsUnsupportedConnector(t *testing.T) {
 	}
 }
 
+func TestHandleActionUsesNamedMediaSyncActions(t *testing.T) {
+	enqueuer := &mediaSyncEnqueuer{}
+	server := &Server{deps: Dependencies{JobEnqueuer: enqueuer}}
+	router := chi.NewRouter()
+	router.Post("/actions/{action}", server.handleAction)
+
+	req := httptest.NewRequest(http.MethodPost, "/actions/media-sync-bangumi", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusAccepted)
+	}
+	if enqueuer.kind != jobs.KindMediaSyncBangumi {
+		t.Fatalf("kind = %q, want %q", enqueuer.kind, jobs.KindMediaSyncBangumi)
+	}
+}
+
+func TestHandleActionRejectsUnknownAction(t *testing.T) {
+	server := &Server{deps: Dependencies{JobEnqueuer: &mediaSyncEnqueuer{}}}
+	router := chi.NewRouter()
+	router.Post("/actions/{action}", server.handleAction)
+
+	req := httptest.NewRequest(http.MethodPost, "/actions/rebuild-everything", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+}
+
 func TestMediaSyncJobKind(t *testing.T) {
 	for _, test := range []struct {
 		connector string

@@ -6,11 +6,13 @@
     formatDuration,
     formatHr,
     formatPace,
+    formatSwimmingPace,
   } from "$lib/format";
-  import { sportLabel } from "$lib/sport";
+  import { isSwimming, sportLabel } from "$lib/sport";
 
   let {
     activity,
+    derivedDistanceM,
     route,
     samplings,
     laps,
@@ -18,6 +20,7 @@
     onSelectRoute,
   }: {
     activity: Activity;
+    derivedDistanceM?: number;
     route: RoutePoint[];
     samplings: SamplingPoint[];
     laps: Lap[];
@@ -73,6 +76,8 @@
     }
     return null;
   });
+  const swimming = $derived(isSwimming(activity.sport_type));
+  const distanceM = $derived(activity.distance_m ?? derivedDistanceM);
 
   const spread = $derived(
     waveform
@@ -117,7 +122,8 @@
 
   <div class="metric-grid">
     <div>
-      <span>Distance</span><strong>{formatDistance(activity.distance_m)}</strong
+      <span>{swimming ? "GPS distance" : "Distance"}</span><strong
+        >{formatDistance(distanceM)}</strong
       >
     </div>
     <div>
@@ -125,8 +131,10 @@
       >
     </div>
     <div>
-      <span>Avg pace</span><strong
-        >{formatPace(activity.avg_pace_s_per_km)}</strong
+      <span>{swimming ? "Pace / 100m" : "Avg pace"}</span><strong
+        >{swimming
+          ? formatSwimmingPace(distanceM, activity.duration_s)
+          : formatPace(activity.avg_pace_s_per_km)}</strong
       >
     </div>
     <div>
@@ -147,7 +155,7 @@
       <div class="panel-heading">
         <div>
           <p class="mix-kicker">Evidence stream</p>
-          <h2>Signal waveform</h2>
+          <h2>{swimming ? "Open-water signal" : "Signal waveform"}</h2>
         </div>
         <span
           >{selectedPoint
@@ -174,7 +182,9 @@
           {/each}
         </div>
         <p class="panel-note">
-          Built from {waveform.points.length}
+          {swimming
+            ? "GPS and heart-rate evidence from "
+            : "Built from "}{waveform.points.length}
           {waveform.source} samples · bar height is each sample's distance from the
           session mean ({Math.round(waveform.mean)}
           {waveform.unit}), mirrored around a centerline like a track waveform.
@@ -235,6 +245,8 @@
   .mix-detail {
     display: grid;
     gap: 1.35rem;
+    min-width: 0;
+    max-width: 100%;
   }
   .detail-hero {
     display: flex;
@@ -294,7 +306,8 @@
   }
   .metric-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    min-width: 0;
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
@@ -303,6 +316,7 @@
     gap: 0.35rem;
     padding: 0.9rem;
     border-right: 1px solid var(--border);
+    min-width: 0;
   }
   .metric-grid div:last-child {
     border-right: 0;
@@ -320,8 +334,9 @@
   }
   .record-grid {
     display: grid;
-    grid-template-columns: 1.55fr 0.85fr;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.85fr);
     gap: 1.25rem;
+    min-width: 0;
   }
   .wave-panel,
   .context-panel,
@@ -330,6 +345,7 @@
     border-radius: var(--radius);
     background: color-mix(in srgb, var(--surface) 90%, transparent);
     padding: 1.25rem;
+    min-width: 0;
   }
   .panel-heading {
     display: flex;
@@ -426,7 +442,7 @@
   }
   @media (max-width: 800px) {
     .metric-grid {
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .metric-grid div:nth-child(3) {
       border-right: 0;
@@ -443,7 +459,7 @@
       display: none;
     }
     .metric-grid {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .metric-grid div:nth-child(3) {
       border-right: 1px solid var(--border);

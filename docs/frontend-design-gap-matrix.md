@@ -1,11 +1,14 @@
 # Iroha frontend design gap matrix
 
-Status: audit baseline for `iroha:frontend-field-console:task-1`
+Status: historical audit baseline for `iroha:frontend-field-console:task-1`
 
 Date: 2026-07-18
 
 This document records the frontend redesign baseline before implementation. It uses the existing Svelte source as evidence and separates confirmed gaps from items that still require browser-level
 verification.
+
+The route inventory in this file is historical. The former `/share` page and live `/public/v1` API were removed during the static public-site split; use
+[frontend-request-audit.md](frontend-request-audit.md) and the current route tree for release-candidate behavior.
 
 ## Scope and guardrails
 
@@ -22,28 +25,28 @@ The first implementation boundary is additive or in-place:
 
 ## Current route and data inventory
 
-| Surface         | Route             | Primary data/API consumer             | Current role            | Intended role                |
-| --------------- | ----------------- | ------------------------------------- | ----------------------- | ---------------------------- |
-| Today           | `/`               | `getBriefing`, `listDaily`            | Daily command center    | Field Console / daily signal |
-| Activities      | `/activities`     | `listActivities`, `getPublicSummary`  | Filtered activity cards | Movement archive             |
-| Activity detail | `/activities/:id` | `getActivity`, route, samplings, laps | Detailed workout page   | Performance report           |
-| Daily           | `/daily`          | `listDaily`, daily aggregates         | Trends plus table       | Pattern atlas                |
-| Dashboard       | `/dashboard`      | public summary, activities, routes    | Bento overview          | Long-horizon observatory     |
-| Sleep           | `/sleep`          | sleep list, aggregates, segments      | Sleep analysis          | Night report                 |
-| Media           | `/media`          | media list and aggregates             | Shelves and charts      | Personal library             |
-| Media detail    | `/media/:id`      | media detail                          | Item history            | Library entry                |
-| Share           | `/share`          | public summary, routes, activities    | Public statistics       | Editorial public report      |
-| Design lab      | `/design`         | briefing data plus static variants    | Design experiments      | Temporary review reference   |
+| Surface         | Route                | Primary data/API consumer                       | Current role            | Intended role                |
+| --------------- | -------------------- | ----------------------------------------------- | ----------------------- | ---------------------------- |
+| Today           | `/`                  | `getBriefing`, `listDaily`                      | Daily command center    | Field Console / daily signal |
+| Activities      | `/activities`        | `listActivities`, `getPublicSummary`            | Filtered activity cards | Movement archive             |
+| Activity detail | `/activities/:id`    | `getActivity`, route, samplings, laps           | Detailed workout page   | Performance report           |
+| Daily           | `/daily`             | `listDaily`, daily aggregates                   | Trends plus table       | Pattern atlas                |
+| Dashboard       | `/dashboard`         | public summary, activities, routes              | Bento overview          | Long-horizon observatory     |
+| Sleep           | `/sleep`             | sleep list, aggregates, segments                | Sleep analysis          | Night report                 |
+| Media           | `/media`             | media list and aggregates                       | Shelves and charts      | Personal library             |
+| Media detail    | `/media/:id`         | media detail                                    | Item history            | Library entry                |
+| Public site     | separate static site | committed sanitized summary, routes, activities | Public statistics       | Editorial public report      |
+| Design lab      | `/design`            | briefing data plus static variants              | Design experiments      | Temporary review reference   |
 
-The API boundary is already typed in `apps/iroha-web/src/lib/api.ts`. The redesign should preserve the current `/api/v1` and `/public/v1` calls and keep the distinction between private and public
-projections visible in the UI.
+The API boundary is already typed in `apps/iroha-web/src/lib/api.ts`. The redesign should preserve current `/api/v1` calls in the private cockpit; sanitized public projections belong to the separate
+static site and must not be added back as a live frontend route.
 
 ## Gap matrix
 
 | Area                       | Evidence in current source                                                                                                                                                                                  | Status            | Consequence                                                                                                                                    | Planned resolution                                                                                                                              |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Canonical design contract  | No `design.md` or equivalent canonical frontend design contract exists in the repository.                                                                                                                   | MISSING           | New pages can drift in typography, spacing, color, and interaction behavior.                                                                   | Add a design contract before broad route edits; make it the source of truth for tokens and page archetypes.                                     |
-| Styling ownership          | `app.css` defines Tailwind theme tokens and plain CSS variables; 27 route/component files contain local `<style>` blocks; `/share` uses many Tailwind utility classes directly.                             | PARTIAL           | The same concept can be styled through multiple systems and become difficult to refactor consistently.                                         | Decide which concerns are semantic tokens, shared primitives, or route-local composition; progressively reduce accidental duplication.          |
+| Styling ownership          | `app.css` defines Tailwind theme tokens and plain CSS variables; route/component files contain local `<style>` blocks; the separate public site owns its own static presentation.                           | PARTIAL           | The same concept can be styled through multiple systems and become difficult to refactor consistently.                                         | Decide which concerns are semantic tokens, shared primitives, or route-local composition; progressively reduce accidental duplication.          |
 | Semantic tokens            | Base and light-theme tokens exist in `app.css`, but domain/chart colors are also hardcoded in `RoutesMap`, `RouteMap`, `SleepTimelineChart`, `FusedActivityChart`, activity detail, and sleep route styles. | PARTIAL           | Light/dark contrast and future palette changes cannot be reasoned about centrally.                                                             | Move visual roles—not raw values only—into semantic tokens, including map, chart, sport, sleep-stage, status, and focus colors.                 |
 | Page differentiation       | Today, Dashboard, Daily, and the design lab all use variations of tile/bento/dashboard compositions.                                                                                                        | PARTIAL           | The application can feel like one repeated dashboard even when the information purpose changes.                                                | Assign distinct archetypes: command center, observatory, atlas, archive, report, library, and editorial share page.                             |
 | Shared component language  | There are reusable charts, gauges, maps, stat tiles, `RouteIntro`, `DayPicker`, and `ThemeToggle`, but no documented component/state contract.                                                              | PARTIAL           | Reuse exists, but visual and accessibility behavior may diverge between routes.                                                                | Define shared primitives and required states before extracting more abstractions.                                                               |
@@ -54,7 +57,7 @@ projections visible in the UI.
 | Accessibility contract     | Charts and key controls have useful ARIA labels; command palette has dialog/listbox semantics; tab-like controls exist on Daily and Media.                                                                  | PARTIAL           | Existing semantics are promising, but keyboard order, focus visibility, tab behavior, and chart fallback content are not verified as a system. | Run a keyboard/semantic audit and define accessible patterns for tabs, filters, calendars, maps, charts, and dialogs.                           |
 | Visual regression          | `package.json` provides build, check, format, and unit-test scripts, but no browser screenshot or visual regression command is present.                                                                     | MISSING           | Theme and breakpoint regressions can pass static checks unnoticed.                                                                             | Add a lightweight local review/screenshot workflow or documented manual matrix before final acceptance.                                         |
 | Data provenance/freshness  | The UI renders real API data, but freshness/source language is not a shared component or page-wide convention.                                                                                              | MISSING / PARTIAL | Viewers may not know whether a metric is imported, derived, incomplete, or stale.                                                              | Add quiet provenance/freshness treatment to data-heavy surfaces without inventing metrics.                                                      |
-| Public privacy boundary    | `/share` uses `/public/v1` projections, while private routes use `/api/v1`; the distinction is present in code but not yet expressed as a documented frontend design rule.                                  | PARTIAL           | A future editorial redesign could accidentally expose or imply private-only information.                                                       | Document the public projection boundary and test that Share only consumes public DTOs.                                                          |
+| Public privacy boundary    | The private cockpit uses `/api/v1`; the static public site consumes sanitized export artifacts.                                                                                                             | PRESENT           | A future editorial redesign could accidentally expose or imply private-only information.                                                       | Keep the boundary documented and test export DTOs for leakage.                                                                                  |
 | Design archive             | `/design` contains multiple Today variants and `docs/design-archive/` contains archive notes.                                                                                                               | PRESENT / PARTIAL | Useful visual history exists, but accepted direction and rejected experiments are not yet clearly labeled.                                     | Keep the archive during migration; record the chosen direction and acceptance evidence before any cleanup.                                      |
 
 ## Confirmed gaps versus verification gaps

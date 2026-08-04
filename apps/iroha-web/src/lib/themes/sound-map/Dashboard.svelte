@@ -7,7 +7,8 @@
   // and re-drawing a basemap + tile renderer per theme would be pure
   // duplication for no visual gain. Same documented exception atlas,
   // field-journal, and phenology took for their Dashboards.
-  import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
+  import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
     summary,
@@ -16,6 +17,10 @@
     streak,
     loading,
     error,
+    onRetry,
+    routesLoading,
+    routesError,
+    onLoadRoutes,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -23,9 +28,11 @@
     streak: string;
     loading: boolean;
     error: string | null;
+    onRetry: () => void;
+    routesLoading: boolean;
+    routesError: string | null;
+    onLoadRoutes: () => void;
   } = $props();
-
-  const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
 
   // A per-sport spectrum: each recorded sport becomes one band, height set
   // by its share of loaded sessions, colored with the same sport hues used
@@ -61,7 +68,7 @@
   {#if loading}
     <p class="mix-status">Loading the long view…</p>
   {:else if error}
-    <p class="mix-status error">{error}</p>
+    <RetryNotice message={error} {onRetry} />
   {:else}
     <div class="mix-stats">
       <div>
@@ -93,7 +100,9 @@
             <p class="mix-kicker">Track list</p>
             <h2>Movement, lately.</h2>
           </div>
-          <span>{activities.length} loaded</span>
+          <span
+            >{Math.min(8, activities.length)} of {activities.length} loaded</span
+          >
         </header>
         <ol>
           {#each activities.slice(0, 8) as activity, index (activity.id)}<li>
@@ -139,12 +148,19 @@
 
         <section class="mix-panel">
           <p class="mix-kicker">Geography</p>
-          <h2>{routes?.features.length ?? 0} route traces</h2>
-          {#if hasRoutes && routes}
-            <div class="map-frame"><RoutesMap data={routes} /></div>
-          {:else}
-            <p class="mix-empty">No routes recorded yet.</p>
-          {/if}
+          <h2>
+            {routes
+              ? `${routes.features.length} route traces`
+              : "Route footprint"}
+          </h2>
+          <div class="map-frame">
+            <RouteFootprint
+              {routes}
+              loading={routesLoading}
+              error={routesError}
+              onLoad={onLoadRoutes}
+            />
+          </div>
         </section>
       </div>
     </div>
@@ -220,9 +236,6 @@
     border-radius: var(--radius);
     padding: 2rem;
     color: var(--text-muted);
-  }
-  .error {
-    color: var(--sport-run);
   }
   .mix-stats {
     display: grid;

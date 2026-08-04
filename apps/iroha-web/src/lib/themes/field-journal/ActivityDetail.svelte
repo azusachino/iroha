@@ -6,11 +6,13 @@
     formatDuration,
     formatHr,
     formatPace,
+    formatSwimmingPace,
   } from "$lib/format";
-  import { sportLabel } from "$lib/sport";
+  import { isSwimming, sportLabel } from "$lib/sport";
 
   let {
     activity,
+    derivedDistanceM,
     route,
     samplings,
     laps,
@@ -18,6 +20,7 @@
     onSelectRoute,
   }: {
     activity: Activity;
+    derivedDistanceM?: number;
     route: RoutePoint[];
     samplings: SamplingPoint[];
     laps: Lap[];
@@ -35,6 +38,8 @@
       (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon),
     ),
   );
+  const swimming = $derived(isSwimming(activity.sport_type));
+  const distanceM = $derived(activity.distance_m ?? derivedDistanceM);
 </script>
 
 <article class="journal-entry-detail">
@@ -56,16 +61,20 @@
 
   <dl class="entry-metrics">
     <div>
-      <dt>Distance</dt>
-      <dd>{formatDistance(activity.distance_m)}</dd>
+      <dt>{swimming ? "GPS distance" : "Distance"}</dt>
+      <dd>{formatDistance(distanceM)}</dd>
     </div>
     <div>
       <dt>Duration</dt>
       <dd>{formatDuration(activity.duration_s)}</dd>
     </div>
     <div>
-      <dt>Avg pace</dt>
-      <dd>{formatPace(activity.avg_pace_s_per_km)}</dd>
+      <dt>{swimming ? "Pace / 100m" : "Avg pace"}</dt>
+      <dd>
+        {swimming
+          ? formatSwimmingPace(distanceM, activity.duration_s)
+          : formatPace(activity.avg_pace_s_per_km)}
+      </dd>
     </div>
     <div>
       <dt>Avg heart rate</dt>
@@ -86,7 +95,7 @@
       <div class="panel-heading">
         <div>
           <p class="journal-kicker">Evidence stream</p>
-          <h2>Route trace</h2>
+          <h2>{swimming ? "Open-water trace" : "Route trace"}</h2>
         </div>
         <span
           >{selectedRouteIndex == null
@@ -110,8 +119,9 @@
         {/if}
       </div>
       <p class="panel-note">
-        The presentation keeps the source trace visible without hiding the
-        underlying record.
+        {swimming
+          ? "GPS fixes show the open-water path. No pool intervals are inferred from this record."
+          : "The presentation keeps the source trace visible without hiding the underlying record."}
       </p>
     </section>
     <aside class="notes-card">
@@ -182,6 +192,8 @@
   .journal-entry-detail {
     display: grid;
     gap: 1.5rem;
+    min-width: 0;
+    max-width: 100%;
   }
   .journal-kicker {
     margin: 0 0 0.5rem;
@@ -257,7 +269,8 @@
   }
   .entry-metrics {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    min-width: 0;
     margin: 0;
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface-1) 84%, transparent);
@@ -267,6 +280,7 @@
     gap: 0.35rem;
     padding: 0.9rem;
     border-right: 1px solid var(--border);
+    min-width: 0;
   }
   .entry-metrics div:last-child {
     border-right: 0;
@@ -282,8 +296,9 @@
   }
   .entry-grid {
     display: grid;
-    grid-template-columns: 1.55fr 0.85fr;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.85fr);
     gap: 1.25rem;
+    min-width: 0;
   }
   .trace-card,
   .notes-card,
@@ -291,6 +306,7 @@
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface-1) 84%, transparent);
     padding: 1.25rem;
+    min-width: 0;
   }
   .panel-heading {
     display: flex;
@@ -404,7 +420,7 @@
   }
   @media (max-width: 800px) {
     .entry-metrics {
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .entry-metrics div:nth-child(3) {
       border-right: 0;
@@ -421,7 +437,7 @@
       display: none;
     }
     .entry-metrics {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .entry-metrics div:nth-child(3) {
       border-right: 1px solid var(--border);

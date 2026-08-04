@@ -1,6 +1,6 @@
 # API v1 verification gate
 
-Status: pre-release design
+Status: release-candidate verification for v0.1.4
 
 The contract gate verifies the active `/api/v1` surface in place. It is not a backward-compatibility gate for a released v1 and does not require an `/api/v2`.
 
@@ -14,7 +14,7 @@ The first executable slice is `make contract-check`, which walks the Chi router 
 schema-aware validator is added.
 
 - deferred roadmap routes must not appear in the active OpenAPI paths;
-- public routes must remain explicitly anonymous;
+- the static public export must remain sanitized and separate from private HTTP routes;
 - health must remain separate from application data routes;
 - a route added during active development must update the OpenAPI artifact in the same change.
 
@@ -36,13 +36,13 @@ The HTTP test suite must cover, for each resource family:
 
 ### 4. Projection safety
 
-Private response fields must never appear in public projections. The test must inspect serialized JSON, not only Go structs, and must cover activities, routes, summaries, and future public media
+Private response fields must never appear in the static public export. The test must inspect serialized JSON, not only Go structs, and must cover activities, routes, summaries, and future public media
 projections.
 
 ### 5. Authentication
 
-`/api/v1`, `/public/v1`, and `/healthz` are all intentionally unauthenticated (see `api-v1-decisions.md#authentication`). There is no token/scope behavior to verify; tests instead confirm no
-credential material (tokens, secrets) appears in logs or error bodies, since none should ever be sent.
+`/api/v1` and `/healthz` are intentionally unauthenticated (see `api-v1-decisions.md#authentication`). The public site is a static export, not an HTTP API. There is no token/scope behavior to verify;
+tests instead confirm no credential material (tokens, secrets) appears in logs or error bodies, since none should ever be sent.
 
 ### 6. Rate-limit behavior
 
@@ -70,7 +70,7 @@ The same fixture must run against the supported local runtime path and the conta
 
 ## Current implementation evidence
 
-- `make contract-check` passes against the registered private/public route inventory.
+- `make contract-check` passes against the registered private route inventory.
 - Rate-limit tests cover `429`, the common error body, and `Retry-After`.
 - `make check` passes, including the frontend formatter, Svelte check, and frontend tests.
 
@@ -78,5 +78,5 @@ The end-to-end worker/import rehearsal remains a release-candidate check because
 
 ## Completion rule
 
-The route inventory and contract decisions must be reviewed before implementation. Rate limiting may be considered contract-gated once the checks above remain green and the release-candidate
-rehearsal is completed.
+The route inventory and contract decisions must be reviewed before implementation. Rate limiting may be considered contract-gated once the checks above remain green and the release-candidate rehearsal
+is completed.

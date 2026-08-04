@@ -16,6 +16,7 @@ const (
 	DailySummaryPrefix = "daily"
 	MediaPrefix        = "media"
 	JobPrefix          = "job"
+	TaskPrefix         = "task"
 )
 
 func New() (uuid.UUID, error) {

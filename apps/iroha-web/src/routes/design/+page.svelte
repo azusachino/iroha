@@ -17,9 +17,11 @@
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import {
+    boundPercent,
     formatDistance,
     formatDuration,
     formatHr,
+    formatPercent,
     formatPace,
     formatSport,
   } from "$lib/format";
@@ -396,8 +398,7 @@
         </a>
         <section class="feature tile">
           <span class="card-kicker"><BookOpen size={15} /> In progress</span>
-          <strong
-            >{today.media[0]?.progress_percent ?? 0}<small>%</small></strong
+          <strong>{formatPercent(today.media[0]?.progress_percent ?? 0)}</strong
           >
           <p class="muted">{today.media[0]?.title ?? "Nothing logged today"}</p>
         </section>
@@ -564,11 +565,12 @@
             {#if today.media[0]}
               <strong>{today.media[0].title}</strong>
               <p class="muted">
-                {today.media[0].progress_percent ?? 0}% through · last touched
+                {formatPercent(today.media[0].progress_percent)} through · last touched
                 tonight
               </p>
               <div class="media-progress">
-                <span style={`width:${today.media[0].progress_percent ?? 0}%`}
+                <span
+                  style={`width:${boundPercent(today.media[0].progress_percent)}%`}
                 ></span>
               </div>
             {:else}
@@ -640,9 +642,10 @@
               <div class="moment-card tile">
                 <span class="card-kicker">Media</span>
                 <h3>{today.media[0].title}</h3>
-                <p>{today.media[0].progress_percent}% complete</p>
+                <p>{formatPercent(today.media[0].progress_percent)} complete</p>
                 <div class="micro-bar">
-                  <span style={`width:${today.media[0].progress_percent ?? 0}%`}
+                  <span
+                    style={`width:${boundPercent(today.media[0].progress_percent)}%`}
                   ></span>
                 </div>
               </div>
@@ -827,7 +830,11 @@
               <article class="workspace-card idea-card tile">
                 <span class="card-kicker">Open loop</span>
                 <strong>Make space for a little wonder.</strong>
-                <p>Media progress: {today.media[0]?.progress_percent ?? 0}%</p>
+                <p>
+                  Media progress: {formatPercent(
+                    today.media[0]?.progress_percent ?? 0,
+                  )}
+                </p>
               </article>
             </section>
           </div>

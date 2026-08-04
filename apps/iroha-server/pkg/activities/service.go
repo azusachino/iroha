@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
@@ -117,6 +118,9 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		page.HasMore = true
 		page.NextCursor = &Cursor{StartedAt: last.StartedAt, ID: last.ID}
 	}
+	if err := s.hydrateSwimmingDistances(page.Items); err != nil {
+		return Page{}, fmt.Errorf("hydrate swimming distances: %w", err)
+	}
 	return page, nil
 }
 
@@ -206,6 +210,52 @@ func (s *Service) Summary(year, sport string) (Summary, error) {
 		bySport = []SummaryBucket{}
 	}
 
+	// Apple Health open-water swims may have no source distance even though
+	// their route points are available. Keep the SQL aggregate fast for the
+	// normal case, then add those read-model distances to every affected rollup.
+	var missingSwimDistances []models.Activity
+	if err := s.db.Model(&models.Activity{}).
+		Where("distance_m IS NULL").
+		Where("sport_type ILIKE ?", "%swim%").
+		Find(&missingSwimDistances).Error; err != nil {
+		return Summary{}, fmt.Errorf("summary swimming distances: %w", err)
+	}
+	if err := s.hydrateSwimmingDistances(missingSwimDistances); err != nil {
+		return Summary{}, fmt.Errorf("summary swimming distances: %w", err)
+	}
+
+	byYearIndex := make(map[string]int, len(byYear))
+	for i := range byYear {
+		byYearIndex[byYear[i].Key] = i
+	}
+	byMonthIndex := make(map[string]int, len(byMonth))
+	for i := range byMonth {
+		byMonthIndex[byMonth[i].Key] = i
+	}
+	bySportIndex := make(map[string]int, len(bySport))
+	for i := range bySport {
+		bySportIndex[bySport[i].Key] = i
+	}
+	for _, activity := range missingSwimDistances {
+		if activity.DistanceM == nil {
+			continue
+		}
+		yearKey := activity.StartedAt.Format("2006")
+		monthKey := activity.StartedAt.Format("2006-01")
+		if i, ok := byYearIndex[yearKey]; ok {
+			byYear[i].DistanceM += *activity.DistanceM
+		}
+		if (year == "" || yearKey == year) && (sport == "" || activity.SportType == sport) {
+			if i, ok := byMonthIndex[monthKey]; ok {
+				byMonth[i].DistanceM += *activity.DistanceM
+			}
+			if i, ok := bySportIndex[activity.SportType]; ok {
+				bySport[i].DistanceM += *activity.DistanceM
+			}
+			totals.DistanceM += *activity.DistanceM
+		}
+	}
+
 	return Summary{Totals: totals, ByYear: byYear, ByMonth: byMonth, BySport: bySport}, nil
 }
 
@@ -223,7 +273,68 @@ func (s *Service) Get(id string) (models.Activity, bool, error) {
 	if err != nil {
 		return models.Activity{}, false, err
 	}
-	return activity, true, nil
+	hydrated := []models.Activity{activity}
+	if err := s.hydrateSwimmingDistances(hydrated); err != nil {
+		return models.Activity{}, false, fmt.Errorf("hydrate swimming distance: %w", err)
+	}
+	return hydrated[0], true, nil
+}
+
+type swimmingDistancePoint struct {
+	ActivityID uuid.UUID
+	Seq        int
+	Lat        *float64
+	Lon        *float64
+}
+
+// hydrateSwimmingDistances fills only missing swim distances from their GPS
+// trace. The imported row remains unchanged; this is a read-model correction
+// for open-water workouts whose source did not provide a pool-style total.
+func (s *Service) hydrateSwimmingDistances(activities []models.Activity) error {
+	ids := make([]uuid.UUID, 0)
+	for _, activity := range activities {
+		if activity.DistanceM == nil && isSwimming(activity.SportType) {
+			ids = append(ids, activity.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	var rows []swimmingDistancePoint
+	if err := s.db.Table("tb_activity_route_points").
+		Select("activity_id", "seq", "lat", "lon").
+		Where("activity_id IN ?", ids).
+		Order("activity_id, seq asc").
+		Find(&rows).Error; err != nil {
+		return err
+	}
+
+	tracks := make(map[uuid.UUID][][2]float64, len(ids))
+	for _, row := range rows {
+		if row.Lat == nil || row.Lon == nil {
+			continue
+		}
+		tracks[row.ActivityID] = append(tracks[row.ActivityID], [2]float64{*row.Lon, *row.Lat})
+	}
+	for i := range activities {
+		if distance := routeDistanceMeters(tracks[activities[i].ID]); distance > 0 {
+			activities[i].DistanceM = &distance
+		}
+	}
+	return nil
+}
+
+func isSwimming(sport string) bool {
+	return strings.Contains(strings.ToLower(sport), "swim")
+}
+
+func routeDistanceMeters(coords [][2]float64) float64 {
+	var distance float64
+	for i := 1; i < len(coords); i++ {
+		distance += haversineMeters(coords[i-1], coords[i])
+	}
+	return distance
 }
 
 func (s *Service) Route(id string) ([]models.ActivityRoutePoint, bool, error) {

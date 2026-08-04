@@ -1,11 +1,14 @@
 # Roadmap
 
+> This is the original MVP roadmap baseline. Several constraints below are historical milestones rather than current architecture; current runtime and release behavior is documented in the README,
+> `docs/dev-runtime.md`, and `docs/contracts/`.
+
 This roadmap tracks MVP v0. The product goal is to prove one vertical first: personal running data import, canonical storage, and private activity browsing. The broader cockpit direction is described
 in [Personal Data Cockpit Model](personal-data-cockpit.md).
 
 Implementation should stay narrow:
 
-- one public API app first: `apps/iroha-server`
+- one private API app first: `apps/iroha-server`
 - one worker app once jobs need to outlive API requests: `apps/iroha-job`
 - no shared Go package until a second Go module exists
 - no in-repo Telegram bot

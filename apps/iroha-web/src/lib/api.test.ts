@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   listActivities,
+  listAllActivities,
+  listDaily,
+  listAllDaily,
   getMediaAggregates,
   getMedia,
   listMediaEvents,
@@ -8,9 +11,17 @@ import {
   getActivityRoute,
   getActivitySamplings,
   getActivityLaps,
+  getSleep,
   getActivitySummary,
   getActivityRoutes,
+  listTasks,
+  createTask,
+  updateTask,
+  listJobs,
+  getJob,
+  triggerAction,
   type Activity,
+  type DailyRow,
   type Page,
   type RoutePoint,
   type SamplingPoint,
@@ -19,10 +30,76 @@ import {
   type RouteFeatureCollection,
 } from "./api";
 
+describe("control room API", () => {
+  it("lists tasks with status and due filters", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch([]);
+    await listTasks({ status: "open", due: "2026-08-04", limit: 5 }, fakeFetch);
+    const url = getCapturedUrl();
+    expect(url).toContain("/api/v1/tasks?");
+    expect(url).toContain("status=open");
+    expect(url).toContain("due=2026-08-04");
+    expect(url).toContain("limit=5");
+  });
+
+  it("uses named task and job actions", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await createTask({ title: "Review sleep" }, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/tasks");
+    await updateTask("task_1", "completed", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/tasks/task_1");
+    await listJobs({ status: "running" }, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/jobs?status=running");
+    await listJobs(
+      { kind: "media_sync_anilist,media_sync_bangumi" },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain(
+      "kind=media_sync_anilist%2Cmedia_sync_bangumi",
+    );
+    await getJob("job_1", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/jobs/job_1");
+    await triggerAction("media-sync-anilist", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/actions/media-sync-anilist");
+  });
+
+  it("builds the sleep detail URL", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getSleep("sleep_1", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/sleep/sleep_1");
+  });
+});
+
 const emptyPage: Page<Activity> = {
   items: [],
   next_cursor: null,
   has_more: false,
+};
+
+const emptyActivity: Activity = {
+  id: "activity",
+  sport_type: "run",
+  title: "",
+  started_at: "2026-01-01T00:00:00Z",
+  timezone: "UTC",
+  source_kind: "test",
+  first_raw_file_id: "file",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const emptyDailyRow: DailyRow = {
+  id: "daily",
+  day: "2026-01-01T00:00:00Z",
+  move_kcal: 0,
+  move_goal_kcal: 0,
+  exercise_min: 0,
+  exercise_goal_min: 0,
+  stand_hours: 0,
+  stand_goal_hours: 0,
+  source: "test",
+  first_raw_file_id: "file",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
 };
 
 // Helper to create a fake fetch function that captures the URL and returns a response
@@ -113,6 +190,103 @@ describe("listActivities", () => {
 
     const result = await listActivities({}, fakeFetch);
     expect(result).toEqual(mockPage);
+  });
+});
+
+describe("listAllActivities", () => {
+  it("walks cursor pages until the complete sweep is loaded", async () => {
+    const firstPage: Page<Activity> = {
+      items: [{ ...emptyActivity, id: "first" }],
+      next_cursor: "page-2",
+      has_more: true,
+    };
+    const secondPage: Page<Activity> = {
+      items: [{ ...emptyActivity, id: "second" }],
+      next_cursor: null,
+      has_more: false,
+    };
+    const urls: string[] = [];
+    const fakeFetch = (async (input: string | Request | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () =>
+          url.includes("cursor=page-2") ? secondPage : firstPage,
+      };
+    }) as typeof fetch;
+
+    const result = await listAllActivities({}, 10, fakeFetch);
+
+    expect(result.map((activity) => activity.id)).toEqual(["first", "second"]);
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain("limit=100");
+    expect(urls[1]).toContain("cursor=page-2");
+  });
+
+  it("honors the requested item cap", async () => {
+    const { fakeFetch } = createFakeFetch({
+      items: [
+        { ...emptyActivity, id: "first" },
+        { ...emptyActivity, id: "second" },
+      ],
+      next_cursor: "ignored",
+      has_more: true,
+    });
+
+    const result = await listAllActivities({}, 1, fakeFetch);
+
+    expect(result.map((activity) => activity.id)).toEqual(["first"]);
+  });
+});
+
+describe("listAllDaily", () => {
+  it("walks cursor pages for historical daily data", async () => {
+    const firstPage: Page<DailyRow> = {
+      items: [{ ...emptyDailyRow, id: "first" }],
+      next_cursor: "day-2",
+      has_more: true,
+    };
+    const secondPage: Page<DailyRow> = {
+      items: [{ ...emptyDailyRow, id: "second" }],
+      next_cursor: null,
+      has_more: false,
+    };
+    const urls: string[] = [];
+    const fakeFetch = (async (input: string | Request | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () =>
+          url.includes("cursor=day-2") ? secondPage : firstPage,
+      };
+    }) as typeof fetch;
+
+    const result = await listAllDaily({}, 10, fakeFetch);
+
+    expect(result.map((row) => row.id)).toEqual(["first", "second"]);
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain("/api/v1/daily");
+    expect(urls[0]).toContain("limit=100");
+    expect(urls[1]).toContain("cursor=day-2");
+  });
+
+  it("keeps the single-page daily API available for callers", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({
+      items: [],
+      next_cursor: null,
+      has_more: false,
+    });
+
+    await listDaily({ limit: 24 }, fakeFetch);
+
+    expect(getCapturedUrl()).toContain("/api/v1/daily");
+    expect(getCapturedUrl()).toContain("limit=24");
   });
 });
 

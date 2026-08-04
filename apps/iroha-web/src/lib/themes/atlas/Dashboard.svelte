@@ -6,7 +6,8 @@
   // real routes and places, and re-drawing a basemap + tile renderer per
   // theme would be pure duplication for no visual gain. Same documented
   // exception field-journal took for its Dashboard.
-  import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
+  import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
     summary,
@@ -15,6 +16,10 @@
     streak,
     loading,
     error,
+    onRetry,
+    routesLoading,
+    routesError,
+    onLoadRoutes,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -22,9 +27,11 @@
     streak: string;
     loading: boolean;
     error: string | null;
+    onRetry: () => void;
+    routesLoading: boolean;
+    routesError: string | null;
+    onLoadRoutes: () => void;
   } = $props();
-
-  const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
 </script>
 
 <section class="atlas-master" aria-labelledby="atlas-master-title">
@@ -46,7 +53,7 @@
   {#if loading}
     <p class="master-status">Compiling the master sheet…</p>
   {:else if error}
-    <p class="master-status error">{error}</p>
+    <RetryNotice message={error} {onRetry} />
   {:else}
     <div class="master-stats">
       <div class="atlas-plate">
@@ -78,7 +85,9 @@
             <p class="atlas-kicker">Route log</p>
             <h2>Movement, lately.</h2>
           </div>
-          <span>{activities.length} loaded</span>
+          <span
+            >{Math.min(8, activities.length)} of {activities.length} loaded</span
+          >
         </header>
         <ol class="waypoint-list">
           {#each activities.slice(0, 8) as activity, index}<li>
@@ -99,14 +108,19 @@
       </section>
       <section class="atlas-plate geo-plate">
         <p class="atlas-kicker">Geography</p>
-        <h2>{routes?.features.length ?? 0} route traces</h2>
-        {#if hasRoutes && routes}
-          <div class="map-frame"><RoutesMap data={routes} /></div>
-        {:else}
-          <div class="map-frame map-empty">
-            <span>No routes recorded yet</span>
-          </div>
-        {/if}
+        <h2>
+          {routes
+            ? `${routes.features.length} route traces`
+            : "Route footprint"}
+        </h2>
+        <div class="map-frame">
+          <RouteFootprint
+            {routes}
+            loading={routesLoading}
+            error={routesError}
+            onLoad={onLoadRoutes}
+          />
+        </div>
         <p>
           Routes stay linked to their source activity and remain inspectable
           from the record.
@@ -192,9 +206,6 @@
     border-radius: var(--radius);
     padding: 2rem;
     color: var(--text-muted);
-  }
-  .master-status.error {
-    color: var(--sport-run);
   }
   .atlas-plate {
     position: relative;
@@ -302,17 +313,6 @@
   }
   .map-frame :global(.map) {
     height: 100%;
-  }
-  .map-empty {
-    display: grid;
-    place-items: center;
-    background: repeating-linear-gradient(
-      45deg,
-      color-mix(in srgb, var(--border) 60%, transparent) 0 1px,
-      transparent 1px 12px
-    );
-    color: var(--text-muted);
-    font-size: 0.78rem;
   }
   .geo-plate > p:last-child {
     color: var(--text-muted);

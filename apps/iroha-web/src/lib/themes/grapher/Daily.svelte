@@ -26,6 +26,27 @@
     Math.max(1, ...chrono.map((item) => item.steps ?? 0)),
   );
   const latest = $derived(chrono.at(-1));
+  const labelStride = $derived(Math.max(1, Math.ceil(chrono.length / 8)));
+
+  function showAxisLabel(index: number): boolean {
+    return (
+      index === 0 || index === chrono.length - 1 || index % labelStride === 0
+    );
+  }
+
+  function display(value: number | null | undefined, digits = 0): string {
+    if (value == null || !Number.isFinite(value)) return "—";
+    return value.toLocaleString(undefined, {
+      maximumFractionDigits: digits,
+      minimumFractionDigits: digits,
+    });
+  }
+
+  function axisLabel(label: string): string {
+    if (gran !== "day") return label;
+    const date = new Date(`${label}T00:00:00Z`);
+    return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
+  }
 </script>
 
 <section class="grapher-daily" aria-labelledby="daily-data-title">
@@ -63,7 +84,7 @@
       role="img"
       aria-label="Steps by selected time period"
     >
-      {#each chrono as item}
+      {#each chrono as item, index}
         <div
           class="series-column"
           title={`${item.label}: ${item.steps ?? "no value"} steps`}
@@ -71,7 +92,9 @@
           <i
             style={`height: ${Math.max(2, ((item.steps ?? 0) / maxSteps) * 100)}%`}
           ></i>
-          <small>{item.label}</small>
+          <small class:axis-label-muted={!showAxisLabel(index)}
+            >{axisLabel(item.label)}</small
+          >
         </div>
       {/each}
     </div>
@@ -96,13 +119,14 @@
         <tbody>
           {#each [...chrono].reverse() as item}
             <tr
-              ><td>{item.label}</td><td>{item.steps ?? "—"}</td><td
-                >{item.distance ?? "—"}</td
-              ><td>{item.resting_hr ?? "—"}</td><td>{item.hrv_sdnn ?? "—"}</td
+              ><td>{item.label}</td><td>{display(item.steps)}</td><td
+                >{display(item.distance, 1)}</td
+              ><td>{display(item.resting_hr, 1)}</td><td
+                >{display(item.hrv_sdnn, 1)}</td
               ><td
                 >{item.moveClosedPct == null
                   ? "—"
-                  : `${item.moveClosedPct}%`}</td
+                  : `${Math.round(item.moveClosedPct)}%`}</td
               ></tr
             >
           {/each}
@@ -225,11 +249,15 @@
   .series-column small {
     overflow: hidden;
     margin-top: 0.5rem;
-    color: var(--text-muted);
-    font-size: 0.56rem;
+    color: var(--text);
+    font-size: 0.7rem;
+    font-weight: 650;
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .series-column small.axis-label-muted {
+    visibility: hidden;
   }
   .table-scroll {
     overflow-x: auto;

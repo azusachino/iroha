@@ -1,0 +1,12 @@
+# mise owns the project tools. Make remains the task runner and Podman remains
+# a host prerequisite for the local backend stack.
+
+[tools]
+go = "1.26.4"
+python = "3.14.6"
+uv = "0.11.21"
+"aqua:golangci/golangci-lint" = "2.12.2"
+"npm:prettier" = "3.9.5"
+node = "24.19.0"
+bun = "1.3.13"
+"go:github.com/pressly/goose/v3/cmd/goose" = "3.27.3"

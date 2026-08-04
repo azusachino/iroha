@@ -17,7 +17,7 @@
     </div>
     <div class="hero-copy">
       <p class="journal-kicker">
-        {detail.item.media_type.replaceAll("_", " ")} · archive entry
+        {detail.item.media_type.replaceAll("_", " ")} · journal entry
       </p>
       <h1>{detail.item.native_title || detail.item.title}</h1>
       {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
@@ -25,7 +25,7 @@
       {/if}
       <p class="description">
         {detail.work.description ||
-          "A media record held in the personal archive."}
+          "A media record held in the personal journal."}
       </p>
       <div class="meta-row">
         <span>{detail.item.status?.replaceAll("_", " ") ?? "untracked"}</span>

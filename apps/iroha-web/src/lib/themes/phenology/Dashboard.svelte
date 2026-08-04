@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
-  import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
+  import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
     summary,
@@ -10,6 +11,10 @@
     streak,
     loading,
     error,
+    onRetry,
+    routesLoading,
+    routesError,
+    onLoadRoutes,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -17,9 +22,11 @@
     streak: string;
     loading: boolean;
     error: string | null;
+    onRetry: () => void;
+    routesLoading: boolean;
+    routesError: string | null;
+    onLoadRoutes: () => void;
   } = $props();
-
-  const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
 
   // Same meteorological tagging as the field record, folded into a season
   // wheel over the loaded activity sweep -- a long view read as a turning
@@ -91,7 +98,7 @@
   {#if loading}
     <p class="view-status">Gathering the long view…</p>
   {:else if error}
-    <p class="view-status error">{error}</p>
+    <RetryNotice message={error} {onRetry} />
   {:else}
     <dl class="view-summary">
       <div>
@@ -123,7 +130,9 @@
             <p class="bloom-kicker">◕ Movement notes</p>
             <h2>Recent entries</h2>
           </div>
-          <span>{activities.length} loaded</span>
+          <span
+            >{Math.min(8, activities.length)} of {activities.length} loaded</span
+          >
         </div>
         {#if activities.length}
           <ol>
@@ -172,12 +181,19 @@
 
         <section class="map-card">
           <p class="bloom-kicker">Geography</p>
-          <h2>{routes?.features.length ?? 0} route traces</h2>
-          {#if hasRoutes && routes}
-            <div class="map-frame"><RoutesMap data={routes} /></div>
-          {:else}
-            <p class="bloom-empty">No routes recorded yet.</p>
-          {/if}
+          <h2>
+            {routes
+              ? `${routes.features.length} route traces`
+              : "Route footprint"}
+          </h2>
+          <div class="map-frame">
+            <RouteFootprint
+              {routes}
+              loading={routesLoading}
+              error={routesError}
+              onLoad={onLoadRoutes}
+            />
+          </div>
         </section>
       </div>
     </div>
@@ -254,9 +270,6 @@
     border-radius: var(--radius);
     padding: 2rem;
     color: var(--text-muted);
-  }
-  .view-status.error {
-    color: var(--sport-run);
   }
   .view-summary {
     display: grid;

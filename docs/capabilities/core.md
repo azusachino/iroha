@@ -70,6 +70,7 @@ Iroha can represent:
 
 ## Public versus private surface
 
-The core capability contract is public documentation. The default data is not public. Private canonical APIs expose the user's full records; public APIs expose only explicitly sanitized projections.
+The core capability contract is public documentation. The default data is not public. Private canonical APIs expose the user's full records; the static public export exposes only explicitly sanitized
+projections.
 
 Provider-specific quirks, source keys, parser limitations, and support status belong in the provider documents, not in this contract.

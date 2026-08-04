@@ -7,6 +7,16 @@ contract between minor versions.
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.1.4] — 2026-08-04
+
+### Added
+
+- **Private control room** — `/admin` and the front-page Daily to-go lane provide personal task tracking, recent durable-job visibility, and named AniList/Bangumi sync triggers.
+- **Release identity** — the root `VERSION` file drives image tags and the frontend's subtle version note; sleep sessions now have a detail endpoint/page as well.
+- **Frontend request audit** — persisted route-by-route traffic findings, a scoped control-room job feed, and lazy Daily history loading with browser regression coverage.
+
 ### Removed
 
 - **`/public/v1`.** The sanitized public API surface, and the in-app `/share` page that rendered it, were never actually exposed to the internet — dead weight of an open-CORS route, a second
@@ -28,6 +38,8 @@ contract between minor versions.
 
 ### Changed
 
+- **Read response cache** — successful JSON reads for briefing, activities, sleep, daily, and media are cached by canonical method/path/query keys. Import completion advances all five read namespaces,
+  and Valkey keys use the `iroha:cache:v1:` application prefix; tasks, jobs, and mutations remain uncached.
 - GORM query logs are routed through the app's `*slog.Logger` instead of GORM's own ANSI-colored default logger; `iroha-server`/`iroha-job` now emit uniform JSON log lines throughout.
 - `ops/local-dev/` split into `ops/local-dev/` (Podman Compose orchestration: compose files, initdb, README) and `ops/images/` (environment-agnostic build definitions: both Containerfiles, Caddyfile,
   migrate-entrypoint.sh) — these were always consumed by both local dev and manual production builds, but living under a folder named "local-dev" obscured that.
@@ -83,6 +95,7 @@ sanitized-public read surfaces on top.
 - Geocode retry storms now back off instead of hammering Nominatim on rate-limit responses.
 - Local stack startup sequencing (dependencies before app containers, migrations before server).
 
-[Unreleased]: https://github.com/azusachino/iroha/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/azusachino/iroha/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/azusachino/iroha/compare/v0.1.1...v0.1.4
 [0.1.1]: https://github.com/azusachino/iroha/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/azusachino/iroha/releases/tag/v0.1.0

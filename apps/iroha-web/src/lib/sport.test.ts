@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sportColor, sportLabel } from "./sport";
+import { isSwimming, sportColor, sportLabel } from "./sport";
 
 describe("sportColor", () => {
   it("maps running sports to the run token", () => {
@@ -31,5 +31,13 @@ describe("sportLabel", () => {
       "High Intensity Interval Training",
     );
     expect(sportLabel(undefined)).toBe("—");
+  });
+});
+
+describe("isSwimming", () => {
+  it("recognizes swimming variants", () => {
+    expect(isSwimming("Swimming")).toBe(true);
+    expect(isSwimming("open_water_swim")).toBe(true);
+    expect(isSwimming("Run")).toBe(false);
   });
 });

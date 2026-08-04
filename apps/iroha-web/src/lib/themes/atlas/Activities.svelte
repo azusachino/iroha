@@ -120,6 +120,9 @@
           ><tbody>
             {#each activities as activity, index}
               <tr
+                class="activity-row"
+                ondblclick={() =>
+                  (window.location.href = `/activities/${activity.id}`)}
                 ><td class="manifest-index"
                   >{String(index + 1).padStart(3, "0")}</td
                 ><td>{formatDateOnly(activity.started_at)}</td><td

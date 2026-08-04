@@ -49,6 +49,19 @@ func TestHaversineMeters_KnownDistance(t *testing.T) {
 	}
 }
 
+func TestRouteDistanceMeters_SumsTrack(t *testing.T) {
+	got := routeDistanceMeters(straightLine(11, 10))
+	if got < 95 || got > 105 {
+		t.Fatalf("route distance = %.1f m, want about 100 m", got)
+	}
+}
+
+func TestRouteDistanceMeters_EmptyTrack(t *testing.T) {
+	if got := routeDistanceMeters(nil); got != 0 {
+		t.Fatalf("empty route distance = %.1f m, want 0", got)
+	}
+}
+
 func TestDetectPrivateZones_FindsMultipleHubs(t *testing.T) {
 	home := [2]float64{139.700, 35.000}
 	gym := [2]float64{139.750, 35.050} // ~6 km away

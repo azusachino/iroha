@@ -1,12 +1,13 @@
 # iroha-web
 
-Private, read-only SvelteKit viewer for the iroha activity data. It consumes the
-`iroha-server` read API and renders an activity list plus a per-activity detail
-page with a MapLibre route map and uPlot pace / heart-rate / elevation charts.
+Private SvelteKit cockpit for iroha's activity data, sleep history, daily
+summaries, media library, and personal control room. It consumes the
+`iroha-server` API and includes per-activity and per-sleep detail pages.
 
 This is a personal single-user viewer. The private API is unauthenticated; the
 deployment's network boundary is the security control, not an application
-credential. The viewer performs no writes.
+credential. The control room can create/complete personal tasks and queue
+allowlisted media sync jobs.
 
 ## Stack
 

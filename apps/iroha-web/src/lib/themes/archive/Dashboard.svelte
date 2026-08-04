@@ -7,7 +7,8 @@
   // and re-drawing a basemap + tile renderer per theme would be pure
   // duplication for no visual gain. Same documented exception atlas,
   // field-journal, phenology, and sound-map took for their Dashboards.
-  import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
+  import RetryNotice from "$lib/components/RetryNotice.svelte";
 
   let {
     summary,
@@ -16,6 +17,10 @@
     streak,
     loading,
     error,
+    onRetry,
+    routesLoading,
+    routesError,
+    onLoadRoutes,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -23,9 +28,11 @@
     streak: string;
     loading: boolean;
     error: string | null;
+    onRetry: () => void;
+    routesLoading: boolean;
+    routesError: string | null;
+    onLoadRoutes: () => void;
   } = $props();
-
-  const hasRoutes = $derived((routes?.features.length ?? 0) > 0);
 
   // The sport breakdown becomes a core log: each recorded sport is a
   // stratum, thickness real session share, tone the sport's own semantic
@@ -63,7 +70,7 @@
   {#if loading}
     <p class="folio-status">Retrieving the long view…</p>
   {:else if error}
-    <p class="folio-status error">{error}</p>
+    <RetryNotice message={error} {onRetry} />
   {:else}
     <div class="folio-stats catalog-card">
       <div>
@@ -95,7 +102,9 @@
             <p class="folio-kicker">Recent accessions</p>
             <h2>Movement, lately.</h2>
           </div>
-          <span>{activities.length} loaded</span>
+          <span
+            >{Math.min(8, activities.length)} of {activities.length} loaded</span
+          >
         </header>
         <ol>
           {#each activities.slice(0, 8) as activity, index (activity.id)}<li>
@@ -149,12 +158,19 @@
 
         <section class="folio-panel">
           <p class="folio-kicker">Geography</p>
-          <h2>{routes?.features.length ?? 0} route traces</h2>
-          {#if hasRoutes && routes}
-            <div class="map-frame"><RoutesMap data={routes} /></div>
-          {:else}
-            <p class="folio-empty">No routes recorded yet.</p>
-          {/if}
+          <h2>
+            {routes
+              ? `${routes.features.length} route traces`
+              : "Route footprint"}
+          </h2>
+          <div class="map-frame">
+            <RouteFootprint
+              {routes}
+              loading={routesLoading}
+              error={routesError}
+              onLoad={onLoadRoutes}
+            />
+          </div>
         </section>
       </div>
     </div>
@@ -222,9 +238,6 @@
     border-radius: var(--radius);
     padding: 2rem;
     color: var(--text-muted);
-  }
-  .error {
-    color: var(--sport-run);
   }
   .catalog-card {
     position: relative;

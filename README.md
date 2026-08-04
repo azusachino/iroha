@@ -9,6 +9,11 @@ _iro & hana_ — a personal data cockpit.
 Iroha lets you own your personal data end to end: keep the **raw exports**, normalize them into a **durable Postgres/PostGIS store**, and publish only **sanitized derived views**. Running and fitness,
 sleep, daily Apple Health activity, and media (AniList/Bangumi) consumption history are the current data domains; the architecture generalizes to other personal-history sources.
 
+The cockpit can express the same evidence through six visual languages — atlas, grapher, field journal, phenology, sound map, and archive — without changing the underlying data model. The design lab
+below uses sample data so it is safe to share:
+
+![Iroha design languages](docs/assets/iroha-design-languages.png)
+
 ## Architecture
 
 Raw files are canonical evidence. The server stores each upload, creates a durable import job, and the separate `iroha-job` worker parses it into typed domain records. Reconciliation uses stable
@@ -30,9 +35,10 @@ The current canonical domains are:
 - `tb_daily_summaries` + `tb_daily_metrics` — Apple Move/Exercise/Stand rings and cross-source-deduplicated daily steps, distance, and flights.
 - `tb_media_items` + `tb_media_events` — AniList/Bangumi-synced media consumption history.
 
-Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/daily`, and `/api/v1/media` — see [API v1 Contract](docs/contracts/openapi.yaml). This surface is unauthenticated by
-design: iroha is a single-user personal deployment, and the network boundary (private LAN/NAS, never exposed publicly) is the security control, not an application credential. Sanitized activity and
-route projections are also available under `/public/v1`; the public surface is a derived view, never the canonical store, and is the only surface meant for eventual public exposure.
+Private reads are served under `/api/v1/activities`, `/api/v1/sleep`, `/api/v1/daily`, and `/api/v1/media`; the private control room adds personal tasks and named job actions under `/api/v1/tasks`,
+`/api/v1/jobs`, and `/api/v1/actions` — see [API v1 Contract](docs/contracts/openapi.yaml). This surface is unauthenticated by design: iroha is a single-user personal deployment, and the network
+boundary (private LAN/NAS, never exposed publicly) is the security control, not an application credential. Sanitized activity and route projections are exported by `make export-public` and published
+by the separate static `apps/iroha-public-site`; there is no live `/public/v1` route. The export is a derived view, never the canonical store, and is the only surface meant for public exposure.
 
 ## Features
 
@@ -45,8 +51,10 @@ route projections are also available under `/public/v1`; the public surface is a
   from ~millions of `Record` rows via streaming.
 - **Background jobs + read surfaces** — `iroha-server` owns ingestion and reads, `iroha-job` claims persisted jobs, and the Svelte cockpit consumes the private API. Public activity/route views are
   sanitized projections.
+- **Private control room** — `/admin` keeps daily personal tasks beside recent durable jobs and allowlisted media-sync triggers; the front page exposes the same daily to-go lane for quick access.
 - **PostGIS canonical store** — Strava is a legacy import/export adapter only.
 - **Media sync** — AniList and Bangumi connectors sync watch/read history into canonical media items and events, with a MAL↔AniList/Bangumi bridge cache for cross-provider resolution.
+- **Read response cache** — imported-data reads are cached by canonical request key and invalidated after successful imports; task/job state and mutations always remain live.
 - **Contract-checked private API** — per-route rate limiting and a route-inventory test that fails the build if a live route drifts from the OpenAPI contract. Unauthenticated by design; see
   [Auth](docs/iroha-server.md#auth) for the deployment model.
 - **Durable geocode** — reverse-geocoded activity locations are cached and refreshed through the job queue, with backoff against upstream rate limits instead of retry storms.
@@ -60,26 +68,38 @@ route projections are also available under `/public/v1`; the public surface is a
 | Database | PostgreSQL 18 + PostGIS, [goose](https://github.com/pressly/goose) migrations |
 | Cache    | Postgres-backed by default (`tb_cache_entries`); Valkey/Redis is optional     |
 | Web      | Svelte 5 + Vite (`apps/iroha-web`, [bun](https://bun.sh))                     |
-| Tooling  | Nix devShell, `make` task runner, `uv` for dev scripts                        |
+| Tooling  | mise for tools, `make` task runner, Nix-compatible CI                         |
 
 ## Quickstart
 
-Requires [Nix](https://nixos.org/download) with flakes enabled.
+Requires [mise](https://mise.jdx.dev/) and Podman for local backend development. Nix remains available for CI and reproducible checks.
 
 ```sh
-nix develop            # enter the dev shell (all tools come from here)
-make db-up             # start Postgres/PostGIS + Valkey and apply migrations
+mise install           # install the pinned project tools
+make db-up             # start Postgres/PostGIS and apply migrations
 make dev-up            # start the complete Podman Compose stack
-make check             # fmt-check + vet + tests + web checks
-make build             # build server and web
+make db-down           # stop local backend containers
 
 # run the server against the dev database (terminal 1)
-IROHA_DATABASE_URL="postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable" \
-  go -C apps/iroha-server run ./cmd/iroha-server
+make run
 
 # run the persisted import worker in another terminal
 make run-job
+
+# checks/builds use the same Makefile
+make check
+make build
 ```
+
+All lifecycle commands remain Make targets. See [`docs/dev-runtime.md`](docs/dev-runtime.md) for the toolchain boundary and backend workflow.
+
+### Release versioning
+
+`VERSION` is the canonical Iroha product release version. The Makefile derives container tags as `v$(VERSION)`, injects the same value into the web build, and the cockpit shows it subtly in the
+brand/footer. A release is marked with the matching Git tag, for example `v0.1.4`.
+
+The Go modules under `apps/` intentionally keep their own `v0.1.0` local requirements because `go.work` and local `replace` directives make them workspace modules, not independently published
+libraries. `IROHA_PARSER_VERSION` is separate: it identifies parser behavior and should only change when imports need reprocessing.
 
 The server is configured via `iroha.toml` and/or environment variables:
 
@@ -99,8 +119,8 @@ The server is configured via `iroha.toml` and/or environment variables:
 | `IROHA_BANGUMI_BRIDGE_PATH`     | Optional Bangumi→MAL JSON cache path | —                              |
 | `IROHA_MAL_ANILIST_BRIDGE_PATH` | Optional MAL→AniList JSON cache path | —                              |
 
-The private API (`/api/v1`) is unauthenticated by design — iroha is a single-user personal deployment, and the network boundary (private LAN/NAS) is the security control. Do not expose
-`iroha-server` directly to an untrusted network; set `IROHA_ALLOWED_ORIGINS` to the web origin(s) that should be allowed to call it.
+The private API (`/api/v1`) is unauthenticated by design — iroha is a single-user personal deployment, and the network boundary (private LAN/NAS) is the security control. Do not expose `iroha-server`
+directly to an untrusted network; set `IROHA_ALLOWED_ORIGINS` to the web origin(s) that should be allowed to call it.
 
 Smoke-test a real import end to end:
 

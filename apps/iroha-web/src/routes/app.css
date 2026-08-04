@@ -245,6 +245,7 @@ textarea {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .appbar {
@@ -265,6 +266,7 @@ textarea {
     ),
     color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(14px);
+  min-width: 0;
 }
 
 .brand {
@@ -296,6 +298,15 @@ textarea {
   box-shadow: var(--accent-glow);
 }
 
+.brand-version {
+  align-self: flex-end;
+  margin: 0 0 0.12rem -0.25rem;
+  color: var(--text-muted);
+  font-size: 0.56rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
 .main-nav {
   display: flex;
   align-items: center;
@@ -306,6 +317,7 @@ textarea {
   border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 72%, transparent);
+  min-width: 0;
 }
 
 .main-nav a {
@@ -339,6 +351,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  min-width: 0;
 }
 
 .language-picker {
@@ -371,6 +384,29 @@ textarea {
 .language-picker select:hover {
   border-color: var(--accent);
   color: var(--text);
+}
+
+.detail-back {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+}
+
+.detail-back a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.detail-back a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.activity-row {
+  cursor: pointer;
+}
+
+.activity-row:hover td {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
 .command-trigger {
@@ -428,6 +464,7 @@ textarea {
 .content {
   flex: 1;
   width: 100%;
+  min-width: 0;
   max-width: 1240px;
   margin: 0 auto;
   padding: 1.5rem 1.25rem;
@@ -464,13 +501,19 @@ textarea {
   .main-nav {
     order: 3;
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
     overflow-x: auto;
     margin: 0;
+    scrollbar-width: none;
+    overscroll-behavior-inline: contain;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .main-nav a {
-    flex: 1 0 auto;
+    flex: 0 0 auto;
     justify-content: center;
   }
 }
