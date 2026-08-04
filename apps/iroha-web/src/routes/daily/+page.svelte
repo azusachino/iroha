@@ -243,6 +243,7 @@
           label="Month"
           options={monthOptions}
           value={activeMonth}
+          summary={`${chrono.length} days`}
           onChange={(value) => (selectedMonth = value)}
         />
       {:else if gran === "month"}
@@ -250,6 +251,7 @@
           label="Year"
           options={yearOptions}
           value={activeYear}
+          summary={`${chrono.length} months`}
           onChange={(value) => (selectedYear = value)}
         />
       {/if}
@@ -293,6 +295,7 @@
           label="Month"
           options={monthOptions}
           value={activeMonth}
+          summary={`${chrono.length} days`}
           onChange={(value) => (selectedMonth = value)}
         />
       {:else if gran === "month"}
@@ -300,6 +303,7 @@
           label="Year"
           options={yearOptions}
           value={activeYear}
+          summary={`${chrono.length} months`}
           onChange={(value) => (selectedYear = value)}
         />
       {/if}
