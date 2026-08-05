@@ -23,6 +23,9 @@ contract between minor versions.
   `TwoHopMediaRefBridge` expects — this data was previously only ever produced ad hoc by the throwaway `media_bridge_explore.py` coverage script, so the bridge env vars
   (`IROHA_BANGUMI_BRIDGE_PATH`/`IROHA_MAL_ANILIST_BRIDGE_PATH`) had nothing real to point at. Added `TestLoadTwoHopMediaRefBridge` covering the on-disk loader, which previously had no direct test
   coverage.
+- `GET /api/v1/media/resolution-tasks` and `PATCH /api/v1/media/resolution-tasks/{taskId}` give the media cross-provider resolution inbox (`tb_media_resolution_tasks`) an API and a small `/admin`
+  panel — dedupe-candidate and progress-conflict tasks the resolver already wrote were previously invisible, with no way to list or act on them. Resolving records the operator's decision in
+  `resolution_json` only; it does not merge media rows or apply a progress choice — that remains a documented "later" item.
 
 ## [0.1.4] — 2026-08-04
 

@@ -1,13 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { Check, ListTodo, Play, RefreshCw } from "@lucide/svelte";
+  import { Check, ListTodo, Play, RefreshCw, Split } from "@lucide/svelte";
   import {
     createTask,
     listJobs,
+    listMediaResolutionTasks,
     listTasks,
     triggerAction,
+    updateMediaResolutionTask,
     updateTask,
     type Job,
+    type MediaResolutionTask,
     type Task,
   } from "$lib/api";
   import { APP_VERSION } from "$lib/config";
@@ -16,6 +19,7 @@
   let openTasks = $state<Task[]>([]);
   let completedTasks = $state<Task[]>([]);
   let jobs = $state<Job[]>([]);
+  let resolutionTasks = $state<MediaResolutionTask[]>([]);
   let title = $state("");
   let notes = $state("");
   let dueDate = $state(today);
@@ -43,12 +47,13 @@
     loading = true;
     error = null;
     try {
-      const [taskRows, recentJobs] = await Promise.all([
+      const [taskRows, recentJobs, openResolutionTasks] = await Promise.all([
         listTasks({ limit: 100 }),
         listJobs({
           kind: "media_sync_anilist,media_sync_bangumi",
           limit: 30,
         }),
+        listMediaResolutionTasks({ status: "open" }),
       ]);
       openTasks = taskRows.filter((task) => task.status === "open");
       completedTasks = taskRows
@@ -57,6 +62,7 @@
         )
         .slice(0, 10);
       jobs = recentJobs;
+      resolutionTasks = openResolutionTasks;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -132,6 +138,33 @@
 
   function actionIsActive(action: string): boolean {
     return activeActionKinds.has(actionKind(action));
+  }
+
+  // Resolving here only records the operator's decision (resolution_json)
+  // for a future job to act on -- it does not merge media rows or apply a
+  // progress choice itself.
+  async function resolveTask(
+    task: MediaResolutionTask,
+    status: "resolved" | "dismissed",
+    resolution?: Record<string, unknown>,
+  ) {
+    try {
+      await updateMediaResolutionTask(task.id, status, resolution);
+      resolutionTasks = resolutionTasks.filter((item) => item.id !== task.id);
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+    }
+  }
+
+  function resolutionSummary(task: MediaResolutionTask): string {
+    const c = task.candidates;
+    if (task.task_type === "progress_conflict") {
+      return `local "${c.local_status ?? "?"}" vs remote "${c.remote_status ?? "?"}" (${c.provider ?? "?"})`;
+    }
+    const candidateCount = Array.isArray(c.candidates)
+      ? c.candidates.length
+      : 0;
+    return `"${c.title ?? "untitled"}" (${c.provider ?? "?"}) — ${candidateCount} possible match${candidateCount === 1 ? "" : "es"}`;
   }
 </script>
 
@@ -279,6 +312,69 @@
         </div>
       </section>
     </div>
+
+    {#if resolutionTasks.length}
+      <section
+        class="panel resolution-panel"
+        aria-labelledby="resolution-title"
+      >
+        <header class="panel-head">
+          <div>
+            <p class="eyebrow"><Split size={14} /> Media sync</p>
+            <h2 id="resolution-title">Resolution inbox</h2>
+          </div>
+          <span class="count">{resolutionTasks.length} open</span>
+        </header>
+        <p class="panel-copy">
+          Items a media sync couldn't auto-match. Resolving records your
+          decision only — merging is still manual.
+        </p>
+        <ul class="task-list">
+          {#each resolutionTasks as task (task.id)}
+            <li class="resolution-row">
+              <span class="task-copy">
+                <strong>{resolutionSummary(task)}</strong>
+                <small>
+                  {task.task_type.replaceAll("_", " ")} · added {new Date(
+                    task.created_at,
+                  ).toLocaleDateString()}
+                </small>
+              </span>
+              <span class="resolution-actions">
+                {#if task.task_type === "progress_conflict"}
+                  <button
+                    type="button"
+                    onclick={() =>
+                      resolveTask(task, "resolved", { decision: "keep_local" })}
+                    >Keep local</button
+                  >
+                  <button
+                    type="button"
+                    onclick={() =>
+                      resolveTask(task, "resolved", {
+                        decision: "keep_remote",
+                      })}>Keep remote</button
+                  >
+                {:else}
+                  <button
+                    type="button"
+                    onclick={() =>
+                      resolveTask(task, "resolved", {
+                        decision: "duplicate",
+                        candidates: task.candidates.candidates,
+                      })}>Confirm duplicate</button
+                  >
+                {/if}
+                <button
+                  type="button"
+                  onclick={() => resolveTask(task, "dismissed")}>Dismiss</button
+                >
+              </span>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
 
     <section class="panel queue-panel" aria-labelledby="queue-title">
       <header class="panel-head">
@@ -539,6 +635,24 @@
   }
   .panel-icon {
     color: var(--accent);
+  }
+  .resolution-row {
+    justify-content: space-between;
+  }
+  .resolution-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.4rem;
+  }
+  .resolution-actions button {
+    min-height: 2.1rem;
+    padding: 0 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 4px);
+    background: transparent;
+    color: var(--text);
+    font-size: 0.75rem;
+    cursor: pointer;
   }
   .queue-panel {
     display: grid;
