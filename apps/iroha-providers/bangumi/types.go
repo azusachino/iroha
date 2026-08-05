@@ -19,12 +19,20 @@ type collectionRecord struct {
 }
 
 type subjectRecord struct {
-	ID       int    `json:"id"`
-	Type     int    `json:"type"`
-	Name     string `json:"name"`
-	NameCN   string `json:"name_cn"`
-	Platform string `json:"platform"`
-	Date     string `json:"date"`
-	Eps      *int   `json:"eps"`
-	Volumes  *int   `json:"volumes"`
+	ID       int           `json:"id"`
+	Type     int           `json:"type"`
+	Name     string        `json:"name"`
+	NameCN   string        `json:"name_cn"`
+	Platform string        `json:"platform"`
+	Date     string        `json:"date"`
+	Eps      *int          `json:"eps"`
+	Volumes  *int          `json:"volumes"`
+	Images   subjectImages `json:"images"`
+}
+
+// subjectImages mirrors Bangumi's per-subject image size variants; large is
+// the best available for a library card. Not every subject has one (private
+// entries, games without art), so this may be empty.
+type subjectImages struct {
+	Large string `json:"large"`
 }

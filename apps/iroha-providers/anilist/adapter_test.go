@@ -11,6 +11,7 @@ func TestParseSnapshotMapsAnimeEntryToMediaGraph(t *testing.T) {
     "media": {
       "id": 123, "idMal": 456, "type": "ANIME", "format": "TV", "episodes": 12,
       "title": {"romaji": "Example", "english": "Example Show", "native": "例示"},
+      "coverImage": {"large": "https://example.test/cover.jpg"},
       "relations": {"edges": [{"relationType": "SEQUEL", "node": {"id": 124}}]}
     }
   }]}]}}
@@ -24,6 +25,9 @@ func TestParseSnapshotMapsAnimeEntryToMediaGraph(t *testing.T) {
 	media := entries[0]
 	if media.MediaType != "anime_season" || media.ItemRole != "season" || media.Title != "Example Show" {
 		t.Fatalf("mapped identity = %#v", media)
+	}
+	if media.CoverImageURL != "https://example.test/cover.jpg" {
+		t.Fatalf("CoverImageURL = %q, want the coverImage.large URL", media.CoverImageURL)
 	}
 	if len(media.Titles) != 3 || len(media.ExternalRefs) != 2 || len(media.Relations) != 1 {
 		t.Fatalf("mapped graph sizes = titles %d refs %d relations %d, want 3/2/1", len(media.Titles), len(media.ExternalRefs), len(media.Relations))

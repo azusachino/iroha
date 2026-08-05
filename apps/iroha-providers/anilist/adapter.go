@@ -131,6 +131,7 @@ func mapEntry(entry mediaListEntry, scoreScale *float64) observations.Media {
 		DurationSeconds: nil,
 		EpisodeCount:    media.Episodes,
 		ChapterCount:    media.Chapters,
+		CoverImageURL:   media.CoverImage.Large,
 		Status:          status,
 		Progress:        position,
 		Score:           score,

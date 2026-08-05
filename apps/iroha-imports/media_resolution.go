@@ -21,8 +21,20 @@ const (
 	mediaMatchBridge        = "bridge_ref"
 	mediaMatchTitleYear     = "title_year"
 	mediaResolutionOpen     = "open"
+	mediaResolutionResolved = "resolved"
 	mediaResolutionDedupe   = "dedupe_candidate"
 	mediaResolutionConflict = "progress_conflict"
+
+	// titleYearToleranceDays widens the release-date match from "same
+	// calendar year" to a symmetric window: different providers frequently
+	// anchor a work's release date to different events (first chapter vs
+	// first volume vs anime adaptation air date), so the same real work can
+	// legitimately show up with release dates a year apart across providers.
+	titleYearToleranceDays = 400
+
+	// mediaTitleYearConfidence marks a title/date match as heuristic --
+	// lower than the implicit 1.0 of an exact provider ref or bridge hit.
+	mediaTitleYearConfidence = 0.7
 )
 
 // MediaRefBridge contains the two locally cached hops used by the media
@@ -144,12 +156,33 @@ func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBrid
 	if err != nil {
 		return mediaResolution{}, err
 	}
-	if len(candidates) > 0 {
-		if err := createResolutionTask(tx, media, candidates); err != nil {
+	switch len(candidates) {
+	case 0:
+		// Nothing shares this title in the date window -- a genuinely new item.
+	case 1:
+		// Unambiguous: exactly one existing item matches title, media type,
+		// and release date within tolerance. Attach to it instead of minting
+		// a duplicate; log an already-resolved task purely as an audit trail
+		// so this decision stays inspectable without requiring human review.
+		if err := createResolutionTask(tx, media, candidates, mediaResolutionResolved, autoMergedResolutionJSON()); err != nil {
+			return mediaResolution{}, err
+		}
+		confidence := mediaTitleYearConfidence
+		return mediaResolution{ItemID: candidates[0], MatchedBy: mediaMatchTitleYear, Confidence: &confidence}, nil
+	default:
+		// Ambiguous: more than one existing item matches. Auto-attaching
+		// could silently merge into the wrong one, so this stays a human
+		// decision -- leave the task open and let a fresh item get created,
+		// same as the no-candidate case.
+		if err := createResolutionTask(tx, media, candidates, mediaResolutionOpen, json.RawMessage(`{}`)); err != nil {
 			return mediaResolution{}, err
 		}
 	}
 	return mediaResolution{}, nil
+}
+
+func autoMergedResolutionJSON() json.RawMessage {
+	return json.RawMessage(`{"decision":"auto_merged","matched_by":"title_year"}`)
 }
 
 func findExternalRef(tx *gorm.DB, provider, externalID string) (*models.MediaExternalRef, error) {
@@ -197,10 +230,25 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 	}
 
 	var rows []struct{ ScopeID uuid.UUID }
-	query := tx.Table("tb_media_titles").Select("tb_media_titles.scope_id").Joins("join tb_media_items on tb_media_items.id = tb_media_titles.scope_id").Where("tb_media_titles.scope_type = ? and extract(year from tb_media_items.release_date) = ?", mediaScopeType, media.ReleaseDate.UTC().Year())
-	for _, title := range unique {
-		query = query.Or("lower(tb_media_titles.title) = ? and extract(year from tb_media_items.release_date) = ?", strings.ToLower(normalizeMediaTitle(title)), media.ReleaseDate.UTC().Year())
+	// The title alternatives must be grouped and AND'd against the base scope,
+	// not OR'd into the top-level clause -- tx.Where(base).Or(title1).Or(title2)
+	// would make "base" itself a full alternative with no title filter,
+	// matching every item in scope regardless of title.
+	titleGroup := tx.Session(&gorm.Session{NewDB: true}).Where("lower(tb_media_titles.title) = ?", strings.ToLower(normalizeMediaTitle(unique[0])))
+	for _, title := range unique[1:] {
+		titleGroup = titleGroup.Or("lower(tb_media_titles.title) = ?", strings.ToLower(normalizeMediaTitle(title)))
 	}
+	windowStart := media.ReleaseDate.AddDate(0, 0, -titleYearToleranceDays)
+	windowEnd := media.ReleaseDate.AddDate(0, 0, titleYearToleranceDays)
+	// media_type/item_role must match too: the same franchise legitimately
+	// has separate items (an anime season and its manga adaptation, a TV
+	// series and its movie) that share a title and a nearby release date but
+	// must never be merged into each other.
+	query := tx.Table("tb_media_titles").Select("tb_media_titles.scope_id").
+		Joins("join tb_media_items on tb_media_items.id = tb_media_titles.scope_id").
+		Where("tb_media_titles.scope_type = ? and tb_media_items.media_type = ? and tb_media_items.item_role = ? and tb_media_items.release_date between ? and ?",
+			mediaScopeType, mediaTypeOrDefault(media.MediaType), itemRoleOrDefault(media.ItemRole), windowStart, windowEnd).
+		Where(titleGroup)
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -216,7 +264,14 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 	return result, nil
 }
 
-func createResolutionTask(tx *gorm.DB, media observations.Media, candidates []uuid.UUID) error {
+func mediaTypeOrDefault(mediaType string) string {
+	if mediaType == "" {
+		return mediaUnknownValue
+	}
+	return mediaType
+}
+
+func createResolutionTask(tx *gorm.DB, media observations.Media, candidates []uuid.UUID, status string, resolutionJSON json.RawMessage) error {
 	payload, err := json.Marshal(map[string]any{
 		"provider":     media.Provider,
 		"external_id":  media.ExternalID,
@@ -231,10 +286,15 @@ func createResolutionTask(tx *gorm.DB, media observations.Media, candidates []uu
 	if err != nil {
 		return err
 	}
-	return tx.Create(&models.MediaResolutionTask{
-		ID: id, TaskType: mediaResolutionDedupe, Status: mediaResolutionOpen,
-		CandidatesJSON: payload, ResolutionJSON: json.RawMessage(`{}`), CreatedAt: time.Now().UTC(),
-	}).Error
+	task := models.MediaResolutionTask{
+		ID: id, TaskType: mediaResolutionDedupe, Status: status,
+		CandidatesJSON: payload, ResolutionJSON: resolutionJSON, CreatedAt: time.Now().UTC(),
+	}
+	if status != mediaResolutionOpen {
+		now := time.Now().UTC()
+		task.ResolvedAt = &now
+	}
+	return tx.Create(&task).Error
 }
 
 func normalizeMediaTitle(title string) string {

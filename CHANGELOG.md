@@ -7,18 +7,16 @@ contract between minor versions.
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.2.0] — 2026-08-05
+
 ### Added
 
 - `publicexport.Validate` — a schema/privacy regression gate that `iroha-export-public` runs before writing any output file, catching an unprefixed activity ID, a negative total/metric, or an
   out-of-range route coordinate before it reaches the public site.
 - `meta.json` in the public-site export, carrying `generated_at`; the public site now shows "Data as of \<date\>" instead of implying its data is live.
 - A post-deploy smoke check in `.github/workflows/public-site.yml` that curls the deployed `/iroha` base path and its `data/*` snapshot files before the workflow is considered successful.
-
-### Changed
-
-- `ci.yml` and `public-site.yml` provision tools with `jdx/mise-action` against the checked-in `.mise.toml` instead of `nix develop` — local and CI now resolve the exact same pinned tool versions
-  instead of two parallel toolchains. The Nix flake remains available as an optional local shell; nothing requires it anymore. Updated `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, and
-  `docs/dev-runtime.md` to match.
 - `make media-bridge-build` (`scripts/build_media_bridge.py`) builds the Bangumi→MAL→AniList media resolution bridge cache from BangumiExtLinker/Fribb into the `map[string]string` shape
   `TwoHopMediaRefBridge` expects — this data was previously only ever produced ad hoc by the throwaway `media_bridge_explore.py` coverage script, so the bridge env vars
   (`IROHA_BANGUMI_BRIDGE_PATH`/`IROHA_MAL_ANILIST_BRIDGE_PATH`) had nothing real to point at. Added `TestLoadTwoHopMediaRefBridge` covering the on-disk loader, which previously had no direct test
@@ -26,6 +24,25 @@ contract between minor versions.
 - `GET /api/v1/media/resolution-tasks` and `PATCH /api/v1/media/resolution-tasks/{taskId}` give the media cross-provider resolution inbox (`tb_media_resolution_tasks`) an API and a small `/admin`
   panel — dedupe-candidate and progress-conflict tasks the resolver already wrote were previously invisible, with no way to list or act on them. Resolving records the operator's decision in
   `resolution_json` only; it does not merge media rows or apply a progress choice — that remains a documented "later" item.
+
+### Changed
+
+- `ci.yml` and `public-site.yml` provision tools with `jdx/mise-action` against the checked-in `.mise.toml` instead of `nix develop` — local and CI now resolve the exact same pinned tool versions
+  instead of two parallel toolchains. The Nix flake remains available as an optional local shell; nothing requires it anymore. Updated `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, and
+  `docs/dev-runtime.md` to match.
+
+### Fixed
+
+- Synced media never had cover art: the AniList and Bangumi connectors fetched list data but never requested/mapped either API's cover image field, so every `tb_media_items` row has always had an
+  empty `cover_image_url`, regardless of how long ago it synced. AniList's query now selects `coverImage{large}` and Bangumi's `subjectRecord` now decodes `images.large`; both map into
+  `observations.Media.CoverImageURL`, which the import pipeline already threaded through on both insert and reconcile-update. A resync backfills existing items, since the update path only skips a
+  column when the incoming value is empty.
+- Cross-provider media resolution was silently creating duplicate items instead of deduping them: `titleYearCandidates`'s `Where(...).Or(...)` chain OR'd the base scope condition into the whole
+  clause instead of ANDing it against each title alternative, so it matched almost every item released in the same calendar year regardless of title (verified in prod: 1961/2000 items sat as
+  false-positive `dedupe_candidate` tasks). Separately, an exact-calendar-year filter made same-work items structurally unmatchable whenever providers disagreed on release date by more than a few
+  months, and a real candidate match was never actually used — the resolver logged an advisory task but still created a new item every time. `titleYearCandidates` now scopes on `media_type` +
+  `item_role` and a ±400-day release-date window instead of an exact year, and `resolveMediaItem` auto-attaches to a single unambiguous candidate (logging an already-resolved audit task) while an
+  ambiguous multi-candidate match still opens a task for a human, same as before.
 
 ## [0.1.4] — 2026-08-04
 
