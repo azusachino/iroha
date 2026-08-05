@@ -57,6 +57,12 @@ No unreleased changes.
 - Measured directly against production (every Bangumi manga ID actually synced vs. `bangumi_to_mal.json`'s keys): the Bangumi→AniList bridge covers 0% of manga, only anime (~66%, matching the existing
   spike number). `docs/media-sync-connectors.md` previously implied the bridge was a general cross-provider mechanism with an anime-shaped tail; corrected to state that title/date matching is the
   _sole_ cross-provider dedup path for manga, not a fallback — manga is the majority of most Bangumi+AniList libraries, so this is the more consequential path, not the less.
+- One duplicate shape no normalization could fix: a provider omitting a work's entire trailing subtitle rather than reformatting it (verified real case: Bangumi's title for a manga ran straight to the
+  end where AniList's had an additional "～世界最強はオレだけど、世界最カワは妹に違いない～" clause, absent, not reworded). `titlePrefixCandidates` now detects a ≥25-rune shared prefix as a
+  lower-confidence signal — but deliberately only ever opens a `tb_media_resolution_task` for a human, never auto-attaches, since two different works sharing a long specific opening and diverging only
+  in the subtitle is exactly the collision case `TestNormalizeMediaTitle_CanonicalKeyCollisionSafety` already guards against for bracketed content.
+- The media detail page's title heading used a viewport-only `clamp()` with no regard for title length, so a 100+ character title (not uncommon for these titles) rendered as many lines of oversized
+  text. `heroTitleFontSize` (`$lib/hero-title.ts`) scales each theme's own clamp down as title length grows; wired into the default page and all five theme `MediaDetail.svelte` components.
 
 ## [0.1.4] — 2026-08-04
 

@@ -1,9 +1,12 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { getMedia, type MediaDetail } from "$lib/api";
+  import { heroTitleFontSize } from "$lib/hero-title";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+
+  const HERO_TITLE_CLAMP = { minRem: 1.8, vw: 5, maxRem: 3.4 };
 
   let detail = $state<MediaDetail | null>(null);
   let loading = $state(true);
@@ -92,7 +95,14 @@
         {/if}
         <div class="hero-copy">
           <p class="eyebrow">{detail.item.media_type.replaceAll("_", " ")}</p>
-          <h1>{detail.item.native_title || detail.item.title}</h1>
+          <h1
+            style:font-size={heroTitleFontSize(
+              detail.item.native_title || detail.item.title,
+              HERO_TITLE_CLAMP,
+            )}
+          >
+            {detail.item.native_title || detail.item.title}
+          </h1>
           {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
             <p class="original-title">{detail.item.title}</p>
           {/if}
@@ -280,7 +290,6 @@
   }
   h1 {
     max-width: 38rem;
-    font-size: clamp(1.8rem, 5vw, 3.4rem);
     line-height: 1.02;
     letter-spacing: -0.045em;
   }

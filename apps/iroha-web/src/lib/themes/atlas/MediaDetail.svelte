@@ -1,9 +1,11 @@
 <script lang="ts">
   import type { MediaDetail } from "$lib/api";
+  import { heroTitleFontSize } from "$lib/hero-title";
 
   let { detail, progress }: { detail: MediaDetail; progress: number } =
     $props();
   const boundedProgress = $derived(Math.min(Math.max(progress, 0), 100));
+  const HERO_TITLE_CLAMP = { minRem: 2.4, vw: 6, maxRem: 4.4 };
 </script>
 
 <article class="atlas-entry">
@@ -19,7 +21,14 @@
       <p class="atlas-kicker">
         {detail.item.media_type.replaceAll("_", " ")} · catalog entry
       </p>
-      <h1>{detail.item.native_title || detail.item.title}</h1>
+      <h1
+        style:font-size={heroTitleFontSize(
+          detail.item.native_title || detail.item.title,
+          HERO_TITLE_CLAMP,
+        )}
+      >
+        {detail.item.native_title || detail.item.title}
+      </h1>
       {#if detail.item.native_title && detail.item.native_title !== detail.item.title}<p
           class="original-title"
         >
@@ -162,7 +171,6 @@
   }
   h1 {
     max-width: 12ch;
-    font-size: clamp(2.4rem, 6vw, 4.4rem);
     line-height: 1;
   }
   h2 {

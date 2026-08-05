@@ -1,9 +1,11 @@
 <script lang="ts">
   import type { MediaDetail } from "$lib/api";
+  import { heroTitleFontSize } from "$lib/hero-title";
 
   let { detail, progress }: { detail: MediaDetail; progress: number } =
     $props();
   const boundedProgress = $derived(Math.min(Math.max(progress, 0), 100));
+  const HERO_TITLE_CLAMP = { minRem: 2.2, vw: 6, maxRem: 4.6 };
 </script>
 
 <article class="mix-detail-page">
@@ -19,7 +21,14 @@
       <p class="mix-kicker">
         {detail.item.media_type.replaceAll("_", " ")} · collection record
       </p>
-      <h1>{detail.item.native_title || detail.item.title}</h1>
+      <h1
+        style:font-size={heroTitleFontSize(
+          detail.item.native_title || detail.item.title,
+          HERO_TITLE_CLAMP,
+        )}
+      >
+        {detail.item.native_title || detail.item.title}
+      </h1>
       {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
         <p class="original-title">{detail.item.title}</p>
       {/if}
@@ -140,7 +149,6 @@
   }
   h1 {
     max-width: 13ch;
-    font-size: clamp(2.2rem, 6vw, 4.6rem);
     line-height: 0.98;
     text-transform: uppercase;
   }

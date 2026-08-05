@@ -251,6 +251,87 @@ func TestTitleYearCandidates_MatchesAcrossSubtitleSpacing(t *testing.T) {
 	}
 }
 
+// TestTitlePrefixCandidates_MatchesOmittedSubtitle reproduces a real prod
+// duplicate that exact matching (even with bracket/tilde/spacing
+// normalization) can never catch: Bangumi's title for this manga ran
+// straight to the end where AniList's had an entire additional trailing
+// subtitle. This isn't a formatting difference to normalize away -- one
+// side's content is genuinely a superset of the other's.
+func TestTitlePrefixCandidates_MatchesOmittedSubtitle(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	releaseDate := time.Date(2042, time.June, 1, 0, 0, 0, 0, time.UTC)
+	seeded := seedMediaItem(t, db, "死ぬ運命にある悪役令嬢の兄に転生したので、妹を育てて未来を変えたいと思います", "manga", "series", releaseDate)
+
+	incoming := observations.Media{
+		Provider: "anilist", ExternalID: "integration-omitted-subtitle",
+		Title: "死ぬ運命にある悪役令嬢の兄に転生したので、妹を育てて未来を変えたいと思います ～世界最強はオレだけど、世界最カワは妹に違いない～", MediaType: "manga", ItemRole: "series",
+		ReleaseDate: &releaseDate,
+	}
+
+	// The exact matcher must not find this -- it's a genuinely different
+	// string, not a formatting variant.
+	exact, err := titleYearCandidates(db, incoming)
+	if err != nil {
+		t.Fatalf("titleYearCandidates: %v", err)
+	}
+	if len(exact) != 0 {
+		t.Fatalf("titleYearCandidates = %v, want 0 -- an omitted subtitle is not an exact-match case", exact)
+	}
+
+	prefix, err := titlePrefixCandidates(db, incoming)
+	if err != nil {
+		t.Fatalf("titlePrefixCandidates: %v", err)
+	}
+	if len(prefix) != 1 || prefix[0] != seeded.itemID {
+		t.Fatalf("titlePrefixCandidates = %v, want exactly [%v]", prefix, seeded.itemID)
+	}
+}
+
+// TestTitlePrefixMatch_RequiresAMinimumSharedLength guards the collision
+// risk a prefix heuristic introduces: two different works with a short
+// generic shared opening (a common trope phrase, not a specific plot
+// clause) must not register as a prefix match.
+func TestTitlePrefixMatch_RequiresAMinimumSharedLength(t *testing.T) {
+	if titlePrefixMatch("異世界転生した", "異世界転生した俺はチート能力で無双する") {
+		t.Fatal("titlePrefixMatch matched on a short generic shared opening, want false")
+	}
+}
+
+// TestResolveMediaItem_PrefixMatchOpensTaskButDoesNotAutoAttach is the
+// safety-critical case: a prefix match must never auto-attach, even when
+// it's the only candidate. TestNormalizeMediaTitle_CanonicalKeyCollisionSafety
+// already shows two different works can share a long, specific opening and
+// diverge only in a trailing subtitle -- unlike an exact normalized-title
+// match, a prefix relationship alone isn't strong enough evidence to merge
+// automatically, so this always stays a human decision.
+func TestResolveMediaItem_PrefixMatchOpensTaskButDoesNotAutoAttach(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	releaseDate := time.Date(2043, time.June, 1, 0, 0, 0, 0, time.UTC)
+	seedMediaItem(t, db, "死ぬ運命にある悪役令嬢の兄に転生したので、妹を育てて未来を変えたいと思います", "manga", "series", releaseDate)
+
+	incoming := observations.Media{
+		Provider: "anilist", ExternalID: "integration-prefix-no-autoattach",
+		Title: "死ぬ運命にある悪役令嬢の兄に転生したので、妹を育てて未来を変えたいと思います ～世界最強はオレだけど、世界最カワは妹に違いない～", MediaType: "manga", ItemRole: "series",
+		ReleaseDate: &releaseDate,
+	}
+
+	resolution, err := resolveMediaItem(db, incoming, nil)
+	if err != nil {
+		t.Fatalf("resolveMediaItem: %v", err)
+	}
+	if resolution.ItemID != uuid.Nil {
+		t.Fatalf("resolveMediaItem.ItemID = %v, want uuid.Nil -- a prefix match must never auto-attach", resolution.ItemID)
+	}
+
+	var task models.MediaResolutionTask
+	if err := db.Where("candidates_json->>'external_id' = ?", incoming.ExternalID).First(&task).Error; err != nil {
+		t.Fatalf("expected an open task for the prefix match: %v", err)
+	}
+	if task.Status != mediaResolutionOpen {
+		t.Fatalf("prefix-match task status = %q, want %q -- it must require human review, not get auto-resolved", task.Status, mediaResolutionOpen)
+	}
+}
+
 // TestResolveMediaItem_AutoAttachesOnUnambiguousTitleYearMatch exercises the
 // full resolver: a single unambiguous title/date match must attach to the
 // existing item (not mint a duplicate) and leave an audit trail as an

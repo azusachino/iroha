@@ -160,7 +160,27 @@ func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBrid
 	}
 	switch len(candidates) {
 	case 0:
-		// Nothing shares this title in the date window -- a genuinely new item.
+		// No exact-normalized-title match. One more, lower-confidence check:
+		// a provider sometimes omits a work's trailing tilde-delimited
+		// subtitle entirely rather than reformatting it (verified: Bangumi's
+		// "original" title for a real manga was an exact prefix of AniList's,
+		// missing "～世界最強はオレだけど、世界最カワは妹に違いない～"
+		// wholesale). That's too risky to auto-attach on alone -- two
+		// different works could share a long, specific opening clause and
+		// diverge only in the subtitle, which is exactly the collision
+		// TestNormalizeMediaTitle_CanonicalKeyCollisionSafety guards against
+		// for bracketed content. So a prefix match only ever opens a task for
+		// a human; it never attaches automatically, regardless of how many
+		// candidates it finds.
+		prefixCandidates, err := titlePrefixCandidates(tx, media)
+		if err != nil {
+			return mediaResolution{}, err
+		}
+		if len(prefixCandidates) > 0 {
+			if err := createResolutionTask(tx, media, prefixCandidates, mediaResolutionOpen, json.RawMessage(`{}`)); err != nil {
+				return mediaResolution{}, err
+			}
+		}
 	case 1:
 		// Unambiguous: exactly one existing item matches title, media type,
 		// and release date within tolerance. Attach to it instead of minting
@@ -202,10 +222,40 @@ func findExternalRef(tx *gorm.DB, provider, externalID string) (*models.MediaExt
 	return &ref, nil
 }
 
-func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, error) {
-	if media.ReleaseDate == nil {
-		return nil, nil
+// scopedTitleCandidateRows fetches every (scope_id, title) row in the same
+// media_type/item_role/release-date-window scope as media -- the shared
+// fetch behind both titleYearCandidates (exact match) and
+// titlePrefixCandidates (prefix match). See titleYearCandidates for why
+// title filtering happens in Go instead of SQL.
+func scopedTitleCandidateRows(tx *gorm.DB, media observations.Media) ([]struct {
+	ScopeID uuid.UUID
+	Title   string
+}, error,
+) {
+	var rows []struct {
+		ScopeID uuid.UUID
+		Title   string
 	}
+	if media.ReleaseDate == nil {
+		return rows, nil
+	}
+	windowStart := media.ReleaseDate.AddDate(0, 0, -titleYearToleranceDays)
+	windowEnd := media.ReleaseDate.AddDate(0, 0, titleYearToleranceDays)
+	// media_type/item_role must match too: the same franchise legitimately
+	// has separate items (an anime season and its manga adaptation, a TV
+	// series and its movie) that share a title and a nearby release date but
+	// must never be merged into each other.
+	err := tx.Table("tb_media_titles").Select("tb_media_titles.scope_id, tb_media_titles.title").
+		Joins("join tb_media_items on tb_media_items.id = tb_media_titles.scope_id").
+		Where("tb_media_titles.scope_type = ? and tb_media_items.media_type = ? and tb_media_items.item_role = ? and tb_media_items.release_date between ? and ?",
+			mediaScopeType, mediaTypeOrDefault(media.MediaType), itemRoleOrDefault(media.ItemRole), windowStart, windowEnd).
+		Find(&rows).Error
+	return rows, err
+}
+
+// incomingTitleSet dedupes and normalizes media's own title + alternate
+// titles into a lookup set, keyed by their normalized form.
+func incomingTitleSet(media observations.Media) map[string]struct{} {
 	titles := make([]string, 0, len(media.Titles)+1)
 	if media.Title != "" {
 		titles = append(titles, media.Title)
@@ -215,47 +265,22 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 			titles = append(titles, title.Title)
 		}
 	}
-	seen := make(map[string]struct{}, len(titles))
-	unique := titles[:0]
+	normalized := make(map[string]struct{}, len(titles))
 	for _, title := range titles {
-		key := normalizeMediaTitle(title)
-		if key == "" {
-			continue
-		}
-		if _, ok := seen[key]; !ok {
-			seen[key] = struct{}{}
-			unique = append(unique, title)
+		if key := normalizeMediaTitle(title); key != "" {
+			normalized[key] = struct{}{}
 		}
 	}
-	if len(unique) == 0 {
+	return normalized
+}
+
+func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, error) {
+	normalizedIncoming := incomingTitleSet(media)
+	if len(normalizedIncoming) == 0 {
 		return nil, nil
 	}
-
-	normalizedIncoming := make(map[string]struct{}, len(unique))
-	for _, title := range unique {
-		normalizedIncoming[normalizeMediaTitle(title)] = struct{}{}
-	}
-
-	windowStart := media.ReleaseDate.AddDate(0, 0, -titleYearToleranceDays)
-	windowEnd := media.ReleaseDate.AddDate(0, 0, titleYearToleranceDays)
-	// media_type/item_role must match too: the same franchise legitimately
-	// has separate items (an anime season and its manga adaptation, a TV
-	// series and its movie) that share a title and a nearby release date but
-	// must never be merged into each other. Title filtering happens in Go,
-	// not SQL: normalizeMediaTitle's NFKC fold + bracket-annotation strip has
-	// no cheap SQL equivalent, and different providers routinely render the
-	// same title with different bracket styles or trailing reading glosses
-	// (verified against real prod duplicates an exact SQL string match
-	// missed). The scope filters below keep this fetch small.
-	var rows []struct {
-		ScopeID uuid.UUID
-		Title   string
-	}
-	query := tx.Table("tb_media_titles").Select("tb_media_titles.scope_id, tb_media_titles.title").
-		Joins("join tb_media_items on tb_media_items.id = tb_media_titles.scope_id").
-		Where("tb_media_titles.scope_type = ? and tb_media_items.media_type = ? and tb_media_items.item_role = ? and tb_media_items.release_date between ? and ?",
-			mediaScopeType, mediaTypeOrDefault(media.MediaType), itemRoleOrDefault(media.ItemRole), windowStart, windowEnd)
-	if err := query.Find(&rows).Error; err != nil {
+	rows, err := scopedTitleCandidateRows(tx, media)
+	if err != nil {
 		return nil, err
 	}
 	result := make([]uuid.UUID, 0, len(rows))
@@ -271,6 +296,73 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 		result = append(result, row.ScopeID)
 	}
 	return result, nil
+}
+
+// titlePrefixMinRunes bounds how short a shared prefix can be before two
+// titles are considered a prefix match -- long enough that two genuinely
+// different works sharing that much specific text by coincidence is
+// implausible (verified real case: a 38-rune shared clause), short enough to
+// still catch a provider dropping a work's entire trailing subtitle.
+const titlePrefixMinRunes = 25
+
+// titlePrefixCandidates finds items in scope whose title is a strict prefix
+// or superset of one of media's own titles -- the case exact matching can't
+// cover: one provider's title running straight to the end where the other
+// has an additional trailing tilde-delimited subtitle (verified real case:
+// Bangumi's title for a manga was AniList's title with
+// "～世界最強はオレだけど、世界最カワは妹に違いない～" entirely absent,
+// not reformatted). Deliberately never used for auto-attach -- see the
+// call site in resolveMediaItem.
+func titlePrefixCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, error) {
+	normalizedIncoming := incomingTitleSet(media)
+	if len(normalizedIncoming) == 0 {
+		return nil, nil
+	}
+	rows, err := scopedTitleCandidateRows(tx, media)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]uuid.UUID, 0, len(rows))
+	seenIDs := make(map[uuid.UUID]struct{}, len(rows))
+	for _, row := range rows {
+		rowNorm := normalizeMediaTitle(row.Title)
+		matched := false
+		for incoming := range normalizedIncoming {
+			if titlePrefixMatch(incoming, rowNorm) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		if _, ok := seenIDs[row.ScopeID]; ok {
+			continue
+		}
+		seenIDs[row.ScopeID] = struct{}{}
+		result = append(result, row.ScopeID)
+	}
+	return result, nil
+}
+
+// titlePrefixMatch reports whether a and b are the same string up to the
+// point where the shorter one ends -- i.e. one is a strict prefix of the
+// other -- and that shared prefix meets titlePrefixMinRunes. Equal strings
+// return false: that's an exact match, already handled by
+// titleYearCandidates, and treating it as a "prefix" here would just
+// duplicate that candidate into the lower-confidence pool.
+func titlePrefixMatch(a, b string) bool {
+	if a == b {
+		return false
+	}
+	shorter, longer := a, b
+	if len([]rune(a)) > len([]rune(b)) {
+		shorter, longer = b, a
+	}
+	if len([]rune(shorter)) < titlePrefixMinRunes {
+		return false
+	}
+	return strings.HasPrefix(longer, shorter)
 }
 
 func mediaTypeOrDefault(mediaType string) string {
