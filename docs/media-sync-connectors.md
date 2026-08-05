@@ -166,9 +166,11 @@ Keep the emitted observation provider-neutral: both connectors map their native 
    subject id → MAL id** through [Rhilip/BangumiExtLinker](https://github.com/Rhilip/BangumiExtLinker) (Bangumi-keyed, exposes `mal_id`, CC BY 4.0), then **MAL id → AniList id** through
    [Fribb/anime-lists](https://github.com/Fribb/anime-lists) (`mal_id`↔`anilist_id`, verified). Cache both datasets locally and refresh periodically.
 3. Title match across `tb_media_titles`, scoped to the same `media_type` + `item_role` (an anime season and its manga adaptation must never merge) and a release date within **±400 days** (providers
-   routinely disagree on which event anchors a work's release date by several months, so an exact-year match misses real matches). Exactly one candidate → **auto-attach** to it
-   (`matched_by = title_year`, confidence 0.7) and log an already-resolved `tb_media_resolution_task` purely as an audit trail; no human action needed. Two or more candidates → genuinely ambiguous, so
-   this stays a human decision: create a fresh item as in step 4 and leave the task **open** for the resolution inbox instead of guessing.
+   routinely disagree on which event anchors a work's release date by several months, so an exact-year match misses real matches). The title comparison itself NFKC-folds both sides (collapsing
+   fullwidth punctuation like `～`/`（）` to ASCII) and strips bracketed annotations (`(...)`, `《...》`) before comparing, since providers routinely render the same title with a trailing reading
+   gloss kept on one side and dropped on the other, or the same in-title gloss in a different bracket style — a plain lowercase/whitespace-normalized string match missed these in production. Exactly
+   one candidate → **auto-attach** to it (`matched_by = title_year`, confidence 0.7) and log an already-resolved `tb_media_resolution_task` purely as an audit trail; no human action needed. Two or
+   more candidates → genuinely ambiguous, so this stays a human decision: create a fresh item as in step 4 and leave the task **open** for the resolution inbox instead of guessing.
 4. No match → create new work + item + titles + ref, `matched_by = provider_id`.
 
 Cross-provider linking is what makes AniList + Bangumi complementary rather than duplicative: AniList supplies `idMal` and romaji/english titles; Bangumi supplies Chinese titles and its own subject

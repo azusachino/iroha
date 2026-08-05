@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -229,32 +231,39 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 		return nil, nil
 	}
 
-	var rows []struct{ ScopeID uuid.UUID }
-	// The title alternatives must be grouped and AND'd against the base scope,
-	// not OR'd into the top-level clause -- tx.Where(base).Or(title1).Or(title2)
-	// would make "base" itself a full alternative with no title filter,
-	// matching every item in scope regardless of title.
-	titleGroup := tx.Session(&gorm.Session{NewDB: true}).Where("lower(tb_media_titles.title) = ?", strings.ToLower(normalizeMediaTitle(unique[0])))
-	for _, title := range unique[1:] {
-		titleGroup = titleGroup.Or("lower(tb_media_titles.title) = ?", strings.ToLower(normalizeMediaTitle(title)))
+	normalizedIncoming := make(map[string]struct{}, len(unique))
+	for _, title := range unique {
+		normalizedIncoming[normalizeMediaTitle(title)] = struct{}{}
 	}
+
 	windowStart := media.ReleaseDate.AddDate(0, 0, -titleYearToleranceDays)
 	windowEnd := media.ReleaseDate.AddDate(0, 0, titleYearToleranceDays)
 	// media_type/item_role must match too: the same franchise legitimately
 	// has separate items (an anime season and its manga adaptation, a TV
 	// series and its movie) that share a title and a nearby release date but
-	// must never be merged into each other.
-	query := tx.Table("tb_media_titles").Select("tb_media_titles.scope_id").
+	// must never be merged into each other. Title filtering happens in Go,
+	// not SQL: normalizeMediaTitle's NFKC fold + bracket-annotation strip has
+	// no cheap SQL equivalent, and different providers routinely render the
+	// same title with different bracket styles or trailing reading glosses
+	// (verified against real prod duplicates an exact SQL string match
+	// missed). The scope filters below keep this fetch small.
+	var rows []struct {
+		ScopeID uuid.UUID
+		Title   string
+	}
+	query := tx.Table("tb_media_titles").Select("tb_media_titles.scope_id, tb_media_titles.title").
 		Joins("join tb_media_items on tb_media_items.id = tb_media_titles.scope_id").
 		Where("tb_media_titles.scope_type = ? and tb_media_items.media_type = ? and tb_media_items.item_role = ? and tb_media_items.release_date between ? and ?",
-			mediaScopeType, mediaTypeOrDefault(media.MediaType), itemRoleOrDefault(media.ItemRole), windowStart, windowEnd).
-		Where(titleGroup)
+			mediaScopeType, mediaTypeOrDefault(media.MediaType), itemRoleOrDefault(media.ItemRole), windowStart, windowEnd)
 	if err := query.Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	result := make([]uuid.UUID, 0, len(rows))
 	seenIDs := make(map[uuid.UUID]struct{}, len(rows))
 	for _, row := range rows {
+		if _, ok := normalizedIncoming[normalizeMediaTitle(row.Title)]; !ok {
+			continue
+		}
 		if _, ok := seenIDs[row.ScopeID]; ok {
 			continue
 		}
@@ -297,8 +306,21 @@ func createResolutionTask(tx *gorm.DB, media observations.Media, candidates []uu
 	return tx.Create(&task).Error
 }
 
+// titleAnnotationPattern strips parenthetical/bracketed reading glosses and
+// alt-spelling annotations. Different providers render the same gloss with
+// different bracket styles for the same title (e.g. a Bangumi "original"
+// title keeping a trailing furigana note in （）that an AniList native title
+// omits, or the same in-title gloss rendered in （）on one side and 《》 on the
+// other) -- verified against real prod duplicates that survived an exact
+// title match. NFKC folds fullwidth parens to ASCII "()" before this pattern
+// runs, so it only needs to match one paren style plus the CJK angle-bracket
+// style separately.
+var titleAnnotationPattern = regexp.MustCompile(`\([^()]*\)|《[^《》]*》`)
+
 func normalizeMediaTitle(title string) string {
-	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(title))), " ")
+	folded := norm.NFKC.String(title)
+	stripped := titleAnnotationPattern.ReplaceAllString(folded, "")
+	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(stripped))), " ")
 }
 
 func releaseDate(value *time.Time) string {

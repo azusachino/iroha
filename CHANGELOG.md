@@ -43,6 +43,11 @@ No unreleased changes.
   candidate match was never actually used — the resolver logged an advisory task but still created a new item every time. `titleYearCandidates` now scopes on `media_type` + `item_role` and a ±400-day
   release-date window instead of an exact year, and `resolveMediaItem` auto-attaches to a single unambiguous candidate (logging an already-resolved audit task) while an ambiguous multi-candidate match
   still opens a task for a human, same as before.
+- Even after the above, exact-string title matching still missed real cross-provider duplicates whenever the two providers rendered the same title slightly differently — a trailing bracketed reading
+  gloss kept on one side and dropped on the other, the same in-title gloss in a different bracket style (fullwidth `（）` vs CJK `《》`), or a fullwidth `～` vs ASCII `~` plus incidental spacing
+  differences (all verified against real production duplicates a plain lowercase/whitespace-normalized match let through). `normalizeMediaTitle` now NFKC-folds the title (which also collapses
+  fullwidth punctuation to ASCII) and strips bracketed annotations before comparing; `titleYearCandidates` fetches its scoped candidate set from SQL and applies this normalization in Go on both sides,
+  since neither transform has a cheap SQL equivalent.
 
 ## [0.1.4] — 2026-08-04
 

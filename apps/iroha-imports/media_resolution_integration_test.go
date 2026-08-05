@@ -150,6 +150,77 @@ func TestTitleYearCandidates_DoesNotMatchDifferentMediaType(t *testing.T) {
 	}
 }
 
+// TestTitleYearCandidates_MatchesAcrossBracketedAnnotation reproduces a real
+// prod duplicate: Bangumi's "original" title kept a trailing furigana gloss
+// in fullwidth parens that AniList's native title for the same manga
+// omitted entirely. An exact string match (even case/whitespace-normalized)
+// never catches this; stripping bracketed annotations must.
+func TestTitleYearCandidates_MatchesAcrossBracketedAnnotation(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	releaseDate := time.Date(2038, time.June, 1, 0, 0, 0, 0, time.UTC)
+	seeded := seedMediaItem(t, db, "Haikei Tengoku no Nee-san Plus（ぷらす）", "manga", "series", releaseDate)
+
+	incoming := observations.Media{
+		Provider: "anilist", ExternalID: "integration-bracket-annotation",
+		Title: "Haikei Tengoku no Nee-san Plus", MediaType: "manga", ItemRole: "series",
+		ReleaseDate: &releaseDate,
+	}
+
+	candidates, err := titleYearCandidates(db, incoming)
+	if err != nil {
+		t.Fatalf("titleYearCandidates: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0] != seeded.itemID {
+		t.Fatalf("titleYearCandidates = %v, want exactly [%v] -- a trailing bracketed gloss must not block the match", candidates, seeded.itemID)
+	}
+}
+
+// TestTitleYearCandidates_MatchesAcrossBracketStyle reproduces a second real
+// prod duplicate: the same in-title gloss rendered in fullwidth round
+// brackets on one provider and CJK angle brackets on the other.
+func TestTitleYearCandidates_MatchesAcrossBracketStyle(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	releaseDate := time.Date(2039, time.June, 1, 0, 0, 0, 0, time.UTC)
+	seeded := seedMediaItem(t, db, "Exiled Prince『Auto-Craft（AC）』Village Life", "manga", "series", releaseDate)
+
+	incoming := observations.Media{
+		Provider: "anilist", ExternalID: "integration-bracket-style",
+		Title: "Exiled Prince『Auto-Craft《AC》』Village Life", MediaType: "manga", ItemRole: "series",
+		ReleaseDate: &releaseDate,
+	}
+
+	candidates, err := titleYearCandidates(db, incoming)
+	if err != nil {
+		t.Fatalf("titleYearCandidates: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0] != seeded.itemID {
+		t.Fatalf("titleYearCandidates = %v, want exactly [%v] -- differing bracket styles around the same gloss must not block the match", candidates, seeded.itemID)
+	}
+}
+
+// TestTitleYearCandidates_MatchesAcrossFullwidthTilde reproduces a third real
+// prod duplicate: the same title with a fullwidth tilde (～) on one provider
+// and an ASCII tilde (~) plus different spacing on the other.
+func TestTitleYearCandidates_MatchesAcrossFullwidthTilde(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	releaseDate := time.Date(2040, time.June, 1, 0, 0, 0, 0, time.UTC)
+	seeded := seedMediaItem(t, db, "Strongest Mage  ~Two Past Lives~", "manga", "series", releaseDate)
+
+	incoming := observations.Media{
+		Provider: "anilist", ExternalID: "integration-fullwidth-tilde",
+		Title: "Strongest Mage ～Two Past Lives～", MediaType: "manga", ItemRole: "series",
+		ReleaseDate: &releaseDate,
+	}
+
+	candidates, err := titleYearCandidates(db, incoming)
+	if err != nil {
+		t.Fatalf("titleYearCandidates: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0] != seeded.itemID {
+		t.Fatalf("titleYearCandidates = %v, want exactly [%v] -- a fullwidth-vs-ASCII tilde and spacing difference must not block the match", candidates, seeded.itemID)
+	}
+}
+
 // TestResolveMediaItem_AutoAttachesOnUnambiguousTitleYearMatch exercises the
 // full resolver: a single unambiguous title/date match must attach to the
 // existing item (not mint a duplicate) and leave an audit trail as an
