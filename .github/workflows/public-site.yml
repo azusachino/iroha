@@ -48,3 +48,17 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Smoke check deployed site
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -eu
+          base="${PAGE_URL%/}"
+          html="$(curl -fsSL "$base/")"
+          echo "$html" | grep -qF "iroha · public archive"
+          echo "$html" | grep -qF "The shape of the miles."
+          curl -fsSL "$base/data/meta.json" | grep -q "generated_at"
+          curl -fsSL "$base/data/summary.json" >/dev/null
+          curl -fsSL "$base/data/activities.json" >/dev/null
+          curl -fsSL "$base/data/routes.geojson" >/dev/null

@@ -1,4 +1,9 @@
-import type { Activity, RouteFeatureCollection, Summary } from "$lib/types";
+import type {
+  Activity,
+  Meta,
+  RouteFeatureCollection,
+  Summary,
+} from "$lib/types";
 import type { PageLoad } from "./$types";
 
 // This whole site is one known page over one known snapshot -- prerender it
@@ -9,15 +14,17 @@ import type { PageLoad } from "./$types";
 export const prerender = true;
 
 export const load: PageLoad = async ({ fetch }) => {
-  const [summaryRes, activitiesRes, routesRes] = await Promise.all([
+  const [summaryRes, activitiesRes, routesRes, metaRes] = await Promise.all([
     fetch("data/summary.json"),
     fetch("data/activities.json"),
     fetch("data/routes.geojson"),
+    fetch("data/meta.json"),
   ]);
 
   const summary: Summary = await summaryRes.json();
   const activities: Activity[] = await activitiesRes.json();
   const routes: RouteFeatureCollection = await routesRes.json();
+  const meta: Meta = await metaRes.json();
 
-  return { summary, activities, routes };
+  return { summary, activities, routes, meta };
 };

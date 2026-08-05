@@ -7,7 +7,12 @@ contract between minor versions.
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- `publicexport.Validate` — a schema/privacy regression gate that `iroha-export-public` runs before writing any output file, catching an unprefixed activity ID, a negative total/metric, or an
+  out-of-range route coordinate before it reaches the public site.
+- `meta.json` in the public-site export, carrying `generated_at`; the public site now shows "Data as of \<date\>" instead of implying its data is live.
+- A post-deploy smoke check in `.github/workflows/public-site.yml` that curls the deployed `/iroha` base path and its `data/*` snapshot files before the workflow is considered successful.
 
 ## [0.1.4] — 2026-08-04
 

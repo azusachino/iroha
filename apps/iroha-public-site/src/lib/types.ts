@@ -61,3 +61,7 @@ export interface RouteFeatureCollection {
   type: "FeatureCollection";
   features: RouteFeature[];
 }
+
+export interface Meta {
+  generated_at: string;
+}

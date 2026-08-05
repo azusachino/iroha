@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/dbconnect"
@@ -56,18 +57,10 @@ func main() {
 		logger.Error("build summary", "error", err)
 		os.Exit(1)
 	}
-	if err := writeJSON(filepath.Join(*out, "summary.json"), summary); err != nil {
-		logger.Error("write summary.json", "error", err)
-		os.Exit(1)
-	}
 
 	activityList, err := collectAllActivities(activityService)
 	if err != nil {
 		logger.Error("collect activities", "error", err)
-		os.Exit(1)
-	}
-	if err := writeJSON(filepath.Join(*out, "activities.json"), activityList); err != nil {
-		logger.Error("write activities.json", "error", err)
 		os.Exit(1)
 	}
 
@@ -76,8 +69,29 @@ func main() {
 		logger.Error("build routes", "error", err)
 		os.Exit(1)
 	}
+
+	// Validate before anything is written: a failure here must leave no
+	// partial output on disk for the cron script to diff and push.
+	if err := publicexport.Validate(summary, activityList, routes); err != nil {
+		logger.Error("validate export", "error", err)
+		os.Exit(1)
+	}
+
+	if err := writeJSON(filepath.Join(*out, "summary.json"), summary); err != nil {
+		logger.Error("write summary.json", "error", err)
+		os.Exit(1)
+	}
+	if err := writeJSON(filepath.Join(*out, "activities.json"), activityList); err != nil {
+		logger.Error("write activities.json", "error", err)
+		os.Exit(1)
+	}
 	if err := writeJSON(filepath.Join(*out, "routes.geojson"), routes); err != nil {
 		logger.Error("write routes.geojson", "error", err)
+		os.Exit(1)
+	}
+	meta := publicexport.Meta{GeneratedAt: time.Now().UTC()}
+	if err := writeJSON(filepath.Join(*out, "meta.json"), meta); err != nil {
+		logger.Error("write meta.json", "error", err)
 		os.Exit(1)
 	}
 

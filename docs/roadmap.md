@@ -158,7 +158,7 @@ Full Apple Health export zips may exceed normal Telegram Bot API file limits, so
 
 ## Milestone 7: Privacy and Publishing
 
-Goal: separate private canonical data from public output.
+Goal: separate private canonical data from public output. See [Public-site publishing workflow](public-site-publishing.md) for the operational pipeline, review loop, and rollback path (issue #41).
 
 Status: shipped. Privacy zones and sanitized activity projections are implemented — `apps/iroha-server/pkg/activities` trims route endpoints and masks auto-detected private zones (home, work, and
 other frequent start/end hubs) across every route, and `apps/iroha-server/pkg/publicexport` builds the sanitized activity/summary/route projection from that. The original design served this from a
