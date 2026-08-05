@@ -14,6 +14,12 @@ contract between minor versions.
 - `meta.json` in the public-site export, carrying `generated_at`; the public site now shows "Data as of \<date\>" instead of implying its data is live.
 - A post-deploy smoke check in `.github/workflows/public-site.yml` that curls the deployed `/iroha` base path and its `data/*` snapshot files before the workflow is considered successful.
 
+### Changed
+
+- `ci.yml` and `public-site.yml` provision tools with `jdx/mise-action` against the checked-in `.mise.toml` instead of `nix develop` — local and CI now resolve the exact same pinned tool versions
+  instead of two parallel toolchains. The Nix flake remains available as an optional local shell; nothing requires it anymore. Updated `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, and
+  `docs/dev-runtime.md` to match.
+
 ## [0.1.4] — 2026-08-04
 
 ### Added

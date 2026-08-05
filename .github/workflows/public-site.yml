@@ -26,16 +26,18 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
+      - uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
 
       - name: Install public-site dependencies
-        run: nix develop . --command make public-site-install
+        run: make public-site-install
 
       - name: Build public site
         env:
           BASE_PATH: /iroha
-        run: nix develop . --command make public-site-build
+        run: make public-site-build
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

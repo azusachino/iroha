@@ -5,13 +5,17 @@ live in [AGENTS.md](AGENTS.md).
 
 ## Development environment
 
-All tooling comes from the Nix devShell — do not install Go, goose, bun, or Postgres separately.
+Tooling is pinned by the checked-in `.mise.toml` — do not install Go, goose, bun, or Postgres separately.
 
 ```sh
-nix develop          # enter the shell; `make` targets also auto-wrap into it when outside
+mise install
 ```
 
-Language runtimes are pinned by Nix; `uv` manages the Python used only by dev scripts.
+`make` targets automatically run through `mise exec --` when invoked outside an activated mise or Nix shell, so the normal workflow is just `make <target>` after `mise install`. CI (`ci.yml`,
+`public-site.yml`) provisions the same `.mise.toml` tools via `jdx/mise-action`, so local and CI resolve identical versions. The Nix flake remains available as an optional local shell (`nix develop`)
+but nothing requires it — see `docs/dev-runtime.md`.
+
+`uv` manages the Python used only by dev scripts.
 
 ## Common tasks
 
