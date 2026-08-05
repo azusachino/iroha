@@ -306,21 +306,51 @@ func createResolutionTask(tx *gorm.DB, media observations.Media, candidates []uu
 	return tx.Create(&task).Error
 }
 
-// titleAnnotationPattern strips parenthetical/bracketed reading glosses and
-// alt-spelling annotations. Different providers render the same gloss with
-// different bracket styles for the same title (e.g. a Bangumi "original"
-// title keeping a trailing furigana note in （）that an AniList native title
-// omits, or the same in-title gloss rendered in （）on one side and 《》 on the
-// other) -- verified against real prod duplicates that survived an exact
-// title match. NFKC folds fullwidth parens to ASCII "()" before this pattern
-// runs, so it only needs to match one paren style plus the CJK angle-bracket
-// style separately.
-var titleAnnotationPattern = regexp.MustCompile(`\([^()]*\)|《[^《》]*》`)
+// parenAnnotationPattern and angleAnnotationPattern locate bracketed spans
+// that MIGHT be reading-gloss annotations. NFKC folds fullwidth parens to
+// ASCII "()" before either pattern runs, so parenAnnotationPattern only
+// needs to match one paren style; the CJK angle-bracket style is separate.
+var (
+	parenAnnotationPattern = regexp.MustCompile(`\(([^()]*)\)`)
+	angleAnnotationPattern = regexp.MustCompile(`《([^《》]*)》`)
+	// pureKanaPattern is what actually decides whether a bracketed span gets
+	// stripped: only if its content is entirely hiragana/katakana (plus the
+	// katakana long-vowel mark ー and middle dot ・), i.e. a phonetic reading
+	// gloss with no identity-bearing content. A blanket "strip anything
+	// bracketed" is unsafe -- verified: it collapsed "薬屋のひとりごと（第二期）"
+	// (a real Season 2 marker in kanji) onto "薬屋のひとりごと" (Season 1), and
+	// "Fullmetal Alchemist (2003)" onto "... (2009)", a different remake.
+	// Kanji, digits, and Latin letters all fail this pattern and are left in
+	// place, keeping such disambiguators distinct.
+	pureKanaPattern = regexp.MustCompile(`^[\p{Hiragana}\p{Katakana}ー・]*$`)
+)
 
+func stripKanaOnlyAnnotations(title string) string {
+	strip := func(re *regexp.Regexp, s string) string {
+		return re.ReplaceAllStringFunc(s, func(match string) string {
+			if sub := re.FindStringSubmatch(match); len(sub) == 2 && pureKanaPattern.MatchString(sub[1]) {
+				return ""
+			}
+			return match
+		})
+	}
+	title = strip(parenAnnotationPattern, title)
+	title = strip(angleAnnotationPattern, title)
+	return title
+}
+
+// normalizeMediaTitle builds a comparison-only key, never a display value:
+// it removes whitespace entirely rather than collapsing it, because
+// providers disagree on whether a space separates a title from a
+// tilde/dash-delimited subtitle (verified against a real prod pair --
+// "...好きすぎる～真摯..." vs "...好きすぎる ～真摯..." -- the extra space
+// isn't redundant on either side, so collapsing runs of whitespace to one
+// space each still leaves them unequal; only removing whitespace altogether
+// makes them comparable).
 func normalizeMediaTitle(title string) string {
 	folded := norm.NFKC.String(title)
-	stripped := titleAnnotationPattern.ReplaceAllString(folded, "")
-	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(stripped))), " ")
+	stripped := stripKanaOnlyAnnotations(folded)
+	return strings.Join(strings.Fields(strings.ToLower(stripped)), "")
 }
 
 func releaseDate(value *time.Time) string {

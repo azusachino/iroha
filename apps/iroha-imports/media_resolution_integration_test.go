@@ -150,19 +150,23 @@ func TestTitleYearCandidates_DoesNotMatchDifferentMediaType(t *testing.T) {
 	}
 }
 
-// TestTitleYearCandidates_MatchesAcrossBracketedAnnotation reproduces a real
-// prod duplicate: Bangumi's "original" title kept a trailing furigana gloss
-// in fullwidth parens that AniList's native title for the same manga
-// omitted entirely. An exact string match (even case/whitespace-normalized)
-// never catches this; stripping bracketed annotations must.
+// The following four cases are the exact title strings pulled from
+// production (kubectl exec into iroha-postgis-0, tb_media_titles) during the
+// 2026-08-06 dedup investigation -- not approximations. Each one is a
+// distinct way two providers rendered "the same title" that survived every
+// prior fix until normalizeMediaTitle accounted for it.
+
+// TestTitleYearCandidates_MatchesAcrossBracketedAnnotation: Bangumi's
+// "original" title for this manga kept a trailing furigana gloss in
+// fullwidth parens that AniList's native title omitted entirely.
 func TestTitleYearCandidates_MatchesAcrossBracketedAnnotation(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	releaseDate := time.Date(2038, time.June, 1, 0, 0, 0, 0, time.UTC)
-	seeded := seedMediaItem(t, db, "Haikei Tengoku no Nee-san Plus（ぷらす）", "manga", "series", releaseDate)
+	seeded := seedMediaItem(t, db, "拝啓、天国の姉さん、勇者になった姪がエロすぎてーー 叔父さん、保護者とかそろそろ無理です＋（ぷらす）", "manga", "series", releaseDate)
 
 	incoming := observations.Media{
 		Provider: "anilist", ExternalID: "integration-bracket-annotation",
-		Title: "Haikei Tengoku no Nee-san Plus", MediaType: "manga", ItemRole: "series",
+		Title: "拝啓、天国の姉さん、勇者になった姪がエロすぎてーー 叔父さん、保護者とかそろそろ無理です＋", MediaType: "manga", ItemRole: "series",
 		ReleaseDate: &releaseDate,
 	}
 
@@ -175,17 +179,17 @@ func TestTitleYearCandidates_MatchesAcrossBracketedAnnotation(t *testing.T) {
 	}
 }
 
-// TestTitleYearCandidates_MatchesAcrossBracketStyle reproduces a second real
-// prod duplicate: the same in-title gloss rendered in fullwidth round
-// brackets on one provider and CJK angle brackets on the other.
+// TestTitleYearCandidates_MatchesAcrossBracketStyle: the same in-title gloss
+// rendered in fullwidth round brackets on one provider (AniList's native
+// title) and CJK angle brackets on the other (Bangumi's original title).
 func TestTitleYearCandidates_MatchesAcrossBracketStyle(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	releaseDate := time.Date(2039, time.June, 1, 0, 0, 0, 0, time.UTC)
-	seeded := seedMediaItem(t, db, "Exiled Prince『Auto-Craft（AC）』Village Life", "manga", "series", releaseDate)
+	seeded := seedMediaItem(t, db, "追放された転生王子、『自動製作《オートクラフト》』スキルで領地を爆速で開拓し最強の村を作ってしまう〜最強クラフトスキルで始める、楽々領地開拓スローライフ〜", "manga", "series", releaseDate)
 
 	incoming := observations.Media{
 		Provider: "anilist", ExternalID: "integration-bracket-style",
-		Title: "Exiled Prince『Auto-Craft《AC》』Village Life", MediaType: "manga", ItemRole: "series",
+		Title: "追放された転生王子、『自動製作（オートクラフト）』スキルで領地を爆速で開拓し最強の村を作ってしまう　〜最強クラフトスキルで始める、楽々領地開拓スローライフ〜", MediaType: "manga", ItemRole: "series",
 		ReleaseDate: &releaseDate,
 	}
 
@@ -198,17 +202,17 @@ func TestTitleYearCandidates_MatchesAcrossBracketStyle(t *testing.T) {
 	}
 }
 
-// TestTitleYearCandidates_MatchesAcrossFullwidthTilde reproduces a third real
-// prod duplicate: the same title with a fullwidth tilde (～) on one provider
-// and an ASCII tilde (~) plus different spacing on the other.
+// TestTitleYearCandidates_MatchesAcrossFullwidthTilde: the same title with a
+// fullwidth tilde (～) plus a single space on one provider, and an ASCII
+// tilde (~) plus two spaces on the other.
 func TestTitleYearCandidates_MatchesAcrossFullwidthTilde(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	releaseDate := time.Date(2040, time.June, 1, 0, 0, 0, 0, time.UTC)
-	seeded := seedMediaItem(t, db, "Strongest Mage  ~Two Past Lives~", "manga", "series", releaseDate)
+	seeded := seedMediaItem(t, db, "史上最強の魔法剣士、Fランク冒険者に転生する  ~剣聖と魔帝、2つの前世を持った男の英雄譚~", "manga", "series", releaseDate)
 
 	incoming := observations.Media{
 		Provider: "anilist", ExternalID: "integration-fullwidth-tilde",
-		Title: "Strongest Mage ～Two Past Lives～", MediaType: "manga", ItemRole: "series",
+		Title: "史上最強の魔法剣士、Fランク冒険者に転生する ～剣聖と魔帝、2つの前世を持った男の英雄譚～", MediaType: "manga", ItemRole: "series",
 		ReleaseDate: &releaseDate,
 	}
 
@@ -218,6 +222,32 @@ func TestTitleYearCandidates_MatchesAcrossFullwidthTilde(t *testing.T) {
 	}
 	if len(candidates) != 1 || candidates[0] != seeded.itemID {
 		t.Fatalf("titleYearCandidates = %v, want exactly [%v] -- a fullwidth-vs-ASCII tilde and spacing difference must not block the match", candidates, seeded.itemID)
+	}
+}
+
+// TestTitleYearCandidates_MatchesAcrossSubtitleSpacing: Bangumi ran the main
+// title straight into its tilde-delimited subtitle with no space; AniList
+// inserted one. Collapsing whitespace isn't enough here -- there's no
+// redundant whitespace to collapse, the two sides simply disagree on whether
+// a separator space exists at all, so the comparison key must drop
+// whitespace entirely rather than just normalize runs of it.
+func TestTitleYearCandidates_MatchesAcrossSubtitleSpacing(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	releaseDate := time.Date(2041, time.June, 1, 0, 0, 0, 0, time.UTC)
+	seeded := seedMediaItem(t, db, "その悪役貴族、ママヒロインが好きすぎる～真摯な努力で最強となり不遇な推しキャラ助けまくる～", "manga", "series", releaseDate)
+
+	incoming := observations.Media{
+		Provider: "anilist", ExternalID: "integration-subtitle-spacing",
+		Title: "その悪役貴族、ママヒロインが好きすぎる ～真摯な努力で最強となり不遇な推しキャラ助けまくる～", MediaType: "manga", ItemRole: "series",
+		ReleaseDate: &releaseDate,
+	}
+
+	candidates, err := titleYearCandidates(db, incoming)
+	if err != nil {
+		t.Fatalf("titleYearCandidates: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0] != seeded.itemID {
+		t.Fatalf("titleYearCandidates = %v, want exactly [%v] -- an inserted separator space must not block the match", candidates, seeded.itemID)
 	}
 }
 

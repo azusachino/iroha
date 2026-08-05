@@ -48,6 +48,15 @@ No unreleased changes.
   differences (all verified against real production duplicates a plain lowercase/whitespace-normalized match let through). `normalizeMediaTitle` now NFKC-folds the title (which also collapses
   fullwidth punctuation to ASCII) and strips bracketed annotations before comparing; `titleYearCandidates` fetches its scoped candidate set from SQL and applies this normalization in Go on both sides,
   since neither transform has a cheap SQL equivalent.
+- One more real duplicate shape survived even that: Bangumi running a title straight into its tilde-delimited subtitle with no space, AniList inserting one (`...好きすぎる～真摯...` vs
+  `...好きすぎる ～真摯...`). Collapsing whitespace doesn't help when there's no redundant whitespace to collapse — the two sides simply disagree on whether a separator space exists at all.
+  `normalizeMediaTitle`'s comparison key now drops whitespace entirely instead of collapsing it to single spaces.
+- Blanket bracket-stripping was itself unsafe: a collision-safety unit test (`TestNormalizeMediaTitle_CanonicalKeyCollisionSafety`) caught it collapsing "薬屋のひとりごと（第二期）" (a real Season 2
+  marker) onto "薬屋のひとりごと" (Season 1), and "Fullmetal Alchemist (2003)" onto "... (2009)", a different remake — bracketed content isn't always a reading gloss. `normalizeMediaTitle` now only
+  strips a bracketed span when its content is entirely hiragana/katakana; kanji, digits, and Latin letters (season markers, years, initialisms) are left in place.
+- Measured directly against production (every Bangumi manga ID actually synced vs. `bangumi_to_mal.json`'s keys): the Bangumi→AniList bridge covers 0% of manga, only anime (~66%, matching the existing
+  spike number). `docs/media-sync-connectors.md` previously implied the bridge was a general cross-provider mechanism with an anime-shaped tail; corrected to state that title/date matching is the
+  _sole_ cross-provider dedup path for manga, not a fallback — manga is the majority of most Bangumi+AniList libraries, so this is the more consequential path, not the less.
 
 ## [0.1.4] — 2026-08-04
 
