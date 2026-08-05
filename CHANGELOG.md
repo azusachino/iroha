@@ -37,12 +37,12 @@ No unreleased changes.
   empty `cover_image_url`, regardless of how long ago it synced. AniList's query now selects `coverImage{large}` and Bangumi's `subjectRecord` now decodes `images.large`; both map into
   `observations.Media.CoverImageURL`, which the import pipeline already threaded through on both insert and reconcile-update. A resync backfills existing items, since the update path only skips a
   column when the incoming value is empty.
-- Cross-provider media resolution was silently creating duplicate items instead of deduping them: `titleYearCandidates`'s `Where(...).Or(...)` chain OR'd the base scope condition into the whole
-  clause instead of ANDing it against each title alternative, so it matched almost every item released in the same calendar year regardless of title (verified in prod: 1961/2000 items sat as
-  false-positive `dedupe_candidate` tasks). Separately, an exact-calendar-year filter made same-work items structurally unmatchable whenever providers disagreed on release date by more than a few
-  months, and a real candidate match was never actually used — the resolver logged an advisory task but still created a new item every time. `titleYearCandidates` now scopes on `media_type` +
-  `item_role` and a ±400-day release-date window instead of an exact year, and `resolveMediaItem` auto-attaches to a single unambiguous candidate (logging an already-resolved audit task) while an
-  ambiguous multi-candidate match still opens a task for a human, same as before.
+- Cross-provider media resolution was silently creating duplicate items instead of deduping them: `titleYearCandidates`'s `Where(...).Or(...)` chain OR'd the base scope condition into the whole clause
+  instead of ANDing it against each title alternative, so it matched almost every item released in the same calendar year regardless of title (verified in prod: 1961/2000 items sat as false-positive
+  `dedupe_candidate` tasks). Separately, an exact-calendar-year filter made same-work items structurally unmatchable whenever providers disagreed on release date by more than a few months, and a real
+  candidate match was never actually used — the resolver logged an advisory task but still created a new item every time. `titleYearCandidates` now scopes on `media_type` + `item_role` and a ±400-day
+  release-date window instead of an exact year, and `resolveMediaItem` auto-attaches to a single unambiguous candidate (logging an already-resolved audit task) while an ambiguous multi-candidate match
+  still opens a task for a human, same as before.
 
 ## [0.1.4] — 2026-08-04
 

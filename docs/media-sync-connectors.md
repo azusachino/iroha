@@ -165,13 +165,17 @@ Keep the emitted observation provider-neutral: both connectors map their native 
 2. Match via a **bridge ref** → existing item; attach the new provider ref. AniList media carries `idMal` in-band (verified). Bangumi has no in-band ref, so bridge it via a static dataset: **Bangumi
    subject id → MAL id** through [Rhilip/BangumiExtLinker](https://github.com/Rhilip/BangumiExtLinker) (Bangumi-keyed, exposes `mal_id`, CC BY 4.0), then **MAL id → AniList id** through
    [Fribb/anime-lists](https://github.com/Fribb/anime-lists) (`mal_id`↔`anilist_id`, verified). Cache both datasets locally and refresh periodically.
-3. Conservative title+year match across `tb_media_titles` → **low-confidence** candidate → create a `tb_media_resolution_task` (inbox) rather than auto-merging.
+3. Title match across `tb_media_titles`, scoped to the same `media_type` + `item_role` (an anime season and its manga adaptation must never merge) and a release date within **±400 days** (providers
+   routinely disagree on which event anchors a work's release date by several months, so an exact-year match misses real matches). Exactly one candidate → **auto-attach** to it
+   (`matched_by = title_year`, confidence 0.7) and log an already-resolved `tb_media_resolution_task` purely as an audit trail; no human action needed. Two or more candidates → genuinely ambiguous, so
+   this stays a human decision: create a fresh item as in step 4 and leave the task **open** for the resolution inbox instead of guessing.
 4. No match → create new work + item + titles + ref, `matched_by = provider_id`.
 
 Cross-provider linking is what makes AniList + Bangumi complementary rather than duplicative: AniList supplies `idMal` and romaji/english titles; Bangumi supplies Chinese titles and its own subject
 id. When both connectors see the same anime, the two-hop bridge (Bangumi→MAL→AniList) converges them on one `tb_media_items` row with three provider refs and four+ title rows. The bridge is not total
-— CN databases split some works differently than MAL/AniList, so the split-entry tail falls through to step 3 (title+year → inbox). The spike (`iroha:media-connector-spike`) quantifies that tail
-against a real collection before we commit the resolver.
+— CN databases split some works differently than MAL/AniList, so the split-entry tail falls through to step 3, which now closes most of it automatically rather than only flagging it. The spike
+(`iroha:media-connector-spike`) quantifies that tail against a real collection before we committed the resolver; a 2026-08 production audit found the step-3 gap was worse than the spike's ~34%
+estimate once alternate (non-primary) titles and cross-year release dates were accounted for — see the CHANGELOG `[0.2.0]` entry for the measured before/after.
 
 ## 8. Sync semantics
 
@@ -207,9 +211,11 @@ recent seasonal anime the upstream datasets haven't mapped yet, so coverage impr
 
 Ordered smallest → biggest to build momentum; each ends green on `make check`.
 
-1. **Shipped** — schema, media dispatch/persistence, connector contract, cursor state, AniList/Bangumi pagination, raw snapshot evidence, worker retry handling, and private sync trigger.
-2. **Next** — broaden observations to the full ontology (titles, external refs, work/item linkage, events, and progress projections).
-3. **Later** — cross-provider dedup/inbox, bridge dataset refresh, connector account storage, and web inbox UI.
+1. **Shipped** — schema, media dispatch/persistence, connector contract, cursor state, AniList/Bangumi pagination, raw snapshot evidence, worker retry handling, private sync trigger, full ontology
+   (titles, external refs, work/item linkage, events, progress projections), the bridge cache build/deploy, the resolution-tasks API + `/admin` inbox panel, and cross-provider dedup auto-attach (§7).
+2. **Next** — automate bridge dataset refresh (currently a manual `make media-bridge-build` + ConfigMap redeploy with no schedule); merge/apply tooling for the genuinely ambiguous (2+ candidate)
+   resolution tasks, which today still only record a human's decision without acting on it.
+3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and a richer web inbox UI beyond the `/admin` confirm/dismiss panel.
 
 Deferred (explicitly out of this draft's scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Letterboxd/Goodreads/WeRead CSV; TMDb/Open Library enrichment; self-hosted
 (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/inbox/history).

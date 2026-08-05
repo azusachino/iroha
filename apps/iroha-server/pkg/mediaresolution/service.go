@@ -1,11 +1,14 @@
 // Package mediaresolution serves the media-sync resolution inbox --
 // dedupe-candidate and progress-conflict tasks that apps/iroha-imports'
 // resolver writes to tb_media_resolution_tasks but never had an API or UI
-// surface to read from. Resolving a task here only records the operator's
-// decision in resolution_json; it does not merge media rows or apply a
-// progress choice -- consuming that decision is a separate, not-yet-built
-// job, same as the rest of the resolver's cross-provider dedup being a
-// documented "later" item (docs/media-sync-connectors.md).
+// surface to read from. An unambiguous title/date dedupe match is now
+// auto-attached by the resolver itself and only ever reaches this inbox
+// already resolved, as an audit trail -- what actually lands here as "open"
+// is a genuinely ambiguous multi-candidate dedupe match or a progress
+// conflict. Resolving a task here only records the operator's decision in
+// resolution_json; it does not merge media rows or apply a progress choice
+// -- consuming that decision (e.g. to actually merge two ambiguous items) is
+// a separate, not-yet-built job (docs/media-sync-connectors.md §10).
 package mediaresolution
 
 import (
