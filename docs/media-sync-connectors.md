@@ -194,6 +194,15 @@ against a real collection before we commit the resolver.
 - Both connectors must send a descriptive `User-Agent` identifying iroha. AniList's Cloudflare **403s the default `Python-urllib`/no-UA request** (verified), so a UA is mandatory there; Bangumi reads
   work without one but send it anyway.
 
+### Bridge cache
+
+`make media-bridge-build` (`scripts/build_media_bridge.py`) fetches BangumiExtLinker + Fribb (§7) and writes `bangumi_to_mal.json` / `mal_to_anilist.json` — plain `{string: string}` maps, since
+`TwoHopMediaRefBridge.Lookup` (`apps/iroha-imports/media_resolution.go`) compares provider IDs as strings throughout. `iroha-job` loads them from local files at startup via `IROHA_BANGUMI_BRIDGE_PATH`
+/ `IROHA_MAL_ANILIST_BRIDGE_PATH` (`LoadTwoHopMediaRefBridge`); either or both may be unset, in which case that hop of the bridge is simply skipped and unresolved items fall through to the title+year
+inbox (§7 step 3). These are deployment artifacts, not application code — the k3s ConfigMaps that mount them onto `iroha-job` live in harus-k3s, generated from this command's output the same way a
+sealed secret is generated locally and committed to its target repo. Re-run the build and redeploy the ConfigMaps periodically (there is no auto-refresh): the ~34% unbridged tail in §11 is mostly
+recent seasonal anime the upstream datasets haven't mapped yet, so coverage improves the closer to "now" the cache was last built.
+
 ## 10. Delivery status and remaining work
 
 Ordered smallest → biggest to build momentum; each ends green on `make check`.

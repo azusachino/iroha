@@ -19,6 +19,10 @@ contract between minor versions.
 - `ci.yml` and `public-site.yml` provision tools with `jdx/mise-action` against the checked-in `.mise.toml` instead of `nix develop` — local and CI now resolve the exact same pinned tool versions
   instead of two parallel toolchains. The Nix flake remains available as an optional local shell; nothing requires it anymore. Updated `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, and
   `docs/dev-runtime.md` to match.
+- `make media-bridge-build` (`scripts/build_media_bridge.py`) builds the Bangumi→MAL→AniList media resolution bridge cache from BangumiExtLinker/Fribb into the `map[string]string` shape
+  `TwoHopMediaRefBridge` expects — this data was previously only ever produced ad hoc by the throwaway `media_bridge_explore.py` coverage script, so the bridge env vars
+  (`IROHA_BANGUMI_BRIDGE_PATH`/`IROHA_MAL_ANILIST_BRIDGE_PATH`) had nothing real to point at. Added `TestLoadTwoHopMediaRefBridge` covering the on-disk loader, which previously had no direct test
+  coverage.
 
 ## [0.1.4] — 2026-08-04
 
