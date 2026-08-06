@@ -299,11 +299,15 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 }
 
 // titlePrefixMinRunes bounds how short a shared prefix can be before two
-// titles are considered a prefix match -- long enough that two genuinely
-// different works sharing that much specific text by coincidence is
-// implausible (verified real case: a 38-rune shared clause), short enough to
-// still catch a provider dropping a work's entire trailing subtitle.
-const titlePrefixMinRunes = 25
+// titles are considered a prefix match. This only ever opens a review task,
+// never auto-attaches (see resolveMediaItem), so the cost of a false
+// positive is one dismiss click, not a bad merge -- unlike an auto-attach
+// threshold, erring low here just means silently missing real duplicates.
+// 25 was too conservative: a real prod pair ("異世界グルメで成り上がり無双"
+// missing its trailing subtitle on one side) shares only a 14-rune prefix
+// and was invisible at that floor. 12 catches it while still rejecting the
+// adversarial "異世界転生した" (7 runes) collision-safety case.
+const titlePrefixMinRunes = 12
 
 // titlePrefixCandidates finds items in scope whose title is a strict prefix
 // or superset of one of media's own titles -- the case exact matching can't

@@ -1,10 +1,20 @@
 <script lang="ts">
   import type { MediaDetail } from "$lib/api";
+  import { formatProgressCount } from "$lib/format";
   import { heroTitleFontSize } from "$lib/hero-title";
 
   let { detail, progress }: { detail: MediaDetail; progress: number } =
     $props();
   const boundedProgress = $derived(Math.min(Math.max(progress, 0), 100));
+  // A percentage implies a known total, which most media never has (an
+  // ongoing manga, an unfinished anime season). Show what's actually known.
+  const progressLabel = $derived(
+    formatProgressCount(
+      detail.progress?.position ?? detail.item.position,
+      detail.progress?.total ?? detail.item.total,
+      detail.progress?.unit ?? detail.item.unit,
+    ),
+  );
   const HERO_TITLE_CLAMP = { minRem: 2.2, vw: 6, maxRem: 4.6 };
 </script>
 
@@ -54,7 +64,7 @@
           <p class="mix-kicker">Continuity</p>
           <h2>{detail.progress?.unit || "Current position"}</h2>
         </div>
-        <strong class="progress-readout">{Math.round(boundedProgress)}%</strong>
+        <strong class="progress-readout">{progressLabel}</strong>
       </div>
       <div class="mix-scrub-track">
         <i style={`width: ${boundedProgress}%`}></i>

@@ -5,7 +5,7 @@
     MediaRow,
     MediaScoreBucket,
   } from "$lib/api";
-  import { boundPercent, formatPercent } from "$lib/format";
+  import { boundPercent, formatProgressCount } from "$lib/format";
 
   let {
     items,
@@ -197,8 +197,10 @@
             {/if}
             <strong>{item.native_title || item.title}</strong>
             <small
-              >{item.status || "unknown"} · {formatPercent(
-                item.progress_percent ?? 0,
+              >{item.status || "unknown"} · {formatProgressCount(
+                item.position,
+                item.total,
+                item.unit,
               )}</small
             >
             <i

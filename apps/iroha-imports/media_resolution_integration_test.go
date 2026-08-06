@@ -287,6 +287,32 @@ func TestTitlePrefixCandidates_MatchesOmittedSubtitle(t *testing.T) {
 	}
 }
 
+// TestTitlePrefixCandidates_MatchesShortOmittedSubtitle is a second real prod
+// case showing 25 runes was too conservative a floor: Bangumi's title for
+// this manga was AniList's with the entire "～山に追放されたので、..."
+// subtitle dropped, sharing only a 14-rune prefix ("異世界グルメで成り上が
+// り無双") -- short enough that the original threshold missed it entirely
+// (no task, no visibility, same as before titlePrefixCandidates existed).
+func TestTitlePrefixCandidates_MatchesShortOmittedSubtitle(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	releaseDate := time.Date(2044, time.June, 1, 0, 0, 0, 0, time.UTC)
+	seeded := seedMediaItem(t, db, "異世界グルメで成り上がり無双", "manga", "series", releaseDate)
+
+	incoming := observations.Media{
+		Provider: "anilist", ExternalID: "integration-short-omitted-subtitle",
+		Title: "異世界グルメで成り上がり無双～山に追放されたので、のんびりキャンプを楽しんでいたらいつの間にか強くなっていて、王侯貴族や実力者たちが俺を放っておいてくれません。一方、俺を追放した貴族たちは破滅が始まる～", MediaType: "manga", ItemRole: "series",
+		ReleaseDate: &releaseDate,
+	}
+
+	prefix, err := titlePrefixCandidates(db, incoming)
+	if err != nil {
+		t.Fatalf("titlePrefixCandidates: %v", err)
+	}
+	if len(prefix) != 1 || prefix[0] != seeded.itemID {
+		t.Fatalf("titlePrefixCandidates = %v, want exactly [%v] -- a 14-rune shared prefix must be caught", prefix, seeded.itemID)
+	}
+}
+
 // TestTitlePrefixMatch_RequiresAMinimumSharedLength guards the collision
 // risk a prefix heuristic introduces: two different works with a short
 // generic shared opening (a common trope phrase, not a specific plot

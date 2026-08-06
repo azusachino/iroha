@@ -58,9 +58,14 @@ No unreleased changes.
   spike number). `docs/media-sync-connectors.md` previously implied the bridge was a general cross-provider mechanism with an anime-shaped tail; corrected to state that title/date matching is the
   _sole_ cross-provider dedup path for manga, not a fallback — manga is the majority of most Bangumi+AniList libraries, so this is the more consequential path, not the less.
 - One duplicate shape no normalization could fix: a provider omitting a work's entire trailing subtitle rather than reformatting it (verified real case: Bangumi's title for a manga ran straight to the
-  end where AniList's had an additional "～世界最強はオレだけど、世界最カワは妹に違いない～" clause, absent, not reworded). `titlePrefixCandidates` now detects a ≥25-rune shared prefix as a
+  end where AniList's had an additional "～世界最強はオレだけど、世界最カワは妹に違いない～" clause, absent, not reworded). `titlePrefixCandidates` now detects a ≥12-rune shared prefix as a
   lower-confidence signal — but deliberately only ever opens a `tb_media_resolution_task` for a human, never auto-attaches, since two different works sharing a long specific opening and diverging only
-  in the subtitle is exactly the collision case `TestNormalizeMediaTitle_CanonicalKeyCollisionSafety` already guards against for bracketed content.
+  in the subtitle is exactly the collision case `TestNormalizeMediaTitle_CanonicalKeyCollisionSafety` already guards against for bracketed content. (25 runes was the original floor; lowered after a
+  second real pair, "異世界グルメで成り上がり無双", showed only a 14-rune shared prefix — since this path never auto-merges, a false positive only costs a dismiss click, so erring low was the safer
+  call than erring high and staying silently invisible.)
+- Every media list/detail view (all 6 UI variants) displayed a percentage next to progress even when no total was known, via `formatPercent(item.progress_percent ?? 0)` — coercing null to 0 defeated
+  `formatPercent`'s own correct "—" handling and rendered as a confident, fabricated "0%" for an item with real logged progress (e.g. 46 chapters read, but no known total). Replaced with
+  `formatProgressCount`, which shows a done/all count when the total is known and just the done count otherwise — never a fabricated percentage.
 - The media detail page's title heading used a viewport-only `clamp()` with no regard for title length, so a 100+ character title (not uncommon for these titles) rendered as many lines of oversized
   text. `heroTitleFontSize` (`$lib/hero-title.ts`) scales each theme's own clamp down as title length grows; wired into the default page and all five theme `MediaDetail.svelte` components.
 

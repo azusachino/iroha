@@ -4,6 +4,7 @@ import {
   formatDistance,
   formatDuration,
   formatPercent,
+  formatProgressCount,
   formatPace,
   formatElevation,
   formatHr,
@@ -226,6 +227,29 @@ describe("formatPercent", () => {
   it("returns an em dash for missing or invalid percentages", () => {
     expect(formatPercent(undefined)).toBe(DASH);
     expect(formatPercent(NaN)).toBe(DASH);
+  });
+});
+
+describe("formatProgressCount", () => {
+  it("shows a done/all count when the total is known", () => {
+    expect(formatProgressCount(46, 120, "chapters")).toBe("46/120 chapters");
+    expect(formatProgressCount(9, 9, "seasons")).toBe("9/9 seasons");
+  });
+
+  it("shows just the done count when the total is unknown -- not a fabricated percentage", () => {
+    expect(formatProgressCount(46, undefined, "chapters")).toBe("46 chapters");
+    expect(formatProgressCount(46, null, "chapters")).toBe("46 chapters");
+    expect(formatProgressCount(46, 0, "chapters")).toBe("46 chapters");
+  });
+
+  it("omits the unit when none is given", () => {
+    expect(formatProgressCount(46, 120)).toBe("46/120");
+    expect(formatProgressCount(46)).toBe("46");
+  });
+
+  it("returns an em dash only when there's no position at all", () => {
+    expect(formatProgressCount(undefined, 120, "chapters")).toBe(DASH);
+    expect(formatProgressCount(null, undefined)).toBe(DASH);
   });
 });
 

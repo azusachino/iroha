@@ -13,6 +13,24 @@ export function formatPercent(value?: number | null): string {
   return `${Math.round(boundPercent(value))}%`;
 }
 
+// A percentage implies a known total; most media (ongoing manga, an
+// unfinished anime season) never has one. formatProgressCount shows what's
+// actually known instead: a done/all count when total exists, just the
+// done count when it doesn't, and only falls back to the dash when there's
+// no position at all.
+export function formatProgressCount(
+  position?: number | null,
+  total?: number | null,
+  unit?: string | null,
+): string {
+  if (position == null || !Number.isFinite(position)) return DASH;
+  const suffix = unit ? ` ${unit}` : "";
+  if (total != null && Number.isFinite(total) && total > 0) {
+    return `${position}/${total}${suffix}`;
+  }
+  return `${position}${suffix}`;
+}
+
 export function formatDistance(meters?: number): string {
   if (meters == null) return DASH;
   if (meters < 1000) return `${Math.round(meters)} m`;
