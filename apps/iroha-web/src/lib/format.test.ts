@@ -5,6 +5,7 @@ import {
   formatDuration,
   formatPercent,
   formatProgressCount,
+  progressPercent,
   formatPace,
   formatElevation,
   formatHr,
@@ -250,6 +251,49 @@ describe("formatProgressCount", () => {
   it("returns an em dash only when there's no position at all", () => {
     expect(formatProgressCount(undefined, 120, "chapters")).toBe(DASH);
     expect(formatProgressCount(null, undefined)).toBe(DASH);
+  });
+
+  it("treats a completed item's position as its own total when no total was recorded", () => {
+    // Real case: Bangumi reports position=10 with status=completed but no
+    // total for Rick and Morty Season 9 -- "10 episodes" alone reads as
+    // ambiguous progress, not a finished season.
+    expect(formatProgressCount(10, undefined, "episodes", "completed")).toBe(
+      "10/10 episodes",
+    );
+  });
+
+  it("does not infer a total from position for a non-completed status", () => {
+    expect(formatProgressCount(10, undefined, "episodes", "in_progress")).toBe(
+      "10 episodes",
+    );
+    expect(formatProgressCount(10, undefined, "episodes", "abandoned")).toBe(
+      "10 episodes",
+    );
+  });
+
+  it("prefers a real recorded total over the completed inference", () => {
+    expect(formatProgressCount(10, 12, "episodes", "completed")).toBe(
+      "10/12 episodes",
+    );
+  });
+});
+
+describe("progressPercent", () => {
+  it("uses an explicit percent when present", () => {
+    expect(progressPercent("in_progress", 5, 10, 42)).toBe(42);
+  });
+
+  it("derives a percent from position/total when no explicit percent exists", () => {
+    expect(progressPercent("in_progress", 5, 10, undefined)).toBe(50);
+  });
+
+  it("treats a completed item's position as its own total, filling the bar", () => {
+    expect(progressPercent("completed", 10, undefined, undefined)).toBe(100);
+  });
+
+  it("returns 0 only when nothing is known, and never fabricates a fill for unfinished progress", () => {
+    expect(progressPercent("in_progress", 46, undefined, undefined)).toBe(0);
+    expect(progressPercent(undefined, undefined, undefined, undefined)).toBe(0);
   });
 });
 

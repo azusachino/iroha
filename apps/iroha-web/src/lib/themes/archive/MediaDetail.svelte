@@ -13,6 +13,7 @@
       detail.progress?.position ?? detail.item.position,
       detail.progress?.total ?? detail.item.total,
       detail.progress?.unit ?? detail.item.unit,
+      detail.progress?.status ?? detail.item.status,
     ),
   );
   const HERO_TITLE_CLAMP = { minRem: 2.4, vw: 6.5, maxRem: 5.2 };

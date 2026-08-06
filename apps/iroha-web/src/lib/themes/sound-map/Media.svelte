@@ -5,7 +5,7 @@
     MediaRow,
     MediaScoreBucket,
   } from "$lib/api";
-  import { boundPercent, formatProgressCount } from "$lib/format";
+  import { formatProgressCount, progressPercent } from "$lib/format";
 
   let {
     items,
@@ -139,11 +139,16 @@
                 item.position,
                 item.total,
                 item.unit,
+                item.status,
               )}</small
             >
             <div class="mix-scrub">
-              <i style={`width: ${boundPercent(item.progress_percent)}%`}></i>
-              <b style={`left: ${boundPercent(item.progress_percent)}%`}></b>
+              <i
+                style={`width: ${progressPercent(item.status, item.position, item.total, item.progress_percent)}%`}
+              ></i>
+              <b
+                style={`left: ${progressPercent(item.status, item.position, item.total, item.progress_percent)}%`}
+              ></b>
             </div>
           </a>
         {/each}

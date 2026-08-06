@@ -76,6 +76,11 @@ No unreleased changes.
   known keyword, catching symbolic sequel marks no enumerable list could cover.
 - The media detail page's title heading used a viewport-only `clamp()` with no regard for title length, so a 100+ character title (not uncommon for these titles) rendered as many lines of oversized
   text. `heroTitleFontSize` (`$lib/hero-title.ts`) scales each theme's own clamp down as title length grows; wired into the default page and all five theme `MediaDetail.svelte` components.
+- `formatProgressCount`'s done/all count still looked wrong for a real case: Bangumi reports `status: completed, position: 10` for a finished anime season but never a numeric `total`, so "10 episodes"
+  sat next to a "completed" label with no way to tell it was actually finished, and the progress bar/ring next to it rendered empty (`progressValue()`/`boundPercent(item.progress_percent)` had no
+  total to derive a fill from). A completed item's position _is_ its total by definition. `effectiveTotal` (internal to `$lib/format.ts`) infers this when `status === "completed"` and no total was
+  recorded; `formatProgressCount` and the new `progressPercent` (replacing ad hoc `boundPercent(item.progress_percent)` bar/ring math across all 6 list views and the shared detail `progressValue()`)
+  both use it, so a completed item now reads "10/10 episodes" with a full bar instead of a bare, ambiguous count next to an empty one.
 
 ## [0.1.4] — 2026-08-04
 

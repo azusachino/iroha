@@ -5,7 +5,7 @@
     MediaRow,
     MediaScoreBucket,
   } from "$lib/api";
-  import { boundPercent, formatProgressCount } from "$lib/format";
+  import { formatProgressCount, progressPercent } from "$lib/format";
 
   let {
     items,
@@ -142,7 +142,7 @@
               {/if}
               <i
                 class="bud-ring"
-                style={`--sweep: ${boundPercent(item.progress_percent) * 3.6}deg`}
+                style={`--sweep: ${progressPercent(item.status, item.position, item.total, item.progress_percent) * 3.6}deg`}
                 aria-hidden="true"
               ></i>
             </span>
@@ -152,6 +152,7 @@
                 item.position,
                 item.total,
                 item.unit,
+                item.status,
               )}</small
             >
           </a>
