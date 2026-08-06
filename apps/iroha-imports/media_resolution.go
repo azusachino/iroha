@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -21,8 +23,20 @@ const (
 	mediaMatchBridge        = "bridge_ref"
 	mediaMatchTitleYear     = "title_year"
 	mediaResolutionOpen     = "open"
+	mediaResolutionResolved = "resolved"
 	mediaResolutionDedupe   = "dedupe_candidate"
 	mediaResolutionConflict = "progress_conflict"
+
+	// titleYearToleranceDays widens the release-date match from "same
+	// calendar year" to a symmetric window: different providers frequently
+	// anchor a work's release date to different events (first chapter vs
+	// first volume vs anime adaptation air date), so the same real work can
+	// legitimately show up with release dates a year apart across providers.
+	titleYearToleranceDays = 400
+
+	// mediaTitleYearConfidence marks a title/date match as heuristic --
+	// lower than the implicit 1.0 of an exact provider ref or bridge hit.
+	mediaTitleYearConfidence = 0.7
 )
 
 // MediaRefBridge contains the two locally cached hops used by the media
@@ -144,12 +158,53 @@ func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBrid
 	if err != nil {
 		return mediaResolution{}, err
 	}
-	if len(candidates) > 0 {
-		if err := createResolutionTask(tx, media, candidates); err != nil {
+	switch len(candidates) {
+	case 0:
+		// No exact-normalized-title match. One more, lower-confidence check:
+		// a provider sometimes omits a work's trailing tilde-delimited
+		// subtitle entirely rather than reformatting it (verified: Bangumi's
+		// "original" title for a real manga was an exact prefix of AniList's,
+		// missing "～世界最強はオレだけど、世界最カワは妹に違いない～"
+		// wholesale). That's too risky to auto-attach on alone -- two
+		// different works could share a long, specific opening clause and
+		// diverge only in the subtitle, which is exactly the collision
+		// TestNormalizeMediaTitle_CanonicalKeyCollisionSafety guards against
+		// for bracketed content. So a prefix match only ever opens a task for
+		// a human; it never attaches automatically, regardless of how many
+		// candidates it finds.
+		prefixCandidates, err := titlePrefixCandidates(tx, media)
+		if err != nil {
+			return mediaResolution{}, err
+		}
+		if len(prefixCandidates) > 0 {
+			if err := createResolutionTask(tx, media, prefixCandidates, mediaResolutionOpen, json.RawMessage(`{}`)); err != nil {
+				return mediaResolution{}, err
+			}
+		}
+	case 1:
+		// Unambiguous: exactly one existing item matches title, media type,
+		// and release date within tolerance. Attach to it instead of minting
+		// a duplicate; log an already-resolved task purely as an audit trail
+		// so this decision stays inspectable without requiring human review.
+		if err := createResolutionTask(tx, media, candidates, mediaResolutionResolved, autoMergedResolutionJSON()); err != nil {
+			return mediaResolution{}, err
+		}
+		confidence := mediaTitleYearConfidence
+		return mediaResolution{ItemID: candidates[0], MatchedBy: mediaMatchTitleYear, Confidence: &confidence}, nil
+	default:
+		// Ambiguous: more than one existing item matches. Auto-attaching
+		// could silently merge into the wrong one, so this stays a human
+		// decision -- leave the task open and let a fresh item get created,
+		// same as the no-candidate case.
+		if err := createResolutionTask(tx, media, candidates, mediaResolutionOpen, json.RawMessage(`{}`)); err != nil {
 			return mediaResolution{}, err
 		}
 	}
 	return mediaResolution{}, nil
+}
+
+func autoMergedResolutionJSON() json.RawMessage {
+	return json.RawMessage(`{"decision":"auto_merged","matched_by":"title_year"}`)
 }
 
 func findExternalRef(tx *gorm.DB, provider, externalID string) (*models.MediaExternalRef, error) {
@@ -167,10 +222,40 @@ func findExternalRef(tx *gorm.DB, provider, externalID string) (*models.MediaExt
 	return &ref, nil
 }
 
-func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, error) {
-	if media.ReleaseDate == nil {
-		return nil, nil
+// scopedTitleCandidateRows fetches every (scope_id, title) row in the same
+// media_type/item_role/release-date-window scope as media -- the shared
+// fetch behind both titleYearCandidates (exact match) and
+// titlePrefixCandidates (prefix match). See titleYearCandidates for why
+// title filtering happens in Go instead of SQL.
+func scopedTitleCandidateRows(tx *gorm.DB, media observations.Media) ([]struct {
+	ScopeID uuid.UUID
+	Title   string
+}, error,
+) {
+	var rows []struct {
+		ScopeID uuid.UUID
+		Title   string
 	}
+	if media.ReleaseDate == nil {
+		return rows, nil
+	}
+	windowStart := media.ReleaseDate.AddDate(0, 0, -titleYearToleranceDays)
+	windowEnd := media.ReleaseDate.AddDate(0, 0, titleYearToleranceDays)
+	// media_type/item_role must match too: the same franchise legitimately
+	// has separate items (an anime season and its manga adaptation, a TV
+	// series and its movie) that share a title and a nearby release date but
+	// must never be merged into each other.
+	err := tx.Table("tb_media_titles").Select("tb_media_titles.scope_id, tb_media_titles.title").
+		Joins("join tb_media_items on tb_media_items.id = tb_media_titles.scope_id").
+		Where("tb_media_titles.scope_type = ? and tb_media_items.media_type = ? and tb_media_items.item_role = ? and tb_media_items.release_date between ? and ?",
+			mediaScopeType, mediaTypeOrDefault(media.MediaType), itemRoleOrDefault(media.ItemRole), windowStart, windowEnd).
+		Find(&rows).Error
+	return rows, err
+}
+
+// incomingTitleSet dedupes and normalizes media's own title + alternate
+// titles into a lookup set, keyed by their normalized form.
+func incomingTitleSet(media observations.Media) map[string]struct{} {
 	titles := make([]string, 0, len(media.Titles)+1)
 	if media.Title != "" {
 		titles = append(titles, media.Title)
@@ -180,33 +265,30 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 			titles = append(titles, title.Title)
 		}
 	}
-	seen := make(map[string]struct{}, len(titles))
-	unique := titles[:0]
+	normalized := make(map[string]struct{}, len(titles))
 	for _, title := range titles {
-		key := normalizeMediaTitle(title)
-		if key == "" {
-			continue
-		}
-		if _, ok := seen[key]; !ok {
-			seen[key] = struct{}{}
-			unique = append(unique, title)
+		if key := normalizeMediaTitle(title); key != "" {
+			normalized[key] = struct{}{}
 		}
 	}
-	if len(unique) == 0 {
+	return normalized
+}
+
+func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, error) {
+	normalizedIncoming := incomingTitleSet(media)
+	if len(normalizedIncoming) == 0 {
 		return nil, nil
 	}
-
-	var rows []struct{ ScopeID uuid.UUID }
-	query := tx.Table("tb_media_titles").Select("tb_media_titles.scope_id").Joins("join tb_media_items on tb_media_items.id = tb_media_titles.scope_id").Where("tb_media_titles.scope_type = ? and extract(year from tb_media_items.release_date) = ?", mediaScopeType, media.ReleaseDate.UTC().Year())
-	for _, title := range unique {
-		query = query.Or("lower(tb_media_titles.title) = ? and extract(year from tb_media_items.release_date) = ?", strings.ToLower(normalizeMediaTitle(title)), media.ReleaseDate.UTC().Year())
-	}
-	if err := query.Find(&rows).Error; err != nil {
+	rows, err := scopedTitleCandidateRows(tx, media)
+	if err != nil {
 		return nil, err
 	}
 	result := make([]uuid.UUID, 0, len(rows))
 	seenIDs := make(map[uuid.UUID]struct{}, len(rows))
 	for _, row := range rows {
+		if _, ok := normalizedIncoming[normalizeMediaTitle(row.Title)]; !ok {
+			continue
+		}
 		if _, ok := seenIDs[row.ScopeID]; ok {
 			continue
 		}
@@ -216,7 +298,129 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 	return result, nil
 }
 
-func createResolutionTask(tx *gorm.DB, media observations.Media, candidates []uuid.UUID) error {
+// titlePrefixMinRunes bounds how short a shared prefix can be before two
+// titles are considered a prefix match. It is a hardcoded heuristic, not a
+// guarantee -- tuned against two real prod pairs (needed to accept a
+// 14-rune shared prefix, needed to reject a 7-rune one) and nothing more
+// rigorous than that. This mechanism only ever opens a review task, never
+// auto-attaches (see resolveMediaItem), so the cost of setting it too low is
+// bounded (a dismissible false-positive task) rather than unbounded (a bad
+// merge) -- but it is still just a tuned number, and titleSeasonMarkerSuffix
+// below exists precisely because the number alone was verified insufficient:
+// at this threshold "My Hero Academia" vs "My Hero Academia Season 2" also
+// passes the length check, and those are not duplicates.
+const titlePrefixMinRunes = 12
+
+// titleRemainderMinRunes rejects a prefix match when the "extra" content on
+// the longer title is too short to plausibly be an omitted subtitle clause.
+// This is the general-purpose backstop titleSeasonMarkerPattern's keyword
+// list can't be: a franchise doesn't have to spell "Season 2" to mean it --
+// Gintama's sequels are literally the base title plus a single mark (銀魂
+// -> 銀魂゜, then 銀魂°), which is 1 rune and matches no keyword pattern.
+// Measured directly against every case found in prod: every false-positive
+// remainder (season/part markers) was 1-7 runes; every genuine omitted
+// subtitle was 25+ runes. 10 sits in the gap between them.
+const titleRemainderMinRunes = 10
+
+// titleSeasonMarkerPattern matches season/part/cour markers so a prefix
+// match can be rejected when the "extra" content on the longer title is one
+// of these -- verified necessary against real prod false positives ("My
+// Hero Academia" vs "My Hero Academia Season 2", "進撃の巨人 第三季" vs
+// "... 第三季 Part.2", "Komi Can't Communicate" vs "... Part 2"): a missing
+// season/part marker means "different installment of the same franchise,"
+// the opposite of a duplicate, and no rune-count threshold can distinguish
+// that from a genuinely omitted subtitle -- the trailing content itself has
+// to be inspected. Matched against the remainder after the shared prefix,
+// which has already been through normalizeMediaTitle (NFKC-folded, lowered,
+// whitespace-stripped), so "Season 2" arrives as "season2".
+var titleSeasonMarkerPattern = regexp.MustCompile(
+	// A leading separator is common before the marker itself -- "Title:
+	// Season 2", "Title - Part 2" -- and normalizeMediaTitle strips the
+	// spaces around it, so the remainder can start with the bare separator
+	// rune butted against the keyword ("...naken:season2..."). Verified
+	// real case: "Ore dake Level Up na Ken: Season 2 - Arise from the
+	// Shadow" vs "Ore dake Level Up na Ken" -- without the optional leading
+	// separator, the anchor never lines up with the keyword.
+	`^[:\-,，、]?(season|part|cour|ova|movie|special|finalseason)[.\-:]?\d*` +
+		`|^[:\-,，、]?第[0-9〇一二三四五六七八九十百]+[期部季話话弾巻篇]` +
+		`|^[:\-,，、]?(最終季|最终季|劇場版|完結編|完结篇|終章|终章)`,
+)
+
+// titlePrefixCandidates finds items in scope whose title is a strict prefix
+// or superset of one of media's own titles -- the case exact matching can't
+// cover: one provider's title running straight to the end where the other
+// has an additional trailing tilde-delimited subtitle (verified real case:
+// Bangumi's title for a manga was AniList's title with
+// "～世界最強はオレだけど、世界最カワは妹に違いない～" entirely absent,
+// not reformatted). Deliberately never used for auto-attach -- see the
+// call site in resolveMediaItem.
+func titlePrefixCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, error) {
+	normalizedIncoming := incomingTitleSet(media)
+	if len(normalizedIncoming) == 0 {
+		return nil, nil
+	}
+	rows, err := scopedTitleCandidateRows(tx, media)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]uuid.UUID, 0, len(rows))
+	seenIDs := make(map[uuid.UUID]struct{}, len(rows))
+	for _, row := range rows {
+		rowNorm := normalizeMediaTitle(row.Title)
+		matched := false
+		for incoming := range normalizedIncoming {
+			if titlePrefixMatch(incoming, rowNorm) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		if _, ok := seenIDs[row.ScopeID]; ok {
+			continue
+		}
+		seenIDs[row.ScopeID] = struct{}{}
+		result = append(result, row.ScopeID)
+	}
+	return result, nil
+}
+
+// titlePrefixMatch reports whether a and b are the same string up to the
+// point where the shorter one ends -- i.e. one is a strict prefix of the
+// other -- and that shared prefix meets titlePrefixMinRunes. Equal strings
+// return false: that's an exact match, already handled by
+// titleYearCandidates, and treating it as a "prefix" here would just
+// duplicate that candidate into the lower-confidence pool.
+func titlePrefixMatch(a, b string) bool {
+	if a == b {
+		return false
+	}
+	shorter, longer := a, b
+	if len([]rune(a)) > len([]rune(b)) {
+		shorter, longer = b, a
+	}
+	if len([]rune(shorter)) < titlePrefixMinRunes {
+		return false
+	}
+	if !strings.HasPrefix(longer, shorter) {
+		return false
+	}
+	remainder := longer[len(shorter):]
+	if len([]rune(remainder)) < titleRemainderMinRunes {
+		return false
+	}
+	return !titleSeasonMarkerPattern.MatchString(remainder)
+}
+
+func mediaTypeOrDefault(mediaType string) string {
+	if mediaType == "" {
+		return mediaUnknownValue
+	}
+	return mediaType
+}
+
+func createResolutionTask(tx *gorm.DB, media observations.Media, candidates []uuid.UUID, status string, resolutionJSON json.RawMessage) error {
 	payload, err := json.Marshal(map[string]any{
 		"provider":     media.Provider,
 		"external_id":  media.ExternalID,
@@ -231,14 +435,62 @@ func createResolutionTask(tx *gorm.DB, media observations.Media, candidates []uu
 	if err != nil {
 		return err
 	}
-	return tx.Create(&models.MediaResolutionTask{
-		ID: id, TaskType: mediaResolutionDedupe, Status: mediaResolutionOpen,
-		CandidatesJSON: payload, ResolutionJSON: json.RawMessage(`{}`), CreatedAt: time.Now().UTC(),
-	}).Error
+	task := models.MediaResolutionTask{
+		ID: id, TaskType: mediaResolutionDedupe, Status: status,
+		CandidatesJSON: payload, ResolutionJSON: resolutionJSON, CreatedAt: time.Now().UTC(),
+	}
+	if status != mediaResolutionOpen {
+		now := time.Now().UTC()
+		task.ResolvedAt = &now
+	}
+	return tx.Create(&task).Error
 }
 
+// parenAnnotationPattern and angleAnnotationPattern locate bracketed spans
+// that MIGHT be reading-gloss annotations. NFKC folds fullwidth parens to
+// ASCII "()" before either pattern runs, so parenAnnotationPattern only
+// needs to match one paren style; the CJK angle-bracket style is separate.
+var (
+	parenAnnotationPattern = regexp.MustCompile(`\(([^()]*)\)`)
+	angleAnnotationPattern = regexp.MustCompile(`《([^《》]*)》`)
+	// pureKanaPattern is what actually decides whether a bracketed span gets
+	// stripped: only if its content is entirely hiragana/katakana (plus the
+	// katakana long-vowel mark ー and middle dot ・), i.e. a phonetic reading
+	// gloss with no identity-bearing content. A blanket "strip anything
+	// bracketed" is unsafe -- verified: it collapsed "薬屋のひとりごと（第二期）"
+	// (a real Season 2 marker in kanji) onto "薬屋のひとりごと" (Season 1), and
+	// "Fullmetal Alchemist (2003)" onto "... (2009)", a different remake.
+	// Kanji, digits, and Latin letters all fail this pattern and are left in
+	// place, keeping such disambiguators distinct.
+	pureKanaPattern = regexp.MustCompile(`^[\p{Hiragana}\p{Katakana}ー・]*$`)
+)
+
+func stripKanaOnlyAnnotations(title string) string {
+	strip := func(re *regexp.Regexp, s string) string {
+		return re.ReplaceAllStringFunc(s, func(match string) string {
+			if sub := re.FindStringSubmatch(match); len(sub) == 2 && pureKanaPattern.MatchString(sub[1]) {
+				return ""
+			}
+			return match
+		})
+	}
+	title = strip(parenAnnotationPattern, title)
+	title = strip(angleAnnotationPattern, title)
+	return title
+}
+
+// normalizeMediaTitle builds a comparison-only key, never a display value:
+// it removes whitespace entirely rather than collapsing it, because
+// providers disagree on whether a space separates a title from a
+// tilde/dash-delimited subtitle (verified against a real prod pair --
+// "...好きすぎる～真摯..." vs "...好きすぎる ～真摯..." -- the extra space
+// isn't redundant on either side, so collapsing runs of whitespace to one
+// space each still leaves them unequal; only removing whitespace altogether
+// makes them comparable).
 func normalizeMediaTitle(title string) string {
-	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(title))), " ")
+	folded := norm.NFKC.String(title)
+	stripped := stripKanaOnlyAnnotations(folded)
+	return strings.Join(strings.Fields(strings.ToLower(stripped)), "")
 }
 
 func releaseDate(value *time.Time) string {

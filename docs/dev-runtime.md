@@ -31,9 +31,11 @@ make db-down
 
 ## Nix compatibility
 
-The flake remains available for reproducible CI and existing workflows. When Make runs inside `nix develop`, it uses the tools already provided there.
+The flake remains available as an optional local shell — `nix develop` still provides the same tool set as `.mise.toml`, and Make uses whatever is already on `PATH` inside it. It is no longer required
+for anything: CI (`ci.yml`, `public-site.yml`) provisions tools with `jdx/mise-action` against the same `.mise.toml` local development uses, so local and CI tool resolution are the same mise-pinned
+versions rather than two parallel toolchains.
 
-Expected responsibilities:
+Expected responsibilities, if you do use it:
 
 ```text
 nix develop
@@ -44,7 +46,7 @@ nix develop
   -> exposes repo checks
 ```
 
-Project scripts should keep commands plain enough that both mise-backed local development and Nix-backed CI can reuse them.
+Project scripts should keep commands plain enough that both mise-backed and Nix-backed shells can reuse them.
 
 Podman and `podman-compose` may remain macOS system tools if it is not practical to package them through Nix. The uv-managed runner detects missing tools and reports a clear prerequisite error.
 
@@ -248,7 +250,7 @@ Preferred CLI:
 Goose
 ```
 
-The CLI comes from mise for local development and Nix for the reproducible check/build environment. A `uv` script wraps common operations:
+The CLI comes from mise for both local development and CI. A `uv` script wraps common operations:
 
 ```bash
 uv run python scripts/db.py apply

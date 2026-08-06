@@ -4,7 +4,6 @@ _iro & hana_ — a personal data cockpit.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE) [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](apps/iroha-server/go.mod)
 [![Postgres](https://img.shields.io/badge/Postgres-18%20%2F%20PostGIS-336791?logo=postgresql&logoColor=white)](docs/data-model.md)
-[![Built with Nix](https://img.shields.io/badge/built%20with-Nix-5277C3?logo=nixos&logoColor=white)](flake.nix)
 
 Iroha lets you own your personal data end to end: keep the **raw exports**, normalize them into a **durable Postgres/PostGIS store**, and publish only **sanitized derived views**. Running and fitness,
 sleep, daily Apple Health activity, and media (AniList/Bangumi) consumption history are the current data domains; the architecture generalizes to other personal-history sources.
@@ -68,11 +67,11 @@ by the separate static `apps/iroha-public-site`; there is no live `/public/v1` r
 | Database | PostgreSQL 18 + PostGIS, [goose](https://github.com/pressly/goose) migrations |
 | Cache    | Postgres-backed by default (`tb_cache_entries`); Valkey/Redis is optional     |
 | Web      | Svelte 5 + Vite (`apps/iroha-web`, [bun](https://bun.sh))                     |
-| Tooling  | mise for tools, `make` task runner, Nix-compatible CI                         |
+| Tooling  | mise for tools (local and CI), `make` task runner                             |
 
 ## Quickstart
 
-Requires [mise](https://mise.jdx.dev/) and Podman for local backend development. Nix remains available for CI and reproducible checks.
+Requires [mise](https://mise.jdx.dev/) and Podman for local backend development. A Nix flake remains available as an optional local shell (see `docs/dev-runtime.md`), but nothing requires it.
 
 ```sh
 mise install           # install the pinned project tools
@@ -96,7 +95,7 @@ All lifecycle commands remain Make targets. See [`docs/dev-runtime.md`](docs/dev
 ### Release versioning
 
 `VERSION` is the canonical Iroha product release version. The Makefile derives container tags as `v$(VERSION)`, injects the same value into the web build, and the cockpit shows it subtly in the
-brand/footer. A release is marked with the matching Git tag, for example `v0.1.4`.
+brand/footer. A release is marked with the matching Git tag, for example `v0.2.0`.
 
 The Go modules under `apps/` intentionally keep their own `v0.1.0` local requirements because `go.work` and local `replace` directives make them workspace modules, not independently published
 libraries. `IROHA_PARSER_VERSION` is separate: it identifies parser behavior and should only change when imports need reprocessing.

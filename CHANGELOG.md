@@ -9,6 +9,82 @@ contract between minor versions.
 
 No unreleased changes.
 
+## [0.2.0] — 2026-08-05
+
+### Added
+
+- `publicexport.Validate` — a schema/privacy regression gate that `iroha-export-public` runs before writing any output file, catching an unprefixed activity ID, a negative total/metric, or an
+  out-of-range route coordinate before it reaches the public site.
+- `meta.json` in the public-site export, carrying `generated_at`; the public site now shows "Data as of \<date\>" instead of implying its data is live.
+- A post-deploy smoke check in `.github/workflows/public-site.yml` that curls the deployed `/iroha` base path and its `data/*` snapshot files before the workflow is considered successful.
+- `make media-bridge-build` (`scripts/build_media_bridge.py`) builds the Bangumi→MAL→AniList media resolution bridge cache from BangumiExtLinker/Fribb into the `map[string]string` shape
+  `TwoHopMediaRefBridge` expects — this data was previously only ever produced ad hoc by the throwaway `media_bridge_explore.py` coverage script, so the bridge env vars
+  (`IROHA_BANGUMI_BRIDGE_PATH`/`IROHA_MAL_ANILIST_BRIDGE_PATH`) had nothing real to point at. Added `TestLoadTwoHopMediaRefBridge` covering the on-disk loader, which previously had no direct test
+  coverage.
+- `GET /api/v1/media/resolution-tasks` and `PATCH /api/v1/media/resolution-tasks/{taskId}` give the media cross-provider resolution inbox (`tb_media_resolution_tasks`) an API and a small `/admin`
+  panel — dedupe-candidate and progress-conflict tasks the resolver already wrote were previously invisible, with no way to list or act on them. Resolving records the operator's decision in
+  `resolution_json` only; it does not merge media rows or apply a progress choice — that remains a documented "later" item.
+
+### Changed
+
+- `ci.yml` and `public-site.yml` provision tools with `jdx/mise-action` against the checked-in `.mise.toml` instead of `nix develop` — local and CI now resolve the exact same pinned tool versions
+  instead of two parallel toolchains. The Nix flake remains available as an optional local shell; nothing requires it anymore. Updated `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, and
+  `docs/dev-runtime.md` to match.
+
+### Fixed
+
+- Synced media never had cover art: the AniList and Bangumi connectors fetched list data but never requested/mapped either API's cover image field, so every `tb_media_items` row has always had an
+  empty `cover_image_url`, regardless of how long ago it synced. AniList's query now selects `coverImage{large}` and Bangumi's `subjectRecord` now decodes `images.large`; both map into
+  `observations.Media.CoverImageURL`, which the import pipeline already threaded through on both insert and reconcile-update. A resync backfills existing items, since the update path only skips a
+  column when the incoming value is empty.
+- Cross-provider media resolution was silently creating duplicate items instead of deduping them: `titleYearCandidates`'s `Where(...).Or(...)` chain OR'd the base scope condition into the whole clause
+  instead of ANDing it against each title alternative, so it matched almost every item released in the same calendar year regardless of title (verified in prod: 1961/2000 items sat as false-positive
+  `dedupe_candidate` tasks). Separately, an exact-calendar-year filter made same-work items structurally unmatchable whenever providers disagreed on release date by more than a few months, and a real
+  candidate match was never actually used — the resolver logged an advisory task but still created a new item every time. `titleYearCandidates` now scopes on `media_type` + `item_role` and a ±400-day
+  release-date window instead of an exact year, and `resolveMediaItem` auto-attaches to a single unambiguous candidate (logging an already-resolved audit task) while an ambiguous multi-candidate match
+  still opens a task for a human, same as before.
+- Even after the above, exact-string title matching still missed real cross-provider duplicates whenever the two providers rendered the same title slightly differently — a trailing bracketed reading
+  gloss kept on one side and dropped on the other, the same in-title gloss in a different bracket style (fullwidth `（）` vs CJK `《》`), or a fullwidth `～` vs ASCII `~` plus incidental spacing
+  differences (all verified against real production duplicates a plain lowercase/whitespace-normalized match let through). `normalizeMediaTitle` now NFKC-folds the title (which also collapses
+  fullwidth punctuation to ASCII) and strips bracketed annotations before comparing; `titleYearCandidates` fetches its scoped candidate set from SQL and applies this normalization in Go on both sides,
+  since neither transform has a cheap SQL equivalent.
+- One more real duplicate shape survived even that: Bangumi running a title straight into its tilde-delimited subtitle with no space, AniList inserting one (`...好きすぎる～真摯...` vs
+  `...好きすぎる ～真摯...`). Collapsing whitespace doesn't help when there's no redundant whitespace to collapse — the two sides simply disagree on whether a separator space exists at all.
+  `normalizeMediaTitle`'s comparison key now drops whitespace entirely instead of collapsing it to single spaces.
+- Blanket bracket-stripping was itself unsafe: a collision-safety unit test (`TestNormalizeMediaTitle_CanonicalKeyCollisionSafety`) caught it collapsing "薬屋のひとりごと（第二期）" (a real Season 2
+  marker) onto "薬屋のひとりごと" (Season 1), and "Fullmetal Alchemist (2003)" onto "... (2009)", a different remake — bracketed content isn't always a reading gloss. `normalizeMediaTitle` now only
+  strips a bracketed span when its content is entirely hiragana/katakana; kanji, digits, and Latin letters (season markers, years, initialisms) are left in place.
+- Measured directly against production (every Bangumi manga ID actually synced vs. `bangumi_to_mal.json`'s keys): the Bangumi→AniList bridge covers 0% of manga, only anime (~66%, matching the existing
+  spike number). `docs/media-sync-connectors.md` previously implied the bridge was a general cross-provider mechanism with an anime-shaped tail; corrected to state that title/date matching is the
+  _sole_ cross-provider dedup path for manga, not a fallback — manga is the majority of most Bangumi+AniList libraries, so this is the more consequential path, not the less.
+- One duplicate shape no normalization could fix: a provider omitting a work's entire trailing subtitle rather than reformatting it (verified real case: Bangumi's title for a manga ran straight to the
+  end where AniList's had an additional "～世界最強はオレだけど、世界最カワは妹に違いない～" clause, absent, not reworded). `titlePrefixCandidates` now detects a ≥12-rune shared prefix as a
+  lower-confidence signal — but deliberately only ever opens a `tb_media_resolution_task` for a human, never auto-attaches, since two different works sharing a long specific opening and diverging only
+  in the subtitle is exactly the collision case `TestNormalizeMediaTitle_CanonicalKeyCollisionSafety` already guards against for bracketed content. (25 runes was the original floor; lowered after a
+  second real pair, "異世界グルメで成り上がり無双", showed only a 14-rune shared prefix — since this path never auto-merges, a false positive only costs a dismiss click, so erring low was the safer
+  call than erring high and staying silently invisible.)
+- Every media list/detail view (all 6 UI variants) displayed a percentage next to progress even when no total was known, via `formatPercent(item.progress_percent ?? 0)` — coercing null to 0 defeated
+  `formatPercent`'s own correct "—" handling and rendered as a confident, fabricated "0%" for an item with real logged progress (e.g. 46 chapters read, but no known total). Replaced with
+  `formatProgressCount`, which shows a done/all count when the total is known and just the done count otherwise — never a fabricated percentage.
+- `titlePrefixCandidates`' rune-count floor turned out insufficient on its own: verified in prod that "My Hero Academia" vs "My Hero Academia Season 2" (and equivalents — `Komi Can't Communicate` vs
+  `... Part 2`, `進撃の巨人 第三季` vs `... Part.2`) both clear a 12-rune shared prefix, but a missing season/part marker means a different installment of the same franchise, not a duplicate. No
+  rune-count threshold can distinguish that from a genuinely omitted subtitle — the trailing content itself has to be inspected. `titlePrefixMatch` now rejects a match when the remainder after the
+  shared prefix looks like a season/part/cour marker (English `Season N`/`Part N`/`Cour N`/`OVA`/`Movie`, Japanese `第N期`/`最終季`/`劇場版`, Chinese equivalents).
+- That keyword list is necessarily incomplete — a franchise doesn't have to spell "Season 2" to mean it. Gintama's real sequels are the base title plus a single mark (`銀魂` → `銀魂゜` → `銀魂°`),
+  which matches no keyword pattern. Measured every case found in prod: every false-positive remainder (season/part markers) was 1–7 runes; every genuine omitted subtitle was 25+ runes. Added
+  `titleRemainderMinRunes = 10` as a general-purpose backstop in that gap — rejects any prefix match whose remainder is too short to plausibly be a subtitle clause, regardless of whether it matches a
+  known keyword, catching symbolic sequel marks no enumerable list could cover.
+- The media detail page's title heading used a viewport-only `clamp()` with no regard for title length, so a 100+ character title (not uncommon for these titles) rendered as many lines of oversized
+  text. `heroTitleFontSize` (`$lib/hero-title.ts`) scales each theme's own clamp down as title length grows; wired into the default page and all five theme `MediaDetail.svelte` components.
+- `formatProgressCount`'s done/all count still looked wrong for a real case: Bangumi reports `status: completed, position: 10` for a finished anime season but never a numeric `total`, so "10 episodes"
+  sat next to a "completed" label with no way to tell it was actually finished, and the progress bar/ring next to it rendered empty (`progressValue()`/`boundPercent(item.progress_percent)` had no
+  total to derive a fill from). A completed item's position _is_ its total by definition. `effectiveTotal` (internal to `$lib/format.ts`) infers this when `status === "completed"` and no total was
+  recorded; `formatProgressCount` and the new `progressPercent` (replacing ad hoc `boundPercent(item.progress_percent)` bar/ring math across all 6 list views and the shared detail `progressValue()`)
+  both use it, so a completed item now reads "10/10 episodes" with a full bar instead of a bare, ambiguous count next to an empty one.
+- `titleSeasonMarkerPattern` anchored the keyword at the very start of the remainder, so a season marker introduced with a leading separator slipped through: "Ore dake Level Up na Ken: Season 2 -
+  Arise from the Shadow" vs "Ore dake Level Up na Ken" put a colon at remainder position 0, one character before "season" ever appears. Titles routinely introduce a subtitle/season marker this way
+  ("Title: Season 2", "Title - Part 2"); the pattern now allows one optional leading separator before the keyword.
+
 ## [0.1.4] — 2026-08-04
 
 ### Added

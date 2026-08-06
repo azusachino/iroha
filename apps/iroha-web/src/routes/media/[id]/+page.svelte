@@ -1,9 +1,13 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { getMedia, type MediaDetail } from "$lib/api";
+  import { formatProgressCount, progressPercent } from "$lib/format";
+  import { heroTitleFontSize } from "$lib/hero-title";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+
+  const HERO_TITLE_CLAMP = { minRem: 1.8, vw: 5, maxRem: 3.4 };
 
   let detail = $state<MediaDetail | null>(null);
   let loading = $state(true);
@@ -36,13 +40,34 @@
   }
 
   function progressValue(): number {
-    if (!detail?.progress) return detail?.item.progress_percent ?? 0;
-    if (detail.progress.progress_percent != null)
-      return detail.progress.progress_percent;
-    if (detail.progress.position != null && detail.progress.total) {
-      return (detail.progress.position / detail.progress.total) * 100;
-    }
-    return 0;
+    const status = detail?.progress?.status ?? detail?.item.status;
+    const position = detail?.progress?.position ?? detail?.item.position;
+    const total = detail?.progress?.total ?? detail?.item.total;
+    const percent =
+      detail?.progress?.progress_percent ?? detail?.item.progress_percent;
+    return progressPercent(status, position, total, percent);
+  }
+
+  function progressCountLabel(): string {
+    if (!detail?.progress) return "";
+    return formatProgressCount(
+      detail.progress.position,
+      detail.progress.total,
+      detail.progress.unit,
+      detail.progress.status,
+    );
+  }
+
+  // Whether a total is known or can be inferred (a completed item's
+  // position stands in for its total) -- gates the percent readout and bar,
+  // which need an actual total to mean anything, on the same basis
+  // progressValue()/progressCountLabel() already use internally.
+  function hasKnownTotal(): boolean {
+    if (!detail?.progress) return false;
+    if (detail.progress.total != null) return true;
+    return (
+      detail.progress.status === "completed" && detail.progress.position != null
+    );
   }
 
   function relationLabel(value: string): string {
@@ -92,7 +117,14 @@
         {/if}
         <div class="hero-copy">
           <p class="eyebrow">{detail.item.media_type.replaceAll("_", " ")}</p>
-          <h1>{detail.item.native_title || detail.item.title}</h1>
+          <h1
+            style:font-size={heroTitleFontSize(
+              detail.item.native_title || detail.item.title,
+              HERO_TITLE_CLAMP,
+            )}
+          >
+            {detail.item.native_title || detail.item.title}
+          </h1>
           {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
             <p class="original-title">{detail.item.title}</p>
           {/if}
@@ -122,11 +154,11 @@
                   <p class="eyebrow">Progress</p>
                   <h2>{detail.progress.unit || "Current position"}</h2>
                 </div>
-                {#if detail.progress.total != null}
+                {#if hasKnownTotal()}
                   <strong>{Math.round(progressValue())}%</strong>
                 {/if}
               </div>
-              {#if detail.progress.total != null}
+              {#if hasKnownTotal()}
                 <div class="progress-track">
                   <span
                     style={`width: ${Math.min(Math.max(progressValue(), 0), 100)}%`}
@@ -134,11 +166,7 @@
                 </div>
               {/if}
               <div class="progress-meta">
-                <span
-                  >{detail.progress.position ?? 0}{detail.progress.total != null
-                    ? ` / ${detail.progress.total}`
-                    : ""}</span
-                >
+                <span>{progressCountLabel()}</span>
                 <span
                   >{detail.progress.play_count
                     ? `${detail.progress.play_count} replays`
@@ -280,7 +308,6 @@
   }
   h1 {
     max-width: 38rem;
-    font-size: clamp(1.8rem, 5vw, 3.4rem);
     line-height: 1.02;
     letter-spacing: -0.045em;
   }

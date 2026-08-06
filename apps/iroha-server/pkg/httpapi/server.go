@@ -18,6 +18,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/tasks"
 	"github.com/go-chi/chi/v5"
@@ -37,22 +38,23 @@ const apiRateLimitPerMin = 6000
 const readCacheTTL = 24 * time.Hour
 
 type Dependencies struct {
-	Config           config.Config
-	Logger           *slog.Logger
-	ActivityService  *activities.Service
-	SleepService     *sleep.Service
-	DailyService     *daily.Service
-	MediaService     *media.Service
-	BriefingRegistry *briefing.Registry
-	ImportService    *imports.Service
-	RawFileService   *rawfiles.Service
-	Cache            *cache.Client
-	GeocodeService   *geocode.Service
-	JobEnqueuer      imports.Enqueuer
-	JobsService      *jobs.Service
-	TaskService      *tasks.Service
-	MaxUploadBytes   int64
-	AllowedOrigins   []string
+	Config                 config.Config
+	Logger                 *slog.Logger
+	ActivityService        *activities.Service
+	SleepService           *sleep.Service
+	DailyService           *daily.Service
+	MediaService           *media.Service
+	MediaResolutionService *mediaresolution.Service
+	BriefingRegistry       *briefing.Registry
+	ImportService          *imports.Service
+	RawFileService         *rawfiles.Service
+	Cache                  *cache.Client
+	GeocodeService         *geocode.Service
+	JobEnqueuer            imports.Enqueuer
+	JobsService            *jobs.Service
+	TaskService            *tasks.Service
+	MaxUploadBytes         int64
+	AllowedOrigins         []string
 }
 
 type Server struct {
@@ -131,6 +133,8 @@ func (s *Server) routes() {
 			r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
 			r.Get("/aggregates", s.handleMediaAggregates)
 			r.Get("/events", s.handleListMediaEvents)
+			r.Get("/resolution-tasks", s.handleListMediaResolutionTasks)
+			r.Patch("/resolution-tasks/{taskId}", s.handleUpdateMediaResolutionTask)
 			r.Get("/", s.handleListMedia)
 			r.Get("/{mediaId}", s.handleGetMedia)
 		})

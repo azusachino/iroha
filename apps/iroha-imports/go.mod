@@ -7,6 +7,7 @@ require (
 	github.com/azusachino/iroha/apps/iroha-providers v0.1.0
 	github.com/azusachino/iroha/apps/iroha-runtime v0.1.0
 	github.com/google/uuid v1.6.0
+	golang.org/x/text v0.21.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
@@ -23,7 +24,6 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
 )
 
 replace github.com/azusachino/iroha/apps/iroha-core => ../iroha-core

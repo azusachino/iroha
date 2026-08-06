@@ -165,13 +165,22 @@ Keep the emitted observation provider-neutral: both connectors map their native 
 2. Match via a **bridge ref** → existing item; attach the new provider ref. AniList media carries `idMal` in-band (verified). Bangumi has no in-band ref, so bridge it via a static dataset: **Bangumi
    subject id → MAL id** through [Rhilip/BangumiExtLinker](https://github.com/Rhilip/BangumiExtLinker) (Bangumi-keyed, exposes `mal_id`, CC BY 4.0), then **MAL id → AniList id** through
    [Fribb/anime-lists](https://github.com/Fribb/anime-lists) (`mal_id`↔`anilist_id`, verified). Cache both datasets locally and refresh periodically.
-3. Conservative title+year match across `tb_media_titles` → **low-confidence** candidate → create a `tb_media_resolution_task` (inbox) rather than auto-merging.
+3. Title match across `tb_media_titles`, scoped to the same `media_type` + `item_role` (an anime season and its manga adaptation must never merge) and a release date within **±400 days** (providers
+   routinely disagree on which event anchors a work's release date by several months, so an exact-year match misses real matches). The title comparison itself NFKC-folds both sides (collapsing
+   fullwidth punctuation like `～`/`（）` to ASCII) and strips bracketed annotations (`(...)`, `《...》`) before comparing, since providers routinely render the same title with a trailing reading
+   gloss kept on one side and dropped on the other, or the same in-title gloss in a different bracket style — a plain lowercase/whitespace-normalized string match missed these in production. Exactly
+   one candidate → **auto-attach** to it (`matched_by = title_year`, confidence 0.7) and log an already-resolved `tb_media_resolution_task` purely as an audit trail; no human action needed. Two or
+   more candidates → genuinely ambiguous, so this stays a human decision: create a fresh item as in step 4 and leave the task **open** for the resolution inbox instead of guessing.
 4. No match → create new work + item + titles + ref, `matched_by = provider_id`.
 
 Cross-provider linking is what makes AniList + Bangumi complementary rather than duplicative: AniList supplies `idMal` and romaji/english titles; Bangumi supplies Chinese titles and its own subject
-id. When both connectors see the same anime, the two-hop bridge (Bangumi→MAL→AniList) converges them on one `tb_media_items` row with three provider refs and four+ title rows. The bridge is not total
-— CN databases split some works differently than MAL/AniList, so the split-entry tail falls through to step 3 (title+year → inbox). The spike (`iroha:media-connector-spike`) quantifies that tail
-against a real collection before we commit the resolver.
+id. When both connectors see the same anime, the two-hop bridge (Bangumi→MAL→AniList) converges them on one `tb_media_items` row with three provider refs and four+ title rows. **The bridge is
+anime-only in practice, not just "not total"**: measured directly against production data (2026-08-06, `bangumi_to_mal.json` keys vs. every Bangumi ID actually synced), **0% of Bangumi manga IDs
+appear in the bridge at all**, vs. 66% of anime IDs (matching the §11 spike number) — BangumiExtLinker's dataset simply doesn't cross-reference manga/light-novel subjects. Since manga is the majority
+of most Bangumi+AniList libraries (§11: 61% book), **step 3 (title/date matching) is the primary cross-provider dedup mechanism for manga, not a long-tail fallback** — its correctness matters as much
+as the bridge's, not less. The spike (`iroha:media-connector-spike`) quantified the anime tail before the resolver was committed; a 2026-08 production audit found step 3 itself had a real bug (see the
+CHANGELOG `[0.2.0]` entries) once alternate (non-primary) titles, cross-year release dates, and provider-specific title formatting (bracketed reading glosses, differing bracket styles, fullwidth
+punctuation, inconsistent subtitle spacing) were accounted for.
 
 ## 8. Sync semantics
 
@@ -194,13 +203,25 @@ against a real collection before we commit the resolver.
 - Both connectors must send a descriptive `User-Agent` identifying iroha. AniList's Cloudflare **403s the default `Python-urllib`/no-UA request** (verified), so a UA is mandatory there; Bangumi reads
   work without one but send it anyway.
 
+### Bridge cache
+
+`make media-bridge-build` (`scripts/build_media_bridge.py`) fetches BangumiExtLinker + Fribb (§7) and writes `bangumi_to_mal.json` / `mal_to_anilist.json` — plain `{string: string}` maps, since
+`TwoHopMediaRefBridge.Lookup` (`apps/iroha-imports/media_resolution.go`) compares provider IDs as strings throughout. `iroha-job` loads them from local files at startup via `IROHA_BANGUMI_BRIDGE_PATH`
+/ `IROHA_MAL_ANILIST_BRIDGE_PATH` (`LoadTwoHopMediaRefBridge`); either or both may be unset, in which case that hop of the bridge is simply skipped and unresolved items fall through to the title+year
+inbox (§7 step 3). These are deployment artifacts, not application code — the k3s ConfigMaps that mount them onto `iroha-job` live in harus-k3s, generated from this command's output the same way a
+sealed secret is generated locally and committed to its target repo. Re-run the build and redeploy the ConfigMaps periodically (there is no auto-refresh): the anime tail in §11 is mostly recent
+seasonal anime the upstream datasets haven't mapped yet, so that tail shrinks the closer to "now" the cache was last built — but **rebuilding will not help manga coverage**, which is 0% regardless of
+freshness (§7). Don't read "bridge cache" as "the general cross-provider dedup mechanism"; for manga it isn't in the loop at all.
+
 ## 10. Delivery status and remaining work
 
 Ordered smallest → biggest to build momentum; each ends green on `make check`.
 
-1. **Shipped** — schema, media dispatch/persistence, connector contract, cursor state, AniList/Bangumi pagination, raw snapshot evidence, worker retry handling, and private sync trigger.
-2. **Next** — broaden observations to the full ontology (titles, external refs, work/item linkage, events, and progress projections).
-3. **Later** — cross-provider dedup/inbox, bridge dataset refresh, connector account storage, and web inbox UI.
+1. **Shipped** — schema, media dispatch/persistence, connector contract, cursor state, AniList/Bangumi pagination, raw snapshot evidence, worker retry handling, private sync trigger, full ontology
+   (titles, external refs, work/item linkage, events, progress projections), the bridge cache build/deploy, the resolution-tasks API + `/admin` inbox panel, and cross-provider dedup auto-attach (§7).
+2. **Next** — automate bridge dataset refresh (currently a manual `make media-bridge-build` + ConfigMap redeploy with no schedule); merge/apply tooling for the genuinely ambiguous (2+ candidate)
+   resolution tasks, which today still only record a human's decision without acting on it.
+3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and a richer web inbox UI beyond the `/admin` confirm/dismiss panel.
 
 Deferred (explicitly out of this draft's scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Letterboxd/Goodreads/WeRead CSV; TMDb/Open Library enrichment; self-hosted
 (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/inbox/history).
@@ -216,4 +237,6 @@ collections). See epic `iroha:media-connector-spike`.
 - **AniList→MAL bridge is reliable**: `idMal` coverage 100% anime / 97% manga.
 - **Bangumi→AniList auto-bridge = ~66%** of anime (two-hop via BangumiExtLinker + Fribb). The **~34% tail is almost entirely 2024–2026 seasonal anime** the datasets haven't mapped yet — so title+year
   candidate + `tb_media_resolution_tasks` inbox is **required for an active watcher's recent list**, not a nicety. Cache both datasets locally and refresh periodically.
+- **Bangumi→AniList auto-bridge = 0% of manga** (measured 2026-08-06 against every Bangumi manga ID in a real production sync: none present in `bangumi_to_mal.json`). BangumiExtLinker doesn't
+  cross-reference manga/light-novel subjects at all, so freshness doesn't help here the way it does for anime — title+date matching is the _only_ cross-provider dedup path for manga, not a fallback.
 - **Dedupe is load-bearing**: 63 of the 136 Bangumi anime are also in the AniList list (same `idMal`) — real cross-account collisions the `external_refs` ladder must merge onto one item.

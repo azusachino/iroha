@@ -16,6 +16,7 @@
   import { createSvelteTable } from "$lib/table.svelte";
   import {
     formatDate,
+    formatDateOnly,
     formatDistance,
     formatDuration,
     formatHr,
@@ -34,6 +35,7 @@
   const summary = $derived(data.summary);
   const activities = $derived(data.activities);
   const routes = $derived(data.routes);
+  const meta = $derived(data.meta);
 
   const MONTH_LABELS = [
     "Jan",
@@ -236,6 +238,7 @@
   <p class="muted">
     A calm, read-only view of the years, routes, and sessions made visible.
   </p>
+  <p class="muted">Data as of {formatDateOnly(meta.generated_at)}</p>
 </header>
 
 <div class="stat-grid">

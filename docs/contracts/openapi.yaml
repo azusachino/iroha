@@ -514,6 +514,63 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/media/resolution-tasks:
+    get:
+      tags: [media]
+      summary: List the media cross-provider resolution inbox.
+      description: |
+        Dedupe-candidate and progress-conflict tasks the media resolver
+        (apps/iroha-imports) writes when it cannot auto-resolve a synced
+        item. Defaults to open tasks only.
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [open, resolved, dismissed] }
+      responses:
+        "200":
+          description: Media resolution tasks.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaResolutionTask"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/media/resolution-tasks/{taskId}:
+    patch:
+      tags: [media]
+      summary: Record the operator's decision on a resolution task.
+      description: |
+        Closes an open task as resolved or dismissed. This only records the
+        decision in resolution_json for a future consumer to act on -- it
+        does not merge media rows or apply a progress choice.
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [resolved, dismissed] }
+                resolution: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Updated resolution task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaResolutionTask"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/tasks:
     get:
       tags: [control-room]
@@ -826,6 +883,17 @@ components:
         completed_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    MediaResolutionTask:
+      type: object
+      required: [id, task_type, status, candidates, resolution, created_at]
+      properties:
+        id: { type: string }
+        task_type: { type: string, enum: [dedupe_candidate, progress_conflict] }
+        status: { type: string, enum: [open, resolved, dismissed] }
+        candidates: { type: object, additionalProperties: true }
+        resolution: { type: object, additionalProperties: true }
+        created_at: { type: string, format: date-time }
+        resolved_at: { type: string, format: date-time }
     Activity:
       type: object
       required:

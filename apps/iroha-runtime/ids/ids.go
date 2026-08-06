@@ -8,15 +8,16 @@ import (
 )
 
 const (
-	RawFilePrefix      = "raw"
-	ImportPrefix       = "imp"
-	ActivityPrefix     = "act"
-	SleepPrefix        = "sleep"
-	SleepSegmentPrefix = "sleepseg"
-	DailySummaryPrefix = "daily"
-	MediaPrefix        = "media"
-	JobPrefix          = "job"
-	TaskPrefix         = "task"
+	RawFilePrefix             = "raw"
+	ImportPrefix              = "imp"
+	ActivityPrefix            = "act"
+	SleepPrefix               = "sleep"
+	SleepSegmentPrefix        = "sleepseg"
+	DailySummaryPrefix        = "daily"
+	MediaPrefix               = "media"
+	JobPrefix                 = "job"
+	TaskPrefix                = "task"
+	MediaResolutionTaskPrefix = "medres"
 )
 
 func New() (uuid.UUID, error) {

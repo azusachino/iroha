@@ -20,7 +20,8 @@ docs/                 design docs
 
 ## Toolchain & tasks
 
-- **Nix-first**: every tool comes from the devShell (`nix develop`). `make` targets auto-wrap into it via `NIX_DEV` when run outside the shell.
+- **mise-first**: every tool is pinned in `.mise.toml` (`mise install`). `make` targets auto-wrap with `mise exec --` via `IN_NIX_SHELL` detection when run outside an activated mise or Nix shell. A
+  Nix flake remains available as an optional local shell, but CI (`ci.yml`, `public-site.yml`) and local development both resolve tools from the same `.mise.toml` — see `docs/dev-runtime.md`.
 - **`make` is the task runner** — always reference `make <target>`. `make check` is the pre-commit gate; `make validate` is the pre-PR gate (both enforced by local hooks).
 - Migrations run through **goose** via `make db-up` / `make db-reset` (which call `scripts/dev_stack.py`). There is **no** GORM AutoMigrate — the SQL migration is the source of truth and the
   hand-written structs in `internal/models/models.go` must match it.

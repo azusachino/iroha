@@ -41,16 +41,17 @@ type mediaListEntry struct {
 }
 
 type mediaNode struct {
-	ID        int         `json:"id"`
-	IDMal     *int        `json:"idMal"`
-	Type      string      `json:"type"`
-	Format    string      `json:"format"`
-	Episodes  *int        `json:"episodes"`
-	Chapters  *int        `json:"chapters"`
-	Volumes   *int        `json:"volumes"`
-	Title     mediaTitle  `json:"title"`
-	StartDate anilistDate `json:"startDate"`
-	Relations struct {
+	ID         int             `json:"id"`
+	IDMal      *int            `json:"idMal"`
+	Type       string          `json:"type"`
+	Format     string          `json:"format"`
+	Episodes   *int            `json:"episodes"`
+	Chapters   *int            `json:"chapters"`
+	Volumes    *int            `json:"volumes"`
+	Title      mediaTitle      `json:"title"`
+	StartDate  anilistDate     `json:"startDate"`
+	CoverImage mediaCoverImage `json:"coverImage"`
+	Relations  struct {
 		Edges []struct {
 			RelationType string    `json:"relationType"`
 			Node         mediaNode `json:"node"`
@@ -62,6 +63,10 @@ type mediaTitle struct {
 	Romaji  string `json:"romaji"`
 	English string `json:"english"`
 	Native  string `json:"native"`
+}
+
+type mediaCoverImage struct {
+	Large string `json:"large"`
 }
 
 type anilistDate struct {

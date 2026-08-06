@@ -1,9 +1,22 @@
 <script lang="ts">
   import type { MediaDetail } from "$lib/api";
+  import { formatProgressCount } from "$lib/format";
+  import { heroTitleFontSize } from "$lib/hero-title";
 
   let { detail, progress }: { detail: MediaDetail; progress: number } =
     $props();
   const boundedProgress = $derived(Math.min(Math.max(progress, 0), 100));
+  // A percentage implies a known total, which most media never has (an
+  // ongoing manga, an unfinished anime season). Show what's actually known.
+  const progressLabel = $derived(
+    formatProgressCount(
+      detail.progress?.position ?? detail.item.position,
+      detail.progress?.total ?? detail.item.total,
+      detail.progress?.unit ?? detail.item.unit,
+      detail.progress?.status ?? detail.item.status,
+    ),
+  );
+  const HERO_TITLE_CLAMP = { minRem: 2.4, vw: 6.5, maxRem: 5.2 };
 
   function tone(pct: number): string {
     const clamped = Math.max(0, Math.min(100, pct));
@@ -32,7 +45,14 @@
       <p class="folio-kicker">
         {detail.item.media_type.replaceAll("_", " ")} / collection record
       </p>
-      <h1>{detail.item.native_title || detail.item.title}</h1>
+      <h1
+        style:font-size={heroTitleFontSize(
+          detail.item.native_title || detail.item.title,
+          HERO_TITLE_CLAMP,
+        )}
+      >
+        {detail.item.native_title || detail.item.title}
+      </h1>
       {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
         <p class="original-title">{detail.item.title}</p>
       {/if}
@@ -58,7 +78,7 @@
           <p class="folio-kicker">Continuity</p>
           <h2>{detail.progress?.unit || "Current position"}</h2>
         </div>
-        <strong class="progress-readout">{Math.round(boundedProgress)}%</strong>
+        <strong class="progress-readout">{progressLabel}</strong>
       </div>
       <div class="progress-row">
         <div class="core-gauge-well">
@@ -157,7 +177,6 @@
   }
   h1 {
     max-width: 12ch;
-    font-size: clamp(2.4rem, 6.5vw, 5.2rem);
     line-height: 0.95;
   }
   h2 {

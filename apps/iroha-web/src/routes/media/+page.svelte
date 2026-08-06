@@ -6,6 +6,7 @@
     type MediaAggregates,
     type MediaRow,
   } from "$lib/api";
+  import { progressPercent } from "$lib/format";
   import StatTile from "$lib/components/StatTile.svelte";
   import MediaBarChart from "$lib/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
@@ -229,11 +230,12 @@
   }
 
   function progressValue(item: MediaRow): number {
-    if (item.progress_percent != null)
-      return Math.min(Math.max(item.progress_percent, 0), 100);
-    if (item.position != null && item.total)
-      return Math.min(Math.max((item.position / item.total) * 100, 0), 100);
-    return 0;
+    return progressPercent(
+      item.status,
+      item.position,
+      item.total,
+      item.progress_percent,
+    );
   }
 
   // Default to the native (Japanese) title; keep the English/romaji as a

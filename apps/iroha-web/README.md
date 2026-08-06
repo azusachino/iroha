@@ -15,7 +15,7 @@ allowlisted media sync jobs.
 - MapLibre GL for the route map (key-free OpenStreetMap raster tiles)
 - uPlot for the line charts
 
-Node/bun tooling comes from the Nix devShell (`nix develop`). Use `bun`, not
+Node/bun tooling is pinned via `.mise.toml` at the repo root. Use `bun`, not
 npm/pnpm/yarn.
 
 ## Configuration

@@ -1,10 +1,23 @@
 <script lang="ts">
   import type { MediaDetail } from "$lib/api";
+  import { formatProgressCount } from "$lib/format";
+  import { heroTitleFontSize } from "$lib/hero-title";
 
   let { detail, progress }: { detail: MediaDetail; progress: number } =
     $props();
 
   const boundedProgress = $derived(Math.min(Math.max(progress, 0), 100));
+  // A percentage implies a known total, which most media never has (an
+  // ongoing manga, an unfinished anime season). Show what's actually known.
+  const progressLabel = $derived(
+    formatProgressCount(
+      detail.progress?.position ?? detail.item.position,
+      detail.progress?.total ?? detail.item.total,
+      detail.progress?.unit ?? detail.item.unit,
+      detail.progress?.status ?? detail.item.status,
+    ),
+  );
+  const HERO_TITLE_CLAMP = { minRem: 2.3, vw: 6, maxRem: 4.9 };
   const RING_R = 42;
   const RING_C = 2 * Math.PI * RING_R;
 </script>
@@ -22,7 +35,14 @@
       <p class="bloom-kicker">
         {detail.item.media_type.replaceAll("_", " ")} / collection record
       </p>
-      <h1>{detail.item.native_title || detail.item.title}</h1>
+      <h1
+        style:font-size={heroTitleFontSize(
+          detail.item.native_title || detail.item.title,
+          HERO_TITLE_CLAMP,
+        )}
+      >
+        {detail.item.native_title || detail.item.title}
+      </h1>
       {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
         <p class="original-title">{detail.item.title}</p>
       {/if}
@@ -61,7 +81,7 @@
             style={`stroke-dasharray: ${(boundedProgress / 100) * RING_C} ${RING_C}`}
           />
         </svg>
-        <strong>{Math.round(boundedProgress)}%</strong>
+        <strong>{progressLabel}</strong>
       </div>
       <div class="progress-meta">
         <span
@@ -163,7 +183,6 @@
   }
   h1 {
     max-width: 12ch;
-    font-size: clamp(2.3rem, 6vw, 4.9rem);
     line-height: 0.95;
   }
   h2 {

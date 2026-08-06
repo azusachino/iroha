@@ -12,9 +12,10 @@ IMAGE_NS := azusachino.icu
 VERSION := $(shell tr -d '\n' < VERSION)
 TAG := v$(VERSION)
 OUT := ./dist/public-data
+MEDIA_BRIDGE_OUT := ./dist/media-bridge
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
@@ -61,6 +62,9 @@ run-job: db-up ## Run one iroha-job polling worker against the local dev stack
 
 export-public: db-up ## Export sanitized public data as static JSON/GeoJSON (OUT=./dist/public-data)
 	$(TOOL_ENV)go -C $(SERVER_DIR) run ./cmd/iroha-export-public --out $(abspath $(OUT))
+
+media-bridge-build: ## Build the Bangumi->MAL->AniList bridge cache (MEDIA_BRIDGE_OUT=./dist/media-bridge)
+	$(TOOL_ENV)uv run python scripts/build_media_bridge.py --out $(MEDIA_BRIDGE_OUT)
 
 ## --- Web frontend (apps/iroha-web, bun) ---
 web-install: ## Install web dependencies

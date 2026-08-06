@@ -94,6 +94,7 @@ func mapRecord(record collectionRecord) observations.Media {
 		ReleaseDate:    parseDate(subject.Date),
 		EpisodeCount:   subject.Eps,
 		VolumeNumber:   floatPtrFromInt(subject.Volumes),
+		CoverImageURL:  subject.Images.Large,
 		Status:         status,
 		Progress:       position,
 		Score:          normalizeRate(record.Rate),

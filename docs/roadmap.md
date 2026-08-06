@@ -158,9 +158,9 @@ Full Apple Health export zips may exceed normal Telegram Bot API file limits, so
 
 ## Milestone 7: Privacy and Publishing
 
-Goal: separate private canonical data from public output.
+Goal: separate private canonical data from public output. See [Public-site publishing workflow](public-site-publishing.md) for the operational pipeline, review loop, and rollback path (issue #41).
 
-Status: shipped. Privacy zones and sanitized activity projections are implemented — `apps/iroha-server/pkg/activities` trims route endpoints and masks auto-detected private zones (home, work, and
+Status: partially shipped. Privacy zones and sanitized activity projections are implemented — `apps/iroha-server/pkg/activities` trims route endpoints and masks auto-detected private zones (home, work, and
 other frequent start/end hubs) across every route, and `apps/iroha-server/pkg/publicexport` builds the sanitized activity/summary/route projection from that. The original design served this from a
 `/public/v1` HTTP surface living in the same process as the private API; that surface has been removed (it was never actually exposed to the internet — an open-CORS route and a second rate-limit
 budget serving a page nobody could reach). The replacement is a static export instead of a second live API surface:
@@ -181,6 +181,9 @@ Actions, on infrastructure GitHub never touches (`ops/scripts/export-public-cron
 Exit criteria:
 
 - A public activity can be browsed on the GitHub Pages site without exposing exact private route data or any other private-only field.
+
+Not yet met: the `iroha-export-public` k3s CronJob is drafted in harus-k3s but not applied to the cluster, and `public-site.yml` has never run — the automated export -> commit -> Pages-deploy loop
+described above is code-complete but not yet live, so the public site (if built at all) reflects at most a manually-triggered one-off export, not a continuously refreshed publication.
 
 ## Milestone 8: Durable Worker Backbone
 
