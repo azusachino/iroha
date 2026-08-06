@@ -70,6 +70,10 @@ No unreleased changes.
   `... Part 2`, `進撃の巨人 第三季` vs `... Part.2`) both clear a 12-rune shared prefix, but a missing season/part marker means a different installment of the same franchise, not a duplicate. No
   rune-count threshold can distinguish that from a genuinely omitted subtitle — the trailing content itself has to be inspected. `titlePrefixMatch` now rejects a match when the remainder after the
   shared prefix looks like a season/part/cour marker (English `Season N`/`Part N`/`Cour N`/`OVA`/`Movie`, Japanese `第N期`/`最終季`/`劇場版`, Chinese equivalents).
+- That keyword list is necessarily incomplete — a franchise doesn't have to spell "Season 2" to mean it. Gintama's real sequels are the base title plus a single mark (`銀魂` → `銀魂゜` → `銀魂°`),
+  which matches no keyword pattern. Measured every case found in prod: every false-positive remainder (season/part markers) was 1–7 runes; every genuine omitted subtitle was 25+ runes. Added
+  `titleRemainderMinRunes = 10` as a general-purpose backstop in that gap — rejects any prefix match whose remainder is too short to plausibly be a subtitle clause, regardless of whether it matches a
+  known keyword, catching symbolic sequel marks no enumerable list could cover.
 - The media detail page's title heading used a viewport-only `clamp()` with no regard for title length, so a 100+ character title (not uncommon for these titles) rendered as many lines of oversized
   text. `heroTitleFontSize` (`$lib/hero-title.ts`) scales each theme's own clamp down as title length grows; wired into the default page and all five theme `MediaDetail.svelte` components.
 

@@ -311,6 +311,17 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 // passes the length check, and those are not duplicates.
 const titlePrefixMinRunes = 12
 
+// titleRemainderMinRunes rejects a prefix match when the "extra" content on
+// the longer title is too short to plausibly be an omitted subtitle clause.
+// This is the general-purpose backstop titleSeasonMarkerPattern's keyword
+// list can't be: a franchise doesn't have to spell "Season 2" to mean it --
+// Gintama's sequels are literally the base title plus a single mark (銀魂
+// -> 銀魂゜, then 銀魂°), which is 1 rune and matches no keyword pattern.
+// Measured directly against every case found in prod: every false-positive
+// remainder (season/part markers) was 1-7 runes; every genuine omitted
+// subtitle was 25+ runes. 10 sits in the gap between them.
+const titleRemainderMinRunes = 10
+
 // titleSeasonMarkerPattern matches season/part/cour markers so a prefix
 // match can be rejected when the "extra" content on the longer title is one
 // of these -- verified necessary against real prod false positives ("My
@@ -389,6 +400,9 @@ func titlePrefixMatch(a, b string) bool {
 		return false
 	}
 	remainder := longer[len(shorter):]
+	if len([]rune(remainder)) < titleRemainderMinRunes {
+		return false
+	}
 	return !titleSeasonMarkerPattern.MatchString(remainder)
 }
 

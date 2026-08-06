@@ -376,6 +376,38 @@ func TestTitlePrefixMatch_RejectsSeasonAndPartMarkers(t *testing.T) {
 	}
 }
 
+// TestTitlePrefixMatch_RejectsShortSymbolicSuffixes covers what
+// titleSeasonMarkerPattern's keyword list structurally can't: a franchise
+// doesn't have to spell "Season 2" to mean it. Gintama's real sequels are
+// literally the base title plus a single mark (銀魂 -> 銀魂゜, then 銀魂°) --
+// no keyword pattern will ever cover every such convention, so the general
+// backstop is titleRemainderMinRunes: an omitted subtitle is a clause,
+// never a single mark. The base title here is padded well past
+// titlePrefixMinRunes so this exercises the remainder-length check itself,
+// not a coincidental short-base-title rejection (Gintama's own native title
+// is only 2 runes, short enough to be rejected by titlePrefixMinRunes
+// alone, which would leave this backstop unverified).
+func TestTitlePrefixMatch_RejectsShortSymbolicSuffixes(t *testing.T) {
+	base := "史上最強の魔法剣士、Fランク冒険者に転生する"
+	cases := []struct {
+		name   string
+		suffix string
+	}{
+		{"Gintama-style handakuten mark", "゜"},
+		{"Gintama-style degree sign", "°"},
+		{"apostrophe sequel mark", "'"},
+		{"roman numeral suffix", "II"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a, b := normalizeMediaTitle(base), normalizeMediaTitle(base+tc.suffix)
+			if titlePrefixMatch(a, b) {
+				t.Fatalf("titlePrefixMatch(%q, %q) = true, want false -- a %d-rune symbolic suffix must not register as an omitted subtitle", a, b, len([]rune(tc.suffix)))
+			}
+		})
+	}
+}
+
 // TestResolveMediaItem_PrefixMatchOpensTaskButDoesNotAutoAttach is the
 // safety-critical case: a prefix match must never auto-attach, even when
 // it's the only candidate. TestNormalizeMediaTitle_CanonicalKeyCollisionSafety
