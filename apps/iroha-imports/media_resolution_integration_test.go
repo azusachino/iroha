@@ -313,6 +313,33 @@ func TestTitlePrefixCandidates_MatchesShortOmittedSubtitle(t *testing.T) {
 	}
 }
 
+// TestTitlePrefixCandidates_DoesNotMatchDifferentSeason is the end-to-end
+// version of the real prod false positive: "My Hero Academia" (season 1)
+// must not surface as a prefix candidate for an incoming "My Hero Academia
+// Season 2" sync, even though it passes the length check and the date
+// window (real seasons of an annual franchise often release within a year
+// of each other).
+func TestTitlePrefixCandidates_DoesNotMatchDifferentSeason(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	season1Date := time.Date(2045, time.April, 3, 0, 0, 0, 0, time.UTC)
+	season2Date := time.Date(2046, time.April, 1, 0, 0, 0, 0, time.UTC)
+	seedMediaItem(t, db, "My Hero Academia", "anime_season", "season", season1Date)
+
+	incoming := observations.Media{
+		Provider: "anilist", ExternalID: "integration-different-season",
+		Title: "My Hero Academia Season 2", MediaType: "anime_season", ItemRole: "season",
+		ReleaseDate: &season2Date,
+	}
+
+	prefix, err := titlePrefixCandidates(db, incoming)
+	if err != nil {
+		t.Fatalf("titlePrefixCandidates: %v", err)
+	}
+	if len(prefix) != 0 {
+		t.Fatalf("titlePrefixCandidates = %v, want 0 -- season 1 and season 2 are not duplicates", prefix)
+	}
+}
+
 // TestTitlePrefixMatch_RequiresAMinimumSharedLength guards the collision
 // risk a prefix heuristic introduces: two different works with a short
 // generic shared opening (a common trope phrase, not a specific plot
@@ -320,6 +347,32 @@ func TestTitlePrefixCandidates_MatchesShortOmittedSubtitle(t *testing.T) {
 func TestTitlePrefixMatch_RequiresAMinimumSharedLength(t *testing.T) {
 	if titlePrefixMatch("異世界転生した", "異世界転生した俺はチート能力で無双する") {
 		t.Fatal("titlePrefixMatch matched on a short generic shared opening, want false")
+	}
+}
+
+// TestTitlePrefixMatch_RejectsSeasonAndPartMarkers guards against a
+// systematic false-positive class found in real prod data at
+// titlePrefixMinRunes=12: "My Hero Academia" vs "My Hero Academia Season 2"
+// (and equivalents) both pass the length check, but a missing season/part
+// marker means "a different installment of the same franchise" -- the
+// opposite of a duplicate. No rune-count threshold can distinguish this
+// from a genuinely omitted subtitle; the trailing content itself must be
+// inspected.
+func TestTitlePrefixMatch_RejectsSeasonAndPartMarkers(t *testing.T) {
+	cases := []struct{ name, shorter, longer string }{
+		{"English Season N", "My Hero Academia", "My Hero Academia Season 2"},
+		{"English Part N", "Komi Can't Communicate", "Komi Can't Communicate Part 2"},
+		{"English Cour N", "Mushoku Tensei: Jobless Reincarnation", "Mushoku Tensei: Jobless Reincarnation Cour 2"},
+		{"Japanese numbered season + part", "進撃の巨人 第三季", "進撃の巨人 第三季 Part.2"},
+		{"Chinese final season + part", "进击的巨人 最终季", "进击的巨人 最终季 Part.2"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a, b := normalizeMediaTitle(tc.shorter), normalizeMediaTitle(tc.longer)
+			if titlePrefixMatch(a, b) {
+				t.Fatalf("titlePrefixMatch(%q, %q) = true, want false -- a season/part marker must not register as a duplicate", a, b)
+			}
+		})
 	}
 }
 

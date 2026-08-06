@@ -66,6 +66,10 @@ No unreleased changes.
 - Every media list/detail view (all 6 UI variants) displayed a percentage next to progress even when no total was known, via `formatPercent(item.progress_percent ?? 0)` — coercing null to 0 defeated
   `formatPercent`'s own correct "—" handling and rendered as a confident, fabricated "0%" for an item with real logged progress (e.g. 46 chapters read, but no known total). Replaced with
   `formatProgressCount`, which shows a done/all count when the total is known and just the done count otherwise — never a fabricated percentage.
+- `titlePrefixCandidates`' rune-count floor turned out insufficient on its own: verified in prod that "My Hero Academia" vs "My Hero Academia Season 2" (and equivalents — `Komi Can't Communicate` vs
+  `... Part 2`, `進撃の巨人 第三季` vs `... Part.2`) both clear a 12-rune shared prefix, but a missing season/part marker means a different installment of the same franchise, not a duplicate. No
+  rune-count threshold can distinguish that from a genuinely omitted subtitle — the trailing content itself has to be inspected. `titlePrefixMatch` now rejects a match when the remainder after the
+  shared prefix looks like a season/part/cour marker (English `Season N`/`Part N`/`Cour N`/`OVA`/`Movie`, Japanese `第N期`/`最終季`/`劇場版`, Chinese equivalents).
 - The media detail page's title heading used a viewport-only `clamp()` with no regard for title length, so a 100+ character title (not uncommon for these titles) rendered as many lines of oversized
   text. `heroTitleFontSize` (`$lib/hero-title.ts`) scales each theme's own clamp down as title length grows; wired into the default page and all five theme `MediaDetail.svelte` components.
 

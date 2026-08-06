@@ -299,15 +299,34 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 }
 
 // titlePrefixMinRunes bounds how short a shared prefix can be before two
-// titles are considered a prefix match. This only ever opens a review task,
-// never auto-attaches (see resolveMediaItem), so the cost of a false
-// positive is one dismiss click, not a bad merge -- unlike an auto-attach
-// threshold, erring low here just means silently missing real duplicates.
-// 25 was too conservative: a real prod pair ("異世界グルメで成り上がり無双"
-// missing its trailing subtitle on one side) shares only a 14-rune prefix
-// and was invisible at that floor. 12 catches it while still rejecting the
-// adversarial "異世界転生した" (7 runes) collision-safety case.
+// titles are considered a prefix match. It is a hardcoded heuristic, not a
+// guarantee -- tuned against two real prod pairs (needed to accept a
+// 14-rune shared prefix, needed to reject a 7-rune one) and nothing more
+// rigorous than that. This mechanism only ever opens a review task, never
+// auto-attaches (see resolveMediaItem), so the cost of setting it too low is
+// bounded (a dismissible false-positive task) rather than unbounded (a bad
+// merge) -- but it is still just a tuned number, and titleSeasonMarkerSuffix
+// below exists precisely because the number alone was verified insufficient:
+// at this threshold "My Hero Academia" vs "My Hero Academia Season 2" also
+// passes the length check, and those are not duplicates.
 const titlePrefixMinRunes = 12
+
+// titleSeasonMarkerPattern matches season/part/cour markers so a prefix
+// match can be rejected when the "extra" content on the longer title is one
+// of these -- verified necessary against real prod false positives ("My
+// Hero Academia" vs "My Hero Academia Season 2", "進撃の巨人 第三季" vs
+// "... 第三季 Part.2", "Komi Can't Communicate" vs "... Part 2"): a missing
+// season/part marker means "different installment of the same franchise,"
+// the opposite of a duplicate, and no rune-count threshold can distinguish
+// that from a genuinely omitted subtitle -- the trailing content itself has
+// to be inspected. Matched against the remainder after the shared prefix,
+// which has already been through normalizeMediaTitle (NFKC-folded, lowered,
+// whitespace-stripped), so "Season 2" arrives as "season2".
+var titleSeasonMarkerPattern = regexp.MustCompile(
+	`^(season|part|cour|ova|movie|special|finalseason)[.\-:]?\d*` +
+		`|^第[0-9〇一二三四五六七八九十百]+[期部季話话弾巻篇]` +
+		`|^(最終季|最终季|劇場版|完結編|完结篇|終章|终章)`,
+)
 
 // titlePrefixCandidates finds items in scope whose title is a strict prefix
 // or superset of one of media's own titles -- the case exact matching can't
@@ -366,7 +385,11 @@ func titlePrefixMatch(a, b string) bool {
 	if len([]rune(shorter)) < titlePrefixMinRunes {
 		return false
 	}
-	return strings.HasPrefix(longer, shorter)
+	if !strings.HasPrefix(longer, shorter) {
+		return false
+	}
+	remainder := longer[len(shorter):]
+	return !titleSeasonMarkerPattern.MatchString(remainder)
 }
 
 func mediaTypeOrDefault(mediaType string) string {
