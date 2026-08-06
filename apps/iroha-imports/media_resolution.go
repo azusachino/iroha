@@ -334,9 +334,16 @@ const titleRemainderMinRunes = 10
 // which has already been through normalizeMediaTitle (NFKC-folded, lowered,
 // whitespace-stripped), so "Season 2" arrives as "season2".
 var titleSeasonMarkerPattern = regexp.MustCompile(
-	`^(season|part|cour|ova|movie|special|finalseason)[.\-:]?\d*` +
-		`|^第[0-9〇一二三四五六七八九十百]+[期部季話话弾巻篇]` +
-		`|^(最終季|最终季|劇場版|完結編|完结篇|終章|终章)`,
+	// A leading separator is common before the marker itself -- "Title:
+	// Season 2", "Title - Part 2" -- and normalizeMediaTitle strips the
+	// spaces around it, so the remainder can start with the bare separator
+	// rune butted against the keyword ("...naken:season2..."). Verified
+	// real case: "Ore dake Level Up na Ken: Season 2 - Arise from the
+	// Shadow" vs "Ore dake Level Up na Ken" -- without the optional leading
+	// separator, the anchor never lines up with the keyword.
+	`^[:\-,，、]?(season|part|cour|ova|movie|special|finalseason)[.\-:]?\d*` +
+		`|^[:\-,，、]?第[0-9〇一二三四五六七八九十百]+[期部季話话弾巻篇]` +
+		`|^[:\-,，、]?(最終季|最终季|劇場版|完結編|完结篇|終章|终章)`,
 )
 
 // titlePrefixCandidates finds items in scope whose title is a strict prefix

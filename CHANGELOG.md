@@ -81,6 +81,9 @@ No unreleased changes.
   total to derive a fill from). A completed item's position _is_ its total by definition. `effectiveTotal` (internal to `$lib/format.ts`) infers this when `status === "completed"` and no total was
   recorded; `formatProgressCount` and the new `progressPercent` (replacing ad hoc `boundPercent(item.progress_percent)` bar/ring math across all 6 list views and the shared detail `progressValue()`)
   both use it, so a completed item now reads "10/10 episodes" with a full bar instead of a bare, ambiguous count next to an empty one.
+- `titleSeasonMarkerPattern` anchored the keyword at the very start of the remainder, so a season marker introduced with a leading separator slipped through: "Ore dake Level Up na Ken: Season 2 -
+  Arise from the Shadow" vs "Ore dake Level Up na Ken" put a colon at remainder position 0, one character before "season" ever appears. Titles routinely introduce a subtitle/season marker this way
+  ("Title: Season 2", "Title - Part 2"); the pattern now allows one optional leading separator before the keyword.
 
 ## [0.1.4] — 2026-08-04
 

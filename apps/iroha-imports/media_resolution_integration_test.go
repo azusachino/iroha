@@ -408,6 +408,22 @@ func TestTitlePrefixMatch_RejectsShortSymbolicSuffixes(t *testing.T) {
 	}
 }
 
+// TestTitlePrefixMatch_RejectsSeasonMarkerWithLeadingSeparator is a real
+// prod false positive that survived the first season-marker fix: "Ore dake
+// Level Up na Ken: Season 2 - Arise from the Shadow" vs "Ore dake Level Up
+// na Ken" -- the colon directly before "Season" puts it at the start of the
+// remainder, so an anchor expecting the keyword at position 0 never lines
+// up. Titles routinely introduce a subtitle/season marker with a leading
+// separator ("Title: Season 2", "Title - Part 2"), which normalizeMediaTitle
+// strips the surrounding spaces from but not the separator itself.
+func TestTitlePrefixMatch_RejectsSeasonMarkerWithLeadingSeparator(t *testing.T) {
+	a := normalizeMediaTitle("Ore dake Level Up na Ken")
+	b := normalizeMediaTitle("Ore dake Level Up na Ken: Season 2 - Arise from the Shadow")
+	if titlePrefixMatch(a, b) {
+		t.Fatalf("titlePrefixMatch(%q, %q) = true, want false -- a colon-prefixed season marker must still be rejected", a, b)
+	}
+}
+
 // TestResolveMediaItem_PrefixMatchOpensTaskButDoesNotAutoAttach is the
 // safety-critical case: a prefix match must never auto-attach, even when
 // it's the only candidate. TestNormalizeMediaTitle_CanonicalKeyCollisionSafety
