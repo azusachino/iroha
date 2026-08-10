@@ -6,6 +6,7 @@
     MediaScoreBucket,
   } from "$lib/api";
   import { formatProgressCount, progressPercent } from "$lib/format";
+  import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
 
   let {
     items,
@@ -147,6 +148,12 @@
               ></i>
             </span>
             <strong>{item.native_title || item.title}</strong>
+            <small class="bud-type"
+              ><span
+                class="bud-type-dot"
+                style={`background:${mediaTypeColor(item.media_type)}`}
+              ></span>{mediaTypeLabel(item.media_type)}</small
+            >
             <small
               >{item.status || "unknown"} · {formatProgressCount(
                 item.position,
@@ -388,6 +395,17 @@
     font-size: 0.65rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .bud-type {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .bud-type-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
   .load-more {
     justify-self: center;

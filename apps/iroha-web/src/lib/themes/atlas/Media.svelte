@@ -6,6 +6,7 @@
     MediaScoreBucket,
   } from "$lib/api";
   import { formatProgressCount, progressPercent } from "$lib/format";
+  import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
 
   let {
     items,
@@ -131,7 +132,12 @@
               alt=""
               loading="lazy"
             />{:else}<span class="marker-initial">{item.title.slice(0, 1)}</span
-            >{/if}<strong>{item.native_title || item.title}</strong><small
+            >{/if}<span class="marker-type"
+            ><span
+              class="marker-type-dot"
+              style={`background:${mediaTypeColor(item.media_type)}`}
+            ></span>{mediaTypeLabel(item.media_type)}</span
+          ><strong>{item.native_title || item.title}</strong><small
             >{item.status || "unknown"} · {formatProgressCount(
               item.position,
               item.total,
@@ -357,6 +363,22 @@
     color: var(--accent);
     font-family: var(--font-mono);
     font-size: 2.3rem;
+  }
+  .marker-type {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .marker-type-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
   .shelf-marker strong {
     overflow: hidden;

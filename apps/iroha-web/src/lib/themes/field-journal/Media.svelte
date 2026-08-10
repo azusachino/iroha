@@ -6,6 +6,7 @@
     MediaScoreBucket,
   } from "$lib/api";
   import { formatProgressCount, progressPercent } from "$lib/format";
+  import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
 
   let {
     items,
@@ -141,6 +142,12 @@
               <span class="clipping-initial">{item.title.slice(0, 1)}</span>
             {/if}
             <strong>{item.native_title || item.title}</strong>
+            <small class="clipping-type"
+              ><span
+                class="clipping-type-dot"
+                style={`background:${mediaTypeColor(item.media_type)}`}
+              ></span>{mediaTypeLabel(item.media_type)}</small
+            >
             <small
               >{item.status || "unknown"} · {formatProgressCount(
                 item.position,
@@ -387,6 +394,17 @@
     letter-spacing: 0.04em;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .clipping-type {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .clipping-type-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
   .shelf-clipping i {
     display: block;
