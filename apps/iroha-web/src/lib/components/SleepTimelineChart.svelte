@@ -23,6 +23,19 @@
     asleep_unspecified: "#788397",
   };
 
+  const stageLabels: Record<string, string> = {
+    core: "Core",
+    deep: "Deep",
+    rem: "REM",
+    awake: "Awake",
+    in_bed: "In bed",
+    asleep_unspecified: "Asleep (unspecified)",
+  };
+
+  function stageLabel(stage: string): string {
+    return stageLabels[stage] ?? stage;
+  }
+
   function duration(segment: Segment): number {
     return Math.max(
       0,
@@ -36,6 +49,29 @@
     const minutes = Math.round(seconds / 60);
     return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
   }
+
+  // The chart itself has no visible axis (it's a single stacked row, not a
+  // series to read point-by-point) -- without this, the only way to learn
+  // what a color means is to hover each segment one at a time. Totals are
+  // summed per stage since the same stage can recur as separate segments
+  // through the night.
+  const legend = $derived.by(() => {
+    const totals = new Map<string, number>();
+    for (const segment of segments) {
+      totals.set(
+        segment.stage,
+        (totals.get(segment.stage) ?? 0) + duration(segment),
+      );
+    }
+    return [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([stage, seconds]) => ({
+        stage,
+        label: stageLabel(stage),
+        color: colors[stage] ?? colors.asleep_unspecified,
+        seconds,
+      }));
+  });
 
   function render() {
     if (!chart) return;
@@ -58,7 +94,7 @@
           fontSize: 12,
         },
         formatter: (params: { seriesName: string; value: number }) =>
-          `${params.seriesName}<br/><strong>${formatDuration(params.value)}</strong>`,
+          `${stageLabel(params.seriesName)}<br/><strong>${formatDuration(params.value)}</strong>`,
       },
       series: segments.map((segment) => ({
         name: segment.stage,
@@ -103,10 +139,44 @@
   bind:this={container}
   aria-label="Interactive sleep stage timeline"
 ></div>
+<ul class="timeline-legend">
+  {#each legend as item (item.stage)}
+    <li>
+      <span class="dot" style={`background:${item.color}`}></span>
+      <span class="lbl">{item.label}</span>
+      <span class="val">{formatDuration(item.seconds)}</span>
+    </li>
+  {/each}
+</ul>
 
 <style>
   .timeline-chart {
     width: 100%;
     height: 5.5rem;
+  }
+  .timeline-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .timeline-legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+  }
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+  .lbl {
+    color: var(--text-muted);
+  }
+  .val {
+    font-weight: 650;
   }
 </style>

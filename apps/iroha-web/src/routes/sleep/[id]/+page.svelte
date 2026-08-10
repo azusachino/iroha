@@ -108,6 +108,11 @@
           <span class="section-note">{segments.length} segments</span>
         </div>
         {#if segments.length > 0}
+          <p class="chart-note">
+            One bar, stacked proportionally by how long each stage lasted across
+            the whole session — hover a segment for its exact duration, or read
+            the totals below.
+          </p>
           <SleepTimelineChart {segments} />
         {:else}
           <p class="muted">This session has no stage samples.</p>
@@ -169,6 +174,12 @@
   }
   .section-heading h2 {
     font-size: 1.2rem;
+  }
+  .chart-note {
+    margin: 0 0 0.9rem;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.5;
   }
   @media (max-width: 720px) {
     .detail-grid {
