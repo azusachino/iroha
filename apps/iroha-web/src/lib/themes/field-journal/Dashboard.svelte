@@ -1,5 +1,10 @@
 <script lang="ts">
-  import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
+  import type {
+    Activity,
+    MediaAggregates,
+    RouteFeatureCollection,
+    Summary,
+  } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
   import RouteFootprint from "$lib/components/RouteFootprint.svelte";
   import RetryNotice from "$lib/components/RetryNotice.svelte";
@@ -15,6 +20,8 @@
     routesLoading,
     routesError,
     onLoadRoutes,
+    sleepSummary,
+    mediaAggregates,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -26,6 +33,12 @@
     routesLoading: boolean;
     routesError: string | null;
     onLoadRoutes: () => void;
+    sleepSummary: {
+      averageAsleepS: number;
+      averageEfficiency: number;
+      nightCount: number;
+    };
+    mediaAggregates: MediaAggregates | null;
   } = $props();
 </script>
 
@@ -72,6 +85,18 @@
       <div>
         <dt>Routes</dt>
         <dd>{routes?.features.length ?? "—"}</dd>
+      </div>
+      <div>
+        <dt>Sleep</dt>
+        <dd>
+          {sleepSummary.nightCount
+            ? formatDuration(sleepSummary.averageAsleepS)
+            : "—"}
+        </dd>
+      </div>
+      <div>
+        <dt>Media</dt>
+        <dd>{mediaAggregates?.totals.completed_count ?? "—"}</dd>
       </div>
     </dl>
 
@@ -218,7 +243,7 @@
   }
   .view-summary {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     margin: 0;
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface-1) 84%, transparent);
@@ -324,10 +349,10 @@
     .view-summary {
       grid-template-columns: repeat(2, 1fr);
     }
-    .view-summary div:nth-child(2) {
+    .view-summary div:nth-child(even) {
       border-right: 0;
     }
-    .view-summary div:nth-child(-n + 2) {
+    .view-summary div:not(:nth-last-child(-n + 2)) {
       border-bottom: 1px solid var(--border);
     }
     .entries-card {

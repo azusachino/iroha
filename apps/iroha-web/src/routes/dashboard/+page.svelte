@@ -3,9 +3,13 @@
   import {
     getActivityRoutes,
     getActivitySummary,
+    getMediaAggregates,
     listAllActivities,
+    listSleep,
     type Activity,
+    type MediaAggregates,
     type RouteFeatureCollection,
+    type SleepSession,
     type Summary,
   } from "$lib/api";
   import DomainTile from "$lib/components/DomainTile.svelte";
@@ -40,9 +44,35 @@
   let routes = $state<RouteFeatureCollection | null>(null);
   let routesError = $state<string | null>(null);
   let routesLoading = $state(true);
+
+  // Recent-nights window for the Overview's sleep tile -- same averaging
+  // approach as the Night page, just a smaller recent slice since this is a
+  // summary tile, not the full history.
+  const SLEEP_SWEEP_LIMIT = 30;
+  let sleepSessions = $state<SleepSession[]>([]);
+  let sleepLoading = $state(true);
+
+  let mediaAggregates = $state<MediaAggregates | null>(null);
+  let mediaLoading = $state(true);
+
   const theme = useTheme();
 
   const recentActivities = $derived(activities.slice(0, RECENT_ACTIVITY_LIMIT));
+
+  const mainSleepSessions = $derived(
+    sleepSessions.filter((session) => session.is_main_sleep),
+  );
+  const sleepSummary = $derived({
+    averageAsleepS: mainSleepSessions.length
+      ? mainSleepSessions.reduce((total, s) => total + s.asleep_s, 0) /
+        mainSleepSessions.length
+      : 0,
+    averageEfficiency: mainSleepSessions.length
+      ? mainSleepSessions.reduce((total, s) => total + s.efficiency, 0) /
+        mainSleepSessions.length
+      : 0,
+    nightCount: mainSleepSessions.length,
+  });
   const heatmapDates = $derived(
     activities.map((activity) => activity.started_at),
   );
@@ -94,8 +124,39 @@
     }
   }
 
+  async function loadSleep() {
+    sleepLoading = true;
+    try {
+      const page = await listSleep({ limit: SLEEP_SWEEP_LIMIT });
+      sleepSessions = page.items;
+    } catch {
+      // The Overview's sleep tile is supplemental -- a failure here
+      // shouldn't block the rest of the dashboard from rendering.
+      sleepSessions = [];
+    } finally {
+      sleepLoading = false;
+    }
+  }
+
+  async function loadMedia() {
+    mediaLoading = true;
+    try {
+      mediaAggregates = await getMediaAggregates();
+    } catch {
+      mediaAggregates = null;
+    } finally {
+      mediaLoading = false;
+    }
+  }
+
   async function reloadDashboard() {
-    await Promise.all([loadSummary(), loadActivities(), loadRoutes()]);
+    await Promise.all([
+      loadSummary(),
+      loadActivities(),
+      loadRoutes(),
+      loadSleep(),
+      loadMedia(),
+    ]);
   }
 
   function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
@@ -138,6 +199,8 @@
     void loadSummary();
     void loadActivities();
     void loadRoutes();
+    void loadSleep();
+    void loadMedia();
   });
 </script>
 
@@ -154,6 +217,10 @@
         error: summaryError || activitiesError,
         routesLoading,
         routesError,
+        sleepSummary,
+        sleepLoading,
+        mediaAggregates,
+        mediaLoading,
         onLoadRoutes: () => void loadRoutes(),
         onRetry: () => void reloadDashboard(),
       }}

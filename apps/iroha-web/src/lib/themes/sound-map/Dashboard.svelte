@@ -1,6 +1,11 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
+  import type {
+    Activity,
+    MediaAggregates,
+    RouteFeatureCollection,
+    Summary,
+  } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
   import { sportColor, sportLabel } from "$lib/sport";
   // The geography panel reuses the shared RoutesMap (maplibre) component
@@ -22,6 +27,8 @@
     routesLoading,
     routesError,
     onLoadRoutes,
+    sleepSummary,
+    mediaAggregates,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -33,6 +40,12 @@
     routesLoading: boolean;
     routesError: string | null;
     onLoadRoutes: () => void;
+    sleepSummary: {
+      averageAsleepS: number;
+      averageEfficiency: number;
+      nightCount: number;
+    };
+    mediaAggregates: MediaAggregates | null;
   } = $props();
 
   // A per-sport spectrum: each recorded sport becomes one band, height set
@@ -95,6 +108,18 @@
       </div>
       <div>
         <span>Routes</span><strong>{routes?.features.length ?? "—"}</strong>
+      </div>
+      <div>
+        <span>Sleep</span><strong
+          >{sleepSummary.nightCount
+            ? formatDuration(sleepSummary.averageAsleepS)
+            : "—"}</strong
+        >
+      </div>
+      <div>
+        <span>Media</span><strong
+          >{mediaAggregates?.totals.completed_count ?? "—"}</strong
+        >
       </div>
     </div>
 
@@ -249,7 +274,7 @@
   }
   .mix-stats {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
@@ -405,10 +430,10 @@
     .mix-stats {
       grid-template-columns: repeat(2, 1fr);
     }
-    .mix-stats div:nth-child(2) {
+    .mix-stats div:nth-child(even) {
       border-right: 0;
     }
-    .mix-stats div:nth-child(-n + 2) {
+    .mix-stats div:not(:nth-last-child(-n + 2)) {
       border-bottom: 1px solid var(--border);
     }
     .mix-panel + .mix-panel,
