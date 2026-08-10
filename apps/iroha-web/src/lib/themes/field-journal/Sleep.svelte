@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SleepSession } from "$lib/api";
   import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
+  import BarChart from "$lib/components/BarChart.svelte";
 
   let {
     sessions,
@@ -16,8 +17,11 @@
     onSelect: (session: SleepSession) => void;
   } = $props();
 
-  const max = $derived(
-    Math.max(1, ...sessions.map((session) => session.asleep_s)),
+  const chartSessions = $derived(sessions.slice(0, 24).reverse());
+  const activeChartIndex = $derived(
+    selected
+      ? chartSessions.findIndex((session) => session.id === selected.id)
+      : null,
   );
 </script>
 
@@ -59,24 +63,25 @@
       </div>
       <span>select a column to inspect</span>
     </div>
-    <div
-      class="bar-journal"
-      role="img"
-      aria-label="Asleep duration by recorded night"
-    >
-      {#each sessions.slice(0, 24).reverse() as session (session.id)}
-        <button
-          class="bar-entry"
-          class:active={selected?.id === session.id}
-          title={formatDateOnly(session.wake_date)}
-          onclick={() => onSelect(session)}
-        >
-          <i style={`height: ${Math.max(3, (session.asleep_s / max) * 100)}%`}
-          ></i>
-          <small>{formatDateShort(session.wake_date)}</small>
-        </button>
-      {/each}
-    </div>
+    <BarChart
+      categories={chartSessions.map((session) =>
+        formatDateShort(session.wake_date),
+      )}
+      primary={{
+        name: "Asleep",
+        values: chartSessions.map((session) => session.asleep_s),
+        formatter: (value) => formatDuration(value),
+      }}
+      secondary={{
+        name: "Efficiency",
+        values: chartSessions.map((session) =>
+          Math.round(session.efficiency * 100),
+        ),
+        formatter: (value) => `${value}%`,
+      }}
+      activeIndex={activeChartIndex}
+      onBarClick={(index) => onSelect(chartSessions[index])}
+    />
   </section>
 
   {#if selected}
@@ -245,49 +250,6 @@
   .night-ledger header > span {
     color: var(--text-muted);
     font-size: 0.72rem;
-  }
-  .bar-journal {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0.8rem, 1fr));
-    align-items: end;
-    gap: 0.4rem;
-    height: 16rem;
-    margin-top: 1.5rem;
-    border-bottom: 1px solid var(--border);
-    background: repeating-linear-gradient(
-      to top,
-      transparent 0 3rem,
-      color-mix(in srgb, var(--border) 65%, transparent) 3rem 3.05rem
-    );
-  }
-  .bar-entry {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    height: 100%;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-  }
-  .bar-entry i {
-    display: block;
-    width: 72%;
-    min-height: 0.2rem;
-    margin: 0 auto;
-    background: var(--accent);
-    opacity: 0.6;
-  }
-  .bar-entry.active i,
-  .bar-entry:hover i {
-    opacity: 1;
-  }
-  .bar-entry small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    font-size: 0.56rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .margin-note {
     border-left: 0.35rem solid var(--accent);

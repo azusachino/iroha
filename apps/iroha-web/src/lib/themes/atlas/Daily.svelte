@@ -2,6 +2,7 @@
   import type { DailyRow } from "$lib/api";
   import { formatDateOnly } from "$lib/format";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import BarChart from "$lib/components/BarChart.svelte";
 
   type Period = {
     label: string;
@@ -30,9 +31,6 @@
     latestRingDay: DailyRow | null;
   } = $props();
 
-  const max = $derived(
-    Math.max(1, ...chrono.map((period) => period.steps ?? 0)),
-  );
   const latest = $derived(chrono.at(-1));
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -99,18 +97,19 @@
       {#if latest}<span>{latest.label} · {number(latest.steps)} steps</span
         >{/if}
     </header>
-    <div class="contour-bars" role="img" aria-label="Steps across periods">
-      {#each chrono as period}
-        <div
-          class="contour-bar"
-          title={`${period.label}: ${number(period.steps)} steps`}
-        >
-          <i
-            style={`height: ${Math.max(3, ((period.steps ?? 0) / max) * 100)}%`}
-          ></i><small>{period.label}</small>
-        </div>
-      {/each}
-    </div>
+    <BarChart
+      categories={chrono.map((period) => period.label)}
+      primary={{
+        name: "Steps",
+        values: chrono.map((period) => period.steps),
+        formatter: (value) => value.toLocaleString(),
+      }}
+      secondary={{
+        name: "Move closure",
+        values: chrono.map((period) => period.moveClosedPct),
+        formatter: (value) => `${value}%`,
+      }}
+    />
   </section>
 
   <div class="daily-notes">
@@ -307,46 +306,6 @@
     color: var(--text-muted);
     font-family: var(--font-mono);
     font-size: 0.72rem;
-  }
-  .contour-bars {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0.8rem, 1fr));
-    align-items: end;
-    gap: 0.4rem;
-    height: 18rem;
-    margin-top: 1.5rem;
-    border-bottom: 1px solid var(--border);
-    background: repeating-linear-gradient(
-      to top,
-      transparent 0 3rem,
-      color-mix(in srgb, var(--border) 65%, transparent) 3rem 3.05rem
-    );
-  }
-  .contour-bar {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    height: 100%;
-    min-width: 0;
-  }
-  .contour-bar i {
-    display: block;
-    width: 68%;
-    min-height: 0.2rem;
-    margin: 0 auto;
-    background: var(--accent-2);
-    clip-path: polygon(0 100%, 50% 0, 100% 100%);
-  }
-  .contour-bar small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    font-weight: 650;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .daily-notes {
     display: grid;

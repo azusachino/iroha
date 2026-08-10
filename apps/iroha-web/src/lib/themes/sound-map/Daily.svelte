@@ -2,6 +2,7 @@
   import type { DailyRow } from "$lib/api";
   import { formatDateOnly } from "$lib/format";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import BarChart from "$lib/components/BarChart.svelte";
 
   type Period = {
     label: string;
@@ -30,9 +31,6 @@
     latestRingDay: DailyRow | null;
   } = $props();
 
-  const max = $derived(
-    Math.max(1, ...chrono.map((period) => period.steps ?? 0)),
-  );
   const latest = $derived(chrono.at(-1));
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -92,18 +90,19 @@
         >{/if}
     </header>
     {#if chrono.length}
-      <div class="mix-bars" role="img" aria-label="Steps across periods">
-        {#each chrono as period, index (period.label + index)}
-          <div
-            class="mix-bar"
-            title={`${period.label}: ${number(period.steps)} steps`}
-          >
-            <i
-              style={`height: ${Math.max(3, ((period.steps ?? 0) / max) * 100)}%`}
-            ></i><small>{period.label}</small>
-          </div>
-        {/each}
-      </div>
+      <BarChart
+        categories={chrono.map((period) => period.label)}
+        primary={{
+          name: "Steps",
+          values: chrono.map((period) => period.steps),
+          formatter: (value) => value.toLocaleString(),
+        }}
+        secondary={{
+          name: "Move closure",
+          values: chrono.map((period) => period.moveClosedPct),
+          formatter: (value) => `${value}%`,
+        }}
+      />
     {:else}
       <p class="mix-empty">No periods available for this interval.</p>
     {/if}
@@ -281,43 +280,6 @@
   .mix-ledger header > span {
     color: var(--text-muted);
     font-size: 0.7rem;
-  }
-  .mix-bars {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0.8rem, 1fr));
-    align-items: end;
-    gap: 0.4rem;
-    height: 17rem;
-    margin-top: 1.4rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .mix-bar {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    height: 100%;
-    min-width: 0;
-  }
-  .mix-bar i {
-    display: block;
-    width: 68%;
-    min-height: 0.2rem;
-    margin: 0 auto;
-    background: repeating-linear-gradient(
-      0deg,
-      var(--accent) 0 5%,
-      color-mix(in srgb, var(--bg) 65%, var(--accent)) 5% 10%
-    );
-  }
-  .mix-bar small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 650;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .mix-empty {
     margin-top: 1.4rem;

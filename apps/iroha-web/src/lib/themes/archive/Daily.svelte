@@ -2,6 +2,7 @@
   import type { DailyRow } from "$lib/api";
   import { formatDateOnly } from "$lib/format";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import BarChart from "$lib/components/BarChart.svelte";
 
   type Period = {
     label: string;
@@ -30,9 +31,6 @@
     latestRingDay: DailyRow | null;
   } = $props();
 
-  const max = $derived(
-    Math.max(1, ...chrono.map((period) => period.steps ?? 0)),
-  );
   const latest = $derived(chrono.at(-1));
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -43,18 +41,10 @@
     });
   }
 
-  function tone(pct: number | null | undefined): string {
-    if (pct == null || !Number.isFinite(pct))
-      return "color-mix(in srgb, var(--border) 55%, var(--surface))";
-    const clamped = Math.max(0, Math.min(100, pct));
-    return `color-mix(in srgb, var(--accent-2) ${clamped}%, var(--accent) ${100 - clamped}%)`;
-  }
-
-  // The primary device: a core log. Each period settles into the record as
-  // one stratum -- thickness is real step volume, tone is real move-goal
-  // closure -- read newest-first from the top of the column down, the way a
-  // registrar reads the most recent accession before working back through
-  // the shelf.
+  // The primary device: a core log, read newest-first from the top of the
+  // list down, the way a registrar reads the most recent accession before
+  // working back through the shelf. The chart above reads chronologically
+  // (oldest to newest, left to right), the conventional time-series order.
   const rows = $derived(
     chrono
       .slice(-30)
@@ -62,10 +52,10 @@
       .map((period, index) => ({
         key: `${period.label}-${index}`,
         period,
-        magnitude: Math.max((period.steps ?? 0) / max, 0.04),
-        tone: tone(period.moveClosedPct),
       })),
   );
+
+  const chartPeriods = $derived(chrono.slice(-30));
 </script>
 
 <section class="folio-daily" aria-labelledby="folio-daily-title">
@@ -120,38 +110,34 @@
         >{/if}
     </header>
     {#if rows.length}
-      <div
-        class="core-log"
-        role="img"
-        aria-label="Steps across periods, most recent at top"
-      >
-        <div class="core-strip">
-          {#each rows as row (row.key)}
-            <div
-              class="core-band"
-              style={`flex-grow: ${row.magnitude}; background: ${row.tone};`}
-              title={`${row.period.label}: ${number(row.period.steps)} steps`}
-            ></div>
-          {/each}
-        </div>
-        <div class="core-legend">
-          {#each rows as row (row.key)}
-            <div class="core-row" style={`flex-grow: ${row.magnitude};`}>
-              <strong>{row.period.label}</strong>
-              <span
-                >{number(row.period.steps)} steps · {row.period.moveClosedPct ==
-                null
-                  ? "— move"
-                  : `${row.period.moveClosedPct}% move`}</span
-              >
-            </div>
-          {/each}
-        </div>
+      <BarChart
+        categories={chartPeriods.map((period) => period.label)}
+        primary={{
+          name: "Steps",
+          values: chartPeriods.map((period) => period.steps),
+          formatter: (value) => value.toLocaleString(),
+        }}
+        secondary={{
+          name: "Move closure",
+          values: chartPeriods.map((period) => period.moveClosedPct),
+          formatter: (value) => `${value}%`,
+        }}
+        orientation="horizontal"
+        height={Math.max(220, chartPeriods.length * 26)}
+      />
+      <div class="core-legend">
+        {#each rows as row (row.key)}
+          <div class="core-row">
+            <strong>{row.period.label}</strong>
+            <span
+              >{number(row.period.steps)} steps · {row.period.moveClosedPct ==
+              null
+                ? "— move"
+                : `${row.period.moveClosedPct}% move`}</span
+            >
+          </div>
+        {/each}
       </div>
-      <p class="core-legend-note">
-        Band tone reads violet-to-ochre with move-goal closure; band thickness
-        is real step volume for the period.
-      </p>
     {:else}
       <p class="folio-empty">No periods available for this interval.</p>
     {/if}
@@ -337,34 +323,13 @@
   .folio-rings :global(.ring-gauge) {
     margin-top: 1.25rem;
   }
-  .core-log {
+  .core-legend {
     display: flex;
-    gap: 1rem;
-    height: 19rem;
+    flex-direction: column;
     margin-top: 1.4rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
-  }
-  .core-strip {
-    display: flex;
-    flex-direction: column;
-    width: 1.9rem;
-    flex-shrink: 0;
-  }
-  .core-band {
-    flex-shrink: 0;
-    border-top: 1px solid var(--bg);
-  }
-  .core-band:first-child {
-    border-top: 0;
-  }
-  .core-legend {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    flex-direction: column;
-    overflow-y: auto;
   }
   .core-row {
     display: flex;
@@ -397,12 +362,6 @@
     text-align: right;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .core-legend-note {
-    margin: 0.9rem 0 0;
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    line-height: 1.5;
   }
   .folio-empty {
     margin-top: 1.4rem;

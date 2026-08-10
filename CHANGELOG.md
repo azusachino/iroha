@@ -27,6 +27,9 @@ contract between minor versions.
   briefing API already returned media events, but the curated themes' Today components never received them as a prop.
 - The Patterns page's Apple Health Move/Exercise/Stand rings were only ever wired into the ungated fallback theme, not any of the 5 curated themes — they showed a generic step chart with no
   recognizable ring visualization. Added a rings hero (reusing the same `RingGauge` component) to the top of all 5 themes' Patterns page.
+- Replaced the hand-rolled, non-interactive SVG/div bar charts on the Patterns and Night pages (all 5 themes, 10 chart instances) with a new shared `BarChart` component built on the same ECharts stack
+  `LineChart` already used elsewhere — every chart now has a real hover tooltip and, on Night, click-to-select. Each theme keeps its own accent color and bar orientation; move-goal-closure and
+  sleep-efficiency, previously encoded only as an ambiguous bar-color gradient, are now a proper secondary line series visible in the tooltip.
 
 ## [0.2.0] — 2026-08-05
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SleepSession } from "$lib/api";
-  import { formatDateOnly, formatDuration } from "$lib/format";
+  import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
+  import BarChart from "$lib/components/BarChart.svelte";
 
   let {
     sessions,
@@ -16,27 +17,16 @@
     onSelect: (session: SleepSession) => void;
   } = $props();
 
-  const max = $derived(
-    Math.max(1, ...sessions.map((session) => session.asleep_s)),
-  );
-
-  function tone(pct: number | null | undefined): string {
-    if (pct == null || !Number.isFinite(pct))
-      return "color-mix(in srgb, var(--border) 55%, var(--surface))";
-    const clamped = Math.max(0, Math.min(100, pct));
-    return `color-mix(in srgb, var(--accent-2) ${clamped}%, var(--accent) ${100 - clamped}%)`;
-  }
-
-  // Each recorded night becomes a stratum: thickness is real time asleep,
-  // tone is real efficiency. Most recent night on top, older nights settle
-  // toward the bottom of the column -- the same reading order as the
-  // period core on the Daily page.
-  const rows = $derived(
-    sessions.slice(0, 30).map((session) => ({
-      session,
-      magnitude: Math.max(session.asleep_s / max, 0.05),
-      tone: tone(session.efficiency * 100),
-    })),
+  // Each recorded night becomes a row: most recent night on top, older
+  // nights settle toward the bottom of the list -- the same reading order
+  // as the period core on the Daily page. The chart above reads
+  // chronologically (oldest to newest, left to right) instead.
+  const rows = $derived(sessions.slice(0, 30).map((session) => ({ session })));
+  const chartSessions = $derived(sessions.slice(0, 30).reverse());
+  const activeChartIndex = $derived(
+    selected
+      ? chartSessions.findIndex((session) => session.id === selected.id)
+      : null,
   );
 </script>
 
@@ -78,41 +68,43 @@
       <span>thickness = asleep · tone = efficiency</span>
     </header>
     {#if rows.length}
-      <div
-        class="core-log"
-        role="img"
-        aria-label="Asleep duration by recorded night, with efficiency as tone"
-      >
-        <div class="core-strip">
-          {#each rows as row (row.session.id)}
-            <button
-              type="button"
-              class="core-band"
-              class:active={selected?.id === row.session.id}
-              style={`flex-grow: ${row.magnitude}; background: ${row.tone};`}
-              title={`${formatDateOnly(row.session.wake_date)} · ${formatDuration(row.session.asleep_s)} asleep · ${Math.round(row.session.efficiency * 100)}% efficient`}
-              onclick={() => onSelect(row.session)}
-            ></button>
-          {/each}
-        </div>
-        <div class="core-legend">
-          {#each rows as row (row.session.id)}
-            <button
-              type="button"
-              class="core-row"
-              class:active={selected?.id === row.session.id}
-              style={`flex-grow: ${row.magnitude};`}
-              onclick={() => onSelect(row.session)}
+      <BarChart
+        categories={chartSessions.map((session) =>
+          formatDateShort(session.wake_date),
+        )}
+        primary={{
+          name: "Asleep",
+          values: chartSessions.map((session) => session.asleep_s),
+          formatter: (value) => formatDuration(value),
+        }}
+        secondary={{
+          name: "Efficiency",
+          values: chartSessions.map((session) =>
+            Math.round(session.efficiency * 100),
+          ),
+          formatter: (value) => `${value}%`,
+        }}
+        orientation="horizontal"
+        activeIndex={activeChartIndex}
+        onBarClick={(index) => onSelect(chartSessions[index])}
+        height={Math.max(220, chartSessions.length * 22)}
+      />
+      <div class="core-legend">
+        {#each rows as row (row.session.id)}
+          <button
+            type="button"
+            class="core-row"
+            class:active={selected?.id === row.session.id}
+            onclick={() => onSelect(row.session)}
+          >
+            <strong>{formatDateOnly(row.session.wake_date)}</strong>
+            <span
+              >{formatDuration(row.session.asleep_s)} · {Math.round(
+                row.session.efficiency * 100,
+              )}%</span
             >
-              <strong>{formatDateOnly(row.session.wake_date)}</strong>
-              <span
-                >{formatDuration(row.session.asleep_s)} · {Math.round(
-                  row.session.efficiency * 100,
-                )}%</span
-              >
-            </button>
-          {/each}
-        </div>
+          </button>
+        {/each}
       </div>
     {:else}
       <p class="folio-empty">No sleep sessions were recorded.</p>
@@ -282,43 +274,13 @@
     font-size: 0.68rem;
     text-align: right;
   }
-  .core-log {
+  .core-legend {
     display: flex;
-    gap: 1rem;
-    height: 18rem;
+    flex-direction: column;
     margin-top: 1.4rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
-  }
-  .core-strip {
-    display: flex;
-    flex-direction: column;
-    width: 1.9rem;
-    flex-shrink: 0;
-  }
-  .core-band {
-    flex-shrink: 0;
-    border: 0;
-    border-top: 1px solid var(--bg);
-    padding: 0;
-    cursor: pointer;
-    opacity: 0.75;
-  }
-  .core-band:first-child {
-    border-top: 0;
-  }
-  .core-band:hover,
-  .core-band.active {
-    opacity: 1;
-    box-shadow: inset 0 0 0 2px var(--accent);
-  }
-  .core-legend {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    flex-direction: column;
-    overflow-y: auto;
   }
   .core-row {
     display: flex;

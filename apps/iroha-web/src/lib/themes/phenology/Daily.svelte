@@ -2,6 +2,7 @@
   import type { DailyRow } from "$lib/api";
   import { formatDateOnly } from "$lib/format";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import BarChart from "$lib/components/BarChart.svelte";
 
   type BloomPeriod = {
     label: string;
@@ -102,23 +103,19 @@
         </p>
       {/if}
     </div>
-    <div
-      class="growth-field"
-      role="img"
-      aria-label="Steps across observed periods"
-    >
-      {#each chrono as period}
-        <div
-          class="growth-stem"
-          title={`${period.label}: ${number(period.steps)} steps`}
-        >
-          <i
-            style={`height: ${Math.max(3, ((period.steps ?? 0) / maxSteps) * 100)}%`}
-          ></i>
-          <small>{period.label}</small>
-        </div>
-      {/each}
-    </div>
+    <BarChart
+      categories={chrono.map((period) => period.label)}
+      primary={{
+        name: "Steps",
+        values: chrono.map((period) => period.steps),
+        formatter: (value) => value.toLocaleString(),
+      }}
+      secondary={{
+        name: "Move closure",
+        values: chrono.map((period) => period.moveClosedPct),
+        formatter: (value) => `${value}%`,
+      }}
+    />
   </section>
 
   <div class="bloom-notes">
@@ -301,40 +298,6 @@
     font-style: italic;
     font-size: 1.4rem;
     font-weight: 400;
-  }
-  .growth-field {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0.85rem, 1fr));
-    align-items: end;
-    gap: 0.5rem;
-    height: 17rem;
-    margin-top: 1.5rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .growth-stem {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    height: 100%;
-    min-width: 0;
-  }
-  .growth-stem i {
-    display: block;
-    width: 62%;
-    min-height: 0.3rem;
-    margin: 0 auto;
-    border-radius: 999px 999px 0.2rem 0.2rem;
-    background: linear-gradient(180deg, var(--accent), var(--accent-2));
-  }
-  .growth-stem small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 650;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .bloom-notes {
     display: grid;
