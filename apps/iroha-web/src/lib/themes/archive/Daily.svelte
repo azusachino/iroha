@@ -1,4 +1,8 @@
 <script lang="ts">
+  import type { DailyRow } from "$lib/api";
+  import { formatDateOnly } from "$lib/format";
+  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+
   type Period = {
     label: string;
     days: number | null;
@@ -16,10 +20,14 @@
     chrono,
     gran,
     onGran,
+    ringData,
+    latestRingDay,
   }: {
     chrono: Period[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    ringData: Ring[];
+    latestRingDay: DailyRow | null;
   } = $props();
 
   const max = $derived(
@@ -74,6 +82,22 @@
       <strong>{chrono.length}</strong><span>periods catalogued</span>
     </div>
   </header>
+
+  {#if ringData.length}
+    <section
+      class="folio-rings catalog-card"
+      aria-labelledby="folio-rings-title"
+    >
+      <header>
+        <div>
+          <p class="folio-kicker">Latest accession</p>
+          <h2 id="folio-rings-title">Move, exercise, stand.</h2>
+        </div>
+        {#if latestRingDay}<span>{formatDateOnly(latestRingDay.day)}</span>{/if}
+      </header>
+      <RingGauge rings={ringData} />
+    </section>
+  {/if}
 
   <nav class="folio-tabs" aria-label="Aggregation interval">
     {#each ["day", "month", "year"] as option}
@@ -294,16 +318,24 @@
     border-radius: 0 2px 2px 0;
   }
   .folio-core header,
-  .folio-ledger header {
+  .folio-ledger header,
+  .folio-rings header {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
   }
   .folio-core header > span,
-  .folio-ledger header > span {
+  .folio-ledger header > span,
+  .folio-rings header > span {
     color: var(--text-muted);
     font-family: var(--font-mono);
     font-size: 0.7rem;
+  }
+  .folio-rings {
+    margin-top: 1.5rem;
+  }
+  .folio-rings :global(.ring-gauge) {
+    margin-top: 1.25rem;
   }
   .core-log {
     display: flex;

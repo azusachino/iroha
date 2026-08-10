@@ -1,4 +1,8 @@
 <script lang="ts">
+  import type { DailyRow } from "$lib/api";
+  import { formatDateOnly } from "$lib/format";
+  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+
   type BloomPeriod = {
     label: string;
     days: number | null;
@@ -16,10 +20,14 @@
     chrono,
     gran,
     onGran,
+    ringData,
+    latestRingDay,
   }: {
     chrono: BloomPeriod[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    ringData: Ring[];
+    latestRingDay: DailyRow | null;
   } = $props();
 
   const latest = $derived(chrono.at(-1));
@@ -57,6 +65,19 @@
       <span>observed periods</span>
     </div>
   </header>
+
+  {#if ringData.length}
+    <section class="growth-panel rings-panel" aria-labelledby="rings-title">
+      <div class="panel-heading">
+        <div>
+          <p class="bloom-kicker">Latest reading</p>
+          <h2 id="rings-title">Move, exercise, stand.</h2>
+        </div>
+        {#if latestRingDay}<span>{formatDateOnly(latestRingDay.day)}</span>{/if}
+      </div>
+      <RingGauge rings={ringData} />
+    </section>
+  {/if}
 
   <nav class="bloom-tabs" aria-label="Aggregation interval">
     {#each ["day", "month", "year"] as option}
@@ -256,6 +277,12 @@
   .growth-panel,
   .bloom-ledger {
     padding: clamp(1.25rem, 3vw, 2rem);
+  }
+  .rings-panel {
+    margin-top: 1.5rem;
+  }
+  .rings-panel :global(.ring-gauge) {
+    margin-top: 1.25rem;
   }
   .panel-heading,
   .bloom-ledger header {

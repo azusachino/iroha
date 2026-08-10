@@ -316,6 +316,8 @@
           chrono,
           gran,
           onGran: (value: Gran) => void changeGranularity(value),
+          ringData,
+          latestRingDay,
         }}
       />
     {/if}

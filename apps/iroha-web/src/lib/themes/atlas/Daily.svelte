@@ -1,4 +1,8 @@
 <script lang="ts">
+  import type { DailyRow } from "$lib/api";
+  import { formatDateOnly } from "$lib/format";
+  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+
   type Period = {
     label: string;
     days: number | null;
@@ -16,10 +20,14 @@
     chrono,
     gran,
     onGran,
+    ringData,
+    latestRingDay,
   }: {
     chrono: Period[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    ringData: Ring[];
+    latestRingDay: DailyRow | null;
   } = $props();
 
   const max = $derived(
@@ -51,6 +59,22 @@
       <small>periods surveyed</small>
     </div>
   </header>
+
+  {#if ringData.length}
+    <section
+      class="atlas-plate rings-plate"
+      aria-labelledby="daily-rings-title"
+    >
+      <header class="chart-heading">
+        <div>
+          <p class="atlas-kicker">Latest fix</p>
+          <h2 id="daily-rings-title">Move, exercise, stand.</h2>
+        </div>
+        {#if latestRingDay}<span>{formatDateOnly(latestRingDay.day)}</span>{/if}
+      </header>
+      <RingGauge rings={ringData} />
+    </section>
+  {/if}
 
   <nav class="scale-select" aria-label="Aggregation interval">
     {#each ["day", "month", "year"] as option}
@@ -265,6 +289,12 @@
   .contour-chart,
   .ledger-plate {
     padding: 1.5rem;
+  }
+  .rings-plate {
+    margin-top: 1.5rem;
+  }
+  .rings-plate :global(.ring-gauge) {
+    margin-top: 1.25rem;
   }
   .chart-heading,
   .ledger-heading {

@@ -1,4 +1,8 @@
 <script lang="ts">
+  import type { DailyRow } from "$lib/api";
+  import { formatDateOnly } from "$lib/format";
+  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+
   type Period = {
     label: string;
     days: number | null;
@@ -16,10 +20,14 @@
     chrono,
     gran,
     onGran,
+    ringData,
+    latestRingDay,
   }: {
     chrono: Period[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    ringData: Ring[];
+    latestRingDay: DailyRow | null;
   } = $props();
 
   const max = $derived(
@@ -49,6 +57,19 @@
       <strong>{chrono.length}</strong><span>periods</span>
     </div>
   </header>
+
+  {#if ringData.length}
+    <section class="mix-chart mix-rings" aria-labelledby="mix-rings-title">
+      <header>
+        <div>
+          <p class="mix-kicker">Latest period</p>
+          <h2 id="mix-rings-title">Move, exercise, stand.</h2>
+        </div>
+        {#if latestRingDay}<span>{formatDateOnly(latestRingDay.day)}</span>{/if}
+      </header>
+      <RingGauge rings={ringData} />
+    </section>
+  {/if}
 
   <nav class="mix-tabs" aria-label="Aggregation interval">
     {#each ["day", "month", "year"] as option (option)}
@@ -243,6 +264,12 @@
   .mix-chart,
   .mix-ledger {
     padding: 1.4rem;
+  }
+  .mix-rings {
+    margin-top: 1.5rem;
+  }
+  .mix-rings :global(.ring-gauge) {
+    margin-top: 1.25rem;
   }
   .mix-chart header,
   .mix-ledger header {

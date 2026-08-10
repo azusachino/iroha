@@ -1,4 +1,8 @@
 <script lang="ts">
+  import type { DailyRow } from "$lib/api";
+  import { formatDateOnly } from "$lib/format";
+  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+
   type JournalPeriod = {
     label: string;
     days: number | null;
@@ -16,10 +20,14 @@
     chrono,
     gran,
     onGran,
+    ringData,
+    latestRingDay,
   }: {
     chrono: JournalPeriod[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    ringData: Ring[];
+    latestRingDay: DailyRow | null;
   } = $props();
 
   const latest = $derived(chrono.at(-1));
@@ -57,6 +65,21 @@
       <span>observed periods</span>
     </div>
   </header>
+
+  {#if ringData.length}
+    <section class="pattern-card rings-card" aria-labelledby="rings-title">
+      <div class="pattern-heading">
+        <div>
+          <p class="journal-kicker">Latest entry</p>
+          <h2 id="rings-title">Move, exercise, stand.</h2>
+        </div>
+        {#if latestRingDay}
+          <p class="latest-note">{formatDateOnly(latestRingDay.day)}</p>
+        {/if}
+      </div>
+      <RingGauge rings={ringData} />
+    </section>
+  {/if}
 
   <div class="journal-rule"><span>turn the page</span></div>
 
@@ -278,6 +301,12 @@
   }
   .pattern-card {
     padding: clamp(1.25rem, 4vw, 2.5rem);
+  }
+  .rings-card {
+    margin-top: 1.5rem;
+  }
+  .rings-card :global(.ring-gauge) {
+    margin-top: 1.25rem;
   }
   .pattern-heading,
   .period-ledger header {

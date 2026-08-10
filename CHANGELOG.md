@@ -25,6 +25,8 @@ contract between minor versions.
 - Today and Overview only ever reflected activity data across all 5 curated themes, even though sleep and media have been part of the product for a while. Overview's stats row now includes Sleep
   (recent average asleep time) and Media (completed count) alongside distance/activities/time/routes. Today now shows a Media section (mirroring the existing Activities section) — the underlying
   briefing API already returned media events, but the curated themes' Today components never received them as a prop.
+- The Patterns page's Apple Health Move/Exercise/Stand rings were only ever wired into the ungated fallback theme, not any of the 5 curated themes — they showed a generic step chart with no
+  recognizable ring visualization. Added a rings hero (reusing the same `RingGauge` component) to the top of all 5 themes' Patterns page.
 
 ## [0.2.0] — 2026-08-05
 
