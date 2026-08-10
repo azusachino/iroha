@@ -162,6 +162,23 @@ export function formatDateOnly(iso?: string, timezone?: string): string {
   }
 }
 
+// Short date for narrow chart axis labels (e.g. "Aug 4") where a full
+// yyyy-MM-dd would always get truncated to an identical, useless prefix.
+export function formatDateShort(iso?: string, timezone?: string): string {
+  if (!iso) return DASH;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: timezone || undefined,
+    }).format(d);
+  } catch {
+    return d.toISOString().slice(5, 10);
+  }
+}
+
 // Normalize a sport type for display: iroha stores a mix of short lowercase
 // codes (run, walk, ride) and raw Apple PascalCase (FitnessGaming,
 // HighIntensityIntervalTraining). Render all of them as uniform Title Case.

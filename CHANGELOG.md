@@ -7,7 +7,21 @@ contract between minor versions.
 
 ## [Unreleased]
 
-No unreleased changes.
+### Fixed
+
+- The favicon/app icon was only ever wired through a client-hydrated `<link rel="icon">` in `+layout.svelte`, so bookmarks, "Add to Home Screen", and a direct `/favicon.ico` request all missed it.
+  Both `iroha-web` and `iroha-public-site` now ship a real `favicon.ico`/`favicon.svg`, `apple-touch-icon.png`, and a web manifest, linked directly in `app.html`.
+- The Dashboard's route footprint required an explicit "Load route footprint" click before it would render, a 2026-08-04 change that turned out to be the wrong call. It loads automatically again on
+  page load, same as the rest of the Dashboard's data.
+- The Night page's daily bar chart rendered every date label as an identical, truncated `2026-0…` in the atlas, field-journal, and sound-map themes, since a full `yyyy-MM-dd` never fit a narrow
+  per-bar slot. Labels now use a short `Aug 4` form; the full date remains available on hover.
+- sound-map Dashboard's sport-breakdown legend truncated long category names (`FitnessGaming`, `High Intensity Interval Training`) with no way to see the full name; each band now exposes it via
+  `title` on hover.
+
+### Added
+
+- The Dashboard's sport-breakdown chart (archive's "Sessions by sport", sound-map's "Sessions by band") is now clickable — both the bar and its legend row navigate to `/activities?sport=<key>`,
+  landing on the Activities list pre-filtered to that sport.
 
 ## [0.2.0] — 2026-08-05
 

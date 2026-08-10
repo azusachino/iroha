@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { SleepSession } from "$lib/api";
-  import { formatDateOnly, formatDuration } from "$lib/format";
+  import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
 
   let {
     sessions,
@@ -73,7 +73,7 @@
         >
           <i style={`height: ${Math.max(3, (session.asleep_s / max) * 100)}%`}
           ></i>
-          <small>{formatDateOnly(session.wake_date)}</small>
+          <small>{formatDateShort(session.wake_date)}</small>
         </button>
       {/each}
     </div>

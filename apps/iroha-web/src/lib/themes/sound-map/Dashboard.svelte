@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
   import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
   import { sportColor, sportLabel } from "$lib/sport";
@@ -51,6 +52,10 @@
       color: sportColor(bucket.key),
     }));
   });
+
+  function openSport(sportKey: string) {
+    void goto(`/activities?sport=${encodeURIComponent(sportKey)}`);
+  }
 </script>
 
 <section class="mix-dashboard" aria-labelledby="mix-dashboard-title">
@@ -133,12 +138,17 @@
                 .join(", ")}`}
             >
               {#each spectrum as band (band.key)}
-                <div class="spectrum-band">
+                <button
+                  type="button"
+                  class="spectrum-band"
+                  title={`View ${sportLabel(band.key)} activities`}
+                  onclick={() => openSport(band.key)}
+                >
                   <i
                     style={`height: ${Math.max(4, band.pct)}%; background: ${band.color};`}
                   ></i>
                   <small>{sportLabel(band.key)}</small>
-                </div>
+                </button>
               {/each}
             </div>
           {:else}
@@ -331,6 +341,17 @@
     align-items: end;
     height: 100%;
     min-width: 0;
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+  }
+  .spectrum-band:hover i {
+    filter: brightness(1.2);
+  }
+  .spectrum-band:hover small {
+    color: var(--text);
   }
   .spectrum-band i {
     display: block;

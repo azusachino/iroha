@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
   import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
   import { sportColor, sportLabel } from "$lib/sport";
@@ -50,6 +51,10 @@
       color: sportColor(bucket.key),
     }));
   });
+
+  function openSport(sportKey: string) {
+    void goto(`/activities?sport=${encodeURIComponent(sportKey)}`);
+  }
 </script>
 
 <section class="folio-dashboard" aria-labelledby="folio-dashboard-title">
@@ -136,18 +141,26 @@
             >
               <div class="core-strip">
                 {#each sportRows as band (band.key)}
-                  <div
+                  <button
+                    type="button"
                     class="core-band"
                     style={`flex-grow: ${band.magnitude}; background: ${band.color};`}
-                  ></div>
+                    title={`View ${sportLabel(band.key)} activities`}
+                    onclick={() => openSport(band.key)}
+                  ></button>
                 {/each}
               </div>
               <div class="core-legend">
                 {#each sportRows as band (band.key)}
-                  <div class="core-row" style={`flex-grow: ${band.magnitude};`}>
+                  <button
+                    type="button"
+                    class="core-row"
+                    style={`flex-grow: ${band.magnitude};`}
+                    onclick={() => openSport(band.key)}
+                  >
                     <strong>{sportLabel(band.key)}</strong>
                     <span>{band.count}</span>
-                  </div>
+                  </button>
                 {/each}
               </div>
             </div>
@@ -359,7 +372,13 @@
   }
   .core-band {
     flex-shrink: 0;
+    border: 0;
     border-top: 1px solid var(--bg);
+    padding: 0;
+    cursor: pointer;
+  }
+  .core-band:hover {
+    filter: brightness(1.15);
   }
   .core-band:first-child {
     border-top: 0;
@@ -378,9 +397,17 @@
     gap: 0.75rem;
     min-height: 1.15rem;
     overflow: hidden;
+    border: 0;
     border-top: 1px solid var(--border);
+    background: none;
     padding: 0 0.6rem 0 0.25rem;
+    font: inherit;
     font-size: 0.68rem;
+    text-align: left;
+    cursor: pointer;
+  }
+  .core-row:hover {
+    background: var(--surface-hover, var(--surface));
   }
   .core-row:first-child {
     border-top: 0;

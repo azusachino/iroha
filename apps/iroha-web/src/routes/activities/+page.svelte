@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
+  import { page } from "$app/state";
   import {
     getActivitySummary,
     listActivities,
@@ -232,6 +233,8 @@
   });
 
   onMount(() => {
+    const sportParam = page.url.searchParams.get("sport");
+    if (sportParam) sportType = sportParam;
     void loadSummary();
   });
 
