@@ -39,8 +39,7 @@
 
   let routes = $state<RouteFeatureCollection | null>(null);
   let routesError = $state<string | null>(null);
-  let routesLoading = $state(false);
-  let routesRequested = $state(false);
+  let routesLoading = $state(true);
   const theme = useTheme();
 
   const recentActivities = $derived(activities.slice(0, RECENT_ACTIVITY_LIMIT));
@@ -84,7 +83,6 @@
   }
 
   async function loadRoutes() {
-    routesRequested = true;
     routesLoading = true;
     routesError = null;
     try {
@@ -97,9 +95,7 @@
   }
 
   async function reloadDashboard() {
-    const loads = [loadSummary(), loadActivities()];
-    if (routesRequested) loads.push(loadRoutes());
-    await Promise.all(loads);
+    await Promise.all([loadSummary(), loadActivities(), loadRoutes()]);
   }
 
   function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
@@ -141,6 +137,7 @@
   onMount(() => {
     void loadSummary();
     void loadActivities();
+    void loadRoutes();
   });
 </script>
 
