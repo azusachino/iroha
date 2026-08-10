@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
@@ -132,6 +133,7 @@ func mapEntry(entry mediaListEntry, scoreScale *float64) observations.Media {
 		EpisodeCount:    media.Episodes,
 		ChapterCount:    media.Chapters,
 		CoverImageURL:   media.CoverImage.Large,
+		Description:     strings.TrimSpace(media.Description),
 		Status:          status,
 		Progress:        position,
 		Score:           score,

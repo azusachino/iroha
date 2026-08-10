@@ -329,6 +329,7 @@
     max-width: 55rem;
     color: var(--text-muted);
     line-height: 1.55;
+    white-space: pre-line;
   }
   .hero-meta,
   .progress-meta,

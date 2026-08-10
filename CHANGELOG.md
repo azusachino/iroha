@@ -30,6 +30,10 @@ contract between minor versions.
 - Replaced the hand-rolled, non-interactive SVG/div bar charts on the Patterns and Night pages (all 5 themes, 10 chart instances) with a new shared `BarChart` component built on the same ECharts stack
   `LineChart` already used elsewhere — every chart now has a real hover tooltip and, on Night, click-to-select. Each theme keeps its own accent color and bar orientation; move-goal-closure and
   sleep-efficiency, previously encoded only as an ambiguous bar-color gradient, are now a proper secondary line series visible in the tooltip.
+- Every media item's `description` has always been empty — no AniList/Bangumi provider ever wrote to it, so every media detail page across every theme showed the same generic fallback text. AniList
+  sync now fetches `description(asHtml:false)` and writes it to `tb_media_works.description` on both create and reconcile; the frontend renders it with `white-space: pre-line` so paragraph breaks
+  survive instead of running into one wall of text. Bangumi's collection API doesn't include summaries at all (it needs a separate per-subject detail call, a bigger N+1-shaped change) —
+  Bangumi-sourced items still show the fallback, tracked as a follow-up.
 
 ## [0.2.0] — 2026-08-05
 

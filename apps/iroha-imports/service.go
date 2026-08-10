@@ -558,6 +558,7 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 			WorkKind:      mediaWorkKind,
 			PrimaryTitle:  media.Title,
 			OriginalTitle: media.Title,
+			Description:   media.Description,
 			CreatedAt:     now,
 			UpdatedAt:     now,
 		}
@@ -967,11 +968,28 @@ func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Me
 	setStr("country", item.Country, media.Country)
 	setStr("cover_image_url", item.CoverImageURL, media.CoverImageURL)
 
-	if len(updates) == 0 {
-		return nil
+	if len(updates) > 0 {
+		updates["updated_at"] = time.Now().UTC()
+		if err := tx.Model(&models.MediaItem{}).Where("id = ?", itemID).Updates(updates).Error; err != nil {
+			return err
+		}
 	}
-	updates["updated_at"] = time.Now().UTC()
-	return tx.Model(&models.MediaItem{}).Where("id = ?", itemID).Updates(updates).Error
+
+	// Description lives on the work, not the item -- same owned/existing-empty
+	// rule as the item fields above, applied against tb_media_works instead.
+	if media.Description != "" && item.WorkID != nil {
+		var work models.MediaWork
+		if err := tx.First(&work, "id = ?", *item.WorkID).Error; err != nil {
+			return err
+		}
+		if (owned || work.Description == "") && work.Description != media.Description {
+			return tx.Model(&models.MediaWork{}).Where("id = ?", *item.WorkID).Updates(map[string]any{
+				"description": media.Description,
+				"updated_at":  time.Now().UTC(),
+			}).Error
+		}
+	}
+	return nil
 }
 
 func (s *Service) persistActivities(rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {

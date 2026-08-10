@@ -229,6 +229,7 @@
   .description {
     max-width: 55ch;
     line-height: 1.55;
+    white-space: pre-line;
   }
   .meta-row {
     display: flex;
