@@ -201,6 +201,7 @@ cython_debug/
 .iroha-data/
 .uv-cache/
 iroha.toml
+.local/
 .cursorignore
 .cursorindexingignore
 
