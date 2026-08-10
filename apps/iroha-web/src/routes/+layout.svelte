@@ -1,5 +1,4 @@
 <script lang="ts">
-  import favicon from "$lib/assets/favicon.svg";
   import { APP_VERSION } from "$lib/config";
   import { page } from "$app/state";
   import {
@@ -34,10 +33,6 @@
     window.dispatchEvent(new CustomEvent("iroha:command-palette:toggle"));
   }
 </script>
-
-<svelte:head>
-  <link rel="icon" href={favicon} />
-</svelte:head>
 
 <ThemeProvider>
   <div class="app">
