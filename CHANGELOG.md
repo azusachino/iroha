@@ -22,6 +22,9 @@ contract between minor versions.
 
 - The Dashboard's sport-breakdown chart (archive's "Sessions by sport", sound-map's "Sessions by band") is now clickable — both the bar and its legend row navigate to `/activities?sport=<key>`,
   landing on the Activities list pre-filtered to that sport.
+- Today and Overview only ever reflected activity data across all 5 curated themes, even though sleep and media have been part of the product for a while. Overview's stats row now includes Sleep
+  (recent average asleep time) and Media (completed count) alongside distance/activities/time/routes. Today now shows a Media section (mirroring the existing Activities section) — the underlying
+  briefing API already returned media events, but the curated themes' Today components never received them as a prop.
 
 ## [0.2.0] — 2026-08-05
 

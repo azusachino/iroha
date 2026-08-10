@@ -24,6 +24,7 @@
     formatDuration,
     formatPace,
     formatHr,
+    mediaEventVerb,
   } from "$lib/format";
 
   let briefing = $state<BriefingResponse | null>(null);
@@ -194,15 +195,6 @@
     void loadAvailableDays();
   });
 
-  function mediaEventVerb(event: MediaHomeEvent): string {
-    if (event.rating != null) return "Rated";
-    if (event.progress_percent != null && event.progress_percent >= 100)
-      return "Finished";
-    if (event.position != null || event.progress_percent != null)
-      return "Progressed";
-    return "Updated library";
-  }
-
   async function loadTasks(selectedDay: string) {
     taskError = null;
     try {
@@ -322,7 +314,7 @@
   {:else if hasThemeRoute(theme.definition(), "today")}
     <ThemeRouteRenderer
       route="today"
-      props={{ dayLabel, day, dRow, mainNight, acts }}
+      props={{ dayLabel, day, dRow, mainNight, acts, mediaEvents }}
     />
   {:else}
     <header class="command-heading tile hero-surface">

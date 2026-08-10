@@ -1,7 +1,19 @@
 // Presentation helpers. All inputs may be undefined; missing data renders as
 // an em dash so the UI degrades gracefully.
 
+import type { MediaHomeEvent } from "$lib/api";
+
 const DASH = "—";
+
+// What a media event on the Today feed actually represents, in one word.
+export function mediaEventVerb(event: MediaHomeEvent): string {
+  if (event.rating != null) return "Rated";
+  if (event.progress_percent != null && event.progress_percent >= 100)
+    return "Finished";
+  if (event.position != null || event.progress_percent != null)
+    return "Progressed";
+  return "Updated library";
+}
 
 export function boundPercent(value?: number | null): number {
   if (value == null || !Number.isFinite(value)) return 0;
