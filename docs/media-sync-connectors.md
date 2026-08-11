@@ -218,10 +218,10 @@ freshness (§7). Don't read "bridge cache" as "the general cross-provider dedup 
 Ordered smallest → biggest to build momentum; each ends green on `make check`.
 
 1. **Shipped** — schema, media dispatch/persistence, connector contract, cursor state, AniList/Bangumi pagination, raw snapshot evidence, worker retry handling, private sync trigger, full ontology
-   (titles, external refs, work/item linkage, events, progress projections), the bridge cache build/deploy, the resolution-tasks API + `/admin` inbox panel, and cross-provider dedup auto-attach (§7).
+   (titles, external refs, work/item linkage, events, progress projections), the bridge cache build/deploy, the resolution-tasks API + `/to-go` inbox panel, and cross-provider dedup auto-attach (§7).
 2. **Next** — automate bridge dataset refresh (currently a manual `make media-bridge-build` + ConfigMap redeploy with no schedule); merge/apply tooling for the genuinely ambiguous (2+ candidate)
    resolution tasks, which today still only record a human's decision without acting on it.
-3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and a richer web inbox UI beyond the `/admin` confirm/dismiss panel.
+3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and a richer web inbox UI beyond the `/to-go` confirm/dismiss panel.
 
 Deferred (explicitly out of this draft's scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Letterboxd/Goodreads/WeRead CSV; TMDb/Open Library enrichment; self-hosted
 (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/inbox/history).

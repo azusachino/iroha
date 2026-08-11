@@ -174,7 +174,7 @@
       <ul class="atlas-media-list">
         {#each mediaEvents as event (event.id)}
           <li>
-            <a class="atlas-media-row" href={`/media/${event.media_id}`}>
+            <a class="atlas-media-row" href={`/library/${event.media_id}`}>
               {#if event.cover_image_url}
                 <img src={event.cover_image_url} alt="" loading="lazy" />
               {:else}

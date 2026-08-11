@@ -68,7 +68,7 @@ and `unit`, not a second backend status.
 - Do not make the root route a general-purpose aggregate endpoint.
 - Do not return provider payloads or provider-specific color names.
 - Do not solve key-visual hosting in this redesign; `cover_image_url` remains an optional derived field.
-- Do not remove pagination from `/media`, `/activities`, `/sleep`, or `/daily` domain pages.
+- Do not remove pagination from `/library`, `/motion`, `/night`, or `/patterns` domain pages.
 
 ## Acceptance checks
 

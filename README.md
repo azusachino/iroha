@@ -50,7 +50,7 @@ by the separate static `apps/iroha-public-site`; there is no live `/public/v1` r
   from ~millions of `Record` rows via streaming.
 - **Background jobs + read surfaces** — `iroha-server` owns ingestion and reads, `iroha-job` claims persisted jobs, and the Svelte cockpit consumes the private API. Public activity/route views are
   sanitized projections.
-- **Private control room** — `/admin` keeps daily personal tasks beside recent durable jobs and allowlisted media-sync triggers; the front page exposes the same daily to-go lane for quick access.
+- **Private control room** — `/to-go` keeps daily personal tasks beside recent durable jobs and allowlisted media-sync triggers; the front page exposes the same daily to-go lane for quick access.
 - **PostGIS canonical store** — Strava is a legacy import/export adapter only.
 - **Media sync** — AniList and Bangumi connectors sync watch/read history into canonical media items and events, with a MAL↔AniList/Bangumi bridge cache for cross-provider resolution.
 - **Read response cache** — imported-data reads are cached by canonical request key and invalidated after successful imports; task/job state and mutations always remain live.

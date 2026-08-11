@@ -21,7 +21,7 @@
   const theme = useTheme();
 
   // Re-fetch whenever the route param changes. SvelteKit reuses this component
-  // across /media/[id] navigations, so onMount would fire only once and
+  // across /library/[id] navigations, so onMount would fire only once and
   // clicking a related title would change the URL without reloading the page.
   $effect(() => {
     void load(page.params.id ?? "");
@@ -105,7 +105,7 @@
 </script>
 
 <svelte:head>
-  <title>{detail?.item.title ?? "Media"} · iroha</title>
+  <title>{detail?.item.title ?? "Library"} · Library · iroha</title>
 </svelte:head>
 
 <section class="detail-shell">
@@ -115,7 +115,7 @@
       props={{ detail, progress: progressValue() }}
     />
   {:else}
-    <p><a class="back-link" href="/media">← Back to media</a></p>
+    <p><a class="back-link" href="/library">← Back to Library</a></p>
 
     {#if loading}
       <p class="muted">Loading item…</p>
@@ -257,7 +257,7 @@
               <div class="relation-list">
                 {#each detail.relations as relation (relation.id)}<a
                     class="relation-card"
-                    href={`/media/${relation.related_item_id}`}
+                    href={`/library/${relation.related_item_id}`}
                     >{#if relation.cover_image_url}<img
                         src={relation.cover_image_url}
                         alt=""

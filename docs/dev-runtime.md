@@ -120,7 +120,7 @@ Open a route and capture the current page:
 
 ```bash
 cd apps/iroha-web
-bunx -p @playwright/cli@latest playwright-cli open "http://127.0.0.1:5173/dashboard" --browser webkit --headed
+bunx -p @playwright/cli@latest playwright-cli open "http://127.0.0.1:5173/overview" --browser webkit --headed
 bunx -p @playwright/cli@latest playwright-cli screenshot --full-page --filename=artifact.png
 ```
 

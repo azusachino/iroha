@@ -161,7 +161,7 @@
         <h2>Related works</h2>
         <div class="relations">
           {#each detail.relations.slice(0, 6) as relation (relation.id)}
-            <a href={`/media/${relation.related_item_id}`}>
+            <a href={`/library/${relation.related_item_id}`}>
               <span>{relation.related_title}</span>
               <small>{relation.relation_type.replaceAll("_", " ")}</small>
             </a>

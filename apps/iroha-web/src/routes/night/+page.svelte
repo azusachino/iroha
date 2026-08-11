@@ -274,7 +274,7 @@
 </script>
 
 <svelte:head>
-  <title>Sleep · iroha</title>
+  <title>Night · iroha</title>
 </svelte:head>
 
 <section class="sleep-shell">
@@ -571,7 +571,7 @@
                     >{session.is_main_sleep ? "Primary" : "Short"}</em
                   >
                 </button>
-                <a class="night-detail-link" href={`/sleep/${session.id}`}
+                <a class="night-detail-link" href={`/night/${session.id}`}
                   >Open</a
                 >
               </div>

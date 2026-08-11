@@ -10,13 +10,13 @@ the control-room request fix. The count is the initial API traffic after navigat
 | Route           | Baseline | Decision                                                                                                                                                                          |
 | --------------- | -------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`             |        3 | Keep: briefing, day-index lookup for the scrubber, and the To-go strip are separate visible concerns.                                                                             |
-| `/dashboard`    |        6 | Keep for now: summary plus five activity pages power the heatmap/streak/recent-history view. Route footprint remains opt-in and made no initial request.                          |
-| `/activities`   |        2 | Keep: one visible activity page and one summary used by filters/statistics.                                                                                                       |
-| `/daily`        |       13 | Fixed: initial load no longer sweeps all daily history or fetches yearly aggregates; Day loads one selected month (maximum 31 rows), Year loads one aggregate only when selected. |
+| `/overview`     |        6 | Keep for now: summary plus five activity pages power the heatmap/streak/recent-history view. Route footprint remains opt-in and made no initial request.                          |
+| `/motion`       |        2 | Keep: one visible activity page and one summary used by filters/statistics.                                                                                                       |
+| `/patterns`     |       13 | Fixed: initial load no longer sweeps all daily history or fetches yearly aggregates; Day loads one selected month (maximum 31 rows), Year loads one aggregate only when selected. |
 | `/design`       |        1 | Keep: the design lab requests the live briefing when available and otherwise uses its sample content.                                                                             |
-| `/media`        |        2 | Keep: one library page and one aggregate set are both visible on first paint. Filter changes reload only the library page.                                                        |
-| `/sleep`        |        4 | Keep: session list, year/month trends, and the selected session's visible stage timeline. Both trend granularities are visible simultaneously.                                    |
-| `/admin`        |        3 | Fixed: one task request replaces separate open/completed requests; jobs are scoped to top-level media-sync actions.                                                               |
+| `/library`      |        2 | Keep: one library page and one aggregate set are both visible on first paint. Filter changes reload only the library page.                                                        |
+| `/night`        |        4 | Keep: session list, year/month trends, and the selected session's visible stage timeline. Both trend granularities are visible simultaneously.                                    |
+| `/to-go`        |        3 | Fixed: one task request replaces separate open/completed requests; jobs are scoped to top-level media-sync actions.                                                               |
 | Activity detail |        4 | Keep: activity, route, heart-rate samples, and laps are independent detail panels.                                                                                                |
 | Media detail    |        1 | Keep: one detail request.                                                                                                                                                         |
 | Sleep detail    |        2 | Keep: session metadata and stage segments are both visible.                                                                                                                       |
@@ -50,13 +50,13 @@ yearly request, and Day requests at most one selected month with `limit=31`. The
 | Route         | Initial API requests |
 | ------------- | -------------------: |
 | `/`           |                    3 |
-| `/dashboard`  |                    6 |
-| `/activities` |                    2 |
-| `/daily`      |                    2 |
+| `/overview`   |                    6 |
+| `/motion`     |                    2 |
+| `/patterns`   |                    2 |
 | `/design`     |                    1 |
-| `/media`      |                    2 |
-| `/sleep`      |                    4 |
-| `/admin`      |                    2 |
+| `/library`    |                    2 |
+| `/night`      |                    4 |
+| `/to-go`      |                    2 |
 
 ## Read cache boundary
 

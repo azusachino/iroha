@@ -122,7 +122,7 @@
           {#each activities as activity}
             <tr
               ><td>{formatDateOnly(activity.started_at)}</td><td
-                ><a href={`/activities/${activity.id}`}
+                ><a href={`/motion/${activity.id}`}
                   >{activity.title || sportLabel(activity.sport_type)}</a
                 ></td
               ><td>{sportLabel(activity.sport_type)}</td><td

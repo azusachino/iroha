@@ -20,7 +20,7 @@
 
 {#if Renderer}
   {#if route === "activity-detail"}
-    <p class="detail-back"><a href="/activities">← Back to Motion</a></p>
+    <p class="detail-back"><a href="/motion">← Back to Motion</a></p>
   {/if}
   <Renderer {...props} />
 {/if}

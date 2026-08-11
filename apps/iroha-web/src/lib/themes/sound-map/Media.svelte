@@ -128,7 +128,7 @@
     {:else}
       <div class="mix-grid">
         {#each items as item (item.id)}
-          <a class="mix-card" href={`/media/${item.id}`}>
+          <a class="mix-card" href={`/library/${item.id}`}>
             {#if item.cover_image_url}
               <img src={item.cover_image_url} alt="" loading="lazy" />
             {:else}

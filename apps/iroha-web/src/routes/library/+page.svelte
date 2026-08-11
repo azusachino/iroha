@@ -220,7 +220,7 @@
 </script>
 
 <svelte:head>
-  <title>Media · iroha</title>
+  <title>Library · iroha</title>
 </svelte:head>
 
 <section class="media-shell">
@@ -254,7 +254,7 @@
   {:else}
     <RouteIntro
       eyebrow="Library / things in orbit"
-      title="Watchlist & bookshelf"
+      title="A living personal library."
       description="Keep reading, watching, and playing visible without turning your interests into a backlog."
       actionHref="/"
       actionLabel="Back to Today"
@@ -391,7 +391,7 @@
           </header>
           <div class="continue-grid">
             {#each continueItems as item (item.id)}
-              <a class="continue-card tile" href={`/media/${item.id}`}>
+              <a class="continue-card tile" href={`/library/${item.id}`}>
                 <div class="thumb">
                   {#if item.cover_image_url}
                     <img src={item.cover_image_url} alt="" loading="lazy" />
@@ -450,7 +450,7 @@
               </header>
               <div class="poster-grid">
                 {#each group as item (item.id)}
-                  <a class="poster" href={`/media/${item.id}`}>
+                  <a class="poster" href={`/library/${item.id}`}>
                     <div class="cover">
                       {#if item.cover_image_url}
                         <img src={item.cover_image_url} alt="" loading="lazy" />

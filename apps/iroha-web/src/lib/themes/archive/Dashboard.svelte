@@ -66,7 +66,7 @@
   });
 
   function openSport(sportKey: string) {
-    void goto(`/activities?sport=${encodeURIComponent(sportKey)}`);
+    void goto(`/motion?sport=${encodeURIComponent(sportKey)}`);
   }
 </script>
 

@@ -300,6 +300,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Motion · iroha</title>
+</svelte:head>
+
 <section class="activities-shell">
   {#if hasThemeRoute(theme.definition(), "activities")}
     <ThemeRouteRenderer
@@ -416,7 +420,7 @@
           <li>
             <a
               class="activity-card tile tile-interactive"
-              href={`/activities/${activity.id}`}
+              href={`/motion/${activity.id}`}
               style={`--sport-color: ${sportColor(activity.sport_type)}`}
             >
               <span class="accent" aria-hidden="true"></span>

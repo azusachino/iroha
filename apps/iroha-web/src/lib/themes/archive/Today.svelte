@@ -239,7 +239,7 @@
       <ul class="folio-media-list">
         {#each mediaEvents as event (event.id)}
           <li>
-            <a class="folio-media-row" href={`/media/${event.media_id}`}>
+            <a class="folio-media-row" href={`/library/${event.media_id}`}>
               {#if event.cover_image_url}
                 <img src={event.cover_image_url} alt="" loading="lazy" />
               {:else}

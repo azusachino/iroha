@@ -376,7 +376,7 @@
       </div>
 
       <div class="editorial-grid">
-        <a class="feature tile" href="/sleep">
+        <a class="feature tile" href="/night">
           <span class="card-kicker"><Moon size={15} /> Recovery</span>
           <strong
             >{today.sleep ? formatDuration(today.sleep.asleep_s) : "—"}</strong
@@ -387,7 +387,7 @@
               : "No sleep recorded"}
           </p>
         </a>
-        <a class="feature tile" href="/activities">
+        <a class="feature tile" href="/motion">
           <span class="card-kicker"><Activity size={15} /> Training</span>
           <strong>{today.activities.length} <small>sessions</small></strong>
           <p class="muted">
@@ -480,7 +480,7 @@
         <div class="command-grid">
           <section class="command-rings tile">
             <div class="section-title">
-              <span>Activity rings</span><a href="/daily"
+              <span>Activity rings</span><a href="/patterns"
                 >Open daily <ArrowRight size={14} /></a
               >
             </div>
@@ -488,7 +488,7 @@
           </section>
           <section class="command-sleep tile">
             <div class="section-title">
-              <span>Sleep</span><a href="/sleep"
+              <span>Sleep</span><a href="/night"
                 >Details <ArrowRight size={14} /></a
               >
             </div>
@@ -510,13 +510,13 @@
           </section>
           <section class="command-activities tile">
             <div class="section-title">
-              <span>Activity stream</span><a href="/activities"
+              <span>Activity stream</span><a href="/motion"
                 >View all <ArrowRight size={14} /></a
               >
             </div>
             <div class="activity-stream">
               {#each today.activities as activity (activity.id)}<a
-                  href={`/activities/${activity.id}`}
+                  href={`/motion/${activity.id}`}
                   class="stream-row"
                   ><SportBadge sport={activity.sport_type} /><span
                     ><strong>{activity.title}</strong><small
@@ -528,7 +528,7 @@
           </section>
           <section class="command-vitals tile">
             <div class="section-title">
-              <span>Vitals</span><a href="/daily"
+              <span>Vitals</span><a href="/patterns"
                 >Trends <ArrowRight size={14} /></a
               >
             </div>
@@ -554,11 +554,11 @@
                 ? "Exercise is covered. A short walk keeps the evening open."
                 : "A small block of movement will change the shape of the day."}
             </p>
-            <a href="/activities">Plan an activity <ArrowRight size={14} /></a>
+            <a href="/motion">Plan an activity <ArrowRight size={14} /></a>
           </section>
           <section class="command-media tile">
             <div class="section-title">
-              <span>Recently touched</span><a href="/media"
+              <span>Recently touched</span><a href="/library"
                 >Open library <ArrowRight size={14} /></a
               >
             </div>
@@ -625,7 +625,7 @@
             >
               <time>{activity.started_at.slice(11, 16)}</time>
               <div class="moment-pin activity-pin"><Activity size={14} /></div>
-              <a class="moment-card tile" href={`/activities/${activity.id}`}
+              <a class="moment-card tile" href={`/motion/${activity.id}`}
                 ><span class="card-kicker"
                   >{formatSport(activity.sport_type)}</span
                 >
@@ -754,9 +754,9 @@
           <span class="workspace-logo">i</span>
           <nav aria-label="Workspace sections">
             <a class="selected" href="/"><span>◈</span> Today</a>
-            <a href="/daily"><span>◌</span> Patterns</a>
-            <a href="/activities"><span>↗</span> Activities</a>
-            <a href="/media"><span>▧</span> Library</a>
+            <a href="/patterns"><span>◌</span> Patterns</a>
+            <a href="/motion"><span>↗</span> Motion</a>
+            <a href="/library"><span>▧</span> Library</a>
           </nav>
           <div class="workspace-sidebar-foot">
             <span>Workspace health</span>
@@ -799,10 +799,7 @@
                 ><small>{today.activities.length + 1} items</small>
               </header>
               {#each today.activities as activity (activity.id)}
-                <a
-                  class="workspace-card tile"
-                  href={"/activities/" + activity.id}
-                >
+                <a class="workspace-card tile" href={"/motion/" + activity.id}>
                   <span class="workspace-card-top"
                     ><SportBadge sport={activity.sport_type} /><small
                       >{activity.started_at.slice(11, 16)}</small
@@ -966,7 +963,7 @@
       </div>
       <footer class="quiet-footer">
         <span>Nothing to optimize right now.</span>
-        <a href="/daily">See the longer pattern <ArrowRight size={14} /></a>
+        <a href="/patterns">See the longer pattern <ArrowRight size={14} /></a>
       </footer>
     </section>
   {/if}

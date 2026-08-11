@@ -37,25 +37,25 @@
 <svelte:head>
   <title
     >{session
-      ? `${formatDateOnly(session.wake_date)} sleep · iroha`
-      : "Sleep detail · iroha"}</title
+      ? `${formatDateOnly(session.wake_date)} · Night · iroha`
+      : "Night detail · iroha"}</title
   >
 </svelte:head>
 
 <section class="sleep-detail-shell">
   <RouteIntro
     eyebrow="Night / detail"
-    title={session ? formatDateOnly(session.wake_date) : "Sleep detail"}
+    title={session ? formatDateOnly(session.wake_date) : "Night detail"}
     description="A close look at this sleep session and its stage architecture."
-    actionHref="/sleep"
-    actionLabel="Back to sleep"
+    actionHref="/night"
+    actionLabel="Back to Night"
   />
 
   {#if loading}
-    <section class="status tile"><p>Loading sleep detail…</p></section>
+    <section class="status tile"><p>Loading Night detail…</p></section>
   {:else if error}
     <section class="status tile">
-      <p class="error">Sleep could not be loaded: {error}</p>
+      <p class="error">Night could not be loaded: {error}</p>
     </section>
   {:else if session}
     <section class="detail-grid">

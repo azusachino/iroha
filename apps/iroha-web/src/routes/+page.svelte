@@ -248,6 +248,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Today · iroha</title>
+</svelte:head>
+
 <svelte:window onkeydown={onKey} />
 
 <section class="cockpit">
@@ -330,7 +334,7 @@
             <span class="to-go-empty">No open tasks for this day.</span>
           {/if}
         </div>
-        <a class="to-go-link" href="/admin">Open control room →</a>
+        <a class="to-go-link" href="/to-go">Open control room →</a>
       </section>
     {/if}
   </div>
@@ -350,7 +354,7 @@
     <header class="command-heading tile hero-surface">
       <div>
         <p class="eyebrow">Private command center / {dayLabel}</p>
-        <h1>Keep the signal visible.</h1>
+        <h1>Today, in one view.</h1>
         <p class="heading-copy">
           A calm operating view of movement, recovery, and the things you
           touched today.
@@ -415,7 +419,7 @@
     </div>
     <div class="bento signal-layout">
       <!-- Rings -->
-      <a class="card tile feature-card" href="/daily">
+      <a class="card tile feature-card" href="/patterns">
         <header><span class="ic">◎</span> Activity rings</header>
         {#if hasRing}
           <RingGauge rings={ringData} size={116} />
@@ -430,7 +434,7 @@
       </a>
 
       <!-- Vitals -->
-      <a class="card tile vitals-card" href="/daily">
+      <a class="card tile vitals-card" href="/patterns">
         <header><span class="ic">♥</span> Body vitals</header>
         {#if vitals.length}
           <dl class="vitals">
@@ -447,7 +451,7 @@
       </a>
 
       <!-- Sleep -->
-      <a class="card tile sleep-card" href="/sleep">
+      <a class="card tile sleep-card" href="/night">
         <header><span class="ic">☾</span> Sleep</header>
         {#if mainNight}
           <div class="sleep-hero">{formatDuration(mainNight.asleep_s)}</div>
@@ -465,13 +469,13 @@
       <div class="card tile wide activity-card">
         <header>
           <span class="ic">⚡</span>
-          <a class="hdr-link" href="/activities">Activities</a>
+          <a class="hdr-link" href="/motion">Motion</a>
         </header>
         {#if acts.length}
           <ul class="acts">
             {#each acts as a}
               <li>
-                <a class="act-row" href={`/activities/${a.id}`}>
+                <a class="act-row" href={`/motion/${a.id}`}>
                   <SportBadge sport={a.sport_type} />
                   <span class="a-title">{a.title || "Untitled"}</span>
                   <span class="a-metrics">
@@ -495,13 +499,13 @@
       <div class="card tile wide media-card">
         <header>
           <span class="ic">▤</span>
-          <a class="hdr-link" href="/media">Media</a>
+          <a class="hdr-link" href="/library">Library</a>
         </header>
         {#if mediaEvents.length}
           <ul class="media-events">
             {#each mediaEvents as event (event.id)}
               <li>
-                <a class="media-event-row" href={`/media/${event.media_id}`}>
+                <a class="media-event-row" href={`/library/${event.media_id}`}>
                   {#if event.cover_image_url}
                     <img src={event.cover_image_url} alt="" loading="lazy" />
                   {:else}

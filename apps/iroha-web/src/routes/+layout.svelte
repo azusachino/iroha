@@ -14,20 +14,18 @@
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import DesignLanguagePicker from "$lib/components/DesignLanguagePicker.svelte";
+  import { primaryNavigation } from "$lib/navigation";
   import ThemeFrame from "$lib/themes/ThemeFrame.svelte";
   import ThemeProvider from "$lib/themes/ThemeProvider.svelte";
   import "./app.css";
 
   let { children } = $props();
-  const mediaActive = $derived(page.url.pathname.startsWith("/media"));
-  const homeActive = $derived(page.url.pathname === "/");
-  const dashboardActive = $derived(page.url.pathname.startsWith("/dashboard"));
-  const dailyActive = $derived(page.url.pathname.startsWith("/daily"));
-  const activitiesActive = $derived(
-    page.url.pathname.startsWith("/activities"),
-  );
-  const sleepActive = $derived(page.url.pathname.startsWith("/sleep"));
-  const adminActive = $derived(page.url.pathname.startsWith("/admin"));
+
+  function isActive(href: string) {
+    return href === "/"
+      ? page.url.pathname === "/"
+      : page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
+  }
 
   function openCommandPalette() {
     window.dispatchEvent(new CustomEvent("iroha:command-palette:toggle"));
@@ -47,22 +45,40 @@
         <small class="brand-version">v{APP_VERSION}</small>
       </a>
       <nav class="main-nav" aria-label="Primary navigation">
-        <a class:active={homeActive} href="/"><HeartPulse size={14} />Today</a>
-        <a class:active={dashboardActive} href="/dashboard"
-          ><LayoutDashboard size={14} />Overview</a
+        <a
+          class:active={isActive(primaryNavigation[0].href)}
+          href={primaryNavigation[0].href}
+          ><HeartPulse size={14} />{primaryNavigation[0].label}</a
         >
-        <a class:active={dailyActive} href="/daily"
-          ><Activity size={14} />Patterns</a
+        <a
+          class:active={isActive(primaryNavigation[1].href)}
+          href={primaryNavigation[1].href}
+          ><LayoutDashboard size={14} />{primaryNavigation[1].label}</a
         >
-        <a class:active={activitiesActive} href="/activities"
-          ><Footprints size={14} />Motion</a
+        <a
+          class:active={isActive(primaryNavigation[2].href)}
+          href={primaryNavigation[2].href}
+          ><Activity size={14} />{primaryNavigation[2].label}</a
         >
-        <a class:active={sleepActive} href="/sleep"><Moon size={14} />Night</a>
-        <a class:active={mediaActive} href="/media"
-          ><BookOpen size={14} />Library</a
+        <a
+          class:active={isActive(primaryNavigation[3].href)}
+          href={primaryNavigation[3].href}
+          ><Footprints size={14} />{primaryNavigation[3].label}</a
         >
-        <a class:active={adminActive} href="/admin"
-          ><ListTodo size={14} />To-go</a
+        <a
+          class:active={isActive(primaryNavigation[4].href)}
+          href={primaryNavigation[4].href}
+          ><Moon size={14} />{primaryNavigation[4].label}</a
+        >
+        <a
+          class:active={isActive(primaryNavigation[5].href)}
+          href={primaryNavigation[5].href}
+          ><BookOpen size={14} />{primaryNavigation[5].label}</a
+        >
+        <a
+          class:active={isActive(primaryNavigation[6].href)}
+          href={primaryNavigation[6].href}
+          ><ListTodo size={14} />{primaryNavigation[6].label}</a
         >
       </nav>
       <div class="appbar-actions">

@@ -134,7 +134,7 @@
     {:else}
       <div class="shelf-grid">
         {#each items as item (item.id)}
-          <a class="bud-card" href={`/media/${item.id}`}>
+          <a class="bud-card" href={`/library/${item.id}`}>
             <span class="bud-cover">
               {#if item.cover_image_url}
                 <img src={item.cover_image_url} alt="" loading="lazy" />

@@ -204,6 +204,10 @@
   });
 </script>
 
+<svelte:head>
+  <title>Overview · iroha</title>
+</svelte:head>
+
 <section class="dashboard-shell">
   {#if hasThemeRoute(theme.definition(), "dashboard")}
     <ThemeRouteRenderer
@@ -228,9 +232,9 @@
   {:else}
     <RouteIntro
       eyebrow="Observatory / long view"
-      title="See the footprint."
+      title="Your history, in view."
       description="A long view of the movement archive: accumulated distance, recent sessions, route footprint, and the data domains available to explore."
-      actionHref="/activities"
+      actionHref="/motion"
       actionLabel="Browse Motion"
     />
 
@@ -294,7 +298,7 @@
             <h2>Recent activity</h2>
             <p>Start where you last left off.</p>
           </div>
-          <a href="/activities">View all</a>
+          <a href="/motion">View all</a>
         </header>
         {#if activitiesLoading}
           <p class="muted">Loading activities…</p>
@@ -306,7 +310,7 @@
           <ul class="recent-list">
             {#each recentActivities as activity (activity.id)}
               <li>
-                <a class="recent-row" href={`/activities/${activity.id}`}>
+                <a class="recent-row" href={`/motion/${activity.id}`}>
                   <SportBadge sport={activity.sport_type} />
                   <span class="recent-title"
                     >{activity.title || "Untitled activity"}</span
@@ -377,19 +381,19 @@
             stat={summaryLoading || summaryError
               ? "Loading activity count…"
               : `${activityCount.toLocaleString()} activities`}
-            href="/activities"
+            href="/motion"
             state="active"
           />
           <DomainTile
             name="Sleep"
             stat="Recovery and sleep sessions"
-            href="/sleep"
+            href="/night"
             state="active"
           />
           <DomainTile
             name="Media"
             stat="Reading and watching history"
-            href="/media"
+            href="/library"
             state="active"
           />
         </div>

@@ -126,7 +126,7 @@
     <div class="shelf-grid">
       {#each items as item (item.id)}<a
           class="shelf-marker"
-          href={`/media/${item.id}`}
+          href={`/library/${item.id}`}
           >{#if item.cover_image_url}<img
               src={item.cover_image_url}
               alt=""

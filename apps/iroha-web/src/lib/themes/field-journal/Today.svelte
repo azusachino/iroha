@@ -180,7 +180,7 @@
       <ul class="journal-media-list">
         {#each mediaEvents as event (event.id)}
           <li>
-            <a class="journal-media-row" href={`/media/${event.media_id}`}>
+            <a class="journal-media-row" href={`/library/${event.media_id}`}>
               {#if event.cover_image_url}
                 <img src={event.cover_image_url} alt="" loading="lazy" />
               {:else}

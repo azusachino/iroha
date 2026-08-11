@@ -185,7 +185,7 @@
     {:else}
       <div class="folio-grid">
         {#each items as item, index (item.id)}
-          <a class="folio-card" href={`/media/${item.id}`}>
+          <a class="folio-card" href={`/library/${item.id}`}>
             <span class="folio-card-tag" title={mediaTypeLabel(item.media_type)}
               >{item.media_type.slice(0, 3).toUpperCase()}-{String(
                 index + 1,

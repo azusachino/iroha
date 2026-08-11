@@ -133,11 +133,11 @@
             <tr
               class="activity-row"
               ondblclick={() =>
-                (window.location.href = `/activities/${activity.id}`)}
+                (window.location.href = `/motion/${activity.id}`)}
             >
               <td>{formatDateOnly(activity.started_at, activity.timezone)}</td>
               <td
-                ><a href={`/activities/${activity.id}`}
+                ><a href={`/motion/${activity.id}`}
                   >{activity.title || sportLabel(activity.sport_type)}</a
                 ><small>{sportLabel(activity.sport_type)}</small></td
               >

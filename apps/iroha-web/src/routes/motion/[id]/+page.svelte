@@ -380,6 +380,14 @@
   });
 </script>
 
+<svelte:head>
+  <title
+    >{activity
+      ? `${displayTitle(activity.title, activity.sport_type)} · Motion · iroha`
+      : "Motion detail · iroha"}</title
+  >
+</svelte:head>
+
 {#if hasThemeRoute(theme.definition(), "activity-detail") && !loading && !error && activity}
   <ThemeRouteRenderer
     route="activity-detail"
@@ -394,7 +402,7 @@
     }}
   />
 {:else}
-  <p class="detail-back"><a href="/activities">← Back to Motion</a></p>
+  <p class="detail-back"><a href="/motion">← Back to Motion</a></p>
 
   {#if loading}
     <p class="muted">Loading activity…</p>
@@ -405,7 +413,7 @@
       eyebrow="Motion / performance report"
       title={displayTitle(activity.title, activity.sport_type)}
       description="A measured record of this session, from the route and effort to the details worth revisiting."
-      actionHref="/activities"
+      actionHref="/motion"
       actionLabel="Back to archive"
     />
     <div class="activity-meta">

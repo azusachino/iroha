@@ -296,6 +296,10 @@
   });
 </script>
 
+<svelte:head>
+  <title>Patterns · iroha</title>
+</svelte:head>
+
 <section class="daily">
   {#if hasThemeRoute(theme.definition(), "daily")}
     {#if loading}
@@ -321,7 +325,7 @@
   {:else}
     <RouteIntro
       eyebrow="Patterns / personal history"
-      title="Daily & Vitals"
+      title="Patterns & Vitals"
       description="Rings, movement, and body signals across your history. Start with the latest day, then zoom out to see the pattern."
       actionHref="/"
       actionLabel="Today"
