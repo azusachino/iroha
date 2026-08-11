@@ -1,11 +1,364 @@
 {
   "totals": {
-    "activity_count": 0,
-    "distance_m": 0,
-    "duration_s": 0,
+    "activity_count": 499,
+    "distance_m": 1433646.55532548,
+    "duration_s": 960099,
     "moving_time_s": 0
   },
-  "by_year": [],
-  "by_month": [],
-  "by_sport": []
+  "by_year": [
+    {
+      "key": "2026",
+      "activity_count": 72,
+      "distance_m": 188814.13075705306,
+      "duration_s": 181854,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025",
+      "activity_count": 211,
+      "distance_m": 691402.7715684272,
+      "duration_s": 430592,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024",
+      "activity_count": 192,
+      "distance_m": 520736.34,
+      "duration_s": 309585,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2023",
+      "activity_count": 24,
+      "distance_m": 32693.313,
+      "duration_s": 38068,
+      "moving_time_s": 0
+    }
+  ],
+  "by_month": [
+    {
+      "key": "2026-08",
+      "activity_count": 2,
+      "distance_m": 1471.009757053073,
+      "duration_s": 5568,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2026-07",
+      "activity_count": 2,
+      "distance_m": 8526.42,
+      "duration_s": 3330,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2026-06",
+      "activity_count": 8,
+      "distance_m": 37688.51,
+      "duration_s": 16530,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2026-05",
+      "activity_count": 13,
+      "distance_m": 50909.2,
+      "duration_s": 33774,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2026-04",
+      "activity_count": 16,
+      "distance_m": 52182.154,
+      "duration_s": 36900,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2026-03",
+      "activity_count": 11,
+      "distance_m": 23756.48,
+      "duration_s": 25056,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2026-02",
+      "activity_count": 7,
+      "distance_m": 4750.83,
+      "duration_s": 25936,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2026-01",
+      "activity_count": 13,
+      "distance_m": 9529.527,
+      "duration_s": 34760,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-12",
+      "activity_count": 17,
+      "distance_m": 11705.81,
+      "duration_s": 38886,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-11",
+      "activity_count": 21,
+      "distance_m": 124845.09,
+      "duration_s": 66325,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-10",
+      "activity_count": 17,
+      "distance_m": 84079.741,
+      "duration_s": 36052,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-09",
+      "activity_count": 20,
+      "distance_m": 74826.79,
+      "duration_s": 46368,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-08",
+      "activity_count": 21,
+      "distance_m": 46884.519,
+      "duration_s": 42456,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-07",
+      "activity_count": 25,
+      "distance_m": 70226.75256842721,
+      "duration_s": 50547,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-06",
+      "activity_count": 7,
+      "distance_m": 30180.43,
+      "duration_s": 16703,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-05",
+      "activity_count": 22,
+      "distance_m": 54777.423,
+      "duration_s": 26628,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-04",
+      "activity_count": 27,
+      "distance_m": 81857.875,
+      "duration_s": 43614,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-03",
+      "activity_count": 16,
+      "distance_m": 61073.14,
+      "duration_s": 33435,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-02",
+      "activity_count": 14,
+      "distance_m": 38326.831,
+      "duration_s": 20743,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2025-01",
+      "activity_count": 4,
+      "distance_m": 12618.37,
+      "duration_s": 8835,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-12",
+      "activity_count": 7,
+      "distance_m": 16578.664,
+      "duration_s": 13366,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-11",
+      "activity_count": 5,
+      "distance_m": 20475.77,
+      "duration_s": 17676,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-10",
+      "activity_count": 7,
+      "distance_m": 23058.37,
+      "duration_s": 15849,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-09",
+      "activity_count": 13,
+      "distance_m": 38517.229,
+      "duration_s": 21774,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-08",
+      "activity_count": 11,
+      "distance_m": 31406.72,
+      "duration_s": 14460,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-07",
+      "activity_count": 2,
+      "distance_m": 6092.46,
+      "duration_s": 2484,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-06",
+      "activity_count": 11,
+      "distance_m": 39137.085,
+      "duration_s": 22740,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-05",
+      "activity_count": 15,
+      "distance_m": 62727.18,
+      "duration_s": 26458,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-04",
+      "activity_count": 9,
+      "distance_m": 31971.39,
+      "duration_s": 16463,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-03",
+      "activity_count": 12,
+      "distance_m": 49851.412,
+      "duration_s": 27804,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-02",
+      "activity_count": 39,
+      "distance_m": 87283.159,
+      "duration_s": 59406,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2024-01",
+      "activity_count": 61,
+      "distance_m": 113636.901,
+      "duration_s": 71105,
+      "moving_time_s": 0
+    },
+    {
+      "key": "2023-12",
+      "activity_count": 24,
+      "distance_m": 32693.313,
+      "duration_s": 38068,
+      "moving_time_s": 0
+    }
+  ],
+  "by_sport": [
+    {
+      "key": "run",
+      "activity_count": 219,
+      "distance_m": 965118.266,
+      "duration_s": 388327,
+      "moving_time_s": 0
+    },
+    {
+      "key": "walk",
+      "activity_count": 211,
+      "distance_m": 445074.697,
+      "duration_s": 367584,
+      "moving_time_s": 0
+    },
+    {
+      "key": "FitnessGaming",
+      "activity_count": 32,
+      "distance_m": 0,
+      "duration_s": 119470,
+      "moving_time_s": 0
+    },
+    {
+      "key": "HighIntensityIntervalTraining",
+      "activity_count": 11,
+      "distance_m": 0,
+      "duration_s": 31777,
+      "moving_time_s": 0
+    },
+    {
+      "key": "FunctionalStrengthTraining",
+      "activity_count": 9,
+      "distance_m": 0,
+      "duration_s": 7702,
+      "moving_time_s": 0
+    },
+    {
+      "key": "hike",
+      "activity_count": 5,
+      "distance_m": 21322.27,
+      "duration_s": 21122,
+      "moving_time_s": 0
+    },
+    {
+      "key": "Swimming",
+      "activity_count": 4,
+      "distance_m": 2131.322325480276,
+      "duration_s": 7717,
+      "moving_time_s": 0
+    },
+    {
+      "key": "Other",
+      "activity_count": 2,
+      "distance_m": 0,
+      "duration_s": 9914,
+      "moving_time_s": 0
+    },
+    {
+      "key": "Elliptical",
+      "activity_count": 2,
+      "distance_m": 0,
+      "duration_s": 1758,
+      "moving_time_s": 0
+    },
+    {
+      "key": "CardioDance",
+      "activity_count": 1,
+      "distance_m": 0,
+      "duration_s": 1261,
+      "moving_time_s": 0
+    },
+    {
+      "key": "SnowSports",
+      "activity_count": 1,
+      "distance_m": 0,
+      "duration_s": 2985,
+      "moving_time_s": 0
+    },
+    {
+      "key": "Snowboarding",
+      "activity_count": 1,
+      "distance_m": 0,
+      "duration_s": 399,
+      "moving_time_s": 0
+    },
+    {
+      "key": "Rowing",
+      "activity_count": 1,
+      "distance_m": 0,
+      "duration_s": 83,
+      "moving_time_s": 0
+    }
+  ]
 }
