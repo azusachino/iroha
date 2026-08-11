@@ -267,13 +267,13 @@
   }
 
   $effect(() => {
-    if (!loadMoreSentinel || !nightListContainer || !hasMore) return;
+    if (!loadMoreSentinel || !hasMore) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting))
           void loadSessions(true);
       },
-      { root: nightListContainer, rootMargin: "120px" },
+      { root: nightListContainer ?? null, rootMargin: "120px" },
     );
     observer.observe(loadMoreSentinel);
     return () => observer.disconnect();
@@ -362,6 +362,18 @@
           onSelect: (session: SleepSession) => (selected = session),
         }}
       />
+      {#if hasMore}
+        <div
+          bind:this={loadMoreSentinel}
+          class="theme-load-more"
+          aria-live="polite"
+        >
+          {#if loadingMore}<span>Loading more nights…</span>{:else}<button
+              type="button"
+              onclick={() => loadSessions(true)}>Load more nights</button
+            >{/if}
+        </div>
+      {/if}
     {/if}
   {:else}
     <RouteIntro
@@ -710,6 +722,25 @@
     display: flex;
     justify-content: flex-end;
     margin-bottom: 1rem;
+  }
+  .theme-load-more {
+    display: grid;
+    min-height: 2rem;
+    place-items: center;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .theme-load-more button {
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+  .theme-load-more button:hover {
+    border-color: var(--accent);
   }
   .hero {
     position: relative;
