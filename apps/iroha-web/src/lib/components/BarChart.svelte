@@ -86,7 +86,11 @@
     };
 
     chart.setOption({
-      animationDuration: 500,
+      animation: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      animationDuration: window.matchMedia("(prefers-reduced-motion: reduce)")
+        .matches
+        ? 0
+        : 500,
       animationEasing: "cubicOut",
       grid:
         orientation === "horizontal"

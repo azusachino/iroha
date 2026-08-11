@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SleepSession } from "$lib/api";
+  import BarChart from "$lib/components/BarChart.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
 
   let {
@@ -16,9 +17,7 @@
     onSelect: (session: SleepSession) => void;
   } = $props();
 
-  const maxAsleep = $derived(
-    Math.max(1, ...sessions.map((session) => session.asleep_s)),
-  );
+  const chartSessions = $derived([...sessions].reverse());
 </script>
 
 <section class="grapher-sleep" aria-labelledby="sleep-data-title">
@@ -52,25 +51,20 @@
       </div>
       <span>Newest first</span>
     </div>
-    <div
-      class="series-chart"
-      role="img"
-      aria-label="Asleep duration for recorded nights"
-    >
-      {#each sessions.slice(0, 24).reverse() as session}
-        <button
-          class:active={selected?.id === session.id}
-          class="series-column"
-          title={formatDateOnly(session.wake_date)}
-          onclick={() => onSelect(session)}
-        >
-          <i
-            style={`height: ${Math.max(3, (session.asleep_s / maxAsleep) * 100)}%`}
-          ></i>
-          <small>{formatDateOnly(session.wake_date)}</small>
-        </button>
-      {/each}
-    </div>
+    <BarChart
+      categories={chartSessions.map((session) =>
+        formatDateOnly(session.wake_date),
+      )}
+      primary={{
+        name: "Asleep",
+        values: chartSessions.map((session) => session.asleep_s),
+        formatter: (value) => formatDuration(value),
+      }}
+      onBarClick={(index) => {
+        const session = chartSessions[index];
+        if (session) onSelect(session);
+      }}
+    />
   </section>
 
   <section class="session-table" aria-labelledby="sleep-table-title">
@@ -191,52 +185,6 @@
   .panel-heading > span {
     color: var(--text-muted);
     font-size: 0.72rem;
-  }
-  .series-chart {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(1.1rem, 1fr));
-    align-items: end;
-    gap: 0.35rem;
-    height: 17rem;
-    margin-top: 2rem;
-    padding-top: 1rem;
-    border-bottom: 1px solid var(--border);
-    background: repeating-linear-gradient(
-      to top,
-      transparent 0 3rem,
-      color-mix(in srgb, var(--border) 65%, transparent) 3rem 3.05rem
-    );
-  }
-  .series-column {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    height: 100%;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-  }
-  .series-column i {
-    display: block;
-    width: 70%;
-    min-height: 0.2rem;
-    margin: 0 auto;
-    background: var(--accent);
-    opacity: 0.6;
-  }
-  .series-column:hover i,
-  .series-column.active i {
-    background: var(--accent-2);
-    opacity: 1;
-  }
-  .series-column small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    font-size: 0.56rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .table-scroll {
     overflow-x: auto;
