@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import { untrack } from "svelte";
   import {
     getCoreRowModel,
@@ -26,6 +27,8 @@
   import { sportColor } from "$lib/sport";
   import type { Activity } from "$lib/types";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import ActivityDetail from "$lib/components/ActivityDetail.svelte";
+  import MonthlyBarChart from "$lib/components/MonthlyBarChart.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
@@ -59,6 +62,24 @@
   );
   let sportFilter = $state<string | null>(null);
   let cityFilter = $state<string | null>(null);
+  let selectedActivityId = $state<string | null>(null);
+  const activityQuery = $derived(page.url.search);
+  const selectedActivity = $derived(
+    activities.find((activity) => activity.id === selectedActivityId),
+  );
+
+  $effect(() => {
+    const activityId = new URLSearchParams(
+      activityQuery || window.location.search,
+    ).get("activity");
+    if (activityId !== selectedActivityId) selectedActivityId = activityId;
+  });
+
+  function activityHref(id: string): string {
+    const url = new URL(page.url);
+    url.searchParams.set("activity", id);
+    return `${url.pathname}${url.search}`;
+  }
 
   function selectYear(year: string) {
     selectedYear = year;
@@ -145,13 +166,6 @@
     monthSlots.reduce((sum, m) => sum + (m.bucket?.distance_m ?? 0), 0) > 0
       ? "distance_m"
       : "activity_count",
-  );
-
-  const monthMax = $derived(
-    Math.max(
-      1,
-      ...monthSlots.map((m) => (m.bucket ? m.bucket[monthMetric] : 0)),
-    ),
   );
 
   const sportMax = $derived(
@@ -245,251 +259,260 @@
   <p class="muted">Data as of {formatDateOnly(meta.generated_at)}</p>
 </header>
 
-<div class="stat-grid">
-  <StatTile
-    label="Distance"
-    value={formatDistance(selectedYearTotals.distance_m)}
-  />
-  <StatTile
-    label="Activities"
-    value={selectedYearTotals.activity_count.toLocaleString()}
-  />
-  <StatTile
-    label="Total time"
-    value={formatDuration(
-      selectedYearTotals.moving_time_s || selectedYearTotals.duration_s,
-    )}
-  />
-</div>
-
-{#if years.length > 0}
-  <nav class="year-tabs" aria-label="Select year">
-    {#each years as year (year)}
-      <button
-        type="button"
-        class:active={selectedYear === year}
-        onclick={() => selectYear(year)}
-      >
-        {year}
-      </button>
-    {/each}
-  </nav>
-
-  {#if selectedYear}
-    <YearProgressChart
-      byMonth={monthlyAll}
-      year={selectedYear}
-      sportName={sportFilter ? formatSport(sportFilter) : undefined}
-    />
-  {/if}
-
-  <section class="tile month-chart">
-    <div class="month-chart-head">
-      Monthly {monthMetric === "distance_m" ? "distance" : "activities"} — {selectedYear}
-    </div>
-    <div class="month-bars">
-      {#each monthSlots as slot (slot.key)}
-        {@const value = slot.bucket ? slot.bucket[monthMetric] : 0}
-        <div class="month-bar">
-          <i style={`height: ${Math.max(2, (value / monthMax) * 100)}%`}></i>
-          <strong>{slot.label}</strong>
-        </div>
-      {/each}
-    </div>
-  </section>
-{/if}
-
-{#if summary.by_sport.length > 0}
-  <section class="tile by-sport">
-    <div class="section-kicker">All-time by sport</div>
-    {#each summary.by_sport as sport (sport.key)}
-      <button
-        type="button"
-        class="sport-row"
-        class:active={sportFilter === sport.key}
-        onclick={() => toggleSport(sport.key)}
-      >
-        <SportBadge sport={sport.key} />
-        <span class="bar">
-          <i
-            style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
-          ></i>
-        </span>
-        <span class="count">{sport.activity_count}×</span>
-      </button>
-    {/each}
-    {#if sportFilter}
-      <button
-        type="button"
-        class="clear-filter"
-        onclick={() => toggleSport(sportFilter!)}
-      >
-        Clear sport filter ({formatSport(sportFilter)})
-      </button>
-    {/if}
-  </section>
-{/if}
-
-<section class="section-heading">
-  <h2>Routes &amp; cities</h2>
-  {#if hasPendingLocations}
-    <p class="muted small">Some locations are waiting for geocoding.</p>
-  {/if}
-</section>
-
-{#if routes.features.length === 0}
-  <p class="muted">No routes recorded yet.</p>
+{#if selectedActivity}
+  <ActivityDetail activity={selectedActivity} backHref={page.url.pathname} />
 {:else}
-  <div class="routes-grid">
-    <div class="map-wrap tile">
-      <RoutesMap data={{ type: "FeatureCollection", features: mappedRoutes }} />
+  <div class="dashboard">
+    <div class="stat-grid">
+      <StatTile
+        label="Distance"
+        value={formatDistance(selectedYearTotals.distance_m)}
+      />
+      <StatTile
+        label="Activities"
+        value={selectedYearTotals.activity_count.toLocaleString()}
+      />
+      <StatTile
+        label="Total time"
+        value={formatDuration(
+          selectedYearTotals.moving_time_s || selectedYearTotals.duration_s,
+        )}
+      />
     </div>
-    <div class="cities tile">
-      <div class="cities-head">
-        <h3>
-          {sportFilter
-            ? `${formatSport(sportFilter)} cities`
-            : "Cities visited"}
-        </h3>
-        {#if cityFilter}
+
+    {#if years.length > 0}
+      <nav class="year-tabs" aria-label="Select year">
+        {#each years as year (year)}
+          <button
+            type="button"
+            class:active={selectedYear === year}
+            onclick={() => selectYear(year)}
+          >
+            {year}
+          </button>
+        {/each}
+      </nav>
+
+      {#if selectedYear}
+        <div class="analytics-grid">
+          <YearProgressChart
+            byMonth={monthlyAll}
+            year={selectedYear}
+            sportName={sportFilter ? formatSport(sportFilter) : undefined}
+          />
+          <MonthlyBarChart
+            points={monthSlots.map((slot) => ({
+              label: slot.label,
+              value: slot.bucket?.[monthMetric] ?? 0,
+            }))}
+            metric={monthMetric}
+            year={selectedYear}
+          />
+        </div>
+      {/if}
+    {/if}
+
+    {#if summary.by_sport.length > 0}
+      <section class="tile by-sport">
+        <div class="section-kicker">All-time by sport</div>
+        {#each summary.by_sport as sport (sport.key)}
+          <button
+            type="button"
+            class="sport-row"
+            class:active={sportFilter === sport.key}
+            onclick={() => toggleSport(sport.key)}
+          >
+            <SportBadge sport={sport.key} />
+            <span class="bar">
+              <i
+                style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
+              ></i>
+            </span>
+            <span class="count">{sport.activity_count}×</span>
+          </button>
+        {/each}
+        {#if sportFilter}
           <button
             type="button"
             class="clear-filter"
-            onclick={() => (cityFilter = null)}
+            onclick={() => toggleSport(sportFilter!)}
           >
-            Show all
+            Clear sport filter ({formatSport(sportFilter)})
           </button>
         {/if}
-      </div>
-      {#if cityGroups.length === 0}
-        <p class="muted small">No route coordinates for this selection.</p>
-      {:else}
-        <div class="city-grid">
-          {#each cityGroups as group (group.city)}
-            {@const intensity = group.runCount / maxRunCount}
-            <button
-              type="button"
-              class="city-card"
-              class:selected={cityFilter === group.city}
-              style={`--intensity: ${intensity}`}
-              onclick={() => toggleCity(group.city)}
-            >
-              <div class="city-name">{cityLabel(group.city, group.status)}</div>
-              <div class="city-sports">
-                {Array.from(group.sports)
-                  .map((s) => formatSport(s))
-                  .join(", ")}
-              </div>
-              <div class="city-count">
-                {group.runCount}
-                {group.runCount === 1 ? "run" : "runs"}
-                {#if group.count > group.runCount}
-                  <span class="muted small"
-                    >(+{group.count - group.runCount} other)</span
-                  >
-                {/if}
-              </div>
-            </button>
-          {/each}
-        </div>
+      </section>
+    {/if}
+
+    <section class="section-heading">
+      <h2>Routes &amp; cities</h2>
+      {#if hasPendingLocations}
+        <p class="muted small">Some locations are waiting for geocoding.</p>
       {/if}
-    </div>
-  </div>
-{/if}
+    </section>
 
-<section class="section-heading">
-  <h2>Activities</h2>
-</section>
-
-{#if filteredActivities.length === 0}
-  <p class="muted">No activities for this selection.</p>
-{:else}
-  <div class="table-wrap tile">
-    <table>
-      <thead>
-        {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-          <tr>
-            {#each headerGroup.headers as header (header.id)}
-              <th>
+    {#if routes.features.length === 0}
+      <p class="muted">No routes recorded yet.</p>
+    {:else}
+      <div class="routes-grid">
+        <div class="map-wrap tile">
+          <RoutesMap
+            data={{ type: "FeatureCollection", features: mappedRoutes }}
+          />
+        </div>
+        <div class="cities tile">
+          <div class="cities-head">
+            <h3>
+              {sportFilter
+                ? `${formatSport(sportFilter)} cities`
+                : "Cities visited"}
+            </h3>
+            {#if cityFilter}
+              <button
+                type="button"
+                class="clear-filter"
+                onclick={() => (cityFilter = null)}
+              >
+                Show all
+              </button>
+            {/if}
+          </div>
+          {#if cityGroups.length === 0}
+            <p class="muted small">No route coordinates for this selection.</p>
+          {:else}
+            <div class="city-grid">
+              {#each cityGroups as group (group.city)}
+                {@const intensity = group.runCount / maxRunCount}
                 <button
                   type="button"
-                  class="sort-header"
-                  onclick={header.column.getToggleSortingHandler()}
+                  class="city-card"
+                  class:selected={cityFilter === group.city}
+                  style={`--intensity: ${intensity}`}
+                  onclick={() => toggleCity(group.city)}
                 >
-                  {String(header.column.columnDef.header)}
-                  {#if header.column.getIsSorted() === "asc"}▲{:else if header.column.getIsSorted() === "desc"}▼{/if}
+                  <div class="city-name">
+                    {cityLabel(group.city, group.status)}
+                  </div>
+                  <div class="city-sports">
+                    {Array.from(group.sports)
+                      .map((s) => formatSport(s))
+                      .join(", ")}
+                  </div>
+                  <div class="city-count">
+                    {group.runCount}
+                    {group.runCount === 1 ? "run" : "runs"}
+                    {#if group.count > group.runCount}
+                      <span class="muted small"
+                        >(+{group.count - group.runCount} other)</span
+                      >
+                    {/if}
+                  </div>
                 </button>
-              </th>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </div>
+    {/if}
+
+    <section class="section-heading">
+      <h2>Activities</h2>
+    </section>
+
+    {#if filteredActivities.length === 0}
+      <p class="muted">No activities for this selection.</p>
+    {:else}
+      <div class="table-wrap tile">
+        <table>
+          <thead>
+            {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+              <tr>
+                {#each headerGroup.headers as header (header.id)}
+                  <th>
+                    <button
+                      type="button"
+                      class="sort-header"
+                      onclick={header.column.getToggleSortingHandler()}
+                    >
+                      {String(header.column.columnDef.header)}
+                      {#if header.column.getIsSorted() === "asc"}▲{:else if header.column.getIsSorted() === "desc"}▼{/if}
+                    </button>
+                  </th>
+                {/each}
+              </tr>
             {/each}
-          </tr>
-        {/each}
-      </thead>
-      <tbody>
-        {#each table.getRowModel().rows as row (row.id)}
-          {@const activity = row.original}
-          <tr>
-            <td class="nowrap"
-              >{formatDate(activity.started_at, activity.timezone)}</td
+          </thead>
+          <tbody>
+            {#each table.getRowModel().rows as row (row.id)}
+              {@const activity = row.original}
+              <tr>
+                <td class="nowrap">
+                  <a class="activity-link" href={activityHref(activity.id)}>
+                    {formatDate(activity.started_at, activity.timezone)}
+                  </a>
+                </td>
+                <td>
+                  <div class="activity-cell">
+                    <SportBadge sport={activity.sport_type} />
+                    {#if activity.title && formatSport(activity.title) !== formatSport(activity.sport_type)}
+                      <span class="activity-title">{activity.title}</span>
+                    {/if}
+                  </div>
+                </td>
+                <td>
+                  {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                    {formatDuration(
+                      activity.duration_s ?? activity.moving_time_s,
+                    )}
+                  {:else}
+                    {formatDistance(activity.distance_m)}
+                  {/if}
+                </td>
+                <td>
+                  {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                    {#if activity.avg_hr}Avg HR: {formatHr(
+                        activity.avg_hr,
+                      )}{:else if activity.max_hr}Max HR: {formatHr(
+                        activity.max_hr,
+                      )}{:else}—{/if}
+                  {:else if isCycling(activity.sport_type)}
+                    {formatCyclingSpeed(
+                      activity.distance_m,
+                      activity.duration_s ?? activity.moving_time_s,
+                    )}
+                  {:else if isSwimming(activity.sport_type)}
+                    {formatSwimmingPace(
+                      activity.distance_m,
+                      activity.duration_s ?? activity.moving_time_s,
+                    )}
+                  {:else}
+                    {formatPace(activity.avg_pace_s_per_km)}
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        {#if table.getPageCount() > 1}
+          <div class="pager">
+            <button
+              type="button"
+              disabled={!table.getCanPreviousPage()}
+              onclick={() => table.previousPage()}
             >
-            <td>
-              <div class="activity-cell">
-                <SportBadge sport={activity.sport_type} />
-                {#if activity.title && formatSport(activity.title) !== formatSport(activity.sport_type)}
-                  <span class="activity-title">{activity.title}</span>
-                {/if}
-              </div>
-            </td>
-            <td>
-              {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                {formatDuration(activity.duration_s ?? activity.moving_time_s)}
-              {:else}
-                {formatDistance(activity.distance_m)}
-              {/if}
-            </td>
-            <td>
-              {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                {#if activity.avg_hr}Avg HR: {formatHr(
-                    activity.avg_hr,
-                  )}{:else if activity.max_hr}Max HR: {formatHr(
-                    activity.max_hr,
-                  )}{:else}—{/if}
-              {:else if isCycling(activity.sport_type)}
-                {formatCyclingSpeed(
-                  activity.distance_m,
-                  activity.duration_s ?? activity.moving_time_s,
-                )}
-              {:else if isSwimming(activity.sport_type)}
-                {formatSwimmingPace(
-                  activity.distance_m,
-                  activity.duration_s ?? activity.moving_time_s,
-                )}
-              {:else}
-                {formatPace(activity.avg_pace_s_per_km)}
-              {/if}
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-    {#if table.getPageCount() > 1}
-      <div class="pager">
-        <button
-          type="button"
-          disabled={!table.getCanPreviousPage()}
-          onclick={() => table.previousPage()}
-        >
-          Previous
-        </button>
-        <span class="muted small">
-          Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-        </span>
-        <button
-          type="button"
-          disabled={!table.getCanNextPage()}
-          onclick={() => table.nextPage()}
-        >
-          Next
-        </button>
+              Previous
+            </button>
+            <span class="muted small">
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            </span>
+            <button
+              type="button"
+              disabled={!table.getCanNextPage()}
+              onclick={() => table.nextPage()}
+            >
+              Next
+            </button>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
@@ -547,40 +570,14 @@
     border-color: var(--accent);
     color: var(--accent);
   }
-  .month-chart {
-    margin: 1rem 0;
-    padding: 1rem;
-  }
-  .month-chart-head {
-    margin-bottom: 0.75rem;
-    color: var(--text-muted);
-    font-size: 0.82rem;
-  }
-  .month-bars {
+  .dashboard {
     display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    align-items: end;
-    gap: 0.4rem;
-    height: 10rem;
+    gap: 1rem;
   }
-  .month-bar {
+  .analytics-grid {
     display: grid;
-    grid-template-rows: 1fr auto;
-    height: 100%;
-  }
-  .month-bar i {
-    display: block;
-    width: 65%;
-    min-height: 2px;
-    margin: 0 auto;
-    background: var(--accent);
-  }
-  .month-bar strong {
-    margin-top: 0.35rem;
-    color: var(--text-muted);
-    font-size: 0.6rem;
-    font-weight: 500;
-    text-align: center;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
   }
   .by-sport {
     margin-bottom: 1rem;
@@ -732,6 +729,9 @@
     align-items: center;
     gap: 0.5rem;
   }
+  .activity-link {
+    font-weight: 650;
+  }
   .activity-title {
     font-weight: 600;
   }
@@ -759,6 +759,9 @@
       grid-template-columns: 1fr;
     }
     .routes-grid {
+      grid-template-columns: 1fr;
+    }
+    .analytics-grid {
       grid-template-columns: 1fr;
     }
   }
