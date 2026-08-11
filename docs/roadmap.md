@@ -168,7 +168,7 @@ rate-limit budget serving a page nobody could reach). The replacement is a stati
 ```text
 apps/iroha-server/cmd/iroha-export-public (sanitized JSON/GeoJSON snapshot)
   -> committed by a k3s CronJob (ops/images/Containerfile.server's export-public target;
-     the CronJob resource itself is defined in harus-k3s, not this repo), from inside the
+     the CronJob resource itself is defined by the deployment environment, not this repo), from inside the
      private network
   -> apps/iroha-public-site (static SvelteKit app) built and deployed to GitHub Pages
      by an ordinary GitHub-hosted Actions workflow, triggered by that commit
@@ -182,8 +182,8 @@ Exit criteria:
 
 - A public activity can be browsed on the GitHub Pages site without exposing exact private route data or any other private-only field.
 
-Not yet met: the `iroha-export-public` k3s CronJob is drafted in harus-k3s but not applied to the cluster, and `public-site.yml` has never run — the automated export -> commit -> Pages-deploy loop
-described above is code-complete but not yet live, so the public site (if built at all) reflects at most a manually-triggered one-off export, not a continuously refreshed publication.
+Status: the GitHub Pages deployment and k3s CronJob are live. The recurring publication loop is waiting for the sealed `IROHA_EXPORT_REPO_URL` credential; until that operator step is completed, the
+public site serves the intentional empty snapshot.
 
 ## Milestone 8: Durable Worker Backbone
 

@@ -28,6 +28,7 @@
   import RoutesMap from "$lib/components/RoutesMap.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
+  import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import YearProgressChart from "$lib/components/YearProgressChart.svelte";
   import type { PageProps } from "./$types";
 
@@ -233,7 +234,10 @@
 </svelte:head>
 
 <header class="hero tile">
-  <p class="eyebrow">A window into the archive</p>
+  <div class="hero-topline">
+    <p class="eyebrow">A window into the archive</p>
+    <ThemeToggle />
+  </div>
   <h1>The shape of the miles.</h1>
   <p class="muted">
     A calm, read-only view of the years, routes, and sessions made visible.
@@ -497,12 +501,19 @@
     margin-bottom: 1.25rem;
   }
   .eyebrow {
-    margin: 0 0 0.4rem;
+    margin: 0;
     color: var(--accent);
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+  }
+  .hero-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.4rem;
   }
   .hero h1 {
     margin: 0;
