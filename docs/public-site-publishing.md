@@ -72,10 +72,65 @@ whole point of a k3s CronJob refreshing it unattended. The review loop is: autom
 A broken deploy is never an outage: GitHub Pages only replaces the live site on a _successful_ `deploy-pages` step, so a failed build or a failed smoke check leaves the previous good snapshot serving
 traffic.
 
-## What's still missing
+## Current rollout status
 
-The `iroha-export-public` CronJob itself does not exist yet in `harus-k3s/03-core/iroha/` — only the CLI (`apps/iroha-server/cmd/iroha-export-public`), the cron script
-(`ops/scripts/export-public-cron.sh`), and the Containerfile target exist on this side. Nothing has run this pipeline against real data yet; the committed `static/data/*.json` are placeholder zeros.
-Standing up that CronJob (image build/import, a sealed git-push credential, the schedule) is harus-k3s's own work, following the `notes-git-push` CronJob as the closest existing pattern —
-clone-run-diff-push — with one difference: this job clones a fresh disposable checkout per run instead of mounting a persistent PVC, since there is no long-lived editor process to share a working copy
-with.
+The GitHub Pages site and `iroha-export-public` CronJob are now provisioned. The first public-site workflow run passed its build, deploy, and smoke check, so the live site is available at
+[azusachino.github.io/iroha](https://azusachino.github.io/iroha/).
+
+The cluster job still needs its sealed `IROHA_EXPORT_REPO_URL` value before it can publish real data. Keep that value out of git and apply it through the normal harus-k3s sealing flow. Until then, the
+committed `static/data/*.json` remain the intentional empty snapshot. A disposable manual run is useful after sealing:
+
+```bash
+kubectl create job --from=cronjob/iroha-export-public export-public-now -n harus-core
+kubectl logs -n harus-core job/export-public-now -f
+```
+
+Delete that one-shot Job after verification; the CronJob owns the recurring schedule.
+
+## First-time operator setup
+
+The public repository contains the exporter and the static site, but it must never contain the credential that allows the private cluster to publish a snapshot. Complete this setup from the private
+`harus-k3s` checkout:
+
+1. Create a fine-grained GitHub token for the `azusachino/iroha` repository only, with `Contents: read and write` permission. Do not grant Actions, administration, or access to other repositories. Set
+   an expiration and rotate it when it expires.
+2. Copy the k3s template to its ignored plaintext file and fill in the tokenized clone URL. Keep the existing database password unchanged; changing it here would rotate the database credential rather
+   than merely enable publishing:
+
+   ```bash
+   cd /path/to/harus-k3s
+   cp 03-core/iroha/secret-template.env 03-core/iroha/secret.env
+   $EDITOR 03-core/iroha/secret.env
+   # Set IROHA_EXPORT_REPO_URL to:
+   # https://x-access-token:<TOKEN>@github.com/azusachino/iroha.git
+   ```
+
+3. Seal and apply it with the k3s repository's Sealed Secrets workflow, then remove the plaintext file immediately:
+
+   ```bash
+   make seal NAME=iroha-secrets NS=harus-core ENV=03-core/iroha/secret.env APPLY=1
+   rm 03-core/iroha/secret.env
+   ```
+
+   Commit the generated encrypted `03-core/iroha/iroha-secrets-sealedsecret.yaml` only to the private k3s repository. Never paste the token into an issue, chat, public repository, or command output.
+   The `secret.env` file is ignored by k3s git rules; verify it is absent before committing.
+
+4. Confirm only the key name, never its value, then run the exporter once:
+
+   ```bash
+   kubectl -n harus-core get secret iroha-secrets -o json \
+     | jq -r '.data | keys[]' | sort
+   kubectl create job --from=cronjob/iroha-export-public export-public-now -n harus-core
+   kubectl logs -n harus-core job/export-public-now -f
+   ```
+
+   A successful run pushes only changed files under `apps/iroha-public-site/static/data/`. That push triggers `public-site.yml`, which rebuilds and redeploys GitHub Pages. Delete the one-shot Job
+   after it succeeds:
+
+   ```bash
+   kubectl -n harus-core delete job export-public-now
+   ```
+
+The expected final checks are: the Job reaches `Complete`, the data commit contains only the four public snapshot files, the Pages workflow succeeds, and
+[the public site](https://azusachino.github.io/iroha/) shows a current `Data as of` timestamp. If the Job reports `couldn't find key IROHA_EXPORT_REPO_URL`, the sealed Secret was not applied or the
+key was omitted; do not add a plaintext Secret as a workaround.

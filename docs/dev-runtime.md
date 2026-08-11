@@ -133,6 +133,22 @@ Pitfalls to avoid:
 - Clear or close the named session after a one-off check so browser processes do not accumulate.
 - Keep this as a browser smoke check. Unit/e2e behavior should stay in `make web-test`, `make scripts-test`, and `make check` so CI does not depend on a headed browser session.
 
+### Public-site preview
+
+The public site is a static snapshot, so its local preview should use the checked-in files under `apps/iroha-public-site/static/data/` and never connect to the private API:
+
+```bash
+# Fast iteration with Vite's development server.
+make public-site-dev
+
+# Production-like static build and preview.
+make public-site-preview
+```
+
+Both commands serve the site at `http://127.0.0.1:4173/` (the development server may choose a different port if 5173 is occupied). Leave `BASE_PATH` unset locally; GitHub Pages supplies `/iroha` in
+`public-site.yml`, and that workflow smoke-checks the deployed project-page path. To test a new export locally, replace the ignored working snapshot files temporarily, run the preview, then restore
+them without committing personal data.
+
 Do not use a Git submodule for `iroha-server` unless it must live in a separate repository with independent release ownership. In this product phase, `iroha-server` should be a subdirectory module
 inside the iroha repo, not an external Git submodule.
 

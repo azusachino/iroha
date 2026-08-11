@@ -15,7 +15,7 @@ OUT := ./dist/public-data
 MEDIA_BRIDGE_OUT := ./dist/media-bridge
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
@@ -111,6 +111,9 @@ public-site-build: ## Production build of the public site (BASE_PATH=/iroha for 
 
 public-site-dev: ## Run the public-site dev server
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV)bun run dev
+
+public-site-preview: ## Build and serve the public site locally (root path, production output)
+	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV)bun run build && $(TOOL_ENV)bun run preview -- --host $(or $(HOST),127.0.0.1) --port $(or $(PORT),4173)
 
 ## --- Docs and config formatting (prettier; Go/web/SQL out of scope) ---
 fmt-docs: ## Format docs and config files (markdown wraps at 200)
