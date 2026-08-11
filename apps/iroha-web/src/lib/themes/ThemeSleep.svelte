@@ -66,7 +66,7 @@
       role="img"
       aria-label="Asleep duration by recorded night"
     >
-      {#each sessions.slice(0, 24).reverse() as session}<button
+      {#each [...sessions].reverse() as session}<button
           class:active={selected?.id === session.id}
           title={formatDateOnly(session.wake_date)}
           onclick={() => onSelect(session)}

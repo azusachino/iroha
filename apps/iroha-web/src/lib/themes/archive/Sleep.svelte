@@ -21,8 +21,8 @@
   // nights settle toward the bottom of the list -- the same reading order
   // as the period core on the Daily page. The chart above reads
   // chronologically (oldest to newest, left to right) instead.
-  const rows = $derived(sessions.slice(0, 30).map((session) => ({ session })));
-  const chartSessions = $derived(sessions.slice(0, 30).reverse());
+  const rows = $derived(sessions.map((session) => ({ session })));
+  const chartSessions = $derived([...sessions].reverse());
   const activeChartIndex = $derived(
     selected
       ? chartSessions.findIndex((session) => session.id === selected.id)

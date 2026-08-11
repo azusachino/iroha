@@ -31,7 +31,7 @@
     return `--d: ${size.toFixed(2)}rem; --sweep: ${sweep.toFixed(1)}deg;`;
   }
 
-  const chartSessions = $derived(sessions.slice(0, 28).reverse());
+  const chartSessions = $derived([...sessions].reverse());
   const activeChartIndex = $derived(
     selected
       ? chartSessions.findIndex((session) => session.id === selected.id)

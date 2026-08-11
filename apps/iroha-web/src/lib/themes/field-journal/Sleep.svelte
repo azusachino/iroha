@@ -17,7 +17,7 @@
     onSelect: (session: SleepSession) => void;
   } = $props();
 
-  const chartSessions = $derived(sessions.slice(0, 24).reverse());
+  const chartSessions = $derived([...sessions].reverse());
   const activeChartIndex = $derived(
     selected
       ? chartSessions.findIndex((session) => session.id === selected.id)
