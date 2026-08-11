@@ -73,11 +73,11 @@ traffic.
 
 ## Current rollout status
 
-The GitHub Pages site and the `iroha-export-public` integration are provisioned. The first public-site workflow run passed its build, deploy, and smoke check, so the live site is available at
-[azusachino.github.io/iroha](https://azusachino.github.io/iroha/).
+The GitHub Pages site and the `iroha-export-public` integration are live. The public site is available at [azusachino.github.io/iroha](https://azusachino.github.io/iroha/), and the k3s CronJob
+refreshes the sanitized snapshot daily in `Asia/Tokyo`.
 
-The private deployment Job still needs its external `IROHA_EXPORT_REPO_URL` value before it can publish real data. Keep that value out of git and configure it through the deployment platform's secret
-workflow. Until then, the committed `static/data/*.json` remain the intentional empty snapshot.
+The exporter uses a dedicated sealed `iroha-export-public` Secret containing `IROHA_EXPORT_GITHUB_PAT`. The repository URL is ordinary non-secret configuration in the deployment environment; it is not
+embedded in the PAT Secret and the existing `iroha-secrets` is not used for publishing.
 
 ## Deployment contract
 
@@ -85,12 +85,12 @@ The public repository contains the exporter and static site, but never the crede
 
 1. Create a fine-grained GitHub token for this repository only, with `Contents: read and write` permission. Do not grant Actions, administration, or access to other repositories. Set an expiration and
    rotate it when it expires.
-2. Store the token in the deployment platform's encrypted secret store and inject `IROHA_EXPORT_REPO_URL` only into the exporter Job. Use the form
-   `https://x-access-token:<TOKEN>@github.com/<OWNER>/<REPO>.git`; never commit, print, or paste the value into public issue trackers or chat.
+2. Store the token in the deployment platform's encrypted secret store and inject it as `IROHA_EXPORT_GITHUB_PAT` only into the exporter Job. Never commit, print, or paste the value into public issue
+   trackers or chat.
 3. Keep the exporter image and Job configuration in the deployment environment. The Job should run `ops/scripts/export-public-cron.sh`, which exports only the sanitized projection, validates it, and
    pushes only changed files under `apps/iroha-public-site/static/data/`.
 4. Verify the Job reaches `Complete`, then confirm the Pages workflow succeeds and [the public site](https://azusachino.github.io/iroha/) shows a current `Data as of` timestamp. A deployment-specific
    one-shot Job command may be used for this check; remove it afterward.
 
-If the Job reports `couldn't find key IROHA_EXPORT_REPO_URL`, the deployment Secret was not applied or the key was omitted. Fix the encrypted-secret configuration; do not add a plaintext Secret as a
+If the Job reports `couldn't find key IROHA_EXPORT_GITHUB_PAT`, the deployment Secret was not applied or the key was omitted. Fix the encrypted-secret configuration; do not add a plaintext Secret as a
 workaround.

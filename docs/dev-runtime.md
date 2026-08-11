@@ -8,7 +8,7 @@ Iroha development happens on macOS. mise manages the project tools, while Podman
 The runtime design should be capability-based. The checked-in Compose files target the OCI-compatible Podman runtime; Docker compatibility is incidental and not the supported local contract.
 `make dev-up` starts the database first, waits for `pg_isready`, applies migrations, and then starts server, worker, and web so application containers do not race database initialization.
 
-## mise tool management
+## Tool management with mise
 
 Use the checked-in `.mise.toml` to install the project tools:
 
@@ -19,7 +19,7 @@ mise install
 The config pins Go, Python, uv, Goose, golangci-lint, Node, Bun, and Prettier. Podman and its machine remain host prerequisites because they are the container runtime, not project tools. Database
 readiness is checked with `pg_isready` inside the PostGIS container, so a separate host PostgreSQL installation is not required.
 
-Make automatically uses `mise exec --` when it is run outside an activated mise or Nix environment, so the normal workflow stays unchanged:
+Make automatically uses `mise exec --`, so the normal workflow stays unchanged:
 
 ```bash
 make db-up
@@ -29,26 +29,9 @@ make dev-up
 make db-down
 ```
 
-## Nix compatibility
+CI (`ci.yml`, `public-site.yml`) provisions the same `.mise.toml` tools with `jdx/mise-action`, so local and CI resolve identical versions.
 
-The flake remains available as an optional local shell — `nix develop` still provides the same tool set as `.mise.toml`, and Make uses whatever is already on `PATH` inside it. It is no longer required
-for anything: CI (`ci.yml`, `public-site.yml`) provisions tools with `jdx/mise-action` against the same `.mise.toml` local development uses, so local and CI tool resolution are the same mise-pinned
-versions rather than two parallel toolchains.
-
-Expected responsibilities, if you do use it:
-
-```text
-nix develop
-  -> provides Go toolchain
-  -> provides uv
-  -> provides Node/frontend tooling when needed
-  -> provides database and migration CLIs
-  -> exposes repo checks
-```
-
-Project scripts should keep commands plain enough that both mise-backed and Nix-backed shells can reuse them.
-
-Podman and `podman-compose` may remain macOS system tools if it is not practical to package them through Nix. The uv-managed runner detects missing tools and reports a clear prerequisite error.
+Podman and `podman-compose` remain macOS host prerequisites rather than project-managed tools. The uv-managed runner detects missing tools and reports a clear prerequisite error.
 
 ## `uv`
 
@@ -72,7 +55,7 @@ uv run python scripts/<name>.py
 
 Future scripts should prefer Python under `scripts/` or `pyscripts/` over shell when the logic is more than a thin command wrapper.
 
-`uv` manages Python script dependencies under the mise- or Nix-provided Python/uv layer.
+`uv` manages Python script dependencies under the mise-provided Python/uv layer.
 
 ## Go Workspace
 
@@ -224,7 +207,7 @@ GET  /api/v1/activities
 GET  /api/v1/activities/{activityId}/route
 ```
 
-No manual `uv` environment setup is needed. Run repo scripts through mise, Make, or `nix develop ... uv run`; `uv` uses the existing `pyproject.toml` and `uv.lock`.
+No manual `uv` environment setup is needed. Run repo scripts through mise or Make; `uv` uses the existing `pyproject.toml` and `uv.lock`.
 
 ## Postgres/PostGIS Runtime Shape
 

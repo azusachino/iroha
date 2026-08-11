@@ -81,7 +81,7 @@ apps/
         00003_create_activity_core.sql
 ```
 
-Nix should provide the migration CLI. Repo scripts can wrap it for convenience, but the migrations themselves remain ordinary SQL files.
+The pinned mise environment provides the migration CLI. Repo scripts can wrap it for convenience, but the migrations themselves remain ordinary SQL files.
 
 Expected commands:
 
@@ -91,7 +91,7 @@ iroha-db migrate rollback
 iroha-db migrate status
 ```
 
-Those commands can be implemented later as `uv` scripts that call the Nix-provided migration tool. Internally, Goose still uses the terms `up` and `down` inside migration files.
+Those commands can be implemented later as `uv` scripts that call the mise-provided migration tool. Internally, Goose still uses the terms `up` and `down` inside migration files.
 
 First migration:
 

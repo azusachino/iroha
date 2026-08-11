@@ -2,6 +2,9 @@
 
 _iro & hana_ — a personal data cockpit.
 
+[![CI](https://github.com/azusachino/iroha/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/azusachino/iroha/actions/workflows/ci.yml)
+[![Public site](https://github.com/azusachino/iroha/actions/workflows/public-site.yml/badge.svg?branch=main)](https://github.com/azusachino/iroha/actions/workflows/public-site.yml)
+[![Release](https://img.shields.io/github/v/release/azusachino/iroha?display_name=tag&sort=semver)](https://github.com/azusachino/iroha/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE) [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](apps/iroha-server/go.mod)
 [![Postgres](https://img.shields.io/badge/Postgres-18%20%2F%20PostGIS-336791?logo=postgresql&logoColor=white)](docs/data-model.md)
 
@@ -12,6 +15,18 @@ The cockpit can express the same evidence through six visual languages — atlas
 below uses sample data so it is safe to share:
 
 ![Iroha design languages](docs/assets/iroha-design-languages.png)
+
+## Private cockpit and public archive
+
+Iroha has two deliberately separate surfaces. The private deployment owns the complete personal history; the public site is a read-only static snapshot made from an explicit, sanitized projection.
+
+| Surface                                                        | Contains                                                                                                                              | Where it runs                                                                     | Public?                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| **Private cockpit** (`iroha-server`, `iroha-job`, `iroha-web`) | Raw exports, canonical Postgres/PostGIS records, detailed routes, streams, sleep/media history, tasks, jobs, and provider credentials | Your local machine or private k3s/LAN deployment                                  | No — keep the API behind the network boundary |
+| **Public archive** (`apps/iroha-public-site`)                  | Sanitized activity summaries, masked route projections, aggregate totals, and the checked-in snapshot timestamp                       | GitHub Pages at [azusachino.github.io/iroha](https://azusachino.github.io/iroha/) | Yes — static, read-only, no live API          |
+
+The exporter runs inside the private deployment, validates the projection, and pushes only `apps/iroha-public-site/static/data/` to GitHub. Raw files, the database, provider tokens, private tasks,
+detailed streams, and the private API never cross this boundary. See [Public-site publishing](docs/public-site-publishing.md) for the operational contract.
 
 ## Architecture
 
@@ -67,11 +82,11 @@ by the separate static `apps/iroha-public-site`; there is no live `/public/v1` r
 | Database | PostgreSQL 18 + PostGIS, [goose](https://github.com/pressly/goose) migrations |
 | Cache    | Postgres-backed by default (`tb_cache_entries`); Valkey/Redis is optional     |
 | Web      | Svelte 5 + Vite (`apps/iroha-web`, [bun](https://bun.sh))                     |
-| Tooling  | mise for tools (local and CI), `make` task runner                             |
+| Tooling  | mise (`.mise.toml`) for local and CI tools, `make` task runner                |
 
 ## Quickstart
 
-Requires [mise](https://mise.jdx.dev/) and Podman for local backend development. A Nix flake remains available as an optional local shell (see `docs/dev-runtime.md`), but nothing requires it.
+Requires [mise](https://mise.jdx.dev/) and Podman for local backend development. The checked-in `.mise.toml` is the single toolchain definition used by local Make targets and GitHub Actions.
 
 ```sh
 mise install           # install the pinned project tools

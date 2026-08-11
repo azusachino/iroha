@@ -11,9 +11,8 @@ Tooling is pinned by the checked-in `.mise.toml` — do not install Go, goose, b
 mise install
 ```
 
-`make` targets automatically run through `mise exec --` when invoked outside an activated mise or Nix shell, so the normal workflow is just `make <target>` after `mise install`. CI (`ci.yml`,
-`public-site.yml`) provisions the same `.mise.toml` tools via `jdx/mise-action`, so local and CI resolve identical versions. The Nix flake remains available as an optional local shell (`nix develop`)
-but nothing requires it — see `docs/dev-runtime.md`.
+`make` targets run through `mise exec --`, so the normal workflow is just `make <target>` after `mise install`. CI (`ci.yml`, `public-site.yml`) provisions the same `.mise.toml` tools via
+`jdx/mise-action`, so local and CI resolve identical versions. See `docs/dev-runtime.md` for the runtime contract.
 
 `uv` manages the Python used only by dev scripts.
 

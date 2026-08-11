@@ -13,7 +13,7 @@ Implementation should stay narrow:
 - no shared Go package until a second Go module exists
 - no in-repo Telegram bot
 - no private frontend until milestones 1-3 are complete
-- Nix as the universal developer environment
+- mise as the universal developer environment
 - `uv` for repo scripts and local operational helpers
 - Podman + podman-compose for the local Postgres/PostGIS stack on macOS
 
@@ -36,7 +36,7 @@ Goal: upload and preserve raw source files.
 
 Tasks:
 
-- Add Nix flake for universal local tooling.
+- Add `.mise.toml` for universal local tooling.
 - Add `uv`-driven repo scripts for local checks and operational helpers.
 - Add Podman Compose-based local Postgres/PostGIS runtime scripts for macOS.
 - Create Go server skeleton under `apps/iroha-server`.
@@ -182,8 +182,8 @@ Exit criteria:
 
 - A public activity can be browsed on the GitHub Pages site without exposing exact private route data or any other private-only field.
 
-Status: the GitHub Pages deployment and k3s CronJob are live. The recurring publication loop is waiting for the sealed `IROHA_EXPORT_REPO_URL` credential; until that operator step is completed, the
-public site serves the intentional empty snapshot.
+Status: the GitHub Pages deployment and k3s CronJob are live. The recurring publication loop uses the dedicated sealed `IROHA_EXPORT_GITHUB_PAT` credential and publishes only the validated, sanitized
+snapshot under `apps/iroha-public-site/static/data/`.
 
 ## Milestone 8: Durable Worker Backbone
 

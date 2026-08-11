@@ -27,8 +27,8 @@ contract between minor versions.
   briefing API already returned media events, but the curated themes' Today components never received them as a prop.
 - The Patterns page's Apple Health Move/Exercise/Stand rings were only ever wired into the ungated fallback theme, not any of the six curated themes — they showed a generic step chart with no
   recognizable ring visualization. Added a rings hero (reusing the same `RingGauge` component) to the top of all six themes' Patterns page.
-- Replaced the hand-rolled, non-interactive SVG/div bar charts on the Patterns and Night pages (all six themes, 12 chart instances) with a new shared `BarChart` component built on the same ECharts stack
-  `LineChart` already used elsewhere — every chart now has a real hover tooltip and, on Night, click-to-select. Each theme keeps its own accent color and bar orientation; move-goal-closure and
+- Replaced the hand-rolled, non-interactive SVG/div bar charts on the Patterns and Night pages (all six themes, 12 chart instances) with a new shared `BarChart` component built on the same ECharts
+  stack `LineChart` already used elsewhere — every chart now has a real hover tooltip and, on Night, click-to-select. Each theme keeps its own accent color and bar orientation; move-goal-closure and
   sleep-efficiency, previously encoded only as an ambiguous bar-color gradient, are now a proper secondary line series visible in the tooltip.
 - Every media item's `description` has always been empty — no AniList/Bangumi provider ever wrote to it, so every media detail page across every theme showed the same generic fallback text. AniList
   sync now fetches `description(asHtml:false)` and writes it to `tb_media_works.description` on both create and reconcile; the frontend renders it with `white-space: pre-line` so paragraph breaks
@@ -53,9 +53,8 @@ contract between minor versions.
 
 ### Changed
 
-- `ci.yml` and `public-site.yml` provision tools with `jdx/mise-action` against the checked-in `.mise.toml` instead of `nix develop` — local and CI now resolve the exact same pinned tool versions
-  instead of two parallel toolchains. The Nix flake remains available as an optional local shell; nothing requires it anymore. Updated `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, and
-  `docs/dev-runtime.md` to match.
+- `ci.yml` and `public-site.yml` provision tools with `jdx/mise-action` against the checked-in `.mise.toml`; local and CI resolve the exact same pinned tool versions. The obsolete Nix flake was
+  removed after the 0.3.0 release. Updated `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, and `docs/dev-runtime.md` to match.
 
 ### Fixed
 

@@ -3,9 +3,8 @@
 
 The module list is discovered from go.work's `use (...)` block, so adding a
 module to the workspace automatically brings it under fmt/vet/lint/test/build
-with no Makefile edit. Tools (go, golangci-lint) come from mise during local
-development or the Nix devShell in CI; the Makefile wraps commands in the
-active tool environment.
+with no Makefile edit. Tools (go, golangci-lint) come from mise; the Makefile
+wraps commands in the pinned tool environment.
 """
 
 import argparse
