@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import { onMount } from "svelte";
   import {
     getSleepSegments,
@@ -18,7 +20,15 @@
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
-  const PAGE_SIZE = 24;
+  const PAGE_SIZE = 31;
+  const initialMonthParam = page.url.searchParams.get("month") ?? "";
+  const initialMonth = /^\d{4}-\d{2}$/.test(initialMonthParam)
+    ? initialMonthParam
+    : "";
+  const initialYearParam = page.url.searchParams.get("year") ?? "";
+  const initialYear = /^\d{4}$/.test(initialYearParam)
+    ? initialYearParam
+    : initialMonth.slice(0, 4);
   let sessions = $state<SleepSession[]>([]);
   let selected = $state<SleepSession | null>(null);
   let segments = $state<SleepSegment[]>([]);
@@ -36,8 +46,8 @@
   let monthBuckets = $state<SleepAggregateBucket[]>([]);
   let aggregatesLoading = $state(true);
   let aggregatesError = $state<string | null>(null);
-  let selectedYear = $state("");
-  let selectedMonth = $state("");
+  let selectedYear = $state(initialYear);
+  let selectedMonth = $state(initialMonth);
   let selectedStage = $state("Core");
   let hoveredStage = $state<string | null>(null);
   const theme = useTheme();
@@ -156,6 +166,15 @@
     return value instanceof Error ? value.message : String(value);
   }
 
+  function syncPeriodUrl() {
+    const url = new URL(page.url);
+    if (selectedYear) url.searchParams.set("year", selectedYear);
+    else url.searchParams.delete("year");
+    if (selectedMonth) url.searchParams.set("month", selectedMonth);
+    else url.searchParams.delete("month");
+    if (url.href !== page.url.href) replaceState(url, page.state);
+  }
+
   async function selectSession(session: SleepSession) {
     const requestId = ++selectionRequest;
     selected = session;
@@ -192,11 +211,15 @@
     return {};
   }
 
+  let sessionsRequest = 0;
+
   async function loadSessions(append = false) {
     if (append && (!hasMore || !cursor || loadingMore)) return;
+    const requestId = ++sessionsRequest;
     if (append) loadingMore = true;
     else {
       sessionsLoading = true;
+      loadingMore = false;
       cursor = null;
       hasMore = false;
     }
@@ -207,6 +230,7 @@
         cursor: append ? (cursor ?? undefined) : undefined,
         ...selectedRange(),
       });
+      if (requestId !== sessionsRequest) return;
       sessions = append ? [...sessions, ...page.items] : page.items;
       cursor = page.next_cursor;
       hasMore = page.has_more;
@@ -218,21 +242,27 @@
         }
       }
     } catch (value) {
+      if (requestId !== sessionsRequest) return;
       error = errorMessage(value);
     } finally {
-      sessionsLoading = false;
-      loadingMore = false;
+      if (requestId === sessionsRequest) {
+        sessionsLoading = false;
+        loadingMore = false;
+      }
     }
   }
 
   function changeYear(value: string) {
     selectedYear = value;
     selectedMonth = "";
+    syncPeriodUrl();
     void loadSessions(false);
   }
 
   function changeMonth(value: string) {
     selectedMonth = value;
+    if (value) selectedYear = value.slice(0, 4);
+    syncPeriodUrl();
     void loadSessions(false);
   }
 
@@ -259,6 +289,18 @@
       ]);
       yearBuckets = years.buckets;
       monthBuckets = months.buckets;
+      const validYears = new Set(
+        yearBuckets.map((bucket) =>
+          String(new Date(bucket.period).getUTCFullYear()),
+        ),
+      );
+      const validMonths = new Set(
+        monthBuckets.map((bucket) => bucket.period.slice(0, 7)),
+      );
+      if (selectedMonth) selectedYear = selectedMonth.slice(0, 4);
+      if (selectedYear && !validYears.has(selectedYear)) selectedYear = "";
+      if (selectedMonth && !validMonths.has(selectedMonth)) selectedMonth = "";
+      syncPeriodUrl();
     } catch (value) {
       aggregatesError = errorMessage(value);
     } finally {
@@ -276,9 +318,9 @@
     }).format(date);
   }
 
-  onMount(() => {
+  onMount(async () => {
+    await loadAggregates();
     void loadSessions(false);
-    void loadAggregates();
   });
 </script>
 

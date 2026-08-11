@@ -6,12 +6,14 @@
     getMediaAggregates,
     listAllActivities,
     listSleep,
+    listSleepAggregates,
     type Activity,
     type MediaAggregates,
     type RouteFeatureCollection,
     type SleepSession,
     type Summary,
   } from "$lib/api";
+  import ArchiveTotals from "$lib/components/ArchiveTotals.svelte";
   import DomainTile from "$lib/components/DomainTile.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import Heatmap from "$lib/components/Heatmap.svelte";
@@ -50,6 +52,7 @@
   // summary tile, not the full history.
   const SLEEP_SWEEP_LIMIT = 30;
   let sleepSessions = $state<SleepSession[]>([]);
+  let sleepSessionCount = $state<number | null>(null);
   let sleepLoading = $state(true);
 
   let mediaAggregates = $state<MediaAggregates | null>(null);
@@ -78,6 +81,11 @@
   );
   const streak = $derived(currentActivityStreak(heatmapDates));
   const activityCount = $derived(summary?.totals.activity_count ?? 0);
+  const archiveRecordCount = $derived(
+    activityCount +
+      (sleepSessionCount ?? 0) +
+      (mediaAggregates?.totals.item_count ?? 0),
+  );
   const totalDistance = $derived(formatDistance(summary?.totals.distance_m));
   const totalDuration = $derived(
     formatDuration(summary?.totals.moving_time_s || summary?.totals.duration_s),
@@ -127,12 +135,20 @@
   async function loadSleep() {
     sleepLoading = true;
     try {
-      const page = await listSleep({ limit: SLEEP_SWEEP_LIMIT });
+      const [page, aggregates] = await Promise.all([
+        listSleep({ limit: SLEEP_SWEEP_LIMIT }),
+        listSleepAggregates("year"),
+      ]);
       sleepSessions = page.items;
+      sleepSessionCount = aggregates.buckets.reduce(
+        (total, bucket) => total + bucket.session_count,
+        0,
+      );
     } catch {
       // The Overview's sleep tile is supplemental -- a failure here
       // shouldn't block the rest of the dashboard from rendering.
       sleepSessions = [];
+      sleepSessionCount = null;
     } finally {
       sleepLoading = false;
     }
@@ -209,6 +225,13 @@
 </svelte:head>
 
 <section class="dashboard-shell">
+  <ArchiveTotals
+    activityCount={summaryLoading || summaryError ? null : activityCount}
+    nightCount={sleepLoading ? null : sleepSessionCount}
+    mediaCount={mediaLoading || !mediaAggregates
+      ? null
+      : mediaAggregates.totals.item_count}
+  />
   {#if hasThemeRoute(theme.definition(), "dashboard")}
     <ThemeRouteRenderer
       route="dashboard"
@@ -249,15 +272,15 @@
             : undefined}
       />
       <StatTile
-        label="Activities"
+        label="Archive records"
         value={summaryLoading || summaryError
           ? "—"
-          : activityCount.toLocaleString()}
+          : archiveRecordCount.toLocaleString()}
         sub={summaryLoading
           ? "Loading totals…"
           : summaryError
             ? "Summary unavailable"
-            : undefined}
+            : "Activities, nights, and media items"}
       />
       <StatTile
         label="Total time"
@@ -380,19 +403,23 @@
             name="Activity"
             stat={summaryLoading || summaryError
               ? "Loading activity count…"
-              : `${activityCount.toLocaleString()} activities`}
+              : `${activityCount.toLocaleString()} sessions`}
             href="/motion"
             state="active"
           />
           <DomainTile
             name="Sleep"
-            stat="Recovery and sleep sessions"
+            stat={sleepLoading || sleepSessionCount == null
+              ? "Loading night count…"
+              : `${sleepSessionCount.toLocaleString()} sessions`}
             href="/night"
             state="active"
           />
           <DomainTile
             name="Media"
-            stat="Reading and watching history"
+            stat={mediaLoading || !mediaAggregates
+              ? "Loading media count…"
+              : `${mediaAggregates.totals.item_count.toLocaleString()} items`}
             href="/library"
             state="active"
           />
