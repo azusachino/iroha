@@ -160,10 +160,10 @@ Full Apple Health export zips may exceed normal Telegram Bot API file limits, so
 
 Goal: separate private canonical data from public output. See [Public-site publishing workflow](public-site-publishing.md) for the operational pipeline, review loop, and rollback path (issue #41).
 
-Status: partially shipped. Privacy zones and sanitized activity projections are implemented — `apps/iroha-server/pkg/activities` trims route endpoints and masks auto-detected private zones (home, work, and
-other frequent start/end hubs) across every route, and `apps/iroha-server/pkg/publicexport` builds the sanitized activity/summary/route projection from that. The original design served this from a
-`/public/v1` HTTP surface living in the same process as the private API; that surface has been removed (it was never actually exposed to the internet — an open-CORS route and a second rate-limit
-budget serving a page nobody could reach). The replacement is a static export instead of a second live API surface:
+Status: partially shipped. Privacy zones and sanitized activity projections are implemented — `apps/iroha-server/pkg/activities` trims route endpoints and masks auto-detected private zones (home,
+work, and other frequent start/end hubs) across every route, and `apps/iroha-server/pkg/publicexport` builds the sanitized activity/summary/route projection from that. The original design served this
+from a `/public/v1` HTTP surface living in the same process as the private API; that surface has been removed (it was never actually exposed to the internet — an open-CORS route and a second
+rate-limit budget serving a page nobody could reach). The replacement is a static export instead of a second live API surface:
 
 ```text
 apps/iroha-server/cmd/iroha-export-public (sanitized JSON/GeoJSON snapshot)
@@ -208,6 +208,28 @@ Exit criteria:
 
 Status: shipped for imports, geocoding, and the first AniList/Bangumi connector syncs. The private API queues media sync jobs at `POST /api/v1/media/sync/{connectorId}`; remaining media work is
 ontology expansion and cross-provider resolution.
+
+## Release 0.4: Expense Ledger
+
+Goal: capture lightweight personal expenses from Telegram or another external client, then report them beside the existing activity, night, and media aggregates without making iroha own a bot.
+
+The intake boundary follows Milestone 6: Telegram remains an external client, while iroha owns authentication, idempotency, canonical records, corrections, and read/report APIs.
+
+First vertical slice:
+
+- Define a canonical `tb_expenses` record with amount, currency, occurred-at date, category, merchant/description, source, and stable external idempotency key.
+- Add an authenticated create/list/update API for external clients, including a compact response suitable for Telegram confirmation messages.
+- Keep corrections and deletion auditable; never silently overwrite an imported expense.
+- Add weekly and monthly aggregates by total, category, and currency, with explicit timezone boundaries.
+- Add an Overview expense tile and weekly/monthly report views without changing existing activity, night, or media totals.
+- Exclude expenses from public export by default; add a separate opt-in sanitized summary only after the private ledger is trustworthy.
+
+Exit criteria:
+
+- A Telegram-side client can submit one expense, receive a stable confirmation, and safely retry without duplication.
+- A user can correct an expense and see the correction reflected in weekly and monthly reports.
+- Aggregate totals are covered by API and database tests across timezone, currency, retry, and empty-period cases.
+- The private UI and API make the expense boundary clear, while the public projection remains expense-free by default.
 
 ## Future Module: Reading and Watching Stats
 

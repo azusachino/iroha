@@ -40,7 +40,7 @@
         href="/"
         aria-label="iroha — sound and flower"
       >
-        <span class="brand-mark" aria-hidden="true">✽</span>
+        <img class="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" />
         <span>iroha</span>
         <small class="brand-version">v{APP_VERSION}</small>
       </a>

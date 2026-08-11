@@ -88,11 +88,13 @@ web-build: ## Production build of the web app
 web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
 	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) $(TOOL_ENV)bun run dev --host 0.0.0.0
 
-web-visual-install: ## One-time: install the Chromium binary for web-visual-check
-	cd $(WEB_DIR) && $(TOOL_ENV)bunx playwright install chromium
+web-visual-install: ## One-time: install the browser binary for agent-browser visual checks
+	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
+	agent-browser install
 
-web-visual-check: ## Screenshot themed routes with a real browser (THEME=field-journal); needs web-dev + iroha-server + db-up already running
-	cd $(WEB_DIR) && $(TOOL_ENV)bun run visual-check -- --theme $(or $(THEME),field-journal)
+web-visual-check: ## Screenshot a themed route with agent-browser (THEME=field-journal, ROUTE=overview, BASE=...)
+	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
+	cd $(WEB_DIR) && BASE="$(or $(BASE),http://127.0.0.1:5173)" THEME="$(or $(THEME),field-journal)" ROUTES="$(or $(ROUTE),overview)" OUT="$(or $(OUT),.visual-check)" bash scripts/visual-check.sh
 
 ## --- Public static site (apps/iroha-public-site, bun) ---
 public-site-install: ## Install public-site dependencies

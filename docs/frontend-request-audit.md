@@ -31,32 +31,25 @@ The buttons also disable while the same connector action is queued or running, p
 
 ## Regression checks
 
-The opt-in browser audit is available with a running deployment:
+Use `agent-browser` for the live browser harness and inspect traffic from the same named session:
 
 ```sh
-cd apps/iroha-web
-bun run request-audit -- --base https://iroha.h.azusachino.icu
+make web-visual-check BASE=https://iroha.h.azusachino.icu THEME=field-journal ROUTE=overview
+agent-browser --session iroha-visual network requests --json
 ```
 
-For a local frontend against the deployed API, use `--api-base` while the Vite server is running:
+For a local frontend, run `make web-dev` first and point the same command at `http://127.0.0.1:5173`. The current post-fix request expectations remain:
 
-```sh
-bun run request-audit -- --base http://127.0.0.1:5174 --api-base https://iroha.h.azusachino.icu
-```
-
-The audit asserts that Admin makes one task request and one scoped job request, Daily does not sweep the entire history or fetch yearly aggregates before the Year tab is selected, Year makes one lazy
-yearly request, and Day requests at most one selected month with `limit=31`. The current post-fix initial traffic is:
-
-| Route         | Initial API requests |
-| ------------- | -------------------: |
-| `/`           |                    3 |
-| `/overview`   |                    6 |
-| `/motion`     |                    2 |
-| `/patterns`   |                    2 |
-| `/design`     |                    1 |
-| `/library`    |                    2 |
-| `/night`      |                    4 |
-| `/to-go`      |                    2 |
+| Route       | Initial API requests |
+| ----------- | -------------------: |
+| `/`         |                    3 |
+| `/overview` |                    6 |
+| `/motion`   |                    2 |
+| `/patterns` |                    2 |
+| `/design`   |                    1 |
+| `/library`  |                    2 |
+| `/night`    |                    4 |
+| `/to-go`    |                    2 |
 
 ## Read cache boundary
 

@@ -102,35 +102,35 @@ The private frontend lives alongside the server at `apps/iroha-web` (SvelteKit, 
 
 ### Frontend Browser Smoke
 
-Use the on-demand Playwright CLI for browser screenshots. Chrome is not assumed to exist on the local machine; if `playwright-cli open ... --headed` fails with
-`Chromium distribution 'chrome' is not found`, install WebKit once:
+Use `agent-browser` for browser screenshots and harness checks. It owns its Chromium session outside the web dependency tree; no frontend browser package is required.
+
+Install its browser once if needed:
 
 ```bash
-cd apps/iroha-web
-bunx -p @playwright/cli@latest playwright-cli install-browser webkit
+make web-visual-install
 ```
 
-Then run the web dev server:
+Then run the web dev server and check a route:
 
 ```bash
 make web-dev
+make web-visual-check THEME=field-journal ROUTE=overview
 ```
 
-Open a route and capture the current page:
+The equivalent direct commands are:
 
 ```bash
-cd apps/iroha-web
-bunx -p @playwright/cli@latest playwright-cli open "http://127.0.0.1:5173/overview" --browser webkit --headed
-bunx -p @playwright/cli@latest playwright-cli screenshot --full-page --filename=artifact.png
+agent-browser --session iroha-visual open "http://127.0.0.1:5173/overview"
+agent-browser --session iroha-visual wait 800
+agent-browser --session iroha-visual snapshot -c
+agent-browser --session iroha-visual screenshot --full .visual-check/overview.png
 ```
-
-The screenshot command acts on the currently opened page. Use `--browser webkit` unless Chrome is intentionally installed.
 
 Pitfalls to avoid:
 
 - Kill stale Vite listeners on port 5173 before starting a new frontend smoke run.
-- Do not assume Chrome exists on this macOS host. The Playwright CLI defaults can fail until an installed browser is selected explicitly.
-- `playwright-cli screenshot` is not a navigation command. Passing both a URL and output path fails with `too many arguments`; open the page first, then capture the current page.
+- Use a named `--session` so navigation, storage, screenshots, and error checks share one browser.
+- Clear or close the named session after a one-off check so browser processes do not accumulate.
 - Keep this as a browser smoke check. Unit/e2e behavior should stay in `make web-test`, `make scripts-test`, and `make check` so CI does not depend on a headed browser session.
 
 Do not use a Git submodule for `iroha-server` unless it must live in a separate repository with independent release ownership. In this product phase, `iroha-server` should be a subdirectory module
