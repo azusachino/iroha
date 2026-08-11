@@ -299,6 +299,17 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
+      <div class="period-toolbar">
+        <PeriodSelector
+          years={periodYears}
+          months={periodMonths}
+          year={selectedYear}
+          month={selectedMonth}
+          monthDisabled={!selectedYear}
+          onYear={changeYear}
+          onMonth={changeMonth}
+        />
+      </div>
       <ThemeRouteRenderer
         route="sleep"
         props={{
@@ -330,6 +341,17 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
+      <div class="period-toolbar">
+        <PeriodSelector
+          years={periodYears}
+          months={periodMonths}
+          year={selectedYear}
+          month={selectedMonth}
+          monthDisabled={!selectedYear}
+          onYear={changeYear}
+          onMonth={changeMonth}
+        />
+      </div>
       <section class="hero tile">
         <div class="hero-orb"></div>
         <div class="hero-topline">
@@ -410,15 +432,6 @@
             <p class="eyebrow">The long view</p>
             <h2>Sleep over time</h2>
           </div>
-          <PeriodSelector
-            years={periodYears}
-            months={periodMonths}
-            year={selectedYear}
-            month={selectedMonth}
-            monthDisabled={!selectedYear}
-            onYear={changeYear}
-            onMonth={changeMonth}
-          />
         </header>
         {#if aggregatesLoading}
           <p class="muted panel-loading">Building your history…</p>
@@ -649,6 +662,12 @@
   .section-note {
     color: var(--text-muted);
     font-size: 0.78rem;
+  }
+
+  .period-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
   }
   .hero {
     position: relative;
