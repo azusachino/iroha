@@ -90,7 +90,7 @@
         <strong>{routes?.features.length ?? "—"}</strong>
       </div>
       <div class="atlas-plate">
-        <p class="atlas-kicker">Sleep</p>
+        <p class="atlas-kicker">Sleep · {sleepSummary.nightCount} nights</p>
         <strong
           >{sleepSummary.nightCount
             ? formatDuration(sleepSummary.averageAsleepS)
@@ -98,7 +98,9 @@
         >
       </div>
       <div class="atlas-plate">
-        <p class="atlas-kicker">Media</p>
+        <p class="atlas-kicker">
+          Media · {mediaAggregates?.totals.item_count ?? "—"} items
+        </p>
         <strong>{mediaAggregates?.totals.completed_count ?? "—"}</strong>
       </div>
     </div>

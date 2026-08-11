@@ -135,16 +135,20 @@
     Math.max(1, ...yearBuckets.map((bucket) => bucket.session_count)),
   );
   const architectureStages = $derived([
-    { name: "Core", value: selected?.core_s ?? 0, color: "#5c8dff" },
-    { name: "Deep", value: selected?.deep_s ?? 0, color: "#8870e8" },
-    { name: "REM", value: selected?.rem_s ?? 0, color: "#e879b4" },
-    { name: "Awake", value: selected?.awake_s ?? 0, color: "#d39a4c" },
+    { name: "Core", value: selected?.core_s ?? 0, color: "var(--accent)" },
+    { name: "Deep", value: selected?.deep_s ?? 0, color: "var(--accent-2)" },
+    { name: "REM", value: selected?.rem_s ?? 0, color: "var(--ring-move)" },
+    {
+      name: "Awake",
+      value: selected?.awake_s ?? 0,
+      color: "var(--ring-exercise)",
+    },
     ...(selected?.unspecified_s
       ? [
           {
             name: "Unspecified",
             value: selected.unspecified_s,
-            color: "#788397",
+            color: "var(--text-muted)",
           },
         ]
       : []),
@@ -750,12 +754,12 @@
     background:
       radial-gradient(
         circle at 92% 8%,
-        rgb(99 123 255 / 0.28),
+        color-mix(in srgb, var(--accent) 28%, transparent),
         transparent 34%
       ),
       radial-gradient(
         circle at 70% 100%,
-        rgb(125 74 193 / 0.18),
+        color-mix(in srgb, var(--accent-2) 18%, transparent),
         transparent 42%
       ),
       var(--surface);
@@ -766,11 +770,11 @@
     height: 15rem;
     right: -5rem;
     top: -7rem;
-    border: 1px solid rgb(174 190 255 / 0.25);
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
     border-radius: 50%;
     box-shadow:
-      0 0 0 1.5rem rgb(120 134 255 / 0.04),
-      0 0 0 3rem rgb(120 134 255 / 0.025);
+      0 0 0 1.5rem color-mix(in srgb, var(--accent) 4%, transparent),
+      0 0 0 3rem color-mix(in srgb, var(--accent) 2.5%, transparent);
   }
   .hero-topline,
   .hero-metrics {
@@ -803,10 +807,10 @@
   }
   .status-pill {
     padding: 0.45rem 0.65rem;
-    border: 1px solid rgb(128 163 255 / 0.38);
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
     border-radius: 99px;
-    background: rgb(92 141 255 / 0.12);
-    color: #b8caff;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
     font-size: 0.75rem;
     font-weight: 700;
   }
@@ -823,7 +827,7 @@
     position: relative;
     max-width: 35rem;
     margin: 1.25rem 0 1.5rem;
-    color: #c4ccdb;
+    color: var(--text);
     font-size: 0.92rem;
     line-height: 1.55;
   }
@@ -832,7 +836,7 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 1rem;
     padding-top: 1rem;
-    border-top: 1px solid rgb(255 255 255 / 0.1);
+    border-top: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
   }
   .hero-metrics div {
     display: grid;
@@ -864,7 +868,11 @@
   }
   .trend-panel {
     background:
-      linear-gradient(135deg, rgb(91 128 255 / 0.07), transparent 42%),
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--accent) 7%, transparent),
+        transparent 42%
+      ),
       var(--tile-surface);
   }
   .panel-loading {
@@ -882,7 +890,7 @@
     padding: 0.8rem;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: rgb(255 255 255 / 0.025);
+    background: color-mix(in srgb, var(--surface-2) 25%, transparent);
   }
   .year-heading,
   .year-detail {
@@ -906,13 +914,13 @@
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #5c8dff, #9c72ef);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
   }
   .year-detail {
     font-size: 0.7rem;
   }
   .year-detail b {
-    color: #b8caff;
+    color: var(--accent);
   }
   .trend-legend {
     display: flex;
@@ -928,7 +936,7 @@
     margin-top: 1rem;
     padding: 0.75rem 0.9rem;
     border-left: 2px solid var(--accent);
-    background: rgb(92 141 255 / 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
     font-size: 0.78rem;
   }
   .focus-callout span {
@@ -977,7 +985,7 @@
   .stage-button:focus-visible,
   .stage-button.selected {
     border-color: var(--border);
-    background: rgb(92 141 255 / 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
     color: var(--text);
     outline: none;
   }
@@ -1011,7 +1019,7 @@
     border-radius: 50%;
   }
   .dot-session {
-    background: #5c8dff;
+    background: var(--accent);
   }
   .panel-footnote {
     margin: 0;
@@ -1046,7 +1054,7 @@
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #4d7fff, #c27de4);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
   }
   .night-layout {
     display: grid;
@@ -1082,7 +1090,7 @@
   .night-row:hover,
   .night-row:focus-visible,
   .night-row.selected {
-    background: rgb(92 141 255 / 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
     color: var(--text);
     outline: none;
   }
@@ -1116,7 +1124,7 @@
     padding: 1.25rem;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: rgb(255 255 255 / 0.025);
+    background: color-mix(in srgb, var(--surface-2) 25%, transparent);
   }
   .timeline-meta,
   .timeline-axis {

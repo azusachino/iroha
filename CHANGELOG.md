@@ -197,7 +197,8 @@ sanitized-public read surfaces on top.
 - Geocode retry storms now back off instead of hammering Nominatim on rate-limit responses.
 - Local stack startup sequencing (dependencies before app containers, migrations before server).
 
-[Unreleased]: https://github.com/azusachino/iroha/compare/v0.1.4...HEAD
+[0.3.0]: https://github.com/azusachino/iroha/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/azusachino/iroha/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/azusachino/iroha/compare/v0.1.1...v0.1.4
 [0.1.1]: https://github.com/azusachino/iroha/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/azusachino/iroha/releases/tag/v0.1.0

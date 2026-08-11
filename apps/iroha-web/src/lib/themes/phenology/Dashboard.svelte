@@ -135,7 +135,7 @@
         <dd>{routes?.features.length ?? "—"}</dd>
       </div>
       <div>
-        <dt>Sleep</dt>
+        <dt>Sleep ({sleepSummary.nightCount} nights)</dt>
         <dd>
           {sleepSummary.nightCount
             ? formatDuration(sleepSummary.averageAsleepS)
@@ -143,7 +143,7 @@
         </dd>
       </div>
       <div>
-        <dt>Media</dt>
+        <dt>Media ({mediaAggregates?.totals.item_count ?? "—"} items)</dt>
         <dd>{mediaAggregates?.totals.completed_count ?? "—"}</dd>
       </div>
     </dl>

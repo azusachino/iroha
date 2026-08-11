@@ -112,16 +112,15 @@
         <span>Routes</span><strong>{routes?.features.length ?? "—"}</strong>
       </div>
       <div>
-        <span>Sleep</span><strong
+        <span>Sleep · {sleepSummary.nightCount} nights</span><strong
           >{sleepSummary.nightCount
             ? formatDuration(sleepSummary.averageAsleepS)
             : "—"}</strong
         >
       </div>
       <div>
-        <span>Media</span><strong
-          >{mediaAggregates?.totals.completed_count ?? "—"}</strong
-        >
+        <span>Media · {mediaAggregates?.totals.item_count ?? "—"} items</span
+        ><strong>{mediaAggregates?.totals.completed_count ?? "—"}</strong>
       </div>
     </div>
 
