@@ -36,8 +36,16 @@
   // Set directly by drilling into a bar/row (see drillIntoPeriod), and reset
   // to "" -- meaning "default to the latest" -- by the day/month/year tabs
   // themselves, so a tab always means "zoom all the way out to this level."
-  let selectedMonth = $state("");
-  let selectedYear = $state("");
+  const initialMonthParam = page.url.searchParams.get("month") ?? "";
+  const initialMonth = /^\d{4}-\d{2}$/.test(initialMonthParam)
+    ? initialMonthParam
+    : "";
+  const initialYearParam = page.url.searchParams.get("year") ?? "";
+  const initialYear = /^\d{4}$/.test(initialYearParam)
+    ? initialYearParam
+    : initialMonth.slice(0, 4);
+  let selectedMonth = $state(initialMonth);
+  let selectedYear = $state(initialYear);
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
   let monthlyLoaded = false;
@@ -352,6 +360,7 @@
       gran = "day";
       void loadDays(period);
     }
+    syncUrl();
   }
 
   function drillIntoIndex(index: number) {
