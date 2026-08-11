@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import {
     listDaily,
     listDailyAggregates,
@@ -10,6 +12,7 @@
   import DailySmallMultiples, {
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
+  import PatternPeriodPicker from "$lib/components/PatternPeriodPicker.svelte";
   import { formatDateOnly } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -24,7 +27,12 @@
   let loading = $state(true);
   let dayRowsLoading = $state(false);
   let error = $state<string | null>(null);
-  let gran = $state<Gran>("month");
+  function granFromUrl(): Gran {
+    const value = page.url.searchParams.get("gran");
+    return value === "day" || value === "year" ? value : "month";
+  }
+
+  let gran = $state<Gran>(granFromUrl());
   // Set directly by drilling into a bar/row (see drillIntoPeriod), and reset
   // to "" -- meaning "default to the latest" -- by the day/month/year tabs
   // themselves, so a tab always means "zoom all the way out to this level."
@@ -48,8 +56,26 @@
       .sort()
       .reverse(),
   );
-  const activeMonth = $derived(selectedMonth || availableMonths[0] || "");
-  const activeYear = $derived(selectedYear || availableYears[0] || "");
+  const scopedYear = $derived(
+    availableYears.includes(selectedYear) ? selectedYear : "",
+  );
+  const activeYear = $derived(scopedYear || availableYears[0] || "");
+  const monthsInScope = $derived(
+    availableMonths.filter((month) => month.startsWith(activeYear)),
+  );
+  const scopedMonth = $derived(
+    monthsInScope.includes(selectedMonth) ? selectedMonth : "",
+  );
+  const activeMonth = $derived(scopedMonth || monthsInScope[0] || "");
+  const periodLabel = $derived(
+    gran === "year"
+      ? scopedYear || "All years"
+      : gran === "month"
+        ? scopedMonth || `${activeYear} · all months`
+        : activeMonth
+          ? formatMonth(activeMonth)
+          : "No month selected",
+  );
 
   // Hero uses the latest real ring day, independent of the chosen granularity.
   const latestRingDay = $derived(latestDay);
@@ -111,6 +137,14 @@
       timeZone: "UTC",
     });
   }
+
+  function formatMonth(period: string): string {
+    return new Date(`${period}-01T00:00:00Z`).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      timeZone: "UTC",
+    });
+  }
   function dayToDisp(r: DailyRow): Disp {
     const ring = r.move_goal_kcal > 0;
     return {
@@ -163,10 +197,16 @@
     }
     if (gran === "month") {
       return monthly
-        .filter((bucket) => !activeYear || bucket.period.startsWith(activeYear))
+        .filter(
+          (bucket) =>
+            (!activeYear || bucket.period.startsWith(activeYear)) &&
+            (!scopedMonth || bucket.period.startsWith(scopedMonth)),
+        )
         .map(aggToDisp);
     }
-    return yearly.map(aggToDisp);
+    return yearly
+      .filter((bucket) => !scopedYear || bucket.period.startsWith(scopedYear))
+      .map(aggToDisp);
   });
   const table = $derived([...chrono].reverse());
   const aggregated = $derived(gran !== "day");
@@ -265,10 +305,33 @@
   // reset any scope a bar/row click drilled into, rather than keeping it.
   async function changeGranularity(value: Gran) {
     gran = value;
-    selectedYear = "";
-    selectedMonth = "";
     if (value === "year") await loadYearly();
     if (value === "day") await loadDays(activeMonth);
+    syncUrl();
+  }
+
+  function selectYear(value: string) {
+    selectedYear = value;
+    selectedMonth = "";
+    if (gran === "day") void loadDays(activeMonth);
+    syncUrl();
+  }
+
+  function selectMonth(value: string) {
+    selectedMonth = value;
+    if (value) selectedYear = value.slice(0, 4);
+    if (gran === "day") void loadDays(activeMonth);
+    syncUrl();
+  }
+
+  function syncUrl() {
+    const url = new URL(page.url);
+    url.searchParams.set("gran", gran);
+    if (scopedYear) url.searchParams.set("year", scopedYear);
+    else url.searchParams.delete("year");
+    if (scopedMonth) url.searchParams.set("month", scopedMonth);
+    else url.searchParams.delete("month");
+    if (url.search !== page.url.search) replaceState(url, page.state);
   }
 
   // Clicking a bar or table row zooms in one level: a year scopes month
@@ -292,6 +355,8 @@
 
   onMount(async () => {
     await Promise.all([loadMonthly(), loadLatestDay()]);
+    if (gran === "year") await loadYearly();
+    if (gran === "day") await loadDays(activeMonth);
     loading = false;
   });
 </script>
@@ -309,6 +374,20 @@
     {:else if monthly.length === 0 && dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
+      <div class="period-toolbar">
+        <PatternPeriodPicker
+          {gran}
+          {availableYears}
+          {availableMonths}
+          {selectedYear}
+          {selectedMonth}
+          {activeYear}
+          {activeMonth}
+          scopeLabel={periodLabel}
+          onYear={selectYear}
+          onMonth={selectMonth}
+        />
+      </div>
       <ThemeRouteRenderer
         route="daily"
         props={{
@@ -361,11 +440,24 @@
             </button>
           {/each}
         </div>
+        <PatternPeriodPicker
+          {gran}
+          {availableYears}
+          {availableMonths}
+          {selectedYear}
+          {selectedMonth}
+          {activeYear}
+          {activeMonth}
+          scopeLabel={periodLabel}
+          onYear={selectYear}
+          onMonth={selectMonth}
+        />
         <span class="muted small">
           {#if aggregated}
-            {chrono.length} {gran}s in selected year · per-day averages
+            {chrono.length}
+            {gran}s in {gran === "year" ? "view" : activeYear} · per-day averages
           {:else}
-            {chrono.length} days in selected month
+            {chrono.length} days in {formatMonth(activeMonth)}
           {/if}
         </span>
         {#if rangeFrom && rangeTo}<span class="muted small"
@@ -505,6 +597,10 @@
     align-items: center;
     gap: 1rem;
     flex-wrap: wrap;
+  }
+  .period-toolbar {
+    display: flex;
+    justify-content: flex-end;
   }
   .seg {
     display: inline-flex;
