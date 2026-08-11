@@ -40,17 +40,17 @@ The interface should therefore feel observant and composed, not clinical, compet
 
 ## Page archetypes
 
-| Archetype          | Route(s)          | User question                       | Structural rule                                                                              |
-| ------------------ | ----------------- | ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| Field Console      | `/`               | What is the shape of this day?      | One daily signal, a small set of priorities, then contextual moments.                        |
-| Observatory        | `/overview`       | What has accumulated over time?     | Overview wall with totals, streaks, routes, and domains; do not duplicate Today’s narrative. |
-| Pattern Atlas       | `/patterns`       | What rhythms or changes can I see?  | Calendar/heatmap and trend bands lead; detailed day inspection follows.                      |
-| Movement Archive    | `/motion`         | What have I done?                   | Chronological record with visual filters and compact route/context previews.                 |
-| Performance Report  | `/motion/:id`     | What happened in this activity?     | Route and headline facts first; charts, zones, splits, and metadata form the report.         |
-| Night Report        | `/night`          | How did the night unfold?           | Circadian timeline and architecture lead; history is selectable but subordinate.             |
-| Personal Library    | `/library`        | What am I collecting or continuing? | Shelves and progress lead; aggregates support the collection instead of dominating it.       |
-| Library Entry       | `/library/:id`    | What is the history of this item?   | Cover/title context, progress, event timeline, people, and related items.                    |
-| Design Archive     | `/design`         | Which directions have we explored?  | Review-only reference; never becomes a hidden production dependency.                         |
+| Archetype          | Route(s)       | User question                       | Structural rule                                                                              |
+| ------------------ | -------------- | ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| Field Console      | `/`            | What is the shape of this day?      | One daily signal, a small set of priorities, then contextual moments.                        |
+| Observatory        | `/overview`    | What has accumulated over time?     | Overview wall with totals, streaks, routes, and domains; do not duplicate Today’s narrative. |
+| Pattern Atlas      | `/patterns`    | What rhythms or changes can I see?  | Calendar/heatmap and trend bands lead; detailed day inspection follows.                      |
+| Movement Archive   | `/motion`      | What have I done?                   | Chronological record with visual filters and compact route/context previews.                 |
+| Performance Report | `/motion/:id`  | What happened in this activity?     | Route and headline facts first; charts, zones, splits, and metadata form the report.         |
+| Night Report       | `/night`       | How did the night unfold?           | Circadian timeline and architecture lead; history is selectable but subordinate.             |
+| Personal Library   | `/library`     | What am I collecting or continuing? | Shelves and progress lead; aggregates support the collection instead of dominating it.       |
+| Library Entry      | `/library/:id` | What is the history of this item?   | Cover/title context, progress, event timeline, people, and related items.                    |
+| Design Archive     | `/design`      | Which directions have we explored?  | Review-only reference; never becomes a hidden production dependency.                         |
 
 ## Visual language
 

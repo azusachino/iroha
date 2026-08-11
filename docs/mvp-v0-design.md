@@ -113,8 +113,8 @@ Preferred MVP stack:
 - Auth: local MVP may bypass auth; authenticated deployments use JWT bearer tokens
 - Config: TOML file with environment variable overrides
 - IDs: UUIDv7 stored in Postgres UUID columns, exposed as prefixed API IDs
-- Universal tool manager: Nix flake
-- Local scripts: `uv` inside the Nix-managed environment
+- Universal tool manager: mise
+- Local scripts: `uv` inside the mise-managed environment
 - Go layout: `apps/iroha-server` as an in-repo Go module; add `go.work` when multiple Go modules exist
 - macOS container runtime: Apple `container`, with capability checks before assuming Docker Compose parity
 

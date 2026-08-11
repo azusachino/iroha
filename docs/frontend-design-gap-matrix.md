@@ -25,18 +25,18 @@ The first implementation boundary is additive or in-place:
 
 ## Current route and data inventory
 
-| Surface         | Route                | Primary data/API consumer                       | Current role            | Intended role                |
-| --------------- | -------------------- | ----------------------------------------------- | ----------------------- | ---------------------------- |
-| Today           | `/`                  | `getBriefing`, `listDaily`                      | Daily command center    | Field Console / daily signal |
-| Motion          | `/motion`            | `listActivities`, `getPublicSummary`            | Filtered activity cards | Movement archive             |
-| Motion detail   | `/motion/:id`        | `getActivity`, route, samplings, laps           | Detailed workout page   | Performance report           |
-| Patterns        | `/patterns`          | `listDaily`, daily aggregates                   | Trends plus table       | Pattern atlas                |
-| Overview        | `/overview`          | public summary, activities, routes              | Bento overview          | Long-horizon observatory     |
-| Night           | `/night`             | sleep list, aggregates, segments                | Sleep analysis          | Night report                 |
-| Library         | `/library`           | media list and aggregates                       | Shelves and charts      | Personal library             |
-| Library detail  | `/library/:id`       | media detail                                    | Item history            | Library entry                |
-| Public site     | separate static site | committed sanitized summary, routes, activities | Public statistics       | Editorial public report      |
-| Design lab      | `/design`            | briefing data plus static variants              | Design experiments      | Temporary review reference   |
+| Surface        | Route                | Primary data/API consumer                       | Current role            | Intended role                |
+| -------------- | -------------------- | ----------------------------------------------- | ----------------------- | ---------------------------- |
+| Today          | `/`                  | `getBriefing`, `listDaily`                      | Daily command center    | Field Console / daily signal |
+| Motion         | `/motion`            | `listActivities`, `getPublicSummary`            | Filtered activity cards | Movement archive             |
+| Motion detail  | `/motion/:id`        | `getActivity`, route, samplings, laps           | Detailed workout page   | Performance report           |
+| Patterns       | `/patterns`          | `listDaily`, daily aggregates                   | Trends plus table       | Pattern atlas                |
+| Overview       | `/overview`          | public summary, activities, routes              | Bento overview          | Long-horizon observatory     |
+| Night          | `/night`             | sleep list, aggregates, segments                | Sleep analysis          | Night report                 |
+| Library        | `/library`           | media list and aggregates                       | Shelves and charts      | Personal library             |
+| Library detail | `/library/:id`       | media detail                                    | Item history            | Library entry                |
+| Public site    | separate static site | committed sanitized summary, routes, activities | Public statistics       | Editorial public report      |
+| Design lab     | `/design`            | briefing data plus static variants              | Design experiments      | Temporary review reference   |
 
 The API boundary is already typed in `apps/iroha-web/src/lib/api.ts`. The redesign should preserve current `/api/v1` calls in the private cockpit; sanitized public projections belong to the separate
 static site and must not be added back as a live frontend route.
