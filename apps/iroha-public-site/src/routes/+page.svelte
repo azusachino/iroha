@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import {
     getCoreRowModel,
     type ColumnDef,
@@ -82,13 +82,13 @@
   function selectYear(year: string) {
     selectedYear = year;
     cityFilter = null;
-    pageIndex = 0;
+    visibleCount = batchSize;
   }
 
   function toggleSport(sport: string) {
     sportFilter = sportFilter === sport ? null : sport;
     cityFilter = null;
-    pageIndex = 0;
+    visibleCount = batchSize;
   }
 
   function toggleCity(city: string) {
@@ -234,15 +234,15 @@
       : filteredRoutes,
   );
 
-  // --- Activities table (TanStack table-core: sorting + pagination over the
-  // already-loaded, year/sport-filtered array -- no server round trip). ---
+  // --- Activities table (sorting + progressive rendering over the already-
+  // loaded, year/sport-filtered array -- no server round trip). ---
   const filteredActivities = $derived(
     filterByYearAndSport(activities, selectedYear, sportFilter),
   );
 
   let sorting = $state<SortingState>([{ id: "started_at", desc: true }]);
-  const pageSize = 20;
-  let pageIndex = $state(0);
+  const batchSize = 50;
+  let visibleCount = $state(batchSize);
 
   const columns: ColumnDef<Activity>[] = [
     { accessorKey: "started_at", id: "started_at", header: "Date" },
@@ -292,16 +292,25 @@
     return rows;
   });
 
-  const pageCount = $derived(
-    Math.max(1, Math.ceil(sortedActivities.length / pageSize)),
-  );
-  const visibleActivities = $derived(
-    sortedActivities.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
-  );
+  const visibleActivities = $derived(sortedActivities.slice(0, visibleCount));
+  const hasMoreActivities = $derived(visibleCount < sortedActivities.length);
 
-  function setPage(nextPage: number) {
-    pageIndex = Math.max(0, Math.min(pageCount - 1, nextPage));
+  function loadMore() {
+    visibleCount = Math.min(visibleCount + batchSize, sortedActivities.length);
   }
+
+  function loadMoreNearBottom() {
+    if (!hasMoreActivities) return;
+    const remaining =
+      document.documentElement.scrollHeight -
+      (window.scrollY + window.innerHeight);
+    if (remaining < 600) loadMore();
+  }
+
+  onMount(() => {
+    window.addEventListener("scroll", loadMoreNearBottom, { passive: true });
+    return () => window.removeEventListener("scroll", loadMoreNearBottom);
+  });
 </script>
 
 <svelte:head>
@@ -554,25 +563,12 @@
             {/each}
           </tbody>
         </table>
-        {#if pageCount > 1}
-          <div class="pager">
-            <button
-              type="button"
-              disabled={pageIndex === 0}
-              onclick={() => setPage(pageIndex - 1)}
-            >
-              Previous
-            </button>
+        {#if hasMoreActivities}
+          <div class="load-more">
+            <button type="button" onclick={loadMore}>Load more</button>
             <span class="muted small">
-              Page {pageIndex + 1} of {pageCount}
+              Showing {visibleActivities.length} of {sortedActivities.length}
             </span>
-            <button
-              type="button"
-              disabled={pageIndex >= pageCount - 1}
-              onclick={() => setPage(pageIndex + 1)}
-            >
-              Next
-            </button>
           </div>
         {/if}
       </div>
@@ -797,24 +793,20 @@
   .activity-title {
     font-weight: 600;
   }
-  .pager {
+  .load-more {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 1rem;
     padding: 0.75rem;
   }
-  .pager button {
+  .load-more button {
     padding: 0.35rem 0.9rem;
     border: 1px solid var(--border);
     border-radius: 999px;
     background: transparent;
     color: var(--text);
     cursor: pointer;
-  }
-  .pager button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
   }
   @media (max-width: 720px) {
     .stat-grid {
