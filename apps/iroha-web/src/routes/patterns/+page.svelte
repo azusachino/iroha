@@ -12,7 +12,7 @@
   import DailySmallMultiples, {
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
-  import PatternPeriodPicker from "$lib/components/PatternPeriodPicker.svelte";
+  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import { formatDateOnly } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -62,6 +62,12 @@
   const activeYear = $derived(scopedYear || availableYears[0] || "");
   const monthsInScope = $derived(
     availableMonths.filter((month) => month.startsWith(activeYear)),
+  );
+  const periodYears = $derived(
+    availableYears.map((year) => ({ value: year, label: year })),
+  );
+  const periodMonths = $derived(
+    monthsInScope.map((month) => ({ value: month, label: formatMonth(month) })),
   );
   const scopedMonth = $derived(
     monthsInScope.includes(selectedMonth) ? selectedMonth : "",
@@ -375,15 +381,12 @@
       <p class="muted status">No daily data imported yet.</p>
     {:else}
       <div class="period-toolbar">
-        <PatternPeriodPicker
-          {gran}
-          {availableYears}
-          {availableMonths}
-          {selectedYear}
-          {selectedMonth}
-          {activeYear}
-          {activeMonth}
-          scopeLabel={periodLabel}
+        <PeriodSelector
+          years={periodYears}
+          months={periodMonths}
+          year={gran === "year" ? selectedYear : activeYear}
+          month={gran === "day" ? activeMonth : selectedMonth}
+          showAllYears={gran === "year"}
           onYear={selectYear}
           onMonth={selectMonth}
         />
@@ -440,15 +443,12 @@
             </button>
           {/each}
         </div>
-        <PatternPeriodPicker
-          {gran}
-          {availableYears}
-          {availableMonths}
-          {selectedYear}
-          {selectedMonth}
-          {activeYear}
-          {activeMonth}
-          scopeLabel={periodLabel}
+        <PeriodSelector
+          years={periodYears}
+          months={periodMonths}
+          year={gran === "year" ? selectedYear : activeYear}
+          month={gran === "day" ? activeMonth : selectedMonth}
+          showAllYears={gran === "year"}
           onYear={selectYear}
           onMonth={selectMonth}
         />

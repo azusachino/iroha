@@ -11,6 +11,7 @@
   import StatTile from "$lib/components/StatTile.svelte";
   import SleepArchitectureChart from "$lib/components/SleepArchitectureChart.svelte";
   import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
+  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -35,8 +36,8 @@
   let monthBuckets = $state<SleepAggregateBucket[]>([]);
   let aggregatesLoading = $state(true);
   let aggregatesError = $state<string | null>(null);
-  let selectedYear = $state("all");
-  let selectedMonth = $state("all");
+  let selectedYear = $state("");
+  let selectedMonth = $state("");
   let selectedStage = $state("Core");
   let hoveredStage = $state<string | null>(null);
   const theme = useTheme();
@@ -67,14 +68,22 @@
     monthBuckets
       .filter(
         (bucket) =>
-          selectedYear === "all" ||
-          bucket.period.startsWith(`${selectedYear}-`),
+          selectedYear === "" || bucket.period.startsWith(`${selectedYear}-`),
       )
       .map((bucket) => bucket.period.slice(0, 7))
       .reverse(),
   );
+  const periodYears = $derived(
+    availableYears.map((year) => ({ value: year, label: year })),
+  );
+  const periodMonths = $derived(
+    availableMonths.map((month) => ({
+      value: month,
+      label: formatPeriod(`${month}-01T00:00:00Z`, "month"),
+    })),
+  );
   const visibleYears = $derived(
-    selectedYear === "all"
+    selectedYear === ""
       ? yearlyBuckets
       : yearlyBuckets.filter((bucket) =>
           bucket.period.startsWith(`${selectedYear}-`),
@@ -84,26 +93,26 @@
     monthlyBuckets.filter((bucket) => {
       const period = bucket.period.slice(0, 7);
       return (
-        (selectedYear === "all" || period.startsWith(`${selectedYear}-`)) &&
-        (selectedMonth === "all" || period === selectedMonth)
+        (selectedYear === "" || period.startsWith(`${selectedYear}-`)) &&
+        (selectedMonth === "" || period === selectedMonth)
       );
     }),
   );
   const focusedBucket = $derived(
-    selectedMonth !== "all"
+    selectedMonth !== ""
       ? monthBuckets.find((bucket) =>
           bucket.period.startsWith(`${selectedMonth}-01`),
         )
-      : selectedYear !== "all"
+      : selectedYear !== ""
         ? yearBuckets.find((bucket) =>
             bucket.period.startsWith(`${selectedYear}-`),
           )
         : null,
   );
-  const isPeriodFiltered = $derived(selectedYear !== "all");
+  const isPeriodFiltered = $derived(selectedYear !== "");
   const heroEyebrow = $derived(
     isPeriodFiltered
-      ? `Selected night · ${selectedMonth !== "all" ? formatPeriod(`${selectedMonth}-01T00:00:00Z`, "month") : selectedYear}`
+      ? `Selected night · ${selectedMonth !== "" ? formatPeriod(`${selectedMonth}-01T00:00:00Z`, "month") : selectedYear}`
       : `Last night · ${selected ? formatDateOnly(selected.wake_date) : ""}`,
   );
   const nightsHeading = $derived(
@@ -170,7 +179,7 @@
   }
 
   function selectedRange(): { from?: string; to?: string } {
-    if (selectedMonth !== "all") {
+    if (selectedMonth !== "") {
       const [year, month] = selectedMonth.split("-").map(Number);
       const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
       return {
@@ -178,7 +187,7 @@
         to: `${selectedMonth}-${String(lastDay).padStart(2, "0")}`,
       };
     }
-    if (selectedYear !== "all")
+    if (selectedYear !== "")
       return { from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` };
     return {};
   }
@@ -218,7 +227,7 @@
 
   function changeYear(value: string) {
     selectedYear = value;
-    selectedMonth = "all";
+    selectedMonth = "";
     void loadSessions(false);
   }
 
@@ -401,29 +410,15 @@
             <p class="eyebrow">The long view</p>
             <h2>Sleep over time</h2>
           </div>
-          <div class="period-controls" aria-label="Sleep period filters">
-            <select
-              aria-label="Filter by year"
-              value={selectedYear}
-              onchange={(event) => changeYear(event.currentTarget.value)}
-            >
-              <option value="all">All years</option>
-              {#each availableYears as year (year)}<option value={year}
-                  >{year}</option
-                >{/each}
-            </select>
-            <select
-              aria-label="Filter by month"
-              value={selectedMonth}
-              onchange={(event) => changeMonth(event.currentTarget.value)}
-              disabled={selectedYear === "all"}
-            >
-              <option value="all">All months</option>
-              {#each availableMonths as month (month)}<option value={month}
-                  >{formatPeriod(`${month}-01T00:00:00Z`, "month")}</option
-                >{/each}
-            </select>
-          </div>
+          <PeriodSelector
+            years={periodYears}
+            months={periodMonths}
+            year={selectedYear}
+            month={selectedMonth}
+            monthDisabled={!selectedYear}
+            onYear={changeYear}
+            onMonth={changeMonth}
+          />
         </header>
         {#if aggregatesLoading}
           <p class="muted panel-loading">Building your history…</p>
@@ -456,7 +451,7 @@
           {#if focusedBucket}
             <div class="focus-callout">
               <span
-                >{selectedMonth !== "all"
+                >{selectedMonth !== ""
                   ? formatPeriod(focusedBucket.period, "month")
                   : selectedYear}</span
               ><strong
@@ -654,24 +649,6 @@
   .section-note {
     color: var(--text-muted);
     font-size: 0.78rem;
-  }
-  .period-controls {
-    display: flex;
-    gap: 0.45rem;
-  }
-  .period-controls select {
-    min-height: 2rem;
-    padding: 0.35rem 0.55rem;
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    background: var(--surface-2);
-    color: var(--text);
-    font: inherit;
-    font-size: 0.76rem;
-  }
-  .period-controls select:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
   }
   .hero {
     position: relative;
@@ -1103,12 +1080,6 @@
     }
     .hero-metrics {
       gap: 0.7rem;
-    }
-    .period-controls {
-      width: 100%;
-    }
-    .period-controls select {
-      flex: 1;
     }
     .focus-callout {
       align-items: flex-start;
