@@ -168,7 +168,7 @@ rate-limit budget serving a page nobody could reach). The replacement is a stati
 ```text
 apps/iroha-server/cmd/iroha-export-public (sanitized JSON/GeoJSON snapshot)
   -> committed by a k3s CronJob (ops/images/Containerfile.server's export-public target;
-     the CronJob resource itself is defined in harus-k3s, not this repo), from inside the
+     the CronJob resource itself is defined by the deployment environment, not this repo), from inside the
      private network
   -> apps/iroha-public-site (static SvelteKit app) built and deployed to GitHub Pages
      by an ordinary GitHub-hosted Actions workflow, triggered by that commit
