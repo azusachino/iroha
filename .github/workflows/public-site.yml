@@ -3,7 +3,7 @@ name: Public site
 on:
   push:
     branches: [main]
-    paths: ["apps/iroha-public-site/static/data/**"]
+    paths: ["apps/iroha-public-site/**"]
   workflow_dispatch:
 
 permissions:

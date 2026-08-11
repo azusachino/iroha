@@ -4,3 +4,4 @@ build
 bun.lock
 package.json
 tsconfig.json
+static/data/**
