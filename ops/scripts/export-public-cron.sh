@@ -5,13 +5,12 @@ set -eu
 #
 # Runs inside the iroha-export-public image (ops/images/Containerfile.server,
 # `export-public` target), invoked periodically by a k3s CronJob. That
-# CronJob resource is defined in harus-k3s, not this repo -- iroha doesn't
-# keep its own k8s manifests (see docs/roadmap.md Milestone 7). This script
-# is the CronJob container's command; the CronJob's pod spec owns supplying
-# IROHA_DATABASE_URL (in-cluster Postgres) and REPO_URL (a GitHub token or
-# deploy key embedded in the URL, or an already-authenticated origin) as
-# env/secret-mounted values -- provisioning those is that repo's job, not
-# this script's.
+# CronJob resource is defined by the deployment environment, not this repo --
+# iroha doesn't keep its own k8s manifests (see docs/roadmap.md Milestone 7).
+# This script is the Job container's command; the Job's pod spec owns
+# supplying IROHA_DATABASE_URL (in-cluster Postgres) and REPO_URL (a
+# fine-grained GitHub token embedded in the HTTPS URL, or an already-
+# authenticated origin) as env/secret-mounted values.
 #
 # Each run clones a fresh, disposable shallow copy of the repo rather than
 # reusing a persistent working tree: no drift or corruption risk across
