@@ -185,11 +185,11 @@
                 <img src={event.cover_image_url} alt="" loading="lazy" />
               {:else}
                 <span class="journal-media-thumb" aria-hidden="true"
-                  >{event.title.slice(0, 1)}</span
+                  >{(event.native_title || event.title).slice(0, 1)}</span
                 >
               {/if}
               <span class="journal-media-copy">
-                <strong>{event.title}</strong>
+                <strong>{event.native_title || event.title}</strong>
                 <span>{mediaEventVerb(event)}</span>
               </span>
               {#if event.rating != null}<span class="journal-media-score"

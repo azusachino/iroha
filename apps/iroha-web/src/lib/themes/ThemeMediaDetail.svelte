@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { MediaDetail } from "$lib/api";
+  import { mediaEventLabel } from "$lib/format";
 
   export type MediaDetailVariant =
     "atlas" | "field-journal" | "phenology" | "sound-map" | "archive";
@@ -106,7 +107,7 @@
       {#if detail.events.length}<ol>
           {#each detail.events.slice(0, 10) as event (event.id)}<li>
               <b>{event.event_at?.slice(0, 10) ?? "undated"}</b><span
-                >{event.event_type.replaceAll("_", " ")}</span
+                >{mediaEventLabel(event.event_type)}</span
               >{#if event.progress_percent != null}<strong
                   >{Math.round(event.progress_percent)}%</strong
                 >{/if}
@@ -141,7 +142,7 @@
     letter-spacing: -0.05em;
   }
   h1 {
-    max-width: 12ch;
+    max-width: min(38rem, 100%);
     font-size: clamp(2.6rem, 7vw, 6rem);
     line-height: 0.9;
   }

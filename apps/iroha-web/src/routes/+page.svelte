@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import { Check, ListTodo } from "@lucide/svelte";
   import {
     getBriefing,
@@ -33,12 +35,25 @@
   let toGoTasks = $state<Task[]>([]);
   let taskError = $state<string | null>(null);
 
+  const today = new Date().toISOString().slice(0, 10);
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
   // The selected day — the spine everything on this page snapshots to.
-  let day = $state<string>(new Date().toISOString().slice(0, 10));
+  // Seeded from ?date= so a refresh or shared link lands back on the same
+  // day instead of resetting to today; a future or malformed date falls
+  // back to today rather than showing an empty briefing.
+  function dayFromUrl(): string {
+    const requested = page.url.searchParams.get("date");
+    if (requested && DATE_RE.test(requested) && requested <= today) {
+      return requested;
+    }
+    return today;
+  }
+
+  let day = $state<string>(dayFromUrl());
   let pickerOpen = $state(false);
   const theme = useTheme();
   let availableDays = $state<Set<string>>(new Set());
-  const today = new Date().toISOString().slice(0, 10);
 
   type BriefingList<T> = { items: T[]; has_more: boolean };
   function sectionData<T>(key: string): BriefingList<T> {
@@ -189,6 +204,21 @@
   $effect(() => {
     void loadBriefing(day);
     void loadTasks(day);
+  });
+
+  // Keep ?date= in sync with the selected day -- replaceState rather than
+  // goto so scrubbing days doesn't spam browser history, just the current
+  // entry. Omitted entirely for today so the common-case URL stays plain "/".
+  $effect(() => {
+    const url = new URL(page.url);
+    if (day === today) {
+      url.searchParams.delete("date");
+    } else {
+      url.searchParams.set("date", day);
+    }
+    if (url.search !== page.url.search) {
+      replaceState(url, page.state);
+    }
   });
 
   onMount(() => {
@@ -476,11 +506,11 @@
                     <img src={event.cover_image_url} alt="" loading="lazy" />
                   {:else}
                     <span class="media-thumb" aria-hidden="true"
-                      >{event.title.slice(0, 1)}</span
+                      >{(event.native_title || event.title).slice(0, 1)}</span
                     >
                   {/if}
                   <span class="media-event-copy">
-                    <strong>{event.title}</strong>
+                    <strong>{event.native_title || event.title}</strong>
                     <span>{mediaEventVerb(event)}</span>
                   </span>
                   {#if event.rating != null}<span class="media-score"

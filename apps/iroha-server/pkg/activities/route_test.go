@@ -1,6 +1,9 @@
 package activities
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // straightLine builds a roughly north-south track of n points spaced ~stepM
 // meters apart, starting near lat 35 (≈111 km per degree of latitude).
@@ -59,6 +62,63 @@ func TestRouteDistanceMeters_SumsTrack(t *testing.T) {
 func TestRouteDistanceMeters_EmptyTrack(t *testing.T) {
 	if got := routeDistanceMeters(nil); got != 0 {
 		t.Fatalf("empty route distance = %.1f m, want 0", got)
+	}
+}
+
+func TestRouteElevationGainMeters_SumsRealClimbsOnly(t *testing.T) {
+	// Real climbs (each step > elevationNoiseFloorMeters) interleaved with
+	// small pullbacks that must not subtract from the sum, and are too small
+	// to be climbs themselves even where they reverse direction.
+	elevations := []float64{100, 105, 104.5, 110, 109.2, 115, 120, 119.3, 125, 130, 150}
+	got := routeElevationGainMeters(elevations)
+	if got < 50 || got > 54 {
+		t.Fatalf("elevation gain = %.1f m, want about 52 m (5+5.5+5.8+5+5.7+5+20, jitter excluded)", got)
+	}
+}
+
+func TestRouteElevationGainMeters_FlatTrackIsZero(t *testing.T) {
+	// Every step is within the noise floor -- a flat route must not accrue
+	// gain from GPS jitter alone.
+	elevations := []float64{100, 101, 100.5, 101.8, 100.2, 101.5}
+	if got := routeElevationGainMeters(elevations); got != 0 {
+		t.Fatalf("flat route gain = %.1f m, want 0", got)
+	}
+}
+
+func TestRouteElevationGainMeters_EmptyTrack(t *testing.T) {
+	if got := routeElevationGainMeters(nil); got != 0 {
+		t.Fatalf("empty route elevation gain = %.1f m, want 0", got)
+	}
+}
+
+func TestRouteMovingTimeSeconds_ExcludesStoppedInterval(t *testing.T) {
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	// 10 points ~3 m apart, 1 s apart (a running pace, well above the
+	// threshold): 9 moving seconds.
+	moving := straightLine(10, 3)
+	points := make([]timedPoint, 0, 15)
+	for i, c := range moving {
+		points = append(points, timedPoint{ts: start.Add(time.Duration(i) * time.Second), lon: c[0], lat: c[1]})
+	}
+	// 5 more points at the same spot (stopped at a light), 1 s apart:
+	// 0 m/s, must not add to moving time.
+	last := moving[len(moving)-1]
+	for i := 1; i <= 5; i++ {
+		points = append(points, timedPoint{
+			ts:  start.Add(time.Duration(len(moving)-1+i) * time.Second),
+			lon: last[0], lat: last[1],
+		})
+	}
+
+	got := routeMovingTimeSeconds(points)
+	if got < 8 || got > 10 {
+		t.Fatalf("moving time = %d s, want about 9 s (elapsed is 13 s, 4 s stopped)", got)
+	}
+}
+
+func TestRouteMovingTimeSeconds_EmptyTrack(t *testing.T) {
+	if got := routeMovingTimeSeconds(nil); got != 0 {
+		t.Fatalf("empty route moving time = %d s, want 0", got)
 	}
 }
 

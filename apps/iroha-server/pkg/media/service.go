@@ -51,6 +51,8 @@ type Item struct {
 	RatingScale        *float64
 	HiddenFromContinue bool
 	NativeTitle        *string
+	EpisodeCount       *int
+	ChapterCount       *int
 }
 
 type Page struct {
@@ -154,6 +156,7 @@ type Event struct {
 	ID              uuid.UUID `gorm:"column:id"`
 	MediaItemID     uuid.UUID `gorm:"column:media_item_id"`
 	Title           string    `gorm:"column:title"`
+	NativeTitle     *string   `gorm:"column:native_title"`
 	CoverImageURL   string    `gorm:"column:cover_image_url"`
 	EventType       string    `gorm:"column:event_type"`
 	OccurredAt      time.Time `gorm:"column:occurred_at"`
@@ -446,6 +449,8 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 		RatingScale        *float64   `gorm:"column:rating_scale"`
 		HiddenFromContinue bool       `gorm:"column:hidden_from_continue"`
 		NativeTitle        *string    `gorm:"column:native_title"`
+		EpisodeCount       *int       `gorm:"column:episode_count"`
+		ChapterCount       *int       `gorm:"column:chapter_count"`
 		WorkID             uuid.UUID  `gorm:"column:work_id"`
 		WorkKind           string     `gorm:"column:work_kind"`
 		PrimaryTitle       string     `gorm:"column:primary_title"`
@@ -456,6 +461,7 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 	}
 	result := s.db.Table("tb_media_items AS item").
 		Select(`item.id, item.title, item.media_type, item.item_role, item.cover_image_url,
+			item.episode_count, item.chapter_count,
 			progress.status, progress.position, progress.total, progress.progress_percent,
 			coalesce(progress.last_update_at, item.updated_at) AS last_update_at,
 			rating.rating, rating.rating_scale,
@@ -489,7 +495,7 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 			CoverImageURL: row.CoverImageURL, Status: row.Status, Position: row.Position,
 			Total: row.Total, ProgressPercent: row.ProgressPercent, LastUpdateAt: row.LastUpdateAt,
 			Rating: row.Rating, RatingScale: row.RatingScale, HiddenFromContinue: row.HiddenFromContinue,
-			NativeTitle: row.NativeTitle,
+			NativeTitle: row.NativeTitle, EpisodeCount: row.EpisodeCount, ChapterCount: row.ChapterCount,
 		},
 		Work: WorkDetail{
 			ID: row.WorkID, WorkKind: row.WorkKind, PrimaryTitle: row.PrimaryTitle,
@@ -527,10 +533,60 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 		ORDER BY relation.relation_type, related.sort_title, related.title`, id, id, id, id).Scan(&detail.Relations).Error; err != nil {
 		return Detail{}, false, err
 	}
+	detail.Relations = dedupeRelations(detail.Relations)
 	if err := s.db.Table("tb_media_consumption_events").Where("media_item_id = ?", id).Order("event_at DESC NULLS LAST, created_at DESC, id DESC").Scan(&detail.Events).Error; err != nil {
 		return Detail{}, false, err
 	}
 	return detail, true, nil
+}
+
+// inverseRelationType holds the pairs where a relation observed from the
+// *other* item's own sync reads backwards from this item's point of view --
+// AniList reports each side of a season split independently (season 1's own
+// relations list says SEQUEL, season 2's own list says PREQUEL for the same
+// pair), so the "incoming" row's type must be flipped to read correctly here.
+// Types outside this map (ADAPTATION, ALTERNATIVE, SOURCE, ...) are reported
+// identically from both sides in provider data, so they pass through as-is.
+var inverseRelationType = map[string]string{
+	"PREQUEL": "SEQUEL",
+	"SEQUEL":  "PREQUEL",
+	"PARENT":  "SIDE_STORY",
+}
+
+// dedupeRelations collapses the reciprocal edges that come from syncing both
+// endpoints of a relation independently (see persistMediaRelations) into one
+// entry per related item. The "outgoing" row -- written from this item's own
+// sync -- is authoritative when present; an "incoming"-only row is flipped
+// through inverseRelationType so PREQUEL/SEQUEL etc. still read correctly
+// from this item's perspective.
+func dedupeRelations(relations []RelationDetail) []RelationDetail {
+	byRelated := make(map[uuid.UUID]RelationDetail, len(relations))
+	order := make([]uuid.UUID, 0, len(relations))
+	for _, rel := range relations {
+		existing, seen := byRelated[rel.RelatedItemID]
+		if !seen {
+			order = append(order, rel.RelatedItemID)
+			byRelated[rel.RelatedItemID] = rel
+			continue
+		}
+		if existing.Direction == "outgoing" {
+			continue
+		}
+		if rel.Direction == "outgoing" {
+			byRelated[rel.RelatedItemID] = rel
+		}
+	}
+	result := make([]RelationDetail, 0, len(order))
+	for _, relatedID := range order {
+		rel := byRelated[relatedID]
+		if rel.Direction == "incoming" {
+			if inverse, ok := inverseRelationType[rel.RelationType]; ok {
+				rel.RelationType = inverse
+			}
+		}
+		result = append(result, rel)
+	}
+	return result
 }
 
 func (s *Service) Events(filters EventListFilters) (EventPage, error) {
@@ -540,6 +596,9 @@ func (s *Service) Events(filters EventListFilters) (EventPage, error) {
 	}
 	query := s.db.Table("tb_media_consumption_events AS event").
 		Select(`event.id, event.media_item_id, item.title, item.cover_image_url,
+			(SELECT t.title FROM tb_media_titles t
+			 WHERE t.scope_type = 'item' AND t.scope_id = item.id AND t.title_kind = 'original'
+			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title,
 			event.event_type, coalesce(event.event_at, event.created_at) AS occurred_at,
 			event.unit, event.position, event.total, event.progress_percent,
 			event.rating, event.rating_scale`).

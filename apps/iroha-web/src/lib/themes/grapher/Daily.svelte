@@ -1,6 +1,7 @@
 <script lang="ts">
   type Disp = {
     label: string;
+    period: string;
     days: number | null;
     move: number | null;
     exercise: number | null;
@@ -16,12 +17,16 @@
     chrono,
     gran,
     onGran,
+    onDrillPeriod,
   }: {
     chrono: Disp[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    onDrillIndex: (index: number) => void;
+    onDrillPeriod: (period: string) => void;
   } = $props();
 
+  const drillable = $derived(gran !== "day");
   const maxSteps = $derived(
     Math.max(1, ...chrono.map((item) => item.steps ?? 0)),
   );
@@ -87,7 +92,17 @@
       {#each chrono as item, index}
         <div
           class="series-column"
+          class:drillable
           title={`${item.label}: ${item.steps ?? "no value"} steps`}
+          role="button"
+          tabindex="0"
+          onclick={() => drillable && onDrillPeriod(item.period)}
+          onkeydown={(event) => {
+            if (drillable && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault();
+              onDrillPeriod(item.period);
+            }
+          }}
         >
           <i
             style={`height: ${Math.max(2, ((item.steps ?? 0) / maxSteps) * 100)}%`}
@@ -98,6 +113,9 @@
         </div>
       {/each}
     </div>
+    {#if drillable}
+      <p class="drill-hint">Click a bar to zoom in.</p>
+    {/if}
   </section>
 
   <section class="series-table" aria-labelledby="period-table-title">
@@ -119,6 +137,8 @@
         <tbody>
           {#each [...chrono].reverse() as item}
             <tr
+              class:drillable
+              onclick={drillable ? () => onDrillPeriod(item.period) : undefined}
               ><td>{item.label}</td><td>{display(item.steps)}</td><td
                 >{display(item.distance, 1)}</td
               ><td>{display(item.resting_hr, 1)}</td><td
@@ -258,6 +278,24 @@
   }
   .series-column small.axis-label-muted {
     visibility: hidden;
+  }
+  .series-column.drillable {
+    cursor: pointer;
+  }
+  .series-column.drillable:hover i {
+    background: color-mix(in srgb, var(--accent) 70%, var(--text));
+  }
+  tr.drillable {
+    cursor: pointer;
+  }
+  tr.drillable:hover td {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  .drill-hint {
+    margin: 0.75rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-style: italic;
   }
   .table-scroll {
     overflow-x: auto;

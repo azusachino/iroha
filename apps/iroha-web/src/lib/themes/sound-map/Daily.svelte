@@ -6,6 +6,7 @@
 
   type Period = {
     label: string;
+    period: string;
     days: number | null;
     move: number | null;
     exercise: number | null;
@@ -21,16 +22,21 @@
     chrono,
     gran,
     onGran,
+    onDrillIndex,
+    onDrillPeriod,
     ringData,
     latestRingDay,
   }: {
     chrono: Period[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    onDrillIndex: (index: number) => void;
+    onDrillPeriod: (period: string) => void;
     ringData: Ring[];
     latestRingDay: DailyRow | null;
   } = $props();
 
+  const drillable = $derived(gran !== "day");
   const latest = $derived(chrono.at(-1));
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -102,7 +108,11 @@
           values: chrono.map((period) => period.moveClosedPct),
           formatter: (value) => `${value}%`,
         }}
+        onBarClick={drillable ? onDrillIndex : undefined}
       />
+      {#if drillable}
+        <p class="drill-hint">Click a bar to zoom in.</p>
+      {/if}
     {:else}
       <p class="mix-empty">No periods available for this interval.</p>
     {/if}
@@ -149,6 +159,10 @@
         ><tbody>
           {#each [...chrono].reverse() as period, index (period.label + index)}
             <tr
+              class:drillable
+              onclick={drillable
+                ? () => onDrillPeriod(period.period)
+                : undefined}
               ><td class="track-index"
                 >{String(chrono.length - index).padStart(2, "0")}</td
               ><td>{period.label}</td><td>{number(period.steps)}</td><td
@@ -336,6 +350,18 @@
   }
   .track-index {
     color: var(--accent);
+  }
+  tr.drillable {
+    cursor: pointer;
+  }
+  tr.drillable:hover td {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  .drill-hint {
+    margin: -0.5rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-style: italic;
   }
   .mix-source {
     display: flex;

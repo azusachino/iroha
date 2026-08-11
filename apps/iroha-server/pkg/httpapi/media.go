@@ -33,6 +33,8 @@ type mediaResponse struct {
 	Rating             *float64  `json:"rating,omitempty"`
 	HiddenFromContinue bool      `json:"hidden_from_continue"`
 	NativeTitle        *string   `json:"native_title,omitempty"`
+	EpisodeCount       *int      `json:"episode_count,omitempty"`
+	ChapterCount       *int      `json:"chapter_count,omitempty"`
 }
 
 type mediaDetailResponse struct {
@@ -104,6 +106,7 @@ type mediaHomeEventResponse struct {
 	ID              string    `json:"id"`
 	MediaID         string    `json:"media_id"`
 	Title           string    `json:"title"`
+	NativeTitle     *string   `json:"native_title,omitempty"`
 	CoverImageURL   string    `json:"cover_image_url,omitempty"`
 	EventType       string    `json:"event_type"`
 	OccurredAt      time.Time `json:"occurred_at"`
@@ -166,7 +169,7 @@ func (s *Server) handleListMediaEvents(w http.ResponseWriter, r *http.Request) {
 	for _, event := range page.Items {
 		items = append(items, mediaHomeEventResponse{
 			ID: ids.Encode(ids.MediaPrefix, event.ID), MediaID: ids.Encode(ids.MediaPrefix, event.MediaItemID),
-			Title: event.Title, CoverImageURL: event.CoverImageURL, EventType: event.EventType,
+			Title: event.Title, NativeTitle: event.NativeTitle, CoverImageURL: event.CoverImageURL, EventType: event.EventType,
 			OccurredAt: event.OccurredAt, Unit: event.Unit, Position: event.Position, Total: event.Total,
 			ProgressPercent: event.ProgressPercent, Rating: normalizedRating(event.Rating, event.RatingScale),
 		})
@@ -330,6 +333,8 @@ func toMediaResponse(row media.Item) mediaResponse {
 		Rating:             normalizedRating(row.Rating, row.RatingScale),
 		HiddenFromContinue: row.HiddenFromContinue,
 		NativeTitle:        row.NativeTitle,
+		EpisodeCount:       row.EpisodeCount,
+		ChapterCount:       row.ChapterCount,
 	}
 }
 

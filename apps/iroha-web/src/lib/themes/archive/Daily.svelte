@@ -6,6 +6,7 @@
 
   type Period = {
     label: string;
+    period: string;
     days: number | null;
     move: number | null;
     exercise: number | null;
@@ -21,16 +22,20 @@
     chrono,
     gran,
     onGran,
+    onDrillPeriod,
     ringData,
     latestRingDay,
   }: {
     chrono: Period[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    onDrillIndex: (index: number) => void;
+    onDrillPeriod: (period: string) => void;
     ringData: Ring[];
     latestRingDay: DailyRow | null;
   } = $props();
 
+  const drillable = $derived(gran !== "day");
   const latest = $derived(chrono.at(-1));
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -56,6 +61,14 @@
   );
 
   const chartPeriods = $derived(chrono.slice(-30));
+
+  // chartPeriods is a suffix slice of chrono, so a bar's click index isn't
+  // chrono's own index -- resolve the period directly from the same slice
+  // the chart was built from instead of trying to re-derive an offset.
+  function handleBarClick(index: number) {
+    const period = chartPeriods[index];
+    if (period) onDrillPeriod(period.period);
+  }
 </script>
 
 <section class="folio-daily" aria-labelledby="folio-daily-title">
@@ -124,7 +137,11 @@
         }}
         orientation="horizontal"
         height={Math.max(220, chartPeriods.length * 26)}
+        onBarClick={drillable ? handleBarClick : undefined}
       />
+      {#if drillable}
+        <p class="drill-hint">Click a bar to zoom in.</p>
+      {/if}
       <div class="core-legend">
         {#each rows as row (row.key)}
           <div class="core-row">
@@ -184,6 +201,10 @@
         ><tbody>
           {#each [...chrono].reverse() as period, index (period.label + index)}
             <tr
+              class:drillable
+              onclick={drillable
+                ? () => onDrillPeriod(period.period)
+                : undefined}
               ><td class="folio-index"
                 >{String(chrono.length - index).padStart(3, "0")}</td
               ><td>{period.label}</td><td>{number(period.steps)}</td><td
@@ -424,6 +445,18 @@
   }
   .folio-index {
     color: var(--accent);
+  }
+  tr.drillable {
+    cursor: pointer;
+  }
+  tr.drillable:hover td {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  .drill-hint {
+    margin: -0.5rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-style: italic;
   }
   .folio-source {
     border-top: 1px solid var(--border);

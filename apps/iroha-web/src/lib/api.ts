@@ -135,6 +135,8 @@ export interface MediaRow {
   rating?: number;
   hidden_from_continue?: boolean;
   native_title?: string;
+  episode_count?: number;
+  chapter_count?: number;
 }
 
 export interface ListMediaParams {
@@ -259,6 +261,7 @@ export interface MediaHomeEvent {
   id: string;
   media_id: string;
   title: string;
+  native_title?: string;
   cover_image_url?: string;
   event_type: string;
   occurred_at: string;

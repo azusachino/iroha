@@ -7,7 +7,6 @@
     type DailyAggregateBucket,
   } from "$lib/api";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
-  import DailyScopeControls from "$lib/components/DailyScopeControls.svelte";
   import DailySmallMultiples, {
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
@@ -26,6 +25,9 @@
   let dayRowsLoading = $state(false);
   let error = $state<string | null>(null);
   let gran = $state<Gran>("month");
+  // Set directly by drilling into a bar/row (see drillIntoPeriod), and reset
+  // to "" -- meaning "default to the latest" -- by the day/month/year tabs
+  // themselves, so a tab always means "zoom all the way out to this level."
   let selectedMonth = $state("");
   let selectedYear = $state("");
   let rangeFrom = $state<string | undefined>(undefined);
@@ -48,19 +50,6 @@
   );
   const activeMonth = $derived(selectedMonth || availableMonths[0] || "");
   const activeYear = $derived(selectedYear || availableYears[0] || "");
-  const monthOptions = $derived(
-    availableMonths.map((value) => ({
-      value,
-      label: new Date(`${value}-01T00:00:00Z`).toLocaleDateString(undefined, {
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      }),
-    })),
-  );
-  const yearOptions = $derived(
-    availableYears.map((value) => ({ value, label: value })),
-  );
 
   // Hero uses the latest real ring day, independent of the chosen granularity.
   const latestRingDay = $derived(latestDay);
@@ -95,6 +84,9 @@
   // A granularity-agnostic display row so the table + trends share one shape.
   interface Disp {
     label: string;
+    // Raw, unformatted period ("2026-08-10" / "2026-08" / "2026") -- what
+    // drillIntoPeriod acts on; label is display-only and not safe to parse.
+    period: string;
     days: number | null;
     move: number | null;
     exercise: number | null;
@@ -123,6 +115,7 @@
     const ring = r.move_goal_kcal > 0;
     return {
       label: formatDateOnly(r.day),
+      period: r.day.slice(0, 10),
       days: null,
       move: ring ? r.move_kcal : null,
       exercise: ring ? r.exercise_min : null,
@@ -143,6 +136,7 @@
     const move = b.move_kcal_avg || null;
     return {
       label: fmtPeriod(b.period),
+      period: gran === "year" ? b.period.slice(0, 4) : b.period.slice(0, 7),
       days: b.days,
       move,
       exercise: b.exercise_min_avg || null,
@@ -267,15 +261,33 @@
     }
   }
 
+  // A day/month/year tab always means "zoom all the way out to this level" --
+  // reset any scope a bar/row click drilled into, rather than keeping it.
   async function changeGranularity(value: Gran) {
     gran = value;
+    selectedYear = "";
+    selectedMonth = "";
     if (value === "year") await loadYearly();
     if (value === "day") await loadDays(activeMonth);
   }
 
-  function changeDayMonth(value: string) {
-    selectedMonth = value;
-    void loadDays(value);
+  // Clicking a bar or table row zooms in one level: a year scopes month
+  // view to it, a month scopes day view to it. Day is already the finest
+  // granularity, so a day period has nothing further to drill into.
+  function drillIntoPeriod(period: string) {
+    if (gran === "year") {
+      selectedYear = period;
+      gran = "month";
+    } else if (gran === "month") {
+      selectedMonth = period;
+      gran = "day";
+      void loadDays(period);
+    }
+  }
+
+  function drillIntoIndex(index: number) {
+    const period = chrono[index]?.period;
+    if (period) drillIntoPeriod(period);
   }
 
   onMount(async () => {
@@ -293,29 +305,14 @@
     {:else if monthly.length === 0 && dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
-      {#if gran === "day"}
-        <DailyScopeControls
-          label="Month"
-          options={monthOptions}
-          value={activeMonth}
-          summary={dayRowsLoading ? "Loading…" : `${chrono.length} days`}
-          onChange={changeDayMonth}
-        />
-      {:else if gran === "month"}
-        <DailyScopeControls
-          label="Year"
-          options={yearOptions}
-          value={activeYear}
-          summary={`${chrono.length} months`}
-          onChange={(value) => (selectedYear = value)}
-        />
-      {/if}
       <ThemeRouteRenderer
         route="daily"
         props={{
           chrono,
           gran,
           onGran: (value: Gran) => void changeGranularity(value),
+          onDrillIndex: drillIntoIndex,
+          onDrillPeriod: drillIntoPeriod,
           ringData,
           latestRingDay,
         }}
@@ -346,24 +343,6 @@
         </div>
         <RingGauge rings={ringData} />
       </div>
-
-      {#if gran === "day"}
-        <DailyScopeControls
-          label="Month"
-          options={monthOptions}
-          value={activeMonth}
-          summary={`${chrono.length} days`}
-          onChange={changeDayMonth}
-        />
-      {:else if gran === "month"}
-        <DailyScopeControls
-          label="Year"
-          options={yearOptions}
-          value={activeYear}
-          summary={`${chrono.length} months`}
-          onChange={(value) => (selectedYear = value)}
-        />
-      {/if}
 
       <div class="controls">
         <div class="seg" role="tablist" aria-label="Aggregation granularity">
@@ -442,7 +421,12 @@
           </thead>
           <tbody>
             {#each table as d}
-              <tr>
+              <tr
+                class:drillable={gran !== "day"}
+                onclick={gran !== "day"
+                  ? () => drillIntoPeriod(d.period)
+                  : undefined}
+              >
                 <td class="l">{d.label}</td>
                 {#if aggregated}<td>{d.days}</td>{/if}
                 <td>{fmt(d.move, 0)}</td>
@@ -610,6 +594,12 @@
   }
   tbody tr + tr td {
     border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  }
+  tbody tr.drillable {
+    cursor: pointer;
+  }
+  tbody tr.drillable:hover td {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
   .l {
     text-align: left;
