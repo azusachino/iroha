@@ -121,6 +121,12 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 	if err := s.hydrateSwimmingDistances(page.Items); err != nil {
 		return Page{}, fmt.Errorf("hydrate swimming distances: %w", err)
 	}
+	if err := s.hydrateElevationGain(page.Items); err != nil {
+		return Page{}, fmt.Errorf("hydrate elevation gain: %w", err)
+	}
+	if err := s.hydrateMovingTime(page.Items); err != nil {
+		return Page{}, fmt.Errorf("hydrate moving time: %w", err)
+	}
 	return page, nil
 }
 

@@ -50,6 +50,7 @@ export function createSvelteTable<TData extends RowData>(
 
   updateOptions();
   $effect.pre(() => {
+    for (const value of Object.values(options.state ?? {})) value;
     updateOptions();
   });
 

@@ -4,7 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/google/uuid"
 )
 
 func validSummary() activities.Summary {
@@ -20,6 +22,36 @@ func validActivity() Activity {
 func TestValidate_OK(t *testing.T) {
 	if err := Validate(validSummary(), []Activity{validActivity()}, RouteFeatureCollection{}); err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestToActivityPreservesDerivedMetrics(t *testing.T) {
+	distance := 1234.5
+	duration := 3600
+	moving := 3300
+	elevation := 42.5
+	avgHR := 145
+	maxHR := 178
+	pace := 330.0
+
+	got := ToActivity(models.Activity{
+		ID:             uuid.New(),
+		SportType:      "run",
+		StartedAt:      time.Unix(0, 0),
+		DistanceM:      &distance,
+		DurationS:      &duration,
+		MovingTimeS:    &moving,
+		ElevationGainM: &elevation,
+		AvgHR:          &avgHR,
+		MaxHR:          &maxHR,
+		AvgPaceSPerKM:  &pace,
+	})
+
+	if got.MovingTimeS == nil || *got.MovingTimeS != moving {
+		t.Fatalf("moving time = %v, want %d", got.MovingTimeS, moving)
+	}
+	if got.ElevationGainM == nil || *got.ElevationGainM != elevation {
+		t.Fatalf("elevation gain = %v, want %.1f", got.ElevationGainM, elevation)
 	}
 }
 
