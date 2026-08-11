@@ -55,8 +55,8 @@
   ];
 
   const years = $derived(yearsFromActivities(activities));
-  let selectedYear = $state<string | null>(
-    untrack(() => yearsFromActivities(data.activities)[0] ?? null),
+  let selectedYear = $state<string>(
+    untrack(() => yearsFromActivities(data.activities)[0] ?? ""),
   );
   let sportFilter = $state<string | null>(null);
   let cityFilter = $state<string | null>(null);
@@ -79,7 +79,7 @@
     return `${url.pathname}${url.search}`;
   }
 
-  function selectYear(year: string | null) {
+  function selectYear(year: string) {
     selectedYear = year;
     cityFilter = null;
     pageIndex = 0;
@@ -343,13 +343,6 @@
 
     {#if years.length > 0}
       <nav class="year-tabs" aria-label="Select year">
-        <button
-          type="button"
-          class:active={selectedYear === null}
-          onclick={() => selectYear(null)}
-        >
-          All
-        </button>
         {#each years as year (year)}
           <button
             type="button"
@@ -383,7 +376,7 @@
     {#if sportBuckets.length > 0}
       <section class="tile by-sport">
         <div class="section-kicker">
-          {selectedYear ? `${selectedYear} by sport` : "All-time by sport"}
+          {selectedYear} by sport
         </div>
         {#each sportBuckets as sport (sport.key)}
           <button
