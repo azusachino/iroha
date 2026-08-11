@@ -1,6 +1,11 @@
 <script lang="ts">
   import type { MediaDetail } from "$lib/api";
-  import { formatProgressCount } from "$lib/format";
+  import {
+    cleanDescription,
+    formatProgressCount,
+    mediaEventLabel,
+    mediaWorkTotal,
+  } from "$lib/format";
   import { heroTitleFontSize } from "$lib/hero-title";
 
   let { detail, progress }: { detail: MediaDetail; progress: number } =
@@ -15,6 +20,11 @@
       detail.progress?.total ?? detail.item.total,
       detail.progress?.unit ?? detail.item.unit,
       detail.progress?.status ?? detail.item.status,
+      mediaWorkTotal(
+        detail.item.media_type,
+        detail.item.episode_count,
+        detail.item.chapter_count,
+      ),
     ),
   );
   const HERO_TITLE_CLAMP = { minRem: 2.3, vw: 6, maxRem: 4.9 };
@@ -47,7 +57,7 @@
         <p class="original-title">{detail.item.title}</p>
       {/if}
       <p class="description">
-        {detail.work.description ||
+        {cleanDescription(detail.work.description) ||
           "A media record held in the personal archive."}
       </p>
       <div class="meta-row">
@@ -134,7 +144,7 @@
           {#each detail.events.slice(0, 10) as event (event.id)}
             <li>
               <b>{event.event_at?.slice(0, 10) ?? "undated"}</b>
-              <span>{event.event_type.replaceAll("_", " ")}</span>
+              <span>{mediaEventLabel(event.event_type)}</span>
               {#if event.progress_percent != null}
                 <strong>{Math.round(event.progress_percent)}%</strong>
               {/if}
@@ -151,7 +161,7 @@
         <h2>Related works</h2>
         <div class="relations">
           {#each detail.relations.slice(0, 6) as relation (relation.id)}
-            <a href={`/media/${relation.related_item_id}`}>
+            <a href={`/library/${relation.related_item_id}`}>
               <span>{relation.related_title}</span>
               <small>{relation.relation_type.replaceAll("_", " ")}</small>
             </a>
@@ -182,7 +192,7 @@
     letter-spacing: -0.02em;
   }
   h1 {
-    max-width: 12ch;
+    max-width: min(34rem, 100%);
     line-height: 0.95;
   }
   h2 {
@@ -229,6 +239,7 @@
   .description {
     max-width: 55ch;
     line-height: 1.6;
+    white-space: pre-line;
   }
   .meta-row {
     display: flex;

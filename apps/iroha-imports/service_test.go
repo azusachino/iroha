@@ -168,3 +168,24 @@ func TestDailyMetricSourceKeyAndContentHash(t *testing.T) {
 		t.Fatal("dailyMetricContentHash did not change when the metric value changed")
 	}
 }
+
+func TestTitleLanguageRank(t *testing.T) {
+	cases := []struct {
+		name  string
+		title string
+	}{
+		{"japanese kanji+kana", "君のことが大大大大大好きな100人の彼女"},
+		{"english", "Tsuihou Sareta Fuyo Mahoutsukai no Nariagari"},
+		{"chinese, no kana", "超超超超超喜欢你的100个女朋友"},
+	}
+	ranks := make([]int, len(cases))
+	for i, c := range cases {
+		ranks[i] = titleLanguageRank(c.title)
+	}
+	for i := 1; i < len(ranks); i++ {
+		if ranks[i-1] >= ranks[i] {
+			t.Errorf("%s (rank %d) should outrank %s (rank %d): want strictly increasing JPN > ENG > CHN ranks",
+				cases[i-1].name, ranks[i-1], cases[i].name, ranks[i])
+		}
+	}
+}

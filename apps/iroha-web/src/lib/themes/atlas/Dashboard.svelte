@@ -1,5 +1,10 @@
 <script lang="ts">
-  import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
+  import type {
+    Activity,
+    MediaAggregates,
+    RouteFeatureCollection,
+    Summary,
+  } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
   // The geography panel reuses the shared RoutesMap (maplibre) component
   // rather than a bespoke re-implementation: atlas is the theme built around
@@ -20,6 +25,8 @@
     routesLoading,
     routesError,
     onLoadRoutes,
+    sleepSummary,
+    mediaAggregates,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -31,6 +38,12 @@
     routesLoading: boolean;
     routesError: string | null;
     onLoadRoutes: () => void;
+    sleepSummary: {
+      averageAsleepS: number;
+      averageEfficiency: number;
+      nightCount: number;
+    };
+    mediaAggregates: MediaAggregates | null;
   } = $props();
 </script>
 
@@ -75,6 +88,20 @@
       <div class="atlas-plate">
         <p class="atlas-kicker">Routes</p>
         <strong>{routes?.features.length ?? "—"}</strong>
+      </div>
+      <div class="atlas-plate">
+        <p class="atlas-kicker">Sleep · {sleepSummary.nightCount} nights</p>
+        <strong
+          >{sleepSummary.nightCount
+            ? formatDuration(sleepSummary.averageAsleepS)
+            : "—"}</strong
+        >
+      </div>
+      <div class="atlas-plate">
+        <p class="atlas-kicker">
+          Media · {mediaAggregates?.totals.item_count ?? "—"} items
+        </p>
+        <strong>{mediaAggregates?.totals.completed_count ?? "—"}</strong>
       </div>
     </div>
 
@@ -235,7 +262,7 @@
   }
   .master-stats {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 1rem;
   }
   .master-stats .atlas-plate {

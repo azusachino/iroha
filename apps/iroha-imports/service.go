@@ -558,6 +558,7 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 			WorkKind:      mediaWorkKind,
 			PrimaryTitle:  media.Title,
 			OriginalTitle: media.Title,
+			Description:   media.Description,
 			CreatedAt:     now,
 			UpdatedAt:     now,
 		}
@@ -910,6 +911,37 @@ func itemRoleOrDefault(role string) string {
 	return role
 }
 
+// titleLanguageRank scores a title string for the JPN > ENG > CHN display
+// precedence: kana (hiragana/katakana) marks it distinctly Japanese even
+// mixed with kanji, since kana never appears in Chinese; CJK ideographs
+// with no kana are treated as Chinese (Bangumi's name_cn); anything else
+// (Latin script -- English/romaji) ranks in between.
+func titleLanguageRank(title string) int {
+	const (
+		rankJapanese = 1
+		rankEnglish  = 2
+		rankChinese  = 3
+	)
+	hasKana := false
+	hasCJK := false
+	for _, r := range title {
+		switch {
+		case r >= 0x3040 && r <= 0x30FF:
+			hasKana = true
+		case r >= 0x4E00 && r <= 0x9FFF:
+			hasCJK = true
+		}
+	}
+	switch {
+	case hasKana:
+		return rankJapanese
+	case hasCJK:
+		return rankChinese
+	default:
+		return rankEnglish
+	}
+}
+
 // refreshMediaItemFields updates the core columns of an already-existing item
 // from a fresh observation. When owned (the item's own provider is syncing) a
 // non-empty incoming value overwrites, so a reprocess after a parser fix
@@ -946,6 +978,18 @@ func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Me
 		}
 	}
 
+	// Title precedence is by script, not the generic owned/existing-empty rule
+	// above, and not by provider: Bangumi's own subject.Name (used whenever
+	// subject.NameCN is empty) is Japanese too, so "prefer AniList" would be
+	// the wrong proxy for "prefer Japanese." Rank JPN > ENG > CHN and only
+	// replace the existing title with a strictly higher-ranked incoming one.
+	if media.Title != "" && media.Title != item.Title {
+		if item.Title == "" || titleLanguageRank(media.Title) < titleLanguageRank(item.Title) {
+			updates["title"] = media.Title
+			updates["original_title"] = media.Title
+		}
+	}
+
 	if media.MediaType != "" && media.MediaType != mediaUnknownValue {
 		setStr("media_type", item.MediaType, media.MediaType)
 	}
@@ -967,11 +1011,40 @@ func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Me
 	setStr("country", item.Country, media.Country)
 	setStr("cover_image_url", item.CoverImageURL, media.CoverImageURL)
 
-	if len(updates) == 0 {
-		return nil
+	if len(updates) > 0 {
+		updates["updated_at"] = time.Now().UTC()
+		if err := tx.Model(&models.MediaItem{}).Where("id = ?", itemID).Updates(updates).Error; err != nil {
+			return err
+		}
 	}
-	updates["updated_at"] = time.Now().UTC()
-	return tx.Model(&models.MediaItem{}).Where("id = ?", itemID).Updates(updates).Error
+
+	// Description and title live on the work, not the item -- description
+	// follows the same owned/existing-empty rule as the item fields above;
+	// title follows the same JPN > ENG > CHN language-rank rule as item.title,
+	// since tb_media_works.primary_title/original_title were seeded from the
+	// same media.Title value at creation and would otherwise drift from it.
+	if item.WorkID != nil && (media.Description != "" || media.Title != "") {
+		var work models.MediaWork
+		if err := tx.First(&work, "id = ?", *item.WorkID).Error; err != nil {
+			return err
+		}
+		workUpdates := map[string]any{}
+		if media.Description != "" && (owned || work.Description == "") && work.Description != media.Description {
+			workUpdates["description"] = media.Description
+		}
+		if media.Title != "" && media.Title != work.PrimaryTitle &&
+			(work.PrimaryTitle == "" || titleLanguageRank(media.Title) < titleLanguageRank(work.PrimaryTitle)) {
+			workUpdates["primary_title"] = media.Title
+			workUpdates["original_title"] = media.Title
+		}
+		if len(workUpdates) > 0 {
+			workUpdates["updated_at"] = time.Now().UTC()
+			if err := tx.Model(&models.MediaWork{}).Where("id = ?", *item.WorkID).Updates(workUpdates).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Service) persistActivities(rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {

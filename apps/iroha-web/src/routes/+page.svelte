@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import { Check, ListTodo } from "@lucide/svelte";
   import {
     getBriefing,
@@ -24,6 +26,7 @@
     formatDuration,
     formatPace,
     formatHr,
+    mediaEventVerb,
   } from "$lib/format";
 
   let briefing = $state<BriefingResponse | null>(null);
@@ -32,12 +35,25 @@
   let toGoTasks = $state<Task[]>([]);
   let taskError = $state<string | null>(null);
 
+  const today = new Date().toISOString().slice(0, 10);
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
   // The selected day — the spine everything on this page snapshots to.
-  let day = $state<string>(new Date().toISOString().slice(0, 10));
+  // Seeded from ?date= so a refresh or shared link lands back on the same
+  // day instead of resetting to today; a future or malformed date falls
+  // back to today rather than showing an empty briefing.
+  function dayFromUrl(): string {
+    const requested = page.url.searchParams.get("date");
+    if (requested && DATE_RE.test(requested) && requested <= today) {
+      return requested;
+    }
+    return today;
+  }
+
+  let day = $state<string>(dayFromUrl());
   let pickerOpen = $state(false);
   const theme = useTheme();
   let availableDays = $state<Set<string>>(new Set());
-  const today = new Date().toISOString().slice(0, 10);
 
   type BriefingList<T> = { items: T[]; has_more: boolean };
   function sectionData<T>(key: string): BriefingList<T> {
@@ -190,18 +206,24 @@
     void loadTasks(day);
   });
 
+  // Keep ?date= in sync with the selected day -- replaceState rather than
+  // goto so scrubbing days doesn't spam browser history, just the current
+  // entry. Omitted entirely for today so the common-case URL stays plain "/".
+  $effect(() => {
+    const url = new URL(page.url);
+    if (day === today) {
+      url.searchParams.delete("date");
+    } else {
+      url.searchParams.set("date", day);
+    }
+    if (url.search !== page.url.search) {
+      replaceState(url, page.state);
+    }
+  });
+
   onMount(() => {
     void loadAvailableDays();
   });
-
-  function mediaEventVerb(event: MediaHomeEvent): string {
-    if (event.rating != null) return "Rated";
-    if (event.progress_percent != null && event.progress_percent >= 100)
-      return "Finished";
-    if (event.position != null || event.progress_percent != null)
-      return "Progressed";
-    return "Updated library";
-  }
 
   async function loadTasks(selectedDay: string) {
     taskError = null;
@@ -225,6 +247,10 @@
     }
   }
 </script>
+
+<svelte:head>
+  <title>Today · iroha</title>
+</svelte:head>
 
 <svelte:window onkeydown={onKey} />
 
@@ -308,7 +334,7 @@
             <span class="to-go-empty">No open tasks for this day.</span>
           {/if}
         </div>
-        <a class="to-go-link" href="/admin">Open control room →</a>
+        <a class="to-go-link" href="/to-go">Open control room →</a>
       </section>
     {/if}
   </div>
@@ -322,13 +348,13 @@
   {:else if hasThemeRoute(theme.definition(), "today")}
     <ThemeRouteRenderer
       route="today"
-      props={{ dayLabel, day, dRow, mainNight, acts }}
+      props={{ dayLabel, day, dRow, mainNight, acts, mediaEvents }}
     />
   {:else}
     <header class="command-heading tile hero-surface">
       <div>
         <p class="eyebrow">Private command center / {dayLabel}</p>
-        <h1>Keep the signal visible.</h1>
+        <h1>Today, in one view.</h1>
         <p class="heading-copy">
           A calm operating view of movement, recovery, and the things you
           touched today.
@@ -393,7 +419,7 @@
     </div>
     <div class="bento signal-layout">
       <!-- Rings -->
-      <a class="card tile feature-card" href="/daily">
+      <a class="card tile feature-card" href="/patterns">
         <header><span class="ic">◎</span> Activity rings</header>
         {#if hasRing}
           <RingGauge rings={ringData} size={116} />
@@ -408,7 +434,7 @@
       </a>
 
       <!-- Vitals -->
-      <a class="card tile vitals-card" href="/daily">
+      <a class="card tile vitals-card" href="/patterns">
         <header><span class="ic">♥</span> Body vitals</header>
         {#if vitals.length}
           <dl class="vitals">
@@ -425,7 +451,7 @@
       </a>
 
       <!-- Sleep -->
-      <a class="card tile sleep-card" href="/sleep">
+      <a class="card tile sleep-card" href="/night">
         <header><span class="ic">☾</span> Sleep</header>
         {#if mainNight}
           <div class="sleep-hero">{formatDuration(mainNight.asleep_s)}</div>
@@ -443,13 +469,13 @@
       <div class="card tile wide activity-card">
         <header>
           <span class="ic">⚡</span>
-          <a class="hdr-link" href="/activities">Activities</a>
+          <a class="hdr-link" href="/motion">Motion</a>
         </header>
         {#if acts.length}
           <ul class="acts">
             {#each acts as a}
               <li>
-                <a class="act-row" href={`/activities/${a.id}`}>
+                <a class="act-row" href={`/motion/${a.id}`}>
                   <SportBadge sport={a.sport_type} />
                   <span class="a-title">{a.title || "Untitled"}</span>
                   <span class="a-metrics">
@@ -473,22 +499,22 @@
       <div class="card tile wide media-card">
         <header>
           <span class="ic">▤</span>
-          <a class="hdr-link" href="/media">Media</a>
+          <a class="hdr-link" href="/library">Library</a>
         </header>
         {#if mediaEvents.length}
           <ul class="media-events">
             {#each mediaEvents as event (event.id)}
               <li>
-                <a class="media-event-row" href={`/media/${event.media_id}`}>
+                <a class="media-event-row" href={`/library/${event.media_id}`}>
                   {#if event.cover_image_url}
                     <img src={event.cover_image_url} alt="" loading="lazy" />
                   {:else}
                     <span class="media-thumb" aria-hidden="true"
-                      >{event.title.slice(0, 1)}</span
+                      >{(event.native_title || event.title).slice(0, 1)}</span
                     >
                   {/if}
                   <span class="media-event-copy">
-                    <strong>{event.title}</strong>
+                    <strong>{event.native_title || event.title}</strong>
                     <span>{mediaEventVerb(event)}</span>
                   </span>
                   {#if event.rating != null}<span class="media-score"

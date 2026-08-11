@@ -1,7 +1,13 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { getMedia, type MediaDetail } from "$lib/api";
-  import { formatProgressCount, progressPercent } from "$lib/format";
+  import {
+    cleanDescription,
+    formatProgressCount,
+    mediaEventLabel,
+    mediaWorkTotal,
+    progressPercent,
+  } from "$lib/format";
   import { heroTitleFontSize } from "$lib/hero-title";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -15,7 +21,7 @@
   const theme = useTheme();
 
   // Re-fetch whenever the route param changes. SvelteKit reuses this component
-  // across /media/[id] navigations, so onMount would fire only once and
+  // across /library/[id] navigations, so onMount would fire only once and
   // clicking a related title would change the URL without reloading the page.
   $effect(() => {
     void load(page.params.id ?? "");
@@ -39,13 +45,24 @@
     }
   }
 
+  // The work's own episode/chapter count, independent of this user's
+  // progress row -- known even for an ongoing series where progress.total
+  // never is.
+  function workTotal(): number | undefined {
+    return mediaWorkTotal(
+      detail?.item.media_type,
+      detail?.item.episode_count,
+      detail?.item.chapter_count,
+    );
+  }
+
   function progressValue(): number {
     const status = detail?.progress?.status ?? detail?.item.status;
     const position = detail?.progress?.position ?? detail?.item.position;
     const total = detail?.progress?.total ?? detail?.item.total;
     const percent =
       detail?.progress?.progress_percent ?? detail?.item.progress_percent;
-    return progressPercent(status, position, total, percent);
+    return progressPercent(status, position, total, percent, workTotal());
   }
 
   function progressCountLabel(): string {
@@ -55,16 +72,19 @@
       detail.progress.total,
       detail.progress.unit,
       detail.progress.status,
+      workTotal(),
     );
   }
 
   // Whether a total is known or can be inferred (a completed item's
-  // position stands in for its total) -- gates the percent readout and bar,
-  // which need an actual total to mean anything, on the same basis
+  // position stands in for its total, or the work's own episode/chapter
+  // count is known) -- gates the percent readout and bar, which need an
+  // actual total to mean anything, on the same basis
   // progressValue()/progressCountLabel() already use internally.
   function hasKnownTotal(): boolean {
     if (!detail?.progress) return false;
     if (detail.progress.total != null) return true;
+    if (workTotal() != null) return true;
     return (
       detail.progress.status === "completed" && detail.progress.position != null
     );
@@ -72,11 +92,6 @@
 
   function relationLabel(value: string): string {
     return value.replaceAll("_", " ");
-  }
-
-  function eventLabel(eventType: string): string {
-    if (eventType === "list_state") return "Library snapshot";
-    return eventType.replaceAll("_", " ");
   }
 
   function eventDate(value?: string): string {
@@ -90,7 +105,7 @@
 </script>
 
 <svelte:head>
-  <title>{detail?.item.title ?? "Media"} · iroha</title>
+  <title>{detail?.item.title ?? "Library"} · Library · iroha</title>
 </svelte:head>
 
 <section class="detail-shell">
@@ -100,7 +115,7 @@
       props={{ detail, progress: progressValue() }}
     />
   {:else}
-    <p><a class="back-link" href="/media">← Back to media</a></p>
+    <p><a class="back-link" href="/library">← Back to Library</a></p>
 
     {#if loading}
       <p class="muted">Loading item…</p>
@@ -129,7 +144,9 @@
             <p class="original-title">{detail.item.title}</p>
           {/if}
           {#if detail.work.description}
-            <p class="work-description">{detail.work.description}</p>
+            <p class="work-description">
+              {cleanDescription(detail.work.description)}
+            </p>
           {/if}
           <div class="hero-meta">
             <span
@@ -191,9 +208,8 @@
                     <span class="timeline-dot" aria-hidden="true"></span>
                     <div class="timeline-card tile">
                       <div class="event-head">
-                        <strong>{eventLabel(event.event_type)}</strong><time
-                          >{eventDate(event.event_at)}</time
-                        >
+                        <strong>{mediaEventLabel(event.event_type)}</strong
+                        ><time>{eventDate(event.event_at)}</time>
                       </div>
                       <div class="event-detail">
                         {#if event.progress_percent != null}<span
@@ -241,7 +257,7 @@
               <div class="relation-list">
                 {#each detail.relations as relation (relation.id)}<a
                     class="relation-card"
-                    href={`/media/${relation.related_item_id}`}
+                    href={`/library/${relation.related_item_id}`}
                     >{#if relation.cover_image_url}<img
                         src={relation.cover_image_url}
                         alt=""
@@ -329,6 +345,7 @@
     max-width: 55rem;
     color: var(--text-muted);
     line-height: 1.55;
+    white-space: pre-line;
   }
   .hero-meta,
   .progress-meta,

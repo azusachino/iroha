@@ -93,7 +93,7 @@ func (c mediaBriefingContributor) Contribute(_ context.Context, day briefing.Day
 	for _, event := range page.Items {
 		items = append(items, mediaHomeEventResponse{
 			ID: ids.Encode(ids.MediaPrefix, event.ID), MediaID: ids.Encode(ids.MediaPrefix, event.MediaItemID),
-			Title: event.Title, CoverImageURL: event.CoverImageURL, EventType: event.EventType,
+			Title: event.Title, NativeTitle: event.NativeTitle, CoverImageURL: event.CoverImageURL, EventType: event.EventType,
 			OccurredAt: event.OccurredAt, Unit: event.Unit, Position: event.Position, Total: event.Total,
 			ProgressPercent: event.ProgressPercent, Rating: normalizedRating(event.Rating, event.RatingScale),
 		})

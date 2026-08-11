@@ -1,6 +1,12 @@
 <script lang="ts">
+  import type { DailyRow } from "$lib/api";
+  import { formatDateOnly } from "$lib/format";
+  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import BarChart from "$lib/components/BarChart.svelte";
+
   type Period = {
     label: string;
+    period: string;
     days: number | null;
     move: number | null;
     exercise: number | null;
@@ -16,15 +22,21 @@
     chrono,
     gran,
     onGran,
+    onDrillIndex,
+    onDrillPeriod,
+    ringData,
+    latestRingDay,
   }: {
     chrono: Period[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    onDrillIndex: (index: number) => void;
+    onDrillPeriod: (period: string) => void;
+    ringData: Ring[];
+    latestRingDay: DailyRow | null;
   } = $props();
 
-  const max = $derived(
-    Math.max(1, ...chrono.map((period) => period.steps ?? 0)),
-  );
+  const drillable = $derived(gran !== "day");
   const latest = $derived(chrono.at(-1));
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -52,6 +64,22 @@
     </div>
   </header>
 
+  {#if ringData.length}
+    <section
+      class="atlas-plate rings-plate"
+      aria-labelledby="daily-rings-title"
+    >
+      <header class="chart-heading">
+        <div>
+          <p class="atlas-kicker">Latest fix</p>
+          <h2 id="daily-rings-title">Move, exercise, stand.</h2>
+        </div>
+        {#if latestRingDay}<span>{formatDateOnly(latestRingDay.day)}</span>{/if}
+      </header>
+      <RingGauge rings={ringData} />
+    </section>
+  {/if}
+
   <nav class="scale-select" aria-label="Aggregation interval">
     {#each ["day", "month", "year"] as option}
       <button
@@ -75,18 +103,23 @@
       {#if latest}<span>{latest.label} · {number(latest.steps)} steps</span
         >{/if}
     </header>
-    <div class="contour-bars" role="img" aria-label="Steps across periods">
-      {#each chrono as period}
-        <div
-          class="contour-bar"
-          title={`${period.label}: ${number(period.steps)} steps`}
-        >
-          <i
-            style={`height: ${Math.max(3, ((period.steps ?? 0) / max) * 100)}%`}
-          ></i><small>{period.label}</small>
-        </div>
-      {/each}
-    </div>
+    <BarChart
+      categories={chrono.map((period) => period.label)}
+      primary={{
+        name: "Steps",
+        values: chrono.map((period) => period.steps),
+        formatter: (value) => value.toLocaleString(),
+      }}
+      secondary={{
+        name: "Move closure",
+        values: chrono.map((period) => period.moveClosedPct),
+        formatter: (value) => `${value}%`,
+      }}
+      onBarClick={drillable ? onDrillIndex : undefined}
+    />
+    {#if drillable}
+      <p class="drill-hint">Click a bar to zoom in.</p>
+    {/if}
   </section>
 
   <div class="daily-notes">
@@ -129,6 +162,10 @@
         ><tbody>
           {#each [...chrono].reverse() as period}
             <tr
+              class:drillable
+              onclick={drillable
+                ? () => onDrillPeriod(period.period)
+                : undefined}
               ><td>{period.label}</td><td>{number(period.steps)}</td><td
                 >{number(period.distance, 1)} km</td
               ><td
@@ -266,6 +303,12 @@
   .ledger-plate {
     padding: 1.5rem;
   }
+  .rings-plate {
+    margin-top: 1.5rem;
+  }
+  .rings-plate :global(.ring-gauge) {
+    margin-top: 1.25rem;
+  }
   .chart-heading,
   .ledger-heading {
     display: flex;
@@ -277,46 +320,6 @@
     color: var(--text-muted);
     font-family: var(--font-mono);
     font-size: 0.72rem;
-  }
-  .contour-bars {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0.8rem, 1fr));
-    align-items: end;
-    gap: 0.4rem;
-    height: 18rem;
-    margin-top: 1.5rem;
-    border-bottom: 1px solid var(--border);
-    background: repeating-linear-gradient(
-      to top,
-      transparent 0 3rem,
-      color-mix(in srgb, var(--border) 65%, transparent) 3rem 3.05rem
-    );
-  }
-  .contour-bar {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    height: 100%;
-    min-width: 0;
-  }
-  .contour-bar i {
-    display: block;
-    width: 68%;
-    min-height: 0.2rem;
-    margin: 0 auto;
-    background: var(--accent-2);
-    clip-path: polygon(0 100%, 50% 0, 100% 100%);
-  }
-  .contour-bar small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    font-weight: 650;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .daily-notes {
     display: grid;
@@ -374,6 +377,18 @@
     color: var(--accent);
     font-family: var(--font-sans);
     font-weight: 600;
+  }
+  tr.drillable {
+    cursor: pointer;
+  }
+  tr.drillable:hover td {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  .drill-hint {
+    margin: -0.5rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-style: italic;
   }
   .atlas-source {
     border-top: 1px solid var(--border);

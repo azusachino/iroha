@@ -97,7 +97,7 @@ Tracked as the `iroha:sleep-module` epic:
 1. Migration `00006_create_sleep_core.sql` + Go models.
 2. Parser: sleep pass + `ParsedSleepSession` + gap-merge/union helpers (unit tested, DB-free).
 3. Persist + reconcile: `item_type='sleep_session'`, reprocess purge extension.
-4. Read API: `/sleep` + `/sleep/{id}/segments`.
+4. Read API: `/night` + `/night/{id}/segments`.
 5. Smoke assertions + cross-check vs `sleep_explore.py`.
 
 Web render (sleep page, stage/duration charts) is a separate later epic, mirroring how running shipped its data layer before the cockpit dataviz.

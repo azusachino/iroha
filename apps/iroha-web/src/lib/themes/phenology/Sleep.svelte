@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SleepSession } from "$lib/api";
-  import { formatDateOnly, formatDuration } from "$lib/format";
+  import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
+  import BarChart from "$lib/components/BarChart.svelte";
 
   let {
     sessions,
@@ -20,16 +21,22 @@
     Math.max(1, ...sessions.map((session) => session.asleep_s)),
   );
 
-  // Each night is rendered as a phase disc rather than a bar: size encodes
-  // how much sleep the night held, fill (a conic sweep) encodes efficiency --
-  // a full, bright disc is a long, efficient night; a thin dark sliver is a
-  // short or broken one. Two numbers, one glyph, in keeping with the
-  // language's cyclical framing.
+  // Each night is still rendered as a phase disc in the field below (size
+  // encodes time asleep, fill encodes efficiency) -- the chart above is the
+  // same data as an interactive, hoverable bar+line series instead of a
+  // second reading of the same two numbers.
   function discStyle(session: SleepSession): string {
     const size = 1.5 + (session.asleep_s / maxAsleep) * 1.9;
     const sweep = Math.max(0, Math.min(1, session.efficiency)) * 360;
     return `--d: ${size.toFixed(2)}rem; --sweep: ${sweep.toFixed(1)}deg;`;
   }
+
+  const chartSessions = $derived([...sessions].reverse());
+  const activeChartIndex = $derived(
+    selected
+      ? chartSessions.findIndex((session) => session.id === selected.id)
+      : null,
+  );
 </script>
 
 <section class="bloom-night" aria-labelledby="bloom-night-title">
@@ -63,6 +70,35 @@
   <section class="phase-panel">
     <div class="panel-heading">
       <div>
+        <p class="bloom-kicker">Nightly readings</p>
+        <h2>Asleep time</h2>
+      </div>
+      <span>select a column to inspect</span>
+    </div>
+    <BarChart
+      categories={chartSessions.map((session) =>
+        formatDateShort(session.wake_date),
+      )}
+      primary={{
+        name: "Asleep",
+        values: chartSessions.map((session) => session.asleep_s),
+        formatter: (value) => formatDuration(value),
+      }}
+      secondary={{
+        name: "Efficiency",
+        values: chartSessions.map((session) =>
+          Math.round(session.efficiency * 100),
+        ),
+        formatter: (value) => `${value}%`,
+      }}
+      activeIndex={activeChartIndex}
+      onBarClick={(index) => onSelect(chartSessions[index])}
+    />
+  </section>
+
+  <section class="phase-panel">
+    <div class="panel-heading">
+      <div>
         <p class="bloom-kicker">Observed nights</p>
         <h2>Phase by phase</h2>
       </div>
@@ -73,7 +109,7 @@
       role="img"
       aria-label="Sleep sessions rendered as phase discs, sized by duration and filled by efficiency"
     >
-      {#each sessions.slice(0, 28).reverse() as session (session.id)}
+      {#each chartSessions as session (session.id)}
         <button
           class="phase-disc"
           class:active={selected?.id === session.id}

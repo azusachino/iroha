@@ -7,6 +7,7 @@
     type MediaRow,
   } from "$lib/api";
   import { progressPercent } from "$lib/format";
+  import { mediaTypeColor, mediaTypeFamily, mediaTypeLabel } from "$lib/media";
   import StatTile from "$lib/components/StatTile.svelte";
   import MediaBarChart from "$lib/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
@@ -73,19 +74,11 @@
 
   // The API splits by raw media_type (anime_season, manga, movie, ova…);
   // collapse those into display families for the "By kind" chart.
-  function typeFamily(type: string): string {
-    if (["manga", "one_shot", "light_novel", "book", "novel"].includes(type))
-      return "Manga & books";
-    if (["anime_season", "movie", "ona", "ova", "special"].includes(type))
-      return "Anime";
-    if (type === "game") return "Games";
-    return "Other";
-  }
   const typeFamilies = $derived(
     Object.entries(
       (aggregates?.type_split ?? []).reduce(
         (families, bucket) => {
-          const key = typeFamily(bucket.type);
+          const key = mediaTypeFamily(bucket.type);
           families[key] = (families[key] ?? 0) + bucket.count;
           return families;
         },
@@ -189,33 +182,6 @@
     }
   }
 
-  const TYPE_LABELS: Record<string, string> = {
-    anime_season: "Anime",
-    movie: "Movie",
-    ona: "ONA",
-    ova: "OVA",
-    special: "Special",
-    manga: "Manga",
-    one_shot: "One-shot",
-    light_novel: "Light novel",
-    book: "Book",
-    game: "Game",
-    real: "Live action",
-    music: "Music",
-  };
-  function typeLabel(type: string): string {
-    return TYPE_LABELS[type] ?? type.replaceAll("_", " ");
-  }
-  // Small family-colored dot so anime / manga-books / games read apart at a
-  // glance; the text label still carries the meaning (color is not the only cue).
-  function familyColor(type: string): string {
-    const fam = typeFamily(type);
-    if (fam === "Anime") return "var(--mark-teal)";
-    if (fam === "Manga & books") return "var(--mark-magenta)";
-    if (fam === "Games") return "var(--mark-amber)";
-    return "var(--text-muted)";
-  }
-
   function statusLabel(status: string): string {
     return status
       .replaceAll("_", " ")
@@ -254,7 +220,7 @@
 </script>
 
 <svelte:head>
-  <title>Media · iroha</title>
+  <title>Library · iroha</title>
 </svelte:head>
 
 <section class="media-shell">
@@ -288,7 +254,7 @@
   {:else}
     <RouteIntro
       eyebrow="Library / things in orbit"
-      title="Watchlist & bookshelf"
+      title="A living personal library."
       description="Keep reading, watching, and playing visible without turning your interests into a backlog."
       actionHref="/"
       actionLabel="Back to Today"
@@ -425,7 +391,7 @@
           </header>
           <div class="continue-grid">
             {#each continueItems as item (item.id)}
-              <a class="continue-card tile" href={`/media/${item.id}`}>
+              <a class="continue-card tile" href={`/library/${item.id}`}>
                 <div class="thumb">
                   {#if item.cover_image_url}
                     <img src={item.cover_image_url} alt="" loading="lazy" />
@@ -439,8 +405,8 @@
                   <span class="kicker">
                     <span
                       class="dot"
-                      style={`background:${familyColor(item.media_type)}`}
-                    ></span>{typeLabel(item.media_type)}
+                      style={`background:${mediaTypeColor(item.media_type)}`}
+                    ></span>{mediaTypeLabel(item.media_type)}
                   </span>
                   <h3>{primaryTitle(item)}</h3>
                   {#if altTitle(item)}<span class="alt">{altTitle(item)}</span
@@ -484,7 +450,7 @@
               </header>
               <div class="poster-grid">
                 {#each group as item (item.id)}
-                  <a class="poster" href={`/media/${item.id}`}>
+                  <a class="poster" href={`/library/${item.id}`}>
                     <div class="cover">
                       {#if item.cover_image_url}
                         <img src={item.cover_image_url} alt="" loading="lazy" />
@@ -502,8 +468,8 @@
                     <span class="poster-sub">
                       <span
                         class="dot"
-                        style={`background:${familyColor(item.media_type)}`}
-                      ></span>{typeLabel(item.media_type)}
+                        style={`background:${mediaTypeColor(item.media_type)}`}
+                      ></span>{mediaTypeLabel(item.media_type)}
                     </span>
                   </a>
                 {/each}

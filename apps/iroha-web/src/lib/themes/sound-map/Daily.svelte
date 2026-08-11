@@ -1,6 +1,12 @@
 <script lang="ts">
+  import type { DailyRow } from "$lib/api";
+  import { formatDateOnly } from "$lib/format";
+  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import BarChart from "$lib/components/BarChart.svelte";
+
   type Period = {
     label: string;
+    period: string;
     days: number | null;
     move: number | null;
     exercise: number | null;
@@ -16,15 +22,21 @@
     chrono,
     gran,
     onGran,
+    onDrillIndex,
+    onDrillPeriod,
+    ringData,
+    latestRingDay,
   }: {
     chrono: Period[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    onDrillIndex: (index: number) => void;
+    onDrillPeriod: (period: string) => void;
+    ringData: Ring[];
+    latestRingDay: DailyRow | null;
   } = $props();
 
-  const max = $derived(
-    Math.max(1, ...chrono.map((period) => period.steps ?? 0)),
-  );
+  const drillable = $derived(gran !== "day");
   const latest = $derived(chrono.at(-1));
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -50,6 +62,19 @@
     </div>
   </header>
 
+  {#if ringData.length}
+    <section class="mix-chart mix-rings" aria-labelledby="mix-rings-title">
+      <header>
+        <div>
+          <p class="mix-kicker">Latest period</p>
+          <h2 id="mix-rings-title">Move, exercise, stand.</h2>
+        </div>
+        {#if latestRingDay}<span>{formatDateOnly(latestRingDay.day)}</span>{/if}
+      </header>
+      <RingGauge rings={ringData} />
+    </section>
+  {/if}
+
   <nav class="mix-tabs" aria-label="Aggregation interval">
     {#each ["day", "month", "year"] as option (option)}
       <button
@@ -71,18 +96,23 @@
         >{/if}
     </header>
     {#if chrono.length}
-      <div class="mix-bars" role="img" aria-label="Steps across periods">
-        {#each chrono as period, index (period.label + index)}
-          <div
-            class="mix-bar"
-            title={`${period.label}: ${number(period.steps)} steps`}
-          >
-            <i
-              style={`height: ${Math.max(3, ((period.steps ?? 0) / max) * 100)}%`}
-            ></i><small>{period.label}</small>
-          </div>
-        {/each}
-      </div>
+      <BarChart
+        categories={chrono.map((period) => period.label)}
+        primary={{
+          name: "Steps",
+          values: chrono.map((period) => period.steps),
+          formatter: (value) => value.toLocaleString(),
+        }}
+        secondary={{
+          name: "Move closure",
+          values: chrono.map((period) => period.moveClosedPct),
+          formatter: (value) => `${value}%`,
+        }}
+        onBarClick={drillable ? onDrillIndex : undefined}
+      />
+      {#if drillable}
+        <p class="drill-hint">Click a bar to zoom in.</p>
+      {/if}
     {:else}
       <p class="mix-empty">No periods available for this interval.</p>
     {/if}
@@ -129,6 +159,10 @@
         ><tbody>
           {#each [...chrono].reverse() as period, index (period.label + index)}
             <tr
+              class:drillable
+              onclick={drillable
+                ? () => onDrillPeriod(period.period)
+                : undefined}
               ><td class="track-index"
                 >{String(chrono.length - index).padStart(2, "0")}</td
               ><td>{period.label}</td><td>{number(period.steps)}</td><td
@@ -244,6 +278,12 @@
   .mix-ledger {
     padding: 1.4rem;
   }
+  .mix-rings {
+    margin-top: 1.5rem;
+  }
+  .mix-rings :global(.ring-gauge) {
+    margin-top: 1.25rem;
+  }
   .mix-chart header,
   .mix-ledger header {
     display: flex;
@@ -254,43 +294,6 @@
   .mix-ledger header > span {
     color: var(--text-muted);
     font-size: 0.7rem;
-  }
-  .mix-bars {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0.8rem, 1fr));
-    align-items: end;
-    gap: 0.4rem;
-    height: 17rem;
-    margin-top: 1.4rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .mix-bar {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    height: 100%;
-    min-width: 0;
-  }
-  .mix-bar i {
-    display: block;
-    width: 68%;
-    min-height: 0.2rem;
-    margin: 0 auto;
-    background: repeating-linear-gradient(
-      0deg,
-      var(--accent) 0 5%,
-      color-mix(in srgb, var(--bg) 65%, var(--accent)) 5% 10%
-    );
-  }
-  .mix-bar small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 650;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .mix-empty {
     margin-top: 1.4rem;
@@ -347,6 +350,18 @@
   }
   .track-index {
     color: var(--accent);
+  }
+  tr.drillable {
+    cursor: pointer;
+  }
+  tr.drillable:hover td {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  .drill-hint {
+    margin: -0.5rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-style: italic;
   }
   .mix-source {
     display: flex;

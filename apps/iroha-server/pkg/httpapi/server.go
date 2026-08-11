@@ -27,12 +27,11 @@ import (
 	"github.com/go-chi/httprate"
 )
 
-// apiRateLimitPerMin is the per-IP request budget (per minute), keyed off
-// middleware.RealIP. The private API is unauthenticated by design: iroha is
-// a single-user personal deployment (NAS/private network), and access
-// control is the network boundary, not an application-level credential. The
-// budget is lifted well clear of normal browsing/history-wide sweeps
-// accordingly.
+// apiRateLimitPerMin is the per-peer request budget (per minute). The private
+// API is unauthenticated by design: iroha is a single-user personal
+// deployment (NAS/private network), and access control is the network
+// boundary, not an application-level credential. The budget is lifted well
+// clear of normal browsing/history-wide sweeps accordingly.
 const apiRateLimitPerMin = 6000
 
 const readCacheTTL = 24 * time.Hour
@@ -88,7 +87,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) routes() {
 	s.mux.Use(middleware.RequestID)
 	s.mux.Use(requestIDResponseHeader)
-	s.mux.Use(middleware.RealIP)
 	s.mux.Use(middleware.Recoverer)
 	s.mux.Use(s.accessLog)
 
@@ -151,9 +149,8 @@ func (s *Server) routes() {
 	})
 }
 
-// limitByIP builds a per-IP rate limiter (per minute). It keys off the client
-// address resolved by middleware.RealIP into r.RemoteAddr, stated explicitly to
-// avoid the deprecated LimitByIP helper.
+// limitByIP builds a per-peer rate limiter (per minute). It intentionally keys
+// off r.RemoteAddr instead of forwarded headers, which are not trusted here.
 func limitByIP(perMinute int) func(http.Handler) http.Handler {
 	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP, httprate.WithLimitHandler(rateLimitResponse))
 }

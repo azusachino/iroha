@@ -3,11 +3,17 @@
   import {
     getActivityRoutes,
     getActivitySummary,
+    getMediaAggregates,
     listAllActivities,
+    listSleep,
+    listSleepAggregates,
     type Activity,
+    type MediaAggregates,
     type RouteFeatureCollection,
+    type SleepSession,
     type Summary,
   } from "$lib/api";
+  import ArchiveTotals from "$lib/components/ArchiveTotals.svelte";
   import DomainTile from "$lib/components/DomainTile.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import Heatmap from "$lib/components/Heatmap.svelte";
@@ -39,16 +45,47 @@
 
   let routes = $state<RouteFeatureCollection | null>(null);
   let routesError = $state<string | null>(null);
-  let routesLoading = $state(false);
-  let routesRequested = $state(false);
+  let routesLoading = $state(true);
+
+  // Recent-nights window for the Overview's sleep tile -- same averaging
+  // approach as the Night page, just a smaller recent slice since this is a
+  // summary tile, not the full history.
+  const SLEEP_SWEEP_LIMIT = 30;
+  let sleepSessions = $state<SleepSession[]>([]);
+  let sleepSessionCount = $state<number | null>(null);
+  let sleepLoading = $state(true);
+
+  let mediaAggregates = $state<MediaAggregates | null>(null);
+  let mediaLoading = $state(true);
+
   const theme = useTheme();
 
   const recentActivities = $derived(activities.slice(0, RECENT_ACTIVITY_LIMIT));
+
+  const mainSleepSessions = $derived(
+    sleepSessions.filter((session) => session.is_main_sleep),
+  );
+  const sleepSummary = $derived({
+    averageAsleepS: mainSleepSessions.length
+      ? mainSleepSessions.reduce((total, s) => total + s.asleep_s, 0) /
+        mainSleepSessions.length
+      : 0,
+    averageEfficiency: mainSleepSessions.length
+      ? mainSleepSessions.reduce((total, s) => total + s.efficiency, 0) /
+        mainSleepSessions.length
+      : 0,
+    nightCount: mainSleepSessions.length,
+  });
   const heatmapDates = $derived(
     activities.map((activity) => activity.started_at),
   );
   const streak = $derived(currentActivityStreak(heatmapDates));
   const activityCount = $derived(summary?.totals.activity_count ?? 0);
+  const archiveRecordCount = $derived(
+    activityCount +
+      (sleepSessionCount ?? 0) +
+      (mediaAggregates?.totals.item_count ?? 0),
+  );
   const totalDistance = $derived(formatDistance(summary?.totals.distance_m));
   const totalDuration = $derived(
     formatDuration(summary?.totals.moving_time_s || summary?.totals.duration_s),
@@ -84,7 +121,6 @@
   }
 
   async function loadRoutes() {
-    routesRequested = true;
     routesLoading = true;
     routesError = null;
     try {
@@ -96,10 +132,47 @@
     }
   }
 
+  async function loadSleep() {
+    sleepLoading = true;
+    try {
+      const [page, aggregates] = await Promise.all([
+        listSleep({ limit: SLEEP_SWEEP_LIMIT }),
+        listSleepAggregates("year"),
+      ]);
+      sleepSessions = page.items;
+      sleepSessionCount = aggregates.buckets.reduce(
+        (total, bucket) => total + bucket.session_count,
+        0,
+      );
+    } catch {
+      // The Overview's sleep tile is supplemental -- a failure here
+      // shouldn't block the rest of the dashboard from rendering.
+      sleepSessions = [];
+      sleepSessionCount = null;
+    } finally {
+      sleepLoading = false;
+    }
+  }
+
+  async function loadMedia() {
+    mediaLoading = true;
+    try {
+      mediaAggregates = await getMediaAggregates();
+    } catch {
+      mediaAggregates = null;
+    } finally {
+      mediaLoading = false;
+    }
+  }
+
   async function reloadDashboard() {
-    const loads = [loadSummary(), loadActivities()];
-    if (routesRequested) loads.push(loadRoutes());
-    await Promise.all(loads);
+    await Promise.all([
+      loadSummary(),
+      loadActivities(),
+      loadRoutes(),
+      loadSleep(),
+      loadMedia(),
+    ]);
   }
 
   function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
@@ -141,10 +214,24 @@
   onMount(() => {
     void loadSummary();
     void loadActivities();
+    void loadRoutes();
+    void loadSleep();
+    void loadMedia();
   });
 </script>
 
+<svelte:head>
+  <title>Overview · iroha</title>
+</svelte:head>
+
 <section class="dashboard-shell">
+  <ArchiveTotals
+    activityCount={summaryLoading || summaryError ? null : activityCount}
+    nightCount={sleepLoading ? null : sleepSessionCount}
+    mediaCount={mediaLoading || !mediaAggregates
+      ? null
+      : mediaAggregates.totals.item_count}
+  />
   {#if hasThemeRoute(theme.definition(), "dashboard")}
     <ThemeRouteRenderer
       route="dashboard"
@@ -157,6 +244,10 @@
         error: summaryError || activitiesError,
         routesLoading,
         routesError,
+        sleepSummary,
+        sleepLoading,
+        mediaAggregates,
+        mediaLoading,
         onLoadRoutes: () => void loadRoutes(),
         onRetry: () => void reloadDashboard(),
       }}
@@ -164,9 +255,9 @@
   {:else}
     <RouteIntro
       eyebrow="Observatory / long view"
-      title="See the footprint."
+      title="Your history, in view."
       description="A long view of the movement archive: accumulated distance, recent sessions, route footprint, and the data domains available to explore."
-      actionHref="/activities"
+      actionHref="/motion"
       actionLabel="Browse Motion"
     />
 
@@ -181,15 +272,15 @@
             : undefined}
       />
       <StatTile
-        label="Activities"
+        label="Archive records"
         value={summaryLoading || summaryError
           ? "—"
-          : activityCount.toLocaleString()}
+          : archiveRecordCount.toLocaleString()}
         sub={summaryLoading
           ? "Loading totals…"
           : summaryError
             ? "Summary unavailable"
-            : undefined}
+            : "Activities, nights, and media items"}
       />
       <StatTile
         label="Total time"
@@ -230,7 +321,7 @@
             <h2>Recent activity</h2>
             <p>Start where you last left off.</p>
           </div>
-          <a href="/activities">View all</a>
+          <a href="/motion">View all</a>
         </header>
         {#if activitiesLoading}
           <p class="muted">Loading activities…</p>
@@ -242,7 +333,7 @@
           <ul class="recent-list">
             {#each recentActivities as activity (activity.id)}
               <li>
-                <a class="recent-row" href={`/activities/${activity.id}`}>
+                <a class="recent-row" href={`/motion/${activity.id}`}>
                   <SportBadge sport={activity.sport_type} />
                   <span class="recent-title"
                     >{activity.title || "Untitled activity"}</span
@@ -312,20 +403,24 @@
             name="Activity"
             stat={summaryLoading || summaryError
               ? "Loading activity count…"
-              : `${activityCount.toLocaleString()} activities`}
-            href="/activities"
+              : `${activityCount.toLocaleString()} sessions`}
+            href="/motion"
             state="active"
           />
           <DomainTile
             name="Sleep"
-            stat="Recovery and sleep sessions"
-            href="/sleep"
+            stat={sleepLoading || sleepSessionCount == null
+              ? "Loading night count…"
+              : `${sleepSessionCount.toLocaleString()} sessions`}
+            href="/night"
             state="active"
           />
           <DomainTile
             name="Media"
-            stat="Reading and watching history"
-            href="/media"
+            stat={mediaLoading || !mediaAggregates
+              ? "Loading media count…"
+              : `${mediaAggregates.totals.item_count.toLocaleString()} items`}
+            href="/library"
             state="active"
           />
         </div>

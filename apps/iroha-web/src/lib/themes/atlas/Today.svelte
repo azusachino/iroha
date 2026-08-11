@@ -1,6 +1,16 @@
 <script lang="ts">
-  import type { Activity, DailyRow, SleepSession } from "$lib/api";
-  import { formatDistance, formatDuration, formatPace } from "$lib/format";
+  import type {
+    Activity,
+    DailyRow,
+    MediaHomeEvent,
+    SleepSession,
+  } from "$lib/api";
+  import {
+    formatDistance,
+    formatDuration,
+    formatPace,
+    mediaEventVerb,
+  } from "$lib/format";
 
   let {
     dayLabel,
@@ -8,12 +18,14 @@
     dRow,
     mainNight,
     acts,
+    mediaEvents,
   }: {
     dayLabel: string;
     day: string;
     dRow: DailyRow | undefined;
     mainNight: SleepSession | undefined;
     acts: Activity[];
+    mediaEvents: MediaHomeEvent[];
   } = $props();
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -147,6 +159,42 @@
       </ol>
     {:else}
       <p class="atlas-empty">No movement sessions were logged for this date.</p>
+    {/if}
+  </section>
+
+  <section class="atlas-plate media-log">
+    <header class="route-log-heading">
+      <div>
+        <p class="atlas-kicker">Media log</p>
+        <h2>Media plotted today</h2>
+      </div>
+      <span>{mediaEvents.length} entries</span>
+    </header>
+    {#if mediaEvents.length}
+      <ul class="atlas-media-list">
+        {#each mediaEvents as event (event.id)}
+          <li>
+            <a class="atlas-media-row" href={`/library/${event.media_id}`}>
+              {#if event.cover_image_url}
+                <img src={event.cover_image_url} alt="" loading="lazy" />
+              {:else}
+                <span class="atlas-media-thumb" aria-hidden="true"
+                  >{(event.native_title || event.title).slice(0, 1)}</span
+                >
+              {/if}
+              <span class="atlas-media-copy">
+                <strong>{event.native_title || event.title}</strong>
+                <span>{mediaEventVerb(event)}</span>
+              </span>
+              {#if event.rating != null}<span class="atlas-media-score"
+                  >{event.rating.toFixed(1)}</span
+                >{/if}
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="atlas-empty">No media events were logged for this date.</p>
     {/if}
   </section>
 
@@ -383,6 +431,57 @@
   .atlas-empty {
     margin-top: 1rem;
     color: var(--text-muted);
+  }
+  .atlas-media-list {
+    display: grid;
+    gap: 0.6rem;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .atlas-media-row {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+    color: var(--text);
+  }
+  .atlas-media-row:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .atlas-media-row img,
+  .atlas-media-thumb {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 4px;
+    object-fit: cover;
+  }
+  .atlas-media-thumb {
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    color: var(--accent);
+    font-weight: 800;
+  }
+  .atlas-media-copy {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .atlas-media-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .atlas-media-copy span {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .atlas-media-score {
+    color: var(--accent);
+    font-weight: 700;
   }
   .atlas-source {
     border-top: 1px solid var(--border);

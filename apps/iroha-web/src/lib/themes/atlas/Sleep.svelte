@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SleepSession } from "$lib/api";
-  import { formatDateOnly, formatDuration } from "$lib/format";
+  import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
+  import BarChart from "$lib/components/BarChart.svelte";
 
   let {
     sessions,
@@ -16,10 +17,13 @@
     onSelect: (session: SleepSession) => void;
   } = $props();
 
-  const max = $derived(
-    Math.max(1, ...sessions.map((session) => session.asleep_s)),
-  );
   const avgPct = $derived(Math.round(averageEfficiency * 100));
+  const chartSessions = $derived([...sessions].reverse());
+  const activeChartIndex = $derived(
+    selected
+      ? chartSessions.findIndex((session) => session.id === selected.id)
+      : null,
+  );
 </script>
 
 <section class="atlas-nights" aria-labelledby="atlas-nights-title">
@@ -66,19 +70,25 @@
       </div>
       <span>select a column to inspect</span>
     </header>
-    <div
-      class="nights-bars"
-      role="img"
-      aria-label="Asleep duration by recorded night"
-    >
-      {#each sessions.slice(0, 24).reverse() as session}<button
-          class:active={selected?.id === session.id}
-          title={formatDateOnly(session.wake_date)}
-          onclick={() => onSelect(session)}
-          ><i style={`height: ${Math.max(3, (session.asleep_s / max) * 100)}%`}
-          ></i><small>{formatDateOnly(session.wake_date)}</small></button
-        >{/each}
-    </div>
+    <BarChart
+      categories={chartSessions.map((session) =>
+        formatDateShort(session.wake_date),
+      )}
+      primary={{
+        name: "Asleep",
+        values: chartSessions.map((session) => session.asleep_s),
+        formatter: (value) => formatDuration(value),
+      }}
+      secondary={{
+        name: "Efficiency",
+        values: chartSessions.map((session) =>
+          Math.round(session.efficiency * 100),
+        ),
+        formatter: (value) => `${value}%`,
+      }}
+      activeIndex={activeChartIndex}
+      onBarClick={(index) => onSelect(chartSessions[index])}
+    />
   </section>
 
   {#if selected}<aside class="atlas-plate selected-note">
@@ -266,45 +276,6 @@
     color: var(--text-muted);
     font-family: var(--font-mono);
     font-size: 0.72rem;
-  }
-  .nights-bars {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0.8rem, 1fr));
-    align-items: end;
-    gap: 0.4rem;
-    height: 17rem;
-    margin-top: 1.5rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .nights-bars button {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    height: 100%;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-  }
-  .nights-bars i {
-    display: block;
-    width: 70%;
-    min-height: 0.2rem;
-    margin: 0 auto;
-    background: var(--accent-2);
-    opacity: 0.65;
-  }
-  .nights-bars button.active i,
-  .nights-bars button:hover i {
-    opacity: 1;
-  }
-  .nights-bars small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.55rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .selected-note {
     display: grid;

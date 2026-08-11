@@ -1,6 +1,16 @@
 <script lang="ts">
-  import type { Activity, DailyRow, SleepSession } from "$lib/api";
-  import { formatDistance, formatDuration, formatPace } from "$lib/format";
+  import type {
+    Activity,
+    DailyRow,
+    MediaHomeEvent,
+    SleepSession,
+  } from "$lib/api";
+  import {
+    formatDistance,
+    formatDuration,
+    formatPace,
+    mediaEventVerb,
+  } from "$lib/format";
 
   let {
     dayLabel,
@@ -8,12 +18,14 @@
     dRow,
     mainNight,
     acts,
+    mediaEvents,
   }: {
     dayLabel: string;
     day: string;
     dRow: DailyRow | undefined;
     mainNight: SleepSession | undefined;
     acts: Activity[];
+    mediaEvents: MediaHomeEvent[];
   } = $props();
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -144,6 +156,42 @@
       </ol>
     {:else}
       <p class="mix-empty">No movement sessions were recorded for this date.</p>
+    {/if}
+  </section>
+
+  <section class="mix-sessions">
+    <header>
+      <div>
+        <p class="mix-kicker">Now playing</p>
+        <h2>Media logged today</h2>
+      </div>
+      <span>{mediaEvents.length} entries</span>
+    </header>
+    {#if mediaEvents.length}
+      <ul class="mix-media-list">
+        {#each mediaEvents as event (event.id)}
+          <li>
+            <a class="mix-media-row" href={`/library/${event.media_id}`}>
+              {#if event.cover_image_url}
+                <img src={event.cover_image_url} alt="" loading="lazy" />
+              {:else}
+                <span class="mix-media-thumb" aria-hidden="true"
+                  >{(event.native_title || event.title).slice(0, 1)}</span
+                >
+              {/if}
+              <span class="mix-media-copy">
+                <strong>{event.native_title || event.title}</strong>
+                <span>{mediaEventVerb(event)}</span>
+              </span>
+              {#if event.rating != null}<span class="mix-media-score"
+                  >{event.rating.toFixed(1)}</span
+                >{/if}
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="mix-empty">No media events were recorded for this date.</p>
     {/if}
   </section>
 
@@ -332,6 +380,57 @@
   .mix-empty {
     margin-top: 1rem;
     color: var(--text-muted);
+  }
+  .mix-media-list {
+    display: grid;
+    gap: 0.6rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .mix-media-row {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+    color: var(--text);
+  }
+  .mix-media-row:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .mix-media-row img,
+  .mix-media-thumb {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 4px;
+    object-fit: cover;
+  }
+  .mix-media-thumb {
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    color: var(--accent);
+    font-weight: 800;
+  }
+  .mix-media-copy {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .mix-media-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mix-media-copy span {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .mix-media-score {
+    color: var(--accent);
+    font-weight: 700;
   }
   .mix-source {
     display: flex;

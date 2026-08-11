@@ -102,6 +102,7 @@ type Media struct {
 	Language         string
 	Country          string
 	CoverImageURL    string
+	Description      string
 	Status           string
 	Progress         *float64
 	Score            *float64

@@ -22,29 +22,20 @@
     <p>Routes could not be loaded.</p>
     <button type="button" onclick={onLoad}>Try again</button>
   </div>
-{:else if routes}
-  {#if routes.features.length}
-    <RoutesMap data={routes} />
-  {:else}
-    <p class="route-footprint-status">No routes recorded yet.</p>
-  {/if}
+{:else if routes && routes.features.length}
+  <RoutesMap data={routes} />
 {:else}
-  <div class="route-footprint-prompt">
-    <p>Route geometry is loaded only when you ask to inspect it.</p>
-    <button type="button" onclick={onLoad}>Load route footprint</button>
-  </div>
+  <p class="route-footprint-status">No routes recorded yet.</p>
 {/if}
 
 <style>
   .route-footprint-status,
-  .route-footprint-prompt,
   .route-footprint-error {
     color: var(--text-muted);
     font-size: 0.84rem;
     line-height: 1.5;
   }
 
-  .route-footprint-prompt,
   .route-footprint-error {
     display: grid;
     gap: 0.75rem;
@@ -52,7 +43,6 @@
     padding: 1rem 0;
   }
 
-  .route-footprint-prompt p,
   .route-footprint-error p {
     margin: 0;
   }

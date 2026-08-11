@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
+  import { primaryNavigation } from "$lib/navigation";
 
   type Command = {
     label: string;
@@ -9,25 +10,13 @@
   };
 
   const commands: Command[] = [
-    { label: "Cockpit", href: "/", hint: "Any-day cross-domain view" },
-    { label: "Dashboard", href: "/dashboard", hint: "Activity overview" },
-    {
-      label: "Activities",
-      href: "/activities",
-      hint: "Private activity domain",
-    },
-    { label: "Sleep", href: "/sleep", hint: "Recovery and sleep sessions" },
-    {
-      label: "Daily & Vitals",
-      href: "/daily",
-      hint: "Rings, movement and body vitals",
-    },
-    { label: "Media", href: "/media", hint: "Watch and reading history" },
-    {
-      label: "To-go / Control room",
-      href: "/admin",
-      hint: "Tasks and background jobs",
-    },
+    { ...primaryNavigation[0], hint: "Any-day cross-domain view" },
+    { ...primaryNavigation[1], hint: "Activity overview" },
+    { ...primaryNavigation[2], hint: "Rings, movement and body vitals" },
+    { ...primaryNavigation[3], hint: "Private activity domain" },
+    { ...primaryNavigation[4], hint: "Recovery and sleep sessions" },
+    { ...primaryNavigation[5], hint: "Watch, reading and game history" },
+    { ...primaryNavigation[6], hint: "Tasks and background jobs" },
   ];
 
   let open = $state(false);

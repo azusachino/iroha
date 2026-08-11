@@ -6,6 +6,7 @@
     MediaScoreBucket,
   } from "$lib/api";
   import { formatProgressCount, progressPercent } from "$lib/format";
+  import { mediaTypeLabel } from "$lib/media";
 
   let {
     items,
@@ -184,8 +185,8 @@
     {:else}
       <div class="folio-grid">
         {#each items as item, index (item.id)}
-          <a class="folio-card" href={`/media/${item.id}`}>
-            <span class="folio-card-tag"
+          <a class="folio-card" href={`/library/${item.id}`}>
+            <span class="folio-card-tag" title={mediaTypeLabel(item.media_type)}
               >{item.media_type.slice(0, 3).toUpperCase()}-{String(
                 index + 1,
               ).padStart(4, "0")}</span
@@ -196,6 +197,9 @@
               <span class="folio-initial">{item.title.slice(0, 1)}</span>
             {/if}
             <strong>{item.native_title || item.title}</strong>
+            <small class="folio-card-type"
+              >{mediaTypeLabel(item.media_type)}</small
+            >
             <small
               >{item.status || "unknown"} · {formatProgressCount(
                 item.position,

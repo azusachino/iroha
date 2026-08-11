@@ -7,6 +7,7 @@
     formatPace,
   } from "$lib/format";
   import { sportLabel } from "$lib/sport";
+  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
 
   type Summary = {
     activity_count: number;
@@ -83,32 +84,15 @@
         {/each}
       </select>
     </label>
-    <label>
-      <span>Year</span>
-      <select
-        value={selectedYear}
-        onchange={(event) =>
-          onYear((event.currentTarget as HTMLSelectElement).value)}
-      >
-        <option value="">All years</option>
-        {#each years as year (year)}
-          <option value={year}>{year}</option>
-        {/each}
-      </select>
-    </label>
-    <label>
-      <span>Month</span>
-      <select
-        value={selectedMonth}
-        onchange={(event) =>
-          onMonth((event.currentTarget as HTMLSelectElement).value)}
-      >
-        <option value="">All months</option>
-        {#each months as month (month.value)}
-          <option value={month.value}>{month.label}</option>
-        {/each}
-      </select>
-    </label>
+    <PeriodSelector
+      year={selectedYear}
+      month={selectedMonth}
+      {years}
+      {months}
+      monthDisabled={!selectedYear}
+      {onYear}
+      {onMonth}
+    />
   </div>
 
   {#if loading && activities.length === 0}
@@ -137,12 +121,12 @@
               <tr
                 class="activity-row"
                 ondblclick={() =>
-                  (window.location.href = `/activities/${activity.id}`)}
+                  (window.location.href = `/motion/${activity.id}`)}
               >
                 <td class="log-index">{String(index + 1).padStart(3, "0")}</td>
                 <td>{formatDateOnly(activity.started_at)}</td>
                 <td>
-                  <a href={`/activities/${activity.id}`}
+                  <a href={`/motion/${activity.id}`}
                     >{activity.title || sportLabel(activity.sport_type)}</a
                   >
                 </td>

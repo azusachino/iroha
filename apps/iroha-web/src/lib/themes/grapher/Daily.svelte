@@ -1,6 +1,11 @@
 <script lang="ts">
+  import type { DailyRow } from "$lib/api";
+  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import BarChart from "$lib/components/BarChart.svelte";
+
   type Disp = {
     label: string;
+    period: string;
     days: number | null;
     move: number | null;
     exercise: number | null;
@@ -16,23 +21,22 @@
     chrono,
     gran,
     onGran,
+    onDrillIndex,
+    onDrillPeriod,
+    ringData,
+    latestRingDay,
   }: {
     chrono: Disp[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    onDrillIndex: (index: number) => void;
+    onDrillPeriod: (period: string) => void;
+    ringData: Ring[];
+    latestRingDay: DailyRow | null;
   } = $props();
 
-  const maxSteps = $derived(
-    Math.max(1, ...chrono.map((item) => item.steps ?? 0)),
-  );
+  const drillable = $derived(gran !== "day");
   const latest = $derived(chrono.at(-1));
-  const labelStride = $derived(Math.max(1, Math.ceil(chrono.length / 8)));
-
-  function showAxisLabel(index: number): boolean {
-    return (
-      index === 0 || index === chrono.length - 1 || index % labelStride === 0
-    );
-  }
 
   function display(value: number | null | undefined, digits = 0): string {
     if (value == null || !Number.isFinite(value)) return "—";
@@ -71,6 +75,19 @@
     <span class="period-count">{chrono.length} periods</span>
   </div>
 
+  {#if ringData.length}
+    <section class="rings-panel" aria-labelledby="grapher-rings-title">
+      <div class="panel-heading">
+        <div>
+          <p class="kicker">Latest reading</p>
+          <h2 id="grapher-rings-title">Move, exercise, stand.</h2>
+        </div>
+        {#if latestRingDay}<strong>{latestRingDay.day}</strong>{/if}
+      </div>
+      <RingGauge rings={ringData} />
+    </section>
+  {/if}
+
   <section class="series-panel" aria-labelledby="steps-series-title">
     <div class="panel-heading">
       <div>
@@ -79,25 +96,23 @@
       </div>
       {#if latest}<strong>{latest.label}</strong>{/if}
     </div>
-    <div
-      class="series-chart"
-      role="img"
-      aria-label="Steps by selected time period"
-    >
-      {#each chrono as item, index}
-        <div
-          class="series-column"
-          title={`${item.label}: ${item.steps ?? "no value"} steps`}
-        >
-          <i
-            style={`height: ${Math.max(2, ((item.steps ?? 0) / maxSteps) * 100)}%`}
-          ></i>
-          <small class:axis-label-muted={!showAxisLabel(index)}
-            >{axisLabel(item.label)}</small
-          >
-        </div>
-      {/each}
-    </div>
+    <BarChart
+      categories={chrono.map((item) => axisLabel(item.label))}
+      primary={{
+        name: "Steps",
+        values: chrono.map((item) => item.steps),
+        formatter: (value) => value.toLocaleString(),
+      }}
+      secondary={{
+        name: "Move closure",
+        values: chrono.map((item) => item.moveClosedPct),
+        formatter: (value) => `${value}%`,
+      }}
+      onBarClick={drillable ? onDrillIndex : undefined}
+    />
+    {#if drillable}
+      <p class="drill-hint">Click a bar to zoom in.</p>
+    {/if}
   </section>
 
   <section class="series-table" aria-labelledby="period-table-title">
@@ -119,6 +134,8 @@
         <tbody>
           {#each [...chrono].reverse() as item}
             <tr
+              class:drillable
+              onclick={drillable ? () => onDrillPeriod(item.period) : undefined}
               ><td>{item.label}</td><td>{display(item.steps)}</td><td
                 >{display(item.distance, 1)}</td
               ><td>{display(item.resting_hr, 1)}</td><td
@@ -217,47 +234,24 @@
     color: var(--text-muted);
     font-size: 0.72rem;
   }
-  .series-chart {
+  .rings-panel {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0.7rem, 1fr));
-    align-items: end;
-    gap: 0.4rem;
-    height: 18rem;
-    margin-top: 2rem;
-    padding-top: 1rem;
-    border-bottom: 1px solid var(--border);
-    background: repeating-linear-gradient(
-      to top,
-      transparent 0 3rem,
-      color-mix(in srgb, var(--border) 65%, transparent) 3rem 3.05rem
-    );
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
   }
-  .series-column {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    min-width: 0;
-    height: 100%;
+  tr.drillable {
+    cursor: pointer;
   }
-  .series-column i {
-    display: block;
-    width: 70%;
-    min-height: 0.2rem;
-    margin: 0 auto;
-    background: var(--accent);
+  tr.drillable:hover td {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
-  .series-column small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    color: var(--text);
-    font-size: 0.7rem;
-    font-weight: 650;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .series-column small.axis-label-muted {
-    visibility: hidden;
+  .drill-hint {
+    margin: 0.75rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-style: italic;
   }
   .table-scroll {
     overflow-x: auto;

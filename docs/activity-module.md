@@ -114,7 +114,7 @@ Tracked as the `iroha:daily-activity` epic:
 1. Migration `00007_create_daily_activity.sql` + Go model.
 2. Parser: daily-activity pass + `ParsedDailySummary` + interval-union-with- priority helper (unit tested, DB-free; reuse sleep's union).
 3. Persist + reconcile: `item_type='daily_summary'`, reprocess purge extension.
-4. Read API: `/daily`.
+4. Read API: `/patterns`.
 5. Smoke assertions + cross-check vs `activity_explore.py`.
 
 Web render (activity page, ring + trend charts) is a separate later epic, mirroring how running and sleep shipped their data layers before the cockpit dataviz.

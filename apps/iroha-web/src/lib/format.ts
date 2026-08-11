@@ -1,7 +1,73 @@
 // Presentation helpers. All inputs may be undefined; missing data renders as
 // an em dash so the UI degrades gracefully.
 
+import type { MediaHomeEvent } from "$lib/api";
+
 const DASH = "—";
+
+// What a media event on the Today feed actually represents, in one word.
+export function mediaEventVerb(event: MediaHomeEvent): string {
+  if (event.rating != null) return "Rated";
+  if (event.progress_percent != null && event.progress_percent >= 100)
+    return "Finished";
+  if (event.position != null || event.progress_percent != null)
+    return "Progressed";
+  return "Updated library";
+}
+
+// "list_state" is a synthesized snapshot event (a provider's flat list
+// state resynced wholesale), not a status -- it reads as noise next to
+// real event kinds like "started"/"finished" unless relabeled.
+export function mediaEventLabel(eventType: string): string {
+  if (eventType === "list_state") return "Library snapshot";
+  return eventType.replaceAll("_", " ");
+}
+
+// Which of the work's own two total-count columns applies, by media type --
+// mirrors the anime/manga_book split in iroha-server/pkg/media/service.go's
+// familyMediaTypes. Games and anything else have neither.
+const EPISODE_COUNTED_TYPES = new Set([
+  "anime_season",
+  "movie",
+  "ona",
+  "ova",
+  "special",
+]);
+const CHAPTER_COUNTED_TYPES = new Set([
+  "manga",
+  "one_shot",
+  "light_novel",
+  "book",
+]);
+
+// Provider descriptions (AniList in particular) embed simple HTML --
+// <br> for line breaks, occasional <i>/<b> -- rather than plain text.
+// Rendered verbatim as text content the tags show up literally instead of
+// taking effect, so this converts <br> to the newlines .description's
+// `white-space: pre-line` already expects and drops any other markup
+// rather than risk `{@html}`-ing untrusted provider content.
+export function cleanDescription(html?: string | null): string {
+  if (!html) return "";
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?(i|b|em|strong)>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+}
+
+export function mediaWorkTotal(
+  mediaType?: string | null,
+  episodeCount?: number | null,
+  chapterCount?: number | null,
+): number | undefined {
+  if (mediaType && EPISODE_COUNTED_TYPES.has(mediaType)) {
+    return episodeCount ?? undefined;
+  }
+  if (mediaType && CHAPTER_COUNTED_TYPES.has(mediaType)) {
+    return chapterCount ?? undefined;
+  }
+  return undefined;
+}
 
 export function boundPercent(value?: number | null): number {
   if (value == null || !Number.isFinite(value)) return 0;
@@ -18,14 +84,23 @@ export function formatPercent(value?: number | null): string {
 // omits it for an otherwise-finished season. Without this, a completed
 // item with no recorded total looks identical to one with unknown
 // progress: same bare count, same empty-looking bar.
+//
+// workTotal is the work's own episode/chapter count (tb_media_items.episode_count
+// / .chapter_count), independent of any per-user progress row -- it's known for
+// an ongoing series even though progress.total never is, so it's tried last,
+// after the progress-derived and completion-inferred totals.
 function effectiveTotal(
   status?: string | null,
   position?: number | null,
   total?: number | null,
+  workTotal?: number | null,
 ): number | undefined {
   if (total != null && Number.isFinite(total) && total > 0) return total;
   if (status === "completed" && position != null && Number.isFinite(position)) {
     return position;
+  }
+  if (workTotal != null && Number.isFinite(workTotal) && workTotal > 0) {
+    return workTotal;
   }
   return undefined;
 }
@@ -40,10 +115,11 @@ export function formatProgressCount(
   total?: number | null,
   unit?: string | null,
   status?: string | null,
+  workTotal?: number | null,
 ): string {
   if (position == null || !Number.isFinite(position)) return DASH;
   const suffix = unit ? ` ${unit}` : "";
-  const knownTotal = effectiveTotal(status, position, total);
+  const knownTotal = effectiveTotal(status, position, total, workTotal);
   if (knownTotal != null) {
     return `${position}/${knownTotal}${suffix}`;
   }
@@ -59,9 +135,10 @@ export function progressPercent(
   position?: number | null,
   total?: number | null,
   percent?: number | null,
+  workTotal?: number | null,
 ): number {
   if (percent != null && Number.isFinite(percent)) return boundPercent(percent);
-  const knownTotal = effectiveTotal(status, position, total);
+  const knownTotal = effectiveTotal(status, position, total, workTotal);
   if (position != null && Number.isFinite(position) && knownTotal != null) {
     return boundPercent((position / knownTotal) * 100);
   }
@@ -159,6 +236,23 @@ export function formatDateOnly(iso?: string, timezone?: string): string {
     }).format(d);
   } catch {
     return d.toISOString().slice(0, 10);
+  }
+}
+
+// Short date for narrow chart axis labels (e.g. "Aug 4") where a full
+// yyyy-MM-dd would always get truncated to an identical, useless prefix.
+export function formatDateShort(iso?: string, timezone?: string): string {
+  if (!iso) return DASH;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: timezone || undefined,
+    }).format(d);
+  } catch {
+    return d.toISOString().slice(5, 10);
   }
 }
 

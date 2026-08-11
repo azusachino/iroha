@@ -250,10 +250,19 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	mediaA := func(position float64) observations.Media {
 		return observations.Media{
 			Provider: "anilist", ExternalID: idA, MediaType: "anime_season", Title: titleA, Status: "in_progress",
+			Description:   "Original synopsis " + suffix,
 			ExternalRefs:  []observations.MediaExternalRef{{Provider: "anilist", ExternalID: idA, MatchedBy: "provider_id"}},
 			ProgressState: &observations.MediaProgress{Status: "in_progress", Unit: "episodes", Position: float64Ptr(position), PlayCount: 2},
 			Events:        []observations.MediaEvent{{EventType: "list_state", SourceEventID: "entry-A-" + suffix, Unit: "episodes", Position: float64Ptr(position)}},
 		}
+	}
+	workDescription := func() string {
+		t.Helper()
+		var work models.MediaWork
+		if err := db.Joins("join tb_media_items on tb_media_items.work_id = tb_media_works.id").Where("tb_media_items.title = ?", titleA).First(&work).Error; err != nil {
+			t.Fatalf("load work: %v", err)
+		}
+		return work.Description
 	}
 
 	// First sync: item + progress (rich fields) + one event.
@@ -264,6 +273,9 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	}
 	if progress.Unit != "episodes" || progress.PlayCount != 2 {
 		t.Fatalf("progress unit/play_count = %q/%d, want episodes/2 (ProgressState dropped)", progress.Unit, progress.PlayCount)
+	}
+	if got := workDescription(); got != "Original synopsis "+suffix {
+		t.Fatalf("work description after first sync = %q, want the synced description (description lives on tb_media_works, not tb_media_items)", got)
 	}
 	countEvents := func() int64 {
 		var n int64
@@ -289,6 +301,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	// M2: the owning provider re-syncing a corrected core field overwrites it.
 	corrected := mediaA(13)
 	corrected.MediaType = "anime"
+	corrected.Description = "Corrected synopsis " + suffix
 	persist("a4", corrected, false)
 	var item models.MediaItem
 	if err := db.Where("title = ?", titleA).First(&item).Error; err != nil {
@@ -296,6 +309,9 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	}
 	if item.MediaType != "anime" {
 		t.Fatalf("item media_type after owner re-sync = %q, want anime (M2 refresh)", item.MediaType)
+	}
+	if got := workDescription(); got != "Corrected synopsis "+suffix {
+		t.Fatalf("work description after owner re-sync = %q, want the corrected description (M2 refresh)", got)
 	}
 
 	// Relation: B -> A. Both endpoints resolve, so the edge must persist.

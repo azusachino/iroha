@@ -284,17 +284,10 @@ textarea {
 }
 
 .brand-mark {
-  display: grid;
+  display: block;
   width: 1.7rem;
   height: 1.7rem;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 65%, var(--border));
   border-radius: 0.55rem;
-  background: linear-gradient(135deg, var(--brand-a), var(--brand-b));
-  color: var(--brand-ink);
-  font-family: Georgia, serif;
-  font-size: 1.05rem;
-  font-weight: 800;
   box-shadow: var(--accent-glow);
 }
 

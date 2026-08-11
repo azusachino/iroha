@@ -10,13 +10,13 @@ the control-room request fix. The count is the initial API traffic after navigat
 | Route           | Baseline | Decision                                                                                                                                                                          |
 | --------------- | -------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`             |        3 | Keep: briefing, day-index lookup for the scrubber, and the To-go strip are separate visible concerns.                                                                             |
-| `/dashboard`    |        6 | Keep for now: summary plus five activity pages power the heatmap/streak/recent-history view. Route footprint remains opt-in and made no initial request.                          |
-| `/activities`   |        2 | Keep: one visible activity page and one summary used by filters/statistics.                                                                                                       |
-| `/daily`        |       13 | Fixed: initial load no longer sweeps all daily history or fetches yearly aggregates; Day loads one selected month (maximum 31 rows), Year loads one aggregate only when selected. |
+| `/overview`     |        6 | Keep for now: summary plus five activity pages power the heatmap/streak/recent-history view. Route footprint remains opt-in and made no initial request.                          |
+| `/motion`       |        2 | Keep: one visible activity page and one summary used by filters/statistics.                                                                                                       |
+| `/patterns`     |       13 | Fixed: initial load no longer sweeps all daily history or fetches yearly aggregates; Day loads one selected month (maximum 31 rows), Year loads one aggregate only when selected. |
 | `/design`       |        1 | Keep: the design lab requests the live briefing when available and otherwise uses its sample content.                                                                             |
-| `/media`        |        2 | Keep: one library page and one aggregate set are both visible on first paint. Filter changes reload only the library page.                                                        |
-| `/sleep`        |        4 | Keep: session list, year/month trends, and the selected session's visible stage timeline. Both trend granularities are visible simultaneously.                                    |
-| `/admin`        |        3 | Fixed: one task request replaces separate open/completed requests; jobs are scoped to top-level media-sync actions.                                                               |
+| `/library`      |        2 | Keep: one library page and one aggregate set are both visible on first paint. Filter changes reload only the library page.                                                        |
+| `/night`        |        4 | Keep: session list, year/month trends, and the selected session's visible stage timeline. Both trend granularities are visible simultaneously.                                    |
+| `/to-go`        |        3 | Fixed: one task request replaces separate open/completed requests; jobs are scoped to top-level media-sync actions.                                                               |
 | Activity detail |        4 | Keep: activity, route, heart-rate samples, and laps are independent detail panels.                                                                                                |
 | Media detail    |        1 | Keep: one detail request.                                                                                                                                                         |
 | Sleep detail    |        2 | Keep: session metadata and stage segments are both visible.                                                                                                                       |
@@ -31,32 +31,25 @@ The buttons also disable while the same connector action is queued or running, p
 
 ## Regression checks
 
-The opt-in browser audit is available with a running deployment:
+Use `agent-browser` for the live browser harness and inspect traffic from the same named session:
 
 ```sh
-cd apps/iroha-web
-bun run request-audit -- --base https://iroha.h.azusachino.icu
+make web-visual-check BASE=https://iroha.h.azusachino.icu THEME=field-journal ROUTE=overview
+agent-browser --session iroha-visual network requests --json
 ```
 
-For a local frontend against the deployed API, use `--api-base` while the Vite server is running:
+For a local frontend, run `make web-dev` first and point the same command at `http://127.0.0.1:5173`. The current post-fix request expectations remain:
 
-```sh
-bun run request-audit -- --base http://127.0.0.1:5174 --api-base https://iroha.h.azusachino.icu
-```
-
-The audit asserts that Admin makes one task request and one scoped job request, Daily does not sweep the entire history or fetch yearly aggregates before the Year tab is selected, Year makes one lazy
-yearly request, and Day requests at most one selected month with `limit=31`. The current post-fix initial traffic is:
-
-| Route         | Initial API requests |
-| ------------- | -------------------: |
-| `/`           |                    3 |
-| `/dashboard`  |                    6 |
-| `/activities` |                    2 |
-| `/daily`      |                    2 |
-| `/design`     |                    1 |
-| `/media`      |                    2 |
-| `/sleep`      |                    4 |
-| `/admin`      |                    2 |
+| Route       | Initial API requests |
+| ----------- | -------------------: |
+| `/`         |                    3 |
+| `/overview` |                    6 |
+| `/motion`   |                    2 |
+| `/patterns` |                    2 |
+| `/design`   |                    1 |
+| `/library`  |                    2 |
+| `/night`    |                    4 |
+| `/to-go`    |                    2 |
 
 ## Read cache boundary
 

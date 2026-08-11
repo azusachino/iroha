@@ -1,6 +1,12 @@
 <script lang="ts">
+  import type { DailyRow } from "$lib/api";
+  import { formatDateOnly } from "$lib/format";
+  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import BarChart from "$lib/components/BarChart.svelte";
+
   type BloomPeriod = {
     label: string;
+    period: string;
     days: number | null;
     move: number | null;
     exercise: number | null;
@@ -16,12 +22,21 @@
     chrono,
     gran,
     onGran,
+    onDrillIndex,
+    onDrillPeriod,
+    ringData,
+    latestRingDay,
   }: {
     chrono: BloomPeriod[];
     gran: "day" | "month" | "year";
     onGran: (value: "day" | "month" | "year") => void;
+    onDrillIndex: (index: number) => void;
+    onDrillPeriod: (period: string) => void;
+    ringData: Ring[];
+    latestRingDay: DailyRow | null;
   } = $props();
 
+  const drillable = $derived(gran !== "day");
   const latest = $derived(chrono.at(-1));
   const maxSteps = $derived(
     Math.max(1, ...chrono.map((period) => period.steps ?? 0)),
@@ -58,6 +73,19 @@
     </div>
   </header>
 
+  {#if ringData.length}
+    <section class="growth-panel rings-panel" aria-labelledby="rings-title">
+      <div class="panel-heading">
+        <div>
+          <p class="bloom-kicker">Latest reading</p>
+          <h2 id="rings-title">Move, exercise, stand.</h2>
+        </div>
+        {#if latestRingDay}<span>{formatDateOnly(latestRingDay.day)}</span>{/if}
+      </div>
+      <RingGauge rings={ringData} />
+    </section>
+  {/if}
+
   <nav class="bloom-tabs" aria-label="Aggregation interval">
     {#each ["day", "month", "year"] as option}
       <button
@@ -81,23 +109,23 @@
         </p>
       {/if}
     </div>
-    <div
-      class="growth-field"
-      role="img"
-      aria-label="Steps across observed periods"
-    >
-      {#each chrono as period}
-        <div
-          class="growth-stem"
-          title={`${period.label}: ${number(period.steps)} steps`}
-        >
-          <i
-            style={`height: ${Math.max(3, ((period.steps ?? 0) / maxSteps) * 100)}%`}
-          ></i>
-          <small>{period.label}</small>
-        </div>
-      {/each}
-    </div>
+    <BarChart
+      categories={chrono.map((period) => period.label)}
+      primary={{
+        name: "Steps",
+        values: chrono.map((period) => period.steps),
+        formatter: (value) => value.toLocaleString(),
+      }}
+      secondary={{
+        name: "Move closure",
+        values: chrono.map((period) => period.moveClosedPct),
+        formatter: (value) => `${value}%`,
+      }}
+      onBarClick={drillable ? onDrillIndex : undefined}
+    />
+    {#if drillable}
+      <p class="drill-hint">Click a bar to zoom in.</p>
+    {/if}
   </section>
 
   <div class="bloom-notes">
@@ -145,7 +173,12 @@
         >
         <tbody>
           {#each [...chrono].reverse() as period}
-            <tr>
+            <tr
+              class:drillable
+              onclick={drillable
+                ? () => onDrillPeriod(period.period)
+                : undefined}
+            >
               <td>{period.label}</td>
               <td>{number(period.steps)}</td>
               <td>{number(period.distance, 1)} km</td>
@@ -257,6 +290,12 @@
   .bloom-ledger {
     padding: clamp(1.25rem, 3vw, 2rem);
   }
+  .rings-panel {
+    margin-top: 1.5rem;
+  }
+  .rings-panel :global(.ring-gauge) {
+    margin-top: 1.25rem;
+  }
   .panel-heading,
   .bloom-ledger header {
     display: flex;
@@ -274,40 +313,6 @@
     font-style: italic;
     font-size: 1.4rem;
     font-weight: 400;
-  }
-  .growth-field {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0.85rem, 1fr));
-    align-items: end;
-    gap: 0.5rem;
-    height: 17rem;
-    margin-top: 1.5rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .growth-stem {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    height: 100%;
-    min-width: 0;
-  }
-  .growth-stem i {
-    display: block;
-    width: 62%;
-    min-height: 0.3rem;
-    margin: 0 auto;
-    border-radius: 999px 999px 0.2rem 0.2rem;
-    background: linear-gradient(180deg, var(--accent), var(--accent-2));
-  }
-  .growth-stem small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 650;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .bloom-notes {
     display: grid;
@@ -372,6 +377,18 @@
   }
   td:first-child {
     color: var(--accent);
+    font-style: italic;
+  }
+  tr.drillable {
+    cursor: pointer;
+  }
+  tr.drillable:hover td {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+  .drill-hint {
+    margin: -0.5rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
     font-style: italic;
   }
   .bloom-source {

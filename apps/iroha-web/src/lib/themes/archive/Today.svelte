@@ -1,6 +1,16 @@
 <script lang="ts">
-  import type { Activity, DailyRow, SleepSession } from "$lib/api";
-  import { formatDistance, formatDuration, formatPace } from "$lib/format";
+  import type {
+    Activity,
+    DailyRow,
+    MediaHomeEvent,
+    SleepSession,
+  } from "$lib/api";
+  import {
+    formatDistance,
+    formatDuration,
+    formatPace,
+    mediaEventVerb,
+  } from "$lib/format";
 
   let {
     dayLabel,
@@ -8,12 +18,14 @@
     dRow,
     mainNight,
     acts,
+    mediaEvents,
   }: {
     dayLabel: string;
     day: string;
     dRow: DailyRow | undefined;
     mainNight: SleepSession | undefined;
     acts: Activity[];
+    mediaEvents: MediaHomeEvent[];
   } = $props();
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -212,6 +224,42 @@
       <p class="folio-empty">
         No movement sessions were recorded for this date.
       </p>
+    {/if}
+  </section>
+
+  <section class="folio-sessions">
+    <header>
+      <div>
+        <p class="folio-kicker">Media touched today</p>
+        <h2>Today's accessions</h2>
+      </div>
+      <span>{mediaEvents.length} entries</span>
+    </header>
+    {#if mediaEvents.length}
+      <ul class="folio-media-list">
+        {#each mediaEvents as event (event.id)}
+          <li>
+            <a class="folio-media-row" href={`/library/${event.media_id}`}>
+              {#if event.cover_image_url}
+                <img src={event.cover_image_url} alt="" loading="lazy" />
+              {:else}
+                <span class="folio-media-thumb" aria-hidden="true"
+                  >{(event.native_title || event.title).slice(0, 1)}</span
+                >
+              {/if}
+              <span class="folio-media-copy">
+                <strong>{event.native_title || event.title}</strong>
+                <span>{mediaEventVerb(event)}</span>
+              </span>
+              {#if event.rating != null}<span class="folio-media-score"
+                  >{event.rating.toFixed(1)}</span
+                >{/if}
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="folio-empty">No media events were recorded for this date.</p>
     {/if}
   </section>
 
@@ -421,6 +469,58 @@
   .folio-empty {
     margin-top: 1rem;
     color: var(--text-muted);
+  }
+  .folio-media-list {
+    display: grid;
+    gap: 0.6rem;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .folio-media-row {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+    color: var(--text);
+  }
+  .folio-media-row:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .folio-media-row img,
+  .folio-media-thumb {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 4px;
+    object-fit: cover;
+  }
+  .folio-media-thumb {
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    color: var(--accent);
+    font-weight: 800;
+  }
+  .folio-media-copy {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .folio-media-copy strong {
+    overflow: hidden;
+    font-family: var(--font-serif);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .folio-media-copy span {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .folio-media-score {
+    color: var(--accent);
+    font-weight: 700;
   }
   .core-log {
     display: flex;

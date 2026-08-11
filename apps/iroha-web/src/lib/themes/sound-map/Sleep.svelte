@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SleepSession } from "$lib/api";
-  import { formatDateOnly, formatDuration } from "$lib/format";
+  import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
+  import BarChart from "$lib/components/BarChart.svelte";
 
   let {
     sessions,
@@ -16,17 +17,12 @@
     onSelect: (session: SleepSession) => void;
   } = $props();
 
-  const max = $derived(
-    Math.max(1, ...sessions.map((session) => session.asleep_s)),
+  const chartSessions = $derived([...sessions].reverse());
+  const activeChartIndex = $derived(
+    selected
+      ? chartSessions.findIndex((session) => session.id === selected.id)
+      : null,
   );
-
-  // Each night becomes one bar in a waveform strip: bar height is time
-  // asleep (the amplitude), and a small cap marks efficiency -- the same
-  // peak-hold indicator a hardware level meter draws above its bar. Two real
-  // numbers, one waveform, instead of a decorative sine.
-  function capOffset(session: SleepSession): number {
-    return Math.max(0, Math.min(1, session.efficiency)) * 100;
-  }
 </script>
 
 <section class="mix-sleep" aria-labelledby="mix-sleep-title">
@@ -67,24 +63,25 @@
       <span>bar = time asleep · cap = efficiency</span>
     </header>
     {#if sessions.length}
-      <div
-        class="mix-bars"
-        role="img"
-        aria-label="Asleep duration by recorded night, with efficiency marked as a cap"
-      >
-        {#each sessions.slice(0, 28).reverse() as session (session.id)}
-          <button
-            class:active={selected?.id === session.id}
-            title={`${formatDateOnly(session.wake_date)} · ${formatDuration(session.asleep_s)} asleep · ${Math.round(session.efficiency * 100)}% efficient`}
-            onclick={() => onSelect(session)}
-          >
-            <i style={`height: ${Math.max(3, (session.asleep_s / max) * 100)}%`}
-            ></i>
-            <em style={`bottom: ${capOffset(session)}%`}></em>
-            <small>{formatDateOnly(session.wake_date)}</small>
-          </button>
-        {/each}
-      </div>
+      <BarChart
+        categories={chartSessions.map((session) =>
+          formatDateShort(session.wake_date),
+        )}
+        primary={{
+          name: "Asleep",
+          values: chartSessions.map((session) => session.asleep_s),
+          formatter: (value) => formatDuration(value),
+        }}
+        secondary={{
+          name: "Efficiency",
+          values: chartSessions.map((session) =>
+            Math.round(session.efficiency * 100),
+          ),
+          formatter: (value) => `${value}%`,
+        }}
+        activeIndex={activeChartIndex}
+        onBarClick={(index) => onSelect(chartSessions[index])}
+      />
     {:else}
       <p class="mix-empty">No sleep sessions were recorded.</p>
     {/if}
@@ -242,55 +239,6 @@
     color: var(--text-muted);
     font-size: 0.7rem;
     text-align: right;
-  }
-  .mix-bars {
-    display: flex;
-    align-items: end;
-    gap: 0.35rem;
-    height: 16rem;
-    margin-top: 1.4rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .mix-bars button {
-    position: relative;
-    display: grid;
-    flex: 1 1 0;
-    grid-template-rows: 1fr auto;
-    align-items: end;
-    min-width: 0.6rem;
-    height: 100%;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-  }
-  .mix-bars i {
-    display: block;
-    width: 72%;
-    min-height: 0.2rem;
-    margin: 0 auto;
-    background: var(--accent);
-    opacity: 0.6;
-  }
-  .mix-bars em {
-    position: absolute;
-    left: 14%;
-    width: 72%;
-    height: 2px;
-    background: var(--accent-2);
-    opacity: 0.85;
-    font-style: normal;
-  }
-  .mix-bars button.active i,
-  .mix-bars button:hover i {
-    opacity: 1;
-  }
-  .mix-bars small {
-    overflow: hidden;
-    margin-top: 0.5rem;
-    font-size: 0.54rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .mix-empty {
     margin-top: 1.4rem;

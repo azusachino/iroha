@@ -1,6 +1,16 @@
 <script lang="ts">
-  import type { Activity, DailyRow, SleepSession } from "$lib/api";
-  import { formatDistance, formatDuration, formatPace } from "$lib/format";
+  import type {
+    Activity,
+    DailyRow,
+    MediaHomeEvent,
+    SleepSession,
+  } from "$lib/api";
+  import {
+    formatDistance,
+    formatDuration,
+    formatPace,
+    mediaEventVerb,
+  } from "$lib/format";
 
   let {
     dayLabel,
@@ -8,12 +18,14 @@
     dRow,
     mainNight,
     acts,
+    mediaEvents,
   }: {
     dayLabel: string;
     day: string;
     dRow: DailyRow | undefined;
     mainNight: SleepSession | undefined;
     acts: Activity[];
+    mediaEvents: MediaHomeEvent[];
   } = $props();
 
   function number(value: number | null | undefined, digits = 0): string {
@@ -153,6 +165,42 @@
       <p class="journal-empty">
         No movement session was recorded for this date.
       </p>
+    {/if}
+  </section>
+
+  <section class="session-entry">
+    <div class="session-heading">
+      <div>
+        <p class="journal-kicker">04 · media notes</p>
+        <h2>Media remembered</h2>
+      </div>
+      <span>{mediaEvents.length} recorded</span>
+    </div>
+    {#if mediaEvents.length}
+      <ul class="journal-media-list">
+        {#each mediaEvents as event (event.id)}
+          <li>
+            <a class="journal-media-row" href={`/library/${event.media_id}`}>
+              {#if event.cover_image_url}
+                <img src={event.cover_image_url} alt="" loading="lazy" />
+              {:else}
+                <span class="journal-media-thumb" aria-hidden="true"
+                  >{(event.native_title || event.title).slice(0, 1)}</span
+                >
+              {/if}
+              <span class="journal-media-copy">
+                <strong>{event.native_title || event.title}</strong>
+                <span>{mediaEventVerb(event)}</span>
+              </span>
+              {#if event.rating != null}<span class="journal-media-score"
+                  >{event.rating.toFixed(1)}</span
+                >{/if}
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="journal-empty">No media event was recorded for this date.</p>
     {/if}
   </section>
 
@@ -385,6 +433,57 @@
   }
   .journal-empty {
     color: var(--text-muted);
+  }
+  .journal-media-list {
+    display: grid;
+    gap: 0.6rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .journal-media-row {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+    color: var(--text);
+  }
+  .journal-media-row:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .journal-media-row img,
+  .journal-media-thumb {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 4px;
+    object-fit: cover;
+  }
+  .journal-media-thumb {
+    display: grid;
+    place-items: center;
+    background: var(--surface-2);
+    color: var(--accent);
+    font-weight: 800;
+  }
+  .journal-media-copy {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .journal-media-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .journal-media-copy span {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .journal-media-score {
+    color: var(--accent);
+    font-weight: 700;
   }
   .journal-source {
     display: flex;

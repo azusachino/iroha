@@ -1,5 +1,11 @@
 <script lang="ts">
-  import type { Activity, RouteFeatureCollection, Summary } from "$lib/api";
+  import { goto } from "$app/navigation";
+  import type {
+    Activity,
+    MediaAggregates,
+    RouteFeatureCollection,
+    Summary,
+  } from "$lib/api";
   import { formatDistance, formatDuration, formatDate } from "$lib/format";
   import { sportColor, sportLabel } from "$lib/sport";
   // The geography panel reuses the shared RoutesMap (maplibre) component
@@ -21,6 +27,8 @@
     routesLoading,
     routesError,
     onLoadRoutes,
+    sleepSummary,
+    mediaAggregates,
   }: {
     summary: Summary | null;
     activities: Activity[];
@@ -32,6 +40,12 @@
     routesLoading: boolean;
     routesError: string | null;
     onLoadRoutes: () => void;
+    sleepSummary: {
+      averageAsleepS: number;
+      averageEfficiency: number;
+      nightCount: number;
+    };
+    mediaAggregates: MediaAggregates | null;
   } = $props();
 
   // A per-sport spectrum: each recorded sport becomes one band, height set
@@ -51,6 +65,10 @@
       color: sportColor(bucket.key),
     }));
   });
+
+  function openSport(sportKey: string) {
+    void goto(`/motion?sport=${encodeURIComponent(sportKey)}`);
+  }
 </script>
 
 <section class="mix-dashboard" aria-labelledby="mix-dashboard-title">
@@ -90,6 +108,17 @@
       </div>
       <div>
         <span>Routes</span><strong>{routes?.features.length ?? "—"}</strong>
+      </div>
+      <div>
+        <span>Sleep · {sleepSummary.nightCount} nights</span><strong
+          >{sleepSummary.nightCount
+            ? formatDuration(sleepSummary.averageAsleepS)
+            : "—"}</strong
+        >
+      </div>
+      <div>
+        <span>Media · {mediaAggregates?.totals.item_count ?? "—"} items</span
+        ><strong>{mediaAggregates?.totals.completed_count ?? "—"}</strong>
       </div>
     </div>
 
@@ -133,12 +162,17 @@
                 .join(", ")}`}
             >
               {#each spectrum as band (band.key)}
-                <div class="spectrum-band">
+                <button
+                  type="button"
+                  class="spectrum-band"
+                  title={`View ${sportLabel(band.key)} activities`}
+                  onclick={() => openSport(band.key)}
+                >
                   <i
                     style={`height: ${Math.max(4, band.pct)}%; background: ${band.color};`}
                   ></i>
                   <small>{sportLabel(band.key)}</small>
-                </div>
+                </button>
               {/each}
             </div>
           {:else}
@@ -239,7 +273,7 @@
   }
   .mix-stats {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
@@ -331,6 +365,17 @@
     align-items: end;
     height: 100%;
     min-width: 0;
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+  }
+  .spectrum-band:hover i {
+    filter: brightness(1.2);
+  }
+  .spectrum-band:hover small {
+    color: var(--text);
   }
   .spectrum-band i {
     display: block;
@@ -384,10 +429,10 @@
     .mix-stats {
       grid-template-columns: repeat(2, 1fr);
     }
-    .mix-stats div:nth-child(2) {
+    .mix-stats div:nth-child(even) {
       border-right: 0;
     }
-    .mix-stats div:nth-child(-n + 2) {
+    .mix-stats div:not(:nth-last-child(-n + 2)) {
       border-bottom: 1px solid var(--border);
     }
     .mix-panel + .mix-panel,

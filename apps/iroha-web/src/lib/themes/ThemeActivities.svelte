@@ -7,6 +7,7 @@
     formatPace,
   } from "$lib/format";
   import { sportLabel } from "$lib/sport";
+  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
 
   export type ActivitiesVariant =
     "atlas" | "field-journal" | "phenology" | "sound-map" | "archive";
@@ -82,26 +83,15 @@
           >{/each}</select
       ></label
     >
-    <label
-      >Year<select
-        value={selectedYear}
-        onchange={(event) =>
-          onYear((event.currentTarget as HTMLSelectElement).value)}
-        ><option value="">All years</option>{#each years as year}<option
-            value={year}>{year}</option
-          >{/each}</select
-      ></label
-    >
-    <label
-      >Month<select
-        value={selectedMonth}
-        onchange={(event) =>
-          onMonth((event.currentTarget as HTMLSelectElement).value)}
-        ><option value="">All months</option>{#each months as month}<option
-            value={month.value}>{month.label}</option
-          >{/each}</select
-      ></label
-    >
+    <PeriodSelector
+      year={selectedYear}
+      month={selectedMonth}
+      {years}
+      {months}
+      monthDisabled={!selectedYear}
+      {onYear}
+      {onMonth}
+    />
   </div>
   {#if loading && activities.length === 0}<p class="activity-status">
       Loading the movement record…
@@ -122,7 +112,7 @@
           {#each activities as activity}
             <tr
               ><td>{formatDateOnly(activity.started_at)}</td><td
-                ><a href={`/activities/${activity.id}`}
+                ><a href={`/motion/${activity.id}`}
                   >{activity.title || sportLabel(activity.sport_type)}</a
                 ></td
               ><td>{sportLabel(activity.sport_type)}</td><td

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { replaceState } from "$app/navigation";
   import { onMount, untrack } from "svelte";
+  import { page } from "$app/state";
   import {
     getActivitySummary,
     listActivities,
@@ -26,9 +28,16 @@
 
   // Draft filter inputs (bound to the form); committed to `applied` on submit
   // so "Load more" keeps paging the same query the user actually ran.
-  let sportType = $state("");
-  let selectedYear = $state("");
-  let selectedMonth = $state("");
+  const initialSport = page.url.searchParams.get("sport") ?? "";
+  const initialYearParam = page.url.searchParams.get("year") ?? "";
+  const initialYear = /^\d{4}$/.test(initialYearParam) ? initialYearParam : "";
+  const initialMonthParam = page.url.searchParams.get("month") ?? "";
+  const initialMonth = /^(?:[1-9]|1[0-2])$/.test(initialMonthParam)
+    ? initialMonthParam
+    : "";
+  let sportType = $state(initialSport);
+  let selectedYear = $state(initialYear);
+  let selectedMonth = $state(initialMonth);
   let applied = $state<ListActivitiesParams>({});
 
   let activities = $state<Activity[]>([]);
@@ -69,6 +78,22 @@
     if (!selectedYear) {
       selectedMonth = "";
     }
+    syncUrl();
+  }
+
+  function handleMonthChange() {
+    syncUrl();
+  }
+
+  function syncUrl() {
+    const url = new URL(page.url);
+    if (sportType) url.searchParams.set("sport", sportType);
+    else url.searchParams.delete("sport");
+    if (selectedYear) url.searchParams.set("year", selectedYear);
+    else url.searchParams.delete("year");
+    if (selectedMonth) url.searchParams.set("month", selectedMonth);
+    else url.searchParams.delete("month");
+    if (url.search !== page.url.search) replaceState(url, page.state);
   }
 
   // Smaller first page than the server's 50 default — lighter initial paint,
@@ -135,6 +160,7 @@
     selectedMonth = "";
     applied = {};
     cursor = null;
+    syncUrl();
     load(false);
   }
 
@@ -297,6 +323,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Motion · iroha</title>
+</svelte:head>
+
 <section class="activities-shell">
   {#if hasThemeRoute(theme.definition(), "activities")}
     <ThemeRouteRenderer
@@ -314,12 +344,18 @@
         error,
         hasMore,
         loadingMore,
-        onSportType: (value: string) => (sportType = value),
+        onSportType: (value: string) => {
+          sportType = value;
+          syncUrl();
+        },
         onYear: (value: string) => {
           selectedYear = value;
           handleYearChange();
         },
-        onMonth: (value: string) => (selectedMonth = value),
+        onMonth: (value: string) => {
+          selectedMonth = value;
+          handleMonthChange();
+        },
         onLoadMore: () => void load(true),
       }}
     />
@@ -413,7 +449,7 @@
           <li>
             <a
               class="activity-card tile tile-interactive"
-              href={`/activities/${activity.id}`}
+              href={`/motion/${activity.id}`}
               style={`--sport-color: ${sportColor(activity.sport_type)}`}
             >
               <span class="accent" aria-hidden="true"></span>

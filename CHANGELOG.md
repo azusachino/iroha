@@ -5,9 +5,35 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
-## [Unreleased]
+## [0.3.0] — 2026-08-11
 
-No unreleased changes.
+### Fixed
+
+- The favicon/app icon was only ever wired through a client-hydrated `<link rel="icon">` in `+layout.svelte`, so bookmarks, "Add to Home Screen", and a direct `/favicon.ico` request all missed it.
+  Both `iroha-web` and `iroha-public-site` now ship a real `favicon.ico`/`favicon.svg`, `apple-touch-icon.png`, and a web manifest, linked directly in `app.html`.
+- The Dashboard's route footprint required an explicit "Load route footprint" click before it would render, a 2026-08-04 change that turned out to be the wrong call. It loads automatically again on
+  page load, same as the rest of the Dashboard's data.
+- The Night page's daily bar chart rendered every date label as an identical, truncated `2026-0…` in the atlas, field-journal, and sound-map themes, since a full `yyyy-MM-dd` never fit a narrow
+  per-bar slot. Labels now use a short `Aug 4` form; the full date remains available on hover.
+- sound-map Dashboard's sport-breakdown legend truncated long category names (`FitnessGaming`, `High Intensity Interval Training`) with no way to see the full name; each band now exposes it via
+  `title` on hover.
+
+### Added
+
+- The Dashboard's sport-breakdown chart (archive's "Sessions by sport", sound-map's "Sessions by band") is now clickable — both the bar and its legend row navigate to `/activities?sport=<key>`,
+  landing on the Activities list pre-filtered to that sport.
+- Today and Overview only ever reflected activity data across all six curated themes, even though sleep and media have been part of the product for a while. Overview's stats row now includes Sleep
+  (recent average asleep time) and Media (completed count) alongside distance/activities/time/routes. Today now shows a Media section (mirroring the existing Activities section) — the underlying
+  briefing API already returned media events, but the curated themes' Today components never received them as a prop.
+- The Patterns page's Apple Health Move/Exercise/Stand rings were only ever wired into the ungated fallback theme, not any of the six curated themes — they showed a generic step chart with no
+  recognizable ring visualization. Added a rings hero (reusing the same `RingGauge` component) to the top of all six themes' Patterns page.
+- Replaced the hand-rolled, non-interactive SVG/div bar charts on the Patterns and Night pages (all six themes, 12 chart instances) with a new shared `BarChart` component built on the same ECharts stack
+  `LineChart` already used elsewhere — every chart now has a real hover tooltip and, on Night, click-to-select. Each theme keeps its own accent color and bar orientation; move-goal-closure and
+  sleep-efficiency, previously encoded only as an ambiguous bar-color gradient, are now a proper secondary line series visible in the tooltip.
+- Every media item's `description` has always been empty — no AniList/Bangumi provider ever wrote to it, so every media detail page across every theme showed the same generic fallback text. AniList
+  sync now fetches `description(asHtml:false)` and writes it to `tb_media_works.description` on both create and reconcile; the frontend renders it with `white-space: pre-line` so paragraph breaks
+  survive instead of running into one wall of text. Bangumi's collection API doesn't include summaries at all (it needs a separate per-subject detail call, a bigger N+1-shaped change) —
+  Bangumi-sourced items still show the fallback, tracked as a follow-up.
 
 ## [0.2.0] — 2026-08-05
 
@@ -171,7 +197,8 @@ sanitized-public read surfaces on top.
 - Geocode retry storms now back off instead of hammering Nominatim on rate-limit responses.
 - Local stack startup sequencing (dependencies before app containers, migrations before server).
 
-[Unreleased]: https://github.com/azusachino/iroha/compare/v0.1.4...HEAD
+[0.3.0]: https://github.com/azusachino/iroha/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/azusachino/iroha/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/azusachino/iroha/compare/v0.1.1...v0.1.4
 [0.1.1]: https://github.com/azusachino/iroha/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/azusachino/iroha/releases/tag/v0.1.0
