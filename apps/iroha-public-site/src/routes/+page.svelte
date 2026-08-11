@@ -3,8 +3,6 @@
   import { untrack } from "svelte";
   import {
     getCoreRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
     type ColumnDef,
     type SortingState,
   } from "@tanstack/table-core";
@@ -24,6 +22,7 @@
     formatPace,
     formatSport,
   } from "$lib/format";
+  import { site } from "$lib/site";
   import { sportColor } from "$lib/sport";
   import type { Activity } from "$lib/types";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
@@ -36,7 +35,6 @@
   import type { PageProps } from "./$types";
 
   let { data }: PageProps = $props();
-  const summary = $derived(data.summary);
   const activities = $derived(data.activities);
   const routes = $derived(data.routes);
   const meta = $derived(data.meta);
@@ -81,14 +79,16 @@
     return `${url.pathname}${url.search}`;
   }
 
-  function selectYear(year: string) {
+  function selectYear(year: string | null) {
     selectedYear = year;
     cityFilter = null;
+    pageIndex = 0;
   }
 
   function toggleSport(sport: string) {
     sportFilter = sportFilter === sport ? null : sport;
     cityFilter = null;
+    pageIndex = 0;
   }
 
   function toggleCity(city: string) {
@@ -168,8 +168,42 @@
       : "activity_count",
   );
 
+  const sportBuckets = $derived.by(() => {
+    const buckets = new Map<
+      string,
+      {
+        key: string;
+        activity_count: number;
+        distance_m: number;
+        duration_s: number;
+        moving_time_s: number;
+      }
+    >();
+    for (const activity of filterByYearAndSport(
+      activities,
+      selectedYear,
+      null,
+    )) {
+      const bucket = buckets.get(activity.sport_type) ?? {
+        key: activity.sport_type,
+        activity_count: 0,
+        distance_m: 0,
+        duration_s: 0,
+        moving_time_s: 0,
+      };
+      bucket.activity_count += 1;
+      bucket.distance_m += activity.distance_m ?? 0;
+      bucket.duration_s += activity.duration_s ?? 0;
+      bucket.moving_time_s += activity.moving_time_s ?? 0;
+      buckets.set(activity.sport_type, bucket);
+    }
+    return Array.from(buckets.values()).sort(
+      (a, b) => b.activity_count - a.activity_count,
+    );
+  });
+
   const sportMax = $derived(
-    Math.max(1, ...summary.by_sport.map((s) => s.activity_count)),
+    Math.max(1, ...sportBuckets.map((s) => s.activity_count)),
   );
 
   // --- Routes & cities ---
@@ -207,6 +241,8 @@
   );
 
   let sorting = $state<SortingState>([{ id: "started_at", desc: true }]);
+  const pageSize = 20;
+  let pageIndex = $state(0);
 
   const columns: ColumnDef<Activity>[] = [
     { accessorKey: "started_at", id: "started_at", header: "Date" },
@@ -237,19 +273,44 @@
       sorting = typeof updater === "function" ? updater(sorting) : updater;
     },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 20 } },
   });
+
+  const sortedActivities = $derived.by(() => {
+    const rows = [...filteredActivities];
+    const sort = sorting[0];
+    if (!sort) return rows;
+    const numeric = ["distance_m", "avg_pace_s_per_km"].includes(sort.id);
+    const key = sort.id as keyof Activity;
+    rows.sort((a, b) => {
+      const left = numeric ? Number(a[key] ?? -Infinity) : String(a[key] ?? "");
+      const right = numeric
+        ? Number(b[key] ?? -Infinity)
+        : String(b[key] ?? "");
+      const result = left < right ? -1 : left > right ? 1 : 0;
+      return sort.desc ? -result : result;
+    });
+    return rows;
+  });
+
+  const pageCount = $derived(
+    Math.max(1, Math.ceil(sortedActivities.length / pageSize)),
+  );
+  const visibleActivities = $derived(
+    sortedActivities.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
+  );
+
+  function setPage(nextPage: number) {
+    pageIndex = Math.max(0, Math.min(pageCount - 1, nextPage));
+  }
 </script>
 
 <svelte:head>
-  <title>iroha · public archive</title>
+  <title>{site.name} {site.byline} · public archive</title>
 </svelte:head>
 
 <header class="hero tile">
   <div class="hero-topline">
-    <p class="eyebrow">A window into the archive</p>
+    <p class="eyebrow">{site.name} {site.byline}</p>
     <ThemeToggle />
   </div>
   <h1>The shape of the miles.</h1>
@@ -282,6 +343,13 @@
 
     {#if years.length > 0}
       <nav class="year-tabs" aria-label="Select year">
+        <button
+          type="button"
+          class:active={selectedYear === null}
+          onclick={() => selectYear(null)}
+        >
+          All
+        </button>
         {#each years as year (year)}
           <button
             type="button"
@@ -312,10 +380,12 @@
       {/if}
     {/if}
 
-    {#if summary.by_sport.length > 0}
+    {#if sportBuckets.length > 0}
       <section class="tile by-sport">
-        <div class="section-kicker">All-time by sport</div>
-        {#each summary.by_sport as sport (sport.key)}
+        <div class="section-kicker">
+          {selectedYear ? `${selectedYear} by sport` : "All-time by sport"}
+        </div>
+        {#each sportBuckets as sport (sport.key)}
           <button
             type="button"
             class="sport-row"
@@ -350,7 +420,7 @@
       {/if}
     </section>
 
-    {#if routes.features.length === 0}
+    {#if filteredRoutes.length === 0}
       <p class="muted">No routes recorded yet.</p>
     {:else}
       <div class="routes-grid">
@@ -442,8 +512,7 @@
             {/each}
           </thead>
           <tbody>
-            {#each table.getRowModel().rows as row (row.id)}
-              {@const activity = row.original}
+            {#each visibleActivities as activity (activity.id)}
               <tr>
                 <td class="nowrap">
                   <a class="activity-link" href={activityHref(activity.id)}>
@@ -492,22 +561,22 @@
             {/each}
           </tbody>
         </table>
-        {#if table.getPageCount() > 1}
+        {#if pageCount > 1}
           <div class="pager">
             <button
               type="button"
-              disabled={!table.getCanPreviousPage()}
-              onclick={() => table.previousPage()}
+              disabled={pageIndex === 0}
+              onclick={() => setPage(pageIndex - 1)}
             >
               Previous
             </button>
             <span class="muted small">
-              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+              Page {pageIndex + 1} of {pageCount}
             </span>
             <button
               type="button"
-              disabled={!table.getCanNextPage()}
-              onclick={() => table.nextPage()}
+              disabled={pageIndex >= pageCount - 1}
+              onclick={() => setPage(pageIndex + 1)}
             >
               Next
             </button>
