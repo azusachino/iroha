@@ -783,11 +783,6 @@ func persistMediaEvents(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, m
 		if unchanged {
 			continue
 		}
-		eventAt := event.EventAt
-		if eventAt == nil {
-			now := time.Now().UTC()
-			eventAt = &now
-		}
 		id, err := ids.New()
 		if err != nil {
 			return err
@@ -796,7 +791,7 @@ func persistMediaEvents(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, m
 			ID:              id,
 			MediaItemID:     itemID,
 			EventType:       event.EventType,
-			EventAt:         eventAt,
+			EventAt:         event.EventAt,
 			SourceKind:      rawFile.SourceKind,
 			SourceEventID:   event.SourceEventID,
 			Unit:            event.Unit,
@@ -833,9 +828,13 @@ func latestEventUnchanged(tx *gorm.DB, itemID uuid.UUID, sourceKind string, even
 	if err != nil {
 		return false, err
 	}
-	return floatPtrEqual(existing.Position, event.Position) &&
+	return timePtrEqual(existing.EventAt, event.EventAt) &&
+		existing.Unit == event.Unit &&
+		floatPtrEqual(existing.Position, event.Position) &&
+		floatPtrEqual(existing.Total, event.Total) &&
 		floatPtrEqual(existing.Rating, event.Rating) &&
 		floatPtrEqual(existing.ProgressPercent, event.ProgressPercent) &&
+		floatPtrEqual(existing.RatingScale, event.RatingScale) &&
 		existing.Note == event.Note, nil
 }
 
@@ -902,6 +901,13 @@ func floatPtrEqual(a, b *float64) bool {
 		return a == b
 	}
 	return *a == *b
+}
+
+func timePtrEqual(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
 }
 
 func itemRoleOrDefault(role string) string {

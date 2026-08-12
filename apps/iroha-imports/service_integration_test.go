@@ -285,6 +285,49 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	if got := countEvents(); got != 1 {
 		t.Fatalf("events after first sync = %d, want 1", got)
 	}
+	var storedEvent models.MediaConsumptionEvent
+	if err := db.Where("source_event_id = ?", "entry-A-"+suffix).First(&storedEvent).Error; err != nil {
+		t.Fatalf("load first media event: %v", err)
+	}
+	if storedEvent.EventAt != nil {
+		t.Fatalf("unknown list_state event_at = %v, want NULL", storedEvent.EventAt)
+	}
+	baseEvent := observations.MediaEvent{
+		EventType: "list_state", SourceEventID: "entry-A-" + suffix,
+		Unit: "episodes", Position: float64Ptr(12),
+	}
+	unchanged, err := latestEventUnchanged(db, storedEvent.MediaItemID, "anilist", baseEvent)
+	if err != nil || !unchanged {
+		t.Fatalf("unchanged event comparison = %v, %v; want true, nil", unchanged, err)
+	}
+	changedEvents := []struct {
+		name   string
+		mutate func(*observations.MediaEvent)
+	}{
+		{name: "event_at", mutate: func(event *observations.MediaEvent) {
+			at := time.Date(2026, time.August, 12, 10, 0, 0, 0, time.UTC)
+			event.EventAt = &at
+		}},
+		{name: "unit", mutate: func(event *observations.MediaEvent) { event.Unit = "chapters" }},
+		{name: "total", mutate: func(event *observations.MediaEvent) { event.Total = float64Ptr(24) }},
+		{name: "progress_percent", mutate: func(event *observations.MediaEvent) { event.ProgressPercent = float64Ptr(50) }},
+		{name: "rating", mutate: func(event *observations.MediaEvent) { event.Rating = float64Ptr(8) }},
+		{name: "rating_scale", mutate: func(event *observations.MediaEvent) { event.RatingScale = float64Ptr(10) }},
+		{name: "note", mutate: func(event *observations.MediaEvent) { event.Note = "changed" }},
+	}
+	for _, test := range changedEvents {
+		t.Run("changed_"+test.name, func(t *testing.T) {
+			event := baseEvent
+			test.mutate(&event)
+			unchanged, err := latestEventUnchanged(db, storedEvent.MediaItemID, "anilist", event)
+			if err != nil {
+				t.Fatalf("compare changed event: %v", err)
+			}
+			if unchanged {
+				t.Fatal("changed event was treated as unchanged")
+			}
+		})
+	}
 
 	// Re-sync unchanged (new raw file, not reprocess): must NOT append a duplicate event.
 	persist("a2", mediaA(12), false)
