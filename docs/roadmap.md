@@ -212,10 +212,10 @@ ontology expansion and cross-provider resolution.
 
 ## Release 0.4: Expense Ledger
 
-Goal: capture lightweight personal expenses from Telegram or another external client, then report them beside the existing activity, night, and media aggregates without making iroha own a bot.
+Goal: capture lightweight personal expenses from the local agent client, then report them beside the existing activity, night, and media aggregates without making iroha own a bot.
 
-The client boundary follows Milestone 6: Telegram and local agent CLIs are independent external clients, while iroha owns deterministic validation, idempotency, canonical records, corrections, and
-read/report APIs.
+The client boundary follows Milestone 6: local agent CLIs are external clients, while iroha owns deterministic validation, idempotency, canonical records, corrections, and read/report APIs. Suzuran's
+expense feature is not part of this release.
 
 Implementation plan v3: [Expense Ledger implementation plan](plans/2026-08-12-expense-ledger.md).
 
@@ -224,7 +224,7 @@ Cross-domain reporting plan: [Monthly report plan](plans/2026-08-12-periodic-rep
 First vertical slice:
 
 - Define a canonical `tb_expenses` record with amount, currency, occurred-at date, category, merchant, optional items, and source identity.
-- Add deterministic create/list/update/delete APIs for independent Telegram and local-agent clients; accept canonical JSON only.
+- Add deterministic create/list/update/delete APIs for the local agent client; accept canonical JSON only. A future Telegram client is outside v0.4.
 - Use source identity for safe retries and tombstone deletion; do not add an Iroha agent/OCR or confirmation workflow.
 - Add a separate monthly report API for expenses alongside activity, sleep, daily health, and media sections.
 - Add an Overview expense tile and report views without changing existing activity, night, daily-health, or media totals.
@@ -232,7 +232,7 @@ First vertical slice:
 
 Exit criteria:
 
-- Independent Telegram and local-agent clients can submit one canonical expense and safely retry without duplication.
+- A local agent client can submit one canonical expense and safely retry without duplication; any future Telegram client is a separate follow-up.
 - A user can correct or undo an expense and see the result reflected in the cross-domain monthly report.
 - Domain and cross-domain totals are covered by API and database tests across timezone, currency, retry, and empty-period cases.
 - The private UI and API make the expense boundary clear, while the public projection remains expense-free by default.

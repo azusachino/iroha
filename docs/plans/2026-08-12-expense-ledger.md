@@ -6,14 +6,15 @@
 
 Iroha is a deterministic canonical data service. It accepts structured expense JSON, validates it, stores it, deduplicates it, and serves deterministic lists, aggregates, and reports.
 
-There are two independent clients:
+Iroha is the central personal-data cockpit. Expense storage and reporting belong to Iroha; no Telegram bot or companion service owns an expense domain.
+
+The current v0.4 client is the local agent CLI:
 
 ```text
-Telegram client -> canonical expense JSON -> Iroha API
 Local agent CLI -> canonical expense JSON -> Iroha API
 ```
 
-The Telegram client does not call the local agent. The local agent does not participate in Telegram conversations. A user may choose either client for the same stable API.
+Telegram is intentionally not a v0.4 expense client. A future client may use the same API, but it is outside this plan.
 
 For a local receipt workflow:
 
@@ -23,14 +24,21 @@ receipt.jpg -> local agent OCR/vision -> canonical JSON -> Iroha API
 
 OCR, model choice, temporary image files, and any optional preview/confirmation are client concerns. Iroha has no OCR worker, agent state machine, candidate model, or confirmation endpoint.
 
+## Suzuran boundary
+
+Suzuran's expense feature is explicitly abandoned for this initiative. It is not a migration target, not a report consumer, and not a second Iroha client for expenses.
+
+The existing Suzuran expense code and local table are an unadopted legacy implementation. This plan does not backfill it, preserve it, dual-write it, or add new behavior around it. Any future cleanup
+belongs to a separate Suzuran task. A future Telegram expense client, if desired, must be designed separately and call Iroha directly.
+
 ## Current decisions
 
 1. Iroha accepts canonical JSON only; it does not parse natural-language expense text.
-2. Telegram is a direct Iroha client for manual/typed expenses. It does not route expenses through an agent.
-3. The local agent is a separate direct Iroha client for receipt images and other local inputs.
+2. The local agent is a direct Iroha client for receipt images and other local inputs.
+3. A future Telegram client, if approved, is a separate direct Iroha client; it is not part of Suzuran's expense feature.
 4. Iroha does not require user confirmation. A client may offer a preview/confirmation mode, but the API accepts a valid canonical request directly.
 5. The v0.4 storage model is one `tb_expenses` table. There are no Iroha intake, candidate, revision, mutation, or OCR tables.
-6. That canonical `tb_expenses` table belongs to Iroha. Suzuran's existing table is legacy migration debt and is retired after backfill; it is not a second source of truth.
+6. That canonical `tb_expenses` table belongs to Iroha. Suzuran does not own, mirror, migrate, or report expenses.
 7. The required canonical fields are `occurred_on`, `currency`, `amount_minor`, `category`, and `source`. `merchant`, `note`, and `items` are optional.
 8. `amount_minor` is authoritative. `items` are descriptive receipt details and are not accounting line items.
 9. `(source.kind, source.ref)` is the create idempotency identity. An identical retry returns the existing record; a conflicting retry returns `409 Conflict`.
@@ -41,13 +49,13 @@ OCR, model choice, temporary image files, and any optional preview/confirmation 
 
 ## User stories
 
-### Telegram manual entry
+### Local agent entry
 
-As a user, I can send `/expense 1300 JPY food` and have Telegram submit a canonical expense without filling in a table.
+As a user, I can give a receipt image to a local agent and have it submit a canonical expense without filling in a table.
 
-As a user, I can optionally add a merchant, note, date, or item list through a short conversation.
+As a user, I can optionally review or edit the extracted merchant, note, date, or item list before submission.
 
-As a user, I can list expenses, see monthly totals, edit an expense, or undo it from Telegram.
+As a user, I can list expenses, see monthly totals, edit an expense, or undo it through a client using the Iroha API.
 
 ### Local agent receipt entry
 
@@ -55,7 +63,7 @@ As a user, I can give a receipt image to a local agent. The agent extracts field
 
 As a user, I can run the agent in preview mode before submission, but this is optional and is not an Iroha protocol step.
 
-As an operator, I can run the same extraction and submission workflow from a local CLI without Telegram.
+As an operator, I can run the same extraction and submission workflow from a local CLI.
 
 ### Deterministic ledger
 
@@ -71,8 +79,7 @@ In scope:
 - Deterministic create, list, get, update, delete, and aggregate APIs.
 - Source-based idempotency for external clients.
 - A local CLI for validating/submitting agent JSON and reading reports.
-- Telegram UX for direct manual entry, listing, correction, undo, and report commands.
-- One-time import of Suzuran's legacy rows into Iroha, followed by retirement of the old table and all direct local-ledger writes.
+- Client-neutral payloads and a local CLI for validation, submission, listing, correction, undo, and monthly reports.
 
 Out of scope for v0.4:
 
@@ -122,8 +129,8 @@ Content-Type: application/json
 - `merchant` and `note` are optional bounded strings. Empty strings normalize consistently to null or the database default.
 - `items` is optional. Each item has a required non-empty `name` and an optional non-negative `amount_minor`. Item amounts are descriptive and need not sum to the total because tax, discounts, tips,
   and rounding exist.
-- `source` is required. `kind` identifies the client (`telegram`, `local_agent`, `cli`, or `suzuran_legacy`); `ref` is an opaque stable identifier and must not contain a local filesystem path or
-  receipt contents.
+- `source` is required. `kind` identifies the client (`local_agent`, `cli`, or a separately approved future client); `ref` is an opaque stable identifier and must not contain a local filesystem path
+  or receipt contents.
 
 The top-level amount is always authoritative for reports. The item list is for display and later refinement, not double-entry accounting.
 
@@ -185,28 +192,28 @@ uv run python scripts/expense_cli.py delete exp_01k...
 For an image-aware local agent, the extractor and the Iroha client may be one command or two commands. That packaging choice is local and must not leak into the HTTP contract. The CLI uses
 `IROHA_API_BASE`, emits JSON by default, supports `--format table`, and never stores or prints receipt images.
 
-## Telegram UX: direct client
+## Optional future client UX
 
-Telegram does not call the local agent. It handles manual expense capture and sends canonical JSON to Iroha.
+Telegram/Suzuran is not part of the v0.4 implementation. If a separate client is approved later, it must submit canonical JSON directly to Iroha and must not introduce a second ledger.
 
-### Quick command
+### Example manual entry
 
 ```text
-/expense 1300 JPY food
+client command: expense 1300 JPY food
 ```
 
-Suzuran parses only this client command, obtains the current local date, and submits once required fields are present. Optional forms are:
+The client parses its own command, obtains the local date, and submits once required fields are present. Optional forms are:
 
 ```text
 /expense 1300 JPY food Ramen Shop
 /expense 1300 JPY food --date 2026-08-12 --merchant "Ramen Shop" --note "Lunch"
 ```
 
-The exact parser should remain small. If a value is ambiguous, Suzuran asks a focused follow-up question rather than sending prose to Iroha.
+The exact parser should remain small. If a value is ambiguous, the client asks a focused follow-up question rather than sending prose to Iroha.
 
 ### Guided entry
 
-`/expense` with no arguments starts a short conversation:
+An empty expense command may start a short conversation:
 
 1. Ask for amount and currency.
 2. Show category buttons.
@@ -217,38 +224,25 @@ A preview and `Save/Edit/Cancel` buttons are optional UX. They are not required 
 
 ### Listing and correction
 
-- `/expenses` shows today's active records and totals by currency.
-- `/expenses month` calls the cross-domain monthly report API described in the monthly reports plan.
+- A client may list active records and totals by currency.
+- A client may call the cross-domain monthly report API described in the monthly report plan.
 - Each row may offer `Edit` and `Undo`. Edit sends `PUT`; Undo sends `DELETE` after an optional client-side confirmation.
-- If Iroha returns `409`, Suzuran displays the existing canonical record instead of creating another.
-- If Iroha is unavailable, Suzuran may queue the already-canonical JSON locally and retry with the same `source.ref`; it must not write a second local ledger.
+- If Iroha returns `409`, the client displays the existing canonical record instead of creating another.
+- If Iroha is unavailable, the client may retry the already-canonical JSON with the same `source.ref`; it must not write a second local ledger.
 
 Telegram photo handling is not part of the agent workflow in v0.4. If a photo entry point is desired later, it should be designed as a separate Telegram-to-Iroha raw-evidence feature rather than
 silently coupling Telegram to the local agent.
-
-## Suzuran cutover
-
-Replace every direct local `tb_expenses` read/write path:
-
-- `src/suzuran/expenses.py`: commands call Iroha list/create/aggregate APIs.
-- `src/suzuran/callbacks.py`: undo calls Iroha delete.
-- `src/suzuran/scheduler.py`: subscription renewal creates an Iroha expense with `subscription:<subscription_id>:<renewal_date>` as the source reference.
-- `src/suzuran/briefing.py`: briefing and dashboard use Iroha's monthly report/expense APIs where appropriate.
-- `src/suzuran/iroha.py`: add typed expense client methods and retry/conflict handling.
-
-Before cutover, freeze Suzuran's legacy table for writes and backfill its rows with `source.kind = suzuran_legacy` and `source.ref = legacy:<old_numeric_id>`. Verify row counts and totals by
-currency/date. Switch all reads and writes to Iroha, then remove the legacy table in a later Suzuran migration. Do not dual-write or retain two ledgers indefinitely.
 
 ## Implementation slices
 
 1. **Canonical contract:** migration, runtime model/ID prefix, validation, create/list/get/update/delete service, source uniqueness, OpenAPI, and API tests.
 2. **Deterministic reporting:** implement the separate [monthly report plan](2026-08-12-periodic-reports.md) and expense aggregate section.
 3. **Thin CLI:** validate/submit/list/report/delete commands and JSON/table output tests.
-4. **Telegram direct UX:** quick command, guided fields, optional preview, list, edit, undo, and report commands.
-5. **Suzuran cutover:** client migration, subscription/briefing paths, legacy backfill, no-local-write assertion, and Telegram smoke tests.
+4. **Optional external client:** quick entry, guided fields, optional preview, list, edit, undo, and report commands, only if separately approved.
+5. **Optional external client:** implement a separate client only if approved; it must call Iroha directly and have no local expense storage.
 6. **Private UI and release hardening:** Overview expense representation, all-theme wiring, migration rehearsal, monitoring, docs, and v0.4 release note.
 
-Each slice must remain deterministic inside Iroha and must not depend on Telegram or a local agent being available.
+Each slice must remain deterministic inside Iroha and must not depend on a particular client being available.
 
 ## Verification
 
@@ -256,6 +250,6 @@ Each slice must remain deterministic inside Iroha and must not depend on Telegra
 - Test identical source retry, conflicting source retry (`409`), concurrent duplicate creates, updates, tombstones, and deleted filtering.
 - Test aggregates across date boundaries, currencies, categories, deleted rows, and empty periods.
 - Test OpenAPI and route inventory, public-export exclusion, cache invalidation, and CLI JSON/error behavior.
-- Test Telegram quick/guided parsing and client retry without involving an agent.
-- Test Suzuran backfill totals and assert no handler writes local `tb_expenses` after cutover.
+- Test the local CLI payload, retry, conflict, and report behavior without Telegram integration.
+- Test any approved external client for canonical payloads, retries, conflicts, and absence of local expense storage.
 - Run `make fmt-docs-check` and `make check`; use `make test-integration` when the database is available.

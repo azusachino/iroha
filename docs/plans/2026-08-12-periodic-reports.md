@@ -16,8 +16,8 @@ The report is a coordinated view, not a universal score. Distance, sleep duratio
 
 Operational data is not part of a personal report: raw files, import jobs, worker jobs, connector sync state, cache rows, and control-room tasks remain operational APIs.
 
-Iroha does not push reports to Telegram or any other destination. A report is a read response generated when a client asks for it. Web, Telegram, and CLI are three renderers of the same response
-contract.
+Iroha does not push reports to Telegram or any other destination. A report is a read response generated when a client asks for it. Web and CLI are the v0.4 renderers; a future external client may
+render the same response later.
 
 ## Current decisions
 
@@ -29,7 +29,7 @@ contract.
 6. Missing data is represented as `empty` or omitted fields, never as zero measurements.
 7. No cross-domain score, ranking, currency conversion, or invented correlation is produced.
 8. Report sections include freshness/provenance metadata so imported, derived, and absent data are distinguishable.
-9. The private web cockpit, Suzuran, and the CLI consume the same report API. Telegram renders a compact subset; web renders the complete sections; CLI preserves raw JSON or renders a table.
+9. The private web cockpit and CLI consume the same report API. A future external client may render a compact subset; no Telegram/Suzuran integration is part of this plan.
 10. Public export remains a separate sanitized projection and does not automatically consume private reports.
 
 ## Period contract
@@ -450,21 +450,21 @@ sleep report. The route owns no aggregation logic; it renders typed section data
 The Overview may show a small link or selected-period summary, but it must not duplicate the report calculations. Every curated theme receives the same typed report data and handles `available`,
 `empty`, and `unavailable` states.
 
-### Telegram: compact on-demand view
+### Optional future compact client
 
-Telegram is a secondary renderer, not a delivery channel owned by Iroha:
+Telegram/Suzuran is not part of the v0.4 report implementation. If a separate compact client is approved later, it is a renderer, not a delivery channel owned by Iroha:
 
 ```text
-user: /report month
-  -> Suzuran requests current period from Iroha
-  -> Suzuran selects compact fields from the response
-  -> Suzuran sends one formatted message
+user requests monthly report
+  -> external client requests current month from Iroha
+  -> external client selects compact fields from the response
+  -> external client sends its own message
 ```
 
 - `/report month` requests the current monthly report.
 - `/report month 2026-08` requests an explicit month.
 - The response shows period/timezone, expense totals by currency, movement totals, sleep averages, daily-health highlights, and media completions.
-- A `More` button can link to the private web report; Telegram must not calculate or merge sections itself.
+- A future compact client may link to the private web report; it must not calculate or merge sections itself.
 
 Example rendering:
 
@@ -489,8 +489,7 @@ Expenses
 [Open full report]
 ```
 
-Telegram omits `empty` sections, labels `unavailable` sections as unavailable, and never calculates totals itself. A scheduled Telegram digest, if wanted later, is a Suzuran scheduler job that calls
-the same endpoint; Iroha remains unaware of the recipient.
+The compact client omits `empty` sections, labels `unavailable` sections as unavailable, and never calculates totals itself. A scheduled digest, if wanted later, belongs to that external client.
 
 ### CLI: machine-readable and operator view
 
@@ -507,7 +506,7 @@ Client file boundary:
 
 - Iroha: `apps/iroha-server/pkg/reports/`, `apps/iroha-server/pkg/httpapi/reports.go`, `docs/contracts/openapi.yaml`, and `apps/iroha-server/pkg/httpapi/api_contract_test.go`.
 - Web: add `getMonthlyReport()` and the report types in `apps/iroha-web/src/lib/api.ts`; add `/reports/+page.svelte` and shared section components as needed.
-- Suzuran: add one Iroha client method and a compact renderer in the existing briefing/command modules; do not create a second aggregation implementation.
+- Future client: add one Iroha client method and a compact renderer only if separately approved; do not create a second aggregation implementation.
 - CLI: add `scripts/report_cli.py` as a transport/presentation wrapper only.
 
 ## Implementation slices
@@ -518,7 +517,7 @@ Client file boundary:
 4. **Expense section:** add expense totals/category buckets and cache invalidation.
 5. **API/cache:** register endpoint, section failures, cache namespace, invalidation, and integration tests.
 6. **Web report:** `/reports`, month navigation, typed section components, all-theme wiring.
-7. **Telegram report:** `/report month`, compact renderer, partial/empty handling.
+7. **Optional external client:** monthly report renderer, partial/empty handling, only after separate approval.
 8. **Release hardening:** cross-domain fixture, freshness copy, performance checks, docs, and public-export boundary test.
 
 ## Verification matrix
@@ -533,5 +532,5 @@ Client file boundary:
 - One unavailable domain produces a partial report while healthy sections remain available.
 - Media completion semantics are tested against event fixtures and current progress fixtures.
 - Cache hits return the same response; import/media/expense changes invalidate report data.
-- Web and Telegram consume the API response without local aggregation.
+- Web and CLI consume the API response without local aggregation; any future client must follow the same rule.
 - `make check`, integration tests with representative fixtures, OpenAPI validation, and web tests pass.
