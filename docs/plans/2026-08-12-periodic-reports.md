@@ -493,11 +493,11 @@ The compact client omits `empty` sections, labels `unavailable` sections as unav
 
 ### CLI: machine-readable and operator view
 
-Reports are not an expense-only CLI feature. Add a separate `scripts/report_cli.py`:
+Reports are one resource in the general `scripts/iroha_cli.py`; do not create a report-only CLI:
 
 ```bash
-uv run python scripts/report_cli.py month --month 2026-08 --timezone Asia/Tokyo
-uv run python scripts/report_cli.py month --month 2026-08 --timezone Asia/Tokyo --format table
+uv run python scripts/iroha_cli.py report monthly --month 2026-08 --timezone Asia/Tokyo
+uv run python scripts/iroha_cli.py report monthly --month 2026-08 --timezone Asia/Tokyo --format table
 ```
 
 Default stdout is the unchanged report JSON for agent composition. Table output is a presentation convenience. The CLI does not recalculate or merge section values.
@@ -507,7 +507,7 @@ Client file boundary:
 - Iroha: `apps/iroha-server/pkg/reports/`, `apps/iroha-server/pkg/httpapi/reports.go`, `docs/contracts/openapi.yaml`, and `apps/iroha-server/pkg/httpapi/api_contract_test.go`.
 - Web: add `getMonthlyReport()` and the report types in `apps/iroha-web/src/lib/api.ts`; add `/reports/+page.svelte` and shared section components as needed.
 - Future client: add one Iroha client method and a compact renderer only if separately approved; do not create a second aggregation implementation.
-- CLI: add `scripts/report_cli.py` as a transport/presentation wrapper only.
+- CLI: add the `report monthly` resource to `scripts/iroha_cli.py` as a transport/presentation wrapper only.
 
 ## Implementation slices
 

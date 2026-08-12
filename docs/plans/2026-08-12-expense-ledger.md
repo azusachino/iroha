@@ -34,7 +34,7 @@ belongs to a separate Suzuran task. A future Telegram expense client, if desired
 ## Current decisions
 
 1. Iroha accepts canonical JSON only; it does not parse natural-language expense text.
-2. The local agent is a direct Iroha client for receipt images and other local inputs.
+2. The local agent uses one general Iroha CLI for receipt images and other local inputs; expenses are one CLI resource, not a separate tool.
 3. A future Telegram client, if approved, is a separate direct Iroha client; it is not part of Suzuran's expense feature.
 4. Iroha does not require user confirmation. A client may offer a preview/confirmation mode, but the API accepts a valid canonical request directly.
 5. The v0.4 storage model is one `tb_expenses` table. There are no Iroha intake, candidate, revision, mutation, or OCR tables.
@@ -78,8 +78,7 @@ In scope:
 - One canonical expense record with date, money, category, merchant, note, optional items, and source reference.
 - Deterministic create, list, get, update, delete, and aggregate APIs.
 - Source-based idempotency for external clients.
-- A local CLI for validating/submitting agent JSON and reading reports.
-- Client-neutral payloads and a local CLI for validation, submission, listing, correction, undo, and monthly reports.
+- A general local Iroha CLI with expense commands, monthly reports, and read access to existing canonical domains.
 
 Out of scope for v0.4:
 
@@ -179,18 +178,27 @@ local receipt image
 
 The agent may use any local model or approved provider. Iroha does not know or care which one. Missing or uncertain values remain missing/uncertain; the agent must not silently invent them.
 
-The proposed `scripts/expense_cli.py` is only a thin Iroha client:
+Create one general `scripts/iroha_cli.py`. It is a thin Iroha client with shared transport, configuration, JSON/table output, and resource subcommands. It must not become an OCR engine or reimplement
+report aggregation.
+
+The v0.4 command surface is:
 
 ```bash
-uv run python scripts/expense_cli.py validate --input draft.json
-uv run python scripts/expense_cli.py submit --input draft.json
-uv run python scripts/expense_cli.py list --from 2026-08-01 --to 2026-09-01
-uv run python scripts/expense_cli.py report month 2026-08
-uv run python scripts/expense_cli.py delete exp_01k...
+uv run python scripts/iroha_cli.py expense validate --input draft.json
+uv run python scripts/iroha_cli.py expense create --input draft.json
+uv run python scripts/iroha_cli.py expense list --from 2026-08-01 --to 2026-09-01
+uv run python scripts/iroha_cli.py expense delete exp_01k...
+uv run python scripts/iroha_cli.py report monthly --month 2026-08
+uv run python scripts/iroha_cli.py activity list --from 2026-08-01 --to 2026-09-01
+uv run python scripts/iroha_cli.py sleep aggregates --from 2026-08-01 --to 2026-09-01
+uv run python scripts/iroha_cli.py daily aggregates --granularity month --from 2026-08-01 --to 2026-09-01
+uv run python scripts/iroha_cli.py media aggregates
 ```
 
-For an image-aware local agent, the extractor and the Iroha client may be one command or two commands. That packaging choice is local and must not leak into the HTTP contract. The CLI uses
-`IROHA_API_BASE`, emits JSON by default, supports `--format table`, and never stores or prints receipt images.
+The initial supported resources are `expense` (read/write), `report` (read), `activity` (read), `sleep` (read), `daily` (read), and `media` (read). Do not add write commands for a domain until that
+domain has a stable write API. The CLI uses `IROHA_API_BASE`, emits JSON by default, supports `--format table`, and never stores or prints receipt images.
+
+For an image-aware local agent, OCR/vision and the Iroha CLI may be one command or two commands. That packaging choice is local and must not leak into the HTTP contract.
 
 ## Optional future client UX
 
@@ -237,7 +245,7 @@ silently coupling Telegram to the local agent.
 
 1. **Canonical contract:** migration, runtime model/ID prefix, validation, create/list/get/update/delete service, source uniqueness, OpenAPI, and API tests.
 2. **Deterministic reporting:** implement the separate [monthly report plan](2026-08-12-periodic-reports.md) and expense aggregate section.
-3. **Thin CLI:** validate/submit/list/report/delete commands and JSON/table output tests.
+3. **General CLI:** shared transport plus expense, monthly-report, activity, sleep, daily, and media subcommands with JSON/table output tests.
 4. **Optional external client:** quick entry, guided fields, optional preview, list, edit, undo, and report commands, only if separately approved.
 5. **Optional external client:** implement a separate client only if approved; it must call Iroha directly and have no local expense storage.
 6. **Private UI and release hardening:** Overview expense representation, all-theme wiring, migration rehearsal, monitoring, docs, and v0.4 release note.
@@ -250,6 +258,6 @@ Each slice must remain deterministic inside Iroha and must not depend on a parti
 - Test identical source retry, conflicting source retry (`409`), concurrent duplicate creates, updates, tombstones, and deleted filtering.
 - Test aggregates across date boundaries, currencies, categories, deleted rows, and empty periods.
 - Test OpenAPI and route inventory, public-export exclusion, cache invalidation, and CLI JSON/error behavior.
-- Test the local CLI payload, retry, conflict, and report behavior without Telegram integration.
+- Test the general CLI's expense payload/retry/conflict behavior, monthly report transport, and read-only domain commands.
 - Test any approved external client for canonical payloads, retries, conflicts, and absence of local expense storage.
 - Run `make fmt-docs-check` and `make check`; use `make test-integration` when the database is available.
