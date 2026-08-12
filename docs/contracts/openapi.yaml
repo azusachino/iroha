@@ -15,6 +15,7 @@ tags:
   - name: activities
   - name: sleep
   - name: daily
+  - name: expenses
   - name: media
   - name: control-room
 paths:
@@ -379,6 +380,112 @@ paths:
                 $ref: "#/components/schemas/DailyAggregateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/expenses:
+    get:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: currency
+          in: query
+          schema:
+            type: string
+            enum: [JPY, USD, EUR, GBP]
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [food, groceries, transport, shopping, housing, utilities, health, entertainment, subscriptions, work, other]
+      responses:
+        "200":
+          description: Active expense page ordered by occurred date descending.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpensePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [expenses]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExpense"
+      responses:
+        "201":
+          description: Expense created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "200":
+          description: Idempotent retry returned the existing expense.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "410":
+          $ref: "#/components/responses/Gone"
+  /api/v1/expenses/{expenseId}:
+    get:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/ExpenseId"
+      responses:
+        "200":
+          description: Expense record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          $ref: "#/components/responses/Gone"
+    put:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/ExpenseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceExpense"
+      responses:
+        "200":
+          description: Expense replaced.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          $ref: "#/components/responses/Gone"
+    delete:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/ExpenseId"
+      responses:
+        "204":
+          description: Expense tombstone recorded; repeat deletes are also successful.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/media:
     get:
       tags: [media]
@@ -701,6 +808,11 @@ components:
       in: path
       required: true
       schema: { type: string }
+    ExpenseId:
+      name: expenseId
+      in: path
+      required: true
+      schema: { type: string }
     JobId:
       name: jobId
       in: path
@@ -739,6 +851,16 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     NotFound:
       description: Resource was not found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Request conflicts with an existing resource identity.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Gone:
+      description: Resource was deleted and retained as a tombstone.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -835,6 +957,76 @@ components:
         notes: { type: string }
         due_date: { type: string, format: date }
         priority: { type: integer }
+    ExpenseItem:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        amount_minor: { type: integer, format: int64, minimum: 0 }
+    ExpenseSource:
+      type: object
+      additionalProperties: false
+      required: [kind, ref]
+      properties:
+        kind: { type: string, minLength: 1, maxLength: 50 }
+        ref: { type: string, minLength: 1, maxLength: 200 }
+    CreateExpense:
+      type: object
+      additionalProperties: false
+      required: [occurred_on, currency, amount_minor, category, source]
+      properties:
+        occurred_on: { type: string, format: date }
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        amount_minor: { type: integer, format: int64, minimum: 1 }
+        category: { type: string, enum: [food, groceries, transport, shopping, housing, utilities, health, entertainment, subscriptions, work, other] }
+        merchant: { type: string, maxLength: 200 }
+        note: { type: string, maxLength: 2000 }
+        items:
+          type: array
+          maxItems: 32
+          items: { $ref: "#/components/schemas/ExpenseItem" }
+        source: { $ref: "#/components/schemas/ExpenseSource" }
+    ReplaceExpense:
+      type: object
+      additionalProperties: false
+      required: [occurred_on, currency, amount_minor, category]
+      properties:
+        occurred_on: { type: string, format: date }
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        amount_minor: { type: integer, format: int64, minimum: 1 }
+        category: { type: string, enum: [food, groceries, transport, shopping, housing, utilities, health, entertainment, subscriptions, work, other] }
+        merchant: { type: string, maxLength: 200 }
+        note: { type: string, maxLength: 2000 }
+        items:
+          type: array
+          maxItems: 32
+          items: { $ref: "#/components/schemas/ExpenseItem" }
+    Expense:
+      type: object
+      additionalProperties: false
+      required: [id, occurred_on, currency, currency_exponent, amount_minor, category, merchant, note, items, source, created_at, updated_at]
+      properties:
+        id: { type: string }
+        occurred_on: { type: string, format: date }
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        currency_exponent: { type: integer, enum: [0, 2] }
+        amount_minor: { type: integer, format: int64 }
+        category: { type: string, enum: [food, groceries, transport, shopping, housing, utilities, health, entertainment, subscriptions, work, other] }
+        merchant: { type: string }
+        note: { type: string }
+        items: { type: array, items: { $ref: "#/components/schemas/ExpenseItem" } }
+        source: { $ref: "#/components/schemas/ExpenseSource" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ExpensePage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor, has_more]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Expense" } }
+        next_cursor: { type: [string, "null"] }
+        has_more: { type: boolean }
     Task:
       type: object
       required: [id, title, status, priority, source, created_at, updated_at]

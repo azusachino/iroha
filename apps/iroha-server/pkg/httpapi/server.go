@@ -16,6 +16,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
@@ -42,6 +43,7 @@ type Dependencies struct {
 	ActivityService        *activities.Service
 	SleepService           *sleep.Service
 	DailyService           *daily.Service
+	ExpenseService         *expenses.Service
 	MediaService           *media.Service
 	MediaResolutionService *mediaresolution.Service
 	BriefingRegistry       *briefing.Registry
@@ -126,6 +128,13 @@ func (s *Server) routes() {
 		r.Route("/daily", func(r chi.Router) {
 			r.Get("/", s.handleListDaily)
 			r.Get("/aggregates", s.handleDailyAggregates)
+		})
+		r.Route("/expenses", func(r chi.Router) {
+			r.Post("/", s.handleCreateExpense)
+			r.Get("/", s.handleListExpenses)
+			r.Get("/{expenseId}", s.handleGetExpense)
+			r.Put("/{expenseId}", s.handleReplaceExpense)
+			r.Delete("/{expenseId}", s.handleDeleteExpense)
 		})
 		r.Route("/media", func(r chi.Router) {
 			r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)

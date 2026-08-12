@@ -33,6 +33,8 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/briefing",
 		"GET /api/v1/daily",
 		"GET /api/v1/daily/aggregates",
+		"GET /api/v1/expenses",
+		"GET /api/v1/expenses/{expenseId}",
 		"GET /api/v1/imports",
 		"GET /api/v1/imports/{importId}",
 		"GET /api/v1/jobs",
@@ -53,10 +55,13 @@ func TestActiveRouteInventory(t *testing.T) {
 		"PATCH /api/v1/media/resolution-tasks/{taskId}",
 		"PATCH /api/v1/tasks/{taskId}",
 		"POST /api/v1/actions/{action}",
+		"POST /api/v1/expenses",
 		"POST /api/v1/imports",
 		"POST /api/v1/media/sync/{connectorId}",
 		"POST /api/v1/raw-files",
 		"POST /api/v1/tasks",
+		"PUT /api/v1/expenses/{expenseId}",
+		"DELETE /api/v1/expenses/{expenseId}",
 	}
 	sort.Strings(want)
 
