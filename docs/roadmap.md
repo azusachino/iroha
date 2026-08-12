@@ -214,24 +214,27 @@ ontology expansion and cross-provider resolution.
 
 Goal: capture lightweight personal expenses from Telegram or another external client, then report them beside the existing activity, night, and media aggregates without making iroha own a bot.
 
-The intake boundary follows Milestone 6: Telegram remains an external client, while iroha owns authentication, idempotency, canonical records, corrections, and read/report APIs.
+The client boundary follows Milestone 6: Telegram and local agent CLIs are independent external clients, while iroha owns deterministic validation, idempotency, canonical records, corrections, and
+read/report APIs.
 
-Implementation plan v2: [Expense Ledger implementation plan](plans/2026-08-12-expense-ledger.md).
+Implementation plan v3: [Expense Ledger implementation plan](plans/2026-08-12-expense-ledger.md).
+
+Cross-domain reporting plan: [Periodic reports plan](plans/2026-08-12-periodic-reports.md).
 
 First vertical slice:
 
-- Define a canonical `tb_expenses` record with amount, currency, occurred-at date, category, merchant/description, source, and stable external idempotency key.
-- Add an authenticated create/list/update API for external clients, including a compact response suitable for Telegram confirmation messages.
-- Keep corrections and deletion auditable; never silently overwrite an imported expense.
-- Add weekly and monthly aggregates by total, category, and currency, with explicit timezone boundaries.
-- Add an Overview expense tile and weekly/monthly report views without changing existing activity, night, or media totals.
+- Define a canonical `tb_expenses` record with amount, currency, occurred-at date, category, merchant, optional items, and source identity.
+- Add deterministic create/list/update/delete APIs for independent Telegram and local-agent clients; accept canonical JSON only.
+- Use source identity for safe retries and tombstone deletion; do not add an Iroha agent/OCR or confirmation workflow.
+- Add a separate weekly/monthly report API for expenses alongside activity, sleep, daily health, and media sections.
+- Add an Overview expense tile and report views without changing existing activity, night, daily-health, or media totals.
 - Exclude expenses from public export by default; add a separate opt-in sanitized summary only after the private ledger is trustworthy.
 
 Exit criteria:
 
-- A Telegram-side client can submit one expense, receive a stable confirmation, and safely retry without duplication.
-- A user can correct an expense and see the correction reflected in weekly and monthly reports.
-- Aggregate totals are covered by API and database tests across timezone, currency, retry, and empty-period cases.
+- Independent Telegram and local-agent clients can submit one canonical expense and safely retry without duplication.
+- A user can correct or undo an expense and see the result reflected in the cross-domain weekly/monthly report.
+- Domain and cross-domain totals are covered by API and database tests across timezone, currency, retry, and empty-period cases.
 - The private UI and API make the expense boundary clear, while the public projection remains expense-free by default.
 
 ## Future Module: Reading and Watching Stats
