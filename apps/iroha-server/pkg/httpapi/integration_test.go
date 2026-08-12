@@ -107,6 +107,12 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 			t.Fatalf("laps = %#v, want none", body)
 		}
 	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/activities/summary", "", http.StatusOK, func(body map[string]any) {
+		totals := body["totals"].(map[string]any)
+		if totals["distance_known_count"] != float64(0) || totals["distance_unknown_count"] != float64(1) || totals["moving_time_s"] != nil {
+			t.Fatalf("activity summary totals = %#v", totals)
+		}
+	})
 }
 
 func TestIntegrationSleepEndpoints(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 
 func validSummary() activities.Summary {
 	return activities.Summary{
-		Totals: activities.SummaryTotals{ActivityCount: 1, DistanceM: 100, DurationS: 60, MovingTimeS: 60},
+		Totals: activities.SummaryTotals{ActivityCount: 1, DistanceM: 100, DistanceKnownCount: 1, DurationS: 60},
 	}
 }
 

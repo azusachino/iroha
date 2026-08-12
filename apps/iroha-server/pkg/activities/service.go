@@ -118,14 +118,15 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 	return page, nil
 }
 
-// SummaryTotals holds aggregate metrics across a set of activities.
-// DurationS is elapsed time; MovingTimeS is often unset (e.g. Apple imports),
-// so DurationS is the reliable "total time" for a rollup.
+// SummaryTotals holds aggregate metrics across a set of activities. Distance
+// coverage is explicit because a NULL source distance is not zero distance.
 type SummaryTotals struct {
-	ActivityCount int     `json:"activity_count"`
-	DistanceM     float64 `json:"distance_m"`
-	DurationS     int     `json:"duration_s"`
-	MovingTimeS   int     `json:"moving_time_s"`
+	ActivityCount        int     `json:"activity_count"`
+	DistanceM            float64 `json:"distance_m"`
+	DistanceKnownCount   int     `json:"distance_known_count"`
+	DistanceUnknownCount int     `json:"distance_unknown_count"`
+	DurationS            int     `json:"duration_s"`
+	ElevationGainM       float64 `json:"elevation_gain_m"`
 }
 
 // SummaryBucket is one grouped total, keyed by year or sport type.
@@ -146,8 +147,10 @@ type Summary struct {
 
 const summaryMetrics = "count(*) as activity_count, " +
 	"coalesce(sum(distance_m), 0) as distance_m, " +
+	"count(*) filter (where distance_m is not null) as distance_known_count, " +
+	"count(*) filter (where distance_m is null) as distance_unknown_count, " +
 	"coalesce(sum(duration_s), 0) as duration_s, " +
-	"coalesce(sum(moving_time_s), 0) as moving_time_s"
+	"coalesce(sum(elevation_gain_m), 0) as elevation_gain_m"
 
 // Summary computes aggregate totals overall and grouped by year, month, and
 // sport. Year/month are derived in the database session timezone (approximate
@@ -217,6 +220,15 @@ func (s *Service) Summary(year, sport string) (Summary, error) {
 	if err := s.hydrateSwimmingDistances(missingSwimDistances); err != nil {
 		return Summary{}, fmt.Errorf("summary swimming distances: %w", err)
 	}
+	var missingElevations []models.Activity
+	if err := s.db.Model(&models.Activity{}).
+		Where("elevation_gain_m IS NULL").
+		Find(&missingElevations).Error; err != nil {
+		return Summary{}, fmt.Errorf("summary elevation gain: %w", err)
+	}
+	if err := s.hydrateElevationGain(missingElevations); err != nil {
+		return Summary{}, fmt.Errorf("summary elevation gain: %w", err)
+	}
 
 	byYearIndex := make(map[string]int, len(byYear))
 	for i := range byYear {
@@ -238,19 +250,104 @@ func (s *Service) Summary(year, sport string) (Summary, error) {
 		monthKey := activity.StartedAt.Format("2006-01")
 		if i, ok := byYearIndex[yearKey]; ok {
 			byYear[i].DistanceM += *activity.DistanceM
+			byYear[i].DistanceKnownCount++
+			byYear[i].DistanceUnknownCount--
 		}
 		if (year == "" || yearKey == year) && (sport == "" || activity.SportType == sport) {
 			if i, ok := byMonthIndex[monthKey]; ok {
 				byMonth[i].DistanceM += *activity.DistanceM
+				byMonth[i].DistanceKnownCount++
+				byMonth[i].DistanceUnknownCount--
 			}
 			if i, ok := bySportIndex[activity.SportType]; ok {
 				bySport[i].DistanceM += *activity.DistanceM
+				bySport[i].DistanceKnownCount++
+				bySport[i].DistanceUnknownCount--
 			}
+			totals.DistanceKnownCount++
+			totals.DistanceUnknownCount--
 			totals.DistanceM += *activity.DistanceM
+		}
+	}
+	for _, activity := range missingElevations {
+		if activity.ElevationGainM == nil {
+			continue
+		}
+		yearKey := activity.StartedAt.Format("2006")
+		monthKey := activity.StartedAt.Format("2006-01")
+		if i, ok := byYearIndex[yearKey]; ok {
+			byYear[i].ElevationGainM += *activity.ElevationGainM
+		}
+		if (year == "" || yearKey == year) && (sport == "" || activity.SportType == sport) {
+			if i, ok := byMonthIndex[monthKey]; ok {
+				byMonth[i].ElevationGainM += *activity.ElevationGainM
+			}
+			if i, ok := bySportIndex[activity.SportType]; ok {
+				bySport[i].ElevationGainM += *activity.ElevationGainM
+			}
+			totals.ElevationGainM += *activity.ElevationGainM
 		}
 	}
 
 	return Summary{Totals: totals, ByYear: byYear, ByMonth: byMonth, BySport: bySport}, nil
+}
+
+// PeriodFilters defines an activity report window. From is inclusive and To
+// is exclusive. Callers provide calendar boundaries in Timezone; converting
+// them to UTC before querying keeps membership stable across database session
+// timezones.
+type PeriodFilters struct {
+	From     time.Time
+	To       time.Time
+	Timezone string
+}
+
+// PeriodSummary returns corrected totals for one requested-timezone window.
+// It is deliberately separate from Summary, whose year/month buckets retain
+// the legacy public-export shape.
+func (s *Service) PeriodSummary(filters PeriodFilters) (SummaryTotals, error) {
+	if !filters.From.Before(filters.To) {
+		return SummaryTotals{}, errors.New("period from must be before to")
+	}
+	location := time.UTC
+	if filters.Timezone != "" {
+		var err error
+		location, err = time.LoadLocation(filters.Timezone)
+		if err != nil {
+			return SummaryTotals{}, fmt.Errorf("load timezone: %w", err)
+		}
+	}
+	from := filters.From.In(location).UTC()
+	to := filters.To.In(location).UTC()
+
+	var rows []models.Activity
+	if err := s.db.Where("started_at >= ? AND started_at < ?", from, to).Find(&rows).Error; err != nil {
+		return SummaryTotals{}, err
+	}
+	if err := s.hydrateSwimmingDistances(rows); err != nil {
+		return SummaryTotals{}, fmt.Errorf("period swimming distances: %w", err)
+	}
+	if err := s.hydrateElevationGain(rows); err != nil {
+		return SummaryTotals{}, fmt.Errorf("period elevation gain: %w", err)
+	}
+
+	var totals SummaryTotals
+	for _, activity := range rows {
+		totals.ActivityCount++
+		if activity.DistanceM == nil {
+			totals.DistanceUnknownCount++
+		} else {
+			totals.DistanceKnownCount++
+			totals.DistanceM += *activity.DistanceM
+		}
+		if activity.DurationS != nil {
+			totals.DurationS += *activity.DurationS
+		}
+		if activity.ElevationGainM != nil {
+			totals.ElevationGainM += *activity.ElevationGainM
+		}
+	}
+	return totals, nil
 }
 
 func (s *Service) Get(id string) (models.Activity, bool, error) {
