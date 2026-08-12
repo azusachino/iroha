@@ -1,6 +1,6 @@
 # API v1 contract decisions
 
-Status: release-candidate decision record for v0.1.4
+Status: active-development decision record for v0.4.0
 
 These decisions apply to the current `/api/v1` surface in place. They do not freeze a released v1 and do not introduce `/api/v2`. Until the first release, the contract, implementation, and frontend
 may change together when the verification gate is updated in the same change.
