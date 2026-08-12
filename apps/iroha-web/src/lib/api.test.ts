@@ -17,6 +17,7 @@ import {
   listTasks,
   createTask,
   updateTask,
+  getMonthlyReport,
   listExpenses,
   getExpense,
   createExpense,
@@ -187,6 +188,14 @@ describe("control room API", () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch({});
     await getSleep("sleep_1", fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/sleep/sleep_1");
+  });
+
+  it("requests a monthly report with an explicit IANA timezone", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMonthlyReport("2026-08", "Asia/Tokyo", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/reports/monthly?");
+    expect(getCapturedUrl()).toContain("month=2026-08");
+    expect(getCapturedUrl()).toContain("timezone=Asia%2FTokyo");
   });
 });
 

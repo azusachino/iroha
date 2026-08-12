@@ -4,6 +4,7 @@
   import {
     Activity,
     BookOpen,
+    FileText,
     Command,
     Footprints,
     HeartPulse,
@@ -85,6 +86,11 @@
           class:active={isActive(primaryNavigation[7].href)}
           href={primaryNavigation[7].href}
           ><WalletCards size={14} />{primaryNavigation[7].label}</a
+        >
+        <a
+          class:active={isActive(primaryNavigation[8].href)}
+          href={primaryNavigation[8].href}
+          ><FileText size={14} />{primaryNavigation[8].label}</a
         >
       </nav>
       <div class="appbar-actions">

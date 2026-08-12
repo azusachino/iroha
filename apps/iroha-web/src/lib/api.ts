@@ -383,12 +383,124 @@ export interface BriefingResponse {
   sections: BriefingSection[];
 }
 
+export interface ReportSection<T> {
+  schema: string;
+  state: "available" | "empty" | "unavailable";
+  data: T | null;
+}
+
+export interface MonthlyReport {
+  schema: string;
+  period: {
+    kind: "month";
+    month: string;
+    from: string;
+    to: string;
+    timezone: string;
+  };
+  generated_at: string;
+  sections: {
+    movement: ReportSection<MovementReportData>;
+    sleep: ReportSection<SleepReportData>;
+    daily_health: ReportSection<DailyHealthReportData>;
+    media: ReportSection<MediaReportData>;
+    expenses: ReportSection<ExpensesReportData>;
+  };
+}
+
+export interface MovementReportData {
+  activity_count: number;
+  distance_m: number;
+  distance_activity_count: number;
+  duration_s: number;
+  by_sport: {
+    sport: string;
+    activity_count: number;
+    distance_m: number;
+    distance_activity_count: number;
+    duration_s: number;
+  }[];
+}
+
+export interface SleepReportData {
+  session_count: number;
+  main_sleep_count: number;
+  nap_count: number;
+  average_asleep_s: number;
+  average_time_in_bed_s: number;
+  average_efficiency: number;
+  stage_seconds: {
+    core: number;
+    deep: number;
+    rem: number;
+    awake: number;
+    unspecified: number;
+  };
+}
+
+export interface DailyHealthReportData {
+  observed_days: number;
+  metric_averages: {
+    metric: string;
+    value: number;
+    unit: string;
+    observed_days: number;
+  }[];
+}
+
+export interface MediaReportData {
+  event_count: number;
+  completed_count: number;
+  rated_count: number;
+  average_rating: number | null;
+  by_kind: {
+    kind: string;
+    event_count: number;
+    completed_count: number;
+  }[];
+  completed_items: {
+    id: string;
+    title: string;
+    media_type: string;
+    completed_at: string;
+  }[];
+}
+
+export interface ExpensesReportData {
+  expense_count: number;
+  totals_by_currency: {
+    currency: ExpenseCurrency;
+    currency_exponent: number;
+    amount_minor: number;
+    expense_count: number;
+  }[];
+  by_category: {
+    category: ExpenseCategory;
+    currency: ExpenseCurrency;
+    currency_exponent: number;
+    amount_minor: number;
+    expense_count: number;
+  }[];
+}
+
 export function getBriefing(
   date: string,
   fetchFn: typeof fetch = fetch,
 ): Promise<BriefingResponse> {
   return getJSON<BriefingResponse>(
     `/api/v1/briefing?date=${encodeURIComponent(date)}`,
+    fetchFn,
+  );
+}
+
+export function getMonthlyReport(
+  month: string,
+  timezone: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<MonthlyReport> {
+  const query = new URLSearchParams({ month, timezone });
+  return getJSON<MonthlyReport>(
+    `/api/v1/reports/monthly?${query.toString()}`,
     fetchFn,
   );
 }
