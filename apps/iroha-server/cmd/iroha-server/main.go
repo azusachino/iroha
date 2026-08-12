@@ -19,6 +19,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
@@ -74,6 +75,7 @@ func main() {
 	activityService := activities.NewService(db)
 	sleepService := sleep.NewService(db)
 	dailyService := daily.NewService(db)
+	expenseService := expenses.NewService(db)
 	mediaService := media.NewService(db)
 	mediaResolutionService := mediaresolution.NewService(db)
 	taskService := tasks.NewService(db)
@@ -89,6 +91,7 @@ func main() {
 		ActivityService:        activityService,
 		SleepService:           sleepService,
 		DailyService:           dailyService,
+		ExpenseService:         expenseService,
 		MediaService:           mediaService,
 		MediaResolutionService: mediaResolutionService,
 		BriefingRegistry:       briefingRegistry,
