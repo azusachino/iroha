@@ -193,6 +193,33 @@ def expense_table(value: object) -> str:
     raise CLIError("Iroha returned an unexpected expense response")
 
 
+def monthly_report_table(value: object) -> str:
+    if not isinstance(value, dict) or not isinstance(value.get("period"), dict) or not isinstance(value.get("sections"), dict):
+        raise CLIError("Iroha returned an unexpected monthly report response")
+    period = value["period"]
+    rows = []
+    for name, section in value["sections"].items():
+        if not isinstance(section, dict):
+            raise CLIError(f"Iroha returned an invalid {name} report section")
+        data = section.get("data")
+        if section.get("state") == "empty" or data is None:
+            summary = ""
+        elif name == "movement":
+            summary = f"activities={data.get('activity_count', '')} distance_m={data.get('distance_m', '')}"
+        elif name == "sleep":
+            summary = f"sessions={data.get('session_count', '')} main={data.get('main_sleep_count', '')} naps={data.get('nap_count', '')}"
+        elif name == "daily_health":
+            summary = f"observed_days={data.get('observed_days', '')} metrics={len(data.get('metric_averages', []))}"
+        elif name == "media":
+            summary = f"events={data.get('event_count', '')} completed={data.get('completed_count', '')}"
+        elif name == "expenses":
+            summary = f"expenses={data.get('expense_count', '')} currencies={len(data.get('totals_by_currency', []))}"
+        else:
+            summary = ""
+        rows.append([name, section.get("state", ""), summary])
+    return f"period: {period.get('month', '')} ({period.get('timezone', '')})\n" + _table(rows, ["section", "state", "summary"])
+
+
 def output_result(data: bytes, output_format: str, table_formatter: Callable[[object], str] | None = None) -> None:
     if not data:
         return
@@ -236,6 +263,15 @@ def run_expense_command(args: argparse.Namespace, client: IrohaClient) -> int:
     raise CLIError(f"unsupported expense command: {args.expense_action}")
 
 
+def run_report_command(args: argparse.Namespace, client: IrohaClient) -> int:
+    timezone = args.timezone or os.environ.get("IROHA_TIMEZONE")
+    if not timezone:
+        raise CLIError("report timezone is required; pass --timezone or set IROHA_TIMEZONE")
+    path = "/api/v1/reports/monthly?" + urlencode({"month": args.month, "timezone": timezone})
+    output_result(client.request("GET", path), args.format, monthly_report_table)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="iroha_cli.py", description=__doc__)
     parser.add_argument(
@@ -273,6 +309,13 @@ def build_parser() -> argparse.ArgumentParser:
     delete = expense_commands.add_parser("delete")
     delete.add_argument("expense_id")
     delete.add_argument("--format", choices=["json", "table"], default="json")
+
+    report = resources.add_parser("report", help="read reports")
+    report_commands = report.add_subparsers(dest="report_action", required=True)
+    monthly = report_commands.add_parser("monthly")
+    monthly.add_argument("--month", required=True)
+    monthly.add_argument("--timezone")
+    monthly.add_argument("--format", choices=["json", "table"], default="json")
     return parser
 
 
@@ -282,6 +325,8 @@ def main(argv: list[str] | None = None) -> int:
     client = IrohaClient(args.api_base)
     if args.resource == "expense":
         return run_expense_command(args, client)
+    if args.resource == "report" and args.report_action == "monthly":
+        return run_report_command(args, client)
     raise CLIError(f"unsupported resource: {args.resource}")
 
 

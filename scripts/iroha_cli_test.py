@@ -161,5 +161,42 @@ class IrohaCLIExpenseCommandTest(unittest.TestCase):
         self.assertIn("Ramen", result)
 
 
+class IrohaCLIReportCommandTest(unittest.TestCase):
+    def test_monthly_report_forwards_month_and_timezone_and_preserves_json(self) -> None:
+        response = b'{"schema":"monthly-report.v1","sections":{}}\n'
+        client = FakeClient(response)
+        args = iroha_cli.build_parser().parse_args(["report", "monthly", "--month", "2026-08", "--timezone", "Asia/Tokyo"])
+        with mock.patch.object(iroha_cli, "output_result") as output:
+            iroha_cli.run_report_command(args, client)
+        self.assertEqual(client.calls, [("GET", "/api/v1/reports/monthly?month=2026-08&timezone=Asia%2FTokyo", None)])
+        output.assert_called_once_with(response, "json", iroha_cli.monthly_report_table)
+
+    def test_monthly_report_reads_timezone_from_environment(self) -> None:
+        client = FakeClient()
+        args = iroha_cli.build_parser().parse_args(["report", "monthly", "--month", "2026-08"])
+        with mock.patch.dict(os.environ, {"IROHA_TIMEZONE": "UTC"}), mock.patch.object(iroha_cli, "output_result"):
+            iroha_cli.run_report_command(args, client)
+        self.assertIn("timezone=UTC", client.calls[0][1])
+
+    def test_monthly_report_requires_timezone(self) -> None:
+        client = FakeClient()
+        args = iroha_cli.build_parser().parse_args(["report", "monthly", "--month", "2026-08"])
+        with mock.patch.dict(os.environ, {}, clear=True), self.assertRaises(iroha_cli.CLIError):
+            iroha_cli.run_report_command(args, client)
+
+    def test_monthly_report_table_is_presentation_only(self) -> None:
+        result = iroha_cli.monthly_report_table({
+            "period": {"month": "2026-08", "timezone": "UTC"},
+            "sections": {
+                "expenses": {"state": "available", "data": {"expense_count": 2, "totals_by_currency": [{}, {}]}},
+                "sleep": {"state": "empty", "data": None},
+            },
+        })
+        self.assertIn("period: 2026-08 (UTC)", result)
+        self.assertIn("expenses", result)
+        self.assertIn("currencies=2", result)
+        self.assertIn("sleep", result)
+
+
 if __name__ == "__main__":
     unittest.main()
