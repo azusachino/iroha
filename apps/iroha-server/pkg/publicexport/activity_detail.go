@@ -10,12 +10,6 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 )
 
-// ApprovedActivityIDs is the explicit editorial allowlist for full public
-// activity detail. All other activities keep the normal sanitized projection.
-var ApprovedActivityIDs = map[string]struct{}{
-	"act_019f82a5-87b2-7b31-9ebf-19f169899a76": {},
-}
-
 type ActivityDetail struct {
 	Activity  ActivityDetailActivity     `json:"activity"`
 	Route     []ActivityDetailRoutePoint `json:"route"`
@@ -58,37 +52,41 @@ type ActivityDetailLap struct {
 	AvgPaceSPerKM *float64   `json:"avg_pace_s_per_km,omitempty"`
 }
 
-func ApprovedActivityDetails(svc *activities.Service) (map[string]ActivityDetail, error) {
-	details := make(map[string]ActivityDetail, len(ApprovedActivityIDs))
-	for id := range ApprovedActivityIDs {
+// ActivityDetails exports the complete detail projection for every activity
+// in the public snapshot. Publication scope is decided by the caller by
+// passing the snapshot's activity list; there is no hidden editorial gate.
+func ActivityDetails(svc *activities.Service, activityList []Activity, includeRoutes bool) (map[string]ActivityDetail, error) {
+	details := make(map[string]ActivityDetail, len(activityList))
+	for _, item := range activityList {
+		id := item.ID
 		activity, found, err := svc.Get(id)
 		if err != nil {
-			return nil, fmt.Errorf("get approved activity %s: %w", id, err)
+			return nil, fmt.Errorf("get activity %s: %w", id, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("approved activity %s not found", id)
+			return nil, fmt.Errorf("activity %s not found", id)
 		}
 
 		route, found, err := svc.Route(id)
 		if err != nil {
-			return nil, fmt.Errorf("get approved route %s: %w", id, err)
+			return nil, fmt.Errorf("get route %s: %w", id, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("approved route %s not found", id)
+			return nil, fmt.Errorf("route activity %s not found", id)
 		}
-		samplings, found, err := svc.Samplings(id, "heart_rate")
+		samplings, found, err := svc.Samplings(id)
 		if err != nil {
-			return nil, fmt.Errorf("get approved samplings %s: %w", id, err)
+			return nil, fmt.Errorf("get samplings %s: %w", id, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("approved samplings %s not found", id)
+			return nil, fmt.Errorf("sampling activity %s not found", id)
 		}
 		laps, found, err := svc.Laps(id)
 		if err != nil {
-			return nil, fmt.Errorf("get approved laps %s: %w", id, err)
+			return nil, fmt.Errorf("get laps %s: %w", id, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("approved laps %s not found", id)
+			return nil, fmt.Errorf("lap activity %s not found", id)
 		}
 
 		details[id] = ActivityDetail{
@@ -96,7 +94,7 @@ func ApprovedActivityDetails(svc *activities.Service) (map[string]ActivityDetail
 				Activity:   ToActivity(activity),
 				SourceKind: activity.SourceKind,
 			},
-			Route:     toActivityDetailRoute(route),
+			Route:     toActivityDetailRoute(route, includeRoutes),
 			Samplings: toActivityDetailSamplings(samplings),
 			Laps:      toActivityDetailLaps(laps),
 		}
@@ -104,7 +102,10 @@ func ApprovedActivityDetails(svc *activities.Service) (map[string]ActivityDetail
 	return details, nil
 }
 
-func toActivityDetailRoute(points []models.ActivityRoutePoint) []ActivityDetailRoutePoint {
+func toActivityDetailRoute(points []models.ActivityRoutePoint, includeRoutes bool) []ActivityDetailRoutePoint {
+	if !includeRoutes {
+		return []ActivityDetailRoutePoint{}
+	}
 	out := make([]ActivityDetailRoutePoint, 0, len(points))
 	for _, point := range points {
 		out = append(out, ActivityDetailRoutePoint{
@@ -159,9 +160,6 @@ func toActivityDetailLaps(laps []models.ActivityLap) []ActivityDetailLap {
 
 func ValidateActivityDetails(details map[string]ActivityDetail) error {
 	for id, detail := range details {
-		if _, ok := ApprovedActivityIDs[id]; !ok {
-			return fmt.Errorf("activity %s is not approved for full public detail", id)
-		}
 		if detail.Activity.ID != id || !strings.HasPrefix(detail.Activity.ID, ids.ActivityPrefix+"_") {
 			return fmt.Errorf("activity %s has mismatched public id", id)
 		}

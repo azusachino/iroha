@@ -38,12 +38,12 @@ func TestToActivityDetailLapsFiltersPlaceholderRows(t *testing.T) {
 	}
 }
 
-func TestValidateActivityDetails_RejectsUnapprovedID(t *testing.T) {
+func TestValidateActivityDetails_AcceptsAnyPublicActivityID(t *testing.T) {
 	id := "act_0198f8f0-0000-7000-8000-000000000000"
 	if err := ValidateActivityDetails(map[string]ActivityDetail{
 		id: {Activity: ActivityDetailActivity{Activity: Activity{ID: id, StartedAt: time.Unix(0, 0)}}},
-	}); err == nil {
-		t.Fatal("expected unapproved activity to fail")
+	}); err != nil {
+		t.Fatalf("expected any public activity to pass, got %v", err)
 	}
 }
 

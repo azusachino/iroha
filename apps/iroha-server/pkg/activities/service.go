@@ -15,13 +15,8 @@ import (
 
 const (
 	defaultPageLimit = 50
+	routeTrimMeters  = 200
 
-	// routeTrimMeters is how much distance is trimmed from the start and end
-	// of each route before it is exposed publicly, so a viewer can't pinpoint
-	// exact home/work addresses from where tracks begin or end. Distance is
-	// measured along the track from the coordinates (route points carry no
-	// reliable distance_m), so this trim is independent of import source.
-	routeTrimMeters = 200
 	// routeMinPoints is the minimum number of points a trimmed route must
 	// retain to be worth emitting; shorter remainders are dropped entirely.
 	routeMinPoints = 2
@@ -29,16 +24,9 @@ const (
 	// keeping the response small; points are decimated evenly.
 	routeMaxPoints = 150
 	// earthRadiusMeters is the mean Earth radius used for haversine distance.
-	earthRadiusMeters = 6371000
-	// privateZoneRadiusMeters is the radius of an auto-detected private zone:
-	// every route point within this distance of a frequent start/end hub
-	// (home, work, gym) is dropped, and routes are split (not bridged) across
-	// the gap, so the location is masked even where routes pass it mid-track.
+	earthRadiusMeters       = 6371000
 	privateZoneRadiusMeters = 300
-	// privateZoneMinCluster is how many start/end anchors must fall within a
-	// radius of each other before that location is treated as a sensitive hub
-	// worth masking (below this, the location is not frequent enough to matter).
-	privateZoneMinCluster = 3
+	privateZoneMinCluster   = 3
 )
 
 type Service struct {
@@ -517,9 +505,8 @@ func (s *Service) Route(id string) ([]models.ActivityRoutePoint, bool, error) {
 	return points, true, err
 }
 
-// RouteLine is one activity's simplified, privacy-trimmed polyline, suitable
-// for the public "all routes" map. Points are [lon, lat] pairs (GeoJSON
-// coordinate order).
+// RouteLine is one activity's simplified public polyline. Points are [lon,
+// lat] pairs (GeoJSON coordinate order).
 type RouteLine struct {
 	ActivityID uuid.UUID
 	SportType  string
@@ -538,13 +525,9 @@ type routePointRow struct {
 	Lon        *float64
 }
 
-// RouteLines returns all activities' routes as privacy-masked polylines for
-// the public map. Two layers of protection apply: each track's first/last
-// routeTrimMeters are trimmed, and every point within an auto-detected private
-// zone (a frequent start/end hub — home, work, gym) is dropped, splitting the
-// line rather than bridging across it. A single activity may yield several
-// polylines; segments below routeMinPoints are omitted, each decimated to
-// routeMaxPoints.
+// RouteLines returns all activities' routes as decimated polylines for the
+// public map. The public projection intentionally preserves the complete
+// track; decimation only keeps the static snapshot reasonably sized.
 func (s *Service) RouteLines() ([]RouteLine, error) {
 	var rows []routePointRow
 	err := s.db.Table("tb_activity_route_points AS p").
@@ -584,37 +567,21 @@ func (s *Service) RouteLines() ([]RouteLine, error) {
 	}
 	flush()
 
-	// Auto-detect private zones from where activities frequently start/end,
-	// then mask them across every route — endpoint trimming alone leaves these
-	// hubs exposed where other routes pass near them mid-track.
-	anchors := make([][2]float64, 0, len(tracks)*2)
-	for _, t := range tracks {
-		anchors = append(anchors, t.coords[0], t.coords[len(t.coords)-1])
-	}
-	zones := detectPrivateZones(anchors)
-
 	lines := make([]RouteLine, 0, len(tracks))
 	for _, t := range tracks {
-		trimmed := trimRouteEnds(t.coords)
-		if len(trimmed) < routeMinPoints {
+		if len(t.coords) < routeMinPoints {
 			continue
 		}
-		// Decimate first, then mask, so masking runs over few points per route.
-		for _, segment := range maskPrivateZones(decimatePoints(trimmed), zones) {
-			if len(segment) < routeMinPoints {
-				continue
-			}
-			lines = append(lines, RouteLine{ActivityID: t.activityID, SportType: t.sport, Year: t.year, Points: segment})
-		}
+		lines = append(lines, RouteLine{
+			ActivityID: t.activityID,
+			SportType:  t.sport,
+			Year:       t.year,
+			Points:     decimatePoints(t.coords),
+		})
 	}
 	return lines, nil
 }
 
-// detectPrivateZones returns every start/end anchor that sits in a dense
-// cluster (>= privateZoneMinCluster anchors within privateZoneRadiusMeters),
-// i.e. a frequent hub — home, work, gym. All such anchors are kept (not
-// collapsed to a centroid) so masking covers the whole footprint of each hub,
-// including its edges, rather than a single point.
 func detectPrivateZones(anchors [][2]float64) [][2]float64 {
 	zones := make([][2]float64, 0)
 	for i := range anchors {
@@ -631,9 +598,6 @@ func detectPrivateZones(anchors [][2]float64) [][2]float64 {
 	return zones
 }
 
-// maskPrivateZones splits a track into the contiguous segments lying OUTSIDE
-// all private zones. Points within privateZoneRadiusMeters of any zone are
-// dropped and break the line, so no segment bridges straight across a hub.
 func maskPrivateZones(coords, zones [][2]float64) [][][2]float64 {
 	inZone := func(p [2]float64) bool {
 		for _, z := range zones {
@@ -643,7 +607,6 @@ func maskPrivateZones(coords, zones [][2]float64) [][][2]float64 {
 		}
 		return false
 	}
-
 	var segments [][][2]float64
 	var current [][2]float64
 	for _, coord := range coords {
@@ -662,15 +625,10 @@ func maskPrivateZones(coords, zones [][2]float64) [][][2]float64 {
 	return segments
 }
 
-// trimRouteEnds drops points within routeTrimMeters of the start and end of
-// the track. Distance is accumulated along the track with the haversine
-// formula, since route points carry no reliable distance_m. Tracks shorter
-// than 2*routeTrimMeters are dropped entirely (nothing left after trimming).
 func trimRouteEnds(coords [][2]float64) [][2]float64 {
 	if len(coords) < routeMinPoints {
 		return nil
 	}
-
 	cumulative := make([]float64, len(coords))
 	for i := 1; i < len(coords); i++ {
 		cumulative[i] = cumulative[i-1] + haversineMeters(coords[i-1], coords[i])
@@ -679,7 +637,6 @@ func trimRouteEnds(coords [][2]float64) [][2]float64 {
 	if total <= 2*routeTrimMeters {
 		return nil
 	}
-
 	hi := total - routeTrimMeters
 	trimmed := make([][2]float64, 0, len(coords))
 	for i, coord := range coords {

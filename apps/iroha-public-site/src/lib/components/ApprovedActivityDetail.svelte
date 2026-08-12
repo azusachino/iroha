@@ -19,7 +19,7 @@
 
   let { detail, backHref }: { detail: ActivityDetail; backHref: string } =
     $props();
-  let chartContainer: HTMLDivElement;
+  let chartContainer = $state<HTMLDivElement>();
   let zoneChartContainer = $state<HTMLDivElement>();
   let lapsChartContainer = $state<HTMLDivElement>();
   let chart: echarts.ECharts | null = null;
@@ -27,6 +27,13 @@
   let lapsChart: echarts.ECharts | null = null;
 
   const route = $derived(detail.route);
+  const sport = $derived(detail.activity.sport_type.toLowerCase());
+  const isSwimming = $derived(sport.includes("swim"));
+  const supportsDistanceSplits = $derived(
+    /run|walk|hike|ride|cycl|swim/.test(sport),
+  );
+  const paceUnitMeters = $derived(isSwimming ? 100 : 1000);
+  const paceLabel = $derived(isSwimming ? "Pace /100m" : "Pace /km");
   const heartRateSamples = $derived(
     detail.samplings.filter((sample) =>
       /heart|(^|_)hr($|_)/i.test(sample.sampling_type),
@@ -114,12 +121,14 @@
   const paceValues = $derived(
     processedRoute.map((point) => {
       if (point.speed_mps == null || point.speed_mps <= 0) return null;
-      const pace = 1000 / point.speed_mps;
+      const pace = paceUnitMeters / point.speed_mps;
       return pace <= 1_200 ? pace : null;
     }),
   );
   const heartRateValues = $derived(
-    processedRoute.map((point) => point.heart_rate ?? null),
+    processedRoute.length > 0
+      ? processedRoute.map((point) => point.heart_rate ?? null)
+      : heartRateSamples.map((sample) => sample.value),
   );
   const elevationValues = $derived(
     processedRoute.map((point) => point.elevation_m ?? null),
@@ -149,7 +158,7 @@
 
   const displayLaps = $derived.by<DisplayLap[]>(() => {
     if (sourceLaps.length > 0) return sourceLaps as DisplayLap[];
-    if (!detail.activity.sport_type.toLowerCase().includes("run")) return [];
+    if (!supportsDistanceSplits) return [];
     if (processedRoute.length < 2) return [];
     const laps: DisplayLap[] = [];
     let startIndex = 0;
@@ -159,7 +168,11 @@
         processedRoute[index].distance_m -
         processedRoute[startIndex].distance_m;
       const isLast = index === processedRoute.length - 1;
-      if (distance < 1000 && !(isLast && distance > 10)) continue;
+      if (
+        distance < paceUnitMeters &&
+        !(isLast && distance > paceUnitMeters * 0.1)
+      )
+        continue;
       const start = processedRoute[startIndex];
       const end = processedRoute[index];
       const duration =
@@ -176,7 +189,7 @@
           lap_no: lapNo,
           distance_m: distance,
           duration_s: duration,
-          avg_pace_s_per_km: duration / (distance / 1000),
+          avg_pace_s_per_km: duration / (distance / paceUnitMeters),
           avg_hr:
             hrValues.length > 0
               ? hrValues.reduce((sum, value) => sum + value, 0) /
@@ -190,6 +203,24 @@
     return laps;
   });
   const lapsAreDerived = $derived(sourceLaps.length === 0);
+
+  function formatActivityPace(value?: number): string {
+    const formatted = formatPace(value);
+    return isSwimming ? formatted.replace("/km", "/100m") : formatted;
+  }
+
+  function formatSummaryPace(): string {
+    if (
+      isSwimming &&
+      detail.activity.distance_m &&
+      detail.activity.duration_s
+    ) {
+      return formatPace(
+        detail.activity.duration_s / (detail.activity.distance_m / 100),
+      ).replace("/km", "/100m");
+    }
+    return formatActivityPace(detail.activity.avg_pace_s_per_km);
+  }
 
   const routeFeatures = $derived.by<RouteFeatureCollection>(() => ({
     type: "FeatureCollection",
@@ -229,13 +260,13 @@
   }
 
   function renderChart() {
-    if (!chart || processedRoute.length === 0) return;
+    if (!chart || !chartContainer || processedRoute.length === 0) return;
     const styles = getComputedStyle(chartContainer);
     const text = styles.getPropertyValue("--text").trim();
     const muted = styles.getPropertyValue("--text-muted").trim() || "#68707a";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const series = [
-      lineSeries("Pace", paceValues, "#4f8cff", 0),
+      lineSeries(paceLabel, paceValues, "#4f8cff", 0),
       lineSeries("Heart rate", heartRateValues, "#ff6b6b", 1),
       lineSeries("Elevation", elevationValues, "#3ecf8e", 2),
     ].filter((item) =>
@@ -270,11 +301,11 @@
       yAxis: [
         {
           type: "value",
-          name: "Pace",
+          name: paceLabel,
           inverse: true,
           axisLabel: {
             color: "#4f8cff",
-            formatter: (value: number) => formatPace(value),
+            formatter: (value: number) => formatActivityPace(value),
           },
           axisLine: { lineStyle: { color: "#4f8cff" } },
           splitLine: { lineStyle: { color: border, opacity: 0.35 } },
@@ -338,13 +369,13 @@
       grid: { left: 62, right: 72, top: 12, bottom: 38 },
       xAxis: {
         type: "value",
-        name: "Pace",
+        name: paceLabel,
         nameLocation: "middle",
         nameGap: 28,
         min: 0,
         axisLabel: {
           color: muted,
-          formatter: (value: number) => formatPace(value),
+          formatter: (value: number) => formatActivityPace(value),
         },
         axisLine: { lineStyle: { color: border } },
         splitLine: { lineStyle: { color: border, opacity: 0.45 } },
@@ -361,7 +392,7 @@
         borderColor: border,
         formatter: (params: { dataIndex: number; value: number }) => {
           const lap = displayLaps[params.dataIndex];
-          return `Split ${lap.lap_no}<br/>${formatPace(params.value)}<br/>${formatDistance(lap.distance_m)} · ${formatDuration(lap.duration_s)}${lap.avg_hr != null ? `<br/>${formatHr(lap.avg_hr)}` : ""}`;
+          return `Split ${lap.lap_no}<br/>${formatActivityPace(params.value)}<br/>${formatDistance(lap.distance_m)} · ${formatDuration(lap.duration_s)}${lap.avg_hr != null ? `<br/>${formatHr(lap.avg_hr)}` : ""}`;
         },
       },
       series: [
@@ -374,7 +405,8 @@
             show: true,
             position: "right",
             color: "#0b807c",
-            formatter: (params: { value: number }) => formatPace(params.value),
+            formatter: (params: { value: number }) =>
+              formatActivityPace(params.value),
           },
           data: displayLaps.map((lap) => lap.avg_pace_s_per_km),
         },
@@ -383,7 +415,7 @@
   }
 
   onMount(() => {
-    chart = echarts.init(chartContainer);
+    if (chartContainer) chart = echarts.init(chartContainer);
     if (zoneChartContainer) zoneChart = echarts.init(zoneChartContainer);
     if (lapsChartContainer) lapsChart = echarts.init(lapsChartContainer);
     renderChart();
@@ -394,7 +426,7 @@
       zoneChart?.resize();
       lapsChart?.resize();
     });
-    resize.observe(chartContainer);
+    if (chartContainer) resize.observe(chartContainer);
     if (zoneChartContainer) resize.observe(zoneChartContainer);
     if (lapsChartContainer) resize.observe(lapsChartContainer);
     return () => {
@@ -456,9 +488,7 @@
       >
     </div>
     <div>
-      <span>Avg pace</span><strong
-        >{formatPace(detail.activity.avg_pace_s_per_km)}</strong
-      >
+      <span>{paceLabel}</span><strong>{formatSummaryPace()}</strong>
     </div>
     <div>
       <span>Elevation</span><strong
@@ -472,31 +502,35 @@
     </div>
   </div>
 
-  <section class="panel map-panel">
-    <div class="panel-heading">
-      <div>
-        <p class="kicker">Geography</p>
-        <h2>Route trace</h2>
+  {#if route.length > 1}
+    <section class="panel map-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="kicker">Geography</p>
+          <h2>Route trace</h2>
+        </div>
+        <span>Owner-approved detail</span>
       </div>
-      <span>Owner-approved detail</span>
-    </div>
-    <div class="map"><RoutesMap data={routeFeatures} /></div>
-  </section>
+      <div class="map"><RoutesMap data={routeFeatures} /></div>
+    </section>
+  {/if}
 
-  <section class="panel chart-panel">
-    <div class="panel-heading">
-      <div>
-        <p class="kicker">Evidence stream</p>
-        <h2>Pace, heart rate, elevation</h2>
+  {#if route.length > 1}
+    <section class="panel chart-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="kicker">Evidence stream</p>
+          <h2>Pace, heart rate, elevation</h2>
+        </div>
+        <span>Distance · {processedRoute.length.toLocaleString()} points</span>
       </div>
-      <span>Distance · {processedRoute.length.toLocaleString()} points</span>
-    </div>
-    <div
-      class="chart"
-      bind:this={chartContainer}
-      aria-label="Activity pace, heart rate, and elevation chart"
-    ></div>
-  </section>
+      <div
+        class="chart"
+        bind:this={chartContainer}
+        aria-label="Activity pace, heart rate, and elevation chart"
+      ></div>
+    </section>
+  {/if}
 
   {#if heartRateZones.length}
     <section class="panel zone-panel">
@@ -529,7 +563,7 @@
       <div class="panel-heading">
         <div>
           <p class="kicker">Intervals</p>
-          <h2>1 km splits</h2>
+          <h2>{isSwimming ? "100 m splits" : "1 km splits"}</h2>
         </div>
         <span
           >{displayLaps.length} splits · {lapsAreDerived
@@ -558,7 +592,7 @@
                 ><td><strong>{lap.lap_no}</strong></td><td
                   >{formatDistance(lap.distance_m)}</td
                 ><td>{formatDuration(lap.duration_s)}</td><td
-                  >{formatPace(lap.avg_pace_s_per_km)}</td
+                  >{formatActivityPace(lap.avg_pace_s_per_km)}</td
                 ><td>{formatHr(lap.avg_hr)}</td></tr
               >
             {/each}

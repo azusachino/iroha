@@ -102,4 +102,6 @@ export interface RouteFeatureCollection {
 
 export interface Meta {
   generated_at: string;
+  routes_included?: boolean;
+  activity_count?: number;
 }

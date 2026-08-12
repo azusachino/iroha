@@ -170,6 +170,13 @@
       { activity_count: 0, distance_m: 0, duration_s: 0, moving_time_s: 0 },
     );
   });
+  const selectedYearRunningCount = $derived(
+    activities.filter(
+      (activity) =>
+        activity.started_at.slice(0, 4) === selectedYear &&
+        activity.sport_type.toLowerCase().includes("run"),
+    ).length,
+  );
 
   const monthlyAll = $derived(
     monthlyBuckets(filterByYearAndSport(activities, null, sportFilter)),
@@ -376,6 +383,11 @@
       <StatTile
         label="Activities"
         value={selectedYearTotals.activity_count.toLocaleString()}
+      />
+      <StatTile
+        label="Running count"
+        value={selectedYearRunningCount.toLocaleString()}
+        sub={selectedYear ? `runs in ${selectedYear}` : undefined}
       />
       <StatTile
         label="Total time"
@@ -667,7 +679,7 @@
   }
   .stat-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 0.75rem;
     margin-bottom: 1.25rem;
   }

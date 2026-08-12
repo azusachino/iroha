@@ -6,7 +6,7 @@ export type { DesignLanguage } from "$lib/themes/types";
 export const DESIGN_LANGUAGES = THEME_DEFINITIONS;
 
 const STORAGE_KEY = "iroha-design-language";
-const DEFAULT_LANGUAGE: DesignLanguage = "field-journal";
+const DEFAULT_LANGUAGE: DesignLanguage = "grapher";
 
 export function getDesignLanguage(): DesignLanguage {
   if (typeof document === "undefined") return DEFAULT_LANGUAGE;

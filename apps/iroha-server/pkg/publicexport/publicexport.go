@@ -94,7 +94,9 @@ func Summary(svc *activities.Service, year, sport string) (activities.Summary, e
 // Meta carries when a static snapshot was generated, so the public site can
 // show a freshness indicator instead of implying its data is live.
 type Meta struct {
-	GeneratedAt time.Time `json:"generated_at"`
+	GeneratedAt    time.Time `json:"generated_at"`
+	RoutesIncluded bool      `json:"routes_included"`
+	ActivityCount  int       `json:"activity_count"`
 }
 
 // RouteFeatureCollection and RouteFeature are minimal GeoJSON types for the
