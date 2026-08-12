@@ -102,6 +102,16 @@ type MetricAggregate struct {
 	ObservedDays int     `json:"observed_days"`
 }
 
+type PeriodFilters struct {
+	From time.Time
+	To   time.Time
+}
+
+type PeriodReport struct {
+	ObservedDays   int
+	MetricAverages []MetricAggregate
+}
+
 type ringAggregateRow struct {
 	Period      time.Time
 	MoveAvg     float64
@@ -253,6 +263,33 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 	}
 
 	return mergeAggregateRows(ringRows, metricRows, dayRows), nil
+}
+
+func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
+	if !filters.From.Before(filters.To) {
+		return PeriodReport{}, errors.New("period from must be before to")
+	}
+	from := filters.From.UTC()
+	to := filters.To.UTC()
+	var metrics []MetricAggregate
+	if err := s.db.Table("tb_daily_metrics").
+		Select("metric, unit, avg(value) as value, count(distinct day)::int as observed_days").
+		Where("day >= ? and day < ?", from, to).
+		Group("metric, unit").Order("metric asc, unit asc").Scan(&metrics).Error; err != nil {
+		return PeriodReport{}, err
+	}
+	var observedDays int64
+	if err := s.db.Table(`(
+		select day from tb_daily_summaries where day >= ? and day < ?
+		union
+		select day from tb_daily_metrics where day >= ? and day < ?
+	) as days`, from, to, from, to).Count(&observedDays).Error; err != nil {
+		return PeriodReport{}, err
+	}
+	if metrics == nil {
+		metrics = []MetricAggregate{}
+	}
+	return PeriodReport{ObservedDays: int(observedDays), MetricAverages: metrics}, nil
 }
 
 func mergeAggregateRows(ringRows []ringAggregateRow, metricRows []metricAggregateRow, dayRows []dayAggregateRow) []AggregateBucket {
