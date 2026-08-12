@@ -25,6 +25,7 @@
   import { site } from "$lib/site";
   import { sportColor } from "$lib/sport";
   import type { Activity } from "$lib/types";
+  import ApprovedActivityDetail from "$lib/components/ApprovedActivityDetail.svelte";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
   import ActivityDetail from "$lib/components/ActivityDetail.svelte";
   import MonthlyBarChart from "$lib/components/MonthlyBarChart.svelte";
@@ -37,6 +38,7 @@
   let { data }: PageProps = $props();
   const activities = $derived(data.activities);
   const routes = $derived(data.routes);
+  const details = $derived(data.details);
   const meta = $derived(data.meta);
 
   const MONTH_LABELS = [
@@ -64,6 +66,9 @@
   const activityQuery = $derived(page.url.search);
   const selectedActivity = $derived(
     activities.find((activity) => activity.id === selectedActivityId),
+  );
+  const selectedActivityDetail = $derived(
+    selectedActivityId ? details[selectedActivityId] : undefined,
   );
 
   $effect(() => {
@@ -326,13 +331,20 @@
   <p class="muted">
     A calm, read-only view of the years, routes, and sessions made visible.
   </p>
-  <p class="muted">Data as of {formatDateOnly(meta.generated_at)}</p>
+  <p class="muted">
+    v{site.version} · data as of {formatDateOnly(meta.generated_at)}
+  </p>
 </header>
 
-{#if selectedActivity}
+{#if selectedActivity && selectedActivityDetail}
+  <ApprovedActivityDetail
+    detail={selectedActivityDetail}
+    backHref={page.url.pathname}
+  />
+{:else if selectedActivity}
   <ActivityDetail
     activity={selectedActivity}
-    routes={routes}
+    {routes}
     backHref={page.url.pathname}
   />
 {:else}

@@ -70,10 +70,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	approvedDetails, err := publicexport.ApprovedActivityDetails(activityService)
+	if err != nil {
+		logger.Error("build approved activity details", "error", err)
+		os.Exit(1)
+	}
+
 	// Validate before anything is written: a failure here must leave no
 	// partial output on disk for the cron script to diff and push.
 	if err := publicexport.Validate(summary, activityList, routes); err != nil {
 		logger.Error("validate export", "error", err)
+		os.Exit(1)
+	}
+	if err := publicexport.ValidateActivityDetails(approvedDetails); err != nil {
+		logger.Error("validate approved activity details", "error", err)
 		os.Exit(1)
 	}
 
@@ -87,6 +97,10 @@ func main() {
 	}
 	if err := writeJSON(filepath.Join(*out, "routes.geojson"), routes); err != nil {
 		logger.Error("write routes.geojson", "error", err)
+		os.Exit(1)
+	}
+	if err := writeJSON(filepath.Join(*out, "activity-details.json"), approvedDetails); err != nil {
+		logger.Error("write activity-details.json", "error", err)
 		os.Exit(1)
 	}
 	meta := publicexport.Meta{GeneratedAt: time.Now().UTC()}
