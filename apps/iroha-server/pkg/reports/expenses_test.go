@@ -7,13 +7,10 @@ import (
 )
 
 func TestExpensesDataMapsSeparateCurrencyTotals(t *testing.T) {
-	data := expensesData(expenses.PeriodReport{
-		ExpenseCount: 3,
-		TotalsByCurrency: []expenses.PeriodCurrencyTotal{
-			{Currency: "JPY", CurrencyExponent: 0, AmountMinor: 1800, ExpenseCount: 2},
-			{Currency: "USD", CurrencyExponent: 2, AmountMinor: 2500, ExpenseCount: 1},
-		},
-		ByCategory: []expenses.PeriodCategoryTotal{{Category: "food", Currency: "JPY", CurrencyExponent: 0, AmountMinor: 1800, ExpenseCount: 2}},
+	data := expensesDataValues([]expenses.MetricValue{
+		{Currency: "JPY", Category: "food", AmountMinor: 900},
+		{Currency: "JPY", Category: "food", AmountMinor: 900},
+		{Currency: "USD", Category: "transport", AmountMinor: 2500},
 	})
 
 	if data.ExpenseCount != 3 || len(data.TotalsByCurrency) != 2 || data.TotalsByCurrency[0].Currency != "JPY" || data.TotalsByCurrency[1].Currency != "USD" {
@@ -25,7 +22,7 @@ func TestExpensesDataMapsSeparateCurrencyTotals(t *testing.T) {
 }
 
 func TestExpensesDataReturnsNilForEmptyReport(t *testing.T) {
-	if expensesData(expenses.PeriodReport{}) != nil {
+	if expensesDataValues(nil) != nil {
 		t.Fatal("empty expense report should map to nil")
 	}
 }
