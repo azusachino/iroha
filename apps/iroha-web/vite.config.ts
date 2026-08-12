@@ -4,6 +4,11 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  build: {
+    // MapLibre and ECharts are core to the private route/detail experience and
+    // together produce one intentionally large vendor chunk.
+    chunkSizeWarningLimit: 1400,
+  },
   server: {
     // Reachable over Tailscale/LAN via `make web-dev` (binds 0.0.0.0). Allow
     // the machine's MagicDNS short name and any *.ts.net FQDN; IPs are always

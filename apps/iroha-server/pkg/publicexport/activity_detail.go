@@ -10,12 +10,6 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 )
 
-// ApprovedActivityIDs is the explicit editorial allowlist for full public
-// activity detail. All other activities keep the normal sanitized projection.
-var ApprovedActivityIDs = map[string]struct{}{
-	"act_019f82a5-87b2-7b31-9ebf-19f169899a76": {},
-}
-
 type ActivityDetail struct {
 	Activity  ActivityDetailActivity     `json:"activity"`
 	Route     []ActivityDetailRoutePoint `json:"route"`
@@ -58,37 +52,43 @@ type ActivityDetailLap struct {
 	AvgPaceSPerKM *float64   `json:"avg_pace_s_per_km,omitempty"`
 }
 
-func ApprovedActivityDetails(svc *activities.Service) (map[string]ActivityDetail, error) {
-	details := make(map[string]ActivityDetail, len(ApprovedActivityIDs))
-	for id := range ApprovedActivityIDs {
+const activityDetailMaxRoutePoints = 300
+
+// ActivityDetails exports the complete detail projection for every activity
+// in the public snapshot. Publication scope is decided by the caller by
+// passing the snapshot's activity list; there is no hidden editorial gate.
+func ActivityDetails(svc *activities.Service, activityList []Activity, includeRoutes bool) (map[string]ActivityDetail, error) {
+	details := make(map[string]ActivityDetail, len(activityList))
+	for _, item := range activityList {
+		id := item.ID
 		activity, found, err := svc.Get(id)
 		if err != nil {
-			return nil, fmt.Errorf("get approved activity %s: %w", id, err)
+			return nil, fmt.Errorf("get activity %s: %w", id, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("approved activity %s not found", id)
+			return nil, fmt.Errorf("activity %s not found", id)
 		}
 
 		route, found, err := svc.Route(id)
 		if err != nil {
-			return nil, fmt.Errorf("get approved route %s: %w", id, err)
+			return nil, fmt.Errorf("get route %s: %w", id, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("approved route %s not found", id)
+			return nil, fmt.Errorf("route activity %s not found", id)
 		}
-		samplings, found, err := svc.Samplings(id, "heart_rate")
+		samplings, found, err := svc.Samplings(id)
 		if err != nil {
-			return nil, fmt.Errorf("get approved samplings %s: %w", id, err)
+			return nil, fmt.Errorf("get samplings %s: %w", id, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("approved samplings %s not found", id)
+			return nil, fmt.Errorf("sampling activity %s not found", id)
 		}
 		laps, found, err := svc.Laps(id)
 		if err != nil {
-			return nil, fmt.Errorf("get approved laps %s: %w", id, err)
+			return nil, fmt.Errorf("get laps %s: %w", id, err)
 		}
 		if !found {
-			return nil, fmt.Errorf("approved laps %s not found", id)
+			return nil, fmt.Errorf("lap activity %s not found", id)
 		}
 
 		details[id] = ActivityDetail{
@@ -96,7 +96,7 @@ func ApprovedActivityDetails(svc *activities.Service) (map[string]ActivityDetail
 				Activity:   ToActivity(activity),
 				SourceKind: activity.SourceKind,
 			},
-			Route:     toActivityDetailRoute(route),
+			Route:     toActivityDetailRoute(route, includeRoutes),
 			Samplings: toActivityDetailSamplings(samplings),
 			Laps:      toActivityDetailLaps(laps),
 		}
@@ -104,7 +104,10 @@ func ApprovedActivityDetails(svc *activities.Service) (map[string]ActivityDetail
 	return details, nil
 }
 
-func toActivityDetailRoute(points []models.ActivityRoutePoint) []ActivityDetailRoutePoint {
+func toActivityDetailRoute(points []models.ActivityRoutePoint, includeRoutes bool) []ActivityDetailRoutePoint {
+	if !includeRoutes {
+		return []ActivityDetailRoutePoint{}
+	}
 	out := make([]ActivityDetailRoutePoint, 0, len(points))
 	for _, point := range points {
 		out = append(out, ActivityDetailRoutePoint{
@@ -117,6 +120,26 @@ func toActivityDetailRoute(points []models.ActivityRoutePoint) []ActivityDetailR
 			SpeedMPS:   point.SpeedMPS,
 			HeartRate:  point.HeartRate,
 		})
+	}
+	return decimateActivityDetailRoute(out)
+}
+
+// decimateActivityDetailRoute keeps charts useful without duplicating every
+// raw GPS point already present in routes.geojson. The first and last points
+// remain stable so distance and pace trends still cover the whole activity.
+func decimateActivityDetailRoute(points []ActivityDetailRoutePoint) []ActivityDetailRoutePoint {
+	if len(points) <= activityDetailMaxRoutePoints {
+		return points
+	}
+
+	stride := (len(points) + activityDetailMaxRoutePoints - 1) / activityDetailMaxRoutePoints
+	out := make([]ActivityDetailRoutePoint, 0, activityDetailMaxRoutePoints+1)
+	for i := 0; i < len(points); i += stride {
+		out = append(out, points[i])
+	}
+	last := points[len(points)-1]
+	if out[len(out)-1].Seq != last.Seq {
+		out = append(out, last)
 	}
 	return out
 }
@@ -138,6 +161,11 @@ func toActivityDetailSamplings(points []models.ActivitySampling) []ActivityDetai
 func toActivityDetailLaps(laps []models.ActivityLap) []ActivityDetailLap {
 	out := make([]ActivityDetailLap, 0, len(laps))
 	for _, lap := range laps {
+		// Apple Health can emit placeholder lap rows with no distance and a
+		// zero-length timestamp. They are source artifacts, not useful splits.
+		if lap.DistanceM == nil || *lap.DistanceM <= 0 || lap.DurationS == nil || *lap.DurationS <= 0 {
+			continue
+		}
 		out = append(out, ActivityDetailLap{
 			ID:            ids.Encode("lap", lap.ID),
 			LapNo:         lap.LapNo,
@@ -154,9 +182,6 @@ func toActivityDetailLaps(laps []models.ActivityLap) []ActivityDetailLap {
 
 func ValidateActivityDetails(details map[string]ActivityDetail) error {
 	for id, detail := range details {
-		if _, ok := ApprovedActivityIDs[id]; !ok {
-			return fmt.Errorf("activity %s is not approved for full public detail", id)
-		}
 		if detail.Activity.ID != id || !strings.HasPrefix(detail.Activity.ID, ids.ActivityPrefix+"_") {
 			return fmt.Errorf("activity %s has mismatched public id", id)
 		}

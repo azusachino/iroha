@@ -206,7 +206,7 @@
         p.speed_mps <= 0
       )
         return null;
-      return 1000 / p.speed_mps;
+      return (isSwimming(activity?.sport_type) ? 100 : 1000) / p.speed_mps;
     }),
   );
   const hrSeries = $derived.by(() => column((p) => p.heart_rate));
@@ -288,7 +288,11 @@
       .filter((zone) => zone.count > 0);
   });
 
-  const isRun = $derived(activity?.sport_type?.toLowerCase() === "run");
+  const supportsSplits = $derived(
+    /run|walk|hike|ride|cycl|swim/.test(
+      activity?.sport_type?.toLowerCase() ?? "",
+    ),
+  );
 
   interface CalculatedLap {
     id: string;
@@ -303,7 +307,8 @@
     routePoints: RoutePoint[],
     sportType: string,
   ): CalculatedLap[] {
-    if (sportType.toLowerCase() !== "run") return [];
+    if (!/run|walk|hike|ride|cycl|swim/.test(sportType.toLowerCase()))
+      return [];
     if (routePoints.length < 2) return [];
 
     // Filter and sort points that have distance and timestamp
@@ -323,9 +328,13 @@
       const segmentDist =
         (currentPoint.distance_m as number) - (startPoint.distance_m as number);
 
-      // When we cross a 1000m boundary, or if it's the very last point
+      const splitMeters = /swim/.test(sportType.toLowerCase()) ? 100 : 1000;
+      // When we cross a split boundary, or if it's the very last point
       const isLastPoint = i === points.length - 1;
-      if (segmentDist >= 1000 || (isLastPoint && segmentDist > 10)) {
+      if (
+        segmentDist >= splitMeters ||
+        (isLastPoint && segmentDist > splitMeters * 0.1)
+      ) {
         const startTs = new Date(startPoint.ts as string).getTime();
         const endTs = new Date(currentPoint.ts as string).getTime();
         const durationS = (endTs - startTs) / 1000;
@@ -341,7 +350,7 @@
             : undefined;
 
         const avgPace =
-          segmentDist > 0 ? durationS / (segmentDist / 1000) : undefined;
+          segmentDist > 0 ? durationS / (segmentDist / splitMeters) : undefined;
 
         calculatedLaps.push({
           id: `derived-lap-${lapNo}`,
@@ -378,6 +387,12 @@
     }
     return hasMeasuredLap ? laps : [];
   });
+
+  function formatSplitPace(value?: number): string {
+    if (value == null || !Number.isFinite(value) || value <= 0) return "—";
+    const minutes = Math.floor(value / 60);
+    return `${minutes}:${String(Math.round(value % 60)).padStart(2, "0")} ${isSwimming(activity?.sport_type) ? "/100m" : "/km"}`;
+  }
 </script>
 
 <svelte:head>
@@ -481,6 +496,7 @@
         pace={paceSeries}
         heartRate={hrSeries}
         elevation={elevationSeries}
+        paceLabel={isSwimming(activity.sport_type) ? "Pace /100m" : "Pace /km"}
         onHover={(index) => (selectedRouteIndex = index)}
       />
       {#if hrZones.length > 0}
@@ -505,8 +521,10 @@
       {/if}
     {/if}
 
-    {#if isRun && displayLaps.length > 0}
-      <h2 class="section-title">Laps (1 km splits)</h2>
+    {#if supportsSplits && displayLaps.length > 0}
+      <h2 class="section-title">
+        Laps ({isSwimming(activity.sport_type) ? "100 m" : "1 km"} splits)
+      </h2>
       <div class="laps-container tile">
         <div class="split-bars" aria-label="Split pace bars">
           {#each displayLaps as lap (lap.lap_no)}
@@ -517,7 +535,7 @@
                   class="split-fill"
                   style={`width: ${Math.min(100, ((lap.avg_pace_s_per_km ?? 0) / Math.max(...displayLaps.map((l) => l.avg_pace_s_per_km ?? 0), 1)) * 100)}%`}
                 ></span></span
-              ><strong>{formatPace(lap.avg_pace_s_per_km)}</strong>
+              ><strong>{formatSplitPace(lap.avg_pace_s_per_km)}</strong>
             </div>
           {/each}
         </div>
@@ -537,7 +555,7 @@
                 <td><strong>{lap.lap_no}</strong></td>
                 <td>{formatDistance(lap.distance_m)}</td>
                 <td>{formatDuration(lap.duration_s)}</td>
-                <td>{formatPace(lap.avg_pace_s_per_km)}</td>
+                <td>{formatSplitPace(lap.avg_pace_s_per_km)}</td>
                 <td>{formatHr(lap.avg_hr)}</td>
               </tr>
             {/each}

@@ -14,6 +14,7 @@
     pace,
     heartRate,
     elevation,
+    paceLabel = "Pace",
     onHover,
   }: {
     xValues: number[];
@@ -21,6 +22,7 @@
     pace: (number | null)[];
     heartRate: (number | null)[];
     elevation: (number | null)[];
+    paceLabel?: string;
     onHover?: (index: number | null) => void;
   } = $props();
 
@@ -76,7 +78,7 @@
       yAxis: [
         {
           type: "value",
-          name: "Pace",
+          name: paceLabel,
           inverse: true,
           axisLabel: { color: "#4f8cff", fontSize: 10, formatter: formatPace },
           axisLine: { lineStyle: { color: "#4f8cff" } },
@@ -101,7 +103,7 @@
         },
       ],
       series: [
-        makeSeries("Pace", pace, "#4f8cff", 0),
+        makeSeries(paceLabel, pace, "#4f8cff", 0),
         makeSeries("Heart rate", heartRate, "#ff6b6b", 1),
         makeSeries("Elevation", elevation, "#3ecf8e", 2),
       ].filter((series) => series.data.some((point) => point[1] != null)),
@@ -152,7 +154,7 @@
   }
   function formatValue(value: number | null, name: string) {
     if (value == null) return "—";
-    return name === "Pace"
+    return name === paceLabel
       ? formatPace(value)
       : `${value.toFixed(0)}${name === "Heart rate" ? " bpm" : " m"}`;
   }
@@ -174,6 +176,7 @@
     pace;
     heartRate;
     elevation;
+    paceLabel;
     render();
   });
 </script>

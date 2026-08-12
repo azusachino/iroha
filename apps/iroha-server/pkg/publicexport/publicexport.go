@@ -1,7 +1,7 @@
 // Package publicexport builds the public-facing projection of activity data.
-// The archive-wide view is sanitized; an explicit allowlist may additionally
-// publish selected activity detail records. It has no HTTP or cache
-// dependency: callers get plain data back and decide what to do with it.
+// The archive-wide view is sanitized and can include rich detail for every
+// exported activity. It has no HTTP or cache dependency: callers get plain
+// data back and decide what to do with it.
 package publicexport
 
 import (
@@ -94,7 +94,9 @@ func Summary(svc *activities.Service, year, sport string) (activities.Summary, e
 // Meta carries when a static snapshot was generated, so the public site can
 // show a freshness indicator instead of implying its data is live.
 type Meta struct {
-	GeneratedAt time.Time `json:"generated_at"`
+	GeneratedAt    time.Time `json:"generated_at"`
+	RoutesIncluded bool      `json:"routes_included"`
+	ActivityCount  int       `json:"activity_count"`
 }
 
 // RouteFeatureCollection and RouteFeature are minimal GeoJSON types for the
@@ -123,8 +125,8 @@ type RouteFeatureProps struct {
 	CityStatus string `json:"city_status"`
 }
 
-// Routes returns every activity route line, trimmed and privacy-masked by
-// activities.Service.RouteLines, with a best-effort city label resolved from
+// Routes returns every activity route line, decimated for snapshot size, with
+// a best-effort city label resolved from
 // the existing geocode cache. EnqueueRefresh is the only place that ever
 // warms the geocode cache, so refreshOnMiss must be true for the live
 // /api/v1/activities/routes handler (it's how city labels resolve at all over

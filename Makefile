@@ -10,6 +10,7 @@ IMAGE_NS := azusachino.icu
 VERSION := $(shell tr -d '\n' < VERSION)
 TAG := v$(VERSION)
 OUT := ./dist/public-data
+PRIVACY ?= 0
 MEDIA_BRIDGE_OUT := ./dist/media-bridge
 
 .DEFAULT_GOAL := help
@@ -58,8 +59,8 @@ run: db-up ## Run the server against the local dev stack (http://127.0.0.1:8080)
 run-job: db-up ## Run one iroha-job polling worker against the local dev stack
 	$(TOOL_ENV) go -C $(JOB_DIR) run .
 
-export-public: db-up ## Export sanitized public data as static JSON/GeoJSON (OUT=./dist/public-data)
-	$(TOOL_ENV) go -C $(SERVER_DIR) run ./cmd/iroha-export-public --out $(abspath $(OUT))
+export-public: db-up ## Export public data (PRIVACY=1 omits every route trace)
+	$(TOOL_ENV) go -C $(SERVER_DIR) run ./cmd/iroha-export-public --out $(abspath $(OUT)) $(if $(filter 1 true yes,$(PRIVACY)),--privacy,)
 
 media-bridge-build: ## Build the Bangumi->MAL->AniList bridge cache (MEDIA_BRIDGE_OUT=./dist/media-bridge)
 	$(TOOL_ENV) uv run python scripts/build_media_bridge.py --out $(MEDIA_BRIDGE_OUT)
@@ -111,7 +112,7 @@ public-site-dev: ## Run the public-site dev server, bound to all interfaces
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run dev -- --host 0.0.0.0 --port $(or $(PORT),5174)
 
 public-site-preview: ## Build and serve the public site locally (root path, production output)
-	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run build && $(TOOL_ENV) bun run preview -- --host $(or $(HOST),127.0.0.1) --port $(or $(PORT),4173)
+	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run preview -- --host $(or $(HOST),127.0.0.1) --port $(or $(PORT),4173)
 
 ## --- Docs and config formatting (prettier; Go/web/SQL out of scope) ---
 fmt-docs: ## Format docs and config files (markdown wraps at 200)

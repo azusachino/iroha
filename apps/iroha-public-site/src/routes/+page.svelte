@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from "$app/environment";
   import { page } from "$app/state";
   import { onMount, untrack } from "svelte";
   import {
@@ -62,7 +63,11 @@
   );
   let sportFilter = $state<string | null>(null);
   let cityFilter = $state<string | null>(null);
-  let selectedActivityId = $state<string | null>(null);
+  let selectedActivityId = $state<string | null>(
+    browser
+      ? new URLSearchParams(window.location.search).get("activity")
+      : null,
+  );
   const activityQuery = $derived(page.url.search);
   const selectedActivity = $derived(
     activities.find((activity) => activity.id === selectedActivityId),
@@ -118,6 +123,18 @@
     return (sport?.toLowerCase() ?? "").includes("swim");
   }
 
+  function hasMeaningfulActivityTitle(activity: Activity): boolean {
+    const title = formatSport(activity.title);
+    const sport = formatSport(activity.sport_type);
+    const genericTitles: Record<string, string[]> = {
+      Run: ["Run", "Running"],
+      Walk: ["Walk", "Walking"],
+      Ride: ["Ride", "Riding", "Cycling"],
+      Swim: ["Swim", "Swimming"],
+    };
+    return title !== "—" && !(genericTitles[sport] ?? [sport]).includes(title);
+  }
+
   function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
     if (distanceM == null || durationS == null || durationS <= 0) return "—";
     return `${(distanceM / 1000 / (durationS / 3600)).toFixed(1)} km/h`;
@@ -153,6 +170,13 @@
       { activity_count: 0, distance_m: 0, duration_s: 0, moving_time_s: 0 },
     );
   });
+  const selectedYearRunningCount = $derived(
+    activities.filter(
+      (activity) =>
+        activity.started_at.slice(0, 4) === selectedYear &&
+        activity.sport_type.toLowerCase().includes("run"),
+    ).length,
+  );
 
   const monthlyAll = $derived(
     monthlyBuckets(filterByYearAndSport(activities, null, sportFilter)),
@@ -328,12 +352,14 @@
     <ThemeToggle />
   </div>
   <h1>The shape of the miles.</h1>
-  <p class="muted">
-    A calm, read-only view of the years, routes, and sessions made visible.
+  <p class="hero-summary">
+    A public field guide to the routes and rhythms made visible.
   </p>
-  <p class="muted">
-    v{site.version} · data as of {formatDateOnly(meta.generated_at)}
-  </p>
+  <div class="hero-meta" aria-label="Archive metadata">
+    <span>Public snapshot</span>
+    <span>Updated {formatDateOnly(meta.generated_at)}</span>
+    <span>iroha v{site.version}</span>
+  </div>
 </header>
 
 {#if selectedActivity && selectedActivityDetail}
@@ -357,6 +383,11 @@
       <StatTile
         label="Activities"
         value={selectedYearTotals.activity_count.toLocaleString()}
+      />
+      <StatTile
+        label="Running count"
+        value={selectedYearRunningCount.toLocaleString()}
+        sub={selectedYear ? `runs in ${selectedYear}` : undefined}
       />
       <StatTile
         label="Total time"
@@ -540,7 +571,7 @@
                 <td>
                   <div class="activity-cell">
                     <SportBadge sport={activity.sport_type} />
-                    {#if activity.title && formatSport(activity.title) !== formatSport(activity.sport_type)}
+                    {#if hasMeaningfulActivityTitle(activity)}
                       <span class="activity-title">{activity.title}</span>
                     {/if}
                   </div>
@@ -617,12 +648,38 @@
     font-size: clamp(2rem, 5vw, 3.2rem);
     letter-spacing: -0.03em;
   }
+  .hero-summary {
+    max-width: 34rem;
+    margin: 0.7rem 0 1.15rem;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    line-height: 1.5;
+  }
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .hero-meta span + span {
+    padding-left: 1rem;
+    border-left: 1px solid var(--border);
+  }
+  @media (max-width: 500px) {
+    .hero-meta span + span {
+      padding-left: 0;
+      border-left: 0;
+    }
+  }
   .small {
     font-size: 0.78rem;
   }
   .stat-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 0.75rem;
     margin-bottom: 1.25rem;
   }

@@ -24,6 +24,7 @@ import (
 
 func main() {
 	out := flag.String("out", "./dist/public-data", "output directory for summary.json/activities.json/routes.geojson")
+	privacy := flag.Bool("privacy", false, "omit all route traces from the public snapshot")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -64,15 +65,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	routes, err := publicexport.Routes(ctx, activityService, geocodeService, false)
-	if err != nil {
-		logger.Error("build routes", "error", err)
-		os.Exit(1)
+	routes := publicexport.RouteFeatureCollection{}
+	if !*privacy {
+		routes, err = publicexport.Routes(ctx, activityService, geocodeService, false)
+		if err != nil {
+			logger.Error("build routes", "error", err)
+			os.Exit(1)
+		}
 	}
 
-	approvedDetails, err := publicexport.ApprovedActivityDetails(activityService)
+	activityDetails, err := publicexport.ActivityDetails(activityService, activityList, !*privacy)
 	if err != nil {
-		logger.Error("build approved activity details", "error", err)
+		logger.Error("build activity details", "error", err)
 		os.Exit(1)
 	}
 
@@ -82,8 +86,8 @@ func main() {
 		logger.Error("validate export", "error", err)
 		os.Exit(1)
 	}
-	if err := publicexport.ValidateActivityDetails(approvedDetails); err != nil {
-		logger.Error("validate approved activity details", "error", err)
+	if err := publicexport.ValidateActivityDetails(activityDetails); err != nil {
+		logger.Error("validate activity details", "error", err)
 		os.Exit(1)
 	}
 
@@ -99,11 +103,15 @@ func main() {
 		logger.Error("write routes.geojson", "error", err)
 		os.Exit(1)
 	}
-	if err := writeJSON(filepath.Join(*out, "activity-details.json"), approvedDetails); err != nil {
+	if err := writeJSON(filepath.Join(*out, "activity-details.json"), activityDetails); err != nil {
 		logger.Error("write activity-details.json", "error", err)
 		os.Exit(1)
 	}
-	meta := publicexport.Meta{GeneratedAt: time.Now().UTC()}
+	meta := publicexport.Meta{
+		GeneratedAt:    time.Now().UTC(),
+		RoutesIncluded: !*privacy,
+		ActivityCount:  len(activityDetails),
+	}
 	if err := writeJSON(filepath.Join(*out, "meta.json"), meta); err != nil {
 		logger.Error("write meta.json", "error", err)
 		os.Exit(1)

@@ -10,6 +10,7 @@
   let container: HTMLDivElement;
   let map: maplibregl.Map | null = null;
   let loaded = $state(false);
+  const osmMaxZoom = 19;
 
   // Key-free raster style backed by OpenStreetMap tiles (no API token needed).
   // Reuses the same style as RouteMap.svelte for visual consistency.
@@ -20,6 +21,7 @@
         type: "raster",
         tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
         tileSize: 256,
+        maxzoom: osmMaxZoom,
         attribution: "© OpenStreetMap contributors",
       },
     },
@@ -64,7 +66,7 @@
         coords[0] as [number, number],
       ),
     );
-    map.fitBounds(bounds, { padding: 32, duration: 300 });
+    map.fitBounds(bounds, { padding: 32, duration: 300, maxZoom: osmMaxZoom });
   }
 
   onMount(() => {
@@ -73,6 +75,7 @@
       style,
       center: [0, 0],
       zoom: 1,
+      maxZoom: osmMaxZoom,
       attributionControl: { compact: true },
     });
     map.addControl(

@@ -13,6 +13,11 @@ const base = (
 ) as "" | `/${string}`;
 
 export default defineConfig({
+  build: {
+    // MapLibre and ECharts are core to the public route/detail experience and
+    // together produce one intentionally large vendor chunk.
+    chunkSizeWarningLimit: 1700,
+  },
   server: {
     allowedHosts: ["harus-macmini", "harus-mini", ".ts.net"],
   },

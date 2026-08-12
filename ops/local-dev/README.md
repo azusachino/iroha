@@ -27,9 +27,7 @@ make run
 make run-job
 ```
 
-To check the private app from another device on the LAN/Tailscale network, use
-the published web port (the compose service already binds it to all host
-interfaces):
+To check the private app from another device on the LAN/Tailscale network, use the published web port (the compose service already binds it to all host interfaces):
 
 ```bash
 make dev-up
@@ -37,16 +35,14 @@ make db-status
 podman-compose -f ops/local-dev/compose.yaml -f ops/local-dev/compose.app.yaml -p iroha-dev ps
 ```
 
-Open `http://<machine-ip>:5173/motion/<activity-id>` in the other browser.
-The standalone public snapshot can be checked separately with:
+Open `http://<machine-ip>:5173/motion/<activity-id>` in the other browser. The standalone public snapshot can be checked separately with:
 
 ```bash
 make public-site-dev PORT=5174  # http://<machine-ip>:5174
 make public-site-preview HOST=0.0.0.0 PORT=4173  # production-like build
 ```
 
-The private host-process frontend uses the same all-interface binding:
-`make web-dev`, then open `http://<machine-ip>:5173/motion/<activity-id>`.
+The private host-process frontend uses the same all-interface binding: `make web-dev`, then open `http://<machine-ip>:5173/motion/<activity-id>`.
 
 The stack is defined in `compose.yaml` and lifecycle/migration behavior is owned by `scripts/dev_stack.py`:
 

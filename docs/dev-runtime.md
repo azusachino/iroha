@@ -128,9 +128,25 @@ make public-site-dev
 make public-site-preview
 ```
 
+To preview the latest snapshot published by the private exporter, sync the generated artifacts from `origin/main` before building. This is a data refresh, not a backend connection:
+
+```bash
+git fetch origin main
+git restore --source=origin/main -- \
+  apps/iroha-public-site/static/data/summary.json \
+  apps/iroha-public-site/static/data/activities.json \
+  apps/iroha-public-site/static/data/routes.geojson \
+  apps/iroha-public-site/static/data/activity-details.json \
+  apps/iroha-public-site/static/data/meta.json
+make public-site-preview HOST=0.0.0.0 PORT=4175
+```
+
+The snapshot contains rich detail for every exported activity. Routes are present by default; an export run made with `--privacy` contains the metrics, samples, and laps but no route traces. Do not
+run the sync command over uncommitted personal snapshot changes.
+
 Both commands serve the site at `http://127.0.0.1:4173/` (the development server may choose a different port if 5173 is occupied). Leave `BASE_PATH` unset locally; GitHub Pages supplies `/iroha` in
 `public-site.yml`, and that workflow smoke-checks the deployed project-page path. To test a new export locally, replace the ignored working snapshot files temporarily, run the preview, then restore
-them without committing personal data.
+them without committing personal data. Close the preview process after a one-off check so stale listeners do not accumulate.
 
 Do not use a Git submodule for `iroha-server` unless it must live in a separate repository with independent release ownership. In this product phase, `iroha-server` should be a subdirectory module
 inside the iroha repo, not an external Git submodule.
