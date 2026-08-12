@@ -11,7 +11,7 @@ flowchart LR
         DB[(Postgres/PostGIS)] --> CLI["iroha-export-public CLI"]
         CLI --> GATE{"publicexport.Validate<br/>schema + privacy gate"}
         GATE -- fail --> ABORT["exit non-zero<br/>no files written"]
-        GATE -- pass --> FILES["summary.json / activities.json /<br/>routes.geojson / meta.json"]
+        GATE -- pass --> FILES["summary.json / activities.json /<br/>routes.geojson / activity-details.json / meta.json"]
         FILES --> CRON["export-public-cron.sh<br/>(iroha-export-public CronJob)"]
         CRON -- "git diff empty" --> NOOP["no push"]
         CRON -- "git diff changed" --> PUSH["commit + push to main"]
@@ -25,8 +25,8 @@ flowchart LR
     SMOKE -- fail --> FAILWF["workflow run marked failed<br/>previous deployment stays live"]
 ```
 
-Every step left of the GitHub push happens inside the private network; nothing there is reachable from the public internet. The only thing that crosses the boundary is the sanitized snapshot, as a git
-push.
+Every step left of the GitHub push happens inside the private network; nothing there is reachable from the public internet. The archive-wide files are sanitized. `activity-details.json` is a
+deliberate exception for the small explicit allowlist in `pkg/publicexport/activity_detail.go`; the selected records are published by owner decision.
 
 ### Validation gate
 
@@ -46,6 +46,7 @@ The last step of `.github/workflows/public-site.yml` curls the deployed `page_ur
 
 - the `/iroha` base path root returns the expected title/heading text (confirms the base path and build landed correctly, not a 404 or a root-site default page)
 - `data/meta.json`, `data/summary.json`, `data/activities.json`, `data/routes.geojson` are all fetchable under that base path
+- `data/activity-details.json` is fetchable under that base path
 
 A failure here fails the workflow run but does **not** take the site down — GitHub Pages keeps serving the last successful `deploy-pages` output until a later run supersedes it.
 
@@ -87,8 +88,8 @@ The public repository contains the exporter and static site, but never the crede
    rotate it when it expires.
 2. Store the token in the deployment platform's encrypted secret store and inject it as `IROHA_EXPORT_GITHUB_PAT` only into the exporter Job. Never commit, print, or paste the value into public issue
    trackers or chat.
-3. Keep the exporter image and Job configuration in the deployment environment. The Job should run `ops/scripts/export-public-cron.sh`, which exports only the sanitized projection, validates it, and
-   pushes only changed files under `apps/iroha-public-site/static/data/`.
+3. Keep the exporter image and Job configuration in the deployment environment. The Job should run `ops/scripts/export-public-cron.sh`, which exports the sanitized archive plus the explicit
+   approved-detail allowlist, validates it, and pushes only changed files under `apps/iroha-public-site/static/data/`.
 4. Verify the Job reaches `Complete`, then confirm the Pages workflow succeeds and [the public site](https://azusachino.github.io/iroha/) shows a current `Data as of` timestamp. A deployment-specific
    one-shot Job command may be used for this check; remove it afterward.
 

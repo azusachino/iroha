@@ -105,10 +105,10 @@ public-site-check: ## Type-check the public site (svelte-check)
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run check
 
 public-site-build: ## Production build of the public site (BASE_PATH=/iroha for GitHub Pages)
-	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run build
+	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build
 
 public-site-dev: ## Run the public-site dev server, bound to all interfaces
-	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run dev -- --host 0.0.0.0 --port $(or $(PORT),5174)
+	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run dev -- --host 0.0.0.0 --port $(or $(PORT),5174)
 
 public-site-preview: ## Build and serve the public site locally (root path, production output)
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run build && $(TOOL_ENV) bun run preview -- --host $(or $(HOST),127.0.0.1) --port $(or $(PORT),4173)

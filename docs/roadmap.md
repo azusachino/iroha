@@ -180,10 +180,10 @@ Actions, on infrastructure GitHub never touches (`ops/scripts/export-public-cron
 
 Exit criteria:
 
-- A public activity can be browsed on the GitHub Pages site without exposing exact private route data or any other private-only field.
+- Public activities use the sanitized projection by default; an explicitly approved activity may publish its full grapher detail, including route, samples, and laps.
 
-Status: the GitHub Pages deployment and k3s CronJob are live. The recurring publication loop uses the dedicated sealed `IROHA_EXPORT_GITHUB_PAT` credential and publishes only the validated, sanitized
-snapshot under `apps/iroha-public-site/static/data/`.
+Status: the GitHub Pages deployment and k3s CronJob are live. The recurring publication loop uses the dedicated sealed `IROHA_EXPORT_GITHUB_PAT` credential and publishes only the validated snapshot
+under `apps/iroha-public-site/static/data/`; the approved-detail allowlist is maintained in the exporter code.
 
 ## Milestone 8: Durable Worker Backbone
 

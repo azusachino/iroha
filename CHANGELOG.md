@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
+## [0.3.1] — 2026-08-12
+
+### Added
+
+- Publish the explicitly approved activity's grapher detail, including its full route, heart-rate samples, and laps, through `activity-details.json`.
+- Show the public site's iroha version in its header/footer.
+
+### Changed
+
+- Shorten the README to the private/public boundary, quick start, and documentation references.
+
 ## [0.3.0] — 2026-08-11
 
 ### Fixed
