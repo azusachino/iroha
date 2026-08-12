@@ -70,6 +70,9 @@ func validateRouteFeature(feature RouteFeature) error {
 	if feature.Type != "Feature" || feature.Geometry.Type != "LineString" {
 		return fmt.Errorf("unexpected geometry type %q/%q", feature.Type, feature.Geometry.Type)
 	}
+	if !strings.HasPrefix(feature.Properties.ActivityID, ids.ActivityPrefix+"_") {
+		return fmt.Errorf("activity_id is not %s-prefixed", ids.ActivityPrefix)
+	}
 	for _, point := range feature.Geometry.Coordinates {
 		lon, lat := point[0], point[1]
 		if lon < -180 || lon > 180 || lat < -90 || lat > 90 {

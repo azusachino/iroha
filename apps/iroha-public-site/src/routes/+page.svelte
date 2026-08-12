@@ -330,7 +330,11 @@
 </header>
 
 {#if selectedActivity}
-  <ActivityDetail activity={selectedActivity} backHref={page.url.pathname} />
+  <ActivityDetail
+    activity={selectedActivity}
+    routes={routes}
+    backHref={page.url.pathname}
+  />
 {:else}
   <div class="dashboard">
     <div class="stat-grid">

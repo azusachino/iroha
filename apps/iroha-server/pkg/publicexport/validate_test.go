@@ -82,10 +82,23 @@ func TestValidate_RejectsEndedBeforeStarted(t *testing.T) {
 
 func TestValidate_RejectsOutOfRangeCoordinate(t *testing.T) {
 	routes := RouteFeatureCollection{Features: []RouteFeature{{
-		Type:     "Feature",
+		Type: "Feature",
+		Properties: RouteFeatureProps{
+			ActivityID: "act_0198f8f0-0000-7000-8000-000000000000",
+		},
 		Geometry: RouteGeometry{Type: "LineString", Coordinates: [][2]float64{{200, 0}}},
 	}}}
 	if err := Validate(validSummary(), []Activity{validActivity()}, routes); err == nil {
 		t.Fatal("expected error for out-of-range coordinate")
+	}
+}
+
+func TestValidate_RejectsUnlinkedRoute(t *testing.T) {
+	routes := RouteFeatureCollection{Features: []RouteFeature{{
+		Type:     "Feature",
+		Geometry: RouteGeometry{Type: "LineString", Coordinates: [][2]float64{{139, 35}, {139.001, 35.001}}},
+	}}}
+	if err := Validate(validSummary(), []Activity{validActivity()}, routes); err == nil {
+		t.Fatal("expected error for route without public activity id")
 	}
 }

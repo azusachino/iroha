@@ -13,6 +13,9 @@ const base = (
 ) as "" | `/${string}`;
 
 export default defineConfig({
+  server: {
+    allowedHosts: ["harus-macmini", "harus-mini", ".ts.net"],
+  },
   plugins: [
     tailwindcss(),
     sveltekit({

@@ -10,9 +10,25 @@
   } from "$lib/format";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import type { Activity } from "$lib/types";
+  import type { RouteFeatureCollection } from "$lib/types";
+  import RoutesMap from "$lib/components/RoutesMap.svelte";
 
-  let { activity, backHref }: { activity: Activity; backHref: string } =
-    $props();
+  let {
+    activity,
+    routes,
+    backHref,
+  }: {
+    activity: Activity;
+    routes: RouteFeatureCollection;
+    backHref: string;
+  } = $props();
+
+  const activityRoutes = $derived({
+    type: "FeatureCollection" as const,
+    features: routes.features.filter(
+      (feature) => feature.properties.activity_id === activity.id,
+    ),
+  });
 </script>
 
 <section class="detail tile">
@@ -61,9 +77,21 @@
     </div>
   </div>
 
+  {#if activityRoutes.features.length > 0}
+    <section class="route-section">
+      <div>
+        <p class="eyebrow">Route</p>
+        <h3>Masked activity trace</h3>
+      </div>
+      <div class="route-map tile">
+        <RoutesMap data={activityRoutes} />
+      </div>
+    </section>
+  {/if}
+
   <p class="detail-note muted">
-    This detail is rendered from the sanitized public snapshot. Private route
-    points and source-file metadata are intentionally not published here.
+    This detail is rendered from the sanitized public snapshot. The route is
+    trimmed and masked before it leaves the private deployment.
   </p>
 </section>
 
@@ -132,6 +160,22 @@
   .detail-note {
     margin: 1.25rem 0 0;
     font-size: 0.82rem;
+  }
+
+  .route-section {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  .route-map {
+    height: 24rem;
+    padding: 0.5rem;
   }
 
   @media (max-width: 720px) {

@@ -42,6 +42,7 @@ export interface Summary {
 }
 
 export interface RouteFeatureProperties {
+  activity_id?: string;
   sport_type: string;
   year: string;
   city?: string;

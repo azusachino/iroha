@@ -8,7 +8,7 @@ export default defineConfig({
     // Reachable over Tailscale/LAN via `make web-dev` (binds 0.0.0.0). Allow
     // the machine's MagicDNS short name and any *.ts.net FQDN; IPs are always
     // allowed. Add more hosts here if you reach it by another name.
-    allowedHosts: ["harus-macmini", ".ts.net"],
+    allowedHosts: ["harus-macmini", "harus-mini", ".ts.net"],
     // Proxy API calls to the local iroha-server, so a remote browser only
     // ever talks to this dev origin — no CORS and no per-host API base. The
     // server stays bound to localhost; Vite forwards from the same machine.
