@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from "$app/environment";
   import { page } from "$app/state";
   import { onMount, untrack } from "svelte";
   import {
@@ -62,7 +63,11 @@
   );
   let sportFilter = $state<string | null>(null);
   let cityFilter = $state<string | null>(null);
-  let selectedActivityId = $state<string | null>(null);
+  let selectedActivityId = $state<string | null>(
+    browser
+      ? new URLSearchParams(window.location.search).get("activity")
+      : null,
+  );
   const activityQuery = $derived(page.url.search);
   const selectedActivity = $derived(
     activities.find((activity) => activity.id === selectedActivityId),

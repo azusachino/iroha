@@ -90,8 +90,13 @@
   {/if}
 
   <p class="detail-note muted">
-    This detail is rendered from the sanitized public snapshot. The route is
-    trimmed and masked before it leaves the private deployment.
+    {#if activityRoutes.features.length > 0}
+      This detail is rendered from the sanitized public snapshot. The route is
+      trimmed and masked before it leaves the private deployment.
+    {:else}
+      This public record has summary metrics only; no route trace was available
+      for publication.
+    {/if}
   </p>
 </section>
 
