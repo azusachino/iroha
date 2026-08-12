@@ -38,6 +38,7 @@ Make Iroha a growing personal data cockpit with:
 6. API responses expose facts and semantic tokens, never theme-specific CSS colors.
 7. New metrics are discoverable in the catalog and search, not added to the global header.
 8. Existing `/api/v1` contracts change additively until a release/version decision is approved.
+9. Each theme has one primary analytical question per page; visual metaphors never override the data relationship.
 
 ## Work breakdown
 
@@ -51,6 +52,7 @@ Deliverables:
 - unit and missingness rules;
 - reducer and aggregation method names with versions;
 - a domain/navigation taxonomy;
+- the approved six-theme orientation matrix: primary question, visual grammar, time model, interaction model, and anti-patterns;
 - fixtures containing empty, partial-coverage, multi-currency, multi-unit, and multi-dimension data.
 
 Acceptance:
@@ -59,6 +61,7 @@ Acceptance:
 - no metric is named only by a presentation label;
 - period boundaries are explicit and consistent;
 - navigation decisions identify primary domains, local views, and tools.
+- each theme can explain why its first chart and first detail surface are different from the other five.
 
 ### Phase 1 — metric catalog, code-owned first
 
@@ -192,12 +195,14 @@ For monthly reports:
 For six themes:
 
 - add separate `expenses` and `reports` components under each theme, or an equivalent theme-owned composition registry;
+- each must implement the decided lens: Atlas/territory, Grapher/comparison, Field Journal/observation, Phenology/recurrence, Sound Map/rhythm, Archive/provenance;
 - each must change hierarchy, typography, surfaces, chart treatment, interaction emphasis, responsive composition, and empty/error states;
 - shared data and behavior may be reused, but a shared `CockpitFrame` cannot be the final implementation.
 
 Acceptance:
 
 - registry tests prove six distinct component identities for each supported page;
+- orientation review proves the first question, chart, time framing, and detail order differ appropriately by theme;
 - browser checks verify chart-first layouts and theme-specific visual markers;
 - keyboard tests cover ArrowLeft, ArrowRight, Escape, and direct period selection;
 - screenshot review covers all six themes for expenses and reports.
@@ -281,4 +286,3 @@ The smallest useful first slice is:
 3. implement one common series DTO and one endpoint;
 4. render one chart-first page with table/metadata parity;
 5. use that slice to settle the final API and frontend boundary before touching the database schema.
-

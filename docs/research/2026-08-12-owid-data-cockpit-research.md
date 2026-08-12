@@ -203,6 +203,27 @@ Shared primitives may own keyboard behavior, URL state, ECharts lifecycle, acces
 
 The current dirty `BarChart.svelte` change also shows why the shared chart contract needs tests: datum-level category colors are currently vulnerable to being overwritten by a series-level `itemStyle`. This is an implementation bug to fix in the later plan, not a reason to invent a new chart system.
 
+## Decision: six themes are six analytical lenses
+
+Research from OWID and mature design systems converges on one rule: chart selection must follow the relationship the viewer needs to understand, not the designer's preferred decoration. Official guidance groups common tasks as time series, comparison/ranking, composition, distribution, correlation, and performance; it also recommends familiar charts, clear intent, and non-color distinctions for accessibility. See the [Scottish Government chart guidance](https://designsystem.gov.scot/guidance/charts), [USWDS visualization guidance](https://designsystem.digital.gov/components/data-visualizations/), and [IBM chart guidance](https://www.ibm.com/design/language/data-visualization/charts/).
+
+Iroha's themes should therefore be stable editorial lenses over the same metrics. They may select different composition, emphasis, vocabulary, and interaction, but they must not manufacture a relationship the data does not contain. A theme can choose a route map when a route exists; it must not turn an expense total into a fake map merely to preserve a visual metaphor.
+
+The decided orientation matrix is:
+
+| Theme | Primary question | Preferred visual grammar | Time model | Interaction | Must avoid |
+| --- | --- | --- | --- | --- | --- |
+| Atlas | Where did it happen, and what path or territory does it describe? | maps, route traces, indexed transects, spatial/ordered panels | journey and chronological survey | pan, select, drill from region/period to record | fake geography, decorative maps without spatial data |
+| Grapher | What changed, and how do values compare? | line/bar/slope charts, aligned comparison, table, source panel | continuous series and period-over-period comparison | filter, highlight, change grain, inspect values | mixing unlike units, overloaded multi-series charts |
+| Field Journal | What was observed, and how does it continue as a personal record? | dated entries, annotated timeline, evidence cards, small multiples, sparklines | day, sequence, and continuity | browse, expand, annotate context, open source record | scores, gamified readiness, hiding uncertainty |
+| Phenology | What recurs, cycles, or changes phase? | calendar heatmaps, radial cycles, phase bands, seasonal small multiples | recurring day/week/month/season cycles | move through cycle, compare phases, inspect recurrence | implying biological causality or medical diagnosis |
+| Sound Map | What is the rhythm, density, cadence, or intensity? | interval bands, waveform-like timelines, pulse bars, density heatmaps | intraday cadence and bursts over time | scrub/scan, zoom density, isolate a channel | pretending data is audio, unreadable decoration, false precision |
+| Archive | What exists, when was it recorded, and where did it come from? | accession lists, ledgers, chronology, facets, provenance rails, exact tables | historical chronology and source/version order | search, filter, compare, inspect provenance | turning an exact record into an ornamental dashboard |
+
+This matrix is a product decision, not a requirement that every page use every chart family. Each page gets one primary question and at most two supporting relationships. For example, an expense page in Grapher may lead with month-over-month comparison and category composition; the same data in Archive leads with an exact ledger and source trail. Both still show the same amount, currency, category, date, and deletion semantics.
+
+The matrix also gives a practical completeness test. A theme implementation is real when its page changes the question, leading composition, time framing, interaction, and evidence order—not merely its colors or border radius. The theme selector can be hidden and the viewer should still recognize the lens.
+
 ## Recommended target architecture
 
 ### A. Keep canonical storage domain-shaped
@@ -381,4 +402,3 @@ These are the few decisions that genuinely need approval; everything else can fo
 - [`apps/iroha-web/src/lib/themes/registry.ts`](../../apps/iroha-web/src/lib/themes/registry.ts)
 - [`apps/iroha-web/src/routes/expenses/+page.svelte`](../../apps/iroha-web/src/routes/expenses/+page.svelte)
 - [`apps/iroha-web/src/routes/reports/+page.svelte`](../../apps/iroha-web/src/routes/reports/+page.svelte)
-
