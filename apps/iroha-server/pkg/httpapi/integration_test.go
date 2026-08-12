@@ -160,6 +160,11 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 		if len(body["items"].([]any)) != 1 || body["has_more"] != true {
 			t.Fatalf("first sleep page = %#v", body)
 		}
+		item := body["items"].([]any)[0].(map[string]any)
+		startedAt, err := time.Parse(time.RFC3339, item["started_at"].(string))
+		if err != nil || !startedAt.Equal(time.Date(2024, time.January, 1, 22, 0, 0, 0, time.UTC)) || item["wake_date"] != "2024-01-02" {
+			t.Fatalf("sleep wire dates = %#v", item)
+		}
 	})
 	cursor := stringValue(t, firstPage, "next_cursor")
 	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
@@ -183,13 +188,13 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 		if body["granularity"] != "year" || len(buckets) != 2 {
 			t.Fatalf("yearly sleep aggregates = %#v", body)
 		}
-		if buckets[0].(map[string]any)["session_count"] != float64(1) {
+		if buckets[0].(map[string]any)["period"] != "2023" || buckets[0].(map[string]any)["session_count"] != float64(1) {
 			t.Fatalf("yearly aggregate bucket = %#v", buckets[0])
 		}
 	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/aggregates?granularity=month&from=2024-01-01&to=2024-01-31", "", http.StatusOK, func(body map[string]any) {
 		buckets := body["buckets"].([]any)
-		if len(buckets) != 1 || buckets[0].(map[string]any)["session_count"] != float64(1) {
+		if len(buckets) != 1 || buckets[0].(map[string]any)["period"] != "2024-01" || buckets[0].(map[string]any)["session_count"] != float64(1) {
 			t.Fatalf("monthly sleep aggregates = %#v", body)
 		}
 	})
@@ -249,7 +254,7 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 			t.Fatalf("first daily page = %#v", body)
 		}
 		item := items[0].(map[string]any)
-		if item["day"] != "2024-01-02T00:00:00Z" || item["steps"] != float64(1234) || item["resting_hr"] != float64(57) || item["hrv_sdnn"] != float64(42) {
+		if item["day"] != "2024-01-02" || item["steps"] != float64(1234) || item["resting_hr"] != float64(57) || item["hrv_sdnn"] != float64(42) {
 			t.Fatalf("daily item = %#v", item)
 		}
 	})
@@ -259,7 +264,7 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 		if len(items) != 1 || body["has_more"] != true {
 			t.Fatalf("second daily page = %#v", body)
 		}
-		if items[0].(map[string]any)["day"] != "2024-01-01T00:00:00Z" {
+		if items[0].(map[string]any)["day"] != "2024-01-01" {
 			t.Fatalf("second daily item = %#v", items[0])
 		}
 	})
@@ -269,7 +274,7 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 			t.Fatalf("third daily page = %#v", body)
 		}
 		item := items[0].(map[string]any)
-		if item["day"] != "2023-12-31T00:00:00Z" || item["body_mass_kg"] != float64(70.5) {
+		if item["day"] != "2023-12-31" || item["body_mass_kg"] != float64(70.5) {
 			t.Fatalf("metric-only daily item = %#v", item)
 		}
 	})

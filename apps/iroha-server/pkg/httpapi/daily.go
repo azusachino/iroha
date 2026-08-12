@@ -17,7 +17,7 @@ type dailyListResponse struct {
 
 type dailyResponse struct {
 	ID              string    `json:"id"`
-	Day             time.Time `json:"day"`
+	Day             string    `json:"day"`
 	MoveKcal        float64   `json:"move_kcal"`
 	MoveGoalKcal    float64   `json:"move_goal_kcal"`
 	ExerciseMin     float64   `json:"exercise_min"`
@@ -65,8 +65,18 @@ func (s *Server) handleListDaily(w http.ResponseWriter, r *http.Request) {
 }
 
 type dailyAggregateResponse struct {
-	Granularity string                  `json:"granularity"`
-	Buckets     []daily.AggregateBucket `json:"buckets"`
+	Granularity string                         `json:"granularity"`
+	Buckets     []dailyAggregateBucketResponse `json:"buckets"`
+}
+
+type dailyAggregateBucketResponse struct {
+	Period         string             `json:"period"`
+	Days           int                `json:"days"`
+	MoveKcalAvg    float64            `json:"move_kcal_avg"`
+	ExerciseMinAvg float64            `json:"exercise_min_avg"`
+	StandHoursAvg  float64            `json:"stand_hours_avg"`
+	MoveClosedPct  float64            `json:"move_closed_pct"`
+	Metrics        map[string]float64 `json:"metrics"`
 }
 
 func (s *Server) handleDailyAggregates(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +90,19 @@ func (s *Server) handleDailyAggregates(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to aggregate daily activity")
 		return
 	}
-	writeJSON(w, http.StatusOK, dailyAggregateResponse{Granularity: filters.Granularity, Buckets: buckets})
+	response := dailyAggregateResponse{Granularity: filters.Granularity, Buckets: make([]dailyAggregateBucketResponse, 0, len(buckets))}
+	for _, bucket := range buckets {
+		response.Buckets = append(response.Buckets, dailyAggregateBucketResponse{
+			Period:         formatAggregatePeriod(bucket.Period, filters.Granularity),
+			Days:           bucket.Days,
+			MoveKcalAvg:    bucket.MoveKcalAvg,
+			ExerciseMinAvg: bucket.ExerciseMinAvg,
+			StandHoursAvg:  bucket.StandHoursAvg,
+			MoveClosedPct:  bucket.MoveClosedPct,
+			Metrics:        bucket.Metrics,
+		})
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func parseDailyAggregateFilters(w http.ResponseWriter, r *http.Request) (daily.AggregateFilters, bool) {
@@ -143,7 +165,7 @@ func toDailyResponse(row daily.Row) dailyResponse {
 	summary := row.DailySummary
 	return dailyResponse{
 		ID:              ids.Encode(ids.DailySummaryPrefix, summary.ID),
-		Day:             summary.Day,
+		Day:             formatCalendarDate(summary.Day),
 		MoveKcal:        summary.MoveKcal,
 		MoveGoalKcal:    summary.MoveGoalKcal,
 		ExerciseMin:     summary.ExerciseMin,
@@ -166,4 +188,15 @@ func toDailyResponse(row daily.Row) dailyResponse {
 		CreatedAt:       summary.CreatedAt,
 		UpdatedAt:       summary.UpdatedAt,
 	}
+}
+
+func formatCalendarDate(value time.Time) string {
+	return value.Format("2006-01-02")
+}
+
+func formatAggregatePeriod(value time.Time, granularity string) string {
+	if granularity == "year" {
+		return value.Format("2006")
+	}
+	return value.Format("2006-01")
 }

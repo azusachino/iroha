@@ -17,6 +17,8 @@ may change together when the verification gate is updated in the same change.
 - JSON field names use `snake_case`.
 - IDs are opaque strings. Clients must not parse the embedded UUID or depend on the prefix beyond validating the documented resource type.
 - Instants use RFC 3339 JSON timestamps. Calendar-only values use `YYYY-MM-DD` and are not midnight timestamps.
+- Daily and sleep list/aggregate `from` and `to` filters accept `YYYY-MM-DD`; both bounds are currently inclusive for these existing endpoints. New period-based report methods use explicit half-open `[from,to)` boundaries internally and do not reuse these list filters.
+- Monthly aggregate periods serialize as `YYYY-MM`; yearly aggregate periods serialize as `YYYY`.
 - Optional values are omitted when absent. A response field that is always present but can be empty uses an explicit empty string, empty array, empty object, or `null` according to its schema.
 - Response objects use named schemas rather than exposing persistence models.
 - Unknown response fields must be ignored by clients; unknown request fields are rejected once request validation is added.
