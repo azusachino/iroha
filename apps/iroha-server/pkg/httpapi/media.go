@@ -251,10 +251,15 @@ func mediaEventID(id uuid.UUID) string {
 
 func parseMediaFilters(w http.ResponseWriter, r *http.Request) (media.ListFilters, bool) {
 	query := r.URL.Query()
+	limit, ok := parsePageLimit(w, r)
+	if !ok {
+		return media.ListFilters{}, false
+	}
 	filters := media.ListFilters{
 		Status:    query.Get("status"),
 		MediaType: query.Get("media_type"),
 		Family:    query.Get("family"),
+		Limit:     limit,
 	}
 	if filters.Family != "" && !media.IsFamily(filters.Family) {
 		writeError(w, http.StatusBadRequest, "invalid family")
@@ -267,14 +272,6 @@ func parseMediaFilters(w http.ResponseWriter, r *http.Request) (media.ListFilter
 			return media.ListFilters{}, false
 		}
 		filters.CompletedYear = &year
-	}
-	if value := query.Get("limit"); value != "" {
-		limit, err := strconv.Atoi(value)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid limit")
-			return media.ListFilters{}, false
-		}
-		filters.Limit = limit
 	}
 	if value := query.Get("cursor"); value != "" {
 		cursor, err := media.DecodeCursor(value)
@@ -289,7 +286,11 @@ func parseMediaFilters(w http.ResponseWriter, r *http.Request) (media.ListFilter
 
 func parseMediaEventFilters(w http.ResponseWriter, r *http.Request) (media.EventListFilters, bool) {
 	query := r.URL.Query()
-	filters := media.EventListFilters{}
+	limit, ok := parsePageLimit(w, r)
+	if !ok {
+		return media.EventListFilters{}, false
+	}
+	filters := media.EventListFilters{Limit: limit}
 	for key, destination := range map[string]**time.Time{"from": &filters.From, "to": &filters.To} {
 		if value := query.Get(key); value != "" {
 			parsed, err := time.Parse("2006-01-02", value)
@@ -302,14 +303,6 @@ func parseMediaEventFilters(w http.ResponseWriter, r *http.Request) (media.Event
 			}
 			*destination = &parsed
 		}
-	}
-	if value := query.Get("limit"); value != "" {
-		limit, err := strconv.Atoi(value)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid limit")
-			return media.EventListFilters{}, false
-		}
-		filters.Limit = limit
 	}
 	if value := query.Get("cursor"); value != "" {
 		cursor, err := media.DecodeCursor(value)

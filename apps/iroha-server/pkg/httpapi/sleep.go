@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
@@ -155,7 +154,11 @@ func (s *Server) handleSleepAggregates(w http.ResponseWriter, r *http.Request) {
 
 func parseSleepFilters(w http.ResponseWriter, r *http.Request) (sleep.ListFilters, bool) {
 	query := r.URL.Query()
-	filters := sleep.ListFilters{}
+	limit, ok := parsePageLimit(w, r)
+	if !ok {
+		return sleep.ListFilters{}, false
+	}
+	filters := sleep.ListFilters{Limit: limit}
 	for key, destination := range map[string]**time.Time{"from": &filters.From, "to": &filters.To} {
 		if value := query.Get(key); value != "" {
 			parsed, err := time.Parse("2006-01-02", value)
@@ -165,14 +168,6 @@ func parseSleepFilters(w http.ResponseWriter, r *http.Request) (sleep.ListFilter
 			}
 			*destination = &parsed
 		}
-	}
-	if value := query.Get("limit"); value != "" {
-		limit, err := strconv.Atoi(value)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid limit")
-			return sleep.ListFilters{}, false
-		}
-		filters.Limit = limit
 	}
 	if value := query.Get("cursor"); value != "" {
 		cursor, err := sleep.DecodeCursor(value)

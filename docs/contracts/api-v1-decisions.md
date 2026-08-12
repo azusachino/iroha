@@ -36,6 +36,7 @@ List endpoints use this envelope:
 ```
 
 - `limit` is optional and defaults to 50 for paginated domain lists.
+- Explicit `limit` values must be integers from 1 through 100; non-numeric, zero, negative, and larger values return `400`.
 - Cursors are opaque, endpoint-specific, and must be returned unchanged to continue a listing.
 - Invalid cursors return `400` with the common error schema.
 - A cursor does not grant access and contains no client-authoritative filter state.

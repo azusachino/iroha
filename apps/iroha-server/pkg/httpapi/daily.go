@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
@@ -131,7 +130,11 @@ func parseDailyAggregateFilters(w http.ResponseWriter, r *http.Request) (daily.A
 
 func parseDailyFilters(w http.ResponseWriter, r *http.Request) (daily.ListFilters, bool) {
 	query := r.URL.Query()
-	filters := daily.ListFilters{}
+	limit, ok := parsePageLimit(w, r)
+	if !ok {
+		return daily.ListFilters{}, false
+	}
+	filters := daily.ListFilters{Limit: limit}
 	for key, destination := range map[string]**time.Time{"from": &filters.From, "to": &filters.To} {
 		if value := query.Get(key); value != "" {
 			parsed, err := time.Parse("2006-01-02", value)
@@ -141,14 +144,6 @@ func parseDailyFilters(w http.ResponseWriter, r *http.Request) (daily.ListFilter
 			}
 			*destination = &parsed
 		}
-	}
-	if value := query.Get("limit"); value != "" {
-		limit, err := strconv.Atoi(value)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid limit")
-			return daily.ListFilters{}, false
-		}
-		filters.Limit = limit
 	}
 	if value := query.Get("cursor"); value != "" {
 		cursor, err := daily.DecodeCursor(value)
