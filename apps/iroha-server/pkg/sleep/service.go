@@ -78,6 +78,27 @@ type AggregateBucket struct {
 	UnspecifiedS      int       `json:"unspecified_s"`
 }
 
+type PeriodReport struct {
+	SessionCount      int
+	MainSleepCount    int
+	NapCount          int
+	AverageAsleepS    float64
+	AverageTimeInBedS float64
+	AverageEfficiency float64
+	StageSeconds      struct {
+		Core        int
+		Deep        int
+		Rem         int
+		Awake       int
+		Unspecified int
+	}
+}
+
+type PeriodFilters struct {
+	From time.Time
+	To   time.Time
+}
+
 type Service struct {
 	db *gorm.DB
 }
@@ -147,6 +168,41 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 		return nil, err
 	}
 	return buckets, nil
+}
+
+func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
+	if !filters.From.Before(filters.To) {
+		return PeriodReport{}, errors.New("period from must be before to")
+	}
+	from := time.Date(filters.From.UTC().Year(), filters.From.UTC().Month(), filters.From.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	to := time.Date(filters.To.UTC().Year(), filters.To.UTC().Month(), filters.To.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	var rows []models.SleepSession
+	if err := s.db.Where("wake_date >= ? and wake_date < ?", from, to).Find(&rows).Error; err != nil {
+		return PeriodReport{}, err
+	}
+	result := PeriodReport{SessionCount: len(rows)}
+	for _, row := range rows {
+		if !row.IsMainSleep {
+			result.NapCount++
+			continue
+		}
+		result.MainSleepCount++
+		result.AverageAsleepS += float64(row.AsleepS)
+		result.AverageTimeInBedS += float64(row.TimeInBedS)
+		result.AverageEfficiency += row.Efficiency
+		result.StageSeconds.Core += row.CoreS
+		result.StageSeconds.Deep += row.DeepS
+		result.StageSeconds.Rem += row.RemS
+		result.StageSeconds.Awake += row.AwakeS
+		result.StageSeconds.Unspecified += row.UnspecifiedS
+	}
+	if result.MainSleepCount > 0 {
+		count := float64(result.MainSleepCount)
+		result.AverageAsleepS /= count
+		result.AverageTimeInBedS /= count
+		result.AverageEfficiency /= count
+	}
+	return result, nil
 }
 
 func (s *Service) Get(id string) (models.SleepSession, bool, error) {
