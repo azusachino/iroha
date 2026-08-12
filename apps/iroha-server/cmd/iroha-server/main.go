@@ -82,7 +82,11 @@ func main() {
 		logger.Error("create metric registry", "error", err)
 		os.Exit(1)
 	}
-	metricSeriesService := metricseries.NewService(metricRegistry, metricseries.DailyServiceSource{Service: dailyService})
+	metricSeriesService := metricseries.NewService(
+		metricRegistry,
+		metricseries.DailyServiceSource{Service: dailyService},
+		metricseries.ActivityServiceSource{Service: activityService},
+	)
 	expenseService := expenses.NewService(db)
 	mediaService := media.NewService(db)
 	mediaResolutionService := mediaresolution.NewService(db)

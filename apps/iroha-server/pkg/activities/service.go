@@ -344,6 +344,13 @@ func (s *Service) PeriodSummary(filters PeriodFilters) (SummaryTotals, error) {
 	return totals, nil
 }
 
+// PeriodActivities exposes the selected canonical activity rows to server-side
+// metric resolvers. The resolver owns aggregation; this method only applies the
+// existing timezone-aware period membership and hydration rules.
+func (s *Service) PeriodActivities(filters PeriodFilters) ([]models.Activity, error) {
+	return s.periodActivities(filters)
+}
+
 func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
 	rows, err := s.periodActivities(filters)
 	if err != nil {

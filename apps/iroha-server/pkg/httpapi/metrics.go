@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
@@ -85,11 +86,21 @@ func parseMetricSeriesRequest(w http.ResponseWriter, r *http.Request) (metricser
 		writeError(w, http.StatusBadRequest, "invalid metric series request")
 		return metricseries.Request{}, false
 	}
+	dimensions := make(map[string][]string)
+	for _, raw := range query["dimension"] {
+		name, value, found := strings.Cut(raw, ":")
+		if !found || name == "" || value == "" {
+			writeError(w, http.StatusBadRequest, "invalid metric series request")
+			return metricseries.Request{}, false
+		}
+		dimensions[name] = append(dimensions[name], value)
+	}
 	return metricseries.Request{
-		MetricID: chi.URLParam(r, "metricId"),
-		From:     time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, location),
-		To:       time.Date(to.Year(), to.Month(), to.Day(), 0, 0, 0, 0, location),
-		Grain:    grain,
-		Timezone: location,
+		MetricID:   chi.URLParam(r, "metricId"),
+		From:       time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, location),
+		To:         time.Date(to.Year(), to.Month(), to.Day(), 0, 0, 0, 0, location),
+		Grain:      grain,
+		Timezone:   location,
+		Dimensions: dimensions,
 	}, true
 }

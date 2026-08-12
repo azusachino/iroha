@@ -12,6 +12,14 @@ type fakeDailySource struct {
 	values []DailyMetricValue
 }
 
+type fakeActivitySource struct {
+	values []ActivityMetricValue
+}
+
+func (f fakeActivitySource) ActivityValues(time.Time, time.Time, string) ([]ActivityMetricValue, error) {
+	return f.values, nil
+}
+
 func (f fakeDailySource) MetricValues(context.Context, string, time.Time, time.Time) ([]DailyMetricValue, error) {
 	return f.values, nil
 }
@@ -48,5 +56,37 @@ func TestSeriesRollsDailyStepsIntoCompleteMonthlyPoints(t *testing.T) {
 	}
 	if series.Series[0].Coverage.ExpectedPeriods != 2 || series.Series[0].Coverage.ObservedPeriods != 1 {
 		t.Fatalf("coverage = %+v", series.Series[0].Coverage)
+	}
+}
+
+func TestSeriesExpandsActivitySportDimensions(t *testing.T) {
+	registry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("default registry: %v", err)
+	}
+	location := time.UTC
+	distance := 5000.0
+	service := NewService(registry, nil, fakeActivitySource{values: []ActivityMetricValue{
+		{StartedAt: time.Date(2026, time.January, 5, 8, 0, 0, 0, location), Sport: "run", DistanceM: &distance, Source: "gpx"},
+	}})
+	series, err := service.Series(context.Background(), Request{
+		MetricID: "movement.distance_m",
+		From:     time.Date(2026, time.January, 1, 0, 0, 0, 0, location),
+		To:       time.Date(2026, time.February, 1, 0, 0, 0, 0, location),
+		Grain:    "month",
+		Timezone: location,
+		Dimensions: map[string][]string{
+			"sport": {"run"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("series: %v", err)
+	}
+	if len(series.Series) != 1 || series.Series[0].Dimensions["sport"] != "run" {
+		t.Fatalf("series dimensions = %+v", series.Series)
+	}
+	point := series.Series[0].Points[0]
+	if point.Value == nil || *point.Value != distance || point.ObservedDays != 1 {
+		t.Fatalf("distance point = %+v", point)
 	}
 }
