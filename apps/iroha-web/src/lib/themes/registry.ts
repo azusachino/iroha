@@ -60,7 +60,12 @@ import FieldJournalExpenses from "$lib/themes/field-journal/Expenses.svelte";
 import PhenologyExpenses from "$lib/themes/phenology/Expenses.svelte";
 import SoundMapExpenses from "$lib/themes/sound-map/Expenses.svelte";
 import ArchiveExpenses from "$lib/themes/archive/Expenses.svelte";
-import CockpitFrame from "$lib/themes/CockpitFrame.svelte";
+import AtlasReports from "$lib/themes/atlas/Reports.svelte";
+import GrapherReports from "$lib/themes/grapher/Reports.svelte";
+import FieldJournalReports from "$lib/themes/field-journal/Reports.svelte";
+import PhenologyReports from "$lib/themes/phenology/Reports.svelte";
+import SoundMapReports from "$lib/themes/sound-map/Reports.svelte";
+import ArchiveReports from "$lib/themes/archive/Reports.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -92,7 +97,7 @@ export const THEME_DEFINITIONS = [
       "media-detail": AtlasMediaDetail,
       dashboard: AtlasDashboard,
       expenses: AtlasExpenses,
-      reports: CockpitFrame,
+      reports: AtlasReports,
     },
   },
   {
@@ -109,7 +114,7 @@ export const THEME_DEFINITIONS = [
       activities: GrapherActivities,
       sleep: GrapherSleep,
       expenses: GrapherExpenses,
-      reports: CockpitFrame,
+      reports: GrapherReports,
     },
   },
   {
@@ -142,7 +147,7 @@ export const THEME_DEFINITIONS = [
       "media-detail": FieldJournalMediaDetail,
       dashboard: FieldJournalDashboard,
       expenses: FieldJournalExpenses,
-      reports: CockpitFrame,
+      reports: FieldJournalReports,
     },
   },
   {
@@ -175,7 +180,7 @@ export const THEME_DEFINITIONS = [
       "media-detail": PhenologyMediaDetail,
       dashboard: PhenologyDashboard,
       expenses: PhenologyExpenses,
-      reports: CockpitFrame,
+      reports: PhenologyReports,
     },
   },
   {
@@ -207,7 +212,7 @@ export const THEME_DEFINITIONS = [
       "media-detail": SoundMapMediaDetail,
       dashboard: SoundMapDashboard,
       expenses: SoundMapExpenses,
-      reports: CockpitFrame,
+      reports: SoundMapReports,
     },
   },
   {
@@ -244,7 +249,7 @@ export const THEME_DEFINITIONS = [
       "media-detail": ArchiveMediaDetail,
       dashboard: ArchiveDashboard,
       expenses: ArchiveExpenses,
-      reports: CockpitFrame,
+      reports: ArchiveReports,
     },
   },
 ] as const satisfies readonly ThemeDefinition[];
