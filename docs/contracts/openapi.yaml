@@ -1019,14 +1019,21 @@ components:
         schema: { type: string, const: metric-catalog.v1 }
         metric: { $ref: "#/components/schemas/MetricDefinition" }
     MetricSeriesPoint:
-      type: object
-      additionalProperties: false
-      required: [period, observed_days]
-      properties:
-        period: { type: string }
-        value: { type: [number, "null"] }
-        value_minor: { type: [integer, "null"], format: int64 }
-        observed_days: { type: integer, minimum: 0 }
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [period, value, observed_days]
+          properties:
+            period: { type: string }
+            value: { type: [number, "null"] }
+            observed_days: { type: integer, minimum: 0 }
+        - type: object
+          additionalProperties: false
+          required: [period, value_minor, observed_days]
+          properties:
+            period: { type: string }
+            value_minor: { type: [integer, "null"], format: int64 }
+            observed_days: { type: integer, minimum: 0 }
     MetricCoverage:
       type: object
       additionalProperties: false
