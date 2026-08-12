@@ -82,7 +82,7 @@ func TestValidate_RejectsEndedBeforeStarted(t *testing.T) {
 
 func TestValidate_RejectsOutOfRangeCoordinate(t *testing.T) {
 	routes := RouteFeatureCollection{Features: []RouteFeature{{
-		Type:     "Feature",
+		Type: "Feature",
 		Properties: RouteFeatureProps{
 			ActivityID: "act_0198f8f0-0000-7000-8000-000000000000",
 		},
