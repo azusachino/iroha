@@ -37,6 +37,7 @@
     primary,
     secondary,
     orientation = "vertical",
+    primaryType = "bar",
     activeIndex = null,
     onBarClick,
     height = 260,
@@ -45,6 +46,7 @@
     primary: BarSeries;
     secondary?: BarSeries;
     orientation?: "vertical" | "horizontal";
+    primaryType?: "bar" | "line";
     activeIndex?: number | null;
     onBarClick?: (index: number) => void;
     height?: number;
@@ -133,7 +135,7 @@
       series: [
         {
           name: primary.name,
-          type: "bar",
+          type: primaryType,
           data: primary.values.map((value, index) => ({
             value,
             itemStyle: {
@@ -142,6 +144,37 @@
             },
           })),
           barMaxWidth: 28,
+          smooth: primaryType === "line" ? 0.25 : undefined,
+          showSymbol: primaryType === "line",
+          symbolSize: primaryType === "line" ? 7 : undefined,
+          lineStyle:
+            primaryType === "line"
+              ? { color: primaryColor, width: 3 }
+              : undefined,
+          areaStyle:
+            primaryType === "line"
+              ? { color: primaryColor, opacity: 0.12 }
+              : undefined,
+          label:
+            orientation === "horizontal" && primaryType === "bar"
+              ? {
+                  show: true,
+                  position: "right" as const,
+                  color: text,
+                  fontSize: 10,
+                  formatter: (params: { value: number }) =>
+                    primaryFormat(params.value),
+                }
+              : undefined,
+          itemStyle: {
+            color: primaryColor,
+            borderRadius:
+              primaryType === "bar"
+                ? orientation === "horizontal"
+                  ? [0, 7, 7, 0]
+                  : [7, 7, 0, 0]
+                : undefined,
+          },
           emphasis: { itemStyle: { color: primaryColor } },
         },
         ...(secondary
@@ -188,6 +221,7 @@
     primary;
     secondary;
     orientation;
+    primaryType;
     activeIndex;
     render();
   });

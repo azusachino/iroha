@@ -1,26 +1,19 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import {
-    Pencil,
-    Plus,
-    RefreshCw,
-    Trash2,
-    WalletCards,
-    X,
-  } from "@lucide/svelte";
+  import { RefreshCw, Trash2, WalletCards } from "@lucide/svelte";
+  import BarChart from "$lib/components/BarChart.svelte";
+  import StatTile from "$lib/components/StatTile.svelte";
   import {
     ApiError,
     deleteExpense,
     getExpense,
     listExpenses,
-    updateExpense,
     type Expense,
     type ExpenseCategory,
     type ExpenseCurrency,
-    type ExpenseItem,
   } from "$lib/api";
   import MonthNavigator from "@iroha/shared/MonthNavigator.svelte";
-  import { currentMonth, monthBounds } from "@iroha/shared/month";
+  import { currentMonth, formatMonth, monthBounds } from "@iroha/shared/month";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
   const currencies: ExpenseCurrency[] = ["JPY", "USD", "EUR", "GBP"];
@@ -43,21 +36,11 @@
   let selectedId = $state("");
   let loading = $state(true);
   let detailLoading = $state(false);
-  let editing = $state(false);
-  let saving = $state(false);
   let error = $state<string | null>(null);
 
   let month = $state(currentMonth());
   let filterCurrency = $state("");
   let filterCategory = $state("");
-
-  let editOccurredOn = $state("");
-  let editCurrency = $state("JPY");
-  let editAmountMinor = $state("");
-  let editCategory = $state("other");
-  let editMerchant = $state("");
-  let editNote = $state("");
-  let editItems = $state<ExpenseItem[]>([]);
 
   onMount(() => {
     void loadExpenses(month);
@@ -108,59 +91,6 @@
     }
   }
 
-  function beginEdit(expense: Expense) {
-    editOccurredOn = expense.occurred_on;
-    editCurrency = expense.currency;
-    editAmountMinor = String(expense.amount_minor);
-    editCategory = expense.category;
-    editMerchant = expense.merchant;
-    editNote = expense.note;
-    editItems = expense.items.map((item) => ({ ...item }));
-    editing = true;
-    error = null;
-  }
-
-  function addItem() {
-    editItems = [...editItems, { name: "" }];
-  }
-
-  function removeItem(index: number) {
-    editItems = editItems.filter((_, itemIndex) => itemIndex !== index);
-  }
-
-  async function saveExpense() {
-    if (!selected || saving) return;
-    saving = true;
-    error = null;
-    try {
-      const updated = await updateExpense(selected.id, {
-        occurred_on: editOccurredOn,
-        currency: editCurrency as ExpenseCurrency,
-        amount_minor: Number(editAmountMinor),
-        category: editCategory as ExpenseCategory,
-        merchant: editMerchant.trim(),
-        note: editNote.trim(),
-        items: editItems
-          .filter((item) => item.name.trim())
-          .map((item) => ({
-            name: item.name.trim(),
-            ...(item.amount_minor != null && item.amount_minor !== 0
-              ? { amount_minor: Number(item.amount_minor) }
-              : {}),
-          })),
-      });
-      selected = updated;
-      expenses = expenses.map((expense) =>
-        expense.id === updated.id ? updated : expense,
-      );
-      editing = false;
-    } catch (cause) {
-      showError(cause);
-    } finally {
-      saving = false;
-    }
-  }
-
   async function removeExpense(expense: Expense) {
     if (!window.confirm(`Delete expense from ${expense.occurred_on}?`)) return;
     error = null;
@@ -168,7 +98,6 @@
       await deleteExpense(expense.id);
       const remaining = expenses.filter((item) => item.id !== expense.id);
       expenses = remaining;
-      editing = false;
       if (remaining.length) {
         await selectExpense(remaining[0].id);
       } else {
@@ -191,12 +120,86 @@
   }
 
   function formatAmount(expense: Expense): string {
+    return formatMoney(
+      expense.amount_minor,
+      expense.currency,
+      expense.currency_exponent,
+    );
+  }
+
+  function formatMoney(
+    amountMinor: number,
+    currency: string,
+    exponent: number,
+  ): string {
     return new Intl.NumberFormat(undefined, {
       style: "currency",
-      currency: expense.currency,
-      minimumFractionDigits: expense.currency_exponent,
-      maximumFractionDigits: expense.currency_exponent,
-    }).format(expense.amount_minor / 10 ** expense.currency_exponent);
+      currency,
+      minimumFractionDigits: exponent,
+      maximumFractionDigits: exponent,
+    }).format(amountMinor / 10 ** exponent);
+  }
+
+  const currencyTotals = $derived.by(() => {
+    const totals = new Map<
+      ExpenseCurrency,
+      {
+        currency: ExpenseCurrency;
+        amountMinor: number;
+        exponent: number;
+        count: number;
+      }
+    >();
+    for (const expense of expenses) {
+      const current = totals.get(expense.currency) ?? {
+        currency: expense.currency,
+        amountMinor: 0,
+        exponent: expense.currency_exponent,
+        count: 0,
+      };
+      current.amountMinor += expense.amount_minor;
+      current.count += 1;
+      totals.set(expense.currency, current);
+    }
+    return [...totals.values()].sort((a, b) => b.amountMinor - a.amountMinor);
+  });
+  const primaryCurrency = $derived(currencyTotals[0]?.currency ?? "JPY");
+  const primaryExponent = $derived(
+    currencyTotals.find((item) => item.currency === primaryCurrency)
+      ?.exponent ?? 0,
+  );
+  const primaryExpenses = $derived(
+    expenses.filter((expense) => expense.currency === primaryCurrency),
+  );
+  const categoryTotals = $derived.by(() => {
+    const totals = new Map<string, number>();
+    for (const expense of primaryExpenses) {
+      totals.set(
+        expense.category,
+        (totals.get(expense.category) ?? 0) + expense.amount_minor,
+      );
+    }
+    return [...totals.entries()]
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  });
+  const dailyTotals = $derived.by(() => {
+    const totals = new Map<string, number>();
+    for (const expense of primaryExpenses) {
+      totals.set(
+        expense.occurred_on,
+        (totals.get(expense.occurred_on) ?? 0) + expense.amount_minor,
+      );
+    }
+    return [...totals.entries()].sort(([a], [b]) => a.localeCompare(b));
+  });
+
+  function formatDayLabel(value: string): string {
+    return new Date(`${value}T00:00:00Z`).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
   }
 </script>
 
@@ -212,9 +215,9 @@
           <p class="eyebrow"><WalletCards size={14} /> Canonical ledger</p>
           <h1>Expenses</h1>
           <p class="intro">
-            Review and correct the records held by iroha. Import and OCR agents
-            can write here through the stable API; this page only edits
-            canonical data.
+            Explore the canonical records held by iroha. Import and OCR agents
+            write through the stable API; this page is the visual ledger and
+            drill-down viewer.
           </p>
         </div>
         <button
@@ -264,6 +267,71 @@
       {#if loading}
         <p class="muted">Loading expenses…</p>
       {:else}
+        {#if expenses.length}
+          <section class="expense-overview" aria-label="Expense overview">
+            <div class="stat-strip">
+              {#each currencyTotals.slice(0, 3) as total (total.currency)}
+                <StatTile
+                  label={`Spent · ${total.currency}`}
+                  value={formatMoney(
+                    total.amountMinor,
+                    total.currency,
+                    total.exponent,
+                  )}
+                  sub={`${total.count} records · ${formatMonth(month)}`}
+                />
+              {/each}
+              <StatTile
+                label="Categories"
+                value={String(categoryTotals.length)}
+                sub={`${primaryCurrency} view · click a record below`}
+              />
+            </div>
+            <div class="visual-grid">
+              <article class="visual-card panel">
+                <header class="visual-head">
+                  <div>
+                    <p class="eyebrow">Distribution</p>
+                    <h2>Where it went</h2>
+                  </div>
+                  <span>{primaryCurrency}</span>
+                </header>
+                <BarChart
+                  categories={categoryTotals.map((item) => item.category)}
+                  primary={{
+                    name: primaryCurrency,
+                    values: categoryTotals.map((item) => item.amount),
+                    color: "var(--accent)",
+                    formatter: (value) =>
+                      formatMoney(value, primaryCurrency, primaryExponent),
+                  }}
+                  orientation="horizontal"
+                  height={250}
+                />
+              </article>
+              <article class="visual-card panel">
+                <header class="visual-head">
+                  <div>
+                    <p class="eyebrow">Daily rhythm</p>
+                    <h2>Spending days</h2>
+                  </div>
+                  <span>{primaryCurrency}</span>
+                </header>
+                <BarChart
+                  categories={dailyTotals.map(([day]) => formatDayLabel(day))}
+                  primary={{
+                    name: primaryCurrency,
+                    values: dailyTotals.map(([, amount]) => amount),
+                    color: "var(--accent)",
+                    formatter: (value) =>
+                      formatMoney(value, primaryCurrency, primaryExponent),
+                  }}
+                  height={250}
+                />
+              </article>
+            </div>
+          </section>
+        {/if}
         <div class="ledger-grid">
           <section
             class="panel list-panel"
@@ -310,29 +378,12 @@
             {:else if selected}
               <header class="panel-head">
                 <div>
-                  <p class="eyebrow">Canonical record</p>
+                  <p class="eyebrow">Canonical record · viewer</p>
                   <h2 id="expense-detail-title">
                     {selected.merchant || selected.category}
                   </h2>
                 </div>
                 <div class="detail-actions">
-                  {#if editing}
-                    <button
-                      class="quiet"
-                      type="button"
-                      onclick={() => (editing = false)}
-                    >
-                      <X size={14} /> Cancel
-                    </button>
-                  {:else}
-                    <button
-                      class="quiet"
-                      type="button"
-                      onclick={() => beginEdit(selected!)}
-                    >
-                      <Pencil size={14} /> Edit
-                    </button>
-                  {/if}
                   <button
                     class="danger"
                     type="button"
@@ -343,132 +394,50 @@
                 </div>
               </header>
 
-              {#if editing}
-                <form
-                  class="edit-form"
-                  onsubmit={(event) => {
-                    event.preventDefault();
-                    void saveExpense();
-                  }}
-                >
-                  <label
-                    >Date <input
-                      bind:value={editOccurredOn}
-                      type="date"
-                      required
-                    /></label
-                  >
-                  <label>
-                    Currency
-                    <select bind:value={editCurrency}
-                      >{#each currencies as currency}<option value={currency}
-                          >{currency}</option
-                        >{/each}</select
-                    >
-                  </label>
-                  <label
-                    >Amount (minor units) <input
-                      bind:value={editAmountMinor}
-                      type="number"
-                      min="1"
-                      required
-                    /></label
-                  >
-                  <label>
-                    Category
-                    <select bind:value={editCategory}
-                      >{#each categories as category}<option value={category}
-                          >{category}</option
-                        >{/each}</select
-                    >
-                  </label>
-                  <label>Merchant <input bind:value={editMerchant} /></label>
-                  <label class="wide"
-                    >Note <textarea bind:value={editNote} rows="3"
-                    ></textarea></label
-                  >
-                  <div class="items wide">
-                    <div class="items-head">
-                      <span>Items</span><button
-                        class="quiet"
-                        type="button"
-                        onclick={addItem}><Plus size={14} /> Add item</button
-                      >
-                    </div>
-                    {#each editItems as item, index (index)}
-                      <div class="item-row">
-                        <input
-                          bind:value={item.name}
-                          aria-label={`Item ${index + 1} name`}
-                          placeholder="Item name"
-                        />
-                        <input
-                          bind:value={item.amount_minor}
-                          aria-label={`Item ${index + 1} amount`}
-                          type="number"
-                          min="0"
-                          placeholder="Minor amount"
-                        />
-                        <button
-                          class="icon-button"
-                          type="button"
-                          aria-label={`Remove item ${index + 1}`}
-                          onclick={() => removeItem(index)}
-                          ><X size={14} /></button
-                        >
-                      </div>
+              <dl class="detail-list">
+                <div>
+                  <dt>Amount</dt>
+                  <dd>{formatAmount(selected)}</dd>
+                </div>
+                <div>
+                  <dt>Date</dt>
+                  <dd>{selected.occurred_on}</dd>
+                </div>
+                <div>
+                  <dt>Category</dt>
+                  <dd>{selected.category}</dd>
+                </div>
+                <div>
+                  <dt>Note</dt>
+                  <dd>{selected.note || "—"}</dd>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd>{selected.source.kind} · {selected.source.ref}</dd>
+                </div>
+                <div>
+                  <dt>Record ID</dt>
+                  <dd class="mono">{selected.id}</dd>
+                </div>
+              </dl>
+              {#if selected.items.length}
+                <div class="item-detail">
+                  <h3>Items</h3>
+                  <ul>
+                    {#each selected.items as item}
+                      <li>
+                        <span>{item.name}</span
+                        >{#if item.amount_minor != null}<span
+                            >{item.amount_minor} minor</span
+                          >{/if}
+                      </li>
                     {/each}
-                  </div>
-                  <button class="save wide" type="submit" disabled={saving}
-                    >{saving ? "Saving…" : "Save changes"}</button
-                  >
-                </form>
-              {:else}
-                <dl class="detail-list">
-                  <div>
-                    <dt>Amount</dt>
-                    <dd>{formatAmount(selected)}</dd>
-                  </div>
-                  <div>
-                    <dt>Date</dt>
-                    <dd>{selected.occurred_on}</dd>
-                  </div>
-                  <div>
-                    <dt>Category</dt>
-                    <dd>{selected.category}</dd>
-                  </div>
-                  <div>
-                    <dt>Note</dt>
-                    <dd>{selected.note || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>Source</dt>
-                    <dd>{selected.source.kind} · {selected.source.ref}</dd>
-                  </div>
-                  <div>
-                    <dt>Record ID</dt>
-                    <dd class="mono">{selected.id}</dd>
-                  </div>
-                </dl>
-                {#if selected.items.length}
-                  <div class="item-detail">
-                    <h3>Items</h3>
-                    <ul>
-                      {#each selected.items as item}
-                        <li>
-                          <span>{item.name}</span
-                          >{#if item.amount_minor != null}<span
-                              >{item.amount_minor} minor</span
-                            >{/if}
-                        </li>
-                      {/each}
-                    </ul>
-                  </div>
-                {/if}
-                <p class="timestamps">
-                  Created {selected.created_at} · Updated {selected.updated_at}
-                </p>
+                  </ul>
+                </div>
               {/if}
+              <p class="timestamps">
+                Created {selected.created_at} · Updated {selected.updated_at}
+              </p>
             {:else}
               <div class="empty-detail">
                 <WalletCards size={22} />
@@ -508,8 +477,7 @@
     font-size: 0.9rem;
   }
   .page-head,
-  .panel-head,
-  .items-head {
+  .panel-head {
     display: flex;
     justify-content: space-between;
     align-items: start;
@@ -556,6 +524,41 @@
     background: var(--tile-surface);
     box-shadow: var(--tile-shadow);
   }
+  .expense-overview {
+    display: grid;
+    gap: 1rem;
+  }
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .visual-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .visual-card {
+    display: grid;
+    align-content: start;
+    gap: 0.8rem;
+  }
+  .visual-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .visual-head h2 {
+    margin-top: 0.25rem;
+  }
+  .visual-head > span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
   .filters {
     display: flex;
     flex-wrap: wrap;
@@ -568,9 +571,7 @@
     color: var(--text-muted);
     font-size: 0.72rem;
   }
-  input,
   select,
-  textarea,
   button {
     min-height: 2.4rem;
     border: 1px solid var(--border);
@@ -579,9 +580,7 @@
     color: var(--text);
     font: inherit;
   }
-  input,
-  select,
-  textarea {
+  select {
     padding: 0.45rem 0.65rem;
   }
   button {
@@ -600,15 +599,11 @@
     cursor: default;
     opacity: 0.5;
   }
-  .refresh,
-  .save {
+  .refresh {
     color: var(--accent);
   }
   .danger {
     color: var(--danger);
-  }
-  .quiet {
-    color: var(--text-muted);
   }
   .ledger-grid {
     display: grid;
@@ -708,35 +703,6 @@
     margin-top: 1.2rem;
     font-size: 0.72rem;
   }
-  .edit-form {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.8rem;
-    padding-top: 1.1rem;
-  }
-  .wide {
-    grid-column: 1 / -1;
-  }
-  .items {
-    display: grid;
-    gap: 0.5rem;
-    padding-top: 0.3rem;
-  }
-  .items-head {
-    align-items: center;
-    color: var(--text-muted);
-    font-size: 0.78rem;
-  }
-  .item-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 9rem auto;
-    gap: 0.45rem;
-  }
-  .icon-button {
-    width: 2.4rem;
-    padding: 0;
-    color: var(--danger);
-  }
   .empty-detail {
     display: grid;
     justify-items: center;
@@ -751,6 +717,10 @@
       flex-direction: column;
     }
     .ledger-grid {
+      grid-template-columns: 1fr;
+    }
+    .stat-strip,
+    .visual-grid {
       grid-template-columns: 1fr;
     }
     .filters label {

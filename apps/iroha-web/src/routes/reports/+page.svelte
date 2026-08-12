@@ -3,6 +3,7 @@
   import { FileText, RefreshCw } from "@lucide/svelte";
   import { ApiError, getMonthlyReport, type MonthlyReport } from "$lib/api";
   import BarChart from "$lib/components/BarChart.svelte";
+  import StatTile from "$lib/components/StatTile.svelte";
   import MonthNavigator from "@iroha/shared/MonthNavigator.svelte";
   import { currentMonth, formatMonth, shiftMonth } from "@iroha/shared/month";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -118,6 +119,11 @@
     currentExpenseData?.totals_by_currency.find(
       (value) => value.currency === primaryCurrency,
     )?.amount_minor ?? 0,
+  );
+  const expenseRecordCount = $derived(currentExpenseData?.expense_count ?? 0);
+  const topCategory = $derived(categoryTotals[0]?.category ?? "—");
+  const currencyCount = $derived(
+    currentExpenseData?.totals_by_currency.length ?? 0,
   );
   const comparisonLabel = $derived(
     previousTotal === 0
@@ -350,6 +356,32 @@
         </div>
 
         <section class="analysis-grid" aria-label="Expense analysis">
+          <div class="report-stat-strip">
+            <StatTile
+              label={`Primary spend · ${primaryCurrency}`}
+              value={formatMoney(
+                currentTotal,
+                primaryCurrency,
+                primaryExponent,
+              )}
+              sub={formatMonth(month)}
+            />
+            <StatTile
+              label="Canonical records"
+              value={String(expenseRecordCount)}
+              sub="included in this report"
+            />
+            <StatTile
+              label="Largest category"
+              value={topCategory}
+              sub="by amount"
+            />
+            <StatTile
+              label="Currencies"
+              value={String(currencyCount)}
+              sub="reported separately"
+            />
+          </div>
           <article class="analysis-card panel">
             <header>
               <p class="eyebrow">Aggregation</p>
@@ -388,6 +420,7 @@
                   formatter: (value) =>
                     formatMoney(value, primaryCurrency, primaryExponent),
                 }}
+                primaryType="line"
                 activeIndex={recentTotals.findIndex(
                   (item) => item.month === month,
                 )}
@@ -425,7 +458,8 @@
 
 <style>
   .reports-shell {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 1.25rem;
   }
   h1,
@@ -528,6 +562,7 @@
     font-size: 0.72rem;
   }
   .generated {
+    order: 1;
     font-size: 0.75rem;
     text-align: right;
   }
@@ -542,9 +577,19 @@
     gap: 1rem;
   }
   .analysis-grid {
+    order: 2;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
+  }
+  .report-stat-strip {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .report-grid {
+    order: 3;
   }
   .analysis-card,
   .comparison-card {
@@ -650,6 +695,9 @@
     }
     .analysis-grid {
       grid-template-columns: 1fr;
+    }
+    .report-stat-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .comparison-list {
       grid-template-columns: repeat(2, minmax(0, 1fr));

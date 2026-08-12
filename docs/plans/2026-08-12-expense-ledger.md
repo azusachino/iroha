@@ -80,7 +80,7 @@ As any client, I can submit one canonical JSON document and receive the same exp
 
 As a user, I can see expenses in the same monthly report surface as my activity, sleep, daily health, and media data.
 
-As a user, I can inspect, edit, and delete canonical expenses in Iroha's private web cockpit.
+As a user, I can inspect canonical expenses and delete an incorrect record in Iroha's private web cockpit. Canonical field correction is an API/CLI/agent operation, not an inline web-page workflow.
 
 ## Scope and non-goals
 
@@ -223,7 +223,7 @@ Iroha's web cockpit provides the v0.4 management surface for canonical expenses:
 /expenses
   -> list active records with month/category/currency filters
   -> open one record
-  -> edit the complete editable record with PUT
+  -> inspect the immutable canonical fields
   -> delete it with DELETE and return to the filtered list
 /reports
   -> select a month
@@ -240,8 +240,8 @@ the browser for monthly report requests and sends it explicitly.
 3. **General CLI foundation:** shared transport, configuration, source-reference persistence, JSON output, and error handling.
 4. **General CLI v0.4 resources:** `expense create/list/get/update/delete` and `report monthly`; add read-only wrappers for activity, sleep, daily, and media only after their response contracts are
    explicit.
-5. **Private cockpit:** `/expenses` list/detail/edit/delete flows with one month-by-month selector, rendered through all six design-language shells. The report page links to the same canonical month
-   and remains the sole owner of expense aggregation.
+5. **Private cockpit:** `/expenses` visual aggregation plus read-only list/detail/delete flows with one month-by-month selector, rendered through all six design-language shells. Canonical corrections
+   remain on the API/CLI/agent path. The report page links to the same canonical month and remains the sole owner of expense aggregation.
 6. **Release hardening:** migration rehearsal, monitoring, docs, OpenAPI, and v0.4 release note. Future external clients are separate follow-up work.
 
 Each slice must remain deterministic inside Iroha and must not depend on a particular client being available.
