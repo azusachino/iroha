@@ -12,6 +12,7 @@
   let container: HTMLDivElement;
   let map: maplibregl.Map;
   let marker: maplibregl.Marker | undefined;
+  const osmMaxZoom = 19;
 
   // Key-free raster style backed by OpenStreetMap tiles (no API token needed).
   const style: maplibregl.StyleSpecification = {
@@ -21,6 +22,7 @@
         type: "raster",
         tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
         tileSize: 256,
+        maxzoom: osmMaxZoom,
         attribution: "© OpenStreetMap contributors",
       },
     },
@@ -37,6 +39,7 @@
       style,
       center: coords.length ? coords[0] : [0, 0],
       zoom: coords.length ? 12 : 1,
+      maxZoom: osmMaxZoom,
       attributionControl: { compact: true },
     });
     map.addControl(
@@ -71,7 +74,7 @@
         (b, c) => b.extend(c),
         new maplibregl.LngLatBounds(coords[0], coords[0]),
       );
-      map.fitBounds(bounds, { padding: 32, duration: 0 });
+      map.fitBounds(bounds, { padding: 32, duration: 0, maxZoom: osmMaxZoom });
     });
 
     return () => map.remove();
