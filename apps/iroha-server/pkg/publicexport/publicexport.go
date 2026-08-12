@@ -117,6 +117,7 @@ type RouteGeometry struct {
 }
 
 type RouteFeatureProps struct {
+	ActivityID string `json:"activity_id"`
 	SportType  string `json:"sport_type"`
 	Year       string `json:"year"`
 	City       string `json:"city"`
@@ -152,9 +153,15 @@ func Routes(ctx context.Context, activitySvc *activities.Service, geocodeSvc *ge
 		}
 
 		features = append(features, RouteFeature{
-			Type:       "Feature",
-			Geometry:   RouteGeometry{Type: "LineString", Coordinates: line.Points},
-			Properties: RouteFeatureProps{SportType: line.SportType, Year: line.Year, City: city, CityStatus: cityStatus},
+			Type:     "Feature",
+			Geometry: RouteGeometry{Type: "LineString", Coordinates: line.Points},
+			Properties: RouteFeatureProps{
+				ActivityID: ids.Encode(ids.ActivityPrefix, line.ActivityID),
+				SportType:  line.SportType,
+				Year:       line.Year,
+				City:       city,
+				CityStatus: cityStatus,
+			},
 		})
 	}
 	return RouteFeatureCollection{Type: "FeatureCollection", Features: features}, nil

@@ -521,9 +521,10 @@ func (s *Service) Route(id string) ([]models.ActivityRoutePoint, bool, error) {
 // for the public "all routes" map. Points are [lon, lat] pairs (GeoJSON
 // coordinate order).
 type RouteLine struct {
-	SportType string
-	Year      string
-	Points    [][2]float64
+	ActivityID uuid.UUID
+	SportType  string
+	Year       string
+	Points     [][2]float64
 }
 
 // routePointRow is the minimal projection needed to build public route
@@ -557,9 +558,10 @@ func (s *Service) RouteLines() ([]RouteLine, error) {
 
 	// Group ordered points into one coordinate track per activity.
 	type track struct {
-		sport  string
-		year   string
-		coords [][2]float64
+		activityID uuid.UUID
+		sport      string
+		year       string
+		coords     [][2]float64
 	}
 	var tracks []track
 	var currentID uuid.UUID
@@ -575,7 +577,7 @@ func (s *Service) RouteLines() ([]RouteLine, error) {
 		}
 		if row.ActivityID != currentID {
 			flush()
-			current = track{sport: row.SportType, year: row.Year}
+			current = track{activityID: row.ActivityID, sport: row.SportType, year: row.Year}
 			currentID = row.ActivityID
 		}
 		current.coords = append(current.coords, [2]float64{*row.Lon, *row.Lat})
@@ -602,7 +604,7 @@ func (s *Service) RouteLines() ([]RouteLine, error) {
 			if len(segment) < routeMinPoints {
 				continue
 			}
-			lines = append(lines, RouteLine{SportType: t.sport, Year: t.year, Points: segment})
+			lines = append(lines, RouteLine{ActivityID: t.activityID, SportType: t.sport, Year: t.year, Points: segment})
 		}
 	}
 	return lines, nil
