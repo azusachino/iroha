@@ -1,6 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import * as echarts from "echarts";
+  import { BarChart, LineChart } from "echarts/charts";
+  import {
+    GridComponent,
+    LegendComponent,
+    TooltipComponent,
+  } from "echarts/components";
+  import { init, use } from "echarts/core";
+  import type { ECharts } from "echarts/core";
+  import { CanvasRenderer } from "echarts/renderers";
   import {
     formatDate,
     formatDistance,
@@ -17,14 +25,23 @@
     RouteFeatureCollection,
   } from "$lib/types";
 
+  use([
+    BarChart,
+    CanvasRenderer,
+    GridComponent,
+    LegendComponent,
+    LineChart,
+    TooltipComponent,
+  ]);
+
   let { detail, backHref }: { detail: ActivityDetail; backHref: string } =
     $props();
   let chartContainer = $state<HTMLDivElement>();
   let zoneChartContainer = $state<HTMLDivElement>();
   let lapsChartContainer = $state<HTMLDivElement>();
-  let chart: echarts.ECharts | null = null;
-  let zoneChart: echarts.ECharts | null = null;
-  let lapsChart: echarts.ECharts | null = null;
+  let chart: ECharts | null = null;
+  let zoneChart: ECharts | null = null;
+  let lapsChart: ECharts | null = null;
 
   const route = $derived(detail.route);
   const sport = $derived(detail.activity.sport_type.toLowerCase());
@@ -245,7 +262,7 @@
     values: (number | null)[],
     color: string,
     yAxisIndex: number,
-  ): echarts.SeriesOption {
+  ) {
     return {
       name,
       type: "line",
@@ -415,9 +432,9 @@
   }
 
   onMount(() => {
-    if (chartContainer) chart = echarts.init(chartContainer);
-    if (zoneChartContainer) zoneChart = echarts.init(zoneChartContainer);
-    if (lapsChartContainer) lapsChart = echarts.init(lapsChartContainer);
+    if (chartContainer) chart = init(chartContainer);
+    if (zoneChartContainer) zoneChart = init(zoneChartContainer);
+    if (lapsChartContainer) lapsChart = init(lapsChartContainer);
     renderChart();
     renderZoneChart();
     renderLapsChart();
