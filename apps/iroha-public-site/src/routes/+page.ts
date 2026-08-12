@@ -1,5 +1,6 @@
 import type {
   Activity,
+  ActivityDetail,
   Meta,
   RouteFeatureCollection,
   Summary,
@@ -14,17 +15,20 @@ import type { PageLoad } from "./$types";
 export const prerender = true;
 
 export const load: PageLoad = async ({ fetch }) => {
-  const [summaryRes, activitiesRes, routesRes, metaRes] = await Promise.all([
-    fetch("data/summary.json"),
-    fetch("data/activities.json"),
-    fetch("data/routes.geojson"),
-    fetch("data/meta.json"),
-  ]);
+  const [summaryRes, activitiesRes, routesRes, detailsRes, metaRes] =
+    await Promise.all([
+      fetch("data/summary.json"),
+      fetch("data/activities.json"),
+      fetch("data/routes.geojson"),
+      fetch("data/activity-details.json"),
+      fetch("data/meta.json"),
+    ]);
 
   const summary: Summary = await summaryRes.json();
   const activities: Activity[] = await activitiesRes.json();
   const routes: RouteFeatureCollection = await routesRes.json();
+  const details: Record<string, ActivityDetail> = await detailsRes.json();
   const meta: Meta = await metaRes.json();
 
-  return { summary, activities, routes, meta };
+  return { summary, activities, routes, details, meta };
 };

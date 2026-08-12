@@ -14,7 +14,7 @@
     {@render children()}
   </div>
   <footer class="footer">
-    <span>{site.name} {site.byline}</span>
+    <span>{site.name} {site.byline} · v{site.version}</span>
     <span>
       Public projection of sanitized activity records · private daily, sleep,
       and media details stay out of this view.

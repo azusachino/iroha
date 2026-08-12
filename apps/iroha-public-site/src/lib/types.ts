@@ -19,6 +19,43 @@ export interface Activity {
   avg_pace_s_per_km?: number;
 }
 
+export interface ActivityDetailRoutePoint {
+  seq: number;
+  ts?: string;
+  lat: number;
+  lon: number;
+  elevation_m?: number;
+  distance_m?: number;
+  speed_mps?: number;
+  heart_rate?: number;
+}
+
+export interface ActivityDetailSampling {
+  id: string;
+  sampling_type: string;
+  ts: string;
+  value: number;
+  unit: string;
+}
+
+export interface ActivityDetailLap {
+  id: string;
+  lap_no: number;
+  start_ts?: string;
+  end_ts?: string;
+  distance_m?: number;
+  duration_s?: number;
+  avg_hr?: number;
+  avg_pace_s_per_km?: number;
+}
+
+export interface ActivityDetail {
+  activity: Activity & { source_kind: string };
+  route: ActivityDetailRoutePoint[];
+  samplings: ActivityDetailSampling[];
+  laps: ActivityDetailLap[];
+}
+
 export interface SummaryTotals {
   activity_count: number;
   distance_m: number;

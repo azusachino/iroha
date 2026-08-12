@@ -64,3 +64,4 @@ jobs:
           curl -fsSL "$base/data/summary.json" >/dev/null
           curl -fsSL "$base/data/activities.json" >/dev/null
           curl -fsSL "$base/data/routes.geojson" >/dev/null
+          curl -fsSL "$base/data/activity-details.json" >/dev/null
