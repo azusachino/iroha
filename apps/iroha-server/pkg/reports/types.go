@@ -63,7 +63,7 @@ type MediaData struct {
 	EventCount     int              `json:"event_count"`
 	CompletedCount int              `json:"completed_count"`
 	RatedCount     int              `json:"rated_count"`
-	AverageRating  *float64         `json:"average_rating,omitempty"`
+	AverageRating  *float64         `json:"average_rating"`
 	ByKind         []MediaKindTotal `json:"by_kind"`
 	CompletedItems []MediaCompleted `json:"completed_items"`
 }

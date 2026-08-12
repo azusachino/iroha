@@ -380,6 +380,23 @@ paths:
                 $ref: "#/components/schemas/DailyAggregateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/reports/monthly:
+    get:
+      tags: [system]
+      parameters:
+        - $ref: "#/components/parameters/Month"
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Synchronous typed monthly report over all private canonical domains.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/expenses:
     get:
       tags: [expenses]
@@ -831,6 +848,15 @@ components:
       name: to
       in: query
       schema: { type: string, format: date }
+    Month:
+      name: month
+      in: query
+      required: true
+      schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+    Timezone:
+      name: timezone
+      in: query
+      schema: { type: string, default: Asia/Tokyo }
     Limit:
       name: limit
       in: query
@@ -851,6 +877,11 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     NotFound:
       description: Resource was not found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    InternalServerError:
+      description: The report could not be generated.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -1027,6 +1058,187 @@ components:
         items: { type: array, items: { $ref: "#/components/schemas/Expense" } }
         next_cursor: { type: [string, "null"] }
         has_more: { type: boolean }
+    MonthlyReport:
+      type: object
+      additionalProperties: false
+      required: [schema, period, generated_at, sections]
+      properties:
+        schema: { type: string, const: monthly-report.v1 }
+        period: { $ref: "#/components/schemas/ReportPeriod" }
+        generated_at: { type: string, format: date-time }
+        sections:
+          type: object
+          additionalProperties: false
+          required: [movement, sleep, daily_health, media, expenses]
+          properties:
+            movement: { $ref: "#/components/schemas/MovementReportSection" }
+            sleep: { $ref: "#/components/schemas/SleepReportSection" }
+            daily_health: { $ref: "#/components/schemas/DailyHealthReportSection" }
+            media: { $ref: "#/components/schemas/MediaReportSection" }
+            expenses: { $ref: "#/components/schemas/ExpensesReportSection" }
+    ReportPeriod:
+      type: object
+      additionalProperties: false
+      required: [kind, month, from, to, timezone]
+      properties:
+        kind: { type: string, const: month }
+        month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        timezone: { type: string }
+    MovementReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.movement.v1 }
+        state: { type: string, enum: [available, empty] }
+        data: { oneOf: [{ $ref: "#/components/schemas/MovementReportData" }, { type: "null" }] }
+    MovementReportData:
+      type: object
+      additionalProperties: false
+      required: [activity_count, distance_m, distance_activity_count, duration_s, by_sport]
+      properties:
+        activity_count: { type: integer }
+        distance_m: { type: number }
+        distance_activity_count: { type: integer }
+        duration_s: { type: integer }
+        by_sport: { type: array, items: { $ref: "#/components/schemas/MovementSportTotal" } }
+    MovementSportTotal:
+      type: object
+      additionalProperties: false
+      required: [sport, activity_count, distance_m, distance_activity_count, duration_s]
+      properties:
+        sport: { type: string }
+        activity_count: { type: integer }
+        distance_m: { type: number }
+        distance_activity_count: { type: integer }
+        duration_s: { type: integer }
+    SleepReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.sleep.v1 }
+        state: { type: string, enum: [available, empty] }
+        data: { oneOf: [{ $ref: "#/components/schemas/SleepReportData" }, { type: "null" }] }
+    SleepReportData:
+      type: object
+      additionalProperties: false
+      required: [session_count, main_sleep_count, nap_count, average_asleep_s, average_time_in_bed_s, average_efficiency, stage_seconds]
+      properties:
+        session_count: { type: integer }
+        main_sleep_count: { type: integer }
+        nap_count: { type: integer }
+        average_asleep_s: { type: number }
+        average_time_in_bed_s: { type: number }
+        average_efficiency: { type: number }
+        stage_seconds: { $ref: "#/components/schemas/SleepStageSeconds" }
+    SleepStageSeconds:
+      type: object
+      additionalProperties: false
+      required: [core, deep, rem, awake, unspecified]
+      properties:
+        core: { type: integer }
+        deep: { type: integer }
+        rem: { type: integer }
+        awake: { type: integer }
+        unspecified: { type: integer }
+    DailyHealthReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.daily-health.v1 }
+        state: { type: string, enum: [available, empty] }
+        data: { oneOf: [{ $ref: "#/components/schemas/DailyHealthReportData" }, { type: "null" }] }
+    DailyHealthReportData:
+      type: object
+      additionalProperties: false
+      required: [observed_days, metric_averages]
+      properties:
+        observed_days: { type: integer }
+        metric_averages: { type: array, items: { $ref: "#/components/schemas/MetricAverage" } }
+    MetricAverage:
+      type: object
+      additionalProperties: false
+      required: [metric, value, unit, observed_days]
+      properties:
+        metric: { type: string }
+        value: { type: number }
+        unit: { type: string }
+        observed_days: { type: integer }
+    MediaReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.media.v1 }
+        state: { type: string, enum: [available, empty] }
+        data: { oneOf: [{ $ref: "#/components/schemas/MediaReportData" }, { type: "null" }] }
+    MediaReportData:
+      type: object
+      additionalProperties: false
+      required: [event_count, completed_count, rated_count, average_rating, by_kind, completed_items]
+      properties:
+        event_count: { type: integer }
+        completed_count: { type: integer }
+        rated_count: { type: integer }
+        average_rating: { type: [number, "null"] }
+        by_kind: { type: array, items: { $ref: "#/components/schemas/MediaKindTotal" } }
+        completed_items: { type: array, items: { $ref: "#/components/schemas/MediaCompleted" } }
+    MediaKindTotal:
+      type: object
+      additionalProperties: false
+      required: [kind, event_count, completed_count]
+      properties:
+        kind: { type: string }
+        event_count: { type: integer }
+        completed_count: { type: integer }
+    MediaCompleted:
+      type: object
+      additionalProperties: false
+      required: [id, title, media_type, completed_at]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        media_type: { type: string }
+        completed_at: { type: string, format: date-time }
+    ExpensesReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.expenses.v1 }
+        state: { type: string, enum: [available, empty] }
+        data: { oneOf: [{ $ref: "#/components/schemas/ExpensesReportData" }, { type: "null" }] }
+    ExpensesReportData:
+      type: object
+      additionalProperties: false
+      required: [expense_count, totals_by_currency, by_category]
+      properties:
+        expense_count: { type: integer }
+        totals_by_currency: { type: array, items: { $ref: "#/components/schemas/ExpenseCurrencyTotal" } }
+        by_category: { type: array, items: { $ref: "#/components/schemas/ExpenseCategoryTotal" } }
+    ExpenseCurrencyTotal:
+      type: object
+      additionalProperties: false
+      required: [currency, currency_exponent, amount_minor, expense_count]
+      properties:
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        currency_exponent: { type: integer, enum: [0, 2] }
+        amount_minor: { type: integer, format: int64 }
+        expense_count: { type: integer }
+    ExpenseCategoryTotal:
+      type: object
+      additionalProperties: false
+      required: [category, currency, currency_exponent, amount_minor, expense_count]
+      properties:
+        category: { type: string }
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        currency_exponent: { type: integer, enum: [0, 2] }
+        amount_minor: { type: integer, format: int64 }
+        expense_count: { type: integer }
     Task:
       type: object
       required: [id, title, status, priority, source, created_at, updated_at]

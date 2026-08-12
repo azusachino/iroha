@@ -322,6 +322,39 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 	requestJSON(t, server, http.MethodGet, "/api/v1/daily?from=bad", "", http.StatusBadRequest, nil)
 }
 
+func TestIntegrationMonthlyReportEndpoint(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+	server := newIntegrationServer(t, db)
+
+	requestJSON(t, server, http.MethodGet, "/api/v1/reports/monthly?month=2026-08&timezone=UTC", "", http.StatusOK, func(body map[string]any) {
+		if body["schema"] != "monthly-report.v1" {
+			t.Fatalf("schema = %#v", body["schema"])
+		}
+		period := body["period"].(map[string]any)
+		if period["month"] != "2026-08" || period["from"] != "2026-08-01" || period["to"] != "2026-09-01" || period["timezone"] != "UTC" {
+			t.Fatalf("period = %#v", period)
+		}
+		sections := body["sections"].(map[string]any)
+		for _, name := range []string{"movement", "sleep", "daily_health", "media", "expenses"} {
+			section := sections[name].(map[string]any)
+			state := section["state"].(string)
+			if state != "empty" && state != "available" {
+				t.Fatalf("section %s = %#v", name, section)
+			}
+			if state == "empty" && section["data"] != nil {
+				t.Fatalf("empty section %s has data: %#v", name, section)
+			}
+			if state == "available" && section["data"] == nil {
+				t.Fatalf("available section %s has no data: %#v", name, section)
+			}
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/reports/monthly?month=2026-13", "", http.StatusBadRequest, nil)
+	requestJSON(t, server, http.MethodGet, "/api/v1/reports/monthly?month=2026-08&timezone=Not%2FATimezone", "", http.StatusBadRequest, nil)
+}
+
 func openIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("DATABASE_URL")

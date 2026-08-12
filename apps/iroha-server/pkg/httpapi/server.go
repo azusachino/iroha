@@ -136,6 +136,9 @@ func (s *Server) routes() {
 			r.Put("/{expenseId}", s.handleReplaceExpense)
 			r.Delete("/{expenseId}", s.handleDeleteExpense)
 		})
+		r.Route("/reports", func(r chi.Router) {
+			r.Get("/monthly", s.handleMonthlyReport)
+		})
 		r.Route("/media", func(r chi.Router) {
 			r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
 			r.Get("/aggregates", s.handleMediaAggregates)
