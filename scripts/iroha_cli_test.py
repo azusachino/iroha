@@ -198,5 +198,36 @@ class IrohaCLIReportCommandTest(unittest.TestCase):
         self.assertIn("sleep", result)
 
 
+class IrohaCLIMetricCommandTest(unittest.TestCase):
+    def test_metric_list_forwards_catalog(self) -> None:
+        response = b'{"schema":"metric-catalog.v1","metrics":[]}'
+        client = FakeClient(response)
+        args = iroha_cli.build_parser().parse_args(["metric", "list"])
+        with mock.patch.object(iroha_cli, "output_result") as output:
+            iroha_cli.run_metric_command(args, client)
+        self.assertEqual(client.calls, [("GET", "/api/v1/metrics", None)])
+        output.assert_called_once_with(response, "json", iroha_cli.metric_table)
+
+    def test_metric_series_preserves_repeatable_dimensions(self) -> None:
+        client = FakeClient(b'{"schema":"metric-series.v1"}')
+        args = iroha_cli.build_parser().parse_args([
+            "metric", "series", "expenses.amount_minor", "--from", "2026-01-01", "--to", "2026-02-01",
+            "--grain", "month", "--timezone", "Asia/Tokyo", "--dimension", "currency:JPY", "--dimension", "category:food",
+        ])
+        with mock.patch.object(iroha_cli, "output_result"):
+            iroha_cli.run_metric_command(args, client)
+        self.assertEqual(client.calls[0][0], "GET")
+        self.assertEqual(client.calls[0][1], "/api/v1/metrics/expenses.amount_minor/series?from=2026-01-01&to=2026-02-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=category%3Afood")
+
+    def test_metric_series_table_keeps_minor_value(self) -> None:
+        result = iroha_cli.metric_series_table({
+            "metric_id": "expenses.amount_minor",
+            "period": {"timezone": "Asia/Tokyo"},
+            "series": [{"dimensions": {"currency": "JPY"}, "points": [{"period": "2026-01", "value_minor": 800, "observed_days": 1}]}],
+        })
+        self.assertIn("800", result)
+        self.assertIn("currency=JPY", result)
+
+
 if __name__ == "__main__":
     unittest.main()

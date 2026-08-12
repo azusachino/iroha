@@ -18,6 +18,9 @@ import {
   createTask,
   updateTask,
   getMonthlyReport,
+  getMetricCatalog,
+  getMetricDefinition,
+  getMetricSeries,
   listExpenses,
   getExpense,
   createExpense,
@@ -196,6 +199,27 @@ describe("control room API", () => {
     expect(getCapturedUrl()).toContain("/api/v1/reports/monthly?");
     expect(getCapturedUrl()).toContain("month=2026-08");
     expect(getCapturedUrl()).toContain("timezone=Asia%2FTokyo");
+  });
+
+  it("requests catalog and lossless metric series parameters", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMetricCatalog(fakeFetch);
+    expect(getCapturedUrl()).toBe("/api/v1/metrics");
+    await getMetricDefinition("expenses.amount_minor", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/metrics/expenses.amount_minor");
+    await getMetricSeries(
+      "expenses.amount_minor",
+      {
+        from: "2026-01-01",
+        to: "2026-02-01",
+        grain: "month",
+        timezone: "Asia/Tokyo",
+        dimensions: ["currency:JPY", "category:food"],
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("dimension=currency%3AJPY");
+    expect(getCapturedUrl()).toContain("dimension=category%3Afood");
   });
 });
 

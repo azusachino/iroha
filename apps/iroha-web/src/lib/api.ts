@@ -408,6 +408,128 @@ export interface MonthlyReport {
   };
 }
 
+export interface MetricDimension {
+  id: string;
+  label: string;
+  values: string[];
+  required: boolean;
+  expand_by_default: boolean;
+}
+
+export interface MetricDefinition {
+  id: string;
+  domain: string;
+  label: string;
+  description: string;
+  kind: "canonical" | "derived";
+  value_type: string;
+  unit: string;
+  short_unit: string;
+  supported_grains: ("day" | "month" | "year")[];
+  dimensions: MetricDimension[];
+  reducer: string;
+  rollup: "sum" | "average" | "count";
+  aggregation_version: string;
+  coverage_kind: string;
+  semantic_color_token: string;
+  preferred_view: string;
+}
+
+export interface MetricCatalogResponse {
+  schema: "metric-catalog.v1";
+  metrics: MetricDefinition[];
+}
+
+export interface MetricDefinitionResponse {
+  schema: "metric-catalog.v1";
+  metric: MetricDefinition;
+}
+
+export type MetricPoint =
+  | {
+      period: string;
+      value: number | null;
+      observed_days: number;
+      value_minor?: never;
+    }
+  | {
+      period: string;
+      value_minor: number | null;
+      observed_days: number;
+      value?: never;
+    };
+
+export interface MetricSeriesResponse {
+  schema: "metric-series.v1";
+  metric_id: string;
+  label: string;
+  unit: string;
+  value_type: string;
+  period: {
+    grain: "day" | "month" | "year";
+    from: string;
+    to: string;
+    timezone: string;
+  };
+  series: {
+    dimensions: Record<string, string>;
+    points: MetricPoint[];
+    coverage: {
+      expected_periods: number;
+      observed_periods: number;
+    };
+    source: {
+      kind: string;
+      method: string;
+      source_kinds: string[];
+    };
+  }[];
+}
+
+export function getMetricCatalog(
+  fetchFn: typeof fetch = fetch,
+): Promise<MetricCatalogResponse> {
+  return getJSON<MetricCatalogResponse>("/api/v1/metrics", fetchFn);
+}
+
+export function getMetricDefinition(
+  metricId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<MetricDefinitionResponse> {
+  return getJSON<MetricDefinitionResponse>(
+    `/api/v1/metrics/${encodeURIComponent(metricId)}`,
+    fetchFn,
+  );
+}
+
+export interface MetricSeriesParams {
+  from: string;
+  to: string;
+  grain: "day" | "month" | "year";
+  timezone?: string;
+  dimensions?: string[];
+}
+
+export function getMetricSeries(
+  metricId: string,
+  params: MetricSeriesParams,
+  fetchFn: typeof fetch = fetch,
+): Promise<MetricSeriesResponse> {
+  const query = new URLSearchParams({
+    from: params.from,
+    to: params.to,
+    grain: params.grain,
+    timezone: params.timezone ?? "UTC",
+  });
+  for (const dimension of params.dimensions ?? []) {
+    query.append("dimension", dimension);
+  }
+  return getJSON<MetricSeriesResponse>(
+    `/api/v1/metrics/${encodeURIComponent(metricId)}/series?${query.toString()}`,
+    fetchFn,
+  );
+}
+
 export interface MovementReportData {
   activity_count: number;
   distance_m: number;

@@ -220,6 +220,30 @@ def monthly_report_table(value: object) -> str:
     return f"period: {period.get('month', '')} ({period.get('timezone', '')})\n" + _table(rows, ["section", "state", "summary"])
 
 
+def metric_table(value: object) -> str:
+    if not isinstance(value, dict):
+        raise CLIError("Iroha returned an unexpected metric response")
+    metrics = value.get("metrics")
+    if metrics is None:
+        metrics = [value.get("metric", {})]
+    rows = [[item.get("id"), item.get("label"), item.get("unit"), item.get("preferred_view")] for item in metrics if isinstance(item, dict)]
+    return _table(rows, ["id", "label", "unit", "view"])
+
+
+def metric_series_table(value: object) -> str:
+    if not isinstance(value, dict) or not isinstance(value.get("period"), dict):
+        raise CLIError("Iroha returned an unexpected metric series response")
+    rows = []
+    for series in value.get("series", []):
+        if not isinstance(series, dict):
+            continue
+        dimensions = ",".join(f"{key}={item}" for key, item in sorted((series.get("dimensions") or {}).items()))
+        for point in series.get("points", []):
+            if isinstance(point, dict):
+                rows.append([dimensions, point.get("period"), point.get("value_minor", point.get("value")), point.get("observed_days")])
+    return f"metric: {value.get('metric_id', '')} ({value.get('period', {}).get('timezone', '')})\n" + _table(rows, ["dimensions", "period", "value", "observed_days"])
+
+
 def output_result(data: bytes, output_format: str, table_formatter: Callable[[object], str] | None = None) -> None:
     if not data:
         return
@@ -272,6 +296,22 @@ def run_report_command(args: argparse.Namespace, client: IrohaClient) -> int:
     return 0
 
 
+def run_metric_command(args: argparse.Namespace, client: IrohaClient) -> int:
+    if args.metric_action == "list":
+        output_result(client.request("GET", "/api/v1/metrics"), args.format, metric_table)
+        return 0
+    if args.metric_action == "get":
+        output_result(client.request("GET", f"/api/v1/metrics/{args.metric_id}"), args.format, metric_table)
+        return 0
+    if args.metric_action == "series":
+        params = [("from", args.from_date), ("to", args.to), ("grain", args.grain), ("timezone", args.timezone)]
+        params.extend(("dimension", dimension) for dimension in args.dimension or [])
+        path = f"/api/v1/metrics/{args.metric_id}/series?{urlencode(params)}"
+        output_result(client.request("GET", path), args.format, metric_series_table)
+        return 0
+    raise CLIError(f"unsupported metric command: {args.metric_action}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="iroha_cli.py", description=__doc__)
     parser.add_argument(
@@ -316,6 +356,22 @@ def build_parser() -> argparse.ArgumentParser:
     monthly.add_argument("--month", required=True)
     monthly.add_argument("--timezone")
     monthly.add_argument("--format", choices=["json", "table"], default="json")
+
+    metric = resources.add_parser("metric", help="read the metric catalog and server-aggregated series")
+    metric_commands = metric.add_subparsers(dest="metric_action", required=True)
+    metric_list = metric_commands.add_parser("list")
+    metric_list.add_argument("--format", choices=["json", "table"], default="json")
+    metric_get = metric_commands.add_parser("get")
+    metric_get.add_argument("metric_id")
+    metric_get.add_argument("--format", choices=["json", "table"], default="json")
+    metric_series = metric_commands.add_parser("series")
+    metric_series.add_argument("metric_id")
+    metric_series.add_argument("--from", dest="from_date", required=True)
+    metric_series.add_argument("--to", required=True)
+    metric_series.add_argument("--grain", choices=["day", "month", "year"], required=True)
+    metric_series.add_argument("--timezone", default="UTC")
+    metric_series.add_argument("--dimension", action="append", help="repeatable name:value dimension filter")
+    metric_series.add_argument("--format", choices=["json", "table"], default="json")
     return parser
 
 
@@ -327,6 +383,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_expense_command(args, client)
     if args.resource == "report" and args.report_action == "monthly":
         return run_report_command(args, client)
+    if args.resource == "metric":
+        return run_metric_command(args, client)
     raise CLIError(f"unsupported resource: {args.resource}")
 
 
