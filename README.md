@@ -14,7 +14,7 @@ it has no live API and no private credentials.
 
 | Surface         | Location                                                            | Contents                                                                        |
 | --------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Private cockpit | `iroha-server`, `iroha-job`, `iroha-web`                            | Canonical Postgres/PostGIS data, routes, streams, sleep, media, tasks, and jobs |
+| Private cockpit | `iroha-server`, `iroha-job`, `iroha-web`                            | Canonical Postgres/PostGIS data, routes, streams, sleep, media, expenses, monthly reports, tasks, and jobs |
 | Public archive  | [`azusachino.github.io/iroha`](https://azusachino.github.io/iroha/) | Public activity snapshot with rich detail for every exported activity           |
 
 The exporter runs inside the private deployment and pushes only the static snapshot under `apps/iroha-public-site/static/data/`. See [public-site publishing](docs/public-site-publishing.md) for the
@@ -31,6 +31,8 @@ make check
 ```
 
 Use [`docs/dev-runtime.md`](docs/dev-runtime.md) for local development and [`docs/roadmap.md`](docs/roadmap.md) for planned work.
+
+The v0.4 local client is `scripts/iroha_cli.py`. It sends canonical JSON to the private API for expense create/list/get/update/delete operations and reads monthly reports; receipt OCR remains an external local-agent concern.
 
 ## References
 

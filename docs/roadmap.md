@@ -214,6 +214,8 @@ ontology expansion and cross-provider resolution.
 
 Goal: capture lightweight personal expenses from the local agent client, then report them beside the existing activity, night, and media aggregates without making iroha own a bot.
 
+Status: release candidate; Gate C remains the final owner approval checkpoint.
+
 The client boundary follows Milestone 6: local agent CLIs are external clients, while iroha owns deterministic validation, idempotency, canonical records, corrections, and read/report APIs. Suzuran's
 expense feature is not part of this release.
 

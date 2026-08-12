@@ -385,7 +385,7 @@ export interface BriefingResponse {
 
 export interface ReportSection<T> {
   schema: string;
-  state: "available" | "empty" | "unavailable";
+  state: "available" | "empty";
   data: T | null;
 }
 

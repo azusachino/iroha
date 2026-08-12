@@ -73,9 +73,7 @@
   }
 
   function sectionState(state: string): string {
-    return state === "empty"
-      ? "No canonical records for this month."
-      : "This section is currently unavailable.";
+    return state === "empty" ? "No canonical records for this month." : "";
   }
 </script>
 

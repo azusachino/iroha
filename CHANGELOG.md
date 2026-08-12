@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
+## [0.4.0] — 2026-08-12
+
+### Added
+
+- Add the canonical private expense ledger with idempotent create, list, detail, replacement, and tombstone-delete APIs.
+- Add synchronous monthly reports with typed movement, sleep, daily health, media, and expense sections.
+- Add the general local CLI transport and expense/report commands, plus private `/expenses` and `/reports` cockpit pages.
+
+### Changed
+
+- Keep expenses and reports out of the sanitized public export; add a serialized projection regression test for that boundary.
+- Adopt `requests` for the Python CLI transport and lock its dependencies with `uv`.
+- Document the v0.4 local-agent boundary: OCR may happen outside Iroha, while Iroha validates and stores canonical JSON deterministically.
+
 ## [0.3.1] — 2026-08-12
 
 ### Added
