@@ -30,13 +30,14 @@ OCR, model choice, temporary image files, and any optional preview/confirmation 
 3. The local agent is a separate direct Iroha client for receipt images and other local inputs.
 4. Iroha does not require user confirmation. A client may offer a preview/confirmation mode, but the API accepts a valid canonical request directly.
 5. The v0.4 storage model is one `tb_expenses` table. There are no Iroha intake, candidate, revision, mutation, or OCR tables.
-6. The required canonical fields are `occurred_on`, `currency`, `amount_minor`, `category`, and `source`. `merchant`, `note`, and `items` are optional.
-7. `amount_minor` is authoritative. `items` are descriptive receipt details and are not accounting line items.
-8. `(source.kind, source.ref)` is the create idempotency identity. An identical retry returns the existing record; a conflicting retry returns `409 Conflict`.
-9. Deletion is a `deleted_at` tombstone so a retry cannot recreate an intentionally removed source event. v0.4 does not provide revision history.
-10. Receipt images and OCR evidence stay in the local agent environment. Iroha stores no image bytes or model prompt.
-11. Weekly/monthly cross-domain reports are a separate read feature. They aggregate existing personal data sections without combining incompatible units.
-12. Iroha remains private-network-only under the current deployment model. Full authentication is required before external exposure.
+6. That canonical `tb_expenses` table belongs to Iroha. Suzuran's existing table is legacy migration debt and is retired after backfill; it is not a second source of truth.
+7. The required canonical fields are `occurred_on`, `currency`, `amount_minor`, `category`, and `source`. `merchant`, `note`, and `items` are optional.
+8. `amount_minor` is authoritative. `items` are descriptive receipt details and are not accounting line items.
+9. `(source.kind, source.ref)` is the create idempotency identity. An identical retry returns the existing record; a conflicting retry returns `409 Conflict`.
+10. Deletion is a `deleted_at` tombstone so a retry cannot recreate an intentionally removed source event. v0.4 does not provide revision history.
+11. Receipt images and OCR evidence stay in the local agent environment. Iroha stores no image bytes or model prompt.
+12. The monthly cross-domain report is a separate read feature. It aggregates existing personal data sections without combining incompatible units.
+13. Iroha remains private-network-only under the current deployment model. Full authentication is required before external exposure.
 
 ## User stories
 
@@ -46,7 +47,7 @@ As a user, I can send `/expense 1300 JPY food` and have Telegram submit a canoni
 
 As a user, I can optionally add a merchant, note, date, or item list through a short conversation.
 
-As a user, I can list expenses, see weekly/monthly totals, edit an expense, or undo it from Telegram.
+As a user, I can list expenses, see monthly totals, edit an expense, or undo it from Telegram.
 
 ### Local agent receipt entry
 
@@ -60,7 +61,7 @@ As an operator, I can run the same extraction and submission workflow from a loc
 
 As any client, I can submit one canonical JSON document and receive the same expense record on a safe retry.
 
-As a user, I can see expenses in the same weekly/monthly report surface as my activity, sleep, daily health, and media data.
+As a user, I can see expenses in the same monthly report surface as my activity, sleep, daily health, and media data.
 
 ## Scope and non-goals
 
@@ -71,7 +72,7 @@ In scope:
 - Source-based idempotency for external clients.
 - A local CLI for validating/submitting agent JSON and reading reports.
 - Telegram UX for direct manual entry, listing, correction, undo, and report commands.
-- Suzuran migration from its local `tb_expenses` table to Iroha.
+- One-time import of Suzuran's legacy rows into Iroha, followed by retirement of the old table and all direct local-ledger writes.
 
 Out of scope for v0.4:
 
@@ -217,7 +218,7 @@ A preview and `Save/Edit/Cancel` buttons are optional UX. They are not required 
 ### Listing and correction
 
 - `/expenses` shows today's active records and totals by currency.
-- `/expenses week` and `/expenses month` call the cross-domain report API described in the periodic reports plan.
+- `/expenses month` calls the cross-domain monthly report API described in the monthly reports plan.
 - Each row may offer `Edit` and `Undo`. Edit sends `PUT`; Undo sends `DELETE` after an optional client-side confirmation.
 - If Iroha returns `409`, Suzuran displays the existing canonical record instead of creating another.
 - If Iroha is unavailable, Suzuran may queue the already-canonical JSON locally and retry with the same `source.ref`; it must not write a second local ledger.
@@ -232,16 +233,16 @@ Replace every direct local `tb_expenses` read/write path:
 - `src/suzuran/expenses.py`: commands call Iroha list/create/aggregate APIs.
 - `src/suzuran/callbacks.py`: undo calls Iroha delete.
 - `src/suzuran/scheduler.py`: subscription renewal creates an Iroha expense with `subscription:<subscription_id>:<renewal_date>` as the source reference.
-- `src/suzuran/briefing.py`: weekly review and dashboard use Iroha reports.
+- `src/suzuran/briefing.py`: briefing and dashboard use Iroha's monthly report/expense APIs where appropriate.
 - `src/suzuran/iroha.py`: add typed expense client methods and retry/conflict handling.
 
-Before cutover, backfill local rows with `source.kind = suzuran_legacy` and `source.ref = legacy:<old_numeric_id>`. Verify row counts and totals by currency/date. Stop local writes after cutover; do
-not dual-write indefinitely.
+Before cutover, freeze Suzuran's legacy table for writes and backfill its rows with `source.kind = suzuran_legacy` and `source.ref = legacy:<old_numeric_id>`. Verify row counts and totals by
+currency/date. Switch all reads and writes to Iroha, then remove the legacy table in a later Suzuran migration. Do not dual-write or retain two ledgers indefinitely.
 
 ## Implementation slices
 
 1. **Canonical contract:** migration, runtime model/ID prefix, validation, create/list/get/update/delete service, source uniqueness, OpenAPI, and API tests.
-2. **Deterministic reporting:** implement the separate [periodic reports plan](2026-08-12-periodic-reports.md) and expense aggregate section.
+2. **Deterministic reporting:** implement the separate [monthly report plan](2026-08-12-periodic-reports.md) and expense aggregate section.
 3. **Thin CLI:** validate/submit/list/report/delete commands and JSON/table output tests.
 4. **Telegram direct UX:** quick command, guided fields, optional preview, list, edit, undo, and report commands.
 5. **Suzuran cutover:** client migration, subscription/briefing paths, legacy backfill, no-local-write assertion, and Telegram smoke tests.

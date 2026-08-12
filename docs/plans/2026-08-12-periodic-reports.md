@@ -1,10 +1,10 @@
-# Iroha Periodic Reports Plan
+# Iroha Monthly Report Plan
 
-> Status: draft for review. This plan covers weekly and monthly reports across Iroha's existing personal data domains.
+> Status: draft for review. This plan covers the monthly report across Iroha's existing personal data domains.
 
 ## Goal
 
-Provide one stable report response for a selected week or month, with typed sections for every personal domain Iroha currently covers:
+Provide one stable report response for a selected calendar month, with typed sections for every personal domain Iroha currently covers:
 
 - movement: canonical activities;
 - sleep: nightly sessions and stage rollups;
@@ -21,9 +21,9 @@ contract.
 
 ## Current decisions
 
-1. Weekly and monthly reports share one API shape and differ only in period resolution.
-2. A period is a half-open local-date range `[from, to)`.
-3. Weeks start Monday. Months start on the first calendar day.
+1. The monthly report has one stable API shape and one period resolution.
+2. A month is a half-open local-date range `[from, to)`.
+3. A month starts on the first calendar day and ends on the first day of the next month.
 4. The API receives an IANA timezone and returns the resolved range and timezone.
 5. Each domain owns its aggregation semantics; the report service composes typed domain sections.
 6. Missing data is represented as `empty` or omitted fields, never as zero measurements.
@@ -37,24 +37,21 @@ contract.
 ### Request
 
 ```http
-GET /api/v1/reports/periodic?period=week&anchor=2026-08-12&timezone=Asia/Tokyo
+GET /api/v1/reports/monthly?month=2026-08&timezone=Asia/Tokyo
 ```
 
-Supported values:
-
-- `period=week`: Monday through the following Monday, containing `anchor`.
-- `period=month`: first day through the first day of the next month, containing `anchor`.
+The `month` parameter is required and uses `YYYY-MM`. The server resolves it to the first day through the first day of the next month.
 
 The response always returns the resolved values, for example:
 
 ```json
 {
-  "schema": "periodic-report.v1",
+  "schema": "monthly-report.v1",
   "period": {
-    "kind": "week",
-    "anchor": "2026-08-12",
-    "from": "2026-08-10",
-    "to": "2026-08-17",
+    "kind": "month",
+    "month": "2026-08",
+    "from": "2026-08-01",
+    "to": "2026-09-01",
     "timezone": "Asia/Tokyo"
   },
   "generated_at": "2026-08-12T10:30:00Z",
@@ -62,7 +59,7 @@ The response always returns the resolved values, for example:
 }
 ```
 
-The server validates the timezone and period. Clients must not calculate week/month boundaries independently and then assume they match the server.
+The server validates the month and timezone. Clients must not calculate month boundaries independently and then assume they match the server.
 
 The request is synchronous in v0.4. There is no report job, report table, report ID, or scheduled delivery owned by Iroha. A future digest scheduler may call this endpoint and deliver the result, but
 delivery remains a client/application responsibility.
@@ -74,7 +71,7 @@ Each section has the same envelope:
 ```json
 {
   "key": "sleep",
-  "schema": "periodic-report.sleep.v1",
+  "schema": "monthly-report.sleep.v1",
   "state": "available",
   "freshness": {
     "source": "canonical",
@@ -94,18 +91,18 @@ The stable wire type is an object with named sections, not an array whose order 
 
 ```json
 {
-  "schema": "periodic-report.v1",
+  "schema": "monthly-report.v1",
   "period": {
-    "kind": "week",
-    "anchor": "2026-08-12",
-    "from": "2026-08-10",
-    "to": "2026-08-17",
+    "kind": "month",
+    "month": "2026-08",
+    "from": "2026-08-01",
+    "to": "2026-09-01",
     "timezone": "Asia/Tokyo"
   },
   "generated_at": "2026-08-12T10:30:00Z",
   "sections": {
     "movement": {
-      "schema": "periodic-report.movement.v1",
+      "schema": "monthly-report.movement.v1",
       "state": "available",
       "freshness": { "source": "canonical", "as_of": "2026-08-12T09:00:00Z" },
       "data": {
@@ -117,13 +114,13 @@ The stable wire type is an object with named sections, not an array whose order 
       }
     },
     "sleep": {
-      "schema": "periodic-report.sleep.v1",
+      "schema": "monthly-report.sleep.v1",
       "state": "empty",
       "freshness": { "source": "canonical", "as_of": "2026-08-12T09:00:00Z" },
       "data": null
     },
     "daily_health": {
-      "schema": "periodic-report.daily-health.v1",
+      "schema": "monthly-report.daily-health.v1",
       "state": "available",
       "freshness": { "source": "canonical", "as_of": "2026-08-12T09:00:00Z" },
       "data": {
@@ -132,14 +129,14 @@ The stable wire type is an object with named sections, not an array whose order 
       }
     },
     "media": {
-      "schema": "periodic-report.media.v1",
+      "schema": "monthly-report.media.v1",
       "state": "unavailable",
       "freshness": null,
       "data": null,
       "error": { "code": "media_query_failed", "message": "Media report unavailable" }
     },
     "expenses": {
-      "schema": "periodic-report.expenses.v1",
+      "schema": "monthly-report.expenses.v1",
       "state": "available",
       "freshness": { "source": "canonical", "as_of": "2026-08-12T09:00:00Z" },
       "data": {
@@ -155,16 +152,16 @@ The stable wire type is an object with named sections, not an array whose order 
 The corresponding Go shape should be explicit and typed rather than `map[string]any`:
 
 ```go
-type PeriodicReport struct {
+type MonthlyReport struct {
 	Schema      string         `json:"schema"`
-	Period      ReportPeriod   `json:"period"`
+	Period      ReportMonth    `json:"period"`
 	GeneratedAt time.Time      `json:"generated_at"`
 	Sections    ReportSections `json:"sections"`
 }
 
-type ReportPeriod struct {
-	Kind     string `json:"kind"` // week | month
-	Anchor   string `json:"anchor"`
+type ReportMonth struct {
+	Kind     string `json:"kind"` // month
+	Month    string `json:"month"`
 	From     string `json:"from"`
 	To       string `json:"to"`
 	Timezone string `json:"timezone"`
@@ -392,7 +389,7 @@ Create `apps/iroha-server/pkg/reports` with:
 Create `apps/iroha-server/pkg/httpapi/reports.go` and register:
 
 ```text
-GET /api/v1/reports/periodic
+GET /api/v1/reports/monthly
 ```
 
 Update the active route inventory, OpenAPI, read-cache mapping, and cache invalidation. Add a `reports` cache namespace. Imports and expense writes invalidate reports; media sync/import reconciliation
@@ -404,9 +401,9 @@ The report service should issue aggregate queries directly. It must not call the
 HTTP behavior is explicit:
 
 - `200 OK`: the report envelope is valid; sections may be `available`, `empty`, or `unavailable`.
-- `400 Bad Request`: invalid `period`, malformed `anchor`, invalid date/month shape, or unknown IANA timezone.
+- `400 Bad Request`: malformed `month` or unknown IANA timezone.
 - `500 Internal Server Error`: the report envelope itself cannot be assembled or serialized. A single domain query failure should remain a section-level `unavailable` result.
-- Cache key: method, route, period, anchor, timezone, and report schema version.
+- Cache key: method, route, month, timezone, and report schema version.
 
 The report API response is the only Iroha output. It is not posted to a Telegram chat, written to Valkey as a draft, or stored as a report artifact.
 
@@ -415,7 +412,7 @@ The report API response is the only Iroha output. It is not posted to a Telegram
 Report generation is an orchestration read, not a second data pipeline:
 
 ```text
-GET /api/v1/reports/periodic
+GET /api/v1/reports/monthly
   -> parse period and timezone
   -> query activity adapter      -> tb_activities
   -> query sleep adapter         -> tb_sleep_sessions
@@ -441,14 +438,14 @@ The private web application is the primary destination for the complete report b
 
 ```text
 user opens /reports
-  -> web chooses current week in configured timezone
-  -> GET /api/v1/reports/periodic?period=week&anchor=...&timezone=...
+  -> web chooses the current month in configured timezone
+  -> GET /api/v1/reports/monthly?month=...&timezone=...
   -> render period header and five independent section cards
   -> previous/next changes anchor and repeats the request
 ```
 
-Add a private `/reports` route with a week/month switcher and previous/next period navigation. One API request loads the report. Render sections independently so a missing media sync does not blank a
-valid sleep report. The route owns no aggregation logic; it renders typed section data, including loading, empty, unavailable, and stale/cache states.
+Add a private `/reports` route with a month selector and previous/next month navigation. One API request loads the report. Render sections independently so a missing media sync does not blank a valid
+sleep report. The route owns no aggregation logic; it renders typed section data, including loading, empty, unavailable, and stale/cache states.
 
 The Overview may show a small link or selected-period summary, but it must not duplicate the report calculations. Every curated theme receives the same typed report data and handles `available`,
 `empty`, and `unavailable` states.
@@ -458,22 +455,21 @@ The Overview may show a small link or selected-period summary, but it must not d
 Telegram is a secondary renderer, not a delivery channel owned by Iroha:
 
 ```text
-user: /report week
+user: /report month
   -> Suzuran requests current period from Iroha
   -> Suzuran selects compact fields from the response
   -> Suzuran sends one formatted message
 ```
 
-- `/report week` requests the current weekly report.
 - `/report month` requests the current monthly report.
-- `/report week 2026-08-10` and `/report month 2026-08` request an explicit period.
+- `/report month 2026-08` requests an explicit month.
 - The response shows period/timezone, expense totals by currency, movement totals, sleep averages, daily-health highlights, and media completions.
 - A `More` button can link to the private web report; Telegram must not calculate or merge sections itself.
 
 Example rendering:
 
 ```text
-Weekly report · Aug 10–16 · Asia/Tokyo
+Monthly report · August 2026 · Asia/Tokyo
 
 Movement
 3 activities · 28.4 km · 2h 32m
@@ -501,8 +497,8 @@ the same endpoint; Iroha remains unaware of the recipient.
 Reports are not an expense-only CLI feature. Add a separate `scripts/report_cli.py`:
 
 ```bash
-uv run python scripts/report_cli.py week --anchor 2026-08-10 --timezone Asia/Tokyo
-uv run python scripts/report_cli.py month --anchor 2026-08 --timezone Asia/Tokyo --format table
+uv run python scripts/report_cli.py month --month 2026-08 --timezone Asia/Tokyo
+uv run python scripts/report_cli.py month --month 2026-08 --timezone Asia/Tokyo --format table
 ```
 
 Default stdout is the unchanged report JSON for agent composition. Table output is a presentation convenience. The CLI does not recalculate or merge section values.
@@ -510,24 +506,24 @@ Default stdout is the unchanged report JSON for agent composition. Table output 
 Client file boundary:
 
 - Iroha: `apps/iroha-server/pkg/reports/`, `apps/iroha-server/pkg/httpapi/reports.go`, `docs/contracts/openapi.yaml`, and `apps/iroha-server/pkg/httpapi/api_contract_test.go`.
-- Web: add `getPeriodicReport()` and the report types in `apps/iroha-web/src/lib/api.ts`; add `/reports/+page.svelte` and shared section components as needed.
+- Web: add `getMonthlyReport()` and the report types in `apps/iroha-web/src/lib/api.ts`; add `/reports/+page.svelte` and shared section components as needed.
 - Suzuran: add one Iroha client method and a compact renderer in the existing briefing/command modules; do not create a second aggregation implementation.
 - CLI: add `scripts/report_cli.py` as a transport/presentation wrapper only.
 
 ## Implementation slices
 
-1. **Period and contract:** report package, boundary tests, response envelope, OpenAPI, route inventory.
+1. **Month and contract:** report package, month-boundary tests, response envelope, OpenAPI, route inventory.
 2. **Existing domain adapters:** movement, sleep, and daily typed aggregate queries with direct SQL/service tests.
 3. **Media period aggregate:** define completion/event semantics and implement period-aware media queries.
 4. **Expense section:** add expense totals/category buckets and cache invalidation.
 5. **API/cache:** register endpoint, section failures, cache namespace, invalidation, and integration tests.
-6. **Web report:** `/reports`, week/month navigation, typed section components, all-theme wiring.
-7. **Telegram report:** `/report` commands, compact renderer, partial/empty handling.
+6. **Web report:** `/reports`, month navigation, typed section components, all-theme wiring.
+7. **Telegram report:** `/report month`, compact renderer, partial/empty handling.
 8. **Release hardening:** cross-domain fixture, freshness copy, performance checks, docs, and public-export boundary test.
 
 ## Verification matrix
 
-- Week boundaries always resolve Monday-to-Monday in the requested timezone.
+- Month boundaries resolve to the first day of the requested month and the first day of the next month in the requested timezone.
 - Month boundaries handle leap years and year changes.
 - The same anchor/timezone produces byte-stable section data apart from `generated_at`.
 - Activity inclusion uses started-at conversion; sleep uses wake-date semantics; daily data uses date; media uses event time; expenses use occurred date.

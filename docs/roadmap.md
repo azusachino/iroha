@@ -219,21 +219,21 @@ read/report APIs.
 
 Implementation plan v3: [Expense Ledger implementation plan](plans/2026-08-12-expense-ledger.md).
 
-Cross-domain reporting plan: [Periodic reports plan](plans/2026-08-12-periodic-reports.md).
+Cross-domain reporting plan: [Monthly report plan](plans/2026-08-12-periodic-reports.md).
 
 First vertical slice:
 
 - Define a canonical `tb_expenses` record with amount, currency, occurred-at date, category, merchant, optional items, and source identity.
 - Add deterministic create/list/update/delete APIs for independent Telegram and local-agent clients; accept canonical JSON only.
 - Use source identity for safe retries and tombstone deletion; do not add an Iroha agent/OCR or confirmation workflow.
-- Add a separate weekly/monthly report API for expenses alongside activity, sleep, daily health, and media sections.
+- Add a separate monthly report API for expenses alongside activity, sleep, daily health, and media sections.
 - Add an Overview expense tile and report views without changing existing activity, night, daily-health, or media totals.
 - Exclude expenses from public export by default; add a separate opt-in sanitized summary only after the private ledger is trustworthy.
 
 Exit criteria:
 
 - Independent Telegram and local-agent clients can submit one canonical expense and safely retry without duplication.
-- A user can correct or undo an expense and see the result reflected in the cross-domain weekly/monthly report.
+- A user can correct or undo an expense and see the result reflected in the cross-domain monthly report.
 - Domain and cross-domain totals are covered by API and database tests across timezone, currency, retry, and empty-period cases.
 - The private UI and API make the expense boundary clear, while the public projection remains expense-free by default.
 
