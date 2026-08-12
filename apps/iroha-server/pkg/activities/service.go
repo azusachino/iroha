@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -127,6 +128,19 @@ type SummaryTotals struct {
 	DistanceUnknownCount int     `json:"distance_unknown_count"`
 	DurationS            int     `json:"duration_s"`
 	ElevationGainM       float64 `json:"elevation_gain_m"`
+}
+
+type PeriodSportTotal struct {
+	Sport              string
+	ActivityCount      int
+	DistanceM          float64
+	DistanceKnownCount int
+	DurationS          int
+}
+
+type PeriodReport struct {
+	Totals  SummaryTotals
+	BySport []PeriodSportTotal
 }
 
 // SummaryBucket is one grouped total, keyed by year or sport type.
@@ -306,29 +320,9 @@ type PeriodFilters struct {
 // It is deliberately separate from Summary, whose year/month buckets retain
 // the legacy public-export shape.
 func (s *Service) PeriodSummary(filters PeriodFilters) (SummaryTotals, error) {
-	if !filters.From.Before(filters.To) {
-		return SummaryTotals{}, errors.New("period from must be before to")
-	}
-	location := time.UTC
-	if filters.Timezone != "" {
-		var err error
-		location, err = time.LoadLocation(filters.Timezone)
-		if err != nil {
-			return SummaryTotals{}, fmt.Errorf("load timezone: %w", err)
-		}
-	}
-	from := filters.From.In(location).UTC()
-	to := filters.To.In(location).UTC()
-
-	var rows []models.Activity
-	if err := s.db.Where("started_at >= ? AND started_at < ?", from, to).Find(&rows).Error; err != nil {
+	rows, err := s.periodActivities(filters)
+	if err != nil {
 		return SummaryTotals{}, err
-	}
-	if err := s.hydrateSwimmingDistances(rows); err != nil {
-		return SummaryTotals{}, fmt.Errorf("period swimming distances: %w", err)
-	}
-	if err := s.hydrateElevationGain(rows); err != nil {
-		return SummaryTotals{}, fmt.Errorf("period elevation gain: %w", err)
 	}
 
 	var totals SummaryTotals
@@ -348,6 +342,75 @@ func (s *Service) PeriodSummary(filters PeriodFilters) (SummaryTotals, error) {
 		}
 	}
 	return totals, nil
+}
+
+func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
+	rows, err := s.periodActivities(filters)
+	if err != nil {
+		return PeriodReport{}, err
+	}
+
+	result := PeriodReport{BySport: make([]PeriodSportTotal, 0)}
+	bySport := make(map[string]*PeriodSportTotal)
+	for _, activity := range rows {
+		result.Totals.ActivityCount++
+		if activity.DistanceM == nil {
+			result.Totals.DistanceUnknownCount++
+		} else {
+			result.Totals.DistanceKnownCount++
+			result.Totals.DistanceM += *activity.DistanceM
+		}
+		if activity.DurationS != nil {
+			result.Totals.DurationS += *activity.DurationS
+		}
+		total := bySport[activity.SportType]
+		if total == nil {
+			total = &PeriodSportTotal{Sport: activity.SportType}
+			bySport[activity.SportType] = total
+			result.BySport = append(result.BySport, *total)
+		}
+		total.ActivityCount++
+		if activity.DistanceM != nil {
+			total.DistanceKnownCount++
+			total.DistanceM += *activity.DistanceM
+		}
+		if activity.DurationS != nil {
+			total.DurationS += *activity.DurationS
+		}
+	}
+	for i := range result.BySport {
+		result.BySport[i] = *bySport[result.BySport[i].Sport]
+	}
+	sort.Slice(result.BySport, func(i, j int) bool { return result.BySport[i].Sport < result.BySport[j].Sport })
+	return result, nil
+}
+
+func (s *Service) periodActivities(filters PeriodFilters) ([]models.Activity, error) {
+	if !filters.From.Before(filters.To) {
+		return nil, errors.New("period from must be before to")
+	}
+	location := time.UTC
+	if filters.Timezone != "" {
+		var err error
+		location, err = time.LoadLocation(filters.Timezone)
+		if err != nil {
+			return nil, fmt.Errorf("load timezone: %w", err)
+		}
+	}
+	from := filters.From.In(location).UTC()
+	to := filters.To.In(location).UTC()
+
+	var rows []models.Activity
+	if err := s.db.Where("started_at >= ? AND started_at < ?", from, to).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	if err := s.hydrateSwimmingDistances(rows); err != nil {
+		return nil, fmt.Errorf("period swimming distances: %w", err)
+	}
+	if err := s.hydrateElevationGain(rows); err != nil {
+		return nil, fmt.Errorf("period elevation gain: %w", err)
+	}
+	return rows, nil
 }
 
 func (s *Service) Get(id string) (models.Activity, bool, error) {
