@@ -779,6 +779,7 @@ export function getActivitySummary(
 // [lon, lat] pairs (GeoJSON order), already privacy-trimmed and decimated by
 // the server.
 export interface RouteFeatureProperties {
+  activity_id?: string;
   sport_type: string;
   year: string;
   city?: string;
