@@ -99,12 +99,41 @@ type PeriodFilters struct {
 	To   time.Time
 }
 
+type MetricValue struct {
+	WakeDate   time.Time
+	SleepKind  string
+	AsleepS    int
+	Efficiency float64
+	Source     string
+}
+
 type Service struct {
 	db *gorm.DB
 }
 
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+func (s *Service) PeriodSessions(filters PeriodFilters) ([]MetricValue, error) {
+	if !filters.From.Before(filters.To) {
+		return nil, errors.New("period from must be before to")
+	}
+	from := time.Date(filters.From.UTC().Year(), filters.From.UTC().Month(), filters.From.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	to := time.Date(filters.To.UTC().Year(), filters.To.UTC().Month(), filters.To.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	var rows []models.SleepSession
+	if err := s.db.Where("wake_date >= ? and wake_date < ?", from, to).Order("wake_date asc, id asc").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	values := make([]MetricValue, len(rows))
+	for index, row := range rows {
+		kind := "nap"
+		if row.IsMainSleep {
+			kind = "main"
+		}
+		values[index] = MetricValue{WakeDate: row.WakeDate, SleepKind: kind, AsleepS: row.AsleepS, Efficiency: row.Efficiency, Source: row.Source}
+	}
+	return values, nil
 }
 
 func (s *Service) List(filters ListFilters) (Page, error) {

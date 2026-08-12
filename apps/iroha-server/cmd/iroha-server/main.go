@@ -88,6 +88,7 @@ func main() {
 		metricseries.DailyServiceSource{Service: dailyService},
 		metricseries.ActivityServiceSource{Service: activityService},
 		metricseries.ExpenseServiceSource{Service: expenseService},
+		metricseries.SleepServiceSource{Service: sleepService},
 	)
 	mediaService := media.NewService(db)
 	mediaResolutionService := mediaresolution.NewService(db)

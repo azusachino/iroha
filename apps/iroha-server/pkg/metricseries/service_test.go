@@ -20,6 +20,14 @@ type fakeExpenseSource struct {
 	values []ExpenseMetricValue
 }
 
+type fakeSleepSource struct {
+	values []SleepMetricValue
+}
+
+func (f fakeSleepSource) SleepValues(time.Time, time.Time) ([]SleepMetricValue, error) {
+	return f.values, nil
+}
+
 func (f fakeExpenseSource) ExpenseValues(time.Time, time.Time) ([]ExpenseMetricValue, error) {
 	return f.values, nil
 }
@@ -41,7 +49,7 @@ func TestSeriesRollsDailyStepsIntoCompleteMonthlyPoints(t *testing.T) {
 	service := NewService(registry, fakeDailySource{values: []DailyMetricValue{
 		{Day: time.Date(2026, time.January, 2, 0, 0, 0, 0, location), Value: 1000, Unit: "count", Source: "watch"},
 		{Day: time.Date(2026, time.January, 3, 0, 0, 0, 0, location), Value: 2000, Unit: "count", Source: "watch"},
-	}}, nil, nil)
+	}}, nil, nil, nil)
 	series, err := service.Series(context.Background(), Request{
 		MetricID: "health.steps",
 		From:     time.Date(2026, time.January, 1, 0, 0, 0, 0, location),
@@ -76,7 +84,7 @@ func TestSeriesExpandsActivitySportDimensions(t *testing.T) {
 	distance := 5000.0
 	service := NewService(registry, nil, fakeActivitySource{values: []ActivityMetricValue{
 		{StartedAt: time.Date(2026, time.January, 5, 8, 0, 0, 0, location), Sport: "run", DistanceM: &distance, Source: "gpx"},
-	}}, nil)
+	}}, nil, nil)
 	series, err := service.Series(context.Background(), Request{
 		MetricID: "movement.distance_m",
 		From:     time.Date(2026, time.January, 1, 0, 0, 0, 0, location),
@@ -108,7 +116,7 @@ func TestExpenseSeriesRequiresCurrencyAndPreservesMinorUnits(t *testing.T) {
 	service := NewService(registry, nil, nil, fakeExpenseSource{values: []ExpenseMetricValue{
 		{OccurredOn: time.Date(2026, time.January, 2, 0, 0, 0, 0, location), Currency: "JPY", Category: "food", AmountMinor: 800, Source: "local_agent"},
 		{OccurredOn: time.Date(2026, time.January, 3, 0, 0, 0, 0, location), Currency: "JPY", Category: "transport", AmountMinor: 200, Source: "local_agent"},
-	}})
+	}}, nil)
 	series, err := service.Series(context.Background(), Request{
 		MetricID: "expenses.amount_minor",
 		From:     time.Date(2026, time.January, 1, 0, 0, 0, 0, location),
@@ -130,5 +138,31 @@ func TestExpenseSeriesRequiresCurrencyAndPreservesMinorUnits(t *testing.T) {
 		MetricID: "expenses.amount_minor", From: time.Date(2026, time.January, 1, 0, 0, 0, 0, location), To: time.Date(2026, time.February, 1, 0, 0, 0, 0, location), Grain: "month", Timezone: location,
 	}); err != ErrInvalidRequest {
 		t.Fatalf("missing currency error = %v, want invalid request", err)
+	}
+}
+
+func TestSleepSeriesAveragesSelectedSleepKind(t *testing.T) {
+	registry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("default registry: %v", err)
+	}
+	location := time.UTC
+	service := NewService(registry, nil, nil, nil, fakeSleepSource{values: []SleepMetricValue{
+		{WakeDate: time.Date(2026, time.January, 2, 0, 0, 0, 0, location), SleepKind: "main", AsleepS: 20000, Efficiency: 0.8, Source: "watch"},
+		{WakeDate: time.Date(2026, time.January, 3, 0, 0, 0, 0, location), SleepKind: "main", AsleepS: 24000, Efficiency: 0.9, Source: "watch"},
+	}})
+	series, err := service.Series(context.Background(), Request{
+		MetricID: "sleep.asleep_s",
+		From:     time.Date(2026, time.January, 1, 0, 0, 0, 0, location),
+		To:       time.Date(2026, time.February, 1, 0, 0, 0, 0, location),
+		Grain:    "month", Timezone: location,
+		Dimensions: map[string][]string{"sleep_kind": {"main"}},
+	})
+	if err != nil {
+		t.Fatalf("series: %v", err)
+	}
+	point := series.Series[0].Points[0]
+	if point.Value == nil || *point.Value != 22000 || point.ObservedDays != 2 {
+		t.Fatalf("sleep point = %+v", point)
 	}
 }

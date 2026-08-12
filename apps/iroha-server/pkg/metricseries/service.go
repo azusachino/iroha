@@ -58,15 +58,28 @@ type ExpenseMetricSource interface {
 	ExpenseValues(time.Time, time.Time) ([]ExpenseMetricValue, error)
 }
 
+type SleepMetricValue struct {
+	WakeDate   time.Time
+	SleepKind  string
+	AsleepS    int
+	Efficiency float64
+	Source     string
+}
+
+type SleepMetricSource interface {
+	SleepValues(time.Time, time.Time) ([]SleepMetricValue, error)
+}
+
 type Service struct {
 	registry   *metrics.Registry
 	daily      DailyMetricSource
 	activities ActivityMetricSource
 	expenses   ExpenseMetricSource
+	sleep      SleepMetricSource
 }
 
-func NewService(registry *metrics.Registry, daily DailyMetricSource, activities ActivityMetricSource, expenses ExpenseMetricSource) *Service {
-	return &Service{registry: registry, daily: daily, activities: activities, expenses: expenses}
+func NewService(registry *metrics.Registry, daily DailyMetricSource, activities ActivityMetricSource, expenses ExpenseMetricSource, sleep SleepMetricSource) *Service {
+	return &Service{registry: registry, daily: daily, activities: activities, expenses: expenses, sleep: sleep}
 }
 
 func (s *Service) Series(ctx context.Context, request Request) (metrics.Series, error) {
@@ -116,6 +129,15 @@ func (s *Service) Series(ctx context.Context, request Request) (metrics.Series, 
 				return metrics.Series{}, err
 			}
 			dimensionSeries = expenseDimensionSeries(periods, values, definition, request, selection)
+		case "sleep.asleep_s", "sleep.efficiency":
+			if s.sleep == nil {
+				return metrics.Series{}, ErrInvalidRequest
+			}
+			values, err := s.sleep.SleepValues(request.From, request.To)
+			if err != nil {
+				return metrics.Series{}, err
+			}
+			dimensionSeries = sleepDimensionSeries(periods, values, definition, request, selection)
 		default:
 			return metrics.Series{}, ErrInvalidRequest
 		}
@@ -309,6 +331,58 @@ func expenseDimensionSeries(periods []string, values []ExpenseMetricValue, defin
 			return ""
 		}
 		if category, ok := selection["category"]; ok && value.Category != category {
+			return ""
+		}
+		return value.Source
+	}), definition)
+}
+
+func sleepDimensionSeries(periods []string, values []SleepMetricValue, definition metrics.Definition, request Request, selection map[string]string) metrics.DimensionSeries {
+	type bucket struct {
+		sum   float64
+		count int
+		days  map[string]struct{}
+	}
+	buckets := make(map[string]*bucket, len(periods))
+	for _, period := range periods {
+		buckets[period] = &bucket{days: map[string]struct{}{}}
+	}
+	for _, sleep := range values {
+		kind, ok := selection["sleep_kind"]
+		if !ok || sleep.SleepKind != kind {
+			continue
+		}
+		value := float64(sleep.AsleepS)
+		if definition.ID == "sleep.efficiency" {
+			value = sleep.Efficiency
+		}
+		period := dateInLocation(sleep.WakeDate, request.Timezone).Format("2006-01-02")
+		switch request.Grain {
+		case "month":
+			period = dateInLocation(sleep.WakeDate, request.Timezone).Format("2006-01")
+		case "year":
+			period = dateInLocation(sleep.WakeDate, request.Timezone).Format("2006")
+		}
+		bucket, ok := buckets[period]
+		if !ok {
+			continue
+		}
+		bucket.sum += value
+		bucket.count++
+		bucket.days[dateInLocation(sleep.WakeDate, request.Timezone).Format("2006-01-02")] = struct{}{}
+	}
+	points := make([]metrics.Point, 0, len(periods))
+	for _, period := range periods {
+		bucket := buckets[period]
+		point := metrics.Point{Period: period, ObservedDays: len(bucket.days)}
+		if bucket.count > 0 {
+			value := bucket.sum / float64(bucket.count)
+			point.Value = &value
+		}
+		points = append(points, point)
+	}
+	return dimensionSeries(points, valuesToSources(values, func(value SleepMetricValue) string {
+		if kind, ok := selection["sleep_kind"]; !ok || value.SleepKind != kind {
 			return ""
 		}
 		return value.Source
