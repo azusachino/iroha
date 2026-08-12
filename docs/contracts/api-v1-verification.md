@@ -18,7 +18,8 @@ Gate A covers only the existing data domains and shared HTTP behavior. The owner
 - list limits are omitted/defaulted to 50 or explicitly bounded to 1..100; cursors remain opaque; errors use `{code,message,request_id}`;
 - web mutations support PUT/DELETE and 204 responses, and private CORS allows their preflights;
 - the OpenAPI document, representative fixtures, and registered Chi routes remain in parity;
-- the cache namespace is versioned for the repaired contract, while future expense/report routes are uncached.
+- the cache namespace is versioned for the repaired contract, while future expense/report routes are uncached;
+- `/api/v1` remains unauthenticated but private-network-only, and the sanitized public export remains a separate projection.
 
 Gate A does not approve the expense data model, monthly report response, CLI workflow, cockpit UX, Telegram, Suzuran, OCR, or scheduled report delivery. Those remain later implementation decisions.
 
