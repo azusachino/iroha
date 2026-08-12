@@ -172,6 +172,7 @@ type Definition struct {
     SupportedGrains    []string // day, month, year
     Dimensions         []Dimension
     Reducer            string
+    Rollup             string // sum, average, or count across requested periods
     AggregationVersion string
     CoverageKind       string
     SemanticColorToken string

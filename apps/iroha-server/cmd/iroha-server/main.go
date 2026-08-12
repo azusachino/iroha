@@ -24,6 +24,8 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/tasks"
 	"gorm.io/gorm"
@@ -75,6 +77,12 @@ func main() {
 	activityService := activities.NewService(db)
 	sleepService := sleep.NewService(db)
 	dailyService := daily.NewService(db)
+	metricRegistry, err := metrics.DefaultRegistry()
+	if err != nil {
+		logger.Error("create metric registry", "error", err)
+		os.Exit(1)
+	}
+	metricSeriesService := metricseries.NewService(metricRegistry, metricseries.DailyServiceSource{Service: dailyService})
 	expenseService := expenses.NewService(db)
 	mediaService := media.NewService(db)
 	mediaResolutionService := mediaresolution.NewService(db)
@@ -94,6 +102,8 @@ func main() {
 		ExpenseService:         expenseService,
 		MediaService:           mediaService,
 		MediaResolutionService: mediaResolutionService,
+		MetricRegistry:         metricRegistry,
+		MetricSeriesService:    metricSeriesService,
 		BriefingRegistry:       briefingRegistry,
 		ImportService:          importService,
 		RawFileService:         rawFileService,

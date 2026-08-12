@@ -78,6 +78,44 @@ paths:
                 $ref: "#/components/schemas/MetricDefinitionResponse"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/metrics/{metricId}/series:
+    get:
+      tags: [metrics]
+      summary: Return a complete server-aggregated metric series.
+      parameters:
+        - name: metricId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          description: Exclusive end date.
+          schema: { type: string, format: date }
+        - name: grain
+          in: query
+          required: true
+          schema: { type: string, enum: [day, month, year] }
+        - name: timezone
+          in: query
+          schema: { type: string, default: UTC }
+      responses:
+        "200":
+          description: Complete metric series with explicit missingness and coverage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricSeries"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/raw-files:
     get:
       tags: [imports]
@@ -940,7 +978,7 @@ components:
       type: object
       additionalProperties: false
       required:
-        [id, domain, label, description, kind, value_type, unit, short_unit, supported_grains, dimensions, reducer, aggregation_version, coverage_kind, semantic_color_token, preferred_view]
+        [id, domain, label, description, kind, value_type, unit, short_unit, supported_grains, dimensions, reducer, rollup, aggregation_version, coverage_kind, semantic_color_token, preferred_view]
       properties:
         id: { type: string }
         domain: { type: string }
@@ -957,6 +995,7 @@ components:
           type: array
           items: { $ref: "#/components/schemas/MetricDimension" }
         reducer: { type: string }
+        rollup: { type: string, enum: [sum, average, count] }
         aggregation_version: { type: string }
         coverage_kind: { type: string }
         semantic_color_token: { type: string }
@@ -977,6 +1016,66 @@ components:
       properties:
         schema: { type: string, const: metric-catalog.v1 }
         metric: { $ref: "#/components/schemas/MetricDefinition" }
+    MetricSeriesPoint:
+      type: object
+      additionalProperties: false
+      required: [period, observed_days]
+      properties:
+        period: { type: string }
+        value: { type: [number, "null"] }
+        value_minor: { type: [integer, "null"], format: int64 }
+        observed_days: { type: integer, minimum: 0 }
+    MetricCoverage:
+      type: object
+      additionalProperties: false
+      required: [expected_periods, observed_periods]
+      properties:
+        expected_periods: { type: integer, minimum: 0 }
+        observed_periods: { type: integer, minimum: 0 }
+    MetricSource:
+      type: object
+      additionalProperties: false
+      required: [kind, method, source_kinds]
+      properties:
+        kind: { type: string }
+        method: { type: string }
+        source_kinds:
+          type: array
+          items: { type: string }
+    MetricSeriesItem:
+      type: object
+      additionalProperties: false
+      required: [dimensions, points, coverage, source]
+      properties:
+        dimensions: { type: object, additionalProperties: { type: string } }
+        points:
+          type: array
+          items: { $ref: "#/components/schemas/MetricSeriesPoint" }
+        coverage: { $ref: "#/components/schemas/MetricCoverage" }
+        source: { $ref: "#/components/schemas/MetricSource" }
+    MetricPeriod:
+      type: object
+      additionalProperties: false
+      required: [grain, from, to, timezone]
+      properties:
+        grain: { type: string, enum: [day, month, year] }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        timezone: { type: string }
+    MetricSeries:
+      type: object
+      additionalProperties: false
+      required: [schema, metric_id, label, unit, value_type, period, series]
+      properties:
+        schema: { type: string, const: metric-series.v1 }
+        metric_id: { type: string }
+        label: { type: string }
+        unit: { type: string }
+        value_type: { type: string }
+        period: { $ref: "#/components/schemas/MetricPeriod" }
+        series:
+          type: array
+          items: { $ref: "#/components/schemas/MetricSeriesItem" }
     Error:
       type: object
       required: [code, message, request_id]

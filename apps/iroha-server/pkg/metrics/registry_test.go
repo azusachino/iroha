@@ -33,7 +33,7 @@ func TestRegistryRejectsDuplicateAndInvalidDefinitions(t *testing.T) {
 	valid := Definition{
 		ID: "health.steps", Domain: "daily", Label: "Steps", Description: "Daily steps.", Kind: "canonical",
 		ValueType: "count", Unit: "count", ShortUnit: "steps", SupportedGrains: []string{"day"},
-		Reducer: "source_priority", AggregationVersion: "health.steps.v1", CoverageKind: "observed_days",
+		Reducer: "source_priority", Rollup: "sum", AggregationVersion: "health.steps.v1", CoverageKind: "observed_days",
 		SemanticColorToken: "health", PreferredView: "line",
 	}
 	if _, err := NewRegistry([]Definition{valid, valid}); !errors.Is(err, ErrDuplicateMetric) {

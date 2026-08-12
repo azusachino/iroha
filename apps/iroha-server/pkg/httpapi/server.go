@@ -21,6 +21,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/tasks"
 	"github.com/go-chi/chi/v5"
@@ -48,6 +49,7 @@ type Dependencies struct {
 	MediaService           *media.Service
 	MediaResolutionService *mediaresolution.Service
 	MetricRegistry         *metrics.Registry
+	MetricSeriesService    *metricseries.Service
 	BriefingRegistry       *briefing.Registry
 	ImportService          *imports.Service
 	RawFileService         *rawfiles.Service
@@ -107,6 +109,7 @@ func (s *Server) routes() {
 		r.Get("/briefing", s.handleBriefing)
 		r.Get("/metrics", s.handleListMetrics)
 		r.Get("/metrics/{metricId}", s.handleGetMetric)
+		r.Get("/metrics/{metricId}/series", s.handleMetricSeries)
 		r.Route("/raw-files", func(r chi.Router) {
 			r.Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)

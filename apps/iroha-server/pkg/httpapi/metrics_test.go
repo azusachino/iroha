@@ -1,13 +1,25 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 )
+
+type fakeMetricDailySource struct {
+	values []metricseries.DailyMetricValue
+}
+
+func (f fakeMetricDailySource) MetricValues(context.Context, string, time.Time, time.Time) ([]metricseries.DailyMetricValue, error) {
+	return f.values, nil
+}
 
 func TestHandleListMetricsReturnsCatalog(t *testing.T) {
 	recorder := httptest.NewRecorder()
@@ -56,5 +68,43 @@ func TestHandleGetMetricReturnsNotFound(t *testing.T) {
 
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
+}
+
+func TestHandleMetricSeriesReturnsServerAggregatedSeries(t *testing.T) {
+	registry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("default registry: %v", err)
+	}
+	seriesService := metricseries.NewService(registry, fakeMetricDailySource{values: []metricseries.DailyMetricValue{
+		{Day: time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC), Value: 1000, Source: "watch"},
+	}})
+	recorder := httptest.NewRecorder()
+	NewServer(Dependencies{MetricSeriesService: seriesService}).ServeHTTP(recorder, httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/metrics/health.steps/series?from=2026-01-01&to=2026-03-01&grain=month&timezone=UTC",
+		nil,
+	))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if !strings.Contains(recorder.Body.String(), `"schema":"metric-series.v1"`) || !strings.Contains(recorder.Body.String(), `"value":1000`) {
+		t.Fatalf("series response = %s", recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"value":null`) {
+		t.Fatalf("series response does not preserve missing period: %s", recorder.Body.String())
+	}
+}
+
+func TestHandleMetricSeriesRejectsInvalidTimezone(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	NewServer(Dependencies{MetricSeriesService: metricseries.NewService(nil, nil)}).ServeHTTP(recorder, httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/metrics/health.steps/series?from=2026-01-01&to=2026-02-01&grain=month&timezone=Not%2FATimezone",
+		nil,
+	))
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadRequest)
 	}
 }

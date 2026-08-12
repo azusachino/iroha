@@ -48,6 +48,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/raw-files/{rawFileId}",
 		"GET /api/v1/metrics",
 		"GET /api/v1/metrics/{metricId}",
+		"GET /api/v1/metrics/{metricId}/series",
 		"GET /api/v1/reports/monthly",
 		"GET /api/v1/sleep",
 		"GET /api/v1/sleep/aggregates",
@@ -227,6 +228,10 @@ func exampleRequiredFields(schema string) []string {
 		return []string{"items", "next_cursor", "has_more", "status_counts", "active_count"}
 	case "SleepAggregateResponse":
 		return []string{"granularity", "buckets"}
+	case "MetricCatalog":
+		return []string{"schema", "metrics"}
+	case "MetricSeries":
+		return []string{"schema", "metric_id", "period", "series"}
 	case "Error":
 		return []string{"code", "message", "request_id"}
 	default:

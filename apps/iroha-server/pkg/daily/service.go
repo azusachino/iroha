@@ -1,6 +1,7 @@
 package daily
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"sort"
@@ -67,6 +68,13 @@ type Row struct {
 	RespiratoryRate *float64
 	VO2Max          *float64 `gorm:"column:vo2max"`
 	BodyMassKG      *float64
+}
+
+type MetricValue struct {
+	Day    time.Time
+	Value  float64
+	Unit   string
+	Source string
 }
 
 type Page struct {
@@ -140,6 +148,16 @@ type Service struct {
 
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+func (s *Service) MetricValues(ctx context.Context, metric string, from, to time.Time) ([]MetricValue, error) {
+	var values []MetricValue
+	err := s.db.WithContext(ctx).Table("tb_daily_metrics").
+		Select("day, value, unit, source").
+		Where("metric = ? and day >= ? and day < ?", metric, from, to).
+		Order("day asc").
+		Scan(&values).Error
+	return values, err
 }
 
 func (s *Service) List(filters ListFilters) (Page, error) {

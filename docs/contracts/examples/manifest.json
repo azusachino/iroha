@@ -37,6 +37,12 @@
       "schema": "MetricCatalog"
     },
     {
+      "file": "metric-series.json",
+      "method": "GET",
+      "path": "/api/v1/metrics/{metricId}/series",
+      "schema": "MetricSeries"
+    },
+    {
       "file": "sleep-aggregate.json",
       "method": "GET",
       "path": "/api/v1/sleep/aggregates",

@@ -26,6 +26,7 @@ type Definition struct {
 	SupportedGrains    []string    `json:"supported_grains"`
 	Dimensions         []Dimension `json:"dimensions"`
 	Reducer            string      `json:"reducer"`
+	Rollup             string      `json:"rollup"`
 	AggregationVersion string      `json:"aggregation_version"`
 	CoverageKind       string      `json:"coverage_kind"`
 	SemanticColorToken string      `json:"semantic_color_token"`
@@ -33,10 +34,13 @@ type Definition struct {
 }
 
 func (d Definition) validate() error {
-	if d.ID == "" || d.Domain == "" || d.Label == "" || d.Description == "" || d.Unit == "" || d.ShortUnit == "" || d.Reducer == "" || d.AggregationVersion == "" || d.CoverageKind == "" || d.SemanticColorToken == "" || d.PreferredView == "" {
+	if d.ID == "" || d.Domain == "" || d.Label == "" || d.Description == "" || d.Unit == "" || d.ShortUnit == "" || d.Reducer == "" || d.Rollup == "" || d.AggregationVersion == "" || d.CoverageKind == "" || d.SemanticColorToken == "" || d.PreferredView == "" {
 		return ErrInvalidDefinition
 	}
 	if d.Kind != "canonical" && d.Kind != "derived" {
+		return ErrInvalidDefinition
+	}
+	if d.Rollup != "sum" && d.Rollup != "average" && d.Rollup != "count" {
 		return ErrInvalidDefinition
 	}
 	if d.ValueType == "" || len(d.SupportedGrains) == 0 {
