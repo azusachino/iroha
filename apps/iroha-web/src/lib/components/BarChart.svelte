@@ -8,6 +8,7 @@
   import { onMount } from "svelte";
   import { BarChart as EchartsBarChart, LineChart } from "echarts/charts";
   import {
+    AriaComponent,
     GridComponent,
     LegendComponent,
     TooltipComponent,
@@ -19,6 +20,7 @@
   use([
     EchartsBarChart,
     LineChart,
+    AriaComponent,
     GridComponent,
     LegendComponent,
     TooltipComponent,
@@ -137,7 +139,7 @@
           params: Array<{
             axisValue: string;
             seriesName: string;
-            value: number;
+            value: number | null;
             color: string;
           }>,
         ) => {
@@ -146,11 +148,14 @@
               item.seriesName === primary.name
                 ? primaryFormat
                 : secondaryFormat;
-            return `<span style="color:${item.color}">●</span> ${item.seriesName}: <strong>${fmt(item.value)}</strong>`;
+            const value =
+              item.value == null ? "No observation" : fmt(item.value);
+            return `<span style="color:${item.color}">●</span> ${item.seriesName}: <strong>${value}</strong>`;
           });
           return `${params[0]?.axisValue}<br/>${rows.join("<br/>")}`;
         },
       },
+      aria: { enabled: true, decal: { show: true } },
       xAxis: orientation === "horizontal" ? valueAxis : categoryAxis,
       yAxis: orientation === "horizontal" ? categoryAxis : valueAxis,
       series: [
@@ -185,8 +190,8 @@
                   position: "right" as const,
                   color: text,
                   fontSize: 10,
-                  formatter: (params: { value: number }) =>
-                    primaryFormat(params.value),
+                  formatter: (params: { value: number | null }) =>
+                    params.value == null ? "—" : primaryFormat(params.value),
                 }
               : undefined,
           itemStyle: {
