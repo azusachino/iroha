@@ -70,16 +70,27 @@ type SleepMetricSource interface {
 	SleepValues(time.Time, time.Time) ([]SleepMetricValue, error)
 }
 
+type MediaMetricValue struct {
+	CompletedAt time.Time
+	MediaKind   string
+	Source      string
+}
+
+type MediaMetricSource interface {
+	MediaValues(time.Time, time.Time) ([]MediaMetricValue, error)
+}
+
 type Service struct {
 	registry   *metrics.Registry
 	daily      DailyMetricSource
 	activities ActivityMetricSource
 	expenses   ExpenseMetricSource
 	sleep      SleepMetricSource
+	media      MediaMetricSource
 }
 
-func NewService(registry *metrics.Registry, daily DailyMetricSource, activities ActivityMetricSource, expenses ExpenseMetricSource, sleep SleepMetricSource) *Service {
-	return &Service{registry: registry, daily: daily, activities: activities, expenses: expenses, sleep: sleep}
+func NewService(registry *metrics.Registry, daily DailyMetricSource, activities ActivityMetricSource, expenses ExpenseMetricSource, sleep SleepMetricSource, media MediaMetricSource) *Service {
+	return &Service{registry: registry, daily: daily, activities: activities, expenses: expenses, sleep: sleep, media: media}
 }
 
 func (s *Service) Series(ctx context.Context, request Request) (metrics.Series, error) {
@@ -138,6 +149,15 @@ func (s *Service) Series(ctx context.Context, request Request) (metrics.Series, 
 				return metrics.Series{}, err
 			}
 			dimensionSeries = sleepDimensionSeries(periods, values, definition, request, selection)
+		case "media.completed_count":
+			if s.media == nil {
+				return metrics.Series{}, ErrInvalidRequest
+			}
+			values, err := s.media.MediaValues(request.From, request.To)
+			if err != nil {
+				return metrics.Series{}, err
+			}
+			dimensionSeries = mediaDimensionSeries(periods, values, definition, request, selection)
 		default:
 			return metrics.Series{}, ErrInvalidRequest
 		}
@@ -383,6 +403,52 @@ func sleepDimensionSeries(periods []string, values []SleepMetricValue, definitio
 	}
 	return dimensionSeries(points, valuesToSources(values, func(value SleepMetricValue) string {
 		if kind, ok := selection["sleep_kind"]; !ok || value.SleepKind != kind {
+			return ""
+		}
+		return value.Source
+	}), definition)
+}
+
+func mediaDimensionSeries(periods []string, values []MediaMetricValue, definition metrics.Definition, request Request, selection map[string]string) metrics.DimensionSeries {
+	type bucket struct {
+		count int
+		days  map[string]struct{}
+	}
+	buckets := make(map[string]*bucket, len(periods))
+	for _, period := range periods {
+		buckets[period] = &bucket{days: map[string]struct{}{}}
+	}
+	for _, media := range values {
+		kind, ok := selection["media_kind"]
+		if !ok || media.MediaKind != kind {
+			continue
+		}
+		period := dateInLocation(media.CompletedAt, request.Timezone).Format("2006-01-02")
+		switch request.Grain {
+		case "month":
+			period = dateInLocation(media.CompletedAt, request.Timezone).Format("2006-01")
+		case "year":
+			period = dateInLocation(media.CompletedAt, request.Timezone).Format("2006")
+		}
+		bucket, ok := buckets[period]
+		if !ok {
+			continue
+		}
+		bucket.count++
+		bucket.days[dateInLocation(media.CompletedAt, request.Timezone).Format("2006-01-02")] = struct{}{}
+	}
+	points := make([]metrics.Point, 0, len(periods))
+	for _, period := range periods {
+		bucket := buckets[period]
+		point := metrics.Point{Period: period, ObservedDays: len(bucket.days)}
+		if bucket.count > 0 {
+			value := float64(bucket.count)
+			point.Value = &value
+		}
+		points = append(points, point)
+	}
+	return dimensionSeries(points, valuesToSources(values, func(value MediaMetricValue) string {
+		if kind, ok := selection["media_kind"]; !ok || value.MediaKind != kind {
 			return ""
 		}
 		return value.Source

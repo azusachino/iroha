@@ -121,6 +121,12 @@ type PeriodReport struct {
 	CompletedItems []PeriodCompletedItem
 }
 
+type MetricValue struct {
+	CompletedAt time.Time
+	MediaKind   string
+	Source      string
+}
+
 type WorkDetail struct {
 	ID               uuid.UUID  `gorm:"column:id"`
 	WorkKind         string     `gorm:"column:work_kind"`
@@ -212,6 +218,50 @@ type EventPage struct {
 
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+func (s *Service) CompletedMetricValues(filters PeriodFilters) ([]MetricValue, error) {
+	if !filters.From.Before(filters.To) {
+		return nil, errors.New("period from must be before to")
+	}
+	type completionRow struct {
+		ItemID      uuid.UUID `gorm:"column:item_id"`
+		MediaKind   string    `gorm:"column:media_kind"`
+		CompletedAt time.Time `gorm:"column:completed_at"`
+		Source      string    `gorm:"column:source"`
+	}
+	var rows []completionRow
+	if err := s.db.Raw(`
+		SELECT item.id AS item_id, item.media_type AS media_kind, progress.finished_at AS completed_at, progress.source_kind AS source
+		FROM tb_media_progress AS progress
+		JOIN tb_media_items AS item ON item.id = progress.media_item_id
+		WHERE progress.finished_at IS NOT NULL AND progress.finished_at >= ? AND progress.finished_at < ?
+		UNION ALL
+		SELECT event.media_item_id AS item_id, item.media_type AS media_kind, event.event_at AS completed_at, event.source_kind AS source
+		FROM tb_media_consumption_events AS event
+		JOIN tb_media_items AS item ON item.id = event.media_item_id
+		WHERE event.event_type IN ('finished', 'completed') AND event.event_at IS NOT NULL AND event.event_at >= ? AND event.event_at < ?
+		ORDER BY completed_at ASC, item_id ASC`, filters.From, filters.To, filters.From, filters.To).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	latest := make(map[uuid.UUID]completionRow, len(rows))
+	for _, row := range rows {
+		current, ok := latest[row.ItemID]
+		if !ok || row.CompletedAt.After(current.CompletedAt) {
+			latest[row.ItemID] = row
+		}
+	}
+	values := make([]MetricValue, 0, len(latest))
+	for _, row := range latest {
+		values = append(values, MetricValue{CompletedAt: row.CompletedAt, MediaKind: row.MediaKind, Source: row.Source})
+	}
+	sort.Slice(values, func(i, j int) bool {
+		if values[i].CompletedAt.Equal(values[j].CompletedAt) {
+			return values[i].MediaKind < values[j].MediaKind
+		}
+		return values[i].CompletedAt.Before(values[j].CompletedAt)
+	})
+	return values, nil
 }
 
 func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {

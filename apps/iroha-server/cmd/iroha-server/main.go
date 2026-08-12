@@ -78,6 +78,7 @@ func main() {
 	sleepService := sleep.NewService(db)
 	dailyService := daily.NewService(db)
 	expenseService := expenses.NewService(db)
+	mediaService := media.NewService(db)
 	metricRegistry, err := metrics.DefaultRegistry()
 	if err != nil {
 		logger.Error("create metric registry", "error", err)
@@ -89,8 +90,8 @@ func main() {
 		metricseries.ActivityServiceSource{Service: activityService},
 		metricseries.ExpenseServiceSource{Service: expenseService},
 		metricseries.SleepServiceSource{Service: sleepService},
+		metricseries.MediaServiceSource{Service: mediaService},
 	)
-	mediaService := media.NewService(db)
 	mediaResolutionService := mediaresolution.NewService(db)
 	taskService := tasks.NewService(db)
 	briefingRegistry, err := httpapi.NewBriefingRegistry(dailyService, sleepService, activityService, mediaService)
