@@ -125,8 +125,41 @@ type PeriodReport struct {
 	ByCategory       []PeriodCategoryTotal
 }
 
+type MetricValue struct {
+	OccurredOn  time.Time
+	Currency    string
+	Category    string
+	AmountMinor int64
+	Source      string
+}
+
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+// PeriodExpenses exposes active canonical expense rows to server-side metric
+// resolvers. It preserves minor-unit integers and never performs currency
+// conversion.
+func (s *Service) PeriodExpenses(filters PeriodFilters) ([]MetricValue, error) {
+	if !filters.From.Before(filters.To) {
+		return nil, errors.New("period from must be before to")
+	}
+	var rows []models.Expense
+	if err := s.db.Where("deleted_at is null and occurred_on >= ? and occurred_on < ?", dateOnly(filters.From), dateOnly(filters.To)).
+		Order("occurred_on asc, id asc").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	values := make([]MetricValue, len(rows))
+	for index, row := range rows {
+		values[index] = MetricValue{
+			OccurredOn:  row.OccurredOn,
+			Currency:    row.Currency,
+			Category:    row.Category,
+			AmountMinor: row.AmountMinor,
+			Source:      row.SourceKind,
+		}
+	}
+	return values, nil
 }
 
 func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {

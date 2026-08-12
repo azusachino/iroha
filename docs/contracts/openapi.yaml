@@ -967,13 +967,15 @@ components:
     MetricDimension:
       type: object
       additionalProperties: false
-      required: [id, label, values]
+      required: [id, label, values, required, expand_by_default]
       properties:
         id: { type: string }
         label: { type: string }
         values:
           type: array
           items: { type: string }
+        required: { type: boolean }
+        expand_by_default: { type: boolean }
     MetricDefinition:
       type: object
       additionalProperties: false

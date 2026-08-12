@@ -6,6 +6,7 @@ type Point struct {
 	Period       string   `json:"period"`
 	Value        *float64 `json:"value,omitempty"`
 	ValueMinor   *int64   `json:"value_minor,omitempty"`
+	Minor        bool     `json:"-"`
 	ObservedDays int      `json:"observed_days"`
 }
 
@@ -19,9 +20,13 @@ func (p Point) MarshalJSON() ([]byte, error) {
 		"value":         value,
 		"observed_days": p.ObservedDays,
 	}
-	if p.ValueMinor != nil {
+	if p.Minor || p.ValueMinor != nil {
 		delete(payload, "value")
-		payload["value_minor"] = *p.ValueMinor
+		if p.ValueMinor != nil {
+			payload["value_minor"] = *p.ValueMinor
+		} else {
+			payload["value_minor"] = nil
+		}
 	}
 	return json.Marshal(payload)
 }

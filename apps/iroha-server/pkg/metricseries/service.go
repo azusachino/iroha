@@ -46,18 +46,27 @@ type ActivityMetricSource interface {
 	ActivityValues(time.Time, time.Time, string) ([]ActivityMetricValue, error)
 }
 
+type ExpenseMetricValue struct {
+	OccurredOn  time.Time
+	Currency    string
+	Category    string
+	AmountMinor int64
+	Source      string
+}
+
+type ExpenseMetricSource interface {
+	ExpenseValues(time.Time, time.Time) ([]ExpenseMetricValue, error)
+}
+
 type Service struct {
 	registry   *metrics.Registry
 	daily      DailyMetricSource
 	activities ActivityMetricSource
+	expenses   ExpenseMetricSource
 }
 
-func NewService(registry *metrics.Registry, daily DailyMetricSource, activities ...ActivityMetricSource) *Service {
-	service := &Service{registry: registry, daily: daily}
-	if len(activities) > 0 {
-		service.activities = activities[0]
-	}
-	return service
+func NewService(registry *metrics.Registry, daily DailyMetricSource, activities ActivityMetricSource, expenses ExpenseMetricSource) *Service {
+	return &Service{registry: registry, daily: daily, activities: activities, expenses: expenses}
 }
 
 func (s *Service) Series(ctx context.Context, request Request) (metrics.Series, error) {
@@ -98,6 +107,15 @@ func (s *Service) Series(ctx context.Context, request Request) (metrics.Series, 
 				return metrics.Series{}, err
 			}
 			dimensionSeries = activityDimensionSeries(periods, values, definition, request, selection)
+		case "expenses.amount_minor", "expenses.count":
+			if s.expenses == nil {
+				return metrics.Series{}, ErrInvalidRequest
+			}
+			values, err := s.expenses.ExpenseValues(request.From, request.To)
+			if err != nil {
+				return metrics.Series{}, err
+			}
+			dimensionSeries = expenseDimensionSeries(periods, values, definition, request, selection)
 		default:
 			return metrics.Series{}, ErrInvalidRequest
 		}
@@ -238,6 +256,65 @@ func activityValue(metricID string, activity ActivityMetricValue) (float64, bool
 	}
 }
 
+func expenseDimensionSeries(periods []string, values []ExpenseMetricValue, definition metrics.Definition, request Request, selection map[string]string) metrics.DimensionSeries {
+	type bucket struct {
+		amount int64
+		count  int
+		days   map[string]struct{}
+	}
+	buckets := make(map[string]*bucket, len(periods))
+	for _, period := range periods {
+		buckets[period] = &bucket{days: map[string]struct{}{}}
+	}
+	for _, expense := range values {
+		if currency, ok := selection["currency"]; !ok || expense.Currency != currency {
+			continue
+		}
+		if category, ok := selection["category"]; ok && expense.Category != category {
+			continue
+		}
+		period := dateInLocation(expense.OccurredOn, request.Timezone).Format("2006-01-02")
+		switch request.Grain {
+		case "month":
+			period = dateInLocation(expense.OccurredOn, request.Timezone).Format("2006-01")
+		case "year":
+			period = dateInLocation(expense.OccurredOn, request.Timezone).Format("2006")
+		}
+		bucket, ok := buckets[period]
+		if !ok {
+			continue
+		}
+		bucket.amount += expense.AmountMinor
+		bucket.count++
+		bucket.days[dateInLocation(expense.OccurredOn, request.Timezone).Format("2006-01-02")] = struct{}{}
+	}
+	points := make([]metrics.Point, 0, len(periods))
+	for _, period := range periods {
+		bucket := buckets[period]
+		point := metrics.Point{Period: period, ObservedDays: len(bucket.days)}
+		if definition.ID == "expenses.amount_minor" {
+			point.Minor = true
+			if bucket.count > 0 {
+				value := bucket.amount
+				point.ValueMinor = &value
+			}
+		} else if bucket.count > 0 {
+			value := float64(bucket.count)
+			point.Value = &value
+		}
+		points = append(points, point)
+	}
+	return dimensionSeries(points, valuesToSources(values, func(value ExpenseMetricValue) string {
+		if currency, ok := selection["currency"]; !ok || value.Currency != currency {
+			return ""
+		}
+		if category, ok := selection["category"]; ok && value.Category != category {
+			return ""
+		}
+		return value.Source
+	}), definition)
+}
+
 func dimensionSeries(points []metrics.Point, sourceKinds []string, definition metrics.Definition) metrics.DimensionSeries {
 	observedPeriods := 0
 	for _, point := range points {
@@ -280,6 +357,10 @@ func dimensionSelections(definition metrics.Definition, requested map[string][]s
 		values := dimension.Values
 		if selected, ok := requested[dimension.ID]; ok {
 			values = selected
+		} else if dimension.Required {
+			return nil, ErrInvalidRequest
+		} else if !dimension.ExpandByDefault {
+			continue
 		}
 		if len(values) == 0 {
 			return nil, ErrInvalidRequest

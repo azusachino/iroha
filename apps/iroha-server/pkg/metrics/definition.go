@@ -9,9 +9,11 @@ var (
 )
 
 type Dimension struct {
-	ID     string   `json:"id"`
-	Label  string   `json:"label"`
-	Values []string `json:"values"`
+	ID              string   `json:"id"`
+	Label           string   `json:"label"`
+	Values          []string `json:"values"`
+	Required        bool     `json:"required"`
+	ExpandByDefault bool     `json:"expand_by_default"`
 }
 
 type Definition struct {
