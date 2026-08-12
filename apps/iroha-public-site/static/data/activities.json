@@ -8,6 +8,8 @@
     "timezone": "",
     "distance_m": 732.1416890175065,
     "duration_s": 2669,
+    "moving_time_s": 564,
+    "elevation_gain_m": 37.052876,
     "avg_hr": 122,
     "max_hr": 155
   },
@@ -20,6 +22,8 @@
     "timezone": "",
     "distance_m": 738.8680680355666,
     "duration_s": 2899,
+    "moving_time_s": 254,
+    "elevation_gain_m": 147.890729,
     "avg_hr": 122,
     "max_hr": 156
   },
@@ -32,6 +36,8 @@
     "timezone": "",
     "distance_m": 5501.25,
     "duration_s": 2131,
+    "moving_time_s": 2131,
+    "elevation_gain_m": 0,
     "avg_hr": 167,
     "max_hr": 189,
     "avg_pace_s_per_km": 387.3665076119064
@@ -45,6 +51,8 @@
     "timezone": "",
     "distance_m": 3025.17,
     "duration_s": 1199,
+    "moving_time_s": 1185,
+    "elevation_gain_m": 0,
     "avg_hr": 159,
     "max_hr": 173,
     "avg_pace_s_per_km": 396.341362634166
@@ -69,6 +77,8 @@
     "timezone": "",
     "distance_m": 5562.46,
     "duration_s": 2110,
+    "moving_time_s": 2108,
+    "elevation_gain_m": 0,
     "avg_hr": 161,
     "max_hr": 177,
     "avg_pace_s_per_km": 379.3285704526415
@@ -82,6 +92,8 @@
     "timezone": "",
     "distance_m": 3037.3700000000003,
     "duration_s": 1175,
+    "moving_time_s": 1175,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 165,
     "avg_pace_s_per_km": 386.8478321705949
@@ -95,6 +107,8 @@
     "timezone": "",
     "distance_m": 6188.42,
     "duration_s": 2320,
+    "moving_time_s": 2317,
+    "elevation_gain_m": 0,
     "avg_hr": 162,
     "max_hr": 184,
     "avg_pace_s_per_km": 374.89375317124563
@@ -108,6 +122,8 @@
     "timezone": "",
     "distance_m": 6134.21,
     "duration_s": 2399,
+    "moving_time_s": 2399,
+    "elevation_gain_m": 0,
     "avg_hr": 160,
     "max_hr": 168,
     "avg_pace_s_per_km": 391.0854046405323
@@ -121,6 +137,8 @@
     "timezone": "",
     "distance_m": 5255.55,
     "duration_s": 2059,
+    "moving_time_s": 2059,
+    "elevation_gain_m": 0,
     "avg_hr": 160,
     "max_hr": 180,
     "avg_pace_s_per_km": 391.77631265994995
@@ -134,6 +152,8 @@
     "timezone": "",
     "distance_m": 6281.5,
     "duration_s": 2583,
+    "moving_time_s": 2564,
+    "elevation_gain_m": 0,
     "avg_hr": 159,
     "max_hr": 177,
     "avg_pace_s_per_km": 411.2075141287909
@@ -147,6 +167,8 @@
     "timezone": "",
     "distance_m": 5229,
     "duration_s": 2096,
+    "moving_time_s": 2095,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 174,
     "avg_pace_s_per_km": 400.8414610824249
@@ -160,6 +182,8 @@
     "timezone": "",
     "distance_m": 5626.23,
     "duration_s": 2277,
+    "moving_time_s": 2276,
+    "elevation_gain_m": 0,
     "avg_hr": 164,
     "max_hr": 186,
     "avg_pace_s_per_km": 404.71150308465883
@@ -173,6 +197,8 @@
     "timezone": "",
     "distance_m": 2393.7400000000002,
     "duration_s": 1008,
+    "moving_time_s": 1008,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 160,
     "avg_pace_s_per_km": 421.09836490178543
@@ -186,6 +212,8 @@
     "timezone": "",
     "distance_m": 3164.2999999999997,
     "duration_s": 1299,
+    "moving_time_s": 1297,
+    "elevation_gain_m": 0,
     "avg_hr": 152,
     "max_hr": 161,
     "avg_pace_s_per_km": 410.5173340075214
@@ -199,6 +227,8 @@
     "timezone": "",
     "distance_m": 6260.33,
     "duration_s": 2567,
+    "moving_time_s": 2565,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 180,
     "avg_pace_s_per_km": 410.0422821161185
@@ -212,6 +242,8 @@
     "timezone": "",
     "distance_m": 1002.3899999999999,
     "duration_s": 615,
+    "moving_time_s": 615,
+    "elevation_gain_m": 0,
     "avg_hr": 112,
     "max_hr": 116,
     "avg_pace_s_per_km": 613.5336545655883
@@ -225,6 +257,8 @@
     "timezone": "",
     "distance_m": 7500.320000000001,
     "duration_s": 7404,
+    "moving_time_s": 6093,
+    "elevation_gain_m": 3.987895000000009,
     "avg_hr": 111,
     "max_hr": 175,
     "avg_pace_s_per_km": 987.1578812637327
@@ -260,6 +294,8 @@
     "timezone": "",
     "distance_m": 1134.34,
     "duration_s": 851,
+    "moving_time_s": 783,
+    "elevation_gain_m": 0,
     "avg_hr": 98,
     "max_hr": 106,
     "avg_pace_s_per_km": 750.215984625421
@@ -273,6 +309,8 @@
     "timezone": "",
     "distance_m": 3022.4,
     "duration_s": 1248,
+    "moving_time_s": 1248,
+    "elevation_gain_m": 0,
     "avg_hr": 155,
     "max_hr": 170,
     "avg_pace_s_per_km": 412.91688724192693
@@ -286,6 +324,8 @@
     "timezone": "",
     "distance_m": 5414.049999999999,
     "duration_s": 5889,
+    "moving_time_s": 4228,
+    "elevation_gain_m": 3.467989,
     "avg_hr": 112,
     "max_hr": 145,
     "avg_pace_s_per_km": 1087.725455065986
@@ -299,6 +339,8 @@
     "timezone": "",
     "distance_m": 5107.400000000001,
     "duration_s": 4818,
+    "moving_time_s": 3974,
+    "elevation_gain_m": 0,
     "avg_hr": 107,
     "max_hr": 119,
     "avg_pace_s_per_km": 943.3371186905274
@@ -312,6 +354,8 @@
     "timezone": "",
     "distance_m": 10283.699999999999,
     "duration_s": 4225,
+    "moving_time_s": 4225,
+    "elevation_gain_m": 0,
     "avg_hr": 166,
     "max_hr": 192,
     "avg_pace_s_per_km": 410.844345906629
@@ -336,6 +380,8 @@
     "timezone": "",
     "distance_m": 150.37,
     "duration_s": 1279,
+    "moving_time_s": 308,
+    "elevation_gain_m": 0,
     "avg_hr": 86,
     "max_hr": 113,
     "avg_pace_s_per_km": 8505.685974595996
@@ -349,6 +395,8 @@
     "timezone": "",
     "distance_m": 9202.109999999999,
     "duration_s": 6666,
+    "moving_time_s": 6008,
+    "elevation_gain_m": 5.060368,
     "avg_hr": 118,
     "max_hr": 132,
     "avg_pace_s_per_km": 724.3990780375372
@@ -362,6 +410,8 @@
     "timezone": "",
     "distance_m": 854.9440000000001,
     "duration_s": 846,
+    "moving_time_s": 546,
+    "elevation_gain_m": 0,
     "avg_hr": 114,
     "max_hr": 123,
     "avg_pace_s_per_km": 989.5384960886327
@@ -375,6 +425,8 @@
     "timezone": "",
     "distance_m": 3617.23,
     "duration_s": 2208,
+    "moving_time_s": 2172,
+    "elevation_gain_m": 0,
     "avg_hr": 116,
     "max_hr": 137,
     "avg_pace_s_per_km": 610.4118344700227
@@ -388,6 +440,8 @@
     "timezone": "",
     "distance_m": 6161.2,
     "duration_s": 2496,
+    "moving_time_s": 2496,
+    "elevation_gain_m": 0,
     "avg_hr": 161,
     "max_hr": 180,
     "avg_pace_s_per_km": 405.11588651561385
@@ -401,6 +455,8 @@
     "timezone": "",
     "distance_m": 4416.34,
     "duration_s": 1862,
+    "moving_time_s": 1842,
+    "elevation_gain_m": 0,
     "avg_hr": 152,
     "max_hr": 168,
     "avg_pace_s_per_km": 421.6160893409475
@@ -414,6 +470,8 @@
     "timezone": "",
     "distance_m": 5126.25,
     "duration_s": 2099,
+    "moving_time_s": 2099,
+    "elevation_gain_m": 0,
     "avg_hr": 157,
     "max_hr": 176,
     "avg_pace_s_per_km": 409.4611070470617
@@ -427,6 +485,8 @@
     "timezone": "",
     "distance_m": 4295.56,
     "duration_s": 1891,
+    "moving_time_s": 1890,
+    "elevation_gain_m": 0,
     "avg_hr": 153,
     "max_hr": 177,
     "avg_pace_s_per_km": 440.2219966663252
@@ -440,6 +500,8 @@
     "timezone": "",
     "distance_m": 3143.53,
     "duration_s": 1296,
+    "moving_time_s": 1296,
+    "elevation_gain_m": 0,
     "avg_hr": 152,
     "max_hr": 166,
     "avg_pace_s_per_km": 412.2753719544588
@@ -464,6 +526,8 @@
     "timezone": "",
     "distance_m": 3142.25,
     "duration_s": 1387,
+    "moving_time_s": 1387,
+    "elevation_gain_m": 0,
     "avg_hr": 144,
     "max_hr": 162,
     "avg_pace_s_per_km": 441.4034529397724
@@ -477,6 +541,8 @@
     "timezone": "",
     "distance_m": 6002.63,
     "duration_s": 2476,
+    "moving_time_s": 2451,
+    "elevation_gain_m": 0,
     "avg_hr": 163,
     "max_hr": 181,
     "avg_pace_s_per_km": 412.4858603645402
@@ -501,6 +567,8 @@
     "timezone": "",
     "distance_m": 3038.7400000000002,
     "duration_s": 1220,
+    "moving_time_s": 1220,
+    "elevation_gain_m": 0,
     "avg_hr": 154,
     "max_hr": 161,
     "avg_pace_s_per_km": 401.4821932774768
@@ -514,6 +582,8 @@
     "timezone": "",
     "distance_m": 3031,
     "duration_s": 1317,
+    "moving_time_s": 1316,
+    "elevation_gain_m": 0,
     "avg_hr": 148,
     "max_hr": 166,
     "avg_pace_s_per_km": 434.5100626855823
@@ -527,6 +597,8 @@
     "timezone": "",
     "distance_m": 3018.59,
     "duration_s": 1201,
+    "moving_time_s": 1201,
+    "elevation_gain_m": 0,
     "avg_hr": 164,
     "max_hr": 174,
     "avg_pace_s_per_km": 397.8678787115839
@@ -540,6 +612,8 @@
     "timezone": "",
     "distance_m": 1519.42,
     "duration_s": 661,
+    "moving_time_s": 661,
+    "elevation_gain_m": 0,
     "avg_hr": 147,
     "max_hr": 159,
     "avg_pace_s_per_km": 435.0344210290769
@@ -564,6 +638,8 @@
     "timezone": "",
     "distance_m": 4709.679999999999,
     "duration_s": 1897,
+    "moving_time_s": 1897,
+    "elevation_gain_m": 0,
     "avg_hr": 168,
     "max_hr": 185,
     "avg_pace_s_per_km": 402.7874505274244
@@ -577,6 +653,8 @@
     "timezone": "",
     "distance_m": 4126.45,
     "duration_s": 1729,
+    "moving_time_s": 1711,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 170,
     "avg_pace_s_per_km": 419.0042288165372
@@ -590,6 +668,8 @@
     "timezone": "",
     "distance_m": 2812.51,
     "duration_s": 1088,
+    "moving_time_s": 1088,
+    "elevation_gain_m": 0,
     "avg_hr": 161,
     "max_hr": 172,
     "avg_pace_s_per_km": 386.8430690024213
@@ -603,6 +683,8 @@
     "timezone": "",
     "distance_m": 3106.78,
     "duration_s": 1330,
+    "moving_time_s": 1327,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 169,
     "avg_pace_s_per_km": 428.09597074784824
@@ -616,6 +698,8 @@
     "timezone": "",
     "distance_m": 2411.45,
     "duration_s": 1013,
+    "moving_time_s": 1012,
+    "elevation_gain_m": 0,
     "avg_hr": 163,
     "max_hr": 174,
     "avg_pace_s_per_km": 420.0792054572975
@@ -651,6 +735,8 @@
     "timezone": "",
     "distance_m": 2051.6,
     "duration_s": 938,
+    "moving_time_s": 925,
+    "elevation_gain_m": 0,
     "avg_hr": 152,
     "max_hr": 160,
     "avg_pace_s_per_km": 457.20413335932926
@@ -675,6 +761,8 @@
     "timezone": "",
     "distance_m": 2561.45,
     "duration_s": 1646,
+    "moving_time_s": 1646,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 126,
     "avg_pace_s_per_km": 642.6047746393645
@@ -710,6 +798,8 @@
     "timezone": "",
     "distance_m": 2189.38,
     "duration_s": 912,
+    "moving_time_s": 912,
+    "elevation_gain_m": 0,
     "avg_hr": 169,
     "max_hr": 173,
     "avg_pace_s_per_km": 416.5562853410554
@@ -778,6 +868,8 @@
     "timezone": "",
     "distance_m": 1021.5399999999998,
     "duration_s": 516,
+    "moving_time_s": 516,
+    "elevation_gain_m": 0,
     "avg_hr": 143,
     "max_hr": 149,
     "avg_pace_s_per_km": 505.1197212052392
@@ -813,6 +905,8 @@
     "timezone": "",
     "distance_m": 1953.52,
     "duration_s": 1128,
+    "moving_time_s": 1023,
+    "elevation_gain_m": 0,
     "avg_hr": 134,
     "max_hr": 155,
     "avg_pace_s_per_km": 577.4192227363939
@@ -837,6 +931,8 @@
     "timezone": "",
     "distance_m": 2558.19,
     "duration_s": 2154,
+    "moving_time_s": 1422,
+    "elevation_gain_m": 0,
     "avg_hr": 98,
     "max_hr": 112,
     "avg_pace_s_per_km": 842.0015714235454
@@ -861,6 +957,8 @@
     "timezone": "",
     "distance_m": 2284.65,
     "duration_s": 1719,
+    "moving_time_s": 1647,
+    "elevation_gain_m": 0,
     "avg_hr": 113,
     "max_hr": 125,
     "avg_pace_s_per_km": 752.4128422296632
@@ -874,6 +972,8 @@
     "timezone": "",
     "distance_m": 1170.97,
     "duration_s": 486,
+    "moving_time_s": 486,
+    "elevation_gain_m": 0,
     "avg_hr": 150,
     "max_hr": 162,
     "avg_pace_s_per_km": 415.04052196042596
@@ -887,6 +987,8 @@
     "timezone": "",
     "distance_m": 540.657,
     "duration_s": 446,
+    "moving_time_s": 389,
+    "elevation_gain_m": 0,
     "avg_hr": 100,
     "max_hr": 115,
     "avg_pace_s_per_km": 824.9222704968214
@@ -900,6 +1002,8 @@
     "timezone": "",
     "distance_m": 2137.28,
     "duration_s": 909,
+    "moving_time_s": 874,
+    "elevation_gain_m": 0,
     "avg_hr": 152,
     "max_hr": 168,
     "avg_pace_s_per_km": 425.30693217547537
@@ -924,6 +1028,8 @@
     "timezone": "",
     "distance_m": 2008.73,
     "duration_s": 1333,
+    "moving_time_s": 1333,
+    "elevation_gain_m": 0,
     "avg_hr": 106,
     "max_hr": 115,
     "avg_pace_s_per_km": 663.6033712843439
@@ -937,6 +1043,8 @@
     "timezone": "",
     "distance_m": 1128.6799999999998,
     "duration_s": 489,
+    "moving_time_s": 481,
+    "elevation_gain_m": 0,
     "avg_hr": 151,
     "max_hr": 158,
     "avg_pace_s_per_km": 433.249459545664
@@ -972,6 +1080,8 @@
     "timezone": "",
     "distance_m": 3164.7400000000002,
     "duration_s": 1337,
+    "moving_time_s": 1336,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 168,
     "avg_pace_s_per_km": 422.46756447607066
@@ -1040,6 +1150,8 @@
     "timezone": "",
     "distance_m": 1667.83,
     "duration_s": 715,
+    "moving_time_s": 715,
+    "elevation_gain_m": 0,
     "avg_hr": 147,
     "max_hr": 152,
     "avg_pace_s_per_km": 428.70076686472845
@@ -1053,6 +1165,8 @@
     "timezone": "",
     "distance_m": 459.98,
     "duration_s": 208,
+    "moving_time_s": 203,
+    "elevation_gain_m": 0,
     "avg_hr": 129,
     "max_hr": 135,
     "avg_pace_s_per_km": 452.1935736336362
@@ -1088,6 +1202,8 @@
     "timezone": "",
     "distance_m": 1138.5700000000002,
     "duration_s": 748,
+    "moving_time_s": 734,
+    "elevation_gain_m": 0,
     "avg_hr": 113,
     "max_hr": 140,
     "avg_pace_s_per_km": 656.9644378474753
@@ -1101,6 +1217,8 @@
     "timezone": "",
     "distance_m": 3004.2599999999998,
     "duration_s": 3355,
+    "moving_time_s": 1483,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 132,
     "avg_pace_s_per_km": 1116.7475518097635
@@ -1114,6 +1232,8 @@
     "timezone": "",
     "distance_m": 6083.97,
     "duration_s": 4297,
+    "moving_time_s": 3983,
+    "elevation_gain_m": 0,
     "avg_hr": 108,
     "max_hr": 119,
     "avg_pace_s_per_km": 706.2822466251478
@@ -1127,6 +1247,8 @@
     "timezone": "",
     "distance_m": 6009.44,
     "duration_s": 2548,
+    "moving_time_s": 2548,
+    "elevation_gain_m": 0,
     "avg_hr": 144,
     "max_hr": 158,
     "avg_pace_s_per_km": 423.9995740035677
@@ -1140,6 +1262,8 @@
     "timezone": "",
     "distance_m": 22647.9,
     "duration_s": 8783,
+    "moving_time_s": 8783,
+    "elevation_gain_m": 3.9881129999999985,
     "avg_hr": 159,
     "max_hr": 180,
     "avg_pace_s_per_km": 387.8063749839941
@@ -1153,6 +1277,8 @@
     "timezone": "",
     "distance_m": 6162.02,
     "duration_s": 2585,
+    "moving_time_s": 2540,
+    "elevation_gain_m": 0,
     "avg_hr": 153,
     "max_hr": 162,
     "avg_pace_s_per_km": 419.50529209577377
@@ -1166,6 +1292,8 @@
     "timezone": "",
     "distance_m": 7031.42,
     "duration_s": 2872,
+    "moving_time_s": 2872,
+    "elevation_gain_m": 0,
     "avg_hr": 153,
     "max_hr": 164,
     "avg_pace_s_per_km": 408.45234675214965
@@ -1179,6 +1307,8 @@
     "timezone": "",
     "distance_m": 22136.1,
     "duration_s": 8545,
+    "moving_time_s": 8545,
+    "elevation_gain_m": 0,
     "avg_hr": 159,
     "max_hr": 182,
     "avg_pace_s_per_km": 386.0210244803737
@@ -1192,6 +1322,8 @@
     "timezone": "",
     "distance_m": 2029.98,
     "duration_s": 1172,
+    "moving_time_s": 1169,
+    "elevation_gain_m": 0,
     "avg_hr": 115,
     "max_hr": 124,
     "avg_pace_s_per_km": 577.3455896117202
@@ -1205,6 +1337,8 @@
     "timezone": "",
     "distance_m": 2459.88,
     "duration_s": 1044,
+    "moving_time_s": 1043,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 157,
     "avg_pace_s_per_km": 424.41094687545734
@@ -1218,6 +1352,8 @@
     "timezone": "",
     "distance_m": 6103.42,
     "duration_s": 2398,
+    "moving_time_s": 2396,
+    "elevation_gain_m": 0,
     "avg_hr": 152,
     "max_hr": 162,
     "avg_pace_s_per_km": 392.89447555632745
@@ -1231,6 +1367,8 @@
     "timezone": "",
     "distance_m": 2453.26,
     "duration_s": 1041,
+    "moving_time_s": 1039,
+    "elevation_gain_m": 0,
     "avg_hr": 144,
     "max_hr": 153,
     "avg_pace_s_per_km": 424.3333360508058
@@ -1244,6 +1382,8 @@
     "timezone": "",
     "distance_m": 17446.5,
     "duration_s": 7201,
+    "moving_time_s": 7201,
+    "elevation_gain_m": 0,
     "avg_hr": 160,
     "max_hr": 178,
     "avg_pace_s_per_km": 412.74754248703175
@@ -1257,6 +1397,8 @@
     "timezone": "",
     "distance_m": 1685.09,
     "duration_s": 1200,
+    "moving_time_s": 1151,
+    "elevation_gain_m": 0,
     "avg_hr": 115,
     "max_hr": 131,
     "avg_pace_s_per_km": 712.128135589197
@@ -1281,6 +1423,8 @@
     "timezone": "",
     "distance_m": 3693.28,
     "duration_s": 1578,
+    "moving_time_s": 1566,
+    "elevation_gain_m": 0,
     "avg_hr": 150,
     "max_hr": 162,
     "avg_pace_s_per_km": 427.2624875449465
@@ -1294,6 +1438,8 @@
     "timezone": "",
     "distance_m": 2013.1100000000001,
     "duration_s": 858,
+    "moving_time_s": 858,
+    "elevation_gain_m": 0,
     "avg_hr": 140,
     "max_hr": 150,
     "avg_pace_s_per_km": 426.20621823944043
@@ -1307,6 +1453,8 @@
     "timezone": "",
     "distance_m": 7101.83,
     "duration_s": 2830,
+    "moving_time_s": 2821,
+    "elevation_gain_m": 0,
     "avg_hr": 160,
     "max_hr": 181,
     "avg_pace_s_per_km": 398.48884020034274
@@ -1331,6 +1479,8 @@
     "timezone": "",
     "distance_m": 3675.78,
     "duration_s": 4552,
+    "moving_time_s": 3097,
+    "elevation_gain_m": 7.632186999999931,
     "avg_hr": 103,
     "max_hr": 136,
     "avg_pace_s_per_km": 1238.376616663674
@@ -1344,6 +1494,8 @@
     "timezone": "",
     "distance_m": 3107.85,
     "duration_s": 1300,
+    "moving_time_s": 1299,
+    "elevation_gain_m": 0,
     "avg_hr": 150,
     "max_hr": 166,
     "avg_pace_s_per_km": 418.29560628730474
@@ -1368,6 +1520,8 @@
     "timezone": "",
     "distance_m": 3653.27,
     "duration_s": 1620,
+    "moving_time_s": 1620,
+    "elevation_gain_m": 0,
     "avg_hr": 146,
     "max_hr": 155,
     "avg_pace_s_per_km": 443.4383442778661
@@ -1381,6 +1535,8 @@
     "timezone": "",
     "distance_m": 4012.71,
     "duration_s": 1770,
+    "moving_time_s": 1681,
+    "elevation_gain_m": 4.724283,
     "avg_hr": 142,
     "max_hr": 159,
     "avg_pace_s_per_km": 441.0984098028514
@@ -1394,6 +1550,8 @@
     "timezone": "",
     "distance_m": 2452.34,
     "duration_s": 1077,
+    "moving_time_s": 1076,
+    "elevation_gain_m": 0,
     "avg_hr": 138,
     "max_hr": 153,
     "avg_pace_s_per_km": 439.17238229609274
@@ -1407,6 +1565,8 @@
     "timezone": "",
     "distance_m": 3633.81,
     "duration_s": 1643,
+    "moving_time_s": 1643,
+    "elevation_gain_m": 0,
     "avg_hr": 138,
     "max_hr": 156,
     "avg_pace_s_per_km": 452.1425170826213
@@ -1420,6 +1580,8 @@
     "timezone": "",
     "distance_m": 5664.1,
     "duration_s": 2381,
+    "moving_time_s": 2381,
+    "elevation_gain_m": 0,
     "avg_hr": 147,
     "max_hr": 158,
     "avg_pace_s_per_km": 420.3668720538126
@@ -1433,6 +1595,8 @@
     "timezone": "",
     "distance_m": 2019.9600000000003,
     "duration_s": 1296,
+    "moving_time_s": 1296,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 117,
     "avg_pace_s_per_km": 641.5968633042238
@@ -1446,6 +1610,8 @@
     "timezone": "",
     "distance_m": 13234.5,
     "duration_s": 5095,
+    "moving_time_s": 5089,
+    "elevation_gain_m": 0,
     "avg_hr": 165,
     "max_hr": 186,
     "avg_pace_s_per_km": 384.978654274812
@@ -1459,6 +1625,8 @@
     "timezone": "",
     "distance_m": 3052.64,
     "duration_s": 1290,
+    "moving_time_s": 1290,
+    "elevation_gain_m": 0,
     "avg_hr": 146,
     "max_hr": 158,
     "avg_pace_s_per_km": 422.5850411447141
@@ -1472,6 +1640,8 @@
     "timezone": "",
     "distance_m": 12240.3,
     "duration_s": 4785,
+    "moving_time_s": 4785,
+    "elevation_gain_m": 0,
     "avg_hr": 171,
     "max_hr": 191,
     "avg_pace_s_per_km": 390.9217911325703
@@ -1485,6 +1655,8 @@
     "timezone": "",
     "distance_m": 5723.6900000000005,
     "duration_s": 2341,
+    "moving_time_s": 2327,
+    "elevation_gain_m": 0,
     "avg_hr": 154,
     "max_hr": 171,
     "avg_pace_s_per_km": 409.00188514751846
@@ -1498,6 +1670,8 @@
     "timezone": "",
     "distance_m": 3666.87,
     "duration_s": 1499,
+    "moving_time_s": 1499,
+    "elevation_gain_m": 0,
     "avg_hr": 146,
     "max_hr": 156,
     "avg_pace_s_per_km": 408.7955122488662
@@ -1511,6 +1685,8 @@
     "timezone": "",
     "distance_m": 3678.82,
     "duration_s": 1596,
+    "moving_time_s": 1595,
+    "elevation_gain_m": 0,
     "avg_hr": 148,
     "max_hr": 158,
     "avg_pace_s_per_km": 433.8347622335423
@@ -1524,6 +1700,8 @@
     "timezone": "",
     "distance_m": 3701.54,
     "duration_s": 1566,
+    "moving_time_s": 1564,
+    "elevation_gain_m": 0,
     "avg_hr": 147,
     "max_hr": 158,
     "avg_pace_s_per_km": 423.0671558324373
@@ -1537,6 +1715,8 @@
     "timezone": "",
     "distance_m": 10315.2,
     "duration_s": 4335,
+    "moving_time_s": 4335,
+    "elevation_gain_m": 0,
     "avg_hr": 166,
     "max_hr": 187,
     "avg_pace_s_per_km": 420.2536063285249
@@ -1550,6 +1730,8 @@
     "timezone": "",
     "distance_m": 1370.51,
     "duration_s": 1187,
+    "moving_time_s": 1034,
+    "elevation_gain_m": 0,
     "avg_hr": 108,
     "max_hr": 125,
     "avg_pace_s_per_km": 866.1009405257897
@@ -1563,6 +1745,8 @@
     "timezone": "",
     "distance_m": 565.491,
     "duration_s": 265,
+    "moving_time_s": 261,
+    "elevation_gain_m": 0,
     "avg_hr": 139,
     "max_hr": 149,
     "avg_pace_s_per_km": 468.61930605438465
@@ -1576,6 +1760,8 @@
     "timezone": "",
     "distance_m": 5093.99,
     "duration_s": 2306,
+    "moving_time_s": 2306,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 157,
     "avg_pace_s_per_km": 452.6903272287539
@@ -1589,6 +1775,8 @@
     "timezone": "",
     "distance_m": 4471.74,
     "duration_s": 4108,
+    "moving_time_s": 3013,
+    "elevation_gain_m": 0,
     "avg_hr": 105,
     "max_hr": 124,
     "avg_pace_s_per_km": 918.6580615152045
@@ -1613,6 +1801,8 @@
     "timezone": "",
     "distance_m": 10151.6,
     "duration_s": 4577,
+    "moving_time_s": 4577,
+    "elevation_gain_m": 0,
     "avg_hr": 152,
     "max_hr": 169,
     "avg_pace_s_per_km": 450.864888293471
@@ -1637,6 +1827,8 @@
     "timezone": "",
     "distance_m": 11054.8,
     "duration_s": 4763,
+    "moving_time_s": 4763,
+    "elevation_gain_m": 0,
     "avg_hr": 163,
     "max_hr": 180,
     "avg_pace_s_per_km": 430.85356587183855
@@ -1650,6 +1842,8 @@
     "timezone": "",
     "distance_m": 4711.55,
     "duration_s": 2085,
+    "moving_time_s": 2080,
+    "elevation_gain_m": 0,
     "avg_hr": 150,
     "max_hr": 159,
     "avg_pace_s_per_km": 442.5295284991139
@@ -1663,6 +1857,8 @@
     "timezone": "",
     "distance_m": 10866,
     "duration_s": 4934,
+    "moving_time_s": 4925,
+    "elevation_gain_m": 2.2571259999999995,
     "avg_hr": 150,
     "max_hr": 159,
     "avg_pace_s_per_km": 454.07693723541325
@@ -1687,6 +1883,8 @@
     "timezone": "",
     "distance_m": 2437.3999999999996,
     "duration_s": 1080,
+    "moving_time_s": 1079,
+    "elevation_gain_m": 0,
     "avg_hr": 144,
     "max_hr": 153,
     "avg_pace_s_per_km": 443.0951013374908
@@ -1700,6 +1898,8 @@
     "timezone": "",
     "distance_m": 1631.87,
     "duration_s": 1157,
+    "moving_time_s": 856,
+    "elevation_gain_m": 0,
     "avg_hr": 140,
     "max_hr": 175,
     "avg_pace_s_per_km": 709.00255535061
@@ -1713,6 +1913,8 @@
     "timezone": "",
     "distance_m": 2020.74,
     "duration_s": 1696,
+    "moving_time_s": 1416,
+    "elevation_gain_m": 0,
     "avg_hr": 100,
     "max_hr": 115,
     "avg_pace_s_per_km": 839.2964953432901
@@ -1726,6 +1928,8 @@
     "timezone": "",
     "distance_m": 3359.8599999999997,
     "duration_s": 1443,
+    "moving_time_s": 1443,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 167,
     "avg_pace_s_per_km": 429.4821808051526
@@ -1739,6 +1943,8 @@
     "timezone": "",
     "distance_m": 2330.5699999999997,
     "duration_s": 1049,
+    "moving_time_s": 1048,
+    "elevation_gain_m": 0,
     "avg_hr": 151,
     "max_hr": 158,
     "avg_pace_s_per_km": 450.1044808780685
@@ -1752,6 +1958,8 @@
     "timezone": "",
     "distance_m": 7023.41,
     "duration_s": 2925,
+    "moving_time_s": 2925,
+    "elevation_gain_m": 0,
     "avg_hr": 167,
     "max_hr": 184,
     "avg_pace_s_per_km": 416.46436702399546
@@ -1776,6 +1984,8 @@
     "timezone": "",
     "distance_m": 2318.3199999999997,
     "duration_s": 1023,
+    "moving_time_s": 1023,
+    "elevation_gain_m": 0,
     "avg_hr": 153,
     "max_hr": 164,
     "avg_pace_s_per_km": 441.2678146243833
@@ -1789,6 +1999,8 @@
     "timezone": "",
     "distance_m": 4253.09,
     "duration_s": 1846,
+    "moving_time_s": 1842,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 177,
     "avg_pace_s_per_km": 434.0373704765241
@@ -1802,6 +2014,8 @@
     "timezone": "",
     "distance_m": 1711.4199999999998,
     "duration_s": 1022,
+    "moving_time_s": 998,
+    "elevation_gain_m": 0,
     "avg_hr": 132,
     "max_hr": 144,
     "avg_pace_s_per_km": 597.164927370254
@@ -1815,6 +2029,8 @@
     "timezone": "",
     "distance_m": 4233.97,
     "duration_s": 1944,
+    "moving_time_s": 1941,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 163,
     "avg_pace_s_per_km": 459.14354612810195
@@ -1828,6 +2044,8 @@
     "timezone": "",
     "distance_m": 2250.45,
     "duration_s": 1047,
+    "moving_time_s": 1042,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 160,
     "avg_pace_s_per_km": 465.2402852762781
@@ -1841,6 +2059,8 @@
     "timezone": "",
     "distance_m": 2303.5299999999997,
     "duration_s": 1067,
+    "moving_time_s": 1066,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 160,
     "avg_pace_s_per_km": 463.2021289065044
@@ -1854,6 +2074,8 @@
     "timezone": "",
     "distance_m": 4105.76,
     "duration_s": 1866,
+    "moving_time_s": 1858,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 160,
     "avg_pace_s_per_km": 454.48345738669576
@@ -1867,6 +2089,8 @@
     "timezone": "",
     "distance_m": 4166.41,
     "duration_s": 1954,
+    "moving_time_s": 1940,
+    "elevation_gain_m": 0,
     "avg_hr": 146,
     "max_hr": 155,
     "avg_pace_s_per_km": 468.9888897156065
@@ -1880,6 +2104,8 @@
     "timezone": "",
     "distance_m": 875.869,
     "duration_s": 1605,
+    "moving_time_s": 736,
+    "elevation_gain_m": 0,
     "avg_hr": 113,
     "max_hr": 145,
     "avg_pace_s_per_km": 1832.4658139516298
@@ -1926,6 +2152,8 @@
     "timezone": "",
     "distance_m": 3114.62,
     "duration_s": 1300,
+    "moving_time_s": 1300,
+    "elevation_gain_m": 0,
     "avg_hr": 154,
     "max_hr": 171,
     "avg_pace_s_per_km": 417.3863906351337
@@ -1939,6 +2167,8 @@
     "timezone": "",
     "distance_m": 3143.65,
     "duration_s": 1386,
+    "moving_time_s": 1386,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 162,
     "avg_pace_s_per_km": 440.8887757861085
@@ -1952,6 +2182,8 @@
     "timezone": "",
     "distance_m": 3248.17,
     "duration_s": 2558,
+    "moving_time_s": 2544,
+    "elevation_gain_m": 0,
     "avg_hr": 101,
     "max_hr": 110,
     "avg_pace_s_per_km": 787.5203576167504
@@ -1976,6 +2208,8 @@
     "timezone": "",
     "distance_m": 5078.29,
     "duration_s": 2127,
+    "moving_time_s": 2127,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 193,
     "avg_pace_s_per_km": 418.84177547954135
@@ -1989,6 +2223,8 @@
     "timezone": "",
     "distance_m": 4716.69,
     "duration_s": 2138,
+    "moving_time_s": 2138,
+    "elevation_gain_m": 0,
     "avg_hr": 148,
     "max_hr": 163,
     "avg_pace_s_per_km": 453.28397668704116
@@ -2002,6 +2238,8 @@
     "timezone": "",
     "distance_m": 1890.75,
     "duration_s": 1559,
+    "moving_time_s": 1175,
+    "elevation_gain_m": 0,
     "avg_hr": 114,
     "max_hr": 142,
     "avg_pace_s_per_km": 824.5405262461986
@@ -2026,6 +2264,8 @@
     "timezone": "",
     "distance_m": 2102.2400000000002,
     "duration_s": 939,
+    "moving_time_s": 936,
+    "elevation_gain_m": 0,
     "avg_hr": 141,
     "max_hr": 158,
     "avg_pace_s_per_km": 446.6664129690235
@@ -2039,6 +2279,8 @@
     "timezone": "",
     "distance_m": 4215.45,
     "duration_s": 1882,
+    "moving_time_s": 1847,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 175,
     "avg_pace_s_per_km": 446.45292910602666
@@ -2052,6 +2294,8 @@
     "timezone": "",
     "distance_m": 2094.4500000000003,
     "duration_s": 1205,
+    "moving_time_s": 1187,
+    "elevation_gain_m": 0,
     "avg_hr": 126,
     "max_hr": 151,
     "avg_pace_s_per_km": 575.3300389123635
@@ -2065,6 +2309,8 @@
     "timezone": "",
     "distance_m": 1090.47,
     "duration_s": 476,
+    "moving_time_s": 476,
+    "elevation_gain_m": 0,
     "avg_hr": 141,
     "max_hr": 156,
     "avg_pace_s_per_km": 436.50902821719075
@@ -2078,6 +2324,8 @@
     "timezone": "",
     "distance_m": 2518.08,
     "duration_s": 3843,
+    "moving_time_s": 1736,
+    "elevation_gain_m": 0,
     "avg_hr": 114,
     "max_hr": 154,
     "avg_pace_s_per_km": 1526.1627906976744
@@ -2091,6 +2339,8 @@
     "timezone": "",
     "distance_m": 2220.0899999999997,
     "duration_s": 1047,
+    "moving_time_s": 1046,
+    "elevation_gain_m": 0,
     "avg_hr": 148,
     "max_hr": 177,
     "avg_pace_s_per_km": 471.60250260124593
@@ -2104,6 +2354,8 @@
     "timezone": "",
     "distance_m": 3140.6200000000003,
     "duration_s": 1250,
+    "moving_time_s": 1250,
+    "elevation_gain_m": 0,
     "avg_hr": 153,
     "max_hr": 173,
     "avg_pace_s_per_km": 398.01058389744696
@@ -2117,6 +2369,8 @@
     "timezone": "",
     "distance_m": 3113.01,
     "duration_s": 1236,
+    "moving_time_s": 1236,
+    "elevation_gain_m": 0,
     "avg_hr": 155,
     "max_hr": 177,
     "avg_pace_s_per_km": 397.0433760251332
@@ -2130,6 +2384,8 @@
     "timezone": "",
     "distance_m": 318.873434791689,
     "duration_s": 1076,
+    "moving_time_s": 123,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 158
   },
@@ -2142,6 +2398,8 @@
     "timezone": "",
     "distance_m": 1729.91,
     "duration_s": 1409,
+    "moving_time_s": 1222,
+    "elevation_gain_m": 0,
     "avg_hr": 113,
     "max_hr": 133,
     "avg_pace_s_per_km": 814.4932395326924
@@ -2166,6 +2424,8 @@
     "timezone": "",
     "distance_m": 3100.15,
     "duration_s": 1336,
+    "moving_time_s": 1335,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 164,
     "avg_pace_s_per_km": 430.94688966662903
@@ -2179,6 +2439,8 @@
     "timezone": "",
     "distance_m": 4285.42,
     "duration_s": 2623,
+    "moving_time_s": 2550,
+    "elevation_gain_m": 0,
     "avg_hr": 113,
     "max_hr": 128,
     "avg_pace_s_per_km": 612.0753625082256
@@ -2192,6 +2454,8 @@
     "timezone": "",
     "distance_m": 3625.88,
     "duration_s": 3840,
+    "moving_time_s": 3065,
+    "elevation_gain_m": 0,
     "avg_hr": 136,
     "max_hr": 179,
     "avg_pace_s_per_km": 1059.0532505212527
@@ -2205,6 +2469,8 @@
     "timezone": "",
     "distance_m": 1311.2299999999998,
     "duration_s": 2895,
+    "moving_time_s": 1130,
+    "elevation_gain_m": 0,
     "avg_hr": 151,
     "max_hr": 179,
     "avg_pace_s_per_km": 2207.8506440517685
@@ -2218,6 +2484,8 @@
     "timezone": "",
     "distance_m": 5438.97,
     "duration_s": 3697,
+    "moving_time_s": 3371,
+    "elevation_gain_m": 0,
     "avg_hr": 108,
     "max_hr": 140,
     "avg_pace_s_per_km": 679.724286032098
@@ -2231,6 +2499,8 @@
     "timezone": "",
     "distance_m": 5230.17,
     "duration_s": 2151,
+    "moving_time_s": 2151,
+    "elevation_gain_m": 0,
     "avg_hr": 155,
     "max_hr": 190,
     "avg_pace_s_per_km": 411.26770257945725
@@ -2244,6 +2514,8 @@
     "timezone": "",
     "distance_m": 1843.01,
     "duration_s": 1343,
+    "moving_time_s": 1211,
+    "elevation_gain_m": 0,
     "avg_hr": 121,
     "max_hr": 137,
     "avg_pace_s_per_km": 728.6992474267638
@@ -2268,6 +2540,8 @@
     "timezone": "",
     "distance_m": 1729.88,
     "duration_s": 1120,
+    "moving_time_s": 1081,
+    "elevation_gain_m": 0,
     "avg_hr": 122,
     "max_hr": 129,
     "avg_pace_s_per_km": 647.44375332393
@@ -2281,6 +2555,8 @@
     "timezone": "",
     "distance_m": 3614.7999999999997,
     "duration_s": 1514,
+    "moving_time_s": 1514,
+    "elevation_gain_m": 0,
     "avg_hr": 157,
     "max_hr": 178,
     "avg_pace_s_per_km": 418.83368374460554
@@ -2294,6 +2570,8 @@
     "timezone": "",
     "distance_m": 3110.35,
     "duration_s": 1236,
+    "moving_time_s": 1225,
+    "elevation_gain_m": 0,
     "avg_hr": 157,
     "max_hr": 176,
     "avg_pace_s_per_km": 397.3829311813783
@@ -2307,6 +2585,8 @@
     "timezone": "",
     "distance_m": 4296.57,
     "duration_s": 2810,
+    "moving_time_s": 2645,
+    "elevation_gain_m": 0,
     "avg_hr": 112,
     "max_hr": 134,
     "avg_pace_s_per_km": 654.0100591867466
@@ -2320,6 +2600,8 @@
     "timezone": "",
     "distance_m": 5159.93,
     "duration_s": 2255,
+    "moving_time_s": 2250,
+    "elevation_gain_m": 0,
     "avg_hr": 153,
     "max_hr": 176,
     "avg_pace_s_per_km": 437.02143246129305
@@ -2333,6 +2615,8 @@
     "timezone": "",
     "distance_m": 341.43913363551417,
     "duration_s": 1073,
+    "moving_time_s": 207,
+    "elevation_gain_m": 0,
     "avg_hr": 141,
     "max_hr": 166
   },
@@ -2345,6 +2629,8 @@
     "timezone": "",
     "distance_m": 2181.61,
     "duration_s": 4373,
+    "moving_time_s": 1453,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 162,
     "avg_pace_s_per_km": 2004.4829277460224
@@ -2358,6 +2644,8 @@
     "timezone": "",
     "distance_m": 3074.37,
     "duration_s": 1304,
+    "moving_time_s": 1304,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 164,
     "avg_pace_s_per_km": 424.15194007227495
@@ -2371,6 +2659,8 @@
     "timezone": "",
     "distance_m": 3267.93,
     "duration_s": 2451,
+    "moving_time_s": 1987,
+    "elevation_gain_m": 0,
     "avg_hr": 111,
     "max_hr": 135,
     "avg_pace_s_per_km": 750.0160652155953
@@ -2384,6 +2674,8 @@
     "timezone": "",
     "distance_m": 3170.62,
     "duration_s": 1202,
+    "moving_time_s": 1200,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 181,
     "avg_pace_s_per_km": 379.1056638764658
@@ -2397,6 +2689,8 @@
     "timezone": "",
     "distance_m": 1879.3,
     "duration_s": 1527,
+    "moving_time_s": 1270,
+    "elevation_gain_m": 0,
     "avg_hr": 114,
     "max_hr": 138,
     "avg_pace_s_per_km": 812.5365827701804
@@ -2410,6 +2704,8 @@
     "timezone": "",
     "distance_m": 5262.71,
     "duration_s": 2195,
+    "moving_time_s": 2194,
+    "elevation_gain_m": 0,
     "avg_hr": 151,
     "max_hr": 181,
     "avg_pace_s_per_km": 417.0854939755373
@@ -2423,6 +2719,8 @@
     "timezone": "",
     "distance_m": 3102.1800000000003,
     "duration_s": 1135,
+    "moving_time_s": 1132,
+    "elevation_gain_m": 0,
     "avg_hr": 164,
     "max_hr": 187,
     "avg_pace_s_per_km": 365.8717418073742
@@ -2436,6 +2734,8 @@
     "timezone": "",
     "distance_m": 8497.769999999999,
     "duration_s": 7286,
+    "moving_time_s": 6555,
+    "elevation_gain_m": 0,
     "avg_hr": 103,
     "max_hr": 136,
     "avg_pace_s_per_km": 857.4014123705397
@@ -2449,6 +2749,8 @@
     "timezone": "",
     "distance_m": 3136.65,
     "duration_s": 1188,
+    "moving_time_s": 1188,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 178,
     "avg_pace_s_per_km": 378.7480273540242
@@ -2462,6 +2764,8 @@
     "timezone": "",
     "distance_m": 3004.6400000000003,
     "duration_s": 2395,
+    "moving_time_s": 1727,
+    "elevation_gain_m": 0,
     "avg_hr": 98,
     "max_hr": 121,
     "avg_pace_s_per_km": 797.1004845838436
@@ -2475,6 +2779,8 @@
     "timezone": "",
     "distance_m": 4128.320000000001,
     "duration_s": 1510,
+    "moving_time_s": 1504,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 180,
     "avg_pace_s_per_km": 365.76621967289356
@@ -2488,6 +2794,8 @@
     "timezone": "",
     "distance_m": 3105.2,
     "duration_s": 1115,
+    "moving_time_s": 1115,
+    "elevation_gain_m": 0,
     "avg_hr": 161,
     "max_hr": 180,
     "avg_pace_s_per_km": 359.07509983253897
@@ -2501,6 +2809,8 @@
     "timezone": "",
     "distance_m": 5205.669999999999,
     "duration_s": 2074,
+    "moving_time_s": 2074,
+    "elevation_gain_m": 0,
     "avg_hr": 157,
     "max_hr": 182,
     "avg_pace_s_per_km": 398.41173182318516
@@ -2514,6 +2824,8 @@
     "timezone": "",
     "distance_m": 2106.46,
     "duration_s": 796,
+    "moving_time_s": 796,
+    "elevation_gain_m": 0,
     "avg_hr": 146,
     "max_hr": 164,
     "avg_pace_s_per_km": 377.885172279559
@@ -2527,6 +2839,8 @@
     "timezone": "",
     "distance_m": 2615.7,
     "duration_s": 995,
+    "moving_time_s": 995,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 158,
     "avg_pace_s_per_km": 380.39530527201134
@@ -2540,6 +2854,8 @@
     "timezone": "",
     "distance_m": 2208.72,
     "duration_s": 864,
+    "moving_time_s": 864,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 158,
     "avg_pace_s_per_km": 391.1767901771162
@@ -2553,6 +2869,8 @@
     "timezone": "",
     "distance_m": 3233.11,
     "duration_s": 1254,
+    "moving_time_s": 1254,
+    "elevation_gain_m": 0,
     "avg_hr": 146,
     "max_hr": 166,
     "avg_pace_s_per_km": 387.8618420035198
@@ -2566,6 +2884,8 @@
     "timezone": "",
     "distance_m": 1106.72,
     "duration_s": 1042,
+    "moving_time_s": 760,
+    "elevation_gain_m": 0,
     "avg_hr": 111,
     "max_hr": 155,
     "avg_pace_s_per_km": 941.5208905594911
@@ -2579,6 +2899,8 @@
     "timezone": "",
     "distance_m": 2095.53,
     "duration_s": 792,
+    "moving_time_s": 792,
+    "elevation_gain_m": 0,
     "avg_hr": 147,
     "max_hr": 159,
     "avg_pace_s_per_km": 377.9473450630628
@@ -2592,6 +2914,8 @@
     "timezone": "",
     "distance_m": 7200.34,
     "duration_s": 2732,
+    "moving_time_s": 2732,
+    "elevation_gain_m": 0,
     "avg_hr": 155,
     "max_hr": 171,
     "avg_pace_s_per_km": 379.42652708066566
@@ -2605,6 +2929,8 @@
     "timezone": "",
     "distance_m": 602.033,
     "duration_s": 413,
+    "moving_time_s": 413,
+    "elevation_gain_m": 0,
     "avg_hr": 106,
     "max_hr": 116,
     "avg_pace_s_per_km": 686.0089064885148
@@ -2618,6 +2944,8 @@
     "timezone": "",
     "distance_m": 1125.58,
     "duration_s": 915,
+    "moving_time_s": 726,
+    "elevation_gain_m": 0,
     "avg_hr": 115,
     "max_hr": 161,
     "avg_pace_s_per_km": 812.9142308854101
@@ -2631,6 +2959,8 @@
     "timezone": "",
     "distance_m": 3124.13,
     "duration_s": 1208,
+    "moving_time_s": 1208,
+    "elevation_gain_m": 0,
     "avg_hr": 153,
     "max_hr": 160,
     "avg_pace_s_per_km": 386.66764827327927
@@ -2644,6 +2974,8 @@
     "timezone": "",
     "distance_m": 1127.75,
     "duration_s": 2097,
+    "moving_time_s": 713,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 161,
     "avg_pace_s_per_km": 1859.4546663710928
@@ -2657,6 +2989,8 @@
     "timezone": "",
     "distance_m": 3131.67,
     "duration_s": 1236,
+    "moving_time_s": 1236,
+    "elevation_gain_m": 0,
     "avg_hr": 146,
     "max_hr": 160,
     "avg_pace_s_per_km": 394.6776001302819
@@ -2670,6 +3004,8 @@
     "timezone": "",
     "distance_m": 1641.9299999999998,
     "duration_s": 1086,
+    "moving_time_s": 1075,
+    "elevation_gain_m": 0,
     "avg_hr": 117,
     "max_hr": 158,
     "avg_pace_s_per_km": 661.4167473643822
@@ -2683,6 +3019,8 @@
     "timezone": "",
     "distance_m": 2611.77,
     "duration_s": 1072,
+    "moving_time_s": 1072,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 160,
     "avg_pace_s_per_km": 410.4496184579806
@@ -2696,6 +3034,8 @@
     "timezone": "",
     "distance_m": 6488.5599999999995,
     "duration_s": 2497,
+    "moving_time_s": 2497,
+    "elevation_gain_m": 0,
     "avg_hr": 167,
     "max_hr": 191,
     "avg_pace_s_per_km": 384.831148976044
@@ -2709,6 +3049,8 @@
     "timezone": "",
     "distance_m": 1119.12,
     "duration_s": 867,
+    "moving_time_s": 754,
+    "elevation_gain_m": 0,
     "avg_hr": 122,
     "max_hr": 166,
     "avg_pace_s_per_km": 774.7158481664165
@@ -2722,6 +3064,8 @@
     "timezone": "",
     "distance_m": 2095.2799999999997,
     "duration_s": 810,
+    "moving_time_s": 810,
+    "elevation_gain_m": 0,
     "avg_hr": 154,
     "max_hr": 171,
     "avg_pace_s_per_km": 386.58317742736057
@@ -2735,6 +3079,8 @@
     "timezone": "",
     "distance_m": 1698.84,
     "duration_s": 1787,
+    "moving_time_s": 1045,
+    "elevation_gain_m": 0,
     "avg_hr": 121,
     "max_hr": 168,
     "avg_pace_s_per_km": 1051.8942337124156
@@ -2748,6 +3094,8 @@
     "timezone": "",
     "distance_m": 2608.04,
     "duration_s": 1016,
+    "moving_time_s": 1016,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 164,
     "avg_pace_s_per_km": 389.5645772304106
@@ -2761,6 +3109,8 @@
     "timezone": "",
     "distance_m": 2651.3900000000003,
     "duration_s": 1054,
+    "moving_time_s": 1038,
+    "elevation_gain_m": 0,
     "avg_hr": 148,
     "max_hr": 163,
     "avg_pace_s_per_km": 397.52733471877013
@@ -2774,6 +3124,8 @@
     "timezone": "",
     "distance_m": 2070.57,
     "duration_s": 1228,
+    "moving_time_s": 1228,
+    "elevation_gain_m": 0,
     "avg_hr": 119,
     "max_hr": 154,
     "avg_pace_s_per_km": 593.0734049078274
@@ -2787,6 +3139,8 @@
     "timezone": "",
     "distance_m": 2114.1800000000003,
     "duration_s": 867,
+    "moving_time_s": 857,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 157,
     "avg_pace_s_per_km": 410.0880719711661
@@ -2800,6 +3154,8 @@
     "timezone": "",
     "distance_m": 4497.320000000001,
     "duration_s": 3988,
+    "moving_time_s": 3422,
+    "elevation_gain_m": 0,
     "avg_hr": 131,
     "max_hr": 167,
     "avg_pace_s_per_km": 886.7503313084236
@@ -2813,6 +3169,8 @@
     "timezone": "",
     "distance_m": 3283.54,
     "duration_s": 3880,
+    "moving_time_s": 2551,
+    "elevation_gain_m": 0,
     "avg_hr": 154,
     "max_hr": 184,
     "avg_pace_s_per_km": 1181.651510260268
@@ -2837,6 +3195,8 @@
     "timezone": "",
     "distance_m": 6314.02,
     "duration_s": 2267,
+    "moving_time_s": 2267,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 177,
     "avg_pace_s_per_km": 359.04225833937807
@@ -2850,6 +3210,8 @@
     "timezone": "",
     "distance_m": 3644.8999999999996,
     "duration_s": 1423,
+    "moving_time_s": 1423,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 162,
     "avg_pace_s_per_km": 390.40851600866966
@@ -2863,6 +3225,8 @@
     "timezone": "",
     "distance_m": 2200.9599999999996,
     "duration_s": 1483,
+    "moving_time_s": 1478,
+    "elevation_gain_m": 0,
     "avg_hr": 102,
     "max_hr": 108,
     "avg_pace_s_per_km": 673.796888630416
@@ -2876,6 +3240,8 @@
     "timezone": "",
     "distance_m": 1041.6799999999998,
     "duration_s": 652,
+    "moving_time_s": 652,
+    "elevation_gain_m": 0,
     "avg_hr": 126,
     "max_hr": 153,
     "avg_pace_s_per_km": 625.9119883265495
@@ -2889,6 +3255,8 @@
     "timezone": "",
     "distance_m": 3144.87,
     "duration_s": 1131,
+    "moving_time_s": 1131,
+    "elevation_gain_m": 0,
     "avg_hr": 150,
     "max_hr": 168,
     "avg_pace_s_per_km": 359.63330757710173
@@ -2913,6 +3281,8 @@
     "timezone": "",
     "distance_m": 2208.94,
     "duration_s": 895,
+    "moving_time_s": 894,
+    "elevation_gain_m": 0,
     "avg_hr": 140,
     "max_hr": 151,
     "avg_pace_s_per_km": 405.17171131855093
@@ -2926,6 +3296,8 @@
     "timezone": "",
     "distance_m": 1628.4,
     "duration_s": 976,
+    "moving_time_s": 975,
+    "elevation_gain_m": 0,
     "avg_hr": 123,
     "max_hr": 164,
     "avg_pace_s_per_km": 599.361336281012
@@ -2939,6 +3311,8 @@
     "timezone": "",
     "distance_m": 3604.8300000000004,
     "duration_s": 1354,
+    "moving_time_s": 1354,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 170,
     "avg_pace_s_per_km": 375.6071714893629
@@ -2952,6 +3326,8 @@
     "timezone": "",
     "distance_m": 2714.82,
     "duration_s": 2141,
+    "moving_time_s": 1673,
+    "elevation_gain_m": 0,
     "avg_hr": 124,
     "max_hr": 180,
     "avg_pace_s_per_km": 788.6342372606655
@@ -2965,6 +3341,8 @@
     "timezone": "",
     "distance_m": 5658.299999999999,
     "duration_s": 2001,
+    "moving_time_s": 1993,
+    "elevation_gain_m": 0,
     "avg_hr": 163,
     "max_hr": 184,
     "avg_pace_s_per_km": 353.6397858013891
@@ -2978,6 +3356,8 @@
     "timezone": "",
     "distance_m": 1638.11,
     "duration_s": 1225,
+    "moving_time_s": 991,
+    "elevation_gain_m": 0,
     "avg_hr": 119,
     "max_hr": 167,
     "avg_pace_s_per_km": 747.8130284291043
@@ -2991,6 +3371,8 @@
     "timezone": "",
     "distance_m": 3593.27,
     "duration_s": 1289,
+    "moving_time_s": 1289,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 157,
     "avg_pace_s_per_km": 358.7261742090074
@@ -3004,6 +3386,8 @@
     "timezone": "",
     "distance_m": 1558.97,
     "duration_s": 900,
+    "moving_time_s": 900,
+    "elevation_gain_m": 0,
     "avg_hr": 124,
     "max_hr": 155,
     "avg_pace_s_per_km": 577.3042457520029
@@ -3039,6 +3423,8 @@
     "timezone": "",
     "distance_m": 5840.04,
     "duration_s": 2198,
+    "moving_time_s": 2198,
+    "elevation_gain_m": 0,
     "avg_hr": 161,
     "max_hr": 175,
     "avg_pace_s_per_km": 376.3672851555811
@@ -3052,6 +3438,8 @@
     "timezone": "",
     "distance_m": 6057.95,
     "duration_s": 2242,
+    "moving_time_s": 2242,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 185,
     "avg_pace_s_per_km": 370.09219290353997
@@ -3065,6 +3453,8 @@
     "timezone": "",
     "distance_m": 1029.25,
     "duration_s": 822,
+    "moving_time_s": 811,
+    "elevation_gain_m": 0,
     "avg_hr": 102,
     "max_hr": 108,
     "avg_pace_s_per_km": 798.6397862521253
@@ -3078,6 +3468,8 @@
     "timezone": "",
     "distance_m": 3530.09,
     "duration_s": 1246,
+    "moving_time_s": 1242,
+    "elevation_gain_m": 0,
     "avg_hr": 168,
     "max_hr": 179,
     "avg_pace_s_per_km": 352.96550512876445
@@ -3091,6 +3483,8 @@
     "timezone": "",
     "distance_m": 5597.36,
     "duration_s": 2126,
+    "moving_time_s": 2122,
+    "elevation_gain_m": 0,
     "avg_hr": 148,
     "max_hr": 170,
     "avg_pace_s_per_km": 379.82191604613604
@@ -3104,6 +3498,8 @@
     "timezone": "",
     "distance_m": 1511.07,
     "duration_s": 976,
+    "moving_time_s": 975,
+    "elevation_gain_m": 0,
     "avg_hr": 117,
     "max_hr": 139,
     "avg_pace_s_per_km": 645.8999252185538
@@ -3117,6 +3513,8 @@
     "timezone": "",
     "distance_m": 3560,
     "duration_s": 1400,
+    "moving_time_s": 1400,
+    "elevation_gain_m": 0,
     "avg_hr": 147,
     "max_hr": 170,
     "avg_pace_s_per_km": 393.2584269662921
@@ -3130,6 +3528,8 @@
     "timezone": "",
     "distance_m": 3574.97,
     "duration_s": 1307,
+    "moving_time_s": 1307,
+    "elevation_gain_m": 0,
     "avg_hr": 157,
     "max_hr": 176,
     "avg_pace_s_per_km": 365.59747354523256
@@ -3143,6 +3543,8 @@
     "timezone": "",
     "distance_m": 4017.1599999999994,
     "duration_s": 1450,
+    "moving_time_s": 1447,
+    "elevation_gain_m": 0,
     "avg_hr": 165,
     "max_hr": 175,
     "avg_pace_s_per_km": 360.95151798783223
@@ -3156,6 +3558,8 @@
     "timezone": "",
     "distance_m": 5627.150000000001,
     "duration_s": 2196,
+    "moving_time_s": 2185,
+    "elevation_gain_m": 0,
     "avg_hr": 159,
     "max_hr": 175,
     "avg_pace_s_per_km": 390.2508374576828
@@ -3169,6 +3573,8 @@
     "timezone": "",
     "distance_m": 2014.8799999999999,
     "duration_s": 1079,
+    "moving_time_s": 1079,
+    "elevation_gain_m": 0,
     "avg_hr": 135,
     "max_hr": 151,
     "avg_pace_s_per_km": 535.5157627253236
@@ -3182,6 +3588,8 @@
     "timezone": "",
     "distance_m": 5572.94,
     "duration_s": 2178,
+    "moving_time_s": 2177,
+    "elevation_gain_m": 0,
     "avg_hr": 160,
     "max_hr": 181,
     "avg_pace_s_per_km": 390.8170552706471
@@ -3195,6 +3603,8 @@
     "timezone": "",
     "distance_m": 3172.73,
     "duration_s": 1232,
+    "moving_time_s": 1232,
+    "elevation_gain_m": 0,
     "avg_hr": 159,
     "max_hr": 171,
     "avg_pace_s_per_km": 388.3091217973165
@@ -3208,6 +3618,8 @@
     "timezone": "",
     "distance_m": 8604.300000000001,
     "duration_s": 6519,
+    "moving_time_s": 5717,
+    "elevation_gain_m": 0,
     "avg_hr": 140,
     "max_hr": 184,
     "avg_pace_s_per_km": 757.6444335971548
@@ -3221,6 +3633,8 @@
     "timezone": "",
     "distance_m": 5062.95,
     "duration_s": 2070,
+    "moving_time_s": 2066,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 184,
     "avg_pace_s_per_km": 408.8525464403164
@@ -3234,6 +3648,8 @@
     "timezone": "",
     "distance_m": 1706.77,
     "duration_s": 3788,
+    "moving_time_s": 1054,
+    "elevation_gain_m": 0,
     "avg_hr": 102,
     "max_hr": 127,
     "avg_pace_s_per_km": 2219.396872454988
@@ -3247,6 +3663,8 @@
     "timezone": "",
     "distance_m": 4132.86,
     "duration_s": 1567,
+    "moving_time_s": 1565,
+    "elevation_gain_m": 0,
     "avg_hr": 171,
     "max_hr": 184,
     "avg_pace_s_per_km": 379.15632274018475
@@ -3260,6 +3678,8 @@
     "timezone": "",
     "distance_m": 5386.02,
     "duration_s": 2027,
+    "moving_time_s": 2013,
+    "elevation_gain_m": 0,
     "avg_hr": 167,
     "max_hr": 191,
     "avg_pace_s_per_km": 376.3446849436133
@@ -3273,6 +3693,8 @@
     "timezone": "",
     "distance_m": 2664.1400000000003,
     "duration_s": 1751,
+    "moving_time_s": 1650,
+    "elevation_gain_m": 0,
     "avg_hr": 112,
     "max_hr": 127,
     "avg_pace_s_per_km": 657.2477422357683
@@ -3286,6 +3708,8 @@
     "timezone": "",
     "distance_m": 2015.57,
     "duration_s": 1248,
+    "moving_time_s": 1248,
+    "elevation_gain_m": 0,
     "avg_hr": 127,
     "max_hr": 139,
     "avg_pace_s_per_km": 619.1796861433738
@@ -3299,6 +3723,8 @@
     "timezone": "",
     "distance_m": 3812.4500000000003,
     "duration_s": 2190,
+    "moving_time_s": 2106,
+    "elevation_gain_m": 0,
     "avg_hr": 130,
     "max_hr": 158,
     "avg_pace_s_per_km": 574.4337630657451
@@ -3323,6 +3749,8 @@
     "timezone": "",
     "distance_m": 4249.1,
     "duration_s": 2655,
+    "moving_time_s": 2614,
+    "elevation_gain_m": 0,
     "avg_hr": 115,
     "max_hr": 131,
     "avg_pace_s_per_km": 624.8382010308064
@@ -3336,6 +3764,8 @@
     "timezone": "",
     "distance_m": 3034.1200000000003,
     "duration_s": 1178,
+    "moving_time_s": 1176,
+    "elevation_gain_m": 0,
     "avg_hr": 170,
     "max_hr": 180,
     "avg_pace_s_per_km": 388.25095909192777
@@ -3349,6 +3779,8 @@
     "timezone": "",
     "distance_m": 5784.24,
     "duration_s": 2354,
+    "moving_time_s": 2354,
+    "elevation_gain_m": 2.058028,
     "avg_hr": 171,
     "max_hr": 180,
     "avg_pace_s_per_km": 406.96789898067857
@@ -3362,6 +3794,8 @@
     "timezone": "",
     "distance_m": 3094.8799999999997,
     "duration_s": 2789,
+    "moving_time_s": 1607,
+    "elevation_gain_m": 0,
     "avg_hr": 102,
     "max_hr": 139,
     "avg_pace_s_per_km": 901.1657964121388
@@ -3375,6 +3809,8 @@
     "timezone": "",
     "distance_m": 5199.04,
     "duration_s": 2068,
+    "moving_time_s": 2068,
+    "elevation_gain_m": 0,
     "avg_hr": 160,
     "max_hr": 179,
     "avg_pace_s_per_km": 397.7657413676371
@@ -3399,6 +3835,8 @@
     "timezone": "",
     "distance_m": 2395.55,
     "duration_s": 1801,
+    "moving_time_s": 1711,
+    "elevation_gain_m": 0,
     "avg_hr": 98,
     "max_hr": 105,
     "avg_pace_s_per_km": 751.8106489115235
@@ -3412,6 +3850,8 @@
     "timezone": "",
     "distance_m": 5837.16,
     "duration_s": 2311,
+    "moving_time_s": 2308,
+    "elevation_gain_m": 0,
     "avg_hr": 159,
     "max_hr": 180,
     "avg_pace_s_per_km": 395.91171048934757
@@ -3425,6 +3865,8 @@
     "timezone": "",
     "distance_m": 5011.219999999999,
     "duration_s": 2009,
+    "moving_time_s": 2009,
+    "elevation_gain_m": 0,
     "avg_hr": 169,
     "max_hr": 195,
     "avg_pace_s_per_km": 400.90037954829364
@@ -3438,6 +3880,8 @@
     "timezone": "",
     "distance_m": 712.701,
     "duration_s": 453,
+    "moving_time_s": 451,
+    "elevation_gain_m": 0,
     "avg_hr": 103,
     "max_hr": 105,
     "avg_pace_s_per_km": 635.6101647114288
@@ -3451,6 +3895,8 @@
     "timezone": "",
     "distance_m": 641.779,
     "duration_s": 396,
+    "moving_time_s": 394,
+    "elevation_gain_m": 0,
     "avg_hr": 106,
     "max_hr": 112,
     "avg_pace_s_per_km": 617.0348359793636
@@ -3464,6 +3910,8 @@
     "timezone": "",
     "distance_m": 1517.6000000000001,
     "duration_s": 788,
+    "moving_time_s": 788,
+    "elevation_gain_m": 0,
     "avg_hr": 137,
     "max_hr": 154,
     "avg_pace_s_per_km": 519.2409066947812
@@ -3477,6 +3925,8 @@
     "timezone": "",
     "distance_m": 2748.5400000000004,
     "duration_s": 1920,
+    "moving_time_s": 1729,
+    "elevation_gain_m": 0,
     "avg_hr": 123,
     "max_hr": 148,
     "avg_pace_s_per_km": 698.5526861533759
@@ -3490,6 +3940,8 @@
     "timezone": "",
     "distance_m": 912.331,
     "duration_s": 624,
+    "moving_time_s": 616,
+    "elevation_gain_m": 0,
     "avg_hr": 108,
     "max_hr": 116,
     "avg_pace_s_per_km": 683.9622900022032
@@ -3503,6 +3955,8 @@
     "timezone": "",
     "distance_m": 1142.43,
     "duration_s": 947,
+    "moving_time_s": 783,
+    "elevation_gain_m": 2.5451120000000005,
     "avg_hr": 127,
     "max_hr": 146,
     "avg_pace_s_per_km": 828.9348143868771
@@ -3516,6 +3970,8 @@
     "timezone": "",
     "distance_m": 3329.3599999999997,
     "duration_s": 2025,
+    "moving_time_s": 2022,
+    "elevation_gain_m": 0,
     "avg_hr": 110,
     "max_hr": 120,
     "avg_pace_s_per_km": 608.2250042050124
@@ -3529,6 +3985,8 @@
     "timezone": "",
     "distance_m": 5561.92,
     "duration_s": 4022,
+    "moving_time_s": 3540,
+    "elevation_gain_m": 0,
     "avg_hr": 128,
     "max_hr": 147,
     "avg_pace_s_per_km": 723.1315804614235
@@ -3542,6 +4000,8 @@
     "timezone": "",
     "distance_m": 1661.07,
     "duration_s": 1107,
+    "moving_time_s": 1069,
+    "elevation_gain_m": 0,
     "avg_hr": 129,
     "max_hr": 178,
     "avg_pace_s_per_km": 666.4378984630389
@@ -3555,6 +4015,8 @@
     "timezone": "",
     "distance_m": 2557.18,
     "duration_s": 1047,
+    "moving_time_s": 1047,
+    "elevation_gain_m": 0,
     "avg_hr": 163,
     "max_hr": 184,
     "avg_pace_s_per_km": 409.43539367584606
@@ -3568,6 +4030,8 @@
     "timezone": "",
     "distance_m": 2838.2000000000003,
     "duration_s": 2659,
+    "moving_time_s": 2139,
+    "elevation_gain_m": 0,
     "avg_hr": 126,
     "max_hr": 147,
     "avg_pace_s_per_km": 936.861391022479
@@ -3581,6 +4045,8 @@
     "timezone": "",
     "distance_m": 7907.78,
     "duration_s": 6791,
+    "moving_time_s": 6127,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 129,
     "avg_pace_s_per_km": 858.774523317543
@@ -3614,6 +4080,8 @@
     "timezone": "",
     "distance_m": 976.034,
     "duration_s": 614,
+    "moving_time_s": 584,
+    "elevation_gain_m": 0,
     "avg_hr": 115,
     "max_hr": 122,
     "avg_pace_s_per_km": 629.0764461074102
@@ -3627,6 +4095,8 @@
     "timezone": "",
     "distance_m": 3453.23,
     "duration_s": 2204,
+    "moving_time_s": 2087,
+    "elevation_gain_m": 0,
     "avg_hr": 120,
     "max_hr": 144,
     "avg_pace_s_per_km": 638.2430362298486
@@ -3640,6 +4110,8 @@
     "timezone": "",
     "distance_m": 3008.12,
     "duration_s": 1848,
+    "moving_time_s": 1742,
+    "elevation_gain_m": 0,
     "avg_hr": 117,
     "max_hr": 126,
     "avg_pace_s_per_km": 614.3371939949204
@@ -3653,6 +4125,8 @@
     "timezone": "",
     "distance_m": 1233.5,
     "duration_s": 1424,
+    "moving_time_s": 637,
+    "elevation_gain_m": 0,
     "avg_hr": 97,
     "max_hr": 118,
     "avg_pace_s_per_km": 1154.4385893798135
@@ -3666,6 +4140,8 @@
     "timezone": "",
     "distance_m": 9023.44,
     "duration_s": 6986,
+    "moving_time_s": 6425,
+    "elevation_gain_m": 4.313753999999999,
     "avg_hr": 121,
     "max_hr": 147,
     "avg_pace_s_per_km": 774.2058461074712
@@ -3679,6 +4155,8 @@
     "timezone": "",
     "distance_m": 6655.15,
     "duration_s": 5105,
+    "moving_time_s": 4458,
+    "elevation_gain_m": 0,
     "avg_hr": 115,
     "max_hr": 132,
     "avg_pace_s_per_km": 767.0751222737279
@@ -3692,6 +4170,8 @@
     "timezone": "",
     "distance_m": 1257.63,
     "duration_s": 967,
+    "moving_time_s": 795,
+    "elevation_gain_m": 0,
     "avg_hr": 106,
     "max_hr": 122,
     "avg_pace_s_per_km": 768.9065941493126
@@ -3705,6 +4185,8 @@
     "timezone": "",
     "distance_m": 1538.43,
     "duration_s": 1250,
+    "moving_time_s": 1136,
+    "elevation_gain_m": 0,
     "avg_hr": 110,
     "max_hr": 120,
     "avg_pace_s_per_km": 812.5166565914601
@@ -3718,6 +4200,8 @@
     "timezone": "",
     "distance_m": 2001.12,
     "duration_s": 3368,
+    "moving_time_s": 2232,
+    "elevation_gain_m": 4.087703000000001,
     "avg_hr": 106,
     "max_hr": 127,
     "avg_pace_s_per_km": 1683.0574878068282
@@ -3731,6 +4215,8 @@
     "timezone": "",
     "distance_m": 5076.889999999999,
     "duration_s": 1948,
+    "moving_time_s": 1948,
+    "elevation_gain_m": 5.443355,
     "avg_hr": 168,
     "max_hr": 180,
     "avg_pace_s_per_km": 383.69946955715017
@@ -3744,6 +4230,8 @@
     "timezone": "",
     "distance_m": 1288.5,
     "duration_s": 1009,
+    "moving_time_s": 1006,
+    "elevation_gain_m": 0,
     "avg_hr": 99,
     "max_hr": 112,
     "avg_pace_s_per_km": 783.081102056655
@@ -3757,6 +4245,8 @@
     "timezone": "",
     "distance_m": 4281.16,
     "duration_s": 3181,
+    "moving_time_s": 3181,
+    "elevation_gain_m": 0,
     "avg_hr": 101,
     "max_hr": 111,
     "avg_pace_s_per_km": 743.0229190219474
@@ -3770,6 +4260,8 @@
     "timezone": "",
     "distance_m": 5589.8099999999995,
     "duration_s": 2206,
+    "moving_time_s": 2205,
+    "elevation_gain_m": 0,
     "avg_hr": 164,
     "max_hr": 182,
     "avg_pace_s_per_km": 394.64668745449313
@@ -3783,6 +4275,8 @@
     "timezone": "",
     "distance_m": 1699.68,
     "duration_s": 3315,
+    "moving_time_s": 984,
+    "elevation_gain_m": 0,
     "avg_hr": 93,
     "max_hr": 142,
     "avg_pace_s_per_km": 1950.367127929963
@@ -3796,6 +4290,8 @@
     "timezone": "",
     "distance_m": 3566.09,
     "duration_s": 1401,
+    "moving_time_s": 1401,
+    "elevation_gain_m": 0,
     "avg_hr": 164,
     "max_hr": 184,
     "avg_pace_s_per_km": 392.86725797722437
@@ -3809,6 +4305,8 @@
     "timezone": "",
     "distance_m": 1556.24,
     "duration_s": 2789,
+    "moving_time_s": 1041,
+    "elevation_gain_m": 2.710443,
     "avg_hr": 102,
     "max_hr": 128,
     "avg_pace_s_per_km": 1792.1400298154526
@@ -3822,6 +4320,8 @@
     "timezone": "",
     "distance_m": 2753.4100000000003,
     "duration_s": 1620,
+    "moving_time_s": 1613,
+    "elevation_gain_m": 0,
     "avg_hr": 118,
     "max_hr": 118,
     "avg_pace_s_per_km": 588.3613410280343
@@ -3835,6 +4335,8 @@
     "timezone": "",
     "distance_m": 3124.01,
     "duration_s": 2064,
+    "moving_time_s": 2001,
+    "elevation_gain_m": 0,
     "avg_hr": 115,
     "max_hr": 134,
     "avg_pace_s_per_km": 660.6893063722587
@@ -3848,6 +4350,8 @@
     "timezone": "",
     "distance_m": 950.511,
     "duration_s": 867,
+    "moving_time_s": 695,
+    "elevation_gain_m": 0,
     "avg_hr": 95,
     "max_hr": 108,
     "avg_pace_s_per_km": 912.140943134798
@@ -3861,6 +4365,8 @@
     "timezone": "",
     "distance_m": 4802.53,
     "duration_s": 2981,
+    "moving_time_s": 2876,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 116,
     "avg_pace_s_per_km": 620.7144983998018
@@ -3874,6 +4380,8 @@
     "timezone": "",
     "distance_m": 3035.4700000000003,
     "duration_s": 1810,
+    "moving_time_s": 1810,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 117,
     "avg_pace_s_per_km": 596.283277383733
@@ -3887,6 +4395,8 @@
     "timezone": "",
     "distance_m": 2051.32,
     "duration_s": 840,
+    "moving_time_s": 840,
+    "elevation_gain_m": 0,
     "avg_hr": 149,
     "max_hr": 166,
     "avg_pace_s_per_km": 409.49242439014876
@@ -3900,6 +4410,8 @@
     "timezone": "",
     "distance_m": 539.468,
     "duration_s": 373,
+    "moving_time_s": 354,
+    "elevation_gain_m": 0,
     "avg_hr": 100,
     "max_hr": 106,
     "avg_pace_s_per_km": 691.4219193724189
@@ -3913,6 +4425,8 @@
     "timezone": "",
     "distance_m": 1433.57,
     "duration_s": 849,
+    "moving_time_s": 849,
+    "elevation_gain_m": 0,
     "avg_hr": 108,
     "max_hr": 145,
     "avg_pace_s_per_km": 592.2277949454857
@@ -3926,6 +4440,8 @@
     "timezone": "",
     "distance_m": 5238.88,
     "duration_s": 3439,
+    "moving_time_s": 3260,
+    "elevation_gain_m": 0,
     "avg_hr": 106,
     "max_hr": 118,
     "avg_pace_s_per_km": 656.4380172861376
@@ -3939,6 +4455,8 @@
     "timezone": "",
     "distance_m": 2699.97,
     "duration_s": 1501,
+    "moving_time_s": 1501,
+    "elevation_gain_m": 0,
     "avg_hr": 120,
     "max_hr": 129,
     "avg_pace_s_per_km": 555.932102949292
@@ -3952,6 +4470,8 @@
     "timezone": "",
     "distance_m": 4565.37,
     "duration_s": 2003,
+    "moving_time_s": 2003,
+    "elevation_gain_m": 0,
     "avg_hr": 144,
     "max_hr": 164,
     "avg_pace_s_per_km": 438.7377145773508
@@ -3965,6 +4485,8 @@
     "timezone": "",
     "distance_m": 2583.44,
     "duration_s": 1352,
+    "moving_time_s": 1330,
+    "elevation_gain_m": 0,
     "avg_hr": 121,
     "max_hr": 129,
     "avg_pace_s_per_km": 523.3332301117889
@@ -3978,6 +4500,8 @@
     "timezone": "",
     "distance_m": 4739.28,
     "duration_s": 2075,
+    "moving_time_s": 2074,
+    "elevation_gain_m": 0,
     "avg_hr": 143,
     "max_hr": 171,
     "avg_pace_s_per_km": 437.83021893620975
@@ -3991,6 +4515,8 @@
     "timezone": "",
     "distance_m": 3047.34,
     "duration_s": 1371,
+    "moving_time_s": 1370,
+    "elevation_gain_m": 0,
     "avg_hr": 140,
     "max_hr": 175,
     "avg_pace_s_per_km": 449.9005690208509
@@ -4004,6 +4530,8 @@
     "timezone": "",
     "distance_m": 3602.2599999999998,
     "duration_s": 1623,
+    "moving_time_s": 1623,
+    "elevation_gain_m": 0,
     "avg_hr": 132,
     "max_hr": 162,
     "avg_pace_s_per_km": 450.5504877493574
@@ -4030,6 +4558,8 @@
     "timezone": "",
     "distance_m": 4073.7300000000005,
     "duration_s": 1681,
+    "moving_time_s": 1681,
+    "elevation_gain_m": 0,
     "avg_hr": 152,
     "max_hr": 178,
     "avg_pace_s_per_km": 412.6439405655259
@@ -4043,6 +4573,8 @@
     "timezone": "",
     "distance_m": 3564.33,
     "duration_s": 1525,
+    "moving_time_s": 1525,
+    "elevation_gain_m": 0,
     "avg_hr": 137,
     "max_hr": 153,
     "avg_pace_s_per_km": 427.85039544598845
@@ -4056,6 +4588,8 @@
     "timezone": "",
     "distance_m": 3354.52,
     "duration_s": 1324,
+    "moving_time_s": 1323,
+    "elevation_gain_m": 0,
     "avg_hr": 151,
     "max_hr": 179,
     "avg_pace_s_per_km": 394.69134183132013
@@ -4069,6 +4603,8 @@
     "timezone": "",
     "distance_m": 3270.63,
     "duration_s": 1221,
+    "moving_time_s": 1221,
+    "elevation_gain_m": 0,
     "avg_hr": 157,
     "max_hr": 174,
     "avg_pace_s_per_km": 373.32257088083946
@@ -4082,6 +4618,8 @@
     "timezone": "",
     "distance_m": 3161.07,
     "duration_s": 1225,
+    "moving_time_s": 1225,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 176,
     "avg_pace_s_per_km": 387.52700825986136
@@ -4106,6 +4644,8 @@
     "timezone": "",
     "distance_m": 3160.4100000000003,
     "duration_s": 1218,
+    "moving_time_s": 1218,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 177,
     "avg_pace_s_per_km": 385.3930344480621
@@ -4119,6 +4659,8 @@
     "timezone": "",
     "distance_m": 3554.4500000000003,
     "duration_s": 1375,
+    "moving_time_s": 1375,
+    "elevation_gain_m": 0,
     "avg_hr": 164,
     "max_hr": 178,
     "avg_pace_s_per_km": 386.83903276174937
@@ -4132,6 +4674,8 @@
     "timezone": "",
     "distance_m": 3032.3199999999997,
     "duration_s": 1262,
+    "moving_time_s": 1262,
+    "elevation_gain_m": 0,
     "avg_hr": 153,
     "max_hr": 171,
     "avg_pace_s_per_km": 416.182988602786
@@ -4145,6 +4689,8 @@
     "timezone": "",
     "distance_m": 3060.14,
     "duration_s": 1222,
+    "moving_time_s": 1222,
+    "elevation_gain_m": 0,
     "avg_hr": 152,
     "max_hr": 173,
     "avg_pace_s_per_km": 399.3281353140706
@@ -4158,6 +4704,8 @@
     "timezone": "",
     "distance_m": 1893.36,
     "duration_s": 7245,
+    "moving_time_s": 1760,
+    "elevation_gain_m": 0,
     "avg_hr": 102,
     "max_hr": 166,
     "avg_pace_s_per_km": 3826.5306122448983
@@ -4171,6 +4719,8 @@
     "timezone": "",
     "distance_m": 5105.33,
     "duration_s": 2050,
+    "moving_time_s": 2048,
+    "elevation_gain_m": 0,
     "avg_hr": 169,
     "max_hr": 185,
     "avg_pace_s_per_km": 401.5411344614354
@@ -4184,6 +4734,8 @@
     "timezone": "",
     "distance_m": 3605.94,
     "duration_s": 1338,
+    "moving_time_s": 1338,
+    "elevation_gain_m": 0,
     "avg_hr": 163,
     "max_hr": 178,
     "avg_pace_s_per_km": 371.0544268623438
@@ -4197,6 +4749,8 @@
     "timezone": "",
     "distance_m": 462.165,
     "duration_s": 306,
+    "moving_time_s": 306,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 114,
     "avg_pace_s_per_km": 662.101197624225
@@ -4210,6 +4764,8 @@
     "timezone": "",
     "distance_m": 4019.5499999999997,
     "duration_s": 2763,
+    "moving_time_s": 2548,
+    "elevation_gain_m": 0,
     "avg_hr": 108,
     "max_hr": 133,
     "avg_pace_s_per_km": 687.3903795200956
@@ -4223,6 +4779,8 @@
     "timezone": "",
     "distance_m": 2117.44,
     "duration_s": 831,
+    "moving_time_s": 831,
+    "elevation_gain_m": 0,
     "avg_hr": 144,
     "max_hr": 159,
     "avg_pace_s_per_km": 392.4550400483602
@@ -4236,6 +4794,8 @@
     "timezone": "",
     "distance_m": 3186.79,
     "duration_s": 1244,
+    "moving_time_s": 1244,
+    "elevation_gain_m": 0,
     "avg_hr": 147,
     "max_hr": 161,
     "avg_pace_s_per_km": 390.3614609058018
@@ -4249,6 +4809,8 @@
     "timezone": "",
     "distance_m": 5812.1,
     "duration_s": 2166,
+    "moving_time_s": 2166,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 175,
     "avg_pace_s_per_km": 372.67080745341616
@@ -4262,6 +4824,8 @@
     "timezone": "",
     "distance_m": 3031.7799999999997,
     "duration_s": 1141,
+    "moving_time_s": 1141,
+    "elevation_gain_m": 0,
     "avg_hr": 147,
     "max_hr": 161,
     "avg_pace_s_per_km": 376.3465686824242
@@ -4275,6 +4839,8 @@
     "timezone": "",
     "distance_m": 5827.68,
     "duration_s": 2130,
+    "moving_time_s": 2130,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 179,
     "avg_pace_s_per_km": 365.4970760233918
@@ -4288,6 +4854,8 @@
     "timezone": "",
     "distance_m": 4074.9500000000003,
     "duration_s": 1526,
+    "moving_time_s": 1526,
+    "elevation_gain_m": 0,
     "avg_hr": 146,
     "max_hr": 173,
     "avg_pace_s_per_km": 374.4831224923005
@@ -4301,6 +4869,8 @@
     "timezone": "",
     "distance_m": 8266.59,
     "duration_s": 3077,
+    "moving_time_s": 3073,
+    "elevation_gain_m": 0,
     "avg_hr": 160,
     "max_hr": 185,
     "avg_pace_s_per_km": 372.22119398687965
@@ -4314,6 +4884,8 @@
     "timezone": "",
     "distance_m": 3103.58,
     "duration_s": 1148,
+    "moving_time_s": 1148,
+    "elevation_gain_m": 0,
     "avg_hr": 153,
     "max_hr": 169,
     "avg_pace_s_per_km": 369.8954111058842
@@ -4327,6 +4899,8 @@
     "timezone": "",
     "distance_m": 5598.93,
     "duration_s": 2074,
+    "moving_time_s": 2074,
+    "elevation_gain_m": 0,
     "avg_hr": 159,
     "max_hr": 182,
     "avg_pace_s_per_km": 370.42792104920045
@@ -4340,6 +4914,8 @@
     "timezone": "",
     "distance_m": 5786.49,
     "duration_s": 2227,
+    "moving_time_s": 2227,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 174,
     "avg_pace_s_per_km": 384.8619802332675
@@ -4353,6 +4929,8 @@
     "timezone": "",
     "distance_m": 3116.6800000000003,
     "duration_s": 1296,
+    "moving_time_s": 1296,
+    "elevation_gain_m": 0,
     "avg_hr": 145,
     "max_hr": 160,
     "avg_pace_s_per_km": 415.8270980658906
@@ -4366,6 +4944,8 @@
     "timezone": "",
     "distance_m": 1793.82,
     "duration_s": 1233,
+    "moving_time_s": 1165,
+    "elevation_gain_m": 0,
     "avg_hr": 105,
     "max_hr": 113,
     "avg_pace_s_per_km": 687.3599357795097
@@ -4379,6 +4959,8 @@
     "timezone": "",
     "distance_m": 2903.35,
     "duration_s": 2116,
+    "moving_time_s": 1963,
+    "elevation_gain_m": 0,
     "avg_hr": 107,
     "max_hr": 129,
     "avg_pace_s_per_km": 728.8132674324487
@@ -4392,6 +4974,8 @@
     "timezone": "",
     "distance_m": 4833.71,
     "duration_s": 1909,
+    "moving_time_s": 1907,
+    "elevation_gain_m": 0,
     "avg_hr": 158,
     "max_hr": 172,
     "avg_pace_s_per_km": 394.93473956857156
@@ -4405,6 +4989,8 @@
     "timezone": "",
     "distance_m": 5794.7699999999995,
     "duration_s": 2338,
+    "moving_time_s": 2338,
+    "elevation_gain_m": 0,
     "avg_hr": 157,
     "max_hr": 169,
     "avg_pace_s_per_km": 403.467264447079
@@ -4442,6 +5028,8 @@
     "timezone": "",
     "distance_m": 4161.72,
     "duration_s": 1672,
+    "moving_time_s": 1642,
+    "elevation_gain_m": 0,
     "avg_hr": 155,
     "max_hr": 171,
     "avg_pace_s_per_km": 401.75696586988073
@@ -4455,6 +5043,8 @@
     "timezone": "",
     "distance_m": 3121.83,
     "duration_s": 1252,
+    "moving_time_s": 1252,
+    "elevation_gain_m": 0,
     "avg_hr": 150,
     "max_hr": 164,
     "avg_pace_s_per_km": 401.0468218961314
@@ -4468,6 +5058,8 @@
     "timezone": "",
     "distance_m": 5217.28,
     "duration_s": 2061,
+    "moving_time_s": 2060,
+    "elevation_gain_m": 0,
     "avg_hr": 156,
     "max_hr": 173,
     "avg_pace_s_per_km": 395.03342737978414
@@ -4507,6 +5099,8 @@
     "timezone": "",
     "distance_m": 2549.0400000000004,
     "duration_s": 1900,
+    "moving_time_s": 1567,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 117,
     "avg_pace_s_per_km": 745.3786523553963
@@ -4557,6 +5151,8 @@
     "timezone": "",
     "distance_m": 5368.0599999999995,
     "duration_s": 2044,
+    "moving_time_s": 2043,
+    "elevation_gain_m": 0,
     "avg_hr": 151,
     "max_hr": 154,
     "avg_pace_s_per_km": 380.77070673576674
@@ -4609,6 +5205,8 @@
     "timezone": "",
     "distance_m": 5632.98,
     "duration_s": 4981,
+    "moving_time_s": 4531,
+    "elevation_gain_m": 0,
     "avg_hr": 101,
     "max_hr": 126,
     "avg_pace_s_per_km": 884.2566456831021
@@ -4622,6 +5220,8 @@
     "timezone": "",
     "distance_m": 756.582,
     "duration_s": 522,
+    "moving_time_s": 522,
+    "elevation_gain_m": 0,
     "avg_hr": 123,
     "max_hr": 157,
     "avg_pace_s_per_km": 689.9450423086989
@@ -4635,6 +5235,8 @@
     "timezone": "",
     "distance_m": 7577.18,
     "duration_s": 2738,
+    "moving_time_s": 2738,
+    "elevation_gain_m": 0,
     "avg_hr": 166,
     "max_hr": 177,
     "avg_pace_s_per_km": 361.3481532707419
@@ -4661,6 +5263,8 @@
     "timezone": "",
     "distance_m": 3951.81,
     "duration_s": 4511,
+    "moving_time_s": 2590,
+    "elevation_gain_m": 0,
     "avg_hr": 105,
     "max_hr": 156,
     "avg_pace_s_per_km": 1141.502248336838
@@ -4674,6 +5278,8 @@
     "timezone": "",
     "distance_m": 1054.54,
     "duration_s": 409,
+    "moving_time_s": 409,
+    "elevation_gain_m": 0,
     "avg_hr": 141,
     "max_hr": 164,
     "avg_pace_s_per_km": 387.8468336905191
@@ -4735,6 +5341,8 @@
     "timezone": "",
     "distance_m": 10029.7,
     "duration_s": 3513,
+    "moving_time_s": 3513,
+    "elevation_gain_m": 0,
     "avg_hr": 169,
     "max_hr": 182,
     "avg_pace_s_per_km": 350.2597286060401
@@ -4787,6 +5395,8 @@
     "timezone": "",
     "distance_m": 2261.11,
     "duration_s": 1650,
+    "moving_time_s": 1434,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 126,
     "avg_pace_s_per_km": 729.7300883194538
@@ -4813,6 +5423,8 @@
     "timezone": "",
     "distance_m": 1176.0600000000002,
     "duration_s": 1042,
+    "moving_time_s": 119,
+    "elevation_gain_m": 0,
     "avg_hr": 120,
     "max_hr": 135,
     "avg_pace_s_per_km": 886.0092172168086
@@ -4852,6 +5464,7 @@
     "timezone": "",
     "distance_m": 858.24,
     "duration_s": 628,
+    "elevation_gain_m": 0,
     "avg_hr": 105,
     "max_hr": 117,
     "avg_pace_s_per_km": 731.7300521998509
@@ -4865,6 +5478,8 @@
     "timezone": "",
     "distance_m": 2306.41,
     "duration_s": 1911,
+    "moving_time_s": 1006,
+    "elevation_gain_m": 0,
     "avg_hr": 102,
     "max_hr": 109,
     "avg_pace_s_per_km": 828.5604033974878
@@ -4878,6 +5493,8 @@
     "timezone": "",
     "distance_m": 1095.6,
     "duration_s": 1354,
+    "moving_time_s": 206,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 128,
     "avg_pace_s_per_km": 1235.852500912742
@@ -4904,6 +5521,8 @@
     "timezone": "",
     "distance_m": 1689.25,
     "duration_s": 1656,
+    "moving_time_s": 595,
+    "elevation_gain_m": 0,
     "avg_hr": 103,
     "max_hr": 121,
     "avg_pace_s_per_km": 980.3167085984905
@@ -4930,6 +5549,8 @@
     "timezone": "",
     "distance_m": 3382.13,
     "duration_s": 1772,
+    "moving_time_s": 1738,
+    "elevation_gain_m": 0,
     "avg_hr": 147,
     "max_hr": 155,
     "avg_pace_s_per_km": 523.9301860070428
@@ -4943,6 +5564,8 @@
     "timezone": "",
     "distance_m": 2349.85,
     "duration_s": 1061,
+    "moving_time_s": 995,
+    "elevation_gain_m": 0,
     "avg_hr": 164,
     "max_hr": 175,
     "avg_pace_s_per_km": 451.51818201161774
@@ -4956,6 +5579,8 @@
     "timezone": "",
     "distance_m": 3047,
     "duration_s": 1166,
+    "moving_time_s": 1152,
+    "elevation_gain_m": 0,
     "avg_hr": 146,
     "max_hr": 166,
     "avg_pace_s_per_km": 382.6714801444043
@@ -4969,6 +5594,8 @@
     "timezone": "",
     "distance_m": 1909.6200000000001,
     "duration_s": 1463,
+    "moving_time_s": 694,
+    "elevation_gain_m": 0,
     "avg_hr": 98,
     "max_hr": 116,
     "avg_pace_s_per_km": 766.1210083681569
@@ -4982,6 +5609,8 @@
     "timezone": "",
     "distance_m": 2642.2400000000002,
     "duration_s": 2021,
+    "moving_time_s": 1007,
+    "elevation_gain_m": 0,
     "avg_hr": 101,
     "max_hr": 120,
     "avg_pace_s_per_km": 764.8813128254814
@@ -5021,6 +5650,8 @@
     "timezone": "",
     "distance_m": 869.934,
     "duration_s": 730,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 108,
     "max_hr": 129,
     "avg_pace_s_per_km": 839.144118979141
@@ -5047,6 +5678,8 @@
     "timezone": "",
     "distance_m": 1040.64,
     "duration_s": 852,
+    "moving_time_s": 0,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 129,
     "avg_pace_s_per_km": 818.7269372693727
@@ -5060,6 +5693,8 @@
     "timezone": "",
     "distance_m": 14437.2,
     "duration_s": 10822,
+    "moving_time_s": 9518,
+    "elevation_gain_m": 0,
     "avg_hr": 100,
     "max_hr": 119,
     "avg_pace_s_per_km": 749.5913334995705
@@ -5073,6 +5708,8 @@
     "timezone": "",
     "distance_m": 1147.33,
     "duration_s": 1129,
+    "moving_time_s": 145,
+    "elevation_gain_m": 0,
     "avg_hr": 98,
     "max_hr": 120,
     "avg_pace_s_per_km": 984.0237769429895
@@ -5099,6 +5736,8 @@
     "timezone": "",
     "distance_m": 886.97,
     "duration_s": 807,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 112,
     "max_hr": 137,
     "avg_pace_s_per_km": 909.8391151899162
@@ -5112,6 +5751,8 @@
     "timezone": "",
     "distance_m": 790.978,
     "duration_s": 773,
+    "moving_time_s": 52,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 132,
     "avg_pace_s_per_km": 977.2711756837738
@@ -5125,6 +5766,8 @@
     "timezone": "",
     "distance_m": 1120.2,
     "duration_s": 1259,
+    "moving_time_s": 162,
+    "elevation_gain_m": 0,
     "avg_hr": 100,
     "max_hr": 123,
     "avg_pace_s_per_km": 1123.906445277629
@@ -5138,6 +5781,8 @@
     "timezone": "",
     "distance_m": 640.46,
     "duration_s": 611,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 86,
     "max_hr": 96,
     "avg_pace_s_per_km": 954.0018111982013
@@ -5164,6 +5809,8 @@
     "timezone": "",
     "distance_m": 750.995,
     "duration_s": 812,
+    "moving_time_s": 0,
+    "elevation_gain_m": 0,
     "avg_hr": 103,
     "max_hr": 116,
     "avg_pace_s_per_km": 1081.2322319056718
@@ -5177,6 +5824,8 @@
     "timezone": "",
     "distance_m": 941.624,
     "duration_s": 620,
+    "moving_time_s": 12,
+    "elevation_gain_m": 0,
     "avg_hr": 110,
     "max_hr": 126,
     "avg_pace_s_per_km": 658.4369132477507
@@ -5190,6 +5839,8 @@
     "timezone": "",
     "distance_m": 937.669,
     "duration_s": 1443,
+    "moving_time_s": 661,
+    "elevation_gain_m": 28.492187,
     "avg_hr": 100,
     "max_hr": 129,
     "avg_pace_s_per_km": 1538.9225835556044
@@ -5203,6 +5854,8 @@
     "timezone": "",
     "distance_m": 1065.8000000000002,
     "duration_s": 959,
+    "moving_time_s": 79,
+    "elevation_gain_m": 0,
     "avg_hr": 106,
     "max_hr": 135,
     "avg_pace_s_per_km": 899.793582285607
@@ -5216,6 +5869,8 @@
     "timezone": "",
     "distance_m": 1519.19,
     "duration_s": 1288,
+    "moving_time_s": 337,
+    "elevation_gain_m": 0,
     "avg_hr": 100,
     "max_hr": 109,
     "avg_pace_s_per_km": 847.8202199856502
@@ -5242,6 +5897,8 @@
     "timezone": "",
     "distance_m": 1487.62,
     "duration_s": 1216,
+    "moving_time_s": 261,
+    "elevation_gain_m": 0,
     "avg_hr": 105,
     "max_hr": 121,
     "avg_pace_s_per_km": 817.4130490313387
@@ -5255,6 +5912,8 @@
     "timezone": "",
     "distance_m": 1711.53,
     "duration_s": 1902,
+    "moving_time_s": 702,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 116,
     "avg_pace_s_per_km": 1111.2863928765491
@@ -5268,6 +5927,8 @@
     "timezone": "",
     "distance_m": 776.359,
     "duration_s": 610,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 114,
     "max_hr": 133,
     "avg_pace_s_per_km": 785.718977947058
@@ -5281,6 +5942,8 @@
     "timezone": "",
     "distance_m": 967.814,
     "duration_s": 973,
+    "moving_time_s": 37,
+    "elevation_gain_m": 0,
     "avg_hr": 100,
     "max_hr": 124,
     "avg_pace_s_per_km": 1005.3584676394431
@@ -5307,6 +5970,8 @@
     "timezone": "",
     "distance_m": 819.551,
     "duration_s": 607,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 125,
     "avg_pace_s_per_km": 740.6494531761904
@@ -5320,6 +5985,8 @@
     "timezone": "",
     "distance_m": 1005.79,
     "duration_s": 1183,
+    "moving_time_s": 442,
+    "elevation_gain_m": 0,
     "avg_hr": 91,
     "max_hr": 108,
     "avg_pace_s_per_km": 1176.1898607065093
@@ -5333,6 +6000,8 @@
     "timezone": "",
     "distance_m": 771.4309999999999,
     "duration_s": 610,
+    "moving_time_s": 4,
+    "elevation_gain_m": 0,
     "avg_hr": 101,
     "max_hr": 106,
     "avg_pace_s_per_km": 790.738251379579
@@ -5346,6 +6015,8 @@
     "timezone": "",
     "distance_m": 3151.52,
     "duration_s": 2211,
+    "moving_time_s": 1082,
+    "elevation_gain_m": 0,
     "avg_hr": 108,
     "max_hr": 131,
     "avg_pace_s_per_km": 701.5662283596487
@@ -5359,6 +6030,8 @@
     "timezone": "",
     "distance_m": 1319.47,
     "duration_s": 1551,
+    "moving_time_s": 148,
+    "elevation_gain_m": 0,
     "avg_hr": 103,
     "max_hr": 137,
     "avg_pace_s_per_km": 1175.4719698060585
@@ -5372,6 +6045,8 @@
     "timezone": "",
     "distance_m": 898.204,
     "duration_s": 664,
+    "moving_time_s": 26,
+    "elevation_gain_m": 0,
     "avg_hr": 101,
     "max_hr": 122,
     "avg_pace_s_per_km": 739.2529982053074
@@ -5385,6 +6060,8 @@
     "timezone": "",
     "distance_m": 1079.52,
     "duration_s": 744,
+    "moving_time_s": 139,
+    "elevation_gain_m": 0,
     "avg_hr": 108,
     "max_hr": 117,
     "avg_pace_s_per_km": 689.1951978657181
@@ -5398,6 +6075,8 @@
     "timezone": "",
     "distance_m": 894.098,
     "duration_s": 714,
+    "moving_time_s": 69,
+    "elevation_gain_m": 0,
     "avg_hr": 107,
     "max_hr": 123,
     "avg_pace_s_per_km": 798.5701791078831
@@ -5424,6 +6103,8 @@
     "timezone": "",
     "distance_m": 761.972,
     "duration_s": 791,
+    "moving_time_s": 0,
+    "elevation_gain_m": 0,
     "avg_hr": 112,
     "max_hr": 136,
     "avg_pace_s_per_km": 1038.0958880378807
@@ -5437,6 +6118,8 @@
     "timezone": "",
     "distance_m": 2643.91,
     "duration_s": 2194,
+    "moving_time_s": 263,
+    "elevation_gain_m": 0,
     "avg_hr": 103,
     "max_hr": 126,
     "avg_pace_s_per_km": 829.8315752049049
@@ -5463,6 +6146,7 @@
     "timezone": "",
     "distance_m": 810.431,
     "duration_s": 606,
+    "elevation_gain_m": 0,
     "avg_hr": 112,
     "max_hr": 120,
     "avg_pace_s_per_km": 747.7502711520166
@@ -5476,6 +6160,7 @@
     "timezone": "",
     "distance_m": 861.909,
     "duration_s": 618,
+    "elevation_gain_m": 0,
     "avg_hr": 107,
     "max_hr": 127,
     "avg_pace_s_per_km": 717.0130489413615
@@ -5489,6 +6174,8 @@
     "timezone": "",
     "distance_m": 1216.04,
     "duration_s": 1184,
+    "moving_time_s": 221,
+    "elevation_gain_m": 0,
     "avg_hr": 99,
     "max_hr": 124,
     "avg_pace_s_per_km": 973.6521824939969
@@ -5528,6 +6215,7 @@
     "timezone": "",
     "distance_m": 1205.1000000000001,
     "duration_s": 1090,
+    "elevation_gain_m": 0,
     "avg_hr": 110,
     "max_hr": 128,
     "avg_pace_s_per_km": 904.4892540038171
@@ -5554,6 +6242,8 @@
     "timezone": "",
     "distance_m": 852.037,
     "duration_s": 608,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 132,
     "avg_pace_s_per_km": 713.5840344961545
@@ -5567,6 +6257,8 @@
     "timezone": "",
     "distance_m": 1121.49,
     "duration_s": 1519,
+    "moving_time_s": 217,
+    "elevation_gain_m": 0,
     "avg_hr": 110,
     "max_hr": 157,
     "avg_pace_s_per_km": 1354.448100295143
@@ -5580,6 +6272,8 @@
     "timezone": "",
     "distance_m": 863.0830000000001,
     "duration_s": 606,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 126,
     "avg_pace_s_per_km": 702.1340937082529
@@ -5606,6 +6300,8 @@
     "timezone": "",
     "distance_m": 884.7239999999999,
     "duration_s": 645,
+    "moving_time_s": 0,
+    "elevation_gain_m": 0,
     "avg_hr": 92,
     "max_hr": 95,
     "avg_pace_s_per_km": 729.0409212364534
@@ -5630,6 +6326,8 @@
     "timezone": "",
     "distance_m": 914.292,
     "duration_s": 653,
+    "moving_time_s": 44,
+    "elevation_gain_m": 0,
     "avg_hr": 105,
     "max_hr": 131,
     "avg_pace_s_per_km": 714.2138397798515
@@ -5643,6 +6341,8 @@
     "timezone": "",
     "distance_m": 945.704,
     "duration_s": 612,
+    "moving_time_s": 3,
+    "elevation_gain_m": 0,
     "avg_hr": 116,
     "max_hr": 124,
     "avg_pace_s_per_km": 647.1369477130265
@@ -5682,6 +6382,8 @@
     "timezone": "",
     "distance_m": 1001.59,
     "duration_s": 667,
+    "moving_time_s": 61,
+    "elevation_gain_m": 0,
     "avg_hr": 116,
     "max_hr": 129,
     "avg_pace_s_per_km": 665.9411535658303
@@ -5695,6 +6397,8 @@
     "timezone": "",
     "distance_m": 912.2249999999999,
     "duration_s": 797,
+    "moving_time_s": 193,
+    "elevation_gain_m": 0,
     "avg_hr": 106,
     "max_hr": 112,
     "avg_pace_s_per_km": 873.6879607552962
@@ -5721,6 +6425,8 @@
     "timezone": "",
     "distance_m": 884.057,
     "duration_s": 715,
+    "moving_time_s": 109,
+    "elevation_gain_m": 0,
     "avg_hr": 101,
     "max_hr": 109,
     "avg_pace_s_per_km": 808.7713801259421
@@ -5747,6 +6453,8 @@
     "timezone": "",
     "distance_m": 1220.76,
     "duration_s": 1126,
+    "moving_time_s": 205,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 128,
     "avg_pace_s_per_km": 922.3762246469412
@@ -5760,6 +6468,8 @@
     "timezone": "",
     "distance_m": 783.4179999999999,
     "duration_s": 608,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 102,
     "max_hr": 111,
     "avg_pace_s_per_km": 776.0863293924828
@@ -5810,6 +6520,8 @@
     "timezone": "",
     "distance_m": 992.18,
     "duration_s": 890,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 104,
     "max_hr": 128,
     "avg_pace_s_per_km": 897.014654598964
@@ -5823,6 +6535,8 @@
     "timezone": "",
     "distance_m": 1044.87,
     "duration_s": 769,
+    "moving_time_s": 704,
+    "elevation_gain_m": 0,
     "avg_hr": 118,
     "max_hr": 126,
     "avg_pace_s_per_km": 735.9767243771953
@@ -5849,6 +6563,8 @@
     "timezone": "",
     "distance_m": 857.125,
     "duration_s": 609,
+    "moving_time_s": 1,
+    "elevation_gain_m": 0,
     "avg_hr": 100,
     "max_hr": 106,
     "avg_pace_s_per_km": 710.5148023917164
@@ -5888,6 +6604,8 @@
     "timezone": "",
     "distance_m": 1129.42,
     "duration_s": 956,
+    "moving_time_s": 48,
+    "elevation_gain_m": 0,
     "avg_hr": 109,
     "max_hr": 137,
     "avg_pace_s_per_km": 846.4521612863239
@@ -5901,6 +6619,8 @@
     "timezone": "",
     "distance_m": 2608.67,
     "duration_s": 2978,
+    "moving_time_s": 1238,
+    "elevation_gain_m": 0,
     "avg_hr": 98,
     "max_hr": 109,
     "avg_pace_s_per_km": 1141.5778921826065
@@ -5927,6 +6647,8 @@
     "timezone": "",
     "distance_m": 1069.01,
     "duration_s": 862,
+    "moving_time_s": 655,
+    "elevation_gain_m": 0,
     "avg_hr": 122,
     "max_hr": 148,
     "avg_pace_s_per_km": 806.3535420622819
@@ -5953,6 +6675,8 @@
     "timezone": "",
     "distance_m": 720.288,
     "duration_s": 642,
+    "moving_time_s": 15,
+    "elevation_gain_m": 0,
     "avg_hr": 111,
     "max_hr": 127,
     "avg_pace_s_per_km": 891.3101426096227
@@ -5966,6 +6690,8 @@
     "timezone": "",
     "distance_m": 1140.32,
     "duration_s": 844,
+    "moving_time_s": 136,
+    "elevation_gain_m": 0,
     "avg_hr": 113,
     "max_hr": 120,
     "avg_pace_s_per_km": 740.1431177213414
@@ -6018,6 +6744,8 @@
     "timezone": "",
     "distance_m": 1088.33,
     "duration_s": 895,
+    "moving_time_s": 0,
+    "elevation_gain_m": 0,
     "avg_hr": 94,
     "max_hr": 109,
     "avg_pace_s_per_km": 822.3608648112245
@@ -6044,6 +6772,8 @@
     "timezone": "",
     "distance_m": 1120.26,
     "duration_s": 902,
+    "moving_time_s": 5,
+    "elevation_gain_m": 0,
     "avg_hr": 100,
     "max_hr": 112,
     "avg_pace_s_per_km": 805.1702283398497
@@ -6057,6 +6787,8 @@
     "timezone": "",
     "distance_m": 1074.8500000000001,
     "duration_s": 1022,
+    "moving_time_s": 741,
+    "elevation_gain_m": 0,
     "avg_hr": 119,
     "max_hr": 144,
     "avg_pace_s_per_km": 950.8303484207098
@@ -6083,6 +6815,8 @@
     "timezone": "",
     "distance_m": 1003.0300000000001,
     "duration_s": 1102,
+    "moving_time_s": 65,
+    "elevation_gain_m": 0,
     "avg_hr": 101,
     "max_hr": 131,
     "avg_pace_s_per_km": 1098.6710267888297
@@ -6096,6 +6830,8 @@
     "timezone": "",
     "distance_m": 1133.45,
     "duration_s": 912,
+    "moving_time_s": 19,
+    "elevation_gain_m": 0,
     "avg_hr": 107,
     "max_hr": 114,
     "avg_pace_s_per_km": 804.6230535091976
@@ -6161,6 +6897,8 @@
     "timezone": "",
     "distance_m": 847.8299999999999,
     "duration_s": 672,
+    "moving_time_s": 0,
+    "elevation_gain_m": 0,
     "avg_hr": 112,
     "max_hr": 128,
     "avg_pace_s_per_km": 792.6117264074167
@@ -6174,6 +6912,8 @@
     "timezone": "",
     "distance_m": 1168.48,
     "duration_s": 1140,
+    "moving_time_s": 719,
+    "elevation_gain_m": 0,
     "avg_hr": 120,
     "max_hr": 142,
     "avg_pace_s_per_km": 975.6264548815556
@@ -6222,6 +6962,8 @@
     "timezone": "",
     "distance_m": 990.317,
     "duration_s": 951,
+    "moving_time_s": 25,
+    "elevation_gain_m": 0,
     "avg_hr": 112,
     "max_hr": 141,
     "avg_pace_s_per_km": 960.298571063609
@@ -6235,6 +6977,8 @@
     "timezone": "",
     "distance_m": 1595.17,
     "duration_s": 1942,
+    "moving_time_s": 169,
+    "elevation_gain_m": 0,
     "avg_hr": 102,
     "max_hr": 115,
     "avg_pace_s_per_km": 1217.4251020267432
@@ -6261,6 +7005,8 @@
     "timezone": "",
     "distance_m": 850.885,
     "duration_s": 640,
+    "moving_time_s": 0,
+    "elevation_gain_m": 0,
     "avg_hr": 112,
     "max_hr": 130,
     "avg_pace_s_per_km": 752.1580472096699
@@ -6274,6 +7020,8 @@
     "timezone": "",
     "distance_m": 1141.65,
     "duration_s": 969,
+    "moving_time_s": 62,
+    "elevation_gain_m": 0,
     "avg_hr": 115,
     "max_hr": 133,
     "avg_pace_s_per_km": 848.7715149126265
@@ -6300,6 +7048,8 @@
     "timezone": "",
     "distance_m": 970.718,
     "duration_s": 679,
+    "moving_time_s": 644,
+    "elevation_gain_m": 0,
     "avg_hr": 107,
     "max_hr": 118,
     "avg_pace_s_per_km": 699.4822389200572
@@ -6313,6 +7063,8 @@
     "timezone": "",
     "distance_m": 905.5640000000001,
     "duration_s": 655,
+    "moving_time_s": 46,
+    "elevation_gain_m": 0,
     "avg_hr": 122,
     "max_hr": 129,
     "avg_pace_s_per_km": 723.3061384949048
@@ -6326,6 +7078,8 @@
     "timezone": "",
     "distance_m": 857.904,
     "duration_s": 900,
+    "moving_time_s": 531,
+    "elevation_gain_m": 0,
     "avg_hr": 106,
     "max_hr": 134,
     "avg_pace_s_per_km": 1049.0684272366138
@@ -6339,6 +7093,8 @@
     "timezone": "",
     "distance_m": 860.388,
     "duration_s": 927,
+    "moving_time_s": 651,
+    "elevation_gain_m": 0,
     "avg_hr": 114,
     "max_hr": 140,
     "avg_pace_s_per_km": 1077.420884531165
