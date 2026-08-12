@@ -52,6 +52,8 @@ type ActivityDetailLap struct {
 	AvgPaceSPerKM *float64   `json:"avg_pace_s_per_km,omitempty"`
 }
 
+const activityDetailMaxRoutePoints = 300
+
 // ActivityDetails exports the complete detail projection for every activity
 // in the public snapshot. Publication scope is decided by the caller by
 // passing the snapshot's activity list; there is no hidden editorial gate.
@@ -118,6 +120,26 @@ func toActivityDetailRoute(points []models.ActivityRoutePoint, includeRoutes boo
 			SpeedMPS:   point.SpeedMPS,
 			HeartRate:  point.HeartRate,
 		})
+	}
+	return decimateActivityDetailRoute(out)
+}
+
+// decimateActivityDetailRoute keeps charts useful without duplicating every
+// raw GPS point already present in routes.geojson. The first and last points
+// remain stable so distance and pace trends still cover the whole activity.
+func decimateActivityDetailRoute(points []ActivityDetailRoutePoint) []ActivityDetailRoutePoint {
+	if len(points) <= activityDetailMaxRoutePoints {
+		return points
+	}
+
+	stride := (len(points) + activityDetailMaxRoutePoints - 1) / activityDetailMaxRoutePoints
+	out := make([]ActivityDetailRoutePoint, 0, activityDetailMaxRoutePoints+1)
+	for i := 0; i < len(points); i += stride {
+		out = append(out, points[i])
+	}
+	last := points[len(points)-1]
+	if out[len(out)-1].Seq != last.Seq {
+		out = append(out, last)
 	}
 	return out
 }

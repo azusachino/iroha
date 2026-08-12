@@ -38,6 +38,21 @@ func TestToActivityDetailLapsFiltersPlaceholderRows(t *testing.T) {
 	}
 }
 
+func TestDecimateActivityDetailRouteKeepsEndpoints(t *testing.T) {
+	points := make([]ActivityDetailRoutePoint, activityDetailMaxRoutePoints+50)
+	for i := range points {
+		points[i].Seq = i
+	}
+
+	got := decimateActivityDetailRoute(points)
+	if len(got) > activityDetailMaxRoutePoints+1 {
+		t.Fatalf("expected at most %d points, got %d", activityDetailMaxRoutePoints+1, len(got))
+	}
+	if got[0].Seq != 0 || got[len(got)-1].Seq != len(points)-1 {
+		t.Fatalf("expected endpoints to survive, got first=%d last=%d", got[0].Seq, got[len(got)-1].Seq)
+	}
+}
+
 func TestValidateActivityDetails_AcceptsAnyPublicActivityID(t *testing.T) {
 	id := "act_0198f8f0-0000-7000-8000-000000000000"
 	if err := ValidateActivityDetails(map[string]ActivityDetail{
