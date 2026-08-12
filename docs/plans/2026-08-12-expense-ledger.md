@@ -1,363 +1,388 @@
-# Iroha v0.4 Expense Ledger Implementation Plan
+# Iroha v0.4 Expense Ledger Plan v2
 
-> Status: draft for review. This document turns the v0.4 roadmap item into an implementation contract; it does not authorize implementation or deployment.
+> Status: draft for review. This is the simplified implementation contract; it does not authorize implementation or deployment.
 
-## Objective
+## Decision in one sentence
 
-Add a private expense ledger to iroha with a deliberately explicit pipeline:
+Local agents read receipt images and produce structured JSON; Telegram presents and confirms that draft; Iroha accepts only canonical expense JSON and deterministically validates, stores, aggregates,
+and reports it.
 
 ```text
-collect -> canonicalize -> aggregate -> represent -> report
+Telegram or CLI -> local agent (optional OCR/vision) -> user confirmation -> Iroha API -> reports
 ```
 
-Iroha owns the durable evidence boundary, canonical records, idempotency, corrections, and read/report APIs. Suzuran remains the Telegram client. An agent CLI may inspect receipt evidence and propose
-a candidate, but an agent is never the ledger of record.
+Iroha does not run OCR, invoke an LLM, store agent candidates, manage intake state, or own Telegram conversations.
 
-The first release should make typed expenses excellent and make receipt intake safe and reviewable. It should not turn iroha into a Telegram bot, an OCR platform, an accounting system, or a
-foreign-exchange service.
+## What changed from v1
+
+The following are removed from the v0.4 design:
+
+- `tb_expense_intakes` and `tb_expense_candidates`.
+- Iroha-side intake/candidate state machines.
+- An Iroha canonicalization job or OCR worker.
+- Separate revision and mutation tables.
+- Natural-language expense text in the Iroha API.
+- Receipt upload/download through Iroha.
+
+The v0.4 ledger has one canonical table and a small stable API. Agent drafts live in the local agent or Suzuran's short-lived conversation state and disappear after confirmation, cancellation, or
+expiry.
 
 ## User stories
 
-### Typed Telegram expense
+### Quick Telegram expense
 
-As a user, I can send `/expense 800 JPY food ramen` to Telegram and receive a compact confirmation containing the amount, date, category, and description.
+As a user, I can type `/expense 1300 JPY`, choose a category, optionally enter a merchant or note, and confirm a compact preview without filling in a table.
 
-As a user, retrying the same Telegram update does not create a second expense.
+As a user, I can retry the same Telegram update without creating a duplicate expense.
 
-As a user, I can correct or undo an expense later, and reports reflect the correction without destroying the original history.
+As a user, I can list today's or this month's expenses and correct or undo one from Telegram.
 
-### Receipt and agent-assisted intake
+### Receipt through a local agent
 
-As a user, I can send a receipt image to Telegram and see that it is awaiting review rather than receiving an unverified ledger entry.
+As a user, I can send a receipt photo to Telegram. A local agent reads it, and Telegram shows me the extracted date, total, currency, category, merchant, and item list before saving.
 
-As an agent, I can pull the original receipt, run OCR or vision locally or through an approved provider, and submit a structured candidate with confidence and field-level evidence.
+As a user, I can confirm, edit, or cancel the draft. An OCR or model error never becomes a ledger entry without my confirmation.
 
-As a user, I can inspect and confirm, edit, or reject that candidate before it becomes a canonical expense.
+As an operator, I can run the same extraction and submission workflow from a local CLI without Telegram.
 
-As an operator, I can retry candidate submission safely and know whether the request was accepted, duplicated, or rejected as a conflicting retry.
+### Deterministic ledger
 
-### Reports and representation
+As a client, I can submit one canonical JSON document and receive the same expense record on a safe retry.
 
-As a user, I can see weekly and monthly totals grouped by category and currency, with an explicit timezone boundary.
+As a user, I can see weekly and monthly totals grouped by category and currency, with an explicit period boundary.
 
-As a user, I can distinguish a ledger total from activity, sleep, and media totals in the Overview and report views.
-
-As a privacy-conscious user, I can rely on expenses being excluded from the public export unless a separately designed sanitized projection is explicitly enabled.
+As a privacy-conscious user, I can rely on expense records remaining out of the public export by default.
 
 ## Scope and non-goals
 
 In scope:
 
-- Text and receipt-image intake through external clients.
-- A reusable raw-intake, candidate, confirmation, and canonical-record boundary.
-- Integer minor-unit money, ISO-like currency codes, date-only expense dates, and auditable corrections.
-- Weekly/monthly totals by category and currency.
-- A small agent CLI for pull, propose, confirm, and report workflows.
-- Suzuran migration from its local `tb_expenses` table to iroha's ledger.
+- One canonical expense record with date, money, category, merchant, note, optional item list, and source reference.
+- Deterministic create, list, get, update, delete, and aggregate APIs.
+- Source-based idempotency for external clients.
+- A local CLI for validating/submitting agent JSON and reading reports.
+- Telegram conversational UX for quick expenses, receipt confirmation, listing, correction, and undo.
+- Suzuran migration from its local `tb_expenses` table to Iroha.
 
-Explicitly out of scope for v0.4:
+Out of scope for v0.4:
 
-- Budgets, account reconciliation, bank/card synchronization, tax rules, and FX conversion.
-- Receipt line-item accounting; the first candidate is receipt-total only.
-- Voice intake, autonomous recurring-expense inference, and an always-on agent daemon.
-- OCR or an LLM dependency inside the iroha API or job worker.
-- Adding partial bearer authentication to an otherwise private API. If iroha is exposed outside the trusted network, full API authentication is a release prerequisite.
+- Budgets, bank/card synchronization, tax rules, reconciliation, and FX conversion.
+- Receipt line-item accounting. The item list is descriptive; the top-level total is authoritative.
+- Voice input, autonomous approval, recurring-expense inference, and an always-on model daemon.
+- OCR or an LLM dependency inside Iroha.
+- Receipt bytes or OCR evidence stored in Iroha.
+- Partial bearer authentication. Iroha remains private-network-only under the current deployment model; full authentication is required before external exposure.
 
-## Existing boundaries to preserve
+## Ownership boundaries
 
-- Suzuran is the Telegram adapter and already has an Iroha client and an allowlist. It should call iroha rather than write the expense ledger directly.
-- Iroha already has `tb_intake_payloads` for raw payload metadata/content and `tb_jobs` for durable asynchronous work. Reuse them instead of creating a second raw-upload or queue abstraction.
-- Iroha's current private API relies on the network boundary. v0.4 keeps that deployment assumption explicit; no misleading half-authenticated endpoint should be added.
-- Public export is a separate projection. Expense tables must not be joined into it by accident.
-- The Svelte Overview has multiple curated themes. Any new expense representation must be wired through every theme's contributor data, not only the default theme.
+| Concern                                      | Owner                          | Required behavior                                                                                           |
+| -------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Telegram messages, buttons, and conversation | Suzuran                        | Collect fields, show previews, handle confirmation/edit/cancel.                                             |
+| Receipt OCR/vision                           | Configured local agent command | Read the image, return a draft JSON document, never call Iroha directly without confirmation.               |
+| Draft lifetime                               | Suzuran/agent local state      | Store only long enough to confirm; use existing Valkey conversation state with a short TTL where available. |
+| Canonical validation                         | Iroha                          | Validate every field and reject malformed or unsupported data.                                              |
+| Canonical storage                            | Iroha                          | Store only confirmed client submissions.                                                                    |
+| Idempotency                                  | Iroha database constraint      | Use `(source.kind, source.ref)` as the stable external identity.                                            |
+| Aggregation/reporting                        | Iroha                          | Query active records deterministically; no client-side reimplementation of totals.                          |
+| Image retention                              | Local deployment               | Clean temporary files after extraction or cancellation; Iroha never receives the image.                     |
 
-## Pipeline contract
+## Canonical data format
 
-| Stage        | Owner                                        | Durable output                             | Boundary                                                                              |
-| ------------ | -------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Collect      | Suzuran, CLI, future clients                 | `tb_intake_payloads`, `tb_expense_intakes` | Preserve original bytes/text and stable source event ID.                              |
-| Canonicalize | Iroha deterministic parser or external agent | `tb_expense_candidates`                    | Candidate data is untrusted until confirmed.                                          |
-| Aggregate    | Iroha query/service                          | SQL result, no second ledger               | Aggregate only active canonical records; no FX conversion.                            |
-| Represent    | Iroha API and Svelte UI                      | API response/view model                    | Show status and source; never imply OCR is certain.                                   |
-| Report       | Iroha report API and Suzuran briefing        | Weekly/monthly response                    | Bound periods by the configured report timezone and return currency-separated totals. |
+Iroha accepts structured JSON only. Natural-language text such as `800 JPY food ramen` belongs to the Telegram/client layer and is never an Iroha request body.
 
-### State machines
+### Create request
 
-An intake moves through:
-
-```text
-received -> canonicalizing -> awaiting_agent -> awaiting_confirmation
-                                      |                    |
-                                      +-> failed           +-> confirmed
-                                                           +-> rejected
+```http
+POST /api/v1/expenses
+Content-Type: application/json
 ```
 
-Typed text that the deterministic parser can fully understand may go directly from `canonicalizing` to `confirmed` because the user explicitly supplied the expense command. An image or ambiguous text
-must stop at `awaiting_agent` or `awaiting_confirmation`.
+```json
+{
+  "occurred_on": "2026-08-12",
+  "currency": "JPY",
+  "amount_minor": 1300,
+  "category": "food",
+  "merchant": "Ramen Shop",
+  "note": "Lunch",
+  "items": [
+    { "name": "Ramen", "amount_minor": 800 },
+    { "name": "Gyoza", "amount_minor": 500 }
+  ],
+  "source": {
+    "kind": "telegram",
+    "ref": "photo:12345:67890"
+  }
+}
+```
 
-A candidate is `proposed`, `accepted`, `rejected`, or `superseded`. A canonical expense is active until it is deleted by an auditable tombstone; updates create revisions rather than silently replacing
-history.
+### Field rules
 
-## Storage design
+- `occurred_on` is required and uses `YYYY-MM-DD`. The client asks the user when the date is uncertain; Iroha does not infer it from a free-form string.
+- `currency` is required, uppercase, and three letters. v0.4 supports a small explicit currency metadata table for formatting; it performs no conversion between currencies.
+- `amount_minor` is required, positive, and an integer. JPY `1300` is `1300`; USD `$13.00` is `1300`. Floating-point amounts are rejected.
+- `category` is required and must be one of `food`, `groceries`, `transport`, `shopping`, `housing`, `utilities`, `health`, `entertainment`, `subscriptions`, `work`, or `other`.
+- `merchant` and `note` are optional strings with length limits. Empty strings normalize to null or the database default consistently.
+- `items` is optional. Each item has a required non-empty `name` and an optional non-negative `amount_minor`. Item amounts are descriptive and are not required to sum to the top-level total because
+  tax, discounts, tips, and rounding exist.
+- `source` is required. `kind` identifies the client (`telegram`, `local_agent`, `cli`, or `suzuran_legacy`); `ref` is an opaque stable identifier and must not contain a local filesystem path or
+  receipt contents.
 
-Add a new explicit Goose migration, proposed as `apps/iroha-server/db/migrations/00007_expense_ledger.sql`. The exact sequence number must be checked against the migration directory when
-implementation starts.
+The top-level amount is always authoritative for reports. The item list is for display and later refinement, not double-entry accounting.
 
-### Reuse `tb_intake_payloads`
+### Response
 
-For each intake, create one existing `tb_intake_payloads` row with:
+The create response is the canonical stored record:
 
-- `source_kind`: `telegram`, `cli`, or another registered client kind.
-- `source_actor`: existing actor classification, normally `connector` or `user`.
-- `source_event_id`: required for external retries; for Telegram use `telegram:<chat_id>:<message_id>`.
-- `content_type`, `sha256`, `size_bytes`, and `storage_path`/`payload_json` as appropriate.
+```json
+{
+  "id": "exp_01k...",
+  "occurred_on": "2026-08-12",
+  "currency": "JPY",
+  "amount_minor": 1300,
+  "category": "food",
+  "merchant": "Ramen Shop",
+  "note": "Lunch",
+  "items": [
+    { "name": "Ramen", "amount_minor": 800 },
+    { "name": "Gyoza", "amount_minor": 500 }
+  ],
+  "source": {
+    "kind": "telegram",
+    "ref": "photo:12345:67890"
+  },
+  "created_at": "2026-08-12T10:30:00Z",
+  "updated_at": "2026-08-12T10:30:00Z",
+  "deleted_at": null
+}
+```
 
-Receipt content remains private. The content-download endpoint must bypass the read cache, must not log the body, and must use the existing raw-storage policy.
+## Iroha storage
 
-### New tables
+Add one explicit Goose migration, using the next available number in `apps/iroha-server/db/migrations/` when implementation starts. Do not add intake, candidate, revision, or mutation tables.
 
-`tb_expense_intakes`:
+`tb_expenses` should contain:
 
 - UUIDv7 `id`.
-- Unique `intake_payload_id`.
-- `status`, `error_message`, `created_at`, `updated_at`, `completed_at`.
-- Index status and creation time for worker/review queues.
-
-`tb_expense_candidates`:
-
-- UUIDv7 `id` and `intake_id`.
-- `status`, `extractor_kind`, `extractor_version`.
-- `candidate_json` containing normalized proposed fields.
-- `confidence_json` and `evidence_json` containing field-level confidence and short source locations, never a duplicated receipt.
-- `created_at`, `updated_at`.
-
-`tb_expenses`:
-
-- UUIDv7 `id`, `intake_id`, and optional accepted `candidate_id`.
-- `amount_minor bigint`, `currency text`, `occurred_on date`.
-- `category text`, `merchant text`, and `description text`.
-- `source_kind` and `source_event_id` copied for efficient display/audit.
+- `occurred_on date not null`.
+- `currency text not null` and `amount_minor bigint not null` with a positive-value check.
+- `category text not null` with application validation and a database check where practical.
+- `merchant text not null default ''` and `note text not null default ''`.
+- `items_json jsonb not null default '[]'`.
+- `source_kind text not null`, `source_ref text not null`.
 - `created_at`, `updated_at`, and nullable `deleted_at`.
-- Index `(occurred_on, currency)` and `(category, occurred_on)`.
+- Unique `(source_kind, source_ref)` for safe client retries.
+- Indexes for `(occurred_on, currency)`, `(category, occurred_on)`, and active records.
 
-`tb_expense_revisions`:
+Deletion is a tombstone (`deleted_at`), not a hard delete, so a Telegram undo cannot make a later retry recreate the same source event. `GET` and aggregates exclude deleted records by default. There
+is no revision history in v0.4; a later audit requirement can add it deliberately.
 
-- UUIDv7 `id`, `expense_id`, monotonically increasing `revision_no`.
-- `operation` (`create`, `update`, `delete`, `restore` if later approved).
-- Complete post-operation `snapshot_json`.
-- `actor_kind`, `actor_id`, optional request/correlation ID, and `created_at`.
-- Append-only from the application; no destructive correction path.
+## HTTP API
 
-`tb_expense_mutations`:
+The active contract is `docs/contracts/openapi.yaml`. Route inventory tests and the OpenAPI document must change with the implementation.
 
-- UUIDv7 `id`, `expense_id`, `operation`, `idempotency_key`, `request_hash`, `response_json`, `created_at`.
-- Unique `(expense_id, operation, idempotency_key)`.
-- A reused key with a different request hash returns `409`, not a second mutation.
+### Endpoints
 
-Money is represented canonically as integer minor units. The parser accepts human decimal input and applies the currency exponent, but the API does not accept floating-point amounts. v0.4 stores
-`occurred_on` as a date; a report timezone is used only when an input omits a date and the client supplies a timestamp.
+- `POST /api/v1/expenses` creates or returns the canonical record for `(source.kind, source.ref)`.
+- `GET /api/v1/expenses` lists active records with `from`, `to`, `category`, `currency`, and pagination filters.
+- `GET /api/v1/expenses/{expenseId}` returns one record, including `deleted_at` when explicitly requested.
+- `PUT /api/v1/expenses/{expenseId}` replaces editable canonical fields after client confirmation. The full request body is validated again; the operation is naturally retryable with the same body.
+- `DELETE /api/v1/expenses/{expenseId}` sets `deleted_at`; repeating the request is a no-op success.
+- `GET /api/v1/expenses/aggregates?from=2026-08-01&to=2026-09-01&timezone=Asia/Tokyo` returns totals grouped by currency and category.
 
-## HTTP API contract
+Create behavior:
 
-The active contract is `docs/contracts/openapi.yaml`; route inventory and API tests must be updated in the same implementation slice.
+1. Validate JSON shape and all field rules.
+2. Normalize currency/category/strings and canonicalize the item list ordering only if the client contract requires it.
+3. Insert using the unique source constraint.
+4. On a duplicate source, compare the normalized request with the stored record. Return the existing record for an identical retry; return `409 Conflict` if the same source reference has different
+   data.
+5. Invalidate expense list, aggregate, report, and briefing caches after a successful create/update/delete.
 
-### Collect
+The API does not accept a generic `text` field, does not parse dates/categories/prices from prose, and does not call external services. Every client must submit the same canonical shape.
 
-`POST /api/v1/expense-intakes`
+## Local agent workflow
 
-Text JSON example:
+Receipt extraction is a deployment concern. The stable boundary is the draft JSON shape above minus the server-owned `id`, timestamps, and `deleted_at`.
 
-```json
-{
-  "source_kind": "telegram",
-  "source_event_id": "telegram:12345:67890",
-  "content_type": "text/plain",
-  "text": "800 JPY food ramen"
-}
+The configured local extractor has a narrow process contract:
+
+```text
+expense-agent extract --input /path/to/receipt.jpg --output-json
+  stdout: one JSON draft
+  stderr: diagnostics only; never receipt text or image bytes
+  exit 0: draft returned
+  exit nonzero: no draft; caller falls back to manual entry
 ```
 
-Receipt clients use multipart form data with the same source fields and one image file. The response is intentionally small:
+The extractor may use OCR, a local model, or an approved provider. Iroha does not know or care which one. The agent must map uncertain values to a user-visible draft and must not silently invent
+missing values.
 
-```json
-{
-  "id": "expint_01j...",
-  "status": "canonicalizing",
-  "duplicate": false
-}
-```
-
-The `(source_kind, source_event_id)` pair is the intake idempotency key. A retry returns the original intake and `duplicate: true`; the same key with different content returns `409`.
-
-`GET /api/v1/expense-intakes/{intakeId}` returns current status, candidate IDs, and a safe summary. `GET /api/v1/expense-intakes/{intakeId}/content` streams the original receipt for an authorized
-private client and is never cached.
-
-### Candidate proposal and review
-
-`POST /api/v1/expense-intakes/{intakeId}/candidates` accepts only structured proposals:
-
-```json
-{
-  "extractor_kind": "agent",
-  "extractor_version": "codex-2026-08-12",
-  "candidate": {
-    "amount_minor": 1200,
-    "currency": "JPY",
-    "occurred_on": "2026-08-12",
-    "category": "food",
-    "merchant": "7-Eleven",
-    "description": ""
-  },
-  "confidence": {
-    "amount_minor": 0.99,
-    "currency": 0.99,
-    "occurred_on": 0.94
-  },
-  "evidence": [{ "field": "amount_minor", "text": "¥1,200", "location": "receipt total" }]
-}
-```
-
-`POST /api/v1/expense-candidates/{candidateId}/confirm` and `/reject` require `Idempotency-Key`. Confirmation runs in one transaction: lock/check the candidate, create the expense, append its create
-revision, mark candidate/intake state, record the mutation, and invalidate affected report/briefing caches.
-
-### Canonical ledger and reports
-
-- `GET /api/v1/expenses` supports date range, category, currency, and active/deleted filtering.
-- `GET /api/v1/expenses/{expenseId}` returns the current snapshot and revision history summary.
-- `PATCH /api/v1/expenses/{expenseId}` requires an idempotency key and appends an update revision.
-- `DELETE /api/v1/expenses/{expenseId}` requires an idempotency key and creates a tombstone revision.
-- `GET /api/v1/expenses/aggregates?from=2026-08-01&to=2026-09-01&timezone=Asia/Tokyo` returns currency-separated total and category buckets.
-
-Aggregate responses must include the resolved `[from, to)` boundary and timezone. Empty periods return zero buckets or an explicit empty result consistently; this is a contract test, not a UI
-assumption.
-
-## Canonicalization and jobs
-
-Add `expense_canonicalize` to the existing runtime job kinds. The API enqueues a job with only an `intake_id`; the worker loads the private intake and writes a candidate or a terminal error.
-
-The deterministic parser should handle the first typed format, including amount, currency, optional category, optional note, and a date when supplied. It must reject ambiguous amounts and unsupported
-currencies rather than guessing.
-
-For images, the v0.4 worker records `awaiting_agent` and does not invoke an LLM, OCR service, or remote provider. The agent CLI is the first canonicalization client. This keeps secrets, provider
-choice, model versions, and receipt bytes outside the core ledger service.
-
-No agent proposal can create a canonical expense without confirmation. The explicit Telegram command may auto-confirm its deterministic candidate because the user supplied the fields directly; this
-policy must be visible in tests and API documentation.
-
-## Agent CLI workflow
-
-Create `scripts/expense_cli.py` using the existing Python 3.14/uv script convention and standard-library HTTP client. Default output is JSON for agent composition; `--format table` is a human
-convenience. Configuration is `IROHA_API_BASE` plus an optional future `IROHA_API_TOKEN`; v0.4 private-network mode does not require the token.
-
-The CLI is pull-based, not a daemon. A human or coding agent runs it after receiving an intake ID:
+A thin Iroha client script, proposed as `scripts/expense_cli.py`, handles validation, preview, submission, and reports:
 
 ```bash
-uv run python scripts/expense_cli.py intake create \
-  --file ./receipt.jpg \
-  --source-kind cli \
-  --source-event-id codex-session-20260812-receipt-01
-
-uv run python scripts/expense_cli.py intake content expint_01j... --output /tmp/receipt.jpg
-
-# The agent OCRs /tmp/receipt.jpg without logging the image or receipt text,
-# then writes the structured proposal to candidate.json.
-uv run python scripts/expense_cli.py candidate propose expint_01j... \
-  --input candidate.json \
-  --extractor-kind agent \
-  --extractor-version codex-2026-08-12
-
-uv run python scripts/expense_cli.py candidate show expcan_01j...
-uv run python scripts/expense_cli.py candidate confirm expcan_01j... \
-  --idempotency-key confirm:codex-session-20260812-receipt-01
+uv run python scripts/expense_cli.py validate --input draft.json
+uv run python scripts/expense_cli.py submit --input draft.json
+uv run python scripts/expense_cli.py list --from 2026-08-01 --to 2026-09-01
 uv run python scripts/expense_cli.py report month 2026-08
+uv run python scripts/expense_cli.py delete exp_01k...
 ```
 
-The CLI must require a caller-supplied stable source event ID for intake creation. It must not silently use a content hash as the deduplication key: two identical receipts can be legitimate separate
-expenses. It should print the generated intake/candidate/expense IDs and preserve nonzero exit status for `409`, failed, or awaiting-review states.
+It uses `IROHA_API_BASE`, emits JSON by default, supports `--format table` for humans, and never stores or prints the receipt image. The CLI does not become an autonomous daemon in v0.4.
 
-The CLI is an agent client, not an autonomous approver. Provider credentials and raw receipt data stay in the caller's environment; the CLI must not put them in logs, shell error messages, telemetry,
-or the repository.
+## Telegram UX in Suzuran
 
-## Telegram workflow and Suzuran cutover
+Telegram is a friendly input and review surface, not a form-driven copy of the database. Suzuran owns the conversation and calls the stable Iroha API only after it has a complete confirmed payload.
 
-For `/expense`, Suzuran creates the Telegram event key, calls the intake endpoint, waits for the candidate/confirmation result, and formats the compact response. For an image, it uploads the image,
-tells the user that review is pending, and later presents Confirm/Edit/Reject actions after an agent has proposed a candidate. Undo calls iroha's delete endpoint; it must no longer delete a local row.
+### Entry points
 
-Subscription auto-renewal events use a deterministic key such as `subscription:<subscription_id>:<renewal_date>`, so scheduler retries are safe.
+#### Quick typed expense
 
-The implementation must update all direct local-ledger paths in Suzuran, including:
+Fast path:
 
-- `src/suzuran/expenses.py` command/list/summary handlers.
-- `src/suzuran/callbacks.py` undo callback.
-- `src/suzuran/scheduler.py` subscription auto-renewal insertion.
-- `src/suzuran/briefing.py` weekly review and dashboard queries.
-- `src/suzuran/iroha.py` client methods and `src/suzuran/iroha_dialog.py`-style polling flow.
+```text
+/expense 1300 JPY
+```
 
-Before enabling the new write path, run a one-time backfill from Suzuran's local `tb_expenses`. Preserve the old numeric ID in the source event key, for example `legacy:<old_numeric_id>`, and record
-the original source as `suzuran_legacy`. Verify counts and currency/date/amount totals, then stop local writes. Do not dual-write indefinitely; it creates two ledgers with no reliable conflict
-resolution.
+Suzuran then presents category buttons (`Food`, `Groceries`, `Transport`, `Shopping`, `Bills`, `Health`, `Other`), asks optionally for merchant and note with a `Skip` button, and shows:
+
+```text
+Expense preview
+
+¥1,300 · Food
+Date: 2026-08-12
+Merchant: —
+Note: —
+
+[Save] [Edit] [Cancel]
+```
+
+The user may also send `/expense` with no arguments. Suzuran asks for `amount currency` in one message, then uses the same buttons and preview. It must not send the intermediate prose to Iroha.
+
+On `Save`, Suzuran submits the canonical JSON with:
+
+```json
+{ "kind": "telegram", "ref": "command:<chat_id>:<message_id>" }
+```
+
+The response message includes the Iroha expense ID, formatted amount, category, date, and an `Undo` button.
+
+#### Receipt photo
+
+1. User sends a photo or image document.
+2. Suzuran downloads it to a private temporary file with a size/type limit.
+3. Suzuran invokes the configured local `expense-agent extract` command.
+4. The agent returns draft JSON; Suzuran validates the draft locally and stores only the draft plus chat/message metadata in existing Valkey conversation state with a short TTL. The image is deleted
+   after extraction unless the configured agent needs a bounded retry.
+5. Suzuran replies with a preview:
+
+   ```text
+   Receipt draft
+
+   ¥1,300 · Food
+   Date: 2026-08-12
+   Merchant: Ramen Shop
+   Items: Ramen ¥800, Gyoza ¥500
+
+   [Confirm] [Edit] [Cancel]
+   ```
+
+6. `Confirm` submits the exact canonical JSON to Iroha using `source.ref = photo:<chat_id>:<message_id>`.
+7. `Edit` asks for one field at a time (date, total/currency, category, merchant, items, note), re-renders the preview, and returns to Confirm/Edit/Cancel.
+8. `Cancel`, TTL expiry, or successful submission removes the draft. A failed extractor produces a clear fallback: `I couldn't read this receipt. Send /expense to enter it manually.`
+
+The callback data must contain only a short draft token, not the JSON payload. Callback handlers verify chat ownership before reading Valkey state. A bot restart may lose an unconfirmed draft; the
+user can resend the photo, which is acceptable for v0.4 because no canonical record existed.
+
+#### Listing and correction
+
+- `/expenses` shows today's records and a total by currency, with buttons for `This week` and `This month`.
+- `/expenses 2026-08` shows the monthly list and aggregate from Iroha.
+- Each row has `Edit` and `Undo`. `Edit` runs the same field-by-field conversation and sends `PUT`; `Undo` confirms once and sends `DELETE`.
+- Reports are fetched from Iroha's aggregate endpoint; Suzuran does not sum local rows.
+
+### Telegram failure behavior
+
+- If Iroha is unavailable, keep the confirmed payload in a bounded retry queue owned by Suzuran and show `Saved locally, waiting to sync`; retry with the same source reference.
+- If the response is `409`, show the existing canonical record and do not create another one.
+- If the agent is unavailable or returns invalid JSON, offer manual entry immediately.
+- Never echo raw model diagnostics, receipt paths, provider errors, or image contents into Telegram logs.
+
+## Suzuran cutover
+
+Replace every direct local `tb_expenses` read/write path:
+
+- `src/suzuran/expenses.py`: commands call Iroha list/create/aggregate APIs.
+- `src/suzuran/callbacks.py`: undo calls Iroha delete.
+- `src/suzuran/scheduler.py`: subscription renewal creates an Iroha expense with a deterministic source reference such as `subscription:<subscription_id>:<renewal_date>`.
+- `src/suzuran/briefing.py`: weekly review and dashboard use Iroha reports.
+- `src/suzuran/iroha.py`: add the typed expense client methods and error/idempotency handling.
+- Add the local extractor command configuration and Valkey draft helpers in Suzuran; keep them out of Iroha.
+
+Before cutover, backfill Suzuran's existing local rows into Iroha with `source.kind = suzuran_legacy` and `source.ref = legacy:<old_numeric_id>`. Verify row counts and totals by currency/date. Stop
+local writes after the cutover; do not dual-write indefinitely.
 
 ## Representation and reporting
 
-Add an expense summary to the private Overview only after the API response is stable. Each theme must receive the same typed contributor data. The UI should display:
+Add private expense representation only after the API is stable:
 
-- current-period total grouped by currency;
-- top categories;
-- an explicit “expenses” label and link to the ledger/report view;
-- pending receipt count separately from confirmed totals.
+- Overview expense tile with current-period totals by currency.
+- Category breakdown and recent expenses.
+- Pending drafts are a Telegram/Suzuran concern and must not appear in Iroha totals.
+- All existing Svelte themes receive the same typed expense contributor data.
+- Public export remains expense-free by default, with a regression test covering a populated private ledger.
 
-Weekly/monthly report views should use the aggregate API rather than reimplementing SQL in Svelte or Suzuran. They must show the period boundary, timezone, currency, and whether deleted records are
-excluded.
-
-Keep expenses out of public export by default and add a regression test that a populated private ledger produces no expense records in the public projection.
+Aggregate responses include the resolved `[from, to)` range and timezone. There is no FX conversion; JPY, USD, and other currencies remain separate buckets.
 
 ## Implementation slices
 
-1. **Contract and storage:** migration, runtime models/ID prefixes, validation types, revision/idempotency tables, OpenAPI examples, and focused service tests.
-2. **Typed vertical slice:** deterministic text parser, intake/confirm/list/update/delete API, cache invalidation, and aggregate queries. Prove retry and correction behavior before touching receipts.
-3. **Agent receipt slice:** private content download, candidate proposal/review endpoints, CLI commands, awaiting-review state, and security tests for raw evidence handling.
-4. **Suzuran adapter and backfill:** replace local reads/writes, migrate scheduler and undo, backfill legacy rows, then run Telegram smoke tests.
-5. **Representation/reporting:** Overview tile, all theme wiring, report views, Suzuran briefing integration, and public-export exclusion test.
-6. **Release hardening:** integration tests, migration rollback rehearsal, deployment configuration, monitoring, documentation, and a v0.4 release note.
+1. **Canonical contract:** migration, runtime model/ID prefix, validation, create/list/get/update/delete service, source uniqueness, OpenAPI, and API tests.
+2. **Deterministic reporting:** aggregate queries, cache invalidation, timezone/range tests, and public-export exclusion.
+3. **Thin CLI:** validate/submit/list/report/delete commands and JSON/table output tests.
+4. **Telegram typed UX:** quick command, conversational fields, preview, confirm/save, edit, undo, list, and report.
+5. **Telegram receipt UX:** temporary image handling, configured extractor subprocess, Valkey draft TTL, preview/edit/confirm/cancel, and manual fallback.
+6. **Suzuran cutover:** client migration, subscription/briefing paths, legacy backfill, no-local-write assertion, and Telegram smoke tests.
+7. **Private UI and release hardening:** Overview/report views, all-theme wiring, migration rehearsal, monitoring, docs, and v0.4 release note.
 
-Each slice should leave the repository buildable and should be committed separately during implementation. This plan itself is only the contract slice.
+Each slice should be independently testable. The Iroha slices must remain deterministic and must not depend on the local extractor or Telegram being available.
 
 ## Verification matrix
 
-Iroha checks:
+Iroha:
 
-- Service/parser tests for amount parsing, currency validation, date defaults, ambiguous input, and candidate state transitions.
-- Database/API tests for concurrent duplicate intake, same-key/different-content conflict, confirmation idempotency, update/delete revisions, and cache invalidation.
-- Aggregate tests for timezone boundaries, multiple currencies, deleted rows, category grouping, and empty periods.
-- API contract tests and OpenAPI validation for every route.
+- Validation tests for required date/currency/amount/category/source, item shape, limits, and unsupported values.
+- Create tests for identical source retry, same source with different payload (`409`), concurrent duplicate creates, and deleted-source behavior.
+- Update/delete tests for full validation, tombstone filtering, and naturally retryable requests.
+- Aggregate tests for date boundaries, timezone parameter, multiple currencies, categories, deleted rows, and empty periods.
+- API route inventory and OpenAPI contract tests.
 - Public-export regression test proving expenses remain private.
-- CLI tests for JSON output, multipart upload, nonzero failure states, and no receipt/body logging.
-- `make check`, `make scripts-test`, and `make fmt-docs-check`; use `make test-integration` when the database is available.
+- `scripts/expense_cli.py` tests for validation, JSON output, HTTP errors, and no receipt logging.
+- `make fmt-docs-check` and `make check`; use `make test-integration` when the database is available.
 
-Suzuran checks:
+Suzuran:
 
-- Client tests for intake retry, candidate polling, confirm/edit/reject, undo, and scheduler idempotency.
-- Backfill dry-run totals and post-cutover assertion that no handler writes local `tb_expenses`.
-- `make check` in Suzuran plus a Telegram integration smoke test in the private deployment.
+- Conversation tests for quick entry, category buttons, optional fields, preview, save, edit, cancel, undo, and monthly report.
+- Fake extractor tests for valid draft, malformed output, timeout, missing date, and missing total.
+- Valkey draft ownership/TTL tests and callback-token tests.
+- Iroha client tests for retry, `409`, unavailable-server queueing, and subscription source references.
+- Backfill dry-run totals and post-cutover assertion that handlers no longer write local `tb_expenses`.
+- `make check` and a private Telegram integration smoke test.
 
-Cross-repo acceptance:
+Acceptance flow:
 
-1. Send one typed Telegram expense and retry the same update.
-2. Upload one receipt, propose a candidate through the CLI, and confirm it from Telegram or the CLI.
-3. Correct and undo it; verify revision history and report totals.
-4. Verify an empty month, a multi-currency month, and a timezone boundary.
+1. Send `/expense 1300 JPY`, choose Food, save, and retry the same update.
+2. Send a receipt photo, inspect the local-agent draft in Telegram, edit one field, and confirm it.
+3. List the expense, edit it, undo it, and verify it disappears from reports.
+4. Verify a month containing JPY and USD produces separate totals.
 5. Verify public export contains no expense data.
 
 ## Approval gates
 
-Before implementation begins, confirm these decisions:
-
-1. **Trust boundary:** v0.4 stays private-network-only; full API authentication is a prerequisite for any external exposure.
-2. **Money model:** integer minor units, no FX, and currency-separated totals.
-3. **Date model:** date-only `occurred_on` for v0.4, with an explicit report timezone.
-4. **Receipt scope:** receipt total only; no line items.
-5. **Agent policy:** external/pull-based OCR or vision; agent proposals require human confirmation.
-6. **Ledger ownership:** Suzuran's local table is backfilled and retired; iroha becomes the canonical ledger.
-7. **Release shape:** typed expenses are the first shippable vertical slice; receipt-agent flow follows as a separately verifiable slice.
-
-If the desired v0.4 is smaller, defer the receipt-agent slice and ship only typed intake, canonical records, corrections, aggregates, and reports. The storage boundary should still retain enough
-provenance to add receipt candidates later without redesigning `tb_expenses`.
+1. Iroha receives canonical JSON only; OCR/vision is outside Iroha.
+2. The stable required fields are `occurred_on`, `currency`, `amount_minor`, `category`, `source`, with optional `merchant`, `note`, and `items`.
+3. The top-level amount is authoritative; item lists are descriptive and optional.
+4. Source identity `(source.kind, source.ref)` is the only v0.4 create-idempotency mechanism; no mutation table is needed.
+5. Telegram owns preview and confirmation; an unconfirmed agent draft is never sent to Iroha.
+6. Receipt images stay local and temporary; Iroha stores no raw image or OCR evidence.
+7. Suzuran's local ledger is backfilled and retired; Iroha becomes the canonical ledger.
+8. Typed Telegram entry is the first shippable vertical slice; receipt-agent UX follows without changing the Iroha API.

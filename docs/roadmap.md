@@ -216,7 +216,7 @@ Goal: capture lightweight personal expenses from Telegram or another external cl
 
 The intake boundary follows Milestone 6: Telegram remains an external client, while iroha owns authentication, idempotency, canonical records, corrections, and read/report APIs.
 
-Implementation plan: [Expense Ledger implementation plan](plans/2026-08-12-expense-ledger.md).
+Implementation plan v2: [Expense Ledger implementation plan](plans/2026-08-12-expense-ledger.md).
 
 First vertical slice:
 
