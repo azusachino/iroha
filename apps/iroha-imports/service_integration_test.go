@@ -3,11 +3,14 @@
 package imports
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
+	"github.com/azusachino/iroha/apps/iroha-providers/anilist"
+	"github.com/azusachino/iroha/apps/iroha-providers/bangumi"
 	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
@@ -376,6 +379,85 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	db.Model(&models.MediaRelation{}).Where("relation_type = 'SEQUEL' and to_id in (select id from tb_media_items where title = ?)", titleA).Count(&relationCount)
 	if relationCount != 1 {
 		t.Fatalf("SEQUEL relations after re-sync = %d, want 1 (edge duplicated)", relationCount)
+	}
+}
+
+func TestIntegrationProviderMediaEventsPreserveTimestamps(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	svc := &Service{db: db}
+	suffix := uuid.New().String()
+
+	persist := func(t *testing.T, sourceKind string, media observations.Media) (models.MediaConsumptionEvent, models.MediaProgress) {
+		t.Helper()
+		rawFileID := uuid.New()
+		jobID := uuid.New()
+		now := time.Now().UTC()
+		if err := db.Create(&models.RawFile{ID: rawFileID, SHA256: "provider-events-" + suffix + sourceKind, OriginalFilename: sourceKind + ".json", StoragePath: "/tmp/" + sourceKind + ".json", SourceKind: sourceKind, UploadedVia: "integration", CreatedAt: now}).Error; err != nil {
+			t.Fatalf("create raw file: %v", err)
+		}
+		if err := db.Create(&models.ImportJob{ID: jobID, RawFileID: rawFileID, Status: StatusCompleted, ParserKind: sourceKind, ParserVersion: "provider-events-" + suffix, CreatedAt: now}).Error; err != nil {
+			t.Fatalf("create import job: %v", err)
+		}
+		snapshot := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "provider-events-snapshot-" + suffix + sourceKind, ParserVersion: DefaultParserVersion, CreatedAt: now}
+		if err := svc.persistMedia(models.RawFile{ID: rawFileID, SourceKind: sourceKind}, []observations.Media{media}, snapshot, false); err != nil {
+			t.Fatalf("persist provider media: %v", err)
+		}
+		var ref models.MediaExternalRef
+		if err := db.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&ref).Error; err != nil {
+			t.Fatalf("load provider ref: %v", err)
+		}
+		var event models.MediaConsumptionEvent
+		if err := db.Where("media_item_id = ?", ref.ScopeID).First(&event).Error; err != nil {
+			t.Fatalf("load provider event: %v", err)
+		}
+		var progress models.MediaProgress
+		if err := db.Where("media_item_id = ?", ref.ScopeID).First(&progress).Error; err != nil {
+			t.Fatalf("load provider progress: %v", err)
+		}
+		t.Cleanup(func() {
+			db.Exec("delete from tb_media_consumption_events where raw_file_id = ?", rawFileID)
+			db.Exec("delete from tb_media_list_items where media_item_id = ?", ref.ScopeID)
+			db.Exec("delete from tb_media_progress where media_item_id = ?", ref.ScopeID)
+			db.Exec("delete from tb_media_external_refs where id = ?", ref.ID)
+			db.Exec("delete from tb_media_items where id = ?", ref.ScopeID)
+			db.Exec("delete from tb_media_works where primary_title = ?", media.Title)
+			db.Exec("delete from tb_import_snapshots where raw_file_id = ?", rawFileID)
+			db.Exec("delete from tb_import_jobs where id = ?", jobID)
+			db.Exec("delete from tb_raw_files where id = ?", rawFileID)
+		})
+		return event, progress
+	}
+
+	aniEntries, err := anilist.ParseSnapshot([]byte(fmt.Sprintf(`{
+  "data": {"MediaListCollection": {"lists": [{"entries": [{
+    "id": 901, "status": "COMPLETED", "completedAt": {"year": 2026, "month": 8, "day": 10},
+    "media": {"id": 901, "type": "ANIME", "format": "TV", "title": {"romaji": "Ani %s"}}
+  }]}]}}
+}`, suffix)))
+	if err != nil {
+		t.Fatalf("parse AniList provider fixture: %v", err)
+	}
+	aniEvent, aniProgress := persist(t, parsers.KindAniList, aniEntries[0])
+	if aniEvent.EventAt != nil {
+		t.Fatalf("AniList list_state event_at = %v, want NULL", aniEvent.EventAt)
+	}
+	if aniProgress.FinishedAt == nil || aniProgress.FinishedAt.Format("2006-01-02") != "2026-08-10" {
+		t.Fatalf("AniList finished_at = %v, want 2026-08-10", aniProgress.FinishedAt)
+	}
+
+	bangumiEntries, err := bangumi.ParseSnapshot([]byte(fmt.Sprintf(`{
+  "total": 1, "data": [{"subject_type": 2, "type": 2, "updated_at": "2026-08-12T10:00:00+00:00",
+    "subject": {"id": 902, "name": "Bangumi %s"}}]
+}`, suffix)))
+	if err != nil {
+		t.Fatalf("parse Bangumi provider fixture: %v", err)
+	}
+	bgEvent, bgProgress := persist(t, parsers.KindBangumi, bangumiEntries[0])
+	if bgEvent.EventAt != nil {
+		t.Fatalf("Bangumi list_state event_at = %v, want NULL", bgEvent.EventAt)
+	}
+	if bgProgress.Status != "completed" || bgProgress.FinishedAt != nil {
+		t.Fatalf("Bangumi completion projection = status %q finished_at %v, want completed/NULL", bgProgress.Status, bgProgress.FinishedAt)
 	}
 }
 
