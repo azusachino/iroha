@@ -54,8 +54,8 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 			t.Fatalf("uploaded_via = %v, want cli", body["uploaded_via"])
 		}
 	})
-	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/raw_bad", "", http.StatusBadRequest, nil)
-	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/"+ids.Encode(ids.RawFilePrefix, uuid.New()), "", http.StatusNotFound, nil)
+	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/raw_bad", "", http.StatusBadRequest, assertErrorResponse(t, "invalid_raw_file_id", "invalid raw_file id"))
+	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/"+ids.Encode(ids.RawFilePrefix, uuid.New()), "", http.StatusNotFound, assertErrorResponse(t, "raw_file_not_found", "raw_file not found"))
 
 	var importID string
 	requestJSON(t, server, http.MethodPost, "/api/v1/imports", `{"raw_file_id":"`+rawID+`","parser_kind":"gpx"}`, http.StatusAccepted, func(body map[string]any) {
@@ -540,6 +540,18 @@ func requestJSON(t *testing.T, handler http.Handler, method string, path string,
 		check(normalized)
 	}
 	return normalized
+}
+
+func assertErrorResponse(t *testing.T, wantCode, wantMessage string) func(map[string]any) {
+	t.Helper()
+	return func(body map[string]any) {
+		if body["code"] != wantCode || body["message"] != wantMessage {
+			t.Errorf("error body = %#v, want code=%q message=%q", body, wantCode, wantMessage)
+		}
+		if requestID, ok := body["request_id"].(string); !ok || requestID == "" {
+			t.Errorf("error body has no request_id: %#v", body)
+		}
+	}
 }
 
 func normalizeJSON(value any) any {

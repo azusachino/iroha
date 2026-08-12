@@ -8,6 +8,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 type mediaListResponse struct {
@@ -168,7 +169,7 @@ func (s *Server) handleListMediaEvents(w http.ResponseWriter, r *http.Request) {
 	items := make([]mediaHomeEventResponse, 0, len(page.Items))
 	for _, event := range page.Items {
 		items = append(items, mediaHomeEventResponse{
-			ID: ids.Encode(ids.MediaPrefix, event.ID), MediaID: ids.Encode(ids.MediaPrefix, event.MediaItemID),
+			ID: mediaEventID(event.ID), MediaID: ids.Encode(ids.MediaPrefix, event.MediaItemID),
 			Title: event.Title, NativeTitle: event.NativeTitle, CoverImageURL: event.CoverImageURL, EventType: event.EventType,
 			OccurredAt: event.OccurredAt, Unit: event.Unit, Position: event.Position, Total: event.Total,
 			ProgressPercent: event.ProgressPercent, Rating: normalizedRating(event.Rating, event.RatingScale),
@@ -210,7 +211,7 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 	events := make([]mediaEventResponse, 0, len(detail.Events))
 	for _, event := range detail.Events {
 		events = append(events, mediaEventResponse{
-			ID: ids.Encode(ids.MediaPrefix, event.ID), EventType: event.EventType, EventAt: event.EventAt,
+			ID: mediaEventID(event.ID), EventType: event.EventType, EventAt: event.EventAt,
 			Unit: event.Unit, Position: event.Position, Total: event.Total,
 			ProgressPercent: event.ProgressPercent, Rating: normalizedRating(event.Rating, event.RatingScale),
 			Note: event.Note,
@@ -242,6 +243,10 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 		},
 		Progress: progress, Creators: creators, Relations: relations, Events: events,
 	})
+}
+
+func mediaEventID(id uuid.UUID) string {
+	return ids.Encode(ids.MediaEventPrefix, id)
 }
 
 func parseMediaFilters(w http.ResponseWriter, r *http.Request) (media.ListFilters, bool) {
