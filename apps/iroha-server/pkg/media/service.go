@@ -1,6 +1,8 @@
 package media
 
 import (
+	"errors"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -90,6 +92,33 @@ type Aggregates struct {
 	CompletionsByYear []CompletionBucket `json:"completions_by_year"`
 	ScoreDistribution []ScoreBucket      `json:"score_distribution"`
 	TypeSplit         []TypeBucket       `json:"type_split"`
+}
+
+type PeriodFilters struct {
+	From time.Time
+	To   time.Time
+}
+
+type PeriodKindTotal struct {
+	Kind           string
+	EventCount     int
+	CompletedCount int
+}
+
+type PeriodCompletedItem struct {
+	ID          uuid.UUID
+	Title       string
+	MediaType   string
+	CompletedAt time.Time
+}
+
+type PeriodReport struct {
+	EventCount     int
+	CompletedCount int
+	RatedCount     int
+	AverageRating  *float64
+	ByKind         []PeriodKindTotal
+	CompletedItems []PeriodCompletedItem
 }
 
 type WorkDetail struct {
@@ -183,6 +212,121 @@ type EventPage struct {
 
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
+	if !filters.From.Before(filters.To) {
+		return PeriodReport{}, errors.New("period from must be before to")
+	}
+
+	type aggregateRow struct {
+		Kind          string   `gorm:"column:kind"`
+		EventCount    int      `gorm:"column:event_count"`
+		RatedCount    int      `gorm:"column:rated_count"`
+		AverageRating *float64 `gorm:"column:average_rating"`
+	}
+	var aggregateRows []aggregateRow
+	if err := s.db.Raw(`
+		SELECT item.media_type AS kind,
+			count(*)::int AS event_count,
+			count(*) FILTER (WHERE event.rating IS NOT NULL AND event.rating_scale IS NOT NULL AND event.rating_scale <> 0)::int AS rated_count,
+			avg(least(greatest(event.rating / nullif(event.rating_scale, 0) * 10, 0), 10))
+				FILTER (WHERE event.rating IS NOT NULL AND event.rating_scale IS NOT NULL AND event.rating_scale <> 0) AS average_rating
+		FROM tb_media_consumption_events AS event
+		JOIN tb_media_items AS item ON item.id = event.media_item_id
+		WHERE event.event_at IS NOT NULL
+			AND event.event_at >= ?
+			AND event.event_at < ?
+			AND event.event_type <> 'list_state'
+		GROUP BY item.media_type
+		ORDER BY item.media_type`, filters.From, filters.To).Scan(&aggregateRows).Error; err != nil {
+		return PeriodReport{}, err
+	}
+
+	type completionRow struct {
+		ID          uuid.UUID `gorm:"column:id"`
+		ItemID      uuid.UUID `gorm:"column:item_id"`
+		Title       string    `gorm:"column:title"`
+		MediaType   string    `gorm:"column:media_type"`
+		CompletedAt time.Time `gorm:"column:completed_at"`
+	}
+	var completionRows []completionRow
+	if err := s.db.Raw(`
+		SELECT item.id, item.id AS item_id, item.title, item.media_type, progress.finished_at AS completed_at
+		FROM tb_media_progress AS progress
+		JOIN tb_media_items AS item ON item.id = progress.media_item_id
+		WHERE progress.finished_at IS NOT NULL
+			AND progress.finished_at >= ?
+			AND progress.finished_at < ?
+		UNION ALL
+		SELECT event.id, event.media_item_id AS item_id, item.title, item.media_type, event.event_at AS completed_at
+		FROM tb_media_consumption_events AS event
+		JOIN tb_media_items AS item ON item.id = event.media_item_id
+		WHERE event.event_type IN ('finished', 'completed')
+			AND event.event_at IS NOT NULL
+			AND event.event_at >= ?
+			AND event.event_at < ?
+		ORDER BY completed_at ASC, item_id ASC, id ASC`, filters.From, filters.To, filters.From, filters.To).Scan(&completionRows).Error; err != nil {
+		return PeriodReport{}, err
+	}
+
+	completedByItem := make(map[uuid.UUID]PeriodCompletedItem, len(completionRows))
+	for _, row := range completionRows {
+		candidate := PeriodCompletedItem{
+			ID: row.ItemID, Title: row.Title, MediaType: row.MediaType, CompletedAt: row.CompletedAt,
+		}
+		current, ok := completedByItem[row.ItemID]
+		if !ok || candidate.CompletedAt.After(current.CompletedAt) {
+			completedByItem[row.ItemID] = candidate
+		}
+	}
+	completedItems := make([]PeriodCompletedItem, 0, len(completedByItem))
+	for _, item := range completedByItem {
+		completedItems = append(completedItems, item)
+	}
+	sort.Slice(completedItems, func(i, j int) bool {
+		if completedItems[i].CompletedAt.Equal(completedItems[j].CompletedAt) {
+			return completedItems[i].ID.String() < completedItems[j].ID.String()
+		}
+		return completedItems[i].CompletedAt.Before(completedItems[j].CompletedAt)
+	})
+
+	byKind := make(map[string]PeriodKindTotal, len(aggregateRows))
+	for _, row := range aggregateRows {
+		byKind[row.Kind] = PeriodKindTotal{Kind: row.Kind, EventCount: row.EventCount, CompletedCount: 0}
+	}
+	for _, item := range completedItems {
+		kind := byKind[item.MediaType]
+		kind.Kind = item.MediaType
+		kind.CompletedCount++
+		byKind[item.MediaType] = kind
+	}
+	kinds := make([]PeriodKindTotal, 0, len(byKind))
+	for _, kind := range byKind {
+		kinds = append(kinds, kind)
+	}
+	sort.Slice(kinds, func(i, j int) bool { return kinds[i].Kind < kinds[j].Kind })
+
+	var ratedCount int
+	eventCount := 0
+	var averageRating *float64
+	var weightedRating float64
+	for _, row := range aggregateRows {
+		eventCount += row.EventCount
+		ratedCount += row.RatedCount
+		if row.AverageRating != nil {
+			weightedRating += *row.AverageRating * float64(row.RatedCount)
+		}
+	}
+	if ratedCount > 0 {
+		value := weightedRating / float64(ratedCount)
+		averageRating = &value
+	}
+
+	return PeriodReport{
+		EventCount: eventCount, CompletedCount: len(completedItems), RatedCount: ratedCount,
+		AverageRating: averageRating, ByKind: kinds, CompletedItems: completedItems,
+	}, nil
 }
 
 func (s *Service) List(filters ListFilters) (Page, error) {
