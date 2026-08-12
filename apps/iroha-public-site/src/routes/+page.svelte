@@ -123,6 +123,18 @@
     return (sport?.toLowerCase() ?? "").includes("swim");
   }
 
+  function hasMeaningfulActivityTitle(activity: Activity): boolean {
+    const title = formatSport(activity.title);
+    const sport = formatSport(activity.sport_type);
+    const genericTitles: Record<string, string[]> = {
+      Run: ["Run", "Running"],
+      Walk: ["Walk", "Walking"],
+      Ride: ["Ride", "Riding", "Cycling"],
+      Swim: ["Swim", "Swimming"],
+    };
+    return title !== "—" && !(genericTitles[sport] ?? [sport]).includes(title);
+  }
+
   function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
     if (distanceM == null || durationS == null || durationS <= 0) return "—";
     return `${(distanceM / 1000 / (durationS / 3600)).toFixed(1)} km/h`;
@@ -547,7 +559,7 @@
                 <td>
                   <div class="activity-cell">
                     <SportBadge sport={activity.sport_type} />
-                    {#if activity.title && formatSport(activity.title) !== formatSport(activity.sport_type)}
+                    {#if hasMeaningfulActivityTitle(activity)}
                       <span class="activity-title">{activity.title}</span>
                     {/if}
                   </div>
