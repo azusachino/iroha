@@ -21,8 +21,9 @@ RUN CGO_ENABLED=0 go -C apps/iroha-job build -mod=mod -o /out/iroha-job .
 
 FROM alpine:3.22 AS server
 # ca-certificates is required for outbound HTTPS (e.g. Nominatim geocoding);
+# tzdata is required for explicit IANA report timezones in the Alpine runtime.
 # tini is PID 1 so signals reach the Go process and no zombies accumulate.
-RUN apk add --no-cache ca-certificates tini \
+RUN apk add --no-cache ca-certificates tini tzdata \
   && addgroup -S iroha && adduser -S -G iroha -H -h /data iroha \
   && mkdir -p /data && chown iroha:iroha /data
 COPY --from=build /out/iroha-server /usr/local/bin/iroha-server
@@ -31,8 +32,9 @@ EXPOSE 8080
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-server"]
 
 FROM alpine:3.22 AS job
-# ca-certificates is required for outbound HTTPS (AniList/Bangumi media sync).
-RUN apk add --no-cache ca-certificates tini \
+# ca-certificates is required for outbound HTTPS (AniList/Bangumi media sync);
+# tzdata keeps worker-side calendar/time handling consistent with the server.
+RUN apk add --no-cache ca-certificates tini tzdata \
   && addgroup -S iroha && adduser -S -G iroha -H -h /data iroha \
   && mkdir -p /data && chown iroha:iroha /data
 COPY --from=build /out/iroha-job /usr/local/bin/iroha-job
