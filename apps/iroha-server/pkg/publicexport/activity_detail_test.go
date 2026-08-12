@@ -3,6 +3,8 @@ package publicexport
 import (
 	"testing"
 	"time"
+
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 )
 
 func TestValidateActivityDetails_OK(t *testing.T) {
@@ -19,6 +21,20 @@ func TestValidateActivityDetails_OK(t *testing.T) {
 	}
 	if err := ValidateActivityDetails(details); err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestToActivityDetailLapsFiltersPlaceholderRows(t *testing.T) {
+	distance := 550.0
+	duration := 210
+	laps := []models.ActivityLap{
+		{LapNo: 1},
+		{LapNo: 2, DistanceM: &distance, DurationS: &duration},
+	}
+
+	got := toActivityDetailLaps(laps)
+	if len(got) != 1 || got[0].LapNo != 2 {
+		t.Fatalf("expected only the complete lap, got %#v", got)
 	}
 }
 

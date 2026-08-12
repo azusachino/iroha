@@ -5,6 +5,7 @@
     formatDate,
     formatDistance,
     formatDuration,
+    formatElevation,
     formatHr,
     formatPace,
   } from "$lib/format";
@@ -20,6 +21,15 @@
   const heartRateSamples = $derived(
     detail.samplings.filter((sample) =>
       /heart|(^|_)hr($|_)/i.test(sample.sampling_type),
+    ),
+  );
+  const validLaps = $derived(
+    detail.laps.filter(
+      (lap) =>
+        lap.distance_m != null &&
+        lap.distance_m > 0 &&
+        lap.duration_s != null &&
+        lap.duration_s > 0,
     ),
   );
   const routeFeatures = $derived.by<RouteFeatureCollection>(() => ({
@@ -40,64 +50,91 @@
     ],
   }));
 
-  function xValues(): number[] {
-    if (route.every((point) => point.distance_m != null)) {
-      return route.map((point) => (point.distance_m ?? 0) / 1000);
+  const useDistanceAxis = $derived(
+    route.length > 0 &&
+      route.every((point) => point.distance_m != null) &&
+      heartRateSamples.length === 0,
+  );
+
+  function elapsedMinutes(ts: string | undefined, fallback: number): number {
+    const start = detail.activity.started_at
+      ? Date.parse(detail.activity.started_at)
+      : 0;
+    if (!ts || !start) return fallback;
+    return (Date.parse(ts) - start) / 60000;
+  }
+
+  function routeXValue(point: (typeof route)[number]): number {
+    if (useDistanceAxis && point.distance_m != null) {
+      return point.distance_m / 1000;
     }
-    const start = route[0]?.ts ? Date.parse(route[0].ts) : 0;
-    return route.map((point) =>
-      point.ts && start ? (Date.parse(point.ts) - start) / 60000 : point.seq,
-    );
+    return elapsedMinutes(point.ts, point.seq);
   }
 
   function renderChart() {
     if (!chart || route.length === 0) return;
-    const x = xValues();
-    const pace = route.map((point) =>
-      point.speed_mps && point.speed_mps > 0 ? 1000 / point.speed_mps : null,
-    );
-    const heartRate = route.map((point) => point.heart_rate ?? null);
-    const elevation = route.map((point) => point.elevation_m ?? null);
+    const pace = route
+      .map((point) => [
+        routeXValue(point),
+        point.speed_mps && point.speed_mps > 0 ? 1000 / point.speed_mps : null,
+      ])
+      .filter(([, value]) => value != null);
+    const heartRate = heartRateSamples.map((sample, index) => [
+      elapsedMinutes(sample.ts, index),
+      sample.value,
+    ]);
+    const elevation = route
+      .map((point) => [routeXValue(point), point.elevation_m ?? null])
+      .filter(([, value]) => value != null);
+
+    const yAxis: echarts.YAXisComponentOption[] = [];
+    const series: echarts.SeriesOption[] = [];
+    const addSeries = (
+      name: string,
+      data: (number | null)[][],
+      axisName: string,
+    ) => {
+      if (data.length === 0) return;
+      const axisIndex = yAxis.length;
+      yAxis.push({
+        type: "value",
+        name: axisName,
+        position: axisIndex === 1 ? "right" : "left",
+        offset: axisIndex > 1 ? 42 : 0,
+      });
+      series.push({
+        name,
+        type: "line",
+        yAxisIndex: axisIndex,
+        showSymbol: false,
+        data,
+        connectNulls: false,
+      });
+    };
+
+    addSeries("Pace", pace, "Pace (s/km)");
+    addSeries("Heart rate", heartRate, "Heart rate (bpm)");
+    addSeries("Elevation", elevation, "Elevation (m)");
+
+    if (series.length === 0) return;
     chart.setOption({
       animation: false,
-      grid: { left: 48, right: 48, top: 24, bottom: 36 },
+      grid: { left: 58, right: 58, top: 52, bottom: 52 },
       tooltip: { trigger: "axis" },
-      legend: { bottom: 0, textStyle: { color: "#68707a" } },
+      legend: {
+        top: 0,
+        left: "center",
+        itemGap: 18,
+        textStyle: { color: "#68707a" },
+      },
       xAxis: {
         type: "value",
-        name: "Distance (km)",
+        name: useDistanceAxis ? "Distance (km)" : "Elapsed time (min)",
         nameLocation: "middle",
-        nameGap: 28,
+        nameGap: 32,
       },
-      yAxis: [
-        { type: "value", name: "Pace (s/km)" },
-        { type: "value", name: "Heart / elevation", position: "right" },
-      ],
-      series: [
-        {
-          name: "Pace",
-          type: "line",
-          showSymbol: false,
-          data: x.map((value, i) => [value, pace[i]]),
-          connectNulls: false,
-        },
-        {
-          name: "Heart rate",
-          type: "line",
-          yAxisIndex: 1,
-          showSymbol: false,
-          data: x.map((value, i) => [value, heartRate[i]]),
-          connectNulls: false,
-        },
-        {
-          name: "Elevation",
-          type: "line",
-          yAxisIndex: 1,
-          showSymbol: false,
-          data: x.map((value, i) => [value, elevation[i]]),
-          connectNulls: false,
-        },
-      ],
+      yAxis,
+      series,
     });
   }
 
@@ -158,7 +195,7 @@
     </div>
     <div>
       <span>Elevation</span><strong
-        >{formatDistance(detail.activity.elevation_gain_m)}</strong
+        >{formatElevation(detail.activity.elevation_gain_m)}</strong
       >
     </div>
     <div>
@@ -168,48 +205,24 @@
     </div>
   </div>
 
-  <div class="record-grid">
-    <section class="panel map-panel">
-      <div class="panel-heading">
-        <div>
-          <p class="kicker">Geography</p>
-          <h2>Route trace</h2>
-        </div>
-        <span>Owner-approved detail</span>
+  <section class="panel map-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="kicker">Geography</p>
+        <h2>Route trace</h2>
       </div>
-      <div class="map"><RoutesMap data={routeFeatures} /></div>
-    </section>
-    <aside class="panel notes-panel">
-      <p class="kicker">Session notes</p>
-      <h2>What remains</h2>
-      <dl>
-        <div>
-          <dt>Source</dt>
-          <dd>{detail.activity.source_kind}</dd>
-        </div>
-        <div>
-          <dt>Samples</dt>
-          <dd>{heartRateSamples.length || "None"}</dd>
-        </div>
-        <div>
-          <dt>Laps</dt>
-          <dd>{detail.laps.length || "None"}</dd>
-        </div>
-        <div>
-          <dt>Max heart rate</dt>
-          <dd>{formatHr(detail.activity.max_hr)}</dd>
-        </div>
-      </dl>
-    </aside>
-  </div>
+      <span>Owner-approved detail</span>
+    </div>
+    <div class="map"><RoutesMap data={routeFeatures} /></div>
+  </section>
 
   <section class="panel chart-panel">
     <div class="panel-heading">
       <div>
         <p class="kicker">Evidence stream</p>
-        <h2>Pace, heart rate, elevation</h2>
+        <h2>Activity streams</h2>
       </div>
-      <span>Full approved trace</span>
+      <span>{useDistanceAxis ? "Distance" : "Elapsed time"}</span>
     </div>
     <div
       class="chart"
@@ -218,17 +231,17 @@
     ></div>
   </section>
 
-  {#if detail.laps.length}
+  {#if validLaps.length}
     <section class="panel laps-panel">
       <div class="panel-heading">
         <div>
           <p class="kicker">Intervals</p>
           <h2>Splits in the source</h2>
         </div>
-        <span>{detail.laps.length} laps</span>
+        <span>{validLaps.length} splits</span>
       </div>
       <div class="laps">
-        {#each detail.laps as lap (lap.id)}
+        {#each validLaps as lap (lap.id)}
           <div>
             <b>{String(lap.lap_no).padStart(2, "0")}</b><span
               >{formatDistance(lap.distance_m)}</span
@@ -325,11 +338,6 @@
   .metric-grid strong {
     font-size: 1rem;
   }
-  .record-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.85fr);
-    gap: 1.25rem;
-  }
   .panel {
     min-width: 0;
     padding: 1.25rem;
@@ -344,27 +352,6 @@
   }
   .map {
     height: 25rem;
-  }
-  .notes-panel dl {
-    display: grid;
-    gap: 0;
-    margin: 1.5rem 0 0;
-  }
-  .notes-panel dl div {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.8rem 0;
-    border-bottom: 1px solid var(--border);
-  }
-  dt {
-    color: var(--text-muted);
-    font-size: 0.78rem;
-  }
-  dd {
-    margin: 0;
-    font-weight: 650;
-    text-align: right;
   }
   .chart {
     width: 100%;
@@ -395,9 +382,6 @@
     }
     .metric-grid div:nth-child(3) {
       border-right: 0;
-    }
-    .record-grid {
-      grid-template-columns: 1fr;
     }
   }
   @media (max-width: 500px) {

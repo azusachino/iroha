@@ -328,12 +328,14 @@
     <ThemeToggle />
   </div>
   <h1>The shape of the miles.</h1>
-  <p class="muted">
-    A calm, read-only view of the years, routes, and sessions made visible.
+  <p class="hero-summary">
+    A public field guide to the routes and rhythms made visible.
   </p>
-  <p class="muted">
-    v{site.version} · data as of {formatDateOnly(meta.generated_at)}
-  </p>
+  <div class="hero-meta" aria-label="Archive metadata">
+    <span>Public snapshot</span>
+    <span>Updated {formatDateOnly(meta.generated_at)}</span>
+    <span>iroha v{site.version}</span>
+  </div>
 </header>
 
 {#if selectedActivity && selectedActivityDetail}
@@ -616,6 +618,32 @@
     margin: 0;
     font-size: clamp(2rem, 5vw, 3.2rem);
     letter-spacing: -0.03em;
+  }
+  .hero-summary {
+    max-width: 34rem;
+    margin: 0.7rem 0 1.15rem;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    line-height: 1.5;
+  }
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .hero-meta span + span {
+    padding-left: 1rem;
+    border-left: 1px solid var(--border);
+  }
+  @media (max-width: 500px) {
+    .hero-meta span + span {
+      padding-left: 0;
+      border-left: 0;
+    }
   }
   .small {
     font-size: 0.78rem;

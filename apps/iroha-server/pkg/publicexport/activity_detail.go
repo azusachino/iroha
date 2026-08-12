@@ -138,6 +138,11 @@ func toActivityDetailSamplings(points []models.ActivitySampling) []ActivityDetai
 func toActivityDetailLaps(laps []models.ActivityLap) []ActivityDetailLap {
 	out := make([]ActivityDetailLap, 0, len(laps))
 	for _, lap := range laps {
+		// Apple Health can emit placeholder lap rows with no distance and a
+		// zero-length timestamp. They are source artifacts, not useful splits.
+		if lap.DistanceM == nil || *lap.DistanceM <= 0 || lap.DurationS == nil || *lap.DurationS <= 0 {
+			continue
+		}
 		out = append(out, ActivityDetailLap{
 			ID:            ids.Encode("lap", lap.ID),
 			LapNo:         lap.LapNo,
