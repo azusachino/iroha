@@ -247,6 +247,10 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 	if r.URL.Path == "/api/v1/media/sync" || strings.HasPrefix(r.URL.Path, "/api/v1/media/sync/") {
 		return "", false
 	}
+	if r.URL.Path == "/api/v1/expenses" || strings.HasPrefix(r.URL.Path, "/api/v1/expenses/") ||
+		r.URL.Path == "/api/v1/reports/monthly" {
+		return "", false
+	}
 	for prefix, namespace := range map[string]string{
 		"/api/v1/activities": cache.NamespaceActivities,
 		"/api/v1/briefing":   cache.NamespaceBriefing,

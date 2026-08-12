@@ -23,7 +23,7 @@ const (
 	BackendNone     = "none"
 	BackendPostgres = "postgres"
 	BackendValkey   = "valkey"
-	keyPrefix       = "iroha:cache:v1:"
+	keyPrefix       = "iroha:cache:v2:"
 
 	NamespaceBriefing   = "read_briefing"
 	NamespaceActivities = "read_activities"
