@@ -41,8 +41,8 @@ lint: ## Run golangci-lint across all modules (Uber Go Style Guide orientation)
 test: ## Run Go tests across all modules
 	$(TOOL_ENV) uv run python scripts/go_tasks.py test
 
-contract-check: ## Verify the registered HTTP route inventory
-	$(TOOL_ENV) go -C $(SERVER_DIR) test ./pkg/httpapi -run '^TestActiveRouteInventory$$'
+contract-check: ## Verify the registered HTTP route inventory and OpenAPI contract
+	$(TOOL_ENV) go -C $(SERVER_DIR) test ./pkg/httpapi -run '^Test(ActiveRouteInventory|OpenAPIExamples)$$'
 
 test-integration: db-up ## Run DB-backed Go integration tests
 	$(TOOL_ENV) env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -tags=integration ./...

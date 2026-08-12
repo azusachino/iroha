@@ -1,6 +1,6 @@
 # API v1 contract gap matrix
 
-Status: active development, v0.1.4 release candidate
+Status: active development, v0.4.0 contract gate
 
 This matrix records the current contract evidence for the private `/api/v1` surface. The static public export is documented separately; this document does not establish a released compatibility
 promise or introduce an `/api/v2` policy.
@@ -29,11 +29,11 @@ Gear, privacy-zone management, published-activity mutation, and activity mutatio
 | Area                      | Status          | Evidence and gap                                                                                                                                                                                            |
 | ------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Route inventory           | PRESENT         | Router is explicit in `pkg/httpapi/server.go`; `make contract-check` guards the active inventory.                                                                                                           |
-| Request and response DTOs | PRESENT         | Handler-local Go DTOs define the current JSON output. They are not yet an external contract artifact.                                                                                                       |
-| OpenAPI                   | PRESENT         | `docs/contracts/openapi.yaml` is checked in and the active route inventory is tested.                                                                                                                       |
-| IDs and timestamps        | PARTIAL         | IDs are encoded consistently and timestamps use Go JSON time encoding; the client-facing rules are undocumented.                                                                                            |
-| Pagination                | PARTIAL         | List responses use `items`, `next_cursor`, and `has_more`; cursor opacity, limits, and invalid-cursor behavior are undocumented.                                                                            |
-| Errors                    | PARTIAL         | Errors currently use `{ "error": "..." }`; error codes, request correlation, and the complete status matrix are not defined.                                                                                |
+| Request and response DTOs | PRESENT         | Handler-local Go DTOs and the v0.4 OpenAPI schemas define the current JSON output; integration fixtures cover representative resource families.                                                             |
+| OpenAPI                   | PRESENT         | `docs/contracts/openapi.yaml` is parsed in `make contract-check`; its method/path inventory must equal the registered Chi routes.                                                                           |
+| IDs and timestamps        | PRESENT         | IDs are opaque prefixed strings, instants use RFC3339, and calendar values use `YYYY-MM-DD`; the decisions and schemas encode these rules.                                                                  |
+| Pagination                | PRESENT         | List responses use `items`, `next_cursor`, and `has_more`; explicit limits are 1..100 and invalid cursors/limits return the common error schema.                                                            |
+| Errors                    | PRESENT         | Errors use `{ "code": "...", "message": "...", "request_id": "..." }`; the common schema and web client preserve these fields.                                                                              |
 | Private/public projection | PRESENT         | Public DTOs are separate from private activity DTOs; the static export remains separate from the private API.                                                                                               |
 | Authentication            | N/A             | `/api/v1` is intentionally unauthenticated; the deployment's network boundary is the security control (see `api-v1-decisions.md#authentication`).                                                           |
 | Rate limiting             | PRESENT/PARTIAL | IP-based limits exist for private and geocode routes. The `429` response and `Retry-After` contract are covered but still need broader fixture coverage.                                                    |
@@ -43,6 +43,6 @@ Gear, privacy-zone management, published-activity mutation, and activity mutatio
 
 ## Required next decisions
 
-1. Keep the OpenAPI artifact and route-inventory test synchronized when handlers change.
-2. Add schema-aware validation and response fixtures for the remaining resource families.
+1. Keep the OpenAPI artifact, route-inventory test, and example manifest synchronized when handlers change.
+2. Add full response-schema validation when a dependency policy for JSON Schema/OpenAPI tooling is chosen.
 3. Rehearse the real upload-to-worker workflow before each production release.

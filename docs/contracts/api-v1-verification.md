@@ -1,6 +1,6 @@
 # API v1 verification gate
 
-Status: release-candidate verification for v0.1.4
+Status: active-development verification for v0.4.0
 
 The contract gate verifies the active `/api/v1` surface in place. It is not a backward-compatibility gate for a released v1 and does not require an `/api/v2`.
 
@@ -10,8 +10,8 @@ The contract gate verifies the active `/api/v1` surface in place. It is not a ba
 
 The registered routes in `apps/iroha-server/pkg/httpapi/server.go` must match the active paths in `docs/contracts/openapi.yaml`.
 
-The first executable slice is `make contract-check`, which walks the Chi router and asserts the current active method/path inventory. The OpenAPI path set remains a reviewed artifact until a
-schema-aware validator is added.
+`make contract-check` walks the Chi router, parses `docs/contracts/openapi.yaml`, and asserts method/path parity. It also validates the committed example manifest: every example names an active
+operation and an existing schema, parses as JSON, and contains that schema's required top-level fields.
 
 - deferred roadmap routes must not appear in the active OpenAPI paths;
 - the static public export must remain sanitized and separate from private HTTP routes;
@@ -20,8 +20,8 @@ schema-aware validator is added.
 
 ### 2. Schema and example validation
 
-Validate the OpenAPI document and every committed example as JSON/YAML. Each example must identify its target operation and decode against the referenced schema. Examples are canonical wire evidence,
-not prose-only documentation.
+Validate the OpenAPI document and every committed example as JSON/YAML. Each example must identify its target operation in `examples/manifest.json` and decode as canonical wire evidence, not
+prose-only documentation. The Go contract test currently validates the representative top-level shapes; endpoint integration tests remain responsible for full response behavior.
 
 ### 3. HTTP response fixtures
 
@@ -70,7 +70,7 @@ The same fixture must run against the supported local runtime path and the conta
 
 ## Current implementation evidence
 
-- `make contract-check` passes against the registered private route inventory.
+- `make contract-check` passes against the registered private route inventory and OpenAPI path set.
 - Rate-limit tests cover `429`, the common error body, and `Retry-After`.
 - `make check` passes, including the frontend formatter, Svelte check, and frontend tests.
 

@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: Iroha API
-  version: 0.1.4
+  version: 0.4.0
   description: |
     Active-development contract for Iroha's private data cockpit.
     /api/v1 is still pre-1.0 and may evolve between minor releases. This
-    document is the implementation target for release 0.1.4.
+    document is the implementation target for release 0.4.0.
 servers:
   - url: /
     description: Same-origin or reverse-proxy deployment
@@ -198,8 +198,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/ActivitySummary"
   /api/v1/activities/routes:
     get:
       tags: [activities]
@@ -209,39 +208,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [type, features]
-                properties:
-                  type: { type: string, const: FeatureCollection }
-                  features:
-                    type: array
-                    items:
-                      type: object
-                      required: [type, geometry, properties]
-                      properties:
-                        type: { type: string, const: Feature }
-                        geometry:
-                          type: object
-                          required: [type, coordinates]
-                          properties:
-                            type: { type: string, const: LineString }
-                            coordinates:
-                              type: array
-                              items:
-                                type: array
-                                minItems: 2
-                                maxItems: 2
-                                items: { type: number }
-                        properties:
-                          type: object
-                          required: [sport_type, year, city, city_status]
-                          properties:
-                            sport_type: { type: string }
-                            year: { type: string }
-                            city: { type: string }
-                            city_status:
-                              type: string
-                              enum: [pending, resolved, unknown]
+                $ref: "#/components/schemas/RouteFeatureCollection"
   /api/v1/activities/{activityId}:
     get:
       tags: [activities]
@@ -342,7 +309,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AggregateResponse"
+                $ref: "#/components/schemas/SleepAggregateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
   /api/v1/sleep/{sleepId}:
@@ -409,7 +376,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AggregateResponse"
+                $ref: "#/components/schemas/DailyAggregateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
   /api/v1/media:
@@ -496,8 +463,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/MediaAggregates"
   /api/v1/media/{mediaId}:
     get:
       tags: [media]
@@ -927,6 +893,77 @@ components:
         first_raw_file_id: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    SummaryTotals:
+      type: object
+      required:
+        [
+          activity_count,
+          distance_m,
+          distance_known_count,
+          distance_unknown_count,
+          duration_s,
+          elevation_gain_m,
+        ]
+      properties:
+        activity_count: { type: integer }
+        distance_m: { type: number }
+        distance_known_count: { type: integer }
+        distance_unknown_count: { type: integer }
+        duration_s: { type: integer }
+        elevation_gain_m: { type: number }
+    SummaryBucket:
+      allOf:
+        - $ref: "#/components/schemas/SummaryTotals"
+        - type: object
+          required: [key]
+          properties:
+            key: { type: string }
+    ActivitySummary:
+      type: object
+      required: [totals, by_year, by_month, by_sport]
+      properties:
+        totals: { $ref: "#/components/schemas/SummaryTotals" }
+        by_year:
+          { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
+        by_month:
+          { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
+        by_sport:
+          { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
+    RouteFeatureCollection:
+      type: object
+      required: [type, features]
+      properties:
+        type: { type: string, const: FeatureCollection }
+        features:
+          { type: array, items: { $ref: "#/components/schemas/RouteFeature" } }
+    RouteFeature:
+      type: object
+      required: [type, geometry, properties]
+      properties:
+        type: { type: string, const: Feature }
+        geometry: { $ref: "#/components/schemas/RouteGeometry" }
+        properties: { $ref: "#/components/schemas/RouteFeatureProperties" }
+    RouteGeometry:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type: { type: string, const: LineString }
+        coordinates:
+          type: array
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items: { type: number }
+    RouteFeatureProperties:
+      type: object
+      required: [activity_id, sport_type, year, city, city_status]
+      properties:
+        activity_id: { type: string }
+        sport_type: { type: string }
+        year: { type: string }
+        city: { type: string }
+        city_status: { type: string, enum: [pending, resolved, unknown] }
     ActivityPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
@@ -938,7 +975,7 @@ components:
       required: [items, next_cursor, has_more]
       properties:
         items: { type: array, items: {} }
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, "null"] }
         has_more: { type: boolean }
     RoutePoint:
       type: object
@@ -975,7 +1012,44 @@ components:
         avg_pace_s_per_km: { type: number }
     Sleep:
       type: object
-      additionalProperties: true
+      required:
+        [
+          id,
+          wake_date,
+          started_at,
+          ended_at,
+          time_in_bed_s,
+          asleep_s,
+          efficiency,
+          is_main_sleep,
+          core_s,
+          deep_s,
+          rem_s,
+          awake_s,
+          unspecified_s,
+          source,
+          first_raw_file_id,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        id: { type: string }
+        wake_date: { type: string, format: date }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        time_in_bed_s: { type: integer }
+        asleep_s: { type: integer }
+        efficiency: { type: number }
+        is_main_sleep: { type: boolean }
+        core_s: { type: integer }
+        deep_s: { type: integer }
+        rem_s: { type: integer }
+        awake_s: { type: integer }
+        unspecified_s: { type: integer }
+        source: { type: string }
+        first_raw_file_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     SleepPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
@@ -991,21 +1065,151 @@ components:
         seq: { type: integer }
     Daily:
       type: object
-      additionalProperties: true
+      required:
+        [id, day, ring, source, first_raw_file_id, created_at, updated_at]
+      properties:
+        id: { type: string }
+        day: { type: string, format: date }
+        ring:
+          type: [object, "null"]
+          required:
+            [
+              move_kcal,
+              move_goal_kcal,
+              exercise_min,
+              exercise_goal_min,
+              stand_hours,
+              stand_goal_hours,
+            ]
+          properties:
+            move_kcal: { type: number }
+            move_goal_kcal: { type: number }
+            exercise_min: { type: number }
+            exercise_goal_min: { type: number }
+            stand_hours: { type: number }
+            stand_goal_hours: { type: number }
+        steps: { type: number }
+        distance_km: { type: number }
+        flights: { type: number }
+        resting_hr: { type: number }
+        walking_hr_avg: { type: number }
+        hrv_sdnn: { type: number }
+        spo2_avg: { type: number }
+        spo2_min: { type: number }
+        respiratory_rate: { type: number }
+        vo2max: { type: number }
+        body_mass_kg: { type: number }
+        source: { type: string }
+        first_raw_file_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     DailyPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/Daily" } }
-    AggregateResponse:
+    SleepAggregateResponse:
       type: object
       required: [granularity, buckets]
       properties:
-        granularity: { type: string }
+        granularity: { type: string, enum: [month, year] }
         buckets:
-          { type: array, items: { type: object, additionalProperties: true } }
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/SleepAggregateBucket" },
+          }
+    SleepAggregateBucket:
+      type: object
+      required:
+        [
+          period,
+          session_count,
+          main_sleep_count,
+          nap_count,
+          average_asleep_s,
+          average_time_in_bed_s,
+          average_efficiency,
+          core_s,
+          deep_s,
+          rem_s,
+          awake_s,
+          unspecified_s,
+        ]
+      properties:
+        period: { type: string }
+        session_count: { type: integer }
+        main_sleep_count: { type: integer }
+        nap_count: { type: integer }
+        average_asleep_s: { type: number }
+        average_time_in_bed_s: { type: number }
+        average_efficiency: { type: number }
+        core_s: { type: integer }
+        deep_s: { type: integer }
+        rem_s: { type: integer }
+        awake_s: { type: integer }
+        unspecified_s: { type: integer }
+    DailyAggregateResponse:
+      type: object
+      required: [granularity, buckets]
+      properties:
+        granularity: { type: string, enum: [month, year] }
+        buckets:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/DailyAggregateBucket" },
+          }
+    DailyAggregateBucket:
+      type: object
+      required:
+        [
+          period,
+          days,
+          move_kcal_avg,
+          exercise_min_avg,
+          stand_hours_avg,
+          move_closed_pct,
+          metrics,
+        ]
+      properties:
+        period: { type: string }
+        days: { type: integer }
+        move_kcal_avg: { type: number }
+        exercise_min_avg: { type: number }
+        stand_hours_avg: { type: number }
+        move_closed_pct: { type: number }
+        metrics:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/DailyMetricAggregate" },
+          }
+    DailyMetricAggregate:
+      type: object
+      required: [metric, value, unit, observed_days]
+      properties:
+        metric: { type: string }
+        value: { type: number }
+        unit: { type: string }
+        observed_days: { type: integer }
     Media:
       type: object
-      additionalProperties: true
+      required:
+        [id, title, media_type, item_role, last_update_at, hidden_from_continue]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        media_type: { type: string }
+        item_role: { type: string }
+        cover_image_url: { type: string }
+        status: { type: string }
+        position: { type: number }
+        total: { type: number }
+        unit: { type: string }
+        progress_percent: { type: number }
+        last_update_at: { type: string, format: date-time }
+        rating: { type: number }
+        hidden_from_continue: { type: boolean }
+        native_title: { type: string }
+        episode_count: { type: integer }
+        chapter_count: { type: integer }
     MediaPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
@@ -1016,20 +1220,157 @@ components:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
         items:
-          { type: array, items: { type: object, additionalProperties: true } }
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaHomeEvent" },
+          }
     MediaDetail:
       type: object
       required: [item, work, creators, relations, events]
       properties:
         item: { $ref: "#/components/schemas/Media" }
-        work: { type: object, additionalProperties: true }
-        progress: { type: object, nullable: true, additionalProperties: true }
+        work: { $ref: "#/components/schemas/MediaWork" }
+        progress: { $ref: "#/components/schemas/MediaProgress" }
         creators:
-          { type: array, items: { type: object, additionalProperties: true } }
+          { type: array, items: { $ref: "#/components/schemas/MediaCreator" } }
         relations:
-          { type: array, items: { type: object, additionalProperties: true } }
+          { type: array, items: { $ref: "#/components/schemas/MediaRelation" } }
         events:
-          { type: array, items: { type: object, additionalProperties: true } }
+          { type: array, items: { $ref: "#/components/schemas/MediaEvent" } }
+    MediaWork:
+      type: object
+      required:
+        [
+          id,
+          work_kind,
+          primary_title,
+          original_title,
+          original_language,
+          description,
+        ]
+      properties:
+        id: { type: string }
+        work_kind: { type: string }
+        primary_title: { type: string }
+        original_title: { type: string }
+        original_language: { type: string }
+        first_release_date: { type: string, format: date-time }
+        description: { type: string }
+    MediaProgress:
+      type: object
+      required: [status, unit, play_count]
+      properties:
+        status: { type: string }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        started_at: { type: string, format: date-time }
+        last_update_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        play_count: { type: integer }
+    MediaEvent:
+      type: object
+      required: [id, event_type]
+      properties:
+        id: { type: string }
+        event_type: { type: string }
+        event_at: { type: string, format: date-time }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        rating: { type: number }
+        note: { type: string }
+    MediaHomeEvent:
+      type: object
+      required: [id, media_id, title, event_type, occurred_at]
+      properties:
+        id: { type: string }
+        media_id: { type: string }
+        title: { type: string }
+        native_title: { type: string }
+        cover_image_url: { type: string }
+        event_type: { type: string }
+        occurred_at: { type: string, format: date-time }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        rating: { type: number }
+    MediaCreator:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { type: string }
+    MediaRelation:
+      type: object
+      required:
+        [
+          id,
+          relation_type,
+          direction,
+          related_item_id,
+          related_title,
+          related_type,
+        ]
+      properties:
+        id: { type: string }
+        relation_type: { type: string }
+        direction: { type: string }
+        related_item_id: { type: string }
+        related_title: { type: string }
+        related_type: { type: string }
+        cover_image_url: { type: string }
+    MediaAggregates:
+      type: object
+      required: [totals, completions_by_year, score_distribution, type_split]
+      properties:
+        totals: { $ref: "#/components/schemas/MediaTotals" }
+        completions_by_year:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaCompletionBucket" },
+          }
+        score_distribution:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaScoreBucket" },
+          }
+        type_split:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaTypeBucket" },
+          }
+    MediaTotals:
+      type: object
+      required:
+        [item_count, completed_count, this_year_completed, average_rating]
+      properties:
+        item_count: { type: integer }
+        completed_count: { type: integer }
+        this_year_completed: { type: integer }
+        average_rating: { type: number }
+    MediaCompletionBucket:
+      type: object
+      required: [year, count]
+      properties:
+        year: { type: integer }
+        count: { type: integer }
+    MediaScoreBucket:
+      type: object
+      required: [score, count]
+      properties:
+        score: { type: number }
+        count: { type: integer }
+    MediaTypeBucket:
+      type: object
+      required: [type, count]
+      properties:
+        type: { type: string }
+        count: { type: integer }
     Briefing:
       type: object
       required: [date, previous_date, next_date, sections]
