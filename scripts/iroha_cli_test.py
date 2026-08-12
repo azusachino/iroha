@@ -1,4 +1,5 @@
 import io
+import hashlib
 import json
 import os
 import tempfile
@@ -7,24 +8,27 @@ from pathlib import Path
 from unittest import mock
 
 import iroha_cli
+import requests
 
 
 class FakeResponse:
     def __init__(self, body: bytes, status: int = 200) -> None:
         self.body = body
-        self.status = status
+        self.status_code = status
+        self.content = body
 
-    def __enter__(self):
-        return self
 
-    def __exit__(self, *_args):
-        return False
+class FakeSession:
+    def __init__(self, response: FakeResponse | None = None, error: Exception | None = None) -> None:
+        self.response = response or FakeResponse(b"{}")
+        self.error = error
+        self.calls = []
 
-    def getcode(self) -> int:
-        return self.status
-
-    def read(self) -> bytes:
-        return self.body
+    def request(self, method, url, **kwargs):
+        self.calls.append((method, url, kwargs))
+        if self.error is not None:
+            raise self.error
+        return self.response
 
 
 class IrohaCLITransportTest(unittest.TestCase):
@@ -34,48 +38,33 @@ class IrohaCLITransportTest(unittest.TestCase):
 
     def test_request_uses_configured_url_and_returns_bytes_unchanged(self) -> None:
         response_body = b'{"value": 1}\n'
-        calls = []
-
-        def open_url(request, timeout):
-            calls.append((request, timeout))
-            return FakeResponse(response_body)
-
-        result = iroha_cli.IrohaClient("http://iroha.test", timeout_s=7, opener=open_url).request(
+        session = FakeSession(FakeResponse(response_body))
+        result = iroha_cli.IrohaClient("http://iroha.test", timeout_s=7, session=session).request(
             "GET", "/api/v1/reports/monthly?month=2026-08"
         )
 
         self.assertEqual(result, response_body)
-        self.assertEqual(calls[0][0].full_url, "http://iroha.test/api/v1/reports/monthly?month=2026-08")
-        self.assertEqual(calls[0][1], 7)
-        self.assertEqual(calls[0][0].method, "GET")
+        self.assertEqual(session.calls[0][0:2], ("GET", "http://iroha.test/api/v1/reports/monthly?month=2026-08"))
+        self.assertEqual(session.calls[0][2]["timeout"], 7)
+        self.assertEqual(session.calls[0][2]["headers"]["Accept"], "application/json")
 
     def test_request_sends_json_body_without_client_reformatting(self) -> None:
         body = b'{ "amount_minor": 800, "currency": "JPY" }\n'
-        captured = {}
-
-        def open_url(request, timeout):
-            captured["data"] = request.data
-            captured["content_type"] = request.get_header("Content-type")
-            return FakeResponse(b"{}")
-
-        iroha_cli.IrohaClient("http://iroha.test", opener=open_url).request("POST", "/api/v1/expenses", body)
-        self.assertEqual(captured, {"data": body, "content_type": "application/json"})
+        session = FakeSession(FakeResponse(b"{}"))
+        iroha_cli.IrohaClient("http://iroha.test", session=session).request("POST", "/api/v1/expenses", body)
+        self.assertEqual(session.calls[0][2]["data"], body)
+        self.assertEqual(session.calls[0][2]["headers"]["Content-Type"], "application/json")
 
     def test_structured_api_error_is_preserved(self) -> None:
         body = b'{"code":"invalid_month","message":"invalid report month","request_id":"req-1"}'
         with self.assertRaises(iroha_cli.APIError) as raised:
-            iroha_cli.IrohaClient(opener=lambda *_args, **_kwargs: FakeResponse(body, 400)).request(
-                "GET", "/api/v1/reports/monthly"
-            )
+            iroha_cli.IrohaClient(session=FakeSession(FakeResponse(body, 400))).request("GET", "/api/v1/reports/monthly")
         self.assertEqual((raised.exception.status, raised.exception.code, raised.exception.request_id), (400, "invalid_month", "req-1"))
         self.assertIn("invalid report month", str(raised.exception))
 
     def test_transport_error_is_distinct_from_api_error(self) -> None:
-        def open_url(*_args, **_kwargs):
-            raise OSError("connection refused")
-
         with self.assertRaises(iroha_cli.TransportError):
-            iroha_cli.IrohaClient(opener=open_url).request("GET", "/healthz")
+            iroha_cli.IrohaClient(session=FakeSession(error=requests.ConnectionError("connection refused"))).request("GET", "/healthz")
 
     def test_json_input_preserves_file_bytes_and_validates_json(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -99,6 +88,77 @@ class IrohaCLITransportTest(unittest.TestCase):
     def test_response_json_is_not_reinterpreted(self) -> None:
         value = json.loads(b'{"value":1}')
         self.assertEqual(value, {"value": 1})
+
+
+class FakeClient:
+    def __init__(self, response: bytes = b'{"id":"exp_1"}\n') -> None:
+        self.response = response
+        self.calls = []
+
+    def request(self, method: str, path: str, body: bytes | None = None) -> bytes:
+        self.calls.append((method, path, body))
+        return self.response
+
+
+class IrohaCLIExpenseCommandTest(unittest.TestCase):
+    def test_create_adds_hash_ref_and_persists_it_for_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "draft.json"
+            original = b'{"occurred_on":"2026-08-12","currency":"JPY","amount_minor":800,"category":"food"}\n'
+            path.write_bytes(original)
+            client = FakeClient()
+            args = iroha_cli.build_parser().parse_args(["expense", "create", "--input", str(path)])
+
+            with mock.patch.object(iroha_cli, "output_result"):
+                iroha_cli.run_expense_command(args, client)
+
+            expected_ref = hashlib.sha256(original).hexdigest()
+            first_body = json.loads(client.calls[0][2])
+            self.assertEqual(first_body["source"], {"kind": "cli", "ref": expected_ref})
+            self.assertEqual(json.loads(path.read_bytes())["source"]["ref"], expected_ref)
+            second_body = iroha_cli.prepare_expense_create_input(str(path))
+            self.assertEqual(json.loads(second_body)["source"]["ref"], expected_ref)
+
+    def test_explicit_source_ref_is_written_to_draft(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "draft.json"
+            path.write_text('{"source":{"kind":"cli"}}')
+            iroha_cli.prepare_expense_create_input(str(path), "manual-uuid-ref")
+            self.assertEqual(json.loads(path.read_bytes())["source"]["ref"], "manual-uuid-ref")
+
+    def test_list_encodes_filters_and_forwards_table_output(self) -> None:
+        client = FakeClient(b'{"items":[]}\n')
+        args = iroha_cli.build_parser().parse_args(
+            ["expense", "list", "--from", "2026-08-01", "--to", "2026-09-01", "--currency", "JPY", "--limit", "5", "--format", "table"]
+        )
+        with mock.patch.object(iroha_cli, "output_result") as output:
+            iroha_cli.run_expense_command(args, client)
+        self.assertEqual(client.calls[0], ("GET", "/api/v1/expenses?from=2026-08-01&to=2026-09-01&currency=JPY&limit=5", None))
+        output.assert_called_once_with(b'{"items":[]}\n', "table", iroha_cli.expense_table)
+
+    def test_update_forwards_replacement_json_without_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "replacement.json"
+            body = b'{"occurred_on":"2026-08-12","currency":"JPY","amount_minor":900,"category":"food"}\n'
+            path.write_bytes(body)
+            client = FakeClient()
+            args = iroha_cli.build_parser().parse_args(["expense", "update", "exp_1", "--input", str(path)])
+            with mock.patch.object(iroha_cli, "output_result"):
+                iroha_cli.run_expense_command(args, client)
+            self.assertEqual(client.calls[0], ("PUT", "/api/v1/expenses/exp_1", body))
+            self.assertEqual(path.read_bytes(), body)
+
+    def test_delete_has_no_stdout_payload(self) -> None:
+        client = FakeClient(b"")
+        args = iroha_cli.build_parser().parse_args(["expense", "delete", "exp_1"])
+        iroha_cli.run_expense_command(args, client)
+        self.assertEqual(client.calls, [("DELETE", "/api/v1/expenses/exp_1", None)])
+
+    def test_table_formatter_has_stable_columns(self) -> None:
+        result = iroha_cli.expense_table({"items": [{"id": "exp_1", "occurred_on": "2026-08-12", "currency": "JPY", "amount_minor": 800, "category": "food", "merchant": "Ramen"}]})
+        self.assertIn("id", result)
+        self.assertIn("exp_1", result)
+        self.assertIn("Ramen", result)
 
 
 if __name__ == "__main__":

@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
-"""Thin command-line transport for the private Iroha API.
-
-Domain commands are added in later slices. This module owns only API URL
-configuration, JSON input handling, successful-response passthrough, and
-structured error reporting.
-"""
+"""Thin command-line client for the private Iroha API."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
 from pathlib import Path
 from typing import BinaryIO, Callable
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlencode
+
+import requests
 
 DEFAULT_API_BASE = "http://127.0.0.1:8080"
 DEFAULT_TIMEOUT_S = 30
@@ -69,11 +66,11 @@ class IrohaClient:
         self,
         base_url: str | None = None,
         timeout_s: float = DEFAULT_TIMEOUT_S,
-        opener: Callable[..., object] = urlopen,
+        session: requests.Session | None = None,
     ) -> None:
         self.base_url = (base_url or api_base_from_environment()).rstrip("/")
         self.timeout_s = timeout_s
-        self.opener = opener
+        self.session = session or requests.Session()
 
     def request(self, method: str, path: str, body: bytes | None = None) -> bytes:
         if not path.startswith("/"):
@@ -81,15 +78,18 @@ class IrohaClient:
         headers = {"Accept": "application/json"}
         if body is not None:
             headers["Content-Type"] = "application/json"
-        request = Request(self.base_url + path, data=body, headers=headers, method=method)
         try:
-            with self.opener(request, timeout=self.timeout_s) as response:
-                status = getattr(response, "status", response.getcode())
-                response_body = response.read()
-        except HTTPError as error:
-            raise _api_error(error.code, error.read()) from error
-        except (OSError, URLError, TimeoutError) as error:
+            response = self.session.request(
+                method,
+                self.base_url + path,
+                data=body,
+                headers=headers,
+                timeout=self.timeout_s,
+            )
+        except requests.RequestException as error:
             raise TransportError(f"Iroha API request failed: {error}") from error
+        status = response.status_code
+        response_body = response.content
         if status < 200 or status >= 300:
             raise _api_error(status, response_body)
         return response_body
@@ -121,6 +121,121 @@ def write_response(data: bytes, stream: BinaryIO | None = None) -> None:
         output.write(b"\n")
 
 
+def _write_json_file(path: str, value: object) -> None:
+    try:
+        Path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+    except OSError as error:
+        raise CLIError(f"cannot update JSON input {path}: {error}") from error
+
+
+def prepare_expense_create_input(path: str, source_ref: str | None = None) -> bytes:
+    """Add and persist the stable source identity required by create."""
+    original = read_json_input(path)
+    try:
+        value = json.loads(original)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise CLIError(f"JSON input {path} is invalid: {error}") from error
+    if not isinstance(value, dict):
+        raise CLIError(f"JSON input {path} must contain an object")
+
+    source = value.get("source")
+    if isinstance(source, dict):
+        source = dict(source)
+    elif source is None:
+        source = {"kind": "cli"}
+    else:
+        # Leave malformed source values for the canonical API to reject.
+        return original
+    source.setdefault("kind", "cli")
+    if source_ref:
+        source["ref"] = source_ref
+    elif not source.get("ref"):
+        source["ref"] = hashlib.sha256(original).hexdigest()
+    value["source"] = source
+    updated = json.dumps(value, ensure_ascii=False, indent=2).encode() + b"\n"
+    if path != "-":
+        _write_json_file(path, value)
+    return updated
+
+
+def _json_value(data: bytes) -> object:
+    try:
+        return json.loads(data)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise CLIError(f"Iroha returned invalid JSON: {error}") from error
+
+
+def _table(rows: list[list[object]], headers: list[str]) -> str:
+    values = [[str(value) if value is not None else "" for value in row] for row in rows]
+    widths = [len(header) for header in headers]
+    for row in values:
+        for index, value in enumerate(row):
+            widths[index] = max(widths[index], len(value))
+    lines = ["  ".join(header.ljust(widths[index]) for index, header in enumerate(headers))]
+    lines.append("  ".join("-" * width for width in widths))
+    lines.extend("  ".join(value.ljust(widths[index]) for index, value in enumerate(row)) for row in values)
+    return "\n".join(lines) + "\n"
+
+
+def expense_table(value: object) -> str:
+    if isinstance(value, dict) and "items" in value:
+        items = value["items"]
+        rows = [
+            [item.get("id"), item.get("occurred_on"), item.get("currency"), item.get("amount_minor"), item.get("category"), item.get("merchant", "")]
+            for item in items
+        ]
+        return _table(rows, ["id", "occurred_on", "currency", "amount_minor", "category", "merchant"])
+    if isinstance(value, dict):
+        return _table(
+            [[value.get("id"), value.get("occurred_on"), value.get("currency"), value.get("amount_minor"), value.get("category"), value.get("merchant", "")]],
+            ["id", "occurred_on", "currency", "amount_minor", "category", "merchant"],
+        )
+    raise CLIError("Iroha returned an unexpected expense response")
+
+
+def output_result(data: bytes, output_format: str, table_formatter: Callable[[object], str] | None = None) -> None:
+    if not data:
+        return
+    if output_format == "json":
+        write_response(data)
+        return
+    if table_formatter is None:
+        raise CLIError("table output is not supported for this command")
+    print(table_formatter(_json_value(data)), end="")
+
+
+def run_expense_command(args: argparse.Namespace, client: IrohaClient) -> int:
+    if args.expense_action == "create":
+        body = prepare_expense_create_input(args.input, args.source_ref)
+        output_result(client.request("POST", "/api/v1/expenses", body), args.format, expense_table)
+        return 0
+    if args.expense_action == "list":
+        path = "/api/v1/expenses"
+        filters = {
+            "from": args.from_date,
+            "to": args.to,
+            "currency": args.currency,
+            "category": args.category,
+            "limit": args.limit,
+            "cursor": args.cursor,
+        }
+        if any(value is not None for value in filters.values()):
+            path += "?" + urlencode({key: value for key, value in filters.items() if value is not None})
+        output_result(client.request("GET", path), args.format, expense_table)
+        return 0
+    if args.expense_action == "get":
+        output_result(client.request("GET", f"/api/v1/expenses/{args.expense_id}"), args.format, expense_table)
+        return 0
+    if args.expense_action == "update":
+        body = read_json_input(args.input)
+        output_result(client.request("PUT", f"/api/v1/expenses/{args.expense_id}", body), args.format, expense_table)
+        return 0
+    if args.expense_action == "delete":
+        client.request("DELETE", f"/api/v1/expenses/{args.expense_id}")
+        return 0
+    raise CLIError(f"unsupported expense command: {args.expense_action}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="iroha_cli.py", description=__doc__)
     parser.add_argument(
@@ -128,14 +243,46 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Iroha API base URL (defaults to IROHA_API_BASE or the local server)",
     )
+    resources = parser.add_subparsers(dest="resource", required=True)
+    expense = resources.add_parser("expense", help="manage canonical expenses")
+    expense_commands = expense.add_subparsers(dest="expense_action", required=True)
+
+    create = expense_commands.add_parser("create")
+    create.add_argument("--input", required=True, help="JSON draft path, or '-' for stdin")
+    create.add_argument("--source-ref", help="explicit stable source reference")
+    create.add_argument("--format", choices=["json", "table"], default="json")
+
+    list_command = expense_commands.add_parser("list")
+    list_command.add_argument("--from", dest="from_date")
+    list_command.add_argument("--to")
+    list_command.add_argument("--currency")
+    list_command.add_argument("--category")
+    list_command.add_argument("--limit", type=int)
+    list_command.add_argument("--cursor")
+    list_command.add_argument("--format", choices=["json", "table"], default="json")
+
+    get = expense_commands.add_parser("get")
+    get.add_argument("expense_id")
+    get.add_argument("--format", choices=["json", "table"], default="json")
+
+    update = expense_commands.add_parser("update")
+    update.add_argument("expense_id")
+    update.add_argument("--input", required=True, help="JSON replacement path, or '-' for stdin")
+    update.add_argument("--format", choices=["json", "table"], default="json")
+
+    delete = expense_commands.add_parser("delete")
+    delete.add_argument("expense_id")
+    delete.add_argument("--format", choices=["json", "table"], default="json")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    parser.parse_args(argv)
-    parser.print_help()
-    return 0
+    args = parser.parse_args(argv)
+    client = IrohaClient(args.api_base)
+    if args.resource == "expense":
+        return run_expense_command(args, client)
+    raise CLIError(f"unsupported resource: {args.resource}")
 
 
 if __name__ == "__main__":
