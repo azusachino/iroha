@@ -99,8 +99,90 @@ type Service struct {
 	db *gorm.DB
 }
 
+type PeriodFilters struct {
+	From time.Time
+	To   time.Time
+}
+
+type PeriodCurrencyTotal struct {
+	Currency         string
+	CurrencyExponent int
+	AmountMinor      int64
+	ExpenseCount     int
+}
+
+type PeriodCategoryTotal struct {
+	Category         string
+	Currency         string
+	CurrencyExponent int
+	AmountMinor      int64
+	ExpenseCount     int
+}
+
+type PeriodReport struct {
+	ExpenseCount     int
+	TotalsByCurrency []PeriodCurrencyTotal
+	ByCategory       []PeriodCategoryTotal
+}
+
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
+	if !filters.From.Before(filters.To) {
+		return PeriodReport{}, errors.New("period from must be before to")
+	}
+
+	var expenseCountValue int64
+	if err := s.db.Model(&models.Expense{}).
+		Where("deleted_at is null and occurred_on >= ? and occurred_on < ?", dateOnly(filters.From), dateOnly(filters.To)).
+		Count(&expenseCountValue).Error; err != nil {
+		return PeriodReport{}, err
+	}
+
+	type currencyRow struct {
+		Currency     string `gorm:"column:currency"`
+		AmountMinor  int64  `gorm:"column:amount_minor"`
+		ExpenseCount int    `gorm:"column:expense_count"`
+	}
+	var currencyRows []currencyRow
+	if err := s.db.Model(&models.Expense{}).
+		Select("currency, sum(amount_minor)::bigint AS amount_minor, count(*)::int AS expense_count").
+		Where("deleted_at is null and occurred_on >= ? and occurred_on < ?", dateOnly(filters.From), dateOnly(filters.To)).
+		Group("currency").Order("currency").Scan(&currencyRows).Error; err != nil {
+		return PeriodReport{}, err
+	}
+
+	type categoryRow struct {
+		Category     string `gorm:"column:category"`
+		Currency     string `gorm:"column:currency"`
+		AmountMinor  int64  `gorm:"column:amount_minor"`
+		ExpenseCount int    `gorm:"column:expense_count"`
+	}
+	var categoryRows []categoryRow
+	if err := s.db.Model(&models.Expense{}).
+		Select("category, currency, sum(amount_minor)::bigint AS amount_minor, count(*)::int AS expense_count").
+		Where("deleted_at is null and occurred_on >= ? and occurred_on < ?", dateOnly(filters.From), dateOnly(filters.To)).
+		Group("category, currency").Order("category, currency").Scan(&categoryRows).Error; err != nil {
+		return PeriodReport{}, err
+	}
+
+	totalsByCurrency := make([]PeriodCurrencyTotal, 0, len(currencyRows))
+	for _, row := range currencyRows {
+		totalsByCurrency = append(totalsByCurrency, PeriodCurrencyTotal{
+			Currency: row.Currency, CurrencyExponent: SupportedCurrencies[row.Currency],
+			AmountMinor: row.AmountMinor, ExpenseCount: row.ExpenseCount,
+		})
+	}
+	byCategory := make([]PeriodCategoryTotal, 0, len(categoryRows))
+	for _, row := range categoryRows {
+		byCategory = append(byCategory, PeriodCategoryTotal{
+			Category: row.Category, Currency: row.Currency, CurrencyExponent: SupportedCurrencies[row.Currency],
+			AmountMinor: row.AmountMinor, ExpenseCount: row.ExpenseCount,
+		})
+	}
+	return PeriodReport{ExpenseCount: int(expenseCountValue), TotalsByCurrency: totalsByCurrency, ByCategory: byCategory}, nil
 }
 
 // NormalizeCreate validates and canonicalizes a create payload and returns

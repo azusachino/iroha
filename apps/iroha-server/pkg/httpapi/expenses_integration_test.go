@@ -7,6 +7,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 )
 
 func TestIntegrationExpenseEndpoints(t *testing.T) {
@@ -92,6 +95,54 @@ func TestIntegrationExpenseEndpoints(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestExpensePeriodReportIntegration(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+	svc := expenses.NewService(db)
+
+	create := func(ref string, date time.Time, currency string, amount int64, category string) expenses.CreateResult {
+		t.Helper()
+		result, err := svc.Create(expenses.CreateInput{
+			OccurredOn: date, Currency: currency, AmountMinor: amount, Category: category,
+			Source: expenses.Source{Kind: "test", Ref: ref},
+		})
+		if err != nil {
+			t.Fatalf("create %s: %v", ref, err)
+		}
+		return result
+	}
+	create("aug-jpy-food-1", time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), "JPY", 1300, "food")
+	create("aug-jpy-food-2", time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC), "JPY", 500, "food")
+	create("aug-usd-food", time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC), "USD", 2500, "food")
+	create("aug-usd-transport", time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), "USD", 1000, "transport")
+	create("sep-boundary", time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC), "JPY", 9999, "shopping")
+	deleted := create("aug-deleted", time.Date(2026, 8, 4, 0, 0, 0, 0, time.UTC), "JPY", 700, "shopping")
+	if err := svc.Delete(deleted.Expense.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	result, err := svc.PeriodReport(expenses.PeriodFilters{
+		From: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("period report: %v", err)
+	}
+	if result.ExpenseCount != 4 || len(result.TotalsByCurrency) != 2 || len(result.ByCategory) != 3 {
+		t.Fatalf("result = %+v", result)
+	}
+	if result.TotalsByCurrency[0].Currency != "JPY" || result.TotalsByCurrency[0].AmountMinor != 1800 || result.TotalsByCurrency[0].ExpenseCount != 2 {
+		t.Fatalf("JPY total = %+v", result.TotalsByCurrency[0])
+	}
+	if result.TotalsByCurrency[1].Currency != "USD" || result.TotalsByCurrency[1].AmountMinor != 3500 || result.TotalsByCurrency[1].ExpenseCount != 2 {
+		t.Fatalf("USD total = %+v", result.TotalsByCurrency[1])
+	}
+	if result.ByCategory[0].Category != "food" || result.ByCategory[0].Currency != "JPY" || result.ByCategory[0].AmountMinor != 1800 || result.ByCategory[1].Category != "food" || result.ByCategory[1].Currency != "USD" || result.ByCategory[2].Category != "transport" {
+		t.Fatalf("category totals = %+v", result.ByCategory)
+	}
 }
 
 func requestStatus(t *testing.T, handler http.Handler, method, path string, wantStatus int) {
