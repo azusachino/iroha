@@ -1,6 +1,6 @@
 # Iroha v0.4 Expense Ledger Plan v4
 
-> Status: draft for review. This document records current decisions and the implementation boundary; it does not authorize implementation or deployment.
+> Status: implementation baseline. This document records the current decisions and frontend boundary for Iroha v0.4.
 
 ## Current architecture
 
@@ -23,6 +23,12 @@ receipt.jpg -> local agent OCR/vision -> canonical JSON -> Iroha API
 ```
 
 OCR, model choice, temporary image files, and any optional preview/confirmation are client concerns. Iroha has no OCR worker, agent state machine, candidate model, or confirmation endpoint.
+
+## Frontend sharing boundary
+
+`packages/iroha-shared/` is the source-only common library for code that is identical between `apps/iroha-web` and `apps/iroha-public-site`. It currently owns calendar helpers, the month navigator,
+and the shared statistic tile. Private API clients, report/expense contracts, authentication, public-export policy, and design-language registries remain in their owning app. Move a component into the
+common library only when both applications use the same behavior and accessibility contract; do not use it to blur the private cockpit/public archive boundary.
 
 ## Suzuran boundary
 
@@ -234,7 +240,8 @@ the browser for monthly report requests and sends it explicitly.
 3. **General CLI foundation:** shared transport, configuration, source-reference persistence, JSON output, and error handling.
 4. **General CLI v0.4 resources:** `expense create/list/get/update/delete` and `report monthly`; add read-only wrappers for activity, sleep, daily, and media only after their response contracts are
    explicit.
-5. **Private cockpit:** theme-neutral `/expenses` list/detail/edit/delete flows and a link from the monthly report expense section. The report page remains one shared page inside the themed shell.
+5. **Private cockpit:** `/expenses` list/detail/edit/delete flows with one month-by-month selector, rendered through all six design-language shells. The report page links to the same canonical month
+   and remains the sole owner of expense aggregation.
 6. **Release hardening:** migration rehearsal, monitoring, docs, OpenAPI, and v0.4 release note. Future external clients are separate follow-up work.
 
 Each slice must remain deterministic inside Iroha and must not depend on a particular client being available.

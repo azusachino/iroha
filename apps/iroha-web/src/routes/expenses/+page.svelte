@@ -19,6 +19,9 @@
     type ExpenseCurrency,
     type ExpenseItem,
   } from "$lib/api";
+  import MonthNavigator from "@iroha/shared/MonthNavigator.svelte";
+  import { currentMonth, monthBounds } from "@iroha/shared/month";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
   const currencies: ExpenseCurrency[] = ["JPY", "USD", "EUR", "GBP"];
   const categories: ExpenseCategory[] = [
@@ -44,8 +47,7 @@
   let saving = $state(false);
   let error = $state<string | null>(null);
 
-  let from = $state("");
-  let to = $state("");
+  let month = $state(currentMonth());
   let filterCurrency = $state("");
   let filterCategory = $state("");
 
@@ -58,16 +60,17 @@
   let editItems = $state<ExpenseItem[]>([]);
 
   onMount(() => {
-    void loadExpenses();
+    void loadExpenses(month);
   });
 
-  async function loadExpenses() {
+  async function loadExpenses(selectedMonth = month) {
     loading = true;
     error = null;
     try {
+      const bounds = monthBounds(selectedMonth);
       const page = await listExpenses({
-        from: from || undefined,
-        to: to || undefined,
+        from: bounds.from,
+        to: bounds.to,
         currency: (filterCurrency || undefined) as ExpenseCurrency | undefined,
         category: (filterCategory || undefined) as ExpenseCategory | undefined,
         limit: 50,
@@ -84,6 +87,11 @@
     } finally {
       loading = false;
     }
+  }
+
+  function selectMonth(value: string) {
+    month = value;
+    void loadExpenses(value);
   }
 
   async function selectExpense(id: string) {
@@ -196,271 +204,283 @@
   <title>Expenses · iroha</title>
 </svelte:head>
 
-<section class="expenses-shell">
-  <header class="page-head">
-    <div>
-      <p class="eyebrow"><WalletCards size={14} /> Canonical ledger</p>
-      <h1>Expenses</h1>
-      <p class="intro">
-        Review and correct the records held by iroha. Import and OCR agents can
-        write here through the stable API; this page only edits canonical data.
-      </p>
-    </div>
-    <button
-      class="refresh"
-      type="button"
-      onclick={() => void loadExpenses()}
-      disabled={loading}
-    >
-      <RefreshCw size={15} /> Refresh
-    </button>
-  </header>
+<ThemeRouteRenderer route="expenses" props={{ route: "expenses" }}>
+  {#snippet children()}
+    <section class="expenses-shell">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow"><WalletCards size={14} /> Canonical ledger</p>
+          <h1>Expenses</h1>
+          <p class="intro">
+            Review and correct the records held by iroha. Import and OCR agents
+            can write here through the stable API; this page only edits
+            canonical data.
+          </p>
+        </div>
+        <button
+          class="refresh"
+          type="button"
+          onclick={() => void loadExpenses()}
+          disabled={loading}
+        >
+          <RefreshCw size={15} /> Refresh
+        </button>
+      </header>
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+      <div class="month-row">
+        <MonthNavigator {month} onMonth={selectMonth} disabled={loading} />
+      </div>
 
-  <form
-    class="filters panel"
-    onsubmit={(event) => {
-      event.preventDefault();
-      void loadExpenses();
-    }}
-  >
-    <label>From <input bind:value={from} type="date" /></label>
-    <label>To <input bind:value={to} type="date" /></label>
-    <label>
-      Currency
-      <select bind:value={filterCurrency}>
-        <option value="">All currencies</option>
-        {#each currencies as currency}<option value={currency}
-            >{currency}</option
-          >{/each}
-      </select>
-    </label>
-    <label>
-      Category
-      <select bind:value={filterCategory}>
-        <option value="">All categories</option>
-        {#each categories as category}<option value={category}
-            >{category}</option
-          >{/each}
-      </select>
-    </label>
-    <button type="submit">Apply filters</button>
-  </form>
+      {#if error}<p class="error" role="alert">{error}</p>{/if}
 
-  {#if loading}
-    <p class="muted">Loading expenses…</p>
-  {:else}
-    <div class="ledger-grid">
-      <section class="panel list-panel" aria-labelledby="expense-list-title">
-        <header class="panel-head">
-          <div>
-            <p class="eyebrow">Stored records</p>
-            <h2 id="expense-list-title">Expense ledger</h2>
-          </div>
-          <span class="count">{expenses.length} shown</span>
-        </header>
-        {#if expenses.length}
-          <ul class="expense-list">
-            {#each expenses as expense (expense.id)}
-              <li>
-                <button
-                  class:chosen={expense.id === selectedId}
-                  class="expense-row"
-                  type="button"
-                  onclick={() => void selectExpense(expense.id)}
-                >
-                  <span>
-                    <strong>{expense.merchant || expense.category}</strong>
-                    <small>{expense.occurred_on} · {expense.category}</small>
-                  </span>
-                  <b>{formatAmount(expense)}</b>
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <p class="empty">No canonical expenses match these filters.</p>
-        {/if}
-      </section>
-
-      <section
-        class="panel detail-panel"
-        aria-labelledby="expense-detail-title"
+      <form
+        class="filters panel"
+        onsubmit={(event) => {
+          event.preventDefault();
+          void loadExpenses();
+        }}
       >
-        {#if detailLoading}
-          <p class="muted">Loading record…</p>
-        {:else if selected}
-          <header class="panel-head">
-            <div>
-              <p class="eyebrow">Canonical record</p>
-              <h2 id="expense-detail-title">
-                {selected.merchant || selected.category}
-              </h2>
-            </div>
-            <div class="detail-actions">
-              {#if editing}
-                <button
-                  class="quiet"
-                  type="button"
-                  onclick={() => (editing = false)}
-                >
-                  <X size={14} /> Cancel
-                </button>
-              {:else}
-                <button
-                  class="quiet"
-                  type="button"
-                  onclick={() => beginEdit(selected!)}
-                >
-                  <Pencil size={14} /> Edit
-                </button>
-              {/if}
-              <button
-                class="danger"
-                type="button"
-                onclick={() => void removeExpense(selected!)}
-              >
-                <Trash2 size={14} /> Delete
-              </button>
-            </div>
-          </header>
+        <label>
+          Currency
+          <select bind:value={filterCurrency}>
+            <option value="">All currencies</option>
+            {#each currencies as currency}<option value={currency}
+                >{currency}</option
+              >{/each}
+          </select>
+        </label>
+        <label>
+          Category
+          <select bind:value={filterCategory}>
+            <option value="">All categories</option>
+            {#each categories as category}<option value={category}
+                >{category}</option
+              >{/each}
+          </select>
+        </label>
+        <button type="submit">Apply filters</button>
+      </form>
 
-          {#if editing}
-            <form
-              class="edit-form"
-              onsubmit={(event) => {
-                event.preventDefault();
-                void saveExpense();
-              }}
-            >
-              <label
-                >Date <input
-                  bind:value={editOccurredOn}
-                  type="date"
-                  required
-                /></label
-              >
-              <label>
-                Currency
-                <select bind:value={editCurrency}
-                  >{#each currencies as currency}<option value={currency}
-                      >{currency}</option
-                    >{/each}</select
-                >
-              </label>
-              <label
-                >Amount (minor units) <input
-                  bind:value={editAmountMinor}
-                  type="number"
-                  min="1"
-                  required
-                /></label
-              >
-              <label>
-                Category
-                <select bind:value={editCategory}
-                  >{#each categories as category}<option value={category}
-                      >{category}</option
-                    >{/each}</select
-                >
-              </label>
-              <label>Merchant <input bind:value={editMerchant} /></label>
-              <label class="wide"
-                >Note <textarea bind:value={editNote} rows="3"
-                ></textarea></label
-              >
-              <div class="items wide">
-                <div class="items-head">
-                  <span>Items</span><button
-                    class="quiet"
-                    type="button"
-                    onclick={addItem}><Plus size={14} /> Add item</button
-                  >
-                </div>
-                {#each editItems as item, index (index)}
-                  <div class="item-row">
-                    <input
-                      bind:value={item.name}
-                      aria-label={`Item ${index + 1} name`}
-                      placeholder="Item name"
-                    />
-                    <input
-                      bind:value={item.amount_minor}
-                      aria-label={`Item ${index + 1} amount`}
-                      type="number"
-                      min="0"
-                      placeholder="Minor amount"
-                    />
+      {#if loading}
+        <p class="muted">Loading expenses…</p>
+      {:else}
+        <div class="ledger-grid">
+          <section
+            class="panel list-panel"
+            aria-labelledby="expense-list-title"
+          >
+            <header class="panel-head">
+              <div>
+                <p class="eyebrow">Stored records</p>
+                <h2 id="expense-list-title">Expense ledger</h2>
+              </div>
+              <span class="count">{expenses.length} shown</span>
+            </header>
+            {#if expenses.length}
+              <ul class="expense-list">
+                {#each expenses as expense (expense.id)}
+                  <li>
                     <button
-                      class="icon-button"
+                      class:chosen={expense.id === selectedId}
+                      class="expense-row"
                       type="button"
-                      aria-label={`Remove item ${index + 1}`}
-                      onclick={() => removeItem(index)}><X size={14} /></button
+                      onclick={() => void selectExpense(expense.id)}
                     >
-                  </div>
+                      <span>
+                        <strong>{expense.merchant || expense.category}</strong>
+                        <small>{expense.occurred_on} · {expense.category}</small
+                        >
+                      </span>
+                      <b>{formatAmount(expense)}</b>
+                    </button>
+                  </li>
                 {/each}
-              </div>
-              <button class="save wide" type="submit" disabled={saving}
-                >{saving ? "Saving…" : "Save changes"}</button
-              >
-            </form>
-          {:else}
-            <dl class="detail-list">
-              <div>
-                <dt>Amount</dt>
-                <dd>{formatAmount(selected)}</dd>
-              </div>
-              <div>
-                <dt>Date</dt>
-                <dd>{selected.occurred_on}</dd>
-              </div>
-              <div>
-                <dt>Category</dt>
-                <dd>{selected.category}</dd>
-              </div>
-              <div>
-                <dt>Note</dt>
-                <dd>{selected.note || "—"}</dd>
-              </div>
-              <div>
-                <dt>Source</dt>
-                <dd>{selected.source.kind} · {selected.source.ref}</dd>
-              </div>
-              <div>
-                <dt>Record ID</dt>
-                <dd class="mono">{selected.id}</dd>
-              </div>
-            </dl>
-            {#if selected.items.length}
-              <div class="item-detail">
-                <h3>Items</h3>
-                <ul>
-                  {#each selected.items as item}
-                    <li>
-                      <span>{item.name}</span
-                      >{#if item.amount_minor != null}<span
-                          >{item.amount_minor} minor</span
-                        >{/if}
-                    </li>
-                  {/each}
-                </ul>
+              </ul>
+            {:else}
+              <p class="empty">No canonical expenses match these filters.</p>
+            {/if}
+          </section>
+
+          <section
+            class="panel detail-panel"
+            aria-labelledby="expense-detail-title"
+          >
+            {#if detailLoading}
+              <p class="muted">Loading record…</p>
+            {:else if selected}
+              <header class="panel-head">
+                <div>
+                  <p class="eyebrow">Canonical record</p>
+                  <h2 id="expense-detail-title">
+                    {selected.merchant || selected.category}
+                  </h2>
+                </div>
+                <div class="detail-actions">
+                  {#if editing}
+                    <button
+                      class="quiet"
+                      type="button"
+                      onclick={() => (editing = false)}
+                    >
+                      <X size={14} /> Cancel
+                    </button>
+                  {:else}
+                    <button
+                      class="quiet"
+                      type="button"
+                      onclick={() => beginEdit(selected!)}
+                    >
+                      <Pencil size={14} /> Edit
+                    </button>
+                  {/if}
+                  <button
+                    class="danger"
+                    type="button"
+                    onclick={() => void removeExpense(selected!)}
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </div>
+              </header>
+
+              {#if editing}
+                <form
+                  class="edit-form"
+                  onsubmit={(event) => {
+                    event.preventDefault();
+                    void saveExpense();
+                  }}
+                >
+                  <label
+                    >Date <input
+                      bind:value={editOccurredOn}
+                      type="date"
+                      required
+                    /></label
+                  >
+                  <label>
+                    Currency
+                    <select bind:value={editCurrency}
+                      >{#each currencies as currency}<option value={currency}
+                          >{currency}</option
+                        >{/each}</select
+                    >
+                  </label>
+                  <label
+                    >Amount (minor units) <input
+                      bind:value={editAmountMinor}
+                      type="number"
+                      min="1"
+                      required
+                    /></label
+                  >
+                  <label>
+                    Category
+                    <select bind:value={editCategory}
+                      >{#each categories as category}<option value={category}
+                          >{category}</option
+                        >{/each}</select
+                    >
+                  </label>
+                  <label>Merchant <input bind:value={editMerchant} /></label>
+                  <label class="wide"
+                    >Note <textarea bind:value={editNote} rows="3"
+                    ></textarea></label
+                  >
+                  <div class="items wide">
+                    <div class="items-head">
+                      <span>Items</span><button
+                        class="quiet"
+                        type="button"
+                        onclick={addItem}><Plus size={14} /> Add item</button
+                      >
+                    </div>
+                    {#each editItems as item, index (index)}
+                      <div class="item-row">
+                        <input
+                          bind:value={item.name}
+                          aria-label={`Item ${index + 1} name`}
+                          placeholder="Item name"
+                        />
+                        <input
+                          bind:value={item.amount_minor}
+                          aria-label={`Item ${index + 1} amount`}
+                          type="number"
+                          min="0"
+                          placeholder="Minor amount"
+                        />
+                        <button
+                          class="icon-button"
+                          type="button"
+                          aria-label={`Remove item ${index + 1}`}
+                          onclick={() => removeItem(index)}
+                          ><X size={14} /></button
+                        >
+                      </div>
+                    {/each}
+                  </div>
+                  <button class="save wide" type="submit" disabled={saving}
+                    >{saving ? "Saving…" : "Save changes"}</button
+                  >
+                </form>
+              {:else}
+                <dl class="detail-list">
+                  <div>
+                    <dt>Amount</dt>
+                    <dd>{formatAmount(selected)}</dd>
+                  </div>
+                  <div>
+                    <dt>Date</dt>
+                    <dd>{selected.occurred_on}</dd>
+                  </div>
+                  <div>
+                    <dt>Category</dt>
+                    <dd>{selected.category}</dd>
+                  </div>
+                  <div>
+                    <dt>Note</dt>
+                    <dd>{selected.note || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt>Source</dt>
+                    <dd>{selected.source.kind} · {selected.source.ref}</dd>
+                  </div>
+                  <div>
+                    <dt>Record ID</dt>
+                    <dd class="mono">{selected.id}</dd>
+                  </div>
+                </dl>
+                {#if selected.items.length}
+                  <div class="item-detail">
+                    <h3>Items</h3>
+                    <ul>
+                      {#each selected.items as item}
+                        <li>
+                          <span>{item.name}</span
+                          >{#if item.amount_minor != null}<span
+                              >{item.amount_minor} minor</span
+                            >{/if}
+                        </li>
+                      {/each}
+                    </ul>
+                  </div>
+                {/if}
+                <p class="timestamps">
+                  Created {selected.created_at} · Updated {selected.updated_at}
+                </p>
+              {/if}
+            {:else}
+              <div class="empty-detail">
+                <WalletCards size={22} />
+                <p>Select an expense to inspect its canonical fields.</p>
               </div>
             {/if}
-            <p class="timestamps">
-              Created {selected.created_at} · Updated {selected.updated_at}
-            </p>
-          {/if}
-        {:else}
-          <div class="empty-detail">
-            <WalletCards size={22} />
-            <p>Select an expense to inspect its canonical fields.</p>
-          </div>
-        {/if}
-      </section>
-    </div>
-  {/if}
-</section>
+          </section>
+        </div>
+      {/if}
+    </section>
+  {/snippet}
+</ThemeRouteRenderer>
 
 <style>
   .expenses-shell {
@@ -499,6 +519,10 @@
     align-items: end;
     padding-bottom: 1.5rem;
     border-bottom: 1px solid var(--border);
+  }
+  .month-row {
+    display: flex;
+    justify-content: center;
   }
   .eyebrow {
     display: flex;

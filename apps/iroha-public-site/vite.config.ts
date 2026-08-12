@@ -3,6 +3,9 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
+const sharedPath = new URL("../../packages/iroha-shared/src", import.meta.url)
+  .pathname;
+
 // GitHub Pages serves this as a project page at azusachino.github.io/iroha/,
 // not a root user site, so every asset/data URL needs the /iroha prefix in
 // production. Empty by default so `vite dev`/`vite preview` work at the root
@@ -13,6 +16,11 @@ const base = (
 ) as "" | `/${string}`;
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@iroha/shared": sharedPath,
+    },
+  },
   build: {
     // MapLibre and ECharts are core to the public route/detail experience and
     // together produce one intentionally large vendor chunk.
@@ -24,6 +32,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     sveltekit({
+      alias: { "@iroha/shared": sharedPath },
       compilerOptions: {
         runes: true,
       },

@@ -54,6 +54,7 @@ import FieldJournalMediaDetail from "$lib/themes/field-journal/MediaDetail.svelt
 import PhenologyMediaDetail from "$lib/themes/phenology/MediaDetail.svelte";
 import SoundMapMediaDetail from "$lib/themes/sound-map/MediaDetail.svelte";
 import ArchiveMediaDetail from "$lib/themes/archive/MediaDetail.svelte";
+import CockpitFrame from "$lib/themes/CockpitFrame.svelte";
 
 export const THEME_DEFINITIONS = [
   {
@@ -71,6 +72,8 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
+      "expenses",
+      "reports",
     ],
     components: {
       shell: AtlasShell,
@@ -82,6 +85,8 @@ export const THEME_DEFINITIONS = [
       media: AtlasMedia,
       "media-detail": AtlasMediaDetail,
       dashboard: AtlasDashboard,
+      expenses: CockpitFrame,
+      reports: CockpitFrame,
     },
   },
   {
@@ -90,13 +95,15 @@ export const THEME_DEFINITIONS = [
     hint: "trends and comparisons",
     description: "An evidence-first language for comparison and change.",
     implementation: "curated",
-    routes: ["today", "daily", "activities", "sleep"],
+    routes: ["today", "daily", "activities", "sleep", "expenses", "reports"],
     components: {
       shell: GrapherShell,
       today: GrapherToday,
       daily: GrapherDaily,
       activities: GrapherActivities,
       sleep: GrapherSleep,
+      expenses: CockpitFrame,
+      reports: CockpitFrame,
     },
   },
   {
@@ -115,6 +122,8 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
+      "expenses",
+      "reports",
     ],
     components: {
       shell: FieldJournalShell,
@@ -126,6 +135,8 @@ export const THEME_DEFINITIONS = [
       media: FieldJournalMedia,
       "media-detail": FieldJournalMediaDetail,
       dashboard: FieldJournalDashboard,
+      expenses: CockpitFrame,
+      reports: CockpitFrame,
     },
   },
   {
@@ -144,6 +155,8 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
+      "expenses",
+      "reports",
     ],
     components: {
       shell: PhenologyShell,
@@ -155,6 +168,8 @@ export const THEME_DEFINITIONS = [
       media: PhenologyMedia,
       "media-detail": PhenologyMediaDetail,
       dashboard: PhenologyDashboard,
+      expenses: CockpitFrame,
+      reports: CockpitFrame,
     },
   },
   {
@@ -172,6 +187,8 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
+      "expenses",
+      "reports",
     ],
     components: {
       shell: SoundMapShell,
@@ -183,6 +200,8 @@ export const THEME_DEFINITIONS = [
       media: SoundMapMedia,
       "media-detail": SoundMapMediaDetail,
       dashboard: SoundMapDashboard,
+      expenses: CockpitFrame,
+      reports: CockpitFrame,
     },
   },
   {
@@ -205,6 +224,8 @@ export const THEME_DEFINITIONS = [
       "sleep",
       "media",
       "media-detail",
+      "expenses",
+      "reports",
     ],
     components: {
       shell: ArchiveShell,
@@ -216,6 +237,8 @@ export const THEME_DEFINITIONS = [
       media: ArchiveMedia,
       "media-detail": ArchiveMediaDetail,
       dashboard: ArchiveDashboard,
+      expenses: CockpitFrame,
+      reports: CockpitFrame,
     },
   },
 ] as const satisfies readonly ThemeDefinition[];

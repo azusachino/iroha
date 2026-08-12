@@ -3,7 +3,15 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
+const sharedPath = new URL("../../packages/iroha-shared/src", import.meta.url)
+  .pathname;
+
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@iroha/shared": sharedPath,
+    },
+  },
   build: {
     // MapLibre and ECharts are core to the private route/detail experience and
     // together produce one intentionally large vendor chunk.
@@ -24,6 +32,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     sveltekit({
+      alias: { "@iroha/shared": sharedPath },
       compilerOptions: {
         // Force runes mode for the project, except for libraries. Can be removed in svelte 6.
         runes: ({ filename }) =>

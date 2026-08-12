@@ -1,14 +1,16 @@
 <script lang="ts">
-  import type { Component } from "svelte";
+  import type { Component, Snippet } from "svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import type { ThemeRoute } from "$lib/themes/types";
 
   let {
     route,
     props,
+    children,
   }: {
     route: ThemeRoute;
     props: Record<string, unknown>;
+    children?: Snippet;
   } = $props();
 
   const theme = useTheme();
@@ -22,5 +24,5 @@
   {#if route === "activity-detail"}
     <p class="detail-back"><a href="/motion">← Back to Motion</a></p>
   {/if}
-  <Renderer {...props} />
+  <Renderer {...props} {children} />
 {/if}

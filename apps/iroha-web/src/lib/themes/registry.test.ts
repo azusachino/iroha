@@ -155,5 +155,11 @@ describe("Iroha theme registry", () => {
     expect(
       THEME_DEFINITIONS.filter((theme) => theme.implementation === "preview"),
     ).toHaveLength(0);
+    expect(
+      THEME_DEFINITIONS.every((theme) => hasThemeRoute(theme, "expenses")),
+    ).toBe(true);
+    expect(
+      THEME_DEFINITIONS.every((theme) => hasThemeRoute(theme, "reports")),
+    ).toBe(true);
   });
 });

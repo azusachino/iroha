@@ -9,6 +9,8 @@ export const THEME_ROUTES = [
   "sleep",
   "media",
   "media-detail",
+  "expenses",
+  "reports",
 ] as const;
 
 export type ThemeRoute = (typeof THEME_ROUTES)[number];

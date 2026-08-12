@@ -1,6 +1,6 @@
 # Iroha Monthly Report Plan v2
 
-> Status: draft for review. This plan covers the monthly report across Iroha's existing personal data domains.
+> Status: implementation baseline. This plan covers the monthly report across Iroha's existing personal data domains.
 
 ## Goal
 
@@ -458,11 +458,12 @@ user opens /reports
   -> previous/next changes anchor and repeats the request
 ```
 
-Add a private `/reports` route with a month selector and previous/next month navigation. One API request loads the report. Render sections independently so an empty media section does not hide valid
-sleep data. A request-level error is shown as an error state for the whole report. The route owns no aggregation logic; it renders typed section data, including loading, empty, and error states.
+Add a private `/reports` route with a month selector and previous/next month navigation. The selected month loads the current report plus a bounded recent-month window for comparison charts. Render
+sections independently so an empty media section does not hide valid sleep data. A request-level error is shown as an error state for the whole report. The route owns no aggregation logic; it renders
+typed section data, including loading, empty, and error states.
 
-The Overview may show a small link or selected-period summary, but it must not duplicate the report calculations. One theme-neutral `/reports` page is rendered inside the shared themed shell; v0.4
-does not implement separate report pages for each theme.
+The Overview may show a small link or selected-period summary, but it must not duplicate the report calculations. One `/reports` route is rendered through the six design-language shells. The report
+data contract and analysis model remain shared; theme wrappers provide the visual treatment without six copies of report logic.
 
 Future clients may call this endpoint and render the typed response, but no external client, Telegram workflow, or scheduled delivery is implemented in v0.4.
 
