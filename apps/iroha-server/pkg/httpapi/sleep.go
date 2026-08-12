@@ -53,6 +53,7 @@ type sleepAggregateBucketResponse struct {
 	Period            string  `json:"period"`
 	SessionCount      int     `json:"session_count"`
 	MainSleepCount    int     `json:"main_sleep_count"`
+	NapCount          int     `json:"nap_count"`
 	AverageAsleepS    float64 `json:"average_asleep_s"`
 	AverageTimeInBedS float64 `json:"average_time_in_bed_s"`
 	AverageEfficiency float64 `json:"average_efficiency"`
@@ -139,6 +140,7 @@ func (s *Server) handleSleepAggregates(w http.ResponseWriter, r *http.Request) {
 			Period:            formatAggregatePeriod(bucket.Period, filters.Granularity),
 			SessionCount:      bucket.SessionCount,
 			MainSleepCount:    bucket.MainSleepCount,
+			NapCount:          bucket.NapCount,
 			AverageAsleepS:    bucket.AverageAsleepS,
 			AverageTimeInBedS: bucket.AverageTimeInBedS,
 			AverageEfficiency: bucket.AverageEfficiency,

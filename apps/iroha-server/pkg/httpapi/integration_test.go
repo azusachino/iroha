@@ -129,6 +129,7 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 
 	firstID := uuid.New()
 	secondID := uuid.New()
+	napID := uuid.New()
 	createdAt := time.Now().UTC()
 	for _, session := range []models.SleepSession{
 		{
@@ -142,6 +143,12 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 			StartedAt: time.Date(2023, time.December, 30, 23, 0, 0, 0, time.UTC), EndedAt: time.Date(2023, time.December, 31, 7, 0, 0, 0, time.UTC),
 			TimeInBedS: 28800, AsleepS: 21600, Efficiency: 0.75, IsMainSleep: true,
 			CoreS: 12000, DeepS: 3600, RemS: 6000, AwakeS: 7200, Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt,
+		},
+		{
+			ID: napID, WakeDate: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+			StartedAt: time.Date(2024, time.January, 1, 13, 0, 0, 0, time.UTC), EndedAt: time.Date(2024, time.January, 1, 14, 0, 0, 0, time.UTC),
+			TimeInBedS: 3600, AsleepS: 1800, Efficiency: 0.5, IsMainSleep: false,
+			CoreS: 900, DeepS: 300, RemS: 600, AwakeS: 1800, Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt,
 		},
 	} {
 		if err := db.Create(&session).Error; err != nil {
@@ -167,9 +174,9 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 		}
 	})
 	cursor := stringValue(t, firstPage, "next_cursor")
-	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?limit=1&cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
 		items := body["items"].([]any)
-		if len(items) != 1 || body["has_more"] != false {
+		if len(items) != 1 || body["has_more"] != true {
 			t.Fatalf("second sleep page = %#v", body)
 		}
 	})
@@ -194,8 +201,12 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/aggregates?granularity=month&from=2024-01-01&to=2024-01-31", "", http.StatusOK, func(body map[string]any) {
 		buckets := body["buckets"].([]any)
-		if len(buckets) != 1 || buckets[0].(map[string]any)["period"] != "2024-01" || buckets[0].(map[string]any)["session_count"] != float64(1) {
+		if len(buckets) != 1 {
 			t.Fatalf("monthly sleep aggregates = %#v", body)
+		}
+		bucket := buckets[0].(map[string]any)
+		if bucket["period"] != "2024-01" || bucket["session_count"] != float64(2) || bucket["main_sleep_count"] != float64(1) || bucket["nap_count"] != float64(1) || bucket["average_asleep_s"] != float64(25200) || bucket["core_s"] != float64(12000) {
+			t.Fatalf("monthly sleep aggregate bucket = %#v", bucket)
 		}
 	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/aggregates?granularity=week", "", http.StatusBadRequest, nil)
