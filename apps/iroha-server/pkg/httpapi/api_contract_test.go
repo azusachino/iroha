@@ -46,6 +46,8 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/media/{mediaId}",
 		"GET /api/v1/raw-files",
 		"GET /api/v1/raw-files/{rawFileId}",
+		"GET /api/v1/metrics",
+		"GET /api/v1/metrics/{metricId}",
 		"GET /api/v1/reports/monthly",
 		"GET /api/v1/sleep",
 		"GET /api/v1/sleep/aggregates",

@@ -31,6 +31,12 @@
       "schema": "MediaPage"
     },
     {
+      "file": "metric-catalog.json",
+      "method": "GET",
+      "path": "/api/v1/metrics",
+      "schema": "MetricCatalog"
+    },
+    {
       "file": "sleep-aggregate.json",
       "method": "GET",
       "path": "/api/v1/sleep/aggregates",

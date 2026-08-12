@@ -15,6 +15,7 @@ tags:
   - name: activities
   - name: sleep
   - name: daily
+  - name: metrics
   - name: expenses
   - name: media
   - name: control-room
@@ -48,6 +49,35 @@ paths:
                 $ref: "#/components/schemas/Briefing"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/metrics:
+    get:
+      tags: [metrics]
+      summary: List the immutable metric catalog.
+      responses:
+        "200":
+          description: Metric definitions and their aggregation metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricCatalog"
+  /api/v1/metrics/{metricId}:
+    get:
+      tags: [metrics]
+      summary: Get one metric definition.
+      parameters:
+        - name: metricId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Metric definition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricDefinitionResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/raw-files:
     get:
       tags: [imports]
@@ -896,6 +926,57 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    MetricDimension:
+      type: object
+      additionalProperties: false
+      required: [id, label, values]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        values:
+          type: array
+          items: { type: string }
+    MetricDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        [id, domain, label, description, kind, value_type, unit, short_unit, supported_grains, dimensions, reducer, aggregation_version, coverage_kind, semantic_color_token, preferred_view]
+      properties:
+        id: { type: string }
+        domain: { type: string }
+        label: { type: string }
+        description: { type: string }
+        kind: { type: string, enum: [canonical, derived] }
+        value_type: { type: string }
+        unit: { type: string }
+        short_unit: { type: string }
+        supported_grains:
+          type: array
+          items: { type: string }
+        dimensions:
+          type: array
+          items: { $ref: "#/components/schemas/MetricDimension" }
+        reducer: { type: string }
+        aggregation_version: { type: string }
+        coverage_kind: { type: string }
+        semantic_color_token: { type: string }
+        preferred_view: { type: string }
+    MetricCatalog:
+      type: object
+      additionalProperties: false
+      required: [schema, metrics]
+      properties:
+        schema: { type: string, const: metric-catalog.v1 }
+        metrics:
+          type: array
+          items: { $ref: "#/components/schemas/MetricDefinition" }
+    MetricDefinitionResponse:
+      type: object
+      additionalProperties: false
+      required: [schema, metric]
+      properties:
+        schema: { type: string, const: metric-catalog.v1 }
+        metric: { $ref: "#/components/schemas/MetricDefinition" }
     Error:
       type: object
       required: [code, message, request_id]

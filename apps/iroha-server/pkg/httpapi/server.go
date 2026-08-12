@@ -20,6 +20,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/tasks"
 	"github.com/go-chi/chi/v5"
@@ -46,6 +47,7 @@ type Dependencies struct {
 	ExpenseService         *expenses.Service
 	MediaService           *media.Service
 	MediaResolutionService *mediaresolution.Service
+	MetricRegistry         *metrics.Registry
 	BriefingRegistry       *briefing.Registry
 	ImportService          *imports.Service
 	RawFileService         *rawfiles.Service
@@ -78,6 +80,9 @@ func NewServer(deps Dependencies) http.Handler {
 	if server.deps.BriefingRegistry == nil {
 		server.deps.BriefingRegistry, _ = briefing.NewRegistry()
 	}
+	if server.deps.MetricRegistry == nil {
+		server.deps.MetricRegistry, _ = metrics.DefaultRegistry()
+	}
 	server.routes()
 	return server
 }
@@ -100,6 +105,8 @@ func (s *Server) routes() {
 		r.Use(limitByIP(apiRateLimitPerMin))
 		r.Use(s.readCache)
 		r.Get("/briefing", s.handleBriefing)
+		r.Get("/metrics", s.handleListMetrics)
+		r.Get("/metrics/{metricId}", s.handleGetMetric)
 		r.Route("/raw-files", func(r chi.Router) {
 			r.Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
