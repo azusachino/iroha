@@ -398,6 +398,7 @@
                     formatMoney(value, primaryCurrency, primaryExponent),
                 }}
                 orientation="horizontal"
+                categorical
                 height={280}
               />
             {:else}

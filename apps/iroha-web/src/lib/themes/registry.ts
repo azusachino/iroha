@@ -54,6 +54,12 @@ import FieldJournalMediaDetail from "$lib/themes/field-journal/MediaDetail.svelt
 import PhenologyMediaDetail from "$lib/themes/phenology/MediaDetail.svelte";
 import SoundMapMediaDetail from "$lib/themes/sound-map/MediaDetail.svelte";
 import ArchiveMediaDetail from "$lib/themes/archive/MediaDetail.svelte";
+import AtlasExpenses from "$lib/themes/atlas/Expenses.svelte";
+import GrapherExpenses from "$lib/themes/grapher/Expenses.svelte";
+import FieldJournalExpenses from "$lib/themes/field-journal/Expenses.svelte";
+import PhenologyExpenses from "$lib/themes/phenology/Expenses.svelte";
+import SoundMapExpenses from "$lib/themes/sound-map/Expenses.svelte";
+import ArchiveExpenses from "$lib/themes/archive/Expenses.svelte";
 import CockpitFrame from "$lib/themes/CockpitFrame.svelte";
 
 export const THEME_DEFINITIONS = [
@@ -85,7 +91,7 @@ export const THEME_DEFINITIONS = [
       media: AtlasMedia,
       "media-detail": AtlasMediaDetail,
       dashboard: AtlasDashboard,
-      expenses: CockpitFrame,
+      expenses: AtlasExpenses,
       reports: CockpitFrame,
     },
   },
@@ -102,7 +108,7 @@ export const THEME_DEFINITIONS = [
       daily: GrapherDaily,
       activities: GrapherActivities,
       sleep: GrapherSleep,
-      expenses: CockpitFrame,
+      expenses: GrapherExpenses,
       reports: CockpitFrame,
     },
   },
@@ -135,7 +141,7 @@ export const THEME_DEFINITIONS = [
       media: FieldJournalMedia,
       "media-detail": FieldJournalMediaDetail,
       dashboard: FieldJournalDashboard,
-      expenses: CockpitFrame,
+      expenses: FieldJournalExpenses,
       reports: CockpitFrame,
     },
   },
@@ -168,7 +174,7 @@ export const THEME_DEFINITIONS = [
       media: PhenologyMedia,
       "media-detail": PhenologyMediaDetail,
       dashboard: PhenologyDashboard,
-      expenses: CockpitFrame,
+      expenses: PhenologyExpenses,
       reports: CockpitFrame,
     },
   },
@@ -200,7 +206,7 @@ export const THEME_DEFINITIONS = [
       media: SoundMapMedia,
       "media-detail": SoundMapMediaDetail,
       dashboard: SoundMapDashboard,
-      expenses: CockpitFrame,
+      expenses: SoundMapExpenses,
       reports: CockpitFrame,
     },
   },
@@ -237,7 +243,7 @@ export const THEME_DEFINITIONS = [
       media: ArchiveMedia,
       "media-detail": ArchiveMediaDetail,
       dashboard: ArchiveDashboard,
-      expenses: CockpitFrame,
+      expenses: ArchiveExpenses,
       reports: CockpitFrame,
     },
   },

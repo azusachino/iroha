@@ -38,6 +38,7 @@
     secondary,
     orientation = "vertical",
     primaryType = "bar",
+    categorical = false,
     activeIndex = null,
     onBarClick,
     height = 260,
@@ -47,6 +48,7 @@
     secondary?: BarSeries;
     orientation?: "vertical" | "horizontal";
     primaryType?: "bar" | "line";
+    categorical?: boolean;
     activeIndex?: number | null;
     onBarClick?: (index: number) => void;
     height?: number;
@@ -59,6 +61,16 @@
     return Number.isInteger(value) ? String(value) : value.toFixed(1);
   }
 
+  function resolveColor(
+    value: string | undefined,
+    styles: CSSStyleDeclaration,
+    fallback: string,
+  ): string {
+    if (!value) return fallback;
+    const match = value.match(/^var\((--[\w-]+)\)$/);
+    return match ? styles.getPropertyValue(match[1]).trim() || fallback : value;
+  }
+
   function render() {
     if (!chart) return;
     const styles = getComputedStyle(container);
@@ -66,7 +78,16 @@
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const accent = styles.getPropertyValue("--accent").trim() || "#5c8dff";
-    const primaryColor = primary.color || accent;
+    const primaryColor = resolveColor(primary.color, styles, accent);
+    const categoricalColors = [
+      accent,
+      styles.getPropertyValue("--accent-2").trim(),
+      styles.getPropertyValue("--ring-exercise").trim(),
+      styles.getPropertyValue("--ring-move").trim(),
+      styles.getPropertyValue("--ring-stand").trim(),
+      styles.getPropertyValue("--mark-amber").trim(),
+      styles.getPropertyValue("--sport-swim").trim(),
+    ].filter(Boolean);
     const primaryFormat = primary.formatter || defaultFormatter;
     const secondaryFormat = secondary?.formatter || defaultFormatter;
     const categoryAxis = {
@@ -139,7 +160,9 @@
           data: primary.values.map((value, index) => ({
             value,
             itemStyle: {
-              color: primaryColor,
+              color: categorical
+                ? categoricalColors[index % categoricalColors.length]
+                : primaryColor,
               opacity: activeIndex == null || activeIndex === index ? 1 : 0.45,
             },
           })),
@@ -222,6 +245,7 @@
     secondary;
     orientation;
     primaryType;
+    categorical;
     activeIndex;
     render();
   });

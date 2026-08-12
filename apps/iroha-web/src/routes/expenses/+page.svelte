@@ -1,19 +1,20 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { RefreshCw, Trash2, WalletCards } from "@lucide/svelte";
-  import BarChart from "$lib/components/BarChart.svelte";
-  import StatTile from "$lib/components/StatTile.svelte";
+  import { RefreshCw, WalletCards } from "@lucide/svelte";
   import {
     ApiError,
     deleteExpense,
     getExpense,
+    getMetricSeries,
     listExpenses,
     type Expense,
     type ExpenseCategory,
     type ExpenseCurrency,
+    type MetricSeriesResponse,
   } from "$lib/api";
   import MonthNavigator from "@iroha/shared/MonthNavigator.svelte";
-  import { currentMonth, formatMonth, monthBounds } from "@iroha/shared/month";
+  import { currentMonth, monthBounds } from "@iroha/shared/month";
+  import type { ExpenseThemeProps } from "$lib/expense-view";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
   const currencies: ExpenseCurrency[] = ["JPY", "USD", "EUR", "GBP"];
@@ -37,6 +38,10 @@
   let loading = $state(true);
   let detailLoading = $state(false);
   let error = $state<string | null>(null);
+  let dailySeries = $state<MetricSeriesResponse | null>(null);
+  let categorySeries = $state<MetricSeriesResponse[]>([]);
+  let currencySeries = $state<MetricSeriesResponse[]>([]);
+  let currencyCountSeries = $state<MetricSeriesResponse[]>([]);
 
   let month = $state(currentMonth());
   let filterCurrency = $state("");
@@ -59,6 +64,65 @@
         limit: 50,
       });
       expenses = page.items;
+      const chartCurrencies = filterCurrency
+        ? [filterCurrency as ExpenseCurrency]
+        : currencies;
+      const [currenciesForMonth, countsForCurrency] = await Promise.all([
+        Promise.all(
+          chartCurrencies.map((currency) =>
+            getMetricSeries("expenses.amount_minor", {
+              from: bounds.from,
+              to: bounds.to,
+              grain: "month",
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              dimensions: [`currency:${currency}`],
+            }),
+          ),
+        ),
+        Promise.all(
+          chartCurrencies.map((currency) =>
+            getMetricSeries("expenses.count", {
+              from: bounds.from,
+              to: bounds.to,
+              grain: "month",
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              dimensions: [`currency:${currency}`],
+            }),
+          ),
+        ),
+      ]);
+      const chartCurrency =
+        filterCurrency ||
+        currenciesForMonth.find((series) => seriesPointValue(series) != null)
+          ?.series[0]?.dimensions.currency ||
+        "JPY";
+      const chartCategories = filterCategory
+        ? [filterCategory as ExpenseCategory]
+        : categories;
+      const [daily, categoriesForCurrency] = await Promise.all([
+        getMetricSeries("expenses.amount_minor", {
+          from: bounds.from,
+          to: bounds.to,
+          grain: "day",
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          dimensions: [`currency:${chartCurrency}`],
+        }),
+        Promise.all(
+          chartCategories.map((category) =>
+            getMetricSeries("expenses.amount_minor", {
+              from: bounds.from,
+              to: bounds.to,
+              grain: "month",
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              dimensions: [`currency:${chartCurrency}`, `category:${category}`],
+            }),
+          ),
+        ),
+      ]);
+      dailySeries = daily;
+      categorySeries = categoriesForCurrency;
+      currencySeries = currenciesForMonth;
+      currencyCountSeries = countsForCurrency;
       if (!page.items.length) {
         selected = null;
         selectedId = "";
@@ -96,14 +160,7 @@
     error = null;
     try {
       await deleteExpense(expense.id);
-      const remaining = expenses.filter((item) => item.id !== expense.id);
-      expenses = remaining;
-      if (remaining.length) {
-        await selectExpense(remaining[0].id);
-      } else {
-        selected = null;
-        selectedId = "";
-      }
+      await loadExpenses();
     } catch (cause) {
       showError(cause);
     }
@@ -119,14 +176,6 @@
     }
   }
 
-  function formatAmount(expense: Expense): string {
-    return formatMoney(
-      expense.amount_minor,
-      expense.currency,
-      expense.currency_exponent,
-    );
-  }
-
   function formatMoney(
     amountMinor: number,
     currency: string,
@@ -140,317 +189,141 @@
     }).format(amountMinor / 10 ** exponent);
   }
 
-  const currencyTotals = $derived.by(() => {
-    const totals = new Map<
-      ExpenseCurrency,
-      {
-        currency: ExpenseCurrency;
-        amountMinor: number;
-        exponent: number;
-        count: number;
-      }
-    >();
-    for (const expense of expenses) {
-      const current = totals.get(expense.currency) ?? {
-        currency: expense.currency,
-        amountMinor: 0,
-        exponent: expense.currency_exponent,
-        count: 0,
-      };
-      current.amountMinor += expense.amount_minor;
-      current.count += 1;
-      totals.set(expense.currency, current);
-    }
-    return [...totals.values()].sort((a, b) => b.amountMinor - a.amountMinor);
-  });
-  const primaryCurrency = $derived(currencyTotals[0]?.currency ?? "JPY");
-  const primaryExponent = $derived(
-    currencyTotals.find((item) => item.currency === primaryCurrency)
-      ?.exponent ?? 0,
-  );
-  const primaryExpenses = $derived(
-    expenses.filter((expense) => expense.currency === primaryCurrency),
-  );
-  const categoryTotals = $derived.by(() => {
-    const totals = new Map<string, number>();
-    for (const expense of primaryExpenses) {
-      totals.set(
-        expense.category,
-        (totals.get(expense.category) ?? 0) + expense.amount_minor,
-      );
-    }
-    return [...totals.entries()]
-      .map(([category, amount]) => ({ category, amount }))
-      .sort((a, b) => b.amount - a.amount);
-  });
-  const dailyTotals = $derived.by(() => {
-    const totals = new Map<string, number>();
-    for (const expense of primaryExpenses) {
-      totals.set(
-        expense.occurred_on,
-        (totals.get(expense.occurred_on) ?? 0) + expense.amount_minor,
-      );
-    }
-    return [...totals.entries()].sort(([a], [b]) => a.localeCompare(b));
-  });
-
-  function formatDayLabel(value: string): string {
-    return new Date(`${value}T00:00:00Z`).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    });
+  function seriesPointValue(
+    series: MetricSeriesResponse | null,
+  ): number | null {
+    const point = series?.series[0]?.points[0];
+    return point?.value_minor ?? null;
   }
+
+  function numericSeriesPointValue(
+    series: MetricSeriesResponse | null,
+  ): number | null {
+    const point = series?.series[0]?.points[0];
+    return point && "value" in point ? (point.value ?? null) : null;
+  }
+
+  const currencyTotals = $derived(
+    currencySeries
+      .map((series) => ({
+        currency: series.series[0]?.dimensions.currency as ExpenseCurrency,
+        amountMinor: seriesPointValue(series) ?? 0,
+        exponent: series.series[0]?.dimensions.currency === "JPY" ? 0 : 2,
+        count:
+          numericSeriesPointValue(
+            currencyCountSeries.find(
+              (countSeries) =>
+                countSeries.series[0]?.dimensions.currency ===
+                series.series[0]?.dimensions.currency,
+            ) ?? null,
+          ) ?? 0,
+      }))
+      .filter((item) => item.currency)
+      .sort((a, b) => b.amountMinor - a.amountMinor),
+  );
+  const primaryCurrency = $derived(
+    (filterCurrency ||
+      currencyTotals.find((item) => item.amountMinor !== 0)?.currency ||
+      currencyTotals[0]?.currency ||
+      "JPY") as ExpenseCurrency,
+  );
+  const primaryExponent = $derived(
+    expenses.find((item) => item.currency === primaryCurrency)
+      ?.currency_exponent ?? (primaryCurrency === "JPY" ? 0 : 2),
+  );
+  const categoryTotals = $derived(
+    categorySeries
+      .map((series) => ({
+        category: series.series[0]?.dimensions.category ?? "",
+        amount: seriesPointValue(series) ?? 0,
+      }))
+      .filter((item) => item.category && item.amount > 0)
+      .sort((a, b) => b.amount - a.amount),
+  );
+  const dailyTotals = $derived(
+    (dailySeries?.series[0]?.points ?? []).map(
+      (point) =>
+        [point.period, point.value_minor ?? null] as [string, number | null],
+    ),
+  );
+
+  const themeProps = $derived<ExpenseThemeProps>({
+    month,
+    primaryCurrency,
+    primaryExponent,
+    currencyTotals,
+    categoryTotals,
+    dailyTotals,
+    expenses,
+    selected,
+    selectedId,
+    detailLoading,
+    onSelect: (id) => void selectExpense(id),
+    onRemove: (expense) => void removeExpense(expense),
+    formatMoney,
+  });
 </script>
 
 <svelte:head>
   <title>Expenses · iroha</title>
 </svelte:head>
 
-<ThemeRouteRenderer route="expenses" props={{ route: "expenses" }}>
-  {#snippet children()}
-    <section class="expenses-shell">
-      <header class="page-head">
-        <div>
-          <p class="eyebrow"><WalletCards size={14} /> Canonical ledger</p>
-          <h1>Expenses</h1>
-          <p class="intro">
-            Explore the canonical records held by iroha. Import and OCR agents
-            write through the stable API; this page is the visual ledger and
-            drill-down viewer.
-          </p>
-        </div>
-        <button
-          class="refresh"
-          type="button"
-          onclick={() => void loadExpenses()}
-          disabled={loading}
-        >
-          <RefreshCw size={15} /> Refresh
-        </button>
-      </header>
-
-      <div class="month-row">
-        <MonthNavigator {month} onMonth={selectMonth} disabled={loading} />
-      </div>
-
-      {#if error}<p class="error" role="alert">{error}</p>{/if}
-
-      <form
-        class="filters panel"
-        onsubmit={(event) => {
-          event.preventDefault();
+<section class="expenses-shell">
+  <header class="page-head">
+    <div>
+      <p class="eyebrow"><WalletCards size={14} /> Canonical ledger</p>
+      <h1>Expenses</h1>
+      <p class="intro">
+        Read server-computed spending series first; open canonical records only
+        when you need the source detail.
+      </p>
+    </div>
+    <button
+      class="refresh"
+      type="button"
+      onclick={() => void loadExpenses()}
+      disabled={loading}><RefreshCw size={15} /> Refresh</button
+    >
+  </header>
+  <div class="month-row">
+    <MonthNavigator {month} onMonth={selectMonth} disabled={loading} />
+  </div>
+  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  <div class="filters panel" aria-label="Expense filters">
+    <label
+      >Currency<select
+        value={filterCurrency}
+        onchange={(event) => {
+          filterCurrency = (event.currentTarget as HTMLSelectElement).value;
           void loadExpenses();
         }}
-      >
-        <label>
-          Currency
-          <select bind:value={filterCurrency}>
-            <option value="">All currencies</option>
-            {#each currencies as currency}<option value={currency}
-                >{currency}</option
-              >{/each}
-          </select>
-        </label>
-        <label>
-          Category
-          <select bind:value={filterCategory}>
-            <option value="">All categories</option>
-            {#each categories as category}<option value={category}
-                >{category}</option
-              >{/each}
-          </select>
-        </label>
-        <button type="submit">Apply filters</button>
-      </form>
+        ><option value="">All currencies</option
+        >{#each currencies as currency}<option value={currency}
+            >{currency}</option
+          >{/each}</select
+      ></label
+    >
+    <label
+      >Category<select
+        value={filterCategory}
+        onchange={(event) => {
+          filterCategory = (event.currentTarget as HTMLSelectElement).value;
+          void loadExpenses();
+        }}
+        ><option value="">All categories</option
+        >{#each categories as category}<option value={category}
+            >{category}</option
+          >{/each}</select
+      ></label
+    >
+  </div>
+  {#if loading}<p class="muted">Loading expenses…</p>{:else}<ThemeRouteRenderer
+      route="expenses"
+      props={themeProps}
+    />{/if}
+</section>
 
-      {#if loading}
-        <p class="muted">Loading expenses…</p>
-      {:else}
-        {#if expenses.length}
-          <section class="expense-overview" aria-label="Expense overview">
-            <div class="stat-strip">
-              {#each currencyTotals.slice(0, 3) as total (total.currency)}
-                <StatTile
-                  label={`Spent · ${total.currency}`}
-                  value={formatMoney(
-                    total.amountMinor,
-                    total.currency,
-                    total.exponent,
-                  )}
-                  sub={`${total.count} records · ${formatMonth(month)}`}
-                />
-              {/each}
-              <StatTile
-                label="Categories"
-                value={String(categoryTotals.length)}
-                sub={`${primaryCurrency} view · click a record below`}
-              />
-            </div>
-            <div class="visual-grid">
-              <article class="visual-card panel">
-                <header class="visual-head">
-                  <div>
-                    <p class="eyebrow">Distribution</p>
-                    <h2>Where it went</h2>
-                  </div>
-                  <span>{primaryCurrency}</span>
-                </header>
-                <BarChart
-                  categories={categoryTotals.map((item) => item.category)}
-                  primary={{
-                    name: primaryCurrency,
-                    values: categoryTotals.map((item) => item.amount),
-                    color: "var(--accent)",
-                    formatter: (value) =>
-                      formatMoney(value, primaryCurrency, primaryExponent),
-                  }}
-                  orientation="horizontal"
-                  height={250}
-                />
-              </article>
-              <article class="visual-card panel">
-                <header class="visual-head">
-                  <div>
-                    <p class="eyebrow">Daily rhythm</p>
-                    <h2>Spending days</h2>
-                  </div>
-                  <span>{primaryCurrency}</span>
-                </header>
-                <BarChart
-                  categories={dailyTotals.map(([day]) => formatDayLabel(day))}
-                  primary={{
-                    name: primaryCurrency,
-                    values: dailyTotals.map(([, amount]) => amount),
-                    color: "var(--accent)",
-                    formatter: (value) =>
-                      formatMoney(value, primaryCurrency, primaryExponent),
-                  }}
-                  height={250}
-                />
-              </article>
-            </div>
-          </section>
-        {/if}
-        <div class="ledger-grid">
-          <section
-            class="panel list-panel"
-            aria-labelledby="expense-list-title"
-          >
-            <header class="panel-head">
-              <div>
-                <p class="eyebrow">Stored records</p>
-                <h2 id="expense-list-title">Expense ledger</h2>
-              </div>
-              <span class="count">{expenses.length} shown</span>
-            </header>
-            {#if expenses.length}
-              <ul class="expense-list">
-                {#each expenses as expense (expense.id)}
-                  <li>
-                    <button
-                      class:chosen={expense.id === selectedId}
-                      class="expense-row"
-                      type="button"
-                      onclick={() => void selectExpense(expense.id)}
-                    >
-                      <span>
-                        <strong>{expense.merchant || expense.category}</strong>
-                        <small>{expense.occurred_on} · {expense.category}</small
-                        >
-                      </span>
-                      <b>{formatAmount(expense)}</b>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {:else}
-              <p class="empty">No canonical expenses match these filters.</p>
-            {/if}
-          </section>
-
-          <section
-            class="panel detail-panel"
-            aria-labelledby="expense-detail-title"
-          >
-            {#if detailLoading}
-              <p class="muted">Loading record…</p>
-            {:else if selected}
-              <header class="panel-head">
-                <div>
-                  <p class="eyebrow">Canonical record · viewer</p>
-                  <h2 id="expense-detail-title">
-                    {selected.merchant || selected.category}
-                  </h2>
-                </div>
-                <div class="detail-actions">
-                  <button
-                    class="danger"
-                    type="button"
-                    onclick={() => void removeExpense(selected!)}
-                  >
-                    <Trash2 size={14} /> Delete
-                  </button>
-                </div>
-              </header>
-
-              <dl class="detail-list">
-                <div>
-                  <dt>Amount</dt>
-                  <dd>{formatAmount(selected)}</dd>
-                </div>
-                <div>
-                  <dt>Date</dt>
-                  <dd>{selected.occurred_on}</dd>
-                </div>
-                <div>
-                  <dt>Category</dt>
-                  <dd>{selected.category}</dd>
-                </div>
-                <div>
-                  <dt>Note</dt>
-                  <dd>{selected.note || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Source</dt>
-                  <dd>{selected.source.kind} · {selected.source.ref}</dd>
-                </div>
-                <div>
-                  <dt>Record ID</dt>
-                  <dd class="mono">{selected.id}</dd>
-                </div>
-              </dl>
-              {#if selected.items.length}
-                <div class="item-detail">
-                  <h3>Items</h3>
-                  <ul>
-                    {#each selected.items as item}
-                      <li>
-                        <span>{item.name}</span
-                        >{#if item.amount_minor != null}<span
-                            >{item.amount_minor} minor</span
-                          >{/if}
-                      </li>
-                    {/each}
-                  </ul>
-                </div>
-              {/if}
-              <p class="timestamps">
-                Created {selected.created_at} · Updated {selected.updated_at}
-              </p>
-            {:else}
-              <div class="empty-detail">
-                <WalletCards size={22} />
-                <p>Select an expense to inspect its canonical fields.</p>
-              </div>
-            {/if}
-          </section>
-        </div>
-      {/if}
-    </section>
-  {/snippet}
-</ThemeRouteRenderer>
-
+<!-- svelte-ignore css_unused_selector -->
 <style>
   .expenses-shell {
     display: grid;

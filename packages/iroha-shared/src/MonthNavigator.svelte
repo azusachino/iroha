@@ -39,6 +39,20 @@
   function handleWindowKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") open = false;
   }
+
+  function handleNavigatorKeydown(event: KeyboardEvent) {
+    if (!root?.contains(document.activeElement)) return;
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.matches("input, textarea, select, [contenteditable='true']")
+    ) {
+      return;
+    }
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      choose(shiftMonth(month, event.key === "ArrowLeft" ? -1 : 1));
+    }
+  }
 </script>
 
 <svelte:window onclick={handleWindowClick} onkeydown={handleWindowKeydown} />
