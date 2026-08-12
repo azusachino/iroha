@@ -81,7 +81,7 @@
     <section class="route-section">
       <div>
         <p class="eyebrow">Route</p>
-        <h3>Masked activity trace</h3>
+        <h3>Activity trace</h3>
       </div>
       <div class="route-map tile">
         <RoutesMap data={activityRoutes} />
@@ -92,10 +92,10 @@
   <p class="detail-note muted">
     {#if activityRoutes.features.length > 0}
       This detail is rendered from the sanitized public snapshot. The route is
-      trimmed and masked before it leaves the private deployment.
+      included because the snapshot was exported with routes enabled.
     {:else}
-      This public record has summary metrics only; no route trace was available
-      for publication.
+      This public record has summary metrics only; no route trace was included
+      in the snapshot.
     {/if}
   </p>
 </section>

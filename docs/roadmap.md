@@ -160,10 +160,10 @@ Full Apple Health export zips may exceed normal Telegram Bot API file limits, so
 
 Goal: separate private canonical data from public output. See [Public-site publishing workflow](public-site-publishing.md) for the operational pipeline, review loop, and rollback path (issue #41).
 
-Status: partially shipped. Privacy zones and sanitized activity projections are implemented — `apps/iroha-server/pkg/activities` trims route endpoints and masks auto-detected private zones (home,
-work, and other frequent start/end hubs) across every route, and `apps/iroha-server/pkg/publicexport` builds the sanitized activity/summary/route projection from that. The original design served this
-from a `/public/v1` HTTP surface living in the same process as the private API; that surface has been removed (it was never actually exposed to the internet — an open-CORS route and a second
-rate-limit budget serving a page nobody could reach). The replacement is a static export instead of a second live API surface:
+Status: partially shipped. Sanitized activity projections are implemented, and `apps/iroha-server/pkg/publicexport` builds the public activity/summary/route/detail projection. The default export
+includes complete route traces and rich detail for every exported activity. The explicit `--privacy` mode omits all route traces while retaining activity metrics, samples, and laps. The original
+design served this from a `/public/v1` HTTP surface living in the same process as the private API; that surface has been removed (it was never actually exposed to the internet — an open-CORS route and
+a second rate-limit budget serving a page nobody could reach). The replacement is a static export instead of a second live API surface:
 
 ```text
 apps/iroha-server/cmd/iroha-export-public (sanitized JSON/GeoJSON snapshot)
@@ -180,10 +180,11 @@ Actions, on infrastructure GitHub never touches (`ops/scripts/export-public-cron
 
 Exit criteria:
 
-- Public activities use the sanitized projection by default; an explicitly approved activity may publish its full grapher detail, including route, samples, and laps.
+- Every exported activity has a sanitized rich-detail record in the public snapshot, including route, samples, and laps when available. Route omission is an explicit opt-in export mode, not a
+  per-activity allowlist.
 
 Status: the GitHub Pages deployment and k3s CronJob are live. The recurring publication loop uses the dedicated sealed `IROHA_EXPORT_GITHUB_PAT` credential and publishes only the validated snapshot
-under `apps/iroha-public-site/static/data/`; the approved-detail allowlist is maintained in the exporter code.
+under `apps/iroha-public-site/static/data/`; the export mode controls whether route traces are included for the whole snapshot.
 
 ## Milestone 8: Durable Worker Backbone
 

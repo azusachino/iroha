@@ -15,7 +15,7 @@ it has no live API and no private credentials.
 | Surface         | Location                                                            | Contents                                                                        |
 | --------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Private cockpit | `iroha-server`, `iroha-job`, `iroha-web`                            | Canonical Postgres/PostGIS data, routes, streams, sleep, media, tasks, and jobs |
-| Public archive  | [`azusachino.github.io/iroha`](https://azusachino.github.io/iroha/) | Public activity snapshot and explicitly approved detail records                 |
+| Public archive  | [`azusachino.github.io/iroha`](https://azusachino.github.io/iroha/) | Public activity snapshot with rich detail for every exported activity           |
 
 The exporter runs inside the private deployment and pushes only the static snapshot under `apps/iroha-public-site/static/data/`. See [public-site publishing](docs/public-site-publishing.md) for the
 boundary and operator workflow.

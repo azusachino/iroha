@@ -25,8 +25,9 @@ flowchart LR
     SMOKE -- fail --> FAILWF["workflow run marked failed<br/>previous deployment stays live"]
 ```
 
-Every step left of the GitHub push happens inside the private network; nothing there is reachable from the public internet. The archive-wide files are sanitized. `activity-details.json` is a
-deliberate exception for the small explicit allowlist in `pkg/publicexport/activity_detail.go`; the selected records are published by owner decision.
+Every step left of the GitHub push happens inside the private network; nothing there is reachable from the public internet. The exported activity, summary, route, and detail files are sanitized
+projections. `activity-details.json` contains rich detail for every exported activity, including samples and laps when the source has them. Route traces are included by default; passing `--privacy` is
+an explicit opt-in that omits every route trace while retaining activity metrics, samples, and laps.
 
 ### Validation gate
 
@@ -63,11 +64,11 @@ whole point of a scheduled Job refreshing it unattended. The review loop is: aut
 
 ## Rollback path
 
-| Symptom                                                                                      | Action                                                                                                                                                                                              |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A published data snapshot looks wrong (bad numbers, an unmasked field the gate didn't catch) | `git revert` the offending `chore: refresh public-site data export` commit on `main` and push. The path filter on `public-site.yml` re-triggers on that push and redeploys the prior snapshot.      |
-| The `public-site.yml` workflow itself is broken (bad build step, bad smoke-check assertion)  | Fix forward on `main`, then re-run via `workflow_dispatch` — no data change is required to redeploy.                                                                                                |
-| The export CronJob is pushing bad data repeatedly                                            | Suspend `iroha-export-public` using the deployment platform's normal scheduled-Job command. This stops further pushes while the export logic is fixed, without touching anything already published. |
+| Symptom                                                                                     | Action                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A published data snapshot looks wrong (bad numbers or an unexpected field)                  | `git revert` the offending `chore: refresh public-site data export` commit on `main` and push. The path filter on `public-site.yml` re-triggers on that push and redeploys the prior snapshot.      |
+| The `public-site.yml` workflow itself is broken (bad build step, bad smoke-check assertion) | Fix forward on `main`, then re-run via `workflow_dispatch` — no data change is required to redeploy.                                                                                                |
+| The export CronJob is pushing bad data repeatedly                                           | Suspend `iroha-export-public` using the deployment platform's normal scheduled-Job command. This stops further pushes while the export logic is fixed, without touching anything already published. |
 
 A broken deploy is never an outage: GitHub Pages only replaces the live site on a _successful_ `deploy-pages` step, so a failed build or a failed smoke check leaves the previous good snapshot serving
 traffic.
@@ -88,8 +89,9 @@ The public repository contains the exporter and static site, but never the crede
    rotate it when it expires.
 2. Store the token in the deployment platform's encrypted secret store and inject it as `IROHA_EXPORT_GITHUB_PAT` only into the exporter Job. Never commit, print, or paste the value into public issue
    trackers or chat.
-3. Keep the exporter image and Job configuration in the deployment environment. The Job should run `ops/scripts/export-public-cron.sh`, which exports the sanitized archive plus the explicit
-   approved-detail allowlist, validates it, and pushes only changed files under `apps/iroha-public-site/static/data/`.
+3. Keep the exporter image and Job configuration in the deployment environment. The Job should run `ops/scripts/export-public-cron.sh`, which exports the sanitized archive and rich detail for every
+   activity, validates it, and pushes only changed files under `apps/iroha-public-site/static/data/`. Use the export command's `--privacy` mode only when the owner intentionally wants to omit all
+   route traces.
 4. Verify the Job reaches `Complete`, then confirm the Pages workflow succeeds and [the public site](https://azusachino.github.io/iroha/) shows a current `Data as of` timestamp. A deployment-specific
    one-shot Job command may be used for this check; remove it afterward.
 

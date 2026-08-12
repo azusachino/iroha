@@ -509,7 +509,7 @@
           <p class="kicker">Geography</p>
           <h2>Route trace</h2>
         </div>
-        <span>Owner-approved detail</span>
+        <span>Full activity detail</span>
       </div>
       <div class="map"><RoutesMap data={routeFeatures} /></div>
     </section>
