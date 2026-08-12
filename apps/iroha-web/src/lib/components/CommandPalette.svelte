@@ -1,7 +1,8 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import { primaryNavigation } from "$lib/navigation";
+  import { getMetricCatalog } from "$lib/api";
+  import { allNavigationItems } from "$lib/navigation";
 
   type Command = {
     label: string;
@@ -9,15 +10,7 @@
     hint: string;
   };
 
-  const commands: Command[] = [
-    { ...primaryNavigation[0], hint: "Any-day cross-domain view" },
-    { ...primaryNavigation[1], hint: "Activity overview" },
-    { ...primaryNavigation[2], hint: "Rings, movement and body vitals" },
-    { ...primaryNavigation[3], hint: "Private activity domain" },
-    { ...primaryNavigation[4], hint: "Recovery and sleep sessions" },
-    { ...primaryNavigation[5], hint: "Watch, reading and game history" },
-    { ...primaryNavigation[6], hint: "Tasks and background jobs" },
-  ];
+  let commands = $state<Command[]>(allNavigationItems());
 
   let open = $state(false);
   let selected = $state(0);
@@ -57,11 +50,28 @@
 
     window.addEventListener("iroha:command-palette:toggle", onToggle);
     window.addEventListener("keydown", onKeydown);
+    void loadMetrics();
     return () => {
       window.removeEventListener("iroha:command-palette:toggle", onToggle);
       window.removeEventListener("keydown", onKeydown);
     };
   });
+
+  async function loadMetrics() {
+    try {
+      const catalog = await getMetricCatalog();
+      commands = [
+        ...allNavigationItems(),
+        ...catalog.metrics.map((metric) => ({
+          label: metric.label,
+          href: `/patterns?metric=${encodeURIComponent(metric.id)}`,
+          hint: `${metric.domain} · ${metric.unit}`,
+        })),
+      ];
+    } catch {
+      // Navigation remains usable when metric discovery is unavailable.
+    }
+  }
 
   async function activate(command: Command) {
     open = false;

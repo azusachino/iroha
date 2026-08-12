@@ -35,18 +35,33 @@ describe("cockpit route layout", () => {
     expect(routeLoads["./admin/+page.ts"]).toBeDefined();
   });
 
-  it("uses the tab vocabulary in the primary navigation URLs", async () => {
-    const { primaryNavigation } = await import("$lib/navigation");
-    expect(primaryNavigation).toEqual([
-      { label: "Today", href: "/" },
-      { label: "Overview", href: "/overview" },
-      { label: "Patterns", href: "/patterns" },
-      { label: "Motion", href: "/motion" },
-      { label: "Night", href: "/night" },
-      { label: "Library", href: "/library" },
-      { label: "To-go", href: "/to-go" },
-      { label: "Expenses", href: "/expenses" },
-      { label: "Reports", href: "/reports" },
+  it("keeps navigation grouped instead of growing the top tab row", async () => {
+    const { navigationGroups } = await import("$lib/navigation");
+    expect(navigationGroups.map((group) => group.label)).toEqual([
+      "Primary",
+      "Domains",
+      "Analyze",
+      "More",
+    ]);
+    expect(navigationGroups[0].items.map((item) => item.href)).toEqual([
+      "/",
+      "/overview",
+    ]);
+    expect(
+      navigationGroups
+        .slice(1)
+        .flatMap((group) => group.items)
+        .map((item) => item.href),
+    ).toEqual([
+      "/motion",
+      "/night",
+      "/library",
+      "/expenses",
+      "/patterns",
+      "/reports",
+      "/to-go",
+      "/admin",
+      "/design",
     ]);
   });
 
