@@ -15,29 +15,33 @@ type dailyListResponse struct {
 }
 
 type dailyResponse struct {
-	ID              string    `json:"id"`
-	Day             string    `json:"day"`
-	MoveKcal        float64   `json:"move_kcal"`
-	MoveGoalKcal    float64   `json:"move_goal_kcal"`
-	ExerciseMin     float64   `json:"exercise_min"`
-	ExerciseGoalMin float64   `json:"exercise_goal_min"`
-	StandHours      float64   `json:"stand_hours"`
-	StandGoalHours  float64   `json:"stand_goal_hours"`
-	Steps           *float64  `json:"steps,omitempty"`
-	DistanceKM      *float64  `json:"distance_km,omitempty"`
-	Flights         *float64  `json:"flights,omitempty"`
-	RestingHR       *float64  `json:"resting_hr,omitempty"`
-	WalkingHRAvg    *float64  `json:"walking_hr_avg,omitempty"`
-	HRVSDNN         *float64  `json:"hrv_sdnn,omitempty"`
-	SpO2Avg         *float64  `json:"spo2_avg,omitempty"`
-	SpO2Min         *float64  `json:"spo2_min,omitempty"`
-	RespiratoryRate *float64  `json:"respiratory_rate,omitempty"`
-	VO2Max          *float64  `json:"vo2max,omitempty"`
-	BodyMassKG      *float64  `json:"body_mass_kg,omitempty"`
-	Source          string    `json:"source"`
-	FirstRawFileID  string    `json:"first_raw_file_id"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID              string             `json:"id"`
+	Day             string             `json:"day"`
+	Ring            *dailyRingResponse `json:"ring"`
+	Steps           *float64           `json:"steps,omitempty"`
+	DistanceKM      *float64           `json:"distance_km,omitempty"`
+	Flights         *float64           `json:"flights,omitempty"`
+	RestingHR       *float64           `json:"resting_hr,omitempty"`
+	WalkingHRAvg    *float64           `json:"walking_hr_avg,omitempty"`
+	HRVSDNN         *float64           `json:"hrv_sdnn,omitempty"`
+	SpO2Avg         *float64           `json:"spo2_avg,omitempty"`
+	SpO2Min         *float64           `json:"spo2_min,omitempty"`
+	RespiratoryRate *float64           `json:"respiratory_rate,omitempty"`
+	VO2Max          *float64           `json:"vo2max,omitempty"`
+	BodyMassKG      *float64           `json:"body_mass_kg,omitempty"`
+	Source          string             `json:"source"`
+	FirstRawFileID  string             `json:"first_raw_file_id"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
+}
+
+type dailyRingResponse struct {
+	MoveKcal        float64 `json:"move_kcal"`
+	MoveGoalKcal    float64 `json:"move_goal_kcal"`
+	ExerciseMin     float64 `json:"exercise_min"`
+	ExerciseGoalMin float64 `json:"exercise_goal_min"`
+	StandHours      float64 `json:"stand_hours"`
+	StandGoalHours  float64 `json:"stand_goal_hours"`
 }
 
 func (s *Server) handleListDaily(w http.ResponseWriter, r *http.Request) {
@@ -69,13 +73,20 @@ type dailyAggregateResponse struct {
 }
 
 type dailyAggregateBucketResponse struct {
-	Period         string             `json:"period"`
-	Days           int                `json:"days"`
-	MoveKcalAvg    float64            `json:"move_kcal_avg"`
-	ExerciseMinAvg float64            `json:"exercise_min_avg"`
-	StandHoursAvg  float64            `json:"stand_hours_avg"`
-	MoveClosedPct  float64            `json:"move_closed_pct"`
-	Metrics        map[string]float64 `json:"metrics"`
+	Period         string                         `json:"period"`
+	Days           int                            `json:"days"`
+	MoveKcalAvg    float64                        `json:"move_kcal_avg"`
+	ExerciseMinAvg float64                        `json:"exercise_min_avg"`
+	StandHoursAvg  float64                        `json:"stand_hours_avg"`
+	MoveClosedPct  float64                        `json:"move_closed_pct"`
+	Metrics        []dailyMetricAggregateResponse `json:"metrics"`
+}
+
+type dailyMetricAggregateResponse struct {
+	Metric       string  `json:"metric"`
+	Value        float64 `json:"value"`
+	Unit         string  `json:"unit"`
+	ObservedDays int     `json:"observed_days"`
 }
 
 func (s *Server) handleDailyAggregates(w http.ResponseWriter, r *http.Request) {
@@ -98,10 +109,20 @@ func (s *Server) handleDailyAggregates(w http.ResponseWriter, r *http.Request) {
 			ExerciseMinAvg: bucket.ExerciseMinAvg,
 			StandHoursAvg:  bucket.StandHoursAvg,
 			MoveClosedPct:  bucket.MoveClosedPct,
-			Metrics:        bucket.Metrics,
+			Metrics:        toDailyMetricAggregateResponses(bucket.Metrics),
 		})
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func toDailyMetricAggregateResponses(metrics []daily.MetricAggregate) []dailyMetricAggregateResponse {
+	response := make([]dailyMetricAggregateResponse, 0, len(metrics))
+	for _, metric := range metrics {
+		response = append(response, dailyMetricAggregateResponse{
+			Metric: metric.Metric, Value: metric.Value, Unit: metric.Unit, ObservedDays: metric.ObservedDays,
+		})
+	}
+	return response
 }
 
 func parseDailyAggregateFilters(w http.ResponseWriter, r *http.Request) (daily.AggregateFilters, bool) {
@@ -158,15 +179,18 @@ func parseDailyFilters(w http.ResponseWriter, r *http.Request) (daily.ListFilter
 
 func toDailyResponse(row daily.Row) dailyResponse {
 	summary := row.DailySummary
+	var ring *dailyRingResponse
+	if row.RingPresent {
+		ring = &dailyRingResponse{
+			MoveKcal: summary.MoveKcal, MoveGoalKcal: summary.MoveGoalKcal,
+			ExerciseMin: summary.ExerciseMin, ExerciseGoalMin: summary.ExerciseGoalMin,
+			StandHours: summary.StandHours, StandGoalHours: summary.StandGoalHours,
+		}
+	}
 	return dailyResponse{
 		ID:              ids.Encode(ids.DailySummaryPrefix, summary.ID),
 		Day:             formatCalendarDate(summary.Day),
-		MoveKcal:        summary.MoveKcal,
-		MoveGoalKcal:    summary.MoveGoalKcal,
-		ExerciseMin:     summary.ExerciseMin,
-		ExerciseGoalMin: summary.ExerciseGoalMin,
-		StandHours:      summary.StandHours,
-		StandGoalHours:  summary.StandGoalHours,
+		Ring:            ring,
 		Steps:           row.Steps,
 		DistanceKM:      row.DistanceKM,
 		Flights:         row.Flights,

@@ -55,6 +55,7 @@ type ListFilters struct {
 
 type Row struct {
 	models.DailySummary
+	RingPresent     bool `gorm:"column:ring_present"`
 	Steps           *float64
 	DistanceKM      *float64
 	Flights         *float64
@@ -85,13 +86,20 @@ type AggregateFilters struct {
 // vitals, …) so new metrics need no API change — same open-ended shape as
 // tb_daily_metrics.
 type AggregateBucket struct {
-	Period         time.Time          `json:"period"`
-	Days           int                `json:"days"`
-	MoveKcalAvg    float64            `json:"move_kcal_avg"`
-	ExerciseMinAvg float64            `json:"exercise_min_avg"`
-	StandHoursAvg  float64            `json:"stand_hours_avg"`
-	MoveClosedPct  float64            `json:"move_closed_pct"`
-	Metrics        map[string]float64 `json:"metrics"`
+	Period         time.Time         `json:"period"`
+	Days           int               `json:"days"`
+	MoveKcalAvg    float64           `json:"move_kcal_avg"`
+	ExerciseMinAvg float64           `json:"exercise_min_avg"`
+	StandHoursAvg  float64           `json:"stand_hours_avg"`
+	MoveClosedPct  float64           `json:"move_closed_pct"`
+	Metrics        []MetricAggregate `json:"metrics"`
+}
+
+type MetricAggregate struct {
+	Metric       string  `json:"metric"`
+	Value        float64 `json:"value"`
+	Unit         string  `json:"unit"`
+	ObservedDays int     `json:"observed_days"`
 }
 
 type ringAggregateRow struct {
@@ -104,9 +112,11 @@ type ringAggregateRow struct {
 }
 
 type metricAggregateRow struct {
-	Period time.Time
-	Metric string
-	Avg    float64
+	Period       time.Time
+	Metric       string
+	Unit         string
+	Avg          float64
+	ObservedDays int
 }
 
 type dayAggregateRow struct {
@@ -134,6 +144,7 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		select day from tb_daily_metrics
 	) as days`).
 		Select(`coalesce(s.id, anchor.id) as id, days.day,
+			s.id is not null as ring_present,
 			coalesce(s.move_kcal, 0) as move_kcal,
 			coalesce(s.move_goal_kcal, 0) as move_goal_kcal,
 			coalesce(s.exercise_min, 0) as exercise_min,
@@ -224,8 +235,8 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 	// Q2: per-metric per-day averages from the long metrics table.
 	var metricRows []metricAggregateRow
 	if err := applyRange(s.db.Table("tb_daily_metrics")).
-		Select(period + ` as period, metric, coalesce(avg(value),0) as avg`).
-		Group("period, metric").Scan(&metricRows).Error; err != nil {
+		Select(period + ` as period, metric, unit, coalesce(avg(value),0) as avg, count(distinct day)::int as observed_days`).
+		Group("period, metric, unit").Scan(&metricRows).Error; err != nil {
 		return nil, err
 	}
 
@@ -251,7 +262,7 @@ func mergeAggregateRows(ringRows []ringAggregateRow, metricRows []metricAggregat
 		k := p.UnixNano()
 		b, ok := byKey[k]
 		if !ok {
-			b = &AggregateBucket{Period: p, Metrics: map[string]float64{}}
+			b = &AggregateBucket{Period: p, Metrics: make([]MetricAggregate, 0)}
 			byKey[k] = b
 			order = append(order, k)
 		}
@@ -270,12 +281,21 @@ func mergeAggregateRows(ringRows []ringAggregateRow, metricRows []metricAggregat
 		getb(r.Period).Days = r.Days
 	}
 	for _, r := range metricRows {
-		getb(r.Period).Metrics[r.Metric] = r.Avg
+		getb(r.Period).Metrics = append(getb(r.Period).Metrics, MetricAggregate{
+			Metric: r.Metric, Value: r.Avg, Unit: r.Unit, ObservedDays: r.ObservedDays,
+		})
 	}
 	sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
 	buckets := make([]AggregateBucket, 0, len(order))
 	for _, k := range order {
-		buckets = append(buckets, *byKey[k])
+		bucket := byKey[k]
+		sort.Slice(bucket.Metrics, func(i, j int) bool {
+			if bucket.Metrics[i].Metric == bucket.Metrics[j].Metric {
+				return bucket.Metrics[i].Unit < bucket.Metrics[j].Unit
+			}
+			return bucket.Metrics[i].Metric < bucket.Metrics[j].Metric
+		})
+		buckets = append(buckets, *bucket)
 	}
 	return buckets
 }

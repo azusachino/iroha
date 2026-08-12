@@ -257,6 +257,9 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 		if item["day"] != "2024-01-02" || item["steps"] != float64(1234) || item["resting_hr"] != float64(57) || item["hrv_sdnn"] != float64(42) {
 			t.Fatalf("daily item = %#v", item)
 		}
+		if ring := item["ring"].(map[string]any); ring["move_kcal"] != float64(600) {
+			t.Fatalf("daily ring = %#v", ring)
+		}
 	})
 	cursor := stringValue(t, firstPage, "next_cursor")
 	secondPage := requestJSON(t, server, http.MethodGet, "/api/v1/daily?limit=1&cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
@@ -276,6 +279,26 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 		item := items[0].(map[string]any)
 		if item["day"] != "2023-12-31" || item["body_mass_kg"] != float64(70.5) {
 			t.Fatalf("metric-only daily item = %#v", item)
+		}
+		if item["ring"] != nil {
+			t.Fatalf("metric-only daily ring = %#v, want null", item["ring"])
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/daily/aggregates?granularity=month&from=2024-01-01&to=2024-01-31", "", http.StatusOK, func(body map[string]any) {
+		buckets := body["buckets"].([]any)
+		if len(buckets) != 1 {
+			t.Fatalf("daily aggregates = %#v", body)
+		}
+		bucket := buckets[0].(map[string]any)
+		metrics := bucket["metrics"].([]any)
+		if bucket["period"] != "2024-01" || len(metrics) != 3 {
+			t.Fatalf("daily aggregate bucket = %#v", bucket)
+		}
+		for _, value := range metrics {
+			metric := value.(map[string]any)
+			if metric["metric"] == "steps" && (metric["unit"] != "count" || metric["observed_days"] != float64(2)) {
+				t.Fatalf("steps aggregate = %#v", metric)
+			}
 		}
 	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/daily?from=bad", "", http.StatusBadRequest, nil)

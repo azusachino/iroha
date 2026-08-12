@@ -36,17 +36,35 @@ func TestMergeAggregateRowsCombinesRingMetricAndDayBuckets(t *testing.T) {
 
 	got := mergeAggregateRows(
 		[]ringAggregateRow{{Period: jan, MoveAvg: 500, ExerciseAvg: 30, StandAvg: 10, RingDays: 2, MoveClosed: 1}},
-		[]metricAggregateRow{{Period: jan, Metric: "steps", Avg: 9000}, {Period: feb, Metric: "resting_hr", Avg: 54}},
+		[]metricAggregateRow{
+			{Period: jan, Metric: "steps", Unit: "count", Avg: 9000, ObservedDays: 2},
+			{Period: feb, Metric: "resting_hr", Unit: "count/min", Avg: 54, ObservedDays: 1},
+		},
 		[]dayAggregateRow{{Period: jan, Days: 2}, {Period: feb, Days: 1}},
 	)
 
 	if len(got) != 2 || !got[0].Period.Equal(jan) || !got[1].Period.Equal(feb) {
 		t.Fatalf("buckets = %#v, want chronological January and February buckets", got)
 	}
-	if got[0].Days != 2 || got[0].MoveKcalAvg != 500 || got[0].MoveClosedPct != 50 || got[0].Metrics["steps"] != 9000 {
+	if got[0].Days != 2 || got[0].MoveKcalAvg != 500 || got[0].MoveClosedPct != 50 || len(got[0].Metrics) != 1 || got[0].Metrics[0].Metric != "steps" || got[0].Metrics[0].ObservedDays != 2 {
 		t.Fatalf("January bucket = %#v", got[0])
 	}
-	if got[1].Days != 1 || got[1].Metrics["resting_hr"] != 54 {
+	if got[1].Days != 1 || len(got[1].Metrics) != 1 || got[1].Metrics[0].Value != 54 {
 		t.Fatalf("February bucket = %#v", got[1])
+	}
+}
+
+func TestMergeAggregateRowsKeepsMetricUnitsSeparate(t *testing.T) {
+	jan := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	got := mergeAggregateRows(nil, []metricAggregateRow{
+		{Period: jan, Metric: "distance", Unit: "km", Avg: 4, ObservedDays: 2},
+		{Period: jan, Metric: "distance", Unit: "m", Avg: 4000, ObservedDays: 1},
+	}, nil)
+
+	if len(got) != 1 || len(got[0].Metrics) != 2 {
+		t.Fatalf("metrics = %#v, want two unit-specific entries", got)
+	}
+	if got[0].Metrics[0].Unit != "km" || got[0].Metrics[1].Unit != "m" {
+		t.Fatalf("metrics = %#v, want deterministic metric/unit order", got[0].Metrics)
 	}
 }
