@@ -6,4 +6,5 @@ export const primaryNavigation = [
   { label: "Night", href: "/night" },
   { label: "Library", href: "/library" },
   { label: "To-go", href: "/to-go" },
+  { label: "Expenses", href: "/expenses" },
 ] as const;

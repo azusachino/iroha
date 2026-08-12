@@ -10,6 +10,7 @@
     LayoutDashboard,
     ListTodo,
     Moon,
+    WalletCards,
   } from "@lucide/svelte";
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
@@ -79,6 +80,11 @@
           class:active={isActive(primaryNavigation[6].href)}
           href={primaryNavigation[6].href}
           ><ListTodo size={14} />{primaryNavigation[6].label}</a
+        >
+        <a
+          class:active={isActive(primaryNavigation[7].href)}
+          href={primaryNavigation[7].href}
+          ><WalletCards size={14} />{primaryNavigation[7].label}</a
         >
       </nav>
       <div class="appbar-actions">

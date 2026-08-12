@@ -19,6 +19,7 @@ describe("cockpit route layout", () => {
     expect(routePages["./night/+page.svelte"]).toBeDefined();
     expect(routePages["./night/[id]/+page.svelte"]).toBeDefined();
     expect(routePages["./to-go/+page.svelte"]).toBeDefined();
+    expect(routePages["./expenses/+page.svelte"]).toBeDefined();
   });
 
   it("keeps the old page URLs as redirects", () => {
@@ -43,6 +44,7 @@ describe("cockpit route layout", () => {
       { label: "Night", href: "/night" },
       { label: "Library", href: "/library" },
       { label: "To-go", href: "/to-go" },
+      { label: "Expenses", href: "/expenses" },
     ]);
   });
 

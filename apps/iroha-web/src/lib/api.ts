@@ -212,6 +212,68 @@ export interface Job {
   updated_at: string;
 }
 
+export type ExpenseCurrency = "JPY" | "USD" | "EUR" | "GBP";
+export type ExpenseCategory =
+  | "food"
+  | "groceries"
+  | "transport"
+  | "shopping"
+  | "housing"
+  | "utilities"
+  | "health"
+  | "entertainment"
+  | "subscriptions"
+  | "work"
+  | "other";
+
+export interface ExpenseItem {
+  name: string;
+  amount_minor?: number;
+}
+
+export interface ExpenseSource {
+  kind: string;
+  ref: string;
+}
+
+export interface Expense {
+  id: string;
+  occurred_on: string;
+  currency: ExpenseCurrency;
+  currency_exponent: number;
+  amount_minor: number;
+  category: ExpenseCategory;
+  merchant: string;
+  note: string;
+  items: ExpenseItem[];
+  source: ExpenseSource;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseInput {
+  occurred_on: string;
+  currency: ExpenseCurrency;
+  amount_minor: number;
+  category: ExpenseCategory;
+  merchant?: string;
+  note?: string;
+  items?: ExpenseItem[];
+}
+
+export interface CreateExpenseInput extends ExpenseInput {
+  source: ExpenseSource;
+}
+
+export interface ListExpensesParams {
+  from?: string;
+  to?: string;
+  currency?: ExpenseCurrency;
+  category?: ExpenseCategory;
+  limit?: number;
+  cursor?: string;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -508,6 +570,58 @@ export function updateTask(
     { status },
     fetchFn,
   );
+}
+
+export function listExpenses(
+  params: ListExpensesParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Page<Expense>> {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.currency) query.set("currency", params.currency);
+  if (params.category) query.set("category", params.category);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.cursor) query.set("cursor", params.cursor);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<Page<Expense>>(`/api/v1/expenses${suffix}`, fetchFn);
+}
+
+export function getExpense(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<Expense> {
+  return getJSON<Expense>(
+    `/api/v1/expenses/${encodeURIComponent(id)}`,
+    fetchFn,
+  );
+}
+
+export function createExpense(
+  input: CreateExpenseInput,
+  fetchFn: typeof fetch = fetch,
+): Promise<Expense> {
+  return mutateJSON<Expense>("/api/v1/expenses", "POST", input, fetchFn);
+}
+
+export function updateExpense(
+  id: string,
+  input: ExpenseInput,
+  fetchFn: typeof fetch = fetch,
+): Promise<Expense> {
+  return mutateJSON<Expense>(
+    `/api/v1/expenses/${encodeURIComponent(id)}`,
+    "PUT",
+    input,
+    fetchFn,
+  );
+}
+
+export function deleteExpense(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return deleteJSON(`/api/v1/expenses/${encodeURIComponent(id)}`, fetchFn);
 }
 
 export function listMediaResolutionTasks(

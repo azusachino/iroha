@@ -17,6 +17,11 @@ import {
   listTasks,
   createTask,
   updateTask,
+  listExpenses,
+  getExpense,
+  createExpense,
+  updateExpense,
+  deleteExpense,
   listJobs,
   getJob,
   triggerAction,
@@ -125,6 +130,57 @@ describe("control room API", () => {
     expect(getCapturedUrl()).toContain("/api/v1/jobs/job_1");
     await triggerAction("media-sync-anilist", fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/actions/media-sync-anilist");
+  });
+
+  it("uses the canonical expense endpoints and filters", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({
+      items: [],
+      next_cursor: null,
+      has_more: false,
+    });
+    await listExpenses(
+      {
+        from: "2026-08-01",
+        to: "2026-09-01",
+        currency: "JPY",
+        category: "food",
+        limit: 20,
+        cursor: "next",
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("/api/v1/expenses?");
+    expect(getCapturedUrl()).toContain("from=2026-08-01");
+    expect(getCapturedUrl()).toContain("currency=JPY");
+    expect(getCapturedUrl()).toContain("category=food");
+    expect(getCapturedUrl()).toContain("cursor=next");
+
+    await getExpense("expense/1", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/expenses/expense%2F1");
+    await createExpense(
+      {
+        occurred_on: "2026-08-12",
+        currency: "JPY",
+        amount_minor: 800,
+        category: "food",
+        source: { kind: "cli", ref: "receipt-1" },
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("/api/v1/expenses");
+    await updateExpense(
+      "expense_1",
+      {
+        occurred_on: "2026-08-12",
+        currency: "JPY",
+        amount_minor: 900,
+        category: "food",
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("/api/v1/expenses/expense_1");
+    await deleteExpense("expense_1", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/expenses/expense_1");
   });
 
   it("builds the sleep detail URL", async () => {
