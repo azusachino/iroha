@@ -217,7 +217,7 @@ Goal: capture lightweight personal expenses from the local agent client, then re
 The client boundary follows Milestone 6: local agent CLIs are external clients, while iroha owns deterministic validation, idempotency, canonical records, corrections, and read/report APIs. Suzuran's
 expense feature is not part of this release.
 
-Implementation plan v3: [Expense Ledger implementation plan](plans/2026-08-12-expense-ledger.md).
+Implementation plan v4: [Expense Ledger implementation plan](plans/2026-08-12-expense-ledger.md).
 
 Cross-domain reporting plan: [Monthly report plan](plans/2026-08-12-periodic-reports.md).
 
@@ -227,14 +227,16 @@ First vertical slice:
 - Add deterministic create/list/update/delete APIs for the local agent client; accept canonical JSON only. A future Telegram client is outside v0.4.
 - Use source identity for safe retries and tombstone deletion; do not add an Iroha agent/OCR or confirmation workflow.
 - Add a separate monthly report API for expenses alongside activity, sleep, daily health, and media sections.
-- Add an Overview expense tile and report views without changing existing activity, night, daily-health, or media totals.
+- Repair the existing activity, sleep, daily-health, media, OpenAPI, date/range, error, cache, and web transport contracts required by the monthly report and general CLI.
+- Add the shared monthly report page and a private `/expenses` management page without changing existing activity, night, daily-health, or media totals.
 - Exclude expenses from public export by default; add a separate opt-in sanitized summary only after the private ledger is trustworthy.
 
 Exit criteria:
 
-- A local agent client can submit one canonical expense and safely retry without duplication; any future Telegram client is a separate follow-up.
+- A local agent client can submit one canonical expense and safely retry without duplication; Telegram/Suzuran remains outside v0.4.
 - A user can correct or undo an expense and see the result reflected in the cross-domain monthly report.
 - Domain and cross-domain totals are covered by API and database tests across timezone, currency, retry, and empty-period cases.
+- Existing domain totals and wire contracts are covered by period-boundary, provider, missing-data, error, OpenAPI, and web-transport tests.
 - The private UI and API make the expense boundary clear, while the public projection remains expense-free by default.
 
 ## Future Module: Reading and Watching Stats

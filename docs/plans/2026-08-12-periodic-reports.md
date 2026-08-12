@@ -1,4 +1,4 @@
-# Iroha Monthly Report Plan
+# Iroha Monthly Report Plan v2
 
 > Status: draft for review. This plan covers the monthly report across Iroha's existing personal data domains.
 
@@ -16,21 +16,22 @@ The report is a coordinated view, not a universal score. Distance, sleep duratio
 
 Operational data is not part of a personal report: raw files, import jobs, worker jobs, connector sync state, cache rows, and control-room tasks remain operational APIs.
 
-Iroha does not push reports to Telegram or any other destination. A report is a read response generated when a client asks for it. Web and CLI are the v0.4 renderers; a future external client may
-render the same response later.
+Iroha does not push reports to Telegram or any other destination. A report is a read response generated when a client asks for it. Web and CLI are the v0.4 renderers.
 
 ## Current decisions
 
 1. The monthly report has one stable API shape and one period resolution.
 2. A month is a half-open local-date range `[from, to)`.
 3. A month starts on the first calendar day and ends on the first day of the next month.
-4. The API receives an IANA timezone and returns the resolved range and timezone.
+4. The API accepts an optional IANA timezone and returns the resolved range and timezone. If omitted, the server uses configured `IROHA_TIMEZONE` (default `Asia/Tokyo`). Web and CLI clients still
+   resolve and send an explicit timezone so a report does not silently change when moved between clients.
 5. Each domain owns its aggregation semantics; the report service composes typed domain sections.
 6. Missing data is represented as `empty` or omitted fields, never as zero measurements.
 7. No cross-domain score, ranking, currency conversion, or invented correlation is produced.
-8. Report sections include freshness/provenance metadata so imported, derived, and absent data are distinguishable.
-9. The private web cockpit and CLI consume the same report API. A future external client may render a compact subset; no Telegram/Suzuran integration is part of this plan.
-10. Public export remains a separate sanitized projection and does not automatically consume private reports.
+8. Section state is only `available` or `empty`. Any domain query failure fails the whole request with `500`; v0.4 has no partial/unavailable section protocol.
+9. The report has `generated_at` but no per-section freshness field. Ingestion freshness belongs to operational import/sync APIs.
+10. The private web cockpit and CLI consume the same report API. No Telegram/Suzuran integration is part of this plan.
+11. Public export remains a separate sanitized projection and does not automatically consume private reports.
 
 ## Period contract
 
@@ -73,15 +74,12 @@ Each section has the same envelope:
   "key": "sleep",
   "schema": "monthly-report.sleep.v1",
   "state": "available",
-  "freshness": {
-    "source": "canonical",
-    "as_of": "2026-08-12T09:00:00Z"
-  },
   "data": {}
 }
 ```
 
-`state` is one of `available`, `empty`, or `unavailable`. `unavailable` is reserved for a domain query failure and must include a safe error code; one failed section must not hide healthy sections.
+`state` is one of `available` or `empty`. `data` is `null` when empty. Any domain query failure returns the existing top-level error envelope with `500`; the report does not return a partial success
+or cache a failed section.
 
 The report top-level response remains successful when a section is empty. The API does not return a flattened map of unrelated metric names.
 
@@ -104,25 +102,22 @@ The stable wire type is an object with named sections, not an array whose order 
     "movement": {
       "schema": "monthly-report.movement.v1",
       "state": "available",
-      "freshness": { "source": "canonical", "as_of": "2026-08-12T09:00:00Z" },
       "data": {
         "activity_count": 3,
         "distance_m": 28400,
+        "distance_activity_count": 2,
         "duration_s": 9120,
-        "moving_time_s": 8640,
         "by_sport": [{ "sport": "run", "activity_count": 2, "distance_m": 18000, "duration_s": 5400 }]
       }
     },
     "sleep": {
       "schema": "monthly-report.sleep.v1",
       "state": "empty",
-      "freshness": { "source": "canonical", "as_of": "2026-08-12T09:00:00Z" },
       "data": null
     },
     "daily_health": {
       "schema": "monthly-report.daily-health.v1",
       "state": "available",
-      "freshness": { "source": "canonical", "as_of": "2026-08-12T09:00:00Z" },
       "data": {
         "observed_days": 6,
         "metric_averages": [{ "metric": "steps", "value": 8420, "unit": "count", "observed_days": 6 }]
@@ -130,19 +125,16 @@ The stable wire type is an object with named sections, not an array whose order 
     },
     "media": {
       "schema": "monthly-report.media.v1",
-      "state": "unavailable",
-      "freshness": null,
-      "data": null,
-      "error": { "code": "media_query_failed", "message": "Media report unavailable" }
+      "state": "empty",
+      "data": null
     },
     "expenses": {
       "schema": "monthly-report.expenses.v1",
       "state": "available",
-      "freshness": { "source": "canonical", "as_of": "2026-08-12T09:00:00Z" },
       "data": {
         "expense_count": 8,
-        "totals_by_currency": [{ "currency": "JPY", "amount_minor": 18400, "expense_count": 7 }],
-        "by_category": [{ "category": "food", "currency": "JPY", "amount_minor": 9200, "expense_count": 4 }]
+        "totals_by_currency": [{ "currency": "JPY", "currency_exponent": 0, "amount_minor": 18400, "expense_count": 7 }],
+        "by_category": [{ "category": "food", "currency": "JPY", "currency_exponent": 0, "amount_minor": 9200, "expense_count": 4 }]
       }
     }
   }
@@ -176,21 +168,21 @@ type ReportSections struct {
 }
 ```
 
-`ReportSection[T]` contains `Schema`, `State`, `Freshness`, `Data *T`, and an optional typed error. `Data` is `null` for `empty` and `unavailable`; it is never a fabricated zero-valued object. The
-concrete section payloads are:
+`ReportSection[T]` contains `Schema`, `State`, and `Data *T`. `Data` is `null` for `empty`; it is never a fabricated zero-valued object. The concrete section payloads are:
 
 ```go
 type MovementData struct {
-	ActivityCount int                  `json:"activity_count"`
-	DistanceM    float64              `json:"distance_m"`
-	DurationS    int                  `json:"duration_s"`
-	MovingTimeS  int                  `json:"moving_time_s"`
-	BySport      []MovementSportTotal `json:"by_sport"`
+	ActivityCount          int                  `json:"activity_count"`
+	DistanceM              float64              `json:"distance_m"`
+	DistanceActivityCount  int                  `json:"distance_activity_count"`
+	DurationS              int                  `json:"duration_s"`
+	BySport                []MovementSportTotal `json:"by_sport"`
 }
 
 type SleepData struct {
 	SessionCount      int                `json:"session_count"`
 	MainSleepCount    int                `json:"main_sleep_count"`
+	NapCount          int                `json:"nap_count"`
 	AverageAsleepS    float64            `json:"average_asleep_s"`
 	AverageTimeInBedS float64            `json:"average_time_in_bed_s"`
 	AverageEfficiency float64            `json:"average_efficiency"`
@@ -225,10 +217,11 @@ type MetricAverage struct {
 }
 
 type MovementSportTotal struct {
-	Sport         string  `json:"sport"`
-	ActivityCount int     `json:"activity_count"`
-	DistanceM    float64 `json:"distance_m"`
-	DurationS    int     `json:"duration_s"`
+	Sport                 string  `json:"sport"`
+	ActivityCount         int     `json:"activity_count"`
+	DistanceM             float64 `json:"distance_m"`
+	DistanceActivityCount int     `json:"distance_activity_count"`
+	DurationS             int     `json:"duration_s"`
 }
 
 type SleepStageSeconds struct {
@@ -249,20 +242,22 @@ type MediaCompleted struct {
 	ID         string    `json:"id"`
 	Title      string    `json:"title"`
 	MediaType  string    `json:"media_type"`
-	OccurredAt time.Time `json:"occurred_at"`
+	CompletedAt time.Time `json:"completed_at"`
 }
 
 type ExpenseCurrencyTotal struct {
-	Currency     string `json:"currency"`
-	AmountMinor  int64  `json:"amount_minor"`
-	ExpenseCount int    `json:"expense_count"`
+	Currency         string `json:"currency"`
+	CurrencyExponent int    `json:"currency_exponent"`
+	AmountMinor      int64  `json:"amount_minor"`
+	ExpenseCount     int    `json:"expense_count"`
 }
 
 type ExpenseCategoryTotal struct {
-	Category     string `json:"category"`
-	Currency     string `json:"currency"`
-	AmountMinor  int64  `json:"amount_minor"`
-	ExpenseCount int    `json:"expense_count"`
+	Category         string `json:"category"`
+	Currency         string `json:"currency"`
+	CurrencyExponent int    `json:"currency_exponent"`
+	AmountMinor      int64  `json:"amount_minor"`
+	ExpenseCount     int    `json:"expense_count"`
 }
 ```
 
@@ -270,8 +265,8 @@ type ExpenseCategoryTotal struct {
 value objects (`MovementSportTotal`, `SleepStageSeconds`, `MediaKindTotal`, `MediaCompleted`, `ExpenseCurrencyTotal`, and `ExpenseCategoryTotal`) are defined in the report package and mirrored in
 OpenAPI.
 
-`Freshness.as_of` is optional. When present, it is derived from the latest canonical `updated_at`/source checkpoint available to that adapter; it must be omitted when the domain cannot provide a
-truthful value. It is never set to a guessed import time.
+All arrays use deterministic ordering: metric and sport/kind/category/currency keys sort ascending, and completed media items sort by completion time ascending then ID ascending. The expense API and
+report responses include the static currency exponent so clients can render minor units without maintaining a second currency table.
 
 ## Section contracts
 
@@ -284,12 +279,14 @@ Source: `tb_activities` and the existing activity summary service.
   "activity_count": 3,
   "distance_m": 28400,
   "duration_s": 9120,
-  "moving_time_s": 8640,
-  "by_sport": [{ "sport": "run", "activity_count": 2, "distance_m": 18000, "duration_s": 5400 }]
+  "distance_activity_count": 2,
+  "by_sport": [{ "sport": "run", "activity_count": 2, "distance_m": 18000, "distance_activity_count": 2, "duration_s": 5400 }]
 }
 ```
 
-Use activity `started_at` converted into the requested report timezone for inclusion and period bucketing. Preserve the existing activity summary semantics and do not count route points as activities.
+Use activity `started_at` converted into the requested report timezone for inclusion and period bucketing. Do not pass the report's exclusive `to` value through existing inclusive public filters. Add
+a period-aware activity adapter that reuses the existing swimming-distance correction while applying the report period explicitly; do not reuse the current session-timezone-dependent summary as-is. Do
+not count route points as activities. Activities with unknown distance contribute to `activity_count` and duration but not `distance_m`; `distance_activity_count` states coverage.
 
 ### Sleep
 
@@ -297,8 +294,9 @@ Source: `tb_sleep_sessions` and the existing sleep aggregate service.
 
 ```json
 {
-  "session_count": 7,
+  "session_count": 9,
   "main_sleep_count": 7,
+  "nap_count": 2,
   "average_asleep_s": 24120,
   "average_time_in_bed_s": 25920,
   "average_efficiency": 0.93,
@@ -312,8 +310,8 @@ Source: `tb_sleep_sessions` and the existing sleep aggregate service.
 }
 ```
 
-Use the existing `wake_date` semantics for period membership. Do not average averages from already paginated UI data; aggregate directly from canonical rows. Preserve the distinction between main
-sleep and naps.
+Use the existing `wake_date` semantics for period membership. Do not average averages from already paginated UI data; aggregate directly from canonical rows. `main_sleep_count`, averages, and stage
+totals use only `is_main_sleep = true`; `nap_count` is reported separately. Preserve the distinction between main sleep and naps.
 
 ### Daily health
 
@@ -322,27 +320,15 @@ Source: `tb_daily_summaries` and `tb_daily_metrics`, through the daily aggregate
 ```json
 {
   "observed_days": 6,
-  "metric_averages": {
-    "move_kcal": 612.4,
-    "exercise_min": 42.0,
-    "stand_hours": 10.5,
-    "steps": 8420,
-    "distance_km": 6.1,
-    "resting_hr": 57.2,
-    "hrv_sdnn": 48.1,
-    "spo2_avg": 97.4,
-    "respiratory_rate": 15.8,
-    "vo2max": 42.3,
-    "body_mass_kg": 67.8
-  },
-  "metric_observation_days": {
-    "steps": 6,
-    "vo2max": 2
-  }
+  "metric_averages": [
+    { "metric": "steps", "value": 8420, "unit": "count", "observed_days": 6 },
+    { "metric": "vo2max", "value": 42.3, "unit": "mL/kg/min", "observed_days": 2 }
+  ]
 }
 ```
 
-Each metric average uses only days with that metric. Missing observations are not zero. The report should expose observation counts so a sparse metric is not presented as equally complete.
+Each metric average uses only days with that metric and unit. Missing observations are not zero. The adapter groups by `(metric, unit)` and never averages incompatible units under one metric name.
+`observed_days` is the number of calendar days with at least one daily metric row; each entry has its own metric observation count.
 
 ### Media
 
@@ -355,12 +341,14 @@ Source: `tb_media_consumption_events` for period activity, with `tb_media_items`
   "rated_count": 3,
   "average_rating": 4.2,
   "by_kind": [{ "kind": "anime", "event_count": 8, "completed_count": 3 }],
-  "completed_items": [{ "id": "med_01k...", "title": "...", "media_type": "anime", "occurred_at": "2026-08-11T...Z" }]
+  "completed_items": [{ "id": "med_01k...", "title": "...", "media_type": "anime", "completed_at": "2026-08-11T...Z" }]
 }
 ```
 
 The media aggregate service currently provides all-time/current-year-oriented aggregates. Add period-aware queries for this report rather than filtering a potentially truncated media list in the
-client. Define whether `completed_count` is event-based or item-state-based before implementation; the recommended v1 semantics are completion events in the selected period.
+client. `event_count` counts dated, non-snapshot consumption events with a non-null `event_at` in the selected month. `completed_count` counts distinct items whose resolved canonical completion
+timestamp falls in the month, resolved from `tb_media_progress.finished_at` plus explicit completion events and deduplicated by item. Rewatch events are excluded from `completed_count` and are not a
+separate v0.4 bucket. Undated completions are excluded from monthly buckets; they are not assigned the sync timestamp.
 
 ### Expenses
 
@@ -376,14 +364,39 @@ Source: active `tb_expenses` rows from the Expense Ledger plan.
 
 Deleted rows are excluded. Currencies remain separate. The report never adds JPY and USD together or formats minor units without currency metadata.
 
+## Existing feature compatibility fixes required in v0.4
+
+The report is not allowed to paper over incompatible existing semantics. These are v0.4 fixes, not later cleanup:
+
+- **Activity:** add a report-specific period query using the requested timezone and `[from, to)` bounds; preserve the existing swimming-distance correction; remove the misleading moving-time total and
+  expose known-distance coverage.
+- **Sleep:** keep existing wake-date membership, but calculate monthly averages and stage totals from main sleeps only and report naps separately.
+- **Daily health:** add an exclusive-upper-bound report adapter and group averages by `(metric, unit)` so incompatible units cannot be combined.
+- **Daily wire data:** stop serializing missing ring summaries as zero measurements; use nullable/nested ring data. Return `[]`, not `null`, for every repeated field.
+- **Media persistence:** do not count provider `list_state` snapshots as consumption events, preserve unknown `event_at` as null, compare all semantic event fields during deduplication, and add
+  provider-through-persistence tests. Dated completion data is required for monthly buckets; Bangumi-style status without a completion date is excluded. Give media events their own `medevt_` ID prefix
+  before exposing them through the general CLI.
+- **Runtime/API:** configure `IROHA_TIMEZONE` with a production timezone database, preserve the existing error envelope, register the monthly route in OpenAPI/route inventory, and allow browser
+  `PUT`/`DELETE` preflights for the expense cockpit. Decode IDs separately from service errors: malformed IDs are `400`, missing rows are `404`, and database failures are `500`.
+- **Shared wire contracts:** encode calendar dates as `YYYY-MM-DD` strings and aggregate periods as date/month strings; reserve RFC3339 for instants. Centralize pagination parsing so an explicitly
+  invalid limit is `400` rather than silently becoming `50`.
+- **OpenAPI gate:** replace generic `additionalProperties` aggregate schemas with exact schemas for expense/monthly-report and each CLI-enabled existing domain; validate OpenAPI 3.1 null unions
+  instead of 3.0 `nullable`, compare the declared route/method set with Chi, and validate representative fixtures. Update or retire the stale API gap matrix in the same contract change.
+- **Cache compatibility:** bump the shared cache-key contract prefix for v0.4 deployments. Expense and monthly-report routes remain uncached initially.
+- **Web transport:** add typed PUT/DELETE helpers, structured error parsing, and a `204 No Content` path before implementing `/expenses`; do not use bounded Overview list sweeps for report values.
+- **CLI contracts:** the general CLI initially promises only expense mutations and monthly reports. Existing-domain read wrappers follow only after their response schemas and period behavior are
+  explicit.
+
+Existing public list/aggregate filters are not silently changed by this work. The report adapters own the stricter half-open period contract and have dedicated boundary tests.
+
 ## Service and API implementation
 
 Create `apps/iroha-server/pkg/reports` with:
 
-- period parsing and Monday/month boundary helpers;
+- period parsing and month-boundary helpers;
+- a report period containing `FromDate` (inclusive), `ToDateExclusive`, `FromInstant`, and `ToInstantExclusive`; every adapter uses the exclusive upper bound;
 - a typed `Request` and `Response` contract;
 - one section interface or explicit orchestrator calls for movement, sleep, daily, media, and expenses;
-- section-level state/error handling;
 - deterministic serialization and stable schema names.
 
 Create `apps/iroha-server/pkg/httpapi/reports.go` and register:
@@ -392,18 +405,20 @@ Create `apps/iroha-server/pkg/httpapi/reports.go` and register:
 GET /api/v1/reports/monthly
 ```
 
-Update the active route inventory, OpenAPI, read-cache mapping, and cache invalidation. Add a `reports` cache namespace. Imports and expense writes invalidate reports; media sync/import reconciliation
-invalidates the affected report namespace as well as its domain namespace.
+Update the active route inventory and OpenAPI. Reports are not cached in v0.4; the dataset is small and a fresh synchronous query avoids caching transient failures. Expense/media/import writes
+therefore do not need report-cache invalidation.
 
 The report service should issue aggregate queries directly. It must not call the HTTP layer, fetch all paginated rows, or reproduce UI calculations. A section query may return no rows and therefore
-`empty`; SQL/query failures produce `unavailable` with a safe code.
+`empty`; SQL/query failures fail the request with the existing `{code,message,request_id}` error envelope.
 
 HTTP behavior is explicit:
 
-- `200 OK`: the report envelope is valid; sections may be `available`, `empty`, or `unavailable`.
+- `200 OK`: the report envelope is valid; sections are `available` or `empty`.
 - `400 Bad Request`: malformed `month` or unknown IANA timezone.
-- `500 Internal Server Error`: the report envelope itself cannot be assembled or serialized. A single domain query failure should remain a section-level `unavailable` result.
-- Cache key: method, route, month, timezone, and report schema version.
+- `500 Internal Server Error`: any domain query, assembly, or serialization failure. A failed section never becomes a partial `200` response.
+
+The server loads timezone data from the image (`tzdata`) or the Go embedded timezone database and exposes `IROHA_TIMEZONE`, defaulting to `Asia/Tokyo`. The web sends the browser's IANA timezone
+explicitly; the CLI requires `--timezone` or `IROHA_TIMEZONE`.
 
 The report API response is the only Iroha output. It is not posted to a Telegram chat, written to Valkey as a draft, or stored as a report artifact.
 
@@ -420,12 +435,11 @@ GET /api/v1/reports/monthly
   -> query media adapter         -> tb_media_consumption_events + media state
   -> query expense adapter       -> tb_expenses
   -> assemble typed sections
-  -> cache successful response
   -> return JSON to the requesting client
 ```
 
 The adapters use SQL/service methods against canonical tables. They do not read the web's currently loaded page, Telegram's local rows, raw import files, or job output. A domain with no rows returns
-`empty`; an adapter/database error returns `unavailable`.
+`empty`; an adapter/database error fails the report with `500`.
 
 Report responses are not persisted. The canonical tables remain the source of truth, and the report can always be regenerated for the same period. Caching is an optimization only and must not become a
 second report database.
@@ -438,58 +452,19 @@ The private web application is the primary destination for the complete report b
 
 ```text
 user opens /reports
-  -> web chooses the current month in configured timezone
+  -> web chooses the current month in the browser's IANA timezone
   -> GET /api/v1/reports/monthly?month=...&timezone=...
   -> render period header and five independent section cards
   -> previous/next changes anchor and repeats the request
 ```
 
-Add a private `/reports` route with a month selector and previous/next month navigation. One API request loads the report. Render sections independently so a missing media sync does not blank a valid
-sleep report. The route owns no aggregation logic; it renders typed section data, including loading, empty, unavailable, and stale/cache states.
+Add a private `/reports` route with a month selector and previous/next month navigation. One API request loads the report. Render sections independently so an empty media section does not hide valid
+sleep data. A request-level error is shown as an error state for the whole report. The route owns no aggregation logic; it renders typed section data, including loading, empty, and error states.
 
-The Overview may show a small link or selected-period summary, but it must not duplicate the report calculations. Every curated theme receives the same typed report data and handles `available`,
-`empty`, and `unavailable` states.
+The Overview may show a small link or selected-period summary, but it must not duplicate the report calculations. One theme-neutral `/reports` page is rendered inside the shared themed shell; v0.4
+does not implement separate report pages for each theme.
 
-### Optional future compact client
-
-Telegram/Suzuran is not part of the v0.4 report implementation. If a separate compact client is approved later, it is a renderer, not a delivery channel owned by Iroha:
-
-```text
-user requests monthly report
-  -> external client requests current month from Iroha
-  -> external client selects compact fields from the response
-  -> external client sends its own message
-```
-
-- `/report month` requests the current monthly report.
-- `/report month 2026-08` requests an explicit month.
-- The response shows period/timezone, expense totals by currency, movement totals, sleep averages, daily-health highlights, and media completions.
-- A future compact client may link to the private web report; it must not calculate or merge sections itself.
-
-Example rendering:
-
-```text
-Monthly report · August 2026 · Asia/Tokyo
-
-Movement
-3 activities · 28.4 km · 2h 32m
-
-Sleep
-7 nights · avg 6h 42m · 93% efficiency
-
-Daily health
-8,420 steps/day · 42m exercise/day
-
-Media
-4 completed · 12 events
-
-Expenses
-¥18,400 · 8 expenses
-
-[Open full report]
-```
-
-The compact client omits `empty` sections, labels `unavailable` sections as unavailable, and never calculates totals itself. A scheduled digest, if wanted later, belongs to that external client.
+Future clients may call this endpoint and render the typed response, but no external client, Telegram workflow, or scheduled delivery is implemented in v0.4.
 
 ### CLI: machine-readable and operator view
 
@@ -506,19 +481,19 @@ Client file boundary:
 
 - Iroha: `apps/iroha-server/pkg/reports/`, `apps/iroha-server/pkg/httpapi/reports.go`, `docs/contracts/openapi.yaml`, and `apps/iroha-server/pkg/httpapi/api_contract_test.go`.
 - Web: add `getMonthlyReport()` and the report types in `apps/iroha-web/src/lib/api.ts`; add `/reports/+page.svelte` and shared section components as needed.
-- Future client: add one Iroha client method and a compact renderer only if separately approved; do not create a second aggregation implementation.
 - CLI: add the `report monthly` resource to `scripts/iroha_cli.py` as a transport/presentation wrapper only.
 
 ## Implementation slices
 
-1. **Month and contract:** report package, month-boundary tests, response envelope, OpenAPI, route inventory.
-2. **Existing domain adapters:** movement, sleep, and daily typed aggregate queries with direct SQL/service tests.
-3. **Media period aggregate:** define completion/event semantics and implement period-aware media queries.
-4. **Expense section:** add expense totals/category buckets and cache invalidation.
-5. **API/cache:** register endpoint, section failures, cache namespace, invalidation, and integration tests.
-6. **Web report:** `/reports`, month navigation, typed section components, all-theme wiring.
-7. **Optional external client:** monthly report renderer, partial/empty handling, only after separate approval.
-8. **Release hardening:** cross-domain fixture, freshness copy, performance checks, docs, and public-export boundary test.
+1. **Existing contract repair:** exact OpenAPI schemas and validation, calendar-date encoding, error classification, pagination limits, empty-array normalization, cache-key versioning, media-event
+   IDs, and provider persistence tests.
+2. **Month and period contract:** report package, timezone data/configuration, half-open boundary types, response envelope, and route inventory.
+3. **Existing domain adapters:** movement, sleep, and daily typed aggregate queries with direct SQL/service tests and compatibility fixtures.
+4. **Media period aggregate:** dated event/completion semantics, snapshot exclusion, provider mappings, and period-aware media queries.
+5. **Expense section:** add expense totals/category buckets and report integration.
+6. **API:** register endpoint, top-level failure behavior, uncached execution, and integration tests.
+7. **Web and CLI:** one shared `/reports` page, typed section components, expense mutation transport, `/expenses`, and only the initially supported CLI resources.
+8. **Release hardening:** cross-domain fixtures, performance checks, docs, and public-export boundary tests.
 
 ## Verification matrix
 
@@ -527,10 +502,11 @@ Client file boundary:
 - The same anchor/timezone produces byte-stable section data apart from `generated_at`.
 - Activity inclusion uses started-at conversion; sleep uses wake-date semantics; daily data uses date; media uses event time; expenses use occurred date.
 - Missing observations are omitted/empty rather than zeroed.
+- Main-sleep averages exclude naps; metric-only daily days do not fabricate ring zeros; repeated fields serialize as `[]`.
 - JPY and USD totals remain separate.
 - Deleted expenses are excluded.
-- One unavailable domain produces a partial report while healthy sections remain available.
-- Media completion semantics are tested against event fixtures and current progress fixtures.
-- Cache hits return the same response; import/media/expense changes invalidate report data.
-- Web and CLI consume the API response without local aggregation; any future client must follow the same rule.
+- Any domain query failure produces a top-level `500` and is not cached; an empty domain produces an `empty` section with `data: null`.
+- Media provider fixtures prove snapshots are not consumption events, unknown dates are not assigned sync time, dated completions are deduplicated, and undated completions are excluded.
+- Date-only wire fields, invalid IDs, database failures, invalid pagination limits, exact OpenAPI schemas, null unions, route/method parity, and cache-key versioning are tested.
+- Fresh report requests always query canonical data; web and CLI consume the API response without local aggregation.
 - `make check`, integration tests with representative fixtures, OpenAPI validation, and web tests pass.

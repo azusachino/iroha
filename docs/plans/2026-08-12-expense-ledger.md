@@ -1,10 +1,10 @@
-# Iroha v0.4 Expense Ledger Plan v3
+# Iroha v0.4 Expense Ledger Plan v4
 
 > Status: draft for review. This document records current decisions and the implementation boundary; it does not authorize implementation or deployment.
 
 ## Current architecture
 
-Iroha is a deterministic canonical data service. It accepts structured expense JSON, validates it, stores it, deduplicates it, and serves deterministic lists, aggregates, and reports.
+Iroha is a deterministic canonical data service. It accepts structured expense JSON, validates it, stores it, deduplicates it, and serves deterministic expense records and monthly reports.
 
 Iroha is the central personal-data cockpit. Expense storage and reporting belong to Iroha; no Telegram bot or companion service owns an expense domain.
 
@@ -41,11 +41,14 @@ belongs to a separate Suzuran task. A future Telegram expense client, if desired
 6. That canonical `tb_expenses` table belongs to Iroha. Suzuran does not own, mirror, migrate, or report expenses.
 7. The required canonical fields are `occurred_on`, `currency`, `amount_minor`, `category`, and `source`. `merchant`, `note`, and `items` are optional.
 8. `amount_minor` is authoritative. `items` are descriptive receipt details and are not accounting line items.
-9. `(source.kind, source.ref)` is the create idempotency identity. An identical retry returns the existing record; a conflicting retry returns `409 Conflict`.
-10. Deletion is a `deleted_at` tombstone so a retry cannot recreate an intentionally removed source event. v0.4 does not provide revision history.
+9. `(source.kind, source.ref)` is immutable create identity, and `create_fingerprint` stores the normalized original request. Same identity plus the same original fingerprint returns the current
+   record; a different fingerprint returns `409 Conflict`.
+10. A deleted record remains addressable by its source identity and a repeated create returns `410 Gone`; it cannot be recreated. v0.4 does not provide revision history.
 11. Receipt images and OCR evidence stay in the local agent environment. Iroha stores no image bytes or model prompt.
 12. The monthly cross-domain report is a separate read feature. It aggregates existing personal data sections without combining incompatible units.
 13. Iroha remains private-network-only under the current deployment model. Full authentication is required before external exposure.
+14. Refunds and credits are out of scope for v0.4; `amount_minor` is a positive spending amount only.
+15. Currency metadata is a static Go map in v0.4, initially `JPY`, `USD`, `EUR`, and `GBP`; no currency table is added.
 
 ## User stories
 
@@ -71,12 +74,14 @@ As any client, I can submit one canonical JSON document and receive the same exp
 
 As a user, I can see expenses in the same monthly report surface as my activity, sleep, daily health, and media data.
 
+As a user, I can inspect, edit, and delete canonical expenses in Iroha's private web cockpit.
+
 ## Scope and non-goals
 
 In scope:
 
 - One canonical expense record with date, money, category, merchant, note, optional items, and source reference.
-- Deterministic create, list, get, update, delete, and aggregate APIs.
+- Deterministic create, list, get, update, and delete APIs, with aggregation owned by the monthly report.
 - Source-based idempotency for external clients.
 - A general local Iroha CLI with expense commands, monthly reports, and read access to existing canonical domains.
 
@@ -122,12 +127,13 @@ Content-Type: application/json
 ### Field rules
 
 - `occurred_on` is required and uses `YYYY-MM-DD`. The client asks the user when the date is uncertain; Iroha does not infer it from prose.
-- `currency` is required, uppercase, and three letters. v0.4 supports an explicit currency metadata table for formatting and exponent validation; it performs no conversion.
+- `currency` is required, uppercase, and three letters. v0.4 uses a static Go currency/exponent map (initially `JPY`, `USD`, `EUR`, and `GBP`) and performs no conversion or currency-table migration.
+  Responses include the derived `currency_exponent` for display.
 - `amount_minor` is required, positive, and an integer. JPY `1300` is `1300`; USD `$13.00` is `1300`. Floating-point amounts are rejected.
 - `category` is required and must be one of `food`, `groceries`, `transport`, `shopping`, `housing`, `utilities`, `health`, `entertainment`, `subscriptions`, `work`, or `other`.
 - `merchant` and `note` are optional bounded strings. Empty strings normalize consistently to null or the database default.
-- `items` is optional. Each item has a required non-empty `name` and an optional non-negative `amount_minor`. Item amounts are descriptive and need not sum to the total because tax, discounts, tips,
-  and rounding exist.
+- `items` is optional, preserves input order, and has at most 32 entries. Each item has a required non-empty `name` of at most 200 characters and an optional non-negative `amount_minor`, which means
+  the line total in the parent expense currency. Item amounts are descriptive and need not sum to the total because tax, discounts, tips, and rounding exist.
 - `source` is required. `kind` identifies the client (`local_agent`, `cli`, or a separately approved future client); `ref` is an opaque stable identifier and must not contain a local filesystem path
   or receipt contents.
 
@@ -146,23 +152,27 @@ Add one explicit Goose migration using the next available number in `apps/iroha-
 - `merchant text not null default ''`, `note text not null default ''`.
 - `items_json jsonb not null default '[]'`.
 - `source_kind text not null`, `source_ref text not null`.
+- `create_fingerprint text not null` covering the normalized original create request.
 - `created_at`, `updated_at`, and nullable `deleted_at`.
 - Unique `(source_kind, source_ref)` plus indexes for date/currency/category and active records.
 
 Endpoints:
 
-- `POST /api/v1/expenses` creates or returns the record for `(source.kind, source.ref)`.
-- `GET /api/v1/expenses` lists active records with date, category, currency, and pagination filters.
-- `GET /api/v1/expenses/{expenseId}` returns one record; deleted records require an explicit include flag.
-- `PUT /api/v1/expenses/{expenseId}` replaces editable fields after client-side editing. The full request is validated again.
-- `DELETE /api/v1/expenses/{expenseId}` sets `deleted_at`; repeating it is a no-op success.
-- `GET /api/v1/expenses/aggregates?from=2026-08-01&to=2026-09-01&timezone=Asia/Tokyo` returns currency-separated totals and category buckets.
+- `POST /api/v1/expenses` returns `201 Created` for a new record, `200 OK` for an identical retry, `409 Conflict` for a different original fingerprint, and `410 Gone` for a deleted source identity.
+- `GET /api/v1/expenses` lists active records with `from` inclusive, `to` exclusive, category/currency filters, and cursor pagination. Order is `occurred_on DESC, id DESC`.
+- `GET /api/v1/expenses/{expenseId}` returns an active record; a deleted record returns `410 Gone`.
+- `PUT /api/v1/expenses/{expenseId}` replaces all editable fields (`occurred_on`, `category`, `merchant`, `note`, `items`, `amount_minor`, `currency`) and validates the complete record. Source
+  identity and create fingerprint cannot change. v0.4 uses explicit last-write-wins; there is no revision or concurrency-token protocol.
+- `DELETE /api/v1/expenses/{expenseId}` sets `deleted_at` and returns `204 No Content`; repeating it also returns `204`.
 
-Create behavior is deterministic: validate, normalize, insert, and handle the unique source conflict. On a conflict, identical normalized data returns the existing record; different data returns
-`409`. Successful writes invalidate expense, report, and briefing read-cache namespaces.
+Create behavior is deterministic: validate, normalize, fingerprint the original request, insert, and handle the unique source conflict. On a conflict, compare the stored create fingerprint—not the
+mutable current row. Successful writes invalidate any expense-list cache; monthly reports are not cached in v0.4.
 
-The API does not accept a generic `text` field, call external services, or require an `Idempotency-Key` header in addition to the stable source identity. A client may send that header for tracing, but
-source identity is the durable contract.
+Expense responses include the read-only `currency_exponent` derived from the static currency map. It is not accepted in create or update requests and is never used to convert between currencies.
+
+The API does not accept a generic `text` field, call external services, or require an `Idempotency-Key` header in addition to the stable source identity. Manual clients generate and persist a UUID
+source reference before the first request. Receipt agents use a receipt SHA-256 as the default source reference and allow an explicit override for two legitimate expenses from identical images. The
+CLI writes the generated source reference into the draft before sending; automatic retries reuse that draft and never generate a new reference.
 
 ## Independent local agent workflow
 
@@ -181,74 +191,51 @@ The agent may use any local model or approved provider. Iroha does not know or c
 Create one general `scripts/iroha_cli.py`. It is a thin Iroha client with shared transport, configuration, JSON/table output, and resource subcommands. It must not become an OCR engine or reimplement
 report aggregation.
 
-The v0.4 command surface is:
+The v0.4 command surface is intentionally small:
 
 ```bash
-uv run python scripts/iroha_cli.py expense validate --input draft.json
 uv run python scripts/iroha_cli.py expense create --input draft.json
 uv run python scripts/iroha_cli.py expense list --from 2026-08-01 --to 2026-09-01
+uv run python scripts/iroha_cli.py expense get exp_01k...
+uv run python scripts/iroha_cli.py expense update exp_01k... --input replacement.json
 uv run python scripts/iroha_cli.py expense delete exp_01k...
-uv run python scripts/iroha_cli.py report monthly --month 2026-08
-uv run python scripts/iroha_cli.py activity list --from 2026-08-01 --to 2026-09-01
-uv run python scripts/iroha_cli.py sleep aggregates --from 2026-08-01 --to 2026-09-01
-uv run python scripts/iroha_cli.py daily aggregates --granularity month --from 2026-08-01 --to 2026-09-01
-uv run python scripts/iroha_cli.py media aggregates
+uv run python scripts/iroha_cli.py report monthly --month 2026-08 --timezone Asia/Tokyo
 ```
 
-The initial supported resources are `expense` (read/write), `report` (read), `activity` (read), `sleep` (read), `daily` (read), and `media` (read). Do not add write commands for a domain until that
-domain has a stable write API. The CLI uses `IROHA_API_BASE`, emits JSON by default, supports `--format table`, and never stores or prints receipt images.
+The initial supported resources are `expense` (read/write) and `report monthly` (read). The CLI uses `IROHA_API_BASE`, requires `--timezone` or `IROHA_TIMEZONE` for report requests, emits JSON by
+default, supports `--format table` only for the explicitly supported resources, and never stores or prints receipt images. `expense create` uses server validation; there is no duplicated client-side
+`validate` command in v0.4. Read-only wrappers for activity, sleep, daily, and media are a later CLI slice after their response contracts are tightened. No domain receives write commands until it has
+a stable write API.
 
 For an image-aware local agent, OCR/vision and the Iroha CLI may be one command or two commands. That packaging choice is local and must not leak into the HTTP contract.
 
-## Optional future client UX
+## Private cockpit UX
 
-Telegram/Suzuran is not part of the v0.4 implementation. If a separate client is approved later, it must submit canonical JSON directly to Iroha and must not introduce a second ledger.
-
-### Example manual entry
+Iroha's web cockpit provides the v0.4 management surface for canonical expenses:
 
 ```text
-client command: expense 1300 JPY food
+/expenses
+  -> list active records with month/category/currency filters
+  -> open one record
+  -> edit the complete editable record with PUT
+  -> delete it with DELETE and return to the filtered list
+/reports
+  -> select a month
+  -> open the expense section and link to the matching /expenses filter
 ```
 
-The client parses its own command, obtains the local date, and submits once required fields are present. Optional forms are:
-
-```text
-/expense 1300 JPY food Ramen Shop
-/expense 1300 JPY food --date 2026-08-12 --merchant "Ramen Shop" --note "Lunch"
-```
-
-The exact parser should remain small. If a value is ambiguous, the client asks a focused follow-up question rather than sending prose to Iroha.
-
-### Guided entry
-
-An empty expense command may start a short conversation:
-
-1. Ask for amount and currency.
-2. Show category buttons.
-3. Optionally ask for date, merchant, note, and item list; each has `Skip`.
-4. Submit the canonical JSON directly when the required fields exist.
-
-A preview and `Save/Edit/Cancel` buttons are optional UX. They are not required for correctness, and a client may provide a fast path that submits immediately.
-
-### Listing and correction
-
-- A client may list active records and totals by currency.
-- A client may call the cross-domain monthly report API described in the monthly report plan.
-- Each row may offer `Edit` and `Undo`. Edit sends `PUT`; Undo sends `DELETE` after an optional client-side confirmation.
-- If Iroha returns `409`, the client displays the existing canonical record instead of creating another.
-- If Iroha is unavailable, the client may retry the already-canonical JSON with the same `source.ref`; it must not write a second local ledger.
-
-Telegram photo handling is not part of the agent workflow in v0.4. If a photo entry point is desired later, it should be designed as a separate Telegram-to-Iroha raw-evidence feature rather than
-silently coupling Telegram to the local agent.
+The page renders server data and owns no aggregation or OCR logic. Browser mutation support requires `PUT`, `DELETE`, and `OPTIONS` in the API CORS allow-list. The web obtains an IANA timezone from
+the browser for monthly report requests and sends it explicitly.
 
 ## Implementation slices
 
 1. **Canonical contract:** migration, runtime model/ID prefix, validation, create/list/get/update/delete service, source uniqueness, OpenAPI, and API tests.
 2. **Deterministic reporting:** implement the separate [monthly report plan](2026-08-12-periodic-reports.md) and expense aggregate section.
-3. **General CLI:** shared transport plus expense, monthly-report, activity, sleep, daily, and media subcommands with JSON/table output tests.
-4. **Optional external client:** quick entry, guided fields, optional preview, list, edit, undo, and report commands, only if separately approved.
-5. **Optional external client:** implement a separate client only if approved; it must call Iroha directly and have no local expense storage.
-6. **Private UI and release hardening:** Overview expense representation, all-theme wiring, migration rehearsal, monitoring, docs, and v0.4 release note.
+3. **General CLI foundation:** shared transport, configuration, source-reference persistence, JSON output, and error handling.
+4. **General CLI v0.4 resources:** `expense create/list/get/update/delete` and `report monthly`; add read-only wrappers for activity, sleep, daily, and media only after their response contracts are
+   explicit.
+5. **Private cockpit:** theme-neutral `/expenses` list/detail/edit/delete flows and a link from the monthly report expense section. The report page remains one shared page inside the themed shell.
+6. **Release hardening:** migration rehearsal, monitoring, docs, OpenAPI, and v0.4 release note. Future external clients are separate follow-up work.
 
 Each slice must remain deterministic inside Iroha and must not depend on a particular client being available.
 
@@ -257,7 +244,6 @@ Each slice must remain deterministic inside Iroha and must not depend on a parti
 - Validate required date/currency/amount/category/source, item shape, limits, and unsupported values.
 - Test identical source retry, conflicting source retry (`409`), concurrent duplicate creates, updates, tombstones, and deleted filtering.
 - Test aggregates across date boundaries, currencies, categories, deleted rows, and empty periods.
-- Test OpenAPI and route inventory, public-export exclusion, cache invalidation, and CLI JSON/error behavior.
-- Test the general CLI's expense payload/retry/conflict behavior, monthly report transport, and read-only domain commands.
-- Test any approved external client for canonical payloads, retries, conflicts, and absence of local expense storage.
+- Test OpenAPI and route inventory, public-export exclusion, cache invalidation, browser mutation CORS, and CLI JSON/error behavior.
+- Test the general CLI's source-reference persistence, expense payload/retry/conflict behavior, monthly report transport, and only the read-only domain commands whose contracts are stable.
 - Run `make fmt-docs-check` and `make check`; use `make test-integration` when the database is available.
