@@ -10,13 +10,23 @@
   } = $props();
 
   const groupActive = $derived(group.items.some((item) => active(item.href)));
+
+  function closeAfterNavigation(event: MouseEvent) {
+    (event.currentTarget as HTMLAnchorElement)
+      .closest("details")
+      ?.removeAttribute("open");
+  }
 </script>
 
 <details class:active={groupActive} class="navigation-menu">
   <summary>{group.label}</summary>
   <div class="navigation-popover">
     {#each group.items as item}
-      <a class:active={active(item.href)} href={item.href}>
+      <a
+        class:active={active(item.href)}
+        href={item.href}
+        onclick={closeAfterNavigation}
+      >
         <strong>{item.label}</strong><small>{item.hint}</small>
       </a>
     {/each}

@@ -664,8 +664,15 @@ export interface ListDailyParams {
 }
 
 // One month/year rollup. Ring fields are per-day averages over ring days;
-// `metrics` is a per-day average keyed by metric slug (steps, resting_hr, …),
-// open-ended to match tb_daily_metrics.
+// `metrics` is a sorted list of per-day averages so each metric can retain its
+// unit and observed-day coverage.
+export interface DailyMetricAggregate {
+  metric: string;
+  value: number;
+  unit: string;
+  observed_days: number;
+}
+
 export interface DailyAggregateBucket {
   period: string;
   days: number;
@@ -673,7 +680,7 @@ export interface DailyAggregateBucket {
   exercise_min_avg: number;
   stand_hours_avg: number;
   move_closed_pct: number;
-  metrics: Record<string, number>;
+  metrics: DailyMetricAggregate[];
 }
 
 export interface DailyAggregates {

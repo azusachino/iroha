@@ -149,6 +149,31 @@ func TestExpenseSeriesRequiresCurrencyAndPreservesMinorUnits(t *testing.T) {
 	}
 }
 
+func TestExpenseSeriesSupportsDailyPoints(t *testing.T) {
+	registry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("default registry: %v", err)
+	}
+	location := time.UTC
+	service := NewService(registry, nil, nil, fakeExpenseSource{values: []ExpenseMetricValue{
+		{OccurredOn: time.Date(2026, time.January, 2, 0, 0, 0, 0, location), Currency: "JPY", AmountMinor: 800, Source: "local_agent"},
+	}}, nil, nil)
+	series, err := service.Series(context.Background(), Request{
+		MetricID: "expenses.amount_minor",
+		From:     time.Date(2026, time.January, 1, 0, 0, 0, 0, location),
+		To:       time.Date(2026, time.January, 4, 0, 0, 0, 0, location),
+		Grain:    "day", Timezone: location,
+		Dimensions: map[string][]string{"currency": {"JPY"}},
+	})
+	if err != nil {
+		t.Fatalf("daily expense series: %v", err)
+	}
+	points := series.Series[0].Points
+	if len(points) != 3 || points[0].ValueMinor != nil || points[1].ValueMinor == nil || *points[1].ValueMinor != 800 {
+		t.Fatalf("daily points = %+v", points)
+	}
+}
+
 func TestSleepSeriesAveragesSelectedSleepKind(t *testing.T) {
 	registry, err := metrics.DefaultRegistry()
 	if err != nil {

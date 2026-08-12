@@ -110,6 +110,7 @@
       splitLine: { lineStyle: { color: border, opacity: 0.5 } },
     };
 
+    chart.clear();
     chart.setOption({
       animation: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       animationDuration: window.matchMedia("(prefers-reduced-motion: reduce)")

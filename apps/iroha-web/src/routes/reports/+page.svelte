@@ -209,8 +209,12 @@
     >
   </header>
   <section class="period panel" aria-label="Report period">
+    <div class="period-copy">
+      <span>Period</span>
+      <strong>Monthly cross-domain report</strong>
+    </div>
     <MonthNavigator {month} onMonth={moveMonth} disabled={loading} /><span
-      >{timezone || "Detecting browser timezone…"}</span
+      class="timezone">{timezone || "Detecting browser timezone…"}</span
     >
   </section>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
@@ -236,8 +240,7 @@
     letter-spacing: -0.09em;
     line-height: 0.9;
   }
-  .page-head,
-  .period {
+  .page-head {
     display: flex;
     justify-content: space-between;
     align-items: end;
@@ -262,16 +265,36 @@
     line-height: 1.5;
   }
   .period {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
     align-items: center;
     padding: 1rem;
     border: 1px solid var(--border);
     background: var(--surface);
   }
-  .period span,
+  .period-copy {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .period-copy span {
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .period-copy strong {
+    font-size: 0.9rem;
+  }
+  .timezone,
   .muted,
   .generated {
     color: var(--text-muted);
     font-size: 0.78rem;
+  }
+  .timezone {
+    margin-left: auto;
   }
   .error {
     color: var(--danger);
@@ -310,6 +333,9 @@
     .period {
       align-items: start;
       flex-direction: column;
+    }
+    .timezone {
+      margin-left: 0;
     }
   }
 </style>

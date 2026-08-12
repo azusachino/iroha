@@ -97,8 +97,29 @@
     const date = new Date().toISOString().slice(0, 10);
     try {
       const briefing = await getBriefing(date);
-      today = fromBriefing(briefing);
-      source = "live";
+      const live = fromBriefing(briefing);
+      const hasLiveData =
+        live.daily ||
+        live.sleep ||
+        live.activities.length > 0 ||
+        live.media.length > 0;
+      if (hasLiveData) {
+        const sample = sampleToday();
+        today = {
+          date: live.date,
+          daily: live.daily ?? sample.daily,
+          sleep: live.sleep ?? sample.sleep,
+          activities: live.activities.length
+            ? live.activities
+            : sample.activities,
+          media: live.media.length ? live.media : sample.media,
+        };
+        source = "live";
+      } else {
+        // A valid empty briefing is still not useful for a design lab. Keep
+        // the deterministic fixture visible when the server has no records.
+        source = "sample";
+      }
     } catch {
       // The playground remains useful without a running server.
       source = "sample";
@@ -126,7 +147,7 @@
 
   function sampleToday(): TodayData {
     return {
-      date: new Date().toISOString().slice(0, 10),
+      date: "2026-07-18",
       daily: {
         id: "daily-demo",
         day: "2026-07-18",

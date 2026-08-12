@@ -285,9 +285,13 @@
       disabled={loading}><RefreshCw size={15} /> Refresh</button
     >
   </header>
-  <div class="month-row">
+  <section class="period panel" aria-label="Expense period">
+    <div class="period-copy">
+      <span>Period</span>
+      <strong>Monthly ledger scope</strong>
+    </div>
     <MonthNavigator {month} onMonth={selectMonth} disabled={loading} />
-  </div>
+  </section>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   <div class="filters panel" aria-label="Expense filters">
     <label
@@ -361,9 +365,26 @@
     padding-bottom: 1.5rem;
     border-bottom: 1px solid var(--border);
   }
-  .month-row {
+  .period {
     display: flex;
-    justify-content: center;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+  }
+  .period-copy {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .period-copy span {
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .period-copy strong {
+    font-size: 0.9rem;
   }
   .eyebrow {
     display: flex;
@@ -598,6 +619,14 @@
     }
     .filters label {
       flex: 1 1 9rem;
+    }
+    .period {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .period :global(.month-navigator) {
+      align-self: stretch;
+      justify-content: space-between;
     }
   }
 </style>

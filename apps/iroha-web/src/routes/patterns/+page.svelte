@@ -180,24 +180,25 @@
     };
   }
   function aggToDisp(b: DailyAggregateBucket): Disp {
-    const m = b.metrics ?? {};
-    const move = b.move_kcal_avg || null;
+    const metricValue = (metric: string): number | null =>
+      b.metrics.find((item) => item.metric === metric)?.value ?? null;
+    const move = b.move_kcal_avg === 0 ? null : b.move_kcal_avg;
     return {
       label: fmtPeriod(b.period),
       period: gran === "year" ? b.period.slice(0, 4) : b.period.slice(0, 7),
       days: b.days,
       move,
-      exercise: b.exercise_min_avg || null,
-      stand: b.stand_hours_avg || null,
+      exercise: b.exercise_min_avg === 0 ? null : b.exercise_min_avg,
+      stand: b.stand_hours_avg === 0 ? null : b.stand_hours_avg,
       moveClosedPct: move == null ? null : Math.round(b.move_closed_pct),
-      steps: m.steps ?? null,
-      distance: m.distance_km ?? null,
-      resting_hr: m.resting_hr ?? null,
-      hrv_sdnn: m.hrv_sdnn ?? null,
-      spo2_avg: m.spo2_avg ?? null,
-      respiratory_rate: m.respiratory_rate ?? null,
-      vo2max: m.vo2max ?? null,
-      body_mass_kg: m.body_mass_kg ?? null,
+      steps: metricValue("steps"),
+      distance: metricValue("distance_km"),
+      resting_hr: metricValue("resting_hr"),
+      hrv_sdnn: metricValue("hrv_sdnn"),
+      spo2_avg: metricValue("spo2_avg"),
+      respiratory_rate: metricValue("respiratory_rate"),
+      vo2max: metricValue("vo2max"),
+      body_mass_kg: metricValue("body_mass_kg"),
     };
   }
 

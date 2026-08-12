@@ -64,7 +64,13 @@
   .period-controls {
     display: flex;
     flex-wrap: wrap;
+    align-items: end;
     gap: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--tile-surface);
+    box-shadow: var(--tile-shadow);
   }
 
   label {
