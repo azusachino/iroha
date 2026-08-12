@@ -12,25 +12,29 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func TestPrivateCORSAllowsPostPreflight(t *testing.T) {
+func TestPrivateCORSAllowsMutationPreflight(t *testing.T) {
 	handler := corsMiddleware([]string{"https://app.example"})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
-	req := httptest.NewRequest(http.MethodOptions, "/api/v1/imports", nil)
-	req.Header.Set("Origin", "https://app.example")
-	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
-	req.Header.Set("Access-Control-Request-Headers", "Content-Type")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodOptions, "/api/v1/imports", nil)
+			req.Header.Set("Origin", "https://app.example")
+			req.Header.Set("Access-Control-Request-Method", method)
+			req.Header.Set("Access-Control-Request-Headers", "Content-Type")
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
 
-	if rec.Header().Get("Access-Control-Allow-Origin") != "https://app.example" {
-		t.Fatalf("allow origin = %q", rec.Header().Get("Access-Control-Allow-Origin"))
-	}
-	if !strings.Contains(rec.Header().Get("Access-Control-Allow-Methods"), http.MethodPost) {
-		t.Fatalf("allow methods = %q", rec.Header().Get("Access-Control-Allow-Methods"))
-	}
-	if !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), "Content-Type") {
-		t.Fatalf("allow headers = %q", rec.Header().Get("Access-Control-Allow-Headers"))
+			if rec.Header().Get("Access-Control-Allow-Origin") != "https://app.example" {
+				t.Fatalf("allow origin = %q", rec.Header().Get("Access-Control-Allow-Origin"))
+			}
+			if !strings.Contains(rec.Header().Get("Access-Control-Allow-Methods"), method) {
+				t.Fatalf("allow methods = %q", rec.Header().Get("Access-Control-Allow-Methods"))
+			}
+			if !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), "Content-Type") {
+				t.Fatalf("allow headers = %q", rec.Header().Get("Access-Control-Allow-Headers"))
+			}
+		})
 	}
 }
 

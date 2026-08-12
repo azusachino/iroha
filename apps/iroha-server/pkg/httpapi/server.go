@@ -179,7 +179,7 @@ func keyByRemoteIP(r *http.Request) (string, error) {
 func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins: origins,
-		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodOptions},
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete, http.MethodOptions},
 		AllowedHeaders: []string{"Accept", "Content-Type"},
 		ExposedHeaders: []string{"Retry-After", "X-Request-ID", "X-Iroha-Cache"},
 		MaxAge:         300,

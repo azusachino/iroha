@@ -212,6 +212,25 @@ export interface Job {
   updated_at: string;
 }
 
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly requestId: string;
+
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    requestId: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.requestId = requestId;
+  }
+}
+
 export interface MediaDetail {
   item: MediaRow;
   work: {
@@ -390,10 +409,34 @@ async function requestJSON<T>(
     headers: { accept: "application/json", ...init.headers },
   });
   if (!res.ok) {
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      body = undefined;
+    }
+    if (
+      body &&
+      typeof body === "object" &&
+      "code" in body &&
+      "message" in body &&
+      typeof body.code === "string" &&
+      typeof body.message === "string"
+    ) {
+      throw new ApiError(
+        res.status,
+        body.code,
+        body.message,
+        "request_id" in body && typeof body.request_id === "string"
+          ? body.request_id
+          : "",
+      );
+    }
     throw new Error(
       `request failed: ${res.status} ${res.statusText} (${path})`,
     );
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -403,19 +446,31 @@ async function getJSON<T>(path: string, fetchFn: typeof fetch = fetch) {
 
 async function mutateJSON<T>(
   path: string,
-  method: "POST" | "PATCH",
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
+  body: unknown | undefined,
+  fetchFn: typeof fetch = fetch,
+): Promise<T> {
+  const init: RequestInit = { method };
+  if (body !== undefined) {
+    init.headers = { "content-type": "application/json" };
+    init.body = JSON.stringify(body);
+  }
+  return requestJSON<T>(path, init, fetchFn);
+}
+
+export function putJSON<T>(
+  path: string,
   body: unknown,
   fetchFn: typeof fetch = fetch,
 ): Promise<T> {
-  return requestJSON<T>(
-    path,
-    {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    },
-    fetchFn,
-  );
+  return mutateJSON<T>(path, "PUT", body, fetchFn);
+}
+
+export function deleteJSON(
+  path: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return mutateJSON<void>(path, "DELETE", undefined, fetchFn);
 }
 
 export function listTasks(

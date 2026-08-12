@@ -20,6 +20,9 @@ import {
   listJobs,
   getJob,
   triggerAction,
+  putJSON,
+  deleteJSON,
+  ApiError,
   type Activity,
   type DailyRow,
   type Page,
@@ -31,6 +34,68 @@ import {
 } from "./api";
 
 describe("control room API", () => {
+  it("sends typed PUT and DELETE requests", async () => {
+    const calls: RequestInit[] = [];
+    const fakeFetch = (async (
+      _input: string | Request | URL,
+      init?: RequestInit,
+    ) => {
+      calls.push(init ?? {});
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({}),
+      };
+    }) as typeof fetch;
+
+    await putJSON(
+      "/api/v1/expenses/expense_1",
+      { amount_minor: 100 },
+      fakeFetch,
+    );
+    await deleteJSON("/api/v1/expenses/expense_1", fakeFetch);
+    expect(calls[0].method).toBe("PUT");
+    expect(calls[1].method).toBe("DELETE");
+  });
+
+  it("accepts empty 204 mutation responses", async () => {
+    const fakeFetch = (async () => ({
+      ok: true,
+      status: 204,
+      statusText: "No Content",
+      json: async () => {
+        throw new Error("204 must not parse JSON");
+      },
+    })) as unknown as typeof fetch;
+
+    await expect(
+      deleteJSON("/api/v1/expenses/expense_1", fakeFetch),
+    ).resolves.toBeUndefined();
+  });
+
+  it("retains structured API errors", async () => {
+    const { fakeFetch } = createFakeFetch(
+      {
+        code: "invalid_expense",
+        message: "expense is invalid",
+        request_id: "req_1",
+      },
+      false,
+      400,
+      "Bad Request",
+    );
+
+    await expect(
+      putJSON("/api/v1/expenses/expense_1", {}, fakeFetch),
+    ).rejects.toMatchObject({
+      name: "ApiError",
+      code: "invalid_expense",
+      requestId: "req_1",
+    });
+    expect(ApiError).toBeDefined();
+  });
+
   it("lists tasks with status and due filters", async () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch([]);
     await listTasks({ status: "open", due: "2026-08-04", limit: 5 }, fakeFetch);
