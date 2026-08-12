@@ -1,8 +1,7 @@
-// Package publicexport builds the sanitized, public-facing projection of
-// activity data — the same shape iroha-server used to serve live over
-// /public/v1. It has no HTTP or cache dependency: callers (the
-// iroha-export-public CLI, tests) get plain data back and decide what to do
-// with it (write to disk, assert on it, etc).
+// Package publicexport builds the public-facing projection of activity data.
+// The archive-wide view is sanitized; an explicit allowlist may additionally
+// publish selected activity detail records. It has no HTTP or cache
+// dependency: callers get plain data back and decide what to do with it.
 package publicexport
 
 import (
