@@ -17,6 +17,7 @@ const (
 	MediaPrefix               = "media"
 	JobPrefix                 = "job"
 	TaskPrefix                = "task"
+	ExpensePrefix             = "exp"
 	MediaEventPrefix          = "medevt"
 	MediaResolutionTaskPrefix = "medres"
 )

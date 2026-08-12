@@ -342,6 +342,7 @@ func openIntegrationDB(t *testing.T) *gorm.DB {
 func resetIntegrationDB(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	if err := db.Exec(`truncate table
+		tb_expenses,
 		tb_activity_laps,
 		tb_activity_samplings,
 		tb_activity_route_points,
