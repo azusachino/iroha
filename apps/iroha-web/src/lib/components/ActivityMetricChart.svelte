@@ -1,0 +1,320 @@
+<script lang="ts">
+  import type { MetricSeriesResponse } from "$lib/api";
+  import BarChart from "$lib/components/BarChart.svelte";
+  import { formatDistance, formatMonth, formatSport } from "$lib/format";
+  import { useTheme } from "$lib/themes/context.svelte";
+
+  let {
+    series,
+    loading = false,
+    error = null,
+    scope = "",
+  }: {
+    series?: MetricSeriesResponse | null;
+    loading?: boolean;
+    error?: string | null;
+    scope?: string;
+  } = $props();
+
+  const theme = useTheme();
+
+  type Point = { period: string; value: number | null; observed_days: number };
+
+  function pointsFor(item: MetricSeriesResponse["series"][number]): Point[] {
+    return item.points.map((point) => ({
+      period: point.period,
+      value: "value" in point ? (point.value ?? null) : null,
+      observed_days: point.observed_days,
+    }));
+  }
+
+  function labelForPeriod(period: string): string {
+    if (/^\d{4}-\d{2}$/.test(period)) return formatMonth(period);
+    return period;
+  }
+
+  const periods = $derived(
+    series?.series[0]?.points.map((point) => point.period) ?? [],
+  );
+  const totalDistance = $derived(
+    periods.map((period, index) => {
+      let sum = 0;
+      let observed = false;
+      for (const item of series?.series ?? []) {
+        const point = pointsFor(item)[index];
+        if (point?.value != null) {
+          sum += point.value;
+          observed = true;
+        }
+      }
+      return observed ? sum / 1000 : null;
+    }),
+  );
+  const sportBreakdown = $derived(
+    (series?.series ?? [])
+      .map((item) => {
+        const sport = item.dimensions.sport ?? "all";
+        const total = pointsFor(item).reduce(
+          (sum, point) => sum + (point.value ?? 0),
+          0,
+        );
+        return { sport, total: total / 1000 };
+      })
+      .filter((item) => item.total > 0)
+      .sort((left, right) => right.total - left.total),
+  );
+  const tableRows = $derived(
+    periods.map((period, index) => ({
+      period,
+      value: totalDistance[index],
+      observedDays: (series?.series ?? []).reduce(
+        (max, item) =>
+          Math.max(max, pointsFor(item)[index]?.observed_days ?? 0),
+        0,
+      ),
+    })),
+  );
+
+  function formatKm(value: number): string {
+    return formatDistance(value * 1000);
+  }
+</script>
+
+<section
+  class="activity-metric-chart"
+  data-theme={theme.definition().identity.id}
+  aria-labelledby="activity-trend-title"
+>
+  <header class="chart-header">
+    <div>
+      <p class="eyebrow">Canonical movement series</p>
+      <h2 id="activity-trend-title">Distance over time</h2>
+      <p class="chart-description">
+        Server-aggregated distance, grouped by {series?.period.grain ??
+          "period"}
+        {scope ? ` · ${scope}` : ""}. Missing periods remain empty.
+      </p>
+    </div>
+    {#if series}
+      <span class="coverage"
+        >{series.series[0]?.coverage.observed_periods ?? 0} /
+        {series.series[0]?.coverage.expected_periods ?? 0} periods observed</span
+      >
+    {/if}
+  </header>
+
+  {#if loading}
+    <p class="chart-status">Building the canonical movement series…</p>
+  {:else if error}
+    <p class="chart-status error">{error}</p>
+  {:else if !series || periods.length === 0}
+    <p class="chart-status">No movement series is available for this scope.</p>
+  {:else}
+    <div class="chart-grid">
+      <div class="trend-chart">
+        <BarChart
+          categories={periods.map(labelForPeriod)}
+          primary={{
+            name: "Distance",
+            values: totalDistance,
+            color: "var(--accent)",
+            formatter: formatKm,
+          }}
+          primaryType="line"
+          height={300}
+        />
+      </div>
+      {#if sportBreakdown.length > 1}
+        <div class="sport-chart">
+          <header>
+            <p class="eyebrow">Sport composition</p>
+            <h3>Where the distance came from</h3>
+          </header>
+          <BarChart
+            categories={sportBreakdown.map((item) => formatSport(item.sport))}
+            primary={{
+              name: "Distance",
+              values: sportBreakdown.map((item) => item.total),
+              formatter: formatKm,
+            }}
+            orientation="horizontal"
+            categorical
+            height={Math.max(220, sportBreakdown.length * 42)}
+          />
+        </div>
+      {/if}
+    </div>
+
+    <div class="series-table-wrap">
+      <table>
+        <caption>Exact distance series</caption>
+        <thead
+          ><tr><th>Period</th><th>Distance</th><th>Observed days</th></tr
+          ></thead
+        >
+        <tbody>
+          {#each tableRows as row (row.period)}
+            <tr>
+              <td>{labelForPeriod(row.period)}</td>
+              <td>{row.value == null ? "—" : formatKm(row.value)}</td>
+              <td>{row.observedDays || "—"}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+</section>
+
+<style>
+  .activity-metric-chart {
+    display: grid;
+    gap: 1rem;
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .activity-metric-chart[data-theme="atlas"] {
+    border-width: 2px;
+    border-radius: 2px;
+    background-image:
+      linear-gradient(
+        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 14px 14px;
+  }
+
+  .activity-metric-chart[data-theme="field-journal"] {
+    border-style: dashed;
+    border-radius: 0;
+  }
+
+  .activity-metric-chart[data-theme="phenology"] {
+    border-radius: 1.2rem;
+  }
+
+  .activity-metric-chart[data-theme="sound-map"] {
+    border-inline-width: 3px;
+  }
+
+  .activity-metric-chart[data-theme="archive"] {
+    border-width: 3px;
+    border-radius: 0;
+  }
+
+  .activity-metric-chart[data-theme="grapher"] {
+    border-radius: 2px;
+    border-bottom-width: 3px;
+  }
+
+  .chart-header,
+  .sport-chart > header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .chart-header h2,
+  .sport-chart h3,
+  .chart-header p,
+  .sport-chart p {
+    margin: 0;
+  }
+
+  .chart-header h2 {
+    font-size: clamp(1.25rem, 2.5vw, 1.8rem);
+  }
+
+  .sport-chart h3 {
+    font-size: 1rem;
+  }
+
+  .eyebrow {
+    margin: 0 0 0.35rem;
+    color: var(--accent);
+    font-size: 0.66rem;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .chart-description,
+  .coverage,
+  .chart-status {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .coverage {
+    white-space: nowrap;
+  }
+
+  .chart-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 0.9fr);
+    gap: 1rem;
+  }
+
+  .trend-chart,
+  .sport-chart {
+    min-width: 0;
+  }
+
+  .sport-chart {
+    display: grid;
+    align-content: start;
+    gap: 0.35rem;
+  }
+
+  .series-table-wrap {
+    max-height: 15rem;
+    overflow: auto;
+    border-top: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.76rem;
+  }
+
+  caption {
+    padding: 0.7rem 0 0.45rem;
+    color: var(--text-muted);
+    text-align: left;
+  }
+
+  th,
+  td {
+    padding: 0.5rem 0.4rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+
+  th {
+    color: var(--text-muted);
+    font-size: 0.64rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 760px) {
+    .chart-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .chart-header {
+      display: grid;
+    }
+  }
+</style>

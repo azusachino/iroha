@@ -157,7 +157,10 @@
           return `${params[0]?.axisValue}<br/>${rows.join("<br/>")}`;
         },
       },
-      aria: { enabled: true, decal: { show: true } },
+      // Keep ECharts' semantic accessibility metadata without applying a
+      // permanent hatch texture to every bar. Themes already provide a
+      // semantic palette and this chart has tooltip/table parity.
+      aria: { enabled: true },
       xAxis: orientation === "horizontal" ? valueAxis : categoryAxis,
       yAxis: orientation === "horizontal" ? categoryAxis : valueAxis,
       series: [

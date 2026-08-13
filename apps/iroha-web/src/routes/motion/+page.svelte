@@ -4,9 +4,11 @@
   import { page } from "$app/state";
   import {
     getActivitySummary,
+    getMetricSeries,
     listActivities,
     type Activity,
     type ListActivitiesParams,
+    type MetricSeriesResponse,
     type Summary,
   } from "$lib/api";
   import SportBadge from "$lib/components/SportBadge.svelte";
@@ -22,7 +24,7 @@
   } from "$lib/format";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import { MONTH_OPTIONS } from "@iroha/shared/month";
+  import { MONTH_OPTIONS, monthBounds } from "@iroha/shared/month";
   import { sportColor, sportLabel } from "$lib/sport";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -51,6 +53,10 @@
   let error = $state<string | null>(null);
   let summary = $state<Summary | null>(null);
   let summaryLoading = $state(true);
+  let activitySeries = $state<MetricSeriesResponse | null>(null);
+  let activitySeriesLoading = $state(true);
+  let activitySeriesError = $state<string | null>(null);
+  let activitySeriesRequest = 0;
   const theme = useTheme();
   const sportOptions = $derived(
     summary ? summary.by_sport.map((b) => b.key).sort() : [],
@@ -73,6 +79,74 @@
 
   function handleMonthChange() {
     syncUrl();
+  }
+
+  function metricSport(value: string): string {
+    const normalized = value.toLowerCase();
+    if (normalized.includes("hik")) return "hike";
+    if (
+      normalized.includes("ride") ||
+      normalized.includes("cycl") ||
+      normalized.includes("bik")
+    )
+      return "ride";
+    if (normalized.includes("run")) return "run";
+    if (normalized.includes("swim")) return "swim";
+    if (normalized.includes("walk")) return "walk";
+    return "other";
+  }
+
+  function chartWindow(): {
+    from: string;
+    to: string;
+    grain: "day" | "month";
+  } | null {
+    if (selectedYear && selectedMonth) {
+      const month = `${selectedYear}-${selectedMonth.padStart(2, "0")}`;
+      const bounds = monthBounds(month);
+      return { ...bounds, grain: "day" };
+    }
+    if (selectedYear) {
+      return {
+        from: `${selectedYear}-01-01`,
+        to: `${Number(selectedYear) + 1}-01-01`,
+        grain: "month",
+      };
+    }
+    const months = (summary?.by_month ?? []).map((bucket) => bucket.key).sort();
+    if (months.length === 0) return null;
+    return {
+      from: `${months[0]}-01`,
+      to: monthBounds(months[months.length - 1]).to,
+      grain: "month",
+    };
+  }
+
+  async function loadActivitySeries() {
+    const window = chartWindow();
+    if (!window) {
+      activitySeries = null;
+      activitySeriesLoading = false;
+      activitySeriesError = null;
+      return;
+    }
+    const requestId = ++activitySeriesRequest;
+    activitySeriesLoading = true;
+    activitySeriesError = null;
+    try {
+      const result = await getMetricSeries("movement.distance_m", {
+        ...window,
+        dimensions: sportType ? [`sport:${metricSport(sportType)}`] : [],
+      });
+      if (requestId === activitySeriesRequest) activitySeries = result;
+    } catch (cause) {
+      if (requestId !== activitySeriesRequest) return;
+      activitySeries = null;
+      activitySeriesError =
+        cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      if (requestId === activitySeriesRequest) activitySeriesLoading = false;
+    }
   }
 
   function syncUrl() {
@@ -232,11 +306,13 @@
     const _s = sportType;
     const _y = selectedYear;
     const _m = selectedMonth;
+    const _summary = summary;
 
     untrack(() => {
       applied = buildParams();
       cursor = null;
       void load(false);
+      if (_summary) void loadActivitySeries();
     });
   });
 
@@ -341,6 +417,12 @@
         error,
         hasMore,
         loadingMore,
+        activitySeries,
+        activitySeriesLoading,
+        activitySeriesError,
+        activitySeriesScope: selectedMonth
+          ? `${selectedYear}-${selectedMonth.padStart(2, "0")}`
+          : selectedYear || "Lifetime",
         onSportType: (value: string) => {
           sportType = value;
           syncUrl();

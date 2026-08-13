@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Activity } from "$lib/api";
+  import type { Activity, MetricSeriesResponse } from "$lib/api";
+  import ActivityMetricChart from "$lib/components/ActivityMetricChart.svelte";
   import {
     formatDateOnly,
     formatDistance,
@@ -25,6 +26,10 @@
     loadingMore,
     onSportType,
     onLoadMore,
+    activitySeries = null,
+    activitySeriesLoading = false,
+    activitySeriesError = null,
+    activitySeriesScope = "",
   }: {
     activities: Activity[];
     displaySummary: Summary;
@@ -36,6 +41,10 @@
     loadingMore: boolean;
     onSportType: (value: string) => void;
     onLoadMore: () => void;
+    activitySeries?: MetricSeriesResponse | null;
+    activitySeriesLoading?: boolean;
+    activitySeriesError?: string | null;
+    activitySeriesScope?: string;
   } = $props();
 </script>
 
@@ -67,6 +76,13 @@
       ></label
     >
   </div>
+
+  <ActivityMetricChart
+    series={activitySeries}
+    loading={activitySeriesLoading}
+    error={activitySeriesError}
+    scope={activitySeriesScope}
+  />
 
   {#if loading && activities.length === 0}
     <p class="folio-status">Retrieving the register…</p>
