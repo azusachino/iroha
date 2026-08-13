@@ -1,6 +1,6 @@
 # Iroha v0.4 cockpit gap notes
 
-Status: pre-implementation review. No product or deployment code was changed for this note.
+Status: Gate 0 approved; implementation in progress. This note remains the contract and acceptance reference for the work.
 
 Date: 2026-08-13
 
@@ -17,6 +17,20 @@ These constraints are now treated as non-negotiable:
 4. A chart is a representation of a returned canonical series. The selected theme may change composition and visual grammar, but not the data semantics.
 5. Shared controls own shared geometry and keyboard behavior. Themes own visual identity and composition, not arbitrary placement of the same control.
 6. Timestamp display uses the shared canonical display contract: `yyyy-MM-dd HH:mm:ss`. Date-only values use `yyyy-MM-dd`.
+
+## Approved product decisions
+
+The recommendations in this note were approved on 2026-08-13:
+
+1. Canonical calendar precision is explicit: `yyyy-MM` for month periods, `yyyy-MM-dd` for day values, and `yyyy-MM-dd HH:mm:ss` for displayed timestamps. API instants remain RFC3339/ISO 8601;
+   formatted strings are presentation values. The period picker has no timezone control or timezone query parameter.
+2. Night shows main-sleep nights, naps, and total sessions as separate facts. When distinct calendar dates are useful, they are shown separately and never substituted for session counts.
+3. Night lifetime uses complete month/year rollups. A selected month exposes bounded session detail; main sleep is primary and naps are a separate visual class.
+4. Motion uses a monthly lifetime/year trend, a daily selected-month distance trend, and a sport breakdown. Duration remains available in the exact table and tooltip.
+5. Expenses provide both canonical ledger CSV and metric-series CSV. Text cells are quoted deterministically; raw currency and numeric amount columns remain separate. Full exports include all matching
+   records beyond 100 rows.
+6. Admin calls the current section “Metric catalog” and remains operational; canonical records remain owned by Iroha APIs. A small catalog summary may remain visible there, while the full catalog
+   belongs to `/metrics`.
 
 ## Evidence captured
 
@@ -178,7 +192,7 @@ Canonical domain records remain owned and validated by the Iroha server; Admin d
 
 - Add deterministic fixture cases containing two sessions on one date, a nap, an empty period, a partial period, and more than 100 expenses.
 - Specify session count, main-sleep count, nap count, distinct-date count, coverage, grain, and timezone in the API examples.
-- Decide whether the default Night “night” noun means main-sleep records or distinct wake dates; the UI must use the chosen noun exactly.
+- Use main-sleep records for the default Night “nights” noun, and expose distinct wake dates separately when shown.
 
 ### Gate 1 — shared interaction and geometry
 
@@ -210,16 +224,9 @@ Canonical domain records remain owned and validated by the Iroha server; Admin d
 - Add interaction assertions for navigation closing, left/right period movement, clean refresh URLs, detail links, load-more behavior, and chart repaint.
 - Use live seeded data and a fixture with deliberate edge cases; a passing unit test alone is not the UX gate.
 
-## Decisions still needing review
+## Decisions no longer open
 
-These are intentionally left visible instead of being silently chosen during implementation:
-
-1. For Motion, should a selected month default to daily distance, daily duration, or a compact multi-series view? Recommendation: daily distance plus a sport breakdown, with duration in the exact
-   table/tooltip.
-2. For Night lifetime, should the main chart be monthly or yearly? Recommendation: year/month rollup for lifetime, session detail only for a bounded selected period.
-3. Should Night headline “nights” mean main-sleep records or distinct wake dates? Recommendation: show both when they differ and never hide the session count.
-4. Should all CSV text cells be quoted? Recommendation: yes, for deterministic spreadsheet/export behavior, while preserving raw numeric columns.
-5. Should the metric catalog move to `/metrics` and Admin stay operational? Recommendation: yes, with a small read-only catalog summary retained in Admin.
+There are no remaining product decisions in this issue register. Any new decision that changes these semantics must update this note and the relevant API example before implementation proceeds.
 
 ## Not done in this note
 
