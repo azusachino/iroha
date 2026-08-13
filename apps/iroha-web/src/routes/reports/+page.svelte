@@ -43,9 +43,9 @@
 
   function moveMonth(value: string) {
     month = value;
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     url.searchParams.set("month", value);
-    if (url.search !== page.url.search) replaceState(url, page.state);
+    if (url.search !== window.location.search) replaceState(url, page.state);
     void loadReport(value);
   }
 

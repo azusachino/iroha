@@ -177,13 +177,13 @@
   }
 
   function syncUrl() {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     url.searchParams.set("month", month);
     if (filterCurrency) url.searchParams.set("currency", filterCurrency);
     else url.searchParams.delete("currency");
     if (filterCategory) url.searchParams.set("category", filterCategory);
     else url.searchParams.delete("category");
-    if (url.search !== page.url.search) replaceState(url, page.state);
+    if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
   async function removeExpense(expense: Expense) {

@@ -117,10 +117,10 @@
   }
 
   function syncUrl() {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     url.searchParams.set("metric", metricId);
     url.searchParams.set("month", month);
-    if (url.search !== page.url.search) replaceState(url, page.state);
+    if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
   function downloadCsv() {
