@@ -22,6 +22,7 @@ import {
   getMetricDefinition,
   getMetricSeries,
   listExpenses,
+  listAllExpenses,
   getExpense,
   createExpense,
   updateExpense,
@@ -34,6 +35,7 @@ import {
   ApiError,
   type Activity,
   type DailyRow,
+  type Expense,
   type Page,
   type RoutePoint,
   type SamplingPoint,
@@ -256,6 +258,21 @@ const emptyDailyRow: DailyRow = {
   updated_at: "2026-01-01T00:00:00Z",
 };
 
+const emptyExpense: Expense = {
+  id: "expense",
+  occurred_on: "2026-01-01",
+  currency: "JPY",
+  currency_exponent: 0,
+  amount_minor: 0,
+  category: "other",
+  merchant: "",
+  note: "",
+  items: [],
+  source: { kind: "test", ref: "test" },
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
 // Helper to create a fake fetch function that captures the URL and returns a response
 function createFakeFetch(
   responseData: any,
@@ -344,6 +361,43 @@ describe("listActivities", () => {
 
     const result = await listActivities({}, fakeFetch);
     expect(result).toEqual(mockPage);
+  });
+});
+
+describe("listAllExpenses", () => {
+  it("walks every canonical expense page", async () => {
+    const urls: string[] = [];
+    const fakeFetch = (async (input: string | Request | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () =>
+          url.includes("cursor=page-2")
+            ? {
+                items: [{ ...emptyExpense, id: "second" }],
+                next_cursor: null,
+                has_more: false,
+              }
+            : {
+                items: [{ ...emptyExpense, id: "first" }],
+                next_cursor: "page-2",
+                has_more: true,
+              },
+      };
+    }) as typeof fetch;
+
+    const result = await listAllExpenses(
+      { from: "2026-01-01", to: "2026-02-01" },
+      fakeFetch,
+    );
+
+    expect(result.map((expense) => expense.id)).toEqual(["first", "second"]);
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain("limit=100");
+    expect(urls[1]).toContain("cursor=page-2");
   });
 });
 

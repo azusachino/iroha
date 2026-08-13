@@ -6,7 +6,7 @@
     deleteExpense,
     getExpense,
     getMetricSeries,
-    listExpenses,
+    listAllExpenses,
     type Expense,
     type ExpenseCategory,
     type ExpenseCurrency,
@@ -56,14 +56,13 @@
     error = null;
     try {
       const bounds = monthBounds(selectedMonth);
-      const page = await listExpenses({
+      const monthExpenses = await listAllExpenses({
         from: bounds.from,
         to: bounds.to,
         currency: (filterCurrency || undefined) as ExpenseCurrency | undefined,
         category: (filterCategory || undefined) as ExpenseCategory | undefined,
-        limit: 50,
       });
-      expenses = page.items;
+      expenses = monthExpenses;
       const chartCurrencies = filterCurrency
         ? [filterCurrency as ExpenseCurrency]
         : currencies;
@@ -123,11 +122,11 @@
       categorySeries = categoriesForCurrency;
       currencySeries = currenciesForMonth;
       currencyCountSeries = countsForCurrency;
-      if (!page.items.length) {
+      if (!monthExpenses.length) {
         selected = null;
         selectedId = "";
-      } else if (!page.items.some((expense) => expense.id === selectedId)) {
-        await selectExpense(page.items[0].id);
+      } else if (!monthExpenses.some((expense) => expense.id === selectedId)) {
+        await selectExpense(monthExpenses[0].id);
       }
     } catch (cause) {
       showError(cause);

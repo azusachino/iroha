@@ -827,6 +827,20 @@ export function listExpenses(
   return getJSON<Page<Expense>>(`/api/v1/expenses${suffix}`, fetchFn);
 }
 
+export async function listAllExpenses(
+  params: ListExpensesParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Expense[]> {
+  const expenses: Expense[] = [];
+  let cursor = params.cursor;
+  do {
+    const page = await listExpenses({ ...params, limit: 100, cursor }, fetchFn);
+    expenses.push(...page.items);
+    cursor = page.has_more ? (page.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+  return expenses;
+}
+
 export function getExpense(
   id: string,
   fetchFn: typeof fetch = fetch,
