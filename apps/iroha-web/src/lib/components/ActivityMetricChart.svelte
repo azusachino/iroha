@@ -59,8 +59,37 @@
   const periods = $derived(
     series?.series[0]?.points.map((point) => point.period) ?? [],
   );
+  const observedPeriodCount = $derived(
+    new Set(
+      (series?.series ?? []).flatMap((item) =>
+        pointsFor(item)
+          .filter((point) => point.value != null)
+          .map((point) => point.period),
+      ),
+    ).size,
+  );
+  const expectedPeriodCount = $derived(
+    Math.max(
+      0,
+      ...(series?.series ?? []).map((item) => item.coverage.expected_periods),
+    ),
+  );
   const totalDistance = $derived(aggregateValues(series, periods, 1000));
   const totalDuration = $derived(aggregateValues(durationSeries, periods));
+  function observedDaysFor(
+    response: MetricSeriesResponse | null | undefined,
+    period: string,
+  ): number {
+    return (response?.series ?? []).reduce(
+      (max, item) =>
+        Math.max(
+          max,
+          pointsFor(item).find((point) => point.period === period)
+            ?.observed_days ?? 0,
+        ),
+      0,
+    );
+  }
   const sportBreakdown = $derived(
     (series?.series ?? [])
       .map((item) => {
@@ -79,11 +108,7 @@
       period,
       value: totalDistance[index],
       duration: totalDuration[index],
-      observedDays: (series?.series ?? []).reduce(
-        (max, item) =>
-          Math.max(max, pointsFor(item)[index]?.observed_days ?? 0),
-        0,
-      ),
+      observedDays: observedDaysFor(series, period),
     })),
   );
 
@@ -116,8 +141,7 @@
     </div>
     {#if series}
       <span class="coverage"
-        >{series.series[0]?.coverage.observed_periods ?? 0} /
-        {series.series[0]?.coverage.expected_periods ?? 0} periods observed</span
+        >{observedPeriodCount} / {expectedPeriodCount} periods observed</span
       >
     {/if}
   </header>
