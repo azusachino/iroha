@@ -1,5 +1,7 @@
 <script lang="ts">
   import BarChart from "$lib/components/BarChart.svelte";
+  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
+  import type { PanelRow } from "@iroha/shared/metric-panel";
   import type { MonthlyReport } from "$lib/api";
   import { formatMetricValue } from "$lib/format";
 
@@ -37,6 +39,73 @@
     new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(
       value,
     );
+
+  const month = $derived(report.period.month);
+  // Exact rows behind each chart. They mirror what the chart plots, so table
+  // parity and CSV export cannot disagree with the visual.
+  const movementRows = $derived<PanelRow[]>(
+    (movement?.by_sport ?? []).map((item) => ({
+      label: item.sport,
+      value: item.distance_m / 1000,
+      display: `${number(item.distance_m / 1000)} km`,
+    })),
+  );
+  const sleepStages = $derived<[string, number][]>(
+    sleep
+      ? [
+          ["Core", sleep.stage_seconds.core],
+          ["Deep", sleep.stage_seconds.deep],
+          ["REM", sleep.stage_seconds.rem],
+          ["Awake", sleep.stage_seconds.awake],
+          ["Unspecified", sleep.stage_seconds.unspecified],
+        ]
+      : [],
+  );
+  const sleepRows = $derived<PanelRow[]>(
+    sleepStages.map(([stage, seconds]) => ({
+      label: stage,
+      value: hours(seconds),
+      display: `${number(hours(seconds))}h`,
+    })),
+  );
+  const healthRows = $derived<PanelRow[]>(
+    (health?.metric_averages ?? []).map((item) => ({
+      label: item.metric,
+      breakdown: `${formatMetricValue(item.value, item.unit)} ${item.unit}`,
+      value: item.observed_days,
+      display: `${item.observed_days} d`,
+    })),
+  );
+  const mediaRows = $derived<PanelRow[]>(
+    (media?.by_kind ?? []).flatMap((item) => [
+      {
+        label: item.kind,
+        breakdown: "events",
+        value: item.event_count,
+        display: String(item.event_count),
+      },
+      {
+        label: item.kind,
+        breakdown: "completed",
+        value: item.completed_count,
+        display: String(item.completed_count),
+      },
+    ]),
+  );
+  const expenseRows = $derived<PanelRow[]>(
+    categoryTotals.map((item) => ({
+      label: item.category,
+      value: item.amount_minor,
+      display: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
+    })),
+  );
+  const periodDays = $derived(
+    Math.round(
+      (Date.parse(`${report.period.to}T00:00:00Z`) -
+        Date.parse(`${report.period.from}T00:00:00Z`)) /
+        86_400_000,
+    ),
+  );
 </script>
 
 <section class="domain-charts" aria-label="Monthly domain charts">
@@ -69,18 +138,30 @@
           </div>
         </dl>{/if}
     </header>
-    {#if movement?.by_sport.length}<BarChart
-        categories={movement.by_sport.map((item) => item.sport)}
-        primary={{
-          name: "Distance",
-          values: movement.by_sport.map((item) => item.distance_m / 1000),
-          color: "var(--accent)",
-          formatter: (value) => `${number(value)} km`,
-        }}
-        orientation="horizontal"
-        categorical
-        height={240}
-      />{:else}<p class="empty">No canonical movement records.</p>{/if}
+    {#if movement?.by_sport.length}<MetricPanel
+        metricId="movement.distance_m"
+        label="Distance by sport"
+        unit="km"
+        method={report.sections.movement.schema}
+        rowHeader="Sport"
+        rows={movementRows}
+        period={month}
+      >
+        <BarChart
+          categories={movement.by_sport.map((item) => item.sport)}
+          primary={{
+            name: "Distance",
+            values: movement.by_sport.map((item) => item.distance_m / 1000),
+            color: "var(--accent)",
+            formatter: (value) => `${number(value)} km`,
+          }}
+          orientation="horizontal"
+          categorical
+          height={240}
+        />
+      </MetricPanel>{:else}<p class="empty">
+        No canonical movement records.
+      </p>{/if}
   </article>
 
   <article class="domain sleep">
@@ -104,23 +185,27 @@
           </div>
         </dl>{/if}
     </header>
-    {#if sleep}<BarChart
-        categories={["Core", "Deep", "REM", "Awake", "Unspecified"]}
-        primary={{
-          name: "Hours",
-          values: [
-            hours(sleep.stage_seconds.core),
-            hours(sleep.stage_seconds.deep),
-            hours(sleep.stage_seconds.rem),
-            hours(sleep.stage_seconds.awake),
-            hours(sleep.stage_seconds.unspecified),
-          ],
-          color: "var(--accent-2)",
-          formatter: (value) => `${number(value)}h`,
-        }}
-        categorical
-        height={240}
-      />{:else}<p class="empty">No canonical sleep records.</p>{/if}
+    {#if sleep}<MetricPanel
+        metricId="sleep.stage_seconds"
+        label="Sleep-stage composition"
+        unit="hours"
+        method={report.sections.sleep.schema}
+        rowHeader="Stage"
+        rows={sleepRows}
+        period={month}
+      >
+        <BarChart
+          categories={sleepStages.map(([stage]) => stage)}
+          primary={{
+            name: "Hours",
+            values: sleepStages.map(([, seconds]) => hours(seconds)),
+            color: "var(--accent-2)",
+            formatter: (value) => `${number(value)}h`,
+          }}
+          categorical
+          height={240}
+        />
+      </MetricPanel>{:else}<p class="empty">No canonical sleep records.</p>{/if}
   </article>
 
   <article class="domain health">
@@ -131,18 +216,32 @@
       </div>
       {#if health}<strong>{health.observed_days} observed days</strong>{/if}
     </header>
-    {#if health?.metric_averages.length}<BarChart
-        categories={health.metric_averages.map((item) => item.metric)}
-        primary={{
-          name: "Observed days",
-          values: health.metric_averages.map((item) => item.observed_days),
-          color: "var(--accent)",
-          formatter: (value) => `${value}d`,
+    {#if health?.metric_averages.length}<MetricPanel
+        metricId="daily_health.observed_days"
+        label="Observation coverage"
+        unit="days"
+        method={report.sections.daily_health.schema}
+        coverage={{
+          expected_periods: periodDays,
+          observed_periods: health.observed_days,
         }}
-        orientation="horizontal"
-        categorical
-        height={240}
-      />
+        rowHeader="Metric"
+        rows={healthRows}
+        period={month}
+      >
+        <BarChart
+          categories={health.metric_averages.map((item) => item.metric)}
+          primary={{
+            name: "Observed days",
+            values: health.metric_averages.map((item) => item.observed_days),
+            color: "var(--accent)",
+            formatter: (value) => `${value}d`,
+          }}
+          orientation="horizontal"
+          categorical
+          height={240}
+        />
+      </MetricPanel>
       <ul>
         {#each health.metric_averages as item}<li>
             <span>{item.metric}</span><b
@@ -175,21 +274,31 @@
           </div>
         </dl>{/if}
     </header>
-    {#if media?.by_kind.length}<BarChart
-        categories={media.by_kind.map((item) => item.kind)}
-        primary={{
-          name: "Events",
-          values: media.by_kind.map((item) => item.event_count),
-          color: "var(--accent)",
-        }}
-        secondary={{
-          name: "Completed",
-          values: media.by_kind.map((item) => item.completed_count),
-          color: "var(--accent-2)",
-        }}
-        categorical
-        height={240}
-      />{:else}<p class="empty">No canonical media events.</p>{/if}
+    {#if media?.by_kind.length}<MetricPanel
+        metricId="media.event_count"
+        label="Events and completions"
+        unit="count"
+        method={report.sections.media.schema}
+        rowHeader="Kind"
+        rows={mediaRows}
+        period={month}
+      >
+        <BarChart
+          categories={media.by_kind.map((item) => item.kind)}
+          primary={{
+            name: "Events",
+            values: media.by_kind.map((item) => item.event_count),
+            color: "var(--accent)",
+          }}
+          secondary={{
+            name: "Completed",
+            values: media.by_kind.map((item) => item.completed_count),
+            color: "var(--accent-2)",
+          }}
+          categorical
+          height={240}
+        />
+      </MetricPanel>{:else}<p class="empty">No canonical media events.</p>{/if}
   </article>
 
   <article class="domain expenses">
@@ -201,19 +310,29 @@
       {#if expenses}<strong>{expenses.expense_count} canonical records</strong
         >{/if}
     </header>
-    {#if categoryTotals.length}<BarChart
-        categories={categoryTotals.map((item) => item.category)}
-        primary={{
-          name: primaryCurrency,
-          values: categoryTotals.map((item) => item.amount_minor),
-          color: "var(--accent)",
-          formatter: (value) =>
-            formatMoney(value, primaryCurrency, primaryExponent),
-        }}
-        orientation="horizontal"
-        categorical
-        height={260}
-      />{:else}<p class="empty">
+    {#if categoryTotals.length}<MetricPanel
+        metricId="expenses.amount_minor"
+        label="Spend by category"
+        unit={`${primaryCurrency} minor`}
+        method={report.sections.expenses.schema}
+        rowHeader="Category"
+        rows={expenseRows}
+        period={month}
+      >
+        <BarChart
+          categories={categoryTotals.map((item) => item.category)}
+          primary={{
+            name: primaryCurrency,
+            values: categoryTotals.map((item) => item.amount_minor),
+            color: "var(--accent)",
+            formatter: (value) =>
+              formatMoney(value, primaryCurrency, primaryExponent),
+          }}
+          orientation="horizontal"
+          categorical
+          height={260}
+        />
+      </MetricPanel>{:else}<p class="empty">
         No canonical expenses in {primaryCurrency}.
       </p>{/if}
   </article>

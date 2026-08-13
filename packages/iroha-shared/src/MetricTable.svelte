@@ -1,35 +1,38 @@
 <script lang="ts">
-  import { pointValue, type SharedMetricSeries } from "./metric-series";
+  import type { PanelRow } from "./metric-panel";
 
   let {
-    series,
+    rows,
     unit,
+    rowHeader = "Period",
   }: {
-    series: SharedMetricSeries[];
+    rows: PanelRow[];
     unit: string;
+    rowHeader?: string;
   } = $props();
 
-  const dimensionLabel = (dimensions: Record<string, string>) =>
-    Object.entries(dimensions)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(", ") || "—";
+  const hasBreakdown = $derived(rows.some((row) => row.breakdown));
+  const hasObserved = $derived(rows.some((row) => row.observed != null));
 </script>
 
 <div class="metric-table-wrap">
   <table>
-    <caption class="sr-only">Metric values</caption>
-    <thead><tr><th>Period</th><th>Breakdown</th><th>Value ({unit})</th><th>Observed days</th></tr></thead>
+    <caption class="sr-only">Exact values</caption>
+    <thead
+      ><tr
+        ><th>{rowHeader}</th>{#if hasBreakdown}<th>Breakdown</th>{/if}<th
+          >Value ({unit})</th
+        >{#if hasObserved}<th>Observed days</th>{/if}</tr
+      ></thead
+    >
     <tbody>
-      {#each series as item}
-        {#each item.points as point}
-          <tr>
-            <th scope="row">{point.period}</th>
-            <td>{dimensionLabel(item.dimensions)}</td>
-            <td>{pointValue(point) ?? "—"}</td>
-            <td>{point.observed_days}</td>
-          </tr>
-        {/each}
+      {#each rows as row}
+        <tr>
+          <th scope="row">{row.label}</th>
+          {#if hasBreakdown}<td>{row.breakdown ?? "—"}</td>{/if}
+          <td>{row.display}</td>
+          {#if hasObserved}<td>{row.observed ?? "—"}</td>{/if}
+        </tr>
       {/each}
     </tbody>
   </table>

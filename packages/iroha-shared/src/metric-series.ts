@@ -24,29 +24,3 @@ export function csvCell(value: string | number | null | undefined): string {
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-export function metricSeriesCsv(
-  metricId: string,
-  unit: string,
-  series: SharedMetricSeries[],
-): string {
-  const rows: (string | number | null)[][] = [
-    ["metric_id", "unit", "dimensions", "period", "value", "observed_days"],
-  ];
-  for (const item of series) {
-    const dimensions = Object.entries(item.dimensions)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, value]) => `${key}=${value}`)
-      .join(",");
-    for (const point of item.points) {
-      rows.push([
-        metricId,
-        unit,
-        dimensions,
-        point.period,
-        pointValue(point),
-        point.observed_days,
-      ]);
-    }
-  }
-  return rows.map((row) => row.map(csvCell).join(",")).join("\n") + "\n";
-}

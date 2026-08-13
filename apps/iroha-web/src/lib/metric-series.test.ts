@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  metricSeriesCsv,
-  pointHasValue,
-  pointValue,
-} from "@iroha/shared/metric-series";
+import { panelCsv, seriesPanelRows } from "@iroha/shared/metric-panel";
+import { pointHasValue, pointValue } from "@iroha/shared/metric-series";
 
 describe("shared metric series helpers", () => {
   it("keeps null periods distinct from zero", () => {
@@ -18,15 +15,61 @@ describe("shared metric series helpers", () => {
     ).toBe(false);
   });
 
-  it("exports dimensions and values as lossless CSV cells", () => {
-    const csv = metricSeriesCsv("expenses.amount_minor", "minor", [
+  it("turns dimensioned series into exact panel rows", () => {
+    const rows = seriesPanelRows(
+      [
+        {
+          dimensions: { category: "food", currency: "JPY" },
+          points: [
+            { period: "2026-01", value_minor: 800, observed_days: 1 },
+            { period: "2026-02", value_minor: null, observed_days: 0 },
+          ],
+        },
+      ],
+      (value) => (value == null ? "—" : `¥${value}`),
+    );
+    expect(rows).toEqual([
       {
-        dimensions: { category: "food", currency: "JPY" },
-        points: [{ period: "2026-01", value_minor: 800, observed_days: 1 }],
+        label: "2026-01",
+        breakdown: "category: food, currency: JPY",
+        value: 800,
+        display: "¥800",
+        observed: 1,
+      },
+      {
+        label: "2026-02",
+        breakdown: "category: food, currency: JPY",
+        value: null,
+        display: "—",
+        observed: 0,
       },
     ]);
-    expect(csv).toContain(
-      'expenses.amount_minor,minor,"category=food,currency=JPY",2026-01,800,1',
+  });
+});
+
+describe("panel CSV export", () => {
+  it("exports raw value and displayed value as lossless cells", () => {
+    const csv = panelCsv("expenses.amount_minor", "minor", "Period", [
+      {
+        label: "2026-01",
+        breakdown: "category: food, currency: JPY",
+        value: 800,
+        display: "¥800",
+        observed: 1,
+      },
+    ]);
+    expect(csv.split("\n")[0]).toBe(
+      "metric_id,unit,period,breakdown,value,display,observed_days",
     );
+    expect(csv).toContain(
+      'expenses.amount_minor,minor,2026-01,"category: food, currency: JPY",800,¥800,1',
+    );
+  });
+
+  it("leaves missing values empty rather than inventing zero", () => {
+    const csv = panelCsv("health.steps", "count", "Period", [
+      { label: "2026-01", value: null, display: "—" },
+    ]);
+    expect(csv).toContain("health.steps,count,2026-01,,,—,\n");
   });
 });

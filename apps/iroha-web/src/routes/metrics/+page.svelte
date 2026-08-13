@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
-  import { Activity, Download } from "@lucide/svelte";
+  import { Activity } from "@lucide/svelte";
   import {
     getMetricCatalog,
     getMetricSeries,
@@ -12,12 +12,13 @@
   import DailySmallMultiples, {
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
+  import { formatMetricValue } from "$lib/format";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
-  import MetricMetadata from "@iroha/shared/MetricMetadata.svelte";
-  import MetricTable from "@iroha/shared/MetricTable.svelte";
-  import { metricSeriesCsv, pointValue } from "@iroha/shared/metric-series";
+  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
+  import { seriesPanelRows } from "@iroha/shared/metric-panel";
+  import { pointValue } from "@iroha/shared/metric-series";
   import {
     canonicalMonth,
     currentMonth,
@@ -43,6 +44,11 @@
 
   const definition = $derived(
     catalog.find((metric) => metric.id === metricId) ?? null,
+  );
+  const panelRows = $derived(
+    seriesPanelRows(series?.series ?? [], (value) =>
+      formatMetricValue(value, series?.unit),
+    ),
   );
   const labels = $derived(series?.series[0]?.points.map((p) => p.period) ?? []);
   const charts = $derived<SmallMultiple[]>(
@@ -158,19 +164,6 @@
     }
     if (url.search !== window.location.search) replaceState(url, page.state);
   }
-
-  function downloadCsv() {
-    if (!series) return;
-    const blob = new Blob(
-      [metricSeriesCsv(series.metric_id, series.unit, series.series)],
-      { type: "text/csv;charset=utf-8" },
-    );
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${series.metric_id}-${month}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }
 </script>
 
 <svelte:head><title>Metrics · iroha</title></svelte:head>
@@ -233,21 +226,20 @@
             <h2>{definition.label}</h2>
             <p>{definition.description}</p>
           </div>
-          <button type="button" onclick={downloadCsv}
-            ><Download size={14} /> CSV</button
-          >
         </div>
-        <DailySmallMultiples {labels} {charts} />
-      </section>
-      <section class="details panel">
-        <MetricMetadata
+        <MetricPanel
+          metricId={series.metric_id}
+          label={definition.label}
           unit={series.unit}
           method={series.series[0]?.source.method ??
             definition.aggregation_version}
           coverage={series.series[0]?.coverage}
           sourceKinds={series.series[0]?.source.source_kinds ?? []}
-        />
-        <MetricTable series={series.series} unit={series.unit} />
+          rows={panelRows}
+          period={month}
+        >
+          <DailySmallMultiples {labels} {charts} />
+        </MetricPanel>
       </section>
     {/if}
   </ThemeRouteRenderer>
@@ -307,8 +299,7 @@
     font-size: 0.7rem;
     font-weight: 700;
   }
-  select,
-  button {
+  select {
     min-height: 2.4rem;
     padding: 0.45rem 0.7rem;
     border: 1px solid var(--border);
@@ -317,12 +308,6 @@
     color: var(--text);
     font: inherit;
   }
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    cursor: pointer;
-  }
   .chart {
     display: grid;
     gap: 1rem;
@@ -330,10 +315,6 @@
   .section-head p:last-child,
   .status {
     color: var(--text-muted);
-  }
-  .details {
-    display: grid;
-    gap: 1rem;
   }
   .error {
     color: var(--danger);

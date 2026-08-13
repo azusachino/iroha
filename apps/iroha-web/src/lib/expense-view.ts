@@ -1,4 +1,17 @@
+import type { PanelCoverage, PanelRow } from "@iroha/shared/metric-panel";
 import type { Expense, ExpenseCategory, ExpenseCurrency } from "$lib/api";
+
+// Everything a theme needs to hand a chart to the shared MetricPanel. The
+// route owns it so provenance and exact rows cannot diverge per theme.
+export type ExpensePanel = {
+  metricId: string;
+  unit: string;
+  method: string;
+  coverage?: PanelCoverage;
+  sourceKinds: string[];
+  rowHeader: string;
+  rows: PanelRow[];
+};
 
 export type ExpenseCurrencyTotal = {
   currency: ExpenseCurrency;
@@ -21,6 +34,8 @@ export type ExpenseThemeProps = {
   currencyTotals: ExpenseCurrencyTotal[];
   categoryTotals: ExpenseCategoryTotal[];
   dailyTotals: ExpenseDailyTotal[];
+  dailyPanel: ExpensePanel;
+  categoryPanel: ExpensePanel;
   expenses: Expense[];
   selected: Expense | null;
   selectedId: string;

@@ -1,6 +1,7 @@
 <script lang="ts">
   import BarChart from "$lib/components/BarChart.svelte";
   import ExpenseLedger from "$lib/components/ExpenseLedger.svelte";
+  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
   import type { ExpenseThemeProps } from "$lib/expense-view";
   import { formatExpenseDay } from "$lib/expense-view";
   let {
@@ -9,6 +10,8 @@
     primaryExponent,
     categoryTotals,
     dailyTotals,
+    dailyPanel,
+    categoryPanel,
     expenses,
     selected,
     selectedId,
@@ -42,29 +45,37 @@
       <p>Computed from canonical records; values retain their currency.</p>
     </div>
     <div class="archive-charts">
-      <BarChart
-        categories={categoryTotals.map((item) => item.category)}
-        primary={{
-          name: primaryCurrency,
-          values: categoryTotals.map((item) => item.amount),
-          color: "var(--accent)",
-          formatter: (value) =>
-            formatMoney(value, primaryCurrency, primaryExponent),
-        }}
-        orientation="horizontal"
-        categorical
-        height={250}
-      /><BarChart
-        categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
-        primary={{
-          name: primaryCurrency,
-          values: dailyTotals.map(([, amount]) => amount),
-          color: "var(--accent-2)",
-          formatter: (value) =>
-            formatMoney(value, primaryCurrency, primaryExponent),
-        }}
-        height={250}
-      />
+      <MetricPanel {...categoryPanel} label="Spend by category" period={month}>
+        <BarChart
+          categories={categoryTotals.map((item) => item.category)}
+          primary={{
+            name: primaryCurrency,
+            values: categoryTotals.map((item) => item.amount),
+            color: "var(--accent)",
+            formatter: (value) =>
+              formatMoney(value, primaryCurrency, primaryExponent),
+          }}
+          orientation="horizontal"
+          categorical
+          height={250}
+        />
+      </MetricPanel><MetricPanel
+        {...dailyPanel}
+        label="Daily spend"
+        period={month}
+      >
+        <BarChart
+          categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
+          primary={{
+            name: primaryCurrency,
+            values: dailyTotals.map(([, amount]) => amount),
+            color: "var(--accent-2)",
+            formatter: (value) =>
+              formatMoney(value, primaryCurrency, primaryExponent),
+          }}
+          height={250}
+        />
+      </MetricPanel>
     </div>
   </section>
 </section>

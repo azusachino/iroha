@@ -1,6 +1,7 @@
 <script lang="ts">
   import BarChart from "$lib/components/BarChart.svelte";
   import ExpenseLedger from "$lib/components/ExpenseLedger.svelte";
+  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
   import type { ExpenseThemeProps } from "$lib/expense-view";
   import { formatExpenseDay } from "$lib/expense-view";
   let {
@@ -9,6 +10,8 @@
     primaryExponent,
     categoryTotals,
     dailyTotals,
+    dailyPanel,
+    categoryPanel,
     expenses,
     selected,
     selectedId,
@@ -34,27 +37,31 @@
     <div class="journal-caption">
       <span>Daily entries</span><strong>{primaryCurrency}</strong>
     </div>
-    <BarChart
-      categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
-      primary={{
-        name: primaryCurrency,
-        values: dailyTotals.map(([, amount]) => amount),
-        color: "var(--accent-2)",
-        formatter: (value) =>
-          formatMoney(value, primaryCurrency, primaryExponent),
-      }}
-      height={260}
-    />
+    <MetricPanel {...dailyPanel} label="Daily entries" period={month}>
+      <BarChart
+        categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
+        primary={{
+          name: primaryCurrency,
+          values: dailyTotals.map(([, amount]) => amount),
+          color: "var(--accent-2)",
+          formatter: (value) =>
+            formatMoney(value, primaryCurrency, primaryExponent),
+        }}
+        height={260}
+      />
+    </MetricPanel>
   </article>
   <div class="journal-category">
     <h3>Recurring categories</h3>
-    <div class="category-list">
-      {#each categoryTotals as item}<div>
-          <span>{item.category}</span><b
-            >{formatMoney(item.amount, primaryCurrency, primaryExponent)}</b
-          >
-        </div>{/each}
-    </div>
+    <MetricPanel {...categoryPanel} label="Recurring categories" period={month}>
+      <div class="category-list">
+        {#each categoryTotals as item}<div>
+            <span>{item.category}</span><b
+              >{formatMoney(item.amount, primaryCurrency, primaryExponent)}</b
+            >
+          </div>{/each}
+      </div>
+    </MetricPanel>
   </div>
   <ExpenseLedger
     {expenses}

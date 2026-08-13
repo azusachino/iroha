@@ -1,6 +1,7 @@
 <script lang="ts">
   import BarChart from "$lib/components/BarChart.svelte";
   import ExpenseLedger from "$lib/components/ExpenseLedger.svelte";
+  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
   import type { ExpenseThemeProps } from "$lib/expense-view";
   import { formatExpenseDay } from "$lib/expense-view";
   let {
@@ -9,6 +10,8 @@
     primaryExponent,
     categoryTotals,
     dailyTotals,
+    dailyPanel,
+    categoryPanel,
     expenses,
     selected,
     selectedId,
@@ -26,31 +29,39 @@
     <p>Bursts are visible; quiet days remain missing, not fabricated.</p>
   </header>
   <article class="signal-panel">
-    <BarChart
-      categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
-      primary={{
-        name: primaryCurrency,
-        values: dailyTotals.map(([, amount]) => amount),
-        color: "var(--accent)",
-        formatter: (value) =>
-          formatMoney(value, primaryCurrency, primaryExponent),
-      }}
-      primaryType="line"
-      height={300}
-    />
+    <MetricPanel {...dailyPanel} label="Daily signal" period={month}>
+      <BarChart
+        categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
+        primary={{
+          name: primaryCurrency,
+          values: dailyTotals.map(([, amount]) => amount),
+          color: "var(--accent)",
+          formatter: (value) =>
+            formatMoney(value, primaryCurrency, primaryExponent),
+        }}
+        primaryType="line"
+        height={300}
+      />
+    </MetricPanel>
   </article>
-  <div class="signal-bands">
-    {#each categoryTotals as item, index}<div
-        class="band"
-        style={`--band:${index % 6}`}
-      >
-        <span>{item.category}</span><strong
-          >{formatMoney(item.amount, primaryCurrency, primaryExponent)}</strong
-        ><i
-          style={`width:${Math.max(8, Math.min(100, (item.amount / (categoryTotals[0]?.amount || 1)) * 100))}%`}
-        ></i>
-      </div>{/each}
-  </div>
+  <MetricPanel {...categoryPanel} label="Category bands" period={month}>
+    <div class="signal-bands">
+      {#each categoryTotals as item, index}<div
+          class="band"
+          style={`--band:${index % 6}`}
+        >
+          <span>{item.category}</span><strong
+            >{formatMoney(
+              item.amount,
+              primaryCurrency,
+              primaryExponent,
+            )}</strong
+          ><i
+            style={`width:${Math.max(8, Math.min(100, (item.amount / (categoryTotals[0]?.amount || 1)) * 100))}%`}
+          ></i>
+        </div>{/each}
+    </div>
+  </MetricPanel>
   <ExpenseLedger
     {expenses}
     {selected}

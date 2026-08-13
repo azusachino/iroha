@@ -22,9 +22,9 @@ POSTGIS_IMAGE = "docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21"
 THEMES = ("atlas", "grapher", "field-journal", "phenology", "sound-map", "archive")
 MODES = ("light", "dark")
 ROUTES = (
-    ("expenses?month=2026-08", 1, "Fixture merchant 55"),
-    ("reports?month=2026-08", 4, "Release Candidate Story"),
-    ("metrics?metric=health.steps&month=2026-08", 1, "12345"),
+    ("expenses?month=2026-08", 1, "Fixture merchant 55", 2),
+    ("reports?month=2026-08", 4, "Release Candidate Story", 4),
+    ("metrics?metric=health.steps&month=2026-08", 1, "12345", 1),
 )
 
 
@@ -145,13 +145,34 @@ def assert_api_contract(server_url: str) -> None:
         raise RuntimeError(f"invalid metric request returned {status}, want 400")
 
 
+def assert_table_parity(session: str, theme: str, mode: str, route: str) -> None:
+    """Every panel must expose exact rows behind its chart, not only the visual."""
+    browser_command(
+        session,
+        "eval",
+        "[...document.querySelectorAll('.metric-panel')].forEach(p=>"
+        "[...p.querySelectorAll('button')]"
+        ".find(b=>b.textContent.trim()==='Table')?.click())",
+    )
+    browser_command(session, "wait", "400")
+    result = browser_command(
+        session,
+        "eval",
+        "JSON.stringify([...document.querySelectorAll('.metric-panel')]"
+        ".map(p=>p.querySelectorAll('table tbody tr').length))",
+    )
+    rows = json.loads(json.loads(result.stdout))
+    if not rows or any(count < 1 for count in rows):
+        raise RuntimeError(f"table parity missing for {theme}/{mode}/{route}: {rows}")
+
+
 def browser_matrix(base_url: str, session: str) -> None:
     browser_command(session, "open", base_url)
     for theme in THEMES:
         for mode in MODES:
             browser_command(session, "storage", "local", "set", "iroha-design-language", theme)
             browser_command(session, "storage", "local", "set", "iroha-theme", mode)
-            for route, minimum_charts, expected_text in ROUTES:
+            for route, minimum_charts, expected_text, minimum_panels in ROUTES:
                 browser_command(session, "open", f"{base_url}/{route}")
                 browser_command(session, "wait", "1200")
                 result = browser_command(
@@ -163,6 +184,11 @@ def browser_matrix(base_url: str, session: str) -> None:
                     "charts:document.querySelectorAll('canvas').length,"
                     "url:location.pathname+location.search,"
                     "text:document.body.innerText,"
+                    "panels:document.querySelectorAll('.metric-panel').length,"
+                    "metadata:document.querySelectorAll('.metric-panel .metric-metadata').length,"
+                    "csv:[...document.querySelectorAll('.metric-panel')]"
+                    ".filter(p=>[...p.querySelectorAll('button')]"
+                    ".some(b=>b.textContent.trim()==='CSV'&&!b.disabled)).length,"
                     "overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,"
                     "alerts:document.querySelectorAll('[role=alert]').length"
                     "})",
@@ -184,6 +210,15 @@ def browser_matrix(base_url: str, session: str) -> None:
                     )
                 if state["overflow"] or state["alerts"]:
                     raise RuntimeError(f"runtime failure for {theme}/{mode}/{route}: {state}")
+                if state["panels"] < minimum_panels:
+                    raise RuntimeError(
+                        f"missing metric panels for {theme}/{mode}/{route}: {state['panels']}"
+                    )
+                if state["metadata"] != state["panels"] or state["csv"] != state["panels"]:
+                    raise RuntimeError(
+                        f"panel provenance/export incomplete for {theme}/{mode}/{route}: {state}"
+                    )
+                assert_table_parity(session, theme, mode, route)
                 errors = browser_command(session, "errors").stdout.strip()
                 if errors and "No page errors" not in errors:
                     raise RuntimeError(f"browser errors for {theme}/{mode}/{route}: {errors}")

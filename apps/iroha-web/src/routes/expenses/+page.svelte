@@ -22,7 +22,7 @@
     monthBounds,
     yearOptions,
   } from "@iroha/shared/month";
-  import type { ExpenseThemeProps } from "$lib/expense-view";
+  import type { ExpensePanel, ExpenseThemeProps } from "$lib/expense-view";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
   const currencies: ExpenseCurrency[] = ["JPY", "USD", "EUR", "GBP"];
@@ -294,6 +294,36 @@
     ),
   );
 
+  const dailyPanel = $derived<ExpensePanel>({
+    metricId: "expenses.amount_minor",
+    unit: `${primaryCurrency} minor`,
+    method: dailySeries?.series[0]?.source.method ?? "expenses.sum_active.v1",
+    coverage: dailySeries?.series[0]?.coverage,
+    sourceKinds: dailySeries?.series[0]?.source.source_kinds ?? [],
+    rowHeader: "Day",
+    rows: dailyTotals.map(([day, amount]) => ({
+      label: day,
+      value: amount,
+      display:
+        amount == null
+          ? "—"
+          : formatMoney(amount, primaryCurrency, primaryExponent),
+    })),
+  });
+  const categoryPanel = $derived<ExpensePanel>({
+    metricId: "expenses.amount_minor",
+    unit: `${primaryCurrency} minor`,
+    method:
+      categorySeries[0]?.series[0]?.source.method ?? "expenses.sum_active.v1",
+    sourceKinds: categorySeries[0]?.series[0]?.source.source_kinds ?? [],
+    rowHeader: "Category",
+    rows: categoryTotals.map((item) => ({
+      label: item.category,
+      value: item.amount,
+      display: formatMoney(item.amount, primaryCurrency, primaryExponent),
+    })),
+  });
+
   const themeProps = $derived<ExpenseThemeProps>({
     month,
     primaryCurrency,
@@ -301,6 +331,8 @@
     currencyTotals,
     categoryTotals,
     dailyTotals,
+    dailyPanel,
+    categoryPanel,
     expenses,
     selected,
     selectedId,

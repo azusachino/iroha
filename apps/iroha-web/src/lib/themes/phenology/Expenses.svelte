@@ -1,6 +1,7 @@
 <script lang="ts">
   import BarChart from "$lib/components/BarChart.svelte";
   import ExpenseLedger from "$lib/components/ExpenseLedger.svelte";
+  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
   import type { ExpenseThemeProps } from "$lib/expense-view";
   import { formatExpenseDay } from "$lib/expense-view";
   let {
@@ -9,6 +10,8 @@
     primaryExponent,
     categoryTotals,
     dailyTotals,
+    dailyPanel,
+    categoryPanel,
     expenses,
     selected,
     selectedId,
@@ -32,28 +35,32 @@
     <div class="rhythm-axis">
       {#each dailyTotals as [day]}<span title={day}></span>{/each}
     </div>
-    <BarChart
-      categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
-      primary={{
-        name: primaryCurrency,
-        values: dailyTotals.map(([, amount]) => amount),
-        color: "var(--accent)",
-        formatter: (value) =>
-          formatMoney(value, primaryCurrency, primaryExponent),
-      }}
-      height={250}
-    />
+    <MetricPanel {...dailyPanel} label="Daily rhythm" period={month}>
+      <BarChart
+        categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
+        primary={{
+          name: primaryCurrency,
+          values: dailyTotals.map(([, amount]) => amount),
+          color: "var(--accent)",
+          formatter: (value) =>
+            formatMoney(value, primaryCurrency, primaryExponent),
+        }}
+        height={250}
+      />
+    </MetricPanel>
   </div>
   <section class="category-cycle">
     <h3>Category cycle</h3>
-    <div>
-      {#each categoryTotals as item}<span
-          style={`--weight:${Math.max(0.25, Math.min(1, item.amount / (categoryTotals[0]?.amount || 1)))}`}
-          >{item.category}<b
-            >{formatMoney(item.amount, primaryCurrency, primaryExponent)}</b
-          ></span
-        >{/each}
-    </div>
+    <MetricPanel {...categoryPanel} label="Category cycle" period={month}>
+      <div class="cycle-list">
+        {#each categoryTotals as item}<span
+            style={`--weight:${Math.max(0.25, Math.min(1, item.amount / (categoryTotals[0]?.amount || 1)))}`}
+            >{item.category}<b
+              >{formatMoney(item.amount, primaryCurrency, primaryExponent)}</b
+            ></span
+          >{/each}
+      </div>
+    </MetricPanel>
   </section>
   <ExpenseLedger
     {expenses}
@@ -127,13 +134,13 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
-  .category-cycle > div {
+  .cycle-list {
     display: flex;
     flex-wrap: wrap;
     gap: 0.55rem;
     margin-top: 1rem;
   }
-  .category-cycle span {
+  .cycle-list span {
     display: grid;
     gap: 0.25rem;
     min-width: 6rem;
@@ -147,7 +154,7 @@
     color: var(--text);
     font-size: 0.78rem;
   }
-  .category-cycle b {
+  .cycle-list b {
     color: var(--text-muted);
     font-size: 0.7rem;
     font-weight: 500;
