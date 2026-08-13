@@ -16,6 +16,7 @@
   import { init, use } from "echarts/core";
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
+  import { categoryColor } from "@iroha/shared/category-color";
 
   use([
     EchartsBarChart,
@@ -167,7 +168,11 @@
             value,
             itemStyle: {
               color: categorical
-                ? categoricalColors[index % categoricalColors.length]
+                ? resolveColor(
+                    categoryColor(categories[index]),
+                    styles,
+                    categoricalColors[index % categoricalColors.length],
+                  )
                 : primaryColor,
               opacity: activeIndex == null || activeIndex === index ? 1 : 0.45,
             },
