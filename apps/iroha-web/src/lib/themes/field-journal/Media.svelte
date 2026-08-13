@@ -91,7 +91,7 @@
     <label>
       <span>Completed year</span>
       <select value={completedYear} onchange={onYear}>
-        <option value="">All years</option>
+        <option value="">Lifetime</option>
         {#each yearOptions as option (option.year)}
           <option value={option.year}>{option.year}</option>
         {/each}

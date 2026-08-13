@@ -257,8 +257,6 @@
       eyebrow="Observatory / long view"
       title="Your history, in view."
       description="A long view of the movement archive: accumulated distance, recent sessions, route footprint, and the data domains available to explore."
-      actionHref="/motion"
-      actionLabel="Browse Motion"
     />
 
     <div class="stats-grid" aria-label="Activity totals">

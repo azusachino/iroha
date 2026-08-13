@@ -256,8 +256,6 @@
       eyebrow="Library / things in orbit"
       title="A living personal library."
       description="Keep reading, watching, and playing visible without turning your interests into a backlog."
-      actionHref="/"
-      actionLabel="Back to Today"
     />
 
     <div class="filter-bar" role="tablist" aria-label="Filter by kind">
@@ -290,7 +288,7 @@
       <label>
         <span>Completed year</span>
         <select bind:value={completedYear} onchange={() => selectYear()}>
-          <option value="">All years</option>
+          <option value="">Lifetime</option>
           {#each yearOptions as option (option.year)}
             <option value={option.year}>{option.year}</option>
           {/each}
