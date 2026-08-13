@@ -321,7 +321,7 @@
       <span>Period</span>
       <strong>Monthly ledger scope</strong>
     </div>
-    <ThemeMonthNavigator {month} onMonth={selectMonth} disabled={loading} />
+    <ThemeMonthNavigator {month} onMonth={selectMonth} />
   </section>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   <div class="filters panel" aria-label="Expense filters">

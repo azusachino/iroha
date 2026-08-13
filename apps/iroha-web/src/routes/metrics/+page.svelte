@@ -145,7 +145,7 @@
       <p class="eyebrow"><Activity size={14} /> Metric explorer</p>
       <h1>Metrics</h1>
     </div>
-    <ThemeMonthNavigator {month} onMonth={selectMonth} disabled={loading} />
+    <ThemeMonthNavigator {month} onMonth={selectMonth} />
   </header>
 
   <ThemeRouteRenderer route="metrics" props={{}}>

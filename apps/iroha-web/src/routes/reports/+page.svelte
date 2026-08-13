@@ -118,7 +118,7 @@
       <span>Period</span>
       <strong>Monthly cross-domain report</strong>
     </div>
-    <ThemeMonthNavigator {month} onMonth={moveMonth} disabled={loading} />
+    <ThemeMonthNavigator {month} onMonth={moveMonth} />
   </section>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if loading}<p class="muted">
