@@ -1,7 +1,9 @@
 <script lang="ts">
-  import type { SleepSession } from "$lib/api";
+  import type { SleepAggregateBucket, SleepSession } from "$lib/api";
   import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
   import BarChart from "$lib/components/BarChart.svelte";
+  import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
+  import SleepDetailLink from "$lib/components/SleepDetailLink.svelte";
 
   let {
     sessions,
@@ -9,12 +11,20 @@
     averageAsleep,
     averageEfficiency,
     onSelect,
+    sleepSummary = null,
+    rollupBuckets = [],
+    rollupGranularity = "year",
+    rollupScope = "",
   }: {
     sessions: SleepSession[];
     selected: SleepSession | null;
     averageAsleep: number;
     averageEfficiency: number;
     onSelect: (session: SleepSession) => void;
+    sleepSummary?: SleepAggregateBucket | null;
+    rollupBuckets?: SleepAggregateBucket[];
+    rollupGranularity?: "month" | "year";
+    rollupScope?: string;
   } = $props();
 
   const avgPct = $derived(Math.round(averageEfficiency * 100));
@@ -37,8 +47,8 @@
       </p>
     </div>
     <div class="grid-ref">
-      <span>{sessions.length}</span>
-      <small>nights charted</small>
+      <span>{sleepSummary?.session_count ?? sessions.length}</span>
+      <small>sessions in scope</small>
     </div>
   </header>
 
@@ -62,34 +72,43 @@
     </div>
   </div>
 
-  <section class="atlas-plate nights-chart">
-    <header class="chart-heading">
-      <div>
-        <p class="atlas-kicker">Nightly readings</p>
-        <h2>Asleep time</h2>
-      </div>
-      <span>select a column to inspect</span>
-    </header>
-    <BarChart
-      categories={chartSessions.map((session) =>
-        formatDateShort(session.wake_date),
-      )}
-      primary={{
-        name: "Asleep",
-        values: chartSessions.map((session) => session.asleep_s),
-        formatter: (value) => formatDuration(value),
-      }}
-      secondary={{
-        name: "Efficiency",
-        values: chartSessions.map((session) =>
-          Math.round(session.efficiency * 100),
-        ),
-        formatter: (value) => `${value}%`,
-      }}
-      activeIndex={activeChartIndex}
-      onBarClick={(index) => onSelect(chartSessions[index])}
+  {#if rollupBuckets.length}
+    <SleepAggregateChart
+      buckets={rollupBuckets}
+      granularity={rollupGranularity}
+      scope={rollupScope}
     />
-  </section>
+  {:else}<section class="atlas-plate nights-chart">
+      <header class="chart-heading">
+        <div>
+          <p class="atlas-kicker">Nightly readings</p>
+          <h2>Asleep time</h2>
+        </div>
+        <span>select a column to inspect</span>
+      </header>
+      <BarChart
+        categories={chartSessions.map((session) =>
+          formatDateShort(session.wake_date),
+        )}
+        primary={{
+          name: "Asleep",
+          values: chartSessions.map((session) => session.asleep_s),
+          colors: chartSessions.map((session) =>
+            session.is_main_sleep ? "var(--accent)" : "var(--accent-2)",
+          ),
+          formatter: (value) => formatDuration(value),
+        }}
+        secondary={{
+          name: "Efficiency",
+          values: chartSessions.map((session) =>
+            Math.round(session.efficiency * 100),
+          ),
+          formatter: (value) => `${value}%`,
+        }}
+        activeIndex={activeChartIndex}
+        onBarClick={(index) => onSelect(chartSessions[index])}
+      />
+    </section>{/if}
 
   {#if selected}<aside class="atlas-plate selected-note">
       <p class="atlas-kicker">Latest margin</p>
@@ -105,7 +124,11 @@
         <p class="atlas-kicker">Night log</p>
         <h2>Every night, indexed.</h2>
       </div>
-      <span>imported values</span>
+      <span
+        >{rollupBuckets.length
+          ? "recent loaded records"
+          : "imported values"}</span
+      >
     </header>
     <div class="ledger-scroll">
       <table>
@@ -113,7 +136,7 @@
           ><tr
             ><th>Date</th><th>Asleep</th><th>In bed</th><th>Efficiency</th><th
               >Type</th
-            ></tr
+            ><th>Detail</th></tr
           ></thead
         ><tbody>
           {#each sessions as session (session.id)}<tr
@@ -123,7 +146,9 @@
                 >{formatDuration(session.asleep_s)}</td
               ><td>{formatDuration(session.time_in_bed_s)}</td><td
                 >{Math.round(session.efficiency * 100)}%</td
-              ><td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td></tr
+              ><td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td><td
+                ><SleepDetailLink id={session.id} /></td
+              ></tr
             >{/each}
         </tbody>
       </table>

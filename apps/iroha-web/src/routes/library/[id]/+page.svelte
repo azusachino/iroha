@@ -3,6 +3,7 @@
   import { getMedia, type MediaDetail } from "$lib/api";
   import {
     cleanDescription,
+    formatDate,
     formatProgressCount,
     mediaEventLabel,
     mediaWorkTotal,
@@ -95,12 +96,7 @@
   }
 
   function eventDate(value?: string): string {
-    if (!value) return "Undated";
-    return new Date(value).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    return value ? formatDate(value) : "Undated";
   }
 </script>
 

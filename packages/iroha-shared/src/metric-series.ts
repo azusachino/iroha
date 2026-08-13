@@ -21,6 +21,6 @@ export function pointHasValue(point: SharedMetricPoint): boolean {
 
 export function csvCell(value: string | number | null | undefined): string {
   const text = value == null ? "" : String(value);
-  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  if (typeof value !== "string") return text;
+  return `"${text.replaceAll('"', '""')}"`;
 }
-

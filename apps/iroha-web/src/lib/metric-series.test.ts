@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { panelCsv, seriesPanelRows } from "@iroha/shared/metric-panel";
 import { pointHasValue, pointValue } from "@iroha/shared/metric-series";
+import { expenseLedgerCsv } from "$lib/expense-view";
 
 describe("shared metric series helpers", () => {
   it("keeps null periods distinct from zero", () => {
@@ -59,10 +60,10 @@ describe("panel CSV export", () => {
       },
     ]);
     expect(csv.split("\n")[0]).toBe(
-      "metric_id,unit,period,breakdown,value,display,observed_days",
+      '"metric_id","unit","period","breakdown","value","display","observed_days"',
     );
     expect(csv).toContain(
-      'expenses.amount_minor,minor,2026-01,"category: food, currency: JPY",800,¥800,1',
+      '"expenses.amount_minor","minor","2026-01","category: food, currency: JPY",800,"¥800",1',
     );
   });
 
@@ -70,6 +71,32 @@ describe("panel CSV export", () => {
     const csv = panelCsv("health.steps", "count", "Period", [
       { label: "2026-01", value: null, display: "—" },
     ]);
-    expect(csv).toContain("health.steps,count,2026-01,,,—,\n");
+    expect(csv).toContain('"health.steps","count","2026-01","",,"—",""\n');
+  });
+
+  it("quotes every ledger text cell and keeps raw money columns numeric", () => {
+    const csv = expenseLedgerCsv(
+      [
+        {
+          id: "expense-1",
+          occurred_on: "2026-08-14",
+          currency: "JPY",
+          currency_exponent: 0,
+          amount_minor: 800,
+          category: "food",
+          merchant: "Ramen, + bar",
+          note: 'Dinner "late"\nwith friend',
+          items: [{ name: "ramen", amount_minor: 800 }],
+          source: { kind: "api", ref: "telegram:+1" },
+          created_at: "2026-08-14T00:00:00Z",
+          updated_at: "2026-08-14T00:00:00Z",
+        },
+      ],
+      (amount, currency) => `${currency} + ${amount}`,
+    );
+    expect(csv.split("\n")[0]).toContain('"display_amount"');
+    expect(csv).toContain('"Ramen, + bar"');
+    expect(csv).toContain('"Dinner ""late""\nwith friend"');
+    expect(csv).toContain(',800,"JPY + 800",');
   });
 });

@@ -1,4 +1,5 @@
 import type { PanelCoverage, PanelRow } from "@iroha/shared/metric-panel";
+import { csvCell } from "@iroha/shared/metric-series";
 import type { Expense, ExpenseCategory, ExpenseCurrency } from "$lib/api";
 
 // Everything a theme needs to hand a chart to the shared MetricPanel. The
@@ -69,4 +70,56 @@ export function formatExpenseDay(value: string): string {
     day: "numeric",
     timeZone: "UTC",
   });
+}
+
+// Canonical ledger export: raw money remains numeric and the display amount is
+// supplementary. Text cells are quoted by the shared CSV helper so merchant
+// notes, plus signs, currency labels, and item JSON round-trip safely.
+export function expenseLedgerCsv(
+  expenses: Expense[],
+  formatMoney: (
+    amountMinor: number,
+    currency: string,
+    exponent: number,
+  ) => string,
+): string {
+  const rows: (string | number | null)[][] = [
+    [
+      "id",
+      "occurred_on",
+      "currency",
+      "currency_exponent",
+      "amount_minor",
+      "display_amount",
+      "category",
+      "merchant",
+      "note",
+      "items_json",
+      "source_kind",
+      "source_ref",
+      "created_at",
+      "updated_at",
+    ],
+    ...expenses.map((expense) => [
+      expense.id,
+      expense.occurred_on,
+      expense.currency,
+      expense.currency_exponent,
+      expense.amount_minor,
+      formatMoney(
+        expense.amount_minor,
+        expense.currency,
+        expense.currency_exponent,
+      ),
+      expense.category,
+      expense.merchant,
+      expense.note,
+      JSON.stringify(expense.items),
+      expense.source.kind,
+      expense.source.ref,
+      expense.created_at,
+      expense.updated_at,
+    ]),
+  ];
+  return rows.map((row) => row.map(csvCell).join(",")).join("\n") + "\n";
 }

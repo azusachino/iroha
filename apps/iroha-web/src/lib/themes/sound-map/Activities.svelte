@@ -27,6 +27,7 @@
     onSportType,
     onLoadMore,
     activitySeries = null,
+    activityDurationSeries = null,
     activitySeriesLoading = false,
     activitySeriesError = null,
     activitySeriesScope = "",
@@ -42,6 +43,7 @@
     onSportType: (value: string) => void;
     onLoadMore: () => void;
     activitySeries?: MetricSeriesResponse | null;
+    activityDurationSeries?: MetricSeriesResponse | null;
     activitySeriesLoading?: boolean;
     activitySeriesError?: string | null;
     activitySeriesScope?: string;
@@ -78,6 +80,7 @@
 
   <ActivityMetricChart
     series={activitySeries}
+    durationSeries={activityDurationSeries}
     loading={activitySeriesLoading}
     error={activitySeriesError}
     scope={activitySeriesScope}

@@ -20,7 +20,7 @@
 
   export interface SmallMultiple {
     label: string;
-    values: number[];
+    values: (number | null)[];
     color: string;
     unit?: string;
   }
@@ -45,6 +45,7 @@
       width: `${100 / columns - 10}%`,
       height: `${100 / rows - 18}%`,
     }));
+    chart.clear();
     chart.setOption({
       animationDuration: 450,
       grid,

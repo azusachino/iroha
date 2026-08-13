@@ -4,6 +4,7 @@
   import { page } from "$app/state";
   import { FileText, RefreshCw } from "@lucide/svelte";
   import { ApiError, getMonthlyReport, type MonthlyReport } from "$lib/api";
+  import ReportComparison from "$lib/components/ReportComparison.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDate } from "$lib/format";
@@ -11,6 +12,7 @@
     MONTH_OPTIONS,
     currentMonth,
     canonicalMonth,
+    shiftMonth,
     yearOptions,
   } from "@iroha/shared/month";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -20,6 +22,7 @@
     canonicalMonth(page.url.searchParams.get("month"), currentMonth()),
   );
   let report = $state<MonthlyReport | null>(null);
+  let previousReport = $state<MonthlyReport | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
   let requestVersion = 0;
@@ -36,12 +39,17 @@
     loading = true;
     error = null;
     try {
-      const current = await getMonthlyReport(requestedMonth);
+      const [current, previous] = await Promise.all([
+        getMonthlyReport(requestedMonth),
+        getMonthlyReport(shiftMonth(requestedMonth, -1)).catch(() => null),
+      ]);
       if (version !== requestVersion) return;
       report = current;
+      previousReport = previous;
     } catch (cause) {
       if (version !== requestVersion) return;
       report = null;
+      previousReport = null;
       if (cause instanceof ApiError && cause.requestId)
         error = `${cause.message} (${cause.code}, request ${cause.requestId})`;
       else if (cause instanceof Error) error = cause.message;
@@ -153,6 +161,11 @@
         report.generated_at,
       )}
     </p>
+    <ReportComparison
+      current={report}
+      previous={previousReport}
+      {formatMoney}
+    />
     <ThemeRouteRenderer route="reports" props={themeProps} />{/if}
 </section>
 

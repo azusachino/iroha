@@ -1,6 +1,8 @@
 <script lang="ts">
-  import type { SleepSession } from "$lib/api";
+  import type { SleepAggregateBucket, SleepSession } from "$lib/api";
   import BarChart from "$lib/components/BarChart.svelte";
+  import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
+  import SleepDetailLink from "$lib/components/SleepDetailLink.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
 
   let {
@@ -9,12 +11,20 @@
     averageAsleep,
     averageEfficiency,
     onSelect,
+    sleepSummary = null,
+    rollupBuckets = [],
+    rollupGranularity = "year",
+    rollupScope = "",
   }: {
     sessions: SleepSession[];
     selected: SleepSession | null;
     averageAsleep: number;
     averageEfficiency: number;
     onSelect: (session: SleepSession) => void;
+    sleepSummary?: SleepAggregateBucket | null;
+    rollupBuckets?: SleepAggregateBucket[];
+    rollupGranularity?: "month" | "year";
+    rollupScope?: string;
   } = $props();
 
   const chartSessions = $derived([...sessions].reverse());
@@ -31,7 +41,11 @@
   </header>
 
   <div class="summary-row" aria-label="Sleep summary">
-    <div><span>Recorded nights</span><strong>{sessions.length}</strong></div>
+    <div>
+      <span>Recorded sessions</span><strong
+        >{sleepSummary?.session_count ?? sessions.length}</strong
+      >
+    </div>
     <div>
       <span>Average asleep</span><strong>{formatDuration(averageAsleep)}</strong
       >
@@ -43,29 +57,38 @@
     </div>
   </div>
 
-  <section class="sleep-series" aria-labelledby="sleep-series-title">
-    <div class="panel-heading">
-      <div>
-        <p class="kicker">Observed sessions</p>
-        <h2 id="sleep-series-title">Asleep time by night</h2>
-      </div>
-      <span>Newest first</span>
-    </div>
-    <BarChart
-      categories={chartSessions.map((session) =>
-        formatDateOnly(session.wake_date),
-      )}
-      primary={{
-        name: "Asleep",
-        values: chartSessions.map((session) => session.asleep_s),
-        formatter: (value) => formatDuration(value),
-      }}
-      onBarClick={(index) => {
-        const session = chartSessions[index];
-        if (session) onSelect(session);
-      }}
+  {#if rollupBuckets.length}
+    <SleepAggregateChart
+      buckets={rollupBuckets}
+      granularity={rollupGranularity}
+      scope={rollupScope}
     />
-  </section>
+  {:else}<section class="sleep-series" aria-labelledby="sleep-series-title">
+      <div class="panel-heading">
+        <div>
+          <p class="kicker">Observed sessions</p>
+          <h2 id="sleep-series-title">Asleep time by night</h2>
+        </div>
+        <span>Newest first</span>
+      </div>
+      <BarChart
+        categories={chartSessions.map((session) =>
+          formatDateOnly(session.wake_date),
+        )}
+        primary={{
+          name: "Asleep",
+          values: chartSessions.map((session) => session.asleep_s),
+          colors: chartSessions.map((session) =>
+            session.is_main_sleep ? "var(--accent)" : "var(--accent-2)",
+          ),
+          formatter: (value) => formatDuration(value),
+        }}
+        onBarClick={(index) => {
+          const session = chartSessions[index];
+          if (session) onSelect(session);
+        }}
+      />
+    </section>{/if}
 
   <section class="session-table" aria-labelledby="sleep-table-title">
     <div class="panel-heading">
@@ -73,7 +96,11 @@
         <p class="kicker">Session records</p>
         <h2 id="sleep-table-title">Night by night</h2>
       </div>
-      <span>Imported values</span>
+      <span
+        >{rollupBuckets.length
+          ? "Recent loaded records"
+          : "Imported values"}</span
+      >
     </div>
     <div class="table-scroll">
       <table>
@@ -81,7 +108,7 @@
           ><tr
             ><th>Date</th><th>Asleep</th><th>In bed</th><th>Efficiency</th><th
               >Type</th
-            ></tr
+            ><th>Detail</th></tr
           ></thead
         ><tbody>
           {#each sessions as session (session.id)}
@@ -92,7 +119,9 @@
                 >{formatDuration(session.asleep_s)}</td
               ><td>{formatDuration(session.time_in_bed_s)}</td><td
                 >{Math.round(session.efficiency * 100)}%</td
-              ><td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td></tr
+              ><td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td><td
+                ><SleepDetailLink id={session.id} /></td
+              ></tr
             >
           {/each}
         </tbody>

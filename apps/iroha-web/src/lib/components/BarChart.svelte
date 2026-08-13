@@ -32,6 +32,7 @@
     name: string;
     values: (number | null)[];
     color?: string;
+    colors?: (string | undefined)[];
     formatter?: (value: number) => string;
   }
 
@@ -170,13 +171,15 @@
           data: primary.values.map((value, index) => ({
             value,
             itemStyle: {
-              color: categorical
-                ? resolveColor(
-                    categoryColor(categories[index]),
-                    styles,
-                    categoricalColors[index % categoricalColors.length],
-                  )
-                : primaryColor,
+              color: primary.colors?.[index]
+                ? resolveColor(primary.colors[index], styles, primaryColor)
+                : categorical
+                  ? resolveColor(
+                      categoryColor(categories[index]),
+                      styles,
+                      categoricalColors[index % categoricalColors.length],
+                    )
+                  : primaryColor,
               opacity: activeIndex == null || activeIndex === index ? 1 : 0.45,
             },
           })),
@@ -204,7 +207,7 @@
                 }
               : undefined,
           itemStyle: {
-            color: primaryColor,
+            ...(categorical ? {} : { color: primaryColor }),
             borderRadius:
               primaryType === "bar"
                 ? orientation === "horizontal"

@@ -55,7 +55,7 @@
     series?.series.map((item) => ({
       label:
         Object.values(item.dimensions).join(" · ") || series?.label || metricId,
-      values: item.points.map((point) => pointValue(point) ?? Number.NaN),
+      values: item.points.map((point) => pointValue(point)),
       color: "var(--accent)",
       unit: series?.unit,
     })) ?? [],

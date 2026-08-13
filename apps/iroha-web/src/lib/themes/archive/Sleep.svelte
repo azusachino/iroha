@@ -1,7 +1,9 @@
 <script lang="ts">
-  import type { SleepSession } from "$lib/api";
+  import type { SleepAggregateBucket, SleepSession } from "$lib/api";
   import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
   import BarChart from "$lib/components/BarChart.svelte";
+  import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
+  import SleepDetailLink from "$lib/components/SleepDetailLink.svelte";
 
   let {
     sessions,
@@ -9,12 +11,20 @@
     averageAsleep,
     averageEfficiency,
     onSelect,
+    sleepSummary = null,
+    rollupBuckets = [],
+    rollupGranularity = "year",
+    rollupScope = "",
   }: {
     sessions: SleepSession[];
     selected: SleepSession | null;
     averageAsleep: number;
     averageEfficiency: number;
     onSelect: (session: SleepSession) => void;
+    sleepSummary?: SleepAggregateBucket | null;
+    rollupBuckets?: SleepAggregateBucket[];
+    rollupGranularity?: "month" | "year";
+    rollupScope?: string;
   } = $props();
 
   // Each recorded night becomes a row: most recent night on top, older
@@ -38,7 +48,9 @@
       <p>Rest is a sequence of recorded strata, not a single verdict.</p>
     </div>
     <div class="folio-readout">
-      <strong>{sessions.length}</strong><span>nights held</span>
+      <strong>{sleepSummary?.session_count ?? sessions.length}</strong><span
+        >sessions held</span
+      >
     </div>
   </header>
 
@@ -59,57 +71,66 @@
     </div>
   </div>
 
-  <section class="folio-core catalog-card">
-    <header>
-      <div>
-        <p class="folio-kicker">Observed nights</p>
-        <h2>Sleep core</h2>
-      </div>
-      <span>thickness = asleep · tone = efficiency</span>
-    </header>
-    {#if rows.length}
-      <BarChart
-        categories={chartSessions.map((session) =>
-          formatDateShort(session.wake_date),
-        )}
-        primary={{
-          name: "Asleep",
-          values: chartSessions.map((session) => session.asleep_s),
-          formatter: (value) => formatDuration(value),
-        }}
-        secondary={{
-          name: "Efficiency",
-          values: chartSessions.map((session) =>
-            Math.round(session.efficiency * 100),
-          ),
-          formatter: (value) => `${value}%`,
-        }}
-        orientation="horizontal"
-        activeIndex={activeChartIndex}
-        onBarClick={(index) => onSelect(chartSessions[index])}
-        height={Math.max(220, chartSessions.length * 22)}
-      />
-      <div class="core-legend">
-        {#each rows as row (row.session.id)}
-          <button
-            type="button"
-            class="core-row"
-            class:active={selected?.id === row.session.id}
-            onclick={() => onSelect(row.session)}
-          >
-            <strong>{formatDateOnly(row.session.wake_date)}</strong>
-            <span
-              >{formatDuration(row.session.asleep_s)} · {Math.round(
-                row.session.efficiency * 100,
-              )}%</span
+  {#if rollupBuckets.length}
+    <SleepAggregateChart
+      buckets={rollupBuckets}
+      granularity={rollupGranularity}
+      scope={rollupScope}
+    />
+  {:else}<section class="folio-core catalog-card">
+      <header>
+        <div>
+          <p class="folio-kicker">Observed nights</p>
+          <h2>Sleep core</h2>
+        </div>
+        <span>thickness = asleep · tone = efficiency</span>
+      </header>
+      {#if rows.length}
+        <BarChart
+          categories={chartSessions.map((session) =>
+            formatDateShort(session.wake_date),
+          )}
+          primary={{
+            name: "Asleep",
+            values: chartSessions.map((session) => session.asleep_s),
+            colors: chartSessions.map((session) =>
+              session.is_main_sleep ? "var(--accent)" : "var(--accent-2)",
+            ),
+            formatter: (value) => formatDuration(value),
+          }}
+          secondary={{
+            name: "Efficiency",
+            values: chartSessions.map((session) =>
+              Math.round(session.efficiency * 100),
+            ),
+            formatter: (value) => `${value}%`,
+          }}
+          orientation="horizontal"
+          activeIndex={activeChartIndex}
+          onBarClick={(index) => onSelect(chartSessions[index])}
+          height={Math.max(220, chartSessions.length * 22)}
+        />
+        <div class="core-legend">
+          {#each rows as row (row.session.id)}
+            <button
+              type="button"
+              class="core-row"
+              class:active={selected?.id === row.session.id}
+              onclick={() => onSelect(row.session)}
             >
-          </button>
-        {/each}
-      </div>
-    {:else}
-      <p class="folio-empty">No sleep sessions were recorded.</p>
-    {/if}
-  </section>
+              <strong>{formatDateOnly(row.session.wake_date)}</strong>
+              <span
+                >{formatDuration(row.session.asleep_s)} · {Math.round(
+                  row.session.efficiency * 100,
+                )}%</span
+              >
+            </button>
+          {/each}
+        </div>
+      {:else}
+        <p class="folio-empty">No sleep sessions were recorded.</p>
+      {/if}
+    </section>{/if}
 
   {#if selected}
     <aside class="folio-note catalog-card">
@@ -129,7 +150,11 @@
         <p class="folio-kicker">Session ledger</p>
         <h2>Night by night</h2>
       </div>
-      <span>imported values</span>
+      <span
+        >{rollupBuckets.length
+          ? "recent loaded records"
+          : "imported values"}</span
+      >
     </header>
     <div class="ledger-scroll">
       <table>
@@ -137,7 +162,7 @@
           ><tr
             ><th>Date</th><th>Asleep</th><th>In bed</th><th>Efficiency</th><th
               >Type</th
-            ></tr
+            ><th>Detail</th></tr
           ></thead
         ><tbody>
           {#each sessions as session (session.id)}<tr
@@ -147,7 +172,9 @@
                 >{formatDuration(session.asleep_s)}</td
               ><td>{formatDuration(session.time_in_bed_s)}</td><td
                 >{Math.round(session.efficiency * 100)}%</td
-              ><td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td></tr
+              ><td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td><td
+                ><SleepDetailLink id={session.id} /></td
+              ></tr
             >{/each}
         </tbody>
       </table>

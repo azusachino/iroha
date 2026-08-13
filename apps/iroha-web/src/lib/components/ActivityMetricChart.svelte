@@ -6,11 +6,13 @@
 
   let {
     series,
+    durationSeries = null,
     loading = false,
     error = null,
     scope = "",
   }: {
     series?: MetricSeriesResponse | null;
+    durationSeries?: MetricSeriesResponse | null;
     loading?: boolean;
     error?: string | null;
     scope?: string;
@@ -28,6 +30,27 @@
     }));
   }
 
+  function aggregateValues(
+    response: MetricSeriesResponse | null | undefined,
+    periodsToRead: string[],
+    divisor = 1,
+  ): (number | null)[] {
+    return periodsToRead.map((period) => {
+      let total = 0;
+      let observed = false;
+      for (const item of response?.series ?? []) {
+        const point = pointsFor(item).find(
+          (candidate) => candidate.period === period,
+        );
+        if (point?.value != null) {
+          total += point.value;
+          observed = true;
+        }
+      }
+      return observed ? total / divisor : null;
+    });
+  }
+
   function labelForPeriod(period: string): string {
     if (/^\d{4}-\d{2}$/.test(period)) return formatMonth(period);
     return period;
@@ -36,20 +59,8 @@
   const periods = $derived(
     series?.series[0]?.points.map((point) => point.period) ?? [],
   );
-  const totalDistance = $derived(
-    periods.map((period, index) => {
-      let sum = 0;
-      let observed = false;
-      for (const item of series?.series ?? []) {
-        const point = pointsFor(item)[index];
-        if (point?.value != null) {
-          sum += point.value;
-          observed = true;
-        }
-      }
-      return observed ? sum / 1000 : null;
-    }),
-  );
+  const totalDistance = $derived(aggregateValues(series, periods, 1000));
+  const totalDuration = $derived(aggregateValues(durationSeries, periods));
   const sportBreakdown = $derived(
     (series?.series ?? [])
       .map((item) => {
@@ -67,6 +78,7 @@
     periods.map((period, index) => ({
       period,
       value: totalDistance[index],
+      duration: totalDuration[index],
       observedDays: (series?.series ?? []).reduce(
         (max, item) =>
           Math.max(max, pointsFor(item)[index]?.observed_days ?? 0),
@@ -78,6 +90,13 @@
   function formatKm(value: number): string {
     return formatDistance(value * 1000);
   }
+
+  function formatTime(value: number): string {
+    const seconds = Math.round(value);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+  }
 </script>
 
 <section
@@ -88,7 +107,7 @@
   <header class="chart-header">
     <div>
       <p class="eyebrow">Canonical movement series</p>
-      <h2 id="activity-trend-title">Distance over time</h2>
+      <h2 id="activity-trend-title">Movement over time</h2>
       <p class="chart-description">
         Server-aggregated distance, grouped by {series?.period.grain ??
           "period"}
@@ -111,18 +130,37 @@
     <p class="chart-status">No movement series is available for this scope.</p>
   {:else}
     <div class="chart-grid">
-      <div class="trend-chart">
-        <BarChart
-          categories={periods.map(labelForPeriod)}
-          primary={{
-            name: "Distance",
-            values: totalDistance,
-            color: "var(--accent)",
-            formatter: formatKm,
-          }}
-          primaryType="line"
-          height={300}
-        />
+      <div class="trend-charts">
+        <div class="trend-chart">
+          <p class="eyebrow">Distance</p>
+          <BarChart
+            categories={periods.map(labelForPeriod)}
+            primary={{
+              name: "Distance",
+              values: totalDistance,
+              color: "var(--accent)",
+              formatter: formatKm,
+            }}
+            primaryType="line"
+            height={300}
+          />
+        </div>
+        {#if durationSeries}
+          <div class="trend-chart">
+            <p class="eyebrow">Duration</p>
+            <BarChart
+              categories={periods.map(labelForPeriod)}
+              primary={{
+                name: "Duration",
+                values: totalDuration,
+                color: "var(--accent-2)",
+                formatter: formatTime,
+              }}
+              primaryType="line"
+              height={240}
+            />
+          </div>
+        {/if}
       </div>
       {#if sportBreakdown.length > 1}
         <div class="sport-chart">
@@ -147,9 +185,12 @@
 
     <div class="series-table-wrap">
       <table>
-        <caption>Exact distance series</caption>
+        <caption>Exact movement series</caption>
         <thead
-          ><tr><th>Period</th><th>Distance</th><th>Observed days</th></tr
+          ><tr
+            ><th>Period</th><th>Distance</th><th>Duration</th><th
+              >Observed days</th
+            ></tr
           ></thead
         >
         <tbody>
@@ -157,6 +198,7 @@
             <tr>
               <td>{labelForPeriod(row.period)}</td>
               <td>{row.value == null ? "—" : formatKm(row.value)}</td>
+              <td>{row.duration == null ? "—" : formatTime(row.duration)}</td>
               <td>{row.observedDays || "—"}</td>
             </tr>
           {/each}
@@ -266,8 +308,18 @@
   }
 
   .trend-chart,
+  .trend-charts,
   .sport-chart {
     min-width: 0;
+  }
+
+  .trend-charts {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .trend-charts .eyebrow {
+    margin-bottom: -0.25rem;
   }
 
   .sport-chart {

@@ -54,6 +54,7 @@
   let summary = $state<Summary | null>(null);
   let summaryLoading = $state(true);
   let activitySeries = $state<MetricSeriesResponse | null>(null);
+  let activityDurationSeries = $state<MetricSeriesResponse | null>(null);
   let activitySeriesLoading = $state(true);
   let activitySeriesError = $state<string | null>(null);
   let activitySeriesRequest = 0;
@@ -126,6 +127,7 @@
     const window = chartWindow();
     if (!window) {
       activitySeries = null;
+      activityDurationSeries = null;
       activitySeriesLoading = false;
       activitySeriesError = null;
       return;
@@ -134,14 +136,22 @@
     activitySeriesLoading = true;
     activitySeriesError = null;
     try {
-      const result = await getMetricSeries("movement.distance_m", {
+      const params = {
         ...window,
         dimensions: sportType ? [`sport:${metricSport(sportType)}`] : [],
-      });
-      if (requestId === activitySeriesRequest) activitySeries = result;
+      };
+      const [distance, duration] = await Promise.all([
+        getMetricSeries("movement.distance_m", params),
+        getMetricSeries("movement.duration_s", params),
+      ]);
+      if (requestId === activitySeriesRequest) {
+        activitySeries = distance;
+        activityDurationSeries = duration;
+      }
     } catch (cause) {
       if (requestId !== activitySeriesRequest) return;
       activitySeries = null;
+      activityDurationSeries = null;
       activitySeriesError =
         cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -418,6 +428,7 @@
         hasMore,
         loadingMore,
         activitySeries,
+        activityDurationSeries,
         activitySeriesLoading,
         activitySeriesError,
         activitySeriesScope: selectedMonth

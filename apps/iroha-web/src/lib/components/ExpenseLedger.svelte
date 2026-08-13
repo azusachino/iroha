@@ -1,6 +1,8 @@
 <script lang="ts">
   import { Trash2, WalletCards } from "@lucide/svelte";
+  import { categoryColor } from "@iroha/shared/category-color";
   import type { Expense } from "$lib/api";
+  import { expenseLedgerCsv } from "$lib/expense-view";
   import { formatDate } from "$lib/format";
 
   let {
@@ -24,6 +26,26 @@
       exponent: number,
     ) => string;
   } = $props();
+
+  const VISIBLE_ROWS = 100;
+  let visibleCount = $state(VISIBLE_ROWS);
+  const visibleExpenses = $derived(expenses.slice(0, visibleCount));
+
+  $effect(() => {
+    expenses.length;
+    visibleCount = VISIBLE_ROWS;
+  });
+
+  function downloadCsv() {
+    const blob = new Blob(["\ufeff", expenseLedgerCsv(expenses, formatMoney)], {
+      type: "text/csv;charset=utf-8",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "iroha-expenses.csv";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
 </script>
 
 <div class="ledger-grid">
@@ -33,11 +55,18 @@
         <p class="eyebrow">Stored records</p>
         <h2 id="expense-list-title">Expense ledger</h2>
       </div>
-      <span class="count">{expenses.length} shown</span>
+      <div class="ledger-actions">
+        <span class="count"
+          >{Math.min(visibleCount, expenses.length)} of {expenses.length} shown</span
+        >
+        <button type="button" class="export" onclick={downloadCsv}>
+          Export CSV
+        </button>
+      </div>
     </header>
     {#if expenses.length}
       <ul class="expense-list">
-        {#each expenses as expense (expense.id)}
+        {#each visibleExpenses as expense (expense.id)}
           <li>
             <button
               class:chosen={expense.id === selectedId}
@@ -46,7 +75,12 @@
               onclick={() => onSelect(expense.id)}
             >
               <span>
-                <strong>{expense.merchant || expense.category}</strong>
+                <strong
+                  ><i
+                    class="category-mark"
+                    style={`background: ${categoryColor(expense.category) ?? "var(--text-muted)"}`}
+                  ></i>{expense.merchant || expense.category}</strong
+                >
                 <small>{expense.occurred_on} · {expense.category}</small>
               </span>
               <b
@@ -60,6 +94,16 @@
           </li>
         {/each}
       </ul>
+      {#if visibleCount < expenses.length}
+        <button
+          type="button"
+          class="show-more"
+          onclick={() => (visibleCount += VISIBLE_ROWS)}
+        >
+          Show next {Math.min(VISIBLE_ROWS, expenses.length - visibleCount)}
+          records
+        </button>
+      {/if}
     {:else}
       <p class="empty">No canonical expenses match these filters.</p>
     {/if}
@@ -95,6 +139,10 @@
               selected.currency_exponent,
             )}
           </dd>
+        </div>
+        <div>
+          <dt>Raw amount</dt>
+          <dd>{selected.amount_minor} minor {selected.currency}</dd>
         </div>
         <div>
           <dt>Date</dt>
@@ -164,6 +212,11 @@
     align-items: start;
     gap: 1rem;
   }
+  .ledger-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
   h2,
   h3,
   p,
@@ -220,12 +273,50 @@
     display: grid;
     gap: 0.25rem;
   }
+  .expense-row strong {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .category-mark {
+    flex: 0 0 auto;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+  }
   .expense-row small {
     color: var(--text-muted);
     font-size: 0.7rem;
   }
   .expense-row b {
     white-space: nowrap;
+  }
+  .export,
+  .show-more {
+    min-height: 1.9rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 4px);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.68rem;
+    cursor: pointer;
+  }
+  .export {
+    padding: 0.25rem 0.55rem;
+  }
+  .show-more {
+    width: 100%;
+    margin-top: 0.65rem;
+    padding: 0.45rem;
+  }
+  .export:hover,
+  .show-more:hover {
+    border-color: var(--accent);
+    color: var(--accent);
   }
   .danger {
     display: inline-flex;

@@ -11,11 +11,17 @@
     type SleepSession,
   } from "$lib/api";
   import StatTile from "$lib/components/StatTile.svelte";
+  import SleepScopeSummary from "$lib/components/SleepScopeSummary.svelte";
   import SleepArchitectureChart from "$lib/components/SleepArchitectureChart.svelte";
   import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import { formatDate, formatDateOnly, formatDuration } from "$lib/format";
+  import {
+    formatDate,
+    formatDateOnly,
+    formatDuration,
+    formatMonth,
+  } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -53,19 +59,23 @@
   let hoveredStage = $state<string | null>(null);
   const theme = useTheme();
 
-  const mainSleep = $derived(
+  const loadedMainSleep = $derived(
     sessions.filter((session) => session.is_main_sleep),
   );
-  const averageAsleep = $derived(
-    mainSleep.length
-      ? mainSleep.reduce((total, session) => total + session.asleep_s, 0) /
-          mainSleep.length
+  const loadedAverageAsleep = $derived(
+    loadedMainSleep.length
+      ? loadedMainSleep.reduce(
+          (total, session) => total + session.asleep_s,
+          0,
+        ) / loadedMainSleep.length
       : 0,
   );
-  const averageEfficiency = $derived(
-    mainSleep.length
-      ? mainSleep.reduce((total, session) => total + session.efficiency, 0) /
-          mainSleep.length
+  const loadedAverageEfficiency = $derived(
+    loadedMainSleep.length
+      ? loadedMainSleep.reduce(
+          (total, session) => total + session.efficiency,
+          0,
+        ) / loadedMainSleep.length
       : 0,
   );
   const monthlyBuckets = $derived(monthBuckets.slice().reverse());
@@ -121,13 +131,101 @@
         : null,
   );
   const isPeriodFiltered = $derived(selectedYear !== "");
+  function combineBuckets(
+    buckets: SleepAggregateBucket[],
+    period: string,
+  ): SleepAggregateBucket | null {
+    if (buckets.length === 0) return null;
+    const mainSleepCount = buckets.reduce(
+      (total, bucket) => total + bucket.main_sleep_count,
+      0,
+    );
+    const weightedAverage = (
+      field: "average_asleep_s" | "average_efficiency",
+    ) =>
+      mainSleepCount === 0
+        ? 0
+        : buckets.reduce(
+            (total, bucket) => total + bucket[field] * bucket.main_sleep_count,
+            0,
+          ) / mainSleepCount;
+    return {
+      period,
+      session_count: buckets.reduce(
+        (total, bucket) => total + bucket.session_count,
+        0,
+      ),
+      main_sleep_count: mainSleepCount,
+      nap_count: buckets.reduce((total, bucket) => total + bucket.nap_count, 0),
+      observed_wake_dates: buckets.reduce(
+        (total, bucket) => total + bucket.observed_wake_dates,
+        0,
+      ),
+      average_asleep_s: weightedAverage("average_asleep_s"),
+      average_time_in_bed_s:
+        mainSleepCount === 0
+          ? 0
+          : buckets.reduce(
+              (total, bucket) =>
+                total + bucket.average_time_in_bed_s * bucket.main_sleep_count,
+              0,
+            ) / mainSleepCount,
+      average_efficiency: weightedAverage("average_efficiency"),
+      core_s: buckets.reduce((total, bucket) => total + bucket.core_s, 0),
+      deep_s: buckets.reduce((total, bucket) => total + bucket.deep_s, 0),
+      rem_s: buckets.reduce((total, bucket) => total + bucket.rem_s, 0),
+      awake_s: buckets.reduce((total, bucket) => total + bucket.awake_s, 0),
+      unspecified_s: buckets.reduce(
+        (total, bucket) => total + bucket.unspecified_s,
+        0,
+      ),
+    };
+  }
+  const sleepSummary = $derived.by<SleepAggregateBucket | null>(() => {
+    if (selectedMonth !== "") {
+      return (
+        monthBuckets.find((bucket) =>
+          bucket.period.startsWith(`${selectedMonth}-01`),
+        ) ?? null
+      );
+    }
+    if (selectedYear !== "") {
+      return (
+        yearBuckets.find((bucket) =>
+          bucket.period.startsWith(`${selectedYear}-`),
+        ) ?? null
+      );
+    }
+    return combineBuckets(yearBuckets, "lifetime");
+  });
+  const sleepScope = $derived(selectedMonth || selectedYear || "Lifetime");
+  const rollupGranularity = $derived<"month" | "year">(
+    selectedYear === "" ? "year" : "month",
+  );
+  const rollupBuckets = $derived.by(() => {
+    if (selectedMonth !== "") return [];
+    if (selectedYear !== "") {
+      return monthBuckets.filter((bucket) =>
+        bucket.period.startsWith(`${selectedYear}-`),
+      );
+    }
+    return yearBuckets;
+  });
+  const averageAsleep = $derived(
+    sleepSummary?.average_asleep_s ?? loadedAverageAsleep,
+  );
+  const averageEfficiency = $derived(
+    sleepSummary?.average_efficiency ?? loadedAverageEfficiency,
+  );
   const heroEyebrow = $derived(
     isPeriodFiltered
       ? `Selected night · ${selectedMonth !== "" ? formatPeriod(`${selectedMonth}-01T00:00:00Z`, "month") : selectedYear}`
       : `Last night · ${selected ? formatDateOnly(selected.wake_date) : ""}`,
   );
   const nightsHeading = $derived(
-    isPeriodFiltered ? "Nights in selected period" : "Recent nights",
+    selectedMonth !== ""
+      ? "Sessions in selected month"
+      : "Recent session detail",
   );
   const monthMaxAsleep = $derived(
     Math.max(1, ...monthBuckets.map((bucket) => bucket.average_asleep_s)),
@@ -314,13 +412,8 @@
   }
 
   function formatPeriod(period: string, granularity: "month" | "year"): string {
-    const date = new Date(period);
-    if (granularity === "year") return String(date.getUTCFullYear());
-    return new Intl.DateTimeFormat("en", {
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    }).format(date);
+    if (granularity === "year") return period.slice(0, 4);
+    return formatMonth(period.slice(0, 7));
   }
 
   onMount(async () => {
@@ -358,6 +451,7 @@
           onMonth={changeMonth}
         />
       </PeriodToolbar>
+      <SleepScopeSummary summary={sleepSummary} scope={sleepScope} />
       <ThemeRouteRenderer
         route="sleep"
         props={{
@@ -365,6 +459,10 @@
           selected,
           averageAsleep,
           averageEfficiency,
+          sleepSummary,
+          rollupBuckets,
+          rollupGranularity,
+          rollupScope: sleepScope,
           onSelect: (session: SleepSession) => (selected = session),
         }}
       />
@@ -413,6 +511,7 @@
           onMonth={changeMonth}
         />
       </PeriodToolbar>
+      <SleepScopeSummary summary={sleepSummary} scope={sleepScope} />
       <section class="hero tile">
         <div class="hero-orb"></div>
         <div class="hero-topline">
@@ -471,19 +570,23 @@
 
       <section class="insight-strip" aria-label="Recent sleep context">
         <StatTile
-          label="Recent main sleep"
-          value={mainSleep.length.toLocaleString()}
-          sub="In the loaded recent window"
+          label="Main sleep"
+          value={(
+            sleepSummary?.main_sleep_count ?? loadedMainSleep.length
+          ).toLocaleString()}
+          sub="Canonical sessions in scope"
         />
         <StatTile
-          label="Average asleep"
-          value={formatDuration(averageAsleep)}
-          sub="Recent main-sleep sessions"
+          label="Naps"
+          value={(sleepSummary?.nap_count ?? 0).toLocaleString()}
+          sub="Separate from main sleep"
         />
         <StatTile
-          label="Average efficiency"
-          value={`${Math.round(averageEfficiency * 100)}%`}
-          sub="Asleep / time in bed"
+          label="Wake dates"
+          value={(
+            sleepSummary?.observed_wake_dates ?? loadedMainSleep.length
+          ).toLocaleString()}
+          sub="Distinct canonical dates"
         />
       </section>
 
@@ -506,7 +609,7 @@
               <div class="year-card">
                 <div class="year-heading">
                   <strong>{formatPeriod(bucket.period, "year")}</strong><span
-                    >{bucket.session_count} nights</span
+                    >{bucket.session_count} sessions</span
                   >
                 </div>
                 <div class="year-bar">
@@ -529,7 +632,7 @@
                   ? formatPeriod(focusedBucket.period, "month")
                   : selectedYear}</span
               ><strong
-                >{focusedBucket.session_count} nights · {formatDuration(
+                >{focusedBucket.session_count} sessions · {formatDuration(
                   focusedBucket.average_asleep_s,
                 )} average asleep</strong
               ><em
@@ -538,7 +641,7 @@
             </div>
           {/if}
           <div class="trend-legend">
-            <span><i class="dot dot-session"></i>Recorded nights</span><span
+            <span><i class="dot dot-session"></i>Recorded sessions</span><span
               >Average efficiency shown per year</span
             >
           </div>
@@ -616,7 +719,8 @@
             <p class="muted">Select a night to see the stage timeline.</p>
           </div>
           <span class="section-note"
-            >{sessions.length}{hasMore ? "+" : ""} nights in period</span
+            >{sessions.length}{hasMore ? "+" : ""} loaded · {sleepSummary?.session_count ??
+              sessions.length} total sessions</span
           >
         </header>
         <div class="night-layout">

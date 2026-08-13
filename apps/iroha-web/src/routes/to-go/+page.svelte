@@ -14,6 +14,7 @@
     type Task,
   } from "$lib/api";
   import { APP_VERSION } from "$lib/config";
+  import { formatDate } from "$lib/format";
 
   const today = new Date().toISOString().slice(0, 10);
   let openTasks = $state<Task[]>([]);
@@ -249,9 +250,9 @@
                     {task.due_date === today
                       ? "Today"
                       : (task.due_date ?? "No due date")}
-                    · p{task.priority} · {task.source} · added {new Date(
+                    · p{task.priority} · {task.source} · added {formatDate(
                       task.created_at,
-                    ).toLocaleDateString()}
+                    )}
                   </small>
                 </span>
               </li>
@@ -335,9 +336,9 @@
               <span class="task-copy">
                 <strong>{resolutionSummary(task)}</strong>
                 <small>
-                  {task.task_type.replaceAll("_", " ")} · added {new Date(
+                  {task.task_type.replaceAll("_", " ")} · added {formatDate(
                     task.created_at,
-                  ).toLocaleDateString()}
+                  )}
                 </small>
               </span>
               <span class="resolution-actions">
@@ -405,8 +406,7 @@
                     : `${statusLabel(job.status)} · ${job.attempts}/${job.max_attempts} attempts`}</small
                 ></span
               >
-              <time datetime={job.created_at}
-                >{new Date(job.created_at).toLocaleString()}</time
+              <time datetime={job.created_at}>{formatDate(job.created_at)}</time
               >
             </div>
           {/each}

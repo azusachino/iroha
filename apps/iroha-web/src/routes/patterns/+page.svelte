@@ -14,7 +14,10 @@
   } from "$lib/components/DailySmallMultiples.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import { formatDateOnly } from "$lib/format";
+  import {
+    formatDateOnly,
+    formatMonth as formatCanonicalMonth,
+  } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -76,7 +79,10 @@
     availableYears.map((year) => ({ value: year, label: year })),
   );
   const periodMonths = $derived(
-    monthsInScope.map((month) => ({ value: month, label: formatMonth(month) })),
+    monthsInScope.map((month) => ({
+      value: month,
+      label: formatCanonicalMonth(month),
+    })),
   );
   const scopedMonth = $derived(
     monthsInScope.includes(selectedMonth) ? selectedMonth : "",
@@ -88,7 +94,7 @@
       : gran === "month"
         ? scopedMonth || `${activeYear} · all months`
         : activeMonth
-          ? formatMonth(activeMonth)
+          ? formatCanonicalMonth(activeMonth)
           : "No month selected",
   );
 
@@ -147,19 +153,7 @@
   function fmtPeriod(iso: string): string {
     const d = new Date(iso);
     if (gran === "year") return String(d.getUTCFullYear());
-    return d.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      timeZone: "UTC",
-    });
-  }
-
-  function formatMonth(period: string): string {
-    return new Date(`${period}-01T00:00:00Z`).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-      timeZone: "UTC",
-    });
+    return formatCanonicalMonth(iso.slice(0, 7));
   }
   function dayToDisp(r: DailyRow): Disp {
     const ring = r.ring;
@@ -233,8 +227,8 @@
   const table = $derived([...chrono].reverse());
   const aggregated = $derived(gran !== "day");
 
-  function ser(pick: (d: Disp) => number | null): number[] {
-    return chrono.map((d) => pick(d) ?? Number.NaN);
+  function ser(pick: (d: Disp) => number | null): (number | null)[] {
+    return chrono.map((d) => pick(d));
   }
   const trendCharts = $derived.by<SmallMultiple[]>(() => [
     {
@@ -466,7 +460,7 @@
             {chrono.length}
             {gran}s in {gran === "year" ? "view" : activeYear} · per-day averages
           {:else}
-            {chrono.length} days in {formatMonth(activeMonth)}
+            {chrono.length} days in {formatCanonicalMonth(activeMonth)}
           {/if}
         </span>
         {#if rangeFrom && rangeTo}<span class="muted small"
