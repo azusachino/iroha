@@ -417,8 +417,9 @@ HTTP behavior is explicit:
 - `400 Bad Request`: malformed `month` or unknown IANA timezone.
 - `500 Internal Server Error`: any domain query, assembly, or serialization failure. A failed section never becomes a partial `200` response.
 
-The server loads timezone data from the image (`tzdata`) or the Go embedded timezone database and exposes `IROHA_TIMEZONE`, defaulting to `Asia/Tokyo`. The web sends the browser's IANA timezone
-explicitly; the CLI requires `--timezone` or `IROHA_TIMEZONE`.
+The server loads timezone data from the image (`tzdata`) or the Go embedded timezone database and exposes `IROHA_TIMEZONE`, defaulting to `Asia/Tokyo`. An omitted `timezone` resolves to that
+configured personal timezone on every period API, so the same month means the same thing on every surface. The web omits `timezone` and selects only a period; machine clients may still send an
+explicit IANA timezone, and every response carries the resolved zone back.
 
 The report API response is the only Iroha output. It is not posted to a Telegram chat, written to Valkey as a draft, or stored as a report artifact.
 
@@ -452,8 +453,9 @@ The private web application is the primary destination for the complete report b
 
 ```text
 user opens /reports
-  -> web chooses the current month in the browser's IANA timezone
-  -> GET /api/v1/reports/monthly?month=...&timezone=...
+  -> web chooses a month, not a timezone
+  -> GET /api/v1/reports/monthly?month=...
+  -> server resolves the configured personal timezone and echoes it in the envelope
   -> render period header and five independent section cards
   -> previous/next changes anchor and repeats the request
 ```

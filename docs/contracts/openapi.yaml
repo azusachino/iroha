@@ -508,7 +508,20 @@ paths:
           in: query
           schema:
             type: string
-            enum: [food, groceries, transport, shopping, housing, utilities, health, entertainment, subscriptions, work, other]
+            enum:
+              [
+                food,
+                groceries,
+                transport,
+                shopping,
+                housing,
+                utilities,
+                health,
+                entertainment,
+                subscriptions,
+                work,
+                other,
+              ]
       responses:
         "200":
           description: Active expense page ordered by occurred date descending.
@@ -1006,7 +1019,24 @@ components:
       type: object
       additionalProperties: false
       required:
-        [id, domain, label, description, kind, value_type, unit, short_unit, supported_grains, dimensions, reducer, rollup, aggregation_version, coverage_kind, semantic_color_token, preferred_view]
+        [
+          id,
+          domain,
+          label,
+          description,
+          kind,
+          value_type,
+          unit,
+          short_unit,
+          supported_grains,
+          dimensions,
+          reducer,
+          rollup,
+          aggregation_version,
+          coverage_kind,
+          semantic_color_token,
+          preferred_view,
+        ]
       properties:
         id: { type: string }
         domain: { type: string }
@@ -1225,7 +1255,24 @@ components:
         occurred_on: { type: string, format: date }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         amount_minor: { type: integer, format: int64, minimum: 1 }
-        category: { type: string, enum: [food, groceries, transport, shopping, housing, utilities, health, entertainment, subscriptions, work, other] }
+        category:
+          {
+            type: string,
+            enum:
+              [
+                food,
+                groceries,
+                transport,
+                shopping,
+                housing,
+                utilities,
+                health,
+                entertainment,
+                subscriptions,
+                work,
+                other,
+              ],
+          }
         merchant: { type: string, maxLength: 200 }
         note: { type: string, maxLength: 2000 }
         items:
@@ -1241,7 +1288,24 @@ components:
         occurred_on: { type: string, format: date }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         amount_minor: { type: integer, format: int64, minimum: 1 }
-        category: { type: string, enum: [food, groceries, transport, shopping, housing, utilities, health, entertainment, subscriptions, work, other] }
+        category:
+          {
+            type: string,
+            enum:
+              [
+                food,
+                groceries,
+                transport,
+                shopping,
+                housing,
+                utilities,
+                health,
+                entertainment,
+                subscriptions,
+                work,
+                other,
+              ],
+          }
         merchant: { type: string, maxLength: 200 }
         note: { type: string, maxLength: 2000 }
         items:
@@ -1251,17 +1315,49 @@ components:
     Expense:
       type: object
       additionalProperties: false
-      required: [id, occurred_on, currency, currency_exponent, amount_minor, category, merchant, note, items, source, created_at, updated_at]
+      required:
+        [
+          id,
+          occurred_on,
+          currency,
+          currency_exponent,
+          amount_minor,
+          category,
+          merchant,
+          note,
+          items,
+          source,
+          created_at,
+          updated_at,
+        ]
       properties:
         id: { type: string }
         occurred_on: { type: string, format: date }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         currency_exponent: { type: integer, enum: [0, 2] }
         amount_minor: { type: integer, format: int64 }
-        category: { type: string, enum: [food, groceries, transport, shopping, housing, utilities, health, entertainment, subscriptions, work, other] }
+        category:
+          {
+            type: string,
+            enum:
+              [
+                food,
+                groceries,
+                transport,
+                shopping,
+                housing,
+                utilities,
+                health,
+                entertainment,
+                subscriptions,
+                work,
+                other,
+              ],
+          }
         merchant: { type: string }
         note: { type: string }
-        items: { type: array, items: { $ref: "#/components/schemas/ExpenseItem" } }
+        items:
+          { type: array, items: { $ref: "#/components/schemas/ExpenseItem" } }
         source: { $ref: "#/components/schemas/ExpenseSource" }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -1288,7 +1384,8 @@ components:
           properties:
             movement: { $ref: "#/components/schemas/MovementReportSection" }
             sleep: { $ref: "#/components/schemas/SleepReportSection" }
-            daily_health: { $ref: "#/components/schemas/DailyHealthReportSection" }
+            daily_health:
+              { $ref: "#/components/schemas/DailyHealthReportSection" }
             media: { $ref: "#/components/schemas/MediaReportSection" }
             expenses: { $ref: "#/components/schemas/ExpensesReportSection" }
     ReportPeriod:
@@ -1308,21 +1405,40 @@ components:
       properties:
         schema: { type: string, const: monthly-report.movement.v1 }
         state: { type: string, enum: [available, empty] }
-        data: { oneOf: [{ $ref: "#/components/schemas/MovementReportData" }, { type: "null" }] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/MovementReportData" },
+                { type: "null" },
+              ],
+          }
     MovementReportData:
       type: object
       additionalProperties: false
-      required: [activity_count, distance_m, distance_activity_count, duration_s, by_sport]
+      required:
+        [
+          activity_count,
+          distance_m,
+          distance_activity_count,
+          duration_s,
+          by_sport,
+        ]
       properties:
         activity_count: { type: integer }
         distance_m: { type: number }
         distance_activity_count: { type: integer }
         duration_s: { type: integer }
-        by_sport: { type: array, items: { $ref: "#/components/schemas/MovementSportTotal" } }
+        by_sport:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MovementSportTotal" },
+          }
     MovementSportTotal:
       type: object
       additionalProperties: false
-      required: [sport, activity_count, distance_m, distance_activity_count, duration_s]
+      required:
+        [sport, activity_count, distance_m, distance_activity_count, duration_s]
       properties:
         sport: { type: string }
         activity_count: { type: integer }
@@ -1336,11 +1452,27 @@ components:
       properties:
         schema: { type: string, const: monthly-report.sleep.v1 }
         state: { type: string, enum: [available, empty] }
-        data: { oneOf: [{ $ref: "#/components/schemas/SleepReportData" }, { type: "null" }] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/SleepReportData" },
+                { type: "null" },
+              ],
+          }
     SleepReportData:
       type: object
       additionalProperties: false
-      required: [session_count, main_sleep_count, nap_count, average_asleep_s, average_time_in_bed_s, average_efficiency, stage_seconds]
+      required:
+        [
+          session_count,
+          main_sleep_count,
+          nap_count,
+          average_asleep_s,
+          average_time_in_bed_s,
+          average_efficiency,
+          stage_seconds,
+        ]
       properties:
         session_count: { type: integer }
         main_sleep_count: { type: integer }
@@ -1366,14 +1498,22 @@ components:
       properties:
         schema: { type: string, const: monthly-report.daily-health.v1 }
         state: { type: string, enum: [available, empty] }
-        data: { oneOf: [{ $ref: "#/components/schemas/DailyHealthReportData" }, { type: "null" }] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/DailyHealthReportData" },
+                { type: "null" },
+              ],
+          }
     DailyHealthReportData:
       type: object
       additionalProperties: false
       required: [observed_days, metric_averages]
       properties:
         observed_days: { type: integer }
-        metric_averages: { type: array, items: { $ref: "#/components/schemas/MetricAverage" } }
+        metric_averages:
+          { type: array, items: { $ref: "#/components/schemas/MetricAverage" } }
     MetricAverage:
       type: object
       additionalProperties: false
@@ -1390,18 +1530,41 @@ components:
       properties:
         schema: { type: string, const: monthly-report.media.v1 }
         state: { type: string, enum: [available, empty] }
-        data: { oneOf: [{ $ref: "#/components/schemas/MediaReportData" }, { type: "null" }] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/MediaReportData" },
+                { type: "null" },
+              ],
+          }
     MediaReportData:
       type: object
       additionalProperties: false
-      required: [event_count, completed_count, rated_count, average_rating, by_kind, completed_items]
+      required:
+        [
+          event_count,
+          completed_count,
+          rated_count,
+          average_rating,
+          by_kind,
+          completed_items,
+        ]
       properties:
         event_count: { type: integer }
         completed_count: { type: integer }
         rated_count: { type: integer }
         average_rating: { type: [number, "null"] }
-        by_kind: { type: array, items: { $ref: "#/components/schemas/MediaKindTotal" } }
-        completed_items: { type: array, items: { $ref: "#/components/schemas/MediaCompleted" } }
+        by_kind:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaKindTotal" },
+          }
+        completed_items:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaCompleted" },
+          }
     MediaKindTotal:
       type: object
       additionalProperties: false
@@ -1426,15 +1589,30 @@ components:
       properties:
         schema: { type: string, const: monthly-report.expenses.v1 }
         state: { type: string, enum: [available, empty] }
-        data: { oneOf: [{ $ref: "#/components/schemas/ExpensesReportData" }, { type: "null" }] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/ExpensesReportData" },
+                { type: "null" },
+              ],
+          }
     ExpensesReportData:
       type: object
       additionalProperties: false
       required: [expense_count, totals_by_currency, by_category]
       properties:
         expense_count: { type: integer }
-        totals_by_currency: { type: array, items: { $ref: "#/components/schemas/ExpenseCurrencyTotal" } }
-        by_category: { type: array, items: { $ref: "#/components/schemas/ExpenseCategoryTotal" } }
+        totals_by_currency:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/ExpenseCurrencyTotal" },
+          }
+        by_category:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/ExpenseCategoryTotal" },
+          }
     ExpenseCurrencyTotal:
       type: object
       additionalProperties: false
@@ -1447,7 +1625,8 @@ components:
     ExpenseCategoryTotal:
       type: object
       additionalProperties: false
-      required: [category, currency, currency_exponent, amount_minor, expense_count]
+      required:
+        [category, currency, currency_exponent, amount_minor, expense_count]
       properties:
         category: { type: string }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }

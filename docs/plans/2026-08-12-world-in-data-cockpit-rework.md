@@ -131,7 +131,8 @@ Acceptance:
 
 ### Phase 3 — report evolution without breaking v0.4
 
-Keep the current monthly report endpoint and schema through the v0.4 release gate. Refactor its internal contributors to use shared metric adapters only where the semantics match; retain typed rich sections for movement, sleep, media, and expenses.
+Keep the current monthly report endpoint and schema through the v0.4 release gate. Refactor its internal contributors to use shared metric adapters only where the semantics match; retain typed rich
+sections for movement, sleep, media, and expenses.
 
 Design the next additive report envelope:
 
@@ -140,7 +141,8 @@ ordered sections[]
 section key + schema + state + typed data
 ```
 
-The new envelope must support a new metric section without adding a field to a monolithic Go struct. It must still permit domain-specific sections such as completed media items and expense currency totals.
+The new envelope must support a new metric section without adding a field to a monolithic Go struct. It must still permit domain-specific sections such as completed media items and expense currency
+totals.
 
 Do not introduce weekly reports. The only period navigation in scope is month-by-month, with direct year and month selection.
 
@@ -159,7 +161,8 @@ Build shared frontend primitives around the stable series contract:
 - download/copy JSON or CSV for the displayed series;
 - table parity for exact values.
 
-Fix the existing category-color regression with a focused component test: ensure datum-level colors are not overwritten by series-level `itemStyle`. Add a color-token test for all six themes. Do not make the API return CSS values.
+Fix the existing category-color regression with a focused component test: ensure datum-level colors are not overwritten by series-level `itemStyle`. Add a color-token test for all six themes. Do not
+make the API return CSS values.
 
 ### Phase 5 — expense and report page architecture
 
@@ -266,16 +269,16 @@ Run the repository's normal `make check` and relevant web/server contract target
 
 ## Risks and mitigations
 
-| Risk | Mitigation |
-| --- | --- |
-| Generic metric API erases domain meaning | Keep typed domain APIs and adapter-owned semantics |
-| Metadata becomes stale | Version definitions and aggregation methods; test registry exhaustiveness |
-| Charts look colorful but mislead | Unit/coverage/method in response and tooltip; table parity |
-| Six themes collapse into palettes | Separate page components and visual contract tests |
-| More metrics recreate tab overload | Domain navigation plus metric search/shelf; no metric top tabs |
-| Materialized values become stale | On-demand first; measured storage decision later |
-| OWID inspiration becomes code copying | Use concepts only; do not copy source or licensed implementation |
-| API v0.4 destabilizes late | Additive endpoints and preserve current monthly contract through release |
+| Risk                                     | Mitigation                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| Generic metric API erases domain meaning | Keep typed domain APIs and adapter-owned semantics                        |
+| Metadata becomes stale                   | Version definitions and aggregation methods; test registry exhaustiveness |
+| Charts look colorful but mislead         | Unit/coverage/method in response and tooltip; table parity                |
+| Six themes collapse into palettes        | Separate page components and visual contract tests                        |
+| More metrics recreate tab overload       | Domain navigation plus metric search/shelf; no metric top tabs            |
+| Materialized values become stale         | On-demand first; measured storage decision later                          |
+| OWID inspiration becomes code copying    | Use concepts only; do not copy source or licensed implementation          |
+| API v0.4 destabilizes late               | Additive endpoints and preserve current monthly contract through release  |
 
 ## First implementation slice after approval
 

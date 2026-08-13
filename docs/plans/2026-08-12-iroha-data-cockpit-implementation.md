@@ -594,7 +594,8 @@ Acceptance:
 
 ## 11. Phase 7 — monthly report cockpit
 
-Refactor apps/iroha-web/src/routes/reports/+page.svelte into a controller owning month URL state, timezone display, report request, stable MonthlyReportPageModel, and section states.
+Refactor apps/iroha-web/src/routes/reports/+page.svelte into a controller owning month URL state, report request, stable MonthlyReportPageModel, and section states. The client selects only a month;
+the server resolves the configured personal timezone and returns it in the envelope for semantic transparency. There is no web timezone control.
 
 Remove the current six-month eager request. Initially request selected and previous month only; load more history only when a visible chart requires it.
 

@@ -14,10 +14,10 @@
     {
       "dimensions": {},
       "points": [
-        {"period": "2026-01", "value": 120000, "observed_days": 20},
-        {"period": "2026-02", "value": null, "observed_days": 0}
+        { "period": "2026-01", "value": 120000, "observed_days": 20 },
+        { "period": "2026-02", "value": null, "observed_days": 0 }
       ],
-      "coverage": {"expected_periods": 2, "observed_periods": 1},
+      "coverage": { "expected_periods": 2, "observed_periods": 1 },
       "source": {
         "kind": "canonical",
         "method": "health.steps.v1",
