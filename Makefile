@@ -14,7 +14,7 @@ PRIVACY ?= 0
 MEDIA_BRIDGE_OUT := ./dist/media-bridge
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
@@ -124,6 +124,9 @@ fmt-docs-check: ## Fail if any doc/config file is unformatted
 ## --- Aggregate gates ---
 check: fmt-check vet lint test contract-check scripts-test web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + web checks
 validate: check build web-build ## Pre-PR gate: check + full server and web builds
+
+release-candidate: ## Isolated DB integration + seeded production runtime/browser gate
+	$(TOOL_ENV) uv run python scripts/release_candidate.py
 
 ## --- Dev stack (Podman Compose via uv scripts) ---
 dev-up: ## Start the complete local stack and apply migrations

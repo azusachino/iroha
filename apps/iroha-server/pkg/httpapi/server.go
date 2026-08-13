@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"net"
 	"net/http"
@@ -37,7 +38,12 @@ import (
 // clear of normal browsing/history-wide sweeps accordingly.
 const apiRateLimitPerMin = 6000
 
-const readCacheTTL = 24 * time.Hour
+const (
+	readCacheTTL   = 24 * time.Hour
+	readyzTimeout  = 2 * time.Second
+	statusReady    = "ready"
+	statusNotReady = "not_ready"
+)
 
 type Dependencies struct {
 	Config                 config.Config
@@ -58,6 +64,7 @@ type Dependencies struct {
 	JobEnqueuer            imports.Enqueuer
 	JobsService            *jobs.Service
 	TaskService            *tasks.Service
+	ReadyCheck             func(context.Context) error
 	MaxUploadBytes         int64
 	AllowedOrigins         []string
 }
@@ -103,6 +110,7 @@ func (s *Server) routes() {
 	s.mux.Use(s.accessLog)
 
 	s.mux.Get("/healthz", s.handleHealthz)
+	s.mux.Get("/readyz", s.handleReadyz)
 	s.mux.Route("/api/v1", func(r chi.Router) {
 		// Private API: CORS limited to configured origins. Unauthenticated —
 		// see the rate-limit budget comment above for why.
@@ -325,4 +333,19 @@ func (s *Server) accessLog(next http.Handler) http.Handler {
 
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
+	if s.deps.ReadyCheck == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": statusNotReady})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), readyzTimeout)
+	defer cancel()
+	if err := s.deps.ReadyCheck(ctx); err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": statusNotReady})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": statusReady})
 }

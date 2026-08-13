@@ -35,6 +35,32 @@ paths:
                   status:
                     type: string
                     const: ok
+  /readyz:
+    get:
+      tags: [system]
+      responses:
+        "200":
+          description: Server is ready to serve data.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ready
+        "503":
+          description: A required server dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: not_ready
   /api/v1/briefing:
     get:
       tags: [system]

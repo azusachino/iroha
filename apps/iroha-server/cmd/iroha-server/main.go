@@ -119,8 +119,15 @@ func main() {
 		JobEnqueuer:            enqueuer,
 		JobsService:            jobsService,
 		TaskService:            taskService,
-		MaxUploadBytes:         2 << 30,
-		AllowedOrigins:         cfg.Server.AllowedOrigins,
+		ReadyCheck: func(ctx context.Context) error {
+			sqlDB, err := db.DB()
+			if err != nil {
+				return err
+			}
+			return sqlDB.PingContext(ctx)
+		},
+		MaxUploadBytes: 2 << 30,
+		AllowedOrigins: cfg.Server.AllowedOrigins,
 	})
 
 	logger.Info("starting iroha-server", "addr", cfg.Server.Addr)

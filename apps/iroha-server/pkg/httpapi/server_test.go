@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +13,53 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 )
+
+func TestHealthzIsProcessLiveness(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	NewServer(Dependencies{}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+}
+
+func TestReadyzRequiresAndChecksDatabase(t *testing.T) {
+	withoutCheck := httptest.NewRecorder()
+	NewServer(Dependencies{}).ServeHTTP(withoutCheck, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if withoutCheck.Code != http.StatusServiceUnavailable {
+		t.Fatalf("without check status = %d, want %d", withoutCheck.Code, http.StatusServiceUnavailable)
+	}
+
+	called := false
+	hasDeadline := false
+	server := NewServer(Dependencies{ReadyCheck: func(ctx context.Context) error {
+		called = true
+		_, hasDeadline = ctx.Deadline()
+		return nil
+	}})
+	ready := httptest.NewRecorder()
+	server.ServeHTTP(ready, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if ready.Code != http.StatusOK || !called || !hasDeadline {
+		t.Fatalf("ready response = %d, called = %t, deadline = %t", ready.Code, called, hasDeadline)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(ready.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body["status"] != "ready" {
+		t.Fatalf("ready body = %v", body)
+	}
+}
+
+func TestReadyzReportsDatabaseFailure(t *testing.T) {
+	server := NewServer(Dependencies{ReadyCheck: func(context.Context) error {
+		return errors.New("database unavailable")
+	}})
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+}
 
 func TestPrivateCORSAllowsMutationPreflight(t *testing.T) {
 	handler := corsMiddleware([]string{"https://app.example"})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

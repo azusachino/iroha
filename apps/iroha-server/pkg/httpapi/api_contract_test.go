@@ -56,6 +56,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/sleep/{sleepId}/segments",
 		"GET /api/v1/tasks",
 		"GET /healthz",
+		"GET /readyz",
 		"PATCH /api/v1/media/resolution-tasks/{taskId}",
 		"PATCH /api/v1/tasks/{taskId}",
 		"POST /api/v1/actions/{action}",
