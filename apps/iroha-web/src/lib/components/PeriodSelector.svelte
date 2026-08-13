@@ -111,7 +111,7 @@
     >
       <option value="">All months</option>
       {#each months as option (option.value)}
-        <option value={option.value}>{option.label}</option>
+        <option value={option.value}>{monthOptionLabel(option)}</option>
       {/each}
     </select>
   </label>

@@ -8,7 +8,6 @@
   import { onMount } from "svelte";
   import { BarChart as EchartsBarChart, LineChart } from "echarts/charts";
   import {
-    AriaComponent,
     GridComponent,
     LegendComponent,
     TooltipComponent,
@@ -21,7 +20,6 @@
   use([
     EchartsBarChart,
     LineChart,
-    AriaComponent,
     GridComponent,
     LegendComponent,
     TooltipComponent,
@@ -158,10 +156,11 @@
           return `${params[0]?.axisValue}<br/>${rows.join("<br/>")}`;
         },
       },
-      // Keep ECharts' semantic accessibility metadata without applying a
-      // permanent hatch texture to every bar. Themes already provide a
-      // semantic palette and this chart has tooltip/table parity.
-      aria: { enabled: true },
+      // ECharts' generated description turns null gaps into the literal
+      // string "NaN". The surrounding component supplies a stable image
+      // label, and chart/table views expose the exact values without
+      // manufacturing observations for missing periods.
+      aria: { enabled: false },
       xAxis: orientation === "horizontal" ? valueAxis : categoryAxis,
       yAxis: orientation === "horizontal" ? categoryAxis : valueAxis,
       series: [
