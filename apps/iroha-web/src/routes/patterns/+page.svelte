@@ -83,7 +83,7 @@
   const activeMonth = $derived(scopedMonth || monthsInScope[0] || "");
   const periodLabel = $derived(
     gran === "year"
-      ? scopedYear || "All years"
+      ? scopedYear || "Lifetime"
       : gran === "month"
         ? scopedMonth || `${activeYear} · all months`
         : activeMonth

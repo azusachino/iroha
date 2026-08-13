@@ -20,6 +20,7 @@
     formatHr,
     formatElevation,
   } from "$lib/format";
+  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import { sportColor, sportLabel } from "$lib/sport";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -408,24 +409,16 @@
             {/each}
           </select>
         </label>
-        <label
-          >Year
-          <select bind:value={selectedYear} onchange={handleYearChange}>
-            <option value="">All years</option>
-            {#each years as year}
-              <option value={year}>{year}</option>
-            {/each}
-          </select>
-        </label>
-        <label
-          >Month
-          <select bind:value={selectedMonth} disabled={!selectedYear}>
-            <option value="">All months</option>
-            {#each months as month}
-              <option value={month.value}>{month.label}</option>
-            {/each}
-          </select>
-        </label>
+        <PeriodSelector
+          year={selectedYear}
+          month={selectedMonth}
+          {years}
+          {months}
+          monthDisabled={!selectedYear}
+          appearance="inline"
+          onYear={handleYearChange}
+          onMonth={handleMonthChange}
+        />
       </div>
       <div class="toolbar-actions">
         <button type="button" class="secondary" onclick={clear}

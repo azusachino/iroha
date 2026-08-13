@@ -85,6 +85,7 @@
       {years}
       {months}
       monthDisabled={!selectedYear}
+      appearance="inline"
       {onYear}
       {onMonth}
     />

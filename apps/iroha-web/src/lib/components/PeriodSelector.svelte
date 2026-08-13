@@ -8,6 +8,7 @@
     months,
     monthDisabled = false,
     showAllYears = true,
+    appearance = "panel",
     onYear,
     onMonth,
   }: {
@@ -17,6 +18,7 @@
     months: PeriodOption[];
     monthDisabled?: boolean;
     showAllYears?: boolean;
+    appearance?: "panel" | "inline";
     onYear: (value: string) => void;
     onMonth: (value: string) => void;
   } = $props();
@@ -28,7 +30,12 @@
   );
 </script>
 
-<div class="period-controls" aria-label="Period filters">
+<div
+  class:panel={appearance === "panel"}
+  class:inline={appearance === "inline"}
+  class="period-controls"
+  aria-label="Period filters"
+>
   <label>
     <span>Year</span>
     <select
@@ -37,7 +44,7 @@
       onchange={(event) =>
         onYear((event.currentTarget as HTMLSelectElement).value)}
     >
-      {#if showAllYears}<option value="">All years</option>{/if}
+      {#if showAllYears}<option value="">Lifetime</option>{/if}
       {#each yearOptions as option (option.value)}
         <option value={option.value}>{option.label}</option>
       {/each}
@@ -66,11 +73,21 @@
     flex-wrap: wrap;
     align-items: end;
     gap: 0.75rem;
+  }
+
+  .period-controls.panel {
     padding: 0.65rem 0.8rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--tile-surface);
     box-shadow: var(--tile-shadow);
+  }
+
+  .period-controls.inline {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   label {
