@@ -8,7 +8,7 @@
     type MetricSeriesResponse,
     type MonthlyReport,
   } from "$lib/api";
-  import MonthNavigator from "@iroha/shared/MonthNavigator.svelte";
+  import ThemeMonthNavigator from "$lib/themes/ThemeMonthNavigator.svelte";
   import {
     currentMonth,
     formatMonth,
@@ -207,7 +207,7 @@
       <span>Period</span>
       <strong>Monthly cross-domain report</strong>
     </div>
-    <MonthNavigator {month} onMonth={moveMonth} disabled={loading} />
+    <ThemeMonthNavigator {month} onMonth={moveMonth} disabled={loading} />
   </section>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if loading}<p class="muted">

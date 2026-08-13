@@ -72,6 +72,7 @@ import ArchiveReports from "$lib/themes/archive/Reports.svelte";
 const registry = defineThemeRegistry<Component<any>>({
   atlas: {
     implementation: "curated",
+    primitives: { periodControl: { appearance: "atlas" } },
     components: {
       shell: AtlasShell,
       today: AtlasToday,
@@ -88,6 +89,7 @@ const registry = defineThemeRegistry<Component<any>>({
   },
   grapher: {
     implementation: "curated",
+    primitives: { periodControl: { appearance: "grapher" } },
     components: {
       shell: GrapherShell,
       today: GrapherToday,
@@ -100,6 +102,7 @@ const registry = defineThemeRegistry<Component<any>>({
   },
   "field-journal": {
     implementation: "curated",
+    primitives: { periodControl: { appearance: "field-journal" } },
     components: {
       shell: FieldJournalShell,
       today: FieldJournalToday,
@@ -116,6 +119,7 @@ const registry = defineThemeRegistry<Component<any>>({
   },
   phenology: {
     implementation: "curated",
+    primitives: { periodControl: { appearance: "phenology" } },
     components: {
       shell: PhenologyShell,
       today: PhenologyToday,
@@ -132,6 +136,7 @@ const registry = defineThemeRegistry<Component<any>>({
   },
   "sound-map": {
     implementation: "curated",
+    primitives: { periodControl: { appearance: "sound-map" } },
     components: {
       shell: SoundMapShell,
       today: SoundMapToday,
@@ -148,6 +153,7 @@ const registry = defineThemeRegistry<Component<any>>({
   },
   archive: {
     implementation: "curated",
+    primitives: { periodControl: { appearance: "archive" } },
     components: {
       shell: ArchiveShell,
       today: ArchiveToday,

@@ -17,6 +17,14 @@ describe("Iroha theme registry", () => {
     ]);
   });
 
+  it("requires every theme to own its period control appearance", () => {
+    expect(
+      THEME_DEFINITIONS.map(
+        (theme) => theme.primitives.periodControl.appearance,
+      ),
+    ).toEqual(THEME_DEFINITIONS.map((theme) => theme.identity.id));
+  });
+
   it("distinguishes complete and preview renderer sets", () => {
     expect(THEME_DEFINITIONS.every((theme) => theme.components?.shell)).toBe(
       true,

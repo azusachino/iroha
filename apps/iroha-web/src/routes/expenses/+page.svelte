@@ -12,7 +12,7 @@
     type ExpenseCurrency,
     type MetricSeriesResponse,
   } from "$lib/api";
-  import MonthNavigator from "@iroha/shared/MonthNavigator.svelte";
+  import ThemeMonthNavigator from "$lib/themes/ThemeMonthNavigator.svelte";
   import { currentMonth, monthBounds } from "@iroha/shared/month";
   import type { ExpenseThemeProps } from "$lib/expense-view";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -289,7 +289,7 @@
       <span>Period</span>
       <strong>Monthly ledger scope</strong>
     </div>
-    <MonthNavigator {month} onMonth={selectMonth} disabled={loading} />
+    <ThemeMonthNavigator {month} onMonth={selectMonth} disabled={loading} />
   </section>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   <div class="filters panel" aria-label="Expense filters">

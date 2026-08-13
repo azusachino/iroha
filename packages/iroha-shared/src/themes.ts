@@ -73,14 +73,28 @@ export const THEME_IDENTITIES = {
   },
 } as const satisfies Record<DesignLanguage, ThemeIdentity>;
 
-export type ThemeImplementation<Component> = {
+export type ThemePrimitives<Language extends DesignLanguage = DesignLanguage> =
+  {
+    periodControl: { appearance: Language };
+  };
+
+export type ThemeImplementation<
+  Component,
+  Language extends DesignLanguage = DesignLanguage,
+> = {
   implementation: ThemeImplementationStatus;
+  primitives: ThemePrimitives<Language>;
   components: Partial<Record<ThemeRoute, Component>> & { shell: Component };
+};
+
+export type ThemeImplementations<Component> = {
+  [Language in DesignLanguage]: ThemeImplementation<Component, Language>;
 };
 
 export type ThemeDefinition<Component> = {
   identity: ThemeIdentity;
   implementation: ThemeImplementationStatus;
+  primitives: ThemePrimitives;
   routes: readonly ThemeRoute[];
   components: Partial<Record<ThemeRoute, Component>> & { shell: Component };
 };
@@ -92,7 +106,7 @@ export type ThemeRegistry<Component> = {
 };
 
 export function defineThemeRegistry<Component>(
-  implementations: Record<DesignLanguage, ThemeImplementation<Component>>,
+  implementations: ThemeImplementations<Component>,
 ): ThemeRegistry<Component> {
   const definitions = THEME_IDS.map((id) => {
     const entry = implementations[id];
@@ -107,6 +121,7 @@ export function defineThemeRegistry<Component>(
     return {
       identity: THEME_IDENTITIES[id],
       implementation: entry.implementation,
+      primitives: entry.primitives,
       routes,
       components: entry.components,
     };
