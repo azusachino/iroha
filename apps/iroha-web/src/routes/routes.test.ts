@@ -21,6 +21,7 @@ describe("cockpit route layout", () => {
     expect(routePages["./to-go/+page.svelte"]).toBeDefined();
     expect(routePages["./expenses/+page.svelte"]).toBeDefined();
     expect(routePages["./reports/+page.svelte"]).toBeDefined();
+    expect(routePages["./metrics/+page.svelte"]).toBeDefined();
   });
 
   it("keeps the old page URLs as redirects", () => {

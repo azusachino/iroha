@@ -20,6 +20,7 @@ export const THEME_ROUTES = [
   "media-detail",
   "expenses",
   "reports",
+  "metrics",
 ] as const;
 
 export type ThemeRoute = (typeof THEME_ROUTES)[number];

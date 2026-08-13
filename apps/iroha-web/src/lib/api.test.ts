@@ -222,6 +222,12 @@ describe("control room API", () => {
     );
     expect(getCapturedUrl()).toContain("dimension=currency%3AJPY");
     expect(getCapturedUrl()).toContain("dimension=category%3Afood");
+    await getMetricSeries(
+      "health.steps",
+      { from: "2026-01-01", to: "2026-02-01", grain: "month" },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).not.toContain("timezone=");
   });
 });
 

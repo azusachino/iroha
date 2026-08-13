@@ -169,5 +169,8 @@ describe("Iroha theme registry", () => {
     expect(
       THEME_DEFINITIONS.every((theme) => hasThemeRoute(theme, "reports")),
     ).toBe(true);
+    expect(
+      THEME_DEFINITIONS.every((theme) => hasThemeRoute(theme, "metrics")),
+    ).toBe(true);
   });
 });

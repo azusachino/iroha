@@ -519,8 +519,8 @@ export function getMetricSeries(
     from: params.from,
     to: params.to,
     grain: params.grain,
-    timezone: params.timezone ?? "UTC",
   });
+  if (params.timezone) query.set("timezone", params.timezone);
   for (const dimension of params.dimensions ?? []) {
     query.append("dimension", dimension);
   }

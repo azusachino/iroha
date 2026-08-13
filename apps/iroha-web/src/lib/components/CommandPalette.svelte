@@ -64,7 +64,7 @@
         ...allNavigationItems(),
         ...catalog.metrics.map((metric) => ({
           label: metric.label,
-          href: `/patterns?metric=${encodeURIComponent(metric.id)}`,
+          href: `/metrics?metric=${encodeURIComponent(metric.id)}`,
           hint: `${metric.domain} · ${metric.unit}`,
         })),
       ];

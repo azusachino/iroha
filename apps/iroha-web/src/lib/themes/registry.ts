@@ -68,6 +68,12 @@ import FieldJournalReports from "$lib/themes/field-journal/Reports.svelte";
 import PhenologyReports from "$lib/themes/phenology/Reports.svelte";
 import SoundMapReports from "$lib/themes/sound-map/Reports.svelte";
 import ArchiveReports from "$lib/themes/archive/Reports.svelte";
+import AtlasMetrics from "$lib/themes/atlas/Metrics.svelte";
+import GrapherMetrics from "$lib/themes/grapher/Metrics.svelte";
+import FieldJournalMetrics from "$lib/themes/field-journal/Metrics.svelte";
+import PhenologyMetrics from "$lib/themes/phenology/Metrics.svelte";
+import SoundMapMetrics from "$lib/themes/sound-map/Metrics.svelte";
+import ArchiveMetrics from "$lib/themes/archive/Metrics.svelte";
 
 const registry = defineThemeRegistry<Component<any>>({
   atlas: {
@@ -85,6 +91,7 @@ const registry = defineThemeRegistry<Component<any>>({
       dashboard: AtlasDashboard,
       expenses: AtlasExpenses,
       reports: AtlasReports,
+      metrics: AtlasMetrics,
     },
   },
   grapher: {
@@ -98,6 +105,7 @@ const registry = defineThemeRegistry<Component<any>>({
       sleep: GrapherSleep,
       expenses: GrapherExpenses,
       reports: GrapherReports,
+      metrics: GrapherMetrics,
     },
   },
   "field-journal": {
@@ -115,6 +123,7 @@ const registry = defineThemeRegistry<Component<any>>({
       dashboard: FieldJournalDashboard,
       expenses: FieldJournalExpenses,
       reports: FieldJournalReports,
+      metrics: FieldJournalMetrics,
     },
   },
   phenology: {
@@ -132,6 +141,7 @@ const registry = defineThemeRegistry<Component<any>>({
       dashboard: PhenologyDashboard,
       expenses: PhenologyExpenses,
       reports: PhenologyReports,
+      metrics: PhenologyMetrics,
     },
   },
   "sound-map": {
@@ -149,6 +159,7 @@ const registry = defineThemeRegistry<Component<any>>({
       dashboard: SoundMapDashboard,
       expenses: SoundMapExpenses,
       reports: SoundMapReports,
+      metrics: SoundMapMetrics,
     },
   },
   archive: {
@@ -166,6 +177,7 @@ const registry = defineThemeRegistry<Component<any>>({
       dashboard: ArchiveDashboard,
       expenses: ArchiveExpenses,
       reports: ArchiveReports,
+      metrics: ArchiveMetrics,
     },
   },
 });
