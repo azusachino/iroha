@@ -4,6 +4,7 @@ import {
   type ThemeDefinition,
   type ThemeImplementationStatus,
 } from "$lib/themes/types";
+import { THEME_IDENTITIES, isDesignLanguage } from "@iroha/shared/themes";
 import GrapherActivities from "$lib/themes/grapher/Activities.svelte";
 import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
 import GrapherShell from "$lib/themes/grapher/Shell.svelte";
@@ -69,10 +70,7 @@ import ArchiveReports from "$lib/themes/archive/Reports.svelte";
 
 export const THEME_DEFINITIONS = [
   {
-    id: "atlas",
-    label: "Iroha Atlas",
-    hint: "places and routes",
-    description: "A cartographic language for movement, places, and distance.",
+    ...THEME_IDENTITIES.atlas,
     implementation: "curated",
     routes: [
       "today",
@@ -101,10 +99,7 @@ export const THEME_DEFINITIONS = [
     },
   },
   {
-    id: "grapher",
-    label: "Iroha Grapher",
-    hint: "trends and comparisons",
-    description: "An evidence-first language for comparison and change.",
+    ...THEME_IDENTITIES.grapher,
     implementation: "curated",
     routes: ["today", "daily", "activities", "sleep", "expenses", "reports"],
     components: {
@@ -118,11 +113,7 @@ export const THEME_DEFINITIONS = [
     },
   },
   {
-    id: "field-journal",
-    label: "Iroha Field Journal",
-    hint: "days and evidence",
-    description:
-      "A dated, observational language for entries, continuity, and the shape of a day.",
+    ...THEME_IDENTITIES["field-journal"],
     implementation: "curated",
     routes: [
       "today",
@@ -151,11 +142,7 @@ export const THEME_DEFINITIONS = [
     },
   },
   {
-    id: "phenology",
-    label: "Iroha Phenology",
-    hint: "sleep and seasons",
-    description:
-      "A cyclical language for recovery, rest, and unfolding patterns.",
+    ...THEME_IDENTITIES.phenology,
     implementation: "curated",
     routes: [
       "today",
@@ -184,10 +171,7 @@ export const THEME_DEFINITIONS = [
     },
   },
   {
-    id: "sound-map",
-    label: "Iroha Sound Map",
-    hint: "rhythm and intensity",
-    description: "A rhythmic language for cadence, intensity, and flow.",
+    ...THEME_IDENTITIES["sound-map"],
     implementation: "curated",
     routes: [
       "today",
@@ -216,10 +200,7 @@ export const THEME_DEFINITIONS = [
     },
   },
   {
-    id: "archive",
-    label: "Iroha Archive",
-    hint: "media and history",
-    description: "A chronological language for collections and memory.",
+    ...THEME_IDENTITIES.archive,
     // Cast (rather than a bare literal) so `as const` below doesn't narrow
     // every entry's `implementation` to the literal "curated" -- that would
     // make `=== "preview"` checks elsewhere (registry.test.ts,
@@ -254,11 +235,7 @@ export const THEME_DEFINITIONS = [
   },
 ] as const satisfies readonly ThemeDefinition[];
 
-export function isDesignLanguage(
-  value: string | null | undefined,
-): value is DesignLanguage {
-  return THEME_DEFINITIONS.some((theme) => theme.id === value);
-}
+export { isDesignLanguage };
 
 export function getThemeDefinition(language: DesignLanguage): ThemeDefinition {
   const theme = THEME_DEFINITIONS.find((item) => item.id === language);
