@@ -3,6 +3,7 @@
 package daily
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -12,6 +13,41 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+func TestMetricValuesReadsCanonicalSummaryMetrics(t *testing.T) {
+	db := openDailyIntegrationDB(t)
+	rawID := uuid.New()
+	createdAt := time.Now().UTC()
+	raw := models.RawFile{ID: rawID, SHA256: "daily-metric-values-" + rawID.String(), OriginalFilename: "daily.xml", StoragePath: "/tmp/daily.xml", SourceKind: "test", UploadedVia: "test", CreatedAt: createdAt}
+	if err := db.Create(&raw).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	t.Cleanup(func() { db.Delete(&models.RawFile{}, "id = ?", rawID) })
+
+	day := time.Date(2098, time.February, 2, 0, 0, 0, 0, time.UTC)
+	summary := models.DailySummary{ID: uuid.New(), Day: day, MoveKcal: 500, ExerciseMin: 30, StandHours: 10, Source: "test", FirstRawFileID: rawID, CreatedAt: createdAt, UpdatedAt: createdAt}
+	if err := db.Create(&summary).Error; err != nil {
+		t.Fatalf("create daily summary: %v", err)
+	}
+	t.Cleanup(func() { db.Delete(&models.DailySummary{}, "id = ?", summary.ID) })
+
+	for metric, want := range map[string]struct {
+		value float64
+		unit  string
+	}{
+		"move_kcal":    {value: 500, unit: "kcal"},
+		"exercise_min": {value: 30, unit: "min"},
+		"stand_hours":  {value: 10, unit: "h"},
+	} {
+		values, err := NewService(db).MetricValues(context.Background(), metric, day, day.AddDate(0, 0, 1))
+		if err != nil {
+			t.Fatalf("%s values: %v", metric, err)
+		}
+		if len(values) != 1 || values[0].Day.Format("2006-01-02") != "2098-02-02" || values[0].Value != want.value || values[0].Unit != want.unit || values[0].Source != "test" {
+			t.Fatalf("%s values = %+v", metric, values)
+		}
+	}
+}
 
 func TestPeriodReportGroupsSparseMetricsAndCountsUnionDays(t *testing.T) {
 	db := openDailyIntegrationDB(t)

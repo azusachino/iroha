@@ -152,12 +152,33 @@ func NewService(db *gorm.DB) *Service {
 
 func (s *Service) MetricValues(ctx context.Context, metric string, from, to time.Time) ([]MetricValue, error) {
 	var values []MetricValue
+	if column, unit, ok := summaryMetricColumn(metric); ok {
+		err := s.db.WithContext(ctx).Table("tb_daily_summaries").
+			Select("day, "+column+" as value, ? as unit, source", unit).
+			Where("day >= ? and day < ?", from, to).
+			Order("day asc").
+			Scan(&values).Error
+		return values, err
+	}
 	err := s.db.WithContext(ctx).Table("tb_daily_metrics").
 		Select("day, value, unit, source").
 		Where("metric = ? and day >= ? and day < ?", metric, from, to).
 		Order("day asc").
 		Scan(&values).Error
 	return values, err
+}
+
+func summaryMetricColumn(metric string) (string, string, bool) {
+	switch metric {
+	case "move_kcal":
+		return "move_kcal", "kcal", true
+	case "exercise_min":
+		return "exercise_min", "min", true
+	case "stand_hours":
+		return "stand_hours", "h", true
+	default:
+		return "", "", false
+	}
 }
 
 func (s *Service) List(filters ListFilters) (Page, error) {

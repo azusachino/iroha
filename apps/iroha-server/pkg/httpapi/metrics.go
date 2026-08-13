@@ -40,7 +40,7 @@ func (s *Server) handleMetricSeries(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "metric series service unavailable")
 		return
 	}
-	request, ok := parseMetricSeriesRequest(w, r)
+	request, ok := s.parseMetricSeriesRequest(w, r)
 	if !ok {
 		return
 	}
@@ -60,7 +60,7 @@ func (s *Server) handleMetricSeries(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, series)
 }
 
-func parseMetricSeriesRequest(w http.ResponseWriter, r *http.Request) (metricseries.Request, bool) {
+func (s *Server) parseMetricSeriesRequest(w http.ResponseWriter, r *http.Request) (metricseries.Request, bool) {
 	query := r.URL.Query()
 	from, err := time.Parse("2006-01-02", query.Get("from"))
 	if err != nil {
@@ -79,7 +79,7 @@ func parseMetricSeriesRequest(w http.ResponseWriter, r *http.Request) (metricser
 	}
 	timezone := query.Get("timezone")
 	if timezone == "" {
-		timezone = "UTC"
+		timezone = s.deps.Config.Server.Timezone
 	}
 	location, err := time.LoadLocation(timezone)
 	if err != nil {

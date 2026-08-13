@@ -68,6 +68,9 @@ type Server struct {
 }
 
 func NewServer(deps Dependencies) http.Handler {
+	if deps.Config.Server.Timezone == "" {
+		deps.Config.Server.Timezone = config.Default().Server.Timezone
+	}
 	if deps.Logger == nil {
 		deps.Logger = slog.Default()
 	}

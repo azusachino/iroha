@@ -113,11 +113,11 @@ func (s *Service) Series(ctx context.Context, request Request) (metrics.Series, 
 	for _, selection := range selections {
 		var dimensionSeries metrics.DimensionSeries
 		switch request.MetricID {
-		case "health.steps":
+		case "health.distance_km", "health.exercise_min", "health.flights", "health.hrv_sdnn", "health.move_kcal", "health.resting_hr", "health.stand_hours", "health.steps":
 			if s.daily == nil || len(selection) != 0 {
 				return metrics.Series{}, ErrInvalidRequest
 			}
-			values, err := s.daily.MetricValues(ctx, "steps", request.From, request.To)
+			values, err := s.daily.MetricValues(ctx, request.MetricID[len("health."):], request.From, request.To)
 			if err != nil {
 				return metrics.Series{}, err
 			}
@@ -243,12 +243,12 @@ func activityDimensionSeries(periods []string, values []ActivityMetricValue, def
 		if !ok {
 			continue
 		}
-		period := dateInLocation(activity.StartedAt, request.Timezone).Format("2006-01-02")
+		period := instantDateInLocation(activity.StartedAt, request.Timezone).Format("2006-01-02")
 		switch request.Grain {
 		case "month":
-			period = dateInLocation(activity.StartedAt, request.Timezone).Format("2006-01")
+			period = instantDateInLocation(activity.StartedAt, request.Timezone).Format("2006-01")
 		case "year":
-			period = dateInLocation(activity.StartedAt, request.Timezone).Format("2006")
+			period = instantDateInLocation(activity.StartedAt, request.Timezone).Format("2006")
 		}
 		bucket, ok := buckets[period]
 		if !ok {
@@ -256,7 +256,7 @@ func activityDimensionSeries(periods []string, values []ActivityMetricValue, def
 		}
 		bucket.sum += value
 		bucket.count++
-		bucket.days[dateInLocation(activity.StartedAt, request.Timezone).Format("2006-01-02")] = struct{}{}
+		bucket.days[instantDateInLocation(activity.StartedAt, request.Timezone).Format("2006-01-02")] = struct{}{}
 	}
 	points := make([]metrics.Point, 0, len(periods))
 	for _, period := range periods {
@@ -423,19 +423,19 @@ func mediaDimensionSeries(periods []string, values []MediaMetricValue, definitio
 		if !ok || media.MediaKind != kind {
 			continue
 		}
-		period := dateInLocation(media.CompletedAt, request.Timezone).Format("2006-01-02")
+		period := instantDateInLocation(media.CompletedAt, request.Timezone).Format("2006-01-02")
 		switch request.Grain {
 		case "month":
-			period = dateInLocation(media.CompletedAt, request.Timezone).Format("2006-01")
+			period = instantDateInLocation(media.CompletedAt, request.Timezone).Format("2006-01")
 		case "year":
-			period = dateInLocation(media.CompletedAt, request.Timezone).Format("2006")
+			period = instantDateInLocation(media.CompletedAt, request.Timezone).Format("2006")
 		}
 		bucket, ok := buckets[period]
 		if !ok {
 			continue
 		}
 		bucket.count++
-		bucket.days[dateInLocation(media.CompletedAt, request.Timezone).Format("2006-01-02")] = struct{}{}
+		bucket.days[instantDateInLocation(media.CompletedAt, request.Timezone).Format("2006-01-02")] = struct{}{}
 	}
 	points := make([]metrics.Point, 0, len(periods))
 	for _, period := range periods {
@@ -548,6 +548,11 @@ func cloneSelection(selection map[string]string) map[string]string {
 
 func dateInLocation(value time.Time, location *time.Location) time.Time {
 	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, location)
+}
+
+func instantDateInLocation(value time.Time, location *time.Location) time.Time {
+	local := value.In(location)
+	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, location)
 }
 
 func contains(values []string, target string) bool {

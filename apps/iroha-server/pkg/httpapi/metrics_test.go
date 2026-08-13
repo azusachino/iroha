@@ -108,3 +108,23 @@ func TestHandleMetricSeriesRejectsInvalidTimezone(t *testing.T) {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadRequest)
 	}
 }
+
+func TestHandleMetricSeriesDefaultsToConfiguredTimezone(t *testing.T) {
+	registry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("default registry: %v", err)
+	}
+	seriesService := metricseries.NewService(registry, fakeMetricDailySource{}, nil, nil, nil, nil)
+	recorder := httptest.NewRecorder()
+	NewServer(Dependencies{MetricSeriesService: seriesService}).ServeHTTP(recorder, httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/metrics/health.steps/series?from=2026-01-01&to=2026-02-01&grain=month",
+		nil,
+	))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"timezone":"Asia/Tokyo"`) {
+		t.Fatalf("series response = %s", recorder.Body.String())
+	}
+}

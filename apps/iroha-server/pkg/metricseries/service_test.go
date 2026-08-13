@@ -44,8 +44,43 @@ func (f fakeActivitySource) ActivityValues(time.Time, time.Time, string) ([]Acti
 	return f.values, nil
 }
 
-func (f fakeDailySource) MetricValues(context.Context, string, time.Time, time.Time) ([]DailyMetricValue, error) {
+func (f fakeDailySource) MetricValues(_ context.Context, _ string, _, _ time.Time) ([]DailyMetricValue, error) {
 	return f.values, nil
+}
+
+type recordingDailySource struct {
+	metric *string
+}
+
+func (f recordingDailySource) MetricValues(_ context.Context, metric string, _, _ time.Time) ([]DailyMetricValue, error) {
+	*f.metric = metric
+	return nil, nil
+}
+
+func TestEveryCataloguedHealthMetricExecutes(t *testing.T) {
+	registry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("default registry: %v", err)
+	}
+	location := time.UTC
+	for _, definition := range registry.List() {
+		if definition.Domain != "daily" {
+			continue
+		}
+		t.Run(definition.ID, func(t *testing.T) {
+			var metric string
+			service := NewService(registry, recordingDailySource{metric: &metric}, nil, nil, nil, nil)
+			_, err := service.Series(context.Background(), Request{
+				MetricID: definition.ID, From: time.Date(2026, 1, 1, 0, 0, 0, 0, location), To: time.Date(2026, 2, 1, 0, 0, 0, 0, location), Grain: "month", Timezone: location,
+			})
+			if err != nil {
+				t.Fatalf("series: %v", err)
+			}
+			if want := definition.ID[len("health."):]; metric != want {
+				t.Fatalf("queried metric = %q, want %q", metric, want)
+			}
+		})
+	}
 }
 
 func TestSeriesRollsDailyStepsIntoCompleteMonthlyPoints(t *testing.T) {
@@ -223,5 +258,32 @@ func TestMediaSeriesCountsCompletedItemsByKind(t *testing.T) {
 	point := series.Series[0].Points[0]
 	if point.Value == nil || *point.Value != 2 || point.ObservedDays != 2 {
 		t.Fatalf("media point = %+v", point)
+	}
+}
+
+func TestInstantMetricsUseRequestedTimezoneAtMonthBoundary(t *testing.T) {
+	registry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("default registry: %v", err)
+	}
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Fatalf("load timezone: %v", err)
+	}
+	distance := 1000.0
+	instant := time.Date(2026, time.January, 31, 16, 0, 0, 0, time.UTC)
+	service := NewService(registry, nil, fakeActivitySource{values: []ActivityMetricValue{{StartedAt: instant, Sport: "run", DistanceM: &distance, Source: "test"}}}, nil, nil, fakeMediaSource{values: []MediaMetricValue{{CompletedAt: instant, MediaKind: "book", Source: "test"}}})
+
+	for _, request := range []Request{
+		{MetricID: "movement.distance_m", From: time.Date(2026, 2, 1, 0, 0, 0, 0, tokyo), To: time.Date(2026, 3, 1, 0, 0, 0, 0, tokyo), Grain: "month", Timezone: tokyo, Dimensions: map[string][]string{"sport": {"run"}}},
+		{MetricID: "media.completed_count", From: time.Date(2026, 2, 1, 0, 0, 0, 0, tokyo), To: time.Date(2026, 3, 1, 0, 0, 0, 0, tokyo), Grain: "month", Timezone: tokyo, Dimensions: map[string][]string{"media_kind": {"book"}}},
+	} {
+		series, err := service.Series(context.Background(), request)
+		if err != nil {
+			t.Fatalf("%s series: %v", request.MetricID, err)
+		}
+		if value := series.Series[0].Points[0].Value; value == nil || *value == 0 {
+			t.Fatalf("%s February point = %+v", request.MetricID, series.Series[0].Points[0])
+		}
 	}
 }
