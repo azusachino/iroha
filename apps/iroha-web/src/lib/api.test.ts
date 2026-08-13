@@ -193,12 +193,12 @@ describe("control room API", () => {
     expect(getCapturedUrl()).toContain("/api/v1/sleep/sleep_1");
   });
 
-  it("requests a monthly report with an explicit IANA timezone", async () => {
+  it("requests a monthly report for the selected month", async () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch({});
-    await getMonthlyReport("2026-08", "Asia/Tokyo", fakeFetch);
+    await getMonthlyReport("2026-08", fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/reports/monthly?");
     expect(getCapturedUrl()).toContain("month=2026-08");
-    expect(getCapturedUrl()).toContain("timezone=Asia%2FTokyo");
+    expect(getCapturedUrl()).not.toContain("timezone=");
   });
 
   it("requests catalog and lossless metric series parameters", async () => {

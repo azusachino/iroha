@@ -19,7 +19,6 @@
   import type { ReportThemeProps, ReportTrendPoint } from "$lib/report-view";
 
   let month = $state(currentMonth());
-  let timezone = $state("");
   let report = $state<MonthlyReport | null>(null);
   let trendSeries = $state<MetricSeriesResponse | null>(null);
   let countSeries = $state<MetricSeriesResponse | null>(null);
@@ -27,16 +26,14 @@
   let error = $state<string | null>(null);
 
   onMount(() => {
-    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     void loadReport(month);
   });
 
   async function loadReport(requestedMonth: string) {
-    if (!timezone) return;
     loading = true;
     error = null;
     try {
-      const current = await getMonthlyReport(requestedMonth, timezone);
+      const current = await getMonthlyReport(requestedMonth);
       report = current;
       const expenseData = current.sections.expenses.data;
       const primaryCurrency =
@@ -48,14 +45,12 @@
           from,
           to,
           grain: "month",
-          timezone,
           dimensions: [`currency:${primaryCurrency}`],
         }),
         getMetricSeries("expenses.count", {
           from,
           to,
           grain: "month",
-          timezone,
           dimensions: [`currency:${primaryCurrency}`],
         }),
       ]);
@@ -170,7 +165,6 @@
   );
   const themeProps = $derived<ReportThemeProps>({
     month,
-    timezone,
     report: report!,
     trend,
     trendSeries,
@@ -213,9 +207,7 @@
       <span>Period</span>
       <strong>Monthly cross-domain report</strong>
     </div>
-    <MonthNavigator {month} onMonth={moveMonth} disabled={loading} /><span
-      class="timezone">{timezone || "Detecting browser timezone…"}</span
-    >
+    <MonthNavigator {month} onMonth={moveMonth} disabled={loading} />
   </section>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if loading}<p class="muted">
@@ -287,14 +279,10 @@
   .period-copy strong {
     font-size: 0.9rem;
   }
-  .timezone,
   .muted,
   .generated {
     color: var(--text-muted);
     font-size: 0.78rem;
-  }
-  .timezone {
-    margin-left: auto;
   }
   .error {
     color: var(--danger);
@@ -333,9 +321,6 @@
     .period {
       align-items: start;
       flex-direction: column;
-    }
-    .timezone {
-      margin-left: 0;
     }
   }
 </style>

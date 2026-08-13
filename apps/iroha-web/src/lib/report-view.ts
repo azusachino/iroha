@@ -9,7 +9,6 @@ export type ReportTrendPoint = {
 
 export type ReportThemeProps = {
   month: string;
-  timezone: string;
   report: MonthlyReport;
   trend: ReportTrendPoint[];
   trendSeries: MetricSeriesResponse | null;

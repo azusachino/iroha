@@ -617,10 +617,9 @@ export function getBriefing(
 
 export function getMonthlyReport(
   month: string,
-  timezone: string,
   fetchFn: typeof fetch = fetch,
 ): Promise<MonthlyReport> {
-  const query = new URLSearchParams({ month, timezone });
+  const query = new URLSearchParams({ month });
   return getJSON<MonthlyReport>(
     `/api/v1/reports/monthly?${query.toString()}`,
     fetchFn,
