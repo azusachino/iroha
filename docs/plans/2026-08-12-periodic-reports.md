@@ -472,11 +472,12 @@ Future clients may call this endpoint and render the typed response, but no exte
 Reports are one resource in the general `scripts/iroha_cli.py`; do not create a report-only CLI:
 
 ```bash
-uv run python scripts/iroha_cli.py report monthly --month 2026-08 --timezone Asia/Tokyo
-uv run python scripts/iroha_cli.py report monthly --month 2026-08 --timezone Asia/Tokyo --format table
+uv run python scripts/iroha_cli.py report monthly --month 2026-08
+uv run python scripts/iroha_cli.py report monthly --month 2026-08 --format table
 ```
 
-Default stdout is the unchanged report JSON for agent composition. Table output is a presentation convenience. The CLI does not recalculate or merge section values.
+Default stdout is the unchanged report JSON for agent composition. Table output is a presentation convenience. The CLI does not recalculate or merge section values. Iroha's configured timezone is
+authoritative; `--timezone` is an explicit override only.
 
 Client file boundary:
 

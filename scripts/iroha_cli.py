@@ -6,10 +6,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import mimetypes
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import BinaryIO, Callable
+from typing import BinaryIO
 from urllib.parse import urlencode
 
 import requests
@@ -47,7 +49,7 @@ def api_base_from_environment() -> str:
 def _api_error(status: int, body: bytes) -> APIError:
     try:
         value = json.loads(body)
-    except (UnicodeDecodeError, json.JSONDecodeError):
+    except UnicodeDecodeError, json.JSONDecodeError:
         return APIError(status, "http_error", f"Iroha returned HTTP {status}")
     if not isinstance(value, dict):
         return APIError(status, "http_error", f"Iroha returned HTTP {status}")
@@ -93,6 +95,32 @@ class IrohaClient:
         if status < 200 or status >= 300:
             raise _api_error(status, response_body)
         return response_body
+
+    def upload_file(self, path: str, source_kind: str) -> bytes:
+        file_path = Path(path)
+        try:
+            with file_path.open("rb") as file:
+                response = self.session.request(
+                    "POST",
+                    self.base_url + "/api/v1/raw-files/",
+                    files={
+                        "file": (
+                            file_path.name,
+                            file,
+                            mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
+                        )
+                    },
+                    data={"source_kind": source_kind, "uploaded_via": "cli"},
+                    headers={"Accept": "application/json"},
+                    timeout=self.timeout_s,
+                )
+        except OSError as error:
+            raise CLIError(f"cannot read import file {path}: {error}") from error
+        except requests.RequestException as error:
+            raise TransportError(f"Iroha API request failed: {error}") from error
+        if response.status_code < 200 or response.status_code >= 300:
+            raise _api_error(response.status_code, response.content)
+        return response.content
 
 
 def read_json_input(path: str) -> bytes:
@@ -173,7 +201,9 @@ def _table(rows: list[list[object]], headers: list[str]) -> str:
             widths[index] = max(widths[index], len(value))
     lines = ["  ".join(header.ljust(widths[index]) for index, header in enumerate(headers))]
     lines.append("  ".join("-" * width for width in widths))
-    lines.extend("  ".join(value.ljust(widths[index]) for index, value in enumerate(row)) for row in values)
+    lines.extend(
+        "  ".join(value.ljust(widths[index]) for index, value in enumerate(row)) for row in values
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -181,20 +211,42 @@ def expense_table(value: object) -> str:
     if isinstance(value, dict) and "items" in value:
         items = value["items"]
         rows = [
-            [item.get("id"), item.get("occurred_on"), item.get("currency"), item.get("amount_minor"), item.get("category"), item.get("merchant", "")]
+            [
+                item.get("id"),
+                item.get("occurred_on"),
+                item.get("currency"),
+                item.get("amount_minor"),
+                item.get("category"),
+                item.get("merchant", ""),
+            ]
             for item in items
         ]
-        return _table(rows, ["id", "occurred_on", "currency", "amount_minor", "category", "merchant"])
+        return _table(
+            rows, ["id", "occurred_on", "currency", "amount_minor", "category", "merchant"]
+        )
     if isinstance(value, dict):
         return _table(
-            [[value.get("id"), value.get("occurred_on"), value.get("currency"), value.get("amount_minor"), value.get("category"), value.get("merchant", "")]],
+            [
+                [
+                    value.get("id"),
+                    value.get("occurred_on"),
+                    value.get("currency"),
+                    value.get("amount_minor"),
+                    value.get("category"),
+                    value.get("merchant", ""),
+                ]
+            ],
             ["id", "occurred_on", "currency", "amount_minor", "category", "merchant"],
         )
     raise CLIError("Iroha returned an unexpected expense response")
 
 
 def monthly_report_table(value: object) -> str:
-    if not isinstance(value, dict) or not isinstance(value.get("period"), dict) or not isinstance(value.get("sections"), dict):
+    if (
+        not isinstance(value, dict)
+        or not isinstance(value.get("period"), dict)
+        or not isinstance(value.get("sections"), dict)
+    ):
         raise CLIError("Iroha returned an unexpected monthly report response")
     period = value["period"]
     rows = []
@@ -205,19 +257,36 @@ def monthly_report_table(value: object) -> str:
         if section.get("state") == "empty" or data is None:
             summary = ""
         elif name == "movement":
-            summary = f"activities={data.get('activity_count', '')} distance_m={data.get('distance_m', '')}"
+            summary = (
+                f"activities={data.get('activity_count', '')} "
+                f"distance_m={data.get('distance_m', '')}"
+            )
         elif name == "sleep":
-            summary = f"sessions={data.get('session_count', '')} main={data.get('main_sleep_count', '')} naps={data.get('nap_count', '')}"
+            summary = (
+                f"sessions={data.get('session_count', '')} "
+                f"main={data.get('main_sleep_count', '')} "
+                f"naps={data.get('nap_count', '')}"
+            )
         elif name == "daily_health":
-            summary = f"observed_days={data.get('observed_days', '')} metrics={len(data.get('metric_averages', []))}"
+            summary = (
+                f"observed_days={data.get('observed_days', '')} "
+                f"metrics={len(data.get('metric_averages', []))}"
+            )
         elif name == "media":
-            summary = f"events={data.get('event_count', '')} completed={data.get('completed_count', '')}"
+            summary = (
+                f"events={data.get('event_count', '')} completed={data.get('completed_count', '')}"
+            )
         elif name == "expenses":
-            summary = f"expenses={data.get('expense_count', '')} currencies={len(data.get('totals_by_currency', []))}"
+            summary = (
+                f"expenses={data.get('expense_count', '')} "
+                f"currencies={len(data.get('totals_by_currency', []))}"
+            )
         else:
             summary = ""
         rows.append([name, section.get("state", ""), summary])
-    return f"period: {period.get('month', '')} ({period.get('timezone', '')})\n" + _table(rows, ["section", "state", "summary"])
+    return f"period: {period.get('month', '')} ({period.get('timezone', '')})\n" + _table(
+        rows, ["section", "state", "summary"]
+    )
 
 
 def metric_table(value: object) -> str:
@@ -226,7 +295,11 @@ def metric_table(value: object) -> str:
     metrics = value.get("metrics")
     if metrics is None:
         metrics = [value.get("metric", {})]
-    rows = [[item.get("id"), item.get("label"), item.get("unit"), item.get("preferred_view")] for item in metrics if isinstance(item, dict)]
+    rows = [
+        [item.get("id"), item.get("label"), item.get("unit"), item.get("preferred_view")]
+        for item in metrics
+        if isinstance(item, dict)
+    ]
     return _table(rows, ["id", "label", "unit", "view"])
 
 
@@ -237,14 +310,28 @@ def metric_series_table(value: object) -> str:
     for series in value.get("series", []):
         if not isinstance(series, dict):
             continue
-        dimensions = ",".join(f"{key}={item}" for key, item in sorted((series.get("dimensions") or {}).items()))
+        dimensions = ",".join(
+            f"{key}={item}" for key, item in sorted((series.get("dimensions") or {}).items())
+        )
         for point in series.get("points", []):
             if isinstance(point, dict):
-                rows.append([dimensions, point.get("period"), point.get("value_minor", point.get("value")), point.get("observed_days")])
-    return f"metric: {value.get('metric_id', '')} ({value.get('period', {}).get('timezone', '')})\n" + _table(rows, ["dimensions", "period", "value", "observed_days"])
+                rows.append(
+                    [
+                        dimensions,
+                        point.get("period"),
+                        point.get("value_minor", point.get("value")),
+                        point.get("observed_days"),
+                    ]
+                )
+    return (
+        f"metric: {value.get('metric_id', '')} ({value.get('period', {}).get('timezone', '')})\n"
+        + _table(rows, ["dimensions", "period", "value", "observed_days"])
+    )
 
 
-def output_result(data: bytes, output_format: str, table_formatter: Callable[[object], str] | None = None) -> None:
+def output_result(
+    data: bytes, output_format: str, table_formatter: Callable[[object], str] | None = None
+) -> None:
     if not data:
         return
     if output_format == "json":
@@ -253,6 +340,70 @@ def output_result(data: bytes, output_format: str, table_formatter: Callable[[ob
     if table_formatter is None:
         raise CLIError("table output is not supported for this command")
     print(table_formatter(_json_value(data)), end="")
+
+
+def query_path(path: str, values: dict[str, object | None]) -> str:
+    query = urlencode({key: value for key, value in values.items() if value is not None})
+    return f"{path}?{query}" if query else path
+
+
+def run_import_command(args: argparse.Namespace, client: IrohaClient) -> int:
+    raw_file = _json_value(client.upload_file(args.path, args.kind))
+    if not isinstance(raw_file, dict) or not raw_file.get("id"):
+        raise CLIError("Iroha returned an unexpected raw-file response")
+    body = json.dumps({"raw_file_id": raw_file["id"], "parser_kind": args.kind}).encode()
+    output_result(client.request("POST", "/api/v1/imports/", body), args.format)
+    return 0
+
+
+def run_read_command(args: argparse.Namespace, client: IrohaClient) -> int:
+    if args.resource == "activity":
+        if args.action == "get":
+            path = f"/api/v1/activities/{args.id}"
+        else:
+            path = query_path(
+                "/api/v1/activities/",
+                {
+                    "started_from": args.from_date,
+                    "started_to": args.to,
+                    "sport_type": args.sport,
+                    "limit": args.limit,
+                    "cursor": args.cursor,
+                },
+            )
+    elif args.resource == "sleep":
+        path = (
+            f"/api/v1/sleep/{args.id}"
+            if args.action == "get"
+            else query_path(
+                "/api/v1/sleep/",
+                {"from": args.from_date, "to": args.to, "limit": args.limit, "cursor": args.cursor},
+            )
+        )
+    elif args.resource == "daily":
+        path = query_path(
+            "/api/v1/daily/",
+            {"from": args.from_date, "to": args.to, "limit": args.limit, "cursor": args.cursor},
+        )
+    elif args.resource == "media":
+        path = (
+            f"/api/v1/media/{args.id}"
+            if args.action == "get"
+            else query_path(
+                "/api/v1/media/",
+                {
+                    "family": args.family,
+                    "media_type": args.media_type,
+                    "completed_year": args.completed_year,
+                    "limit": args.limit,
+                    "cursor": args.cursor,
+                },
+            )
+        )
+    else:
+        raise CLIError(f"unsupported read resource: {args.resource}")
+    output_result(client.request("GET", path), args.format)
+    return 0
 
 
 def run_expense_command(args: argparse.Namespace, client: IrohaClient) -> int:
@@ -271,15 +422,23 @@ def run_expense_command(args: argparse.Namespace, client: IrohaClient) -> int:
             "cursor": args.cursor,
         }
         if any(value is not None for value in filters.values()):
-            path += "?" + urlencode({key: value for key, value in filters.items() if value is not None})
+            path += "?" + urlencode(
+                {key: value for key, value in filters.items() if value is not None}
+            )
         output_result(client.request("GET", path), args.format, expense_table)
         return 0
     if args.expense_action == "get":
-        output_result(client.request("GET", f"/api/v1/expenses/{args.expense_id}"), args.format, expense_table)
+        output_result(
+            client.request("GET", f"/api/v1/expenses/{args.expense_id}"), args.format, expense_table
+        )
         return 0
     if args.expense_action == "update":
         body = read_json_input(args.input)
-        output_result(client.request("PUT", f"/api/v1/expenses/{args.expense_id}", body), args.format, expense_table)
+        output_result(
+            client.request("PUT", f"/api/v1/expenses/{args.expense_id}", body),
+            args.format,
+            expense_table,
+        )
         return 0
     if args.expense_action == "delete":
         client.request("DELETE", f"/api/v1/expenses/{args.expense_id}")
@@ -289,9 +448,7 @@ def run_expense_command(args: argparse.Namespace, client: IrohaClient) -> int:
 
 def run_report_command(args: argparse.Namespace, client: IrohaClient) -> int:
     timezone = args.timezone or os.environ.get("IROHA_TIMEZONE")
-    if not timezone:
-        raise CLIError("report timezone is required; pass --timezone or set IROHA_TIMEZONE")
-    path = "/api/v1/reports/monthly?" + urlencode({"month": args.month, "timezone": timezone})
+    path = query_path("/api/v1/reports/monthly", {"month": args.month, "timezone": timezone})
     output_result(client.request("GET", path), args.format, monthly_report_table)
     return 0
 
@@ -301,10 +458,14 @@ def run_metric_command(args: argparse.Namespace, client: IrohaClient) -> int:
         output_result(client.request("GET", "/api/v1/metrics"), args.format, metric_table)
         return 0
     if args.metric_action == "get":
-        output_result(client.request("GET", f"/api/v1/metrics/{args.metric_id}"), args.format, metric_table)
+        output_result(
+            client.request("GET", f"/api/v1/metrics/{args.metric_id}"), args.format, metric_table
+        )
         return 0
     if args.metric_action == "series":
-        params = [("from", args.from_date), ("to", args.to), ("grain", args.grain), ("timezone", args.timezone)]
+        params = [("from", args.from_date), ("to", args.to), ("grain", args.grain)]
+        if args.timezone:
+            params.append(("timezone", args.timezone))
         params.extend(("dimension", dimension) for dimension in args.dimension or [])
         path = f"/api/v1/metrics/{args.metric_id}/series?{urlencode(params)}"
         output_result(client.request("GET", path), args.format, metric_series_table)
@@ -320,6 +481,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Iroha API base URL (defaults to IROHA_API_BASE or the local server)",
     )
     resources = parser.add_subparsers(dest="resource", required=True)
+
+    import_resource = resources.add_parser(
+        "import", help="upload a source file and enqueue its canonical import"
+    )
+    import_commands = import_resource.add_subparsers(dest="import_action", required=True)
+    import_file = import_commands.add_parser("file")
+    import_file.add_argument("path")
+    import_file.add_argument("--kind", required=True, choices=["apple_health_export", "gpx"])
+    import_file.add_argument("--format", choices=["json"], default="json")
+
+    def add_list(resource: str, help_text: str, *, get: bool = False) -> argparse.ArgumentParser:
+        command = resources.add_parser(resource, help=help_text)
+        actions = command.add_subparsers(dest="action", required=True)
+        listing = actions.add_parser("list")
+        listing.add_argument("--limit", type=int)
+        listing.add_argument("--cursor")
+        listing.add_argument("--format", choices=["json"], default="json")
+        if get:
+            item = actions.add_parser("get")
+            item.add_argument("id")
+            item.add_argument("--format", choices=["json"], default="json")
+        return listing
+
+    activity = add_list("activity", "read canonical activities", get=True)
+    activity.add_argument("--from", dest="from_date", help="RFC3339 lower bound")
+    activity.add_argument("--to", help="RFC3339 upper bound")
+    activity.add_argument("--sport")
+    sleep = add_list("sleep", "read canonical sleep sessions", get=True)
+    sleep.add_argument("--from", dest="from_date")
+    sleep.add_argument("--to")
+    daily = add_list("daily", "read canonical daily-health observations")
+    daily.add_argument("--from", dest="from_date")
+    daily.add_argument("--to")
+    media = add_list("media", "read canonical media", get=True)
+    media.add_argument("--family")
+    media.add_argument("--media-type")
+    media.add_argument("--completed-year", type=int)
+
     expense = resources.add_parser("expense", help="manage canonical expenses")
     expense_commands = expense.add_subparsers(dest="expense_action", required=True)
 
@@ -357,7 +556,9 @@ def build_parser() -> argparse.ArgumentParser:
     monthly.add_argument("--timezone")
     monthly.add_argument("--format", choices=["json", "table"], default="json")
 
-    metric = resources.add_parser("metric", help="read the metric catalog and server-aggregated series")
+    metric = resources.add_parser(
+        "metric", help="read the metric catalog and server-aggregated series"
+    )
     metric_commands = metric.add_subparsers(dest="metric_action", required=True)
     metric_list = metric_commands.add_parser("list")
     metric_list.add_argument("--format", choices=["json", "table"], default="json")
@@ -369,8 +570,10 @@ def build_parser() -> argparse.ArgumentParser:
     metric_series.add_argument("--from", dest="from_date", required=True)
     metric_series.add_argument("--to", required=True)
     metric_series.add_argument("--grain", choices=["day", "month", "year"], required=True)
-    metric_series.add_argument("--timezone", default="UTC")
-    metric_series.add_argument("--dimension", action="append", help="repeatable name:value dimension filter")
+    metric_series.add_argument("--timezone")
+    metric_series.add_argument(
+        "--dimension", action="append", help="repeatable name:value dimension filter"
+    )
     metric_series.add_argument("--format", choices=["json", "table"], default="json")
     return parser
 
@@ -379,6 +582,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     client = IrohaClient(args.api_base)
+    if args.resource == "import" and args.import_action == "file":
+        return run_import_command(args, client)
+    if args.resource in {"activity", "sleep", "daily", "media"}:
+        return run_read_command(args, client)
     if args.resource == "expense":
         return run_expense_command(args, client)
     if args.resource == "report" and args.report_action == "monthly":

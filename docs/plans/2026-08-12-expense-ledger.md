@@ -205,13 +205,17 @@ uv run python scripts/iroha_cli.py expense list --from 2026-08-01 --to 2026-09-0
 uv run python scripts/iroha_cli.py expense get exp_01k...
 uv run python scripts/iroha_cli.py expense update exp_01k... --input replacement.json
 uv run python scripts/iroha_cli.py expense delete exp_01k...
-uv run python scripts/iroha_cli.py report monthly --month 2026-08 --timezone Asia/Tokyo
+uv run python scripts/iroha_cli.py report monthly --month 2026-08
+uv run python scripts/iroha_cli.py import file workout.gpx --kind gpx
+uv run python scripts/iroha_cli.py activity list --sport run
+uv run python scripts/iroha_cli.py sleep list --from 2026-08-01 --to 2026-08-31
+uv run python scripts/iroha_cli.py daily list --from 2026-08-01 --to 2026-08-31
+uv run python scripts/iroha_cli.py media list --family anime
 ```
 
-The initial supported resources are `expense` (read/write) and `report monthly` (read). The CLI uses `IROHA_API_BASE`, requires `--timezone` or `IROHA_TIMEZONE` for report requests, emits JSON by
-default, supports `--format table` only for the explicitly supported resources, and never stores or prints receipt images. `expense create` uses server validation; there is no duplicated client-side
-`validate` command in v0.4. Read-only wrappers for activity, sleep, daily, and media are a later CLI slice after their response contracts are tightened. No domain receives write commands until it has
-a stable write API.
+The supported resources are `import file`, `expense` (read/write), and read-only `activity`, `sleep`, `daily`, `media`, `metric`, and `report monthly`. The CLI uses `IROHA_API_BASE`, inherits the
+server's configured timezone unless an explicit override is passed, emits lossless JSON by default, supports `--format table` only for expenses, reports, and metrics, and never stores or prints
+receipt images. `expense create` uses server validation; there is no duplicated client-side `validate` command. No other domain receives write commands until it has a stable write API.
 
 For an image-aware local agent, OCR/vision and the Iroha CLI may be one command or two commands. That packaging choice is local and must not leak into the HTTP contract.
 
@@ -238,8 +242,7 @@ the browser for monthly report requests and sends it explicitly.
 1. **Canonical contract:** migration, runtime model/ID prefix, validation, create/list/get/update/delete service, source uniqueness, OpenAPI, and API tests.
 2. **Deterministic reporting:** implement the separate [monthly report plan](2026-08-12-periodic-reports.md) and expense aggregate section.
 3. **General CLI foundation:** shared transport, configuration, source-reference persistence, JSON output, and error handling.
-4. **General CLI v0.4 resources:** `expense create/list/get/update/delete` and `report monthly`; add read-only wrappers for activity, sleep, daily, and media only after their response contracts are
-   explicit.
+4. **General CLI v0.4 resources:** `import file`, `expense create/list/get/update/delete`, `report monthly`, metrics, and read-only activity, sleep, daily, and media wrappers over their explicit APIs.
 5. **Private cockpit:** `/expenses` visual aggregation plus read-only list/detail/delete flows with one month-by-month selector, rendered through all six design-language shells. Canonical corrections
    remain on the API/CLI/agent path. The report page links to the same canonical month and remains the sole owner of expense aggregation.
 6. **Release hardening:** migration rehearsal, monitoring, docs, OpenAPI, and v0.4 release note. Future external clients are separate follow-up work.

@@ -1,5 +1,5 @@
-import io
 import hashlib
+import io
 import json
 import os
 import tempfile
@@ -19,7 +19,9 @@ class FakeResponse:
 
 
 class FakeSession:
-    def __init__(self, response: FakeResponse | None = None, error: Exception | None = None) -> None:
+    def __init__(
+        self, response: FakeResponse | None = None, error: Exception | None = None
+    ) -> None:
         self.response = response or FakeResponse(b"{}")
         self.error = error
         self.calls = []
@@ -44,27 +46,52 @@ class IrohaCLITransportTest(unittest.TestCase):
         )
 
         self.assertEqual(result, response_body)
-        self.assertEqual(session.calls[0][0:2], ("GET", "http://iroha.test/api/v1/reports/monthly?month=2026-08"))
+        self.assertEqual(
+            session.calls[0][0:2], ("GET", "http://iroha.test/api/v1/reports/monthly?month=2026-08")
+        )
         self.assertEqual(session.calls[0][2]["timeout"], 7)
         self.assertEqual(session.calls[0][2]["headers"]["Accept"], "application/json")
 
     def test_request_sends_json_body_without_client_reformatting(self) -> None:
         body = b'{ "amount_minor": 800, "currency": "JPY" }\n'
         session = FakeSession(FakeResponse(b"{}"))
-        iroha_cli.IrohaClient("http://iroha.test", session=session).request("POST", "/api/v1/expenses", body)
+        iroha_cli.IrohaClient("http://iroha.test", session=session).request(
+            "POST", "/api/v1/expenses", body
+        )
         self.assertEqual(session.calls[0][2]["data"], body)
         self.assertEqual(session.calls[0][2]["headers"]["Content-Type"], "application/json")
+
+    def test_upload_file_uses_multipart_and_cli_source(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "activity.gpx"
+            path.write_bytes(b"<gpx />")
+            session = FakeSession(FakeResponse(b'{"id":"raw_1"}', 201))
+            result = iroha_cli.IrohaClient("http://iroha.test", session=session).upload_file(
+                str(path), "gpx"
+            )
+
+        self.assertEqual(result, b'{"id":"raw_1"}')
+        self.assertEqual(session.calls[0][0:2], ("POST", "http://iroha.test/api/v1/raw-files/"))
+        self.assertEqual(session.calls[0][2]["data"], {"source_kind": "gpx", "uploaded_via": "cli"})
+        self.assertEqual(session.calls[0][2]["files"]["file"][0], "activity.gpx")
 
     def test_structured_api_error_is_preserved(self) -> None:
         body = b'{"code":"invalid_month","message":"invalid report month","request_id":"req-1"}'
         with self.assertRaises(iroha_cli.APIError) as raised:
-            iroha_cli.IrohaClient(session=FakeSession(FakeResponse(body, 400))).request("GET", "/api/v1/reports/monthly")
-        self.assertEqual((raised.exception.status, raised.exception.code, raised.exception.request_id), (400, "invalid_month", "req-1"))
+            iroha_cli.IrohaClient(session=FakeSession(FakeResponse(body, 400))).request(
+                "GET", "/api/v1/reports/monthly"
+            )
+        self.assertEqual(
+            (raised.exception.status, raised.exception.code, raised.exception.request_id),
+            (400, "invalid_month", "req-1"),
+        )
         self.assertIn("invalid report month", str(raised.exception))
 
     def test_transport_error_is_distinct_from_api_error(self) -> None:
         with self.assertRaises(iroha_cli.TransportError):
-            iroha_cli.IrohaClient(session=FakeSession(error=requests.ConnectionError("connection refused"))).request("GET", "/healthz")
+            iroha_cli.IrohaClient(
+                session=FakeSession(error=requests.ConnectionError("connection refused"))
+            ).request("GET", "/healthz")
 
     def test_json_input_preserves_file_bytes_and_validates_json(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -99,12 +126,101 @@ class FakeClient:
         self.calls.append((method, path, body))
         return self.response
 
+    def upload_file(self, path: str, source_kind: str) -> bytes:
+        self.calls.append(("UPLOAD", path, source_kind))
+        return b'{"id":"raw_1"}'
+
+
+class IrohaCLIGeneralResourceTest(unittest.TestCase):
+    def test_import_file_uploads_then_enqueues_canonical_import(self) -> None:
+        client = FakeClient(b'{"id":"imp_1","status":"pending"}')
+        args = iroha_cli.build_parser().parse_args(
+            ["import", "file", "activity.gpx", "--kind", "gpx"]
+        )
+        with mock.patch.object(iroha_cli, "output_result") as output:
+            iroha_cli.run_import_command(args, client)
+        self.assertEqual(client.calls[0], ("UPLOAD", "activity.gpx", "gpx"))
+        self.assertEqual(client.calls[1][0:2], ("POST", "/api/v1/imports/"))
+        self.assertEqual(
+            json.loads(client.calls[1][2]), {"raw_file_id": "raw_1", "parser_kind": "gpx"}
+        )
+        output.assert_called_once_with(client.response, "json")
+
+    def test_activity_list_forwards_stable_filters(self) -> None:
+        client = FakeClient(b'{"items":[]}')
+        args = iroha_cli.build_parser().parse_args(
+            [
+                "activity",
+                "list",
+                "--from",
+                "2026-08-01T00:00:00Z",
+                "--sport",
+                "run",
+                "--limit",
+                "5",
+            ]
+        )
+        with mock.patch.object(iroha_cli, "output_result"):
+            iroha_cli.run_read_command(args, client)
+        self.assertEqual(
+            client.calls[0],
+            (
+                "GET",
+                "/api/v1/activities/?started_from=2026-08-01T00%3A00%3A00Z&sport_type=run&limit=5",
+                None,
+            ),
+        )
+
+    def test_sleep_get_and_daily_list_preserve_json(self) -> None:
+        for argv, expected in [
+            (["sleep", "get", "sleep_1"], "/api/v1/sleep/sleep_1"),
+            (
+                ["daily", "list", "--from", "2026-08-01", "--to", "2026-08-31"],
+                "/api/v1/daily/?from=2026-08-01&to=2026-08-31",
+            ),
+        ]:
+            with self.subTest(argv=argv):
+                client = FakeClient(b'{"items":[]}')
+                args = iroha_cli.build_parser().parse_args(argv)
+                with mock.patch.object(iroha_cli, "output_result") as output:
+                    iroha_cli.run_read_command(args, client)
+                self.assertEqual(client.calls[0], ("GET", expected, None))
+                output.assert_called_once_with(client.response, "json")
+
+    def test_media_list_and_get_use_existing_read_api(self) -> None:
+        client = FakeClient()
+        args = iroha_cli.build_parser().parse_args(
+            [
+                "media",
+                "list",
+                "--family",
+                "anime",
+                "--media-type",
+                "tv",
+                "--completed-year",
+                "2026",
+            ]
+        )
+        with mock.patch.object(iroha_cli, "output_result"):
+            iroha_cli.run_read_command(args, client)
+        self.assertEqual(
+            client.calls[0][1], "/api/v1/media/?family=anime&media_type=tv&completed_year=2026"
+        )
+
+        args = iroha_cli.build_parser().parse_args(["media", "get", "media_1"])
+        with mock.patch.object(iroha_cli, "output_result"):
+            iroha_cli.run_read_command(args, client)
+        self.assertEqual(client.calls[1][1], "/api/v1/media/media_1")
+
 
 class IrohaCLIExpenseCommandTest(unittest.TestCase):
     def test_create_adds_hash_ref_and_persists_it_for_retry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "draft.json"
-            original = b'{"occurred_on":"2026-08-12","currency":"JPY","amount_minor":800,"category":"food"}\n'
+            original = (
+                b'{"occurred_on":"2026-08-12","currency":"JPY",'
+                b'"amount_minor":800,"category":"food"}\n'
+            )
             path.write_bytes(original)
             client = FakeClient()
             args = iroha_cli.build_parser().parse_args(["expense", "create", "--input", str(path)])
@@ -129,20 +245,41 @@ class IrohaCLIExpenseCommandTest(unittest.TestCase):
     def test_list_encodes_filters_and_forwards_table_output(self) -> None:
         client = FakeClient(b'{"items":[]}\n')
         args = iroha_cli.build_parser().parse_args(
-            ["expense", "list", "--from", "2026-08-01", "--to", "2026-09-01", "--currency", "JPY", "--limit", "5", "--format", "table"]
+            [
+                "expense",
+                "list",
+                "--from",
+                "2026-08-01",
+                "--to",
+                "2026-09-01",
+                "--currency",
+                "JPY",
+                "--limit",
+                "5",
+                "--format",
+                "table",
+            ]
         )
         with mock.patch.object(iroha_cli, "output_result") as output:
             iroha_cli.run_expense_command(args, client)
-        self.assertEqual(client.calls[0], ("GET", "/api/v1/expenses?from=2026-08-01&to=2026-09-01&currency=JPY&limit=5", None))
+        self.assertEqual(
+            client.calls[0],
+            ("GET", "/api/v1/expenses?from=2026-08-01&to=2026-09-01&currency=JPY&limit=5", None),
+        )
         output.assert_called_once_with(b'{"items":[]}\n', "table", iroha_cli.expense_table)
 
     def test_update_forwards_replacement_json_without_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "replacement.json"
-            body = b'{"occurred_on":"2026-08-12","currency":"JPY","amount_minor":900,"category":"food"}\n'
+            body = (
+                b'{"occurred_on":"2026-08-12","currency":"JPY",'
+                b'"amount_minor":900,"category":"food"}\n'
+            )
             path.write_bytes(body)
             client = FakeClient()
-            args = iroha_cli.build_parser().parse_args(["expense", "update", "exp_1", "--input", str(path)])
+            args = iroha_cli.build_parser().parse_args(
+                ["expense", "update", "exp_1", "--input", str(path)]
+            )
             with mock.patch.object(iroha_cli, "output_result"):
                 iroha_cli.run_expense_command(args, client)
             self.assertEqual(client.calls[0], ("PUT", "/api/v1/expenses/exp_1", body))
@@ -155,7 +292,20 @@ class IrohaCLIExpenseCommandTest(unittest.TestCase):
         self.assertEqual(client.calls, [("DELETE", "/api/v1/expenses/exp_1", None)])
 
     def test_table_formatter_has_stable_columns(self) -> None:
-        result = iroha_cli.expense_table({"items": [{"id": "exp_1", "occurred_on": "2026-08-12", "currency": "JPY", "amount_minor": 800, "category": "food", "merchant": "Ramen"}]})
+        result = iroha_cli.expense_table(
+            {
+                "items": [
+                    {
+                        "id": "exp_1",
+                        "occurred_on": "2026-08-12",
+                        "currency": "JPY",
+                        "amount_minor": 800,
+                        "category": "food",
+                        "merchant": "Ramen",
+                    }
+                ]
+            }
+        )
         self.assertIn("id", result)
         self.assertIn("exp_1", result)
         self.assertIn("Ramen", result)
@@ -165,33 +315,50 @@ class IrohaCLIReportCommandTest(unittest.TestCase):
     def test_monthly_report_forwards_month_and_timezone_and_preserves_json(self) -> None:
         response = b'{"schema":"monthly-report.v1","sections":{}}\n'
         client = FakeClient(response)
-        args = iroha_cli.build_parser().parse_args(["report", "monthly", "--month", "2026-08", "--timezone", "Asia/Tokyo"])
+        args = iroha_cli.build_parser().parse_args(
+            ["report", "monthly", "--month", "2026-08", "--timezone", "Asia/Tokyo"]
+        )
         with mock.patch.object(iroha_cli, "output_result") as output:
             iroha_cli.run_report_command(args, client)
-        self.assertEqual(client.calls, [("GET", "/api/v1/reports/monthly?month=2026-08&timezone=Asia%2FTokyo", None)])
+        self.assertEqual(
+            client.calls,
+            [("GET", "/api/v1/reports/monthly?month=2026-08&timezone=Asia%2FTokyo", None)],
+        )
         output.assert_called_once_with(response, "json", iroha_cli.monthly_report_table)
 
     def test_monthly_report_reads_timezone_from_environment(self) -> None:
         client = FakeClient()
         args = iroha_cli.build_parser().parse_args(["report", "monthly", "--month", "2026-08"])
-        with mock.patch.dict(os.environ, {"IROHA_TIMEZONE": "UTC"}), mock.patch.object(iroha_cli, "output_result"):
+        with (
+            mock.patch.dict(os.environ, {"IROHA_TIMEZONE": "UTC"}),
+            mock.patch.object(iroha_cli, "output_result"),
+        ):
             iroha_cli.run_report_command(args, client)
         self.assertIn("timezone=UTC", client.calls[0][1])
 
-    def test_monthly_report_requires_timezone(self) -> None:
+    def test_monthly_report_omits_timezone_to_use_server_default(self) -> None:
         client = FakeClient()
         args = iroha_cli.build_parser().parse_args(["report", "monthly", "--month", "2026-08"])
-        with mock.patch.dict(os.environ, {}, clear=True), self.assertRaises(iroha_cli.CLIError):
+        with (
+            mock.patch.dict(os.environ, {}, clear=True),
+            mock.patch.object(iroha_cli, "output_result"),
+        ):
             iroha_cli.run_report_command(args, client)
+        self.assertEqual(client.calls[0][1], "/api/v1/reports/monthly?month=2026-08")
 
     def test_monthly_report_table_is_presentation_only(self) -> None:
-        result = iroha_cli.monthly_report_table({
-            "period": {"month": "2026-08", "timezone": "UTC"},
-            "sections": {
-                "expenses": {"state": "available", "data": {"expense_count": 2, "totals_by_currency": [{}, {}]}},
-                "sleep": {"state": "empty", "data": None},
-            },
-        })
+        result = iroha_cli.monthly_report_table(
+            {
+                "period": {"month": "2026-08", "timezone": "UTC"},
+                "sections": {
+                    "expenses": {
+                        "state": "available",
+                        "data": {"expense_count": 2, "totals_by_currency": [{}, {}]},
+                    },
+                    "sleep": {"state": "empty", "data": None},
+                },
+            }
+        )
         self.assertIn("period: 2026-08 (UTC)", result)
         self.assertIn("expenses", result)
         self.assertIn("currencies=2", result)
@@ -210,21 +377,46 @@ class IrohaCLIMetricCommandTest(unittest.TestCase):
 
     def test_metric_series_preserves_repeatable_dimensions(self) -> None:
         client = FakeClient(b'{"schema":"metric-series.v1"}')
-        args = iroha_cli.build_parser().parse_args([
-            "metric", "series", "expenses.amount_minor", "--from", "2026-01-01", "--to", "2026-02-01",
-            "--grain", "month", "--timezone", "Asia/Tokyo", "--dimension", "currency:JPY", "--dimension", "category:food",
-        ])
+        args = iroha_cli.build_parser().parse_args(
+            [
+                "metric",
+                "series",
+                "expenses.amount_minor",
+                "--from",
+                "2026-01-01",
+                "--to",
+                "2026-02-01",
+                "--grain",
+                "month",
+                "--timezone",
+                "Asia/Tokyo",
+                "--dimension",
+                "currency:JPY",
+                "--dimension",
+                "category:food",
+            ]
+        )
         with mock.patch.object(iroha_cli, "output_result"):
             iroha_cli.run_metric_command(args, client)
         self.assertEqual(client.calls[0][0], "GET")
-        self.assertEqual(client.calls[0][1], "/api/v1/metrics/expenses.amount_minor/series?from=2026-01-01&to=2026-02-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=category%3Afood")
+        self.assertEqual(
+            client.calls[0][1],
+            "/api/v1/metrics/expenses.amount_minor/series?from=2026-01-01&to=2026-02-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=category%3Afood",
+        )
 
     def test_metric_series_table_keeps_minor_value(self) -> None:
-        result = iroha_cli.metric_series_table({
-            "metric_id": "expenses.amount_minor",
-            "period": {"timezone": "Asia/Tokyo"},
-            "series": [{"dimensions": {"currency": "JPY"}, "points": [{"period": "2026-01", "value_minor": 800, "observed_days": 1}]}],
-        })
+        result = iroha_cli.metric_series_table(
+            {
+                "metric_id": "expenses.amount_minor",
+                "period": {"timezone": "Asia/Tokyo"},
+                "series": [
+                    {
+                        "dimensions": {"currency": "JPY"},
+                        "points": [{"period": "2026-01", "value_minor": 800, "observed_days": 1}],
+                    }
+                ],
+            }
+        )
         self.assertIn("800", result)
         self.assertIn("currency=JPY", result)
 
