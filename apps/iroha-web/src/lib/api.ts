@@ -56,6 +56,8 @@ export interface SleepAggregateBucket {
   period: string;
   session_count: number;
   main_sleep_count: number;
+  nap_count: number;
+  observed_wake_dates: number;
   average_asleep_s: number;
   average_time_in_bed_s: number;
   average_efficiency: number;

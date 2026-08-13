@@ -1468,6 +1468,7 @@ components:
           session_count,
           main_sleep_count,
           nap_count,
+          observed_wake_dates,
           average_asleep_s,
           average_time_in_bed_s,
           average_efficiency,
@@ -1477,6 +1478,7 @@ components:
         session_count: { type: integer }
         main_sleep_count: { type: integer }
         nap_count: { type: integer }
+        observed_wake_dates: { type: integer }
         average_asleep_s: { type: number }
         average_time_in_bed_s: { type: number }
         average_efficiency: { type: number }

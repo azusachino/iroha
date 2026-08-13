@@ -212,7 +212,7 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 			t.Fatalf("monthly sleep aggregates = %#v", body)
 		}
 		bucket := buckets[0].(map[string]any)
-		if bucket["period"] != "2024-01" || bucket["session_count"] != float64(2) || bucket["main_sleep_count"] != float64(1) || bucket["nap_count"] != float64(1) || bucket["average_asleep_s"] != float64(25200) || bucket["core_s"] != float64(12000) {
+		if bucket["period"] != "2024-01" || bucket["session_count"] != float64(2) || bucket["main_sleep_count"] != float64(1) || bucket["nap_count"] != float64(1) || bucket["observed_wake_dates"] != float64(2) || bucket["average_asleep_s"] != float64(25200) || bucket["core_s"] != float64(12000) {
 			t.Fatalf("monthly sleep aggregate bucket = %#v", bucket)
 		}
 	})

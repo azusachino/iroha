@@ -68,6 +68,7 @@ type AggregateBucket struct {
 	SessionCount      int       `json:"session_count"`
 	MainSleepCount    int       `json:"main_sleep_count"`
 	NapCount          int       `json:"nap_count"`
+	ObservedWakeDates int       `json:"observed_wake_dates"`
 	AverageAsleepS    float64   `json:"average_asleep_s"`
 	AverageTimeInBedS float64   `json:"average_time_in_bed_s"`
 	AverageEfficiency float64   `json:"average_efficiency"`
@@ -177,6 +178,7 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 			count(*)::int as session_count,
 			count(*) filter (where is_main_sleep)::int as main_sleep_count,
 			count(*) filter (where not is_main_sleep)::int as nap_count,
+			count(distinct wake_date)::int as observed_wake_dates,
 			coalesce(avg(asleep_s) filter (where is_main_sleep), 0) as average_asleep_s,
 			coalesce(avg(time_in_bed_s) filter (where is_main_sleep), 0) as average_time_in_bed_s,
 			coalesce(avg(efficiency) filter (where is_main_sleep), 0) as average_efficiency,

@@ -150,6 +150,54 @@ func TestSeriesExpandsActivitySportDimensions(t *testing.T) {
 	}
 }
 
+func TestSeriesSupportsDailyAndYearlyActivityPoints(t *testing.T) {
+	registry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("default registry: %v", err)
+	}
+	location := time.UTC
+	distanceA := 5000.0
+	distanceB := 2500.0
+	service := NewService(registry, nil, fakeActivitySource{values: []ActivityMetricValue{
+		{StartedAt: time.Date(2026, time.January, 2, 8, 0, 0, 0, location), Sport: "run", DistanceM: &distanceA, Source: "gpx"},
+		{StartedAt: time.Date(2026, time.January, 4, 8, 0, 0, 0, location), Sport: "walk", DistanceM: &distanceB, Source: "gpx"},
+	}}, nil, nil, nil)
+
+	daily, err := service.Series(context.Background(), Request{
+		MetricID: "movement.distance_m",
+		From:     time.Date(2026, time.January, 1, 0, 0, 0, 0, location),
+		To:       time.Date(2026, time.January, 5, 0, 0, 0, 0, location),
+		Grain:    "day",
+		Timezone: location,
+		Dimensions: map[string][]string{
+			"sport": {"run"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("daily series: %v", err)
+	}
+	if points := daily.Series[0].Points; len(points) != 4 || points[1].Value == nil || *points[1].Value != distanceA || points[3].Value != nil {
+		t.Fatalf("daily distance points = %+v", points)
+	}
+
+	yearly, err := service.Series(context.Background(), Request{
+		MetricID: "movement.distance_m",
+		From:     time.Date(2026, time.January, 1, 0, 0, 0, 0, location),
+		To:       time.Date(2027, time.January, 1, 0, 0, 0, 0, location),
+		Grain:    "year",
+		Timezone: location,
+		Dimensions: map[string][]string{
+			"sport": {"walk"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("yearly series: %v", err)
+	}
+	if points := yearly.Series[0].Points; len(points) != 1 || points[0].Value == nil || *points[0].Value != distanceB {
+		t.Fatalf("yearly distance points = %+v", points)
+	}
+}
+
 func TestExpenseSeriesRequiresCurrencyAndPreservesMinorUnits(t *testing.T) {
 	registry, err := metrics.DefaultRegistry()
 	if err != nil {

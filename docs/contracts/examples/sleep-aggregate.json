@@ -6,6 +6,7 @@
       "session_count": 2,
       "main_sleep_count": 1,
       "nap_count": 1,
+      "observed_wake_dates": 1,
       "average_asleep_s": 28800,
       "average_time_in_bed_s": 30000,
       "average_efficiency": 0.96,
