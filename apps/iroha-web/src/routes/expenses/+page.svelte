@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import { RefreshCw, WalletCards } from "@lucide/svelte";
   import {
     ApiError,
     deleteExpense,
-    getExpense,
     getMetricSeries,
     listAllExpenses,
     type Expense,
@@ -13,7 +14,11 @@
     type MetricSeriesResponse,
   } from "$lib/api";
   import ThemeMonthNavigator from "$lib/themes/ThemeMonthNavigator.svelte";
-  import { currentMonth, monthBounds } from "@iroha/shared/month";
+  import {
+    canonicalMonth,
+    currentMonth,
+    monthBounds,
+  } from "@iroha/shared/month";
   import type { ExpenseThemeProps } from "$lib/expense-view";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
@@ -43,15 +48,31 @@
   let currencySeries = $state<MetricSeriesResponse[]>([]);
   let currencyCountSeries = $state<MetricSeriesResponse[]>([]);
 
-  let month = $state(currentMonth());
-  let filterCurrency = $state("");
-  let filterCategory = $state("");
+  let month = $state(
+    canonicalMonth(page.url.searchParams.get("month"), currentMonth()),
+  );
+  let filterCurrency = $state(
+    currencies.includes(
+      page.url.searchParams.get("currency") as ExpenseCurrency,
+    )
+      ? (page.url.searchParams.get("currency") as ExpenseCurrency)
+      : "",
+  );
+  let filterCategory = $state(
+    categories.includes(
+      page.url.searchParams.get("category") as ExpenseCategory,
+    )
+      ? (page.url.searchParams.get("category") as ExpenseCategory)
+      : "",
+  );
+  let requestVersion = 0;
 
   onMount(() => {
     void loadExpenses(month);
   });
 
   async function loadExpenses(selectedMonth = month) {
+    const version = ++requestVersion;
     loading = true;
     error = null;
     try {
@@ -62,7 +83,6 @@
         currency: (filterCurrency || undefined) as ExpenseCurrency | undefined,
         category: (filterCategory || undefined) as ExpenseCategory | undefined,
       });
-      expenses = monthExpenses;
       const chartCurrencies = filterCurrency
         ? [filterCurrency as ExpenseCurrency]
         : currencies;
@@ -118,6 +138,8 @@
           ),
         ),
       ]);
+      if (version !== requestVersion) return;
+      expenses = monthExpenses;
       dailySeries = daily;
       categorySeries = categoriesForCurrency;
       currencySeries = currenciesForMonth;
@@ -126,32 +148,46 @@
         selected = null;
         selectedId = "";
       } else if (!monthExpenses.some((expense) => expense.id === selectedId)) {
-        await selectExpense(monthExpenses[0].id);
+        selected = monthExpenses[0];
+        selectedId = monthExpenses[0].id;
+      } else {
+        selected =
+          monthExpenses.find((expense) => expense.id === selectedId) ?? null;
       }
     } catch (cause) {
+      if (version !== requestVersion) return;
+      expenses = [];
+      selected = null;
+      selectedId = "";
+      dailySeries = null;
+      categorySeries = [];
+      currencySeries = [];
+      currencyCountSeries = [];
       showError(cause);
     } finally {
-      loading = false;
+      if (version === requestVersion) loading = false;
     }
   }
 
   function selectMonth(value: string) {
     month = value;
+    syncUrl();
     void loadExpenses(value);
   }
 
   async function selectExpense(id: string) {
     selectedId = id;
-    detailLoading = true;
-    error = null;
-    try {
-      selected = await getExpense(id);
-    } catch (cause) {
-      showError(cause);
-      selected = null;
-    } finally {
-      detailLoading = false;
-    }
+    selected = expenses.find((expense) => expense.id === id) ?? null;
+  }
+
+  function syncUrl() {
+    const url = new URL(page.url);
+    url.searchParams.set("month", month);
+    if (filterCurrency) url.searchParams.set("currency", filterCurrency);
+    else url.searchParams.delete("currency");
+    if (filterCategory) url.searchParams.set("category", filterCategory);
+    else url.searchParams.delete("category");
+    if (url.search !== page.url.search) replaceState(url, page.state);
   }
 
   async function removeExpense(expense: Expense) {
@@ -298,6 +334,7 @@
         value={filterCurrency}
         onchange={(event) => {
           filterCurrency = (event.currentTarget as HTMLSelectElement).value;
+          syncUrl();
           void loadExpenses();
         }}
         ><option value="">All currencies</option
@@ -311,6 +348,7 @@
         value={filterCategory}
         onchange={(event) => {
           filterCategory = (event.currentTarget as HTMLSelectElement).value;
+          syncUrl();
           void loadExpenses();
         }}
         ><option value="">All categories</option

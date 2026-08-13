@@ -2,6 +2,15 @@ export function currentMonth(date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+export function canonicalMonth(
+  value: string | null | undefined,
+  fallback = currentMonth(),
+): string {
+  return /^\d{4}-(?:0[1-9]|1[0-2])$/.test(value ?? "")
+    ? (value as string)
+    : fallback;
+}
+
 export function shiftMonth(month: string, delta: number): string {
   const [year, monthNumber] = month.split("-").map(Number);
   const shifted = new Date(year, monthNumber - 1 + delta, 1);

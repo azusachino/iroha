@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import { FileText, RefreshCw } from "@lucide/svelte";
   import {
     ApiError,
@@ -11,6 +13,7 @@
   import ThemeMonthNavigator from "$lib/themes/ThemeMonthNavigator.svelte";
   import {
     currentMonth,
+    canonicalMonth,
     formatMonth,
     monthBounds,
     shiftMonth,
@@ -18,29 +21,32 @@
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
   import type { ReportThemeProps, ReportTrendPoint } from "$lib/report-view";
 
-  let month = $state(currentMonth());
+  let month = $state(
+    canonicalMonth(page.url.searchParams.get("month"), currentMonth()),
+  );
   let report = $state<MonthlyReport | null>(null);
   let trendSeries = $state<MetricSeriesResponse | null>(null);
   let countSeries = $state<MetricSeriesResponse | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let requestVersion = 0;
 
   onMount(() => {
     void loadReport(month);
   });
 
   async function loadReport(requestedMonth: string) {
+    const version = ++requestVersion;
     loading = true;
     error = null;
     try {
       const current = await getMonthlyReport(requestedMonth);
-      report = current;
       const expenseData = current.sections.expenses.data;
       const primaryCurrency =
         expenseData?.totals_by_currency[0]?.currency ?? "JPY";
       const from = monthBounds(shiftMonth(requestedMonth, -5)).from;
       const to = monthBounds(shiftMonth(requestedMonth, 1)).to;
-      [trendSeries, countSeries] = await Promise.all([
+      const [nextTrendSeries, nextCountSeries] = await Promise.all([
         getMetricSeries("expenses.amount_minor", {
           from,
           to,
@@ -54,18 +60,29 @@
           dimensions: [`currency:${primaryCurrency}`],
         }),
       ]);
+      if (version !== requestVersion) return;
+      report = current;
+      trendSeries = nextTrendSeries;
+      countSeries = nextCountSeries;
     } catch (cause) {
+      if (version !== requestVersion) return;
+      report = null;
+      trendSeries = null;
+      countSeries = null;
       if (cause instanceof ApiError && cause.requestId)
         error = `${cause.message} (${cause.code}, request ${cause.requestId})`;
       else if (cause instanceof Error) error = cause.message;
       else error = String(cause);
     } finally {
-      loading = false;
+      if (version === requestVersion) loading = false;
     }
   }
 
   function moveMonth(value: string) {
     month = value;
+    const url = new URL(page.url);
+    url.searchParams.set("month", value);
+    if (url.search !== page.url.search) replaceState(url, page.state);
     void loadReport(value);
   }
 
