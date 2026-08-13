@@ -1,10 +1,11 @@
+import type { Component } from "svelte";
 import {
-  THEME_ROUTES,
+  defineThemeRegistry,
+  isDesignLanguage,
   type DesignLanguage,
   type ThemeDefinition,
-  type ThemeImplementationStatus,
-} from "$lib/themes/types";
-import { THEME_IDENTITIES, isDesignLanguage } from "@iroha/shared/themes";
+  type ThemeRoute,
+} from "@iroha/shared/themes";
 import GrapherActivities from "$lib/themes/grapher/Activities.svelte";
 import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
 import GrapherShell from "$lib/themes/grapher/Shell.svelte";
@@ -68,22 +69,9 @@ import PhenologyReports from "$lib/themes/phenology/Reports.svelte";
 import SoundMapReports from "$lib/themes/sound-map/Reports.svelte";
 import ArchiveReports from "$lib/themes/archive/Reports.svelte";
 
-export const THEME_DEFINITIONS = [
-  {
-    ...THEME_IDENTITIES.atlas,
+const registry = defineThemeRegistry<Component<any>>({
+  atlas: {
     implementation: "curated",
-    routes: [
-      "today",
-      "dashboard",
-      "daily",
-      "activities",
-      "activity-detail",
-      "sleep",
-      "media",
-      "media-detail",
-      "expenses",
-      "reports",
-    ],
     components: {
       shell: AtlasShell,
       today: AtlasToday,
@@ -98,10 +86,8 @@ export const THEME_DEFINITIONS = [
       reports: AtlasReports,
     },
   },
-  {
-    ...THEME_IDENTITIES.grapher,
+  grapher: {
     implementation: "curated",
-    routes: ["today", "daily", "activities", "sleep", "expenses", "reports"],
     components: {
       shell: GrapherShell,
       today: GrapherToday,
@@ -112,21 +98,8 @@ export const THEME_DEFINITIONS = [
       reports: GrapherReports,
     },
   },
-  {
-    ...THEME_IDENTITIES["field-journal"],
+  "field-journal": {
     implementation: "curated",
-    routes: [
-      "today",
-      "dashboard",
-      "daily",
-      "activities",
-      "activity-detail",
-      "sleep",
-      "media",
-      "media-detail",
-      "expenses",
-      "reports",
-    ],
     components: {
       shell: FieldJournalShell,
       today: FieldJournalToday,
@@ -141,21 +114,8 @@ export const THEME_DEFINITIONS = [
       reports: FieldJournalReports,
     },
   },
-  {
-    ...THEME_IDENTITIES.phenology,
+  phenology: {
     implementation: "curated",
-    routes: [
-      "today",
-      "dashboard",
-      "daily",
-      "activities",
-      "activity-detail",
-      "sleep",
-      "media",
-      "media-detail",
-      "expenses",
-      "reports",
-    ],
     components: {
       shell: PhenologyShell,
       today: PhenologyToday,
@@ -170,21 +130,8 @@ export const THEME_DEFINITIONS = [
       reports: PhenologyReports,
     },
   },
-  {
-    ...THEME_IDENTITIES["sound-map"],
+  "sound-map": {
     implementation: "curated",
-    routes: [
-      "today",
-      "dashboard",
-      "daily",
-      "activities",
-      "activity-detail",
-      "sleep",
-      "media",
-      "media-detail",
-      "expenses",
-      "reports",
-    ],
     components: {
       shell: SoundMapShell,
       today: SoundMapToday,
@@ -199,26 +146,8 @@ export const THEME_DEFINITIONS = [
       reports: SoundMapReports,
     },
   },
-  {
-    ...THEME_IDENTITIES.archive,
-    // Cast (rather than a bare literal) so `as const` below doesn't narrow
-    // every entry's `implementation` to the literal "curated" -- that would
-    // make `=== "preview"` checks elsewhere (registry.test.ts,
-    // DesignLanguagePicker) unreachable at the type level now that no theme
-    // is still in preview.
-    implementation: "curated" as ThemeImplementationStatus,
-    routes: [
-      "today",
-      "dashboard",
-      "daily",
-      "activities",
-      "activity-detail",
-      "sleep",
-      "media",
-      "media-detail",
-      "expenses",
-      "reports",
-    ],
+  archive: {
+    implementation: "curated",
     components: {
       shell: ArchiveShell,
       today: ArchiveToday,
@@ -233,19 +162,21 @@ export const THEME_DEFINITIONS = [
       reports: ArchiveReports,
     },
   },
-] as const satisfies readonly ThemeDefinition[];
+});
+
+export const THEME_DEFINITIONS = registry.definitions;
 
 export { isDesignLanguage };
 
-export function getThemeDefinition(language: DesignLanguage): ThemeDefinition {
-  const theme = THEME_DEFINITIONS.find((item) => item.id === language);
-  if (!theme) throw new Error(`Unknown Iroha design language: ${language}`);
-  return theme;
+export function getThemeDefinition(
+  language: DesignLanguage,
+): ThemeDefinition<Component<any>> {
+  return registry.get(language);
 }
 
 export function hasThemeRoute(
-  theme: ThemeDefinition,
-  route: (typeof THEME_ROUTES)[number],
+  theme: ThemeDefinition<Component<any>>,
+  route: ThemeRoute,
 ): boolean {
-  return theme.routes?.includes(route) ?? false;
+  return registry.hasRoute(theme, route);
 }

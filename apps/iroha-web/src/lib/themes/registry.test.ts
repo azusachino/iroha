@@ -7,7 +7,7 @@ import {
 
 describe("Iroha theme registry", () => {
   it("keeps the six language identities explicit", () => {
-    expect(THEME_DEFINITIONS.map((theme) => theme.id)).toEqual([
+    expect(THEME_DEFINITIONS.map((theme) => theme.identity.id)).toEqual([
       "atlas",
       "grapher",
       "field-journal",

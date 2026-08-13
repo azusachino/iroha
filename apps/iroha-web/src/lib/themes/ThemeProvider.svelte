@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { getDesignLanguage, setDesignLanguage } from "$lib/design-language";
   import { getThemeDefinition } from "$lib/themes/registry";
-  import type { DesignLanguage } from "$lib/themes/types";
+  import type { DesignLanguage } from "@iroha/shared/themes";
   import { provideTheme } from "$lib/themes/context.svelte";
 
   let { children } = $props();
