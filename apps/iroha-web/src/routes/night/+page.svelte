@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { replaceState } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import { onMount } from "svelte";
   import {
@@ -460,6 +460,8 @@
           rollupGranularity,
           rollupScope: sleepScope,
           onSelect: (session: SleepSession) => (selected = session),
+          onOpenDetail: (session: SleepSession) =>
+            void goto(`/night/${session.id}`),
         }}
       />
       {#if hasMore}

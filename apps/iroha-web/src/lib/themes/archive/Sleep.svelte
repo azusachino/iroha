@@ -3,7 +3,6 @@
   import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
   import BarChart from "$lib/components/BarChart.svelte";
   import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
-  import SleepDetailLink from "$lib/components/SleepDetailLink.svelte";
 
   let {
     sessions,
@@ -11,6 +10,7 @@
     averageAsleep,
     averageEfficiency,
     onSelect,
+    onOpenDetail,
     sleepSummary = null,
     rollupBuckets = [],
     rollupGranularity = "year",
@@ -21,6 +21,7 @@
     averageAsleep: number;
     averageEfficiency: number;
     onSelect: (session: SleepSession) => void;
+    onOpenDetail: (session: SleepSession) => void;
     sleepSummary?: SleepAggregateBucket | null;
     rollupBuckets?: SleepAggregateBucket[];
     rollupGranularity?: "month" | "year";
@@ -162,19 +163,25 @@
           ><tr
             ><th>Date</th><th>Asleep</th><th>In bed</th><th>Efficiency</th><th
               >Type</th
-            ><th>Detail</th></tr
+            ></tr
           ></thead
         ><tbody>
           {#each sessions as session (session.id)}<tr
               class:selected={selected?.id === session.id}
-              onclick={() => onSelect(session)}
+              role="link"
+              tabindex="0"
+              onclick={() => onOpenDetail(session)}
+              onkeydown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpenDetail(session);
+                }
+              }}
               ><td>{formatDateOnly(session.wake_date)}</td><td
                 >{formatDuration(session.asleep_s)}</td
               ><td>{formatDuration(session.time_in_bed_s)}</td><td
                 >{Math.round(session.efficiency * 100)}%</td
-              ><td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td><td
-                ><SleepDetailLink id={session.id} /></td
-              ></tr
+              ><td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td></tr
             >{/each}
         </tbody>
       </table>
