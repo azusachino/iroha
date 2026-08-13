@@ -3,30 +3,16 @@
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import { FileText, RefreshCw } from "@lucide/svelte";
-  import {
-    ApiError,
-    getMetricSeries,
-    getMonthlyReport,
-    type MetricSeriesResponse,
-    type MonthlyReport,
-  } from "$lib/api";
+  import { ApiError, getMonthlyReport, type MonthlyReport } from "$lib/api";
   import ThemeMonthNavigator from "$lib/themes/ThemeMonthNavigator.svelte";
-  import {
-    currentMonth,
-    canonicalMonth,
-    formatMonth,
-    monthBounds,
-    shiftMonth,
-  } from "@iroha/shared/month";
+  import { currentMonth, canonicalMonth } from "@iroha/shared/month";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
-  import type { ReportThemeProps, ReportTrendPoint } from "$lib/report-view";
+  import type { ReportThemeProps } from "$lib/report-view";
 
   let month = $state(
     canonicalMonth(page.url.searchParams.get("month"), currentMonth()),
   );
   let report = $state<MonthlyReport | null>(null);
-  let trendSeries = $state<MetricSeriesResponse | null>(null);
-  let countSeries = $state<MetricSeriesResponse | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
   let requestVersion = 0;
@@ -41,34 +27,11 @@
     error = null;
     try {
       const current = await getMonthlyReport(requestedMonth);
-      const expenseData = current.sections.expenses.data;
-      const primaryCurrency =
-        expenseData?.totals_by_currency[0]?.currency ?? "JPY";
-      const from = monthBounds(shiftMonth(requestedMonth, -5)).from;
-      const to = monthBounds(shiftMonth(requestedMonth, 1)).to;
-      const [nextTrendSeries, nextCountSeries] = await Promise.all([
-        getMetricSeries("expenses.amount_minor", {
-          from,
-          to,
-          grain: "month",
-          dimensions: [`currency:${primaryCurrency}`],
-        }),
-        getMetricSeries("expenses.count", {
-          from,
-          to,
-          grain: "month",
-          dimensions: [`currency:${primaryCurrency}`],
-        }),
-      ]);
       if (version !== requestVersion) return;
       report = current;
-      trendSeries = nextTrendSeries;
-      countSeries = nextCountSeries;
     } catch (cause) {
       if (version !== requestVersion) return;
       report = null;
-      trendSeries = null;
-      countSeries = null;
       if (cause instanceof ApiError && cause.requestId)
         error = `${cause.message} (${cause.code}, request ${cause.requestId})`;
       else if (cause instanceof Error) error = cause.message;
@@ -111,26 +74,6 @@
       : null;
   }
 
-  function pointValue(
-    series: MetricSeriesResponse | null,
-    period: string,
-  ): number | null {
-    const point = series?.series[0]?.points.find(
-      (item) => item.period === period,
-    );
-    if (!point) return null;
-    return "value_minor" in point
-      ? (point.value_minor ?? null)
-      : (point.value ?? null);
-  }
-
-  function pointCount(period: string): number | null {
-    const point = countSeries?.series[0]?.points.find(
-      (item) => item.period === period,
-    );
-    return point && "value" in point ? (point.value ?? null) : null;
-  }
-
   const currentExpenseData = $derived(expenseData(report));
   const primaryCurrency = $derived(
     currentExpenseData?.totals_by_currency[0]?.currency ?? "JPY",
@@ -140,60 +83,11 @@
       (item) => item.currency === primaryCurrency,
     )?.currency_exponent ?? (primaryCurrency === "JPY" ? 0 : 2),
   );
-  const categoryTotals = $derived(
-    [...(currentExpenseData?.by_category ?? [])]
-      .filter((item) => item.currency === primaryCurrency)
-      .sort((a, b) => b.amount_minor - a.amount_minor),
-  );
-  const trend = $derived<ReportTrendPoint[]>(
-    trendSeries?.series[0]?.points.map((point) => ({
-      month: point.period,
-      label: formatMonth(point.period),
-      amount:
-        "value_minor" in point
-          ? (point.value_minor ?? null)
-          : (point.value ?? null),
-      count: pointCount(point.period),
-    })) ?? [],
-  );
-  const currentTotal = $derived(
-    pointValue(trendSeries, month) ??
-      currentExpenseData?.totals_by_currency.find(
-        (item) => item.currency === primaryCurrency,
-      )?.amount_minor ??
-      0,
-  );
-  const previousTotal = $derived(
-    pointValue(trendSeries, shiftMonth(month, -1)) ?? 0,
-  );
-  const expenseRecordCount = $derived(
-    currentExpenseData?.expense_count ?? pointCount(month) ?? 0,
-  );
-  const topCategory = $derived(categoryTotals[0]?.category ?? "—");
-  const currencyCount = $derived(
-    currentExpenseData?.totals_by_currency.length ?? 0,
-  );
-  const comparisonLabel = $derived(
-    previousTotal === 0
-      ? currentTotal === 0
-        ? "No movement in either month"
-        : "New spending baseline"
-      : `${currentTotal >= previousTotal ? "Up" : "Down"} ${Math.round(Math.abs((currentTotal - previousTotal) / previousTotal) * 100)}% vs previous month`,
-  );
   const themeProps = $derived<ReportThemeProps>({
     month,
     report: report!,
-    trend,
-    trendSeries,
     primaryCurrency,
     primaryExponent,
-    categoryTotals,
-    currentTotal,
-    previousTotal,
-    expenseRecordCount,
-    topCategory,
-    currencyCount,
-    comparisonLabel,
     formatMoney,
     formatDuration,
   });

@@ -1,30 +1,10 @@
-import type { MetricSeriesResponse, MonthlyReport } from "$lib/api";
-
-export type ReportTrendPoint = {
-  month: string;
-  label: string;
-  amount: number | null;
-  count: number | null;
-};
+import type { MonthlyReport } from "$lib/api";
 
 export type ReportThemeProps = {
   month: string;
   report: MonthlyReport;
-  trend: ReportTrendPoint[];
-  trendSeries: MetricSeriesResponse | null;
   primaryCurrency: string;
   primaryExponent: number;
-  categoryTotals: MonthlyReport["sections"]["expenses"]["data"] extends infer T
-    ? T extends { by_category: infer C }
-      ? C
-      : never
-    : never;
-  currentTotal: number;
-  previousTotal: number;
-  expenseRecordCount: number;
-  topCategory: string;
-  currencyCount: number;
-  comparisonLabel: string;
   formatMoney: (
     amountMinor: number,
     currency: string,

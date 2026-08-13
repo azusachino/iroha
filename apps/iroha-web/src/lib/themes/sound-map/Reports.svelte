@@ -1,14 +1,12 @@
 <script lang="ts">
-  import BarChart from "$lib/components/BarChart.svelte";
+  import ReportDomainCharts from "$lib/components/ReportDomainCharts.svelte";
   import ReportDetails from "$lib/components/ReportDetails.svelte";
   import type { ReportThemeProps } from "$lib/report-view";
   let {
     month,
     report,
-    trend,
     primaryCurrency,
     primaryExponent,
-    categoryTotals,
     formatMoney,
     formatDuration,
   }: ReportThemeProps = $props();
@@ -23,30 +21,14 @@
       observations.
     </p>
   </header>
-  <article class="signal">
-    <BarChart
-      categories={trend.map((item) => item.label)}
-      primary={{
-        name: primaryCurrency,
-        values: trend.map((item) => item.amount),
-        color: "var(--accent)",
-        formatter: (value) =>
-          formatMoney(value, primaryCurrency, primaryExponent),
-      }}
-      primaryType="line"
-      height={310}
+  <div class="signal">
+    <ReportDomainCharts
+      {report}
+      {primaryCurrency}
+      {primaryExponent}
+      {formatMoney}
+      {formatDuration}
     />
-  </article>
-  <div class="bands">
-    {#each categoryTotals as item, index}<div>
-        <span>{item.category}</span><b
-          >{formatMoney(
-            item.amount_minor,
-            item.currency,
-            item.currency_exponent,
-          )}</b
-        ><i style={`width:${Math.max(8, 100 - index * 13)}%`}></i>
-      </div>{/each}
   </div>
   <ReportDetails {report} {formatMoney} {formatDuration} />
 </section>
@@ -89,25 +71,5 @@
       ),
       var(--surface);
     box-shadow: 0 0 2rem color-mix(in srgb, var(--accent) 10%, transparent);
-  }
-  .bands {
-    display: grid;
-    gap: 0.45rem;
-  }
-  .bands div {
-    display: grid;
-    grid-template-columns: 8rem 6rem 1fr;
-    gap: 0.8rem;
-    align-items: center;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-  }
-  .bands b {
-    text-align: right;
-  }
-  .bands i {
-    height: 0.55rem;
-    border-radius: 1rem;
-    background: var(--accent);
   }
 </style>

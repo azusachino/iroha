@@ -1,14 +1,12 @@
 <script lang="ts">
-  import BarChart from "$lib/components/BarChart.svelte";
+  import ReportDomainCharts from "$lib/components/ReportDomainCharts.svelte";
   import ReportDetails from "$lib/components/ReportDetails.svelte";
   import type { ReportThemeProps } from "$lib/report-view";
   let {
     month,
     report,
-    trend,
     primaryCurrency,
     primaryExponent,
-    categoryTotals,
     formatMoney,
     formatDuration,
   }: ReportThemeProps = $props();
@@ -20,36 +18,17 @@
     <h2>The report, exactly as generated.</h2>
     <span>{report.period.from} → {report.period.to} · {month}</span>
   </header>
-  <ReportDetails {report} {formatMoney} {formatDuration} />
   <section class="derived">
-    <h3>Derived index views</h3>
-    <div>
-      <BarChart
-        categories={categoryTotals.map((item) => item.category)}
-        primary={{
-          name: primaryCurrency,
-          values: categoryTotals.map((item) => item.amount_minor),
-          color: "var(--accent)",
-          formatter: (value) =>
-            formatMoney(value, primaryCurrency, primaryExponent),
-        }}
-        orientation="horizontal"
-        categorical
-        height={250}
-      /><BarChart
-        categories={trend.map((item) => item.label)}
-        primary={{
-          name: primaryCurrency,
-          values: trend.map((item) => item.amount),
-          color: "var(--accent-2)",
-          formatter: (value) =>
-            formatMoney(value, primaryCurrency, primaryExponent),
-        }}
-        primaryType="line"
-        height={250}
-      />
-    </div>
+    <h3>Canonical domain index</h3>
+    <ReportDomainCharts
+      {report}
+      {primaryCurrency}
+      {primaryExponent}
+      {formatMoney}
+      {formatDuration}
+    />
   </section>
+  <ReportDetails {report} {formatMoney} {formatDuration} />
 </section>
 
 <style>
@@ -95,15 +74,11 @@
     font-size: 0.85rem;
     text-transform: uppercase;
   }
-  .derived > div {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+  .derived :global(.domain-charts) {
     margin-top: 0.8rem;
   }
   @media (max-width: 760px) {
-    .archive-reports header,
-    .derived > div {
+    .archive-reports header {
       display: grid;
       grid-template-columns: 1fr;
     }
