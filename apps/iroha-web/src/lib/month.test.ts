@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canonicalMonth, monthBounds, shiftMonth } from "@iroha/shared/month";
+import {
+  canonicalMonth,
+  MONTH_OPTIONS,
+  monthBounds,
+  shiftMonth,
+  yearOptions,
+} from "@iroha/shared/month";
 
 describe("shared month helpers", () => {
   it("accepts only canonical YYYY-MM values", () => {
@@ -17,5 +23,11 @@ describe("shared month helpers", () => {
   it("moves across year boundaries", () => {
     expect(shiftMonth("2026-01", -1)).toBe("2025-12");
     expect(shiftMonth("2025-12", 1)).toBe("2026-01");
+  });
+
+  it("provides one shared month and descending year vocabulary", () => {
+    expect(MONTH_OPTIONS).toHaveLength(12);
+    expect(MONTH_OPTIONS[0]).toEqual({ value: "1", label: "January" });
+    expect(yearOptions(2024, 2026)).toEqual(["2026", "2025", "2024"]);
   });
 });

@@ -75,28 +75,29 @@
   const mainNight = $derived(nights.find((n) => n.is_main_sleep) ?? nights[0]);
   const acts = $derived(activities.items);
   const mediaEvents = $derived(media.items);
-  const hasRing = $derived(!!dRow && dRow.move_goal_kcal > 0);
+  const dailyRing = $derived(dRow?.ring);
+  const hasRing = $derived(!!dailyRing && dailyRing.move_goal_kcal > 0);
   const ringData = $derived<Ring[]>(
-    hasRing && dRow
+    hasRing && dailyRing
       ? [
           {
             label: "Move",
-            value: dRow.move_kcal,
-            goal: dRow.move_goal_kcal,
+            value: dailyRing.move_kcal,
+            goal: dailyRing.move_goal_kcal,
             unit: "kcal",
             color: "var(--ring-move)",
           },
           {
             label: "Exercise",
-            value: dRow.exercise_min,
-            goal: dRow.exercise_goal_min,
+            value: dailyRing.exercise_min,
+            goal: dailyRing.exercise_goal_min,
             unit: "min",
             color: "var(--ring-exercise)",
           },
           {
             label: "Stand",
-            value: dRow.stand_hours,
-            goal: dRow.stand_goal_hours,
+            value: dailyRing.stand_hours,
+            goal: dailyRing.stand_goal_hours,
             unit: "h",
             color: "var(--ring-stand)",
           },
@@ -143,9 +144,9 @@
           value: `${Math.round(mainNight.efficiency * 100)}%`,
           label: "sleep efficiency",
         }
-      : dRow && dRow.move_goal_kcal > 0
+      : dailyRing && dailyRing.move_goal_kcal > 0
         ? {
-            value: `${Math.round((dRow.move_kcal / dRow.move_goal_kcal) * 100)}%`,
+            value: `${Math.round((dailyRing.move_kcal / dailyRing.move_goal_kcal) * 100)}%`,
             label: "move goal",
           }
         : { value: "—", label: "no baseline" },
@@ -164,7 +165,10 @@
     const t = e.target as HTMLElement | null;
     if (
       t &&
-      (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
+      (t.tagName === "INPUT" ||
+        t.tagName === "TEXTAREA" ||
+        t.tagName === "SELECT" ||
+        t.isContentEditable)
     )
       return;
     if (e.key === "ArrowLeft") shift(-1);
@@ -210,13 +214,13 @@
   // goto so scrubbing days doesn't spam browser history, just the current
   // entry. Omitted entirely for today so the common-case URL stays plain "/".
   $effect(() => {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     if (day === today) {
       url.searchParams.delete("date");
     } else {
       url.searchParams.set("date", day);
     }
-    if (url.search !== page.url.search) {
+    if (url.search !== window.location.search) {
       replaceState(url, page.state);
     }
   });
@@ -379,24 +383,26 @@
     <div class="home-kpis" aria-label="Today summary">
       <div class="home-kpi tile">
         <span>Move</span>
-        <strong>{num(dRow?.move_kcal, 0)}<small> kcal</small></strong>
+        <strong>{num(dailyRing?.move_kcal, 0)}<small> kcal</small></strong>
         <i
           style={"--fill:" +
             Math.min(
               100,
-              ((dRow?.move_kcal ?? 0) / (dRow?.move_goal_kcal || 1)) * 100,
+              ((dailyRing?.move_kcal ?? 0) / (dailyRing?.move_goal_kcal || 1)) *
+                100,
             ) +
             "%"}
         ></i>
       </div>
       <div class="home-kpi tile">
         <span>Exercise</span>
-        <strong>{num(dRow?.exercise_min, 0)}<small> min</small></strong>
+        <strong>{num(dailyRing?.exercise_min, 0)}<small> min</small></strong>
         <i
           style={"--fill:" +
             Math.min(
               100,
-              ((dRow?.exercise_min ?? 0) / (dRow?.exercise_goal_min || 1)) *
+              ((dailyRing?.exercise_min ?? 0) /
+                (dailyRing?.exercise_goal_min || 1)) *
                 100,
             ) +
             "%"}

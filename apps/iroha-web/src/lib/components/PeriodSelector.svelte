@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { shiftMonth } from "@iroha/shared/month";
+  import { useTheme } from "$lib/themes/context.svelte";
+
   export type PeriodOption = { value: string; label: string };
 
   let {
@@ -23,17 +26,57 @@
     onMonth: (value: string) => void;
   } = $props();
 
+  const theme = useTheme();
+  let root: HTMLDivElement;
+
   const yearOptions = $derived(
     years.map((option) =>
       typeof option === "string" ? { value: option, label: option } : option,
     ),
   );
+
+  function shiftPeriod(delta: number) {
+    if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
+      onMonth(shiftMonth(month, delta));
+      return;
+    }
+    if (!/^\d{4}$/.test(year)) return;
+
+    const selectedMonth = /^(?:[1-9]|1[0-2])$/.test(month)
+      ? Number(month) - 1
+      : delta < 0
+        ? 0
+        : 11;
+    const next = new Date(Date.UTC(Number(year), selectedMonth + delta, 1));
+    onYear(String(next.getUTCFullYear()));
+    onMonth(String(next.getUTCMonth() + 1));
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const target = event.target as Element | null;
+    if (target?.matches("input, textarea, [contenteditable='true']")) return;
+    if (target?.matches("select") && !root?.contains(target)) return;
+    const active = document.activeElement;
+    if (
+      active !== document.body &&
+      active !== document.documentElement &&
+      !root?.contains(active)
+    )
+      return;
+    event.preventDefault();
+    shiftPeriod(event.key === "ArrowLeft" ? -1 : 1);
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div
   class:panel={appearance === "panel"}
   class:inline={appearance === "inline"}
   class="period-controls"
+  data-theme={theme.definition().identity.id}
+  bind:this={root}
   aria-label="Period filters"
 >
   <label>
@@ -118,6 +161,49 @@
   select:disabled {
     cursor: not-allowed;
     opacity: 0.45;
+  }
+
+  .period-controls[data-theme="atlas"] select {
+    border-width: 2px;
+    border-radius: 2px;
+    background-image:
+      linear-gradient(
+        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 10px 10px;
+  }
+
+  .period-controls[data-theme="grapher"] select {
+    border-radius: 2px;
+    border-bottom-width: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .period-controls[data-theme="field-journal"] select {
+    border-style: dashed;
+    box-shadow: 2px 2px 0 color-mix(in srgb, var(--accent-2) 20%, transparent);
+  }
+
+  .period-controls[data-theme="phenology"] select {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 9%, var(--surface-2));
+  }
+
+  .period-controls[data-theme="sound-map"] select {
+    border-inline-width: 2px;
+    box-shadow: inset 0 -2px 0
+      color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  .period-controls[data-theme="archive"] select {
+    border: 3px double var(--border);
+    border-radius: 0;
   }
 
   @media (max-width: 520px) {

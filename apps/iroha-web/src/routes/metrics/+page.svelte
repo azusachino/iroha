@@ -12,7 +12,8 @@
   import DailySmallMultiples, {
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
-  import ThemeMonthNavigator from "$lib/themes/ThemeMonthNavigator.svelte";
+  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
   import MetricMetadata from "@iroha/shared/MetricMetadata.svelte";
   import MetricTable from "@iroha/shared/MetricTable.svelte";
@@ -20,8 +21,10 @@
   import {
     canonicalMonth,
     currentMonth,
+    MONTH_OPTIONS,
     monthBounds,
     shiftMonth,
+    yearOptions,
   } from "@iroha/shared/month";
 
   let catalog = $state<MetricDefinition[]>([]);
@@ -34,6 +37,9 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let requestVersion = 0;
+  const periodYears = yearOptions();
+  const periodYear = $derived(month.slice(0, 4));
+  const periodMonth = $derived(String(Number(month.slice(5, 7))));
 
   const definition = $derived(
     catalog.find((metric) => metric.id === metricId) ?? null,
@@ -65,10 +71,25 @@
   });
 
   function resetDimensions() {
+    const fromUrl = new Map(
+      page.url.searchParams.getAll("dimension").map((value) => {
+        const separator = value.indexOf(":");
+        return separator > 0
+          ? [value.slice(0, separator), value.slice(separator + 1)]
+          : ["", ""];
+      }),
+    );
     dimensions = Object.fromEntries(
       (definition?.dimensions ?? [])
-        .filter((dimension) => dimension.required)
-        .map((dimension) => [dimension.id, dimension.values[0] ?? ""]),
+        .map((dimension) => [
+          dimension.id,
+          dimension.values.includes(fromUrl.get(dimension.id) ?? "")
+            ? fromUrl.get(dimension.id)
+            : dimension.required
+              ? (dimension.values[0] ?? "")
+              : "",
+        ])
+        .filter(([, value]) => value),
     );
   }
 
@@ -111,8 +132,19 @@
     void loadSeries();
   }
 
+  function selectPeriodYear(value: string) {
+    if (!/^\d{4}$/.test(value)) return;
+    selectMonth(`${value}-${month.slice(5, 7)}`);
+  }
+
+  function selectPeriodMonth(value: string) {
+    if (!/^(?:[1-9]|1[0-2])$/.test(value)) return;
+    selectMonth(`${periodYear}-${value.padStart(2, "0")}`);
+  }
+
   function selectDimension(id: string, value: string) {
     dimensions = { ...dimensions, [id]: value };
+    syncUrl();
     void loadSeries();
   }
 
@@ -120,6 +152,10 @@
     const url = new URL(window.location.href);
     url.searchParams.set("metric", metricId);
     url.searchParams.set("month", month);
+    url.searchParams.delete("dimension");
+    for (const [id, value] of Object.entries(dimensions)) {
+      if (value) url.searchParams.append("dimension", `${id}:${value}`);
+    }
     if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
@@ -145,8 +181,20 @@
       <p class="eyebrow"><Activity size={14} /> Metric explorer</p>
       <h1>Metrics</h1>
     </div>
-    <ThemeMonthNavigator {month} onMonth={selectMonth} />
   </header>
+
+  <PeriodToolbar title="Monthly metric window" ariaLabel="Metric period">
+    <PeriodSelector
+      year={periodYear}
+      month={periodMonth}
+      years={periodYears}
+      months={MONTH_OPTIONS}
+      showAllYears={false}
+      appearance="inline"
+      onYear={selectPeriodYear}
+      onMonth={selectPeriodMonth}
+    />
+  </PeriodToolbar>
 
   <ThemeRouteRenderer route="metrics" props={{}}>
     <div class="controls panel">

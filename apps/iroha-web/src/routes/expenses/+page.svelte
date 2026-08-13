@@ -13,11 +13,14 @@
     type ExpenseCurrency,
     type MetricSeriesResponse,
   } from "$lib/api";
-  import ThemeMonthNavigator from "$lib/themes/ThemeMonthNavigator.svelte";
+  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import {
+    MONTH_OPTIONS,
     canonicalMonth,
     currentMonth,
     monthBounds,
+    yearOptions,
   } from "@iroha/shared/month";
   import type { ExpenseThemeProps } from "$lib/expense-view";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -65,6 +68,9 @@
       ? (page.url.searchParams.get("category") as ExpenseCategory)
       : "",
   );
+  const periodYears = yearOptions();
+  const periodYear = $derived(month.slice(0, 4));
+  const periodMonth = $derived(String(Number(month.slice(5, 7))));
   let requestVersion = 0;
 
   onMount(() => {
@@ -169,6 +175,16 @@
     month = value;
     syncUrl();
     void loadExpenses(value);
+  }
+
+  function selectPeriodYear(value: string) {
+    if (!/^\d{4}$/.test(value)) return;
+    selectMonth(`${value}-${month.slice(5, 7)}`);
+  }
+
+  function selectPeriodMonth(value: string) {
+    if (!/^(?:[1-9]|1[0-2])$/.test(value)) return;
+    selectMonth(`${periodYear}-${value.padStart(2, "0")}`);
   }
 
   async function selectExpense(id: string) {
@@ -316,13 +332,18 @@
       disabled={loading}><RefreshCw size={15} /> Refresh</button
     >
   </header>
-  <section class="period panel" aria-label="Expense period">
-    <div class="period-copy">
-      <span>Period</span>
-      <strong>Monthly ledger scope</strong>
-    </div>
-    <ThemeMonthNavigator {month} onMonth={selectMonth} />
-  </section>
+  <PeriodToolbar title="Monthly ledger scope" ariaLabel="Expense period">
+    <PeriodSelector
+      year={periodYear}
+      month={periodMonth}
+      years={periodYears}
+      months={MONTH_OPTIONS}
+      showAllYears={false}
+      appearance="inline"
+      onYear={selectPeriodYear}
+      onMonth={selectPeriodMonth}
+    />
+  </PeriodToolbar>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   <div class="filters panel" aria-label="Expense filters">
     <label
@@ -397,27 +418,6 @@
     align-items: end;
     padding-bottom: 1.5rem;
     border-bottom: 1px solid var(--border);
-  }
-  .period {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.75rem 1rem;
-  }
-  .period-copy {
-    display: grid;
-    gap: 0.2rem;
-  }
-  .period-copy span {
-    color: var(--accent);
-    font-size: 0.68rem;
-    font-weight: 750;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  .period-copy strong {
-    font-size: 0.9rem;
   }
   .eyebrow {
     display: flex;
@@ -652,14 +652,6 @@
     }
     .filters label {
       flex: 1 1 9rem;
-    }
-    .period {
-      align-items: stretch;
-      flex-direction: column;
-    }
-    .period :global(.month-navigator) {
-      align-self: stretch;
-      justify-content: space-between;
     }
   }
 </style>

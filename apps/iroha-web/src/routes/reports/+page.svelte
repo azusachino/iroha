@@ -4,8 +4,14 @@
   import { page } from "$app/state";
   import { FileText, RefreshCw } from "@lucide/svelte";
   import { ApiError, getMonthlyReport, type MonthlyReport } from "$lib/api";
-  import ThemeMonthNavigator from "$lib/themes/ThemeMonthNavigator.svelte";
-  import { currentMonth, canonicalMonth } from "@iroha/shared/month";
+  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import {
+    MONTH_OPTIONS,
+    currentMonth,
+    canonicalMonth,
+    yearOptions,
+  } from "@iroha/shared/month";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
   import type { ReportThemeProps } from "$lib/report-view";
 
@@ -16,6 +22,9 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let requestVersion = 0;
+  const periodYears = yearOptions();
+  const periodYear = $derived(month.slice(0, 4));
+  const periodMonth = $derived(String(Number(month.slice(5, 7))));
 
   onMount(() => {
     void loadReport(month);
@@ -47,6 +56,16 @@
     url.searchParams.set("month", value);
     if (url.search !== window.location.search) replaceState(url, page.state);
     void loadReport(value);
+  }
+
+  function selectPeriodYear(value: string) {
+    if (!/^\d{4}$/.test(value)) return;
+    moveMonth(`${value}-${month.slice(5, 7)}`);
+  }
+
+  function selectPeriodMonth(value: string) {
+    if (!/^(?:[1-9]|1[0-2])$/.test(value)) return;
+    moveMonth(`${periodYear}-${value.padStart(2, "0")}`);
   }
 
   function formatDuration(seconds: number): string {
@@ -113,13 +132,18 @@
       disabled={loading}><RefreshCw size={15} /> Refresh</button
     >
   </header>
-  <section class="period panel" aria-label="Report period">
-    <div class="period-copy">
-      <span>Period</span>
-      <strong>Monthly cross-domain report</strong>
-    </div>
-    <ThemeMonthNavigator {month} onMonth={moveMonth} />
-  </section>
+  <PeriodToolbar title="Monthly cross-domain report" ariaLabel="Report period">
+    <PeriodSelector
+      year={periodYear}
+      month={periodMonth}
+      years={periodYears}
+      months={MONTH_OPTIONS}
+      showAllYears={false}
+      appearance="inline"
+      onYear={selectPeriodYear}
+      onMonth={selectPeriodMonth}
+    />
+  </PeriodToolbar>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if loading}<p class="muted">
       Generating the monthly report…
@@ -167,29 +191,6 @@
     color: var(--text-muted);
     line-height: 1.5;
   }
-  .period {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    align-items: center;
-    padding: 1rem;
-    border: 1px solid var(--border);
-    background: var(--surface);
-  }
-  .period-copy {
-    display: grid;
-    gap: 0.2rem;
-  }
-  .period-copy span {
-    color: var(--accent);
-    font-size: 0.68rem;
-    font-weight: 750;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  .period-copy strong {
-    font-size: 0.9rem;
-  }
   .muted,
   .generated {
     color: var(--text-muted);
@@ -197,9 +198,6 @@
   }
   .error {
     color: var(--danger);
-  }
-  .panel {
-    min-width: 0;
   }
   button {
     min-height: 2.4rem;
@@ -228,8 +226,7 @@
     color: var(--accent);
   }
   @media (max-width: 760px) {
-    .page-head,
-    .period {
+    .page-head {
       align-items: start;
       flex-direction: column;
     }

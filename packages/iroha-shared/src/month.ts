@@ -2,6 +2,24 @@ export function currentMonth(date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+export const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
+  value: String(index + 1),
+  label: new Date(Date.UTC(2000, index, 1)).toLocaleDateString("en-US", {
+    month: "long",
+    timeZone: "UTC",
+  }),
+}));
+
+export function yearOptions(
+  firstYear = 2015,
+  lastYear = new Date().getFullYear(),
+): string[] {
+  return Array.from(
+    { length: Math.max(0, lastYear - firstYear + 1) },
+    (_, index) => String(lastYear - index),
+  );
+}
+
 export function canonicalMonth(
   value: string | null | undefined,
   fallback = currentMonth(),

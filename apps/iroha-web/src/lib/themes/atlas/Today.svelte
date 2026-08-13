@@ -37,8 +37,8 @@
   }
 
   const moveProgress = $derived(
-    dRow && dRow.move_goal_kcal > 0
-      ? Math.min(100, (dRow.move_kcal / dRow.move_goal_kcal) * 100)
+    dRow?.ring && dRow.ring.move_goal_kcal > 0
+      ? Math.min(100, (dRow.ring.move_kcal / dRow.ring.move_goal_kcal) * 100)
       : 0,
   );
 </script>
@@ -64,8 +64,8 @@
       <p class="atlas-kicker">Ground covered</p>
       <h2>{number(dRow?.steps)} steps · {number(dRow?.distance_km, 1)} km</h2>
       <p>
-        Movement closed at {number(dRow?.move_kcal)} of {number(
-          dRow?.move_goal_kcal,
+        Movement closed at {number(dRow?.ring?.move_kcal)} of {number(
+          dRow?.ring?.move_goal_kcal,
         )} kcal against the daily move goal.
       </p>
       <div
@@ -106,7 +106,7 @@
         </div>
         <div>
           <dt>Exercise</dt>
-          <dd>{number(dRow?.exercise_min)} min</dd>
+          <dd>{number(dRow?.ring?.exercise_min)} min</dd>
         </div>
       </dl>
     </section>

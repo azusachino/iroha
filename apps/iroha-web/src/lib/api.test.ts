@@ -252,12 +252,7 @@ const emptyActivity: Activity = {
 const emptyDailyRow: DailyRow = {
   id: "daily",
   day: "2026-01-01T00:00:00Z",
-  move_kcal: 0,
-  move_goal_kcal: 0,
-  exercise_min: 0,
-  exercise_goal_min: 0,
-  stand_hours: 0,
-  stand_goal_hours: 0,
+  ring: null,
   source: "test",
   first_raw_file_id: "file",
   created_at: "2026-01-01T00:00:00Z",

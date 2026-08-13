@@ -13,6 +13,7 @@
     type SmallMultiple,
   } from "$lib/components/DailySmallMultiples.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDateOnly } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -93,27 +94,28 @@
 
   // Hero uses the latest real ring day, independent of the chosen granularity.
   const latestRingDay = $derived(latestDay);
+  const latestRing = $derived(latestRingDay?.ring);
   const ringData = $derived<Ring[]>(
-    latestRingDay
+    latestRing
       ? [
           {
             label: "Move",
-            value: latestRingDay.move_kcal,
-            goal: latestRingDay.move_goal_kcal,
+            value: latestRing.move_kcal,
+            goal: latestRing.move_goal_kcal,
             unit: "kcal",
             color: "var(--ring-move)",
           },
           {
             label: "Exercise",
-            value: latestRingDay.exercise_min,
-            goal: latestRingDay.exercise_goal_min,
+            value: latestRing.exercise_min,
+            goal: latestRing.exercise_goal_min,
             unit: "min",
             color: "var(--ring-exercise)",
           },
           {
             label: "Stand",
-            value: latestRingDay.stand_hours,
-            goal: latestRingDay.stand_goal_hours,
+            value: latestRing.stand_hours,
+            goal: latestRing.stand_goal_hours,
             unit: "h",
             color: "var(--ring-stand)",
           },
@@ -160,15 +162,20 @@
     });
   }
   function dayToDisp(r: DailyRow): Disp {
-    const ring = r.move_goal_kcal > 0;
+    const ring = r.ring;
+    const hasRing = ring != null && ring.move_goal_kcal > 0;
     return {
       label: formatDateOnly(r.day),
       period: r.day.slice(0, 10),
       days: null,
-      move: ring ? r.move_kcal : null,
-      exercise: ring ? r.exercise_min : null,
-      stand: ring ? r.stand_hours : null,
-      moveClosedPct: ring ? (r.move_kcal >= r.move_goal_kcal ? 100 : 0) : null,
+      move: hasRing ? ring.move_kcal : null,
+      exercise: hasRing ? ring.exercise_min : null,
+      stand: hasRing ? ring.stand_hours : null,
+      moveClosedPct: hasRing
+        ? ring.move_kcal >= ring.move_goal_kcal
+          ? 100
+          : 0
+        : null,
       steps: r.steps ?? null,
       distance: r.distance_km ?? null,
       resting_hr: r.resting_hr ?? null,
@@ -340,13 +347,13 @@
   }
 
   function syncUrl() {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     url.searchParams.set("gran", gran);
     if (scopedYear) url.searchParams.set("year", scopedYear);
     else url.searchParams.delete("year");
     if (scopedMonth) url.searchParams.set("month", scopedMonth);
     else url.searchParams.delete("month");
-    if (url.search !== page.url.search) replaceState(url, page.state);
+    if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
   // Clicking a bar or table row zooms in one level: a year scopes month
@@ -390,17 +397,18 @@
     {:else if monthly.length === 0 && dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
-      <div class="period-toolbar">
+      <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
         <PeriodSelector
           years={periodYears}
           months={periodMonths}
           year={gran === "year" ? selectedYear : activeYear}
           month={gran === "day" ? activeMonth : selectedMonth}
           showAllYears={gran === "year"}
+          appearance="inline"
           onYear={selectYear}
           onMonth={selectMonth}
         />
-      </div>
+      </PeriodToolbar>
       <ThemeRouteRenderer
         route="daily"
         props={{
@@ -453,15 +461,6 @@
             </button>
           {/each}
         </div>
-        <PeriodSelector
-          years={periodYears}
-          months={periodMonths}
-          year={gran === "year" ? selectedYear : activeYear}
-          month={gran === "day" ? activeMonth : selectedMonth}
-          showAllYears={gran === "year"}
-          onYear={selectYear}
-          onMonth={selectMonth}
-        />
         <span class="muted small">
           {#if aggregated}
             {chrono.length}
@@ -474,6 +473,18 @@
             >Range: {rangeFrom} → {rangeTo}</span
           >{/if}
       </div>
+      <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
+        <PeriodSelector
+          years={periodYears}
+          months={periodMonths}
+          year={gran === "year" ? selectedYear : activeYear}
+          month={gran === "day" ? activeMonth : selectedMonth}
+          showAllYears={gran === "year"}
+          appearance="inline"
+          onYear={selectYear}
+          onMonth={selectMonth}
+        />
+      </PeriodToolbar>
 
       <div class="trend-panel tile">
         <div class="trend-heading">
@@ -607,10 +618,6 @@
     align-items: center;
     gap: 1rem;
     flex-wrap: wrap;
-  }
-  .period-toolbar {
-    display: flex;
-    justify-content: flex-end;
   }
   .seg {
     display: inline-flex;

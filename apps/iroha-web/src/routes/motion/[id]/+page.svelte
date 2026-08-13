@@ -25,6 +25,7 @@
   } from "$lib/format";
   import RouteMap from "$lib/components/RouteMap.svelte";
   import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
+  import LapChart from "$lib/components/LapChart.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
@@ -428,8 +429,6 @@
       eyebrow="Motion / performance report"
       title={displayTitle(activity.title, activity.sport_type)}
       description="A measured record of this session, from the route and effort to the details worth revisiting."
-      actionHref="/motion"
-      actionLabel="Back to archive"
     />
     <div class="activity-meta">
       <SportBadge sport={activity.sport_type} />
@@ -526,6 +525,10 @@
         Laps ({isSwimming(activity.sport_type) ? "100 m" : "1 km"} splits)
       </h2>
       <div class="laps-container tile">
+        <LapChart
+          laps={displayLaps}
+          swimming={isSwimming(activity.sport_type)}
+        />
         <div class="split-bars" aria-label="Split pace bars">
           {#each displayLaps as lap (lap.lap_no)}
             <div class="split-row">

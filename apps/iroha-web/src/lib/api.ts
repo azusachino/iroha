@@ -626,18 +626,22 @@ export function getMonthlyReport(
   );
 }
 
-// One day of the daily-activity + body-vitals module. Rings are always present
-// (zeroed on non-ring days); every scalar metric is optional because a day may
-// have some vitals but no ring, or vice versa.
-export interface DailyRow {
-  id: string;
-  day: string;
+// One day of the daily-activity + body-vitals module. The API keeps activity
+// rings as one nullable object so the canonical wire shape is explicit: a
+// missing ring is different from a ring whose values happen to be zero.
+export interface DailyRing {
   move_kcal: number;
   move_goal_kcal: number;
   exercise_min: number;
   exercise_goal_min: number;
   stand_hours: number;
   stand_goal_hours: number;
+}
+
+export interface DailyRow {
+  id: string;
+  day: string;
+  ring: DailyRing | null;
   steps?: number;
   distance_km?: number;
   flights?: number;

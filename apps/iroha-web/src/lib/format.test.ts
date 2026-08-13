@@ -3,6 +3,7 @@ import {
   boundPercent,
   formatDistance,
   formatDuration,
+  formatMetricValue,
   formatPercent,
   formatProgressCount,
   progressPercent,
@@ -228,6 +229,19 @@ describe("formatPercent", () => {
   it("returns an em dash for missing or invalid percentages", () => {
     expect(formatPercent(undefined)).toBe(DASH);
     expect(formatPercent(NaN)).toBe(DASH);
+  });
+});
+
+describe("formatMetricValue", () => {
+  it("rounds unit-bearing report values without leaking float artifacts", () => {
+    expect(formatMetricValue(4.655365837999999, "km")).toBe("4.7");
+    expect(formatMetricValue(56.11410969696969, "ms")).toBe("56.1");
+    expect(formatMetricValue(5860.8, "count")).toBe("5,861");
+  });
+
+  it("uses an em dash for missing or non-finite values", () => {
+    expect(formatMetricValue(undefined, "km")).toBe(DASH);
+    expect(formatMetricValue(NaN, "km")).toBe(DASH);
   });
 });
 

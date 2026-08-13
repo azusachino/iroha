@@ -21,6 +21,8 @@
     formatElevation,
   } from "$lib/format";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import { MONTH_OPTIONS } from "@iroha/shared/month";
   import { sportColor, sportLabel } from "$lib/sport";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -54,20 +56,7 @@
     summary ? summary.by_sport.map((b) => b.key).sort() : [],
   );
 
-  const months = [
-    { value: "1", label: "January" },
-    { value: "2", label: "February" },
-    { value: "3", label: "March" },
-    { value: "4", label: "April" },
-    { value: "5", label: "May" },
-    { value: "6", label: "June" },
-    { value: "7", label: "July" },
-    { value: "8", label: "August" },
-    { value: "9", label: "September" },
-    { value: "10", label: "October" },
-    { value: "11", label: "November" },
-    { value: "12", label: "December" },
-  ];
+  const months = MONTH_OPTIONS;
 
   const years = $derived(
     summary
@@ -87,14 +76,14 @@
   }
 
   function syncUrl() {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     if (sportType) url.searchParams.set("sport", sportType);
     else url.searchParams.delete("sport");
     if (selectedYear) url.searchParams.set("year", selectedYear);
     else url.searchParams.delete("year");
     if (selectedMonth) url.searchParams.set("month", selectedMonth);
     else url.searchParams.delete("month");
-    if (url.search !== page.url.search) replaceState(url, page.state);
+    if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
   // Smaller first page than the server's 50 default — lighter initial paint,
@@ -146,13 +135,6 @@
       loading = false;
       loadingMore = false;
     }
-  }
-
-  function apply(event: SubmitEvent) {
-    event.preventDefault();
-    applied = buildParams();
-    cursor = null;
-    load(false);
   }
 
   function clear() {
@@ -329,6 +311,24 @@
 </svelte:head>
 
 <section class="activities-shell">
+  <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
+    <PeriodSelector
+      year={selectedYear}
+      month={selectedMonth}
+      {years}
+      {months}
+      monthDisabled={!selectedYear}
+      appearance="inline"
+      onYear={(value) => {
+        selectedYear = value;
+        handleYearChange();
+      }}
+      onMonth={(value) => {
+        selectedMonth = value;
+        handleMonthChange();
+      }}
+    />
+  </PeriodToolbar>
   {#if hasThemeRoute(theme.definition(), "activities")}
     <ThemeRouteRenderer
       route="activities"
@@ -336,11 +336,7 @@
         activities,
         displaySummary,
         sportType,
-        selectedYear,
-        selectedMonth,
-        years,
         sportOptions,
-        months,
         loading,
         error,
         hasMore,
@@ -348,14 +344,6 @@
         onSportType: (value: string) => {
           sportType = value;
           syncUrl();
-        },
-        onYear: (value: string) => {
-          selectedYear = value;
-          handleYearChange();
-        },
-        onMonth: (value: string) => {
-          selectedMonth = value;
-          handleMonthChange();
         },
         onLoadMore: () => void load(true),
       }}
@@ -402,23 +390,19 @@
       <div class="filter-fields">
         <label
           >Sport
-          <select bind:value={sportType}>
+          <select
+            value={sportType}
+            onchange={(event) => {
+              sportType = (event.currentTarget as HTMLSelectElement).value;
+              syncUrl();
+            }}
+          >
             <option value="">All sports</option>
             {#each sportOptions as option (option)}
               <option value={option}>{sportLabel(option)}</option>
             {/each}
           </select>
         </label>
-        <PeriodSelector
-          year={selectedYear}
-          month={selectedMonth}
-          {years}
-          {months}
-          monthDisabled={!selectedYear}
-          appearance="inline"
-          onYear={handleYearChange}
-          onMonth={handleMonthChange}
-        />
       </div>
       <div class="toolbar-actions">
         <button type="button" class="secondary" onclick={clear}
@@ -500,7 +484,7 @@
         {/each}
       </ul>
       {#if hasMore}
-        <div bind:this={sentinel} class="load-sentinel">
+        <div class="load-sentinel">
           <button
             class="load-more"
             onclick={() => load(true)}
@@ -510,6 +494,14 @@
         </div>
       {/if}
     {/if}
+  {/if}
+  {#if hasMore}
+    <div
+      bind:this={sentinel}
+      class="motion-load-sentinel"
+      data-testid="motion-load-sentinel"
+      aria-hidden="true"
+    ></div>
   {/if}
 </section>
 

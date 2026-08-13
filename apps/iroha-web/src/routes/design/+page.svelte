@@ -45,28 +45,29 @@
   let variant = $state<Variant>("editorial");
   let today = $state<TodayData>(sampleToday());
   let source = $state<"sample" | "live">("sample");
+  const dailyRing = $derived(today.daily?.ring);
 
   const rings = $derived<Ring[]>(
-    today.daily
+    dailyRing
       ? [
           {
             label: "Move",
-            value: today.daily.move_kcal,
-            goal: today.daily.move_goal_kcal,
+            value: dailyRing.move_kcal,
+            goal: dailyRing.move_goal_kcal,
             unit: "kcal",
             color: "var(--ring-move)",
           },
           {
             label: "Exercise",
-            value: today.daily.exercise_min,
-            goal: today.daily.exercise_goal_min,
+            value: dailyRing.exercise_min,
+            goal: dailyRing.exercise_goal_min,
             unit: "min",
             color: "var(--ring-exercise)",
           },
           {
             label: "Stand",
-            value: today.daily.stand_hours,
-            goal: today.daily.stand_goal_hours,
+            value: dailyRing.stand_hours,
+            goal: dailyRing.stand_goal_hours,
             unit: "h",
             color: "var(--ring-stand)",
           },
@@ -151,12 +152,14 @@
       daily: {
         id: "daily-demo",
         day: "2026-07-18",
-        move_kcal: 486,
-        move_goal_kcal: 650,
-        exercise_min: 34,
-        exercise_goal_min: 30,
-        stand_hours: 9,
-        stand_goal_hours: 12,
+        ring: {
+          move_kcal: 486,
+          move_goal_kcal: 650,
+          exercise_min: 34,
+          exercise_goal_min: 30,
+          stand_hours: 9,
+          stand_goal_hours: 12,
+        },
         steps: 8420,
         distance_km: 6.8,
         flights: 7,
@@ -330,13 +333,12 @@
     </div>
     <div class="signal-metric">
       <span>Move</span>
-      <strong>{today.daily?.move_kcal ?? "—"}<small> kcal</small></strong>
+      <strong>{dailyRing?.move_kcal ?? "—"}<small> kcal</small></strong>
       <i
         style={"--fill:" +
           Math.min(
             100,
-            ((today.daily?.move_kcal ?? 0) /
-              (today.daily?.move_goal_kcal || 1)) *
+            ((dailyRing?.move_kcal ?? 0) / (dailyRing?.move_goal_kcal || 1)) *
               100,
           ) +
           "%"}
@@ -478,12 +480,12 @@
           <article class="command-kpi tile">
             <span>Move target</span>
             <strong
-              >{today.daily?.move_kcal ?? "—"}<small>
-                / {today.daily?.move_goal_kcal ?? "—"} kcal</small
+              >{dailyRing?.move_kcal ?? "—"}<small>
+                / {dailyRing?.move_goal_kcal ?? "—"} kcal</small
               ></strong
             >
             <i
-              style={`--fill:${Math.min(100, ((today.daily?.move_kcal ?? 0) / (today.daily?.move_goal_kcal || 1)) * 100)}%`}
+              style={`--fill:${Math.min(100, ((dailyRing?.move_kcal ?? 0) / (dailyRing?.move_goal_kcal || 1)) * 100)}%`}
             ></i>
           </article>
           <article class="command-kpi tile">
@@ -570,8 +572,8 @@
                 : "Make the first mark."}</strong
             >
             <p class="muted">
-              {today.daily?.exercise_min &&
-              today.daily.exercise_min >= (today.daily.exercise_goal_min ?? 0)
+              {dailyRing?.exercise_min &&
+              dailyRing.exercise_min >= (dailyRing.exercise_goal_min ?? 0)
                 ? "Exercise is covered. A short walk keeps the evening open."
                 : "A small block of movement will change the shape of the day."}
             </p>
@@ -686,7 +688,7 @@
             </div>
             <div>
               <dt>Exercise</dt>
-              <dd>{today.daily?.exercise_min ?? "—"} min</dd>
+              <dd>{dailyRing?.exercise_min ?? "—"} min</dd>
             </div>
             <div>
               <dt>Distance</dt>
@@ -919,7 +921,7 @@
           <strong>{readiness}<small>/100</small></strong>
           <div class="journal-stats">
             <div>
-              <span>movement</span><b>{today.daily?.exercise_min ?? "—"} min</b>
+              <span>movement</span><b>{dailyRing?.exercise_min ?? "—"} min</b>
             </div>
             <div>
               <span>distance</span><b
@@ -970,9 +972,9 @@
         </article>
         <article class="quiet-stat">
           <span>movement</span>
-          <strong>{today.daily?.exercise_min ?? "—"} <small>min</small></strong>
+          <strong>{dailyRing?.exercise_min ?? "—"} <small>min</small></strong>
           <p>
-            {today.daily?.move_kcal ?? "—"} kcal · {today.daily?.steps?.toLocaleString() ??
+            {dailyRing?.move_kcal ?? "—"} kcal · {today.daily?.steps?.toLocaleString() ??
               "—"} steps
           </p>
         </article>

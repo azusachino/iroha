@@ -7,7 +7,6 @@
     formatPace,
   } from "$lib/format";
   import { sportLabel } from "$lib/sport";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
 
   type DisplaySummary = {
     activity_count: number;
@@ -18,35 +17,23 @@
     activities,
     displaySummary,
     sportType,
-    selectedYear,
-    selectedMonth,
-    years,
     sportOptions,
-    months,
     loading,
     error,
     hasMore,
     loadingMore,
     onSportType,
-    onYear,
-    onMonth,
     onLoadMore,
   }: {
     activities: Activity[];
     displaySummary: DisplaySummary;
     sportType: string;
-    selectedYear: string;
-    selectedMonth: string;
-    years: string[];
     sportOptions: string[];
-    months: { value: string; label: string }[];
     loading: boolean;
     error: string | null;
     hasMore: boolean;
     loadingMore: boolean;
     onSportType: (value: string) => void;
-    onYear: (value: string) => void;
-    onMonth: (value: string) => void;
     onLoadMore: () => void;
   } = $props();
 </script>
@@ -72,16 +59,6 @@
           >{/each}</select
       ></label
     >
-    <PeriodSelector
-      year={selectedYear}
-      month={selectedMonth}
-      {years}
-      {months}
-      monthDisabled={!selectedYear}
-      appearance="inline"
-      {onYear}
-      {onMonth}
-    />
   </div>
 
   <div class="summary-row" aria-label="Filtered activity summary">

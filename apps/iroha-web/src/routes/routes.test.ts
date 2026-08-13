@@ -19,6 +19,7 @@ describe("cockpit route layout", () => {
     expect(routePages["./night/+page.svelte"]).toBeDefined();
     expect(routePages["./night/[id]/+page.svelte"]).toBeDefined();
     expect(routePages["./to-go/+page.svelte"]).toBeDefined();
+    expect(routePages["./admin/+page.svelte"]).toBeDefined();
     expect(routePages["./expenses/+page.svelte"]).toBeDefined();
     expect(routePages["./reports/+page.svelte"]).toBeDefined();
     expect(routePages["./metrics/+page.svelte"]).toBeDefined();
@@ -33,7 +34,6 @@ describe("cockpit route layout", () => {
     expect(routeLoads["./sleep/[id]/+page.ts"]).toBeDefined();
     expect(routeLoads["./media/+page.ts"]).toBeDefined();
     expect(routeLoads["./media/[id]/+page.ts"]).toBeDefined();
-    expect(routeLoads["./admin/+page.ts"]).toBeDefined();
   });
 
   it("keeps navigation grouped instead of growing the top tab row", async () => {

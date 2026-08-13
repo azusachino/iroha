@@ -92,7 +92,7 @@
   >
     <span>Month</span>
     <strong>{formatMonth(month)}</strong>
-    <small aria-hidden="true">⌄</small>
+    <i class="chevron" aria-hidden="true"></i>
   </button>
   <button
     class="step"
@@ -260,10 +260,18 @@
     font-size: 0.88rem;
   }
 
-  .month-trigger small {
+  .chevron {
+    width: 0.46rem;
+    height: 0.46rem;
+    justify-self: center;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
     color: var(--accent);
-    font-size: 0.8rem;
-    line-height: 0.6;
+    transform: rotate(45deg) translateY(-1px);
+    transition: transform 160ms ease;
+  }
+  .month-trigger[aria-expanded="true"] .chevron {
+    transform: rotate(225deg) translate(-1px, -1px);
   }
 
   .month-popover {

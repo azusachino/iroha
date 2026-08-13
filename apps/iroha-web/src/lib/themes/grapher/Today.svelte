@@ -27,13 +27,13 @@
   const points = $derived([
     {
       label: "Move",
-      value: dRow?.move_kcal ?? null,
+      value: dRow?.ring?.move_kcal ?? null,
       unit: "kcal",
       color: "var(--ring-move)",
     },
     {
       label: "Exercise",
-      value: dRow?.exercise_min ?? null,
+      value: dRow?.ring?.exercise_min ?? null,
       unit: "min",
       color: "var(--ring-exercise)",
     },

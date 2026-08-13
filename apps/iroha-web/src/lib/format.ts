@@ -79,6 +79,19 @@ export function formatPercent(value?: number | null): string {
   return `${Math.round(boundPercent(value))}%`;
 }
 
+// Report values arrive with a unit rather than a display precision. Keep the
+// precision stable at the presentation boundary so floating-point artifacts
+// such as 4.655365837999999 never leak into the cockpit.
+export function formatMetricValue(
+  value?: number | null,
+  unit?: string | null,
+): string {
+  if (value == null || !Number.isFinite(value)) return DASH;
+  const normalized = unit?.trim().toLowerCase();
+  const maximumFractionDigits = normalized === "count" ? 0 : 1;
+  return value.toLocaleString(undefined, { maximumFractionDigits });
+}
+
 // A "completed" item's position IS its total by definition, even when the
 // provider never reported a numeric total -- Bangumi in particular often
 // omits it for an otherwise-finished season. Without this, a completed

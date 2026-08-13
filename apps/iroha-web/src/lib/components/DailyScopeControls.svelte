@@ -98,13 +98,16 @@
   }
 
   .select-wrap::after {
+    width: 0.46rem;
+    height: 0.46rem;
     position: absolute;
     top: 50%;
     right: 0.75rem;
-    color: var(--accent);
-    content: "⌄";
+    border-right: 1.5px solid var(--accent);
+    border-bottom: 1.5px solid var(--accent);
+    content: "";
     pointer-events: none;
-    transform: translateY(-55%);
+    transform: translateY(-65%) rotate(45deg);
   }
 
   select:focus-visible {

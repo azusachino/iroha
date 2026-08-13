@@ -48,8 +48,8 @@
   } as const;
 
   const signal = $derived(
-    dRow && dRow.move_goal_kcal > 0
-      ? Math.min(100, (dRow.move_kcal / dRow.move_goal_kcal) * 100)
+    dRow?.ring && dRow.ring.move_goal_kcal > 0
+      ? Math.min(100, (dRow.ring.move_kcal / dRow.ring.move_goal_kcal) * 100)
       : 0,
   );
 
@@ -84,7 +84,7 @@
       <strong>{number(dRow?.steps)} <small>steps</small></strong>
       <p>
         {number(dRow?.distance_km, 1)} km traveled · {number(
-          dRow?.exercise_min,
+          dRow?.ring?.exercise_min,
         )} min exercise
       </p>
     </div>

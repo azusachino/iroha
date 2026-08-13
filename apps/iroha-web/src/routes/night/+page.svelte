@@ -14,6 +14,7 @@
   import SleepArchitectureChart from "$lib/components/SleepArchitectureChart.svelte";
   import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -171,12 +172,12 @@
   }
 
   function syncPeriodUrl() {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     if (selectedYear) url.searchParams.set("year", selectedYear);
     else url.searchParams.delete("year");
     if (selectedMonth) url.searchParams.set("month", selectedMonth);
     else url.searchParams.delete("month");
-    if (url.href !== page.url.href) replaceState(url, page.state);
+    if (url.href !== window.location.href) replaceState(url, page.state);
   }
 
   async function selectSession(session: SleepSession) {
@@ -345,17 +346,18 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
-      <div class="period-toolbar">
+      <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
         <PeriodSelector
           years={periodYears}
           months={periodMonths}
           year={selectedYear}
           month={selectedMonth}
           monthDisabled={!selectedYear}
+          appearance="inline"
           onYear={changeYear}
           onMonth={changeMonth}
         />
-      </div>
+      </PeriodToolbar>
       <ThemeRouteRenderer
         route="sleep"
         props={{
@@ -399,17 +401,18 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
-      <div class="period-toolbar">
+      <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
         <PeriodSelector
           years={periodYears}
           months={periodMonths}
           year={selectedYear}
           month={selectedMonth}
           monthDisabled={!selectedYear}
+          appearance="inline"
           onYear={changeYear}
           onMonth={changeMonth}
         />
-      </div>
+      </PeriodToolbar>
       <section class="hero tile">
         <div class="hero-orb"></div>
         <div class="hero-topline">
@@ -722,11 +725,6 @@
     font-size: 0.78rem;
   }
 
-  .period-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 1rem;
-  }
   .theme-load-more {
     display: grid;
     min-height: 2rem;

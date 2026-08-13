@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { MonthlyReport } from "$lib/api";
+  import { formatMetricValue } from "$lib/format";
   let {
     report,
     formatDuration,
@@ -80,7 +81,8 @@
         <ul>
           {#each report.sections.daily_health.data.metric_averages as item}<li>
               <span>{item.metric}</span><span
-                >{item.value} {item.unit} · {item.observed_days}d</span
+                >{formatMetricValue(item.value, item.unit)}
+                {item.unit} · {item.observed_days}d</span
               >
             </li>{/each}
         </ul>{:else}<p class="empty">

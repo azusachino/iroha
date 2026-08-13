@@ -9,6 +9,7 @@
     formatSwimmingPace,
   } from "$lib/format";
   import { isSwimming, sportLabel } from "$lib/sport";
+  import LapChart from "$lib/components/LapChart.svelte";
 
   let {
     activity,
@@ -157,6 +158,7 @@
         </div>
         <span>{laps.length} laps</span>
       </div>
+      <LapChart {laps} {swimming} />
       <div class="ledger-scroll">
         <table>
           <thead>

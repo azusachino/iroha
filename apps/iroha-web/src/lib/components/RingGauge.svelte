@@ -19,8 +19,13 @@
   const gap = 4;
 
   function pct(r: Ring): number {
-    if (!r.goal || r.goal <= 0) return 0;
+    if (!Number.isFinite(r.value) || !Number.isFinite(r.goal) || r.goal <= 0)
+      return 0;
     return Math.min(100, (r.value / r.goal) * 100);
+  }
+
+  function display(value: number): string {
+    return Number.isFinite(value) ? Math.round(value).toLocaleString() : "—";
   }
 
   // Outermost ring first; each inner ring steps in by stroke+gap.
@@ -73,8 +78,8 @@
         <span class="dot" style={`background:${g.ring.color}`}></span>
         <span class="lbl">{g.ring.label}</span>
         <span class="val">
-          {Math.round(g.ring.value).toLocaleString()}<span class="goal"
-            >/{Math.round(g.ring.goal).toLocaleString()} {g.ring.unit}</span
+          {display(g.ring.value)}<span class="goal"
+            >/{display(g.ring.goal)} {g.ring.unit}</span
           >
           {#if g.closed}<span class="check" aria-label="goal met">✓</span>{/if}
         </span>

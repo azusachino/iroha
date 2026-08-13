@@ -19,7 +19,10 @@
 </script>
 
 <details class:active={groupActive} class="navigation-menu">
-  <summary>{group.label}</summary>
+  <summary
+    ><span>{group.label}</span><i class="chevron" aria-hidden="true"
+    ></i></summary
+  >
   <div class="navigation-popover">
     {#each group.items as item}
       <a
@@ -51,10 +54,17 @@
   summary::-webkit-details-marker {
     display: none;
   }
-  summary::after {
-    content: "⌄";
+  .chevron {
+    width: 0.46rem;
+    height: 0.46rem;
     margin-left: 0.35rem;
-    font-size: 0.7rem;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg) translateY(-1px);
+    transition: transform 160ms ease;
+  }
+  .navigation-menu[open] .chevron {
+    transform: rotate(225deg) translate(-1px, -1px);
   }
   .navigation-menu.active summary {
     color: var(--accent);

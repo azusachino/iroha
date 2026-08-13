@@ -1,6 +1,7 @@
 <script lang="ts">
   import BarChart from "$lib/components/BarChart.svelte";
   import type { MonthlyReport } from "$lib/api";
+  import { formatMetricValue } from "$lib/format";
 
   let {
     report,
@@ -144,7 +145,9 @@
       />
       <ul>
         {#each health.metric_averages as item}<li>
-            <span>{item.metric}</span><b>{number(item.value)} {item.unit}</b>
+            <span>{item.metric}</span><b
+              >{formatMetricValue(item.value, item.unit)} {item.unit}</b
+            >
           </li>{/each}
       </ul>{:else}<p class="empty">
         No canonical daily-health observations.
