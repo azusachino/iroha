@@ -12,6 +12,7 @@ import {
   formatHr,
   formatDate,
   formatDateOnly,
+  formatMonth,
   formatSport,
   formatSwimmingPace,
 } from "./format";
@@ -54,6 +55,21 @@ describe("formatDate", () => {
 describe("formatDateOnly is yyyy-MM-dd", () => {
   it("renders date only in the given timezone", () => {
     expect(formatDateOnly("2026-07-09T00:39:38Z", "UTC")).toBe("2026-07-09");
+  });
+
+  it("preserves canonical date values without timezone conversion", () => {
+    expect(formatDateOnly("2026-07-09")).toBe("2026-07-09");
+  });
+});
+
+describe("formatMonth is yyyy-MM", () => {
+  it("normalizes a numeric month", () => {
+    expect(formatMonth("2026-7")).toBe("2026-07");
+    expect(formatMonth("2026-07")).toBe("2026-07");
+  });
+
+  it("leaves invalid periods visible for diagnosis", () => {
+    expect(formatMonth("not-a-month")).toBe("not-a-month");
   });
 });
 

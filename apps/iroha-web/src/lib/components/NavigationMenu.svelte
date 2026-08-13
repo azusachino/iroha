@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { NavigationGroup } from "$lib/navigation";
 
   let {
@@ -10,15 +11,58 @@
   } = $props();
 
   const groupActive = $derived(group.items.some((item) => active(item.href)));
+  let menu: HTMLDetailsElement;
+
+  function closeMenu() {
+    if (menu) menu.open = false;
+  }
+
+  function handleToggle() {
+    if (!menu?.open) return;
+    window.dispatchEvent(
+      new CustomEvent<HTMLDetailsElement>("iroha:navigation-open", {
+        detail: menu,
+      }),
+    );
+  }
 
   function closeAfterNavigation(event: MouseEvent) {
     (event.currentTarget as HTMLAnchorElement)
       .closest("details")
       ?.removeAttribute("open");
   }
+
+  onMount(() => {
+    const closeOtherMenus = (event: Event) => {
+      const opened = (event as CustomEvent<HTMLDetailsElement>).detail;
+      if (opened !== menu) closeMenu();
+    };
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (menu?.open && !menu.contains(event.target as Node)) closeMenu();
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && menu?.open) {
+        closeMenu();
+        menu.querySelector("summary")?.focus();
+      }
+    };
+    window.addEventListener("iroha:navigation-open", closeOtherMenus);
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("iroha:navigation-open", closeOtherMenus);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  });
 </script>
 
-<details class:active={groupActive} class="navigation-menu">
+<details
+  bind:this={menu}
+  ontoggle={handleToggle}
+  class:active={groupActive}
+  class="navigation-menu"
+>
   <summary
     ><span>{group.label}</span><i class="chevron" aria-hidden="true"
     ></i></summary

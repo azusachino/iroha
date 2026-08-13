@@ -15,7 +15,7 @@
   import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import { formatDateOnly, formatDuration } from "$lib/format";
+  import { formatDate, formatDateOnly, formatDuration } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -666,16 +666,8 @@
                 Loading stages…
               </p>{:else}<SleepTimelineChart {segments} />{/if}
             <div class="timeline-axis">
-              <span
-                >{new Date(selected.started_at).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}</span
-              ><span
-                >{new Date(selected.ended_at).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}</span
+              <span>{formatDate(selected.started_at)}</span><span
+                >{formatDate(selected.ended_at)}</span
               >
             </div>
           </div>

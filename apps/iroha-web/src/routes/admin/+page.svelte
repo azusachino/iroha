@@ -14,6 +14,7 @@
     type MetricDefinition,
   } from "$lib/api";
   import { APP_VERSION } from "$lib/config";
+  import { formatDate } from "$lib/format";
   import { useTheme } from "$lib/themes/context.svelte";
 
   type HealthState = "checking" | "healthy" | "unavailable";
@@ -111,17 +112,21 @@
     <section class="panel" aria-labelledby="domains-title">
       <header>
         <div>
-          <p class="eyebrow">Canonical surface</p>
-          <h2 id="domains-title">Registered metrics</h2>
+          <p class="eyebrow">Metric catalog</p>
+          <h2 id="domains-title">Metric definitions</h2>
         </div>
         <span>{metrics.length} total</span>
       </header>
+      <p class="panel-note">
+        Definitions describe canonical and derived values; canonical records
+        remain owned by the Iroha APIs.
+      </p>
       {#if metrics.length}
         <ul class="metric-list">
           {#each metrics as metric (metric.id)}
             <li>
               <span><b>{metric.domain}</b> {metric.label}</span>
-              <small>{metric.id} · {metric.unit}</small>
+              <small>{metric.kind} · {metric.id} · {metric.unit}</small>
             </li>
           {/each}
         </ul>
@@ -148,7 +153,7 @@
                 ><CheckCircle2 size={14} /> {job.status}</span
               >
               <strong>{job.kind}</strong>
-              <small>{job.created_at}</small>
+              <small>{formatDate(job.created_at)}</small>
             </li>
           {/each}
         </ul>

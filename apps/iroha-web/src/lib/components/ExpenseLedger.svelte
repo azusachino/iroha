@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Trash2, WalletCards } from "@lucide/svelte";
   import type { Expense } from "$lib/api";
+  import { formatDate } from "$lib/format";
 
   let {
     expenses,
@@ -132,7 +133,9 @@
         </div>
       {/if}
       <p class="timestamps">
-        Created {selected.created_at} · Updated {selected.updated_at}
+        Created {formatDate(selected.created_at)} · Updated {formatDate(
+          selected.updated_at,
+        )}
       </p>
     {:else}
       <div class="empty-detail">

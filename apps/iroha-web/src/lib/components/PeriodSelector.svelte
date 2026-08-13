@@ -1,5 +1,6 @@
 <script lang="ts">
   import { shiftMonth } from "@iroha/shared/month";
+  import { formatMonth as formatCanonicalMonth } from "$lib/format";
   import { useTheme } from "$lib/themes/context.svelte";
 
   export type PeriodOption = { value: string; label: string };
@@ -35,6 +36,16 @@
     ),
   );
 
+  function monthOptionLabel(option: PeriodOption): string {
+    if (/^\d{4}-\d{1,2}$/.test(option.value)) {
+      return formatCanonicalMonth(option.value);
+    }
+    if (/^\d{1,2}$/.test(option.value) && /^\d{4}$/.test(year)) {
+      return formatCanonicalMonth(`${year}-${option.value}`);
+    }
+    return option.label;
+  }
+
   function shiftPeriod(delta: number) {
     if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
       onMonth(shiftMonth(month, delta));
@@ -42,27 +53,23 @@
     }
     if (!/^\d{4}$/.test(year)) return;
 
-    const selectedMonth = /^(?:[1-9]|1[0-2])$/.test(month)
-      ? Number(month) - 1
-      : delta < 0
-        ? 0
-        : 11;
-    const next = new Date(Date.UTC(Number(year), selectedMonth + delta, 1));
+    if (!/^(?:[1-9]|1[0-2])$/.test(month)) {
+      const nextYear = Number(year) + delta;
+      onYear(String(nextYear));
+      onMonth("");
+      return;
+    }
+    const next = new Date(Date.UTC(Number(year), Number(month) - 1 + delta, 1));
     onYear(String(next.getUTCFullYear()));
     onMonth(String(next.getUTCMonth() + 1));
   }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+      return;
     const target = event.target as Element | null;
-    if (target?.matches("input, textarea, [contenteditable='true']")) return;
-    if (target?.matches("select") && !root?.contains(target)) return;
-    const active = document.activeElement;
-    if (
-      active !== document.body &&
-      active !== document.documentElement &&
-      !root?.contains(active)
-    )
+    if (target?.matches("input, textarea, select, [contenteditable='true']"))
       return;
     event.preventDefault();
     shiftPeriod(event.key === "ArrowLeft" ? -1 : 1);
@@ -89,7 +96,7 @@
     >
       {#if showAllYears}<option value="">Lifetime</option>{/if}
       {#each yearOptions as option (option.value)}
-        <option value={option.value}>{option.label}</option>
+        <option value={option.value}>{monthOptionLabel(option)}</option>
       {/each}
     </select>
   </label>

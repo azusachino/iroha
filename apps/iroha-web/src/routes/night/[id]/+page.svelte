@@ -8,7 +8,7 @@
   } from "$lib/api";
   import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
-  import { formatDateOnly, formatDuration } from "$lib/format";
+  import { formatDate, formatDateOnly, formatDuration } from "$lib/format";
 
   let session = $state<SleepSession | null>(null);
   let segments = $state<SleepSegment[]>([]);
@@ -71,20 +71,11 @@
         </p>
         <div class="metric-grid">
           <div>
-            <span>Started</span><strong
-              >{new Date(session.started_at).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}</strong
+            <span>Started</span><strong>{formatDate(session.started_at)}</strong
             >
           </div>
           <div>
-            <span>Ended</span><strong
-              >{new Date(session.ended_at).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}</strong
-            >
+            <span>Ended</span><strong>{formatDate(session.ended_at)}</strong>
           </div>
           <div>
             <span>Deep + REM</span><strong

@@ -238,6 +238,7 @@ export function formatDate(iso?: string, timezone?: string): string {
 // Date only as `yyyy-MM-dd` in the activity's timezone.
 export function formatDateOnly(iso?: string, timezone?: string): string {
   if (!iso) return DASH;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
   try {
@@ -250,6 +251,19 @@ export function formatDateOnly(iso?: string, timezone?: string): string {
   } catch {
     return d.toISOString().slice(0, 10);
   }
+}
+
+// Canonical month period as `yyyy-MM`. This deliberately keeps the machine
+// period visible in selectors and chart tables instead of replacing it with a
+// locale-dependent month name.
+export function formatMonth(period?: string): string {
+  if (!period) return DASH;
+  const match = /^(\d{4})-(\d{1,2})$/.exec(period);
+  if (!match) return period;
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12
+    ? `${match[1]}-${String(month).padStart(2, "0")}`
+    : period;
 }
 
 // Short date for narrow chart axis labels (e.g. "Aug 4") where a full

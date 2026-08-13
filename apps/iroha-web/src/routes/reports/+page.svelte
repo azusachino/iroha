@@ -6,6 +6,7 @@
   import { ApiError, getMonthlyReport, type MonthlyReport } from "$lib/api";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import { formatDate } from "$lib/format";
   import {
     MONTH_OPTIONS,
     currentMonth,
@@ -148,7 +149,9 @@
   {#if loading}<p class="muted">
       Generating the monthly report…
     </p>{:else if report}<p class="generated">
-      {report.period.from} → {report.period.to} · Generated {report.generated_at}
+      {report.period.from} → {report.period.to} · Generated {formatDate(
+        report.generated_at,
+      )}
     </p>
     <ThemeRouteRenderer route="reports" props={themeProps} />{/if}
 </section>
