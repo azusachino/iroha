@@ -4,3 +4,4 @@ export * from "./metric-series";
 export * from "./metric-panel";
 export * from "./themes";
 export * from "./category-color";
+export * from "./source";
