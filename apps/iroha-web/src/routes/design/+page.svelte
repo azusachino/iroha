@@ -7,6 +7,7 @@
     Moon,
     Sparkles,
   } from "@lucide/svelte";
+  import type { DesignLanguage } from "@iroha/shared/themes";
   import {
     getBriefing,
     type Activity as ActivityRecord,
@@ -25,6 +26,9 @@
     formatPace,
     formatSport,
   } from "$lib/format";
+  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import { hasThemeRoute, THEME_DEFINITIONS } from "$lib/themes/registry";
+  import { useTheme } from "$lib/themes/context.svelte";
 
   type Variant =
     | "editorial"
@@ -45,6 +49,7 @@
   let variant = $state<Variant>("editorial");
   let today = $state<TodayData>(sampleToday());
   let source = $state<"sample" | "live">("sample");
+  const theme = useTheme();
   const dailyRing = $derived(today.daily?.ring);
 
   const rings = $derived<Ring[]>(
@@ -260,19 +265,24 @@
       timeZone: "UTC",
     });
   }
+
+  function selectTheme(language: DesignLanguage): void {
+    theme.select(language);
+  }
 </script>
 
 <svelte:head>
-  <title>Today design lab · iroha</title>
+  <title>Design workshop · iroha</title>
 </svelte:head>
 
-<section class="design-lab">
+<section class="design-lab" data-theme={theme.definition().identity.id}>
   <header class="lab-header">
     <div>
-      <p class="eyebrow">Local design lab</p>
-      <h1>Today, three ways</h1>
+      <p class="eyebrow">Registered theme workshop</p>
+      <h1>One payload, six identities.</h1>
       <p class="muted">
-        Same Today payload. Different hierarchy, rhythm, and density.
+        Choose a registered Iroha language, then inspect the real Today
+        component before exploring composition ideas.
       </p>
     </div>
     <span class="source-pill" class:live={source === "live"}>
@@ -280,6 +290,44 @@
       {source === "live" ? "Live Today payload" : "Sample Today payload"}
     </span>
   </header>
+
+  <section class="theme-workbench" aria-labelledby="theme-workbench-title">
+    <header class="theme-workbench-heading">
+      <div>
+        <p class="eyebrow">Theme registry</p>
+        <h2 id="theme-workbench-title">{theme.definition().identity.label}</h2>
+        <p class="muted">{theme.definition().identity.description}</p>
+      </div>
+      <div class="theme-selection" aria-label="Registered design languages">
+        {#each THEME_DEFINITIONS as definition}
+          <button
+            type="button"
+            class:active={theme.language() === definition.identity.id}
+            onclick={() => selectTheme(definition.identity.id)}
+            title={definition.identity.description}
+          >
+            <span class={`theme-dot ${definition.identity.id}`}></span>
+            {definition.identity.label.replace("Iroha ", "")}
+          </button>
+        {/each}
+      </div>
+    </header>
+    {#if hasThemeRoute(theme.definition(), "today")}
+      <div class="theme-specimen">
+        <ThemeRouteRenderer
+          route="today"
+          props={{
+            dayLabel: dateLabel(today.date),
+            day: today.date,
+            dRow: today.daily,
+            mainNight: today.sleep,
+            acts: today.activities,
+            mediaEvents: today.media,
+          }}
+        />
+      </div>
+    {/if}
+  </section>
 
   <nav class="variant-tabs" aria-label="Design variants">
     <button
@@ -998,6 +1046,90 @@
     display: grid;
     gap: 1.25rem;
     padding-bottom: 3rem;
+  }
+  .theme-workbench {
+    display: grid;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, var(--surface) 94%, var(--accent) 6%);
+  }
+  .theme-workbench-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+  .theme-workbench-heading h2 {
+    margin: 0;
+    color: var(--text);
+    letter-spacing: -0.035em;
+  }
+  .theme-workbench-heading .muted {
+    max-width: 40rem;
+    margin: 0.45rem 0 0;
+  }
+  .theme-selection {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(8rem, 1fr));
+    gap: 0.35rem;
+    min-width: min(32rem, 100%);
+    padding: 0.3rem;
+    border: 1px solid var(--border);
+    border-radius: 0.8rem;
+    background: var(--surface-strong);
+  }
+  .theme-selection button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    border: 0;
+    border-radius: 0.55rem;
+    padding: 0.5rem 0.55rem;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+  }
+  .theme-selection button.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 5px color-mix(in srgb, var(--text) 10%, transparent);
+  }
+  .theme-dot {
+    flex: 0 0 auto;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--theme-color, var(--accent));
+  }
+  .theme-dot.atlas {
+    --theme-color: #e76f51;
+  }
+  .theme-dot.grapher {
+    --theme-color: #4c78a8;
+  }
+  .theme-dot.field-journal {
+    --theme-color: #5c8d68;
+  }
+  .theme-dot.phenology {
+    --theme-color: #aa6f9e;
+  }
+  .theme-dot.sound-map {
+    --theme-color: #1d9a9a;
+  }
+  .theme-dot.archive {
+    --theme-color: #b98545;
+  }
+  .theme-specimen {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 0.85rem;
+    background: var(--background);
   }
   .design-lab::before,
   .design-lab::after {
@@ -2345,9 +2477,14 @@
 
   @media (max-width: 760px) {
     .lab-header,
+    .theme-workbench-heading,
     .demo-heading,
     .chronicle-heading {
       display: grid;
+    }
+    .theme-selection {
+      min-width: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .source-pill,
     .date-button {

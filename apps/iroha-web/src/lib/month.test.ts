@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canonicalMonth,
+  currentYear,
   MONTH_OPTIONS,
   monthBounds,
   shiftMonth,
@@ -29,5 +30,9 @@ describe("shared month helpers", () => {
     expect(MONTH_OPTIONS).toHaveLength(12);
     expect(MONTH_OPTIONS[0]).toEqual({ value: "1", label: "January" });
     expect(yearOptions(2024, 2026)).toEqual(["2026", "2025", "2024"]);
+  });
+
+  it("derives the canonical current year without local formatting", () => {
+    expect(currentYear(new Date("2026-08-14T12:00:00+09:00"))).toBe("2026");
   });
 });

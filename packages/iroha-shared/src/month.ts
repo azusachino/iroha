@@ -2,6 +2,10 @@ export function currentMonth(date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+export function currentYear(date = new Date()): string {
+  return String(date.getFullYear());
+}
+
 export const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
   value: String(index + 1),
   label: new Date(Date.UTC(2000, index, 1)).toLocaleDateString("en-US", {

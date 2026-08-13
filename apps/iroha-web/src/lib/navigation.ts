@@ -106,6 +106,13 @@ export const navigationGroups: readonly NavigationGroup[] = [
         hint: "System administration",
       },
       {
+        id: "manual",
+        label: "Manual",
+        href: "/manual",
+        kind: "tool",
+        hint: "How to read Iroha",
+      },
+      {
         id: "design",
         label: "Design",
         href: "/design",

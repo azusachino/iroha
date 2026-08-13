@@ -24,7 +24,7 @@
   } from "$lib/format";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import { MONTH_OPTIONS, monthBounds } from "@iroha/shared/month";
+  import { currentYear, MONTH_OPTIONS, monthBounds } from "@iroha/shared/month";
   import { sportColor, sportLabel } from "$lib/sport";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -35,7 +35,9 @@
   // so "Load more" keeps paging the same query the user actually ran.
   const initialSport = page.url.searchParams.get("sport") ?? "";
   const initialYearParam = page.url.searchParams.get("year") ?? "";
-  const initialYear = /^\d{4}$/.test(initialYearParam) ? initialYearParam : "";
+  const initialYear = /^\d{4}$/.test(initialYearParam)
+    ? initialYearParam
+    : currentYear();
   const initialMonthParam = page.url.searchParams.get("month") ?? "";
   const initialMonth = /^(?:[1-9]|1[0-2])$/.test(initialMonthParam)
     ? initialMonthParam

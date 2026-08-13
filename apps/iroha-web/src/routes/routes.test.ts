@@ -20,6 +20,7 @@ describe("cockpit route layout", () => {
     expect(routePages["./night/[id]/+page.svelte"]).toBeDefined();
     expect(routePages["./to-go/+page.svelte"]).toBeDefined();
     expect(routePages["./admin/+page.svelte"]).toBeDefined();
+    expect(routePages["./manual/+page.svelte"]).toBeDefined();
     expect(routePages["./expenses/+page.svelte"]).toBeDefined();
     expect(routePages["./reports/+page.svelte"]).toBeDefined();
     expect(routePages["./metrics/+page.svelte"]).toBeDefined();
@@ -62,6 +63,7 @@ describe("cockpit route layout", () => {
       "/reports",
       "/to-go",
       "/admin",
+      "/manual",
       "/design",
     ]);
   });

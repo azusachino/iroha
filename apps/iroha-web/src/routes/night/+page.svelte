@@ -22,6 +22,7 @@
     formatDuration,
     formatMonth,
   } from "$lib/format";
+  import { currentYear } from "@iroha/shared/month";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -35,7 +36,7 @@
   const initialYearParam = page.url.searchParams.get("year") ?? "";
   const initialYear = /^\d{4}$/.test(initialYearParam)
     ? initialYearParam
-    : initialMonth.slice(0, 4);
+    : initialMonth.slice(0, 4) || currentYear();
   let sessions = $state<SleepSession[]>([]);
   let selected = $state<SleepSession | null>(null);
   let segments = $state<SleepSegment[]>([]);

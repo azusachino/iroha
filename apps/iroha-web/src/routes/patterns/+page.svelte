@@ -18,6 +18,7 @@
     formatDateOnly,
     formatMonth as formatCanonicalMonth,
   } from "$lib/format";
+  import { currentYear } from "@iroha/shared/month";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -47,7 +48,7 @@
   const initialYearParam = page.url.searchParams.get("year") ?? "";
   const initialYear = /^\d{4}$/.test(initialYearParam)
     ? initialYearParam
-    : initialMonth.slice(0, 4);
+    : initialMonth.slice(0, 4) || currentYear();
   let selectedMonth = $state(initialMonth);
   let selectedYear = $state(initialYear);
   let rangeFrom = $state<string | undefined>(undefined);
