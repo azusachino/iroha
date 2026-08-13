@@ -14,7 +14,9 @@
   const theme = useTheme();
 
   function count(value: number | undefined): string {
-    return value == null ? "—" : value.toLocaleString();
+    return value == null || !Number.isFinite(value)
+      ? "—"
+      : value.toLocaleString();
   }
 
   function scopeLabel(value: string): string {

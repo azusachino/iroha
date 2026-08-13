@@ -373,6 +373,7 @@ func (s *Service) flushCache() {
 		cache.NamespaceSleep,
 		cache.NamespaceDaily,
 		cache.NamespaceMedia,
+		cache.NamespaceMetrics,
 		"public_summary",
 		"public_activities",
 		"public_routes",

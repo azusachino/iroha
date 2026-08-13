@@ -81,15 +81,13 @@
   const monthlyBuckets = $derived(monthBuckets.slice().reverse());
   const yearlyBuckets = $derived(yearBuckets.slice().reverse());
   const availableYears = $derived(
-    yearBuckets
-      .map((bucket) => String(new Date(bucket.period).getUTCFullYear()))
-      .reverse(),
+    yearBuckets.map((bucket) => bucket.period.slice(0, 4)).reverse(),
   );
   const availableMonths = $derived(
     monthBuckets
       .filter(
         (bucket) =>
-          selectedYear === "" || bucket.period.startsWith(`${selectedYear}-`),
+          selectedYear === "" || bucket.period.slice(0, 4) === selectedYear,
       )
       .map((bucket) => bucket.period.slice(0, 7))
       .reverse(),
@@ -106,27 +104,27 @@
   const visibleYears = $derived(
     selectedYear === ""
       ? yearlyBuckets
-      : yearlyBuckets.filter((bucket) =>
-          bucket.period.startsWith(`${selectedYear}-`),
+      : yearlyBuckets.filter(
+          (bucket) => bucket.period.slice(0, 4) === selectedYear,
         ),
   );
   const visibleMonths = $derived(
     monthlyBuckets.filter((bucket) => {
       const period = bucket.period.slice(0, 7);
       return (
-        (selectedYear === "" || period.startsWith(`${selectedYear}-`)) &&
+        (selectedYear === "" || period.slice(0, 4) === selectedYear) &&
         (selectedMonth === "" || period === selectedMonth)
       );
     }),
   );
   const focusedBucket = $derived(
     selectedMonth !== ""
-      ? monthBuckets.find((bucket) =>
-          bucket.period.startsWith(`${selectedMonth}-01`),
+      ? monthBuckets.find(
+          (bucket) => bucket.period.slice(0, 7) === selectedMonth,
         )
       : selectedYear !== ""
-        ? yearBuckets.find((bucket) =>
-            bucket.period.startsWith(`${selectedYear}-`),
+        ? yearBuckets.find(
+            (bucket) => bucket.period.slice(0, 4) === selectedYear,
           )
         : null,
   );
@@ -158,7 +156,7 @@
       main_sleep_count: mainSleepCount,
       nap_count: buckets.reduce((total, bucket) => total + bucket.nap_count, 0),
       observed_wake_dates: buckets.reduce(
-        (total, bucket) => total + bucket.observed_wake_dates,
+        (total, bucket) => total + (bucket.observed_wake_dates ?? 0),
         0,
       ),
       average_asleep_s: weightedAverage("average_asleep_s"),
@@ -184,15 +182,15 @@
   const sleepSummary = $derived.by<SleepAggregateBucket | null>(() => {
     if (selectedMonth !== "") {
       return (
-        monthBuckets.find((bucket) =>
-          bucket.period.startsWith(`${selectedMonth}-01`),
+        monthBuckets.find(
+          (bucket) => bucket.period.slice(0, 7) === selectedMonth,
         ) ?? null
       );
     }
     if (selectedYear !== "") {
       return (
-        yearBuckets.find((bucket) =>
-          bucket.period.startsWith(`${selectedYear}-`),
+        yearBuckets.find(
+          (bucket) => bucket.period.slice(0, 4) === selectedYear,
         ) ?? null
       );
     }
@@ -205,8 +203,8 @@
   const rollupBuckets = $derived.by(() => {
     if (selectedMonth !== "") return [];
     if (selectedYear !== "") {
-      return monthBuckets.filter((bucket) =>
-        bucket.period.startsWith(`${selectedYear}-`),
+      return monthBuckets.filter(
+        (bucket) => bucket.period.slice(0, 4) === selectedYear,
       );
     }
     return yearBuckets;
@@ -393,9 +391,7 @@
       yearBuckets = years.buckets;
       monthBuckets = months.buckets;
       const validYears = new Set(
-        yearBuckets.map((bucket) =>
-          String(new Date(bucket.period).getUTCFullYear()),
-        ),
+        yearBuckets.map((bucket) => bucket.period.slice(0, 4)),
       );
       const validMonths = new Set(
         monthBuckets.map((bucket) => bucket.period.slice(0, 7)),

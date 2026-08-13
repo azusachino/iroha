@@ -39,10 +39,13 @@ import (
 const apiRateLimitPerMin = 6000
 
 const (
-	readCacheTTL   = 24 * time.Hour
-	readyzTimeout  = 2 * time.Second
-	statusReady    = "ready"
-	statusNotReady = "not_ready"
+	// Bump this when a cached JSON representation changes shape. The cache is
+	// shared across rollouts, so a new server must not serve an older contract.
+	readCacheKeyVersion = "v2"
+	readCacheTTL        = 24 * time.Hour
+	readyzTimeout       = 2 * time.Second
+	statusReady         = "ready"
+	statusNotReady      = "not_ready"
 )
 
 type Dependencies struct {
@@ -290,6 +293,7 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 		"/api/v1/daily":      cache.NamespaceDaily,
 		"/api/v1/media":      cache.NamespaceMedia,
 		"/api/v1/sleep":      cache.NamespaceSleep,
+		"/api/v1/metrics":    cache.NamespaceMetrics,
 	} {
 		if r.URL.Path == prefix || strings.HasPrefix(r.URL.Path, prefix+"/") {
 			return namespace, true
@@ -299,7 +303,7 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 }
 
 func readCacheKey(r *http.Request) string {
-	key := r.Method + " " + r.URL.Path
+	key := readCacheKeyVersion + " " + r.Method + " " + r.URL.Path
 	if query := r.URL.Query().Encode(); query != "" {
 		key += "?" + query
 	}

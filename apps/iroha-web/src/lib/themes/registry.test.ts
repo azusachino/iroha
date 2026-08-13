@@ -25,66 +25,39 @@ describe("Iroha theme registry", () => {
     ).toEqual(THEME_DEFINITIONS.map((theme) => theme.identity.id));
   });
 
-  it("distinguishes complete and preview renderer sets", () => {
+  it("requires every curated theme to own every page renderer", () => {
     expect(THEME_DEFINITIONS.every((theme) => theme.components?.shell)).toBe(
       true,
     );
-    expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "preview",
-      ).every((theme) => hasThemeRoute(theme, "today")),
-    ).toBe(true);
-    expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "preview",
-      ).every((theme) => hasThemeRoute(theme, "daily")),
-    ).toBe(true);
-    expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "preview",
-      ).every((theme) => hasThemeRoute(theme, "activities")),
-    ).toBe(true);
-    expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "preview",
-      ).every((theme) => hasThemeRoute(theme, "sleep")),
-    ).toBe(true);
-    expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "preview",
-      ).every((theme) => hasThemeRoute(theme, "media")),
-    ).toBe(true);
-    expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "preview",
-      ).every((theme) => hasThemeRoute(theme, "dashboard")),
-    ).toBe(true);
-    expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "preview",
-      ).every((theme) => hasThemeRoute(theme, "activity-detail")),
-    ).toBe(true);
-    expect(
-      THEME_DEFINITIONS.filter(
-        (theme) => theme.implementation === "preview",
-      ).every((theme) => hasThemeRoute(theme, "media-detail")),
-    ).toBe(true);
+    const routes = [
+      "today",
+      "daily",
+      "activities",
+      "sleep",
+      "media",
+      "dashboard",
+      "activity-detail",
+      "media-detail",
+    ] as const;
+    for (const theme of THEME_DEFINITIONS) {
+      for (const route of routes) {
+        expect(
+          hasThemeRoute(theme, route),
+          `${theme.identity.id}/${route}`,
+        ).toBe(true);
+      }
+    }
     expect(getThemeDefinition("grapher").implementation).toBe("curated");
     expect(hasThemeRoute(getThemeDefinition("grapher"), "today")).toBe(true);
-    expect(hasThemeRoute(getThemeDefinition("grapher"), "dashboard")).toBe(
-      false,
-    );
-    expect(
-      hasThemeRoute(getThemeDefinition("grapher"), "activity-detail"),
-    ).toBe(false);
-    expect(hasThemeRoute(getThemeDefinition("grapher"), "media-detail")).toBe(
-      false,
-    );
     expect(getThemeDefinition("grapher").components).toMatchObject({
       today: expect.anything(),
       daily: expect.anything(),
       activities: expect.anything(),
       sleep: expect.anything(),
+      media: expect.anything(),
+      dashboard: expect.anything(),
+      "activity-detail": expect.anything(),
+      "media-detail": expect.anything(),
     });
     expect(getThemeDefinition("atlas").implementation).toBe("curated");
     expect(hasThemeRoute(getThemeDefinition("atlas"), "today")).toBe(true);

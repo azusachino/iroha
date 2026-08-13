@@ -11,6 +11,10 @@ import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
 import GrapherShell from "$lib/themes/grapher/Shell.svelte";
 import GrapherSleep from "$lib/themes/grapher/Sleep.svelte";
 import GrapherToday from "$lib/themes/grapher/Today.svelte";
+import GrapherDashboard from "$lib/themes/grapher/Dashboard.svelte";
+import GrapherActivityDetail from "$lib/themes/grapher/ActivityDetail.svelte";
+import GrapherMedia from "$lib/themes/grapher/Media.svelte";
+import GrapherMediaDetail from "$lib/themes/grapher/MediaDetail.svelte";
 import FieldJournalShell from "$lib/themes/field-journal/Shell.svelte";
 import FieldJournalToday from "$lib/themes/field-journal/Today.svelte";
 import FieldJournalDaily from "$lib/themes/field-journal/Daily.svelte";
@@ -102,7 +106,11 @@ const registry = defineThemeRegistry<Component<any>>({
       today: GrapherToday,
       daily: GrapherDaily,
       activities: GrapherActivities,
+      "activity-detail": GrapherActivityDetail,
       sleep: GrapherSleep,
+      media: GrapherMedia,
+      "media-detail": GrapherMediaDetail,
+      dashboard: GrapherDashboard,
       expenses: GrapherExpenses,
       reports: GrapherReports,
       metrics: GrapherMetrics,
