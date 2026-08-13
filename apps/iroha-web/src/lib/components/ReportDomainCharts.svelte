@@ -39,6 +39,14 @@
 </script>
 
 <section class="domain-charts" aria-label="Monthly domain charts">
+  <div class="coverage" aria-label="Domain availability">
+    <span>Canonical coverage</span>
+    {#each Object.entries(report.sections) as [domain, section]}
+      <b class:available={section.state === "available"}
+        >{domain.replace("daily_health", "health").replace("_", " ")} · {section.state}</b
+      >
+    {/each}
+  </div>
   <article class="domain movement">
     <header>
       <div>
@@ -219,6 +227,33 @@
     border: 1px solid var(--border);
     padding: 1rem;
     background: var(--surface);
+  }
+  .coverage {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+  }
+  .coverage span,
+  .coverage b {
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .coverage span {
+    margin-right: 0.25rem;
+    color: var(--text-muted);
+  }
+  .coverage b {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.35rem 0.55rem;
+    color: var(--text-muted);
+  }
+  .coverage b.available {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+    color: var(--accent);
   }
   .expenses {
     grid-column: 1 / -1;
