@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Activity, Lap, RoutePoint, SamplingPoint } from "$lib/api";
+  import SourceBadge from "@iroha/shared/SourceBadge.svelte";
   import {
     formatDate,
     formatDistance,
@@ -139,7 +140,7 @@
         </div>
         <div>
           <dt>Source</dt>
-          <dd>{activity.source_kind}</dd>
+          <dd><SourceBadge source={activity.source_kind} /></dd>
         </div>
         <div>
           <dt>Laps available</dt>

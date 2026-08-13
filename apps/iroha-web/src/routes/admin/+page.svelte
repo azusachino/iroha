@@ -15,6 +15,7 @@
   } from "$lib/api";
   import { APP_VERSION } from "$lib/config";
   import { formatDate } from "$lib/format";
+  import { groupJobs } from "$lib/jobs";
   import { useTheme } from "$lib/themes/context.svelte";
 
   type HealthState = "checking" | "healthy" | "unavailable";
@@ -30,6 +31,7 @@
     jobs.filter((job) => job.status === "queued" || job.status === "running"),
   );
   const failedJobs = $derived(jobs.filter((job) => job.status === "failed"));
+  const executionGroups = $derived(groupJobs(jobs));
   const domains = $derived(
     [...new Set(metrics.map((metric) => metric.domain))].sort(),
   );
@@ -143,17 +145,20 @@
           <p class="eyebrow">Execution ledger</p>
           <h2 id="jobs-title">Recent jobs</h2>
         </div>
-        <span>{failedJobs.length} failed</span>
+        <span>{executionGroups.length} kinds · {failedJobs.length} failed</span>
       </header>
-      {#if jobs.length}
+      {#if executionGroups.length}
         <ul class="job-list">
-          {#each jobs.slice(0, 12) as job (job.id)}
+          {#each executionGroups.slice(0, 12) as group (group.kind)}
             <li>
-              <span class={`job-status ${job.status}`}
-                ><CheckCircle2 size={14} /> {job.status}</span
+              <span class={`job-status ${group.latest.status}`}
+                ><CheckCircle2 size={14} /> {group.latest.status}</span
               >
-              <strong>{job.kind}</strong>
-              <small>{formatDate(job.created_at)}</small>
+              <strong>{group.kind.replaceAll("_", " ")}</strong>
+              <small
+                >{group.count} execution{group.count === 1 ? "" : "s"} · latest
+                {formatDate(group.latest.created_at)}</small
+              >
             </li>
           {/each}
         </ul>

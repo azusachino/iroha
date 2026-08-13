@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Activity, Lap, RoutePoint, SamplingPoint } from "$lib/api";
+  import SourceBadge from "@iroha/shared/SourceBadge.svelte";
   import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
   import LapChart from "$lib/components/LapChart.svelte";
   import {
@@ -80,7 +81,7 @@
         )}
       </p>
     </div>
-    <span class="record-id">{activity.source_kind}</span>
+    <SourceBadge source={activity.source_kind} />
   </header>
   <div class="metrics">
     <div><span>Distance</span><strong>{formatDistance(distance)}</strong></div>
@@ -211,13 +212,9 @@
     padding-bottom: 1.5rem;
   }
   .detail-header p:last-child,
-  .record-id,
   .note {
     color: var(--text-muted);
     font-size: 0.72rem;
-  }
-  .record-id {
-    white-space: nowrap;
   }
   .metrics {
     display: grid;
