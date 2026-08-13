@@ -37,7 +37,11 @@
   }
 
   function handleWindowKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") open = false;
+    if (event.key === "Escape") {
+      open = false;
+      return;
+    }
+    handleNavigatorKeydown(event);
   }
 
   function handleNavigatorKeydown(event: KeyboardEvent) {
