@@ -14,6 +14,7 @@
   } = $props();
 
   // Shown month follows the selected value, unless the user browsed months.
+  import { formatMonth } from "$lib/format";
   let monthOverride = $state<string | null>(null);
   $effect(() => {
     void value;
@@ -33,13 +34,7 @@
       out.push(`${view}-${String(d).padStart(2, "0")}`);
     return out;
   });
-  const monthLabel = $derived(
-    new Date(view + "-01T00:00:00Z").toLocaleDateString(undefined, {
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC",
-    }),
-  );
+  const monthLabel = $derived(formatMonth(view));
   function shiftMonth(delta: number) {
     const [y, m] = view.split("-").map(Number);
     monthOverride = new Date(Date.UTC(y, m - 1 + delta, 1))

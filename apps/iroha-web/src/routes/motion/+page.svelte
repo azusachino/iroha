@@ -399,24 +399,6 @@
 </svelte:head>
 
 <section class="activities-shell">
-  <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
-    <PeriodSelector
-      year={selectedYear}
-      month={selectedMonth}
-      {years}
-      {months}
-      monthDisabled={!selectedYear}
-      appearance="inline"
-      onYear={(value) => {
-        selectedYear = value;
-        handleYearChange();
-      }}
-      onMonth={(value) => {
-        selectedMonth = value;
-        handleMonthChange();
-      }}
-    />
-  </PeriodToolbar>
   {#if hasThemeRoute(theme.definition(), "activities")}
     <ThemeRouteRenderer
       route="activities"
@@ -442,7 +424,28 @@
         },
         onLoadMore: () => void load(true),
       }}
-    />
+    >
+      {#snippet children()}
+        <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
+          <PeriodSelector
+            year={selectedYear}
+            month={selectedMonth}
+            {years}
+            {months}
+            monthDisabled={!selectedYear}
+            appearance="inline"
+            onYear={(value) => {
+              selectedYear = value;
+              handleYearChange();
+            }}
+            onMonth={(value) => {
+              selectedMonth = value;
+              handleMonthChange();
+            }}
+          />
+        </PeriodToolbar>
+      {/snippet}
+    </ThemeRouteRenderer>
   {:else}
     <RouteIntro
       eyebrow="Motion / activity archive"
@@ -451,6 +454,25 @@
       actionHref="/"
       actionLabel="Back to Today"
     />
+
+    <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
+      <PeriodSelector
+        year={selectedYear}
+        month={selectedMonth}
+        {years}
+        {months}
+        monthDisabled={!selectedYear}
+        appearance="inline"
+        onYear={(value) => {
+          selectedYear = value;
+          handleYearChange();
+        }}
+        onMonth={(value) => {
+          selectedMonth = value;
+          handleMonthChange();
+        }}
+      />
+    </PeriodToolbar>
 
     <div class="stat-strip" aria-label="Activity summary">
       <StatTile

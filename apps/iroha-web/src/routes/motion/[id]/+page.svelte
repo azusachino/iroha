@@ -25,6 +25,7 @@
   } from "$lib/format";
   import RouteMap from "$lib/components/RouteMap.svelte";
   import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
+  import ActivityDetailChart from "$lib/components/ActivityDetailChart.svelte";
   import LapChart from "$lib/components/LapChart.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
@@ -255,20 +256,51 @@
     };
   });
 
+  // Theme detail pages receive the same canonical series as the fallback
+  // page. Prefer route-enriched measurements so pace, elevation, and heart
+  // rate share one axis; fall back to the sampled heart-rate stream when a
+  // source has no route geometry.
+  interface DetailChart {
+    xValues: number[];
+    xLabel: string;
+    pace: (number | null)[];
+    heartRate: (number | null)[];
+    elevation: (number | null)[];
+  }
+  const detailChart = $derived.by<DetailChart | null>(() => {
+    if (hasData(paceSeries) || hasData(hrSeries) || hasData(elevationSeries)) {
+      return {
+        xValues: xAxis.values,
+        xLabel: xAxis.label,
+        pace: paceSeries,
+        heartRate: hrSeries,
+        elevation: elevationSeries,
+      };
+    }
+    if (hrSamplingChart) {
+      return {
+        xValues: hrSamplingChart.x,
+        xLabel: "Time (min)",
+        pace: Array.from({ length: hrSamplingChart.values.length }, () => null),
+        heartRate: hrSamplingChart.values,
+        elevation: Array.from(
+          { length: hrSamplingChart.values.length },
+          () => null,
+        ),
+      };
+    }
+    return null;
+  });
+
   const hasRouteLine = $derived(
     processedRoute.filter(
       (p) => Number.isFinite(p.lat) && Number.isFinite(p.lon),
     ).length >= 2,
   );
-  const anyChart = $derived(
-    hasData(paceSeries) ||
-      hasData(hrSeries) ||
-      hasData(elevationSeries) ||
-      !!hrSamplingChart,
-  );
+  const anyChart = $derived(!!detailChart);
 
   const hrZones = $derived.by(() => {
-    const values = hrSeries.filter(
+    const values = (detailChart?.heartRate ?? []).filter(
       (value): value is number => value != null && value > 0,
     );
     if (!values.length) return [];
@@ -416,7 +448,19 @@
       selectedRouteIndex,
       onSelectRoute: (index: number | null) => (selectedRouteIndex = index),
     }}
-  />
+  >
+    {#snippet children()}
+      {#if detailChart}
+        <ActivityDetailChart
+          {...detailChart}
+          paceLabel={isSwimming(activity?.sport_type)
+            ? "Pace / 100m"
+            : "Pace / km"}
+          onHover={(index) => (selectedRouteIndex = index)}
+        />
+      {/if}
+    {/snippet}
+  </ThemeRouteRenderer>
 {:else}
   <p class="detail-back"><a href="/motion">← Back to Motion</a></p>
 
@@ -489,15 +533,19 @@
 
     {#if anyChart}
       <h2>Charts</h2>
-      <FusedActivityChart
-        xValues={xAxis.values}
-        xLabel={xAxis.label}
-        pace={paceSeries}
-        heartRate={hrSeries}
-        elevation={elevationSeries}
-        paceLabel={isSwimming(activity.sport_type) ? "Pace /100m" : "Pace /km"}
-        onHover={(index) => (selectedRouteIndex = index)}
-      />
+      {#if detailChart}
+        <FusedActivityChart
+          xValues={detailChart.xValues}
+          xLabel={detailChart.xLabel}
+          pace={detailChart.pace}
+          heartRate={detailChart.heartRate}
+          elevation={detailChart.elevation}
+          paceLabel={isSwimming(activity.sport_type)
+            ? "Pace /100m"
+            : "Pace /km"}
+          onHover={(index) => (selectedRouteIndex = index)}
+        />
+      {/if}
       {#if hrZones.length > 0}
         <div class="zone-card tile">
           <div class="card-heading">
@@ -508,7 +556,7 @@
           <div class="zone-bar">
             {#each hrZones as zone}<span
                 style={`flex: ${zone.count}; background: ${zone.color}`}
-                title={`${zone.label}: ${Math.round((zone.count / hrSeries.filter((v) => v != null).length) * 100)}%`}
+                title={`${zone.label}: ${Math.round((zone.count / (detailChart?.heartRate.filter((v) => v != null).length || 1)) * 100)}%`}
               ></span>{/each}
           </div>
           <div class="zone-legend">

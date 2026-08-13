@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { DailyRow } from "$lib/api";
   import { formatDateOnly } from "$lib/format";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
@@ -25,6 +26,7 @@
     onDrillPeriod,
     ringData,
     latestRingDay,
+    children,
   }: {
     chrono: Period[];
     gran: "day" | "month" | "year";
@@ -33,6 +35,7 @@
     onDrillPeriod: (period: string) => void;
     ringData: Ring[];
     latestRingDay: DailyRow | null;
+    children?: Snippet;
   } = $props();
 
   const drillable = $derived(gran !== "day");
@@ -85,6 +88,8 @@
       <strong>{chrono.length}</strong><span>periods catalogued</span>
     </div>
   </header>
+
+  {@render children?.()}
 
   {#if ringData.length}
     <section

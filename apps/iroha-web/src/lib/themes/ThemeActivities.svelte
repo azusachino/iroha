@@ -54,6 +54,17 @@
     onMonth: (value: string) => void;
     onLoadMore: () => void;
   } = $props();
+
+  function openActivity(event: MouseEvent, id: string): void {
+    if ((event.target as HTMLElement).closest("a, button")) return;
+    window.location.href = `/motion/${id}`;
+  }
+
+  function openActivityFromKeyboard(event: KeyboardEvent, id: string): void {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    window.location.href = `/motion/${id}`;
+  }
 </script>
 
 <section
@@ -111,6 +122,11 @@
         ><tbody>
           {#each activities as activity}
             <tr
+              role="link"
+              tabindex="0"
+              onclick={(event) => openActivity(event, activity.id)}
+              onkeydown={(event) =>
+                openActivityFromKeyboard(event, activity.id)}
               ><td>{formatDateOnly(activity.started_at)}</td><td
                 ><a href={`/motion/${activity.id}`}
                   >{activity.title || sportLabel(activity.sport_type)}</a

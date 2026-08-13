@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { Activity, Lap, RoutePoint, SamplingPoint } from "$lib/api";
   import SourceBadge from "@iroha/shared/SourceBadge.svelte";
   import {
@@ -20,6 +21,7 @@
     laps,
     selectedRouteIndex,
     onSelectRoute,
+    children,
   }: {
     activity: Activity;
     derivedDistanceM?: number;
@@ -28,6 +30,7 @@
     laps: Lap[];
     selectedRouteIndex: number | null;
     onSelectRoute: (index: number | null) => void;
+    children?: Snippet;
   } = $props();
 
   const heartRateSamples = $derived(
@@ -115,6 +118,8 @@
       <dd>{heartRateSamples.length || "—"}</dd>
     </div>
   </dl>
+
+  {@render children?.()}
 
   <div class="record-grid">
     <section class="spiral-panel">

@@ -26,6 +26,7 @@
     formatDuration,
     formatPace,
     formatHr,
+    formatDateOnly,
     mediaEventVerb,
   } from "$lib/format";
 
@@ -118,15 +119,7 @@
       : [],
   );
 
-  const dayLabel = $derived(
-    new Date(day + "T00:00:00Z").toLocaleDateString(undefined, {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      timeZone: "UTC",
-    }),
-  );
+  const dayLabel = $derived(formatDateOnly(day));
   const dayHasData = $derived(
     briefing?.sections.some(
       (section) =>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { Activity, MetricSeriesResponse } from "$lib/api";
   import ActivityMetricChart from "$lib/components/ActivityMetricChart.svelte";
   import {
@@ -31,6 +32,7 @@
     activitySeriesLoading = false,
     activitySeriesError = null,
     activitySeriesScope = "",
+    children,
   }: {
     activities: Activity[];
     displaySummary: Summary;
@@ -47,7 +49,19 @@
     activitySeriesLoading?: boolean;
     activitySeriesError?: string | null;
     activitySeriesScope?: string;
+    children?: Snippet;
   } = $props();
+
+  function openActivity(event: MouseEvent, id: string): void {
+    if ((event.target as HTMLElement).closest("a, button")) return;
+    window.location.href = `/motion/${id}`;
+  }
+
+  function openActivityFromKeyboard(event: KeyboardEvent, id: string): void {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    window.location.href = `/motion/${id}`;
+  }
 </script>
 
 <section class="atlas-index" aria-labelledby="atlas-index-title">
@@ -65,6 +79,8 @@
       <small>entries charted</small>
     </div>
   </header>
+
+  {@render children?.()}
 
   <div class="index-filters" aria-label="Route filters">
     <label
@@ -108,8 +124,11 @@
             {#each activities as activity, index}
               <tr
                 class="activity-row"
-                ondblclick={() =>
-                  (window.location.href = `/motion/${activity.id}`)}
+                role="link"
+                tabindex="0"
+                onclick={(event) => openActivity(event, activity.id)}
+                onkeydown={(event) =>
+                  openActivityFromKeyboard(event, activity.id)}
                 ><td class="manifest-index"
                   >{String(index + 1).padStart(3, "0")}</td
                 ><td>{formatDateOnly(activity.started_at)}</td><td

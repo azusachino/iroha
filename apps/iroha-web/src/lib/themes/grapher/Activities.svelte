@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { Activity, MetricSeriesResponse } from "$lib/api";
   import ActivityMetricChart from "$lib/components/ActivityMetricChart.svelte";
   import {
@@ -30,6 +31,7 @@
     activitySeriesLoading = false,
     activitySeriesError = null,
     activitySeriesScope = "",
+    children,
   }: {
     activities: Activity[];
     displaySummary: DisplaySummary;
@@ -46,7 +48,19 @@
     activitySeriesLoading?: boolean;
     activitySeriesError?: string | null;
     activitySeriesScope?: string;
+    children?: Snippet;
   } = $props();
+
+  function openActivity(event: MouseEvent, id: string): void {
+    if ((event.target as HTMLElement).closest("a, button")) return;
+    window.location.href = `/motion/${id}`;
+  }
+
+  function openActivityFromKeyboard(event: KeyboardEvent, id: string): void {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    window.location.href = `/motion/${id}`;
+  }
 </script>
 
 <section class="grapher-activities" aria-labelledby="activity-data-title">
@@ -57,6 +71,8 @@
       Filter the imported sessions, then compare the same fields row by row.
     </p>
   </header>
+
+  {@render children?.()}
 
   <div class="filters" aria-label="Activity filters">
     <label
@@ -118,8 +134,11 @@
           {#each activities as activity (activity.id)}
             <tr
               class="activity-row"
-              ondblclick={() =>
-                (window.location.href = `/motion/${activity.id}`)}
+              role="link"
+              tabindex="0"
+              onclick={(event) => openActivity(event, activity.id)}
+              onkeydown={(event) =>
+                openActivityFromKeyboard(event, activity.id)}
             >
               <td>{formatDateOnly(activity.started_at, activity.timezone)}</td>
               <td

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { SleepAggregateBucket, SleepSession } from "$lib/api";
   import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
   import BarChart from "$lib/components/BarChart.svelte";
@@ -15,6 +16,7 @@
     rollupBuckets = [],
     rollupGranularity = "year",
     rollupScope = "",
+    children,
   }: {
     sessions: SleepSession[];
     selected: SleepSession | null;
@@ -26,6 +28,7 @@
     rollupBuckets?: SleepAggregateBucket[];
     rollupGranularity?: "month" | "year";
     rollupScope?: string;
+    children?: Snippet;
   } = $props();
 
   const chartSessions = $derived([...sessions].reverse());
@@ -49,6 +52,8 @@
       >
     </div>
   </header>
+
+  {@render children?.()}
 
   <div class="mix-summary">
     <div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { SleepAggregateBucket, SleepSession } from "$lib/api";
   import BarChart from "$lib/components/BarChart.svelte";
   import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
@@ -15,6 +16,7 @@
     rollupBuckets = [],
     rollupGranularity = "year",
     rollupScope = "",
+    children,
   }: {
     sessions: SleepSession[];
     selected: SleepSession | null;
@@ -26,6 +28,7 @@
     rollupBuckets?: SleepAggregateBucket[];
     rollupGranularity?: "month" | "year";
     rollupScope?: string;
+    children?: Snippet;
   } = $props();
 
   const chartSessions = $derived([...sessions].reverse());
@@ -40,6 +43,8 @@
       turning it into a score.
     </p>
   </header>
+
+  {@render children?.()}
 
   <div class="summary-row" aria-label="Sleep summary">
     <div>

@@ -65,11 +65,7 @@ export const expenseCategoryLabel: Record<ExpenseCategory, string> = {
 };
 
 export function formatExpenseDay(value: string): string {
-  return new Date(`${value}T00:00:00Z`).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+  return value.slice(0, 10);
 }
 
 // Canonical ledger export: raw money remains numeric and the display amount is

@@ -25,6 +25,7 @@
     formatPercent,
     formatPace,
     formatSport,
+    formatDateOnly,
   } from "$lib/format";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
   import { hasThemeRoute, THEME_DEFINITIONS } from "$lib/themes/registry";
@@ -258,12 +259,7 @@
   }
 
   function dateLabel(date: string): string {
-    return new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    });
+    return formatDateOnly(date);
   }
 
   function selectTheme(language: DesignLanguage): void {
@@ -948,7 +944,7 @@
                   >{formatSport(activity.sport_type)}</span
                 >
                 <h3>{activity.title}.</h3>
-                <p>{activityMetric(activity)}. A trace worth keeping.</p>
+                <p>{activityMetric(activity)}. Recorded activity.</p>
               </div>
             </article>
           {/each}

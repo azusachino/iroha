@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { DailyRow } from "$lib/api";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
   import BarChart from "$lib/components/BarChart.svelte";
@@ -25,6 +26,7 @@
     onDrillPeriod,
     ringData,
     latestRingDay,
+    children,
   }: {
     chrono: Disp[];
     gran: "day" | "month" | "year";
@@ -33,6 +35,7 @@
     onDrillPeriod: (period: string) => void;
     ringData: Ring[];
     latestRingDay: DailyRow | null;
+    children?: Snippet;
   } = $props();
 
   const drillable = $derived(gran !== "day");
@@ -62,6 +65,8 @@
       periods.
     </p>
   </header>
+
+  {@render children?.()}
 
   <div class="controls">
     <span class="kicker">Aggregation</span>

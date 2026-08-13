@@ -436,19 +436,6 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
-      <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
-        <PeriodSelector
-          years={periodYears}
-          months={periodMonths}
-          year={selectedYear}
-          month={selectedMonth}
-          monthDisabled={!selectedYear}
-          appearance="inline"
-          onYear={changeYear}
-          onMonth={changeMonth}
-        />
-      </PeriodToolbar>
-      <SleepScopeSummary summary={sleepSummary} scope={sleepScope} />
       <ThemeRouteRenderer
         route="sleep"
         props={{
@@ -464,7 +451,23 @@
           onOpenDetail: (session: SleepSession) =>
             void goto(`/night/${session.id}`),
         }}
-      />
+      >
+        {#snippet children()}
+          <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
+            <PeriodSelector
+              years={periodYears}
+              months={periodMonths}
+              year={selectedYear}
+              month={selectedMonth}
+              monthDisabled={!selectedYear}
+              appearance="inline"
+              onYear={changeYear}
+              onMonth={changeMonth}
+            />
+          </PeriodToolbar>
+          <SleepScopeSummary summary={sleepSummary} scope={sleepScope} />
+        {/snippet}
+      </ThemeRouteRenderer>
       {#if hasMore}
         <div
           bind:this={loadMoreSentinel}

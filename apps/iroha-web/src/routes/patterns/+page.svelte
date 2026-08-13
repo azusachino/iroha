@@ -392,18 +392,6 @@
     {:else if monthly.length === 0 && dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
-      <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
-        <PeriodSelector
-          years={periodYears}
-          months={periodMonths}
-          year={gran === "year" ? selectedYear : activeYear}
-          month={gran === "day" ? activeMonth : selectedMonth}
-          showAllYears={gran === "year"}
-          appearance="inline"
-          onYear={selectYear}
-          onMonth={selectMonth}
-        />
-      </PeriodToolbar>
       <ThemeRouteRenderer
         route="daily"
         props={{
@@ -415,7 +403,22 @@
           ringData,
           latestRingDay,
         }}
-      />
+      >
+        {#snippet children()}
+          <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
+            <PeriodSelector
+              years={periodYears}
+              months={periodMonths}
+              year={gran === "year" ? selectedYear : activeYear}
+              month={gran === "day" ? activeMonth : selectedMonth}
+              showAllYears={gran === "year"}
+              appearance="inline"
+              onYear={selectYear}
+              onMonth={selectMonth}
+            />
+          </PeriodToolbar>
+        {/snippet}
+      </ThemeRouteRenderer>
     {/if}
   {:else}
     <RouteIntro
@@ -425,6 +428,19 @@
       actionHref="/"
       actionLabel="Today"
     />
+
+    <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
+      <PeriodSelector
+        years={periodYears}
+        months={periodMonths}
+        year={gran === "year" ? selectedYear : activeYear}
+        month={gran === "day" ? activeMonth : selectedMonth}
+        showAllYears={gran === "year"}
+        appearance="inline"
+        onYear={selectYear}
+        onMonth={selectMonth}
+      />
+    </PeriodToolbar>
 
     {#if loading}
       <p class="muted status">Loading daily history…</p>
@@ -468,19 +484,6 @@
             >Range: {rangeFrom} → {rangeTo}</span
           >{/if}
       </div>
-      <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
-        <PeriodSelector
-          years={periodYears}
-          months={periodMonths}
-          year={gran === "year" ? selectedYear : activeYear}
-          month={gran === "day" ? activeMonth : selectedMonth}
-          showAllYears={gran === "year"}
-          appearance="inline"
-          onYear={selectYear}
-          onMonth={selectMonth}
-        />
-      </PeriodToolbar>
-
       <div class="trend-panel tile">
         <div class="trend-heading">
           <div>

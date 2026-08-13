@@ -1,7 +1,7 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { Activity, Lap, RoutePoint, SamplingPoint } from "$lib/api";
   import SourceBadge from "@iroha/shared/SourceBadge.svelte";
-  import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
   import LapChart from "$lib/components/LapChart.svelte";
   import {
     formatDate,
@@ -19,6 +19,7 @@
     route,
     samplings,
     laps,
+    children,
   }: {
     activity: Activity;
     derivedDistanceM?: number;
@@ -27,45 +28,11 @@
     laps: Lap[];
     selectedRouteIndex: number | null;
     onSelectRoute: (index: number | null) => void;
+    children?: Snippet;
   } = $props();
 
   const swimming = $derived(isSwimming(activity.sport_type));
   const distance = $derived(activity.distance_m ?? derivedDistanceM);
-  const chartPoints = $derived(
-    route.filter((point) => point.ts || point.distance_m != null),
-  );
-  const xValues = $derived(
-    chartPoints.map((point, index) =>
-      point.distance_m != null ? point.distance_m / 1000 : index,
-    ),
-  );
-  const xLabel = $derived(
-    chartPoints.some((point) => point.distance_m != null)
-      ? "Distance (km)"
-      : "Point",
-  );
-  const pace = $derived(
-    chartPoints.map((point) => {
-      if (
-        point.speed_mps == null ||
-        !Number.isFinite(point.speed_mps) ||
-        point.speed_mps <= 0
-      )
-        return null;
-      return (swimming ? 100 : 1000) / point.speed_mps;
-    }),
-  );
-  const heartRate = $derived(
-    chartPoints.map((point) => point.heart_rate ?? null),
-  );
-  const elevation = $derived(
-    chartPoints.map((point) => point.elevation_m ?? null),
-  );
-  const hasChart = $derived(
-    [pace, heartRate, elevation].some((values) =>
-      values.some((value) => value != null),
-    ),
-  );
 </script>
 
 <article class="grapher-detail" aria-labelledby="grapher-detail-title">
@@ -105,20 +72,7 @@
       >
     </div>
   </div>
-  {#if hasChart}<section class="chart-panel">
-      <header>
-        <p class="kicker">Synchronized measurements</p>
-        <h2>Effort across the record</h2>
-      </header>
-      <FusedActivityChart
-        {xValues}
-        {xLabel}
-        {pace}
-        {heartRate}
-        {elevation}
-        paceLabel={swimming ? "Pace / 100m" : "Pace / km"}
-      />
-    </section>{/if}
+  {@render children?.()}
   {#if laps.length}<section class="chart-panel">
       <header>
         <p class="kicker">Measured intervals</p>
@@ -164,13 +118,6 @@
         </div>
       </dl>
     </div>
-    <div>
-      <p class="kicker">Trace note</p>
-      <p class="note">
-        Charts preserve missing values as gaps. No pace, distance, or sleep-like
-        value is inferred from an absent source measurement.
-      </p>
-    </div>
   </section>
 </article>
 
@@ -211,8 +158,7 @@
     border-bottom: 3px solid var(--text);
     padding-bottom: 1.5rem;
   }
-  .detail-header p:last-child,
-  .note {
+  .detail-header p:last-child {
     color: var(--text-muted);
     font-size: 0.72rem;
   }
