@@ -7,7 +7,7 @@ import {
 } from "./registry";
 
 describe("Iroha theme registry", () => {
-  it("keeps the six language identities explicit", () => {
+  it("keeps the current production language identities explicit", () => {
     expect(THEME_DEFINITIONS.map((theme) => theme.identity.id)).toEqual([
       "atlas",
       "grapher",

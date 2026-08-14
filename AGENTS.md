@@ -34,6 +34,32 @@ docs/                 design docs
 - **Conventional commits**, no emojis. Stage specific files, never `git add -A`.
 - Prefer extracting **pure, DB-free helpers** so logic is unit-testable without Postgres (see `imports/decision.go`, `parsers` key/hash helpers).
 
+## Theme asset boundary (hard rule)
+
+Iroha's registered themes and design compositions, including the current six production languages and newer design-workshop compositions, are core product assets, not `iroha-web` implementation
+details. The source of truth for design identities, the registry, theme-specific compositions, shared visual primitives, charts, controls, and theme-aware presentation components **must live under
+`packages/`** (currently `packages/iroha-shared/`, or a dedicated package when the boundary is split). They must not be created or maintained solely under `apps/iroha-web/src/` or
+`apps/iroha-public-site/src/`.
+
+The applications are adapters and hosts:
+
+- `iroha-web` owns API clients, route state, loading/error behavior, and navigation callbacks. It may adapt canonical API data into the shared view contracts, but it must not own a theme composition
+  or duplicate a theme primitive.
+- `iroha-public-site` owns its static content/data adapter and site shell. It consumes the same shared theme assets; it must not fork a visual component because its data is static.
+- Shared theme code accepts typed data, snippets, and callbacks. It must not import `$lib/api`, route modules, server packages, or another application's source path.
+
+The current `apps/iroha-web/src/lib/themes/` tree is migration debt. Do not add new theme files there or add a web-local shared visual primitive to work around the debt. Before adding a component,
+search `packages/` first and decide whether it is an app adapter or a reusable theme asset. A review is incomplete unless it checks both file placement and import direction:
+
+```bash
+rg -n 'src/lib/themes|from "\$lib/(api|routes)' apps packages
+rg -n 'THEME_IDS|THEME_IDENTITIES|ThemeRoute|ThemeDefinition' apps packages
+```
+
+Design identities, route registrations, design compositions, and theme-aware CSS must have one canonical definition. The registry is extensible: a new design must be promoted into the shared registry
+and receive a deliberate shared implementation before it is considered adopted. A web-local copy, wrapper that changes the design language, or a CSS switch without a deliberate composition is a
+boundary violation.
+
 ## Data & import model (important)
 
 - A full Apple Health export is a **complete snapshot**, reconciled — not appended.

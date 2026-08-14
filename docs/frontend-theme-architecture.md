@@ -10,17 +10,18 @@ change API contracts, data meaning, privacy boundaries, or null/error behavior.
 Light and dark are contrast modes. A design language is a product-level art direction. They are independent axes:
 
 ```text
-design language: Field Journal / Grapher / Atlas / Phenology / Sound Map / Archive
+registered language: Field Journal / Grapher / Atlas / Phenology / Sound Map / Archive
 contrast mode:   light / dark
 ```
 
 ## Source of truth
 
-The theme registry is the only place that defines the supported languages:
+The shared theme package is the only place that defines supported registered languages and adopted design compositions. The current web tree is migration debt, not the target home:
 
 ```text
-apps/iroha-web/src/lib/themes/
-├── registry.ts          app component registration
+packages/iroha-shared/src/theme-ui/
+├── registry.ts          shared component registration
+├── context.svelte.ts    shared theme runtime contract
 ├── field-journal/
 ├── grapher/
 ├── atlas/
@@ -29,7 +30,7 @@ apps/iroha-web/src/lib/themes/
 └── archive/
 
 packages/iroha-shared/src/
-├── themes.ts            shared identities, lenses, and theme contracts
+├── themes.ts            identities, lenses, route and design contracts
 ├── themes.css           semantic language tokens
 ├── PeriodSelector.svelte
 └── SelectControl.svelte
@@ -48,8 +49,8 @@ theme/
 └── Share.svelte         public/editorial composition
 ```
 
-Themes may compose shared data visualizations and primitives, but route files must not contain six-way visual conditionals. A route loads a stable view model and delegates rendering to the selected
-theme component.
+Themes may compose shared data visualizations and primitives, but route files must not contain a visual conditional over registered languages or adopted compositions. A route loads a stable view model
+and delegates rendering to the selected shared component.
 
 ## Layer boundaries
 
@@ -60,7 +61,7 @@ projection boundaries.
 
 ### Shared primitives
 
-`src/lib/components/` contains behaviorally reusable primitives:
+`packages/iroha-shared/src/theme-ui/components/` contains behaviorally reusable theme primitives:
 
 - charts, maps, gauges, timelines, shelves, tables;
 - loading, empty, error, partial, and stale states;
@@ -92,7 +93,8 @@ hierarchy for every language.
 
 ## Registry contract
 
-The registry must provide typed metadata for every language. Identity and page-lens metadata lives in the shared manifest; the web registry adds the actual Svelte components:
+The shared registry must provide typed metadata and actual Svelte components for every registered language and adopted composition. Identity and page-lens metadata lives in the shared manifest; the
+web app supplies only data and navigation adapters:
 
 ```ts
 type ThemeDefinition = {
@@ -103,7 +105,8 @@ type ThemeDefinition = {
 };
 ```
 
-The registry is exhaustive. Adding a language without all required production route components is a type/check failure, not a partially working option.
+The registry is exhaustive for every adopted entry. Adding a language or design composition without all required production route components is a type/check failure, not a partially working option or
+a design-page-only variant.
 
 ## Community-standard implementation rules
 
@@ -113,9 +116,9 @@ The registry is exhaustive. Adding a language without all required production ro
 4. Keep API loading in route/page modules and visual rendering in components.
 5. Keep design tokens semantic; do not route raw hex values into data logic.
 6. Keep accessibility behavior in shared primitives unless the theme has a documented interaction difference.
-7. Keep each theme’s assets and styles colocated with the theme component.
+7. Keep each theme’s assets and styles colocated with the shared theme component under `packages/`.
 8. Use the design workshop as a real implementation and review surface. Its layout compositions use canonical fixtures and must remain runnable; they are not static concept boards.
-9. Prefer one complete vertical slice over six superficial variants.
+9. Prefer one complete vertical slice over superficial variants, while keeping every adopted composition real.
 10. Keep the existing route tree and API paths stable while migrating.
 
 ## Definition of a complete theme
@@ -140,15 +143,14 @@ The `/design` route contains two real, complementary implementation axes:
 - the seven implemented layout compositions: Editorial, Command center, Chronicle, Cover page, Personal OS, Field journal, and Quiet.
 
 The layout compositions are not throwaway mockups. They are executable Svelte compositions bound to the same canonical Today view model, with stable URL selection, accessible controls, responsive
-styles, and deterministic fallback data. They are first-class workshop implementations alongside the registered themes, and the acceptance matrix must exercise all of them rather than silently
-reducing them to screenshots.
+styles, and deterministic fallback data. They are first-class shared implementations alongside the registered themes, and the acceptance matrix must exercise all of them rather than silently reducing
+them to screenshots. A design-workshop entry is not adopted until its implementation and registry identity leave the app directory.
 
 ## Migration order
 
-1. Move the current language metadata into the typed registry.
-2. Create the shared theme host and preserve the current Field Journal route as the reference implementation.
-3. Build a complete Grapher vertical slice: shell, Today, Share, and chart/map/ table view primitives with provenance treatment.
+1. Define the shared view models and move the current language metadata and registry into the shared theme package.
+2. Promote Editorial, Command center, Chronicle, Cover page, Personal OS, Field journal, and Quiet from the web design route into shared registry entries with real implementations.
+3. Build one complete shared vertical slice—Grapher media, for example—with the web and public-site adapters consuming it.
 4. Review the same data in the design lab at required breakpoints.
-5. Migrate Daily, Activities, Sleep, and Media for the accepted languages.
-6. Add Atlas, Phenology, Sound Map, and Archive only after their route contracts are complete.
-7. Remove obsolete route-local visual conditionals only after the replacement has passed the visual, accessibility, and data-boundary gates.
+5. Migrate Daily, Activities, Sleep, Media, Expenses, Reports, and Metrics for every accepted language and composition.
+6. Remove obsolete route-local visual conditionals only after the replacement has passed visual, accessibility, and data-boundary gates.
