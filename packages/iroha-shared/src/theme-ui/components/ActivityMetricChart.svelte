@@ -243,6 +243,7 @@
   .activity-metric-chart {
     display: grid;
     gap: 1rem;
+    min-width: 0;
     padding: clamp(1rem, 2.5vw, 1.5rem);
     border: 1px solid var(--border);
     border-radius: var(--radius);

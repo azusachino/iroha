@@ -182,6 +182,7 @@
   .bloom-log {
     display: grid;
     gap: 1.5rem;
+    min-width: 0;
     font-family: var(--font-serif);
   }
   .bloom-kicker {

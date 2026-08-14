@@ -145,6 +145,7 @@
   .atlas-index {
     display: grid;
     gap: 1.5rem;
+    min-width: 0;
     font-family: var(--font-sans);
   }
   .atlas-kicker {
