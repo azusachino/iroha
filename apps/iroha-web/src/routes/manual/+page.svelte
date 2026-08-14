@@ -298,11 +298,21 @@
           class={`theme-card ${definition.identity.id}`}
           onclick={() => theme.select(definition.identity.id)}
         >
-          <span class="theme-swatch" aria-hidden="true"></span>
+          <span class="theme-swatch" aria-hidden="true"
+            >{definition.identity.mark}</span
+          >
           <span class="theme-card-copy">
             <strong>{definition.identity.label}</strong>
             <small>{definition.identity.hint}</small>
             <p>{definition.identity.description}</p>
+            <span class="theme-lens"
+              ><b>Expenses</b>
+              {definition.identity.lenses.expenses.lead}</span
+            >
+            <span class="theme-lens"
+              ><b>Reports</b>
+              {definition.identity.lenses.reports.lead}</span
+            >
           </span>
         </button>
       {/each}
@@ -561,12 +571,18 @@
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
   }
   .theme-swatch {
+    display: grid;
     flex: 0 0 auto;
     width: 2.25rem;
     height: 2.25rem;
+    place-items: center;
     border-radius: 0.65rem;
     background: var(--theme-color, var(--accent));
     box-shadow: inset 0 0 0 5px color-mix(in srgb, white 15%, transparent);
+    color: var(--brand-ink, white);
+    font-family: var(--font-serif, var(--font-mono, monospace));
+    font-size: 1.1rem;
+    font-weight: 700;
   }
   .theme-card-copy {
     display: grid;
@@ -582,6 +598,17 @@
   }
   .theme-card-copy p {
     margin-top: 0.25rem;
+  }
+  .theme-lens {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.4;
+  }
+  .theme-lens b {
+    margin-right: 0.25rem;
+    color: var(--text);
   }
   .manual-footer {
     align-items: center;
