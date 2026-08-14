@@ -356,6 +356,10 @@
     display: grid;
     gap: 1.25rem;
     font-family: var(--font-mono);
+    min-width: 0;
+  }
+  .archive-reports > * {
+    min-width: 0;
   }
 
   h2,

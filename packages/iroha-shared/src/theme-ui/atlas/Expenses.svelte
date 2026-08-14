@@ -96,6 +96,10 @@
     display: grid;
     gap: 1.25rem;
     font-family: var(--font-sans);
+    min-width: 0;
+  }
+  .atlas-expenses > * {
+    min-width: 0;
   }
   .atlas-heading {
     display: flex;

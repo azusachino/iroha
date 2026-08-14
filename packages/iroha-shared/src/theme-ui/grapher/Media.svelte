@@ -157,6 +157,10 @@
     display: grid;
     gap: 1rem;
     font-family: var(--font-mono);
+    min-width: 0;
+  }
+  .grapher-media > * {
+    min-width: 0;
   }
   h1,
   h2,

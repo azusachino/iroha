@@ -209,6 +209,10 @@
   .journal-today {
     display: grid;
     gap: 2rem;
+    min-width: 0;
+  }
+  .journal-today > * {
+    min-width: 0;
   }
   .journal-opening {
     display: flex;

@@ -353,6 +353,10 @@
   .sound-reports {
     display: grid;
     gap: 1.1rem;
+    min-width: 0;
+  }
+  .sound-reports > * {
+    min-width: 0;
   }
 
   h2,

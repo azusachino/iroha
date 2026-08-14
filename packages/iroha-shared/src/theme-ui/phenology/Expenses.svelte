@@ -77,6 +77,10 @@
   .phenology-expenses {
     display: grid;
     gap: 1.25rem;
+    min-width: 0;
+  }
+  .phenology-expenses > * {
+    min-width: 0;
   }
   h2,
   h3,

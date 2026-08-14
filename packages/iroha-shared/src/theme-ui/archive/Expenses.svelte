@@ -85,6 +85,10 @@
     display: grid;
     gap: 1.25rem;
     font-family: var(--font-mono);
+    min-width: 0;
+  }
+  .archive-expenses > * {
+    min-width: 0;
   }
   h2,
   h3,

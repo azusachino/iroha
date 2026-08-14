@@ -370,6 +370,10 @@
     display: grid;
     gap: 1.25rem;
     font-family: Georgia, "Times New Roman", serif;
+    min-width: 0;
+  }
+  .journal-reports > * {
+    min-width: 0;
   }
 
   h2,

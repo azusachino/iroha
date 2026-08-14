@@ -146,6 +146,10 @@
     display: grid;
     gap: 1.5rem;
     font-family: var(--font-serif);
+    min-width: 0;
+  }
+  .bloom-shelf > * {
+    min-width: 0;
   }
   .bloom-kicker {
     margin: 0 0 0.5rem;

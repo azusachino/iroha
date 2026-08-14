@@ -80,6 +80,10 @@
     display: grid;
     gap: 1rem;
     font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    min-width: 0;
+  }
+  .grapher-expenses > * {
+    min-width: 0;
   }
   h2,
   p {

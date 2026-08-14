@@ -167,6 +167,10 @@
   .grapher-today {
     display: grid;
     gap: 1rem;
+    min-width: 0;
+  }
+  .grapher-today > * {
+    min-width: 0;
   }
   .grapher-intro {
     display: flex;

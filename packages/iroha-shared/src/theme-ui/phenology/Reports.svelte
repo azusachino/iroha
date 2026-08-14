@@ -357,6 +357,10 @@
   .phenology-reports {
     display: grid;
     gap: 1.25rem;
+    min-width: 0;
+  }
+  .phenology-reports > * {
+    min-width: 0;
   }
 
   h2,

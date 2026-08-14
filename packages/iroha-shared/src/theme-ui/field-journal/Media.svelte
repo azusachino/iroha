@@ -148,6 +148,10 @@
   .journal-shelf {
     display: grid;
     gap: 1.5rem;
+    min-width: 0;
+  }
+  .journal-shelf > * {
+    min-width: 0;
   }
   .journal-kicker {
     margin: 0 0 0.55rem;

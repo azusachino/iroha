@@ -77,6 +77,10 @@
   .sound-expenses {
     display: grid;
     gap: 1.1rem;
+    min-width: 0;
+  }
+  .sound-expenses > * {
+    min-width: 0;
   }
   h2,
   p {

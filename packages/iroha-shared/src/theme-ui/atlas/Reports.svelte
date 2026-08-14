@@ -388,6 +388,10 @@
   .atlas-reports {
     display: grid;
     gap: 1.25rem;
+    min-width: 0;
+  }
+  .atlas-reports > * {
+    min-width: 0;
   }
 
   .atlas-heading {

@@ -217,6 +217,10 @@
     display: grid;
     gap: 1.75rem;
     font-family: var(--font-serif);
+    min-width: 0;
+  }
+  .bloom-today > * {
+    min-width: 0;
   }
   .bloom-kicker {
     margin: 0 0 0.5rem;
