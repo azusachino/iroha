@@ -8,10 +8,12 @@
     type DailyRow,
     type DailyAggregateBucket,
   } from "$lib/api";
-  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import RingGauge, {
+    type Ring,
+  } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
   import DailySmallMultiples, {
     type SmallMultiple,
-  } from "$lib/components/DailySmallMultiples.svelte";
+  } from "@iroha/shared/theme-ui/components/DailySmallMultiples.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import {

@@ -1,23 +1,8 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  import type { DailyRow } from "$lib/api";
-  import { formatDateOnly } from "$lib/format";
-  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-
-  type Period = {
-    label: string;
-    period: string;
-    days: number | null;
-    move: number | null;
-    exercise: number | null;
-    stand: number | null;
-    moveClosedPct: number | null;
-    steps: number | null;
-    distance: number | null;
-    resting_hr: number | null;
-    hrv_sdnn: number | null;
-  };
+  import type { DailyThemeProps } from "../../daily-view";
+  import { formatDateOnly } from "../../format";
+  import RingGauge from "../components/RingGauge.svelte";
+  import BarChart from "../components/BarChart.svelte";
 
   let {
     chrono,
@@ -27,17 +12,9 @@
     onDrillPeriod,
     ringData,
     latestRingDay,
+    theme,
     children,
-  }: {
-    chrono: Period[];
-    gran: "day" | "month" | "year";
-    onGran: (value: "day" | "month" | "year") => void;
-    onDrillIndex: (index: number) => void;
-    onDrillPeriod: (period: string) => void;
-    ringData: Ring[];
-    latestRingDay: DailyRow | null;
-    children?: Snippet;
-  } = $props();
+  }: DailyThemeProps = $props();
 
   const drillable = $derived(gran !== "day");
   const latest = $derived(chrono.at(-1));
@@ -51,7 +28,11 @@
   }
 </script>
 
-<section class="atlas-daily" aria-labelledby="atlas-daily-title">
+<section
+  class="atlas-daily"
+  data-theme={theme}
+  aria-labelledby="atlas-daily-title"
+>
   <header class="daily-header">
     <div>
       <p class="atlas-kicker">Survey series · {gran} scale</p>

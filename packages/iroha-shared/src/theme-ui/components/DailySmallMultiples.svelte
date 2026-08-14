@@ -91,7 +91,9 @@
         lineStyle: { color: item.color, width: 2 },
         itemStyle: { color: item.color },
         areaStyle: { color: item.color, opacity: 0.08 },
-        data: item.values,
+        data: item.values.map((value) =>
+          value == null || !Number.isFinite(value) ? null : value,
+        ),
       })),
     });
   }

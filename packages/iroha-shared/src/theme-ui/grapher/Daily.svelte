@@ -1,22 +1,7 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  import type { DailyRow } from "$lib/api";
-  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-
-  type Disp = {
-    label: string;
-    period: string;
-    days: number | null;
-    move: number | null;
-    exercise: number | null;
-    stand: number | null;
-    moveClosedPct: number | null;
-    steps: number | null;
-    distance: number | null;
-    resting_hr: number | null;
-    hrv_sdnn: number | null;
-  };
+  import type { DailyThemeProps } from "../../daily-view";
+  import RingGauge from "../components/RingGauge.svelte";
+  import BarChart from "../components/BarChart.svelte";
 
   let {
     chrono,
@@ -26,17 +11,9 @@
     onDrillPeriod,
     ringData,
     latestRingDay,
+    theme,
     children,
-  }: {
-    chrono: Disp[];
-    gran: "day" | "month" | "year";
-    onGran: (value: "day" | "month" | "year") => void;
-    onDrillIndex: (index: number) => void;
-    onDrillPeriod: (period: string) => void;
-    ringData: Ring[];
-    latestRingDay: DailyRow | null;
-    children?: Snippet;
-  } = $props();
+  }: DailyThemeProps = $props();
 
   const drillable = $derived(gran !== "day");
   const latest = $derived(chrono.at(-1));
@@ -56,7 +33,11 @@
   }
 </script>
 
-<section class="grapher-daily" aria-labelledby="daily-data-title">
+<section
+  class="grapher-daily"
+  data-theme={theme}
+  aria-labelledby="daily-data-title"
+>
   <header class="page-intro">
     <p class="kicker">Patterns / time series</p>
     <h1 id="daily-data-title">How does the pattern move?</h1>

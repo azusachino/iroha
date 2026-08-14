@@ -15,7 +15,9 @@
     type BriefingResponse,
     type Task,
   } from "$lib/api";
-  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import RingGauge, {
+    type Ring,
+  } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import DayPicker from "$lib/components/DayPicker.svelte";
   import { useTheme } from "$lib/themes/context.svelte";

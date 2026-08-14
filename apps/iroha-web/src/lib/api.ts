@@ -9,6 +9,11 @@ import type {
 } from "@iroha/shared/activity";
 import type { MetricSeriesResponse } from "@iroha/shared/metric-series";
 import type {
+  DailyAggregates,
+  DailyRow,
+  ListDailyParams,
+} from "@iroha/shared/daily";
+import type {
   MediaAggregates,
   MediaDetail,
   MediaRow,
@@ -55,6 +60,14 @@ export type {
   SamplingPoint,
 } from "@iroha/shared/activity";
 export type { MetricSeriesResponse } from "@iroha/shared/metric-series";
+export type {
+  DailyAggregateBucket,
+  DailyAggregates,
+  DailyMetricAggregate,
+  DailyRing,
+  DailyRow,
+  ListDailyParams,
+} from "@iroha/shared/daily";
 export type {
   MediaAggregates,
   MediaCompletionBucket,
@@ -323,68 +336,6 @@ export function getMonthlyReportSeries(
 // One day of the daily-activity + body-vitals module. The API keeps activity
 // rings as one nullable object so the canonical wire shape is explicit: a
 // missing ring is different from a ring whose values happen to be zero.
-export interface DailyRing {
-  move_kcal: number;
-  move_goal_kcal: number;
-  exercise_min: number;
-  exercise_goal_min: number;
-  stand_hours: number;
-  stand_goal_hours: number;
-}
-
-export interface DailyRow {
-  id: string;
-  day: string;
-  ring: DailyRing | null;
-  steps?: number;
-  distance_km?: number;
-  flights?: number;
-  resting_hr?: number;
-  walking_hr_avg?: number;
-  hrv_sdnn?: number;
-  spo2_avg?: number;
-  spo2_min?: number;
-  respiratory_rate?: number;
-  vo2max?: number;
-  body_mass_kg?: number;
-  source: string;
-  first_raw_file_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ListDailyParams {
-  from?: string;
-  to?: string;
-  limit?: number;
-  cursor?: string;
-}
-
-// One month/year rollup. Ring fields are per-day averages over ring days;
-// `metrics` is a sorted list of per-day averages so each metric can retain its
-// unit and observed-day coverage.
-export interface DailyMetricAggregate {
-  metric: string;
-  value: number;
-  unit: string;
-  observed_days: number;
-}
-
-export interface DailyAggregateBucket {
-  period: string;
-  days: number;
-  move_kcal_avg: number;
-  exercise_min_avg: number;
-  stand_hours_avg: number;
-  move_closed_pct: number;
-  metrics: DailyMetricAggregate[];
-}
-
-export interface DailyAggregates {
-  granularity: "month" | "year";
-  buckets: DailyAggregateBucket[];
-}
-
 export function listDailyAggregates(
   granularity: "month" | "year",
   params: { from?: string; to?: string } = {},

@@ -11,7 +11,7 @@
   } from "$lib/api";
   import DailySmallMultiples, {
     type SmallMultiple,
-  } from "$lib/components/DailySmallMultiples.svelte";
+  } from "@iroha/shared/theme-ui/components/DailySmallMultiples.svelte";
   import { formatMetricValue } from "$lib/format";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";

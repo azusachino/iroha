@@ -1,16 +1,11 @@
 <script lang="ts">
+  import type { ActivityRing } from "../../daily-view";
   // Apple-style concentric activity rings. Form = progress-to-goal, so the
   // honest mark is a radial gauge. Arcs use the validated MARK-tier trio
   // (Move=magenta, Exercise=amber, Stand=teal, CVD-safe); the neon glow is
   // chrome only and every arc carries a numeric label (legend), so meaning
   // never rests on hue. pathLength=100 lets us set the sweep as a plain %.
-  export interface Ring {
-    label: string;
-    value: number;
-    goal: number;
-    unit: string;
-    color: string;
-  }
+  export type Ring = ActivityRing;
 
   let { rings, size = 132 }: { rings: Ring[]; size?: number } = $props();
 
