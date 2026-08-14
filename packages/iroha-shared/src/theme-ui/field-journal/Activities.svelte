@@ -163,6 +163,9 @@
     gap: 1.5rem;
     min-width: 0;
   }
+  .journal-log > * {
+    min-width: 0;
+  }
   .journal-kicker {
     margin: 0 0 0.55rem;
     color: var(--accent);

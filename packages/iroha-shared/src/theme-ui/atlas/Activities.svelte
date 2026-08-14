@@ -148,6 +148,9 @@
     min-width: 0;
     font-family: var(--font-sans);
   }
+  .atlas-index > * {
+    min-width: 0;
+  }
   .atlas-kicker {
     display: flex;
     align-items: center;

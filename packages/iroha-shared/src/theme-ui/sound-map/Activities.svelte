@@ -139,6 +139,9 @@
     gap: 1.35rem;
     min-width: 0;
   }
+  .mix-activities > * {
+    min-width: 0;
+  }
   .mix-kicker {
     margin: 0 0 0.5rem;
     color: var(--accent);
