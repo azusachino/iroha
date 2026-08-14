@@ -380,6 +380,9 @@
     gap: 1.25rem;
     min-width: 0;
   }
+  .plot-grid > * {
+    min-width: 0;
+  }
   .atlas-plate {
     position: relative;
     border: 1px solid var(--border);

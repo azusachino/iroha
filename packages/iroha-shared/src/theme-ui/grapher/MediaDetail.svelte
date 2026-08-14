@@ -210,6 +210,9 @@
     grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.8fr);
     gap: 1rem;
   }
+  .record-grid > * {
+    min-width: 0;
+  }
   ol {
     margin: 0.8rem 0 0;
     padding: 0;

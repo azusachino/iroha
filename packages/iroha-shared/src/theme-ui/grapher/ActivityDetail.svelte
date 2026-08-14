@@ -231,6 +231,9 @@
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
   }
+  .evidence-grid > * {
+    min-width: 0;
+  }
   dl {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

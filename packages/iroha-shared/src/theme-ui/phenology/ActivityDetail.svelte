@@ -319,6 +319,9 @@
     gap: 1.25rem;
     min-width: 0;
   }
+  .record-grid > * {
+    min-width: 0;
+  }
   .spiral-panel,
   .notes-panel,
   .laps-panel {

@@ -351,6 +351,9 @@
     gap: 1.25rem;
     min-width: 0;
   }
+  .record-grid > * {
+    min-width: 0;
+  }
   .wave-panel,
   .context-panel,
   .laps-panel {

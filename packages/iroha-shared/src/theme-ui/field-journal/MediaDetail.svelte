@@ -269,6 +269,10 @@
     grid-template-columns: 1.4fr 0.8fr;
     gap: 1.25rem;
   }
+  .archive-grid > *,
+  .archive-grid-lower > * {
+    min-width: 0;
+  }
   .progress-card,
   .provenance-card,
   .timeline-card,

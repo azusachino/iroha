@@ -381,6 +381,9 @@
     gap: 1.25rem;
     min-width: 0;
   }
+  .record-grid > * {
+    min-width: 0;
+  }
   .core-panel,
   .catalog-card,
   .laps-panel {

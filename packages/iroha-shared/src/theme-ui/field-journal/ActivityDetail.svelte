@@ -313,6 +313,9 @@
     gap: 1.25rem;
     min-width: 0;
   }
+  .entry-grid > * {
+    min-width: 0;
+  }
   .trace-card,
   .notes-card,
   .laps-ledger {

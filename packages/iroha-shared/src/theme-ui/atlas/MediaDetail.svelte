@@ -283,6 +283,10 @@
     grid-template-columns: 1.4fr 0.8fr;
     gap: 1.25rem;
   }
+  .entry-grid > *,
+  .entry-grid-lower > * {
+    min-width: 0;
+  }
   .progress-plate,
   .provenance-plate,
   .timeline-plate,
