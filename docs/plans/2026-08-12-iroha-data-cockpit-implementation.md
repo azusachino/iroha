@@ -100,7 +100,7 @@ Before coding, record:
 - research commits: d990209 and 510f3bb;
 - existing v0.4 expense, monthly-report, theme, shared-library, and visual/read-only commits;
 - existing dirty files, which must not be overwritten or staged with this work:
-  - apps/iroha-web/src/lib/components/BarChart.svelte
+  - packages/iroha-shared/src/theme-ui/components/BarChart.svelte
   - apps/iroha-web/src/routes/expenses/+page.svelte
   - apps/iroha-web/src/routes/reports/+page.svelte
 
@@ -610,12 +610,12 @@ Page order:
 
 Create:
 
-- apps/iroha-web/src/lib/themes/atlas/Reports.svelte
-- apps/iroha-web/src/lib/themes/grapher/Reports.svelte
-- apps/iroha-web/src/lib/themes/field-journal/Reports.svelte
-- apps/iroha-web/src/lib/themes/phenology/Reports.svelte
-- apps/iroha-web/src/lib/themes/sound-map/Reports.svelte
-- apps/iroha-web/src/lib/themes/archive/Reports.svelte
+- packages/iroha-shared/src/theme-ui/atlas/Reports.svelte
+- packages/iroha-shared/src/theme-ui/grapher/Reports.svelte
+- packages/iroha-shared/src/theme-ui/field-journal/Reports.svelte
+- packages/iroha-shared/src/theme-ui/phenology/Reports.svelte
+- packages/iroha-shared/src/theme-ui/sound-map/Reports.svelte
+- packages/iroha-shared/src/theme-ui/archive/Reports.svelte
 
 Orientation:
 
@@ -635,7 +635,7 @@ Acceptance:
 - direct year/month selection works;
 - previous-month baseline cases are labeled honestly;
 - charts precede detail tables/cards;
-- six components are distinct;
+- every registered language component is distinct;
 - v1 section state is preserved;
 - no browser errors under all themes.
 

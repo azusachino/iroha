@@ -91,9 +91,9 @@ They must not invent metrics or bypass shared state contracts.
 Reports are a deliberate test of the boundary. The route owns the selected month, the server-generated monthly envelope, the twelve-month series, and URL/error/loading state. The shared primitives own
 chart/table parity, canonical units, coverage, provenance, and export behavior.
 
-Each registered language owns its report composition in its own `themes/<language>/Reports.svelte`. Those files choose domain order, chart orientation, hierarchy, typography, density, and the
-placement of the evidence list. There is no universal five-domain report renderer. A new shared primitive may provide truthful behavior or accessibility, but it must not silently decide the visual
-hierarchy for every language.
+Each registered language owns its report composition in its own `packages/iroha-shared/src/theme-ui/<language>/Reports.svelte`. Those files choose domain order, chart orientation, hierarchy,
+typography, density, and the placement of the evidence list. There is no universal five-domain report renderer. A new shared primitive may provide truthful behavior or accessibility, but it must not
+silently decide the visual hierarchy for every language.
 
 ## Registry contract
 
