@@ -21,5 +21,5 @@
 </script>
 
 {#if Renderer}
-  <Renderer {...props} {children} />
+  <Renderer {...props} theme={theme.language()} {children} />
 {/if}

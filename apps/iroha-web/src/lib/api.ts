@@ -1,4 +1,14 @@
 import { API_BASE } from "./config";
+import type { MediaAggregates, MediaRow } from "@iroha/shared/media";
+
+export type {
+  MediaAggregates,
+  MediaCompletionBucket,
+  MediaPage,
+  MediaRow,
+  MediaScoreBucket,
+  MediaTypeBucket,
+} from "@iroha/shared/media";
 
 // Types mirror the iroha-server read API JSON contract (snake_case).
 // Optional fields use `?` because the server omits them when absent.
@@ -122,25 +132,6 @@ export interface ListActivitiesParams {
   cursor?: string;
 }
 
-export interface MediaRow {
-  id: string;
-  title: string;
-  media_type: string;
-  item_role: string;
-  cover_image_url?: string;
-  status?: string;
-  position?: number;
-  total?: number;
-  unit?: string;
-  progress_percent?: number;
-  last_update_at: string;
-  rating?: number;
-  hidden_from_continue?: boolean;
-  native_title?: string;
-  episode_count?: number;
-  chapter_count?: number;
-}
-
 export interface ListMediaParams {
   status?: string;
   media_type?: string;
@@ -148,33 +139,6 @@ export interface ListMediaParams {
   completed_year?: number;
   limit?: number;
   cursor?: string;
-}
-
-export interface MediaCompletionBucket {
-  year: number;
-  count: number;
-}
-
-export interface MediaScoreBucket {
-  score: number;
-  count: number;
-}
-
-export interface MediaTypeBucket {
-  type: string;
-  count: number;
-}
-
-export interface MediaAggregates {
-  totals: {
-    item_count: number;
-    completed_count: number;
-    this_year_completed: number;
-    average_rating: number;
-  };
-  completions_by_year: MediaCompletionBucket[];
-  score_distribution: MediaScoreBucket[];
-  type_split: MediaTypeBucket[];
 }
 
 export interface Task {

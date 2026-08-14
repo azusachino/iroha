@@ -9,7 +9,7 @@
   import { progressPercent } from "$lib/format";
   import { mediaTypeColor, mediaTypeFamily, mediaTypeLabel } from "$lib/media";
   import StatTile from "$lib/components/StatTile.svelte";
-  import MediaBarChart from "$lib/components/MediaBarChart.svelte";
+  import MediaBarChart from "@iroha/shared/theme-ui/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -242,6 +242,7 @@
           typeFamilies,
           completions,
           scores,
+          activeCount,
           onFamily: selectFamily,
           onStatus: selectStatus,
           onYear: selectYear,

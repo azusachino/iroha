@@ -3,6 +3,8 @@
 
 import type { MediaHomeEvent } from "$lib/api";
 
+export { formatProgressCount, progressPercent } from "@iroha/shared/media";
+
 const DASH = "—";
 
 // What a media event on the Today feed actually represents, in one word.
@@ -90,72 +92,6 @@ export function formatMetricValue(
   const normalized = unit?.trim().toLowerCase();
   const maximumFractionDigits = normalized === "count" ? 0 : 1;
   return value.toLocaleString(undefined, { maximumFractionDigits });
-}
-
-// A "completed" item's position IS its total by definition, even when the
-// provider never reported a numeric total -- Bangumi in particular often
-// omits it for an otherwise-finished season. Without this, a completed
-// item with no recorded total looks identical to one with unknown
-// progress: same bare count, same empty-looking bar.
-//
-// workTotal is the work's own episode/chapter count (tb_media_items.episode_count
-// / .chapter_count), independent of any per-user progress row -- it's known for
-// an ongoing series even though progress.total never is, so it's tried last,
-// after the progress-derived and completion-inferred totals.
-function effectiveTotal(
-  status?: string | null,
-  position?: number | null,
-  total?: number | null,
-  workTotal?: number | null,
-): number | undefined {
-  if (total != null && Number.isFinite(total) && total > 0) return total;
-  if (status === "completed" && position != null && Number.isFinite(position)) {
-    return position;
-  }
-  if (workTotal != null && Number.isFinite(workTotal) && workTotal > 0) {
-    return workTotal;
-  }
-  return undefined;
-}
-
-// A percentage implies a known total; most media (ongoing manga, an
-// unfinished anime season) never has one. formatProgressCount shows what's
-// actually known instead: a done/all count when a total exists or can be
-// inferred from completion, just the done count otherwise, and only falls
-// back to the dash when there's no position at all.
-export function formatProgressCount(
-  position?: number | null,
-  total?: number | null,
-  unit?: string | null,
-  status?: string | null,
-  workTotal?: number | null,
-): string {
-  if (position == null || !Number.isFinite(position)) return DASH;
-  const suffix = unit ? ` ${unit}` : "";
-  const knownTotal = effectiveTotal(status, position, total, workTotal);
-  if (knownTotal != null) {
-    return `${position}/${knownTotal}${suffix}`;
-  }
-  return `${position}${suffix}`;
-}
-
-// The bar/ring-fill counterpart to formatProgressCount: an explicit percent
-// wins if present, otherwise derive one from position/total (falling back
-// to a completed item's own position as its total, same as above), and 0
-// only when truly nothing is known.
-export function progressPercent(
-  status?: string | null,
-  position?: number | null,
-  total?: number | null,
-  percent?: number | null,
-  workTotal?: number | null,
-): number {
-  if (percent != null && Number.isFinite(percent)) return boundPercent(percent);
-  const knownTotal = effectiveTotal(status, position, total, workTotal);
-  if (position != null && Number.isFinite(position) && knownTotal != null) {
-    return boundPercent((position / knownTotal) * 100);
-  }
-  return 0;
 }
 
 export function formatDistance(meters?: number): string {

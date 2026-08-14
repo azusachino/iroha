@@ -1,12 +1,6 @@
 <script lang="ts">
-  import type {
-    MediaAggregates,
-    MediaCompletionBucket,
-    MediaRow,
-    MediaScoreBucket,
-  } from "$lib/api";
-  import { formatProgressCount, progressPercent } from "$lib/format";
-  import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
+  import type { MediaThemeProps } from "../../media";
+  import MediaAssetCard from "../components/MediaAssetCard.svelte";
 
   let {
     items,
@@ -18,29 +12,15 @@
     typeFamilies,
     completions,
     scores,
+    activeCount,
+    theme,
     onFamily,
     onStatus,
     onYear,
     onLoadMore,
     hasMore,
     loadingMore,
-  }: {
-    items: MediaRow[];
-    aggregates: MediaAggregates;
-    family: string;
-    status: string;
-    completedYear: string;
-    yearOptions: MediaCompletionBucket[];
-    typeFamilies: { type: string; count: number }[];
-    completions: MediaCompletionBucket[];
-    scores: MediaScoreBucket[];
-    onFamily: (value: string) => void;
-    onStatus: () => void;
-    onYear: () => void;
-    onLoadMore: () => void;
-    hasMore: boolean;
-    loadingMore: boolean;
-  } = $props();
+  }: MediaThemeProps = $props();
 
   const families = [
     { value: "", label: "All" },
@@ -116,6 +96,10 @@
           : "—"}
       </dd>
     </div>
+    <div>
+      <dt>In progress</dt>
+      <dd>{activeCount}</dd>
+    </div>
   </dl>
 
   <section class="shelf-card">
@@ -135,33 +119,7 @@
     {:else}
       <div class="shelf-grid">
         {#each items as item (item.id)}
-          <a class="shelf-clipping" href={`/library/${item.id}`}>
-            {#if item.cover_image_url}
-              <img src={item.cover_image_url} alt="" loading="lazy" />
-            {:else}
-              <span class="clipping-initial">{item.title.slice(0, 1)}</span>
-            {/if}
-            <strong>{item.native_title || item.title}</strong>
-            <small class="clipping-type"
-              ><span
-                class="clipping-type-dot"
-                style={`background:${mediaTypeColor(item.media_type)}`}
-              ></span>{mediaTypeLabel(item.media_type)}</small
-            >
-            <small
-              >{item.status || "unknown"} · {formatProgressCount(
-                item.position,
-                item.total,
-                item.unit,
-                item.status,
-              )}</small
-            >
-            <i
-              ><b
-                style={`width: ${progressPercent(item.status, item.position, item.total, item.progress_percent)}%`}
-              ></b></i
-            >
-          </a>
+          <MediaAssetCard {item} {theme} />
         {/each}
       </div>
     {/if}
@@ -353,68 +311,6 @@
     grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
     gap: 1.1rem;
     margin-top: 1.25rem;
-  }
-  .shelf-clipping {
-    display: grid;
-    gap: 0.4rem;
-    padding: 0.6rem;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface-1) 92%, transparent);
-    color: var(--text);
-    text-decoration: none;
-  }
-  .shelf-clipping img,
-  .clipping-initial {
-    display: block;
-    width: 100%;
-    aspect-ratio: 3 / 4;
-    object-fit: cover;
-    background: color-mix(in srgb, var(--accent) 12%, var(--surface-1));
-  }
-  .clipping-initial {
-    display: grid;
-    place-items: center;
-    color: var(--accent);
-    font-family: var(--font-serif);
-    font-size: 2.4rem;
-  }
-  .shelf-clipping strong {
-    overflow: hidden;
-    font-family: var(--font-serif);
-    font-size: 0.88rem;
-    font-weight: 400;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .shelf-clipping small {
-    overflow: hidden;
-    color: var(--text-muted);
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .clipping-type {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-  .clipping-type-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .shelf-clipping i {
-    display: block;
-    height: 0.2rem;
-    background: var(--border);
-  }
-  .shelf-clipping i b {
-    display: block;
-    height: 100%;
-    background: var(--accent);
   }
   .log-continue {
     justify-self: center;

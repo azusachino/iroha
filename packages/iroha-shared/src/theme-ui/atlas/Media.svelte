@@ -1,12 +1,6 @@
 <script lang="ts">
-  import type {
-    MediaAggregates,
-    MediaCompletionBucket,
-    MediaRow,
-    MediaScoreBucket,
-  } from "$lib/api";
-  import { formatProgressCount, progressPercent } from "$lib/format";
-  import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
+  import type { MediaThemeProps } from "../../media";
+  import MediaAssetCard from "../components/MediaAssetCard.svelte";
 
   let {
     items,
@@ -18,29 +12,15 @@
     typeFamilies,
     completions,
     scores,
+    activeCount,
+    theme,
     onFamily,
     onStatus,
     onYear,
     onLoadMore,
     hasMore,
     loadingMore,
-  }: {
-    items: MediaRow[];
-    aggregates: MediaAggregates;
-    family: string;
-    status: string;
-    completedYear: string;
-    yearOptions: MediaCompletionBucket[];
-    typeFamilies: { type: string; count: number }[];
-    completions: MediaCompletionBucket[];
-    scores: MediaScoreBucket[];
-    onFamily: (value: string) => void;
-    onStatus: () => void;
-    onYear: () => void;
-    onLoadMore: () => void;
-    hasMore: boolean;
-    loadingMore: boolean;
-  } = $props();
+  }: MediaThemeProps = $props();
 
   const families = [
     { value: "", label: "All regions" },
@@ -109,6 +89,10 @@
           : "—"}</strong
       >
     </div>
+    <div class="atlas-plate">
+      <p class="atlas-kicker">In progress</p>
+      <strong>{activeCount}</strong>
+    </div>
   </div>
 
   <section class="atlas-plate shelf-plate">
@@ -124,32 +108,9 @@
       >
     </header>
     <div class="shelf-grid">
-      {#each items as item (item.id)}<a
-          class="shelf-marker"
-          href={`/library/${item.id}`}
-          >{#if item.cover_image_url}<img
-              src={item.cover_image_url}
-              alt=""
-              loading="lazy"
-            />{:else}<span class="marker-initial">{item.title.slice(0, 1)}</span
-            >{/if}<span class="marker-type"
-            ><span
-              class="marker-type-dot"
-              style={`background:${mediaTypeColor(item.media_type)}`}
-            ></span>{mediaTypeLabel(item.media_type)}</span
-          ><strong>{item.native_title || item.title}</strong><small
-            >{item.status || "unknown"} · {formatProgressCount(
-              item.position,
-              item.total,
-              item.unit,
-              item.status,
-            )}</small
-          ><i
-            ><b
-              style={`width: ${progressPercent(item.status, item.position, item.total, item.progress_percent)}%`}
-            ></b></i
-          ></a
-        >{/each}
+      {#each items as item (item.id)}
+        <MediaAssetCard {item} {theme} />
+      {/each}
     </div>
     {#if items.length === 0}<p class="atlas-empty">
         No titles match this region.
@@ -341,69 +302,6 @@
     grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
     gap: 1rem;
     margin-top: 1.25rem;
-  }
-  .shelf-marker {
-    display: grid;
-    gap: 0.35rem;
-    color: var(--text);
-    text-decoration: none;
-  }
-  .shelf-marker img,
-  .marker-initial {
-    display: block;
-    width: 100%;
-    aspect-ratio: 3 / 4;
-    border-radius: calc(var(--radius) * 0.5);
-    object-fit: cover;
-    background: color-mix(in srgb, var(--accent) 12%, var(--surface-1));
-  }
-  .marker-initial {
-    display: grid;
-    place-items: center;
-    color: var(--accent);
-    font-family: var(--font-mono);
-    font-size: 2.3rem;
-  }
-  .marker-type {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .marker-type-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .shelf-marker strong {
-    overflow: hidden;
-    font-size: 0.88rem;
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .shelf-marker small {
-    overflow: hidden;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 0.62rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .shelf-marker i {
-    display: block;
-    height: 0.2rem;
-    background: var(--border);
-  }
-  .shelf-marker i b {
-    display: block;
-    height: 100%;
-    background: var(--accent);
   }
   .atlas-empty {
     color: var(--text-muted);

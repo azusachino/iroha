@@ -6,3 +6,4 @@ export * from "./themes";
 export * from "./category-color";
 export * from "./source";
 export * from "./period";
+export * from "./media";

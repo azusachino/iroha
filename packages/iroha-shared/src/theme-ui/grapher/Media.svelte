@@ -1,12 +1,7 @@
 <script lang="ts">
-  import type {
-    MediaAggregates,
-    MediaCompletionBucket,
-    MediaRow,
-    MediaScoreBucket,
-  } from "$lib/api";
-  import MediaBarChart from "$lib/components/MediaBarChart.svelte";
-  import { formatProgressCount } from "$lib/format";
+  import type { MediaThemeProps } from "../../media";
+  import MediaBarChart from "../components/MediaBarChart.svelte";
+  import MediaAssetCard from "../components/MediaAssetCard.svelte";
 
   let {
     items,
@@ -18,29 +13,15 @@
     typeFamilies,
     completions,
     scores,
+    activeCount,
+    theme,
     onFamily,
     onStatus,
     onYear,
     onLoadMore,
     hasMore,
     loadingMore,
-  }: {
-    items: MediaRow[];
-    aggregates: MediaAggregates;
-    family: string;
-    status: string;
-    completedYear: string;
-    yearOptions: MediaCompletionBucket[];
-    typeFamilies: { type: string; count: number }[];
-    completions: MediaCompletionBucket[];
-    scores: MediaScoreBucket[];
-    onFamily: (value: string) => void;
-    onStatus: () => void;
-    onYear: () => void;
-    onLoadMore: () => void;
-    hasMore: boolean;
-    loadingMore: boolean;
-  } = $props();
+  }: MediaThemeProps = $props();
 
   const families = [
     { value: "", label: "All" },
@@ -141,6 +122,9 @@
           : "—"}</strong
       >
     </div>
+    <div>
+      <span>In progress</span><strong>{activeCount}</strong>
+    </div>
   </div>
   <section class="records">
     <header>
@@ -151,16 +135,9 @@
       <span>Chart values stay above the rows.</span>
     </header>
     {#if items.length}<div class="record-grid">
-        {#each items as item (item.id)}<a href={`/library/${item.id}`}
-            ><strong>{item.native_title || item.title}</strong><small
-              >{item.status || "unknown"} · {formatProgressCount(
-                item.position,
-                item.total,
-                item.unit,
-                item.status,
-              )}</small
-            ></a
-          >{/each}
+        {#each items as item (item.id)}
+          <MediaAssetCard {item} {theme} />
+        {/each}
       </div>{:else}<p class="empty">No titles match this selection.</p>{/if}
   </section>
   {#if hasMore}<button
@@ -330,22 +307,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 1rem;
     margin-top: 0.75rem;
-  }
-  .record-grid a {
-    display: grid;
-    gap: 0.25rem;
-    min-width: 0;
-    border-top: 1px solid var(--border);
-    padding: 0.7rem 0;
-    color: var(--text);
-    text-decoration: none;
-  }
-  .record-grid a:hover strong {
-    color: var(--accent);
-  }
-  .record-grid small {
-    color: var(--text-muted);
-    font-size: 0.66rem;
   }
   .load-more {
     width: 100%;

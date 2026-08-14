@@ -1,12 +1,6 @@
 <script lang="ts">
-  import type {
-    MediaAggregates,
-    MediaCompletionBucket,
-    MediaRow,
-    MediaScoreBucket,
-  } from "$lib/api";
-  import { formatProgressCount, progressPercent } from "$lib/format";
-  import { mediaTypeLabel } from "$lib/media";
+  import type { MediaThemeProps } from "../../media";
+  import MediaAssetCard from "../components/MediaAssetCard.svelte";
 
   let {
     items,
@@ -18,29 +12,15 @@
     typeFamilies,
     completions,
     scores,
+    activeCount,
+    theme,
     onFamily,
     onStatus,
     onYear,
     onLoadMore,
     hasMore,
     loadingMore,
-  }: {
-    items: MediaRow[];
-    aggregates: MediaAggregates;
-    family: string;
-    status: string;
-    completedYear: string;
-    yearOptions: MediaCompletionBucket[];
-    typeFamilies: { type: string; count: number }[];
-    completions: MediaCompletionBucket[];
-    scores: MediaScoreBucket[];
-    onFamily: (value: string) => void;
-    onStatus: () => void;
-    onYear: () => void;
-    onLoadMore: () => void;
-    hasMore: boolean;
-    loadingMore: boolean;
-  } = $props();
+  }: MediaThemeProps = $props();
 
   const families = [
     { value: "", label: "All" },
@@ -132,6 +112,9 @@
           : "—"}</strong
       >
     </div>
+    <div>
+      <span>In progress</span><strong>{activeCount}</strong>
+    </div>
   </div>
 
   {#if completionRows.length}
@@ -185,35 +168,13 @@
     {:else}
       <div class="folio-grid">
         {#each items as item, index (item.id)}
-          <a class="folio-card" href={`/library/${item.id}`}>
-            <span class="folio-card-tag" title={mediaTypeLabel(item.media_type)}
-              >{item.media_type.slice(0, 3).toUpperCase()}-{String(
-                index + 1,
-              ).padStart(4, "0")}</span
-            >
-            {#if item.cover_image_url}
-              <img src={item.cover_image_url} alt="" loading="lazy" />
-            {:else}
-              <span class="folio-initial">{item.title.slice(0, 1)}</span>
-            {/if}
-            <strong>{item.native_title || item.title}</strong>
-            <small class="folio-card-type"
-              >{mediaTypeLabel(item.media_type)}</small
-            >
-            <small
-              >{item.status || "unknown"} · {formatProgressCount(
-                item.position,
-                item.total,
-                item.unit,
-                item.status,
-              )}</small
-            >
-            <i
-              ><b
-                style={`width: ${progressPercent(item.status, item.position, item.total, item.progress_percent)}%`}
-              ></b></i
-            >
-          </a>
+          <MediaAssetCard
+            {item}
+            {theme}
+            archiveTag={`${item.media_type.slice(0, 3).toUpperCase()}-${String(
+              index + 1,
+            ).padStart(4, "0")}`}
+          />
         {/each}
       </div>
     {/if}
@@ -470,71 +431,6 @@
     grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
     gap: 1rem;
     margin-top: 1.25rem;
-  }
-  .folio-card {
-    position: relative;
-    display: grid;
-    gap: 0.35rem;
-    color: var(--text);
-    text-decoration: none;
-  }
-  .folio-card-tag {
-    position: absolute;
-    top: 0.4rem;
-    left: 0.4rem;
-    z-index: 1;
-    border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
-    border-radius: 2px;
-    padding: 0.1rem 0.35rem;
-    background: color-mix(in srgb, var(--bg) 55%, transparent);
-    color: var(--accent);
-    font-family: var(--font-mono);
-    font-size: 0.58rem;
-    letter-spacing: 0.03em;
-  }
-  .folio-card img,
-  .folio-initial {
-    display: block;
-    width: 100%;
-    aspect-ratio: 3 / 4;
-    object-fit: cover;
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  }
-  .folio-initial {
-    display: grid;
-    place-items: center;
-    color: var(--accent);
-    font-family: var(--font-serif);
-    font-size: 2.4rem;
-    font-weight: 700;
-  }
-  .folio-card strong {
-    overflow: hidden;
-    font-family: var(--font-serif);
-    font-size: 0.88rem;
-    font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .folio-card small {
-    overflow: hidden;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 0.64rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .folio-card i {
-    display: block;
-    height: 0.2rem;
-    background: var(--border);
-    font-style: normal;
-  }
-  .folio-card i b {
-    display: block;
-    height: 100%;
-    background: var(--accent-2);
   }
   .folio-empty {
     color: var(--text-muted);

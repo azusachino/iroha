@@ -1,5 +1,8 @@
 {
   "name": "@iroha/shared",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "echarts": "^6.1.0"
+  }
 }

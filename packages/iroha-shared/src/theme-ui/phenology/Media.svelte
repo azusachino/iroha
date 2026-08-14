@@ -1,12 +1,6 @@
 <script lang="ts">
-  import type {
-    MediaAggregates,
-    MediaCompletionBucket,
-    MediaRow,
-    MediaScoreBucket,
-  } from "$lib/api";
-  import { formatProgressCount, progressPercent } from "$lib/format";
-  import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
+  import type { MediaThemeProps } from "../../media";
+  import MediaAssetCard from "../components/MediaAssetCard.svelte";
 
   let {
     items,
@@ -18,29 +12,15 @@
     typeFamilies,
     completions,
     scores,
+    activeCount,
+    theme,
     onFamily,
     onStatus,
     onYear,
     onLoadMore,
     hasMore,
     loadingMore,
-  }: {
-    items: MediaRow[];
-    aggregates: MediaAggregates;
-    family: string;
-    status: string;
-    completedYear: string;
-    yearOptions: MediaCompletionBucket[];
-    typeFamilies: { type: string; count: number }[];
-    completions: MediaCompletionBucket[];
-    scores: MediaScoreBucket[];
-    onFamily: (value: string) => void;
-    onStatus: () => void;
-    onYear: () => void;
-    onLoadMore: () => void;
-    hasMore: boolean;
-    loadingMore: boolean;
-  } = $props();
+  }: MediaThemeProps = $props();
 
   const families = [
     { value: "", label: "All" },
@@ -115,6 +95,10 @@
           : "—"}
       </dd>
     </div>
+    <div>
+      <dt>In progress</dt>
+      <dd>{activeCount}</dd>
+    </div>
   </dl>
 
   <section class="shelf-panel">
@@ -134,35 +118,7 @@
     {:else}
       <div class="shelf-grid">
         {#each items as item (item.id)}
-          <a class="bud-card" href={`/library/${item.id}`}>
-            <span class="bud-cover">
-              {#if item.cover_image_url}
-                <img src={item.cover_image_url} alt="" loading="lazy" />
-              {:else}
-                <span class="bud-initial">{item.title.slice(0, 1)}</span>
-              {/if}
-              <i
-                class="bud-ring"
-                style={`--sweep: ${progressPercent(item.status, item.position, item.total, item.progress_percent) * 3.6}deg`}
-                aria-hidden="true"
-              ></i>
-            </span>
-            <strong>{item.native_title || item.title}</strong>
-            <small class="bud-type"
-              ><span
-                class="bud-type-dot"
-                style={`background:${mediaTypeColor(item.media_type)}`}
-              ></span>{mediaTypeLabel(item.media_type)}</small
-            >
-            <small
-              >{item.status || "unknown"} · {formatProgressCount(
-                item.position,
-                item.total,
-                item.unit,
-                item.status,
-              )}</small
-            >
-          </a>
+          <MediaAssetCard {item} {theme} />
         {/each}
       </div>
     {/if}
@@ -337,75 +293,6 @@
     grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
     gap: 1.25rem;
     margin-top: 1.4rem;
-  }
-  .bud-card {
-    display: grid;
-    gap: 0.5rem;
-    color: var(--text);
-    text-decoration: none;
-  }
-  .bud-cover {
-    position: relative;
-    display: block;
-    width: 100%;
-    aspect-ratio: 3 / 4;
-  }
-  .bud-cover img,
-  .bud-initial {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: var(--radius);
-    object-fit: cover;
-    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  }
-  .bud-initial {
-    display: grid;
-    place-items: center;
-    color: var(--accent);
-    font-style: italic;
-    font-size: 2.4rem;
-  }
-  .bud-ring {
-    position: absolute;
-    top: -0.5rem;
-    right: -0.5rem;
-    width: 1.6rem;
-    height: 1.6rem;
-    border-radius: 50%;
-    background: conic-gradient(
-      var(--accent) var(--sweep),
-      color-mix(in srgb, var(--surface) 85%, var(--border)) 0
-    );
-    box-shadow:
-      0 0 0 2px var(--bg),
-      0 0 0 3px var(--border);
-  }
-  .bud-card strong {
-    overflow: hidden;
-    font-style: italic;
-    font-size: 0.9rem;
-    font-weight: 400;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bud-card small {
-    overflow: hidden;
-    color: var(--text-muted);
-    font-size: 0.65rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bud-type {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-  .bud-type-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
   }
   .load-more {
     justify-self: center;

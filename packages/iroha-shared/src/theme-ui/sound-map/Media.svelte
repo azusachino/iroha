@@ -1,12 +1,6 @@
 <script lang="ts">
-  import type {
-    MediaAggregates,
-    MediaCompletionBucket,
-    MediaRow,
-    MediaScoreBucket,
-  } from "$lib/api";
-  import { formatProgressCount, progressPercent } from "$lib/format";
-  import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
+  import type { MediaThemeProps } from "../../media";
+  import MediaAssetCard from "../components/MediaAssetCard.svelte";
 
   let {
     items,
@@ -18,29 +12,15 @@
     typeFamilies,
     completions,
     scores,
+    activeCount,
+    theme,
     onFamily,
     onStatus,
     onYear,
     onLoadMore,
     hasMore,
     loadingMore,
-  }: {
-    items: MediaRow[];
-    aggregates: MediaAggregates;
-    family: string;
-    status: string;
-    completedYear: string;
-    yearOptions: MediaCompletionBucket[];
-    typeFamilies: { type: string; count: number }[];
-    completions: MediaCompletionBucket[];
-    scores: MediaScoreBucket[];
-    onFamily: (value: string) => void;
-    onStatus: () => void;
-    onYear: () => void;
-    onLoadMore: () => void;
-    hasMore: boolean;
-    loadingMore: boolean;
-  } = $props();
+  }: MediaThemeProps = $props();
 
   const families = [
     { value: "", label: "All" },
@@ -109,6 +89,9 @@
           : "—"}</strong
       >
     </div>
+    <div>
+      <span>In progress</span><strong>{activeCount}</strong>
+    </div>
   </div>
 
   <section class="mix-shelf">
@@ -128,36 +111,7 @@
     {:else}
       <div class="mix-grid">
         {#each items as item (item.id)}
-          <a class="mix-card" href={`/library/${item.id}`}>
-            {#if item.cover_image_url}
-              <img src={item.cover_image_url} alt="" loading="lazy" />
-            {:else}
-              <span class="mix-initial">{item.title.slice(0, 1)}</span>
-            {/if}
-            <strong>{item.native_title || item.title}</strong>
-            <small class="mix-type"
-              ><span
-                class="mix-type-dot"
-                style={`background:${mediaTypeColor(item.media_type)}`}
-              ></span>{mediaTypeLabel(item.media_type)}</small
-            >
-            <small
-              >{item.status || "unknown"} · {formatProgressCount(
-                item.position,
-                item.total,
-                item.unit,
-                item.status,
-              )}</small
-            >
-            <div class="mix-scrub">
-              <i
-                style={`width: ${progressPercent(item.status, item.position, item.total, item.progress_percent)}%`}
-              ></i>
-              <b
-                style={`left: ${progressPercent(item.status, item.position, item.total, item.progress_percent)}%`}
-              ></b>
-            </div>
-          </a>
+          <MediaAssetCard {item} {theme} />
         {/each}
       </div>
     {/if}
@@ -331,73 +285,6 @@
     grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
     gap: 1rem;
     margin-top: 1.25rem;
-  }
-  .mix-card {
-    display: grid;
-    gap: 0.35rem;
-    color: var(--text);
-    text-decoration: none;
-  }
-  .mix-card img,
-  .mix-initial {
-    display: block;
-    width: 100%;
-    aspect-ratio: 3 / 4;
-    object-fit: cover;
-    border-radius: calc(var(--radius) * 0.6);
-    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  }
-  .mix-initial {
-    display: grid;
-    place-items: center;
-    color: var(--accent);
-    font-size: 2.2rem;
-    font-weight: 700;
-  }
-  .mix-card strong {
-    overflow: hidden;
-    font-size: 0.86rem;
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .mix-card small {
-    overflow: hidden;
-    color: var(--text-muted);
-    font-size: 0.64rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .mix-type {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-  .mix-type-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .mix-scrub {
-    position: relative;
-    height: 0.2rem;
-    margin-top: 0.15rem;
-    background: var(--border);
-  }
-  .mix-scrub i {
-    display: block;
-    height: 100%;
-    background: var(--accent);
-  }
-  .mix-scrub b {
-    position: absolute;
-    top: 50%;
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 50%;
-    background: var(--accent-2);
-    transform: translate(-50%, -50%);
   }
   .mix-empty {
     color: var(--text-muted);
