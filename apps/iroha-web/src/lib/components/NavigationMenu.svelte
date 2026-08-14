@@ -22,14 +22,12 @@
 
     const trigger = summary.getBoundingClientRect();
     const viewportPadding = 8;
-    const preferredWidth = Math.min(
-      208,
-      window.innerWidth - viewportPadding * 2,
-    );
+    const viewportWidth = document.documentElement.clientWidth;
+    const preferredWidth = Math.min(208, viewportWidth - viewportPadding * 2);
     const height = popover.scrollHeight;
     const left = Math.min(
       Math.max(viewportPadding, trigger.left),
-      window.innerWidth - preferredWidth - viewportPadding,
+      viewportWidth - preferredWidth - viewportPadding,
     );
     const top = Math.min(
       trigger.bottom + 6,
