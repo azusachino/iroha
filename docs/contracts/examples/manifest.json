@@ -1,0 +1,52 @@
+{
+  "examples": [
+    {
+      "file": "activity-page.json",
+      "method": "GET",
+      "path": "/api/v1/activities",
+      "schema": "ActivityPage"
+    },
+    {
+      "file": "activity-summary.json",
+      "method": "GET",
+      "path": "/api/v1/activities/summary",
+      "schema": "ActivitySummary"
+    },
+    {
+      "file": "daily-page.json",
+      "method": "GET",
+      "path": "/api/v1/daily",
+      "schema": "DailyPage"
+    },
+    {
+      "file": "error.json",
+      "method": "GET",
+      "path": "/api/v1/activities",
+      "schema": "Error"
+    },
+    {
+      "file": "media-page.json",
+      "method": "GET",
+      "path": "/api/v1/media",
+      "schema": "MediaPage"
+    },
+    {
+      "file": "metric-catalog.json",
+      "method": "GET",
+      "path": "/api/v1/metrics",
+      "schema": "MetricCatalog"
+    },
+    {
+      "file": "metric-series.json",
+      "method": "GET",
+      "path": "/api/v1/metrics/{metricId}/series",
+      "schema": "MetricSeries"
+    },
+    {
+      "file": "sleep-aggregate.json",
+      "method": "GET",
+      "path": "/api/v1/sleep/aggregates",
+      "schema": "SleepAggregateResponse"
+    }
+  ]
+}

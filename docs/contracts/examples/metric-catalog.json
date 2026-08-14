@@ -1,0 +1,23 @@
+{
+  "schema": "metric-catalog.v1",
+  "metrics": [
+    {
+      "id": "health.steps",
+      "domain": "daily",
+      "label": "Steps",
+      "description": "Source-selected daily step count.",
+      "kind": "canonical",
+      "value_type": "count",
+      "unit": "count",
+      "short_unit": "steps",
+      "supported_grains": ["day", "month", "year"],
+      "dimensions": [],
+      "reducer": "source_priority",
+      "rollup": "sum",
+      "aggregation_version": "health.steps.v1",
+      "coverage_kind": "observed_days",
+      "semantic_color_token": "health",
+      "preferred_view": "line"
+    }
+  ]
+}

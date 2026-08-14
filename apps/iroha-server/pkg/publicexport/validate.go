@@ -32,12 +32,13 @@ func Validate(summary activities.Summary, activityList []Activity, routes RouteF
 
 func validateSummary(summary activities.Summary) error {
 	if summary.Totals.ActivityCount < 0 || summary.Totals.DistanceM < 0 ||
-		summary.Totals.DurationS < 0 || summary.Totals.MovingTimeS < 0 {
+		summary.Totals.DistanceKnownCount < 0 || summary.Totals.DistanceUnknownCount < 0 ||
+		summary.Totals.DurationS < 0 || summary.Totals.ElevationGainM < 0 {
 		return fmt.Errorf("totals must not be negative")
 	}
 	for _, buckets := range [][]activities.SummaryBucket{summary.ByYear, summary.ByMonth, summary.BySport} {
 		for _, bucket := range buckets {
-			if bucket.ActivityCount < 0 || bucket.DistanceM < 0 || bucket.DurationS < 0 || bucket.MovingTimeS < 0 {
+			if bucket.ActivityCount < 0 || bucket.DistanceM < 0 || bucket.DistanceKnownCount < 0 || bucket.DistanceUnknownCount < 0 || bucket.DurationS < 0 || bucket.ElevationGainM < 0 {
 				return fmt.Errorf("bucket %q must not be negative", bucket.Key)
 			}
 		}

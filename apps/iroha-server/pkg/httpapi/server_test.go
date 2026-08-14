@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -12,25 +14,76 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func TestPrivateCORSAllowsPostPreflight(t *testing.T) {
+func TestHealthzIsProcessLiveness(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	NewServer(Dependencies{}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+}
+
+func TestReadyzRequiresAndChecksDatabase(t *testing.T) {
+	withoutCheck := httptest.NewRecorder()
+	NewServer(Dependencies{}).ServeHTTP(withoutCheck, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if withoutCheck.Code != http.StatusServiceUnavailable {
+		t.Fatalf("without check status = %d, want %d", withoutCheck.Code, http.StatusServiceUnavailable)
+	}
+
+	called := false
+	hasDeadline := false
+	server := NewServer(Dependencies{ReadyCheck: func(ctx context.Context) error {
+		called = true
+		_, hasDeadline = ctx.Deadline()
+		return nil
+	}})
+	ready := httptest.NewRecorder()
+	server.ServeHTTP(ready, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if ready.Code != http.StatusOK || !called || !hasDeadline {
+		t.Fatalf("ready response = %d, called = %t, deadline = %t", ready.Code, called, hasDeadline)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(ready.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body["status"] != "ready" {
+		t.Fatalf("ready body = %v", body)
+	}
+}
+
+func TestReadyzReportsDatabaseFailure(t *testing.T) {
+	server := NewServer(Dependencies{ReadyCheck: func(context.Context) error {
+		return errors.New("database unavailable")
+	}})
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestPrivateCORSAllowsMutationPreflight(t *testing.T) {
 	handler := corsMiddleware([]string{"https://app.example"})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
-	req := httptest.NewRequest(http.MethodOptions, "/api/v1/imports", nil)
-	req.Header.Set("Origin", "https://app.example")
-	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
-	req.Header.Set("Access-Control-Request-Headers", "Content-Type")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
+		t.Run(method, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodOptions, "/api/v1/imports", nil)
+			req.Header.Set("Origin", "https://app.example")
+			req.Header.Set("Access-Control-Request-Method", method)
+			req.Header.Set("Access-Control-Request-Headers", "Content-Type")
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
 
-	if rec.Header().Get("Access-Control-Allow-Origin") != "https://app.example" {
-		t.Fatalf("allow origin = %q", rec.Header().Get("Access-Control-Allow-Origin"))
-	}
-	if !strings.Contains(rec.Header().Get("Access-Control-Allow-Methods"), http.MethodPost) {
-		t.Fatalf("allow methods = %q", rec.Header().Get("Access-Control-Allow-Methods"))
-	}
-	if !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), "Content-Type") {
-		t.Fatalf("allow headers = %q", rec.Header().Get("Access-Control-Allow-Headers"))
+			if rec.Header().Get("Access-Control-Allow-Origin") != "https://app.example" {
+				t.Fatalf("allow origin = %q", rec.Header().Get("Access-Control-Allow-Origin"))
+			}
+			if !strings.Contains(rec.Header().Get("Access-Control-Allow-Methods"), method) {
+				t.Fatalf("allow methods = %q", rec.Header().Get("Access-Control-Allow-Methods"))
+			}
+			if !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), "Content-Type") {
+				t.Fatalf("allow headers = %q", rec.Header().Get("Access-Control-Allow-Headers"))
+			}
+		})
 	}
 }
 

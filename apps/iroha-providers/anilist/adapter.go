@@ -156,7 +156,6 @@ func mapEntry(entry mediaListEntry, scoreScale *float64) observations.Media {
 	}
 	listEvent := observations.MediaEvent{
 		EventType:     "list_state",
-		EventAt:       completedAt,
 		SourceEventID: strconv.Itoa(entry.ID),
 		Unit:          unit,
 		Position:      position,
@@ -166,17 +165,10 @@ func mapEntry(entry mediaListEntry, scoreScale *float64) observations.Media {
 	if score != nil {
 		listEvent.RatingScale = scoreScale
 	}
-	if listEvent.EventAt == nil {
-		listEvent.EventAt = startedAt
-	}
-	if listEvent.EventAt == nil {
-		listEvent.EventAt = lastUpdateAt
-	}
 	result.Events = append(result.Events, listEvent)
 	for i := 0; i < entry.Repeat; i++ {
 		result.Events = append(result.Events, observations.MediaEvent{
 			EventType:     "rewatch",
-			EventAt:       completedAt,
 			SourceEventID: strconv.Itoa(entry.ID) + ":repeat:" + strconv.Itoa(i+1),
 			Unit:          unit,
 		})

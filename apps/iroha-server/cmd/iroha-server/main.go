@@ -19,10 +19,13 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/tasks"
 	"gorm.io/gorm"
@@ -74,7 +77,21 @@ func main() {
 	activityService := activities.NewService(db)
 	sleepService := sleep.NewService(db)
 	dailyService := daily.NewService(db)
+	expenseService := expenses.NewService(db)
 	mediaService := media.NewService(db)
+	metricRegistry, err := metrics.DefaultRegistry()
+	if err != nil {
+		logger.Error("create metric registry", "error", err)
+		os.Exit(1)
+	}
+	metricSeriesService := metricseries.NewService(
+		metricRegistry,
+		metricseries.DailyServiceSource{Service: dailyService},
+		metricseries.ActivityServiceSource{Service: activityService},
+		metricseries.ExpenseServiceSource{Service: expenseService},
+		metricseries.SleepServiceSource{Service: sleepService},
+		metricseries.MediaServiceSource{Service: mediaService},
+	)
 	mediaResolutionService := mediaresolution.NewService(db)
 	taskService := tasks.NewService(db)
 	briefingRegistry, err := httpapi.NewBriefingRegistry(dailyService, sleepService, activityService, mediaService)
@@ -89,8 +106,11 @@ func main() {
 		ActivityService:        activityService,
 		SleepService:           sleepService,
 		DailyService:           dailyService,
+		ExpenseService:         expenseService,
 		MediaService:           mediaService,
 		MediaResolutionService: mediaResolutionService,
+		MetricRegistry:         metricRegistry,
+		MetricSeriesService:    metricSeriesService,
 		BriefingRegistry:       briefingRegistry,
 		ImportService:          importService,
 		RawFileService:         rawFileService,
@@ -99,8 +119,15 @@ func main() {
 		JobEnqueuer:            enqueuer,
 		JobsService:            jobsService,
 		TaskService:            taskService,
-		MaxUploadBytes:         2 << 30,
-		AllowedOrigins:         cfg.Server.AllowedOrigins,
+		ReadyCheck: func(ctx context.Context) error {
+			sqlDB, err := db.DB()
+			if err != nil {
+				return err
+			}
+			return sqlDB.PingContext(ctx)
+		},
+		MaxUploadBytes: 2 << 30,
+		AllowedOrigins: cfg.Server.AllowedOrigins,
 	})
 
 	logger.Info("starting iroha-server", "addr", cfg.Server.Addr)

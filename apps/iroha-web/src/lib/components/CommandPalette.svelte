@@ -1,7 +1,9 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import { primaryNavigation } from "$lib/navigation";
+  import { tick } from "svelte";
+  import { getMetricCatalog } from "$lib/api";
+  import { allNavigationItems } from "$lib/navigation";
 
   type Command = {
     label: string;
@@ -9,23 +11,36 @@
     hint: string;
   };
 
-  const commands: Command[] = [
-    { ...primaryNavigation[0], hint: "Any-day cross-domain view" },
-    { ...primaryNavigation[1], hint: "Activity overview" },
-    { ...primaryNavigation[2], hint: "Rings, movement and body vitals" },
-    { ...primaryNavigation[3], hint: "Private activity domain" },
-    { ...primaryNavigation[4], hint: "Recovery and sleep sessions" },
-    { ...primaryNavigation[5], hint: "Watch, reading and game history" },
-    { ...primaryNavigation[6], hint: "Tasks and background jobs" },
-  ];
+  let commands = $state<Command[]>(allNavigationItems());
 
   let open = $state(false);
   let selected = $state(0);
+  let dialog = $state<HTMLDivElement>();
+  let listbox = $state<HTMLDivElement>();
+  let previouslyFocused: HTMLElement | null = null;
+
+  async function openPalette() {
+    previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    open = true;
+    selected = 0;
+    await tick();
+    listbox?.focus();
+  }
+
+  function closePalette() {
+    open = false;
+    const target = previouslyFocused;
+    previouslyFocused = null;
+    target?.focus();
+  }
 
   onMount(() => {
     const onToggle = () => {
-      open = !open;
-      selected = 0;
+      if (open) closePalette();
+      else void openPalette();
     };
     const onKeydown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -36,7 +51,7 @@
       if (!open) return;
       if (event.key === "Escape") {
         event.preventDefault();
-        open = false;
+        closePalette();
         return;
       }
       if (event.key === "ArrowDown") {
@@ -57,41 +72,82 @@
 
     window.addEventListener("iroha:command-palette:toggle", onToggle);
     window.addEventListener("keydown", onKeydown);
+    void loadMetrics();
     return () => {
       window.removeEventListener("iroha:command-palette:toggle", onToggle);
       window.removeEventListener("keydown", onKeydown);
     };
   });
 
+  async function loadMetrics() {
+    try {
+      const catalog = await getMetricCatalog();
+      commands = [
+        ...allNavigationItems(),
+        ...catalog.metrics.map((metric) => ({
+          label: metric.label,
+          href: `/metrics?metric=${encodeURIComponent(metric.id)}`,
+          hint: `${metric.domain} · ${metric.unit}`,
+        })),
+      ];
+    } catch {
+      // Navigation remains usable when metric discovery is unavailable.
+    }
+  }
+
   async function activate(command: Command) {
-    open = false;
+    closePalette();
     await goto(command.href);
+  }
+
+  function trapDialogFocus(event: KeyboardEvent) {
+    if (event.key !== "Tab" || !dialog) return;
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        "button, [tabindex]:not([tabindex='-1'])",
+      ),
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 </script>
 
 {#if open}
-  <div
-    class="palette-backdrop"
-    role="presentation"
-    onclick={() => (open = false)}
-  >
+  <div class="palette-backdrop" role="presentation" onclick={closePalette}>
     <div
       class="palette tile"
+      bind:this={dialog}
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
       tabindex="-1"
       onclick={(event) => event.stopPropagation()}
-      onkeydown={(event) => event.stopPropagation()}
+      onkeydown={trapDialogFocus}
     >
       <header>
         <span>Command</span>
         <kbd>Esc</kbd>
       </header>
-      <div class="command-list" role="listbox" aria-label="Navigation commands">
+      <div
+        class="command-list"
+        bind:this={listbox}
+        role="listbox"
+        tabindex="0"
+        aria-label="Navigation commands"
+        aria-activedescendant={`command-${selected}`}
+      >
         {#each commands as command, index}
           <button
             type="button"
+            id={`command-${index}`}
             class:selected={index === selected}
             role="option"
             aria-selected={index === selected}

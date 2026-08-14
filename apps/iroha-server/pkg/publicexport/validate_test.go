@@ -1,6 +1,8 @@
 package publicexport
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,9 +11,28 @@ import (
 	"github.com/google/uuid"
 )
 
+func TestPublicProjectionOmitsPrivateExpenseAndReportData(t *testing.T) {
+	payload, err := json.Marshal(struct {
+		Summary    activities.Summary     `json:"summary"`
+		Activities []Activity             `json:"activities"`
+		Routes     RouteFeatureCollection `json:"routes"`
+	}{
+		Summary:    validSummary(),
+		Activities: []Activity{validActivity()},
+		Routes:     RouteFeatureCollection{},
+	})
+	if err != nil {
+		t.Fatalf("marshal public projection: %v", err)
+	}
+	serialized := string(payload)
+	if strings.Contains(serialized, "expense") || strings.Contains(serialized, "report") {
+		t.Fatalf("public projection leaked private domain data: %s", serialized)
+	}
+}
+
 func validSummary() activities.Summary {
 	return activities.Summary{
-		Totals: activities.SummaryTotals{ActivityCount: 1, DistanceM: 100, DurationS: 60, MovingTimeS: 60},
+		Totals: activities.SummaryTotals{ActivityCount: 1, DistanceM: 100, DistanceKnownCount: 1, DurationS: 60},
 	}
 }
 

@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: Iroha API
-  version: 0.1.4
+  version: 0.4.0
   description: |
     Active-development contract for Iroha's private data cockpit.
     /api/v1 is still pre-1.0 and may evolve between minor releases. This
-    document is the implementation target for release 0.1.4.
+    document is the implementation target for release 0.4.0.
 servers:
   - url: /
     description: Same-origin or reverse-proxy deployment
@@ -15,6 +15,8 @@ tags:
   - name: activities
   - name: sleep
   - name: daily
+  - name: metrics
+  - name: expenses
   - name: media
   - name: control-room
 paths:
@@ -33,6 +35,32 @@ paths:
                   status:
                     type: string
                     const: ok
+  /readyz:
+    get:
+      tags: [system]
+      responses:
+        "200":
+          description: Server is ready to serve data.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ready
+        "503":
+          description: A required server dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: not_ready
   /api/v1/briefing:
     get:
       tags: [system]
@@ -47,6 +75,73 @@ paths:
                 $ref: "#/components/schemas/Briefing"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/metrics:
+    get:
+      tags: [metrics]
+      summary: List the immutable metric catalog.
+      responses:
+        "200":
+          description: Metric definitions and their aggregation metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricCatalog"
+  /api/v1/metrics/{metricId}:
+    get:
+      tags: [metrics]
+      summary: Get one metric definition.
+      parameters:
+        - name: metricId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Metric definition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricDefinitionResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/metrics/{metricId}/series:
+    get:
+      tags: [metrics]
+      summary: Return a complete server-aggregated metric series.
+      parameters:
+        - name: metricId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          description: Exclusive end date.
+          schema: { type: string, format: date }
+        - name: grain
+          in: query
+          required: true
+          schema: { type: string, enum: [day, month, year] }
+        - name: timezone
+          in: query
+          schema: { type: string, default: UTC }
+      responses:
+        "200":
+          description: Complete metric series with explicit missingness and coverage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricSeries"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/raw-files:
     get:
       tags: [imports]
@@ -198,8 +293,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/ActivitySummary"
   /api/v1/activities/routes:
     get:
       tags: [activities]
@@ -209,39 +303,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [type, features]
-                properties:
-                  type: { type: string, const: FeatureCollection }
-                  features:
-                    type: array
-                    items:
-                      type: object
-                      required: [type, geometry, properties]
-                      properties:
-                        type: { type: string, const: Feature }
-                        geometry:
-                          type: object
-                          required: [type, coordinates]
-                          properties:
-                            type: { type: string, const: LineString }
-                            coordinates:
-                              type: array
-                              items:
-                                type: array
-                                minItems: 2
-                                maxItems: 2
-                                items: { type: number }
-                        properties:
-                          type: object
-                          required: [sport_type, year, city, city_status]
-                          properties:
-                            sport_type: { type: string }
-                            year: { type: string }
-                            city: { type: string }
-                            city_status:
-                              type: string
-                              enum: [pending, resolved, unknown]
+                $ref: "#/components/schemas/RouteFeatureCollection"
   /api/v1/activities/{activityId}:
     get:
       tags: [activities]
@@ -342,7 +404,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AggregateResponse"
+                $ref: "#/components/schemas/SleepAggregateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
   /api/v1/sleep/{sleepId}:
@@ -409,9 +471,163 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AggregateResponse"
+                $ref: "#/components/schemas/DailyAggregateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/reports/monthly:
+    get:
+      tags: [system]
+      parameters:
+        - $ref: "#/components/parameters/Month"
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Synchronous typed monthly report over all private canonical domains.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/reports/monthly-series:
+    get:
+      tags: [system]
+      parameters:
+        - $ref: "#/components/parameters/ReportEndMonth"
+        - $ref: "#/components/parameters/ReportSeriesMonths"
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Server-aggregated monthly reports with empty months omitted from the trend points.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyReportSeries"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/expenses:
+    get:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: currency
+          in: query
+          schema:
+            type: string
+            enum: [JPY, USD, EUR, GBP]
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum:
+              [
+                food,
+                groceries,
+                transport,
+                shopping,
+                housing,
+                utilities,
+                health,
+                entertainment,
+                subscriptions,
+                work,
+                other,
+              ]
+      responses:
+        "200":
+          description: Active expense page ordered by occurred date descending.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpensePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [expenses]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExpense"
+      responses:
+        "201":
+          description: Expense created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "200":
+          description: Idempotent retry returned the existing expense.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "410":
+          $ref: "#/components/responses/Gone"
+  /api/v1/expenses/{expenseId}:
+    get:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/ExpenseId"
+      responses:
+        "200":
+          description: Expense record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          $ref: "#/components/responses/Gone"
+    put:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/ExpenseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplaceExpense"
+      responses:
+        "200":
+          description: Expense replaced.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          $ref: "#/components/responses/Gone"
+    delete:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/ExpenseId"
+      responses:
+        "204":
+          description: Expense tombstone recorded; repeat deletes are also successful.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/media:
     get:
       tags: [media]
@@ -496,8 +712,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/MediaAggregates"
   /api/v1/media/{mediaId}:
     get:
       tags: [media]
@@ -735,6 +950,11 @@ components:
       in: path
       required: true
       schema: { type: string }
+    ExpenseId:
+      name: expenseId
+      in: path
+      required: true
+      schema: { type: string }
     JobId:
       name: jobId
       in: path
@@ -753,6 +973,24 @@ components:
       name: to
       in: query
       schema: { type: string, format: date }
+    Month:
+      name: month
+      in: query
+      required: true
+      schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+    ReportEndMonth:
+      name: end
+      in: query
+      required: true
+      schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+    ReportSeriesMonths:
+      name: months
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 24, default: 12 }
+    Timezone:
+      name: timezone
+      in: query
+      schema: { type: string, default: Asia/Tokyo }
     Limit:
       name: limit
       in: query
@@ -776,7 +1014,160 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    InternalServerError:
+      description: The report could not be generated.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Request conflicts with an existing resource identity.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Gone:
+      description: Resource was deleted and retained as a tombstone.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    MetricDimension:
+      type: object
+      additionalProperties: false
+      required: [id, label, values, required, expand_by_default]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        values:
+          type: array
+          items: { type: string }
+        required: { type: boolean }
+        expand_by_default: { type: boolean }
+    MetricDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          domain,
+          label,
+          description,
+          kind,
+          value_type,
+          unit,
+          short_unit,
+          supported_grains,
+          dimensions,
+          reducer,
+          rollup,
+          aggregation_version,
+          coverage_kind,
+          semantic_color_token,
+          preferred_view,
+        ]
+      properties:
+        id: { type: string }
+        domain: { type: string }
+        label: { type: string }
+        description: { type: string }
+        kind: { type: string, enum: [canonical, derived] }
+        value_type: { type: string }
+        unit: { type: string }
+        short_unit: { type: string }
+        supported_grains:
+          type: array
+          items: { type: string }
+        dimensions:
+          type: array
+          items: { $ref: "#/components/schemas/MetricDimension" }
+        reducer: { type: string }
+        rollup: { type: string, enum: [sum, average, count] }
+        aggregation_version: { type: string }
+        coverage_kind: { type: string }
+        semantic_color_token: { type: string }
+        preferred_view: { type: string }
+    MetricCatalog:
+      type: object
+      additionalProperties: false
+      required: [schema, metrics]
+      properties:
+        schema: { type: string, const: metric-catalog.v1 }
+        metrics:
+          type: array
+          items: { $ref: "#/components/schemas/MetricDefinition" }
+    MetricDefinitionResponse:
+      type: object
+      additionalProperties: false
+      required: [schema, metric]
+      properties:
+        schema: { type: string, const: metric-catalog.v1 }
+        metric: { $ref: "#/components/schemas/MetricDefinition" }
+    MetricSeriesPoint:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [period, value, observed_days]
+          properties:
+            period: { type: string }
+            value: { type: [number, "null"] }
+            observed_days: { type: integer, minimum: 0 }
+        - type: object
+          additionalProperties: false
+          required: [period, value_minor, observed_days]
+          properties:
+            period: { type: string }
+            value_minor: { type: [integer, "null"], format: int64 }
+            observed_days: { type: integer, minimum: 0 }
+    MetricCoverage:
+      type: object
+      additionalProperties: false
+      required: [expected_periods, observed_periods]
+      properties:
+        expected_periods: { type: integer, minimum: 0 }
+        observed_periods: { type: integer, minimum: 0 }
+    MetricSource:
+      type: object
+      additionalProperties: false
+      required: [kind, method, source_kinds]
+      properties:
+        kind: { type: string }
+        method: { type: string }
+        source_kinds:
+          type: array
+          items: { type: string }
+    MetricSeriesItem:
+      type: object
+      additionalProperties: false
+      required: [dimensions, points, coverage, source]
+      properties:
+        dimensions: { type: object, additionalProperties: { type: string } }
+        points:
+          type: array
+          items: { $ref: "#/components/schemas/MetricSeriesPoint" }
+        coverage: { $ref: "#/components/schemas/MetricCoverage" }
+        source: { $ref: "#/components/schemas/MetricSource" }
+    MetricPeriod:
+      type: object
+      additionalProperties: false
+      required: [grain, from, to, timezone]
+      properties:
+        grain: { type: string, enum: [day, month, year] }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        timezone: { type: string }
+    MetricSeries:
+      type: object
+      additionalProperties: false
+      required: [schema, metric_id, label, unit, value_type, period, series]
+      properties:
+        schema: { type: string, const: metric-series.v1 }
+        metric_id: { type: string }
+        label: { type: string }
+        unit: { type: string }
+        value_type: { type: string }
+        period: { $ref: "#/components/schemas/MetricPeriod" }
+        series:
+          type: array
+          items: { $ref: "#/components/schemas/MetricSeriesItem" }
     Error:
       type: object
       required: [code, message, request_id]
@@ -869,6 +1260,443 @@ components:
         notes: { type: string }
         due_date: { type: string, format: date }
         priority: { type: integer }
+    ExpenseItem:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        amount_minor: { type: integer, format: int64, minimum: 0 }
+    ExpenseSource:
+      type: object
+      additionalProperties: false
+      required: [kind, ref]
+      properties:
+        kind: { type: string, minLength: 1, maxLength: 50 }
+        ref: { type: string, minLength: 1, maxLength: 200 }
+    CreateExpense:
+      type: object
+      additionalProperties: false
+      required: [occurred_on, currency, amount_minor, category, source]
+      properties:
+        occurred_on: { type: string, format: date }
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        amount_minor: { type: integer, format: int64, minimum: 1 }
+        category:
+          {
+            type: string,
+            enum:
+              [
+                food,
+                groceries,
+                transport,
+                shopping,
+                housing,
+                utilities,
+                health,
+                entertainment,
+                subscriptions,
+                work,
+                other,
+              ],
+          }
+        merchant: { type: string, maxLength: 200 }
+        note: { type: string, maxLength: 2000 }
+        items:
+          type: array
+          maxItems: 32
+          items: { $ref: "#/components/schemas/ExpenseItem" }
+        source: { $ref: "#/components/schemas/ExpenseSource" }
+    ReplaceExpense:
+      type: object
+      additionalProperties: false
+      required: [occurred_on, currency, amount_minor, category]
+      properties:
+        occurred_on: { type: string, format: date }
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        amount_minor: { type: integer, format: int64, minimum: 1 }
+        category:
+          {
+            type: string,
+            enum:
+              [
+                food,
+                groceries,
+                transport,
+                shopping,
+                housing,
+                utilities,
+                health,
+                entertainment,
+                subscriptions,
+                work,
+                other,
+              ],
+          }
+        merchant: { type: string, maxLength: 200 }
+        note: { type: string, maxLength: 2000 }
+        items:
+          type: array
+          maxItems: 32
+          items: { $ref: "#/components/schemas/ExpenseItem" }
+    Expense:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          occurred_on,
+          currency,
+          currency_exponent,
+          amount_minor,
+          category,
+          merchant,
+          note,
+          items,
+          source,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        id: { type: string }
+        occurred_on: { type: string, format: date }
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        currency_exponent: { type: integer, enum: [0, 2] }
+        amount_minor: { type: integer, format: int64 }
+        category:
+          {
+            type: string,
+            enum:
+              [
+                food,
+                groceries,
+                transport,
+                shopping,
+                housing,
+                utilities,
+                health,
+                entertainment,
+                subscriptions,
+                work,
+                other,
+              ],
+          }
+        merchant: { type: string }
+        note: { type: string }
+        items:
+          { type: array, items: { $ref: "#/components/schemas/ExpenseItem" } }
+        source: { $ref: "#/components/schemas/ExpenseSource" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ExpensePage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor, has_more]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Expense" } }
+        next_cursor: { type: [string, "null"] }
+        has_more: { type: boolean }
+    MonthlyReport:
+      type: object
+      additionalProperties: false
+      required: [schema, period, generated_at, sections]
+      properties:
+        schema: { type: string, const: monthly-report.v1 }
+        period: { $ref: "#/components/schemas/ReportPeriod" }
+        generated_at: { type: string, format: date-time }
+        sections:
+          type: object
+          additionalProperties: false
+          required: [movement, sleep, daily_health, media, expenses]
+          properties:
+            movement: { $ref: "#/components/schemas/MovementReportSection" }
+            sleep: { $ref: "#/components/schemas/SleepReportSection" }
+            daily_health:
+              { $ref: "#/components/schemas/DailyHealthReportSection" }
+            media: { $ref: "#/components/schemas/MediaReportSection" }
+            expenses: { $ref: "#/components/schemas/ExpensesReportSection" }
+    MonthlyReportSeries:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schema,
+          end_month,
+          requested_months,
+          from_month,
+          to_month,
+          generated_at,
+          reports,
+          empty_months,
+        ]
+      properties:
+        schema: { type: string, const: monthly-report-series.v1 }
+        end_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        requested_months: { type: integer, minimum: 1, maximum: 24 }
+        from_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        to_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        generated_at: { type: string, format: date-time }
+        reports:
+          type: array
+          items: { $ref: "#/components/schemas/MonthlyReportSeriesPoint" }
+        empty_months:
+          type: array
+          items: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+    MonthlyReportSeriesPoint:
+      type: object
+      additionalProperties: false
+      required: [month, completeness, report]
+      properties:
+        month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        completeness: { type: string, enum: [complete, partial] }
+        report: { $ref: "#/components/schemas/MonthlyReport" }
+    ReportPeriod:
+      type: object
+      additionalProperties: false
+      required: [kind, month, from, to, timezone]
+      properties:
+        kind: { type: string, const: month }
+        month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        timezone: { type: string }
+    MovementReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.movement.v1 }
+        state: { type: string, enum: [available, empty] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/MovementReportData" },
+                { type: "null" },
+              ],
+          }
+    MovementReportData:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          activity_count,
+          distance_m,
+          distance_activity_count,
+          duration_s,
+          by_sport,
+        ]
+      properties:
+        activity_count: { type: integer }
+        distance_m: { type: number }
+        distance_activity_count: { type: integer }
+        duration_s: { type: integer }
+        by_sport:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MovementSportTotal" },
+          }
+    MovementSportTotal:
+      type: object
+      additionalProperties: false
+      required:
+        [sport, activity_count, distance_m, distance_activity_count, duration_s]
+      properties:
+        sport: { type: string }
+        activity_count: { type: integer }
+        distance_m: { type: number }
+        distance_activity_count: { type: integer }
+        duration_s: { type: integer }
+    SleepReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.sleep.v1 }
+        state: { type: string, enum: [available, empty] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/SleepReportData" },
+                { type: "null" },
+              ],
+          }
+    SleepReportData:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          session_count,
+          main_sleep_count,
+          nap_count,
+          observed_wake_dates,
+          average_asleep_s,
+          average_time_in_bed_s,
+          average_efficiency,
+          stage_seconds,
+        ]
+      properties:
+        session_count: { type: integer }
+        main_sleep_count: { type: integer }
+        nap_count: { type: integer }
+        observed_wake_dates: { type: integer }
+        average_asleep_s: { type: number }
+        average_time_in_bed_s: { type: number }
+        average_efficiency: { type: number }
+        stage_seconds: { $ref: "#/components/schemas/SleepStageSeconds" }
+    SleepStageSeconds:
+      type: object
+      additionalProperties: false
+      required: [core, deep, rem, awake, unspecified]
+      properties:
+        core: { type: integer }
+        deep: { type: integer }
+        rem: { type: integer }
+        awake: { type: integer }
+        unspecified: { type: integer }
+    DailyHealthReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.daily-health.v1 }
+        state: { type: string, enum: [available, empty] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/DailyHealthReportData" },
+                { type: "null" },
+              ],
+          }
+    DailyHealthReportData:
+      type: object
+      additionalProperties: false
+      required: [observed_days, metric_averages]
+      properties:
+        observed_days: { type: integer }
+        metric_averages:
+          { type: array, items: { $ref: "#/components/schemas/MetricAverage" } }
+    MetricAverage:
+      type: object
+      additionalProperties: false
+      required: [metric, value, unit, observed_days]
+      properties:
+        metric: { type: string }
+        value: { type: number }
+        unit: { type: string }
+        observed_days: { type: integer }
+    MediaReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.media.v1 }
+        state: { type: string, enum: [available, empty] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/MediaReportData" },
+                { type: "null" },
+              ],
+          }
+    MediaReportData:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          event_count,
+          completed_count,
+          rated_count,
+          average_rating,
+          by_kind,
+          completed_items,
+        ]
+      properties:
+        event_count: { type: integer }
+        completed_count: { type: integer }
+        rated_count: { type: integer }
+        average_rating: { type: [number, "null"] }
+        by_kind:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaKindTotal" },
+          }
+        completed_items:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaCompleted" },
+          }
+    MediaKindTotal:
+      type: object
+      additionalProperties: false
+      required: [kind, event_count, completed_count]
+      properties:
+        kind: { type: string }
+        event_count: { type: integer }
+        completed_count: { type: integer }
+    MediaCompleted:
+      type: object
+      additionalProperties: false
+      required: [id, title, media_type, completed_at]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        media_type: { type: string }
+        completed_at: { type: string, format: date-time }
+    ExpensesReportSection:
+      type: object
+      additionalProperties: false
+      required: [schema, state, data]
+      properties:
+        schema: { type: string, const: monthly-report.expenses.v1 }
+        state: { type: string, enum: [available, empty] }
+        data:
+          {
+            oneOf:
+              [
+                { $ref: "#/components/schemas/ExpensesReportData" },
+                { type: "null" },
+              ],
+          }
+    ExpensesReportData:
+      type: object
+      additionalProperties: false
+      required: [expense_count, totals_by_currency, by_category]
+      properties:
+        expense_count: { type: integer }
+        totals_by_currency:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/ExpenseCurrencyTotal" },
+          }
+        by_category:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/ExpenseCategoryTotal" },
+          }
+    ExpenseCurrencyTotal:
+      type: object
+      additionalProperties: false
+      required: [currency, currency_exponent, amount_minor, expense_count]
+      properties:
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        currency_exponent: { type: integer, enum: [0, 2] }
+        amount_minor: { type: integer, format: int64 }
+        expense_count: { type: integer }
+    ExpenseCategoryTotal:
+      type: object
+      additionalProperties: false
+      required:
+        [category, currency, currency_exponent, amount_minor, expense_count]
+      properties:
+        category: { type: string }
+        currency: { type: string, enum: [JPY, USD, EUR, GBP] }
+        currency_exponent: { type: integer, enum: [0, 2] }
+        amount_minor: { type: integer, format: int64 }
+        expense_count: { type: integer }
     Task:
       type: object
       required: [id, title, status, priority, source, created_at, updated_at]
@@ -927,6 +1755,77 @@ components:
         first_raw_file_id: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    SummaryTotals:
+      type: object
+      required:
+        [
+          activity_count,
+          distance_m,
+          distance_known_count,
+          distance_unknown_count,
+          duration_s,
+          elevation_gain_m,
+        ]
+      properties:
+        activity_count: { type: integer }
+        distance_m: { type: number }
+        distance_known_count: { type: integer }
+        distance_unknown_count: { type: integer }
+        duration_s: { type: integer }
+        elevation_gain_m: { type: number }
+    SummaryBucket:
+      allOf:
+        - $ref: "#/components/schemas/SummaryTotals"
+        - type: object
+          required: [key]
+          properties:
+            key: { type: string }
+    ActivitySummary:
+      type: object
+      required: [totals, by_year, by_month, by_sport]
+      properties:
+        totals: { $ref: "#/components/schemas/SummaryTotals" }
+        by_year:
+          { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
+        by_month:
+          { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
+        by_sport:
+          { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
+    RouteFeatureCollection:
+      type: object
+      required: [type, features]
+      properties:
+        type: { type: string, const: FeatureCollection }
+        features:
+          { type: array, items: { $ref: "#/components/schemas/RouteFeature" } }
+    RouteFeature:
+      type: object
+      required: [type, geometry, properties]
+      properties:
+        type: { type: string, const: Feature }
+        geometry: { $ref: "#/components/schemas/RouteGeometry" }
+        properties: { $ref: "#/components/schemas/RouteFeatureProperties" }
+    RouteGeometry:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type: { type: string, const: LineString }
+        coordinates:
+          type: array
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items: { type: number }
+    RouteFeatureProperties:
+      type: object
+      required: [activity_id, sport_type, year, city, city_status]
+      properties:
+        activity_id: { type: string }
+        sport_type: { type: string }
+        year: { type: string }
+        city: { type: string }
+        city_status: { type: string, enum: [pending, resolved, unknown] }
     ActivityPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
@@ -938,7 +1837,7 @@ components:
       required: [items, next_cursor, has_more]
       properties:
         items: { type: array, items: {} }
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, "null"] }
         has_more: { type: boolean }
     RoutePoint:
       type: object
@@ -975,7 +1874,44 @@ components:
         avg_pace_s_per_km: { type: number }
     Sleep:
       type: object
-      additionalProperties: true
+      required:
+        [
+          id,
+          wake_date,
+          started_at,
+          ended_at,
+          time_in_bed_s,
+          asleep_s,
+          efficiency,
+          is_main_sleep,
+          core_s,
+          deep_s,
+          rem_s,
+          awake_s,
+          unspecified_s,
+          source,
+          first_raw_file_id,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        id: { type: string }
+        wake_date: { type: string, format: date }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time }
+        time_in_bed_s: { type: integer }
+        asleep_s: { type: integer }
+        efficiency: { type: number }
+        is_main_sleep: { type: boolean }
+        core_s: { type: integer }
+        deep_s: { type: integer }
+        rem_s: { type: integer }
+        awake_s: { type: integer }
+        unspecified_s: { type: integer }
+        source: { type: string }
+        first_raw_file_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     SleepPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
@@ -991,21 +1927,151 @@ components:
         seq: { type: integer }
     Daily:
       type: object
-      additionalProperties: true
+      required:
+        [id, day, ring, source, first_raw_file_id, created_at, updated_at]
+      properties:
+        id: { type: string }
+        day: { type: string, format: date }
+        ring:
+          type: [object, "null"]
+          required:
+            [
+              move_kcal,
+              move_goal_kcal,
+              exercise_min,
+              exercise_goal_min,
+              stand_hours,
+              stand_goal_hours,
+            ]
+          properties:
+            move_kcal: { type: number }
+            move_goal_kcal: { type: number }
+            exercise_min: { type: number }
+            exercise_goal_min: { type: number }
+            stand_hours: { type: number }
+            stand_goal_hours: { type: number }
+        steps: { type: number }
+        distance_km: { type: number }
+        flights: { type: number }
+        resting_hr: { type: number }
+        walking_hr_avg: { type: number }
+        hrv_sdnn: { type: number }
+        spo2_avg: { type: number }
+        spo2_min: { type: number }
+        respiratory_rate: { type: number }
+        vo2max: { type: number }
+        body_mass_kg: { type: number }
+        source: { type: string }
+        first_raw_file_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     DailyPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/Daily" } }
-    AggregateResponse:
+    SleepAggregateResponse:
       type: object
       required: [granularity, buckets]
       properties:
-        granularity: { type: string }
+        granularity: { type: string, enum: [month, year] }
         buckets:
-          { type: array, items: { type: object, additionalProperties: true } }
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/SleepAggregateBucket" },
+          }
+    SleepAggregateBucket:
+      type: object
+      required:
+        [
+          period,
+          session_count,
+          main_sleep_count,
+          nap_count,
+          average_asleep_s,
+          average_time_in_bed_s,
+          average_efficiency,
+          core_s,
+          deep_s,
+          rem_s,
+          awake_s,
+          unspecified_s,
+        ]
+      properties:
+        period: { type: string }
+        session_count: { type: integer }
+        main_sleep_count: { type: integer }
+        nap_count: { type: integer }
+        average_asleep_s: { type: number }
+        average_time_in_bed_s: { type: number }
+        average_efficiency: { type: number }
+        core_s: { type: integer }
+        deep_s: { type: integer }
+        rem_s: { type: integer }
+        awake_s: { type: integer }
+        unspecified_s: { type: integer }
+    DailyAggregateResponse:
+      type: object
+      required: [granularity, buckets]
+      properties:
+        granularity: { type: string, enum: [month, year] }
+        buckets:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/DailyAggregateBucket" },
+          }
+    DailyAggregateBucket:
+      type: object
+      required:
+        [
+          period,
+          days,
+          move_kcal_avg,
+          exercise_min_avg,
+          stand_hours_avg,
+          move_closed_pct,
+          metrics,
+        ]
+      properties:
+        period: { type: string }
+        days: { type: integer }
+        move_kcal_avg: { type: number }
+        exercise_min_avg: { type: number }
+        stand_hours_avg: { type: number }
+        move_closed_pct: { type: number }
+        metrics:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/DailyMetricAggregate" },
+          }
+    DailyMetricAggregate:
+      type: object
+      required: [metric, value, unit, observed_days]
+      properties:
+        metric: { type: string }
+        value: { type: number }
+        unit: { type: string }
+        observed_days: { type: integer }
     Media:
       type: object
-      additionalProperties: true
+      required:
+        [id, title, media_type, item_role, last_update_at, hidden_from_continue]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        media_type: { type: string }
+        item_role: { type: string }
+        cover_image_url: { type: string }
+        status: { type: string }
+        position: { type: number }
+        total: { type: number }
+        unit: { type: string }
+        progress_percent: { type: number }
+        last_update_at: { type: string, format: date-time }
+        rating: { type: number }
+        hidden_from_continue: { type: boolean }
+        native_title: { type: string }
+        episode_count: { type: integer }
+        chapter_count: { type: integer }
     MediaPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
@@ -1016,20 +2082,157 @@ components:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
         items:
-          { type: array, items: { type: object, additionalProperties: true } }
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaHomeEvent" },
+          }
     MediaDetail:
       type: object
       required: [item, work, creators, relations, events]
       properties:
         item: { $ref: "#/components/schemas/Media" }
-        work: { type: object, additionalProperties: true }
-        progress: { type: object, nullable: true, additionalProperties: true }
+        work: { $ref: "#/components/schemas/MediaWork" }
+        progress: { $ref: "#/components/schemas/MediaProgress" }
         creators:
-          { type: array, items: { type: object, additionalProperties: true } }
+          { type: array, items: { $ref: "#/components/schemas/MediaCreator" } }
         relations:
-          { type: array, items: { type: object, additionalProperties: true } }
+          { type: array, items: { $ref: "#/components/schemas/MediaRelation" } }
         events:
-          { type: array, items: { type: object, additionalProperties: true } }
+          { type: array, items: { $ref: "#/components/schemas/MediaEvent" } }
+    MediaWork:
+      type: object
+      required:
+        [
+          id,
+          work_kind,
+          primary_title,
+          original_title,
+          original_language,
+          description,
+        ]
+      properties:
+        id: { type: string }
+        work_kind: { type: string }
+        primary_title: { type: string }
+        original_title: { type: string }
+        original_language: { type: string }
+        first_release_date: { type: string, format: date-time }
+        description: { type: string }
+    MediaProgress:
+      type: object
+      required: [status, unit, play_count]
+      properties:
+        status: { type: string }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        started_at: { type: string, format: date-time }
+        last_update_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        play_count: { type: integer }
+    MediaEvent:
+      type: object
+      required: [id, event_type]
+      properties:
+        id: { type: string }
+        event_type: { type: string }
+        event_at: { type: string, format: date-time }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        rating: { type: number }
+        note: { type: string }
+    MediaHomeEvent:
+      type: object
+      required: [id, media_id, title, event_type, occurred_at]
+      properties:
+        id: { type: string }
+        media_id: { type: string }
+        title: { type: string }
+        native_title: { type: string }
+        cover_image_url: { type: string }
+        event_type: { type: string }
+        occurred_at: { type: string, format: date-time }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        rating: { type: number }
+    MediaCreator:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { type: string }
+    MediaRelation:
+      type: object
+      required:
+        [
+          id,
+          relation_type,
+          direction,
+          related_item_id,
+          related_title,
+          related_type,
+        ]
+      properties:
+        id: { type: string }
+        relation_type: { type: string }
+        direction: { type: string }
+        related_item_id: { type: string }
+        related_title: { type: string }
+        related_type: { type: string }
+        cover_image_url: { type: string }
+    MediaAggregates:
+      type: object
+      required: [totals, completions_by_year, score_distribution, type_split]
+      properties:
+        totals: { $ref: "#/components/schemas/MediaTotals" }
+        completions_by_year:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaCompletionBucket" },
+          }
+        score_distribution:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaScoreBucket" },
+          }
+        type_split:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaTypeBucket" },
+          }
+    MediaTotals:
+      type: object
+      required:
+        [item_count, completed_count, this_year_completed, average_rating]
+      properties:
+        item_count: { type: integer }
+        completed_count: { type: integer }
+        this_year_completed: { type: integer }
+        average_rating: { type: number }
+    MediaCompletionBucket:
+      type: object
+      required: [year, count]
+      properties:
+        year: { type: integer }
+        count: { type: integer }
+    MediaScoreBucket:
+      type: object
+      required: [score, count]
+      properties:
+        score: { type: number }
+        count: { type: integer }
+    MediaTypeBucket:
+      type: object
+      required: [type, count]
+      properties:
+        type: { type: string }
+        count: { type: integer }
     Briefing:
       type: object
       required: [date, previous_date, next_date, sections]

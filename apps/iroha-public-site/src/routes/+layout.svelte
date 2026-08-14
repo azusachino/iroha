@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from "$app/paths";
   import "./app.css";
   import { site } from "$lib/site";
 
@@ -20,5 +21,6 @@
       and media details stay out of this view.
     </span>
     <a href={site.repositoryUrl}>View source on GitHub</a>
+    <a href={`${base}/design`}>Open the design workbench</a>
   </footer>
 </div>

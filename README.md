@@ -12,10 +12,10 @@ _iro & hana_ — a personal data cockpit for keeping, understanding, and selecti
 The private cockpit stores the complete personal history and runs on a local machine or private k3s/LAN deployment. The public archive is a static GitHub Pages snapshot of deliberately published data;
 it has no live API and no private credentials.
 
-| Surface         | Location                                                            | Contents                                                                        |
-| --------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Private cockpit | `iroha-server`, `iroha-job`, `iroha-web`                            | Canonical Postgres/PostGIS data, routes, streams, sleep, media, tasks, and jobs |
-| Public archive  | [`azusachino.github.io/iroha`](https://azusachino.github.io/iroha/) | Public activity snapshot with rich detail for every exported activity           |
+| Surface         | Location                                                            | Contents                                                                                                   |
+| --------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Private cockpit | `iroha-server`, `iroha-job`, `iroha-web`                            | Canonical Postgres/PostGIS data, routes, streams, sleep, media, expenses, monthly reports, tasks, and jobs |
+| Public archive  | [`azusachino.github.io/iroha`](https://azusachino.github.io/iroha/) | Public activity snapshot with rich detail for every exported activity                                      |
 
 The exporter runs inside the private deployment and pushes only the static snapshot under `apps/iroha-public-site/static/data/`. See [public-site publishing](docs/public-site-publishing.md) for the
 boundary and operator workflow.
@@ -31,6 +31,9 @@ make check
 ```
 
 Use [`docs/dev-runtime.md`](docs/dev-runtime.md) for local development and [`docs/roadmap.md`](docs/roadmap.md) for planned work.
+
+The v0.4 local client is `scripts/iroha_cli.py`. It uploads files into the canonical import pipeline, reads activities, sleep, daily health, media, metrics, and monthly reports, and manages expenses.
+JSON is preserved by default; receipt OCR remains an external local-agent concern. Run `uv run python scripts/iroha_cli.py --help` for the exact commands.
 
 ## References
 

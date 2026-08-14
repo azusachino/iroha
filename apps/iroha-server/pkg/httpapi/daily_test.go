@@ -34,7 +34,8 @@ func TestToDailyResponseEncodesIDsAndMetrics(t *testing.T) {
 			MoveKcal:       600,
 			FirstRawFileID: rawFileID,
 		},
-		Steps: &steps,
+		RingPresent: true,
+		Steps:       &steps,
 	}
 
 	got := toDailyResponse(row)
@@ -43,6 +44,12 @@ func TestToDailyResponseEncodesIDsAndMetrics(t *testing.T) {
 	}
 	if got.FirstRawFileID != ids.Encode(ids.RawFilePrefix, rawFileID) {
 		t.Errorf("first_raw_file_id = %q, want encoded raw id", got.FirstRawFileID)
+	}
+	if got.Day != "2024-01-02" {
+		t.Errorf("day = %q, want calendar date", got.Day)
+	}
+	if got.Ring == nil || got.Ring.MoveKcal != 600 {
+		t.Errorf("ring = %#v, want populated ring summary", got.Ring)
 	}
 	if got.Steps == nil || *got.Steps != steps {
 		t.Errorf("steps = %v, want %v", got.Steps, steps)

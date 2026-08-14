@@ -14,6 +14,7 @@ const (
 	EnvBangumiToken     = "IROHA_BANGUMI_TOKEN"
 	EnvBangumiBridge    = "IROHA_BANGUMI_BRIDGE_PATH"
 	EnvMALAniListBridge = "IROHA_MAL_ANILIST_BRIDGE_PATH"
+	EnvTimezone         = "IROHA_TIMEZONE"
 )
 
 // defaultAllowedOrigins lets the local web dev server reach the private API.
@@ -27,7 +28,8 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Addr string `toml:"addr"`
+	Addr     string `toml:"addr"`
+	Timezone string `toml:"timezone"`
 	// AllowedOrigins restricts CORS for the private /api/v1 routes. The public
 	// /public/v1 routes always allow all origins (sanitized data).
 	AllowedOrigins []string `toml:"allowed_origins"`
@@ -64,6 +66,7 @@ func Default() Config {
 	return Config{
 		Server: ServerConfig{
 			Addr:           "127.0.0.1:8080",
+			Timezone:       "Asia/Tokyo",
 			AllowedOrigins: defaultAllowedOrigins,
 		},
 		Database: DatabaseConfig{
@@ -81,6 +84,9 @@ func Default() Config {
 func applyEnv(cfg *Config) {
 	if value := os.Getenv("IROHA_SERVER_ADDR"); value != "" {
 		cfg.Server.Addr = value
+	}
+	if value := os.Getenv(EnvTimezone); value != "" {
+		cfg.Server.Timezone = value
 	}
 	if value := os.Getenv("IROHA_DATABASE_URL"); value != "" {
 		cfg.Database.URL = value

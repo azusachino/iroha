@@ -93,7 +93,7 @@
     color: var(--text-muted);
     font-size: 0.72rem;
   }
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .totals-heading {
       align-items: start;
       flex-direction: column;

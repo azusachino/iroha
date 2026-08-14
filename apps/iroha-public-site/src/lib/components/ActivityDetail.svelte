@@ -8,7 +8,7 @@
     formatPace,
     formatSport,
   } from "$lib/format";
-  import SportBadge from "$lib/components/SportBadge.svelte";
+  import SportBadge from "@iroha/shared/SportBadge.svelte";
   import type { Activity } from "$lib/types";
   import type { RouteFeatureCollection } from "$lib/types";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
@@ -183,7 +183,7 @@
     padding: 0.5rem;
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .detail-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }

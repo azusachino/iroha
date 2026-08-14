@@ -26,6 +26,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/google/uuid"
@@ -54,8 +55,8 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 			t.Fatalf("uploaded_via = %v, want cli", body["uploaded_via"])
 		}
 	})
-	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/raw_bad", "", http.StatusBadRequest, nil)
-	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/"+ids.Encode(ids.RawFilePrefix, uuid.New()), "", http.StatusNotFound, nil)
+	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/raw_bad", "", http.StatusBadRequest, assertErrorResponse(t, "invalid_raw_file_id", "invalid raw_file id"))
+	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/"+ids.Encode(ids.RawFilePrefix, uuid.New()), "", http.StatusNotFound, assertErrorResponse(t, "raw_file_not_found", "raw_file not found"))
 
 	var importID string
 	requestJSON(t, server, http.MethodPost, "/api/v1/imports", `{"raw_file_id":"`+rawID+`","parser_kind":"gpx"}`, http.StatusAccepted, func(body map[string]any) {
@@ -107,6 +108,12 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 			t.Fatalf("laps = %#v, want none", body)
 		}
 	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/activities/summary", "", http.StatusOK, func(body map[string]any) {
+		totals := body["totals"].(map[string]any)
+		if totals["distance_known_count"] != float64(0) || totals["distance_unknown_count"] != float64(1) || totals["moving_time_s"] != nil {
+			t.Fatalf("activity summary totals = %#v", totals)
+		}
+	})
 }
 
 func TestIntegrationSleepEndpoints(t *testing.T) {
@@ -129,6 +136,7 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 
 	firstID := uuid.New()
 	secondID := uuid.New()
+	napID := uuid.New()
 	createdAt := time.Now().UTC()
 	for _, session := range []models.SleepSession{
 		{
@@ -142,6 +150,12 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 			StartedAt: time.Date(2023, time.December, 30, 23, 0, 0, 0, time.UTC), EndedAt: time.Date(2023, time.December, 31, 7, 0, 0, 0, time.UTC),
 			TimeInBedS: 28800, AsleepS: 21600, Efficiency: 0.75, IsMainSleep: true,
 			CoreS: 12000, DeepS: 3600, RemS: 6000, AwakeS: 7200, Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt,
+		},
+		{
+			ID: napID, WakeDate: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+			StartedAt: time.Date(2024, time.January, 1, 13, 0, 0, 0, time.UTC), EndedAt: time.Date(2024, time.January, 1, 14, 0, 0, 0, time.UTC),
+			TimeInBedS: 3600, AsleepS: 1800, Efficiency: 0.5, IsMainSleep: false,
+			CoreS: 900, DeepS: 300, RemS: 600, AwakeS: 1800, Source: "Watch", FirstRawFileID: rawFile.ID, CreatedAt: createdAt, UpdatedAt: createdAt,
 		},
 	} {
 		if err := db.Create(&session).Error; err != nil {
@@ -160,11 +174,16 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 		if len(body["items"].([]any)) != 1 || body["has_more"] != true {
 			t.Fatalf("first sleep page = %#v", body)
 		}
+		item := body["items"].([]any)[0].(map[string]any)
+		startedAt, err := time.Parse(time.RFC3339, item["started_at"].(string))
+		if err != nil || !startedAt.Equal(time.Date(2024, time.January, 1, 22, 0, 0, 0, time.UTC)) || item["wake_date"] != "2024-01-02" {
+			t.Fatalf("sleep wire dates = %#v", item)
+		}
 	})
 	cursor := stringValue(t, firstPage, "next_cursor")
-	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?limit=1&cursor="+cursor, "", http.StatusOK, func(body map[string]any) {
 		items := body["items"].([]any)
-		if len(items) != 1 || body["has_more"] != false {
+		if len(items) != 1 || body["has_more"] != true {
 			t.Fatalf("second sleep page = %#v", body)
 		}
 	})
@@ -183,14 +202,18 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 		if body["granularity"] != "year" || len(buckets) != 2 {
 			t.Fatalf("yearly sleep aggregates = %#v", body)
 		}
-		if buckets[0].(map[string]any)["session_count"] != float64(1) {
+		if buckets[0].(map[string]any)["period"] != "2023" || buckets[0].(map[string]any)["session_count"] != float64(1) {
 			t.Fatalf("yearly aggregate bucket = %#v", buckets[0])
 		}
 	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/aggregates?granularity=month&from=2024-01-01&to=2024-01-31", "", http.StatusOK, func(body map[string]any) {
 		buckets := body["buckets"].([]any)
-		if len(buckets) != 1 || buckets[0].(map[string]any)["session_count"] != float64(1) {
+		if len(buckets) != 1 {
 			t.Fatalf("monthly sleep aggregates = %#v", body)
+		}
+		bucket := buckets[0].(map[string]any)
+		if bucket["period"] != "2024-01" || bucket["session_count"] != float64(2) || bucket["main_sleep_count"] != float64(1) || bucket["nap_count"] != float64(1) || bucket["observed_wake_dates"] != float64(2) || bucket["average_asleep_s"] != float64(25200) || bucket["core_s"] != float64(12000) {
+			t.Fatalf("monthly sleep aggregate bucket = %#v", bucket)
 		}
 	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/aggregates?granularity=week", "", http.StatusBadRequest, nil)
@@ -249,8 +272,11 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 			t.Fatalf("first daily page = %#v", body)
 		}
 		item := items[0].(map[string]any)
-		if item["day"] != "2024-01-02T00:00:00Z" || item["steps"] != float64(1234) || item["resting_hr"] != float64(57) || item["hrv_sdnn"] != float64(42) {
+		if item["day"] != "2024-01-02" || item["steps"] != float64(1234) || item["resting_hr"] != float64(57) || item["hrv_sdnn"] != float64(42) {
 			t.Fatalf("daily item = %#v", item)
+		}
+		if ring := item["ring"].(map[string]any); ring["move_kcal"] != float64(600) {
+			t.Fatalf("daily ring = %#v", ring)
 		}
 	})
 	cursor := stringValue(t, firstPage, "next_cursor")
@@ -259,7 +285,7 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 		if len(items) != 1 || body["has_more"] != true {
 			t.Fatalf("second daily page = %#v", body)
 		}
-		if items[0].(map[string]any)["day"] != "2024-01-01T00:00:00Z" {
+		if items[0].(map[string]any)["day"] != "2024-01-01" {
 			t.Fatalf("second daily item = %#v", items[0])
 		}
 	})
@@ -269,11 +295,64 @@ func TestIntegrationDailyEndpoint(t *testing.T) {
 			t.Fatalf("third daily page = %#v", body)
 		}
 		item := items[0].(map[string]any)
-		if item["day"] != "2023-12-31T00:00:00Z" || item["body_mass_kg"] != float64(70.5) {
+		if item["day"] != "2023-12-31" || item["body_mass_kg"] != float64(70.5) {
 			t.Fatalf("metric-only daily item = %#v", item)
+		}
+		if item["ring"] != nil {
+			t.Fatalf("metric-only daily ring = %#v, want null", item["ring"])
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/daily/aggregates?granularity=month&from=2024-01-01&to=2024-01-31", "", http.StatusOK, func(body map[string]any) {
+		buckets := body["buckets"].([]any)
+		if len(buckets) != 1 {
+			t.Fatalf("daily aggregates = %#v", body)
+		}
+		bucket := buckets[0].(map[string]any)
+		metrics := bucket["metrics"].([]any)
+		if bucket["period"] != "2024-01" || len(metrics) != 3 {
+			t.Fatalf("daily aggregate bucket = %#v", bucket)
+		}
+		for _, value := range metrics {
+			metric := value.(map[string]any)
+			if metric["metric"] == "steps" && (metric["unit"] != "count" || metric["observed_days"] != float64(2)) {
+				t.Fatalf("steps aggregate = %#v", metric)
+			}
 		}
 	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/daily?from=bad", "", http.StatusBadRequest, nil)
+}
+
+func TestIntegrationMonthlyReportEndpoint(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+	server := newIntegrationServer(t, db)
+
+	requestJSON(t, server, http.MethodGet, "/api/v1/reports/monthly?month=2026-08&timezone=UTC", "", http.StatusOK, func(body map[string]any) {
+		if body["schema"] != "monthly-report.v1" {
+			t.Fatalf("schema = %#v", body["schema"])
+		}
+		period := body["period"].(map[string]any)
+		if period["month"] != "2026-08" || period["from"] != "2026-08-01" || period["to"] != "2026-09-01" || period["timezone"] != "UTC" {
+			t.Fatalf("period = %#v", period)
+		}
+		sections := body["sections"].(map[string]any)
+		for _, name := range []string{"movement", "sleep", "daily_health", "media", "expenses"} {
+			section := sections[name].(map[string]any)
+			state := section["state"].(string)
+			if state != "empty" && state != "available" {
+				t.Fatalf("section %s = %#v", name, section)
+			}
+			if state == "empty" && section["data"] != nil {
+				t.Fatalf("empty section %s has data: %#v", name, section)
+			}
+			if state == "available" && section["data"] == nil {
+				t.Fatalf("available section %s has no data: %#v", name, section)
+			}
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/reports/monthly?month=2026-13", "", http.StatusBadRequest, nil)
+	requestJSON(t, server, http.MethodGet, "/api/v1/reports/monthly?month=2026-08&timezone=Not%2FATimezone", "", http.StatusBadRequest, nil)
 }
 
 func openIntegrationDB(t *testing.T) *gorm.DB {
@@ -297,6 +376,7 @@ func openIntegrationDB(t *testing.T) *gorm.DB {
 func resetIntegrationDB(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	if err := db.Exec(`truncate table
+		tb_expenses,
 		tb_activity_laps,
 		tb_activity_samplings,
 		tb_activity_route_points,
@@ -385,6 +465,7 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 		ActivityService: activities.NewService(db),
 		SleepService:    sleep.NewService(db),
 		DailyService:    daily.NewService(db),
+		ExpenseService:  expenses.NewService(db),
 		MediaService:    media.NewService(db),
 		ImportService:   importService,
 		RawFileService:  rawFileService,
@@ -535,6 +616,18 @@ func requestJSON(t *testing.T, handler http.Handler, method string, path string,
 		check(normalized)
 	}
 	return normalized
+}
+
+func assertErrorResponse(t *testing.T, wantCode, wantMessage string) func(map[string]any) {
+	t.Helper()
+	return func(body map[string]any) {
+		if body["code"] != wantCode || body["message"] != wantMessage {
+			t.Errorf("error body = %#v, want code=%q message=%q", body, wantCode, wantMessage)
+		}
+		if requestID, ok := body["request_id"].(string); !ok || requestID == "" {
+			t.Errorf("error body has no request_id: %#v", body)
+		}
+	}
 }
 
 func normalizeJSON(value any) any {

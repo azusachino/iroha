@@ -8,11 +8,11 @@
   } from "$lib/api";
   import { progressPercent } from "$lib/format";
   import { mediaTypeColor, mediaTypeFamily, mediaTypeLabel } from "$lib/media";
-  import StatTile from "$lib/components/StatTile.svelte";
-  import MediaBarChart from "$lib/components/MediaBarChart.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
+  import MediaBarChart from "@iroha/shared/theme-ui/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   let aggregates = $state<MediaAggregates | null>(null);
@@ -242,6 +242,7 @@
           typeFamilies,
           completions,
           scores,
+          activeCount,
           onFamily: selectFamily,
           onStatus: selectStatus,
           onYear: selectYear,
@@ -256,8 +257,6 @@
       eyebrow="Library / things in orbit"
       title="A living personal library."
       description="Keep reading, watching, and playing visible without turning your interests into a backlog."
-      actionHref="/"
-      actionLabel="Back to Today"
     />
 
     <div class="filter-bar" role="tablist" aria-label="Filter by kind">
@@ -290,7 +289,7 @@
       <label>
         <span>Completed year</span>
         <select bind:value={completedYear} onchange={() => selectYear()}>
-          <option value="">All years</option>
+          <option value="">Lifetime</option>
           {#each yearOptions as option (option.year)}
             <option value={option.year}>{option.year}</option>
           {/each}
@@ -860,7 +859,7 @@
     cursor: default;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1024px) {
     .stat-strip {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }

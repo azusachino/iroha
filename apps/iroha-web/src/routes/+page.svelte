@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import { Check, ListTodo } from "@lucide/svelte";
@@ -15,17 +16,20 @@
     type BriefingResponse,
     type Task,
   } from "$lib/api";
-  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
-  import SportBadge from "$lib/components/SportBadge.svelte";
+  import RingGauge, {
+    type Ring,
+  } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
+  import SportBadge from "@iroha/shared/SportBadge.svelte";
   import DayPicker from "$lib/components/DayPicker.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
   import {
     formatDistance,
     formatDuration,
     formatPace,
     formatHr,
+    formatDateOnly,
     mediaEventVerb,
   } from "$lib/format";
 
@@ -75,28 +79,29 @@
   const mainNight = $derived(nights.find((n) => n.is_main_sleep) ?? nights[0]);
   const acts = $derived(activities.items);
   const mediaEvents = $derived(media.items);
-  const hasRing = $derived(!!dRow && dRow.move_goal_kcal > 0);
+  const dailyRing = $derived(dRow?.ring);
+  const hasRing = $derived(!!dailyRing && dailyRing.move_goal_kcal > 0);
   const ringData = $derived<Ring[]>(
-    hasRing && dRow
+    hasRing && dailyRing
       ? [
           {
             label: "Move",
-            value: dRow.move_kcal,
-            goal: dRow.move_goal_kcal,
+            value: dailyRing.move_kcal,
+            goal: dailyRing.move_goal_kcal,
             unit: "kcal",
             color: "var(--ring-move)",
           },
           {
             label: "Exercise",
-            value: dRow.exercise_min,
-            goal: dRow.exercise_goal_min,
+            value: dailyRing.exercise_min,
+            goal: dailyRing.exercise_goal_min,
             unit: "min",
             color: "var(--ring-exercise)",
           },
           {
             label: "Stand",
-            value: dRow.stand_hours,
-            goal: dRow.stand_goal_hours,
+            value: dailyRing.stand_hours,
+            goal: dailyRing.stand_goal_hours,
             unit: "h",
             color: "var(--ring-stand)",
           },
@@ -117,15 +122,7 @@
       : [],
   );
 
-  const dayLabel = $derived(
-    new Date(day + "T00:00:00Z").toLocaleDateString(undefined, {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      timeZone: "UTC",
-    }),
-  );
+  const dayLabel = $derived(formatDateOnly(day));
   const dayHasData = $derived(
     briefing?.sections.some(
       (section) =>
@@ -143,9 +140,9 @@
           value: `${Math.round(mainNight.efficiency * 100)}%`,
           label: "sleep efficiency",
         }
-      : dRow && dRow.move_goal_kcal > 0
+      : dailyRing && dailyRing.move_goal_kcal > 0
         ? {
-            value: `${Math.round((dRow.move_kcal / dRow.move_goal_kcal) * 100)}%`,
+            value: `${Math.round((dailyRing.move_kcal / dailyRing.move_goal_kcal) * 100)}%`,
             label: "move goal",
           }
         : { value: "—", label: "no baseline" },
@@ -164,7 +161,10 @@
     const t = e.target as HTMLElement | null;
     if (
       t &&
-      (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
+      (t.tagName === "INPUT" ||
+        t.tagName === "TEXTAREA" ||
+        t.tagName === "SELECT" ||
+        t.isContentEditable)
     )
       return;
     if (e.key === "ArrowLeft") shift(-1);
@@ -210,13 +210,13 @@
   // goto so scrubbing days doesn't spam browser history, just the current
   // entry. Omitted entirely for today so the common-case URL stays plain "/".
   $effect(() => {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     if (day === today) {
       url.searchParams.delete("date");
     } else {
       url.searchParams.set("date", day);
     }
-    if (url.search !== page.url.search) {
+    if (url.search !== window.location.search) {
       replaceState(url, page.state);
     }
   });
@@ -348,7 +348,16 @@
   {:else if hasThemeRoute(theme.definition(), "today")}
     <ThemeRouteRenderer
       route="today"
-      props={{ dayLabel, day, dRow, mainNight, acts, mediaEvents }}
+      props={{
+        dayLabel,
+        day,
+        dRow,
+        mainNight,
+        acts,
+        mediaEvents,
+        onOpenActivity: (id: string) => void goto(`/motion/${id}`),
+        onOpenMedia: (id: string) => void goto(`/library/${id}`),
+      }}
     />
   {:else}
     <header class="command-heading tile hero-surface">
@@ -379,24 +388,26 @@
     <div class="home-kpis" aria-label="Today summary">
       <div class="home-kpi tile">
         <span>Move</span>
-        <strong>{num(dRow?.move_kcal, 0)}<small> kcal</small></strong>
+        <strong>{num(dailyRing?.move_kcal, 0)}<small> kcal</small></strong>
         <i
           style={"--fill:" +
             Math.min(
               100,
-              ((dRow?.move_kcal ?? 0) / (dRow?.move_goal_kcal || 1)) * 100,
+              ((dailyRing?.move_kcal ?? 0) / (dailyRing?.move_goal_kcal || 1)) *
+                100,
             ) +
             "%"}
         ></i>
       </div>
       <div class="home-kpi tile">
         <span>Exercise</span>
-        <strong>{num(dRow?.exercise_min, 0)}<small> min</small></strong>
+        <strong>{num(dailyRing?.exercise_min, 0)}<small> min</small></strong>
         <i
           style={"--fill:" +
             Math.min(
               100,
-              ((dRow?.exercise_min ?? 0) / (dRow?.exercise_goal_min || 1)) *
+              ((dailyRing?.exercise_min ?? 0) /
+                (dailyRing?.exercise_goal_min || 1)) *
                 100,
             ) +
             "%"}
@@ -812,6 +823,7 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    min-width: 0;
     padding: 0.85rem 1rem;
   }
   .glow {
@@ -820,6 +832,7 @@
   }
   .scrub-center {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1117,7 +1130,7 @@
     font-weight: 750;
   }
 
-  @media (max-width: 820px) {
+  @media (max-width: 1024px) {
     .to-go-strip {
       grid-template-columns: 1fr auto;
     }
@@ -1150,6 +1163,38 @@
     .sleep-card {
       grid-column: span 1;
       grid-row: auto;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .scrubber {
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .scrub-center {
+      min-width: 0;
+    }
+
+    .day-hint {
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      text-align: center;
+    }
+
+    .to-go-strip {
+      width: 100%;
+      grid-template-columns: 1fr;
+      gap: 0.55rem;
+    }
+
+    .to-go-items {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    .to-go-link {
+      justify-self: start;
     }
   }
 </style>

@@ -3,6 +3,7 @@ import {
   boundPercent,
   formatDistance,
   formatDuration,
+  formatMetricValue,
   formatPercent,
   formatProgressCount,
   progressPercent,
@@ -11,6 +12,7 @@ import {
   formatHr,
   formatDate,
   formatDateOnly,
+  formatMonth,
   formatSport,
   formatSwimmingPace,
 } from "./format";
@@ -53,6 +55,21 @@ describe("formatDate", () => {
 describe("formatDateOnly is yyyy-MM-dd", () => {
   it("renders date only in the given timezone", () => {
     expect(formatDateOnly("2026-07-09T00:39:38Z", "UTC")).toBe("2026-07-09");
+  });
+
+  it("preserves canonical date values without timezone conversion", () => {
+    expect(formatDateOnly("2026-07-09")).toBe("2026-07-09");
+  });
+});
+
+describe("formatMonth is yyyy-MM", () => {
+  it("normalizes a numeric month", () => {
+    expect(formatMonth("2026-7")).toBe("2026-07");
+    expect(formatMonth("2026-07")).toBe("2026-07");
+  });
+
+  it("leaves invalid periods visible for diagnosis", () => {
+    expect(formatMonth("not-a-month")).toBe("not-a-month");
   });
 });
 
@@ -228,6 +245,19 @@ describe("formatPercent", () => {
   it("returns an em dash for missing or invalid percentages", () => {
     expect(formatPercent(undefined)).toBe(DASH);
     expect(formatPercent(NaN)).toBe(DASH);
+  });
+});
+
+describe("formatMetricValue", () => {
+  it("rounds unit-bearing report values without leaking float artifacts", () => {
+    expect(formatMetricValue(4.655365837999999, "km")).toBe("4.7");
+    expect(formatMetricValue(56.11410969696969, "ms")).toBe("56.1");
+    expect(formatMetricValue(5860.8, "count")).toBe("5,861");
+  });
+
+  it("uses an em dash for missing or non-finite values", () => {
+    expect(formatMetricValue(undefined, "km")).toBe(DASH);
+    expect(formatMetricValue(NaN, "km")).toBe(DASH);
   });
 });
 

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@iroha/shared/themes.css";
 
 @theme {
   --color-bg: #0f1115;
@@ -114,68 +115,6 @@
   --tile-surface: linear-gradient(180deg, rgb(0 0 0 / 0.015), rgb(0 0 0 / 0))
     var(--surface);
   --tile-shadow: 0 12px 32px rgb(20 30 60 / 0.1);
-}
-
-/* Design languages change the meaning and mood of the render; light/dark
-   remains an independent contrast mode. Each language keeps the same semantic
-   roles so charts and data do not change meaning when the language changes. */
-:root[data-language="atlas"] {
-  --accent: #58c7c0;
-  --accent-2: #e7b65a;
-  --ring-move: #e7b65a;
-  --ring-exercise: #e07b58;
-  --ring-stand: #58c7c0;
-  --radius: 10px;
-  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
-}
-
-:root[data-language="grapher"] {
-  --accent: #6da9ff;
-  --accent-2: #f07c78;
-  --ring-move: #f07c78;
-  --ring-exercise: #e7b65a;
-  --ring-stand: #6da9ff;
-  --radius: 6px;
-}
-
-:root[data-language="field-journal"] {
-  --accent: #39c5bb;
-  --accent-2: #ff5c8a;
-  --radius: 14px;
-  --font-serif: Georgia, "Times New Roman", serif;
-}
-
-:root[data-language="phenology"] {
-  --accent: #d68bba;
-  --accent-2: #a5c76a;
-  --ring-move: #d68bba;
-  --ring-exercise: #e7b65a;
-  --ring-stand: #a5c76a;
-  --radius: 20px;
-  --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  --season-summer-accent: #e7b65a;
-}
-
-:root[data-language="sound-map"] {
-  --accent: #63b7ff;
-  --accent-2: #ff9c66;
-  --ring-move: #ff9c66;
-  --ring-exercise: #b5e36b;
-  --ring-stand: #63b7ff;
-  --radius: 5px;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
-}
-
-:root[data-language="archive"] {
-  --accent: #b8a0ff;
-  --accent-2: #d9b56d;
-  --ring-move: #d9b56d;
-  --ring-exercise: #c786a9;
-  --ring-stand: #b8a0ff;
-  --radius: 3px;
-  --font-serif: "Rockwell", "Roboto Slab", Georgia, serif;
-  --font-mono: "Courier New", "Consolas", ui-monospace, monospace;
 }
 
 * {
@@ -313,7 +252,7 @@ textarea {
   min-width: 0;
 }
 
-.main-nav a {
+.main-nav > a {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -325,14 +264,14 @@ textarea {
   white-space: nowrap;
 }
 
-.main-nav a:hover,
-.main-nav a.active {
+.main-nav > a:hover,
+.main-nav > a.active {
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
   color: var(--text);
   text-decoration: none;
 }
 
-.main-nav a.active svg {
+.main-nav > a.active svg {
   color: var(--accent);
 }
 
@@ -486,7 +425,7 @@ textarea {
   text-align: center;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .appbar {
     flex-wrap: wrap;
   }
@@ -505,13 +444,13 @@ textarea {
     display: none;
   }
 
-  .main-nav a {
+  .main-nav > a {
     flex: 0 0 auto;
     justify-content: center;
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
   .appbar {
     padding: 0.7rem 0.8rem;
   }
@@ -528,6 +467,28 @@ textarea {
     width: 2.25rem;
     justify-content: center;
     padding: 0.45rem;
+  }
+
+  .main-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .main-nav > a,
+  .main-nav > .navigation-menu {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .main-nav > a {
+    gap: 0.2rem;
+    padding: 0.42rem 0.1rem;
+    font-size: 0.68rem;
+  }
+
+  .main-nav > a svg {
+    display: none;
   }
 }
 

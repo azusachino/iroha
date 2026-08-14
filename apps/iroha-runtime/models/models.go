@@ -598,3 +598,24 @@ type Task struct {
 func (Task) TableName() string {
 	return "tb_tasks"
 }
+
+type Expense struct {
+	ID                uuid.UUID `gorm:"type:uuid;primaryKey"`
+	OccurredOn        time.Time `gorm:"type:date"`
+	Currency          string
+	AmountMinor       int64
+	Category          string
+	Merchant          string
+	Note              string
+	ItemsJSON         json.RawMessage `gorm:"column:items_json;type:jsonb"`
+	SourceKind        string
+	SourceRef         string
+	CreateFingerprint string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         *time.Time
+}
+
+func (Expense) TableName() string {
+	return "tb_expenses"
+}

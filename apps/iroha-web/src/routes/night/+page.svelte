@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { replaceState } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import { onMount } from "svelte";
   import {
@@ -10,14 +10,22 @@
     type SleepSegment,
     type SleepSession,
   } from "$lib/api";
-  import StatTile from "$lib/components/StatTile.svelte";
-  import SleepArchitectureChart from "$lib/components/SleepArchitectureChart.svelte";
-  import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
+  import SleepScopeSummary from "@iroha/shared/theme-ui/components/SleepScopeSummary.svelte";
+  import SleepArchitectureChart from "@iroha/shared/theme-ui/components/SleepArchitectureChart.svelte";
+  import SleepTimelineChart from "@iroha/shared/theme-ui/components/SleepTimelineChart.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import { formatDateOnly, formatDuration } from "$lib/format";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import {
+    formatDate,
+    formatDateOnly,
+    formatDuration,
+    formatMonth,
+  } from "$lib/format";
+  import { currentYear } from "@iroha/shared/month";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   const PAGE_SIZE = 31;
@@ -28,7 +36,7 @@
   const initialYearParam = page.url.searchParams.get("year") ?? "";
   const initialYear = /^\d{4}$/.test(initialYearParam)
     ? initialYearParam
-    : initialMonth.slice(0, 4);
+    : initialMonth.slice(0, 4) || currentYear();
   let sessions = $state<SleepSession[]>([]);
   let selected = $state<SleepSession | null>(null);
   let segments = $state<SleepSegment[]>([]);
@@ -52,33 +60,35 @@
   let hoveredStage = $state<string | null>(null);
   const theme = useTheme();
 
-  const mainSleep = $derived(
+  const loadedMainSleep = $derived(
     sessions.filter((session) => session.is_main_sleep),
   );
-  const averageAsleep = $derived(
-    mainSleep.length
-      ? mainSleep.reduce((total, session) => total + session.asleep_s, 0) /
-          mainSleep.length
+  const loadedAverageAsleep = $derived(
+    loadedMainSleep.length
+      ? loadedMainSleep.reduce(
+          (total, session) => total + session.asleep_s,
+          0,
+        ) / loadedMainSleep.length
       : 0,
   );
-  const averageEfficiency = $derived(
-    mainSleep.length
-      ? mainSleep.reduce((total, session) => total + session.efficiency, 0) /
-          mainSleep.length
+  const loadedAverageEfficiency = $derived(
+    loadedMainSleep.length
+      ? loadedMainSleep.reduce(
+          (total, session) => total + session.efficiency,
+          0,
+        ) / loadedMainSleep.length
       : 0,
   );
   const monthlyBuckets = $derived(monthBuckets.slice().reverse());
   const yearlyBuckets = $derived(yearBuckets.slice().reverse());
   const availableYears = $derived(
-    yearBuckets
-      .map((bucket) => String(new Date(bucket.period).getUTCFullYear()))
-      .reverse(),
+    yearBuckets.map((bucket) => bucket.period.slice(0, 4)).reverse(),
   );
   const availableMonths = $derived(
     monthBuckets
       .filter(
         (bucket) =>
-          selectedYear === "" || bucket.period.startsWith(`${selectedYear}-`),
+          selectedYear === "" || bucket.period.slice(0, 4) === selectedYear,
       )
       .map((bucket) => bucket.period.slice(0, 7))
       .reverse(),
@@ -95,38 +105,126 @@
   const visibleYears = $derived(
     selectedYear === ""
       ? yearlyBuckets
-      : yearlyBuckets.filter((bucket) =>
-          bucket.period.startsWith(`${selectedYear}-`),
+      : yearlyBuckets.filter(
+          (bucket) => bucket.period.slice(0, 4) === selectedYear,
         ),
   );
   const visibleMonths = $derived(
     monthlyBuckets.filter((bucket) => {
       const period = bucket.period.slice(0, 7);
       return (
-        (selectedYear === "" || period.startsWith(`${selectedYear}-`)) &&
+        (selectedYear === "" || period.slice(0, 4) === selectedYear) &&
         (selectedMonth === "" || period === selectedMonth)
       );
     }),
   );
   const focusedBucket = $derived(
     selectedMonth !== ""
-      ? monthBuckets.find((bucket) =>
-          bucket.period.startsWith(`${selectedMonth}-01`),
+      ? monthBuckets.find(
+          (bucket) => bucket.period.slice(0, 7) === selectedMonth,
         )
       : selectedYear !== ""
-        ? yearBuckets.find((bucket) =>
-            bucket.period.startsWith(`${selectedYear}-`),
+        ? yearBuckets.find(
+            (bucket) => bucket.period.slice(0, 4) === selectedYear,
           )
         : null,
   );
   const isPeriodFiltered = $derived(selectedYear !== "");
+  function combineBuckets(
+    buckets: SleepAggregateBucket[],
+    period: string,
+  ): SleepAggregateBucket | null {
+    if (buckets.length === 0) return null;
+    const mainSleepCount = buckets.reduce(
+      (total, bucket) => total + bucket.main_sleep_count,
+      0,
+    );
+    const weightedAverage = (
+      field: "average_asleep_s" | "average_efficiency",
+    ) =>
+      mainSleepCount === 0
+        ? 0
+        : buckets.reduce(
+            (total, bucket) => total + bucket[field] * bucket.main_sleep_count,
+            0,
+          ) / mainSleepCount;
+    return {
+      period,
+      session_count: buckets.reduce(
+        (total, bucket) => total + bucket.session_count,
+        0,
+      ),
+      main_sleep_count: mainSleepCount,
+      nap_count: buckets.reduce((total, bucket) => total + bucket.nap_count, 0),
+      observed_wake_dates: buckets.reduce(
+        (total, bucket) => total + (bucket.observed_wake_dates ?? 0),
+        0,
+      ),
+      average_asleep_s: weightedAverage("average_asleep_s"),
+      average_time_in_bed_s:
+        mainSleepCount === 0
+          ? 0
+          : buckets.reduce(
+              (total, bucket) =>
+                total + bucket.average_time_in_bed_s * bucket.main_sleep_count,
+              0,
+            ) / mainSleepCount,
+      average_efficiency: weightedAverage("average_efficiency"),
+      core_s: buckets.reduce((total, bucket) => total + bucket.core_s, 0),
+      deep_s: buckets.reduce((total, bucket) => total + bucket.deep_s, 0),
+      rem_s: buckets.reduce((total, bucket) => total + bucket.rem_s, 0),
+      awake_s: buckets.reduce((total, bucket) => total + bucket.awake_s, 0),
+      unspecified_s: buckets.reduce(
+        (total, bucket) => total + bucket.unspecified_s,
+        0,
+      ),
+    };
+  }
+  const sleepSummary = $derived.by<SleepAggregateBucket | null>(() => {
+    if (selectedMonth !== "") {
+      return (
+        monthBuckets.find(
+          (bucket) => bucket.period.slice(0, 7) === selectedMonth,
+        ) ?? null
+      );
+    }
+    if (selectedYear !== "") {
+      return (
+        yearBuckets.find(
+          (bucket) => bucket.period.slice(0, 4) === selectedYear,
+        ) ?? null
+      );
+    }
+    return combineBuckets(yearBuckets, "lifetime");
+  });
+  const sleepScope = $derived(selectedMonth || selectedYear || "Lifetime");
+  const rollupGranularity = $derived<"month" | "year">(
+    selectedYear === "" ? "year" : "month",
+  );
+  const rollupBuckets = $derived.by(() => {
+    if (selectedMonth !== "") return [];
+    if (selectedYear !== "") {
+      return monthBuckets.filter(
+        (bucket) => bucket.period.slice(0, 4) === selectedYear,
+      );
+    }
+    return yearBuckets;
+  });
+  const averageAsleep = $derived(
+    sleepSummary?.average_asleep_s ?? loadedAverageAsleep,
+  );
+  const averageEfficiency = $derived(
+    sleepSummary?.average_efficiency ?? loadedAverageEfficiency,
+  );
   const heroEyebrow = $derived(
     isPeriodFiltered
       ? `Selected night · ${selectedMonth !== "" ? formatPeriod(`${selectedMonth}-01T00:00:00Z`, "month") : selectedYear}`
       : `Last night · ${selected ? formatDateOnly(selected.wake_date) : ""}`,
   );
   const nightsHeading = $derived(
-    isPeriodFiltered ? "Nights in selected period" : "Recent nights",
+    selectedMonth !== ""
+      ? "Sessions in selected month"
+      : "Recent session detail",
   );
   const monthMaxAsleep = $derived(
     Math.max(1, ...monthBuckets.map((bucket) => bucket.average_asleep_s)),
@@ -171,12 +269,12 @@
   }
 
   function syncPeriodUrl() {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     if (selectedYear) url.searchParams.set("year", selectedYear);
     else url.searchParams.delete("year");
     if (selectedMonth) url.searchParams.set("month", selectedMonth);
     else url.searchParams.delete("month");
-    if (url.href !== page.url.href) replaceState(url, page.state);
+    if (url.href !== window.location.href) replaceState(url, page.state);
   }
 
   async function selectSession(session: SleepSession) {
@@ -294,9 +392,7 @@
       yearBuckets = years.buckets;
       monthBuckets = months.buckets;
       const validYears = new Set(
-        yearBuckets.map((bucket) =>
-          String(new Date(bucket.period).getUTCFullYear()),
-        ),
+        yearBuckets.map((bucket) => bucket.period.slice(0, 4)),
       );
       const validMonths = new Set(
         monthBuckets.map((bucket) => bucket.period.slice(0, 7)),
@@ -313,13 +409,8 @@
   }
 
   function formatPeriod(period: string, granularity: "month" | "year"): string {
-    const date = new Date(period);
-    if (granularity === "year") return String(date.getUTCFullYear());
-    return new Intl.DateTimeFormat("en", {
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    }).format(date);
+    if (granularity === "year") return period.slice(0, 4);
+    return formatMonth(period.slice(0, 7));
   }
 
   onMount(async () => {
@@ -345,17 +436,6 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
-      <div class="period-toolbar">
-        <PeriodSelector
-          years={periodYears}
-          months={periodMonths}
-          year={selectedYear}
-          month={selectedMonth}
-          monthDisabled={!selectedYear}
-          onYear={changeYear}
-          onMonth={changeMonth}
-        />
-      </div>
       <ThemeRouteRenderer
         route="sleep"
         props={{
@@ -363,9 +443,34 @@
           selected,
           averageAsleep,
           averageEfficiency,
-          onSelect: (session: SleepSession) => (selected = session),
+          sleepSummary,
+          rollupBuckets,
+          rollupGranularity,
+          rollupScope: sleepScope,
+          onOpenDetail: (session: SleepSession) =>
+            void goto(`/night/${session.id}`),
         }}
-      />
+      >
+        {#snippet children()}
+          <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
+            <PeriodSelector
+              years={periodYears}
+              months={periodMonths}
+              year={selectedYear}
+              month={selectedMonth}
+              monthDisabled={!selectedYear}
+              surface="inline"
+              onYear={changeYear}
+              onMonth={changeMonth}
+            />
+          </PeriodToolbar>
+          <SleepScopeSummary
+            summary={sleepSummary}
+            scope={sleepScope}
+            theme={theme.language()}
+          />
+        {/snippet}
+      </ThemeRouteRenderer>
       {#if hasMore}
         <div
           bind:this={loadMoreSentinel}
@@ -399,17 +504,23 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
-      <div class="period-toolbar">
+      <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
         <PeriodSelector
           years={periodYears}
           months={periodMonths}
           year={selectedYear}
           month={selectedMonth}
           monthDisabled={!selectedYear}
+          surface="inline"
           onYear={changeYear}
           onMonth={changeMonth}
         />
-      </div>
+      </PeriodToolbar>
+      <SleepScopeSummary
+        summary={sleepSummary}
+        scope={sleepScope}
+        theme={theme.language()}
+      />
       <section class="hero tile">
         <div class="hero-orb"></div>
         <div class="hero-topline">
@@ -468,19 +579,23 @@
 
       <section class="insight-strip" aria-label="Recent sleep context">
         <StatTile
-          label="Recent main sleep"
-          value={mainSleep.length.toLocaleString()}
-          sub="In the loaded recent window"
+          label="Main sleep"
+          value={(
+            sleepSummary?.main_sleep_count ?? loadedMainSleep.length
+          ).toLocaleString()}
+          sub="Canonical sessions in scope"
         />
         <StatTile
-          label="Average asleep"
-          value={formatDuration(averageAsleep)}
-          sub="Recent main-sleep sessions"
+          label="Naps"
+          value={(sleepSummary?.nap_count ?? 0).toLocaleString()}
+          sub="Separate from main sleep"
         />
         <StatTile
-          label="Average efficiency"
-          value={`${Math.round(averageEfficiency * 100)}%`}
-          sub="Asleep / time in bed"
+          label="Wake dates"
+          value={(
+            sleepSummary?.observed_wake_dates ?? loadedMainSleep.length
+          ).toLocaleString()}
+          sub="Distinct canonical dates"
         />
       </section>
 
@@ -503,7 +618,7 @@
               <div class="year-card">
                 <div class="year-heading">
                   <strong>{formatPeriod(bucket.period, "year")}</strong><span
-                    >{bucket.session_count} nights</span
+                    >{bucket.session_count} sessions</span
                   >
                 </div>
                 <div class="year-bar">
@@ -526,7 +641,7 @@
                   ? formatPeriod(focusedBucket.period, "month")
                   : selectedYear}</span
               ><strong
-                >{focusedBucket.session_count} nights · {formatDuration(
+                >{focusedBucket.session_count} sessions · {formatDuration(
                   focusedBucket.average_asleep_s,
                 )} average asleep</strong
               ><em
@@ -535,7 +650,7 @@
             </div>
           {/if}
           <div class="trend-legend">
-            <span><i class="dot dot-session"></i>Recorded nights</span><span
+            <span><i class="dot dot-session"></i>Recorded sessions</span><span
               >Average efficiency shown per year</span
             >
           </div>
@@ -613,34 +728,30 @@
             <p class="muted">Select a night to see the stage timeline.</p>
           </div>
           <span class="section-note"
-            >{sessions.length}{hasMore ? "+" : ""} nights in period</span
+            >{sessions.length}{hasMore ? "+" : ""} loaded · {sleepSummary?.session_count ??
+              sessions.length} total sessions</span
           >
         </header>
         <div class="night-layout">
           <div bind:this={nightListContainer} class="night-list">
             {#each sessions as session (session.id)}
-              <div class="night-row-wrap">
-                <button
-                  class:selected={selected.id === session.id}
-                  class="night-row"
-                  type="button"
-                  onclick={() => selectSession(session)}
-                  onmouseenter={() => selectSession(session)}
-                  onfocus={() => selectSession(session)}
-                  aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? "primary overnight sleep" : "short session"}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
+              <button
+                class:selected={selected.id === session.id}
+                class="night-row"
+                type="button"
+                onclick={() => void goto(`/night/${session.id}`)}
+                onmouseenter={() => selectSession(session)}
+                onfocus={() => selectSession(session)}
+                aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? "primary overnight sleep" : "short session"}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
+              >
+                <span class="night-date"
+                  >{formatDateOnly(session.wake_date)}</span
+                ><span>{formatDuration(session.asleep_s)}</span><b
+                  >{Math.round(session.efficiency * 100)}%</b
+                ><em class:primary={session.is_main_sleep}
+                  >{session.is_main_sleep ? "Primary" : "Short"}</em
                 >
-                  <span class="night-date"
-                    >{formatDateOnly(session.wake_date)}</span
-                  ><span>{formatDuration(session.asleep_s)}</span><b
-                    >{Math.round(session.efficiency * 100)}%</b
-                  ><em class:primary={session.is_main_sleep}
-                    >{session.is_main_sleep ? "Primary" : "Short"}</em
-                  >
-                </button>
-                <a class="night-detail-link" href={`/night/${session.id}`}
-                  >Open</a
-                >
-              </div>
+              </button>
             {/each}
             <div
               bind:this={loadMoreSentinel}
@@ -663,16 +774,8 @@
                 Loading stages…
               </p>{:else}<SleepTimelineChart {segments} />{/if}
             <div class="timeline-axis">
-              <span
-                >{new Date(selected.started_at).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}</span
-              ><span
-                >{new Date(selected.ended_at).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}</span
+              <span>{formatDate(selected.started_at)}</span><span
+                >{formatDate(selected.ended_at)}</span
               >
             </div>
           </div>
@@ -722,11 +825,6 @@
     font-size: 0.78rem;
   }
 
-  .period-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 1rem;
-  }
   .theme-load-more {
     display: grid;
     min-height: 2rem;
@@ -1066,12 +1164,6 @@
     max-height: 19rem;
     overflow: auto;
   }
-  .night-row-wrap {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    border-top: 1px solid var(--border);
-  }
   .night-row {
     display: grid;
     grid-template-columns: 1fr auto auto auto;
@@ -1108,16 +1200,6 @@
   }
   .night-row em.primary {
     color: var(--accent);
-  }
-  .night-detail-link {
-    padding: 0.35rem 0.45rem;
-    color: var(--accent);
-    font-size: 0.72rem;
-    text-decoration: none;
-  }
-  .night-detail-link:hover,
-  .night-detail-link:focus-visible {
-    text-decoration: underline;
   }
   .timeline-card {
     align-self: center;
@@ -1160,7 +1242,7 @@
     cursor: wait;
     opacity: 0.6;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .hero-topline,
     .section-heading {
       flex-direction: column;
@@ -1187,7 +1269,7 @@
       gap: 0.25rem;
     }
   }
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     .hero-metrics,
     .insight-strip,
     .analysis-grid,

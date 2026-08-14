@@ -116,7 +116,6 @@ func mapRecord(record collectionRecord) observations.Media {
 	rating := normalizeRate(record.Rate)
 	listEvent := observations.MediaEvent{
 		EventType:     "list_state",
-		EventAt:       updatedAt,
 		SourceEventID: strconv.Itoa(subject.ID),
 		Unit:          unit,
 		Position:      position,

@@ -1,34 +1,43 @@
 # Frontend theme architecture
 
-Status: implementation contract for curated Iroha design languages
+Status: implementation contract for registered design languages and adopted compositions
 
 ## Goal
 
-An Iroha theme is a complete visual and interaction language. Switching it may change the shell, navigation, page composition, typography, chart treatment, surface vocabulary, and motion. It must not
-change API contracts, data meaning, privacy boundaries, or null/error behavior.
+An Iroha design language is a complete visual and interaction language. Switching it may change the shell, navigation, page composition, typography, chart treatment, surface vocabulary, and motion. An
+adopted design composition is a real layout system built on the same canonical view model. Neither may change API contracts, data meaning, privacy boundaries, or null/error behavior.
 
 Light and dark are contrast modes. A design language is a product-level art direction. They are independent axes:
 
 ```text
-design language: Field Journal / Grapher / Atlas / Phenology / Sound Map / Archive
+registered language: Field Journal / Grapher / Atlas / Phenology / Sound Map / Archive
 contrast mode:   light / dark
 ```
 
 ## Source of truth
 
-The theme registry is the only place that defines the supported languages:
+The shared theme package is the only place that defines supported registered languages and adopted design compositions. The current web tree is migration debt, not the target home:
 
 ```text
-apps/iroha-web/src/lib/themes/
-├── registry.ts          metadata and component contracts
-├── types.ts             shared theme/component types
-├── tokens.css           semantic token defaults and language overrides
+packages/iroha-shared/src/theme-ui/
+├── registry.ts          shared component registration
+├── context.svelte.ts    shared theme runtime contract
 ├── field-journal/
 ├── grapher/
 ├── atlas/
 ├── phenology/
 ├── sound-map/
 └── archive/
+
+packages/iroha-shared/src/
+├── themes.ts            registered language identities, lenses, and route contracts
+├── themes.css           semantic language tokens
+├── design-compositions.ts  adopted composition identities and view contracts
+├── PeriodSelector.svelte
+└── SelectControl.svelte
+
+packages/iroha-shared/src/theme-ui/compositions/
+└── ...                   package-owned adopted layout implementations
 ```
 
 Each theme directory owns curated visual components, not a second copy of the application data layer:
@@ -41,11 +50,11 @@ theme/
 ├── Activities.svelte    archive/list composition
 ├── Sleep.svelte         night composition
 ├── Media.svelte         library composition
-└── Share.svelte         public/editorial composition
+└── Reports.svelte       monthly analytical composition
 ```
 
-Themes may compose shared data visualizations and primitives, but route files must not contain six-way visual conditionals. A route loads a stable view model and delegates rendering to the selected
-theme component.
+Themes may compose shared data visualizations and primitives, but route files must not contain a visual conditional over registered languages or adopted compositions. A route loads a stable view model
+and delegates rendering to the selected shared component.
 
 ## Layer boundaries
 
@@ -56,7 +65,7 @@ projection boundaries.
 
 ### Shared primitives
 
-`src/lib/components/` contains behaviorally reusable primitives:
+`packages/iroha-shared/src/theme-ui/components/` contains behaviorally reusable theme primitives:
 
 - charts, maps, gauges, timelines, shelves, tables;
 - loading, empty, error, partial, and stale states;
@@ -77,29 +86,31 @@ Theme components own:
 
 They must not invent metrics or bypass shared state contracts.
 
+### Report composition contract
+
+Reports are a deliberate test of the boundary. The route owns the selected month, the server-generated monthly envelope, the twelve-month series, and URL/error/loading state. The shared primitives own
+chart/table parity, canonical units, coverage, provenance, and export behavior.
+
+Each registered language owns its report composition in its own `packages/iroha-shared/src/theme-ui/<language>/Reports.svelte`. Those files choose domain order, chart orientation, hierarchy,
+typography, density, and the placement of the evidence list. There is no universal five-domain report renderer. A new shared primitive may provide truthful behavior or accessibility, but it must not
+silently decide the visual hierarchy for every language.
+
 ## Registry contract
 
-The registry must provide typed metadata for every language:
+The shared registry must provide typed metadata and actual Svelte components for every registered language and adopted composition. Identity and page-lens metadata lives in the shared manifest; the
+web app supplies only data and navigation adapters:
 
 ```ts
 type ThemeDefinition = {
-  id: DesignLanguage;
-  label: string;
-  description: string;
-  shell: Component;
-  routes: {
-    today: Component;
-    daily: Component;
-    activities: Component;
-    sleep: Component;
-    media: Component;
-    share: Component;
-  };
-  tokens: string;
+  identity: ThemeIdentity;
+  implementation: ThemeImplementationStatus;
+  primitives: ThemePrimitives;
+  components: Record<ThemeRoute, Component>;
 };
 ```
 
-The registry is exhaustive. Adding a language without all required production route components is a type/check failure, not a partially working option.
+The language registry is exhaustive for every production route. The composition registry is open-ended but equally concrete: adding a composition requires a shared implementation, a canonical
+view-model contract, a runnable design-workshop specimen, and an explicit adoption status. A URL tab or CSS-only variant is not an implementation.
 
 ## Community-standard implementation rules
 
@@ -109,9 +120,9 @@ The registry is exhaustive. Adding a language without all required production ro
 4. Keep API loading in route/page modules and visual rendering in components.
 5. Keep design tokens semantic; do not route raw hex values into data logic.
 6. Keep accessibility behavior in shared primitives unless the theme has a documented interaction difference.
-7. Keep each theme’s assets and styles colocated with the theme component.
-8. Use the design lab as a review surface, not as a hidden production runtime.
-9. Prefer one complete vertical slice over six superficial variants.
+7. Keep each theme’s assets and styles colocated with the shared theme component under `packages/`.
+8. Use the design workshop as a real implementation and review surface. Its layout compositions use canonical fixtures and must remain runnable; they are not static concept boards.
+9. Prefer one complete vertical slice over superficial variants, while keeping every adopted composition real.
 10. Keep the existing route tree and API paths stable while migrating.
 
 ## Definition of a complete theme
@@ -128,12 +139,24 @@ A theme is not complete when its colors change. It is complete when a viewer can
 
 The same imported day must be rendered through every accepted theme in the design lab before a theme is promoted to production.
 
+## Design workshop compositions
+
+The `/design` route contains two real, complementary implementation axes:
+
+- registered design languages, selected through the theme registry;
+- package-owned layout compositions selected through the design-composition registry. The current set is Editorial, Command center, Chronicle, Cover page, Personal OS, Field journal, and Quiet; this
+  list is extensible and is not a ceiling on future Iroha design systems.
+
+The layout compositions are not throwaway mockups. They are executable Svelte compositions bound to the same canonical Today view model, with stable URL selection, accessible controls, responsive
+styles, and deterministic fallback data. They are first-class shared implementations alongside the registered languages, and the acceptance matrix must exercise all of them rather than silently
+reducing them to screenshots. The public-site fixture workbench is the cross-app consumer for these compositions; its 84-case mobile smoke covers every registered language, adopted composition, and
+light/dark mode.
+
 ## Migration order
 
-1. Move the current language metadata into the typed registry.
-2. Create the shared theme host and preserve the current Field Journal route as the reference implementation.
-3. Build a complete Grapher vertical slice: shell, Today, Share, and chart/map/ table view primitives with provenance treatment.
-4. Review the same data in the design lab at required breakpoints.
-5. Migrate Daily, Activities, Sleep, and Media for the accepted languages.
-6. Add Atlas, Phenology, Sound Map, and Archive only after their route contracts are complete.
-7. Remove obsolete route-local visual conditionals only after the replacement has passed the visual, accessibility, and data-boundary gates.
+1. **Complete:** define the shared view models and move language metadata and the production registry into the shared theme package.
+2. **Complete:** promote the workshop compositions into the shared composition registry with real implementations.
+3. **Complete:** build shared route-family slices with web and public-site adapters consuming the package-owned assets.
+4. **Complete for v0.4:** review the same fixture/API data in the design lab at the required breakpoints and contrast modes.
+5. **Complete for v0.4:** migrate Daily, Activities, Sleep, Media, Expenses, Reports, and Metrics for every registered language; adopted compositions are exercised by the shared design workbench.
+6. **Complete for v0.4:** remove obsolete route-local visual conditionals after the visual, accessibility, and data-boundary gates passed.

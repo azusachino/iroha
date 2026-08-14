@@ -1,16 +1,19 @@
 <script lang="ts">
-  import { replaceState } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
   import { onMount, untrack } from "svelte";
   import { page } from "$app/state";
   import {
     getActivitySummary,
+    getMetricSeries,
     listActivities,
     type Activity,
+    type ActivityDisplaySummary,
+    type ActivitySummary,
     type ListActivitiesParams,
-    type Summary,
+    type MetricSeriesResponse,
   } from "$lib/api";
-  import SportBadge from "$lib/components/SportBadge.svelte";
-  import StatTile from "$lib/components/StatTile.svelte";
+  import SportBadge from "@iroha/shared/SportBadge.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
   import {
     formatDate,
     formatDateOnly,
@@ -20,17 +23,22 @@
     formatHr,
     formatElevation,
   } from "$lib/format";
+  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import { currentYear, MONTH_OPTIONS, monthBounds } from "@iroha/shared/month";
   import { sportColor, sportLabel } from "$lib/sport";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   // Draft filter inputs (bound to the form); committed to `applied` on submit
   // so "Load more" keeps paging the same query the user actually ran.
   const initialSport = page.url.searchParams.get("sport") ?? "";
   const initialYearParam = page.url.searchParams.get("year") ?? "";
-  const initialYear = /^\d{4}$/.test(initialYearParam) ? initialYearParam : "";
+  const initialYear = /^\d{4}$/.test(initialYearParam)
+    ? initialYearParam
+    : currentYear();
   const initialMonthParam = page.url.searchParams.get("month") ?? "";
   const initialMonth = /^(?:[1-9]|1[0-2])$/.test(initialMonthParam)
     ? initialMonthParam
@@ -46,27 +54,19 @@
   let cursor = $state<string | null>(null);
   let hasMore = $state(false);
   let error = $state<string | null>(null);
-  let summary = $state<Summary | null>(null);
+  let summary = $state<ActivitySummary | null>(null);
   let summaryLoading = $state(true);
+  let activitySeries = $state<MetricSeriesResponse | null>(null);
+  let activityDurationSeries = $state<MetricSeriesResponse | null>(null);
+  let activitySeriesLoading = $state(true);
+  let activitySeriesError = $state<string | null>(null);
+  let activitySeriesRequest = 0;
   const theme = useTheme();
   const sportOptions = $derived(
     summary ? summary.by_sport.map((b) => b.key).sort() : [],
   );
 
-  const months = [
-    { value: "1", label: "January" },
-    { value: "2", label: "February" },
-    { value: "3", label: "March" },
-    { value: "4", label: "April" },
-    { value: "5", label: "May" },
-    { value: "6", label: "June" },
-    { value: "7", label: "July" },
-    { value: "8", label: "August" },
-    { value: "9", label: "September" },
-    { value: "10", label: "October" },
-    { value: "11", label: "November" },
-    { value: "12", label: "December" },
-  ];
+  const months = MONTH_OPTIONS;
 
   const years = $derived(
     summary
@@ -85,15 +85,92 @@
     syncUrl();
   }
 
+  function metricSport(value: string): string {
+    const normalized = value.toLowerCase();
+    if (normalized.includes("hik")) return "hike";
+    if (
+      normalized.includes("ride") ||
+      normalized.includes("cycl") ||
+      normalized.includes("bik")
+    )
+      return "ride";
+    if (normalized.includes("run")) return "run";
+    if (normalized.includes("swim")) return "swim";
+    if (normalized.includes("walk")) return "walk";
+    return "other";
+  }
+
+  function chartWindow(): {
+    from: string;
+    to: string;
+    grain: "day" | "month";
+  } | null {
+    if (selectedYear && selectedMonth) {
+      const month = `${selectedYear}-${selectedMonth.padStart(2, "0")}`;
+      const bounds = monthBounds(month);
+      return { ...bounds, grain: "day" };
+    }
+    if (selectedYear) {
+      return {
+        from: `${selectedYear}-01-01`,
+        to: `${Number(selectedYear) + 1}-01-01`,
+        grain: "month",
+      };
+    }
+    const months = (summary?.by_month ?? []).map((bucket) => bucket.key).sort();
+    if (months.length === 0) return null;
+    return {
+      from: `${months[0]}-01`,
+      to: monthBounds(months[months.length - 1]).to,
+      grain: "month",
+    };
+  }
+
+  async function loadActivitySeries() {
+    const window = chartWindow();
+    if (!window) {
+      activitySeries = null;
+      activityDurationSeries = null;
+      activitySeriesLoading = false;
+      activitySeriesError = null;
+      return;
+    }
+    const requestId = ++activitySeriesRequest;
+    activitySeriesLoading = true;
+    activitySeriesError = null;
+    try {
+      const params = {
+        ...window,
+        dimensions: sportType ? [`sport:${metricSport(sportType)}`] : [],
+      };
+      const [distance, duration] = await Promise.all([
+        getMetricSeries("movement.distance_m", params),
+        getMetricSeries("movement.duration_s", params),
+      ]);
+      if (requestId === activitySeriesRequest) {
+        activitySeries = distance;
+        activityDurationSeries = duration;
+      }
+    } catch (cause) {
+      if (requestId !== activitySeriesRequest) return;
+      activitySeries = null;
+      activityDurationSeries = null;
+      activitySeriesError =
+        cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      if (requestId === activitySeriesRequest) activitySeriesLoading = false;
+    }
+  }
+
   function syncUrl() {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     if (sportType) url.searchParams.set("sport", sportType);
     else url.searchParams.delete("sport");
     if (selectedYear) url.searchParams.set("year", selectedYear);
     else url.searchParams.delete("year");
     if (selectedMonth) url.searchParams.set("month", selectedMonth);
     else url.searchParams.delete("month");
-    if (url.search !== page.url.search) replaceState(url, page.state);
+    if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
   // Smaller first page than the server's 50 default — lighter initial paint,
@@ -147,13 +224,6 @@
     }
   }
 
-  function apply(event: SubmitEvent) {
-    event.preventDefault();
-    applied = buildParams();
-    cursor = null;
-    load(false);
-  }
-
   function clear() {
     sportType = "";
     selectedYear = "";
@@ -172,13 +242,7 @@
     }
   }
 
-  interface DisplaySummary {
-    activity_count: number;
-    distance_m: number;
-    duration_s: number;
-  }
-
-  const displaySummary = $derived.by<DisplaySummary>(() => {
+  const displaySummary = $derived.by<ActivityDisplaySummary>(() => {
     if (!summary) {
       return { activity_count: 0, distance_m: 0, duration_s: 0 };
     }
@@ -249,11 +313,13 @@
     const _s = sportType;
     const _y = selectedYear;
     const _m = selectedMonth;
+    const _summary = summary;
 
     untrack(() => {
       applied = buildParams();
       cursor = null;
       void load(false);
+      if (_summary) void loadActivitySeries();
     });
   });
 
@@ -335,30 +401,47 @@
         activities,
         displaySummary,
         sportType,
-        selectedYear,
-        selectedMonth,
-        years,
         sportOptions,
-        months,
         loading,
         error,
         hasMore,
         loadingMore,
+        activitySeries,
+        activityDurationSeries,
+        activitySeriesLoading,
+        activitySeriesError,
+        activitySeriesScope: selectedMonth
+          ? `${selectedYear}-${selectedMonth.padStart(2, "0")}`
+          : selectedYear || "Lifetime",
         onSportType: (value: string) => {
           sportType = value;
           syncUrl();
         },
-        onYear: (value: string) => {
-          selectedYear = value;
-          handleYearChange();
-        },
-        onMonth: (value: string) => {
-          selectedMonth = value;
-          handleMonthChange();
-        },
         onLoadMore: () => void load(true),
+        onOpenDetail: (id: string) => void goto(`/motion/${id}`),
       }}
-    />
+    >
+      {#snippet children()}
+        <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
+          <PeriodSelector
+            year={selectedYear}
+            month={selectedMonth}
+            {years}
+            {months}
+            monthDisabled={!selectedYear}
+            surface="inline"
+            onYear={(value) => {
+              selectedYear = value;
+              handleYearChange();
+            }}
+            onMonth={(value) => {
+              selectedMonth = value;
+              handleMonthChange();
+            }}
+          />
+        </PeriodToolbar>
+      {/snippet}
+    </ThemeRouteRenderer>
   {:else}
     <RouteIntro
       eyebrow="Motion / activity archive"
@@ -367,6 +450,25 @@
       actionHref="/"
       actionLabel="Back to Today"
     />
+
+    <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
+      <PeriodSelector
+        year={selectedYear}
+        month={selectedMonth}
+        {years}
+        {months}
+        monthDisabled={!selectedYear}
+        surface="inline"
+        onYear={(value) => {
+          selectedYear = value;
+          handleYearChange();
+        }}
+        onMonth={(value) => {
+          selectedMonth = value;
+          handleMonthChange();
+        }}
+      />
+    </PeriodToolbar>
 
     <div class="stat-strip" aria-label="Activity summary">
       <StatTile
@@ -401,28 +503,16 @@
       <div class="filter-fields">
         <label
           >Sport
-          <select bind:value={sportType}>
+          <select
+            value={sportType}
+            onchange={(event) => {
+              sportType = (event.currentTarget as HTMLSelectElement).value;
+              syncUrl();
+            }}
+          >
             <option value="">All sports</option>
             {#each sportOptions as option (option)}
               <option value={option}>{sportLabel(option)}</option>
-            {/each}
-          </select>
-        </label>
-        <label
-          >Year
-          <select bind:value={selectedYear} onchange={handleYearChange}>
-            <option value="">All years</option>
-            {#each years as year}
-              <option value={year}>{year}</option>
-            {/each}
-          </select>
-        </label>
-        <label
-          >Month
-          <select bind:value={selectedMonth} disabled={!selectedYear}>
-            <option value="">All months</option>
-            {#each months as month}
-              <option value={month.value}>{month.label}</option>
             {/each}
           </select>
         </label>
@@ -507,7 +597,7 @@
         {/each}
       </ul>
       {#if hasMore}
-        <div bind:this={sentinel} class="load-sentinel">
+        <div class="load-sentinel">
           <button
             class="load-more"
             onclick={() => load(true)}
@@ -517,6 +607,14 @@
         </div>
       {/if}
     {/if}
+  {/if}
+  {#if hasMore}
+    <div
+      bind:this={sentinel}
+      class="motion-load-sentinel"
+      data-testid="motion-load-sentinel"
+      aria-hidden="true"
+    ></div>
   {/if}
 </section>
 
@@ -635,7 +733,7 @@
     color: var(--text-muted);
     font-size: 0.8rem;
   }
-  @media (max-width: 800px) {
+  @media (max-width: 1024px) {
     .stat-strip {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -647,7 +745,7 @@
       flex-direction: column;
     }
   }
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .activity-grid {
       grid-template-columns: 1fr;
     }

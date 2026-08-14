@@ -3,7 +3,13 @@ name: Public site
 on:
   push:
     branches: [main]
-    paths: ["apps/iroha-public-site/**"]
+    paths:
+      - "apps/iroha-public-site/**"
+      - "packages/iroha-shared/**"
+      - ".github/workflows/public-site.yml"
+      - ".mise.toml"
+      - "Makefile"
+      - "VERSION"
   workflow_dispatch:
 
 permissions:

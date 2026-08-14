@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"net"
 	"net/http"
@@ -16,9 +17,12 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/tasks"
 	"github.com/go-chi/chi/v5"
@@ -34,7 +38,15 @@ import (
 // clear of normal browsing/history-wide sweeps accordingly.
 const apiRateLimitPerMin = 6000
 
-const readCacheTTL = 24 * time.Hour
+const (
+	// Bump this when a cached JSON representation changes shape. The cache is
+	// shared across rollouts, so a new server must not serve an older contract.
+	readCacheKeyVersion = "v2"
+	readCacheTTL        = 24 * time.Hour
+	readyzTimeout       = 2 * time.Second
+	statusReady         = "ready"
+	statusNotReady      = "not_ready"
+)
 
 type Dependencies struct {
 	Config                 config.Config
@@ -42,8 +54,11 @@ type Dependencies struct {
 	ActivityService        *activities.Service
 	SleepService           *sleep.Service
 	DailyService           *daily.Service
+	ExpenseService         *expenses.Service
 	MediaService           *media.Service
 	MediaResolutionService *mediaresolution.Service
+	MetricRegistry         *metrics.Registry
+	MetricSeriesService    *metricseries.Service
 	BriefingRegistry       *briefing.Registry
 	ImportService          *imports.Service
 	RawFileService         *rawfiles.Service
@@ -52,6 +67,7 @@ type Dependencies struct {
 	JobEnqueuer            imports.Enqueuer
 	JobsService            *jobs.Service
 	TaskService            *tasks.Service
+	ReadyCheck             func(context.Context) error
 	MaxUploadBytes         int64
 	AllowedOrigins         []string
 }
@@ -62,6 +78,9 @@ type Server struct {
 }
 
 func NewServer(deps Dependencies) http.Handler {
+	if deps.Config.Server.Timezone == "" {
+		deps.Config.Server.Timezone = config.Default().Server.Timezone
+	}
 	if deps.Logger == nil {
 		deps.Logger = slog.Default()
 	}
@@ -75,6 +94,9 @@ func NewServer(deps Dependencies) http.Handler {
 	}
 	if server.deps.BriefingRegistry == nil {
 		server.deps.BriefingRegistry, _ = briefing.NewRegistry()
+	}
+	if server.deps.MetricRegistry == nil {
+		server.deps.MetricRegistry, _ = metrics.DefaultRegistry()
 	}
 	server.routes()
 	return server
@@ -91,6 +113,7 @@ func (s *Server) routes() {
 	s.mux.Use(s.accessLog)
 
 	s.mux.Get("/healthz", s.handleHealthz)
+	s.mux.Get("/readyz", s.handleReadyz)
 	s.mux.Route("/api/v1", func(r chi.Router) {
 		// Private API: CORS limited to configured origins. Unauthenticated —
 		// see the rate-limit budget comment above for why.
@@ -98,6 +121,9 @@ func (s *Server) routes() {
 		r.Use(limitByIP(apiRateLimitPerMin))
 		r.Use(s.readCache)
 		r.Get("/briefing", s.handleBriefing)
+		r.Get("/metrics", s.handleListMetrics)
+		r.Get("/metrics/{metricId}", s.handleGetMetric)
+		r.Get("/metrics/{metricId}/series", s.handleMetricSeries)
 		r.Route("/raw-files", func(r chi.Router) {
 			r.Post("/", s.handleCreateRawFile)
 			r.Get("/", s.handleListRawFiles)
@@ -126,6 +152,17 @@ func (s *Server) routes() {
 		r.Route("/daily", func(r chi.Router) {
 			r.Get("/", s.handleListDaily)
 			r.Get("/aggregates", s.handleDailyAggregates)
+		})
+		r.Route("/expenses", func(r chi.Router) {
+			r.Post("/", s.handleCreateExpense)
+			r.Get("/", s.handleListExpenses)
+			r.Get("/{expenseId}", s.handleGetExpense)
+			r.Put("/{expenseId}", s.handleReplaceExpense)
+			r.Delete("/{expenseId}", s.handleDeleteExpense)
+		})
+		r.Route("/reports", func(r chi.Router) {
+			r.Get("/monthly-series", s.handleMonthlyReportSeries)
+			r.Get("/monthly", s.handleMonthlyReport)
 		})
 		r.Route("/media", func(r chi.Router) {
 			r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
@@ -179,7 +216,7 @@ func keyByRemoteIP(r *http.Request) (string, error) {
 func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins: origins,
-		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodOptions},
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete, http.MethodOptions},
 		AllowedHeaders: []string{"Accept", "Content-Type"},
 		ExposedHeaders: []string{"Retry-After", "X-Request-ID", "X-Iroha-Cache"},
 		MaxAge:         300,
@@ -247,12 +284,17 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 	if r.URL.Path == "/api/v1/media/sync" || strings.HasPrefix(r.URL.Path, "/api/v1/media/sync/") {
 		return "", false
 	}
+	if r.URL.Path == "/api/v1/expenses" || strings.HasPrefix(r.URL.Path, "/api/v1/expenses/") ||
+		r.URL.Path == "/api/v1/reports/monthly" || r.URL.Path == "/api/v1/reports/monthly-series" {
+		return "", false
+	}
 	for prefix, namespace := range map[string]string{
 		"/api/v1/activities": cache.NamespaceActivities,
 		"/api/v1/briefing":   cache.NamespaceBriefing,
 		"/api/v1/daily":      cache.NamespaceDaily,
 		"/api/v1/media":      cache.NamespaceMedia,
 		"/api/v1/sleep":      cache.NamespaceSleep,
+		"/api/v1/metrics":    cache.NamespaceMetrics,
 	} {
 		if r.URL.Path == prefix || strings.HasPrefix(r.URL.Path, prefix+"/") {
 			return namespace, true
@@ -262,7 +304,7 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 }
 
 func readCacheKey(r *http.Request) string {
-	key := r.Method + " " + r.URL.Path
+	key := readCacheKeyVersion + " " + r.Method + " " + r.URL.Path
 	if query := r.URL.Query().Encode(); query != "" {
 		key += "?" + query
 	}
@@ -296,4 +338,19 @@ func (s *Server) accessLog(next http.Handler) http.Handler {
 
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
+	if s.deps.ReadyCheck == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": statusNotReady})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), readyzTimeout)
+	defer cancel()
+	if err := s.deps.ReadyCheck(ctx); err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": statusNotReady})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": statusReady})
 }

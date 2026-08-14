@@ -1,0 +1,20 @@
+{
+  "granularity": "month",
+  "buckets": [
+    {
+      "period": "2026-01",
+      "session_count": 2,
+      "main_sleep_count": 1,
+      "nap_count": 1,
+      "observed_wake_dates": 1,
+      "average_asleep_s": 28800,
+      "average_time_in_bed_s": 30000,
+      "average_efficiency": 0.96,
+      "core_s": 14400,
+      "deep_s": 7200,
+      "rem_s": 7200,
+      "awake_s": 1200,
+      "unspecified_s": 0
+    }
+  ]
+}

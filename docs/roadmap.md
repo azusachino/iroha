@@ -212,24 +212,37 @@ ontology expansion and cross-provider resolution.
 
 ## Release 0.4: Expense Ledger
 
-Goal: capture lightweight personal expenses from Telegram or another external client, then report them beside the existing activity, night, and media aggregates without making iroha own a bot.
+Goal: capture lightweight personal expenses from the local agent client, then report them beside the existing activity, night, and media aggregates without making iroha own a bot.
 
-The intake boundary follows Milestone 6: Telegram remains an external client, while iroha owns authentication, idempotency, canonical records, corrections, and read/report APIs.
+Status: release candidate; implementation, contract checks, public-site checks, and dev deployment verification are complete. Gate C remains the final owner approval checkpoint before the release is
+merged/tagged.
+
+Current evidence: [v0.4 full-system audit](audits/2026-08-13-v0.4-full-system-audit.md), [API verification gate](contracts/api-v1-verification.md), and the release-candidate target
+(`make release-candidate`).
+
+The client boundary follows Milestone 6: local agent CLIs are external clients, while iroha owns deterministic validation, idempotency, canonical records, corrections, and read/report APIs. Suzuran's
+expense feature is not part of this release.
+
+Implementation plan v4: [Expense Ledger implementation plan](plans/2026-08-12-expense-ledger.md).
+
+Cross-domain reporting plan: [Monthly report plan](plans/2026-08-12-periodic-reports.md).
 
 First vertical slice:
 
-- Define a canonical `tb_expenses` record with amount, currency, occurred-at date, category, merchant/description, source, and stable external idempotency key.
-- Add an authenticated create/list/update API for external clients, including a compact response suitable for Telegram confirmation messages.
-- Keep corrections and deletion auditable; never silently overwrite an imported expense.
-- Add weekly and monthly aggregates by total, category, and currency, with explicit timezone boundaries.
-- Add an Overview expense tile and weekly/monthly report views without changing existing activity, night, or media totals.
+- Define a canonical `tb_expenses` record with amount, currency, occurred-at date, category, merchant, optional items, and source identity.
+- Add deterministic create/list/update/delete APIs for the local agent client; accept canonical JSON only. A future Telegram client is outside v0.4.
+- Use source identity for safe retries and tombstone deletion; do not add an Iroha agent/OCR or confirmation workflow.
+- Add a separate monthly report API for expenses alongside activity, sleep, daily health, and media sections.
+- Repair the existing activity, sleep, daily-health, media, OpenAPI, date/range, error, cache, and web transport contracts required by the monthly report and general CLI.
+- Add the shared monthly report page and a private `/expenses` management page without changing existing activity, night, daily-health, or media totals.
 - Exclude expenses from public export by default; add a separate opt-in sanitized summary only after the private ledger is trustworthy.
 
 Exit criteria:
 
-- A Telegram-side client can submit one expense, receive a stable confirmation, and safely retry without duplication.
-- A user can correct an expense and see the correction reflected in weekly and monthly reports.
-- Aggregate totals are covered by API and database tests across timezone, currency, retry, and empty-period cases.
+- A local agent client can submit one canonical expense and safely retry without duplication; Telegram/Suzuran remains outside v0.4.
+- A user can correct or undo an expense and see the result reflected in the cross-domain monthly report.
+- Domain and cross-domain totals are covered by API and database tests across timezone, currency, retry, and empty-period cases.
+- Existing domain totals and wire contracts are covered by period-boundary, provider, missing-data, error, OpenAPI, and web-transport tests.
 - The private UI and API make the expense boundary clear, while the public projection remains expense-free by default.
 
 ## Future Module: Reading and Watching Stats

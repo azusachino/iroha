@@ -45,6 +45,11 @@ func TestParseSnapshotMapsAnimeEntryToMediaGraph(t *testing.T) {
 	if media.Events[0].RatingScale == nil || *media.Events[0].RatingScale != 100 {
 		t.Fatalf("list_state RatingScale = %v, want 100 (POINT_100 scoreFormat)", media.Events[0].RatingScale)
 	}
+	for i, event := range media.Events {
+		if event.EventAt != nil {
+			t.Fatalf("event %d EventAt = %v, want nil because provider state has no consumption timestamp", i, event.EventAt)
+		}
+	}
 }
 
 func TestParseSnapshotMapsMangaAndNullableScore(t *testing.T) {

@@ -8,15 +8,22 @@
     type DailyRow,
     type DailyAggregateBucket,
   } from "$lib/api";
-  import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
+  import RingGauge, {
+    type Ring,
+  } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
   import DailySmallMultiples, {
     type SmallMultiple,
-  } from "$lib/components/DailySmallMultiples.svelte";
+  } from "@iroha/shared/theme-ui/components/DailySmallMultiples.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import { formatDateOnly } from "$lib/format";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import {
+    formatDateOnly,
+    formatMonth as formatCanonicalMonth,
+  } from "$lib/format";
+  import { currentYear } from "@iroha/shared/month";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   type Gran = "day" | "month" | "year";
@@ -43,7 +50,7 @@
   const initialYearParam = page.url.searchParams.get("year") ?? "";
   const initialYear = /^\d{4}$/.test(initialYearParam)
     ? initialYearParam
-    : initialMonth.slice(0, 4);
+    : initialMonth.slice(0, 4) || currentYear();
   let selectedMonth = $state(initialMonth);
   let selectedYear = $state(initialYear);
   let rangeFrom = $state<string | undefined>(undefined);
@@ -75,7 +82,10 @@
     availableYears.map((year) => ({ value: year, label: year })),
   );
   const periodMonths = $derived(
-    monthsInScope.map((month) => ({ value: month, label: formatMonth(month) })),
+    monthsInScope.map((month) => ({
+      value: month,
+      label: formatCanonicalMonth(month),
+    })),
   );
   const scopedMonth = $derived(
     monthsInScope.includes(selectedMonth) ? selectedMonth : "",
@@ -83,37 +93,38 @@
   const activeMonth = $derived(scopedMonth || monthsInScope[0] || "");
   const periodLabel = $derived(
     gran === "year"
-      ? scopedYear || "All years"
+      ? scopedYear || "Lifetime"
       : gran === "month"
         ? scopedMonth || `${activeYear} · all months`
         : activeMonth
-          ? formatMonth(activeMonth)
+          ? formatCanonicalMonth(activeMonth)
           : "No month selected",
   );
 
   // Hero uses the latest real ring day, independent of the chosen granularity.
   const latestRingDay = $derived(latestDay);
+  const latestRing = $derived(latestRingDay?.ring);
   const ringData = $derived<Ring[]>(
-    latestRingDay
+    latestRing
       ? [
           {
             label: "Move",
-            value: latestRingDay.move_kcal,
-            goal: latestRingDay.move_goal_kcal,
+            value: latestRing.move_kcal,
+            goal: latestRing.move_goal_kcal,
             unit: "kcal",
             color: "var(--ring-move)",
           },
           {
             label: "Exercise",
-            value: latestRingDay.exercise_min,
-            goal: latestRingDay.exercise_goal_min,
+            value: latestRing.exercise_min,
+            goal: latestRing.exercise_goal_min,
             unit: "min",
             color: "var(--ring-exercise)",
           },
           {
             label: "Stand",
-            value: latestRingDay.stand_hours,
-            goal: latestRingDay.stand_goal_hours,
+            value: latestRing.stand_hours,
+            goal: latestRing.stand_goal_hours,
             unit: "h",
             color: "var(--ring-stand)",
           },
@@ -145,30 +156,23 @@
   function fmtPeriod(iso: string): string {
     const d = new Date(iso);
     if (gran === "year") return String(d.getUTCFullYear());
-    return d.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      timeZone: "UTC",
-    });
-  }
-
-  function formatMonth(period: string): string {
-    return new Date(`${period}-01T00:00:00Z`).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-      timeZone: "UTC",
-    });
+    return formatCanonicalMonth(iso.slice(0, 7));
   }
   function dayToDisp(r: DailyRow): Disp {
-    const ring = r.move_goal_kcal > 0;
+    const ring = r.ring;
+    const hasRing = ring != null && ring.move_goal_kcal > 0;
     return {
       label: formatDateOnly(r.day),
       period: r.day.slice(0, 10),
       days: null,
-      move: ring ? r.move_kcal : null,
-      exercise: ring ? r.exercise_min : null,
-      stand: ring ? r.stand_hours : null,
-      moveClosedPct: ring ? (r.move_kcal >= r.move_goal_kcal ? 100 : 0) : null,
+      move: hasRing ? ring.move_kcal : null,
+      exercise: hasRing ? ring.exercise_min : null,
+      stand: hasRing ? ring.stand_hours : null,
+      moveClosedPct: hasRing
+        ? ring.move_kcal >= ring.move_goal_kcal
+          ? 100
+          : 0
+        : null,
       steps: r.steps ?? null,
       distance: r.distance_km ?? null,
       resting_hr: r.resting_hr ?? null,
@@ -180,24 +184,25 @@
     };
   }
   function aggToDisp(b: DailyAggregateBucket): Disp {
-    const m = b.metrics ?? {};
-    const move = b.move_kcal_avg || null;
+    const metricValue = (metric: string): number | null =>
+      b.metrics.find((item) => item.metric === metric)?.value ?? null;
+    const move = b.move_kcal_avg === 0 ? null : b.move_kcal_avg;
     return {
       label: fmtPeriod(b.period),
       period: gran === "year" ? b.period.slice(0, 4) : b.period.slice(0, 7),
       days: b.days,
       move,
-      exercise: b.exercise_min_avg || null,
-      stand: b.stand_hours_avg || null,
+      exercise: b.exercise_min_avg === 0 ? null : b.exercise_min_avg,
+      stand: b.stand_hours_avg === 0 ? null : b.stand_hours_avg,
       moveClosedPct: move == null ? null : Math.round(b.move_closed_pct),
-      steps: m.steps ?? null,
-      distance: m.distance_km ?? null,
-      resting_hr: m.resting_hr ?? null,
-      hrv_sdnn: m.hrv_sdnn ?? null,
-      spo2_avg: m.spo2_avg ?? null,
-      respiratory_rate: m.respiratory_rate ?? null,
-      vo2max: m.vo2max ?? null,
-      body_mass_kg: m.body_mass_kg ?? null,
+      steps: metricValue("steps"),
+      distance: metricValue("distance_km"),
+      resting_hr: metricValue("resting_hr"),
+      hrv_sdnn: metricValue("hrv_sdnn"),
+      spo2_avg: metricValue("spo2_avg"),
+      respiratory_rate: metricValue("respiratory_rate"),
+      vo2max: metricValue("vo2max"),
+      body_mass_kg: metricValue("body_mass_kg"),
     };
   }
 
@@ -225,8 +230,8 @@
   const table = $derived([...chrono].reverse());
   const aggregated = $derived(gran !== "day");
 
-  function ser(pick: (d: Disp) => number | null): number[] {
-    return chrono.map((d) => pick(d) ?? Number.NaN);
+  function ser(pick: (d: Disp) => number | null): (number | null)[] {
+    return chrono.map((d) => pick(d));
   }
   const trendCharts = $derived.by<SmallMultiple[]>(() => [
     {
@@ -339,13 +344,13 @@
   }
 
   function syncUrl() {
-    const url = new URL(page.url);
+    const url = new URL(window.location.href);
     url.searchParams.set("gran", gran);
     if (scopedYear) url.searchParams.set("year", scopedYear);
     else url.searchParams.delete("year");
     if (scopedMonth) url.searchParams.set("month", scopedMonth);
     else url.searchParams.delete("month");
-    if (url.search !== page.url.search) replaceState(url, page.state);
+    if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
   // Clicking a bar or table row zooms in one level: a year scopes month
@@ -389,17 +394,6 @@
     {:else if monthly.length === 0 && dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
-      <div class="period-toolbar">
-        <PeriodSelector
-          years={periodYears}
-          months={periodMonths}
-          year={gran === "year" ? selectedYear : activeYear}
-          month={gran === "day" ? activeMonth : selectedMonth}
-          showAllYears={gran === "year"}
-          onYear={selectYear}
-          onMonth={selectMonth}
-        />
-      </div>
       <ThemeRouteRenderer
         route="daily"
         props={{
@@ -411,7 +405,22 @@
           ringData,
           latestRingDay,
         }}
-      />
+      >
+        {#snippet children()}
+          <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
+            <PeriodSelector
+              years={periodYears}
+              months={periodMonths}
+              year={gran === "year" ? selectedYear : activeYear}
+              month={gran === "day" ? activeMonth : selectedMonth}
+              showAllYears={gran === "year"}
+              surface="inline"
+              onYear={selectYear}
+              onMonth={selectMonth}
+            />
+          </PeriodToolbar>
+        {/snippet}
+      </ThemeRouteRenderer>
     {/if}
   {:else}
     <RouteIntro
@@ -421,6 +430,19 @@
       actionHref="/"
       actionLabel="Today"
     />
+
+    <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
+      <PeriodSelector
+        years={periodYears}
+        months={periodMonths}
+        year={gran === "year" ? selectedYear : activeYear}
+        month={gran === "day" ? activeMonth : selectedMonth}
+        showAllYears={gran === "year"}
+        surface="inline"
+        onYear={selectYear}
+        onMonth={selectMonth}
+      />
+    </PeriodToolbar>
 
     {#if loading}
       <p class="muted status">Loading daily history…</p>
@@ -452,28 +474,18 @@
             </button>
           {/each}
         </div>
-        <PeriodSelector
-          years={periodYears}
-          months={periodMonths}
-          year={gran === "year" ? selectedYear : activeYear}
-          month={gran === "day" ? activeMonth : selectedMonth}
-          showAllYears={gran === "year"}
-          onYear={selectYear}
-          onMonth={selectMonth}
-        />
         <span class="muted small">
           {#if aggregated}
             {chrono.length}
             {gran}s in {gran === "year" ? "view" : activeYear} · per-day averages
           {:else}
-            {chrono.length} days in {formatMonth(activeMonth)}
+            {chrono.length} days in {formatCanonicalMonth(activeMonth)}
           {/if}
         </span>
         {#if rangeFrom && rangeTo}<span class="muted small"
             >Range: {rangeFrom} → {rangeTo}</span
           >{/if}
       </div>
-
       <div class="trend-panel tile">
         <div class="trend-heading">
           <div>
@@ -607,10 +619,6 @@
     gap: 1rem;
     flex-wrap: wrap;
   }
-  .period-toolbar {
-    display: flex;
-    justify-content: flex-end;
-  }
   .seg {
     display: inline-flex;
     border: 1px solid var(--border);
@@ -714,7 +722,7 @@
     text-align: left;
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .atlas-note {
       grid-template-columns: 1fr;
     }

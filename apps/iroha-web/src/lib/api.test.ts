@@ -17,11 +17,26 @@ import {
   listTasks,
   createTask,
   updateTask,
+  getMonthlyReport,
+  getMonthlyReportSeries,
+  getMetricCatalog,
+  getMetricDefinition,
+  getMetricSeries,
+  listExpenses,
+  listAllExpenses,
+  getExpense,
+  createExpense,
+  updateExpense,
+  deleteExpense,
   listJobs,
   getJob,
   triggerAction,
+  putJSON,
+  deleteJSON,
+  ApiError,
   type Activity,
   type DailyRow,
+  type Expense,
   type Page,
   type RoutePoint,
   type SamplingPoint,
@@ -31,6 +46,68 @@ import {
 } from "./api";
 
 describe("control room API", () => {
+  it("sends typed PUT and DELETE requests", async () => {
+    const calls: RequestInit[] = [];
+    const fakeFetch = (async (
+      _input: string | Request | URL,
+      init?: RequestInit,
+    ) => {
+      calls.push(init ?? {});
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({}),
+      };
+    }) as typeof fetch;
+
+    await putJSON(
+      "/api/v1/expenses/expense_1",
+      { amount_minor: 100 },
+      fakeFetch,
+    );
+    await deleteJSON("/api/v1/expenses/expense_1", fakeFetch);
+    expect(calls[0].method).toBe("PUT");
+    expect(calls[1].method).toBe("DELETE");
+  });
+
+  it("accepts empty 204 mutation responses", async () => {
+    const fakeFetch = (async () => ({
+      ok: true,
+      status: 204,
+      statusText: "No Content",
+      json: async () => {
+        throw new Error("204 must not parse JSON");
+      },
+    })) as unknown as typeof fetch;
+
+    await expect(
+      deleteJSON("/api/v1/expenses/expense_1", fakeFetch),
+    ).resolves.toBeUndefined();
+  });
+
+  it("retains structured API errors", async () => {
+    const { fakeFetch } = createFakeFetch(
+      {
+        code: "invalid_expense",
+        message: "expense is invalid",
+        request_id: "req_1",
+      },
+      false,
+      400,
+      "Bad Request",
+    );
+
+    await expect(
+      putJSON("/api/v1/expenses/expense_1", {}, fakeFetch),
+    ).rejects.toMatchObject({
+      name: "ApiError",
+      code: "invalid_expense",
+      requestId: "req_1",
+    });
+    expect(ApiError).toBeDefined();
+  });
+
   it("lists tasks with status and due filters", async () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch([]);
     await listTasks({ status: "open", due: "2026-08-04", limit: 5 }, fakeFetch);
@@ -62,10 +139,105 @@ describe("control room API", () => {
     expect(getCapturedUrl()).toContain("/api/v1/actions/media-sync-anilist");
   });
 
+  it("uses the canonical expense endpoints and filters", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({
+      items: [],
+      next_cursor: null,
+      has_more: false,
+    });
+    await listExpenses(
+      {
+        from: "2026-08-01",
+        to: "2026-09-01",
+        currency: "JPY",
+        category: "food",
+        limit: 20,
+        cursor: "next",
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("/api/v1/expenses?");
+    expect(getCapturedUrl()).toContain("from=2026-08-01");
+    expect(getCapturedUrl()).toContain("currency=JPY");
+    expect(getCapturedUrl()).toContain("category=food");
+    expect(getCapturedUrl()).toContain("cursor=next");
+
+    await getExpense("expense/1", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/expenses/expense%2F1");
+    await createExpense(
+      {
+        occurred_on: "2026-08-12",
+        currency: "JPY",
+        amount_minor: 800,
+        category: "food",
+        source: { kind: "cli", ref: "receipt-1" },
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("/api/v1/expenses");
+    await updateExpense(
+      "expense_1",
+      {
+        occurred_on: "2026-08-12",
+        currency: "JPY",
+        amount_minor: 900,
+        category: "food",
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("/api/v1/expenses/expense_1");
+    await deleteExpense("expense_1", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/expenses/expense_1");
+  });
+
   it("builds the sleep detail URL", async () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch({});
     await getSleep("sleep_1", fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/sleep/sleep_1");
+  });
+
+  it("requests a monthly report for the selected month", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMonthlyReport("2026-08", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/reports/monthly?");
+    expect(getCapturedUrl()).toContain("month=2026-08");
+    expect(getCapturedUrl()).not.toContain("timezone=");
+  });
+
+  it("requests the server-owned twelve-month report series", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMonthlyReportSeries("2026-08", 12, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/reports/monthly-series?");
+    expect(getCapturedUrl()).toContain("end=2026-08");
+    expect(getCapturedUrl()).toContain("months=12");
+    expect(getCapturedUrl()).not.toContain("timezone=");
+  });
+
+  it("requests catalog and lossless metric series parameters", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMetricCatalog(fakeFetch);
+    expect(getCapturedUrl()).toBe("/api/v1/metrics");
+    await getMetricDefinition("expenses.amount_minor", fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/metrics/expenses.amount_minor");
+    await getMetricSeries(
+      "expenses.amount_minor",
+      {
+        from: "2026-01-01",
+        to: "2026-02-01",
+        grain: "month",
+        timezone: "Asia/Tokyo",
+        dimensions: ["currency:JPY", "category:food"],
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("dimension=currency%3AJPY");
+    expect(getCapturedUrl()).toContain("dimension=category%3Afood");
+    await getMetricSeries(
+      "health.steps",
+      { from: "2026-01-01", to: "2026-02-01", grain: "month" },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).not.toContain("timezone=");
   });
 });
 
@@ -90,14 +262,24 @@ const emptyActivity: Activity = {
 const emptyDailyRow: DailyRow = {
   id: "daily",
   day: "2026-01-01T00:00:00Z",
-  move_kcal: 0,
-  move_goal_kcal: 0,
-  exercise_min: 0,
-  exercise_goal_min: 0,
-  stand_hours: 0,
-  stand_goal_hours: 0,
+  ring: null,
   source: "test",
   first_raw_file_id: "file",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const emptyExpense: Expense = {
+  id: "expense",
+  occurred_on: "2026-01-01",
+  currency: "JPY",
+  currency_exponent: 0,
+  amount_minor: 0,
+  category: "other",
+  merchant: "",
+  note: "",
+  items: [],
+  source: { kind: "test", ref: "test" },
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };
@@ -190,6 +372,43 @@ describe("listActivities", () => {
 
     const result = await listActivities({}, fakeFetch);
     expect(result).toEqual(mockPage);
+  });
+});
+
+describe("listAllExpenses", () => {
+  it("walks every canonical expense page", async () => {
+    const urls: string[] = [];
+    const fakeFetch = (async (input: string | Request | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () =>
+          url.includes("cursor=page-2")
+            ? {
+                items: [{ ...emptyExpense, id: "second" }],
+                next_cursor: null,
+                has_more: false,
+              }
+            : {
+                items: [{ ...emptyExpense, id: "first" }],
+                next_cursor: "page-2",
+                has_more: true,
+              },
+      };
+    }) as typeof fetch;
+
+    const result = await listAllExpenses(
+      { from: "2026-01-01", to: "2026-02-01" },
+      fakeFetch,
+    );
+
+    expect(result.map((expense) => expense.id)).toEqual(["first", "second"]);
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain("limit=100");
+    expect(urls[1]).toContain("cursor=page-2");
   });
 });
 

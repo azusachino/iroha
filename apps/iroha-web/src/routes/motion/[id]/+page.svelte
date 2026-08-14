@@ -24,13 +24,16 @@
     formatDate,
   } from "$lib/format";
   import RouteMap from "$lib/components/RouteMap.svelte";
-  import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
-  import SportBadge from "$lib/components/SportBadge.svelte";
-  import StatTile from "$lib/components/StatTile.svelte";
+  import FusedActivityChart from "@iroha/shared/theme-ui/components/FusedActivityChart.svelte";
+  import ActivityDetailChart from "@iroha/shared/theme-ui/components/ActivityDetailChart.svelte";
+  import LapChart from "@iroha/shared/theme-ui/components/LapChart.svelte";
+  import SportBadge from "@iroha/shared/SportBadge.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { isSwimming, sportLabel } from "$lib/sport";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   function displayTitle(title?: string, sport?: string): string {
@@ -254,20 +257,51 @@
     };
   });
 
+  // Theme detail pages receive the same canonical series as the fallback
+  // page. Prefer route-enriched measurements so pace, elevation, and heart
+  // rate share one axis; fall back to the sampled heart-rate stream when a
+  // source has no route geometry.
+  interface DetailChart {
+    xValues: number[];
+    xLabel: string;
+    pace: (number | null)[];
+    heartRate: (number | null)[];
+    elevation: (number | null)[];
+  }
+  const detailChart = $derived.by<DetailChart | null>(() => {
+    if (hasData(paceSeries) || hasData(hrSeries) || hasData(elevationSeries)) {
+      return {
+        xValues: xAxis.values,
+        xLabel: xAxis.label,
+        pace: paceSeries,
+        heartRate: hrSeries,
+        elevation: elevationSeries,
+      };
+    }
+    if (hrSamplingChart) {
+      return {
+        xValues: hrSamplingChart.x,
+        xLabel: "Time (min)",
+        pace: Array.from({ length: hrSamplingChart.values.length }, () => null),
+        heartRate: hrSamplingChart.values,
+        elevation: Array.from(
+          { length: hrSamplingChart.values.length },
+          () => null,
+        ),
+      };
+    }
+    return null;
+  });
+
   const hasRouteLine = $derived(
     processedRoute.filter(
       (p) => Number.isFinite(p.lat) && Number.isFinite(p.lon),
     ).length >= 2,
   );
-  const anyChart = $derived(
-    hasData(paceSeries) ||
-      hasData(hrSeries) ||
-      hasData(elevationSeries) ||
-      !!hrSamplingChart,
-  );
+  const anyChart = $derived(!!detailChart);
 
   const hrZones = $derived.by(() => {
-    const values = hrSeries.filter(
+    const values = (detailChart?.heartRate ?? []).filter(
       (value): value is number => value != null && value > 0,
     );
     if (!values.length) return [];
@@ -403,19 +437,69 @@
   >
 </svelte:head>
 
-{#if hasThemeRoute(theme.definition(), "activity-detail") && !loading && !error && activity}
-  <ThemeRouteRenderer
-    route="activity-detail"
-    props={{
-      activity,
-      derivedDistanceM,
-      route,
-      samplings,
-      laps: displayLaps,
-      selectedRouteIndex,
-      onSelectRoute: (index: number | null) => (selectedRouteIndex = index),
-    }}
-  />
+{#if hasThemeRoute(theme.definition(), "activity-detail")}
+  {#if activity || loading}
+    <LoadingBoundary
+      {loading}
+      ready={activity != null}
+      label="Loading activity…"
+    >
+      {#snippet children()}
+        {#if activity}
+          <ThemeRouteRenderer
+            route="activity-detail"
+            props={{
+              activity,
+              derivedDistanceM,
+              route,
+              samplings,
+              laps: displayLaps,
+              selectedRouteIndex,
+              onSelectRoute: (index: number | null) =>
+                (selectedRouteIndex = index),
+            }}
+          >
+            {#snippet children()}
+              {#if hasRouteLine}
+                <section
+                  class="canonical-route-panel"
+                  aria-labelledby="route-map-title"
+                >
+                  <header class="canonical-route-heading">
+                    <div>
+                      <p class="muted">Canonical geography</p>
+                      <h2 id="route-map-title">Recorded route</h2>
+                    </div>
+                    <span class="muted">{processedRoute.length} GPS fixes</span>
+                  </header>
+                  <RouteMap
+                    points={processedRoute}
+                    selectedIndex={selectedRouteIndex}
+                  />
+                  <p class="muted swim-note">
+                    {isSwimming(activity?.sport_type)
+                      ? "Open-water GPS route; no pool intervals are inferred from this record."
+                      : "The basemap and line use the canonical latitude/longitude record."}
+                  </p>
+                </section>
+              {/if}
+              {#if detailChart}
+                <ActivityDetailChart
+                  {...detailChart}
+                  paceLabel={isSwimming(activity?.sport_type)
+                    ? "Pace / 100m"
+                    : "Pace / km"}
+                  onHover={(index) => (selectedRouteIndex = index)}
+                />
+              {/if}
+            {/snippet}
+          </ThemeRouteRenderer>
+        {/if}
+      {/snippet}
+    </LoadingBoundary>
+  {:else if error}
+    <p class="error">Failed to load activity: {error}</p>
+  {/if}
 {:else}
   <p class="detail-back"><a href="/motion">← Back to Motion</a></p>
 
@@ -428,8 +512,6 @@
       eyebrow="Motion / performance report"
       title={displayTitle(activity.title, activity.sport_type)}
       description="A measured record of this session, from the route and effort to the details worth revisiting."
-      actionHref="/motion"
-      actionLabel="Back to archive"
     />
     <div class="activity-meta">
       <SportBadge sport={activity.sport_type} />
@@ -490,15 +572,19 @@
 
     {#if anyChart}
       <h2>Charts</h2>
-      <FusedActivityChart
-        xValues={xAxis.values}
-        xLabel={xAxis.label}
-        pace={paceSeries}
-        heartRate={hrSeries}
-        elevation={elevationSeries}
-        paceLabel={isSwimming(activity.sport_type) ? "Pace /100m" : "Pace /km"}
-        onHover={(index) => (selectedRouteIndex = index)}
-      />
+      {#if detailChart}
+        <FusedActivityChart
+          xValues={detailChart.xValues}
+          xLabel={detailChart.xLabel}
+          pace={detailChart.pace}
+          heartRate={detailChart.heartRate}
+          elevation={detailChart.elevation}
+          paceLabel={isSwimming(activity.sport_type)
+            ? "Pace /100m"
+            : "Pace /km"}
+          onHover={(index) => (selectedRouteIndex = index)}
+        />
+      {/if}
       {#if hrZones.length > 0}
         <div class="zone-card tile">
           <div class="card-heading">
@@ -509,7 +595,7 @@
           <div class="zone-bar">
             {#each hrZones as zone}<span
                 style={`flex: ${zone.count}; background: ${zone.color}`}
-                title={`${zone.label}: ${Math.round((zone.count / hrSeries.filter((v) => v != null).length) * 100)}%`}
+                title={`${zone.label}: ${Math.round((zone.count / (detailChart?.heartRate.filter((v) => v != null).length || 1)) * 100)}%`}
               ></span>{/each}
           </div>
           <div class="zone-legend">
@@ -526,6 +612,10 @@
         Laps ({isSwimming(activity.sport_type) ? "100 m" : "1 km"} splits)
       </h2>
       <div class="laps-container tile">
+        <LapChart
+          laps={displayLaps}
+          swimming={isSwimming(activity.sport_type)}
+        />
         <div class="split-bars" aria-label="Split pace bars">
           {#each displayLaps as lap (lap.lap_no)}
             <div class="split-row">
@@ -578,6 +668,32 @@
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
     gap: 0.75rem;
     margin-bottom: 1.5rem;
+  }
+  .canonical-route-panel {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+  }
+  .canonical-route-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: end;
+  }
+  .canonical-route-heading h2 {
+    margin: 0.2rem 0 0;
+    font-size: 1.2rem;
+  }
+  .canonical-route-panel :global(.map) {
+    border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  }
+  .canonical-route-panel .swim-note {
+    margin: 0;
+    font-size: 0.76rem;
   }
   .section-title {
     margin-top: 2rem;

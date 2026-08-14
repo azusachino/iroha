@@ -19,6 +19,11 @@ describe("cockpit route layout", () => {
     expect(routePages["./night/+page.svelte"]).toBeDefined();
     expect(routePages["./night/[id]/+page.svelte"]).toBeDefined();
     expect(routePages["./to-go/+page.svelte"]).toBeDefined();
+    expect(routePages["./admin/+page.svelte"]).toBeDefined();
+    expect(routePages["./manual/+page.svelte"]).toBeDefined();
+    expect(routePages["./expenses/+page.svelte"]).toBeDefined();
+    expect(routePages["./reports/+page.svelte"]).toBeDefined();
+    expect(routePages["./metrics/+page.svelte"]).toBeDefined();
   });
 
   it("keeps the old page URLs as redirects", () => {
@@ -30,19 +35,36 @@ describe("cockpit route layout", () => {
     expect(routeLoads["./sleep/[id]/+page.ts"]).toBeDefined();
     expect(routeLoads["./media/+page.ts"]).toBeDefined();
     expect(routeLoads["./media/[id]/+page.ts"]).toBeDefined();
-    expect(routeLoads["./admin/+page.ts"]).toBeDefined();
   });
 
-  it("uses the tab vocabulary in the primary navigation URLs", async () => {
-    const { primaryNavigation } = await import("$lib/navigation");
-    expect(primaryNavigation).toEqual([
-      { label: "Today", href: "/" },
-      { label: "Overview", href: "/overview" },
-      { label: "Patterns", href: "/patterns" },
-      { label: "Motion", href: "/motion" },
-      { label: "Night", href: "/night" },
-      { label: "Library", href: "/library" },
-      { label: "To-go", href: "/to-go" },
+  it("keeps navigation grouped instead of growing the top tab row", async () => {
+    const { navigationGroups } = await import("$lib/navigation");
+    expect(navigationGroups.map((group) => group.label)).toEqual([
+      "Primary",
+      "Domains",
+      "Analyze",
+      "More",
+    ]);
+    expect(navigationGroups[0].items.map((item) => item.href)).toEqual([
+      "/",
+      "/overview",
+    ]);
+    expect(
+      navigationGroups
+        .slice(1)
+        .flatMap((group) => group.items)
+        .map((item) => item.href),
+    ).toEqual([
+      "/motion",
+      "/night",
+      "/library",
+      "/expenses",
+      "/patterns",
+      "/reports",
+      "/to-go",
+      "/admin",
+      "/manual",
+      "/design",
     ]);
   });
 

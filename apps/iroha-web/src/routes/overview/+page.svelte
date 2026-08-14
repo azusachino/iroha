@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import {
     getActivityRoutes,
     getActivitySummary,
@@ -18,8 +19,8 @@
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import Heatmap from "$lib/components/Heatmap.svelte";
   import RouteFootprint from "$lib/components/RouteFootprint.svelte";
-  import SportBadge from "$lib/components/SportBadge.svelte";
-  import StatTile from "$lib/components/StatTile.svelte";
+  import SportBadge from "@iroha/shared/SportBadge.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
   import {
     formatDate,
     formatDistance,
@@ -29,7 +30,7 @@
   } from "$lib/format";
   import { currentActivityStreak } from "$lib/streak";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   const ACTIVITY_SWEEP_LIMIT = 500;
@@ -250,15 +251,25 @@
         mediaLoading,
         onLoadRoutes: () => void loadRoutes(),
         onRetry: () => void reloadDashboard(),
+        onOpenActivity: (id: string) => void goto(`/motion/${id}`),
+        onOpenSport: (sport: string) =>
+          void goto(`/motion?sport=${encodeURIComponent(sport)}`),
       }}
-    />
+    >
+      {#snippet children()}
+        <RouteFootprint
+          {routes}
+          loading={routesLoading}
+          error={routesError}
+          onLoad={() => void loadRoutes()}
+        />
+      {/snippet}
+    </ThemeRouteRenderer>
   {:else}
     <RouteIntro
       eyebrow="Observatory / long view"
       title="Your history, in view."
       description="A long view of the movement archive: accumulated distance, recent sessions, route footprint, and the data domains available to explore."
-      actionHref="/motion"
-      actionLabel="Browse Motion"
     />
 
     <div class="stats-grid" aria-label="Activity totals">
@@ -579,7 +590,7 @@
     gap: 0.75rem;
   }
 
-  @media (max-width: 800px) {
+  @media (max-width: 1024px) {
     .stats-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -589,7 +600,7 @@
     }
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .tile-heading {
       flex-direction: column;
     }

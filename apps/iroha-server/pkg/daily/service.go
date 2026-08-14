@@ -1,6 +1,7 @@
 package daily
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"sort"
@@ -12,7 +13,11 @@ import (
 	"gorm.io/gorm"
 )
 
-const defaultPageLimit = 50
+const (
+	defaultPageLimit    = 50
+	dailySummariesTable = "tb_daily_summaries"
+	dailyMetricsTable   = "tb_daily_metrics"
+)
 
 var ErrInvalidCursor = errors.New("invalid cursor")
 
@@ -55,6 +60,7 @@ type ListFilters struct {
 
 type Row struct {
 	models.DailySummary
+	RingPresent     bool `gorm:"column:ring_present"`
 	Steps           *float64
 	DistanceKM      *float64
 	Flights         *float64
@@ -66,6 +72,13 @@ type Row struct {
 	RespiratoryRate *float64
 	VO2Max          *float64 `gorm:"column:vo2max"`
 	BodyMassKG      *float64
+}
+
+type MetricValue struct {
+	Day    time.Time
+	Value  float64
+	Unit   string
+	Source string
 }
 
 type Page struct {
@@ -85,13 +98,30 @@ type AggregateFilters struct {
 // vitals, …) so new metrics need no API change — same open-ended shape as
 // tb_daily_metrics.
 type AggregateBucket struct {
-	Period         time.Time          `json:"period"`
-	Days           int                `json:"days"`
-	MoveKcalAvg    float64            `json:"move_kcal_avg"`
-	ExerciseMinAvg float64            `json:"exercise_min_avg"`
-	StandHoursAvg  float64            `json:"stand_hours_avg"`
-	MoveClosedPct  float64            `json:"move_closed_pct"`
-	Metrics        map[string]float64 `json:"metrics"`
+	Period         time.Time         `json:"period"`
+	Days           int               `json:"days"`
+	MoveKcalAvg    float64           `json:"move_kcal_avg"`
+	ExerciseMinAvg float64           `json:"exercise_min_avg"`
+	StandHoursAvg  float64           `json:"stand_hours_avg"`
+	MoveClosedPct  float64           `json:"move_closed_pct"`
+	Metrics        []MetricAggregate `json:"metrics"`
+}
+
+type MetricAggregate struct {
+	Metric       string  `json:"metric"`
+	Value        float64 `json:"value"`
+	Unit         string  `json:"unit"`
+	ObservedDays int     `json:"observed_days"`
+}
+
+type PeriodFilters struct {
+	From time.Time
+	To   time.Time
+}
+
+type PeriodReport struct {
+	ObservedDays   int
+	MetricAverages []MetricAggregate
 }
 
 type ringAggregateRow struct {
@@ -104,9 +134,11 @@ type ringAggregateRow struct {
 }
 
 type metricAggregateRow struct {
-	Period time.Time
-	Metric string
-	Avg    float64
+	Period       time.Time
+	Metric       string
+	Unit         string
+	Avg          float64
+	ObservedDays int
 }
 
 type dayAggregateRow struct {
@@ -122,6 +154,37 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
+func (s *Service) MetricValues(ctx context.Context, metric string, from, to time.Time) ([]MetricValue, error) {
+	var values []MetricValue
+	if column, unit, ok := summaryMetricColumn(metric); ok {
+		err := s.db.WithContext(ctx).Table(dailySummariesTable).
+			Select("day, "+column+" as value, ? as unit, source", unit).
+			Where("day >= ? and day < ?", from, to).
+			Order("day asc").
+			Scan(&values).Error
+		return values, err
+	}
+	err := s.db.WithContext(ctx).Table(dailyMetricsTable).
+		Select("day, value, unit, source").
+		Where("metric = ? and day >= ? and day < ?", metric, from, to).
+		Order("day asc").
+		Scan(&values).Error
+	return values, err
+}
+
+func summaryMetricColumn(metric string) (string, string, bool) {
+	switch metric {
+	case "move_kcal":
+		return "move_kcal", "kcal", true
+	case "exercise_min":
+		return "exercise_min", "min", true
+	case "stand_hours":
+		return "stand_hours", "h", true
+	default:
+		return "", "", false
+	}
+}
+
 func (s *Service) List(filters ListFilters) (Page, error) {
 	limit := filters.Limit
 	if limit <= 0 || limit > 100 {
@@ -129,11 +192,12 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 	}
 
 	query := s.db.Table(`(
-		select day from tb_daily_summaries
+		select day from ` + dailySummariesTable + `
 		union
-		select day from tb_daily_metrics
+		select day from ` + dailyMetricsTable + `
 	) as days`).
 		Select(`coalesce(s.id, anchor.id) as id, days.day,
+			s.id is not null as ring_present,
 			coalesce(s.move_kcal, 0) as move_kcal,
 			coalesce(s.move_goal_kcal, 0) as move_goal_kcal,
 			coalesce(s.exercise_min, 0) as exercise_min,
@@ -149,22 +213,22 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 			hrv_sdnn.value as hrv_sdnn, spo2_avg.value as spo2_avg,
 			spo2_min.value as spo2_min, respiratory_rate.value as respiratory_rate,
 			vo2max.value as vo2max, body_mass_kg.value as body_mass_kg`).
-		Joins("left join tb_daily_summaries as s on s.day = days.day").
+		Joins("left join " + dailySummariesTable + " as s on s.day = days.day").
 		Joins(`left join lateral (
 			select id, first_raw_file_id, source, created_at, updated_at
-			from tb_daily_metrics where day = days.day order by id limit 1
+			from ` + dailyMetricsTable + ` where day = days.day order by id limit 1
 		) as anchor on true`).
-		Joins("left join tb_daily_metrics as steps on steps.day = days.day and steps.metric = 'steps'").
-		Joins("left join tb_daily_metrics as distance on distance.day = days.day and distance.metric = 'distance_km'").
-		Joins("left join tb_daily_metrics as flights on flights.day = days.day and flights.metric = 'flights'").
-		Joins("left join tb_daily_metrics as resting_hr on resting_hr.day = days.day and resting_hr.metric = 'resting_hr'").
-		Joins("left join tb_daily_metrics as walking_hr_avg on walking_hr_avg.day = days.day and walking_hr_avg.metric = 'walking_hr_avg'").
-		Joins("left join tb_daily_metrics as hrv_sdnn on hrv_sdnn.day = days.day and hrv_sdnn.metric = 'hrv_sdnn'").
-		Joins("left join tb_daily_metrics as spo2_avg on spo2_avg.day = days.day and spo2_avg.metric = 'spo2_avg'").
-		Joins("left join tb_daily_metrics as spo2_min on spo2_min.day = days.day and spo2_min.metric = 'spo2_min'").
-		Joins("left join tb_daily_metrics as respiratory_rate on respiratory_rate.day = days.day and respiratory_rate.metric = 'respiratory_rate'").
-		Joins("left join tb_daily_metrics as vo2max on vo2max.day = days.day and vo2max.metric = 'vo2max'").
-		Joins("left join tb_daily_metrics as body_mass_kg on body_mass_kg.day = days.day and body_mass_kg.metric = 'body_mass_kg'")
+		Joins("left join " + dailyMetricsTable + " as steps on steps.day = days.day and steps.metric = 'steps'").
+		Joins("left join " + dailyMetricsTable + " as distance on distance.day = days.day and distance.metric = 'distance_km'").
+		Joins("left join " + dailyMetricsTable + " as flights on flights.day = days.day and flights.metric = 'flights'").
+		Joins("left join " + dailyMetricsTable + " as resting_hr on resting_hr.day = days.day and resting_hr.metric = 'resting_hr'").
+		Joins("left join " + dailyMetricsTable + " as walking_hr_avg on walking_hr_avg.day = days.day and walking_hr_avg.metric = 'walking_hr_avg'").
+		Joins("left join " + dailyMetricsTable + " as hrv_sdnn on hrv_sdnn.day = days.day and hrv_sdnn.metric = 'hrv_sdnn'").
+		Joins("left join " + dailyMetricsTable + " as spo2_avg on spo2_avg.day = days.day and spo2_avg.metric = 'spo2_avg'").
+		Joins("left join " + dailyMetricsTable + " as spo2_min on spo2_min.day = days.day and spo2_min.metric = 'spo2_min'").
+		Joins("left join " + dailyMetricsTable + " as respiratory_rate on respiratory_rate.day = days.day and respiratory_rate.metric = 'respiratory_rate'").
+		Joins("left join " + dailyMetricsTable + " as vo2max on vo2max.day = days.day and vo2max.metric = 'vo2max'").
+		Joins("left join " + dailyMetricsTable + " as body_mass_kg on body_mass_kg.day = days.day and body_mass_kg.metric = 'body_mass_kg'")
 	if filters.From != nil {
 		query = query.Where("days.day >= ?", *filters.From)
 	}
@@ -210,7 +274,7 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 
 	// Q1: ring averages — only real ring days live in tb_daily_summaries.
 	var ringRows []ringAggregateRow
-	if err := applyRange(s.db.Table("tb_daily_summaries")).
+	if err := applyRange(s.db.Table(dailySummariesTable)).
 		Select(period + ` as period,
 			coalesce(avg(move_kcal),0) as move_avg,
 			coalesce(avg(exercise_min),0) as exercise_avg,
@@ -223,18 +287,18 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 
 	// Q2: per-metric per-day averages from the long metrics table.
 	var metricRows []metricAggregateRow
-	if err := applyRange(s.db.Table("tb_daily_metrics")).
-		Select(period + ` as period, metric, coalesce(avg(value),0) as avg`).
-		Group("period, metric").Scan(&metricRows).Error; err != nil {
+	if err := applyRange(s.db.Table(dailyMetricsTable)).
+		Select(period + ` as period, metric, unit, coalesce(avg(value),0) as avg, count(distinct day)::int as observed_days`).
+		Group("period, metric, unit").Scan(&metricRows).Error; err != nil {
 		return nil, err
 	}
 
 	// Q3: distinct calendar days per period across both tables.
 	var dayRows []dayAggregateRow
 	if err := applyRange(s.db.Table(`(
-		select day from tb_daily_summaries
+		select day from ` + dailySummariesTable + `
 		union
-		select day from tb_daily_metrics
+		select day from ` + dailyMetricsTable + `
 	) as d`)).
 		Select(period + ` as period, count(distinct day)::int as days`).
 		Group("period").Scan(&dayRows).Error; err != nil {
@@ -244,6 +308,33 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 	return mergeAggregateRows(ringRows, metricRows, dayRows), nil
 }
 
+func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
+	if !filters.From.Before(filters.To) {
+		return PeriodReport{}, errors.New("period from must be before to")
+	}
+	from := filters.From.UTC()
+	to := filters.To.UTC()
+	var metrics []MetricAggregate
+	if err := s.db.Table(dailyMetricsTable).
+		Select("metric, unit, avg(value) as value, count(distinct day)::int as observed_days").
+		Where("day >= ? and day < ?", from, to).
+		Group("metric, unit").Order("metric asc, unit asc").Scan(&metrics).Error; err != nil {
+		return PeriodReport{}, err
+	}
+	var observedDays int64
+	if err := s.db.Table(`(
+		select day from `+dailySummariesTable+` where day >= ? and day < ?
+		union
+		select day from `+dailyMetricsTable+` where day >= ? and day < ?
+	) as days`, from, to, from, to).Count(&observedDays).Error; err != nil {
+		return PeriodReport{}, err
+	}
+	if metrics == nil {
+		metrics = []MetricAggregate{}
+	}
+	return PeriodReport{ObservedDays: int(observedDays), MetricAverages: metrics}, nil
+}
+
 func mergeAggregateRows(ringRows []ringAggregateRow, metricRows []metricAggregateRow, dayRows []dayAggregateRow) []AggregateBucket {
 	byKey := map[int64]*AggregateBucket{}
 	var order []int64
@@ -251,7 +342,7 @@ func mergeAggregateRows(ringRows []ringAggregateRow, metricRows []metricAggregat
 		k := p.UnixNano()
 		b, ok := byKey[k]
 		if !ok {
-			b = &AggregateBucket{Period: p, Metrics: map[string]float64{}}
+			b = &AggregateBucket{Period: p, Metrics: make([]MetricAggregate, 0)}
 			byKey[k] = b
 			order = append(order, k)
 		}
@@ -270,12 +361,21 @@ func mergeAggregateRows(ringRows []ringAggregateRow, metricRows []metricAggregat
 		getb(r.Period).Days = r.Days
 	}
 	for _, r := range metricRows {
-		getb(r.Period).Metrics[r.Metric] = r.Avg
+		getb(r.Period).Metrics = append(getb(r.Period).Metrics, MetricAggregate{
+			Metric: r.Metric, Value: r.Avg, Unit: r.Unit, ObservedDays: r.ObservedDays,
+		})
 	}
 	sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
 	buckets := make([]AggregateBucket, 0, len(order))
 	for _, k := range order {
-		buckets = append(buckets, *byKey[k])
+		bucket := byKey[k]
+		sort.Slice(bucket.Metrics, func(i, j int) bool {
+			if bucket.Metrics[i].Metric == bucket.Metrics[j].Metric {
+				return bucket.Metrics[i].Unit < bucket.Metrics[j].Unit
+			}
+			return bucket.Metrics[i].Metric < bucket.Metrics[j].Metric
+		})
+		buckets = append(buckets, *bucket)
 	}
 	return buckets
 }

@@ -1,143 +1,119 @@
 import { API_BASE } from "./config";
+import type {
+  Activity,
+  ActivitySummary,
+  Lap,
+  ListActivitiesParams,
+  RoutePoint,
+  RouteFeatureCollection,
+  SamplingPoint,
+} from "@iroha/shared/activity";
+import type { MetricSeriesResponse } from "@iroha/shared/metric-series";
+import type {
+  DailyAggregates,
+  DailyRow,
+  ListDailyParams,
+} from "@iroha/shared/daily";
+import type {
+  MediaAggregates,
+  MediaDetail,
+  MediaHomeEvent,
+  MediaRow,
+} from "@iroha/shared/media";
+import type {
+  CreateExpenseInput,
+  Expense,
+  ExpenseCategory,
+  ExpenseCurrency,
+  ExpenseInput,
+  ExpenseItem,
+  ExpenseSource,
+  ListExpensesParams,
+} from "@iroha/shared/expense";
+import type {
+  DailyHealthReportData,
+  ExpensesReportData,
+  MediaReportData,
+  MovementReportData,
+  MonthlyReport,
+  MonthlyReportSeries,
+  MonthlyReportSeriesPoint,
+  ReportSection,
+  SleepReportData,
+} from "@iroha/shared/report";
+import type {
+  ListSleepParams,
+  SleepAggregateBucket,
+  SleepAggregates,
+  SleepSegment,
+  SleepSession,
+} from "@iroha/shared/sleep";
+
+export type {
+  Activity,
+  ActivityDisplaySummary,
+  ActivitySummary,
+  ActivitySummaryBucket as SummaryBucket,
+  ActivitySummaryTotals as SummaryTotals,
+  ActivitySummary as Summary,
+  Lap,
+  ListActivitiesParams,
+  RouteFeature,
+  RouteFeatureCollection,
+  RouteFeatureProperties,
+  RoutePoint,
+  SamplingPoint,
+} from "@iroha/shared/activity";
+export type { MetricSeriesResponse } from "@iroha/shared/metric-series";
+export type {
+  DailyAggregateBucket,
+  DailyAggregates,
+  DailyMetricAggregate,
+  DailyRing,
+  DailyRow,
+  ListDailyParams,
+} from "@iroha/shared/daily";
+export type {
+  MediaAggregates,
+  MediaCompletionBucket,
+  MediaDetail,
+  MediaHomeEvent,
+  MediaPage,
+  MediaRow,
+  MediaScoreBucket,
+  MediaTypeBucket,
+} from "@iroha/shared/media";
+export type {
+  CreateExpenseInput,
+  Expense,
+  ExpenseCategory,
+  ExpenseCurrency,
+  ExpenseInput,
+  ExpenseItem,
+  ExpenseSource,
+  ListExpensesParams,
+} from "@iroha/shared/expense";
+export type {
+  DailyHealthReportData,
+  ExpensesReportData,
+  MediaReportData,
+  MovementReportData,
+  MonthlyReport,
+  MonthlyReportSeries,
+  MonthlyReportSeriesPoint,
+  ReportSection,
+  SleepReportData,
+} from "@iroha/shared/report";
+export type {
+  ListSleepParams,
+  SleepAggregateBucket,
+  SleepAggregates,
+  SleepSegment,
+  SleepSession,
+} from "@iroha/shared/sleep";
 
 // Types mirror the iroha-server read API JSON contract (snake_case).
 // Optional fields use `?` because the server omits them when absent.
-
-export interface Activity {
-  id: string;
-  sport_type: string;
-  title: string;
-  started_at: string;
-  ended_at?: string;
-  timezone: string;
-  distance_m?: number;
-  duration_s?: number;
-  moving_time_s?: number;
-  elevation_gain_m?: number;
-  avg_hr?: number;
-  max_hr?: number;
-  avg_pace_s_per_km?: number;
-  source_kind: string;
-  source_activity_id?: string;
-  first_raw_file_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SleepSession {
-  id: string;
-  wake_date: string;
-  started_at: string;
-  ended_at: string;
-  time_in_bed_s: number;
-  asleep_s: number;
-  efficiency: number;
-  is_main_sleep: boolean;
-  core_s: number;
-  deep_s: number;
-  rem_s: number;
-  awake_s: number;
-  unspecified_s: number;
-  source: string;
-  first_raw_file_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SleepSegment {
-  id: string;
-  stage: string;
-  started_at: string;
-  ended_at: string;
-  seq: number;
-}
-
-export interface SleepAggregateBucket {
-  period: string;
-  session_count: number;
-  main_sleep_count: number;
-  average_asleep_s: number;
-  average_time_in_bed_s: number;
-  average_efficiency: number;
-  core_s: number;
-  deep_s: number;
-  rem_s: number;
-  awake_s: number;
-  unspecified_s: number;
-}
-
-export interface SleepAggregates {
-  granularity: "month" | "year";
-  buckets: SleepAggregateBucket[];
-}
-
-export interface ListSleepParams {
-  from?: string;
-  to?: string;
-  limit?: number;
-  cursor?: string;
-}
-
-export interface RoutePoint {
-  seq: number;
-  ts?: string;
-  lat: number;
-  lon: number;
-  elevation_m?: number;
-  distance_m?: number;
-  speed_mps?: number;
-  heart_rate?: number;
-}
-
-export interface SamplingPoint {
-  id: string;
-  sampling_type: string;
-  ts: string;
-  value: number;
-  unit: string;
-}
-
-export interface Lap {
-  id: string;
-  lap_no: number;
-  start_ts?: string;
-  end_ts?: string;
-  distance_m?: number;
-  duration_s?: number;
-  avg_hr?: number;
-  avg_pace_s_per_km?: number;
-}
-
-export interface ListActivitiesParams {
-  sport_type?: string;
-  // RFC3339 timestamps; inclusive bounds on started_at.
-  started_from?: string;
-  started_to?: string;
-  // Distance bounds in meters; rows with no distance are excluded.
-  min_distance_m?: number;
-  max_distance_m?: number;
-  limit?: number;
-  cursor?: string;
-}
-
-export interface MediaRow {
-  id: string;
-  title: string;
-  media_type: string;
-  item_role: string;
-  cover_image_url?: string;
-  status?: string;
-  position?: number;
-  total?: number;
-  unit?: string;
-  progress_percent?: number;
-  last_update_at: string;
-  rating?: number;
-  hidden_from_continue?: boolean;
-  native_title?: string;
-  episode_count?: number;
-  chapter_count?: number;
-}
 
 export interface ListMediaParams {
   status?: string;
@@ -146,33 +122,6 @@ export interface ListMediaParams {
   completed_year?: number;
   limit?: number;
   cursor?: string;
-}
-
-export interface MediaCompletionBucket {
-  year: number;
-  count: number;
-}
-
-export interface MediaScoreBucket {
-  score: number;
-  count: number;
-}
-
-export interface MediaTypeBucket {
-  type: string;
-  count: number;
-}
-
-export interface MediaAggregates {
-  totals: {
-    item_count: number;
-    completed_count: number;
-    this_year_completed: number;
-    average_rating: number;
-  };
-  completions_by_year: MediaCompletionBucket[];
-  score_distribution: MediaScoreBucket[];
-  type_split: MediaTypeBucket[];
 }
 
 export interface Task {
@@ -212,64 +161,23 @@ export interface Job {
   updated_at: string;
 }
 
-export interface MediaDetail {
-  item: MediaRow;
-  work: {
-    id: string;
-    work_kind: string;
-    primary_title: string;
-    original_title: string;
-    original_language: string;
-    first_release_date?: string;
-    description: string;
-  };
-  progress?: {
-    status: string;
-    unit: string;
-    position?: number;
-    total?: number;
-    progress_percent?: number;
-    started_at?: string;
-    last_update_at?: string;
-    finished_at?: string;
-    play_count: number;
-  };
-  creators: { id: string; name: string; role: string }[];
-  relations: {
-    id: string;
-    relation_type: string;
-    direction: string;
-    related_item_id: string;
-    related_title: string;
-    related_type: string;
-    cover_image_url?: string;
-  }[];
-  events: {
-    id: string;
-    event_type: string;
-    event_at?: string;
-    unit?: string;
-    position?: number;
-    total?: number;
-    progress_percent?: number;
-    rating?: number;
-    note?: string;
-  }[];
-}
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly requestId: string;
 
-export interface MediaHomeEvent {
-  id: string;
-  media_id: string;
-  title: string;
-  native_title?: string;
-  cover_image_url?: string;
-  event_type: string;
-  occurred_at: string;
-  unit?: string;
-  position?: number;
-  total?: number;
-  progress_percent?: number;
-  rating?: number;
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    requestId: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.requestId = requestId;
+  }
 }
 
 export interface ListMediaEventsParams {
@@ -302,6 +210,87 @@ export interface BriefingResponse {
   sections: BriefingSection[];
 }
 
+export interface MetricDimension {
+  id: string;
+  label: string;
+  values: string[];
+  required: boolean;
+  expand_by_default: boolean;
+}
+
+export interface MetricDefinition {
+  id: string;
+  domain: string;
+  label: string;
+  description: string;
+  kind: "canonical" | "derived";
+  value_type: string;
+  unit: string;
+  short_unit: string;
+  supported_grains: ("day" | "month" | "year")[];
+  dimensions: MetricDimension[];
+  reducer: string;
+  rollup: "sum" | "average" | "count";
+  aggregation_version: string;
+  coverage_kind: string;
+  semantic_color_token: string;
+  preferred_view: string;
+}
+
+export interface MetricCatalogResponse {
+  schema: "metric-catalog.v1";
+  metrics: MetricDefinition[];
+}
+
+export interface MetricDefinitionResponse {
+  schema: "metric-catalog.v1";
+  metric: MetricDefinition;
+}
+
+export function getMetricCatalog(
+  fetchFn: typeof fetch = fetch,
+): Promise<MetricCatalogResponse> {
+  return getJSON<MetricCatalogResponse>("/api/v1/metrics", fetchFn);
+}
+
+export function getMetricDefinition(
+  metricId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<MetricDefinitionResponse> {
+  return getJSON<MetricDefinitionResponse>(
+    `/api/v1/metrics/${encodeURIComponent(metricId)}`,
+    fetchFn,
+  );
+}
+
+export interface MetricSeriesParams {
+  from: string;
+  to: string;
+  grain: "day" | "month" | "year";
+  timezone?: string;
+  dimensions?: string[];
+}
+
+export function getMetricSeries(
+  metricId: string,
+  params: MetricSeriesParams,
+  fetchFn: typeof fetch = fetch,
+): Promise<MetricSeriesResponse> {
+  const query = new URLSearchParams({
+    from: params.from,
+    to: params.to,
+    grain: params.grain,
+  });
+  if (params.timezone) query.set("timezone", params.timezone);
+  for (const dimension of params.dimensions ?? []) {
+    query.append("dimension", dimension);
+  }
+  return getJSON<MetricSeriesResponse>(
+    `/api/v1/metrics/${encodeURIComponent(metricId)}/series?${query.toString()}`,
+    fetchFn,
+  );
+}
+
 export function getBriefing(
   date: string,
   fetchFn: typeof fetch = fetch,
@@ -312,60 +301,32 @@ export function getBriefing(
   );
 }
 
-// One day of the daily-activity + body-vitals module. Rings are always present
-// (zeroed on non-ring days); every scalar metric is optional because a day may
-// have some vitals but no ring, or vice versa.
-export interface DailyRow {
-  id: string;
-  day: string;
-  move_kcal: number;
-  move_goal_kcal: number;
-  exercise_min: number;
-  exercise_goal_min: number;
-  stand_hours: number;
-  stand_goal_hours: number;
-  steps?: number;
-  distance_km?: number;
-  flights?: number;
-  resting_hr?: number;
-  walking_hr_avg?: number;
-  hrv_sdnn?: number;
-  spo2_avg?: number;
-  spo2_min?: number;
-  respiratory_rate?: number;
-  vo2max?: number;
-  body_mass_kg?: number;
-  source: string;
-  first_raw_file_id: string;
-  created_at: string;
-  updated_at: string;
+export function getMonthlyReport(
+  month: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<MonthlyReport> {
+  const query = new URLSearchParams({ month });
+  return getJSON<MonthlyReport>(
+    `/api/v1/reports/monthly?${query.toString()}`,
+    fetchFn,
+  );
 }
 
-export interface ListDailyParams {
-  from?: string;
-  to?: string;
-  limit?: number;
-  cursor?: string;
+export function getMonthlyReportSeries(
+  endMonth: string,
+  months = 12,
+  fetchFn: typeof fetch = fetch,
+): Promise<MonthlyReportSeries> {
+  const query = new URLSearchParams({ end: endMonth, months: String(months) });
+  return getJSON<MonthlyReportSeries>(
+    `/api/v1/reports/monthly-series?${query.toString()}`,
+    fetchFn,
+  );
 }
 
-// One month/year rollup. Ring fields are per-day averages over ring days;
-// `metrics` is a per-day average keyed by metric slug (steps, resting_hr, …),
-// open-ended to match tb_daily_metrics.
-export interface DailyAggregateBucket {
-  period: string;
-  days: number;
-  move_kcal_avg: number;
-  exercise_min_avg: number;
-  stand_hours_avg: number;
-  move_closed_pct: number;
-  metrics: Record<string, number>;
-}
-
-export interface DailyAggregates {
-  granularity: "month" | "year";
-  buckets: DailyAggregateBucket[];
-}
-
+// One day of the daily-activity + body-vitals module. The API keeps activity
+// rings as one nullable object so the canonical wire shape is explicit: a
+// missing ring is different from a ring whose values happen to be zero.
 export function listDailyAggregates(
   granularity: "month" | "year",
   params: { from?: string; to?: string } = {},
@@ -390,10 +351,34 @@ async function requestJSON<T>(
     headers: { accept: "application/json", ...init.headers },
   });
   if (!res.ok) {
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      body = undefined;
+    }
+    if (
+      body &&
+      typeof body === "object" &&
+      "code" in body &&
+      "message" in body &&
+      typeof body.code === "string" &&
+      typeof body.message === "string"
+    ) {
+      throw new ApiError(
+        res.status,
+        body.code,
+        body.message,
+        "request_id" in body && typeof body.request_id === "string"
+          ? body.request_id
+          : "",
+      );
+    }
     throw new Error(
       `request failed: ${res.status} ${res.statusText} (${path})`,
     );
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -403,19 +388,31 @@ async function getJSON<T>(path: string, fetchFn: typeof fetch = fetch) {
 
 async function mutateJSON<T>(
   path: string,
-  method: "POST" | "PATCH",
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
+  body: unknown | undefined,
+  fetchFn: typeof fetch = fetch,
+): Promise<T> {
+  const init: RequestInit = { method };
+  if (body !== undefined) {
+    init.headers = { "content-type": "application/json" };
+    init.body = JSON.stringify(body);
+  }
+  return requestJSON<T>(path, init, fetchFn);
+}
+
+export function putJSON<T>(
+  path: string,
   body: unknown,
   fetchFn: typeof fetch = fetch,
 ): Promise<T> {
-  return requestJSON<T>(
-    path,
-    {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    },
-    fetchFn,
-  );
+  return mutateJSON<T>(path, "PUT", body, fetchFn);
+}
+
+export function deleteJSON(
+  path: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return mutateJSON<void>(path, "DELETE", undefined, fetchFn);
 }
 
 export function listTasks(
@@ -453,6 +450,72 @@ export function updateTask(
     { status },
     fetchFn,
   );
+}
+
+export function listExpenses(
+  params: ListExpensesParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Page<Expense>> {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.currency) query.set("currency", params.currency);
+  if (params.category) query.set("category", params.category);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.cursor) query.set("cursor", params.cursor);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<Page<Expense>>(`/api/v1/expenses${suffix}`, fetchFn);
+}
+
+export async function listAllExpenses(
+  params: ListExpensesParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<Expense[]> {
+  const expenses: Expense[] = [];
+  let cursor = params.cursor;
+  do {
+    const page = await listExpenses({ ...params, limit: 100, cursor }, fetchFn);
+    expenses.push(...page.items);
+    cursor = page.has_more ? (page.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+  return expenses;
+}
+
+export function getExpense(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<Expense> {
+  return getJSON<Expense>(
+    `/api/v1/expenses/${encodeURIComponent(id)}`,
+    fetchFn,
+  );
+}
+
+export function createExpense(
+  input: CreateExpenseInput,
+  fetchFn: typeof fetch = fetch,
+): Promise<Expense> {
+  return mutateJSON<Expense>("/api/v1/expenses", "POST", input, fetchFn);
+}
+
+export function updateExpense(
+  id: string,
+  input: ExpenseInput,
+  fetchFn: typeof fetch = fetch,
+): Promise<Expense> {
+  return mutateJSON<Expense>(
+    `/api/v1/expenses/${encodeURIComponent(id)}`,
+    "PUT",
+    input,
+    fetchFn,
+  );
+}
+
+export function deleteExpense(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return deleteJSON(`/api/v1/expenses/${encodeURIComponent(id)}`, fetchFn);
 }
 
 export function listMediaResolutionTasks(
@@ -733,30 +796,6 @@ export function getActivityLaps(
 
 // --- Activity aggregates ---
 
-export interface SummaryTotals {
-  activity_count: number;
-  distance_m: number;
-  duration_s: number;
-  moving_time_s: number;
-}
-
-// A single row in one of the summary's grouped breakdowns (by_year / by_month
-// / by_sport). `key` is a year ("2026"), a "YYYY-MM" month, or a sport_type.
-export interface SummaryBucket {
-  key: string;
-  activity_count: number;
-  distance_m: number;
-  duration_s: number;
-  moving_time_s: number;
-}
-
-export interface Summary {
-  totals: SummaryTotals;
-  by_year: SummaryBucket[];
-  by_month: SummaryBucket[];
-  by_sport: SummaryBucket[];
-}
-
 export interface ActivitySummaryParams {
   // Scope every breakdown to one calendar year and/or one sport_type. Omit for
   // all-time / all-sport totals.
@@ -767,37 +806,15 @@ export interface ActivitySummaryParams {
 export function getActivitySummary(
   params: ActivitySummaryParams = {},
   fetchFn: typeof fetch = fetch,
-): Promise<Summary> {
+): Promise<ActivitySummary> {
   const query = new URLSearchParams();
   if (params.year) query.set("year", params.year);
   if (params.sport) query.set("sport", params.sport);
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<Summary>(`/api/v1/activities/summary${suffix}`, fetchFn);
-}
-
-// A single route line, rendered as a GeoJSON LineString. Coordinates are
-// [lon, lat] pairs (GeoJSON order), already privacy-trimmed and decimated by
-// the server.
-export interface RouteFeatureProperties {
-  activity_id?: string;
-  sport_type: string;
-  year: string;
-  city?: string;
-  city_status?: "pending" | "resolved" | "unknown";
-}
-
-export interface RouteFeature {
-  type: "Feature";
-  geometry: {
-    type: "LineString";
-    coordinates: [number, number][];
-  };
-  properties: RouteFeatureProperties;
-}
-
-export interface RouteFeatureCollection {
-  type: "FeatureCollection";
-  features: RouteFeature[];
+  return getJSON<ActivitySummary>(
+    `/api/v1/activities/summary${suffix}`,
+    fetchFn,
+  );
 }
 
 export function getActivityRoutes(

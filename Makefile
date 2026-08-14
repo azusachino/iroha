@@ -6,15 +6,19 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 PUBLIC_SITE_DIR := apps/iroha-public-site
+SHARED_DIR := packages/iroha-shared
 IMAGE_NS := azusachino.icu
 VERSION := $(shell tr -d '\n' < VERSION)
 TAG := v$(VERSION)
 OUT := ./dist/public-data
 PRIVACY ?= 0
 MEDIA_BRIDGE_OUT := ./dist/media-bridge
+MOBILE_DEFAULT_THEMES := atlas,grapher,field-journal,phenology,sound-map,archive
+MOBILE_DEFAULT_MODES := light,dark
+MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-pages-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
@@ -41,14 +45,20 @@ lint: ## Run golangci-lint across all modules (Uber Go Style Guide orientation)
 test: ## Run Go tests across all modules
 	$(TOOL_ENV) uv run python scripts/go_tasks.py test
 
-contract-check: ## Verify the registered HTTP route inventory
-	$(TOOL_ENV) go -C $(SERVER_DIR) test ./pkg/httpapi -run '^TestActiveRouteInventory$$'
+contract-check: ## Verify the registered HTTP route inventory and OpenAPI contract
+	$(TOOL_ENV) go -C $(SERVER_DIR) test ./pkg/httpapi -run '^Test(ActiveRouteInventory|OpenAPIExamples)$$'
 
 test-integration: db-up ## Run DB-backed Go integration tests
 	$(TOOL_ENV) env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -tags=integration ./...
 
 scripts-test: ## Run Python script unit tests
 	$(TOOL_ENV) uv run python -m unittest discover -s scripts -p '*_test.py'
+
+theme-boundary-check: ## Fail if theme assets escape the shared package boundary
+	$(TOOL_ENV) uv run python scripts/check_theme_boundary.py
+
+responsive-check: ## Fail if frontend media queries use non-canonical breakpoints
+	$(TOOL_ENV) uv run python scripts/check_responsive_contract.py
 
 build: ## Build all Go modules
 	$(TOOL_ENV) uv run python scripts/go_tasks.py build
@@ -66,7 +76,10 @@ media-bridge-build: ## Build the Bangumi->MAL->AniList bridge cache (MEDIA_BRIDG
 	$(TOOL_ENV) uv run python scripts/build_media_bridge.py --out $(MEDIA_BRIDGE_OUT)
 
 ## --- Web frontend (apps/iroha-web, bun) ---
-web-install: ## Install web dependencies
+shared-install: ## Install shared frontend-package dependencies
+	cd $(SHARED_DIR) && $(TOOL_ENV) bun install
+
+web-install: shared-install ## Install web and shared frontend dependencies
 	cd $(WEB_DIR) && $(TOOL_ENV) bun install
 
 web-fmt: ## Format the web app (prettier + prettier-plugin-svelte: spaces, double quotes)
@@ -95,8 +108,12 @@ web-visual-check: ## Screenshot a themed route with agent-browser (THEME=field-j
 	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
 	cd $(WEB_DIR) && BASE="$(or $(BASE),http://127.0.0.1:5173)" THEME="$(or $(THEME),field-journal)" ROUTES="$(or $(ROUTE),overview)" OUT="$(or $(OUT),.visual-check)" bash scripts/visual-check.sh
 
+web-mobile-check: ## Audit every private route at compact mobile widths (BASE=..., API_BASE=..., VIEWPORTS=...)
+	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
+	BASE="$(or $(BASE),http://127.0.0.1:4173)" API_BASE="$(or $(API_BASE),$(or $(BASE),http://127.0.0.1:4173))" THEMES="$(or $(THEMES),$(MOBILE_DEFAULT_THEMES))" MODES="$(or $(MODES),$(MOBILE_DEFAULT_MODES))" MOTION="$(or $(MOTION),$(MOBILE_DEFAULT_MOTION))" VIEWPORTS="$(VIEWPORTS)" OUT="$(or $(OUT),dist/mobile-route-audit.json)" $(TOOL_ENV) uv run python scripts/mobile_route_check.py
+
 ## --- Public static site (apps/iroha-public-site, bun) ---
-public-site-install: ## Install public-site dependencies
+public-site-install: shared-install ## Install public-site and shared frontend dependencies
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun install
 
 public-site-fmt-check: ## Fail if any public-site file is unformatted
@@ -105,13 +122,16 @@ public-site-fmt-check: ## Fail if any public-site file is unformatted
 public-site-check: ## Type-check the public site (svelte-check)
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run check
 
-public-site-build: ## Production build of the public site (BASE_PATH=/iroha for GitHub Pages)
+public-site-build: ## Production build of the public site (honours BASE_PATH; use public-site-pages-build for Pages)
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build
+
+public-site-pages-build: ## Production build of the public site with the GitHub Pages base path
+	BASE_PATH=/iroha $(MAKE) public-site-build
 
 public-site-dev: ## Run the public-site dev server, bound to all interfaces
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run dev -- --host 0.0.0.0 --port $(or $(PORT),5174)
 
-public-site-preview: ## Build and serve the public site locally (root path, production output)
+public-site-preview: ## Build and serve the public site locally (honours BASE_PATH, production output)
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run preview -- --host $(or $(HOST),127.0.0.1) --port $(or $(PORT),4173)
 
 ## --- Docs and config formatting (prettier; Go/web/SQL out of scope) ---
@@ -122,8 +142,11 @@ fmt-docs-check: ## Fail if any doc/config file is unformatted
 	$(TOOL_ENV) $(PRETTIER) --check $(DOCS_FILES)
 
 ## --- Aggregate gates ---
-check: fmt-check vet lint test contract-check scripts-test web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + web checks
-validate: check build web-build ## Pre-PR gate: check + full server and web builds
+check: fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + theme/responsive boundaries + web checks
+validate: check build web-build public-site-fmt-check public-site-check public-site-pages-build ## Pre-PR gate: check + full server, private web, and GitHub Pages web builds
+
+release-candidate: ## Isolated DB integration + seeded production runtime/browser gate
+	$(TOOL_ENV) uv run python scripts/release_candidate.py
 
 ## --- Dev stack (Podman Compose via uv scripts) ---
 dev-up: ## Start the complete local stack and apply migrations
@@ -161,22 +184,22 @@ soak-local: ## Run non-mutating HTTP soak checks against the Podman Compose stac
 ## --- k3s local images (build with Podman, import straight into containerd; no registry) ---
 image-server: ## Build iroha-server and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target server -t $(IMAGE_NS)/iroha-server:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-server:$(TAG) | sudo k3s ctr images import -
+	podman save $(IMAGE_NS)/iroha-server:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-job: ## Build iroha-job and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target job -t $(IMAGE_NS)/iroha-job:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-job:$(TAG) | sudo k3s ctr images import -
+	podman save $(IMAGE_NS)/iroha-job:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-db-migrate: ## Build iroha-db-migrate and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target db-migrate -t $(IMAGE_NS)/iroha-db-migrate:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-db-migrate:$(TAG) | sudo k3s ctr images import -
+	podman save $(IMAGE_NS)/iroha-db-migrate:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-web: ## Build iroha-web and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) .
-	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import -
+	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-export-public: ## Build iroha-export-public and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target export-public -t $(IMAGE_NS)/iroha-export-public:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-export-public:$(TAG) | sudo k3s ctr images import -
+	podman save $(IMAGE_NS)/iroha-export-public:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 images: image-server image-job image-db-migrate image-web image-export-public ## Build and import all iroha images into the local k3s containerd store

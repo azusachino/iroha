@@ -223,16 +223,11 @@ func (s *Server) handleActivityRoutes(w http.ResponseWriter, r *http.Request) {
 
 func parseActivityFilters(w http.ResponseWriter, r *http.Request) (activities.ListFilters, bool) {
 	query := r.URL.Query()
-	filters := activities.ListFilters{SportType: query.Get("sport_type")}
-
-	if value := query.Get("limit"); value != "" {
-		limit, err := strconv.Atoi(value)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid limit")
-			return activities.ListFilters{}, false
-		}
-		filters.Limit = limit
+	limit, ok := parsePageLimit(w, r)
+	if !ok {
+		return activities.ListFilters{}, false
 	}
+	filters := activities.ListFilters{SportType: query.Get("sport_type"), Limit: limit}
 	if value := query.Get("started_from"); value != "" {
 		parsed, err := time.Parse(time.RFC3339, value)
 		if err != nil {

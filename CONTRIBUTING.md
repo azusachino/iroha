@@ -20,15 +20,15 @@ mise install
 
 The `Makefile` is the task runner — prefer `make <target>` over raw commands.
 
-| Command                           | What it does                                                       |
-| --------------------------------- | ------------------------------------------------------------------ |
-| `make check`                      | Pre-commit gate: `fmt-check` + `vet` + `lint` + tests + web checks |
-| `make validate`                   | Pre-PR gate: `check` + full server and web builds                  |
-| `make lint`                       | Run `golangci-lint`                                                |
-| `make test`                       | Go unit tests                                                      |
-| `make test-integration`           | DB-backed integration tests (starts the dev database)              |
-| `make db-up` / `make db-down`     | Start / stop Postgres + PostGIS (applies migrations)               |
-| `make smoke-real-import FILE=...` | Import a real file end to end through the HTTP API                 |
+| Command                           | What it does                                                          |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `make check`                      | Pre-commit gate: `fmt-check` + `vet` + `lint` + tests + web checks    |
+| `make validate`                   | Pre-PR gate: `check` + full server, private web, and Pages web builds |
+| `make lint`                       | Run `golangci-lint`                                                   |
+| `make test`                       | Go unit tests                                                         |
+| `make test-integration`           | DB-backed integration tests (starts the dev database)                 |
+| `make db-up` / `make db-down`     | Start / stop Postgres + PostGIS (applies migrations)                  |
+| `make smoke-real-import FILE=...` | Import a real file end to end through the HTTP API                    |
 
 `make check` runs before every commit and `make validate` before PRs (enforced locally by hooks).
 

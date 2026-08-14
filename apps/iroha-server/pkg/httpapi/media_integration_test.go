@@ -91,6 +91,63 @@ func TestMediaAggregatesIntegration(t *testing.T) {
 	}
 }
 
+func TestMediaPeriodReportIntegration(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetMediaTables(t, db)
+
+	from := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	work := seedWork(t, db, "media")
+	itemA := seedItem(t, db, work, "anime_season", "A")
+	itemB := seedItem(t, db, work, "book", "B")
+
+	// A has two dated completion events in the month. The report emits one
+	// completion, using the latest dated candidate for that item.
+	seedRatingEvent(t, db, itemA, time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC), 4, 5)
+	seedFinishEvent(t, db, itemA, time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC))
+	if err := db.Exec(`insert into tb_media_consumption_events
+		(id, media_item_id, event_type, event_at, source_kind, created_at)
+		values (?, ?, 'completed', ?, 'test', ?)`, uuid.New(), itemA,
+		time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC), time.Now().UTC()).Error; err != nil {
+		t.Fatalf("seed completed event: %v", err)
+	}
+
+	// B has a dated progress completion but no consumption event.
+	seedProgress(t, db, itemB, "completed", ptrTime(time.Date(2026, 8, 6, 0, 0, 0, 0, time.UTC)))
+
+	// Undated completions are excluded, even when they were synchronized in the
+	// selected month. list_state is a dated provider snapshot, not activity.
+	itemUndated := seedItem(t, db, work, "game", "Undated")
+	if err := db.Exec(`insert into tb_media_consumption_events
+		(id, media_item_id, event_type, source_kind, created_at)
+		values (?, ?, 'completed', 'test', ?)`, uuid.New(), itemUndated, time.Now().UTC()).Error; err != nil {
+		t.Fatalf("seed undated event: %v", err)
+	}
+	if err := db.Exec(`insert into tb_media_consumption_events
+		(id, media_item_id, event_type, event_at, source_kind, created_at)
+		values (?, ?, 'list_state', ?, 'test', ?)`, uuid.New(), itemUndated,
+		time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC), time.Now().UTC()).Error; err != nil {
+		t.Fatalf("seed snapshot event: %v", err)
+	}
+
+	result, err := media.NewService(db).PeriodReport(media.PeriodFilters{From: from, To: to})
+	if err != nil {
+		t.Fatalf("period report: %v", err)
+	}
+	if result.EventCount != 3 || result.CompletedCount != 2 || result.RatedCount != 1 {
+		t.Fatalf("counts = %+v", result)
+	}
+	if result.AverageRating == nil || *result.AverageRating != 8 {
+		t.Fatalf("average_rating = %v, want 8", result.AverageRating)
+	}
+	if len(result.CompletedItems) != 2 || result.CompletedItems[0].ID != itemA || result.CompletedItems[1].ID != itemB {
+		t.Fatalf("completed_items = %+v", result.CompletedItems)
+	}
+	if len(result.ByKind) != 2 || result.ByKind[0].Kind != "anime_season" || result.ByKind[0].EventCount != 3 || result.ByKind[0].CompletedCount != 1 || result.ByKind[1].Kind != "book" || result.ByKind[1].CompletedCount != 1 {
+		t.Fatalf("by_kind = %+v", result.ByKind)
+	}
+}
+
 func resetMediaTables(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	if err := db.Exec(`truncate table

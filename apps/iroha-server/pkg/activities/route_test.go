@@ -122,6 +122,20 @@ func TestRouteMovingTimeSeconds_EmptyTrack(t *testing.T) {
 	}
 }
 
+func TestPeriodSummaryRequiresHalfOpenRange(t *testing.T) {
+	from := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	if _, err := (&Service{}).PeriodSummary(PeriodFilters{From: from, To: from, Timezone: "UTC"}); err == nil {
+		t.Fatal("PeriodSummary accepted an empty [from,to) range")
+	}
+}
+
+func TestPeriodReportEmptyRangeRequiresStrictBounds(t *testing.T) {
+	from := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	if _, err := (&Service{}).PeriodReport(PeriodFilters{From: from, To: from, Timezone: "UTC"}); err == nil {
+		t.Fatal("PeriodReport accepted an empty [from,to) range")
+	}
+}
+
 func TestDetectPrivateZones_FindsMultipleHubs(t *testing.T) {
 	home := [2]float64{139.700, 35.000}
 	gym := [2]float64{139.750, 35.050} // ~6 km away

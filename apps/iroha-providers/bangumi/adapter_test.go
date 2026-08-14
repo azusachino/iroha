@@ -27,4 +27,7 @@ func TestParseSnapshotMapsAnimeAndBookCollection(t *testing.T) {
 	if entries[1].CoverImageURL != "" {
 		t.Fatalf("CoverImageURL = %q, want empty when images is absent", entries[1].CoverImageURL)
 	}
+	if len(entries[0].Events) != 1 || entries[0].Events[0].EventAt != nil {
+		t.Fatalf("Bangumi list_state EventAt = %v, want nil because updated_at is sync metadata", entries[0].Events[0].EventAt)
+	}
 }

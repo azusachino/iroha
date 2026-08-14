@@ -11,6 +11,15 @@
   let map: maplibregl.Map | null = null;
   let loaded = $state(false);
   const osmMaxZoom = 19;
+  const pointCount = $derived(
+    data.features.reduce(
+      (count, feature) => count + feature.geometry.coordinates.length,
+      0,
+    ),
+  );
+  const mapLabel = $derived(
+    `Interactive route map with ${data.features.length} routes and ${pointCount} recorded coordinates`,
+  );
 
   // Key-free raster style backed by OpenStreetMap tiles (no API token needed).
   // Reuses the same style as RouteMap.svelte for visual consistency.
@@ -66,7 +75,14 @@
         coords[0] as [number, number],
       ),
     );
-    map.fitBounds(bounds, { padding: 32, duration: 300, maxZoom: osmMaxZoom });
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    map.fitBounds(bounds, {
+      padding: 32,
+      duration: reducedMotion ? 0 : 300,
+      maxZoom: osmMaxZoom,
+    });
   }
 
   onMount(() => {
@@ -100,4 +116,86 @@
   });
 </script>
 
-<div class="map" bind:this={container}></div>
+<section class="map-shell" aria-label={mapLabel}>
+  <div
+    class="map"
+    bind:this={container}
+    role="region"
+    aria-label={mapLabel}
+    aria-describedby="routes-map-help"
+  ></div>
+  <p id="routes-map-help" class="visually-hidden">
+    Use the map zoom and pan controls to inspect route density. A route summary
+    table follows for keyboard and screen-reader access.
+  </p>
+  <details class="map-data">
+    <summary>View route summaries</summary>
+    <div class="table-wrap">
+      <table>
+        <caption>Recorded route summaries</caption>
+        <thead>
+          <tr>
+            <th scope="col">Route</th>
+            <th scope="col">Sport</th>
+            <th scope="col">Year</th>
+            <th scope="col">Place</th>
+            <th scope="col">Coordinates</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.features as feature, index}
+            <tr>
+              <th scope="row">Route {index + 1}</th>
+              <td>{feature.properties.sport_type}</td>
+              <td>{feature.properties.year}</td>
+              <td>{feature.properties.city ?? "—"}</td>
+              <td>{feature.geometry.coordinates.length}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+<style>
+  .map-shell {
+    display: grid;
+    gap: 0.55rem;
+  }
+  .map {
+    width: 100%;
+    min-height: 18rem;
+    overflow: hidden;
+    border-radius: var(--radius);
+  }
+  .map-data {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .map-data summary {
+    width: fit-content;
+    cursor: pointer;
+  }
+  .table-wrap {
+    margin-top: 0.5rem;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    min-width: 34rem;
+    border-collapse: collapse;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  th,
+  td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  thead th {
+    color: var(--text-muted);
+    font-weight: 650;
+  }
+</style>

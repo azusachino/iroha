@@ -81,6 +81,10 @@ refreshes the sanitized snapshot daily in `Asia/Tokyo`.
 The exporter uses a dedicated sealed `iroha-export-public` Secret containing `IROHA_EXPORT_GITHUB_PAT`. The repository URL is ordinary non-secret configuration in the deployment environment; it is not
 embedded in the PAT Secret and the existing `iroha-secrets` is not used for publishing.
 
+The public site also consumes source-only assets from `packages/iroha-shared`, including the shared activity chart and the `/design` workbench. Therefore the Pages workflow watches both
+`apps/iroha-public-site/**` and `packages/iroha-shared/**` (as well as its build inputs); a shared visual change cannot bypass the public-site build. The private k3s web image and the public GitHub
+Pages artifact remain separate deployments.
+
 ## Deployment contract
 
 The public repository contains the exporter and static site, but never the credential that publishes a snapshot. A deployment operator should:

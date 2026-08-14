@@ -1,5 +1,6 @@
 <script lang="ts">
   import { browser } from "$app/environment";
+  import { base } from "$app/paths";
   import { page } from "$app/state";
   import { onMount, untrack } from "svelte";
   import {
@@ -24,16 +25,16 @@
     formatSport,
   } from "$lib/format";
   import { site } from "$lib/site";
-  import { sportColor } from "$lib/sport";
+  import { sportColor } from "@iroha/shared/sport";
   import type { Activity } from "$lib/types";
   import ApprovedActivityDetail from "$lib/components/ApprovedActivityDetail.svelte";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
   import ActivityDetail from "$lib/components/ActivityDetail.svelte";
   import MonthlyBarChart from "$lib/components/MonthlyBarChart.svelte";
-  import SportBadge from "$lib/components/SportBadge.svelte";
-  import StatTile from "$lib/components/StatTile.svelte";
+  import SportBadge from "@iroha/shared/SportBadge.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
-  import YearProgressChart from "$lib/components/YearProgressChart.svelte";
+  import YearProgressChart from "@iroha/shared/YearProgressChart.svelte";
   import type { PageProps } from "./$types";
 
   let { data }: PageProps = $props();
@@ -359,6 +360,7 @@
     <span>Public snapshot</span>
     <span>Updated {formatDateOnly(meta.generated_at)}</span>
     <span>iroha v{site.version}</span>
+    <a href={`${base}/design`}>Design workbench ↗</a>
   </div>
 </header>
 
@@ -668,7 +670,7 @@
     padding-left: 1rem;
     border-left: 1px solid var(--border);
   }
-  @media (max-width: 500px) {
+  @media (max-width: 640px) {
     .hero-meta span + span {
       padding-left: 0;
       border-left: 0;
@@ -881,7 +883,7 @@
     color: var(--text);
     cursor: pointer;
   }
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .stat-grid {
       grid-template-columns: 1fr;
     }

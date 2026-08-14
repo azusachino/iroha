@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
@@ -19,7 +18,7 @@ type sleepListResponse struct {
 
 type sleepResponse struct {
 	ID             string    `json:"id"`
-	WakeDate       time.Time `json:"wake_date"`
+	WakeDate       string    `json:"wake_date"`
 	StartedAt      time.Time `json:"started_at"`
 	EndedAt        time.Time `json:"ended_at"`
 	TimeInBedS     int       `json:"time_in_bed_s"`
@@ -46,8 +45,24 @@ type sleepSegmentResponse struct {
 }
 
 type sleepAggregateResponse struct {
-	Granularity string                  `json:"granularity"`
-	Buckets     []sleep.AggregateBucket `json:"buckets"`
+	Granularity string                         `json:"granularity"`
+	Buckets     []sleepAggregateBucketResponse `json:"buckets"`
+}
+
+type sleepAggregateBucketResponse struct {
+	Period            string  `json:"period"`
+	SessionCount      int     `json:"session_count"`
+	MainSleepCount    int     `json:"main_sleep_count"`
+	NapCount          int     `json:"nap_count"`
+	ObservedWakeDates int     `json:"observed_wake_dates"`
+	AverageAsleepS    float64 `json:"average_asleep_s"`
+	AverageTimeInBedS float64 `json:"average_time_in_bed_s"`
+	AverageEfficiency float64 `json:"average_efficiency"`
+	CoreS             int     `json:"core_s"`
+	DeepS             int     `json:"deep_s"`
+	RemS              int     `json:"rem_s"`
+	AwakeS            int     `json:"awake_s"`
+	UnspecifiedS      int     `json:"unspecified_s"`
 }
 
 func (s *Server) handleListSleep(w http.ResponseWriter, r *http.Request) {
@@ -120,12 +135,34 @@ func (s *Server) handleSleepAggregates(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to aggregate sleep sessions")
 		return
 	}
-	writeJSON(w, http.StatusOK, sleepAggregateResponse{Granularity: filters.Granularity, Buckets: buckets})
+	response := sleepAggregateResponse{Granularity: filters.Granularity, Buckets: make([]sleepAggregateBucketResponse, 0, len(buckets))}
+	for _, bucket := range buckets {
+		response.Buckets = append(response.Buckets, sleepAggregateBucketResponse{
+			Period:            formatAggregatePeriod(bucket.Period, filters.Granularity),
+			SessionCount:      bucket.SessionCount,
+			MainSleepCount:    bucket.MainSleepCount,
+			NapCount:          bucket.NapCount,
+			ObservedWakeDates: bucket.ObservedWakeDates,
+			AverageAsleepS:    bucket.AverageAsleepS,
+			AverageTimeInBedS: bucket.AverageTimeInBedS,
+			AverageEfficiency: bucket.AverageEfficiency,
+			CoreS:             bucket.CoreS,
+			DeepS:             bucket.DeepS,
+			RemS:              bucket.RemS,
+			AwakeS:            bucket.AwakeS,
+			UnspecifiedS:      bucket.UnspecifiedS,
+		})
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func parseSleepFilters(w http.ResponseWriter, r *http.Request) (sleep.ListFilters, bool) {
 	query := r.URL.Query()
-	filters := sleep.ListFilters{}
+	limit, ok := parsePageLimit(w, r)
+	if !ok {
+		return sleep.ListFilters{}, false
+	}
+	filters := sleep.ListFilters{Limit: limit}
 	for key, destination := range map[string]**time.Time{"from": &filters.From, "to": &filters.To} {
 		if value := query.Get(key); value != "" {
 			parsed, err := time.Parse("2006-01-02", value)
@@ -135,14 +172,6 @@ func parseSleepFilters(w http.ResponseWriter, r *http.Request) (sleep.ListFilter
 			}
 			*destination = &parsed
 		}
-	}
-	if value := query.Get("limit"); value != "" {
-		limit, err := strconv.Atoi(value)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid limit")
-			return sleep.ListFilters{}, false
-		}
-		filters.Limit = limit
 	}
 	if value := query.Get("cursor"); value != "" {
 		cursor, err := sleep.DecodeCursor(value)
@@ -182,7 +211,7 @@ func parseSleepAggregateFilters(w http.ResponseWriter, r *http.Request) (sleep.A
 func toSleepResponse(session models.SleepSession) sleepResponse {
 	return sleepResponse{
 		ID:             ids.Encode(ids.SleepPrefix, session.ID),
-		WakeDate:       session.WakeDate,
+		WakeDate:       formatCalendarDate(session.WakeDate),
 		StartedAt:      session.StartedAt,
 		EndedAt:        session.EndedAt,
 		TimeInBedS:     session.TimeInBedS,
