@@ -26,7 +26,6 @@
   } from "@iroha/shared/month";
   import {
     expenseCategoryLabel,
-    expenseMetricDimensions,
     type ExpensePanel,
     type ExpenseThemeProps,
   } from "@iroha/shared/expense-view";
@@ -93,11 +92,14 @@
   const periodMonth = $derived(String(Number(month.slice(5, 7))));
   let requestVersion = 0;
 
-  function metricDimensions(currency: ExpenseCurrency): string[] {
-    const category = categories.includes(filterCategory as ExpenseCategory)
-      ? (filterCategory as ExpenseCategory)
-      : undefined;
-    return expenseMetricDimensions(currency, category);
+  function metricDimensions(
+    chartCurrencies: ExpenseCurrency[],
+    chartCategories: ExpenseCategory[] = [],
+  ): string[] {
+    return [
+      ...chartCurrencies.map((currency) => `currency:${currency}`),
+      ...chartCategories.map((category) => `category:${category}`),
+    ];
   }
 
   onMount(() => {
@@ -119,31 +121,29 @@
       const chartCurrencies = filterCurrency
         ? [filterCurrency as ExpenseCurrency]
         : currencies;
+      const selectedCategory = categories.includes(
+        filterCategory as ExpenseCategory,
+      )
+        ? [filterCategory as ExpenseCategory]
+        : [];
       const [currenciesForMonth, countsForCurrency] = await Promise.all([
-        Promise.all(
-          chartCurrencies.map((currency) =>
-            getMetricSeries("expenses.amount_minor", {
-              from: bounds.from,
-              to: bounds.to,
-              grain: "month",
-              dimensions: metricDimensions(currency),
-            }),
-          ),
-        ),
-        Promise.all(
-          chartCurrencies.map((currency) =>
-            getMetricSeries("expenses.count", {
-              from: bounds.from,
-              to: bounds.to,
-              grain: "month",
-              dimensions: metricDimensions(currency),
-            }),
-          ),
-        ),
+        getMetricSeries("expenses.amount_minor", {
+          from: bounds.from,
+          to: bounds.to,
+          grain: "month",
+          dimensions: metricDimensions(chartCurrencies, selectedCategory),
+        }),
+        getMetricSeries("expenses.count", {
+          from: bounds.from,
+          to: bounds.to,
+          grain: "month",
+          dimensions: metricDimensions(chartCurrencies, selectedCategory),
+        }),
       ]);
       const chartCurrency = (filterCurrency ||
-        currenciesForMonth.find((series) => seriesPointValue(series) != null)
-          ?.series[0]?.dimensions.currency ||
+        currenciesForMonth.series.find(
+          (_, index) => seriesPointValue(currenciesForMonth, index) != null,
+        )?.dimensions.currency ||
         "JPY") as ExpenseCurrency;
       const chartCategories: ExpenseCategory[] = filterCategory
         ? [filterCategory as ExpenseCategory]
@@ -153,25 +153,21 @@
           from: bounds.from,
           to: bounds.to,
           grain: "day",
-          dimensions: metricDimensions(chartCurrency),
+          dimensions: metricDimensions([chartCurrency], selectedCategory),
         }),
-        Promise.all(
-          chartCategories.map((category) =>
-            getMetricSeries("expenses.amount_minor", {
-              from: bounds.from,
-              to: bounds.to,
-              grain: "month",
-              dimensions: expenseMetricDimensions(chartCurrency, category),
-            }),
-          ),
-        ),
+        getMetricSeries("expenses.amount_minor", {
+          from: bounds.from,
+          to: bounds.to,
+          grain: "month",
+          dimensions: metricDimensions([chartCurrency], chartCategories),
+        }),
       ]);
       if (version !== requestVersion) return;
       expenses = monthExpenses;
       dailySeries = daily;
-      categorySeries = categoriesForCurrency;
-      currencySeries = currenciesForMonth;
-      currencyCountSeries = countsForCurrency;
+      categorySeries = [categoriesForCurrency];
+      currencySeries = [currenciesForMonth];
+      currencyCountSeries = [countsForCurrency];
       if (!monthExpenses.length) {
         selected = null;
         selectedId = "";
@@ -288,33 +284,42 @@
 
   function seriesPointValue(
     series: MetricSeriesResponse | null,
+    index = 0,
   ): number | null {
-    const point = series?.series[0]?.points[0];
+    const point = series?.series[index]?.points[0];
     return point?.value_minor ?? null;
   }
 
   function numericSeriesPointValue(
     series: MetricSeriesResponse | null,
+    index = 0,
   ): number | null {
-    const point = series?.series[0]?.points[0];
+    const point = series?.series[index]?.points[0];
     return point && "value" in point ? (point.value ?? null) : null;
   }
 
   const currencyTotals = $derived(
     currencySeries
-      .map((series) => ({
-        currency: series.series[0]?.dimensions.currency as ExpenseCurrency,
-        amountMinor: seriesPointValue(series) ?? 0,
-        exponent: series.series[0]?.dimensions.currency === "JPY" ? 0 : 2,
-        count:
-          numericSeriesPointValue(
-            currencyCountSeries.find(
-              (countSeries) =>
-                countSeries.series[0]?.dimensions.currency ===
-                series.series[0]?.dimensions.currency,
-            ) ?? null,
-          ) ?? 0,
-      }))
+      .flatMap((response) =>
+        response.series.map((dimensionSeries, index) => {
+          const currency = dimensionSeries.dimensions
+            .currency as ExpenseCurrency;
+          const countResponse = currencyCountSeries[0] ?? null;
+          const countIndex =
+            countResponse?.series.findIndex(
+              (candidate) => candidate.dimensions.currency === currency,
+            ) ?? -1;
+          return {
+            currency,
+            amountMinor: seriesPointValue(response, index) ?? 0,
+            exponent: currency === "JPY" ? 0 : 2,
+            count:
+              countIndex < 0
+                ? 0
+                : (numericSeriesPointValue(countResponse, countIndex) ?? 0),
+          };
+        }),
+      )
       .filter((item) => item.currency)
       .sort((a, b) => b.amountMinor - a.amountMinor),
   );
@@ -330,10 +335,12 @@
   );
   const categoryTotals = $derived(
     categorySeries
-      .map((series) => ({
-        category: series.series[0]?.dimensions.category ?? "",
-        amount: seriesPointValue(series) ?? 0,
-      }))
+      .flatMap((response) =>
+        response.series.map((dimensionSeries, index) => ({
+          category: dimensionSeries.dimensions.category ?? "",
+          amount: seriesPointValue(response, index) ?? 0,
+        })),
+      )
       .filter((item) => item.category && item.amount > 0)
       .sort((a, b) => b.amount - a.amount),
   );
