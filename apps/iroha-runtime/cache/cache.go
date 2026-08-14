@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -26,13 +27,57 @@ const (
 	BackendValkey   = "valkey"
 	keyPrefix       = "iroha:cache:v2:"
 
-	NamespaceBriefing   = "read_briefing"
-	NamespaceActivities = "read_activities"
-	NamespaceSleep      = "read_sleep"
-	NamespaceDaily      = "read_daily"
-	NamespaceMedia      = "read_media"
-	NamespaceMetrics    = "read_metrics"
-	NamespaceReports    = "read_reports"
+	NamespaceBriefing         = "read_briefing"
+	NamespaceActivities       = "read_activities"
+	NamespaceSleep            = "read_sleep"
+	NamespaceDaily            = "read_daily"
+	NamespaceMedia            = "read_media"
+	NamespaceMetrics          = "read_metrics"
+	NamespaceReports          = "read_reports"
+	NamespacePublicSummary    = "public_summary"
+	NamespacePublicActivities = "public_activities"
+	NamespacePublicRoutes     = "public_routes"
+
+	ChangeImport          ChangeKind = "import"
+	ChangeExpense         ChangeKind = "expense"
+	ChangeMediaResolution ChangeKind = "media_resolution"
+	ChangeGeocode         ChangeKind = "geocode"
+)
+
+// ChangeKind identifies a canonical write whose dependent read namespaces
+// must be invalidated after the write commits.
+type ChangeKind string
+
+var changeNamespaces = map[ChangeKind][]string{
+	ChangeImport: {
+		NamespaceBriefing,
+		NamespaceActivities,
+		NamespaceSleep,
+		NamespaceDaily,
+		NamespaceMedia,
+		NamespaceMetrics,
+		NamespaceReports,
+		NamespacePublicSummary,
+		NamespacePublicActivities,
+		NamespacePublicRoutes,
+	},
+	ChangeExpense: {
+		NamespaceMetrics,
+		NamespaceReports,
+	},
+	ChangeMediaResolution: {
+		NamespaceMedia,
+		NamespaceReports,
+	},
+	ChangeGeocode: {
+		NamespaceActivities,
+		NamespacePublicRoutes,
+	},
+}
+
+const (
+	invalidationAttempts   = 3
+	invalidationRetryDelay = 25 * time.Millisecond
 )
 
 // Store is the backend contract for shared cache data. Namespace is a logical
@@ -57,9 +102,12 @@ type GenerationStore interface {
 // Client is the cache facade used by application packages. It owns encoding
 // and fail-open behavior; Store owns backend details.
 type Client struct {
-	store    Store
-	flightMu sync.Mutex
-	flights  map[string]*cacheFlight
+	store                Store
+	flightMu             sync.Mutex
+	flights              map[string]*cacheFlight
+	degradedMu           sync.RWMutex
+	degraded             map[string]bool
+	invalidationFailures atomic.Uint64
 }
 
 type cacheFlight struct {
@@ -86,7 +134,7 @@ func New(url string) *Client {
 
 // NewWithStore builds a Client around any Store implementation.
 func NewWithStore(store Store) *Client {
-	return &Client{store: store, flights: make(map[string]*cacheFlight)}
+	return &Client{store: store, flights: make(map[string]*cacheFlight), degraded: make(map[string]bool)}
 }
 
 // NewBackend selects a configured cache backend. Cache data is disposable, so
@@ -265,12 +313,106 @@ func SetAtGeneration[T any](ctx context.Context, c *Client, namespace, key strin
 	return true
 }
 
-// InvalidateNamespace invalidates all entries in one logical namespace.
+// InvalidateNamespace invalidates all entries in one logical namespace with a
+// bounded retry policy. A persistent failure marks that namespace degraded so
+// callers can bypass potentially stale cache data until a later invalidation
+// succeeds.
 func (c *Client) InvalidateNamespace(ctx context.Context, namespace string) error {
 	if c == nil || c.store == nil {
 		return nil
 	}
-	return c.store.InvalidateNamespace(ctx, namespace)
+	var err error
+	attempts := 0
+retry:
+	for attempt := 1; attempt <= invalidationAttempts; attempt++ {
+		attempts = attempt
+		err = c.store.InvalidateNamespace(ctx, namespace)
+		if err == nil {
+			if c.setDegraded(namespace, false) {
+				slog.Info("cache invalidation recovered", "namespace", namespace)
+			}
+			return nil
+		}
+		if attempt == invalidationAttempts {
+			break
+		}
+		slog.Warn("cache invalidation failed; retrying", "namespace", namespace, "attempt", attempt, "max_attempts", invalidationAttempts, "error", err)
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			break retry
+		case <-time.After(invalidationRetryDelay):
+		}
+	}
+
+	c.invalidationFailures.Add(1)
+	c.setDegraded(namespace, true)
+	slog.Error("cache namespace degraded after invalidation failure", "event", "cache_invalidation_degraded", "namespace", namespace, "attempts", attempts, "failure_count", c.invalidationFailures.Load(), "error", err)
+	return err
+}
+
+// InvalidateNamespaces invalidates a set of logical namespaces in order and
+// returns all failures. Duplicate namespaces are processed once.
+func (c *Client) InvalidateNamespaces(ctx context.Context, namespaces ...string) error {
+	seen := make(map[string]struct{}, len(namespaces))
+	var failures []error
+	for _, namespace := range namespaces {
+		if namespace == "" {
+			continue
+		}
+		if _, ok := seen[namespace]; ok {
+			continue
+		}
+		seen[namespace] = struct{}{}
+		if err := c.InvalidateNamespace(ctx, namespace); err != nil {
+			failures = append(failures, fmt.Errorf("%s: %w", namespace, err))
+		}
+	}
+	return errors.Join(failures...)
+}
+
+// InvalidateChange applies the canonical write-to-read dependency matrix.
+func (c *Client) InvalidateChange(ctx context.Context, change ChangeKind) error {
+	namespaces, ok := changeNamespaces[change]
+	if !ok {
+		return fmt.Errorf("unsupported cache change kind %q", change)
+	}
+	return c.InvalidateNamespaces(ctx, namespaces...)
+}
+
+// IsDegraded reports whether a namespace must bypass cache reads.
+func (c *Client) IsDegraded(namespace string) bool {
+	if c == nil {
+		return false
+	}
+	c.degradedMu.RLock()
+	degraded := c.degraded[namespace]
+	c.degradedMu.RUnlock()
+	return degraded
+}
+
+// InvalidationFailureCount returns the number of namespace invalidation
+// operations that exhausted their bounded retry budget for this client.
+func (c *Client) InvalidationFailureCount() uint64 {
+	if c == nil {
+		return 0
+	}
+	return c.invalidationFailures.Load()
+}
+
+func (c *Client) setDegraded(namespace string, degraded bool) bool {
+	c.degradedMu.Lock()
+	if c.degraded == nil {
+		c.degraded = make(map[string]bool)
+	}
+	degradedBefore := c.degraded[namespace]
+	if degraded {
+		c.degraded[namespace] = true
+	} else {
+		delete(c.degraded, namespace)
+	}
+	c.degradedMu.Unlock()
+	return degradedBefore && !degraded
 }
 
 type valkeyStore struct {

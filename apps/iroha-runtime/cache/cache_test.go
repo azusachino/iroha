@@ -181,6 +181,73 @@ func TestGenerationAwarePopulationSkipsStaleWrite(t *testing.T) {
 	}
 }
 
+type invalidationFakeStore struct {
+	fakeStore
+	failures   int
+	attempts   int
+	namespaces []string
+}
+
+func (s *invalidationFakeStore) InvalidateNamespace(_ context.Context, namespace string) error {
+	s.attempts++
+	s.namespaces = append(s.namespaces, namespace)
+	if s.failures > 0 {
+		s.failures--
+		return errors.New("cache backend unavailable")
+	}
+	return nil
+}
+
+func TestInvalidateChangeUsesDependencyMatrix(t *testing.T) {
+	store := &invalidationFakeStore{}
+	c := NewWithStore(store)
+	if err := c.InvalidateChange(context.Background(), ChangeExpense); err != nil {
+		t.Fatalf("invalidate expense change: %v", err)
+	}
+	if got, want := store.namespaces, []string{NamespaceMetrics, NamespaceReports}; !equalStrings(got, want) {
+		t.Fatalf("invalidated namespaces = %#v, want %#v", got, want)
+	}
+	if err := c.InvalidateChange(context.Background(), ChangeKind("unknown")); err == nil {
+		t.Fatal("unknown change kind did not fail")
+	}
+}
+
+func TestInvalidateNamespaceRetriesAndMarksDegraded(t *testing.T) {
+	store := &invalidationFakeStore{failures: invalidationAttempts}
+	c := NewWithStore(store)
+	if err := c.InvalidateNamespace(context.Background(), NamespaceReports); err == nil {
+		t.Fatal("persistent invalidation failure did not return an error")
+	}
+	if store.attempts != invalidationAttempts {
+		t.Fatalf("invalidation attempts = %d, want %d", store.attempts, invalidationAttempts)
+	}
+	if !c.IsDegraded(NamespaceReports) {
+		t.Fatal("failed namespace was not marked degraded")
+	}
+	if c.InvalidationFailureCount() != 1 {
+		t.Fatalf("invalidation failure count = %d, want 1", c.InvalidationFailureCount())
+	}
+
+	if err := c.InvalidateNamespace(context.Background(), NamespaceReports); err != nil {
+		t.Fatalf("recovered invalidation: %v", err)
+	}
+	if c.IsDegraded(NamespaceReports) {
+		t.Fatal("recovered namespace remained degraded")
+	}
+}
+
+func equalStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestValkeyKeysUseApplicationPrefix(t *testing.T) {
 	if got, want := generationKey("read_daily"), "iroha:cache:v2:read_daily:__generation"; got != want {
 		t.Fatalf("generation key = %q, want %q", got, want)

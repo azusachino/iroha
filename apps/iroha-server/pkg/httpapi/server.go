@@ -40,8 +40,9 @@ import (
 const apiRateLimitPerMin = 6000
 
 const (
-	// Bump this when a cached JSON representation changes shape. The cache is
-	// shared across rollouts, so a new server must not serve an older contract.
+	// Bump this when a cached JSON representation or key input changes. The
+	// cache is shared across rollouts, so a new server must not reuse an older
+	// contract or identity scheme.
 	readCacheKeyVersion = "v3"
 	readCacheTTL        = 24 * time.Hour
 	readyzTimeout       = 2 * time.Second
@@ -231,6 +232,11 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		namespace, ok := readCacheNamespace(r)
 		if !ok || s.deps.Cache == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if s.deps.Cache.IsDegraded(namespace) {
+			w.Header().Set("X-Iroha-Cache", "BYPASS")
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
@@ -99,6 +100,9 @@ func (s *Server) handleCreateExpense(w http.ResponseWriter, r *http.Request) {
 	status := http.StatusOK
 	if result.Created {
 		status = http.StatusCreated
+		if err := s.invalidateExpenseCaches(r); err != nil {
+			s.deps.Logger.Error("invalidate caches after expense creation", "error", err)
+		}
 	}
 	writeJSON(w, status, toExpenseResponse(result.Expense))
 }
@@ -170,6 +174,9 @@ func (s *Server) handleReplaceExpense(w http.ResponseWriter, r *http.Request) {
 		writeExpenseError(w, err)
 		return
 	}
+	if err := s.invalidateExpenseCaches(r); err != nil {
+		s.deps.Logger.Error("invalidate caches after expense replacement", "error", err)
+	}
 	writeJSON(w, http.StatusOK, toExpenseResponse(row))
 }
 
@@ -186,7 +193,17 @@ func (s *Server) handleDeleteExpense(w http.ResponseWriter, r *http.Request) {
 		writeExpenseError(w, err)
 		return
 	}
+	if err := s.invalidateExpenseCaches(r); err != nil {
+		s.deps.Logger.Error("invalidate caches after expense deletion", "error", err)
+	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) invalidateExpenseCaches(r *http.Request) error {
+	if s.deps.Cache == nil {
+		return nil
+	}
+	return s.deps.Cache.InvalidateChange(r.Context(), cache.ChangeExpense)
 }
 
 func (r createExpenseRequest) createInput() (expenses.CreateInput, error) {

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -59,6 +60,14 @@ func (s *readCacheTestStore) cacheKey(namespace, key string) string {
 type generationReadCacheTestStore struct {
 	readCacheTestStore
 	current map[string]int64
+}
+
+type failingInvalidationReadCacheStore struct {
+	readCacheTestStore
+}
+
+func (s *failingInvalidationReadCacheStore) InvalidateNamespace(context.Context, string) error {
+	return errors.New("cache backend unavailable")
 }
 
 func (s *generationReadCacheTestStore) GetWithGeneration(_ context.Context, namespace, key string) ([]byte, int64, bool, error) {
@@ -194,6 +203,29 @@ func TestReadCacheDoesNotPopulateAfterInvalidation(t *testing.T) {
 	}
 	if second.Header().Get("X-Iroha-Cache") != "MISS" {
 		t.Fatalf("second cache header = %q, want MISS", second.Header().Get("X-Iroha-Cache"))
+	}
+}
+
+func TestReadCacheBypassesDegradedNamespace(t *testing.T) {
+	client := cache.NewWithStore(&failingInvalidationReadCacheStore{})
+	if err := client.InvalidateNamespace(context.Background(), cache.NamespaceReports); err == nil {
+		t.Fatal("persistent invalidation failure did not return an error")
+	}
+	server := &Server{deps: Dependencies{Cache: client}}
+	calls := 0
+	handler := server.readCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		writeJSON(w, http.StatusOK, map[string]int{"call": calls})
+	}))
+	for range 2 {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?month=2026-08", nil))
+		if response.Header().Get("X-Iroha-Cache") != "BYPASS" {
+			t.Fatalf("cache header = %q, want BYPASS", response.Header().Get("X-Iroha-Cache"))
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("handler calls = %d, want 2 while namespace is degraded", calls)
 	}
 }
 

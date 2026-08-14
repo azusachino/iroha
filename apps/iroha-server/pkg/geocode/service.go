@@ -199,7 +199,7 @@ func (s *Service) Refresh(ctx context.Context, payload RefreshPayload) error {
 		return err
 	}
 	if s.cache != nil {
-		_ = s.cache.InvalidateNamespace(ctx, "public_routes")
+		_ = s.cache.InvalidateChange(ctx, cache.ChangeGeocode)
 	}
 	return nil
 }

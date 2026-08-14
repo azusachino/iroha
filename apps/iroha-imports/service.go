@@ -365,22 +365,9 @@ func (s *Service) flushCache() {
 	if s.cacheClient == nil {
 		return
 	}
-	s.logger.Info("invalidating read cache namespaces after import job completion")
-	ctx := context.Background()
-	for _, namespace := range []string{
-		cache.NamespaceBriefing,
-		cache.NamespaceActivities,
-		cache.NamespaceSleep,
-		cache.NamespaceDaily,
-		cache.NamespaceMedia,
-		cache.NamespaceMetrics,
-		"public_summary",
-		"public_activities",
-		"public_routes",
-	} {
-		if err := s.cacheClient.InvalidateNamespace(ctx, namespace); err != nil {
-			s.logger.Error("failed to invalidate cache namespace", "namespace", namespace, "error", err)
-		}
+	s.logger.Info("invalidating read cache namespaces after import job completion", "change", cache.ChangeImport)
+	if err := s.cacheClient.InvalidateChange(context.Background(), cache.ChangeImport); err != nil {
+		s.logger.Error("failed to invalidate caches after import", "error", err)
 	}
 }
 
