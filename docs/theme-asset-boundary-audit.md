@@ -19,7 +19,7 @@ The new hard rule is in [`AGENTS.md`](../AGENTS.md). The shared-package README w
 | Current production theme IDs, identities, route names, and registry types | [`packages/iroha-shared/src/themes.ts`](../packages/iroha-shared/src/themes.ts)                                                                                                                    | Correctly shared. This is the contract, not the implementation; adopted future designs must extend this registry rather than create a second catalog.  |
 | Semantic theme tokens                                                     | [`packages/iroha-shared/src/themes.css`](../packages/iroha-shared/src/themes.css)                                                                                                                  | Correctly shared.                                                                                                                                      |
 | Shared low-dependency Svelte primitives                                   | [`packages/iroha-shared/src`](../packages/iroha-shared/src)                                                                                                                                        | Correct home; the set is incomplete.                                                                                                                   |
-| Theme registry and component map                                          | [`apps/iroha-web/src/lib/themes/registry.ts`](../apps/iroha-web/src/lib/themes/registry.ts)                                                                                                        | Host adapter remains. It imports package-owned compositions; the canonical component map/runtime contract is the next boundary to extract.             |
+| Theme registry and component map                                          | [`packages/iroha-shared/src/theme-ui/registry.ts`](../packages/iroha-shared/src/theme-ui/registry.ts)                                                                                               | Corrected. The web `registry.ts` is only a compatibility re-export; the component map and route definitions are package-owned.                                                           |
 | Theme context and route renderer                                          | [`apps/iroha-web/src/lib/themes/context.svelte.ts`](../apps/iroha-web/src/lib/themes/context.svelte.ts), [`ThemeRouteRenderer.svelte`](../apps/iroha-web/src/lib/themes/ThemeRouteRenderer.svelte) | Host runtime adapter. They still depend on web persistence/context and should be extracted only after the shared component registry is defined.        |
 | Theme provider                                                            | [`apps/iroha-web/src/lib/themes/ThemeProvider.svelte`](../apps/iroha-web/src/lib/themes/ThemeProvider.svelte)                                                                                      | Mixed responsibility. Theme context belongs in the shared package; local-storage persistence is a web adapter.                                         |
 | Theme frame                                                               | [`apps/iroha-web/src/lib/themes/ThemeFrame.svelte`](../apps/iroha-web/src/lib/themes/ThemeFrame.svelte)                                                                                            | Host adapter. Shell compositions are package-owned; `APP_VERSION`, private fallback footer, and theme context remain web concerns.                     |
@@ -78,13 +78,12 @@ implementations live under [`packages/iroha-shared/src/theme-ui/compositions/`](
 `DesignCompositionRenderer`. They remain a workshop/composition registry rather than a fixed theme count: new design systems can be added with another shared implementation. The remaining gaps are the
 shared production component registry/runtime and a public-site fixture consumer.
 
-### Medium: the registry contract is split across packages
+### Medium: the theme runtime is still split across packages
 
-`packages/iroha-shared/src/themes.ts` owns the registered language IDs, identities, route names, and registry types, while `apps/iroha-web/src/lib/themes/registry.ts` owns the remaining production
-route map. The design-composition IDs and implementations are now shared under `packages/iroha-shared`. The registries are deliberately separate: a language is a production-wide visual language, while
-a composition is an adopted layout system that can be promoted across route families over time.
+`packages/iroha-shared/src/themes.ts` owns the registered language IDs, identities, route names, registry types, and `packages/iroha-shared/src/theme-ui/registry.ts` owns the component map. The web
+`registry.ts` is only a compatibility re-export. The remaining split is the host runtime: context, persistence, route rendering, and the provider still live in `iroha-web`.
 
-The canonical registry must eventually include the implementation map in the shared theme package. The web app should provide only data and navigation adapters, not a second registry.
+The web app should provide only data, persistence, and navigation adapters, not a second registry.
 
 ### Medium: public-site reuse is currently nominal
 
@@ -133,7 +132,7 @@ and callbacks. The theme context must be driven by the shared registry; local st
    implementations rather than route-local demos.
 4. **Complete:** move all registered route families across the six production languages, including shared primitives, registry imports, and design-page specimens. Dashboard map rendering remains an
    explicit host-provided snippet because it depends on MapLibre and API-owned loading state.
-5. **In progress:** move the component map and theme runtime contracts into the shared package. Keep web route adapters thin while preserving URL, loading, persistence, and navigation behavior.
+5. **In progress:** move the theme context/renderer/provider contracts into the shared package while keeping local persistence and private chrome in the web host. Preserve URL, loading, persistence, and navigation behavior.
 6. Add public-site fixture data and render all registered themes and adopted compositions in its design workbench. This is the cross-app proof that the boundary is real.
 7. Add a CI/check target that fails if new files appear under `apps/*/src/lib/themes` or if `packages/iroha-shared` imports app aliases.
 
