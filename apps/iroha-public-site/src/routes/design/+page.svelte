@@ -472,13 +472,13 @@
     font-weight: 800;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1024px) {
     .language-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
 
-  @media (max-width: 620px) {
+  @media (max-width: 640px) {
     .lab-header,
     .control-heading,
     .section-heading {

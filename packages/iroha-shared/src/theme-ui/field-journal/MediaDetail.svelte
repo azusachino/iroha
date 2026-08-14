@@ -387,7 +387,7 @@
     color: var(--text-muted);
     font-size: 0.7rem;
   }
-  @media (max-width: 700px) {
+  @media (max-width: 768px) {
     .archive-hero,
     .archive-grid,
     .archive-grid-lower {

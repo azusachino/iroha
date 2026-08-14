@@ -633,7 +633,7 @@
     font-family: monospace;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1024px) {
     .principle-grid,
     .contract-grid {
       grid-template-columns: repeat(2, 1fr);

@@ -337,7 +337,7 @@
     color: var(--text-muted);
     font-size: 0.7rem;
   }
-  @media (max-width: 680px) {
+  @media (max-width: 768px) {
     .night-opening,
     .night-heading,
     .night-ledger header,

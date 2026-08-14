@@ -685,7 +685,7 @@
     margin-left: auto;
     white-space: nowrap;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .admin-head {
       align-items: start;
       flex-direction: column;

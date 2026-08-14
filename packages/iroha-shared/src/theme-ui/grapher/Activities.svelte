@@ -268,7 +268,7 @@
   .error {
     color: var(--danger);
   }
-  @media (max-width: 600px) {
+  @media (max-width: 640px) {
     .summary-row strong {
       font-size: 1.2rem;
     }

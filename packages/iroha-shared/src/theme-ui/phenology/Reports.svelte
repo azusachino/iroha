@@ -448,7 +448,7 @@
     font-size: 0.78rem;
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .phenology-heading,
     .cycle-evidence > header {
       display: grid;

@@ -733,7 +733,7 @@
     color: var(--text-muted);
     font-size: 0.8rem;
   }
-  @media (max-width: 800px) {
+  @media (max-width: 1024px) {
     .stat-strip {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -745,7 +745,7 @@
       flex-direction: column;
     }
   }
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .activity-grid {
       grid-template-columns: 1fr;
     }

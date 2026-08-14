@@ -444,7 +444,7 @@
     font-size: 0.78rem;
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .grapher-heading,
     .grapher-evidence > header {
       display: grid;

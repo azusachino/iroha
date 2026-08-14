@@ -109,7 +109,7 @@
     justify-content: flex-end;
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .period-toolbar {
       align-items: stretch;
       flex-direction: column;

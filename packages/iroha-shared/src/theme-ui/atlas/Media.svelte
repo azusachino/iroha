@@ -327,7 +327,7 @@
     font-family: var(--font-mono);
     font-size: 0.66rem;
   }
-  @media (max-width: 680px) {
+  @media (max-width: 768px) {
     .shelf-header,
     .shelf-plate-heading {
       display: block;

@@ -14,7 +14,7 @@ PRIVACY ?= 0
 MEDIA_BRIDGE_OUT := ./dist/media-bridge
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
@@ -49,6 +49,12 @@ test-integration: db-up ## Run DB-backed Go integration tests
 
 scripts-test: ## Run Python script unit tests
 	$(TOOL_ENV) uv run python -m unittest discover -s scripts -p '*_test.py'
+
+theme-boundary-check: ## Fail if theme assets escape the shared package boundary
+	$(TOOL_ENV) uv run python scripts/check_theme_boundary.py
+
+responsive-check: ## Fail if frontend media queries use non-canonical breakpoints
+	$(TOOL_ENV) uv run python scripts/check_responsive_contract.py
 
 build: ## Build all Go modules
 	$(TOOL_ENV) uv run python scripts/go_tasks.py build
@@ -95,6 +101,10 @@ web-visual-check: ## Screenshot a themed route with agent-browser (THEME=field-j
 	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
 	cd $(WEB_DIR) && BASE="$(or $(BASE),http://127.0.0.1:5173)" THEME="$(or $(THEME),field-journal)" ROUTES="$(or $(ROUTE),overview)" OUT="$(or $(OUT),.visual-check)" bash scripts/visual-check.sh
 
+web-mobile-check: ## Audit every private route at 390x844 (BASE=..., API_BASE=...)
+	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
+	BASE="$(or $(BASE),http://127.0.0.1:4173)" API_BASE="$(or $(API_BASE),$(or $(BASE),http://127.0.0.1:4173))" THEMES="$(or $(THEMES),atlas,grapher,field-journal,phenology,sound-map,archive)" MODES="$(or $(MODES),light,dark)" MOTION="$(or $(MOTION),normal,reduced)" OUT="$(or $(OUT),dist/mobile-route-audit.json)" $(TOOL_ENV) uv run python scripts/mobile_route_check.py
+
 ## --- Public static site (apps/iroha-public-site, bun) ---
 public-site-install: ## Install public-site dependencies
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun install
@@ -122,7 +132,7 @@ fmt-docs-check: ## Fail if any doc/config file is unformatted
 	$(TOOL_ENV) $(PRETTIER) --check $(DOCS_FILES)
 
 ## --- Aggregate gates ---
-check: fmt-check vet lint test contract-check scripts-test web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + web checks
+check: fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + theme/responsive boundaries + web checks
 validate: check build web-build ## Pre-PR gate: check + full server and web builds
 
 release-candidate: ## Isolated DB integration + seeded production runtime/browser gate

@@ -454,7 +454,7 @@
     width: 1.5rem;
     height: 1.5rem;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .ledger-heading {
       display: grid;
     }

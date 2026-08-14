@@ -35,7 +35,7 @@
     font-size: 0.7rem;
   }
 
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     .grapher-content {
       width: min(100% - 2rem, 1180px);
       padding-top: 2rem;

@@ -134,7 +134,7 @@
     background: var(--accent);
     opacity: calc(1 - var(--band) * 0.1);
   }
-  @media (max-width: 600px) {
+  @media (max-width: 640px) {
     .band {
       grid-template-columns: 6rem 5rem 1fr;
     }

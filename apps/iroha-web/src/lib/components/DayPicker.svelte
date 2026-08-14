@@ -35,6 +35,46 @@
     return out;
   });
   const monthLabel = $derived(formatMonth(view));
+  const focusableDay = $derived(value);
+  let dayGrid: HTMLDivElement;
+
+  function dayLabel(day: string): string {
+    return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  }
+
+  function handleDayKeydown(event: KeyboardEvent, day: string) {
+    const index = cells.indexOf(day);
+    if (index < 0) return;
+    const delta =
+      event.key === "ArrowLeft"
+        ? -1
+        : event.key === "ArrowRight"
+          ? 1
+          : event.key === "ArrowUp"
+            ? -7
+            : event.key === "ArrowDown"
+              ? 7
+              : event.key === "Home"
+                ? -(index % 7)
+                : event.key === "End"
+                  ? 6 - (index % 7)
+                  : 0;
+    if (delta === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const nextDay = cells[index + delta];
+    if (!nextDay || (max && nextDay > max)) return;
+    dayGrid
+      ?.querySelector<HTMLButtonElement>(`button[data-day="${nextDay}"]`)
+      ?.focus();
+  }
+
   function shiftMonth(delta: number) {
     const [y, m] = view.split("-").map(Number);
     monthOverride = new Date(Date.UTC(y, m - 1 + delta, 1))
@@ -43,32 +83,60 @@
   }
 </script>
 
-<div class="picker">
-  <div class="pk-head">
+<div class="picker" role="group" aria-label={`Choose a day in ${monthLabel}`}>
+  <div class="pk-head" aria-live="polite">
     <button
       type="button"
       aria-label="Previous month"
       onclick={() => shiftMonth(-1)}>‹</button
     >
-    <span>{monthLabel}</span>
+    <span role="heading" aria-level="2">{monthLabel}</span>
     <button type="button" aria-label="Next month" onclick={() => shiftMonth(1)}
       >›</button
     >
   </div>
-  <div class="pk-grid">
-    {#each WEEKDAYS as w}
-      <span class="dow">{w}</span>
+  <div
+    class="pk-grid"
+    bind:this={dayGrid}
+    role="grid"
+    aria-label={`Calendar for ${monthLabel}`}
+  >
+    {#each WEEKDAYS as w, index}
+      <span
+        class="dow"
+        role="columnheader"
+        aria-label={index === 0
+          ? "Sunday"
+          : index === 1
+            ? "Monday"
+            : index === 2
+              ? "Tuesday"
+              : index === 3
+                ? "Wednesday"
+                : index === 4
+                  ? "Thursday"
+                  : index === 5
+                    ? "Friday"
+                    : "Saturday"}>{w}</span
+      >
     {/each}
     {#each cells as d}
       {#if d == null}
-        <span></span>
+        <span role="gridcell" aria-hidden="true"></span>
       {:else}
         <button
           type="button"
+          role="gridcell"
           class="day"
           class:selected={d === value}
           class:has={days.has(d)}
           disabled={max ? d > max : false}
+          data-day={d}
+          tabindex={d === focusableDay ? 0 : -1}
+          aria-label={dayLabel(d)}
+          aria-selected={d === value}
+          aria-current={d === value ? "date" : undefined}
+          onkeydown={(event) => handleDayKeydown(event, d)}
           onclick={() => onselect(d)}
         >
           {Number(d.slice(8))}

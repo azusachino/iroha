@@ -51,7 +51,7 @@
     line-height: 1.3;
   }
 
-  @media (max-width: 460px) {
+  @media (max-width: 640px) {
     .report-facts {
       grid-template-columns: 1fr 1fr;
     }

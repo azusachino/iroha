@@ -316,7 +316,7 @@
     color: var(--text-muted);
     font-size: 0.68rem;
   }
-  @media (max-width: 680px) {
+  @media (max-width: 768px) {
     .shelf-opening,
     .shelf-panel > header,
     .bloom-source {

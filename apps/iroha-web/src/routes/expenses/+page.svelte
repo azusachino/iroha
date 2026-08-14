@@ -712,7 +712,7 @@
     color: var(--text-muted);
     text-align: center;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .page-head {
       align-items: start;
       flex-direction: column;

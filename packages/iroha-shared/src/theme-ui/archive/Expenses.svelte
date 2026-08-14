@@ -139,7 +139,7 @@
     gap: 1rem;
     margin-top: 0.8rem;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .archive-charts {
       grid-template-columns: 1fr;
     }

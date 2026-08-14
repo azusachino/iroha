@@ -137,7 +137,7 @@
     border-bottom-width: 3px;
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .activity-detail-chart > header {
       align-items: flex-start;
       flex-direction: column;

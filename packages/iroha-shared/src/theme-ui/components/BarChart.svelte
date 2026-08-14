@@ -44,6 +44,7 @@
     activeIndex = null,
     onBarClick,
     height = 260,
+    showDataTable = true,
   }: {
     categories: string[];
     primary: BarSeries;
@@ -54,6 +55,7 @@
     activeIndex?: number | null;
     onBarClick?: (index: number) => void;
     height?: number;
+    showDataTable?: boolean;
   } = $props();
 
   let container: HTMLDivElement;
@@ -61,6 +63,12 @@
 
   function defaultFormatter(value: number): string {
     return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  }
+
+  function formatTableValue(series: BarSeries, index: number): string {
+    const value = series.values[index];
+    if (value == null || !Number.isFinite(value)) return "No observation";
+    return (series.formatter || defaultFormatter)(value);
   }
 
   function resolveColor(
@@ -272,12 +280,79 @@
   style={`--h:${height}px`}
   bind:this={container}
   role="img"
-  aria-label={`${primary.name} chart`}
+  aria-label={`${primary.name} chart. Exact values are available in the chart data table.`}
 ></div>
+{#if showDataTable}
+  <details class="chart-data">
+    <summary>View chart data</summary>
+    <div class="table-wrap">
+      <table>
+        <caption>{primary.name} by category</caption>
+        <thead>
+          <tr>
+            <th scope="col">Category</th>
+            <th scope="col">{primary.name}</th>
+            {#if secondary}<th scope="col">{secondary.name}</th>{/if}
+          </tr>
+        </thead>
+        <tbody>
+          {#each categories as category, index}
+            <tr>
+              <th scope="row">{category}</th>
+              <td>{formatTableValue(primary, index)}</td>
+              {#if secondary}<td>{formatTableValue(secondary, index)}</td>{/if}
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </details>
+{/if}
 
 <style>
   .bar-chart {
     width: 100%;
     height: var(--h);
+  }
+
+  .chart-data {
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  .chart-data summary {
+    width: fit-content;
+    cursor: pointer;
+  }
+
+  .table-wrap {
+    margin-top: 0.5rem;
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    min-width: 24rem;
+    border-collapse: collapse;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  th,
+  td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+
+  thead th {
+    color: var(--text-muted);
+    font-weight: 650;
   }
 </style>

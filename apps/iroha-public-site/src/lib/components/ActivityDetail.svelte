@@ -183,7 +183,7 @@
     padding: 0.5rem;
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .detail-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }

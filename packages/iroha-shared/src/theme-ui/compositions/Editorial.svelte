@@ -244,7 +244,7 @@
     text-transform: uppercase;
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 768px) {
     .editorial-heading,
     .editorial-hero {
       align-items: flex-start;

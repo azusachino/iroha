@@ -197,7 +197,7 @@
     background: var(--accent-2);
   }
 
-  @media (max-width: 620px) {
+  @media (max-width: 640px) {
     header {
       display: grid;
       gap: 0.2rem;

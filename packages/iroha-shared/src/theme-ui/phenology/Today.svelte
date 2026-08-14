@@ -481,7 +481,7 @@
     color: var(--text-muted);
     font-size: 0.68rem;
   }
-  @media (max-width: 680px) {
+  @media (max-width: 768px) {
     .today-opening,
     .bloom-grid,
     .sessions-heading,

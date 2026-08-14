@@ -89,7 +89,7 @@
     min-width: 0;
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     header {
       display: grid;
     }

@@ -149,7 +149,7 @@
     padding: 1rem;
     background: var(--surface);
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .atlas-heading,
     .atlas-charts {
       grid-template-columns: 1fr;

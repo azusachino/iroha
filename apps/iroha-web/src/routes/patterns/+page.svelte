@@ -722,7 +722,7 @@
     text-align: left;
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .atlas-note {
       grid-template-columns: 1fr;
     }

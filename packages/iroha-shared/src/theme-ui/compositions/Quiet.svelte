@@ -215,7 +215,7 @@
     text-decoration: none;
   }
 
-  @media (max-width: 620px) {
+  @media (max-width: 640px) {
     .quiet-header,
     .quiet-hero,
     .quiet-footer {

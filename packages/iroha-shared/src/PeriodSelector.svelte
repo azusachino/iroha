@@ -145,7 +145,7 @@
     box-shadow: none;
   }
 
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     .period-controls {
       width: 100%;
     }

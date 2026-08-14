@@ -597,7 +597,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  @media (max-width: 680px) {
+  @media (max-width: 768px) {
     .folio-head,
     .folio-focus,
     .folio-grid {

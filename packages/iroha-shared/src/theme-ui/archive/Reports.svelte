@@ -434,7 +434,7 @@
     font-size: 0.78rem;
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .archive-heading,
     .archive-evidence > header {
       display: grid;

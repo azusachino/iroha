@@ -480,7 +480,7 @@
     font-size: 0.78rem;
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .atlas-heading,
     .atlas-evidence > header {
       display: grid;

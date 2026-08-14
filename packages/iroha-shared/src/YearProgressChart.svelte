@@ -94,9 +94,13 @@
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const accent = styles.getPropertyValue("--sport-run").trim() || "#4f8cff";
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     chart.setOption({
-      animationDuration: 800,
-      animationDurationUpdate: 550,
+      animation: !reducedMotion,
+      animationDuration: reducedMotion ? 0 : 800,
+      animationDurationUpdate: reducedMotion ? 0 : 550,
       animationEasing: "cubicOut",
       animationEasingUpdate: "cubicInOut",
       legend: {
@@ -238,6 +242,28 @@
       role="img"
       aria-label={`Cumulative distance for ${year}`}
     ></div>
+    <details class="chart-data">
+      <summary>View cumulative distance data</summary>
+      <table>
+        <caption>Cumulative distance by month</caption>
+        <thead>
+          <tr>
+            <th scope="col">Month</th>
+            <th scope="col">{year}</th>
+            {#if prior}<th scope="col">{Number(year) - 1}</th>{/if}
+          </tr>
+        </thead>
+        <tbody>
+          {#each MONTHS as month, index}
+            <tr>
+              <th scope="row">{month}</th>
+              <td>{current?.cumulative[index] == null ? "No observation" : formatDistance(current.cumulative[index]!)}</td>
+              {#if prior}<td>{prior.cumulative[index] == null ? "No observation" : formatDistance(prior.cumulative[index]!)}</td>{/if}
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </details>
   {/if}
 </div>
 
@@ -277,11 +303,40 @@
     font-weight: 500;
     color: var(--text-muted);
   }
+  .chart-data {
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .chart-data summary {
+    width: fit-content;
+    cursor: pointer;
+  }
+  table {
+    width: 100%;
+    margin-top: 0.5rem;
+    border-collapse: collapse;
+    color: var(--text);
+  }
+  th,
+  td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+  thead th {
+    color: var(--text-muted);
+    font-weight: 650;
+  }
   .chart {
     width: 100%;
     height: 260px;
   }
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .header {
       align-items: flex-start;
       flex-direction: column;

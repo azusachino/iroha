@@ -569,7 +569,7 @@
     font-family: var(--font-mono);
     font-size: 0.64rem;
   }
-  @media (max-width: 800px) {
+  @media (max-width: 1024px) {
     .metric-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -580,7 +580,7 @@
       grid-template-columns: 1fr;
     }
   }
-  @media (max-width: 480px) {
+  @media (max-width: 640px) {
     .plot-hero {
       align-items: start;
     }

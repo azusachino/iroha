@@ -493,7 +493,7 @@
   .error {
     color: var(--danger);
   }
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .hero {
       grid-template-columns: 6.5rem 1fr;
       gap: 1rem;

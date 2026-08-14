@@ -37,6 +37,9 @@
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const count = Math.max(charts.length, 1);
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     const columns = count > 2 ? 2 : count;
     const rows = Math.ceil(count / columns);
     const grid = charts.map((_, index) => ({
@@ -47,7 +50,8 @@
     }));
     chart.clear();
     chart.setOption({
-      animationDuration: 450,
+      animation: !reducedMotion,
+      animationDuration: reducedMotion ? 0 : 450,
       grid,
       axisPointer: { link: [{ xAxisIndex: "all" }], snap: true },
       tooltip: {
@@ -119,13 +123,72 @@
 <div
   class="small-multiples"
   bind:this={container}
-  aria-label="Daily trends with synchronized crosshair"
+  role="img"
+  aria-label="Daily trends with synchronized crosshair. Exact values are available in the trend data table."
 ></div>
+<details class="chart-data">
+  <summary>View trend data</summary>
+  <div class="table-wrap">
+    <table>
+      <caption>Daily trend values</caption>
+      <thead>
+        <tr>
+          <th scope="col">Period</th>
+          {#each charts as item}<th scope="col">{item.label}</th>{/each}
+        </tr>
+      </thead>
+      <tbody>
+        {#each labels as label, index}
+          <tr>
+            <th scope="row">{label}</th>
+            {#each charts as item}
+              <td>{item.values[index] == null ? "No observation" : `${item.values[index]}${item.unit ? ` ${item.unit}` : ""}`}</td>
+            {/each}
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+</details>
 
 <style>
   .small-multiples {
     width: 100%;
     height: 300px;
     min-height: 250px;
+  }
+  .chart-data {
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .chart-data summary {
+    width: fit-content;
+    cursor: pointer;
+  }
+  .table-wrap {
+    margin-top: 0.5rem;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    min-width: 32rem;
+    border-collapse: collapse;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  th,
+  td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+  thead th {
+    color: var(--text-muted);
+    font-weight: 650;
   }
 </style>

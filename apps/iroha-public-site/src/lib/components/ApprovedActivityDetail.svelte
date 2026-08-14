@@ -681,7 +681,7 @@
     margin: 0;
     font-size: 0.82rem;
   }
-  @media (max-width: 800px) {
+  @media (max-width: 1024px) {
     .metric-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -689,7 +689,7 @@
       border-right: 0;
     }
   }
-  @media (max-width: 500px) {
+  @media (max-width: 640px) {
     .detail-hero {
       align-items: start;
       flex-direction: column;

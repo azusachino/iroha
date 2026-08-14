@@ -45,7 +45,7 @@
     text-transform: uppercase;
   }
 
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     .field-journal-content {
       width: min(100% - 2rem, 1120px);
       padding-top: 2rem;

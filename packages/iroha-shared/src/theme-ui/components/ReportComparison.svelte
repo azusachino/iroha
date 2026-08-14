@@ -367,7 +367,7 @@
   .delta {
     margin: 0.35rem 0 0;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .comparison-header {
       display: grid;
     }

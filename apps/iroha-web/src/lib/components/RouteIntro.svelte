@@ -79,7 +79,7 @@
     text-decoration: none;
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .route-intro {
       flex-direction: column;
     }

@@ -361,7 +361,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.75rem;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .dashboard-header,
     .dashboard-grid {
       grid-template-columns: 1fr;

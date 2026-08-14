@@ -273,7 +273,7 @@
     text-decoration: none;
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 768px) {
     .cover-masthead,
     .cover-footer {
       align-items: flex-start;

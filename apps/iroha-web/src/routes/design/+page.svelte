@@ -544,7 +544,7 @@
       var(--border) var(--fill)
     );
   }
-  @media (max-width: 850px) {
+  @media (max-width: 1024px) {
     .lab-header,
     .theme-workbench-heading {
       flex-direction: column;
@@ -559,7 +559,7 @@
       grid-column: 1 / -1;
     }
   }
-  @media (max-width: 500px) {
+  @media (max-width: 640px) {
     .theme-selection,
     .signal-strip {
       grid-template-columns: 1fr;

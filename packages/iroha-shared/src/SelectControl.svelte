@@ -138,7 +138,7 @@
     border-radius: 0;
   }
 
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     .select-control,
     select {
       width: 100%;

@@ -39,7 +39,7 @@
     background: color-mix(in srgb, currentColor 10%, transparent);
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: 640px) {
     .retry-notice {
       align-items: stretch;
       flex-direction: column;

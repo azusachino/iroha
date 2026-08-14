@@ -367,7 +367,7 @@
   .relations small {
     color: var(--text-muted);
   }
-  @media (max-width: 700px) {
+  @media (max-width: 768px) {
     .record-hero,
     .record-grid,
     .lower-grid {

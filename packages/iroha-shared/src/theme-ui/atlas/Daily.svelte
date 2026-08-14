@@ -383,7 +383,7 @@
     font-family: var(--font-mono);
     font-size: 0.66rem;
   }
-  @media (max-width: 680px) {
+  @media (max-width: 768px) {
     .daily-header,
     .chart-heading,
     .ledger-heading {

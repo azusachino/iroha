@@ -403,7 +403,7 @@
     font-size: 0.72rem;
   }
 
-  @media (max-width: 800px) {
+  @media (max-width: 1024px) {
     .os-composition {
       grid-template-columns: 1fr;
     }
@@ -426,7 +426,7 @@
     }
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 640px) {
     .os-heading,
     .os-toolbar {
       align-items: flex-start;

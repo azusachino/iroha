@@ -28,7 +28,11 @@
   function render() {
     if (!chart) return;
     const styles = getComputedStyle(container);
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     chart.setOption({
+      animation: !reducedMotion,
       tooltip: {
         trigger: "item",
         backgroundColor: styles.getPropertyValue("--surface-2").trim(),
@@ -63,9 +67,9 @@
           label: { show: false },
           emphasis: { scale: true, scaleSize: 5, label: { show: false } },
           animationType: "expansion",
-          animationDuration: 650,
+          animationDuration: reducedMotion ? 0 : 650,
           animationEasing: "cubicOut",
-          animationDurationUpdate: 500,
+          animationDurationUpdate: reducedMotion ? 0 : 500,
           animationEasingUpdate: "cubicInOut",
           data: stages.map((stage) => ({
             name: stage.name,
@@ -111,8 +115,23 @@
 <div
   class="architecture-chart"
   bind:this={container}
-  aria-label="Interactive sleep stage composition"
+  role="img"
+  aria-label="Interactive sleep stage composition. Exact stage totals are available in the sleep data table."
 ></div>
+<details class="chart-data">
+  <summary>View sleep stage data</summary>
+  <table>
+    <caption>Sleep stage composition</caption>
+    <thead>
+      <tr><th scope="col">Stage</th><th scope="col">Duration</th></tr>
+    </thead>
+    <tbody>
+      {#each stages as stage}
+        <tr><th scope="row">{stage.name}</th><td>{formatMinutes(stage.value)}</td></tr>
+      {/each}
+    </tbody>
+  </table>
+</details>
 
 <style>
   .architecture-chart {
@@ -120,11 +139,37 @@
     height: 11rem;
     flex: 0 0 11rem;
   }
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     .architecture-chart {
       width: 9rem;
       height: 9rem;
       flex-basis: 9rem;
     }
+  }
+  .chart-data {
+    width: min(100%, 18rem);
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .chart-data summary {
+    width: fit-content;
+    cursor: pointer;
+  }
+  table {
+    width: 100%;
+    margin-top: 0.5rem;
+    border-collapse: collapse;
+    color: var(--text);
+  }
+  th,
+  td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  thead th {
+    color: var(--text-muted);
+    font-weight: 650;
   }
 </style>

@@ -171,6 +171,7 @@
             }}
             primaryType="line"
             height={300}
+            showDataTable={false}
           />
         </div>
         {#if durationSeries}
@@ -186,6 +187,7 @@
               }}
               primaryType="line"
               height={240}
+              showDataTable={false}
             />
           </div>
         {/if}
@@ -206,6 +208,7 @@
             orientation="horizontal"
             categorical
             height={Math.max(220, sportBreakdown.length * 42)}
+            showDataTable={false}
           />
         </div>
       {/if}
@@ -388,7 +391,7 @@
     text-transform: uppercase;
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .chart-grid {
       grid-template-columns: 1fr;
     }

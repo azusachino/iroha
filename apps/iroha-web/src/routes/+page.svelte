@@ -1128,7 +1128,7 @@
     font-weight: 750;
   }
 
-  @media (max-width: 820px) {
+  @media (max-width: 1024px) {
     .to-go-strip {
       grid-template-columns: 1fr auto;
     }

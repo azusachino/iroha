@@ -316,7 +316,7 @@
     color: var(--text-muted);
     font-size: 0.68rem;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .view-opening,
     .view-grid {
       display: block;

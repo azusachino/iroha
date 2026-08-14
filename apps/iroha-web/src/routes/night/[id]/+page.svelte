@@ -390,7 +390,7 @@
     font-size: 0.78rem;
     line-height: 1.5;
   }
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .detail-grid {
       grid-template-columns: 1fr;
     }

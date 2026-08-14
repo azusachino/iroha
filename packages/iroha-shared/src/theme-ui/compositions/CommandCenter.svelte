@@ -527,7 +527,7 @@
     padding-top: 0.8rem;
   }
 
-  @media (max-width: 820px) {
+  @media (max-width: 1024px) {
     .command-composition {
       grid-template-columns: 1fr;
     }
@@ -546,7 +546,7 @@
     }
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .command-kpis,
     .command-grid {
       grid-template-columns: 1fr;

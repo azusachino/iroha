@@ -241,7 +241,7 @@
     margin: 0.25rem 0 0;
     font-size: 0.85rem;
   }
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .detail-header,
     .evidence-grid {
       display: grid;

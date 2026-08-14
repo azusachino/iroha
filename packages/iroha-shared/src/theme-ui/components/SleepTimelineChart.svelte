@@ -60,9 +60,13 @@
     if (!chart) return;
     const styles = getComputedStyle(container);
     const total = segments.reduce((sum, segment) => sum + duration(segment), 0);
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     chart.setOption({
-      animationDuration: 550,
-      animationDurationUpdate: 450,
+      animation: !reducedMotion,
+      animationDuration: reducedMotion ? 0 : 550,
+      animationDurationUpdate: reducedMotion ? 0 : 450,
       animationEasing: "cubicOut",
       animationEasingUpdate: "cubicInOut",
       grid: { top: 12, right: 4, bottom: 12, left: 4 },
@@ -120,7 +124,8 @@
 <div
   class="timeline-chart"
   bind:this={container}
-  aria-label={`Interactive ${sessionLabel.toLowerCase()} sleep stage timeline`}
+  role="img"
+  aria-label={`Interactive ${sessionLabel.toLowerCase()} sleep stage timeline. Exact segments are available in the sleep data table.`}
 ></div>
 <ul class="timeline-legend">
   {#each legend as item (item.stage)}
@@ -131,6 +136,32 @@
     </li>
   {/each}
 </ul>
+<details class="chart-data">
+  <summary>View sleep segments</summary>
+  <div class="table-wrap">
+    <table>
+      <caption>{sessionLabel} stage segments</caption>
+      <thead>
+        <tr>
+          <th scope="col">Stage</th>
+          <th scope="col">Started</th>
+          <th scope="col">Ended</th>
+          <th scope="col">Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each segments as segment}
+          <tr>
+            <th scope="row">{sleepStageLabel(segment.stage)}</th>
+            <td>{segment.started_at}</td>
+            <td>{segment.ended_at}</td>
+            <td>{formatDuration(duration(segment))}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+</details>
 
 <style>
   .timeline-chart {
@@ -160,6 +191,35 @@
     color: var(--text-muted);
   }
   .val {
+    font-weight: 650;
+  }
+  .chart-data {
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .chart-data summary {
+    width: fit-content;
+    cursor: pointer;
+  }
+  .table-wrap {
+    margin-top: 0.5rem;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    min-width: 38rem;
+    border-collapse: collapse;
+    color: var(--text);
+  }
+  th,
+  td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  thead th {
+    color: var(--text-muted);
     font-weight: 650;
   }
 </style>

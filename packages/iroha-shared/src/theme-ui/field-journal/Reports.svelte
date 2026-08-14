@@ -448,7 +448,7 @@
     font-size: 0.78rem;
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 768px) {
     .journal-heading,
     .journal-record > header {
       grid-template-columns: 1fr;

@@ -289,7 +289,7 @@
     font-weight: 700;
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 768px) {
     .journal-header,
     .journal-layout {
       grid-template-columns: 1fr;

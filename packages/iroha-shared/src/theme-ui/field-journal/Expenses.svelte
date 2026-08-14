@@ -142,7 +142,7 @@
     border-bottom: 1px dashed var(--border);
     padding-bottom: 0.45rem;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .journal-head {
       grid-template-columns: 1fr;
     }

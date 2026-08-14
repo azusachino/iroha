@@ -669,7 +669,7 @@
     padding-left: 1rem;
     border-left: 1px solid var(--border);
   }
-  @media (max-width: 500px) {
+  @media (max-width: 640px) {
     .hero-meta span + span {
       padding-left: 0;
       border-left: 0;
@@ -882,7 +882,7 @@
     color: var(--text);
     cursor: pointer;
   }
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .stat-grid {
       grid-template-columns: 1fr;
     }

@@ -326,7 +326,7 @@
     font-family: var(--font-mono);
     font-size: 0.66rem;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .master-header,
     .master-grid {
       display: block;

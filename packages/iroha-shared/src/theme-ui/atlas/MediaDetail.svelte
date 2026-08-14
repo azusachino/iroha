@@ -423,7 +423,7 @@
     font-family: var(--font-mono);
     font-size: 0.64rem;
   }
-  @media (max-width: 700px) {
+  @media (max-width: 768px) {
     .entry-hero,
     .entry-grid,
     .entry-grid-lower {

@@ -355,7 +355,7 @@
     padding: 0.8rem 0;
     border-top: 1px solid var(--border);
   }
-  @media (max-width: 680px) {
+  @media (max-width: 768px) {
     .grapher-intro,
     .panel-heading {
       align-items: start;

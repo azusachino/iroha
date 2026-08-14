@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { currentMonth, formatMonth, shiftMonth } from "./month";
   import type { DesignLanguage } from "./themes";
 
@@ -24,27 +25,79 @@
   let open = $state(false);
   let pickerYear = $state(0);
   let root: HTMLDivElement;
+  let trigger: HTMLButtonElement;
+  let popover: HTMLDivElement;
+  const focusableMonthIndex = $derived(
+    Number(month.slice(0, 4)) === pickerYear
+      ? Number(month.slice(5, 7)) - 1
+      : 0,
+  );
 
-  function openPicker() {
+  async function openPicker() {
+    if (disabled) return;
     pickerYear = Number(month.slice(0, 4));
     open = true;
+    await tick();
+    const selected = popover?.querySelector<HTMLButtonElement>(
+      "button[aria-selected='true']",
+    );
+    (selected ?? popover?.querySelector<HTMLButtonElement>("button"))?.focus();
+  }
+
+  async function closePicker(restoreFocus = true) {
+    open = false;
+    if (restoreFocus) {
+      await tick();
+      trigger?.focus();
+    }
   }
 
   function choose(value: string) {
-    open = false;
+    void closePicker();
     onMonth(value);
   }
 
   function handleWindowClick(event: MouseEvent) {
-    if (open && root && !root.contains(event.target as Node)) open = false;
+    if (open && root && !root.contains(event.target as Node))
+      void closePicker(false);
   }
 
   function handleWindowKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
-      open = false;
+      if (open) void closePicker();
       return;
     }
+    if (open) return;
     handleNavigatorKeydown(event);
+  }
+
+  function handleMonthGridKeydown(event: KeyboardEvent) {
+    const buttons = popover
+      ? Array.from(
+          popover.querySelectorAll<HTMLButtonElement>(".month-grid button"),
+        )
+      : [];
+    const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    if (current < 0) return;
+
+    const next =
+      event.key === "ArrowLeft"
+        ? current - 1
+        : event.key === "ArrowRight"
+          ? current + 1
+          : event.key === "ArrowUp"
+            ? current - 3
+            : event.key === "ArrowDown"
+              ? current + 3
+              : event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? buttons.length - 1
+                  : -1;
+    if (next < 0 || next >= buttons.length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    buttons[next]?.focus();
   }
 
   function handleNavigatorKeydown(event: KeyboardEvent) {
@@ -81,6 +134,7 @@
   </button>
   <button
     class="month-trigger"
+    bind:this={trigger}
     type="button"
     aria-expanded={open}
     aria-haspopup="dialog"
@@ -105,7 +159,13 @@
   </button>
 
   {#if open}
-    <div class="month-popover" role="dialog" aria-label="Choose a month">
+    <div
+      class="month-popover"
+      bind:this={popover}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose a month"
+    >
       <header>
         <button
           class="year-step"
@@ -125,14 +185,23 @@
           ›
         </button>
       </header>
-      <div class="month-grid">
+      <div
+        class="month-grid"
+        role="grid"
+        aria-label={`Months in ${pickerYear}`}
+        onkeydown={handleMonthGridKeydown}
+      >
         {#each monthNames as label, index}
           {@const value = `${pickerYear}-${String(index + 1).padStart(2, "0")}`}
           <button
             type="button"
+            role="gridcell"
             class:selected={value === month}
             class:current={value === currentMonth()}
-            aria-current={value === month ? "date" : undefined}
+            aria-label={`${label} ${pickerYear}`}
+            aria-selected={value === month}
+            aria-current={value === currentMonth() ? "date" : undefined}
+            tabindex={index === focusableMonthIndex ? 0 : -1}
             onclick={() => choose(value)}
           >
             {label}
@@ -350,7 +419,7 @@
     opacity: 0.45;
   }
 
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     .month-popover {
       left: 0;
       transform: none;

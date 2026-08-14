@@ -42,8 +42,12 @@
       styles.getPropertyValue("--chart-heart-rate").trim() || "#ff6b6b";
     const elevationColor =
       styles.getPropertyValue("--chart-elevation").trim() || "#3ecf8e";
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     chart.setOption({
-      animationDuration: 500,
+      animation: !reducedMotion,
+      animationDuration: reducedMotion ? 0 : 500,
       grid: { top: 34, right: 52, bottom: 52, left: 48 },
       tooltip: {
         trigger: "axis",
@@ -193,13 +197,81 @@
 <div
   class="chart"
   bind:this={container}
-  aria-label="Synchronized activity chart"
+  role="img"
+  aria-label="Synchronized activity chart. Exact measurements are available in the activity data table."
 ></div>
+<details class="chart-data">
+  <summary>View activity data</summary>
+  <div class="table-wrap">
+    <table>
+      <caption>Synchronized activity measurements</caption>
+      <thead>
+        <tr>
+          <th scope="col">{xLabel}</th>
+          <th scope="col">{paceLabel}</th>
+          <th scope="col">Heart rate</th>
+          <th scope="col">Elevation</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each xValues as x, index}
+          <tr>
+            <th scope="row">{formatXAxis(x)}</th>
+            <td>{pace[index] == null ? "No observation" : formatPace(pace[index]!)}</td>
+            <td>{heartRate[index] == null ? "No observation" : `${heartRate[index]!.toFixed(0)} bpm`}</td>
+            <td>{elevation[index] == null ? "No observation" : `${elevation[index]!.toFixed(0)} m`}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+</details>
 
 <style>
   .chart {
     width: 100%;
     height: 330px;
     min-height: 250px;
+  }
+
+  .chart-data {
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  .chart-data summary {
+    width: fit-content;
+    cursor: pointer;
+  }
+
+  .table-wrap {
+    margin-top: 0.5rem;
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    min-width: 34rem;
+    border-collapse: collapse;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  th,
+  td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+
+  thead th {
+    color: var(--text-muted);
+    font-weight: 650;
   }
 </style>

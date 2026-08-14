@@ -383,7 +383,7 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .mix-head,
     .mix-grid,
     .mix-source {

@@ -1242,7 +1242,7 @@
     cursor: wait;
     opacity: 0.6;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .hero-topline,
     .section-heading {
       flex-direction: column;
@@ -1269,7 +1269,7 @@
       gap: 0.25rem;
     }
   }
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     .hero-metrics,
     .insight-strip,
     .analysis-grid,

@@ -144,7 +144,7 @@
     color: var(--text-muted);
     font-size: 0.68rem;
   }
-  @media (max-width: 760px) {
+  @media (max-width: 768px) {
     .navigation-menu {
       flex: 1 1 auto;
     }

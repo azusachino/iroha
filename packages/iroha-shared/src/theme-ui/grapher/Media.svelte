@@ -315,7 +315,7 @@
     border-top: 1px solid var(--border);
     padding-top: 0.7rem;
   }
-  @media (max-width: 700px) {
+  @media (max-width: 768px) {
     .media-header {
       display: grid;
     }

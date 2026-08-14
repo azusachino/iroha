@@ -280,7 +280,7 @@
   .folio-load-more:disabled {
     opacity: 0.5;
   }
-  @media (max-width: 680px) {
+  @media (max-width: 768px) {
     .folio-head {
       display: block;
     }

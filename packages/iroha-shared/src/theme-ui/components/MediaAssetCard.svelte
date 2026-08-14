@@ -306,7 +306,7 @@
     color: var(--accent);
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 768px) {
     .media-asset-card[data-theme="grapher"] {
       grid-template-columns: 4.5rem minmax(0, 1fr);
     }
