@@ -110,7 +110,9 @@ The registry is exhaustive. Adding a language without all required production ro
 5. Keep design tokens semantic; do not route raw hex values into data logic.
 6. Keep accessibility behavior in shared primitives unless the theme has a documented interaction difference.
 7. Keep each theme’s assets and styles colocated with the theme component.
-8. Use the design lab as a review surface, not as a hidden production runtime.
+8. Use the design workshop as a real implementation and review surface. Its
+   layout compositions use canonical fixtures and must remain runnable; they
+   are not static concept boards.
 9. Prefer one complete vertical slice over six superficial variants.
 10. Keep the existing route tree and API paths stable while migrating.
 
@@ -127,6 +129,21 @@ A theme is not complete when its colors change. It is complete when a viewer can
 - responsive behavior at 320, 414, 768, and desktop widths.
 
 The same imported day must be rendered through every accepted theme in the design lab before a theme is promoted to production.
+
+## Design workshop compositions
+
+The `/design` route contains two real, complementary implementation axes:
+
+- the six registered design languages, selected through the theme registry;
+- the seven implemented layout compositions: Editorial, Command center,
+  Chronicle, Cover page, Personal OS, Field journal, and Quiet.
+
+The layout compositions are not throwaway mockups. They are executable Svelte
+compositions bound to the same canonical Today view model, with stable URL
+selection, accessible controls, responsive styles, and deterministic fallback
+data. They are first-class workshop implementations alongside the registered
+themes, and the acceptance matrix must exercise all of them rather than
+silently reducing them to screenshots.
 
 ## Migration order
 

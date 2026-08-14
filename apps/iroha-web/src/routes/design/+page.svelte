@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { replaceState } from "$app/navigation";
+  import { page } from "$app/state";
   import { onMount } from "svelte";
   import {
     Activity,
@@ -18,6 +20,11 @@
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import {
+    DESIGN_COMPOSITIONS,
+    designComposition,
+    type DesignCompositionId,
+  } from "$lib/design-workshop";
+  import {
     boundPercent,
     formatDistance,
     formatDuration,
@@ -31,14 +38,6 @@
   import { hasThemeRoute, THEME_DEFINITIONS } from "$lib/themes/registry";
   import { useTheme } from "$lib/themes/context.svelte";
 
-  type Variant =
-    | "editorial"
-    | "command"
-    | "chronicle"
-    | "cover"
-    | "workspace"
-    | "journal"
-    | "quiet";
   type TodayData = {
     date: string;
     daily?: DailyRow;
@@ -47,7 +46,9 @@
     media: MediaHomeEvent[];
   };
 
-  let variant = $state<Variant>("editorial");
+  let variant = $state<DesignCompositionId>(
+    designComposition(page.url.searchParams.get("composition")),
+  );
   let today = $state<TodayData>(sampleToday());
   let source = $state<"sample" | "live">("sample");
   const theme = useTheme();
@@ -265,20 +266,36 @@
   function selectTheme(language: DesignLanguage): void {
     theme.select(language);
   }
+
+  function selectComposition(value: DesignCompositionId): void {
+    variant = value;
+    const url = new URL(window.location.href);
+    url.searchParams.set("composition", value);
+    if (url.search !== window.location.search) replaceState(url, page.state);
+  }
+
+  const selectedComposition = $derived(
+    DESIGN_COMPOSITIONS.find((composition) => composition.id === variant)!,
+  );
 </script>
 
 <svelte:head>
   <title>Design workshop · iroha</title>
 </svelte:head>
 
-<section class="design-lab" data-theme={theme.definition().identity.id}>
+<section
+  class="design-lab"
+  data-theme={theme.definition().identity.id}
+  data-composition={variant}
+>
   <header class="lab-header">
     <div>
-      <p class="eyebrow">Registered theme workshop</p>
-      <h1>One payload, six identities.</h1>
+      <p class="eyebrow">Implemented design workshop</p>
+      <h1>One payload, real compositions.</h1>
       <p class="muted">
-        Choose a registered Iroha language, then inspect the real Today
-        component before exploring composition ideas.
+        Choose a registered Iroha language or an implemented layout composition.
+        Every specimen uses the canonical Today payload; these are working
+        compositions, not static concept boards.
       </p>
     </div>
     <span class="source-pill" class:live={source === "live"}>
@@ -325,50 +342,23 @@
     {/if}
   </section>
 
-  <nav class="variant-tabs" aria-label="Design variants">
-    <button
-      class:active={variant === "editorial"}
-      onclick={() => (variant = "editorial")}
-    >
-      <span>A</span> Editorial
-    </button>
-    <button
-      class:active={variant === "command"}
-      onclick={() => (variant = "command")}
-    >
-      <span>B</span> Command center
-    </button>
-    <button
-      class:active={variant === "chronicle"}
-      onclick={() => (variant = "chronicle")}
-    >
-      <span>C</span> Chronicle
-    </button>
-    <button
-      class:active={variant === "cover"}
-      onclick={() => (variant = "cover")}
-    >
-      <span>D</span> Cover page
-    </button>
-    <button
-      class:active={variant === "workspace"}
-      onclick={() => (variant = "workspace")}
-    >
-      <span>E</span> Personal OS
-    </button>
-    <button
-      class:active={variant === "journal"}
-      onclick={() => (variant = "journal")}
-    >
-      <span>F</span> Field journal
-    </button>
-    <button
-      class:active={variant === "quiet"}
-      onclick={() => (variant = "quiet")}
-    >
-      <span>G</span> Quiet
-    </button>
+  <nav class="variant-tabs" aria-label="Implemented design compositions">
+    {#each DESIGN_COMPOSITIONS as composition}
+      <button
+        type="button"
+        class:active={variant === composition.id}
+        aria-pressed={variant === composition.id}
+        title={composition.intent}
+        onclick={() => selectComposition(composition.id)}
+      >
+        <span>{composition.index}</span>
+        {composition.label}
+      </button>
+    {/each}
   </nav>
+  <p class="composition-intent" aria-live="polite">
+    <strong>{selectedComposition.label}</strong> · {selectedComposition.intent}
+  </p>
 
   <section class="signal-strip" aria-label="Today at a glance">
     <div class="signal-intro">
@@ -1243,6 +1233,14 @@
   .variant-tabs button.active span {
     border-color: var(--accent);
     color: var(--accent);
+  }
+  .composition-intent {
+    margin: -0.7rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .composition-intent strong {
+    color: var(--text);
   }
   .signal-strip {
     display: grid;
