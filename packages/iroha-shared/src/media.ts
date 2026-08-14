@@ -54,6 +54,57 @@ export interface MediaPage {
   active_count?: number;
 }
 
+export interface MediaDetail {
+  item: MediaRow;
+  work: {
+    id: string;
+    work_kind: string;
+    primary_title: string;
+    original_title: string;
+    original_language: string;
+    first_release_date?: string;
+    description: string;
+  };
+  progress?: {
+    status: string;
+    unit: string;
+    position?: number;
+    total?: number;
+    progress_percent?: number;
+    started_at?: string;
+    last_update_at?: string;
+    finished_at?: string;
+    play_count: number;
+  };
+  creators: { id: string; name: string; role: string }[];
+  relations: {
+    id: string;
+    relation_type: string;
+    direction: string;
+    related_item_id: string;
+    related_title: string;
+    related_type: string;
+    cover_image_url?: string;
+  }[];
+  events: {
+    id: string;
+    event_type: string;
+    event_at?: string;
+    unit?: string;
+    position?: number;
+    total?: number;
+    progress_percent?: number;
+    rating?: number;
+    note?: string;
+  }[];
+}
+
+export interface MediaDetailThemeProps {
+  detail: MediaDetail;
+  progress: number;
+  theme: DesignLanguage;
+}
+
 export interface MediaThemeProps {
   items: MediaRow[];
   aggregates: MediaAggregates;
@@ -91,6 +142,48 @@ const TYPE_LABELS: Record<string, string> = {
 
 export function mediaTypeLabel(type: string): string {
   return TYPE_LABELS[type] ?? type.replaceAll("_", " ");
+}
+
+export function mediaEventLabel(eventType: string): string {
+  if (eventType === "list_state") return "Library snapshot";
+  return eventType.replaceAll("_", " ");
+}
+
+const EPISODE_COUNTED_TYPES = new Set([
+  "anime_season",
+  "movie",
+  "ona",
+  "ova",
+  "special",
+]);
+const CHAPTER_COUNTED_TYPES = new Set([
+  "manga",
+  "one_shot",
+  "light_novel",
+  "book",
+]);
+
+export function cleanDescription(html?: string | null): string {
+  if (!html) return "";
+  return html
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/?(i|b|em|strong)>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+}
+
+export function mediaWorkTotal(
+  mediaType?: string | null,
+  episodeCount?: number | null,
+  chapterCount?: number | null,
+): number | undefined {
+  if (mediaType && EPISODE_COUNTED_TYPES.has(mediaType)) {
+    return episodeCount ?? undefined;
+  }
+  if (mediaType && CHAPTER_COUNTED_TYPES.has(mediaType)) {
+    return chapterCount ?? undefined;
+  }
+  return undefined;
 }
 
 export function mediaTypeFamily(type: string): string {

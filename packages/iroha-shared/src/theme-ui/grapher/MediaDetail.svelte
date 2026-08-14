@@ -1,10 +1,9 @@
 <script lang="ts">
-  import type { MediaDetail } from "$lib/api";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-  import { mediaEventLabel } from "$lib/format";
+  import type { MediaDetailThemeProps } from "../../media";
+  import BarChart from "../components/BarChart.svelte";
+  import { mediaEventLabel } from "../../media";
 
-  let { detail, progress }: { detail: MediaDetail; progress: number } =
-    $props();
+  let { detail, progress, theme }: MediaDetailThemeProps = $props();
   const progressEvents = $derived(
     detail.events.filter((event) => event.progress_percent != null),
   );
@@ -12,6 +11,7 @@
 
 <article
   class="grapher-media-detail"
+  data-theme={theme}
   aria-labelledby="grapher-media-detail-title"
 >
   <header class="detail-header">

@@ -1,15 +1,14 @@
 <script lang="ts">
-  import type { MediaDetail } from "$lib/api";
+  import type { MediaDetailThemeProps } from "../../media";
   import {
     cleanDescription,
     formatProgressCount,
     mediaEventLabel,
     mediaWorkTotal,
-  } from "$lib/format";
-  import { heroTitleFontSize } from "$lib/hero-title";
+  } from "../../media";
+  import { heroTitleFontSize } from "../../hero-title";
 
-  let { detail, progress }: { detail: MediaDetail; progress: number } =
-    $props();
+  let { detail, progress, theme }: MediaDetailThemeProps = $props();
   const boundedProgress = $derived(Math.min(Math.max(progress, 0), 100));
   // A percentage implies a known total, which most media never has (an
   // ongoing manga, an unfinished anime season). Show what's actually known.
@@ -26,34 +25,21 @@
       ),
     ),
   );
-  const HERO_TITLE_CLAMP = { minRem: 2.4, vw: 6.5, maxRem: 5.2 };
-
-  function tone(pct: number): string {
-    const clamped = Math.max(0, Math.min(100, pct));
-    return `color-mix(in srgb, var(--accent-2) ${clamped}%, var(--accent) ${100 - clamped}%)`;
-  }
-
-  // Derived from the item's own type and id -- a stable catalog number, not
-  // a decoration -- following the same accessioning convention used for
-  // activities and days elsewhere in this language.
-  const accession = $derived(
-    `${detail.item.media_type.slice(0, 3).toUpperCase()}-${detail.item.id.slice(0, 6).toUpperCase()}`,
-  );
+  const HERO_TITLE_CLAMP = { minRem: 2.4, vw: 6, maxRem: 4.4 };
 </script>
 
-<article class="folio-detail-page">
-  <header class="media-hero">
+<article class="atlas-entry" data-theme={theme}>
+  <header class="entry-hero">
     <div class="cover-frame">
-      {#if detail.item.cover_image_url}
-        <img src={detail.item.cover_image_url} alt="" />
-      {:else}
-        <span aria-hidden="true">{detail.item.title.slice(0, 1)}</span>
-      {/if}
-      <span class="cover-tag">{accession}</span>
+      {#if detail.item.cover_image_url}<img
+          src={detail.item.cover_image_url}
+          alt=""
+        />{:else}<span aria-hidden="true">{detail.item.title.slice(0, 1)}</span
+        >{/if}
     </div>
     <div class="hero-copy">
-      <p class="folio-kicker">
-        {detail.item.media_type.replaceAll("_", " ")} / collection record
+      <p class="atlas-kicker">
+        {detail.item.media_type.replaceAll("_", " ")} · catalog entry
       </p>
       <h1
         style:font-size={heroTitleFontSize(
@@ -63,12 +49,14 @@
       >
         {detail.item.native_title || detail.item.title}
       </h1>
-      {#if detail.item.native_title && detail.item.native_title !== detail.item.title}
-        <p class="original-title">{detail.item.title}</p>
-      {/if}
+      {#if detail.item.native_title && detail.item.native_title !== detail.item.title}<p
+          class="original-title"
+        >
+          {detail.item.title}
+        </p>{/if}
       <p class="description">
         {cleanDescription(detail.work.description) ||
-          "A media record held in the personal archive."}
+          "A media record held in the personal catalog."}
       </p>
       <div class="meta-row">
         <span>{detail.item.status?.replaceAll("_", " ") ?? "untracked"}</span
@@ -81,36 +69,39 @@
     </div>
   </header>
 
-  <div class="record-grid">
-    <section class="progress-panel">
+  <div class="entry-grid">
+    <section class="atlas-plate progress-plate">
       <div class="panel-heading">
         <div>
-          <p class="folio-kicker">Continuity</p>
+          <p class="atlas-kicker">Position</p>
           <h2>{detail.progress?.unit || "Current position"}</h2>
         </div>
-        <strong class="progress-readout">{progressLabel}</strong>
+        <strong>{progressLabel}</strong>
       </div>
-      <div class="progress-row">
-        <div class="core-gauge-well">
-          <i
-            style={`height: ${boundedProgress}%; background: ${tone(boundedProgress)};`}
-          ></i>
+      <div class="scale-bar">
+        <div class="scale-track">
+          <i class="scale-fill" style={`width: ${boundedProgress}%`}></i>
         </div>
-        <div class="progress-meta">
-          <span
-            >{detail.progress?.position ?? 0}{detail.progress?.total != null
-              ? ` / ${detail.progress.total}`
-              : ""}</span
-          ><span
-            >{detail.progress?.play_count
-              ? `${detail.progress.play_count} replays`
-              : "No replays logged"}</span
+        <div class="scale-ticks">
+          <span>0</span><span>25</span><span>50</span><span>75</span><span
+            >100%</span
           >
         </div>
       </div>
+      <div class="progress-meta">
+        <span
+          >{detail.progress?.position ?? 0}{detail.progress?.total != null
+            ? ` / ${detail.progress.total}`
+            : ""}</span
+        ><span
+          >{detail.progress?.play_count
+            ? `${detail.progress.play_count} replays`
+            : "No replays logged"}</span
+        >
+      </div>
     </section>
-    <aside class="provenance-panel catalog-card">
-      <p class="folio-kicker">Provenance</p>
+    <aside class="atlas-plate provenance-plate">
+      <p class="atlas-kicker">Provenance</p>
       <h2>Held in context</h2>
       <dl>
         <div>
@@ -133,32 +124,29 @@
     </aside>
   </div>
 
-  <div class="lower-grid">
-    <section class="events-panel">
+  <div class="entry-grid-lower">
+    <section class="atlas-plate timeline-plate">
       <div class="panel-heading">
         <div>
-          <p class="folio-kicker">Accession log</p>
-          <h2>Event history</h2>
+          <p class="atlas-kicker">Timeline</p>
+          <h2>Watch history</h2>
         </div>
         <span>{detail.events.length} entries</span>
       </div>
-      {#if detail.events.length}
-        <ol>
-          {#each detail.events.slice(0, 10) as event (event.id)}<li>
-              <b>{event.event_at?.slice(0, 10) ?? "undated"}</b><span
+      {#if detail.events.length}<ol class="waypoint-list">
+          {#each detail.events.slice(0, 10) as event, index (event.id)}<li>
+              <span class="waypoint-index"
+                >{String(index + 1).padStart(2, "0")}</span
+              ><b>{event.event_at?.slice(0, 10) ?? "undated"}</b><span
                 >{mediaEventLabel(event.event_type)}</span
               >{#if event.progress_percent != null}<strong
                   >{Math.round(event.progress_percent)}%</strong
                 >{/if}
             </li>{/each}
-        </ol>
-      {:else}
-        <p class="empty">No event history recorded.</p>
-      {/if}
+        </ol>{:else}<p class="atlas-empty">No event history recorded.</p>{/if}
     </section>
-    {#if detail.relations.length}
-      <section class="relations-panel">
-        <p class="folio-kicker">Connections</p>
+    {#if detail.relations.length}<section class="atlas-plate relations-plate">
+        <p class="atlas-kicker">Connections</p>
         <h2>Related works</h2>
         <div class="relations">
           {#each detail.relations.slice(0, 6) as relation (relation.id)}<a
@@ -168,39 +156,47 @@
               ></a
             >{/each}
         </div>
-      </section>
-    {/if}
+      </section>{/if}
   </div>
+  <footer class="atlas-source">
+    Source: imported media record · presentation only
+  </footer>
 </article>
 
 <style>
-  .folio-detail-page {
+  .atlas-entry {
     display: grid;
-    gap: 1.3rem;
+    gap: 1.5rem;
+    font-family: var(--font-sans);
   }
-  h1,
-  h2 {
-    margin: 0;
-    font-family: var(--font-serif);
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
-  h1 {
-    max-width: min(34rem, 100%);
-    line-height: 0.95;
-  }
-  h2 {
-    font-size: 1.4rem;
-  }
-  .folio-kicker {
+  .atlas-kicker {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     margin: 0 0 0.45rem;
     color: var(--accent);
     font-family: var(--font-mono);
     font-size: 0.64rem;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
   }
-  .media-hero {
+  .atlas-kicker::before {
+    content: "⌖";
+  }
+  h1,
+  h2 {
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  h1 {
+    max-width: min(34rem, 100%);
+    line-height: 1;
+  }
+  h2 {
+    font-size: 1.3rem;
+  }
+  .entry-hero {
     display: grid;
     grid-template-columns: 12rem 1fr;
     gap: 2rem;
@@ -213,7 +209,7 @@
     aspect-ratio: 2/3;
     overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: calc(var(--radius) * 0.6);
     background: var(--surface-2);
   }
   .cover-frame img {
@@ -221,28 +217,14 @@
     height: 100%;
     object-fit: cover;
   }
-  .cover-frame span:not(.cover-tag) {
+  .cover-frame span {
     display: grid;
     width: 100%;
     height: 100%;
     place-items: center;
     color: var(--accent);
-    font-family: var(--font-serif);
-    font-size: 3.6rem;
-    font-weight: 700;
-  }
-  .cover-tag {
-    position: absolute;
-    right: 0.4rem;
-    bottom: 0.4rem;
-    border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
-    border-radius: 2px;
-    padding: 0.15rem 0.4rem;
-    background: color-mix(in srgb, var(--bg) 60%, transparent);
-    color: var(--accent);
     font-family: var(--font-mono);
-    font-size: 0.62rem;
-    letter-spacing: 0.03em;
+    font-size: 3.5rem;
   }
   .hero-copy {
     display: grid;
@@ -264,41 +246,48 @@
     gap: 0.8rem;
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    font-size: 0.76rem;
   }
   .meta-row strong {
     color: var(--accent);
   }
-  .record-grid,
-  .lower-grid {
+  .atlas-plate {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  }
+  .atlas-plate::before,
+  .atlas-plate::after {
+    content: "";
+    position: absolute;
+    width: 0.7rem;
+    height: 0.7rem;
+    opacity: 0.7;
+  }
+  .atlas-plate::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid var(--accent);
+    border-left: 2px solid var(--accent);
+  }
+  .atlas-plate::after {
+    right: -1px;
+    bottom: -1px;
+    border-right: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+  }
+  .entry-grid,
+  .entry-grid-lower {
     display: grid;
     grid-template-columns: 1.4fr 0.8fr;
     gap: 1.25rem;
   }
-  .progress-panel,
-  .catalog-card,
-  .events-panel,
-  .relations-panel {
-    position: relative;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--surface) 90%, transparent);
+  .progress-plate,
+  .provenance-plate,
+  .timeline-plate,
+  .relations-plate {
     padding: 1.25rem;
-  }
-  .catalog-card {
-    padding-left: 1.45rem;
-  }
-  .catalog-card::before {
-    content: "";
-    position: absolute;
-    left: -1px;
-    top: 1.1rem;
-    width: 4px;
-    height: 2.2rem;
-    background: var(--accent-2);
-    border-radius: 0 2px 2px 0;
   }
   .panel-heading {
     display: flex;
@@ -311,40 +300,41 @@
     font-family: var(--font-mono);
     font-size: 0.75rem;
   }
-  .progress-readout {
+  .panel-heading > strong {
     color: var(--accent);
-    font-family: var(--font-serif);
+    font-family: var(--font-mono);
     font-size: 2.2rem;
-    font-weight: 700;
+    font-weight: 600;
   }
-  .progress-row {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
+  .scale-bar {
     margin-top: 1.5rem;
   }
-  .core-gauge-well {
-    position: relative;
-    width: 1.5rem;
-    height: 4rem;
-    flex-shrink: 0;
-    overflow: hidden;
+  .scale-track {
+    height: 0.65rem;
     border: 1px solid var(--border);
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    background: repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--border) 70%, transparent) 0 1px,
+      transparent 1px 10%
+    );
   }
-  .core-gauge-well i {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
+  .scale-fill {
     display: block;
+    height: 100%;
+    background: var(--accent);
+  }
+  .scale-ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.4rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
   }
   .progress-meta {
     display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 0.5rem;
+    justify-content: space-between;
+    margin-top: 0.8rem;
     color: var(--text-muted);
     font-family: var(--font-mono);
     font-size: 0.75rem;
@@ -355,42 +345,54 @@
   dl div {
     display: flex;
     justify-content: space-between;
-    border-top: 1px solid var(--border);
+    border-top: 1px dashed var(--border);
     padding: 0.7rem 0;
   }
   dt {
     color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 0.74rem;
+    font-size: 0.76rem;
   }
   dd {
     margin: 0;
     font-family: var(--font-mono);
   }
-  ol {
+  .waypoint-list {
     display: grid;
     gap: 0;
     margin: 1.25rem 0 0;
     padding: 0;
     list-style: none;
   }
-  li {
+  .waypoint-list li {
     display: grid;
-    grid-template-columns: 7rem 1fr auto;
+    grid-template-columns: 1.8rem 6rem 1fr auto;
     gap: 1rem;
+    align-items: baseline;
     border-top: 1px solid var(--border);
     padding: 0.75rem 0;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
   }
-  li b {
+  .waypoint-index {
+    display: inline-block;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    padding: 0.1rem 0;
     color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    text-align: center;
+  }
+  .waypoint-list b {
+    color: var(--accent);
+    font-family: var(--font-mono);
     font-weight: 400;
   }
-  li strong {
-    color: var(--accent-2);
+  .waypoint-list strong {
+    color: var(--accent);
+    font-family: var(--font-mono);
   }
-  .empty {
+  .atlas-empty {
     color: var(--text-muted);
   }
   .relations {
@@ -407,14 +409,24 @@
     color: var(--text);
     text-decoration: none;
   }
+  .relations a:hover span {
+    color: var(--accent);
+  }
   .relations small {
     color: var(--text-muted);
     font-family: var(--font-mono);
   }
+  .atlas-source {
+    border-top: 1px solid var(--border);
+    padding-top: 0.85rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+  }
   @media (max-width: 700px) {
-    .media-hero,
-    .record-grid,
-    .lower-grid {
+    .entry-hero,
+    .entry-grid,
+    .entry-grid-lower {
       grid-template-columns: 1fr;
     }
     .cover-frame {

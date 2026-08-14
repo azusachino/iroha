@@ -7,6 +7,7 @@ export * from "./category-color";
 export * from "./source";
 export * from "./period";
 export * from "./media";
+export * from "./hero-title";
 export * from "./activity";
 export * from "./activity-view";
 export * from "./sport";

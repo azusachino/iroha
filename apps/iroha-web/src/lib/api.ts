@@ -8,7 +8,11 @@ import type {
   SamplingPoint,
 } from "@iroha/shared/activity";
 import type { MetricSeriesResponse } from "@iroha/shared/metric-series";
-import type { MediaAggregates, MediaRow } from "@iroha/shared/media";
+import type {
+  MediaAggregates,
+  MediaDetail,
+  MediaRow,
+} from "@iroha/shared/media";
 import type {
   CreateExpenseInput,
   Expense,
@@ -54,6 +58,7 @@ export type { MetricSeriesResponse } from "@iroha/shared/metric-series";
 export type {
   MediaAggregates,
   MediaCompletionBucket,
+  MediaDetail,
   MediaPage,
   MediaRow,
   MediaScoreBucket,
@@ -154,51 +159,6 @@ export class ApiError extends Error {
     this.code = code;
     this.requestId = requestId;
   }
-}
-
-export interface MediaDetail {
-  item: MediaRow;
-  work: {
-    id: string;
-    work_kind: string;
-    primary_title: string;
-    original_title: string;
-    original_language: string;
-    first_release_date?: string;
-    description: string;
-  };
-  progress?: {
-    status: string;
-    unit: string;
-    position?: number;
-    total?: number;
-    progress_percent?: number;
-    started_at?: string;
-    last_update_at?: string;
-    finished_at?: string;
-    play_count: number;
-  };
-  creators: { id: string; name: string; role: string }[];
-  relations: {
-    id: string;
-    relation_type: string;
-    direction: string;
-    related_item_id: string;
-    related_title: string;
-    related_type: string;
-    cover_image_url?: string;
-  }[];
-  events: {
-    id: string;
-    event_type: string;
-    event_at?: string;
-    unit?: string;
-    position?: number;
-    total?: number;
-    progress_percent?: number;
-    rating?: number;
-    note?: string;
-  }[];
 }
 
 export interface MediaHomeEvent {
