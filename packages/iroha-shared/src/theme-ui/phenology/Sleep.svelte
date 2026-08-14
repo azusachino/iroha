@@ -216,6 +216,9 @@
     font-family: var(--font-serif);
     min-width: 0;
   }
+  .bloom-night > * {
+    min-width: 0;
+  }
   .bloom-kicker {
     margin: 0 0 0.5rem;
     color: var(--accent);

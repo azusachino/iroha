@@ -171,6 +171,9 @@
     font-family: var(--font-sans);
     min-width: 0;
   }
+  .atlas-nights > * {
+    min-width: 0;
+  }
   .atlas-kicker {
     display: flex;
     align-items: center;

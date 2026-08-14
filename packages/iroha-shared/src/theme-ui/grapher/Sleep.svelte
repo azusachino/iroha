@@ -147,6 +147,9 @@
     gap: 1rem;
     min-width: 0;
   }
+  .grapher-sleep > * {
+    min-width: 0;
+  }
   .page-intro {
     max-width: 50rem;
     padding-bottom: 2rem;
