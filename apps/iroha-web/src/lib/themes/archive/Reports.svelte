@@ -1,9 +1,9 @@
 <script lang="ts">
   import BarChart from "$lib/components/BarChart.svelte";
   import ReportCoverage from "$lib/components/ReportCoverage.svelte";
-  import ReportEvidenceList, {
-    type ReportEvidenceRow,
-  } from "$lib/components/ReportEvidenceList.svelte";
+  import ReportReceipt from "@iroha/shared/theme-ui/components/ReportReceipt.svelte";
+  import type { ReportEvidenceRow } from "@iroha/shared/report";
+  import type { DesignLanguage } from "@iroha/shared/themes";
   import ReportFactGrid from "$lib/components/ReportFactGrid.svelte";
   import ReportMetricCard from "$lib/components/ReportMetricCard.svelte";
   import MetricPanel from "@iroha/shared/MetricPanel.svelte";
@@ -21,7 +21,8 @@
     primaryExponent,
     formatMoney,
     formatDuration,
-  }: ReportThemeProps = $props();
+    theme,
+  }: ReportThemeProps & { theme: DesignLanguage } = $props();
 
   const movement = $derived(
     reportSectionData<
@@ -346,7 +347,7 @@
         },
       ]}
     />
-    <ReportEvidenceList rows={evidence} />
+    <ReportReceipt rows={evidence} {theme} />
   </section>
 </section>
 
