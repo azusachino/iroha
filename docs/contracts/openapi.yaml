@@ -491,6 +491,24 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /api/v1/reports/monthly-series:
+    get:
+      tags: [system]
+      parameters:
+        - $ref: "#/components/parameters/ReportEndMonth"
+        - $ref: "#/components/parameters/ReportSeriesMonths"
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Server-aggregated monthly reports with empty months omitted from the trend points.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyReportSeries"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/expenses:
     get:
       tags: [expenses]
@@ -960,6 +978,15 @@ components:
       in: query
       required: true
       schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+    ReportEndMonth:
+      name: end
+      in: query
+      required: true
+      schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+    ReportSeriesMonths:
+      name: months
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 24, default: 12 }
     Timezone:
       name: timezone
       in: query
@@ -1388,6 +1415,32 @@ components:
               { $ref: "#/components/schemas/DailyHealthReportSection" }
             media: { $ref: "#/components/schemas/MediaReportSection" }
             expenses: { $ref: "#/components/schemas/ExpensesReportSection" }
+    MonthlyReportSeries:
+      type: object
+      additionalProperties: false
+      required:
+        [schema, end_month, requested_months, from_month, to_month, generated_at, reports, empty_months]
+      properties:
+        schema: { type: string, const: monthly-report-series.v1 }
+        end_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        requested_months: { type: integer, minimum: 1, maximum: 24 }
+        from_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        to_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        generated_at: { type: string, format: date-time }
+        reports:
+          type: array
+          items: { $ref: "#/components/schemas/MonthlyReportSeriesPoint" }
+        empty_months:
+          type: array
+          items: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+    MonthlyReportSeriesPoint:
+      type: object
+      additionalProperties: false
+      required: [month, completeness, report]
+      properties:
+        month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
+        completeness: { type: string, enum: [complete, partial] }
+        report: { $ref: "#/components/schemas/MonthlyReport" }
     ReportPeriod:
       type: object
       additionalProperties: false

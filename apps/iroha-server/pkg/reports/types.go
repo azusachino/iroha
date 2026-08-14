@@ -20,6 +20,23 @@ type MonthlyReport struct {
 	Sections    ReportSections `json:"sections"`
 }
 
+type MonthlyReportSeries struct {
+	Schema          string                     `json:"schema"`
+	EndMonth        string                     `json:"end_month"`
+	RequestedMonths int                        `json:"requested_months"`
+	FromMonth       string                     `json:"from_month"`
+	ToMonth         string                     `json:"to_month"`
+	GeneratedAt     time.Time                  `json:"generated_at"`
+	Reports         []MonthlyReportSeriesPoint `json:"reports"`
+	EmptyMonths     []string                   `json:"empty_months"`
+}
+
+type MonthlyReportSeriesPoint struct {
+	Month        string        `json:"month"`
+	Completeness string        `json:"completeness"`
+	Report       MonthlyReport `json:"report"`
+}
+
 type ReportMonth struct {
 	Kind     string `json:"kind"`
 	Month    string `json:"month"`

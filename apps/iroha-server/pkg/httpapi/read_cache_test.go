@@ -105,7 +105,7 @@ func TestReadCacheInvalidationReloadsData(t *testing.T) {
 func TestReadCacheSkipsMutationsAndUnrelatedPaths(t *testing.T) {
 	server := &Server{deps: Dependencies{Cache: cache.NewWithStore(&readCacheTestStore{})}}
 	for _, method := range []string{http.MethodPost, http.MethodGet} {
-		for _, path := range []string{"/api/v1/media/sync/anilist", "/api/v1/activitiesfoo", "/api/v1/expenses", "/api/v1/reports/monthly"} {
+		for _, path := range []string{"/api/v1/media/sync/anilist", "/api/v1/activitiesfoo", "/api/v1/expenses", "/api/v1/reports/monthly", "/api/v1/reports/monthly-series"} {
 			request := httptest.NewRequest(method, path, nil)
 			namespace, ok := readCacheNamespace(request)
 			if ok {

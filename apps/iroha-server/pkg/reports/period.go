@@ -10,17 +10,23 @@ import (
 const DefaultTimezone = "Asia/Tokyo"
 
 const (
-	MonthlyReportSchema = "monthly-report.v1"
-	MovementSchema      = "monthly-report.movement.v1"
-	SleepSchema         = "monthly-report.sleep.v1"
-	DailyHealthSchema   = "monthly-report.daily-health.v1"
-	MediaSchema         = "monthly-report.media.v1"
-	ExpensesSchema      = "monthly-report.expenses.v1"
+	MonthlyReportSchema       = "monthly-report.v1"
+	MonthlyReportSeriesSchema = "monthly-report-series.v1"
+	MovementSchema            = "monthly-report.movement.v1"
+	SleepSchema               = "monthly-report.sleep.v1"
+	DailyHealthSchema         = "monthly-report.daily-health.v1"
+	MediaSchema               = "monthly-report.media.v1"
+	ExpensesSchema            = "monthly-report.expenses.v1"
+	DefaultSeriesMonths       = 12
+	MaxSeriesMonths           = 24
+	CompletenessComplete      = "complete"
+	CompletenessPartial       = "partial"
 )
 
 var (
-	ErrInvalidMonth    = errors.New("invalid report month")
-	ErrInvalidTimezone = errors.New("invalid report timezone")
+	ErrInvalidMonth        = errors.New("invalid report month")
+	ErrInvalidTimezone     = errors.New("invalid report timezone")
+	ErrInvalidSeriesMonths = errors.New("invalid report series months")
 )
 
 // Period contains the calendar and instant boundaries shared by report

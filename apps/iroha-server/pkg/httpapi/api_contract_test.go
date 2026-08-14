@@ -50,6 +50,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/metrics/{metricId}",
 		"GET /api/v1/metrics/{metricId}/series",
 		"GET /api/v1/reports/monthly",
+		"GET /api/v1/reports/monthly-series",
 		"GET /api/v1/sleep",
 		"GET /api/v1/sleep/aggregates",
 		"GET /api/v1/sleep/{sleepId}",

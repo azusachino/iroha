@@ -29,7 +29,7 @@ func GenerateMonthly(month, timezone string, services Services, generatedAt time
 	if generatedAt.IsZero() {
 		generatedAt = time.Now()
 	}
-	if services.Activities == nil || services.Sleep == nil || services.Daily == nil || services.Media == nil || services.Expenses == nil {
+	if !servicesConfigured(services) {
 		return MonthlyReport{}, ErrMissingService
 	}
 
@@ -62,4 +62,68 @@ func GenerateMonthly(month, timezone string, services Services, generatedAt time
 			Expenses: NewSection(ExpensesSchema, expenseData),
 		},
 	}, nil
+}
+
+func GenerateMonthlySeries(endMonth, timezone string, months int, services Services, generatedAt time.Time) (MonthlyReportSeries, error) {
+	if months <= 0 || months > MaxSeriesMonths {
+		return MonthlyReportSeries{}, ErrInvalidSeriesMonths
+	}
+	endPeriod, err := ParseMonth(endMonth, timezone)
+	if err != nil {
+		return MonthlyReportSeries{}, err
+	}
+	if !servicesConfigured(services) {
+		return MonthlyReportSeries{}, ErrMissingService
+	}
+	if generatedAt.IsZero() {
+		generatedAt = time.Now().UTC()
+	}
+	location, err := LoadTimezone(endPeriod.Timezone)
+	if err != nil {
+		return MonthlyReportSeries{}, err
+	}
+	fromMonth := endPeriod.FromDate.AddDate(0, 1-months, 0)
+	series := MonthlyReportSeries{
+		Schema:          MonthlyReportSeriesSchema,
+		EndMonth:        endPeriod.Month,
+		RequestedMonths: months,
+		FromMonth:       fromMonth.Format("2006-01"),
+		ToMonth:         endPeriod.Month,
+		GeneratedAt:     generatedAt.UTC(),
+		Reports:         make([]MonthlyReportSeriesPoint, 0, months),
+		EmptyMonths:     make([]string, 0),
+	}
+	for index := 0; index < months; index++ {
+		periodMonth := fromMonth.AddDate(0, index, 0).Format("2006-01")
+		report, err := GenerateMonthly(periodMonth, endPeriod.Timezone, services, generatedAt)
+		if err != nil {
+			return MonthlyReportSeries{}, err
+		}
+		if !reportHasData(report) {
+			series.EmptyMonths = append(series.EmptyMonths, periodMonth)
+			continue
+		}
+		series.Reports = append(series.Reports, MonthlyReportSeriesPoint{
+			Month:        periodMonth,
+			Completeness: monthCompleteness(report.Period, generatedAt, location),
+			Report:       report,
+		})
+	}
+	return series, nil
+}
+
+func servicesConfigured(services Services) bool {
+	return services.Activities != nil && services.Sleep != nil && services.Daily != nil && services.Media != nil && services.Expenses != nil
+}
+
+func reportHasData(report MonthlyReport) bool {
+	return report.Sections.Movement.Data != nil || report.Sections.Sleep.Data != nil || report.Sections.DailyHealth.Data != nil || report.Sections.Media.Data != nil || report.Sections.Expenses.Data != nil
+}
+
+func monthCompleteness(period ReportMonth, generatedAt time.Time, location *time.Location) string {
+	to, err := time.ParseInLocation("2006-01-02", period.To, location)
+	if err != nil || generatedAt.In(location).Before(to) {
+		return CompletenessPartial
+	}
+	return CompletenessComplete
 }

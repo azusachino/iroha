@@ -161,6 +161,7 @@ func (s *Server) routes() {
 			r.Delete("/{expenseId}", s.handleDeleteExpense)
 		})
 		r.Route("/reports", func(r chi.Router) {
+			r.Get("/monthly-series", s.handleMonthlyReportSeries)
 			r.Get("/monthly", s.handleMonthlyReport)
 		})
 		r.Route("/media", func(r chi.Router) {
@@ -284,7 +285,7 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 		return "", false
 	}
 	if r.URL.Path == "/api/v1/expenses" || strings.HasPrefix(r.URL.Path, "/api/v1/expenses/") ||
-		r.URL.Path == "/api/v1/reports/monthly" {
+		r.URL.Path == "/api/v1/reports/monthly" || r.URL.Path == "/api/v1/reports/monthly-series" {
 		return "", false
 	}
 	for prefix, namespace := range map[string]string{
