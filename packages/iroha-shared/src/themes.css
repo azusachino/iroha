@@ -1,0 +1,73 @@
+/*
+ * Iroha design-language tokens.
+ *
+ * Contrast mode owns canvas, surface, and text. These tokens own the
+ * product-level visual language, so the private cockpit does not grow a
+ * second, route-local theme palette. The higher-specificity selector keeps a
+ * selected design language stable when light/dark mode changes.
+ */
+
+html:root[data-language="atlas"] {
+  --theme-swatch: #58c7c0;
+  --accent: #58c7c0;
+  --accent-2: #e7b65a;
+  --ring-move: #e7b65a;
+  --ring-exercise: #e07b58;
+  --ring-stand: #58c7c0;
+  --radius: 10px;
+  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+}
+
+html:root[data-language="grapher"] {
+  --theme-swatch: #6da9ff;
+  --accent: #6da9ff;
+  --accent-2: #f07c78;
+  --ring-move: #f07c78;
+  --ring-exercise: #e7b65a;
+  --ring-stand: #6da9ff;
+  --radius: 6px;
+}
+
+html:root[data-language="field-journal"] {
+  --theme-swatch: #39c5bb;
+  --accent: #39c5bb;
+  --accent-2: #ff5c8a;
+  --radius: 14px;
+  --font-serif: Georgia, "Times New Roman", serif;
+}
+
+html:root[data-language="phenology"] {
+  --theme-swatch: #d68bba;
+  --accent: #d68bba;
+  --accent-2: #a5c76a;
+  --ring-move: #d68bba;
+  --ring-exercise: #e7b65a;
+  --ring-stand: #a5c76a;
+  --radius: 20px;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --season-summer-accent: #e7b65a;
+}
+
+html:root[data-language="sound-map"] {
+  --theme-swatch: #63b7ff;
+  --accent: #63b7ff;
+  --accent-2: #ff9c66;
+  --ring-move: #ff9c66;
+  --ring-exercise: #b5e36b;
+  --ring-stand: #63b7ff;
+  --radius: 5px;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+}
+
+html:root[data-language="archive"] {
+  --theme-swatch: #b8a0ff;
+  --accent: #b8a0ff;
+  --accent-2: #d9b56d;
+  --ring-move: #d9b56d;
+  --ring-exercise: #c786a9;
+  --ring-stand: #b8a0ff;
+  --radius: 3px;
+  --font-serif: "Rockwell", "Roboto Slab", Georgia, serif;
+  --font-mono: "Courier New", "Consolas", ui-monospace, monospace;
+}

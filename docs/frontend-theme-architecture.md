@@ -20,15 +20,19 @@ The theme registry is the only place that defines the supported languages:
 
 ```text
 apps/iroha-web/src/lib/themes/
-├── registry.ts          metadata and component contracts
-├── types.ts             shared theme/component types
-├── tokens.css           semantic token defaults and language overrides
+├── registry.ts          app component registration
 ├── field-journal/
 ├── grapher/
 ├── atlas/
 ├── phenology/
 ├── sound-map/
 └── archive/
+
+packages/iroha-shared/src/
+├── themes.ts            shared identities, lenses, and theme contracts
+├── themes.css           semantic language tokens
+├── PeriodSelector.svelte
+└── SelectControl.svelte
 ```
 
 Each theme directory owns curated visual components, not a second copy of the application data layer:
@@ -88,23 +92,14 @@ hierarchy for every language.
 
 ## Registry contract
 
-The registry must provide typed metadata for every language:
+The registry must provide typed metadata for every language. Identity and page-lens metadata lives in the shared manifest; the web registry adds the actual Svelte components:
 
 ```ts
 type ThemeDefinition = {
-  id: DesignLanguage;
-  label: string;
-  description: string;
-  shell: Component;
-  routes: {
-    today: Component;
-    daily: Component;
-    activities: Component;
-    sleep: Component;
-    media: Component;
-    share: Component;
-  };
-  tokens: string;
+  identity: ThemeIdentity;
+  implementation: ThemeImplementationStatus;
+  primitives: ThemePrimitives;
+  components: Record<ThemeRoute, Component>;
 };
 ```
 

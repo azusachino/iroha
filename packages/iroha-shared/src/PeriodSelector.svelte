@@ -1,6 +1,9 @@
 <script lang="ts">
   import { shiftMonth } from "./month";
   import { formatCanonicalMonth } from "./format";
+  import SelectControl, {
+    type SelectControlOption,
+  } from "./SelectControl.svelte";
   import type { DesignLanguage } from "./themes";
 
   export type PeriodOption = { value: string; label: string };
@@ -45,6 +48,22 @@
     return option.label;
   }
 
+  const yearSelectOptions = $derived<SelectControlOption[]>([
+    ...(showAllYears ? [{ value: "", label: "Lifetime" }] : []),
+    ...yearOptions.map((option) => ({
+      value: option.value,
+      label: monthOptionLabel(option),
+    })),
+  ]);
+
+  const monthSelectOptions = $derived<SelectControlOption[]>([
+    { value: "", label: "All months" },
+    ...months.map((option) => ({
+      value: option.value,
+      label: monthOptionLabel(option),
+    })),
+  ]);
+
   function shiftPeriod(delta: number) {
     if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
       onMonth(shiftMonth(month, delta));
@@ -84,35 +103,23 @@
   data-appearance={appearance}
   aria-label="Period filters"
 >
-  <label>
-    <span>Year</span>
-    <select
-      aria-label="Filter by year"
-      value={year}
-      onchange={(event) =>
-        onYear((event.currentTarget as HTMLSelectElement).value)}
-    >
-      {#if showAllYears}<option value="">Lifetime</option>{/if}
-      {#each yearOptions as option (option.value)}
-        <option value={option.value}>{monthOptionLabel(option)}</option>
-      {/each}
-    </select>
-  </label>
-  <label>
-    <span>Month</span>
-    <select
-      aria-label="Filter by month"
-      value={month}
-      disabled={monthDisabled}
-      onchange={(event) =>
-        onMonth((event.currentTarget as HTMLSelectElement).value)}
-    >
-      <option value="">All months</option>
-      {#each months as option (option.value)}
-        <option value={option.value}>{monthOptionLabel(option)}</option>
-      {/each}
-    </select>
-  </label>
+  <SelectControl
+    label="Year"
+    value={year}
+    options={yearSelectOptions}
+    appearance={appearance}
+    ariaLabel="Filter by year"
+    onChange={onYear}
+  />
+  <SelectControl
+    label="Month"
+    value={month}
+    options={monthSelectOptions}
+    appearance={appearance}
+    ariaLabel="Filter by month"
+    disabled={monthDisabled}
+    onChange={onMonth}
+  />
 </div>
 
 <style>
@@ -138,83 +145,8 @@
     box-shadow: none;
   }
 
-  label {
-    display: grid;
-    gap: 0.3rem;
-  }
-
-  label span {
-    color: var(--text-muted);
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  select {
-    min-width: 9rem;
-    min-height: 2rem;
-    padding: 0.35rem 0.55rem;
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    background: var(--surface-2);
-    color: var(--text);
-    font: inherit;
-    font-size: 0.76rem;
-  }
-
-  select:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
-  }
-
-  .period-controls[data-appearance="atlas"] select {
-    border-width: 2px;
-    border-radius: 2px;
-    background-image:
-      linear-gradient(
-        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
-        transparent 1px
-      );
-    background-size: 10px 10px;
-  }
-
-  .period-controls[data-appearance="grapher"] select {
-    border-radius: 2px;
-    border-bottom-width: 2px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .period-controls[data-appearance="field-journal"] select {
-    border-style: dashed;
-    box-shadow: 2px 2px 0 color-mix(in srgb, var(--accent-2) 20%, transparent);
-  }
-
-  .period-controls[data-appearance="phenology"] select {
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 9%, var(--surface-2));
-  }
-
-  .period-controls[data-appearance="sound-map"] select {
-    border-inline-width: 2px;
-    box-shadow: inset 0 -2px 0
-      color-mix(in srgb, var(--accent) 35%, transparent);
-  }
-
-  .period-controls[data-appearance="archive"] select {
-    border: 3px double var(--border);
-    border-radius: 0;
-  }
-
   @media (max-width: 520px) {
-    .period-controls,
-    label,
-    select {
+    .period-controls {
       width: 100%;
     }
   }

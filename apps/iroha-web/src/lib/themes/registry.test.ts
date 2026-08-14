@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { THEME_ROUTES } from "@iroha/shared/themes";
 import {
   THEME_DEFINITIONS,
   getThemeDefinition,
@@ -23,6 +24,31 @@ describe("Iroha theme registry", () => {
         (theme) => theme.primitives.periodControl.appearance,
       ),
     ).toEqual(THEME_DEFINITIONS.map((theme) => theme.identity.id));
+  });
+
+  it("keeps the curated page lenses and visual marks in the shared manifest", () => {
+    for (const theme of THEME_DEFINITIONS) {
+      expect(theme.identity.mark).toBeTruthy();
+      expect(theme.identity.swatch).toMatch(/^#[0-9a-f]{6}$/i);
+      for (const lens of Object.values(theme.identity.lenses)) {
+        expect(lens.question).toBeTruthy();
+        expect(lens.lead).toBeTruthy();
+        expect(lens.time).toBeTruthy();
+        expect(lens.interaction).toBeTruthy();
+        expect(lens.detail).toBeTruthy();
+        expect(lens.avoid).toBeTruthy();
+      }
+    }
+    expect(
+      new Set(
+        THEME_DEFINITIONS.map((theme) => theme.identity.lenses.expenses.lead),
+      ).size,
+    ).toBe(THEME_DEFINITIONS.length);
+    expect(
+      new Set(
+        THEME_DEFINITIONS.map((theme) => theme.identity.lenses.reports.lead),
+      ).size,
+    ).toBe(THEME_DEFINITIONS.length);
   });
 
   it("requires every curated theme to own every page renderer", () => {
@@ -153,5 +179,22 @@ describe("Iroha theme registry", () => {
     );
     expect(reportComponents.every(Boolean)).toBe(true);
     expect(new Set(reportComponents).size).toBe(THEME_DEFINITIONS.length);
+  });
+
+  it("does not permit a partial production route tree", () => {
+    for (const theme of THEME_DEFINITIONS) {
+      expect(theme.implementation).toBe("curated");
+      for (const route of THEME_ROUTES) {
+        expect(theme.components[route]).toEqual(expect.anything());
+      }
+    }
+  });
+
+  it("keeps expense composition ownership distinct across languages", () => {
+    const expenseComponents = THEME_DEFINITIONS.map(
+      (theme) => theme.components.expenses,
+    );
+    expect(expenseComponents.every(Boolean)).toBe(true);
+    expect(new Set(expenseComponents).size).toBe(THEME_DEFINITIONS.length);
   });
 });

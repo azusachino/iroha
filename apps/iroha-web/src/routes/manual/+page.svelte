@@ -293,6 +293,7 @@
       {#each THEME_DEFINITIONS as definition}
         <button
           type="button"
+          style={"--theme-color:" + definition.identity.swatch}
           class:active={theme.language() === definition.identity.id}
           class={`theme-card ${definition.identity.id}`}
           onclick={() => theme.select(definition.identity.id)}
@@ -582,25 +583,6 @@
   .theme-card-copy p {
     margin-top: 0.25rem;
   }
-  .theme-card.atlas {
-    --theme-color: #e76f51;
-  }
-  .theme-card.grapher {
-    --theme-color: #4c78a8;
-  }
-  .theme-card.field-journal {
-    --theme-color: #5c8d68;
-  }
-  .theme-card.phenology {
-    --theme-color: #aa6f9e;
-  }
-  .theme-card.sound-map {
-    --theme-color: #1d9a9a;
-  }
-  .theme-card.archive {
-    --theme-color: #b98545;
-  }
-
   .manual-footer {
     align-items: center;
     padding: 1rem 0 0;

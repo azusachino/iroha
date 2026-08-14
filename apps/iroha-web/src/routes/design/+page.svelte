@@ -319,7 +319,10 @@
             onclick={() => selectTheme(definition.identity.id)}
             title={definition.identity.description}
           >
-            <span class={`theme-dot ${definition.identity.id}`}></span>
+            <span
+              class="theme-dot"
+              style={"--theme-color:" + definition.identity.swatch}
+            ></span>
             {definition.identity.label.replace("Iroha ", "")}
           </button>
         {/each}
@@ -1091,24 +1094,6 @@
     height: 0.55rem;
     border-radius: 50%;
     background: var(--theme-color, var(--accent));
-  }
-  .theme-dot.atlas {
-    --theme-color: #e76f51;
-  }
-  .theme-dot.grapher {
-    --theme-color: #4c78a8;
-  }
-  .theme-dot.field-journal {
-    --theme-color: #5c8d68;
-  }
-  .theme-dot.phenology {
-    --theme-color: #aa6f9e;
-  }
-  .theme-dot.sound-map {
-    --theme-color: #1d9a9a;
-  }
-  .theme-dot.archive {
-    --theme-color: #b98545;
   }
   .theme-specimen {
     min-width: 0;

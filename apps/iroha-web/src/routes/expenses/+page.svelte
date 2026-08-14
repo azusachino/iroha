@@ -15,6 +15,7 @@
   } from "$lib/api";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import FilterSelect from "$lib/components/FilterSelect.svelte";
   import {
     MONTH_OPTIONS,
     canonicalMonth,
@@ -22,7 +23,12 @@
     monthBounds,
     yearOptions,
   } from "@iroha/shared/month";
-  import type { ExpensePanel, ExpenseThemeProps } from "$lib/expense-view";
+  import {
+    expenseCategoryLabel,
+    type ExpensePanel,
+    type ExpenseThemeProps,
+  } from "$lib/expense-view";
+  import { categoryColor } from "@iroha/shared/category-color";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 
   const currencies: ExpenseCurrency[] = ["JPY", "USD", "EUR", "GBP"];
@@ -38,6 +44,17 @@
     "subscriptions",
     "work",
     "other",
+  ];
+  const currencyOptions = currencies.map((currency) => ({
+    value: currency,
+    label: currency,
+  }));
+  const categoryOptions = [
+    { value: "", label: "All categories" },
+    ...categories.map((category) => ({
+      value: category,
+      label: expenseCategoryLabel[category],
+    })),
   ];
 
   let expenses = $state<Expense[]>([]);
@@ -185,6 +202,22 @@
   function selectPeriodMonth(value: string) {
     if (!/^(?:[1-9]|1[0-2])$/.test(value)) return;
     selectMonth(`${periodYear}-${value.padStart(2, "0")}`);
+  }
+
+  function selectCurrency(value: string) {
+    filterCurrency = currencies.includes(value as ExpenseCurrency)
+      ? (value as ExpenseCurrency)
+      : "";
+    syncUrl();
+    void loadExpenses();
+  }
+
+  function selectCategory(value: string) {
+    filterCategory = categories.includes(value as ExpenseCategory)
+      ? (value as ExpenseCategory)
+      : "";
+    syncUrl();
+    void loadExpenses();
   }
 
   async function selectExpense(id: string) {
@@ -365,48 +398,35 @@
     >
   </header>
   <PeriodToolbar title="Monthly ledger scope" ariaLabel="Expense period">
-    <PeriodSelector
-      year={periodYear}
-      month={periodMonth}
-      years={periodYears}
-      months={MONTH_OPTIONS}
-      showAllYears={false}
-      surface="inline"
-      onYear={selectPeriodYear}
-      onMonth={selectPeriodMonth}
-    />
+    <div class="expense-toolbar-controls">
+      <PeriodSelector
+        year={periodYear}
+        month={periodMonth}
+        years={periodYears}
+        months={MONTH_OPTIONS}
+        showAllYears={false}
+        surface="inline"
+        onYear={selectPeriodYear}
+        onMonth={selectPeriodMonth}
+      />
+      <div class="expense-dimensions" aria-label="Expense dimensions">
+        <FilterSelect
+          label="Currency"
+          value={filterCurrency}
+          options={[{ value: "", label: "All currencies" }, ...currencyOptions]}
+          onChange={selectCurrency}
+        />
+        <FilterSelect
+          label="Category"
+          value={filterCategory}
+          options={categoryOptions}
+          markerColor={categoryColor(filterCategory || "other")}
+          onChange={selectCategory}
+        />
+      </div>
+    </div>
   </PeriodToolbar>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
-  <div class="filters panel" aria-label="Expense filters">
-    <label
-      >Currency<select
-        value={filterCurrency}
-        onchange={(event) => {
-          filterCurrency = (event.currentTarget as HTMLSelectElement).value;
-          syncUrl();
-          void loadExpenses();
-        }}
-        ><option value="">All currencies</option
-        >{#each currencies as currency}<option value={currency}
-            >{currency}</option
-          >{/each}</select
-      ></label
-    >
-    <label
-      >Category<select
-        value={filterCategory}
-        onchange={(event) => {
-          filterCategory = (event.currentTarget as HTMLSelectElement).value;
-          syncUrl();
-          void loadExpenses();
-        }}
-        ><option value="">All categories</option
-        >{#each categories as category}<option value={category}
-            >{category}</option
-          >{/each}</select
-      ></label
-    >
-  </div>
   {#if loading}<p class="muted">Loading expenses…</p>{:else}<ThemeRouteRenderer
       route="expenses"
       props={themeProps}
@@ -518,19 +538,24 @@
     font-size: 0.75rem;
     font-weight: 700;
   }
-  .filters {
+  .expense-toolbar-controls {
     display: flex;
     flex-wrap: wrap;
     align-items: end;
-    gap: 0.7rem;
+    justify-content: flex-end;
+    gap: 0.75rem 1rem;
   }
-  label {
-    display: grid;
-    gap: 0.3rem;
-    color: var(--text-muted);
-    font-size: 0.72rem;
+  .expense-dimensions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.75rem;
+    padding-left: 1rem;
+    border-left: 1px solid var(--border);
   }
-  select,
+  .expense-dimensions :global(.select-control) {
+    flex: 1 1 9rem;
+  }
   button {
     min-height: 2.4rem;
     border: 1px solid var(--border);
@@ -538,9 +563,6 @@
     background: var(--surface);
     color: var(--text);
     font: inherit;
-  }
-  select {
-    padding: 0.45rem 0.65rem;
   }
   button {
     display: inline-flex;
@@ -682,8 +704,19 @@
     .visual-grid {
       grid-template-columns: 1fr;
     }
-    .filters label {
-      flex: 1 1 9rem;
+    .expense-toolbar-controls {
+      width: 100%;
+      justify-content: stretch;
+    }
+    .expense-toolbar-controls :global(.period-controls),
+    .expense-dimensions {
+      flex: 1 1 100%;
+    }
+    .expense-dimensions {
+      padding-top: 0.75rem;
+      padding-left: 0;
+      border-top: 1px solid var(--border);
+      border-left: 0;
     }
   }
 </style>
