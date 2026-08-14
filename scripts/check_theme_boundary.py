@@ -20,9 +20,9 @@ THEME_ADAPTERS = {
 
 SOURCE_SUFFIXES = {".css", ".js", ".svelte", ".ts", ".tsx"}
 FORBIDDEN_SHARED_IMPORTS = (
-    re.compile(r"from\s+['\"]\$lib(?:/|['\"])") ,
-    re.compile(r"from\s+['\"](?:\.\./)+apps/iroha-(?:web|public-site)(?:/|['\"])") ,
-    re.compile(r"from\s+['\"]apps/iroha-(?:web|public-site)(?:/|['\"])") ,
+    re.compile(r"from\s+['\"]\$lib(?:/|['\"])"),
+    re.compile(r"from\s+['\"](?:\.\./)+apps/iroha-(?:web|public-site)(?:/|['\"])"),
+    re.compile(r"from\s+['\"]apps/iroha-(?:web|public-site)(?:/|['\"])"),
 )
 
 

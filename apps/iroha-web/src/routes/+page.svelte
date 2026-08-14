@@ -823,6 +823,7 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    min-width: 0;
     padding: 0.85rem 1rem;
   }
   .glow {
@@ -831,6 +832,7 @@
   }
   .scrub-center {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1161,6 +1163,38 @@
     .sleep-card {
       grid-column: span 1;
       grid-row: auto;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .scrubber {
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .scrub-center {
+      min-width: 0;
+    }
+
+    .day-hint {
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      text-align: center;
+    }
+
+    .to-go-strip {
+      width: 100%;
+      grid-template-columns: 1fr;
+      gap: 0.55rem;
+    }
+
+    .to-go-items {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    .to-go-link {
+      justify-self: start;
     }
   }
 </style>

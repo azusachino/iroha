@@ -11,11 +11,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_MAX_WIDTHS = {640, 768, 1024}
 MEDIA_RE = re.compile(r"@media\s*\(\s*max-width\s*:\s*(\d+)px\s*\)")
-SOURCE_ROOTS = (
-    REPO_ROOT / "apps/iroha-web/src",
-    REPO_ROOT / "apps/iroha-public-site/src",
-    REPO_ROOT / "packages/iroha-shared/src",
-)
 SOURCE_SUFFIXES = {".css", ".svelte"}
 
 
