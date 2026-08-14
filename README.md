@@ -39,6 +39,9 @@ The v0.4.1 runtime cache is a shared, backend-neutral disposable read layer for 
 supported for the k3s compatibility deployment, and `none` disables caching. There is no production process-memory cache and no scheduled aggregate table in this release. The public archive remains a
 separate static, sanitized projection and does not consume private cache responses.
 
+After a local k3s rollout, run `make smoke-k3s-cache` for a non-mutating deployment check. It verifies the k3s ConfigMap selects Valkey and that two identical monthly-report reads return the expected
+cache hit on the second request.
+
 ## References
 
 - [API contract](docs/contracts/openapi.yaml)
