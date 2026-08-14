@@ -177,6 +177,10 @@
     display: grid;
     gap: 1.5rem;
     font-family: var(--font-sans);
+    min-width: 0;
+  }
+  .atlas-daily > * {
+    min-width: 0;
   }
   .atlas-kicker {
     display: flex;

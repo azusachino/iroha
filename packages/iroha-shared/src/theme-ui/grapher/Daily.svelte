@@ -143,6 +143,10 @@
   .grapher-daily {
     display: grid;
     gap: 1rem;
+    min-width: 0;
+  }
+  .grapher-daily > * {
+    min-width: 0;
   }
   .page-intro {
     max-width: 48rem;

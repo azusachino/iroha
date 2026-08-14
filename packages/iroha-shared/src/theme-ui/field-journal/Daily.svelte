@@ -203,6 +203,10 @@
   .journal-daily {
     display: grid;
     gap: 1.5rem;
+    min-width: 0;
+  }
+  .journal-daily > * {
+    min-width: 0;
   }
   .daily-opening {
     display: flex;
