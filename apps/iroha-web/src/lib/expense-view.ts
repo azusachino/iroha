@@ -28,6 +28,16 @@ export type ExpenseCategoryTotal = {
 
 export type ExpenseDailyTotal = [period: string, amountMinor: number | null];
 
+export function expenseMetricDimensions(
+  currency: ExpenseCurrency,
+  category?: ExpenseCategory,
+): string[] {
+  return [
+    `currency:${currency}`,
+    ...(category ? [`category:${category}`] : []),
+  ];
+}
+
 export type ExpenseThemeProps = {
   month: string;
   primaryCurrency: ExpenseCurrency;

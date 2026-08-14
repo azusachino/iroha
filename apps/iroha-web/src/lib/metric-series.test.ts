@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { panelCsv, seriesPanelRows } from "@iroha/shared/metric-panel";
 import { pointHasValue, pointValue } from "@iroha/shared/metric-series";
-import { expenseLedgerCsv } from "$lib/expense-view";
+import { expenseLedgerCsv, expenseMetricDimensions } from "$lib/expense-view";
 
 describe("shared metric series helpers", () => {
   it("keeps null periods distinct from zero", () => {
@@ -98,5 +98,15 @@ describe("panel CSV export", () => {
     expect(csv).toContain('"Ramen, + bar"');
     expect(csv).toContain('"Dinner ""late""\nwith friend"');
     expect(csv).toContain(',800,"JPY + 800",');
+  });
+});
+
+describe("expense metric dimensions", () => {
+  it("carries the selected category into every metric query", () => {
+    expect(expenseMetricDimensions("JPY")).toEqual(["currency:JPY"]);
+    expect(expenseMetricDimensions("JPY", "food")).toEqual([
+      "currency:JPY",
+      "category:food",
+    ]);
   });
 });

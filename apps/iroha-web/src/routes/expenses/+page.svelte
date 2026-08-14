@@ -26,6 +26,7 @@
   } from "@iroha/shared/month";
   import {
     expenseCategoryLabel,
+    expenseMetricDimensions,
     type ExpensePanel,
     type ExpenseThemeProps,
   } from "$lib/expense-view";
@@ -92,6 +93,13 @@
   const periodMonth = $derived(String(Number(month.slice(5, 7))));
   let requestVersion = 0;
 
+  function metricDimensions(currency: ExpenseCurrency): string[] {
+    const category = categories.includes(filterCategory as ExpenseCategory)
+      ? (filterCategory as ExpenseCategory)
+      : undefined;
+    return expenseMetricDimensions(currency, category);
+  }
+
   onMount(() => {
     void loadExpenses(month);
   });
@@ -118,7 +126,7 @@
               from: bounds.from,
               to: bounds.to,
               grain: "month",
-              dimensions: [`currency:${currency}`],
+              dimensions: metricDimensions(currency),
             }),
           ),
         ),
@@ -128,17 +136,16 @@
               from: bounds.from,
               to: bounds.to,
               grain: "month",
-              dimensions: [`currency:${currency}`],
+              dimensions: metricDimensions(currency),
             }),
           ),
         ),
       ]);
-      const chartCurrency =
-        filterCurrency ||
+      const chartCurrency = (filterCurrency ||
         currenciesForMonth.find((series) => seriesPointValue(series) != null)
           ?.series[0]?.dimensions.currency ||
-        "JPY";
-      const chartCategories = filterCategory
+        "JPY") as ExpenseCurrency;
+      const chartCategories: ExpenseCategory[] = filterCategory
         ? [filterCategory as ExpenseCategory]
         : categories;
       const [daily, categoriesForCurrency] = await Promise.all([
@@ -146,7 +153,7 @@
           from: bounds.from,
           to: bounds.to,
           grain: "day",
-          dimensions: [`currency:${chartCurrency}`],
+          dimensions: metricDimensions(chartCurrency),
         }),
         Promise.all(
           chartCategories.map((category) =>
@@ -154,7 +161,7 @@
               from: bounds.from,
               to: bounds.to,
               grain: "month",
-              dimensions: [`currency:${chartCurrency}`, `category:${category}`],
+              dimensions: expenseMetricDimensions(chartCurrency, category),
             }),
           ),
         ),
