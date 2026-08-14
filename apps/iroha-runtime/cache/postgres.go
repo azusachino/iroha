@@ -118,6 +118,29 @@ func (s *PostgresStore) SetAtGeneration(ctx context.Context, namespace, key stri
 	return stored, err
 }
 
+// Cleanup removes at most batchSize expired or obsolete-generation entries.
+// PostgreSQL's ctid keeps the delete bounded without scanning or returning a
+// potentially unbounded set of cache keys to the application.
+func (s *PostgresStore) Cleanup(ctx context.Context, batchSize int) (CleanupResult, error) {
+	if batchSize <= 0 || batchSize > DefaultCleanupBatchSize {
+		batchSize = DefaultCleanupBatchSize
+	}
+	result := s.db.WithContext(ctx).Exec(`
+		delete from tb_cache_entries
+		where ctid in (
+			select e.ctid
+			from tb_cache_entries e
+			left join tb_cache_namespaces n on n.namespace = e.namespace
+			where e.expires_at <= now()
+			   or n.generation is null
+			   or e.generation <> n.generation
+			order by e.expires_at asc, e.namespace asc, e.cache_key asc
+			limit ?
+		)
+	`, batchSize)
+	return CleanupResult{DeletedEntries: result.RowsAffected}, result.Error
+}
+
 func (s *PostgresStore) InvalidateNamespace(ctx context.Context, namespace string) error {
 	return s.db.WithContext(ctx).Exec(`
 		insert into tb_cache_namespaces (namespace, generation, updated_at)

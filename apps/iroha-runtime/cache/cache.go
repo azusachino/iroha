@@ -76,8 +76,9 @@ var changeNamespaces = map[ChangeKind][]string{
 }
 
 const (
-	invalidationAttempts   = 3
-	invalidationRetryDelay = 25 * time.Millisecond
+	invalidationAttempts    = 3
+	invalidationRetryDelay  = 25 * time.Millisecond
+	DefaultCleanupBatchSize = 500
 )
 
 // Store is the backend contract for shared cache data. Namespace is a logical
@@ -97,6 +98,17 @@ type GenerationStore interface {
 	Store
 	GetWithGeneration(context.Context, string, string) ([]byte, int64, bool, error)
 	SetAtGeneration(context.Context, string, string, int64, []byte, time.Duration) (bool, error)
+}
+
+// CleanupStore provides bounded backend maintenance for disposable cache
+// entries. Backends with native expiry, such as Valkey, may leave this
+// optional operation as a no-op.
+type CleanupStore interface {
+	Cleanup(context.Context, int) (CleanupResult, error)
+}
+
+type CleanupResult struct {
+	DeletedEntries int64
 }
 
 // Client is the cache facade used by application packages. It owns encoding
@@ -398,6 +410,20 @@ func (c *Client) InvalidationFailureCount() uint64 {
 		return 0
 	}
 	return c.invalidationFailures.Load()
+}
+
+// Cleanup removes disposable cache rows when the selected backend requires
+// explicit maintenance. Unsupported backends intentionally return an empty
+// result because their expiry mechanism owns cleanup.
+func (c *Client) Cleanup(ctx context.Context, batchSize int) (CleanupResult, error) {
+	if c == nil || c.store == nil {
+		return CleanupResult{}, nil
+	}
+	store, ok := c.store.(CleanupStore)
+	if !ok {
+		return CleanupResult{}, nil
+	}
+	return store.Cleanup(ctx, batchSize)
 }
 
 func (c *Client) setDegraded(namespace string, degraded bool) bool {

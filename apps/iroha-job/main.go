@@ -123,6 +123,10 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	cleanupCache(ctx, cacheClient, logger)
+	if !*once {
+		go runCacheMaintenance(ctx, cacheClient, logger)
+	}
 
 	if *once {
 		if _, err := jobsService.EnqueueDueSchedules(1); err != nil {
@@ -140,6 +144,30 @@ func main() {
 		Concurrency:  *concurrency,
 		PollInterval: *pollInterval,
 	})
+}
+
+func cleanupCache(ctx context.Context, cacheClient *cache.Client, logger *slog.Logger) {
+	result, err := cacheClient.Cleanup(ctx, cache.DefaultCleanupBatchSize)
+	if err != nil {
+		logger.Error("cleanup cache", "error", err)
+		return
+	}
+	if result.DeletedEntries > 0 {
+		logger.Info("cleaned disposable cache entries", "deleted_entries", result.DeletedEntries)
+	}
+}
+
+func runCacheMaintenance(ctx context.Context, cacheClient *cache.Client, logger *slog.Logger) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cleanupCache(ctx, cacheClient, logger)
+		}
+	}
 }
 
 func defaultWorkerID() (string, error) {
