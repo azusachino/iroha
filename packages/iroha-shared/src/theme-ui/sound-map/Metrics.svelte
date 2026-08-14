@@ -1,8 +1,10 @@
 <script lang="ts">
-  let { children } = $props();
+  import type { MetricsThemeProps } from "../../metrics-view";
+
+  let { children, theme }: MetricsThemeProps = $props();
 </script>
 
-<div class="sound-metrics">{@render children?.()}</div>
+<div class="sound-metrics" data-theme={theme}>{@render children?.()}</div>
 
 <style>
   .sound-metrics {

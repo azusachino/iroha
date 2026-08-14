@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Activity, DailyRow, SleepSession } from "$lib/api";
-  import { formatDistance, formatDuration, formatPace } from "$lib/format";
+  import type { TodayThemeProps } from "../../today-view";
+  import { formatDistance, formatDuration, formatPace } from "../../format";
 
   let {
     dayLabel,
@@ -8,13 +8,11 @@
     dRow,
     mainNight,
     acts,
-  }: {
-    dayLabel: string;
-    day: string;
-    dRow: DailyRow | undefined;
-    mainNight: SleepSession | undefined;
-    acts: Activity[];
-  } = $props();
+    theme,
+    mediaEvents,
+    onOpenActivity,
+    onOpenMedia,
+  }: TodayThemeProps = $props();
 
   function number(value: number | null | undefined, digits = 0): string {
     if (typeof value !== "number" || !Number.isFinite(value)) return "—";
@@ -50,7 +48,11 @@
   );
 </script>
 
-<section class="grapher-today" aria-labelledby="grapher-today-title">
+<section
+  class="grapher-today"
+  data-theme={theme}
+  aria-labelledby="grapher-today-title"
+>
   <header class="grapher-intro">
     <div>
       <p class="grapher-kicker">Daily data explorer / {day}</p>

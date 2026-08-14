@@ -5,6 +5,7 @@ import type {
   Lap,
   ListActivitiesParams,
   RoutePoint,
+  RouteFeatureCollection,
   SamplingPoint,
 } from "@iroha/shared/activity";
 import type { MetricSeriesResponse } from "@iroha/shared/metric-series";
@@ -16,6 +17,7 @@ import type {
 import type {
   MediaAggregates,
   MediaDetail,
+  MediaHomeEvent,
   MediaRow,
 } from "@iroha/shared/media";
 import type {
@@ -56,6 +58,9 @@ export type {
   ActivitySummary as Summary,
   Lap,
   ListActivitiesParams,
+  RouteFeature,
+  RouteFeatureCollection,
+  RouteFeatureProperties,
   RoutePoint,
   SamplingPoint,
 } from "@iroha/shared/activity";
@@ -72,6 +77,7 @@ export type {
   MediaAggregates,
   MediaCompletionBucket,
   MediaDetail,
+  MediaHomeEvent,
   MediaPage,
   MediaRow,
   MediaScoreBucket,
@@ -172,21 +178,6 @@ export class ApiError extends Error {
     this.code = code;
     this.requestId = requestId;
   }
-}
-
-export interface MediaHomeEvent {
-  id: string;
-  media_id: string;
-  title: string;
-  native_title?: string;
-  cover_image_url?: string;
-  event_type: string;
-  occurred_at: string;
-  unit?: string;
-  position?: number;
-  total?: number;
-  progress_percent?: number;
-  rating?: number;
 }
 
 export interface ListMediaEventsParams {
@@ -824,31 +815,6 @@ export function getActivitySummary(
     `/api/v1/activities/summary${suffix}`,
     fetchFn,
   );
-}
-
-// A single route line, rendered as a GeoJSON LineString. Coordinates are
-// [lon, lat] pairs (GeoJSON order), already privacy-trimmed and decimated by
-// the server.
-export interface RouteFeatureProperties {
-  activity_id?: string;
-  sport_type: string;
-  year: string;
-  city?: string;
-  city_status?: "pending" | "resolved" | "unknown";
-}
-
-export interface RouteFeature {
-  type: "Feature";
-  geometry: {
-    type: "LineString";
-    coordinates: [number, number][];
-  };
-  properties: RouteFeatureProperties;
-}
-
-export interface RouteFeatureCollection {
-  type: "FeatureCollection";
-  features: RouteFeature[];
 }
 
 export function getActivityRoutes(

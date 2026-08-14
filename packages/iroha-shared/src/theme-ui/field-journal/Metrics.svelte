@@ -1,8 +1,10 @@
 <script lang="ts">
-  let { children } = $props();
+  import type { MetricsThemeProps } from "../../metrics-view";
+
+  let { children, theme }: MetricsThemeProps = $props();
 </script>
 
-<div class="journal-metrics">{@render children?.()}</div>
+<div class="journal-metrics" data-theme={theme}>{@render children?.()}</div>
 
 <style>
   .journal-metrics {

@@ -1,20 +1,8 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import type {
-    Activity,
-    MediaAggregates,
-    RouteFeatureCollection,
-    Summary,
-  } from "$lib/api";
-  import { formatDistance, formatDuration, formatDate } from "$lib/format";
-  import { sportColor, sportLabel } from "$lib/sport";
-  // The geography panel reuses the shared RoutesMap (maplibre) component
-  // rather than a bespoke re-implementation -- routes are real geography,
-  // and re-drawing a basemap + tile renderer per theme would be pure
-  // duplication for no visual gain. Same documented exception atlas,
-  // field-journal, phenology, and sound-map took for their Dashboards.
-  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
-  import RetryNotice from "$lib/components/RetryNotice.svelte";
+  import type { DashboardThemeProps } from "../../dashboard-view";
+  import { formatDistance, formatDuration, formatDate } from "../../format";
+  import { sportColor, sportLabel } from "../../sport";
+  import RetryNotice from "../components/RetryNotice.svelte";
 
   let {
     summary,
@@ -27,26 +15,13 @@
     routesLoading,
     routesError,
     onLoadRoutes,
+    onOpenActivity,
+    onOpenSport,
     sleepSummary,
     mediaAggregates,
-  }: {
-    summary: Summary | null;
-    activities: Activity[];
-    routes: RouteFeatureCollection | null;
-    streak: string;
-    loading: boolean;
-    error: string | null;
-    onRetry: () => void;
-    routesLoading: boolean;
-    routesError: string | null;
-    onLoadRoutes: () => void;
-    sleepSummary: {
-      averageAsleepS: number;
-      averageEfficiency: number;
-      nightCount: number;
-    };
-    mediaAggregates: MediaAggregates | null;
-  } = $props();
+    theme,
+    children,
+  }: DashboardThemeProps = $props();
 
   // The sport breakdown becomes a core log: each recorded sport is a
   // stratum, thickness real session share, tone the sport's own semantic
@@ -64,13 +39,13 @@
       color: sportColor(bucket.key),
     }));
   });
-
-  function openSport(sportKey: string) {
-    void goto(`/motion?sport=${encodeURIComponent(sportKey)}`);
-  }
 </script>
 
-<section class="folio-dashboard" aria-labelledby="folio-dashboard-title">
+<section
+  class="folio-dashboard"
+  data-theme={theme}
+  aria-labelledby="folio-dashboard-title"
+>
   <header class="folio-head">
     <div>
       <p class="folio-kicker">Long view / vault record</p>
@@ -170,7 +145,7 @@
                     class="core-band"
                     style={`flex-grow: ${band.magnitude}; background: ${band.color};`}
                     title={`View ${sportLabel(band.key)} activities`}
-                    onclick={() => openSport(band.key)}
+                    onclick={() => onOpenSport(band.key)}
                   ></button>
                 {/each}
               </div>
@@ -180,7 +155,7 @@
                     type="button"
                     class="core-row"
                     style={`flex-grow: ${band.magnitude};`}
-                    onclick={() => openSport(band.key)}
+                    onclick={() => onOpenSport(band.key)}
                   >
                     <strong>{sportLabel(band.key)}</strong>
                     <span>{band.count}</span>
@@ -201,12 +176,7 @@
               : "Route footprint"}
           </h2>
           <div class="map-frame">
-            <RouteFootprint
-              {routes}
-              loading={routesLoading}
-              error={routesError}
-              onLoad={onLoadRoutes}
-            />
+            {@render children?.()}
           </div>
         </section>
       </div>

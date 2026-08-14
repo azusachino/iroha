@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import type { ShellThemeProps } from "../../shell-view";
 
-  let { children }: { children: Snippet } = $props();
+  let { children, theme }: ShellThemeProps = $props();
 </script>
 
-<div class="field-journal-site">
+<div class="field-journal-site" data-theme={theme}>
   <div class="field-journal-content">{@render children()}</div>
   <footer class="field-journal-footer">
     <span>iroha field journal · dates, entries, continuity</span>

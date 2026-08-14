@@ -1,16 +1,7 @@
 <script lang="ts">
-  import type {
-    Activity,
-    DailyRow,
-    MediaHomeEvent,
-    SleepSession,
-  } from "$lib/api";
-  import {
-    formatDistance,
-    formatDuration,
-    formatPace,
-    mediaEventVerb,
-  } from "$lib/format";
+  import type { TodayThemeProps } from "../../today-view";
+  import { formatDistance, formatDuration, formatPace } from "../../format";
+  import { mediaEventVerb } from "../../media";
 
   let {
     dayLabel,
@@ -19,14 +10,10 @@
     mainNight,
     acts,
     mediaEvents,
-  }: {
-    dayLabel: string;
-    day: string;
-    dRow: DailyRow | undefined;
-    mainNight: SleepSession | undefined;
-    acts: Activity[];
-    mediaEvents: MediaHomeEvent[];
-  } = $props();
+    theme,
+    onOpenActivity,
+    onOpenMedia,
+  }: TodayThemeProps = $props();
 
   function number(value: number | null | undefined, digits = 0): string {
     if (typeof value !== "number" || !Number.isFinite(value)) return "—";
@@ -101,7 +88,11 @@
   );
 </script>
 
-<section class="folio-today" aria-labelledby="folio-today-title">
+<section
+  class="folio-today"
+  data-theme={theme}
+  aria-labelledby="folio-today-title"
+>
   <header class="folio-head">
     <div>
       <p class="folio-kicker">Daily record / accession</p>
@@ -239,7 +230,11 @@
       <ul class="folio-media-list">
         {#each mediaEvents as event (event.id)}
           <li>
-            <a class="folio-media-row" href={`/library/${event.media_id}`}>
+            <button
+              class="folio-media-row"
+              type="button"
+              onclick={() => onOpenMedia(event.media_id)}
+            >
               {#if event.cover_image_url}
                 <img src={event.cover_image_url} alt="" loading="lazy" />
               {:else}
@@ -254,7 +249,7 @@
               {#if event.rating != null}<span class="folio-media-score"
                   >{event.rating.toFixed(1)}</span
                 >{/if}
-            </a>
+            </button>
           </li>
         {/each}
       </ul>
@@ -483,7 +478,13 @@
     align-items: center;
     gap: 0.7rem;
     min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
     color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
   .folio-media-row:hover {
     color: var(--accent);

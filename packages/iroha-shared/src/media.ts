@@ -19,6 +19,21 @@ export interface MediaRow {
   chapter_count?: number;
 }
 
+export interface MediaHomeEvent {
+  id: string;
+  media_id: string;
+  title: string;
+  native_title?: string;
+  cover_image_url?: string;
+  event_type: string;
+  occurred_at: string;
+  unit?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  rating?: number;
+}
+
 export interface MediaCompletionBucket {
   year: number;
   count: number;
@@ -147,6 +162,15 @@ export function mediaTypeLabel(type: string): string {
 export function mediaEventLabel(eventType: string): string {
   if (eventType === "list_state") return "Library snapshot";
   return eventType.replaceAll("_", " ");
+}
+
+export function mediaEventVerb(event: MediaHomeEvent): string {
+  if (event.rating != null) return "Rated";
+  if (event.progress_percent != null && event.progress_percent >= 100)
+    return "Finished";
+  if (event.position != null || event.progress_percent != null)
+    return "Progressed";
+  return "Updated library";
 }
 
 const EPISODE_COUNTED_TYPES = new Set([

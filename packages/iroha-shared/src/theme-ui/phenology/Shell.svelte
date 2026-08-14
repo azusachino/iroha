@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import type { ShellThemeProps } from "../../shell-view";
 
-  let { children }: { children: Snippet } = $props();
+  let { children, theme }: ShellThemeProps = $props();
 </script>
 
-<div class="bloom-site">
+<div class="bloom-site" data-theme={theme}>
   <div class="bloom-content">{@render children()}</div>
   <footer class="bloom-footer">
     <span class="bloom-phases" aria-hidden="true">○ ◔ ◑ ◕ ●</span>

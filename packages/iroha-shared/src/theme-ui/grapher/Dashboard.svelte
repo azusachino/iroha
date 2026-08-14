@@ -1,18 +1,8 @@
 <script lang="ts">
-  import type {
-    Activity,
-    MediaAggregates,
-    RouteFeatureCollection,
-    Summary,
-  } from "$lib/api";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
-  import {
-    formatDate,
-    formatDistance,
-    formatDuration,
-    formatMonth,
-  } from "$lib/format";
+  import type { DashboardThemeProps } from "../../dashboard-view";
+  import BarChart from "../components/BarChart.svelte";
+  import { formatDate, formatDistance, formatDuration } from "../../format";
+  import { formatMonth } from "../../month";
 
   let {
     summary,
@@ -24,25 +14,13 @@
     routesLoading,
     routesError,
     onLoadRoutes,
+    onOpenActivity,
+    onOpenSport,
     sleepSummary,
     mediaAggregates,
-  }: {
-    summary: Summary | null;
-    activities: Activity[];
-    routes: RouteFeatureCollection | null;
-    streak: string;
-    loading: boolean;
-    error: string | null;
-    routesLoading: boolean;
-    routesError: string | null;
-    onLoadRoutes: () => void;
-    sleepSummary: {
-      averageAsleepS: number;
-      averageEfficiency: number;
-      nightCount: number;
-    };
-    mediaAggregates: MediaAggregates | null;
-  } = $props();
+    theme,
+    children,
+  }: DashboardThemeProps = $props();
 
   const monthly = $derived(
     [...(summary?.by_month ?? [])]
@@ -60,7 +38,11 @@
   });
 </script>
 
-<section class="grapher-dashboard" aria-labelledby="grapher-dashboard-title">
+<section
+  class="grapher-dashboard"
+  data-theme={theme}
+  aria-labelledby="grapher-dashboard-title"
+>
   <header class="dashboard-header">
     <div>
       <p class="kicker">Overview / comparative record</p>
@@ -166,11 +148,14 @@
               {#each activities.slice(0, 8) as activity (activity.id)}
                 <tr>
                   <td>{formatDate(activity.started_at, activity.timezone)}</td>
-                  <td
-                    ><a href={`/motion/${activity.id}`}
-                      >{activity.title || activity.sport_type}</a
-                    ></td
-                  >
+                  <td>
+                    <button
+                      class="activity-link"
+                      type="button"
+                      onclick={() => onOpenActivity(activity.id)}
+                      >{activity.title || activity.sport_type}</button
+                    >
+                  </td>
                   <td>{formatDistance(activity.distance_m)}</td>
                   <td
                     >{formatDuration(
@@ -191,12 +176,7 @@
           </div>
           <span>{routes?.features.length ?? "—"} traces</span>
         </header>
-        <RouteFootprint
-          {routes}
-          loading={routesLoading}
-          error={routesError}
-          onLoad={onLoadRoutes}
-        />
+        {@render children?.()}
       </section>
     </div>
   {/if}
@@ -356,12 +336,17 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
-  td a {
+  .activity-link {
+    border: 0;
+    padding: 0;
+    background: transparent;
     color: var(--text);
+    font: inherit;
     font-weight: 700;
-    text-decoration: none;
+    text-align: left;
+    cursor: pointer;
   }
-  td a:hover {
+  .activity-link:hover {
     color: var(--accent);
   }
   .status {

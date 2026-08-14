@@ -1,16 +1,7 @@
 <script lang="ts">
-  import type {
-    Activity,
-    DailyRow,
-    MediaHomeEvent,
-    SleepSession,
-  } from "$lib/api";
-  import {
-    formatDistance,
-    formatDuration,
-    formatPace,
-    mediaEventVerb,
-  } from "$lib/format";
+  import type { TodayThemeProps } from "../../today-view";
+  import { formatDistance, formatDuration, formatPace } from "../../format";
+  import { mediaEventVerb } from "../../media";
 
   let {
     dayLabel,
@@ -19,14 +10,10 @@
     mainNight,
     acts,
     mediaEvents,
-  }: {
-    dayLabel: string;
-    day: string;
-    dRow: DailyRow | undefined;
-    mainNight: SleepSession | undefined;
-    acts: Activity[];
-    mediaEvents: MediaHomeEvent[];
-  } = $props();
+    theme,
+    onOpenActivity,
+    onOpenMedia,
+  }: TodayThemeProps = $props();
 
   function number(value: number | null | undefined, digits = 0): string {
     if (typeof value !== "number" || !Number.isFinite(value)) return "—";
@@ -52,7 +39,7 @@
   );
 </script>
 
-<section class="mix-today" aria-labelledby="mix-today-title">
+<section class="mix-today" data-theme={theme} aria-labelledby="mix-today-title">
   <header class="mix-head">
     <div>
       <p class="mix-kicker">Signal log / today</p>
@@ -171,7 +158,11 @@
       <ul class="mix-media-list">
         {#each mediaEvents as event (event.id)}
           <li>
-            <a class="mix-media-row" href={`/library/${event.media_id}`}>
+            <button
+              class="mix-media-row"
+              type="button"
+              onclick={() => onOpenMedia(event.media_id)}
+            >
               {#if event.cover_image_url}
                 <img src={event.cover_image_url} alt="" loading="lazy" />
               {:else}
@@ -186,7 +177,7 @@
               {#if event.rating != null}<span class="mix-media-score"
                   >{event.rating.toFixed(1)}</span
                 >{/if}
-            </a>
+            </button>
           </li>
         {/each}
       </ul>
@@ -394,7 +385,13 @@
     align-items: center;
     gap: 0.7rem;
     min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
     color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
   .mix-media-row:hover {
     color: var(--accent);

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import type { ShellThemeProps } from "../../shell-view";
 
-  let { children }: { children: Snippet } = $props();
+  let { children, theme }: ShellThemeProps = $props();
 </script>
 
-<div class="atlas-site">
+<div class="atlas-site" data-theme={theme}>
   <div class="atlas-content">{@render children()}</div>
   <footer class="atlas-footer">
     <span class="atlas-compass" aria-hidden="true">

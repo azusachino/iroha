@@ -47,6 +47,31 @@ export interface ActivitySummary {
   by_sport: ActivitySummaryBucket[];
 }
 
+// Privacy-trimmed route geometry returned by the activity overview API.
+// Map rendering stays in the host application; the geometry contract is
+// shared so visual compositions do not need to know about the map library.
+export interface RouteFeatureProperties {
+  activity_id?: string;
+  sport_type: string;
+  year: string;
+  city?: string;
+  city_status?: "pending" | "resolved" | "unknown";
+}
+
+export interface RouteFeature {
+  type: "Feature";
+  geometry: {
+    type: "LineString";
+    coordinates: [number, number][];
+  };
+  properties: RouteFeatureProperties;
+}
+
+export interface RouteFeatureCollection {
+  type: "FeatureCollection";
+  features: RouteFeature[];
+}
+
 export interface RoutePoint {
   seq: number;
   ts?: string;

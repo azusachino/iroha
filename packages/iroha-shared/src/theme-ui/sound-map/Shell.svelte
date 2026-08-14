@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  let { children }: { children: Snippet } = $props();
+  import type { ShellThemeProps } from "../../shell-view";
+  let { children, theme }: ShellThemeProps = $props();
 </script>
 
-<div class="mix-site">
+<div class="mix-site" data-theme={theme}>
   <div class="mix-content">{@render children()}</div>
   <footer class="mix-footer">
     <span class="mix-meter" aria-hidden="true">

@@ -1,16 +1,7 @@
 <script lang="ts">
-  import type {
-    Activity,
-    DailyRow,
-    MediaHomeEvent,
-    SleepSession,
-  } from "$lib/api";
-  import {
-    formatDistance,
-    formatDuration,
-    formatPace,
-    mediaEventVerb,
-  } from "$lib/format";
+  import type { TodayThemeProps } from "../../today-view";
+  import { formatDistance, formatDuration, formatPace } from "../../format";
+  import { mediaEventVerb } from "../../media";
 
   let {
     dayLabel,
@@ -19,14 +10,10 @@
     mainNight,
     acts,
     mediaEvents,
-  }: {
-    dayLabel: string;
-    day: string;
-    dRow: DailyRow | undefined;
-    mainNight: SleepSession | undefined;
-    acts: Activity[];
-    mediaEvents: MediaHomeEvent[];
-  } = $props();
+    theme,
+    onOpenActivity,
+    onOpenMedia,
+  }: TodayThemeProps = $props();
 
   function number(value: number | null | undefined, digits = 0): string {
     if (typeof value !== "number" || !Number.isFinite(value)) return "—";
@@ -43,7 +30,11 @@
   );
 </script>
 
-<section class="atlas-today" aria-labelledby="atlas-today-title">
+<section
+  class="atlas-today"
+  data-theme={theme}
+  aria-labelledby="atlas-today-title"
+>
   <header class="today-header">
     <div>
       <p class="atlas-kicker">Sheet 001 · today's plot</p>
@@ -174,7 +165,11 @@
       <ul class="atlas-media-list">
         {#each mediaEvents as event (event.id)}
           <li>
-            <a class="atlas-media-row" href={`/library/${event.media_id}`}>
+            <button
+              class="atlas-media-row"
+              type="button"
+              onclick={() => onOpenMedia(event.media_id)}
+            >
               {#if event.cover_image_url}
                 <img src={event.cover_image_url} alt="" loading="lazy" />
               {:else}
@@ -189,7 +184,7 @@
               {#if event.rating != null}<span class="atlas-media-score"
                   >{event.rating.toFixed(1)}</span
                 >{/if}
-            </a>
+            </button>
           </li>
         {/each}
       </ul>
@@ -445,7 +440,13 @@
     align-items: center;
     gap: 0.7rem;
     min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
     color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
   .atlas-media-row:hover {
     color: var(--accent);

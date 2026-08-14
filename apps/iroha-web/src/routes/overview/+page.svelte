@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import {
     getActivityRoutes,
     getActivitySummary,
@@ -250,8 +251,20 @@
         mediaLoading,
         onLoadRoutes: () => void loadRoutes(),
         onRetry: () => void reloadDashboard(),
+        onOpenActivity: (id: string) => void goto(`/motion/${id}`),
+        onOpenSport: (sport: string) =>
+          void goto(`/motion?sport=${encodeURIComponent(sport)}`),
       }}
-    />
+    >
+      {#snippet children()}
+        <RouteFootprint
+          {routes}
+          loading={routesLoading}
+          error={routesError}
+          onLoad={() => void loadRoutes()}
+        />
+      {/snippet}
+    </ThemeRouteRenderer>
   {:else}
     <RouteIntro
       eyebrow="Observatory / long view"

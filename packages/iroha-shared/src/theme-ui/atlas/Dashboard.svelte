@@ -1,18 +1,7 @@
 <script lang="ts">
-  import type {
-    Activity,
-    MediaAggregates,
-    RouteFeatureCollection,
-    Summary,
-  } from "$lib/api";
-  import { formatDistance, formatDuration, formatDate } from "$lib/format";
-  // The geography panel reuses the shared RoutesMap (maplibre) component
-  // rather than a bespoke re-implementation: atlas is the theme built around
-  // real routes and places, and re-drawing a basemap + tile renderer per
-  // theme would be pure duplication for no visual gain. Same documented
-  // exception field-journal took for its Dashboard.
-  import RouteFootprint from "$lib/components/RouteFootprint.svelte";
-  import RetryNotice from "$lib/components/RetryNotice.svelte";
+  import type { DashboardThemeProps } from "../../dashboard-view";
+  import { formatDistance, formatDuration, formatDate } from "../../format";
+  import RetryNotice from "../components/RetryNotice.svelte";
 
   let {
     summary,
@@ -25,29 +14,20 @@
     routesLoading,
     routesError,
     onLoadRoutes,
+    onOpenActivity,
+    onOpenSport,
     sleepSummary,
     mediaAggregates,
-  }: {
-    summary: Summary | null;
-    activities: Activity[];
-    routes: RouteFeatureCollection | null;
-    streak: string;
-    loading: boolean;
-    error: string | null;
-    onRetry: () => void;
-    routesLoading: boolean;
-    routesError: string | null;
-    onLoadRoutes: () => void;
-    sleepSummary: {
-      averageAsleepS: number;
-      averageEfficiency: number;
-      nightCount: number;
-    };
-    mediaAggregates: MediaAggregates | null;
-  } = $props();
+    theme,
+    children,
+  }: DashboardThemeProps = $props();
 </script>
 
-<section class="atlas-master" aria-labelledby="atlas-master-title">
+<section
+  class="atlas-master"
+  data-theme={theme}
+  aria-labelledby="atlas-master-title"
+>
   <header class="master-header">
     <div>
       <p class="atlas-kicker">Master sheet · standing survey</p>
@@ -141,12 +121,7 @@
             : "Route footprint"}
         </h2>
         <div class="map-frame">
-          <RouteFootprint
-            {routes}
-            loading={routesLoading}
-            error={routesError}
-            onLoad={onLoadRoutes}
-          />
+          {@render children?.()}
         </div>
         <p>
           Routes stay linked to their source activity and remain inspectable

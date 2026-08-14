@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import { Check, ListTodo } from "@lucide/svelte";
@@ -347,7 +348,16 @@
   {:else if hasThemeRoute(theme.definition(), "today")}
     <ThemeRouteRenderer
       route="today"
-      props={{ dayLabel, day, dRow, mainNight, acts, mediaEvents }}
+      props={{
+        dayLabel,
+        day,
+        dRow,
+        mainNight,
+        acts,
+        mediaEvents,
+        onOpenActivity: (id: string) => void goto(`/motion/${id}`),
+        onOpenMedia: (id: string) => void goto(`/library/${id}`),
+      }}
     />
   {:else}
     <header class="command-heading tile hero-surface">

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import type { ShellThemeProps } from "../../shell-view";
 
-  let { children }: { children: Snippet } = $props();
+  let { children, theme }: ShellThemeProps = $props();
 </script>
 
-<div class="grapher-site">
+<div class="grapher-site" data-theme={theme}>
   <main class="grapher-content">{@render children()}</main>
   <footer class="grapher-footer">
     <span>iroha grapher</span>

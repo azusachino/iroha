@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  let { children }: { children: Snippet } = $props();
+  import type { ShellThemeProps } from "../../shell-view";
+  let { children, theme }: ShellThemeProps = $props();
 </script>
 
-<div class="vault-site">
+<div class="vault-site" data-theme={theme}>
   <div class="vault-content">{@render children()}</div>
   <footer class="vault-footer">
     <span class="vault-stamp" aria-hidden="true">№</span>

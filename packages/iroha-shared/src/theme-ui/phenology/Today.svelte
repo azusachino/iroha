@@ -1,16 +1,7 @@
 <script lang="ts">
-  import type {
-    Activity,
-    DailyRow,
-    MediaHomeEvent,
-    SleepSession,
-  } from "$lib/api";
-  import {
-    formatDistance,
-    formatDuration,
-    formatPace,
-    mediaEventVerb,
-  } from "$lib/format";
+  import type { TodayThemeProps } from "../../today-view";
+  import { formatDistance, formatDuration, formatPace } from "../../format";
+  import { mediaEventVerb } from "../../media";
 
   let {
     dayLabel,
@@ -19,14 +10,10 @@
     mainNight,
     acts,
     mediaEvents,
-  }: {
-    dayLabel: string;
-    day: string;
-    dRow: DailyRow | undefined;
-    mainNight: SleepSession | undefined;
-    acts: Activity[];
-    mediaEvents: MediaHomeEvent[];
-  } = $props();
+    theme,
+    onOpenActivity,
+    onOpenMedia,
+  }: TodayThemeProps = $props();
 
   function number(value: number | null | undefined, digits = 0): string {
     if (typeof value !== "number" || !Number.isFinite(value)) return "—";
@@ -53,7 +40,11 @@
   const INNER_C = 2 * Math.PI * INNER_R;
 </script>
 
-<section class="bloom-today" aria-labelledby="bloom-today-title">
+<section
+  class="bloom-today"
+  data-theme={theme}
+  aria-labelledby="bloom-today-title"
+>
   <header class="today-opening">
     <div>
       <p class="bloom-kicker">○ Day {day}</p>
@@ -187,7 +178,11 @@
       <ul class="bloom-media-list">
         {#each mediaEvents as event (event.id)}
           <li>
-            <a class="bloom-media-row" href={`/library/${event.media_id}`}>
+            <button
+              class="bloom-media-row"
+              type="button"
+              onclick={() => onOpenMedia(event.media_id)}
+            >
               {#if event.cover_image_url}
                 <img src={event.cover_image_url} alt="" loading="lazy" />
               {:else}
@@ -202,7 +197,7 @@
               {#if event.rating != null}<span class="bloom-media-score"
                   >{event.rating.toFixed(1)}</span
                 >{/if}
-            </a>
+            </button>
           </li>
         {/each}
       </ul>
@@ -433,7 +428,13 @@
     align-items: center;
     gap: 0.7rem;
     min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
     color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
   .bloom-media-row:hover {
     color: var(--accent);
