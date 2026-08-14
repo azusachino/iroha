@@ -1,20 +1,13 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  import type { Activity, MetricSeriesResponse } from "$lib/api";
-  import ActivityMetricChart from "$lib/components/ActivityMetricChart.svelte";
+  import type { ActivityThemeProps } from "../../activity-view";
+  import ActivityMetricChart from "../components/ActivityMetricChart.svelte";
   import {
     formatDateOnly,
     formatDistance,
     formatDuration,
     formatPace,
-  } from "$lib/format";
-  import { sportLabel } from "$lib/sport";
-
-  type Summary = {
-    activity_count: number;
-    distance_m: number;
-    duration_s: number;
-  };
+  } from "../../format";
+  import { sportLabel } from "../../sport";
 
   let {
     activities,
@@ -27,40 +20,25 @@
     loadingMore,
     onSportType,
     onLoadMore,
+    onOpenDetail,
     activitySeries = null,
     activityDurationSeries = null,
     activitySeriesLoading = false,
     activitySeriesError = null,
     activitySeriesScope = "",
     children,
-  }: {
-    activities: Activity[];
-    displaySummary: Summary;
-    sportType: string;
-    sportOptions: string[];
-    loading: boolean;
-    error: string | null;
-    hasMore: boolean;
-    loadingMore: boolean;
-    onSportType: (value: string) => void;
-    onLoadMore: () => void;
-    activitySeries?: MetricSeriesResponse | null;
-    activityDurationSeries?: MetricSeriesResponse | null;
-    activitySeriesLoading?: boolean;
-    activitySeriesError?: string | null;
-    activitySeriesScope?: string;
-    children?: Snippet;
-  } = $props();
+    theme,
+  }: ActivityThemeProps = $props();
 
   function openActivity(event: MouseEvent, id: string): void {
     if ((event.target as HTMLElement).closest("a, button")) return;
-    window.location.href = `/motion/${id}`;
+    onOpenDetail(id);
   }
 
   function openActivityFromKeyboard(event: KeyboardEvent, id: string): void {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    window.location.href = `/motion/${id}`;
+    onOpenDetail(id);
   }
 </script>
 
@@ -106,6 +84,7 @@
     loading={activitySeriesLoading}
     error={activitySeriesError}
     scope={activitySeriesScope}
+    {theme}
   />
 
   {#if loading && activities.length === 0}

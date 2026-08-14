@@ -14,32 +14,32 @@ The new hard rule is in [`AGENTS.md`](../AGENTS.md). The shared-package README w
 
 ## Inventory
 
-| Asset                                                                     | Current location                                                                                                                                                                                   | Finding                                                                                                                                                         |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Current production theme IDs, identities, route names, and registry types | [`packages/iroha-shared/src/themes.ts`](../packages/iroha-shared/src/themes.ts)                                                                                                                    | Correctly shared. This is the contract, not the implementation; adopted future designs must extend this registry rather than create a second catalog.           |
-| Semantic theme tokens                                                     | [`packages/iroha-shared/src/themes.css`](../packages/iroha-shared/src/themes.css)                                                                                                                  | Correctly shared.                                                                                                                                               |
-| Shared low-dependency Svelte primitives                                   | [`packages/iroha-shared/src`](../packages/iroha-shared/src)                                                                                                                                        | Correct home; the set is incomplete.                                                                                                                            |
-| Theme registry and component map                                          | [`apps/iroha-web/src/lib/themes/registry.ts`](../apps/iroha-web/src/lib/themes/registry.ts)                                                                                                        | Partially wrong. The web app still owns the production route map; adopted workshop-composition metadata and implementations are now in `packages/iroha-shared`. |
-| Theme context and route renderer                                          | [`apps/iroha-web/src/lib/themes/context.svelte.ts`](../apps/iroha-web/src/lib/themes/context.svelte.ts), [`ThemeRouteRenderer.svelte`](../apps/iroha-web/src/lib/themes/ThemeRouteRenderer.svelte) | Wrong as shared assets; they are generic theme-runtime infrastructure.                                                                                          |
-| Theme provider                                                            | [`apps/iroha-web/src/lib/themes/ThemeProvider.svelte`](../apps/iroha-web/src/lib/themes/ThemeProvider.svelte)                                                                                      | Mixed responsibility. Theme context belongs in the shared package; local-storage persistence is a web adapter.                                                  |
-| Theme frame                                                               | [`apps/iroha-web/src/lib/themes/ThemeFrame.svelte`](../apps/iroha-web/src/lib/themes/ThemeFrame.svelte)                                                                                            | Mixed responsibility. The shell host belongs with the theme package; `APP_VERSION` and private fallback footer do not.                                          |
-| Route compositions                                                        | [`apps/iroha-web/src/lib/themes/`](../apps/iroha-web/src/lib/themes/)                                                                                                                              | Partially wrong. 42 route components remain app-local (7 per registered language); Media, Expenses, Activity Detail, Reports, and Sleep are now package-owned.  |
-| Cross-theme charts and visual components                                  | [`apps/iroha-web/src/lib/components/`](../apps/iroha-web/src/lib/components/) and [`packages/iroha-shared/src/theme-ui/components/`](../packages/iroha-shared/src/theme-ui/components/)            | Mixed. BarChart, report primitives, receipts, media charts, and LapChart are shared; activity list, sleep, map, and some detail surfaces remain web-local.      |
-| Public-site theme implementation                                          | [`apps/iroha-public-site/src/`](../apps/iroha-public-site/src/)                                                                                                                                    | Incomplete. It currently imports only the shared `StatTile` wrapper and does not yet render the package-owned production or adopted compositions.               |
+| Asset                                                                     | Current location                                                                                                                                                                                   | Finding                                                                                                                                                                    |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Current production theme IDs, identities, route names, and registry types | [`packages/iroha-shared/src/themes.ts`](../packages/iroha-shared/src/themes.ts)                                                                                                                    | Correctly shared. This is the contract, not the implementation; adopted future designs must extend this registry rather than create a second catalog.                      |
+| Semantic theme tokens                                                     | [`packages/iroha-shared/src/themes.css`](../packages/iroha-shared/src/themes.css)                                                                                                                  | Correctly shared.                                                                                                                                                          |
+| Shared low-dependency Svelte primitives                                   | [`packages/iroha-shared/src`](../packages/iroha-shared/src)                                                                                                                                        | Correct home; the set is incomplete.                                                                                                                                       |
+| Theme registry and component map                                          | [`apps/iroha-web/src/lib/themes/registry.ts`](../apps/iroha-web/src/lib/themes/registry.ts)                                                                                                        | Partially wrong. The web app still owns the production route map; adopted workshop-composition metadata and implementations are now in `packages/iroha-shared`.            |
+| Theme context and route renderer                                          | [`apps/iroha-web/src/lib/themes/context.svelte.ts`](../apps/iroha-web/src/lib/themes/context.svelte.ts), [`ThemeRouteRenderer.svelte`](../apps/iroha-web/src/lib/themes/ThemeRouteRenderer.svelte) | Wrong as shared assets; they are generic theme-runtime infrastructure.                                                                                                     |
+| Theme provider                                                            | [`apps/iroha-web/src/lib/themes/ThemeProvider.svelte`](../apps/iroha-web/src/lib/themes/ThemeProvider.svelte)                                                                                      | Mixed responsibility. Theme context belongs in the shared package; local-storage persistence is a web adapter.                                                             |
+| Theme frame                                                               | [`apps/iroha-web/src/lib/themes/ThemeFrame.svelte`](../apps/iroha-web/src/lib/themes/ThemeFrame.svelte)                                                                                            | Mixed responsibility. The shell host belongs with the theme package; `APP_VERSION` and private fallback footer do not.                                                     |
+| Route compositions                                                        | [`apps/iroha-web/src/lib/themes/`](../apps/iroha-web/src/lib/themes/)                                                                                                                              | Partially wrong. 36 route components remain app-local (6 per registered language); Media, Expenses, Activities, Activity Detail, Reports, and Sleep are now package-owned. |
+| Cross-theme charts and visual components                                  | [`apps/iroha-web/src/lib/components/`](../apps/iroha-web/src/lib/components/) and [`packages/iroha-shared/src/theme-ui/components/`](../packages/iroha-shared/src/theme-ui/components/)            | Mixed. BarChart, report primitives, receipts, media charts, activity trend charts, sleep charts, and LapChart are shared; maps and some detail surfaces remain web-local.  |
+| Public-site theme implementation                                          | [`apps/iroha-public-site/src/`](../apps/iroha-public-site/src/)                                                                                                                                    | Incomplete. It currently imports only the shared `StatTile` wrapper and does not yet render the package-owned production or adopted compositions.                          |
 
 ## Detailed findings
 
 ### Critical: the current production compositions are web-owned
 
-The route folders now contain 42 Svelte files, 7 per registered production language. Media, Expenses, Activity Detail, Reports, and Sleep have moved to `packages/iroha-shared/src/theme-ui/`, but the
-web-only registry still imports the remaining route map and constructs the only `ThemeDefinition<Component>` instances used at runtime. That remaining map is the core asset still living in the wrong
-application.
+The route folders now contain 36 Svelte files, 6 per registered production language. Media, Expenses, Activities, Activity Detail, Reports, and Sleep have moved to
+`packages/iroha-shared/src/theme-ui/`, but the web-only registry still imports the remaining route map and constructs the only `ThemeDefinition<Component>` instances used at runtime. That remaining
+map is the core asset still living in the wrong application.
 
 This is not fixed by moving only a card or a chart. The following are all theme-owned compositions and must move together behind a shared view contract:
 
 - shell and today
 - daily and dashboard
-- activities (the Activity Detail composition is now shared)
+- activities (the activity-list and Activity Detail compositions are now shared)
 - sleep (the Sleep/Night composition and stage/timeline primitives are now shared)
 - media detail (the Media list composition is shared; the detail composition remains local)
 - expenses
@@ -56,15 +56,15 @@ The most coupled areas are:
   filter, and selection state;
 - reports: moved. Canonical report DTOs, section helpers, comparison, report cards, coverage, charts, and all registered production-language compositions now live in the shared package; the route
   retains only HTTP and period state;
-- activity list and sleep detail: canonical API types, maps, charts, and source labels are interwoven;
+- sleep detail: canonical API types, maps, charts, and source labels are interwoven;
 - media: API row/detail types and media formatting are imported directly;
 - shell: private version and theme persistence are mixed into presentation.
 
 ### High: shared visual primitives are only partially shared
 
-The package owns useful primitives such as `MetricPanel`, `MetricTable`, `StatTile`, period controls, source badges, `BarChart`, `LapChart`, report comparison/cards/coverage/facts, receipts, media
-charts, and pure formatters. The web app still owns theme-aware assets such as `ActivityMetricChart`, `ActivityDetailChart`, `LapChart`, `SleepAggregateChart`, `SleepArchitectureChart`, `RingGauge`,
-maps, media detail, and the remaining route surfaces. Sleep aggregate, architecture, scope, and timeline charts are now package-owned.
+The package owns useful primitives such as `MetricPanel`, `MetricTable`, `StatTile`, period controls, source badges, `BarChart`, `LapChart`, activity trend charts, report
+comparison/cards/coverage/facts, receipts, media charts, sleep charts, sleep-stage labels/colors, and pure formatters. The web app still owns theme-aware assets such as `ActivityDetailChart`,
+`RingGauge`, maps, media detail, and the remaining route surfaces.
 
 These should be audited one by one during migration. A component is a shared asset when its visual grammar is part of Iroha's data language and it can be fed by a typed view model. A component remains
 web-local when it performs API fetching, private navigation, authentication, deployment/version display, or app-only command-palette behavior.
@@ -129,7 +129,8 @@ and callbacks. The theme context must be driven by the shared registry; local st
 2. Move the theme-aware primitive layer and its theme-specific styling into `packages/iroha-shared/src/theme-ui/components/`.
 3. **Complete:** promote the design-workshop compositions into the shared design registry; Editorial, Command center, Chronicle, Cover page, Personal OS, Field Journal, and Quiet are real package
    implementations rather than route-local demos.
-4. **Complete:** move the Media, Expenses, Activity Detail, Reports, and Sleep route families across the registered languages, including shared primitives, registry entries, and design-page specimens.
+4. **Complete:** move the Media, Expenses, Activities, Activity Detail, Reports, and Sleep route families across the registered languages, including shared primitives, registry entries, and
+   design-page specimens.
 5. **In progress:** move the remaining route families and the shared registry. Keep web route adapters thin while preserving URL, loading, and navigation behavior.
 6. Add public-site fixture data and render all registered themes and adopted compositions in its design workbench. This is the cross-app proof that the boundary is real.
 7. Add a CI/check target that fails if new files appear under `apps/*/src/lib/themes` or if `packages/iroha-shared` imports app aliases.

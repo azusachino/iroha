@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { replaceState } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
   import { onMount, untrack } from "svelte";
   import { page } from "$app/state";
   import {
@@ -7,9 +7,10 @@
     getMetricSeries,
     listActivities,
     type Activity,
+    type ActivityDisplaySummary,
+    type ActivitySummary,
     type ListActivitiesParams,
     type MetricSeriesResponse,
-    type Summary,
   } from "$lib/api";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
@@ -53,7 +54,7 @@
   let cursor = $state<string | null>(null);
   let hasMore = $state(false);
   let error = $state<string | null>(null);
-  let summary = $state<Summary | null>(null);
+  let summary = $state<ActivitySummary | null>(null);
   let summaryLoading = $state(true);
   let activitySeries = $state<MetricSeriesResponse | null>(null);
   let activityDurationSeries = $state<MetricSeriesResponse | null>(null);
@@ -241,13 +242,7 @@
     }
   }
 
-  interface DisplaySummary {
-    activity_count: number;
-    distance_m: number;
-    duration_s: number;
-  }
-
-  const displaySummary = $derived.by<DisplaySummary>(() => {
+  const displaySummary = $derived.by<ActivityDisplaySummary>(() => {
     if (!summary) {
       return { activity_count: 0, distance_m: 0, duration_s: 0 };
     }
@@ -423,6 +418,7 @@
           syncUrl();
         },
         onLoadMore: () => void load(true),
+        onOpenDetail: (id: string) => void goto(`/motion/${id}`),
       }}
     >
       {#snippet children()}

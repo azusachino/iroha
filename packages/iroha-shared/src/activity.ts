@@ -19,6 +19,34 @@ export interface Activity {
   updated_at: string;
 }
 
+export interface ActivityDisplaySummary {
+  activity_count: number;
+  distance_m: number;
+  duration_s: number;
+}
+
+export interface ActivitySummaryTotals {
+  activity_count: number;
+  distance_m: number;
+  duration_s: number;
+  moving_time_s: number;
+}
+
+export interface ActivitySummaryBucket {
+  key: string;
+  activity_count: number;
+  distance_m: number;
+  duration_s: number;
+  moving_time_s: number;
+}
+
+export interface ActivitySummary {
+  totals: ActivitySummaryTotals;
+  by_year: ActivitySummaryBucket[];
+  by_month: ActivitySummaryBucket[];
+  by_sport: ActivitySummaryBucket[];
+}
+
 export interface RoutePoint {
   seq: number;
   ts?: string;

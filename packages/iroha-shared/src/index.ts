@@ -8,6 +8,7 @@ export * from "./source";
 export * from "./period";
 export * from "./media";
 export * from "./activity";
+export * from "./activity-view";
 export * from "./sport";
 export * from "./sleep";
 export * from "./sleep-stages";

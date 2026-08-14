@@ -6,7 +6,7 @@ import {
   type ThemeDefinition,
   type ThemeRoute,
 } from "@iroha/shared/themes";
-import GrapherActivities from "$lib/themes/grapher/Activities.svelte";
+import GrapherActivities from "@iroha/shared/theme-ui/grapher/Activities.svelte";
 import GrapherDaily from "$lib/themes/grapher/Daily.svelte";
 import GrapherShell from "$lib/themes/grapher/Shell.svelte";
 import GrapherSleep from "@iroha/shared/theme-ui/grapher/Sleep.svelte";
@@ -18,7 +18,7 @@ import GrapherMediaDetail from "$lib/themes/grapher/MediaDetail.svelte";
 import FieldJournalShell from "$lib/themes/field-journal/Shell.svelte";
 import FieldJournalToday from "$lib/themes/field-journal/Today.svelte";
 import FieldJournalDaily from "$lib/themes/field-journal/Daily.svelte";
-import FieldJournalActivities from "$lib/themes/field-journal/Activities.svelte";
+import FieldJournalActivities from "@iroha/shared/theme-ui/field-journal/Activities.svelte";
 import AtlasShell from "$lib/themes/atlas/Shell.svelte";
 import PhenologyShell from "$lib/themes/phenology/Shell.svelte";
 import SoundMapShell from "$lib/themes/sound-map/Shell.svelte";
@@ -31,10 +31,10 @@ import AtlasDaily from "$lib/themes/atlas/Daily.svelte";
 import PhenologyDaily from "$lib/themes/phenology/Daily.svelte";
 import SoundMapDaily from "$lib/themes/sound-map/Daily.svelte";
 import ArchiveDaily from "$lib/themes/archive/Daily.svelte";
-import AtlasActivities from "$lib/themes/atlas/Activities.svelte";
-import PhenologyActivities from "$lib/themes/phenology/Activities.svelte";
-import SoundMapActivities from "$lib/themes/sound-map/Activities.svelte";
-import ArchiveActivities from "$lib/themes/archive/Activities.svelte";
+import AtlasActivities from "@iroha/shared/theme-ui/atlas/Activities.svelte";
+import PhenologyActivities from "@iroha/shared/theme-ui/phenology/Activities.svelte";
+import SoundMapActivities from "@iroha/shared/theme-ui/sound-map/Activities.svelte";
+import ArchiveActivities from "@iroha/shared/theme-ui/archive/Activities.svelte";
 import AtlasSleep from "@iroha/shared/theme-ui/atlas/Sleep.svelte";
 import FieldJournalSleep from "@iroha/shared/theme-ui/field-journal/Sleep.svelte";
 import PhenologySleep from "@iroha/shared/theme-ui/phenology/Sleep.svelte";

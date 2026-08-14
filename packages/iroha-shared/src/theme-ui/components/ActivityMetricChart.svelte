@@ -1,8 +1,12 @@
 <script lang="ts">
-  import type { MetricSeriesResponse } from "$lib/api";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-  import { formatDistance, formatMonth, formatSport } from "$lib/format";
-  import { useTheme } from "$lib/themes/context.svelte";
+  import type { DesignLanguage } from "../../themes";
+  import type { MetricSeriesResponse } from "../../metric-series";
+  import BarChart from "./BarChart.svelte";
+  import {
+    formatCanonicalMonth,
+    formatDistance,
+    formatSport,
+  } from "../../format";
 
   let {
     series,
@@ -10,15 +14,15 @@
     loading = false,
     error = null,
     scope = "",
+    theme,
   }: {
     series?: MetricSeriesResponse | null;
     durationSeries?: MetricSeriesResponse | null;
     loading?: boolean;
     error?: string | null;
     scope?: string;
+    theme: DesignLanguage;
   } = $props();
-
-  const theme = useTheme();
 
   type Point = { period: string; value: number | null; observed_days: number };
 
@@ -52,7 +56,7 @@
   }
 
   function labelForPeriod(period: string): string {
-    if (/^\d{4}-\d{2}$/.test(period)) return formatMonth(period);
+    if (/^\d{4}-\d{2}$/.test(period)) return formatCanonicalMonth(period);
     return period;
   }
 
@@ -126,7 +130,7 @@
 
 <section
   class="activity-metric-chart"
-  data-theme={theme.definition().identity.id}
+  data-theme={theme}
   aria-labelledby="activity-trend-title"
 >
   <header class="chart-header">

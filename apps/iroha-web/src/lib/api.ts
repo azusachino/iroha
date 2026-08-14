@@ -1,11 +1,13 @@
 import { API_BASE } from "./config";
 import type {
   Activity,
+  ActivitySummary,
   Lap,
   ListActivitiesParams,
   RoutePoint,
   SamplingPoint,
 } from "@iroha/shared/activity";
+import type { MetricSeriesResponse } from "@iroha/shared/metric-series";
 import type { MediaAggregates, MediaRow } from "@iroha/shared/media";
 import type {
   CreateExpenseInput,
@@ -38,11 +40,17 @@ import type {
 
 export type {
   Activity,
+  ActivityDisplaySummary,
+  ActivitySummary,
+  ActivitySummaryBucket as SummaryBucket,
+  ActivitySummaryTotals as SummaryTotals,
+  ActivitySummary as Summary,
   Lap,
   ListActivitiesParams,
   RoutePoint,
   SamplingPoint,
 } from "@iroha/shared/activity";
+export type { MetricSeriesResponse } from "@iroha/shared/metric-series";
 export type {
   MediaAggregates,
   MediaCompletionBucket,
@@ -273,47 +281,6 @@ export interface MetricCatalogResponse {
 export interface MetricDefinitionResponse {
   schema: "metric-catalog.v1";
   metric: MetricDefinition;
-}
-
-export type MetricPoint =
-  | {
-      period: string;
-      value: number | null;
-      observed_days: number;
-      value_minor?: never;
-    }
-  | {
-      period: string;
-      value_minor: number | null;
-      observed_days: number;
-      value?: never;
-    };
-
-export interface MetricSeriesResponse {
-  schema: "metric-series.v1";
-  metric_id: string;
-  label: string;
-  unit: string;
-  value_type: string;
-  period: {
-    grain: "day" | "month" | "year";
-    from: string;
-    to: string;
-    timezone: string;
-  };
-  series: {
-    dimensions: Record<string, string>;
-    points: MetricPoint[];
-    coverage: {
-      expected_periods: number;
-      observed_periods: number;
-    };
-    source: {
-      kind: string;
-      method: string;
-      source_kinds: string[];
-    };
-  }[];
 }
 
 export function getMetricCatalog(
@@ -927,30 +894,6 @@ export function getActivityLaps(
 
 // --- Activity aggregates ---
 
-export interface SummaryTotals {
-  activity_count: number;
-  distance_m: number;
-  duration_s: number;
-  moving_time_s: number;
-}
-
-// A single row in one of the summary's grouped breakdowns (by_year / by_month
-// / by_sport). `key` is a year ("2026"), a "YYYY-MM" month, or a sport_type.
-export interface SummaryBucket {
-  key: string;
-  activity_count: number;
-  distance_m: number;
-  duration_s: number;
-  moving_time_s: number;
-}
-
-export interface Summary {
-  totals: SummaryTotals;
-  by_year: SummaryBucket[];
-  by_month: SummaryBucket[];
-  by_sport: SummaryBucket[];
-}
-
 export interface ActivitySummaryParams {
   // Scope every breakdown to one calendar year and/or one sport_type. Omit for
   // all-time / all-sport totals.
@@ -961,12 +904,15 @@ export interface ActivitySummaryParams {
 export function getActivitySummary(
   params: ActivitySummaryParams = {},
   fetchFn: typeof fetch = fetch,
-): Promise<Summary> {
+): Promise<ActivitySummary> {
   const query = new URLSearchParams();
   if (params.year) query.set("year", params.year);
   if (params.sport) query.set("sport", params.sport);
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<Summary>(`/api/v1/activities/summary${suffix}`, fetchFn);
+  return getJSON<ActivitySummary>(
+    `/api/v1/activities/summary${suffix}`,
+    fetchFn,
+  );
 }
 
 // A single route line, rendered as a GeoJSON LineString. Coordinates are
