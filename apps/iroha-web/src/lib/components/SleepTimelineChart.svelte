@@ -5,36 +5,20 @@
   import { init, use } from "echarts/core";
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
+  import { sleepStageColor, sleepStageLabel } from "$lib/sleep-stages";
 
   use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
   type Segment = { stage: string; started_at: string; ended_at: string };
 
-  let { segments }: { segments: Segment[] } = $props();
+  let {
+    segments,
+    sessionKind = "main",
+  }: { segments: Segment[]; sessionKind?: "main" | "nap" } = $props();
   let container: HTMLDivElement;
   let chart: ECharts | undefined;
 
-  const colors: Record<string, string> = {
-    core: "#5c8dff",
-    deep: "#8870e8",
-    rem: "#e879b4",
-    awake: "#d39a4c",
-    in_bed: "#788397",
-    asleep_unspecified: "#788397",
-  };
-
-  const stageLabels: Record<string, string> = {
-    core: "Core",
-    deep: "Deep",
-    rem: "REM",
-    awake: "Awake",
-    in_bed: "In bed",
-    asleep_unspecified: "Asleep (unspecified)",
-  };
-
-  function stageLabel(stage: string): string {
-    return stageLabels[stage] ?? stage;
-  }
+  const sessionLabel = $derived(sessionKind === "nap" ? "Nap" : "Main sleep");
 
   function duration(segment: Segment): number {
     return Math.max(
@@ -67,8 +51,8 @@
       .sort((a, b) => b[1] - a[1])
       .map(([stage, seconds]) => ({
         stage,
-        label: stageLabel(stage),
-        color: colors[stage] ?? colors.asleep_unspecified,
+        label: sleepStageLabel(stage),
+        color: sleepStageColor(stage),
         seconds,
       }));
   });
@@ -84,7 +68,7 @@
       animationEasingUpdate: "cubicInOut",
       grid: { top: 12, right: 4, bottom: 12, left: 4 },
       xAxis: { type: "value", max: Math.max(1, total), show: false },
-      yAxis: { type: "category", data: ["Sleep stages"], show: false },
+      yAxis: { type: "category", data: [sessionLabel], show: false },
       tooltip: {
         trigger: "item",
         backgroundColor: styles.getPropertyValue("--surface-2").trim(),
@@ -94,7 +78,7 @@
           fontSize: 12,
         },
         formatter: (params: { seriesName: string; value: number }) =>
-          `${stageLabel(params.seriesName)}<br/><strong>${formatDuration(params.value)}</strong>`,
+          `${sleepStageLabel(params.seriesName)}<br/><strong>${formatDuration(params.value)}</strong>`,
       },
       series: segments.map((segment) => ({
         name: segment.stage,
@@ -103,14 +87,14 @@
         barWidth: 42,
         data: [duration(segment)],
         itemStyle: {
-          color: colors[segment.stage] ?? colors.asleep_unspecified,
+          color: sleepStageColor(segment.stage),
           borderColor: styles.getPropertyValue("--surface").trim(),
           borderWidth: 1,
         },
         emphasis: {
           itemStyle: {
             shadowBlur: 14,
-            shadowColor: colors[segment.stage] ?? colors.asleep_unspecified,
+            shadowColor: sleepStageColor(segment.stage),
           },
         },
       })),
@@ -137,7 +121,7 @@
 <div
   class="timeline-chart"
   bind:this={container}
-  aria-label="Interactive sleep stage timeline"
+  aria-label={`Interactive ${sessionLabel.toLowerCase()} sleep stage timeline`}
 ></div>
 <ul class="timeline-legend">
   {#each legend as item (item.stage)}

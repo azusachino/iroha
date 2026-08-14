@@ -16,6 +16,7 @@
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import FilterSelect from "$lib/components/FilterSelect.svelte";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import {
     MONTH_OPTIONS,
     canonicalMonth,
@@ -61,6 +62,7 @@
   let selected = $state<Expense | null>(null);
   let selectedId = $state("");
   let loading = $state(true);
+  let hasLoaded = $state(false);
   let detailLoading = $state(false);
   let error = $state<string | null>(null);
   let dailySeries = $state<MetricSeriesResponse | null>(null);
@@ -175,16 +177,24 @@
       }
     } catch (cause) {
       if (version !== requestVersion) return;
-      expenses = [];
-      selected = null;
-      selectedId = "";
-      dailySeries = null;
-      categorySeries = [];
-      currencySeries = [];
-      currencyCountSeries = [];
+      // Keep the last complete composition visible while a refresh fails. A
+      // transient API error must not turn a usable page into a second loading
+      // state or make the bottom half of the route jump.
+      if (!hasLoaded) {
+        expenses = [];
+        selected = null;
+        selectedId = "";
+        dailySeries = null;
+        categorySeries = [];
+        currencySeries = [];
+        currencyCountSeries = [];
+      }
       showError(cause);
     } finally {
-      if (version === requestVersion) loading = false;
+      if (version === requestVersion) {
+        loading = false;
+        if (!error) hasLoaded = true;
+      }
     }
   }
 
@@ -427,10 +437,13 @@
     </div>
   </PeriodToolbar>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
-  {#if loading}<p class="muted">Loading expenses…</p>{:else}<ThemeRouteRenderer
-      route="expenses"
-      props={themeProps}
-    />{/if}
+  {#if hasLoaded || loading}
+    <LoadingBoundary {loading} ready={hasLoaded} label="Loading expenses…">
+      {#snippet children()}
+        <ThemeRouteRenderer route="expenses" props={themeProps} />
+      {/snippet}
+    </LoadingBoundary>
+  {/if}
 </section>
 
 <!-- svelte-ignore css_unused_selector -->

@@ -11,6 +11,7 @@
     type MonthlyReportSeries,
   } from "$lib/api";
   import ReportComparison from "$lib/components/ReportComparison.svelte";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDate } from "$lib/format";
@@ -53,8 +54,6 @@
       series = trend;
     } catch (cause) {
       if (version !== requestVersion) return;
-      report = null;
-      series = null;
       if (cause instanceof ApiError && cause.requestId)
         error = `${cause.message} (${cause.code}, request ${cause.requestId})`;
       else if (cause instanceof Error) error = cause.message;
@@ -159,15 +158,25 @@
     />
   </PeriodToolbar>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
-  {#if loading}<p class="muted">
-      Generating the monthly report…
-    </p>{:else if report}<p class="generated">
-      {report.period.from} → {report.period.to} · Generated {formatDate(
-        report.generated_at,
-      )}
-    </p>
-    <ReportComparison {series} {formatMoney} />
-    <ThemeRouteRenderer route="reports" props={themeProps} />{/if}
+  {#if report || loading}
+    <LoadingBoundary
+      {loading}
+      ready={report != null}
+      label="Generating the monthly report…"
+    >
+      {#snippet children()}
+        {#if report}
+          <p class="generated">
+            {report.period.from} → {report.period.to} · Generated {formatDate(
+              report.generated_at,
+            )}
+          </p>
+          <ReportComparison {series} {formatMoney} />
+          <ThemeRouteRenderer route="reports" props={themeProps} />
+        {/if}
+      {/snippet}
+    </LoadingBoundary>
+  {/if}
 </section>
 
 <style>
@@ -208,7 +217,6 @@
     color: var(--text-muted);
     line-height: 1.5;
   }
-  .muted,
   .generated {
     color: var(--text-muted);
     font-size: 0.78rem;

@@ -48,163 +48,213 @@
   }
 </script>
 
-<div class="ledger-grid">
-  <section class="panel list-panel" aria-labelledby="expense-list-title">
-    <header class="panel-head">
-      <div>
-        <p class="eyebrow">Stored records</p>
-        <h2 id="expense-list-title">Expense ledger</h2>
-      </div>
-      <div class="ledger-actions">
-        <span class="count"
-          >{Math.min(visibleCount, expenses.length)} of {expenses.length} shown</span
-        >
-        <button type="button" class="export" onclick={downloadCsv}>
-          Export CSV
-        </button>
-      </div>
-    </header>
-    {#if expenses.length}
-      <ul class="expense-list">
-        {#each visibleExpenses as expense (expense.id)}
-          <li>
-            <button
-              class:chosen={expense.id === selectedId}
-              class="expense-row"
-              type="button"
-              onclick={() => onSelect(expense.id)}
-            >
-              <span>
-                <strong
-                  ><i
-                    class="category-mark"
-                    style={`background: ${categoryColor(expense.category) ?? "var(--text-muted)"}`}
-                  ></i>{expense.merchant || expense.category}</strong
-                >
-                <small>{expense.occurred_on} · {expense.category}</small>
-              </span>
-              <b
-                >{formatMoney(
-                  expense.amount_minor,
-                  expense.currency,
-                  expense.currency_exponent,
-                )}</b
-              >
-            </button>
-          </li>
-        {/each}
-      </ul>
-      {#if visibleCount < expenses.length}
-        <button
-          type="button"
-          class="show-more"
-          onclick={() => (visibleCount += VISIBLE_ROWS)}
-        >
-          Show next {Math.min(VISIBLE_ROWS, expenses.length - visibleCount)}
-          records
-        </button>
-      {/if}
-    {:else}
-      <p class="empty">No canonical expenses match these filters.</p>
-    {/if}
-  </section>
+<section
+  class="canonical-ledger"
+  aria-labelledby="canonical-expense-records-title"
+>
+  <header class="ledger-heading">
+    <div>
+      <p class="eyebrow">Canonical records · exact data</p>
+      <h2 id="canonical-expense-records-title">Expense records</h2>
+    </div>
+    <p class="ledger-description">
+      Aggregations above explain the month; this surface preserves every record.
+    </p>
+  </header>
 
-  <section class="panel detail-panel" aria-labelledby="expense-detail-title">
-    {#if detailLoading}
-      <p class="muted">Loading record…</p>
-    {:else if selected}
+  <div class="ledger-grid">
+    <section class="panel list-panel" aria-labelledby="expense-list-title">
       <header class="panel-head">
         <div>
-          <p class="eyebrow">Canonical record · viewer</p>
-          <h2 id="expense-detail-title">
-            {selected.merchant || selected.category}
-          </h2>
+          <p class="eyebrow">Record index</p>
+          <h3 id="expense-list-title">Browse entries</h3>
         </div>
-        <button
-          class="danger"
-          type="button"
-          onclick={() => onRemove(selected!)}
-        >
-          <Trash2 size={14} /> Delete
-        </button>
+        <div class="ledger-actions">
+          <span class="count"
+            >{Math.min(visibleCount, expenses.length)} of {expenses.length} shown</span
+          >
+          <button type="button" class="export" onclick={downloadCsv}>
+            Export CSV
+          </button>
+        </div>
       </header>
+      {#if expenses.length}
+        <ul class="expense-list">
+          {#each visibleExpenses as expense (expense.id)}
+            <li>
+              <button
+                class:chosen={expense.id === selectedId}
+                class="expense-row"
+                type="button"
+                onclick={() => onSelect(expense.id)}
+              >
+                <span>
+                  <strong
+                    ><i
+                      class="category-mark"
+                      style={`background: ${categoryColor(expense.category) ?? "var(--text-muted)"}`}
+                    ></i>{expense.merchant || expense.category}</strong
+                  >
+                  <small>{expense.occurred_on} · {expense.category}</small>
+                </span>
+                <b
+                  >{formatMoney(
+                    expense.amount_minor,
+                    expense.currency,
+                    expense.currency_exponent,
+                  )}</b
+                >
+              </button>
+            </li>
+          {/each}
+        </ul>
+        {#if visibleCount < expenses.length}
+          <button
+            type="button"
+            class="show-more"
+            onclick={() => (visibleCount += VISIBLE_ROWS)}
+          >
+            Show next {Math.min(VISIBLE_ROWS, expenses.length - visibleCount)}
+            records
+          </button>
+        {/if}
+      {:else}
+        <p class="empty">No canonical expenses match these filters.</p>
+      {/if}
+    </section>
 
-      <dl class="detail-list">
-        <div>
-          <dt>Amount</dt>
-          <dd>
-            {formatMoney(
-              selected.amount_minor,
-              selected.currency,
-              selected.currency_exponent,
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt>Raw amount</dt>
-          <dd>{selected.amount_minor} minor {selected.currency}</dd>
-        </div>
-        <div>
-          <dt>Date</dt>
-          <dd>{selected.occurred_on}</dd>
-        </div>
-        <div>
-          <dt>Category</dt>
-          <dd>{selected.category}</dd>
-        </div>
-        <div>
-          <dt>Note</dt>
-          <dd>{selected.note || "—"}</dd>
-        </div>
-        <div>
-          <dt>Source</dt>
-          <dd>{selected.source.kind} · {selected.source.ref}</dd>
-        </div>
-        <div>
-          <dt>Record ID</dt>
-          <dd class="mono">{selected.id}</dd>
-        </div>
-      </dl>
-      {#if selected.items.length}
-        <div class="item-detail">
-          <h3>Items</h3>
-          <ul>
-            {#each selected.items as item}
-              <li>
-                <span>{item.name}</span>
-                {#if item.amount_minor != null}<span
-                    >{item.amount_minor} minor</span
-                  >{/if}
-              </li>
-            {/each}
-          </ul>
+    <section class="panel detail-panel" aria-labelledby="expense-detail-title">
+      {#if detailLoading}
+        <p class="muted">Loading record…</p>
+      {:else if selected}
+        <header class="panel-head">
+          <div>
+            <p class="eyebrow">Selected record</p>
+            <h3 id="expense-detail-title">
+              {selected.merchant || selected.category}
+            </h3>
+          </div>
+          <button
+            class="danger"
+            type="button"
+            onclick={() => onRemove(selected!)}
+          >
+            <Trash2 size={14} /> Delete
+          </button>
+        </header>
+
+        <dl class="detail-list">
+          <div>
+            <dt>Amount</dt>
+            <dd>
+              {formatMoney(
+                selected.amount_minor,
+                selected.currency,
+                selected.currency_exponent,
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Raw amount</dt>
+            <dd>{selected.amount_minor} minor {selected.currency}</dd>
+          </div>
+          <div>
+            <dt>Date</dt>
+            <dd>{selected.occurred_on}</dd>
+          </div>
+          <div>
+            <dt>Category</dt>
+            <dd>{selected.category}</dd>
+          </div>
+          <div>
+            <dt>Note</dt>
+            <dd>{selected.note || "—"}</dd>
+          </div>
+          <div>
+            <dt>Source</dt>
+            <dd>{selected.source.kind} · {selected.source.ref}</dd>
+          </div>
+          <div>
+            <dt>Record ID</dt>
+            <dd class="mono">{selected.id}</dd>
+          </div>
+        </dl>
+        {#if selected.items.length}
+          <div class="item-detail">
+            <h4>Items</h4>
+            <ul>
+              {#each selected.items as item}
+                <li>
+                  <span>{item.name}</span>
+                  {#if item.amount_minor != null}<span
+                      >{item.amount_minor} minor</span
+                    >{/if}
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+        <p class="timestamps">
+          Created {formatDate(selected.created_at)} · Updated {formatDate(
+            selected.updated_at,
+          )}
+        </p>
+      {:else}
+        <div class="empty-detail">
+          <WalletCards size={22} />
+          <p>Select an expense to inspect its canonical fields.</p>
         </div>
       {/if}
-      <p class="timestamps">
-        Created {formatDate(selected.created_at)} · Updated {formatDate(
-          selected.updated_at,
-        )}
-      </p>
-    {:else}
-      <div class="empty-detail">
-        <WalletCards size={22} />
-        <p>Select an expense to inspect its canonical fields.</p>
-      </div>
-    {/if}
-  </section>
-</div>
+    </section>
+  </div>
+</section>
 
 <style>
   .ledger-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+    gap: 0;
+    border-top: 1px solid var(--border);
+  }
+  .canonical-ledger {
+    display: grid;
     gap: 1rem;
+    padding: 1.15rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+    border-top: 3px solid var(--accent);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+  }
+  .ledger-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: end;
+  }
+  .ledger-heading h2 {
+    margin: 0.25rem 0 0;
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    letter-spacing: -0.06em;
+  }
+  .ledger-description {
+    max-width: 22rem;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    text-align: right;
   }
   .panel {
     min-width: 0;
-    padding: 1.25rem;
-    border: 1px solid var(--border);
-    background: var(--surface);
+    padding: 1rem 0;
+    background: transparent;
+  }
+  .list-panel {
+    padding-right: 1rem;
+  }
+  .detail-panel {
+    padding-left: 1rem;
+    border-left: 1px solid var(--border);
   }
   .panel-head {
     display: flex;
@@ -224,11 +274,13 @@
   dl {
     margin: 0;
   }
-  h2 {
+  h2,
+  h3,
+  h4 {
     font-size: 1.35rem;
     letter-spacing: -0.04em;
   }
-  h3 {
+  h4 {
     font-size: 0.9rem;
   }
   .eyebrow {
@@ -374,8 +426,22 @@
     text-align: center;
   }
   @media (max-width: 760px) {
+    .ledger-heading {
+      display: grid;
+    }
+    .ledger-description {
+      text-align: left;
+    }
     .ledger-grid {
       grid-template-columns: 1fr;
+    }
+    .list-panel {
+      padding-right: 0;
+    }
+    .detail-panel {
+      padding-left: 0;
+      border-top: 1px solid var(--border);
+      border-left: 0;
     }
   }
 </style>

@@ -8,7 +8,9 @@
   } from "$lib/api";
   import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { formatDate, formatDateOnly, formatDuration } from "$lib/format";
+  import { sleepStageLabel, sleepStageColor } from "$lib/sleep-stages";
   import SourceBadge from "@iroha/shared/SourceBadge.svelte";
 
   let session = $state<SleepSession | null>(null);
@@ -16,19 +18,6 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   const id = $derived(page.params.id ?? "");
-
-  const stageLabels: Record<string, string> = {
-    core: "Core",
-    deep: "Deep",
-    rem: "REM",
-    awake: "Awake",
-    in_bed: "In bed",
-    asleep_unspecified: "Asleep (unspecified)",
-  };
-
-  function stageLabel(stage: string): string {
-    return stageLabels[stage] ?? stage.replaceAll("_", " ");
-  }
 
   function segmentDuration(segment: SleepSegment): number {
     const seconds =
@@ -41,7 +30,7 @@
   const stageRows = $derived(
     segments.map((segment, index) => ({
       number: index + 1,
-      stage: stageLabel(segment.stage),
+      stage: sleepStageLabel(segment.stage),
       rawStage: segment.stage,
       startedAt: segment.started_at,
       endedAt: segment.ended_at,
@@ -100,132 +89,159 @@
     actionLabel="Back to Night"
   />
 
-  {#if loading}
-    <section class="status tile"><p>Loading Night detail…</p></section>
+  {#if session || loading}
+    <LoadingBoundary
+      {loading}
+      ready={session != null}
+      label="Loading Night detail…"
+    >
+      {#snippet children()}
+        {#if session}
+          <section class="detail-grid">
+            <article class="tile hero-card">
+              <p
+                class="eyebrow session-kind"
+                class:nap={!session.is_main_sleep}
+              >
+                {session.is_main_sleep ? "Main sleep" : "Nap"}
+              </p>
+              <h2>{formatDuration(session.asleep_s)} <span>asleep</span></h2>
+              <p class="muted">
+                {formatDuration(session.time_in_bed_s)} in bed · {Math.round(
+                  session.efficiency * 100,
+                )}% efficiency
+              </p>
+              <div class="metric-grid">
+                <div>
+                  <span>Started</span><strong
+                    >{formatDate(session.started_at)}</strong
+                  >
+                </div>
+                <div>
+                  <span>Ended</span><strong
+                    >{formatDate(session.ended_at)}</strong
+                  >
+                </div>
+                <div>
+                  <span>Deep + REM</span><strong
+                    >{formatDuration(session.deep_s + session.rem_s)}</strong
+                  >
+                </div>
+                <div>
+                  <span>Source</span><strong
+                    ><SourceBadge source={session.source} /></strong
+                  >
+                </div>
+              </div>
+            </article>
+
+            <article class="tile architecture-card">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Stage timeline</p>
+                  <h2>Sleep architecture</h2>
+                </div>
+                <span class="section-note">{segments.length} segments</span>
+              </div>
+              {#if segments.length > 0}
+                <p class="chart-note">
+                  One bar, stacked proportionally by how long each stage lasted
+                  across the whole session — hover a segment for its exact
+                  duration, or read the totals below.
+                </p>
+                <SleepTimelineChart
+                  {segments}
+                  sessionKind={session.is_main_sleep ? "main" : "nap"}
+                />
+              {:else}
+                <p class="muted">This session has no stage samples.</p>
+              {/if}
+            </article>
+          </section>
+
+          <section
+            class="tile evidence-card"
+            aria-labelledby="stage-evidence-title"
+          >
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Stage evidence</p>
+                <h2 id="stage-evidence-title">Every recorded interval</h2>
+              </div>
+              <span class="section-note"
+                >{stageRows.length} intervals · {formatDuration(
+                  observedSeconds,
+                )} observed</span
+              >
+            </div>
+
+            {#if stageTotals.length}
+              <div class="stage-summary" aria-label="Stage totals">
+                {#each stageTotals as item (item.stage)}
+                  <div>
+                    <span>{item.stage}</span>
+                    <strong>{formatDuration(item.duration)}</strong>
+                    <small>{Math.round(item.share)}% of observed stages</small>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
+            {#if stageRows.length}
+              <div class="segment-table">
+                <table>
+                  <caption
+                    >Canonical sleep stage intervals in source order</caption
+                  >
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Stage</th>
+                      <th>Started</th>
+                      <th>Ended</th>
+                      <th>Duration</th>
+                      <th>Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each stageRows as row (row.number)}
+                      <tr>
+                        <td>{row.number}</td>
+                        <td>
+                          <span
+                            class="stage-dot"
+                            style={`background: ${sleepStageColor(row.rawStage)}`}
+                          ></span>
+                          {row.stage}
+                        </td>
+                        <td>{formatDate(row.startedAt)}</td>
+                        <td>{formatDate(row.endedAt)}</td>
+                        <td>{formatDuration(row.duration)}</td>
+                        <td
+                          >{observedSeconds > 0
+                            ? `${Math.round((row.duration / observedSeconds) * 100)}%`
+                            : "—"}</td
+                        >
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+              <p class="evidence-note">
+                Intervals are the canonical stage records returned by Iroha. The
+                stacked chart summarizes them; this table preserves their order
+                and exact canonical timestamps.
+              </p>
+            {:else}
+              <p class="muted">This session has no stage samples.</p>
+            {/if}
+          </section>
+        {/if}
+      {/snippet}
+    </LoadingBoundary>
   {:else if error}
     <section class="status tile">
       <p class="error">Night could not be loaded: {error}</p>
-    </section>
-  {:else if session}
-    <section class="detail-grid">
-      <article class="tile hero-card">
-        <p class="eyebrow">
-          {session.is_main_sleep ? "Primary overnight sleep" : "Short session"}
-        </p>
-        <h2>{formatDuration(session.asleep_s)} <span>asleep</span></h2>
-        <p class="muted">
-          {formatDuration(session.time_in_bed_s)} in bed · {Math.round(
-            session.efficiency * 100,
-          )}% efficiency
-        </p>
-        <div class="metric-grid">
-          <div>
-            <span>Started</span><strong>{formatDate(session.started_at)}</strong
-            >
-          </div>
-          <div>
-            <span>Ended</span><strong>{formatDate(session.ended_at)}</strong>
-          </div>
-          <div>
-            <span>Deep + REM</span><strong
-              >{formatDuration(session.deep_s + session.rem_s)}</strong
-            >
-          </div>
-          <div>
-            <span>Source</span><strong
-              ><SourceBadge source={session.source} /></strong
-            >
-          </div>
-        </div>
-      </article>
-
-      <article class="tile architecture-card">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Stage timeline</p>
-            <h2>Sleep architecture</h2>
-          </div>
-          <span class="section-note">{segments.length} segments</span>
-        </div>
-        {#if segments.length > 0}
-          <p class="chart-note">
-            One bar, stacked proportionally by how long each stage lasted across
-            the whole session — hover a segment for its exact duration, or read
-            the totals below.
-          </p>
-          <SleepTimelineChart {segments} />
-        {:else}
-          <p class="muted">This session has no stage samples.</p>
-        {/if}
-      </article>
-    </section>
-
-    <section class="tile evidence-card" aria-labelledby="stage-evidence-title">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Stage evidence</p>
-          <h2 id="stage-evidence-title">Every recorded interval</h2>
-        </div>
-        <span class="section-note"
-          >{stageRows.length} intervals · {formatDuration(observedSeconds)} observed</span
-        >
-      </div>
-
-      {#if stageTotals.length}
-        <div class="stage-summary" aria-label="Stage totals">
-          {#each stageTotals as item (item.stage)}
-            <div>
-              <span>{item.stage}</span>
-              <strong>{formatDuration(item.duration)}</strong>
-              <small>{Math.round(item.share)}% of observed stages</small>
-            </div>
-          {/each}
-        </div>
-      {/if}
-
-      {#if stageRows.length}
-        <div class="segment-table">
-          <table>
-            <caption>Canonical sleep stage intervals in source order</caption>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Stage</th>
-                <th>Started</th>
-                <th>Ended</th>
-                <th>Duration</th>
-                <th>Share</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each stageRows as row (row.number)}
-                <tr>
-                  <td>{row.number}</td>
-                  <td>
-                    <span class={`stage-dot stage-${row.rawStage}`}></span>
-                    {row.stage}
-                  </td>
-                  <td>{formatDate(row.startedAt)}</td>
-                  <td>{formatDate(row.endedAt)}</td>
-                  <td>{formatDuration(row.duration)}</td>
-                  <td
-                    >{observedSeconds > 0
-                      ? `${Math.round((row.duration / observedSeconds) * 100)}%`
-                      : "—"}</td
-                  >
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-        <p class="evidence-note">
-          Intervals are the canonical stage records returned by Iroha. The
-          stacked chart summarizes them; this table preserves their order and
-          exact canonical timestamps.
-        </p>
-      {:else}
-        <p class="muted">This session has no stage samples.</p>
-      {/if}
     </section>
   {/if}
 </section>
@@ -358,17 +374,15 @@
     border-radius: 50%;
     background: var(--text-muted);
   }
-  .stage-core {
-    background: #5c8dff;
+  .session-kind {
+    width: fit-content;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+    border-radius: 999px;
   }
-  .stage-deep {
-    background: #8870e8;
-  }
-  .stage-rem {
-    background: #e879b4;
-  }
-  .stage-awake {
-    background: #d39a4c;
+  .session-kind.nap {
+    color: #8b6fd1;
+    border-color: color-mix(in srgb, #8b6fd1 48%, var(--border));
   }
   .evidence-note {
     margin: 0.85rem 0 0;

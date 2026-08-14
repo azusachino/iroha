@@ -30,6 +30,7 @@
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { isSwimming, sportLabel } from "$lib/sport";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
@@ -436,31 +437,69 @@
   >
 </svelte:head>
 
-{#if hasThemeRoute(theme.definition(), "activity-detail") && !loading && !error && activity}
-  <ThemeRouteRenderer
-    route="activity-detail"
-    props={{
-      activity,
-      derivedDistanceM,
-      route,
-      samplings,
-      laps: displayLaps,
-      selectedRouteIndex,
-      onSelectRoute: (index: number | null) => (selectedRouteIndex = index),
-    }}
-  >
-    {#snippet children()}
-      {#if detailChart}
-        <ActivityDetailChart
-          {...detailChart}
-          paceLabel={isSwimming(activity?.sport_type)
-            ? "Pace / 100m"
-            : "Pace / km"}
-          onHover={(index) => (selectedRouteIndex = index)}
-        />
-      {/if}
-    {/snippet}
-  </ThemeRouteRenderer>
+{#if hasThemeRoute(theme.definition(), "activity-detail")}
+  {#if activity || loading}
+    <LoadingBoundary
+      {loading}
+      ready={activity != null}
+      label="Loading activity…"
+    >
+      {#snippet children()}
+        {#if activity}
+          <ThemeRouteRenderer
+            route="activity-detail"
+            props={{
+              activity,
+              derivedDistanceM,
+              route,
+              samplings,
+              laps: displayLaps,
+              selectedRouteIndex,
+              onSelectRoute: (index: number | null) =>
+                (selectedRouteIndex = index),
+            }}
+          >
+            {#snippet children()}
+              {#if hasRouteLine}
+                <section
+                  class="canonical-route-panel"
+                  aria-labelledby="route-map-title"
+                >
+                  <header class="canonical-route-heading">
+                    <div>
+                      <p class="muted">Canonical geography</p>
+                      <h2 id="route-map-title">Recorded route</h2>
+                    </div>
+                    <span class="muted">{processedRoute.length} GPS fixes</span>
+                  </header>
+                  <RouteMap
+                    points={processedRoute}
+                    selectedIndex={selectedRouteIndex}
+                  />
+                  <p class="muted swim-note">
+                    {isSwimming(activity?.sport_type)
+                      ? "Open-water GPS route; no pool intervals are inferred from this record."
+                      : "The basemap and line use the canonical latitude/longitude record."}
+                  </p>
+                </section>
+              {/if}
+              {#if detailChart}
+                <ActivityDetailChart
+                  {...detailChart}
+                  paceLabel={isSwimming(activity?.sport_type)
+                    ? "Pace / 100m"
+                    : "Pace / km"}
+                  onHover={(index) => (selectedRouteIndex = index)}
+                />
+              {/if}
+            {/snippet}
+          </ThemeRouteRenderer>
+        {/if}
+      {/snippet}
+    </LoadingBoundary>
+  {:else if error}
+    <p class="error">Failed to load activity: {error}</p>
+  {/if}
 {:else}
   <p class="detail-back"><a href="/motion">← Back to Motion</a></p>
 
@@ -629,6 +668,32 @@
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
     gap: 0.75rem;
     margin-bottom: 1.5rem;
+  }
+  .canonical-route-panel {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+  }
+  .canonical-route-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: end;
+  }
+  .canonical-route-heading h2 {
+    margin: 0.2rem 0 0;
+    font-size: 1.2rem;
+  }
+  .canonical-route-panel :global(.map) {
+    border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  }
+  .canonical-route-panel .swim-note {
+    margin: 0;
+    font-size: 0.76rem;
   }
   .section-title {
     margin-top: 2rem;
