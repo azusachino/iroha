@@ -148,6 +148,9 @@
 
   @media (max-width: 640px) {
     .period-controls {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.55rem;
       width: 100%;
     }
   }
