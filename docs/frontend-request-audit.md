@@ -29,6 +29,79 @@ explains that child importer work is tracked outside the personal queue.
 
 The buttons also disable while the same connector action is queued or running, preventing accidental duplicate syncs.
 
+## Live route audit — 2026-08-14
+
+This is a fresh browser/network audit against `https://iroha.h.azusachino.icu` after the v0.4.1 cache deployment. Each canonical route was hard-navigated, the request log was cleared, the route was
+reloaded, and the settled trace was captured after 6.5 seconds. API URLs were replayed with `xh`; every captured API URL returned successfully. Cursor values and detail identifiers are intentionally
+omitted here.
+
+The total includes JavaScript, stylesheets, images, and map tiles. It is not an API count. The stable overview trace was 57–60 total browser requests, not 83; 11 were API calls, 17–19 were
+OpenStreetMap tiles for one map, and the remainder were static assets. A higher browser counter can include a different initial chunk/cache state or a longer tile-settling window.
+
+| Route           | Total | API | OSM tiles | Settled API shape                                                                                                                                                    |
+| --------------- | ----: | --: | --------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`             |    46 |   4 |         0 | briefing, daily index, open tasks, plus the global metric-catalog fetch                                                                                              |
+| `/overview`     |    57 |  11 |        17 | summary, five activity pages (initial + four cursor pages), one route collection, sleep list + year aggregate, media aggregate, plus the global metric-catalog fetch |
+| `/motion`       |    47 |   6 |         0 | summary, the same activity page twice, two movement series, plus the global metric-catalog fetch                                                                     |
+| `/patterns`     |    47 |   3 |         0 | daily month aggregate, latest-day page, plus the global metric-catalog fetch                                                                                         |
+| `/night`        |    48 |   5 |         0 | month + year sleep aggregates, 31-session page, selected-session segments, plus the global metric-catalog fetch                                                      |
+| `/library`      |    48 |   3 |         0 | media aggregate, media page, plus the global metric-catalog fetch                                                                                                    |
+| `/expenses`     |    43 |  22 |         0 | one canonical expense page, 20 metric-series requests for the default four-currency/eleven-category view, plus the global metric-catalog fetch                       |
+| `/reports`      |    47 |   3 |         0 | one 12-month monthly-series response, one selected monthly report, plus the global metric-catalog fetch                                                              |
+| `/metrics`      |    46 |   3 |         0 | metric catalog twice (route + command palette), one metric series                                                                                                    |
+| `/admin`        |    43 |   3 |         0 | metric catalog twice (route + command palette), one jobs page                                                                                                        |
+| `/manual`       |    38 |   1 |         0 | global metric-catalog fetch only                                                                                                                                     |
+| `/to-go`        |    45 |   4 |         0 | tasks, top-level sync jobs, media resolution tasks, plus the global metric-catalog fetch                                                                             |
+| `/design`       |    39 |   2 |         0 | briefing plus the global metric-catalog fetch                                                                                                                        |
+| `/motion/[id]`  |    94 |   5 |        43 | activity, route, heart-rate samples, laps, plus the global metric-catalog fetch; 43 tiles are one map                                                                |
+| `/night/[id]`   |    47 |   3 |         0 | sleep detail, stage segments, plus the global metric-catalog fetch                                                                                                   |
+| `/library/[id]` |    42 |   2 |         0 | one media detail response plus the global metric-catalog fetch                                                                                                       |
+
+The legacy `/activities`, `/daily`, `/dashboard`, `/media`, and `/sleep` routes are redirects and were not counted as separate pages.
+
+### Findings
+
+1. **Global metric catalog fetch is unnecessary on most routes.** `CommandPalette.svelte` loads `/api/v1/metrics` during layout mount even while the palette is closed. This adds one request to every
+   route; `/metrics` and `/admin` each fetch the same catalog twice. Load it when the palette opens or use one memoized client-side catalog promise.
+
+2. **Motion has a real duplicate request.** The reactive loader depends on `summary`, so it runs once before the summary resolves and once after it resolves with the same filters. The identical
+   activity page is requested twice at the same timestamp. The loader should have one initial path and one filter-change path, with the summary used for display rather than as a request trigger.
+
+3. **Overview is cacheable but structurally over-fetches.** The five activity pages are not duplicate calls: they are the initial page plus four keyset cursor pages needed to reach the current
+   500-item client sweep. `listAllActivities({}, 500)` exists only to build a heatmap, current streak, and five-row recent list. Cache reduces the database cost after the first read, but it does not
+   remove five network requests or the 500-row payload. The canonical backend contract should expose the active days/streak input and a small recent-activity window, or provide one overview
+   projection; the browser should not walk the entire archive for those widgets.
+
+4. **Expenses has a fan-out contract, not a cache failure.** The default page launches 20 distinct series requests: four currency totals, four currency counts, one daily series, and eleven category
+   series. Each series request is server-aggregated, but `metricseries` calls `PeriodExpenses` independently, so those requests reread the same month’s canonical expense rows. A cacheable
+   expense-dashboard projection or a batch series endpoint should return the currency totals/counts, category totals, and selected daily series in one response. The direct expense list should remain a
+   live canonical read.
+
+5. **Motion’s combined sport + year/month summary falls back to the loaded page.** When both filters are active, `displaySummary` sums the currently loaded activity page instead of requesting a
+   complete filtered aggregate. With 24-row pages this can be numerically wrong once the filtered set exceeds one page. The summary contract needs to be called with the active filters (and a
+   month/half-open period when selected), rather than deriving totals from a partial page in Svelte.
+
+6. **The remaining route data boundaries are mostly sound.** Patterns consumes server daily aggregates; Reports consumes one server-built 12-month series plus the selected report; Night uses server
+   aggregates for its headline values and fetches segments for the visibly selected session; detail pages request independent detail panels. Their client work is presentation mapping, sorting, and
+   formatting rather than recomputing domain totals.
+
+### Cursor-cache verdict
+
+Each activity cursor page is a stable cache candidate as an individual representation. The cursor is part of the canonical cache key, the activity query has deterministic `(started_at DESC, id DESC)`
+keyset ordering, and import/geocode changes invalidate the activities namespace. The live replay returned `X-Iroha-Cache: HIT` for the initial page and all four cursor pages.
+
+This does not make the five-page walk a transactional snapshot. If canonical data is inserted between page requests, a normal keyset traversal can observe a moving archive and potentially skip or
+repeat a boundary item. That is acceptable for the single-user dashboard and the cache invalidation model; a future export/synchronization job that requires a frozen view should use an explicit
+snapshot/version token instead of treating the cursor as one.
+
+### Recommended implementation order
+
+1. Lazy-load and memoize the command-palette metric catalog.
+2. Remove Motion’s summary-triggered duplicate and make filtered summary values server-derived.
+3. Replace Overview’s 500-row sweep with a bounded recent-activity/active-day projection.
+4. Add one cacheable expense dashboard/batch-series contract while preserving direct canonical expense reads.
+5. Add browser request-budget assertions for duplicate exact URLs and route-specific API ceilings, alongside API contract tests for filtered totals and the overview projection.
+
 ## Regression checks
 
 Use `agent-browser` for the live browser harness and inspect traffic from the same named session:
