@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { BarChart, LineChart } from "echarts/charts";
+  import { BarChart } from "echarts/charts";
   import {
     GridComponent,
     LegendComponent,
@@ -18,6 +18,7 @@
     formatPace,
   } from "$lib/format";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import FusedActivityChart from "@iroha/shared/theme-ui/components/FusedActivityChart.svelte";
   import type {
     ActivityDetail,
     ActivityDetailLap,
@@ -30,16 +31,13 @@
     CanvasRenderer,
     GridComponent,
     LegendComponent,
-    LineChart,
     TooltipComponent,
   ]);
 
   let { detail, backHref }: { detail: ActivityDetail; backHref: string } =
     $props();
-  let chartContainer = $state<HTMLDivElement>();
   let zoneChartContainer = $state<HTMLDivElement>();
   let lapsChartContainer = $state<HTMLDivElement>();
-  let chart: ECharts | null = null;
   let zoneChart: ECharts | null = null;
   let lapsChart: ECharts | null = null;
 
@@ -257,98 +255,6 @@
     ],
   }));
 
-  function lineSeries(
-    name: string,
-    values: (number | null)[],
-    color: string,
-    yAxisIndex: number,
-  ) {
-    return {
-      name,
-      type: "line",
-      yAxisIndex,
-      showSymbol: false,
-      smooth: 0.12,
-      connectNulls: false,
-      lineStyle: { color, width: 2 },
-      itemStyle: { color },
-      data: xValues.map((x, index) => [x, values[index] ?? null]),
-    };
-  }
-
-  function renderChart() {
-    if (!chart || !chartContainer || processedRoute.length === 0) return;
-    const styles = getComputedStyle(chartContainer);
-    const text = styles.getPropertyValue("--text").trim();
-    const muted = styles.getPropertyValue("--text-muted").trim() || "#68707a";
-    const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
-    const series = [
-      lineSeries(paceLabel, paceValues, "#4f8cff", 0),
-      lineSeries("Heart rate", heartRateValues, "#ff6b6b", 1),
-      lineSeries("Elevation", elevationValues, "#3ecf8e", 2),
-    ].filter((item) =>
-      (item.data as [number, number | null][]).some(
-        (point) => point[1] != null,
-      ),
-    );
-    chart.setOption({
-      animation: false,
-      grid: { left: 58, right: 92, top: 58, bottom: 54 },
-      tooltip: {
-        trigger: "axis",
-        backgroundColor: styles.getPropertyValue("--surface-2").trim(),
-        borderColor: border,
-        textStyle: { color: text, fontSize: 11 },
-      },
-      legend: {
-        top: 0,
-        left: "center",
-        itemGap: 18,
-        textStyle: { color: muted },
-      },
-      xAxis: {
-        type: "value",
-        name: "Distance (km)",
-        nameLocation: "middle",
-        nameGap: 32,
-        axisLabel: { color: muted },
-        axisLine: { lineStyle: { color: border } },
-        splitLine: { lineStyle: { color: border, opacity: 0.55 } },
-      },
-      yAxis: [
-        {
-          type: "value",
-          name: paceLabel,
-          inverse: true,
-          axisLabel: {
-            color: "#4f8cff",
-            formatter: (value: number) => formatActivityPace(value),
-          },
-          axisLine: { lineStyle: { color: "#4f8cff" } },
-          splitLine: { lineStyle: { color: border, opacity: 0.35 } },
-        },
-        {
-          type: "value",
-          name: "HR",
-          position: "right",
-          axisLabel: { color: "#ff6b6b" },
-          axisLine: { lineStyle: { color: "#ff6b6b" } },
-          splitLine: { show: false },
-        },
-        {
-          type: "value",
-          name: "Elev.",
-          position: "right",
-          offset: 42,
-          axisLabel: { color: "#3ecf8e" },
-          axisLine: { lineStyle: { color: "#3ecf8e" } },
-          splitLine: { show: false },
-        },
-      ],
-      series,
-    });
-  }
-
   function renderZoneChart() {
     if (!zoneChart || !zoneChartContainer || measuredHeartRate.length === 0)
       return;
@@ -432,26 +338,20 @@
   }
 
   onMount(() => {
-    if (chartContainer) chart = init(chartContainer);
     if (zoneChartContainer) zoneChart = init(zoneChartContainer);
     if (lapsChartContainer) lapsChart = init(lapsChartContainer);
-    renderChart();
     renderZoneChart();
     renderLapsChart();
     const resize = new ResizeObserver(() => {
-      chart?.resize();
       zoneChart?.resize();
       lapsChart?.resize();
     });
-    if (chartContainer) resize.observe(chartContainer);
     if (zoneChartContainer) resize.observe(zoneChartContainer);
     if (lapsChartContainer) resize.observe(lapsChartContainer);
     return () => {
       resize.disconnect();
-      chart?.dispose();
       zoneChart?.dispose();
       lapsChart?.dispose();
-      chart = null;
       zoneChart = null;
       lapsChart = null;
     };
@@ -466,7 +366,6 @@
     heartRateZones;
     measuredHeartRate;
     displayLaps;
-    renderChart();
     renderZoneChart();
     renderLapsChart();
   });
@@ -541,11 +440,14 @@
         </div>
         <span>Distance · {processedRoute.length.toLocaleString()} points</span>
       </div>
-      <div
-        class="chart"
-        bind:this={chartContainer}
-        aria-label="Activity pace, heart rate, and elevation chart"
-      ></div>
+      <FusedActivityChart
+        {xValues}
+        xLabel="Distance (km)"
+        pace={paceValues}
+        heartRate={heartRateValues}
+        elevation={elevationValues}
+        {paceLabel}
+      />
     </section>
   {/if}
 
@@ -718,10 +620,6 @@
   .map {
     height: 25rem;
   }
-  .chart {
-    width: 100%;
-    height: 24rem;
-  }
   .zone-chart {
     width: 100%;
     height: 5.5rem;
@@ -810,9 +708,6 @@
     }
     .map {
       height: 20rem;
-    }
-    .chart {
-      height: 22rem;
     }
     .panel-heading {
       align-items: start;

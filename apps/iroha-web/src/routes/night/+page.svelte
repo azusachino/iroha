@@ -10,7 +10,7 @@
     type SleepSegment,
     type SleepSession,
   } from "$lib/api";
-  import StatTile from "$lib/components/StatTile.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
   import SleepScopeSummary from "@iroha/shared/theme-ui/components/SleepScopeSummary.svelte";
   import SleepArchitectureChart from "@iroha/shared/theme-ui/components/SleepArchitectureChart.svelte";
   import SleepTimelineChart from "@iroha/shared/theme-ui/components/SleepTimelineChart.svelte";

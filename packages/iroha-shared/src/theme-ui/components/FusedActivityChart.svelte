@@ -36,6 +36,12 @@
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const surface = styles.getPropertyValue("--surface-2").trim();
+    const paceColor =
+      styles.getPropertyValue("--chart-pace").trim() || "#4f8cff";
+    const heartRateColor =
+      styles.getPropertyValue("--chart-heart-rate").trim() || "#ff6b6b";
+    const elevationColor =
+      styles.getPropertyValue("--chart-elevation").trim() || "#3ecf8e";
     chart.setOption({
       animationDuration: 500,
       grid: { top: 34, right: 52, bottom: 52, left: 48 },
@@ -80,16 +86,16 @@
           type: "value",
           name: paceLabel,
           inverse: true,
-          axisLabel: { color: "#4f8cff", fontSize: 10, formatter: formatPace },
-          axisLine: { lineStyle: { color: "#4f8cff" } },
+          axisLabel: { color: paceColor, fontSize: 10, formatter: formatPace },
+          axisLine: { lineStyle: { color: paceColor } },
           splitLine: { lineStyle: { color: border, opacity: 0.35 } },
         },
         {
           type: "value",
           name: "HR",
           position: "right",
-          axisLabel: { color: "#ff6b6b", fontSize: 10 },
-          axisLine: { lineStyle: { color: "#ff6b6b" } },
+          axisLabel: { color: heartRateColor, fontSize: 10 },
+          axisLine: { lineStyle: { color: heartRateColor } },
           splitLine: { show: false },
         },
         {
@@ -97,15 +103,15 @@
           name: "Elev.",
           position: "right",
           offset: 42,
-          axisLabel: { color: "#3ecf8e", fontSize: 10 },
-          axisLine: { lineStyle: { color: "#3ecf8e" } },
+          axisLabel: { color: elevationColor, fontSize: 10 },
+          axisLine: { lineStyle: { color: elevationColor } },
           splitLine: { show: false },
         },
       ],
       series: [
-        makeSeries(paceLabel, pace, "#4f8cff", 0),
-        makeSeries("Heart rate", heartRate, "#ff6b6b", 1),
-        makeSeries("Elevation", elevation, "#3ecf8e", 2),
+        makeSeries(paceLabel, pace, paceColor, 0),
+        makeSeries("Heart rate", heartRate, heartRateColor, 1),
+        makeSeries("Elevation", elevation, elevationColor, 2),
       ].filter((series) => series.data.some((point) => point[1] != null)),
     });
     chart.off("updateAxisPointer");
@@ -140,6 +146,7 @@
       data: xValues.map((x, i) => [x, values[i] ?? null]),
     };
   }
+
   function formatXAxis(value: number | undefined) {
     return value == null
       ? ""
@@ -147,11 +154,13 @@
         ? `${value.toFixed(value < 10 ? 1 : 0)} km`
         : `${value.toFixed(value < 10 ? 1 : 0)} min`;
   }
+
   function formatPace(value: number) {
     if (!Number.isFinite(value)) return "";
     const min = Math.floor(value / 60);
     return `${min}:${String(Math.round(value % 60)).padStart(2, "0")}`;
   }
+
   function formatValue(value: number | null, name: string) {
     if (value == null) return "—";
     return name === paceLabel

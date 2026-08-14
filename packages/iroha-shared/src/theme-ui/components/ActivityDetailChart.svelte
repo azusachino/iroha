@@ -1,6 +1,6 @@
 <script lang="ts">
-  import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
-  import { useTheme } from "$lib/themes/context.svelte";
+  import { useTheme } from "../context.svelte";
+  import FusedActivityChart from "./FusedActivityChart.svelte";
 
   let {
     xValues,

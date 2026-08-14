@@ -12,8 +12,8 @@
     type ListActivitiesParams,
     type MetricSeriesResponse,
   } from "$lib/api";
-  import SportBadge from "$lib/components/SportBadge.svelte";
-  import StatTile from "$lib/components/StatTile.svelte";
+  import SportBadge from "@iroha/shared/SportBadge.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
   import {
     formatDate,
     formatDateOnly,

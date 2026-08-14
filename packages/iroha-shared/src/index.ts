@@ -24,3 +24,4 @@ export * from "./expense-view";
 export * from "./design-compositions";
 export * from "./daily";
 export * from "./daily-view";
+export * from "./public-activity";

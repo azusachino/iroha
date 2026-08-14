@@ -8,7 +8,7 @@
   } from "$lib/api";
   import { progressPercent } from "$lib/format";
   import { mediaTypeColor, mediaTypeFamily, mediaTypeLabel } from "$lib/media";
-  import StatTile from "$lib/components/StatTile.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
   import MediaBarChart from "@iroha/shared/theme-ui/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";

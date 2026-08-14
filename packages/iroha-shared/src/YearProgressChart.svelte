@@ -9,8 +9,8 @@
   import { init, use } from "echarts/core";
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
-  import type { SummaryBucket } from "$lib/types";
-  import { formatDistance } from "$lib/format";
+  import type { ActivitySummaryBucket } from "./activity";
+  import { formatDistance } from "./format";
 
   use([
     LineChart,
@@ -39,7 +39,8 @@
     byMonth,
     year,
     sportName,
-  }: { byMonth: SummaryBucket[]; year: string; sportName?: string } = $props();
+  }: { byMonth: ActivitySummaryBucket[]; year: string; sportName?: string } =
+    $props();
 
   interface YearSeries {
     year: string;

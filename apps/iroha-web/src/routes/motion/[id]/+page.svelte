@@ -24,11 +24,11 @@
     formatDate,
   } from "$lib/format";
   import RouteMap from "$lib/components/RouteMap.svelte";
-  import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
-  import ActivityDetailChart from "$lib/components/ActivityDetailChart.svelte";
+  import FusedActivityChart from "@iroha/shared/theme-ui/components/FusedActivityChart.svelte";
+  import ActivityDetailChart from "@iroha/shared/theme-ui/components/ActivityDetailChart.svelte";
   import LapChart from "@iroha/shared/theme-ui/components/LapChart.svelte";
-  import SportBadge from "$lib/components/SportBadge.svelte";
-  import StatTile from "$lib/components/StatTile.svelte";
+  import SportBadge from "@iroha/shared/SportBadge.svelte";
+  import StatTile from "@iroha/shared/StatTile.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { isSwimming, sportLabel } from "$lib/sport";

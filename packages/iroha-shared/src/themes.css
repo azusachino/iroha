@@ -7,6 +7,10 @@
  * selected design language stable when light/dark mode changes.
  */
 
+:root {
+  --surface-1: var(--surface);
+}
+
 html:root[data-language="atlas"] {
   --theme-swatch: #58c7c0;
   --accent: #58c7c0;

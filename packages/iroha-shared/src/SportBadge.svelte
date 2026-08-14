@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { sportColor, sportLabel } from "$lib/sport";
+  import { sportColor, sportLabel } from "./sport";
 
   let { sport }: { sport?: string | null } = $props();
 
@@ -21,8 +21,6 @@
     min-width: 0;
     padding: 0.16rem 0.55rem 0.16rem 0.45rem;
     border-radius: 999px;
-    /* Faint sport-tinted chip so every list/card/table carries the hue,
-		   while text stays near-white for contrast on the dark surface. */
     background: color-mix(in srgb, var(--sport) 15%, transparent);
     border: 1px solid color-mix(in srgb, var(--sport) 32%, transparent);
     color: var(--text);

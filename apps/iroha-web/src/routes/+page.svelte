@@ -19,7 +19,7 @@
   import RingGauge, {
     type Ring,
   } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
-  import SportBadge from "$lib/components/SportBadge.svelte";
+  import SportBadge from "@iroha/shared/SportBadge.svelte";
   import DayPicker from "$lib/components/DayPicker.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
