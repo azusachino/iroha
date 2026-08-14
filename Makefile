@@ -6,6 +6,7 @@ SERVER_DIR := apps/iroha-server
 WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 PUBLIC_SITE_DIR := apps/iroha-public-site
+SHARED_DIR := packages/iroha-shared
 IMAGE_NS := azusachino.icu
 VERSION := $(shell tr -d '\n' < VERSION)
 TAG := v$(VERSION)
@@ -17,7 +18,7 @@ MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-pages-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-pages-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
@@ -75,7 +76,10 @@ media-bridge-build: ## Build the Bangumi->MAL->AniList bridge cache (MEDIA_BRIDG
 	$(TOOL_ENV) uv run python scripts/build_media_bridge.py --out $(MEDIA_BRIDGE_OUT)
 
 ## --- Web frontend (apps/iroha-web, bun) ---
-web-install: ## Install web dependencies
+shared-install: ## Install shared frontend-package dependencies
+	cd $(SHARED_DIR) && $(TOOL_ENV) bun install
+
+web-install: shared-install ## Install web and shared frontend dependencies
 	cd $(WEB_DIR) && $(TOOL_ENV) bun install
 
 web-fmt: ## Format the web app (prettier + prettier-plugin-svelte: spaces, double quotes)
@@ -109,7 +113,7 @@ web-mobile-check: ## Audit every private route at compact mobile widths (BASE=..
 	BASE="$(or $(BASE),http://127.0.0.1:4173)" API_BASE="$(or $(API_BASE),$(or $(BASE),http://127.0.0.1:4173))" THEMES="$(or $(THEMES),$(MOBILE_DEFAULT_THEMES))" MODES="$(or $(MODES),$(MOBILE_DEFAULT_MODES))" MOTION="$(or $(MOTION),$(MOBILE_DEFAULT_MOTION))" VIEWPORTS="$(VIEWPORTS)" OUT="$(or $(OUT),dist/mobile-route-audit.json)" $(TOOL_ENV) uv run python scripts/mobile_route_check.py
 
 ## --- Public static site (apps/iroha-public-site, bun) ---
-public-site-install: ## Install public-site dependencies
+public-site-install: shared-install ## Install public-site and shared frontend dependencies
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun install
 
 public-site-fmt-check: ## Fail if any public-site file is unformatted
