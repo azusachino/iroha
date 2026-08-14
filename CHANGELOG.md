@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
+## [0.4.1] — 2026-08-14
+
+### Added
+
+- Add one backend-neutral runtime cache module with Postgres, Valkey, and explicit `none` backends; production process-memory caching is not used.
+- Add complete response caching for monthly and twelve-month reports under the `read_reports` namespace.
+- Add bounded Postgres cache cleanup for expired and superseded-generation entries, including hourly worker maintenance.
+- Add a deterministic large-fixture release performance gate for cold canonical reads, cache hits, mutation freshness, and cache retention.
+
+### Changed
+
+- Make cache identity include the server's effective timezone, so omitted and explicit default-timezone requests cannot collide with another interpretation.
+- Make cache population generation-safe and make successful canonical mutations invalidate their dependent namespaces after commit.
+- Make known invalidation failures bypass affected cache namespaces until a later invalidation succeeds.
+- Keep direct expense records live and canonical while caching derived metric and report representations.
+
+### Fixed
+
+- Refresh expense metric/report reads after expense create, replace, and delete.
+- Refresh activity route representations after geocode changes and media/report representations after media resolution changes.
+
 ## [0.4.0] — 2026-08-14
 
 ### Added

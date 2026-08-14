@@ -5,6 +5,13 @@
 - Target release: v0.4.1
 - Depends on: [ADR 0001](0001-provider-observations-and-canonical-records.md), [ADR 0003](0003-cache-backends-and-invalidation.md)
 
+## Implementation status
+
+The decision is implemented on the v0.4.1 release branch. `apps/iroha-runtime/cache` is the canonical backend-neutral cache module: Postgres is the default backend, Valkey is supported for the k3s
+deployment, and `none` is the explicit disabled mode. A production process-memory backend is deliberately not provided because it would be lost on restart and would create a second, unshared cache
+behavior. Report caching, generation-safe population, mutation invalidation, degraded bypass, bounded cleanup, and the release performance gate are wired; release-candidate and k3s evidence remain the
+final gate.
+
 ## Context
 
 Iroha v0.4 already has a backend-neutral, generation-based response cache for successful JSON reads. The live k3s deployment uses Valkey with a 24-hour safety TTL. Daily, monthly, and yearly domain

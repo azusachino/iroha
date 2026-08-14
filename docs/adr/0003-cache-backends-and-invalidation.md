@@ -7,7 +7,7 @@
 ## Context
 
 Iroha uses a backend-neutral cache-aside layer for imported-data reads and durable reverse-geocoding results. The HTTP layer caches successful JSON responses for briefing, activities, sleep, daily,
-and media reads. It is not the source of truth for canonical data, jobs, sync cursors, authentication, or authorization.
+media, metrics, and report reads. It is not the source of truth for canonical data, jobs, sync cursors, authentication, or authorization.
 
 Imported data is effectively static between successful import or connector-sync jobs, so namespace generation invalidation is the primary freshness mechanism. A 24-hour TTL remains a safety net for
 abandoned entries and backend cleanup.
@@ -63,6 +63,8 @@ introduced later.
 | `read_sleep`      | sleep lists, trends, and details | 24-hour TTL; generation invalidation after import                  |
 | `read_daily`      | daily rows and aggregates        | 24-hour TTL; generation invalidation after import                  |
 | `read_media`      | media lists, events, and details | 24-hour TTL; generation invalidation after media import/sync       |
+| `read_metrics`    | metric catalog and series        | 24-hour TTL; invalidation after affected canonical mutations       |
+| `read_reports`    | monthly and twelve-month reports | 24-hour TTL; invalidation after affected canonical mutations       |
 | `geocode`         | temporary provider lookup result | separate durable geocode table; not a generic response-cache entry |
 
 Read responses are stable until an import or connector sync changes their source data. Their cache identity includes the current namespace generation in backend storage and the complete request query
@@ -101,7 +103,7 @@ distributed limiter must not be implied by selecting the Postgres response-cache
 ### Backend selection and migration
 
 Configuration selects `none`, `valkey`, or `postgres`. The application contract and tests are backend-independent. Switching backends does not require cache data migration: misses regenerate entries.
-The cutover sequence is:
+The runtime facade is the canonical cache module; production process-memory caching is not an alternative backend. The cutover sequence is:
 
 1. introduce the `Store` contract and retain Valkey;
 2. add and test the Postgres backend;

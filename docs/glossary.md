@@ -12,6 +12,15 @@ reconstructed from frontend rows or disposable cache entries.
 A disposable cache of a complete successful HTTP representation. It may reduce repeated work but cannot become the source of truth. A cache miss, expiry, backend outage, or invalidation bypass must
 fall back to canonical data.
 
+## Canonical cache module
+
+The backend-neutral runtime cache facade used by Iroha read paths. It supports Postgres, Valkey, and an explicit disabled mode through the same generation-aware contract; it does not make a
+process-memory map a production source of responses. Every backend stores disposable representations only.
+
+## Cache cleanup
+
+A bounded maintenance operation that removes expired or superseded-generation cache entries. It is housekeeping for disposable data, not a canonical-data aggregation job.
+
 ## Cache namespace
 
 A logical invalidation boundary such as read_metrics or read_reports. Namespace invalidation advances a generation; callers do not delete backend-specific physical keys.

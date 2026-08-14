@@ -1,6 +1,6 @@
 # API v1 verification gate
 
-Status: Gate A approved; v0.4.0 release-candidate verification
+Status: Gate A approved; v0.4.1 release-candidate verification in progress
 
 ## Gate A — freeze repaired existing contracts
 
@@ -18,14 +18,15 @@ Gate A covers only the existing data domains and shared HTTP behavior. The owner
 - list limits are omitted/defaulted to 50 or explicitly bounded to 1..100; cursors remain opaque; errors use `{code,message,request_id}`;
 - web mutations support PUT/DELETE and 204 responses, and private CORS allows their preflights;
 - the OpenAPI document, representative fixtures, and registered Chi routes remain in parity;
-- the cache namespace is versioned for the repaired contract, while future expense/report routes are uncached;
+- the cache namespace is versioned for the repaired contract; direct expense records remain uncached, while derived metric and report reads use the shared cache module;
 - `/api/v1` remains unauthenticated but private-network-only, and the sanitized public export remains a separate projection.
 
 Gate A does not approve the expense data model, monthly report response, CLI workflow, cockpit UX, Telegram, Suzuran, OCR, or scheduled report delivery. Those remain later implementation decisions.
 
 The gate is complete when the owner says `Gate A approved` (or supplies corrections). Only then may tasks 12–21, which add expenses and monthly reports, be dispatched.
 
-Gate A is approved. The expense, monthly-report, CLI, and cockpit work described below was implemented after that approval; Gate C is the remaining owner release checkpoint.
+Gate A is approved. The expense, monthly-report, CLI, and cockpit work described below was implemented after that approval; the 0.4.1 release-candidate and local-k3s evidence are the remaining release
+checkpoints.
 
 The contract gate verifies the active `/api/v1` surface in place. It is not a backward-compatibility gate for a released v1 and does not require an `/api/v2`.
 
@@ -98,12 +99,12 @@ The same fixture must run against the supported local runtime path and the conta
 - `make contract-check` passes against the registered private route inventory and OpenAPI path set.
 - Rate-limit tests cover `429`, the common error body, and `Retry-After`.
 - `make check` passes, including the frontend formatter, Svelte check, and frontend tests.
-- `make release-candidate` passed against isolated seeded data, including migration, integration, API, production build, and the six-language light/dark browser matrix.
-- `make public-site-fmt-check`, `make public-site-check`, and `make public-site-build` pass; the public design workbench has no mobile overflow or browser errors across its 84 theme/composition/mode
-  cases.
+- `make check` passes on the v0.4.1 cache branch, including the frontend formatter, Svelte check, frontend tests, cache freshness tests, and the performance-gate script tests.
+- The release-candidate target now includes the deterministic cache/report performance fixture and records cold, hit, mutation-freshness, entry-count, and TTL evidence.
+- `make validate`, the complete release-candidate rehearsal, and the local k3s rollout remain pending for this release candidate.
 
-The end-to-end worker/import rehearsal is covered by the release-candidate target; repeat it for the final production release after Gate C approval.
+The end-to-end worker/import rehearsal is covered by the release-candidate target; repeat it for the final production release after the owner release review.
 
 ## Completion rule
 
-The route inventory and contract decisions were reviewed before implementation. The v0.4 release remains a candidate until the owner reviews the attached evidence and approves Gate C.
+The route inventory and contract decisions were reviewed before implementation. The v0.4.1 release remains a candidate until the attached release evidence is complete and the owner approves it.

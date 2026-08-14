@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: Iroha API
-  version: 0.4.0
+  version: 0.4.1
   description: |
     Active-development contract for Iroha's private data cockpit.
     /api/v1 is still pre-1.0 and may evolve between minor releases. This
-    document is the implementation target for release 0.4.0.
+    document is the implementation target for release 0.4.1.
 servers:
   - url: /
     description: Same-origin or reverse-proxy deployment

@@ -53,10 +53,11 @@ For a local frontend, run `make web-dev` first and point the same command at `ht
 
 ## Read cache boundary
 
-The v0.4 server cache-aside layer covers successful GET responses under /api/v1/briefing, /activities, /sleep, /daily, /media, and /metrics. Direct expense records and the monthly report endpoints are
-intentionally uncached in v0.4. Keys include the method, path, and canonical encoded query string, so repeated exact reads can be served without another database aggregation. The cache is best effort
-with a 24-hour safety TTL; successful import completion advances the imported-data read namespaces, so imported data is refreshed immediately. Expense mutation invalidation and report caching are
-v0.4.1 work tracked in [the cache and aggregation plan](plans/2026-08-14-iroha-0.4.1-cache-and-aggregation.md). Tasks, jobs, raw files, imports, sync actions, and other mutations are intentionally
-live. X-Iroha-Cache: HIT|MISS is available for browser and deployment verification.
+The v0.4.1 server cache-aside layer covers successful GET responses under /api/v1/briefing, /activities, /sleep, /daily, /media, /metrics, and /reports. Direct expense records remain live canonical
+reads and are intentionally uncached; derived expense metric series and reports are cached. Keys include the method, path, canonical encoded query string, response version, aggregation version where
+applicable, and the server's effective timezone, so repeated exact reads cannot reuse a representation from another calendar interpretation. The cache is best effort with a 24-hour safety TTL;
+successful canonical mutations advance their dependent namespaces after commit. Generation-safe writes prevent in-flight pre-mutation responses from repopulating a post-mutation namespace, and a known
+invalidation failure makes that namespace bypass cache reads until recovery. Tasks, jobs, raw files, imports, sync actions, and other mutations are intentionally live. X-Iroha-Cache: HIT|MISS|BYPASS
+is available for browser and deployment verification. See [the cache and aggregation plan](plans/2026-08-14-iroha-0.4.1-cache-and-aggregation.md).
 
 API URL coverage remains in `src/lib/api.test.ts`; the normal `make check` gate covers type checking, formatting, backend tests, and frontend tests.

@@ -214,8 +214,7 @@ ontology expansion and cross-provider resolution.
 
 Goal: capture lightweight personal expenses from the local agent client, then report them beside the existing activity, night, and media aggregates without making iroha own a bot.
 
-Status: release candidate; implementation, contract checks, public-site checks, and dev deployment verification are complete. Gate C remains the final owner approval checkpoint before the release is
-merged/tagged.
+Status: shipped as the v0.4.0 baseline. Cache/report correctness and the next local release candidate are tracked in Release 0.4.1 below.
 
 Current evidence: [v0.4 full-system audit](audits/2026-08-13-v0.4-full-system-audit.md), [API verification gate](contracts/api-v1-verification.md), and the release-candidate target
 (`make release-candidate`).
@@ -244,6 +243,16 @@ Exit criteria:
 - Domain and cross-domain totals are covered by API and database tests across timezone, currency, retry, and empty-period cases.
 - Existing domain totals and wire contracts are covered by period-boundary, provider, missing-data, error, OpenAPI, and web-transport tests.
 - The private UI and API make the expense boundary clear, while the public projection remains expense-free by default.
+
+## Release 0.4.1: Cache-correct report reads
+
+Goal: make repeated metric and cross-domain report reads cheap without adding a second canonical data store or a clock-driven aggregate job.
+
+Status: implementation and isolated release-candidate verification are complete; local k3s deployment and live cache/public-boundary smoke remain.
+
+Current plan: [Iroha v0.4.1 cache and aggregation plan](plans/2026-08-14-iroha-0.4.1-cache-and-aggregation.md).
+
+Current evidence: [v0.4.1 cache release-candidate audit](audits/2026-08-14-v0.4.1-cache-release-candidate.md).
 
 ## Future Module: Reading and Watching Stats
 

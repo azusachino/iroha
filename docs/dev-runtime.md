@@ -299,12 +299,14 @@ IROHA_CACHE_BACKEND
 IROHA_ALLOWED_ORIGINS
 ```
 
-The server and job receive the database, Postgres-backed cache, and shared data-directory settings. Set `IROHA_CACHE_BACKEND=valkey` only for compatibility deployments that still provide a Valkey URL.
-Only the server receives private CORS origins (`IROHA_ALLOWED_ORIGINS`). The private API is unauthenticated by design — the deployment's network boundary is the security control, not an application
+The server and job receive the database, shared cache, and data-directory settings. The shared runtime cache module supports `postgres`, `valkey`, and `none`; Postgres is the default and canonical
+data remains authoritative in Postgres in every mode. Set `IROHA_CACHE_BACKEND=valkey` only for compatibility deployments that provide a Valkey URL. There is no production process-memory cache. Only
+the server receives private CORS origins (`IROHA_ALLOWED_ORIGINS`). The private API is unauthenticated by design — the deployment's network boundary is the security control, not an application
 credential; see `docs/iroha-server.md#auth`.
 
-The cache cutover is reversible because cache entries are disposable. Postgres is the default; a compatibility rollback uses `IROHA_CACHE_BACKEND=valkey` and `IROHA_VALKEY_URL=redis://...` with the
-Valkey service restored. Switching backends causes misses and regeneration, not data migration.
+The cache cutover is reversible because cache entries are disposable. A compatibility rollback uses `IROHA_CACHE_BACKEND=valkey` and `IROHA_VALKEY_URL=redis://...` with the Valkey service restored;
+switching backends causes misses and regeneration, not data migration. The worker performs bounded Postgres cache cleanup on startup and hourly while running; this is housekeeping, not
+daily/monthly/yearly aggregation.
 
 ## Commands
 

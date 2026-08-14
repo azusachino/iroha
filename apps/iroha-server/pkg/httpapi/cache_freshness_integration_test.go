@@ -46,7 +46,7 @@ func TestIntegrationCacheFreshnessAfterExpenseMutations(t *testing.T) {
 	}
 	assertMetricMinor(t, createdSeries, int64Pointer(1300))
 
-	requestJSON(t, server, http.MethodPut, "/api/v1/expenses/"+expenseID, `{"occurred_on":"2026-08-12","currency":"JPY","amount_minor":1800,"category":"food","merchant":"Ramen","source":{"kind":"ignored","ref":"ignored"}}`, http.StatusOK, nil)
+	requestJSON(t, server, http.MethodPut, "/api/v1/expenses/"+expenseID, `{"occurred_on":"2026-08-12","currency":"JPY","amount_minor":1800,"category":"food","merchant":"Ramen"}`, http.StatusOK, nil)
 	replacedSeries, header := requestCachedJSON(t, server, http.MethodGet, path, "", http.StatusOK)
 	if header != "MISS" {
 		t.Fatalf("post-replace expense metric cache header = %q, want MISS", header)
@@ -87,7 +87,8 @@ func TestIntegrationCacheFreshnessAfterGeocodeRefresh(t *testing.T) {
 		t.Fatalf("create activity: %v", err)
 	}
 	for seq, point := range []struct{ lat, lon float64 }{{35.681236, 139.767125}, {35.682000, 139.768000}} {
-		if err := db.Create(&models.ActivityRoutePoint{ActivityID: activityID, Seq: seq, Lat: point.lat, Lon: point.lon}).Error; err != nil {
+		if err := db.Exec(`insert into tb_activity_route_points (activity_id, seq, lat, lon, geom)
+			values (?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)`, activityID, seq, point.lat, point.lon, point.lon, point.lat).Error; err != nil {
 			t.Fatalf("create route point %d: %v", seq, err)
 		}
 	}
