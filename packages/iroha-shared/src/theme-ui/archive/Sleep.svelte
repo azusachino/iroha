@@ -193,6 +193,7 @@
   .folio-sleep {
     display: grid;
     gap: 1.3rem;
+    min-width: 0;
   }
   .folio-kicker {
     margin: 0 0 0.5rem;

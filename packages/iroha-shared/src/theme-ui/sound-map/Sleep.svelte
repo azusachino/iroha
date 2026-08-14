@@ -170,6 +170,7 @@
   .mix-sleep {
     display: grid;
     gap: 1.35rem;
+    min-width: 0;
   }
   .mix-kicker {
     margin: 0 0 0.5rem;
