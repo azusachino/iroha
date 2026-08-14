@@ -410,6 +410,23 @@ export interface MonthlyReport {
   };
 }
 
+export interface MonthlyReportSeriesPoint {
+  month: string;
+  completeness: "complete" | "partial";
+  report: MonthlyReport;
+}
+
+export interface MonthlyReportSeries {
+  schema: "monthly-report-series.v1";
+  end_month: string;
+  requested_months: number;
+  from_month: string;
+  to_month: string;
+  generated_at: string;
+  reports: MonthlyReportSeriesPoint[];
+  empty_months: string[];
+}
+
 export interface MetricDimension {
   id: string;
   label: string;
@@ -624,6 +641,18 @@ export function getMonthlyReport(
   const query = new URLSearchParams({ month });
   return getJSON<MonthlyReport>(
     `/api/v1/reports/monthly?${query.toString()}`,
+    fetchFn,
+  );
+}
+
+export function getMonthlyReportSeries(
+  endMonth: string,
+  months = 12,
+  fetchFn: typeof fetch = fetch,
+): Promise<MonthlyReportSeries> {
+  const query = new URLSearchParams({ end: endMonth, months: String(months) });
+  return getJSON<MonthlyReportSeries>(
+    `/api/v1/reports/monthly-series?${query.toString()}`,
     fetchFn,
   );
 }

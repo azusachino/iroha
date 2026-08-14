@@ -18,6 +18,7 @@ import {
   createTask,
   updateTask,
   getMonthlyReport,
+  getMonthlyReportSeries,
   getMetricCatalog,
   getMetricDefinition,
   getMetricSeries,
@@ -200,6 +201,15 @@ describe("control room API", () => {
     await getMonthlyReport("2026-08", fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/reports/monthly?");
     expect(getCapturedUrl()).toContain("month=2026-08");
+    expect(getCapturedUrl()).not.toContain("timezone=");
+  });
+
+  it("requests the server-owned twelve-month report series", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMonthlyReportSeries("2026-08", 12, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/reports/monthly-series?");
+    expect(getCapturedUrl()).toContain("end=2026-08");
+    expect(getCapturedUrl()).toContain("months=12");
     expect(getCapturedUrl()).not.toContain("timezone=");
   });
 

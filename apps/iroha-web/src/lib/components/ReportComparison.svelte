@@ -1,16 +1,18 @@
 <script lang="ts">
-  import type { MonthlyReport } from "$lib/api";
+  import type {
+    MonthlyReport,
+    MonthlyReportSeries,
+    MonthlyReportSeriesPoint,
+  } from "$lib/api";
   import BarChart from "$lib/components/BarChart.svelte";
-  import { formatDuration, formatMonth } from "$lib/format";
+  import { formatMonth } from "$lib/format";
   import { useTheme } from "$lib/themes/context.svelte";
 
   let {
-    current,
-    previous = null,
+    series,
     formatMoney,
   }: {
-    current: MonthlyReport;
-    previous?: MonthlyReport | null;
+    series: MonthlyReportSeries | null;
     formatMoney: (
       amountMinor: number,
       currency: string,
@@ -19,64 +21,69 @@
   } = $props();
 
   const theme = useTheme();
-  const periods = $derived([
-    previous?.period.month ?? "Previous",
-    current.period.month,
-  ]);
+  const points = $derived(series?.reports ?? []);
+  const categories = $derived(points.map((point) => formatMonth(point.month)));
+  const partialMonths = $derived(
+    points
+      .filter((point) => point.completeness === "partial")
+      .map((point) => formatMonth(point.month)),
+  );
 
   function sectionData<T>(
-    report: MonthlyReport | null | undefined,
+    point: MonthlyReportSeriesPoint,
     section: keyof MonthlyReport["sections"],
   ): T | null {
-    const value = report?.sections[section];
-    return value?.state === "available" ? (value.data as T | null) : null;
+    const value = point.report.sections[section];
+    return value.state === "available" ? (value.data as T | null) : null;
   }
 
-  const movement = $derived([
-    sectionData<MonthlyReport["sections"]["movement"]["data"]>(
-      previous,
-      "movement",
-    )?.distance_m ?? null,
-    sectionData<MonthlyReport["sections"]["movement"]["data"]>(
-      current,
-      "movement",
-    )?.distance_m ?? null,
-  ]);
-  const sleep = $derived([
-    sectionData<MonthlyReport["sections"]["sleep"]["data"]>(previous, "sleep")
-      ?.average_asleep_s ?? null,
-    sectionData<MonthlyReport["sections"]["sleep"]["data"]>(current, "sleep")
-      ?.average_asleep_s ?? null,
-  ]);
-  const health = $derived([
-    sectionData<MonthlyReport["sections"]["daily_health"]["data"]>(
-      previous,
-      "daily_health",
-    )?.observed_days ?? null,
-    sectionData<MonthlyReport["sections"]["daily_health"]["data"]>(
-      current,
-      "daily_health",
-    )?.observed_days ?? null,
-  ]);
-  const media = $derived([
-    sectionData<MonthlyReport["sections"]["media"]["data"]>(previous, "media")
-      ?.event_count ?? null,
-    sectionData<MonthlyReport["sections"]["media"]["data"]>(current, "media")
-      ?.event_count ?? null,
-  ]);
-  const mediaCompleted = $derived([
-    sectionData<MonthlyReport["sections"]["media"]["data"]>(previous, "media")
-      ?.completed_count ?? null,
-    sectionData<MonthlyReport["sections"]["media"]["data"]>(current, "media")
-      ?.completed_count ?? null,
-  ]);
+  const movementValues = $derived(
+    points.map((point) => {
+      const distance = sectionData<
+        MonthlyReport["sections"]["movement"]["data"]
+      >(point, "movement")?.distance_m;
+      return distance == null ? null : distance / 1000;
+    }),
+  );
+  const sleepValues = $derived(
+    points.map((point) => {
+      const asleep = sectionData<MonthlyReport["sections"]["sleep"]["data"]>(
+        point,
+        "sleep",
+      )?.average_asleep_s;
+      return asleep == null ? null : asleep / 3600;
+    }),
+  );
+  const healthValues = $derived(
+    points.map(
+      (point) =>
+        sectionData<MonthlyReport["sections"]["daily_health"]["data"]>(
+          point,
+          "daily_health",
+        )?.observed_days ?? null,
+    ),
+  );
+  const mediaValues = $derived(
+    points.map(
+      (point) =>
+        sectionData<MonthlyReport["sections"]["media"]["data"]>(point, "media")
+          ?.event_count ?? null,
+    ),
+  );
+  const mediaCompletedValues = $derived(
+    points.map(
+      (point) =>
+        sectionData<MonthlyReport["sections"]["media"]["data"]>(point, "media")
+          ?.completed_count ?? null,
+    ),
+  );
 
   const expenseCurrencies = $derived.by(() => {
     const currencies = new Set<string>();
-    for (const report of [previous, current]) {
+    for (const point of points) {
       for (const item of sectionData<
         MonthlyReport["sections"]["expenses"]["data"]
-      >(report, "expenses")?.totals_by_currency ?? []) {
+      >(point, "expenses")?.totals_by_currency ?? []) {
         currencies.add(item.currency);
       }
     }
@@ -84,10 +91,10 @@
   });
 
   function expenseValues(currency: string): (number | null)[] {
-    return [previous, current].map(
-      (report) =>
+    return points.map(
+      (point) =>
         sectionData<MonthlyReport["sections"]["expenses"]["data"]>(
-          report,
+          point,
           "expenses",
         )?.totals_by_currency.find((item) => item.currency === currency)
           ?.amount_minor ?? null,
@@ -96,11 +103,11 @@
 
   function expenseExponent(currency: string): number {
     return (
-      [current, previous]
+      points
         .map(
-          (report) =>
+          (point) =>
             sectionData<MonthlyReport["sections"]["expenses"]["data"]>(
-              report,
+              point,
               "expenses",
             )?.totals_by_currency.find((item) => item.currency === currency)
               ?.currency_exponent,
@@ -109,16 +116,28 @@
     );
   }
 
-  function delta(values: (number | null)[]): string {
-    const before = values[0];
-    const after = values[1];
-    if (before == null || after == null) return "No complete comparison";
-    const change = after - before;
-    if (change === 0) return "No change";
-    return `${change > 0 ? "+" : "−"}${Math.abs(change).toLocaleString(undefined, { maximumFractionDigits: 1 })}`;
+  function number(value: number): string {
+    return new Intl.NumberFormat(undefined, {
+      maximumFractionDigits: 1,
+    }).format(value);
   }
 
-  const monthLabels = $derived(periods.map((period) => formatMonth(period)));
+  function trendDelta(
+    values: (number | null)[],
+    formatter: (value: number) => string,
+  ): string {
+    const observed = values.filter(
+      (value): value is number => value != null && Number.isFinite(value),
+    );
+    if (observed.length < 2) return "Need two observed months";
+    const change = observed.at(-1)! - observed.at(-2)!;
+    if (change === 0) return "Stable vs prior observed month";
+    return (
+      (change > 0 ? "+" : "−") +
+      formatter(Math.abs(change)) +
+      " vs prior observed month"
+    );
+  }
 </script>
 
 <section
@@ -128,107 +147,115 @@
 >
   <header class="comparison-header">
     <div>
-      <p class="eyebrow">Month-on-month comparison</p>
-      <h2 id="report-comparison-title">What changed?</h2>
+      <p class="eyebrow">Canonical comparison · twelve months</p>
+      <h2 id="report-comparison-title">Twelve-month trends</h2>
       <p class="description">
-        Like-for-like indicators are shown separately by unit. Missing prior
-        observations remain gaps, not zeros.
+        Monthly points are aggregated by the server. Months with no canonical
+        records stay out of the plot; partial months remain marked as partial.
       </p>
     </div>
-    <span class="period-pair">{monthLabels.join(" → ")}</span>
+    {#if series}<span class="period-range"
+        >{formatMonth(series.from_month)} → {formatMonth(series.to_month)}</span
+      >{/if}
   </header>
 
-  {#if !previous}
-    <p class="empty">The previous month is not available for comparison.</p>
+  {#if partialMonths.length}
+    <p class="coverage-note">
+      Partial observation: {partialMonths.join(", ")}. No annualization is
+      applied.
+    </p>
+  {/if}
+
+  {#if !series || points.length === 0}
+    <p class="empty">
+      No canonical records are available in this trend window.
+    </p>
   {:else}
-    <div class="comparison-grid">
+    <div class="trend-grid">
       <article>
         <header><span>Movement</span><strong>Distance</strong></header>
         <BarChart
-          categories={monthLabels}
+          {categories}
           primary={{
             name: "Distance",
-            values: movement.map((value) =>
-              value == null ? null : value / 1000,
-            ),
-            formatter: (value) => `${value.toFixed(1)} km`,
+            values: movementValues,
+            formatter: (value) => number(value) + " km",
           }}
           primaryType="line"
-          height={180}
+          height={210}
         />
         <p class="delta">
-          {delta(
-            movement.map((value) => (value == null ? null : value / 1000)),
-          )} km
+          {trendDelta(movementValues, (value) => number(value) + " km")}
         </p>
       </article>
       <article>
         <header><span>Sleep</span><strong>Average asleep</strong></header>
         <BarChart
-          categories={monthLabels}
+          {categories}
           primary={{
             name: "Average asleep",
-            values: sleep,
-            formatter: (value) => formatDuration(value),
+            values: sleepValues,
+            formatter: (value) => number(value) + " h",
           }}
           primaryType="line"
-          height={180}
+          height={210}
         />
         <p class="delta">
-          {delta(sleep.map((value) => (value == null ? null : value / 3600)))} h
+          {trendDelta(sleepValues, (value) => number(value) + " h")}
         </p>
       </article>
       <article>
         <header><span>Daily health</span><strong>Observed days</strong></header>
         <BarChart
-          categories={monthLabels}
-          primary={{ name: "Observed days", values: health }}
+          {categories}
+          primary={{ name: "Observed days", values: healthValues }}
           primaryType="line"
-          height={180}
+          height={210}
         />
-        <p class="delta">{delta(health)} days</p>
+        <p class="delta">
+          {trendDelta(healthValues, (value) => number(value) + " days")}
+        </p>
       </article>
       <article>
         <header>
           <span>Media</span><strong>Events and completions</strong>
         </header>
         <BarChart
-          categories={monthLabels}
-          primary={{ name: "Events", values: media }}
+          {categories}
+          primary={{ name: "Events", values: mediaValues }}
           secondary={{
             name: "Completed",
-            values: mediaCompleted,
+            values: mediaCompletedValues,
             color: "var(--accent-2)",
           }}
           primaryType="line"
-          height={180}
+          height={210}
         />
-        <p class="delta">Events {delta(media)}</p>
+        <p class="delta">
+          {trendDelta(mediaValues, (value) => number(value) + " events")}
+        </p>
       </article>
       {#each expenseCurrencies as currency (currency)}
         {@const values = expenseValues(currency)}
+        {@const exponent = expenseExponent(currency)}
         <article>
           <header>
-            <span>Expenses · {currency}</span><strong>Total spend</strong>
+            <span>Expenses · {currency}</span><strong>Spend</strong>
           </header>
           <BarChart
-            categories={monthLabels}
+            {categories}
             primary={{
               name: currency,
               values,
-              formatter: (value) =>
-                formatMoney(value, currency, expenseExponent(currency)),
+              formatter: (value) => formatMoney(value, currency, exponent),
             }}
             primaryType="line"
-            height={180}
+            height={210}
           />
           <p class="delta">
-            {delta(
-              values.map((value) =>
-                value == null ? null : value / 10 ** expenseExponent(currency),
-              ),
+            {trendDelta(values, (value) =>
+              formatMoney(value, currency, exponent),
             )}
-            {currency}
           </p>
         </article>
       {/each}
@@ -288,20 +315,32 @@
     text-transform: uppercase;
   }
   .comparison-header h2 {
-    font-size: clamp(1.35rem, 3vw, 2.2rem);
+    font-size: clamp(1.45rem, 3vw, 2.3rem);
+    letter-spacing: -0.04em;
   }
   .description,
-  .period-pair,
+  .period-range,
+  .coverage-note,
   .empty,
   .delta {
     color: var(--text-muted);
     font-size: 0.78rem;
     line-height: 1.5;
   }
-  .period-pair {
+  .description {
+    max-width: 44rem;
+    margin-top: 0.35rem !important;
+  }
+  .period-range {
     white-space: nowrap;
   }
-  .comparison-grid {
+  .coverage-note {
+    margin: 0;
+    padding: 0.55rem 0.7rem;
+    border-inline-start: 3px solid var(--accent-2);
+    background: color-mix(in srgb, var(--accent-2) 8%, transparent);
+  }
+  .trend-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
@@ -323,15 +362,13 @@
     color: var(--text);
   }
   .delta {
-    margin: 0;
-    color: var(--accent);
-    font-variant-numeric: tabular-nums;
+    margin: 0.35rem 0 0;
   }
-  @media (max-width: 720px) {
+  @media (max-width: 760px) {
     .comparison-header {
       display: grid;
     }
-    .comparison-grid {
+    .trend-grid {
       grid-template-columns: 1fr;
     }
   }
