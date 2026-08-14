@@ -793,18 +793,19 @@ func (s *Service) Events(filters EventListFilters) (EventPage, error) {
 			(SELECT t.title FROM tb_media_titles t
 			 WHERE t.scope_type = 'item' AND t.scope_id = item.id AND t.title_kind = 'original'
 			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title,
-			event.event_type, coalesce(event.event_at, event.created_at) AS occurred_at,
+			event.event_type, event.event_at AS occurred_at,
 			event.unit, event.position, event.total, event.progress_percent,
 			event.rating, event.rating_scale`).
 		Joins("JOIN tb_media_items AS item ON item.id = event.media_item_id")
+	query = query.Where("event.event_type <> 'list_state'").Where("event.event_at IS NOT NULL")
 	if filters.From != nil {
-		query = query.Where("coalesce(event.event_at, event.created_at) >= ?", *filters.From)
+		query = query.Where("event.event_at >= ?", *filters.From)
 	}
 	if filters.To != nil {
-		query = query.Where("coalesce(event.event_at, event.created_at) < ?", *filters.To)
+		query = query.Where("event.event_at < ?", *filters.To)
 	}
 	if filters.Cursor != nil {
-		query = query.Where("(coalesce(event.event_at, event.created_at), event.id) < (?, ?)", filters.Cursor.LastUpdateAt, filters.Cursor.ID)
+		query = query.Where("(event.event_at, event.id) < (?, ?)", filters.Cursor.LastUpdateAt, filters.Cursor.ID)
 	}
 	var rows []Event
 	if err := query.Order("occurred_at DESC, event.id DESC").Limit(limit + 1).Scan(&rows).Error; err != nil {

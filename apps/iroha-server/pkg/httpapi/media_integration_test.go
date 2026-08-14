@@ -148,6 +148,42 @@ func TestMediaPeriodReportIntegration(t *testing.T) {
 	}
 }
 
+func TestMediaEventsIntegration(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetMediaTables(t, db)
+
+	from := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
+	to := from.Add(24 * time.Hour)
+	work := seedWork(t, db, "media")
+	item := seedItem(t, db, work, "manga", "A")
+
+	// A provider list snapshot is synchronization metadata, not a user media
+	// event. Its event_at is intentionally NULL, even when the sync happened
+	// inside the requested day.
+	if err := db.Exec(`insert into tb_media_consumption_events
+		(id, media_item_id, event_type, source_kind, created_at)
+		values (?, ?, 'list_state', 'anilist', ?)`, uuid.New(), item,
+		time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)).Error; err != nil {
+		t.Fatalf("seed list snapshot: %v", err)
+	}
+	if err := db.Exec(`insert into tb_media_consumption_events
+		(id, media_item_id, event_type, event_at, source_kind, created_at)
+		values (?, ?, 'rewatch', ?, 'manual', ?)`, uuid.New(), item,
+		time.Date(2026, 8, 14, 13, 0, 0, 0, time.UTC), time.Now().UTC()).Error; err != nil {
+		t.Fatalf("seed media event: %v", err)
+	}
+
+	result, err := media.NewService(db).Events(media.EventListFilters{
+		From: &from, To: &to, Limit: 100,
+	})
+	if err != nil {
+		t.Fatalf("list media events: %v", err)
+	}
+	if len(result.Items) != 1 || result.Items[0].EventType != "rewatch" {
+		t.Fatalf("events = %+v, want only the dated user event", result.Items)
+	}
+}
+
 func resetMediaTables(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	if err := db.Exec(`truncate table
