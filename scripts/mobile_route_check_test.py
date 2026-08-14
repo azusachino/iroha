@@ -23,6 +23,10 @@ class MobileRouteInventoryTest(unittest.TestCase):
             f"/night?year={mobile_route_check.date.today().year}",
         )
         self.assertEqual(
+            mobile_route_check.expected_route_url("/sleep", "/night"),
+            f"/night?year={mobile_route_check.date.today().year}",
+        )
+        self.assertEqual(
             mobile_route_check.expected_route_url("/expenses?month=2026-08", "/expenses"),
             "/expenses?month=2026-08",
         )

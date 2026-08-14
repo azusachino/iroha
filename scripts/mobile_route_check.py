@@ -117,7 +117,7 @@ def parse_viewports() -> tuple[tuple[int, int], ...]:
 def expected_route_url(route: str, expected_path: str) -> str:
     """Return the URL contract after the route's canonicalization rules run."""
 
-    if route == "/night" and expected_path == "/night":
+    if route in ("/night", "/sleep") and expected_path == "/night":
         return f"/night?year={date.today().year}"
     if route.partition("?")[0] in ("/expenses", "/patterns", "/reports", "/metrics"):
         return expected_path + ("?" + route.partition("?")[2] if "?" in route else "")
