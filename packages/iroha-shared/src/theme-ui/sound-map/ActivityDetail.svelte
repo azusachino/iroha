@@ -373,6 +373,7 @@
     display: flex;
     align-items: center;
     gap: 2px;
+    overflow-x: auto;
     height: 15rem;
     margin-top: 1.25rem;
     padding: 0 0.5rem;
