@@ -80,6 +80,21 @@ def browser_command(session: str, *args: str) -> subprocess.CompletedProcess[str
     )
 
 
+def launch_browser(
+    session: str, reduced_motion: bool, *args: str
+) -> subprocess.CompletedProcess[str]:
+    command = ["agent-browser", "--session", session]
+    if reduced_motion:
+        command.extend(["--args", "--force-prefers-reduced-motion"])
+    return subprocess.run(
+        [*command, *args],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+
 def eval_json(session: str, expression: str) -> dict:
     raw = browser_command(session, "eval", f"JSON.stringify({expression})").stdout.strip()
     value = json.loads(raw)
@@ -202,21 +217,18 @@ def main() -> int:
     sleep_id = first_id(api_base, "/api/v1/sleep?limit=1", "sleep")
     media_id = first_id(api_base, "/api/v1/media?limit=1", "library")
     routes = route_inventory(activity_id, sleep_id, media_id)
-    session = f"iroha-mobile-{os.getpid()}"
     report: list[dict] = []
-    try:
-        browser_command(session, "open", base_url)
-        for viewport in viewports:
-            browser_command(session, "set", "viewport", str(viewport[0]), str(viewport[1]))
-            for theme in themes:
-                browser_command(session, "storage", "local", "set", "iroha-design-language", theme)
-                for mode in modes:
-                    browser_command(session, "storage", "local", "set", "iroha-theme", mode)
-                    for motion in motions:
-                        if motion == "reduced":
-                            browser_command(session, "set", "media", mode, "reduced-motion")
-                        else:
-                            browser_command(session, "set", "media", mode)
+    for motion in motions:
+        session = f"iroha-mobile-{os.getpid()}-{motion}"
+        try:
+            launch_browser(session, motion == "reduced", "open", base_url)
+            for viewport in viewports:
+                browser_command(session, "set", "viewport", str(viewport[0]), str(viewport[1]))
+                for theme in themes:
+                    browser_command(session, "storage", "local", "set", "iroha-design-language", theme)
+                    for mode in modes:
+                        browser_command(session, "storage", "local", "set", "iroha-theme", mode)
+                        browser_command(session, "set", "media", mode)
                         for route, expected_path in routes:
                             state = assert_route(
                                 session,
@@ -239,8 +251,8 @@ def main() -> int:
                                 }
                             )
                             print(f"checked {viewport[0]}x{viewport[1]}/{theme}/{mode}/{motion}{route}", flush=True)
-    finally:
-        browser_command(session, "close")
+        finally:
+            browser_command(session, "close")
 
     output = Path(os.environ.get("OUT", "dist/mobile-route-audit.json"))
     output.parent.mkdir(parents=True, exist_ok=True)
