@@ -109,16 +109,28 @@ export interface MonthlyReport {
 export interface MonthlyReportSeriesPoint {
   month: string;
   completeness: "complete" | "partial";
-  report: MonthlyReport;
+  movement: { distance_m: number } | null;
+  sleep: { average_asleep_s: number } | null;
+  daily_health: { observed_days: number } | null;
+  media: { event_count: number; completed_count: number } | null;
+  expenses: {
+    totals_by_currency: {
+      currency: ExpenseCurrency;
+      currency_exponent: number;
+      amount_minor: number;
+      expense_count: number;
+    }[];
+  } | null;
 }
 
 export interface MonthlyReportSeries {
-  schema: "monthly-report-series.v1";
+  schema: "monthly-report-series.v2";
   end_month: string;
   requested_months: number;
   from_month: string;
   to_month: string;
   generated_at: string;
+  current_report: MonthlyReport;
   reports: MonthlyReportSeriesPoint[];
   empty_months: string[];
 }

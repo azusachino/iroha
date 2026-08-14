@@ -301,9 +301,10 @@
   async function loadDays(month: string) {
     if (!month || loadedDayMonth === month || dayRowsLoading) return;
     const [year, monthNumber] = month.split("-").map(Number);
-    const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
     rangeFrom = `${month}-01`;
-    rangeTo = `${month}-${String(lastDay).padStart(2, "0")}`;
+    rangeTo = new Date(Date.UTC(year, monthNumber, 1))
+      .toISOString()
+      .slice(0, 10);
     dayRowsLoading = true;
     try {
       const result = await listDaily({
@@ -483,7 +484,7 @@
           {/if}
         </span>
         {#if rangeFrom && rangeTo}<span class="muted small"
-            >Range: {rangeFrom} → {rangeTo}</span
+            >Range: {rangeFrom} → before {rangeTo}</span
           >{/if}
       </div>
       <div class="trend-panel tile">

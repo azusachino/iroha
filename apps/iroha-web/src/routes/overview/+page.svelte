@@ -3,15 +3,14 @@
   import { goto } from "$app/navigation";
   import {
     getActivityRoutes,
-    getActivitySummary,
+    getActivityOverview,
     getMediaAggregates,
-    listAllActivities,
-    listSleep,
-    listSleepAggregates,
+    getSleepOverview,
     type Activity,
+    type ActivityActiveDay,
     type MediaAggregates,
     type RouteFeatureCollection,
-    type SleepSession,
+    type SleepOverview,
     type Summary,
   } from "$lib/api";
   import ArchiveTotals from "$lib/components/ArchiveTotals.svelte";
@@ -28,12 +27,10 @@
     formatHr,
     formatPace,
   } from "$lib/format";
-  import { currentActivityStreak } from "$lib/streak";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
-  const ACTIVITY_SWEEP_LIMIT = 500;
   const RECENT_ACTIVITY_LIMIT = 5;
 
   let summary = $state<Summary | null>(null);
@@ -41,6 +38,8 @@
   let summaryLoading = $state(true);
 
   let activities = $state<Activity[]>([]);
+  let activeDays = $state<ActivityActiveDay[]>([]);
+  let currentStreak = $state(0);
   let activitiesError = $state<string | null>(null);
   let activitiesLoading = $state(true);
 
@@ -52,7 +51,7 @@
   // approach as the Night page, just a smaller recent slice since this is a
   // summary tile, not the full history.
   const SLEEP_SWEEP_LIMIT = 30;
-  let sleepSessions = $state<SleepSession[]>([]);
+  let sleepOverview = $state<SleepOverview | null>(null);
   let sleepSessionCount = $state<number | null>(null);
   let sleepLoading = $state(true);
 
@@ -63,24 +62,13 @@
 
   const recentActivities = $derived(activities.slice(0, RECENT_ACTIVITY_LIMIT));
 
-  const mainSleepSessions = $derived(
-    sleepSessions.filter((session) => session.is_main_sleep),
-  );
   const sleepSummary = $derived({
-    averageAsleepS: mainSleepSessions.length
-      ? mainSleepSessions.reduce((total, s) => total + s.asleep_s, 0) /
-        mainSleepSessions.length
-      : 0,
-    averageEfficiency: mainSleepSessions.length
-      ? mainSleepSessions.reduce((total, s) => total + s.efficiency, 0) /
-        mainSleepSessions.length
-      : 0,
-    nightCount: mainSleepSessions.length,
+    averageAsleepS: sleepOverview?.average_asleep_s ?? 0,
+    averageEfficiency: sleepOverview?.average_efficiency ?? 0,
+    nightCount: sleepOverview?.main_sleep_count ?? 0,
   });
-  const heatmapDates = $derived(
-    activities.map((activity) => activity.started_at),
-  );
-  const streak = $derived(currentActivityStreak(heatmapDates));
+  const heatmapDates = $derived(activeDays.map((day) => day.day));
+  const streak = $derived(currentStreak);
   const activityCount = $derived(summary?.totals.activity_count ?? 0);
   const archiveRecordCount = $derived(
     activityCount +
@@ -97,26 +85,25 @@
     return error instanceof Error ? error.message : String(error);
   }
 
-  async function loadSummary() {
+  async function loadActivityOverview() {
     summaryLoading = true;
-    summaryError = null;
-    try {
-      summary = await getActivitySummary();
-    } catch (error) {
-      summaryError = errorMessage(error);
-    } finally {
-      summaryLoading = false;
-    }
-  }
-
-  async function loadActivities() {
     activitiesLoading = true;
+    summaryError = null;
     activitiesError = null;
     try {
-      activities = await listAllActivities({}, ACTIVITY_SWEEP_LIMIT);
+      const overview = await getActivityOverview({
+        recent: RECENT_ACTIVITY_LIMIT,
+      });
+      summary = overview.summary;
+      activities = overview.recent;
+      activeDays = overview.active_days;
+      currentStreak = overview.current_streak;
     } catch (error) {
-      activitiesError = errorMessage(error);
+      const message = errorMessage(error);
+      summaryError = message;
+      activitiesError = message;
     } finally {
+      summaryLoading = false;
       activitiesLoading = false;
     }
   }
@@ -136,19 +123,12 @@
   async function loadSleep() {
     sleepLoading = true;
     try {
-      const [page, aggregates] = await Promise.all([
-        listSleep({ limit: SLEEP_SWEEP_LIMIT }),
-        listSleepAggregates("year"),
-      ]);
-      sleepSessions = page.items;
-      sleepSessionCount = aggregates.buckets.reduce(
-        (total, bucket) => total + bucket.session_count,
-        0,
-      );
+      sleepOverview = await getSleepOverview({ recent: SLEEP_SWEEP_LIMIT });
+      sleepSessionCount = sleepOverview.session_count;
     } catch {
       // The Overview's sleep tile is supplemental -- a failure here
       // shouldn't block the rest of the dashboard from rendering.
-      sleepSessions = [];
+      sleepOverview = null;
       sleepSessionCount = null;
     } finally {
       sleepLoading = false;
@@ -168,8 +148,7 @@
 
   async function reloadDashboard() {
     await Promise.all([
-      loadSummary(),
-      loadActivities(),
+      loadActivityOverview(),
       loadRoutes(),
       loadSleep(),
       loadMedia(),
@@ -213,8 +192,7 @@
   }
 
   onMount(() => {
-    void loadSummary();
-    void loadActivities();
+    void loadActivityOverview();
     void loadRoutes();
     void loadSleep();
     void loadMedia();

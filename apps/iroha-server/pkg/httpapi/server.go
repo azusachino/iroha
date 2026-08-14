@@ -43,7 +43,9 @@ const (
 	// Bump this when a cached JSON representation or key input changes. The
 	// cache is shared across rollouts, so a new server must not reuse an older
 	// contract or identity scheme.
-	readCacheKeyVersion = "v3"
+	// Bump whenever a cached wire representation or range interpretation
+	// changes; old Valkey entries must never satisfy the new contract.
+	readCacheKeyVersion = "v4"
 	readCacheTTL        = 24 * time.Hour
 	readyzTimeout       = 2 * time.Second
 	statusReady         = "ready"
@@ -138,6 +140,7 @@ func (s *Server) routes() {
 		})
 		r.Route("/activities", func(r chi.Router) {
 			r.Get("/", s.handleListActivities)
+			r.Get("/overview", s.handleActivityOverview)
 			r.Get("/summary", s.handleActivitySummary)
 			r.Get("/routes", s.handleActivityRoutes)
 			r.Get("/{activityId}", s.handleGetActivity)
@@ -147,11 +150,13 @@ func (s *Server) routes() {
 		})
 		r.Route("/sleep", func(r chi.Router) {
 			r.Get("/", s.handleListSleep)
+			r.Get("/overview", s.handleSleepOverview)
 			r.Get("/aggregates", s.handleSleepAggregates)
 			r.Get("/{sleepId}", s.handleGetSleep)
 			r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
 		})
 		r.Route("/daily", func(r chi.Router) {
+			r.Get("/dates", s.handleDailyDates)
 			r.Get("/", s.handleListDaily)
 			r.Get("/aggregates", s.handleDailyAggregates)
 		})
@@ -292,9 +297,6 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 	if r.URL.Path == "/api/v1/media/sync" || strings.HasPrefix(r.URL.Path, "/api/v1/media/sync/") {
 		return "", false
 	}
-	if r.URL.Path == "/api/v1/expenses" || strings.HasPrefix(r.URL.Path, "/api/v1/expenses/") {
-		return "", false
-	}
 	for prefix, namespace := range map[string]string{
 		"/api/v1/activities": cache.NamespaceActivities,
 		"/api/v1/briefing":   cache.NamespaceBriefing,
@@ -303,6 +305,7 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 		"/api/v1/sleep":      cache.NamespaceSleep,
 		"/api/v1/metrics":    cache.NamespaceMetrics,
 		"/api/v1/reports":    cache.NamespaceReports,
+		"/api/v1/expenses":   cache.NamespaceExpenses,
 	} {
 		if r.URL.Path == prefix || strings.HasPrefix(r.URL.Path, prefix+"/") {
 			return namespace, true

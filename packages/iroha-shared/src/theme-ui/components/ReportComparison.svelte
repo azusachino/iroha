@@ -1,9 +1,5 @@
 <script lang="ts">
-  import type {
-    MonthlyReport,
-    MonthlyReportSeries,
-    MonthlyReportSeriesPoint,
-  } from "../../report";
+  import type { MonthlyReportSeries } from "../../report";
   import type { DesignLanguage } from "../../themes";
   import BarChart from "./BarChart.svelte";
   import { formatCanonicalMonth } from "../../format";
@@ -31,61 +27,30 @@
       .map((point) => formatCanonicalMonth(point.month)),
   );
 
-  function sectionData<T>(
-    point: MonthlyReportSeriesPoint,
-    section: keyof MonthlyReport["sections"],
-  ): T | null {
-    const value = point.report.sections[section];
-    return value.state === "available" ? (value.data as T | null) : null;
-  }
-
   const movementValues = $derived(
-    points.map((point) => {
-      const distance = sectionData<
-        MonthlyReport["sections"]["movement"]["data"]
-      >(point, "movement")?.distance_m;
-      return distance == null ? null : distance / 1000;
-    }),
+    points.map((point) =>
+      point.movement == null ? null : point.movement.distance_m / 1000,
+    ),
   );
   const sleepValues = $derived(
-    points.map((point) => {
-      const asleep = sectionData<MonthlyReport["sections"]["sleep"]["data"]>(
-        point,
-        "sleep",
-      )?.average_asleep_s;
-      return asleep == null ? null : asleep / 3600;
-    }),
+    points.map((point) =>
+      point.sleep == null ? null : point.sleep.average_asleep_s / 3600,
+    ),
   );
   const healthValues = $derived(
-    points.map(
-      (point) =>
-        sectionData<MonthlyReport["sections"]["daily_health"]["data"]>(
-          point,
-          "daily_health",
-        )?.observed_days ?? null,
-    ),
+    points.map((point) => point.daily_health?.observed_days ?? null),
   );
   const mediaValues = $derived(
-    points.map(
-      (point) =>
-        sectionData<MonthlyReport["sections"]["media"]["data"]>(point, "media")
-          ?.event_count ?? null,
-    ),
+    points.map((point) => point.media?.event_count ?? null),
   );
   const mediaCompletedValues = $derived(
-    points.map(
-      (point) =>
-        sectionData<MonthlyReport["sections"]["media"]["data"]>(point, "media")
-          ?.completed_count ?? null,
-    ),
+    points.map((point) => point.media?.completed_count ?? null),
   );
 
   const expenseCurrencies = $derived.by(() => {
     const currencies = new Set<string>();
     for (const point of points) {
-      for (const item of sectionData<
-        MonthlyReport["sections"]["expenses"]["data"]
-      >(point, "expenses")?.totals_by_currency ?? []) {
+      for (const item of point.expenses?.totals_by_currency ?? []) {
         currencies.add(item.currency);
       }
     }
@@ -95,11 +60,9 @@
   function expenseValues(currency: string): (number | null)[] {
     return points.map(
       (point) =>
-        sectionData<MonthlyReport["sections"]["expenses"]["data"]>(
-          point,
-          "expenses",
-        )?.totals_by_currency.find((item) => item.currency === currency)
-          ?.amount_minor ?? null,
+        point.expenses?.totals_by_currency.find(
+          (item) => item.currency === currency,
+        )?.amount_minor ?? null,
     );
   }
 
@@ -108,11 +71,9 @@
       points
         .map(
           (point) =>
-            sectionData<MonthlyReport["sections"]["expenses"]["data"]>(
-              point,
-              "expenses",
-            )?.totals_by_currency.find((item) => item.currency === currency)
-              ?.currency_exponent,
+            point.expenses?.totals_by_currency.find(
+              (item) => item.currency === currency,
+            )?.currency_exponent,
         )
         .find((value) => value != null) ?? (currency === "JPY" ? 0 : 2)
     );

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
@@ -14,6 +15,13 @@ type sleepListResponse struct {
 	Items      []sleepResponse `json:"items"`
 	NextCursor *string         `json:"next_cursor"`
 	HasMore    bool            `json:"has_more"`
+}
+
+type sleepOverviewResponse struct {
+	SessionCount      int     `json:"session_count"`
+	MainSleepCount    int     `json:"main_sleep_count"`
+	AverageAsleepS    float64 `json:"average_asleep_s"`
+	AverageEfficiency float64 `json:"average_efficiency"`
 }
 
 type sleepResponse struct {
@@ -86,6 +94,30 @@ func (s *Server) handleListSleep(w http.ResponseWriter, r *http.Request) {
 		response.NextCursor = &cursor
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) handleSleepOverview(w http.ResponseWriter, r *http.Request) {
+	recentLimit := 30
+	if value := r.URL.Query().Get("recent"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 || parsed > 100 {
+			writeError(w, http.StatusBadRequest, "invalid recent")
+			return
+		}
+		recentLimit = parsed
+	}
+	overview, err := s.deps.SleepService.Overview(recentLimit)
+	if err != nil {
+		s.deps.Logger.Error("sleep overview", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load sleep overview")
+		return
+	}
+	writeJSON(w, http.StatusOK, sleepOverviewResponse{
+		SessionCount:      overview.SessionCount,
+		MainSleepCount:    overview.MainSleepCount,
+		AverageAsleepS:    overview.AverageAsleepS,
+		AverageEfficiency: overview.AverageEfficiency,
+	})
 }
 
 func (s *Server) handleGetSleep(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +222,7 @@ func parseSleepAggregateFilters(w http.ResponseWriter, r *http.Request) (sleep.A
 	if granularity == "" {
 		granularity = "month"
 	}
-	if granularity != "month" && granularity != "year" {
+	if granularity != "month" && granularity != "year" && granularity != "lifetime" {
 		writeError(w, http.StatusBadRequest, "invalid granularity")
 		return sleep.AggregateFilters{}, false
 	}

@@ -258,9 +258,11 @@ paths:
           schema: { type: string }
         - name: started_from
           in: query
+          description: Inclusive lower bound for started_at.
           schema: { type: string, format: date-time }
         - name: started_to
           in: query
+          description: Exclusive upper bound for started_at.
           schema: { type: string, format: date-time }
         - name: min_distance_m
           in: query
@@ -277,6 +279,26 @@ paths:
                 $ref: "#/components/schemas/ActivityPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/activities/overview:
+    get:
+      tags: [activities]
+      parameters:
+        - name: recent
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 5 }
+        - name: timezone
+          in: query
+          schema:
+            { type: string, description: IANA timezone used for calendar days }
+      responses:
+        "200":
+          description: Dashboard activity projection with canonical active days and recent rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/activities/summary:
     get:
       tags: [activities]
@@ -287,6 +309,13 @@ paths:
         - name: sport
           in: query
           schema: { type: string }
+        - name: timezone
+          in: query
+          schema:
+            {
+              type: string,
+              description: IANA timezone used for calendar buckets,
+            }
       responses:
         "200":
           description: Activity summary aggregates (totals, by year/month/sport).
@@ -391,11 +420,28 @@ paths:
                 $ref: "#/components/schemas/SleepPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/sleep/overview:
+    get:
+      tags: [sleep]
+      parameters:
+        - name: recent
+          in: query
+          description: Number of most recent sleep rows used for the main-sleep averages.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+      responses:
+        "200":
+          description: Server-owned sleep dashboard projection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SleepOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/sleep/aggregates:
     get:
       tags: [sleep]
       parameters:
-        - $ref: "#/components/parameters/Granularity"
+        - $ref: "#/components/parameters/SleepGranularity"
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
       responses:
@@ -458,6 +504,17 @@ paths:
                 $ref: "#/components/schemas/DailyPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/daily/dates:
+    get:
+      tags: [daily]
+      responses:
+        "200":
+          description: Canonical daily dates with at least one stored summary or metric.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: string, format: date }
   /api/v1/daily/aggregates:
     get:
       tags: [daily]
@@ -1003,6 +1060,10 @@ components:
       name: granularity
       in: query
       schema: { type: string, enum: [month, year], default: month }
+    SleepGranularity:
+      name: granularity
+      in: query
+      schema: { type: string, enum: [month, year, lifetime], default: month }
   responses:
     BadRequest:
       description: Request could not be parsed or validated.
@@ -1426,16 +1487,18 @@ components:
           from_month,
           to_month,
           generated_at,
+          current_report,
           reports,
           empty_months,
         ]
       properties:
-        schema: { type: string, const: monthly-report-series.v1 }
+        schema: { type: string, const: monthly-report-series.v2 }
         end_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
         requested_months: { type: integer, minimum: 1, maximum: 24 }
         from_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
         to_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
         generated_at: { type: string, format: date-time }
+        current_report: { $ref: "#/components/schemas/MonthlyReport" }
         reports:
           type: array
           items: { $ref: "#/components/schemas/MonthlyReportSeriesPoint" }
@@ -1445,11 +1508,64 @@ components:
     MonthlyReportSeriesPoint:
       type: object
       additionalProperties: false
-      required: [month, completeness, report]
+      required:
+        [month, completeness, movement, sleep, daily_health, media, expenses]
       properties:
         month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
         completeness: { type: string, enum: [complete, partial] }
-        report: { $ref: "#/components/schemas/MonthlyReport" }
+        movement:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlyMovementTrend"
+            - type: "null"
+        sleep:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlySleepTrend"
+            - type: "null"
+        daily_health:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlyDailyHealthTrend"
+            - type: "null"
+        media:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlyMediaTrend"
+            - type: "null"
+        expenses:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlyExpensesTrend"
+            - type: "null"
+    MonthlyMovementTrend:
+      type: object
+      additionalProperties: false
+      required: [distance_m]
+      properties:
+        distance_m: { type: number }
+    MonthlySleepTrend:
+      type: object
+      additionalProperties: false
+      required: [average_asleep_s]
+      properties:
+        average_asleep_s: { type: number }
+    MonthlyDailyHealthTrend:
+      type: object
+      additionalProperties: false
+      required: [observed_days]
+      properties:
+        observed_days: { type: integer }
+    MonthlyMediaTrend:
+      type: object
+      additionalProperties: false
+      required: [event_count, completed_count]
+      properties:
+        event_count: { type: integer }
+        completed_count: { type: integer }
+    MonthlyExpensesTrend:
+      type: object
+      additionalProperties: false
+      required: [totals_by_currency]
+      properties:
+        totals_by_currency:
+          type: array
+          items: { $ref: "#/components/schemas/ExpenseCurrencyTotal" }
     ReportPeriod:
       type: object
       additionalProperties: false
@@ -1791,6 +1907,24 @@ components:
           { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
         by_sport:
           { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
+    ActivityActiveDay:
+      type: object
+      required: [day, activity_count]
+      properties:
+        day: { type: string, format: date }
+        activity_count: { type: integer }
+    ActivityOverview:
+      type: object
+      required: [summary, active_days, recent, current_streak]
+      properties:
+        summary: { $ref: "#/components/schemas/ActivitySummary" }
+        active_days:
+          type: array
+          items: { $ref: "#/components/schemas/ActivityActiveDay" }
+        recent:
+          type: array
+          items: { $ref: "#/components/schemas/Activity" }
+        current_streak: { type: integer, minimum: 0 }
     RouteFeatureCollection:
       type: object
       required: [type, features]
@@ -1973,12 +2107,21 @@ components:
       type: object
       required: [granularity, buckets]
       properties:
-        granularity: { type: string, enum: [month, year] }
+        granularity: { type: string, enum: [month, year, lifetime] }
         buckets:
           {
             type: array,
             items: { $ref: "#/components/schemas/SleepAggregateBucket" },
           }
+    SleepOverview:
+      type: object
+      required:
+        [session_count, main_sleep_count, average_asleep_s, average_efficiency]
+      properties:
+        session_count: { type: integer }
+        main_sleep_count: { type: integer }
+        average_asleep_s: { type: number }
+        average_efficiency: { type: number }
     SleepAggregateBucket:
       type: object
       required:

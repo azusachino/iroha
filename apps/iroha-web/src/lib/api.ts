@@ -1,6 +1,7 @@
 import { API_BASE } from "./config";
 import type {
   Activity,
+  ActivityOverview,
   ActivitySummary,
   Lap,
   ListActivitiesParams,
@@ -11,6 +12,7 @@ import type {
 import type { MetricSeriesResponse } from "@iroha/shared/metric-series";
 import type {
   DailyAggregates,
+  DailyDates,
   DailyRow,
   ListDailyParams,
 } from "@iroha/shared/daily";
@@ -45,13 +47,16 @@ import type {
   ListSleepParams,
   SleepAggregateBucket,
   SleepAggregates,
+  SleepOverview,
   SleepSegment,
   SleepSession,
 } from "@iroha/shared/sleep";
 
 export type {
   Activity,
+  ActivityActiveDay,
   ActivityDisplaySummary,
+  ActivityOverview,
   ActivitySummary,
   ActivitySummaryBucket as SummaryBucket,
   ActivitySummaryTotals as SummaryTotals,
@@ -68,6 +73,7 @@ export type { MetricSeriesResponse } from "@iroha/shared/metric-series";
 export type {
   DailyAggregateBucket,
   DailyAggregates,
+  DailyDates,
   DailyMetricAggregate,
   DailyRing,
   DailyRow,
@@ -108,6 +114,7 @@ export type {
   ListSleepParams,
   SleepAggregateBucket,
   SleepAggregates,
+  SleepOverview,
   SleepSegment,
   SleepSession,
 } from "@iroha/shared/sleep";
@@ -697,7 +704,7 @@ export function getSleepSegments(
 }
 
 export function listSleepAggregates(
-  granularity: "month" | "year",
+  granularity: "month" | "year" | "lifetime",
   params: { from?: string; to?: string } = {},
   fetchFn: typeof fetch = fetch,
 ): Promise<SleepAggregates> {
@@ -708,6 +715,16 @@ export function listSleepAggregates(
     `/api/v1/sleep/aggregates?${query.toString()}`,
     fetchFn,
   );
+}
+
+export function getSleepOverview(
+  params: { recent?: number } = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<SleepOverview> {
+  const query = new URLSearchParams();
+  if (params.recent != null) query.set("recent", String(params.recent));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<SleepOverview>(`/api/v1/sleep/overview${suffix}`, fetchFn);
 }
 
 export function listDaily(
@@ -721,6 +738,12 @@ export function listDaily(
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<Page<DailyRow>>(`/api/v1/daily${suffix}`, fetchFn);
+}
+
+export function getDailyDates(
+  fetchFn: typeof fetch = fetch,
+): Promise<DailyDates> {
+  return getJSON<DailyDates>("/api/v1/daily/dates", fetchFn);
 }
 
 // Walk the keyset pages for history views. The daily endpoint caps any single
@@ -801,6 +824,7 @@ export interface ActivitySummaryParams {
   // all-time / all-sport totals.
   year?: string | null;
   sport?: string | null;
+  timezone?: string | null;
 }
 
 export function getActivitySummary(
@@ -810,9 +834,29 @@ export function getActivitySummary(
   const query = new URLSearchParams();
   if (params.year) query.set("year", params.year);
   if (params.sport) query.set("sport", params.sport);
+  if (params.timezone) query.set("timezone", params.timezone);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<ActivitySummary>(
     `/api/v1/activities/summary${suffix}`,
+    fetchFn,
+  );
+}
+
+export interface ActivityOverviewParams {
+  recent?: number;
+  timezone?: string | null;
+}
+
+export function getActivityOverview(
+  params: ActivityOverviewParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<ActivityOverview> {
+  const query = new URLSearchParams();
+  if (params.recent != null) query.set("recent", String(params.recent));
+  if (params.timezone) query.set("timezone", params.timezone);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<ActivityOverview>(
+    `/api/v1/activities/overview${suffix}`,
     fetchFn,
   );
 }

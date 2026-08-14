@@ -57,6 +57,13 @@ type Page struct {
 	HasMore    bool
 }
 
+type Overview struct {
+	SessionCount      int     `json:"session_count"`
+	MainSleepCount    int     `json:"main_sleep_count"`
+	AverageAsleepS    float64 `json:"average_asleep_s"`
+	AverageEfficiency float64 `json:"average_efficiency"`
+}
+
 type AggregateFilters struct {
 	From        *time.Time
 	To          *time.Time
@@ -112,16 +119,53 @@ type Service struct {
 	db *gorm.DB
 }
 
+func utcCalendarDate(value time.Time) time.Time {
+	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, time.UTC)
+}
+
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+// Overview returns the exact projection needed by the cockpit dashboard. The
+// count covers the complete sleep ledger; the averages cover main sleeps in
+// the most recent window, matching the former dashboard behavior without
+// shipping thirty canonical rows to the browser.
+func (s *Service) Overview(recentLimit int) (Overview, error) {
+	if recentLimit <= 0 || recentLimit > 100 {
+		recentLimit = 30
+	}
+	var sessionCount int64
+	if err := s.db.Model(&models.SleepSession{}).Count(&sessionCount).Error; err != nil {
+		return Overview{}, err
+	}
+	var recent []models.SleepSession
+	if err := s.db.Order("wake_date desc, id desc").Limit(recentLimit).Find(&recent).Error; err != nil {
+		return Overview{}, err
+	}
+	result := Overview{SessionCount: int(sessionCount)}
+	for _, session := range recent {
+		if !session.IsMainSleep {
+			continue
+		}
+		result.MainSleepCount++
+		result.AverageAsleepS += float64(session.AsleepS)
+		result.AverageEfficiency += session.Efficiency
+	}
+	if result.MainSleepCount > 0 {
+		count := float64(result.MainSleepCount)
+		result.AverageAsleepS /= count
+		result.AverageEfficiency /= count
+	}
+	return result, nil
 }
 
 func (s *Service) PeriodSessions(filters PeriodFilters) ([]MetricValue, error) {
 	if !filters.From.Before(filters.To) {
 		return nil, errors.New("period from must be before to")
 	}
-	from := time.Date(filters.From.UTC().Year(), filters.From.UTC().Month(), filters.From.UTC().Day(), 0, 0, 0, 0, time.UTC)
-	to := time.Date(filters.To.UTC().Year(), filters.To.UTC().Month(), filters.To.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	from := utcCalendarDate(filters.From)
+	to := utcCalendarDate(filters.To)
 	var rows []models.SleepSession
 	if err := s.db.Where("wake_date >= ? and wake_date < ?", from, to).Order("wake_date asc, id asc").Find(&rows).Error; err != nil {
 		return nil, err
@@ -148,7 +192,7 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		query = query.Where("wake_date >= ?", *filters.From)
 	}
 	if filters.To != nil {
-		query = query.Where("wake_date <= ?", *filters.To)
+		query = query.Where("wake_date < ?", *filters.To)
 	}
 	if filters.Cursor != nil {
 		query = query.Where("(wake_date, id) < (?, ?)", filters.Cursor.WakeDate, filters.Cursor.ID)
@@ -173,6 +217,13 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 	if filters.Granularity == "year" {
 		periodExpression = "date_trunc('year', wake_date::timestamp)"
 	}
+	group := "period"
+	order := "period asc"
+	if filters.Granularity == "lifetime" {
+		periodExpression = "date '0001-01-01'"
+		group = ""
+		order = ""
+	}
 	query := s.db.Model(&models.SleepSession{}).
 		Select(periodExpression + ` as period,
 			count(*)::int as session_count,
@@ -186,17 +237,22 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 			coalesce(sum(deep_s) filter (where is_main_sleep), 0)::int as deep_s,
 			coalesce(sum(rem_s) filter (where is_main_sleep), 0)::int as rem_s,
 			coalesce(sum(awake_s) filter (where is_main_sleep), 0)::int as awake_s,
-			coalesce(sum(unspecified_s) filter (where is_main_sleep), 0)::int as unspecified_s`).
-		Group("period").Order("period asc")
+			coalesce(sum(unspecified_s) filter (where is_main_sleep), 0)::int as unspecified_s`)
+	if group != "" {
+		query = query.Group(group).Order(order)
+	}
 	if filters.From != nil {
 		query = query.Where("wake_date >= ?", *filters.From)
 	}
 	if filters.To != nil {
-		query = query.Where("wake_date <= ?", *filters.To)
+		query = query.Where("wake_date < ?", *filters.To)
 	}
 	var buckets []AggregateBucket
 	if err := query.Scan(&buckets).Error; err != nil {
 		return nil, err
+	}
+	if filters.Granularity == "lifetime" && (len(buckets) == 0 || buckets[0].SessionCount == 0) {
+		return []AggregateBucket{}, nil
 	}
 	return buckets, nil
 }
@@ -205,8 +261,8 @@ func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
 	if !filters.From.Before(filters.To) {
 		return PeriodReport{}, errors.New("period from must be before to")
 	}
-	from := time.Date(filters.From.UTC().Year(), filters.From.UTC().Month(), filters.From.UTC().Day(), 0, 0, 0, 0, time.UTC)
-	to := time.Date(filters.To.UTC().Year(), filters.To.UTC().Month(), filters.To.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	from := utcCalendarDate(filters.From)
+	to := utcCalendarDate(filters.To)
 	var rows []models.SleepSession
 	if err := s.db.Where("wake_date >= ? and wake_date < ?", from, to).Find(&rows).Error; err != nil {
 		return PeriodReport{}, err

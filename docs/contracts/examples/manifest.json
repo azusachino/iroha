@@ -13,6 +13,12 @@
       "schema": "ActivitySummary"
     },
     {
+      "file": "activity-overview.json",
+      "method": "GET",
+      "path": "/api/v1/activities/overview",
+      "schema": "ActivityOverview"
+    },
+    {
       "file": "daily-page.json",
       "method": "GET",
       "path": "/api/v1/daily",
@@ -47,6 +53,12 @@
       "method": "GET",
       "path": "/api/v1/sleep/aggregates",
       "schema": "SleepAggregateResponse"
+    },
+    {
+      "file": "sleep-overview.json",
+      "method": "GET",
+      "path": "/api/v1/sleep/overview",
+      "schema": "SleepOverview"
     }
   ]
 }

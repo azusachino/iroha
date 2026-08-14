@@ -61,6 +61,7 @@
   let activitySeriesLoading = $state(true);
   let activitySeriesError = $state<string | null>(null);
   let activitySeriesRequest = 0;
+  let summaryRequest = 0;
   const theme = useTheme();
   const sportOptions = $derived(
     summary ? summary.by_sport.map((b) => b.key).sort() : [],
@@ -79,6 +80,7 @@
       selectedMonth = "";
     }
     syncUrl();
+    void loadSummary();
   }
 
   function handleMonthChange() {
@@ -186,16 +188,14 @@
       if (selectedMonth) {
         const m = Number(selectedMonth);
         const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
-        const end = new Date(Date.UTC(y, m, 0, 23, 59, 59));
+        const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
         params.started_from = start.toISOString();
         params.started_to = end.toISOString();
       } else {
         params.started_from = new Date(
           Date.UTC(y, 0, 1, 0, 0, 0),
         ).toISOString();
-        params.started_to = new Date(
-          Date.UTC(y, 12, 0, 23, 59, 59),
-        ).toISOString();
+        params.started_to = new Date(Date.UTC(y + 1, 0, 1)).toISOString();
       }
     }
     return params;
@@ -232,13 +232,22 @@
     cursor = null;
     syncUrl();
     load(false);
+    void loadSummary();
   }
 
   async function loadSummary() {
+    const requestId = ++summaryRequest;
+    summaryLoading = true;
     try {
-      summary = await getActivitySummary();
+      const next = await getActivitySummary({
+        year: selectedYear || null,
+        sport: sportType || null,
+      });
+      if (requestId === summaryRequest) summary = next;
+    } catch {
+      if (requestId === summaryRequest) summary = null;
     } finally {
-      summaryLoading = false;
+      if (requestId === summaryRequest) summaryLoading = false;
     }
   }
 
@@ -247,62 +256,17 @@
       return { activity_count: 0, distance_m: 0, duration_s: 0 };
     }
 
-    if (!sportType && !selectedYear) {
-      return {
-        activity_count: summary.totals.activity_count,
-        distance_m: summary.totals.distance_m,
-        duration_s: summary.totals.moving_time_s || summary.totals.duration_s,
-      };
-    }
-
-    if (sportType && !selectedYear) {
-      const bucket = summary.by_sport.find(
-        (b) => b.key.toLowerCase() === sportType.toLowerCase(),
-      );
-      if (bucket) {
-        return {
-          activity_count: bucket.activity_count,
-          distance_m: bucket.distance_m,
-          duration_s: bucket.moving_time_s || bucket.duration_s,
-        };
-      }
-    }
-
-    if (selectedYear && !sportType) {
-      if (selectedMonth) {
-        const monthKey = `${selectedYear}-${selectedMonth.padStart(2, "0")}`;
-        const bucket = summary.by_month.find((b) => b.key === monthKey);
-        if (bucket) {
-          return {
-            activity_count: bucket.activity_count,
-            distance_m: bucket.distance_m,
-            duration_s: bucket.moving_time_s || bucket.duration_s,
-          };
-        }
-      } else {
-        const bucket = summary.by_year.find((b) => b.key === selectedYear);
-        if (bucket) {
-          return {
-            activity_count: bucket.activity_count,
-            distance_m: bucket.distance_m,
-            duration_s: bucket.moving_time_s || bucket.duration_s,
-          };
-        }
-      }
-    }
-
-    let count = 0;
-    let dist = 0;
-    let dur = 0;
-    for (const act of activities) {
-      count++;
-      dist += act.distance_m || 0;
-      dur += act.moving_time_s || act.duration_s || 0;
-    }
+    const bucket = selectedMonth
+      ? summary.by_month.find(
+          (item) =>
+            item.key === `${selectedYear}-${selectedMonth.padStart(2, "0")}`,
+        )
+      : null;
+    const totals = bucket ?? summary.totals;
     return {
-      activity_count: count,
-      distance_m: dist,
-      duration_s: dur,
+      activity_count: totals.activity_count,
+      distance_m: totals.distance_m,
+      duration_s: totals.moving_time_s || totals.duration_s,
     };
   });
 
@@ -313,12 +277,21 @@
     const _s = sportType;
     const _y = selectedYear;
     const _m = selectedMonth;
-    const _summary = summary;
 
     untrack(() => {
       applied = buildParams();
       cursor = null;
       void load(false);
+    });
+  });
+
+  $effect(() => {
+    const _s = sportType;
+    const _y = selectedYear;
+    const _m = selectedMonth;
+    const _summary = summary;
+
+    untrack(() => {
       if (_summary) void loadActivitySeries();
     });
   });
@@ -416,6 +389,7 @@
         onSportType: (value: string) => {
           sportType = value;
           syncUrl();
+          void loadSummary();
         },
         onLoadMore: () => void load(true),
         onOpenDetail: (id: string) => void goto(`/motion/${id}`),
@@ -508,6 +482,7 @@
             onchange={(event) => {
               sportType = (event.currentTarget as HTMLSelectElement).value;
               syncUrl();
+              void loadSummary();
             }}
           >
             <option value="">All sports</option>

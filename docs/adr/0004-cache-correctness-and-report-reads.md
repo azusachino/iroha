@@ -7,20 +7,18 @@
 
 ## Implementation status
 
-The decision is implemented on the v0.4.1 release branch. `apps/iroha-runtime/cache` is the canonical backend-neutral cache module: Postgres is the default backend, Valkey is supported for the k3s
-deployment, and `none` is the explicit disabled mode. A production process-memory backend is deliberately not provided because it would be lost on restart and would create a second, unshared cache
-behavior. Report caching, generation-safe population, mutation invalidation, degraded bypass, bounded cleanup, and the release performance gate are wired; release-candidate and k3s evidence remain the
-final gate.
+The decision is implemented on the v0.4.1 branch. `apps/iroha-runtime/cache` is the canonical backend-neutral cache module: Postgres is the default backend, Valkey is supported for the k3s deployment,
+and `none` is the explicit disabled mode. A production process-memory backend is deliberately not provided because it would be lost on restart and would create a second, unshared cache behavior.
+Report caching, direct expense GET caching, generation-safe population, mutation invalidation, degraded bypass, bounded cleanup, and the release performance gate are wired. The current branch also
+adds server-owned activity/sleep overview projections, daily date coverage, compact report-series data, and consistent half-open date boundaries.
 
 ## Context
 
 Iroha v0.4 already has a backend-neutral, generation-based response cache for successful JSON reads. The live k3s deployment uses Valkey with a 24-hour safety TTL. Daily, monthly, and yearly domain
 reads can become cache hits after their first request.
 
-The cache is incomplete in two ways:
-
-- the monthly report and 12-month report-series endpoints are explicitly excluded and recompute every request;
-- expense create, replace, and delete do not invalidate cached expense metric series.
+The earlier cache audit found two gaps: reports were not cached, and expense mutations did not invalidate derived reads. The current implementation closes both gaps and also places direct expense GET
+reads in `read_expenses`, so the ledger and its metric projections share the same post-commit freshness boundary.
 
 The existing daily tables are canonical imported health facts. They are not a generic derived rollup table, and v0.4 has no aggregation worker or active aggregation schedule. A clock-only job that
 aggregates yesterday would be incorrect because imports, corrections, and expense edits can change historical dates.
@@ -36,7 +34,7 @@ The first principle remains unchanged:
 v0.4.1 will make repeated reads cheap without adding a durable daily/monthly/yearly aggregation table. The release will:
 
 1. keep canonical domain tables as the source of truth;
-2. cache complete monthly and 12-month report responses;
+2. cache complete monthly and 12-month report responses, using the compact `monthly-report-series.v2` representation;
 3. repair invalidation for every canonical mutation path;
 4. make cache identity include every response-affecting interpretation;
 5. make cache population safe across namespace-generation changes;
@@ -51,7 +49,8 @@ Add the read_reports namespace to the allowlisted HTTP response cache. It covers
 - GET /api/v1/reports/monthly-series.
 
 The complete HTTP response is cached, including empty-month information and the generated report envelope. A report error or non-JSON response is never cached. Direct expense list and detail endpoints
-remain live canonical reads and are not cached by this decision.
+are also successful canonical GET reads and are cached under `read_expenses`; expense create, replace, and delete remain uncached mutations and invalidate `read_expenses`, `read_metrics`, and
+`read_reports`.
 
 The report cache is lazy. v0.4.1 does not prewarm yesterday, the current month, or the current year. Prewarming and request coalescing remain measurement-driven follow-ups.
 
@@ -78,7 +77,7 @@ The v0.4.1 dependency map is:
 | Canonical mutation                                         | Invalidate                                                     |
 | ---------------------------------------------------------- | -------------------------------------------------------------- |
 | Activity, sleep, daily-health, or media import completion  | Existing affected read namespaces, metrics, and reports        |
-| Expense create, replace, or delete                         | Metrics and reports                                            |
+| Expense create, replace, or delete                         | Expenses, metrics, and reports                                 |
 | Media resolution that changes canonical media presentation | Media and reports                                              |
 | Geocode refresh that changes route enrichment              | Activities                                                     |
 | Future canonical mutation                                  | Explicit dependency entry required before the write path ships |

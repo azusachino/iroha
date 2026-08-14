@@ -154,6 +154,20 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
+func (s *Service) Dates() ([]time.Time, error) {
+	var dates []time.Time
+	err := s.db.Table(`(
+		select day from ` + dailySummariesTable + `
+		union
+		select day from ` + dailyMetricsTable + `
+	) as days`).
+		Select("day").Order("day desc").Scan(&dates).Error
+	if dates == nil {
+		dates = []time.Time{}
+	}
+	return dates, err
+}
+
 func (s *Service) MetricValues(ctx context.Context, metric string, from, to time.Time) ([]MetricValue, error) {
 	var values []MetricValue
 	if column, unit, ok := summaryMetricColumn(metric); ok {
@@ -233,7 +247,7 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		query = query.Where("days.day >= ?", *filters.From)
 	}
 	if filters.To != nil {
-		query = query.Where("days.day <= ?", *filters.To)
+		query = query.Where("days.day < ?", *filters.To)
 	}
 	if filters.Cursor != nil {
 		query = query.Where("(days.day, coalesce(s.id, anchor.id)) < (?, ?)", filters.Cursor.Day, filters.Cursor.ID)
@@ -267,7 +281,7 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 			q = q.Where("day >= ?", *filters.From)
 		}
 		if filters.To != nil {
-			q = q.Where("day <= ?", *filters.To)
+			q = q.Where("day < ?", *filters.To)
 		}
 		return q
 	}

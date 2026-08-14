@@ -5,7 +5,6 @@
   import { FileText, RefreshCw } from "@lucide/svelte";
   import {
     ApiError,
-    getMonthlyReport,
     getMonthlyReportSeries,
     type MonthlyReport,
     type MonthlyReportSeries,
@@ -47,12 +46,9 @@
     loading = true;
     error = null;
     try {
-      const [current, trend] = await Promise.all([
-        getMonthlyReport(requestedMonth),
-        getMonthlyReportSeries(requestedMonth),
-      ]);
+      const trend = await getMonthlyReportSeries(requestedMonth);
       if (version !== requestVersion) return;
-      report = current;
+      report = trend.current_report;
       series = trend;
     } catch (cause) {
       if (version !== requestVersion) return;

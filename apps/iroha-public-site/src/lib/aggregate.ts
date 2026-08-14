@@ -25,15 +25,24 @@ export function monthlyBuckets(activities: Activity[]): SummaryBucket[] {
         key,
         activity_count: 0,
         distance_m: 0,
+        distance_known_count: 0,
+        distance_unknown_count: 0,
         duration_s: 0,
+        elevation_gain_m: 0,
         moving_time_s: 0,
       };
       byKey.set(key, bucket);
     }
     bucket.activity_count += 1;
-    bucket.distance_m += activity.distance_m ?? 0;
+    if (activity.distance_m == null) bucket.distance_unknown_count += 1;
+    else {
+      bucket.distance_known_count += 1;
+      bucket.distance_m += activity.distance_m;
+    }
     bucket.duration_s += activity.duration_s ?? 0;
-    bucket.moving_time_s += activity.moving_time_s ?? 0;
+    bucket.elevation_gain_m += activity.elevation_gain_m ?? 0;
+    bucket.moving_time_s =
+      (bucket.moving_time_s ?? 0) + (activity.moving_time_s ?? 0);
   }
   return Array.from(byKey.values()).sort((a, b) => a.key.localeCompare(b.key));
 }

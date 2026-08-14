@@ -6,7 +6,7 @@
   import { Check, ListTodo } from "@lucide/svelte";
   import {
     getBriefing,
-    listDaily,
+    getDailyDates,
     listTasks,
     updateTask,
     type DailyRow,
@@ -194,8 +194,7 @@
 
   async function loadAvailableDays() {
     try {
-      const page = await listDaily({ limit: 100 });
-      availableDays = new Set(page.items.map((row) => row.day.slice(0, 10)));
+      availableDays = new Set(await getDailyDates());
     } catch {
       // The briefing remains useful even when the calendar index is unavailable.
     }

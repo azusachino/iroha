@@ -1,8 +1,23 @@
+<script module lang="ts">
+  import { getMetricCatalog, type MetricCatalogResponse } from "$lib/api";
+
+  let metricCatalogPromise: Promise<MetricCatalogResponse> | null = null;
+
+  function loadMetricCatalog(): Promise<MetricCatalogResponse> {
+    if (!metricCatalogPromise) {
+      metricCatalogPromise = getMetricCatalog().catch((cause) => {
+        metricCatalogPromise = null;
+        throw cause;
+      });
+    }
+    return metricCatalogPromise;
+  }
+</script>
+
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { tick } from "svelte";
-  import { getMetricCatalog } from "$lib/api";
   import { allNavigationItems } from "$lib/navigation";
 
   type Command = {
@@ -26,6 +41,7 @@
         : null;
     open = true;
     selected = 0;
+    void loadMetrics();
     await tick();
     listbox?.focus();
   }
@@ -72,7 +88,6 @@
 
     window.addEventListener("iroha:command-palette:toggle", onToggle);
     window.addEventListener("keydown", onKeydown);
-    void loadMetrics();
     return () => {
       window.removeEventListener("iroha:command-palette:toggle", onToggle);
       window.removeEventListener("keydown", onKeydown);
@@ -81,7 +96,7 @@
 
   async function loadMetrics() {
     try {
-      const catalog = await getMetricCatalog();
+      const catalog = await loadMetricCatalog();
       commands = [
         ...allNavigationItems(),
         ...catalog.metrics.map((metric) => ({

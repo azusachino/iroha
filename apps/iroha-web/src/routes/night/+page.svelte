@@ -3,25 +3,17 @@
   import { page } from "$app/state";
   import { onMount } from "svelte";
   import {
-    getSleepSegments,
     listSleep,
     listSleepAggregates,
     type SleepAggregateBucket,
-    type SleepSegment,
     type SleepSession,
   } from "$lib/api";
   import StatTile from "@iroha/shared/StatTile.svelte";
   import SleepScopeSummary from "@iroha/shared/theme-ui/components/SleepScopeSummary.svelte";
   import SleepArchitectureChart from "@iroha/shared/theme-ui/components/SleepArchitectureChart.svelte";
-  import SleepTimelineChart from "@iroha/shared/theme-ui/components/SleepTimelineChart.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import {
-    formatDate,
-    formatDateOnly,
-    formatDuration,
-    formatMonth,
-  } from "$lib/format";
+  import { formatDateOnly, formatDuration, formatMonth } from "$lib/format";
   import { currentYear } from "@iroha/shared/month";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -39,19 +31,16 @@
     : initialMonth.slice(0, 4) || currentYear();
   let sessions = $state<SleepSession[]>([]);
   let selected = $state<SleepSession | null>(null);
-  let segments = $state<SleepSegment[]>([]);
   let sessionsLoading = $state(true);
   let loadingMore = $state(false);
   let cursor = $state<string | null>(null);
   let hasMore = $state(false);
   let loadMoreSentinel = $state<HTMLDivElement>();
   let nightListContainer = $state<HTMLDivElement>();
-  let segmentCache = $state<Record<string, SleepSegment[]>>({});
-  let selectionRequest = 0;
-  let segmentsLoading = $state(false);
   let error = $state<string | null>(null);
   let yearBuckets = $state<SleepAggregateBucket[]>([]);
   let monthBuckets = $state<SleepAggregateBucket[]>([]);
+  let lifetimeBucket = $state<SleepAggregateBucket | null>(null);
   let aggregatesLoading = $state(true);
   let aggregatesError = $state<string | null>(null);
   let selectedYear = $state(initialYear);
@@ -130,56 +119,6 @@
         : null,
   );
   const isPeriodFiltered = $derived(selectedYear !== "");
-  function combineBuckets(
-    buckets: SleepAggregateBucket[],
-    period: string,
-  ): SleepAggregateBucket | null {
-    if (buckets.length === 0) return null;
-    const mainSleepCount = buckets.reduce(
-      (total, bucket) => total + bucket.main_sleep_count,
-      0,
-    );
-    const weightedAverage = (
-      field: "average_asleep_s" | "average_efficiency",
-    ) =>
-      mainSleepCount === 0
-        ? 0
-        : buckets.reduce(
-            (total, bucket) => total + bucket[field] * bucket.main_sleep_count,
-            0,
-          ) / mainSleepCount;
-    return {
-      period,
-      session_count: buckets.reduce(
-        (total, bucket) => total + bucket.session_count,
-        0,
-      ),
-      main_sleep_count: mainSleepCount,
-      nap_count: buckets.reduce((total, bucket) => total + bucket.nap_count, 0),
-      observed_wake_dates: buckets.reduce(
-        (total, bucket) => total + (bucket.observed_wake_dates ?? 0),
-        0,
-      ),
-      average_asleep_s: weightedAverage("average_asleep_s"),
-      average_time_in_bed_s:
-        mainSleepCount === 0
-          ? 0
-          : buckets.reduce(
-              (total, bucket) =>
-                total + bucket.average_time_in_bed_s * bucket.main_sleep_count,
-              0,
-            ) / mainSleepCount,
-      average_efficiency: weightedAverage("average_efficiency"),
-      core_s: buckets.reduce((total, bucket) => total + bucket.core_s, 0),
-      deep_s: buckets.reduce((total, bucket) => total + bucket.deep_s, 0),
-      rem_s: buckets.reduce((total, bucket) => total + bucket.rem_s, 0),
-      awake_s: buckets.reduce((total, bucket) => total + bucket.awake_s, 0),
-      unspecified_s: buckets.reduce(
-        (total, bucket) => total + bucket.unspecified_s,
-        0,
-      ),
-    };
-  }
   const sleepSummary = $derived.by<SleepAggregateBucket | null>(() => {
     if (selectedMonth !== "") {
       return (
@@ -195,7 +134,7 @@
         ) ?? null
       );
     }
-    return combineBuckets(yearBuckets, "lifetime");
+    return lifetimeBucket;
   });
   const sleepScope = $derived(selectedMonth || selectedYear || "Lifetime");
   const rollupGranularity = $derived<"month" | "year">(
@@ -277,39 +216,24 @@
     if (url.href !== window.location.href) replaceState(url, page.state);
   }
 
-  async function selectSession(session: SleepSession) {
-    const requestId = ++selectionRequest;
+  function selectSession(session: SleepSession) {
     selected = session;
-    segmentsLoading = true;
-    if (segmentCache[session.id]) {
-      segments = segmentCache[session.id];
-      segmentsLoading = false;
-      return;
-    }
-    try {
-      const loaded = await getSleepSegments(session.id);
-      if (requestId !== selectionRequest) return;
-      segmentCache[session.id] = loaded;
-      segments = loaded;
-    } catch (value) {
-      error = errorMessage(value);
-      segments = [];
-    } finally {
-      segmentsLoading = false;
-    }
   }
 
   function selectedRange(): { from?: string; to?: string } {
     if (selectedMonth !== "") {
       const [year, month] = selectedMonth.split("-").map(Number);
-      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      const nextMonth = new Date(Date.UTC(year, month, 1));
       return {
         from: `${selectedMonth}-01`,
-        to: `${selectedMonth}-${String(lastDay).padStart(2, "0")}`,
+        to: nextMonth.toISOString().slice(0, 10),
       };
     }
     if (selectedYear !== "")
-      return { from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` };
+      return {
+        from: `${selectedYear}-01-01`,
+        to: `${Number(selectedYear) + 1}-01-01`,
+      };
     return {};
   }
 
@@ -337,11 +261,8 @@
       cursor = page.next_cursor;
       hasMore = page.has_more;
       if (!append) {
-        if (page.items[0]) await selectSession(page.items[0]);
-        else {
-          selected = null;
-          segments = [];
-        }
+        if (page.items[0]) selectSession(page.items[0]);
+        else selected = null;
       }
     } catch (value) {
       if (requestId !== sessionsRequest) return;
@@ -385,12 +306,14 @@
     aggregatesLoading = true;
     aggregatesError = null;
     try {
-      const [years, months] = await Promise.all([
+      const [years, months, lifetime] = await Promise.all([
         listSleepAggregates("year"),
         listSleepAggregates("month"),
+        listSleepAggregates("lifetime"),
       ]);
       yearBuckets = years.buckets;
       monthBuckets = months.buckets;
+      lifetimeBucket = lifetime.buckets[0] ?? null;
       const validYears = new Set(
         yearBuckets.map((bucket) => bucket.period.slice(0, 4)),
       );
@@ -725,7 +648,7 @@
           <div>
             <p class="eyebrow">Drill down</p>
             <h2>{nightsHeading}</h2>
-            <p class="muted">Select a night to see the stage timeline.</p>
+            <p class="muted">Open a night to see its stage timeline.</p>
           </div>
           <span class="section-note"
             >{sessions.length}{hasMore ? "+" : ""} loaded · {sleepSummary?.session_count ??
@@ -770,14 +693,10 @@
                   : "Short session"}</span
               >
             </div>
-            {#if segmentsLoading}<p class="muted panel-loading">
-                Loading stages…
-              </p>{:else}<SleepTimelineChart {segments} />{/if}
-            <div class="timeline-axis">
-              <span>{formatDate(selected.started_at)}</span><span
-                >{formatDate(selected.ended_at)}</span
-              >
-            </div>
+            <p class="muted panel-loading">
+              Open this session to inspect its stage timeline.
+            </p>
+            <a href={`/night/${selected.id}`}>Open session details</a>
           </div>
         </div>
         {#if hasMore}
@@ -1208,8 +1127,7 @@
     border-radius: 10px;
     background: color-mix(in srgb, var(--surface-2) 25%, transparent);
   }
-  .timeline-meta,
-  .timeline-axis {
+  .timeline-meta {
     display: flex;
     justify-content: space-between;
     gap: 1rem;

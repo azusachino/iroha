@@ -204,7 +204,7 @@ func TestInvalidateChangeUsesDependencyMatrix(t *testing.T) {
 	if err := c.InvalidateChange(context.Background(), ChangeExpense); err != nil {
 		t.Fatalf("invalidate expense change: %v", err)
 	}
-	if got, want := store.namespaces, []string{NamespaceMetrics, NamespaceReports}; !equalStrings(got, want) {
+	if got, want := store.namespaces, []string{NamespaceExpenses, NamespaceMetrics, NamespaceReports}; !equalStrings(got, want) {
 		t.Fatalf("invalidated namespaces = %#v, want %#v", got, want)
 	}
 	if err := c.InvalidateChange(context.Background(), ChangeKind("unknown")); err == nil {

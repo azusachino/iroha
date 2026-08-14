@@ -29,11 +29,11 @@ explains that child importer work is tracked outside the personal queue.
 
 The buttons also disable while the same connector action is queued or running, preventing accidental duplicate syncs.
 
-## Live route audit — 2026-08-14
+## Live route audit — 2026-08-14 pre-fix baseline
 
-This is a fresh browser/network audit against `https://iroha.h.azusachino.icu` after the v0.4.1 cache deployment. Each canonical route was hard-navigated, the request log was cleared, the route was
-reloaded, and the settled trace was captured after 6.5 seconds. API URLs were replayed with `xh`; every captured API URL returned successfully. Cursor values and detail identifiers are intentionally
-omitted here.
+This is a historical browser/network audit against `https://iroha.h.azusachino.icu` after the v0.4.1 cache deployment and before the 2026-08-15 request/read correction. Each canonical route was
+hard-navigated, the request log was cleared, the route was reloaded, and the settled trace was captured after 6.5 seconds. API URLs were replayed with `xh`; every captured API URL returned
+successfully. Cursor values and detail identifiers are intentionally omitted here.
 
 The total includes JavaScript, stylesheets, images, and map tiles. It is not an API count. The stable overview trace was 57–60 total browser requests, not 83; 11 were API calls, 17–19 were
 OpenStreetMap tiles for one map, and the remainder were static assets. A higher browser counter can include a different initial chunk/cache state or a longer tile-settling window.
@@ -59,7 +59,7 @@ OpenStreetMap tiles for one map, and the remainder were static assets. A higher 
 
 The legacy `/activities`, `/daily`, `/dashboard`, `/media`, and `/sleep` routes are redirects and were not counted as separate pages.
 
-### Findings
+### Findings from the baseline
 
 1. **Global metric catalog fetch is unnecessary on most routes.** `CommandPalette.svelte` loads `/api/v1/metrics` during layout mount even while the palette is closed. This adds one request to every
    route; `/metrics` and `/admin` each fetch the same catalog twice. Load it when the palette opens or use one memoized client-side catalog promise.
@@ -94,13 +94,14 @@ This does not make the five-page walk a transactional snapshot. If canonical dat
 repeat a boundary item. That is acceptable for the single-user dashboard and the cache invalidation model; a future export/synchronization job that requires a frozen view should use an explicit
 snapshot/version token instead of treating the cursor as one.
 
-### Recommended implementation order
+### Corrective implementation status
 
-1. Lazy-load and memoize the command-palette metric catalog.
-2. Remove Motion’s summary-triggered duplicate and make filtered summary values server-derived.
-3. Replace Overview’s 500-row sweep with a bounded recent-activity/active-day projection.
-4. Add one cacheable expense dashboard/batch-series contract while preserving direct canonical expense reads.
-5. Add browser request-budget assertions for duplicate exact URLs and route-specific API ceilings, alongside API contract tests for filtered totals and the overview projection.
+1. Complete: the command-palette metric catalog is lazy and memoized while the palette is closed.
+2. Complete: Motion has separate list/summary effects and filtered totals come from the server summary contract.
+3. Complete: Overview uses one server-owned activity projection instead of a 500-row sweep; sleep uses a server-owned projection.
+4. Complete: expense metric dimensions are batched per metric request, canonical expense source rows are loaded once, and direct GET reads are cacheable.
+5. Complete: reports return one v2 series response with the current report embedded; date coverage, lifetime sleep aggregation, and half-open range semantics are server-owned.
+6. Verification remaining for this branch: rerun a live browser/network capture after deployment and compare it with the request budgets below. This code pass is not yet deployed.
 
 ## Regression checks
 
@@ -111,26 +112,31 @@ make web-visual-check BASE=https://iroha.h.azusachino.icu THEME=field-journal RO
 agent-browser --session iroha-visual network requests --json
 ```
 
-For a local frontend, run `make web-dev` first and point the same command at `http://127.0.0.1:5173`. The current post-fix request expectations remain:
+For a local frontend, run `make web-dev` first and point the same command at `http://127.0.0.1:5173`. The corrected implementation's expected initial API requests are:
 
-| Route       | Initial API requests |
-| ----------- | -------------------: |
-| `/`         |                    3 |
-| `/overview` |                    6 |
-| `/motion`   |                    2 |
-| `/patterns` |                    2 |
-| `/design`   |                    1 |
-| `/library`  |                    2 |
-| `/night`    |                    4 |
-| `/to-go`    |                    2 |
+| Route       | Initial API requests | Expected reads                                                            |
+| ----------- | -------------------: | ------------------------------------------------------------------------- |
+| `/`         |                    3 | briefing, daily date coverage, open tasks                                 |
+| `/overview` |                    4 | activity overview, routes, sleep overview, media aggregates               |
+| `/motion`   |                    4 | activity page, filtered summary, distance series, duration series         |
+| `/patterns` |                    2 | selected-month daily aggregate, latest daily row                          |
+| `/design`   |                    1 | briefing                                                                  |
+| `/library`  |                    2 | media aggregate, first media page                                         |
+| `/night`    |                    4 | sleep page, year aggregate, month aggregate, lifetime aggregate           |
+| `/expenses` |                    5 | canonical expense pages, amount/count month series, daily/category series |
+| `/reports`  |                    1 | monthly-report-series.v2                                                  |
+| `/metrics`  |                    2 | metric catalog, selected metric series                                    |
+| `/admin`    |                    2 | metric catalog, jobs                                                      |
+| `/manual`   |                    0 | static manual content                                                     |
+| `/to-go`    |                    3 | personal tasks, top-level sync jobs, open resolution tasks                |
 
 ## Read cache boundary
 
-The v0.4.1 server cache-aside layer covers successful GET responses under /api/v1/briefing, /activities, /sleep, /daily, /media, /metrics, and /reports. Direct expense records remain live canonical
-reads and are intentionally uncached; derived expense metric series and reports are cached. Keys include the method, path, canonical encoded query string, response version, aggregation version where
-applicable, and the server's effective timezone, so repeated exact reads cannot reuse a representation from another calendar interpretation. The cache is best effort with a 24-hour safety TTL;
-successful canonical mutations advance their dependent namespaces after commit. Generation-safe writes prevent in-flight pre-mutation responses from repopulating a post-mutation namespace, and a known
-invalidation failure makes that namespace bypass cache reads until recovery. Tasks, jobs, raw files, imports, sync actions, and other mutations are intentionally live. X-Iroha-Cache: HIT|MISS|BYPASS
-is available for browser and deployment verification. See [the cache and aggregation plan](plans/2026-08-14-iroha-0.4.1-cache-and-aggregation.md).
+The v0.4.1 server cache-aside layer covers successful GET responses under /api/v1/briefing, /activities, /sleep, /daily, /media, /metrics, /reports, and /expenses. Direct expense records remain
+canonical reads and are cached under `read_expenses`; derived expense metric series and reports are cached under their respective namespaces. Keys include the method, path, canonical encoded query
+string, response version, aggregation version where applicable, and the server's effective timezone, so repeated exact reads cannot reuse a representation from another calendar interpretation. The
+cache is best effort with a 24-hour safety TTL; successful canonical mutations advance their dependent namespaces after commit. Generation-safe writes prevent in-flight pre-mutation responses from
+repopulating a post-mutation namespace, and a known invalidation failure makes that namespace bypass cache reads until recovery. Tasks, jobs, raw files, imports, sync actions, and other mutations are
+intentionally live. X-Iroha-Cache: HIT|MISS|BYPASS is available for browser and deployment verification. See [the cache and aggregation plan](plans/2026-08-14-iroha-0.4.1-cache-and-aggregation.md).
 
 API URL coverage remains in `src/lib/api.test.ts`; the normal `make check` gate covers type checking, formatting, backend tests, and frontend tests.

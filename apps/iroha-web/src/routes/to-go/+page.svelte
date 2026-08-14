@@ -28,6 +28,8 @@
   let loading = $state(true);
   let saving = $state(false);
   let error = $state<string | null>(null);
+  let pollTimer: number | null = null;
+  let pollDelay = 4000;
 
   const activeJobs = $derived(
     jobs.filter((job) => job.status === "queued" || job.status === "running"),
@@ -37,12 +39,38 @@
   );
 
   onMount(() => {
-    void load();
-    const timer = window.setInterval(() => {
-      if (activeJobs.length) void loadJobs();
-    }, 4000);
-    return () => window.clearInterval(timer);
+    const onVisibilityChange = () => {
+      pollDelay = 4000;
+      schedulePolling();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    void load().finally(schedulePolling);
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   });
+
+  function stopPolling() {
+    if (pollTimer != null) {
+      window.clearTimeout(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function schedulePolling() {
+    stopPolling();
+    if (document.visibilityState === "hidden" || activeJobs.length === 0)
+      return;
+    pollTimer = window.setTimeout(async () => {
+      pollTimer = null;
+      await loadJobs();
+      pollDelay = activeJobs.length
+        ? Math.min(Math.round(pollDelay * 1.5), 30_000)
+        : 4000;
+      schedulePolling();
+    }, pollDelay);
+  }
 
   async function load() {
     loading = true;
@@ -118,6 +146,7 @@
     try {
       const job = await triggerAction(action);
       jobs = [job, ...jobs.filter((item) => item.id !== job.id)];
+      schedulePolling();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     }

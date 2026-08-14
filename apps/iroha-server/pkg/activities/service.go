@@ -76,7 +76,7 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		query = query.Where("started_at >= ?", *filters.StartedFrom)
 	}
 	if filters.StartedTo != nil {
-		query = query.Where("started_at <= ?", *filters.StartedTo)
+		query = query.Where("started_at < ?", *filters.StartedTo)
 	}
 	if filters.StartedBefore != nil {
 		query = query.Where("started_at < ?", *filters.StartedBefore)
@@ -159,6 +159,22 @@ type Summary struct {
 	BySport []SummaryBucket `json:"by_sport"`
 }
 
+type ActiveDay struct {
+	Day           string `json:"day"`
+	ActivityCount int    `json:"activity_count"`
+}
+
+// Overview is the server-owned projection used by the cockpit dashboard. It
+// keeps the heatmap and recent list from having to sweep the activity ledger.
+// Recent remains as canonical rows; the HTTP layer is responsible for its
+// private DTO mapping.
+type Overview struct {
+	Summary       Summary
+	ActiveDays    []ActiveDay
+	Recent        []models.Activity
+	CurrentStreak int
+}
+
 const summaryMetrics = "count(*) as activity_count, " +
 	"coalesce(sum(distance_m), 0) as distance_m, " +
 	"count(*) filter (where distance_m is not null) as distance_known_count, " +
@@ -166,15 +182,27 @@ const summaryMetrics = "count(*) as activity_count, " +
 	"coalesce(sum(duration_s), 0) as duration_s, " +
 	"coalesce(sum(elevation_gain_m), 0) as elevation_gain_m"
 
-// Summary computes aggregate totals overall and grouped by year, month, and
-// sport. Year/month are derived in the database session timezone (approximate
-// for the public rollup; not tied to each activity's own timezone).
+// Summary computes aggregate totals in UTC for callers without an explicit
+// display timezone. HTTP callers should use SummaryInTimezone so calendar
+// buckets match the user's canonical period controls.
 func (s *Service) Summary(year, sport string) (Summary, error) {
+	return s.SummaryInTimezone(year, sport, "UTC")
+}
+
+// SummaryInTimezone computes aggregate totals grouped in the requested IANA
+// timezone. The activity instants remain canonical; only their calendar
+// presentation bucket changes.
+func (s *Service) SummaryInTimezone(year, sport, timezone string) (Summary, error) {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return Summary{}, fmt.Errorf("load timezone: %w", err)
+	}
+	zone := location.String()
 	base := func() *gorm.DB { return s.db.Model(&models.Activity{}) }
 	filtered := func() *gorm.DB {
 		db := base()
 		if year != "" {
-			db = db.Where("to_char(started_at, 'YYYY') = ?", year)
+			db = db.Where("to_char(started_at AT TIME ZONE ?, 'YYYY') = ?", zone, year)
 		}
 		if sport != "" {
 			db = db.Where("sport_type = ?", sport)
@@ -187,22 +215,30 @@ func (s *Service) Summary(year, sport string) (Summary, error) {
 		return Summary{}, fmt.Errorf("summary totals: %w", err)
 	}
 
+	byYearScope := base()
+	if sport != "" {
+		byYearScope = byYearScope.Where("sport_type = ?", sport)
+	}
 	var byYear []SummaryBucket
-	if err := base().
-		Select("extract(year from started_at)::text as key, " + summaryMetrics).
+	if err := byYearScope.
+		Select("to_char(started_at AT TIME ZONE ?, 'YYYY') as key, "+summaryMetrics, zone).
 		Group("key").Order("key desc").Scan(&byYear).Error; err != nil {
 		return Summary{}, fmt.Errorf("summary by year: %w", err)
 	}
 
 	var byMonth []SummaryBucket
 	if err := filtered().
-		Select("to_char(started_at, 'YYYY-MM') as key, " + summaryMetrics).
+		Select("to_char(started_at AT TIME ZONE ?, 'YYYY-MM') as key, "+summaryMetrics, zone).
 		Group("key").Order("key desc").Scan(&byMonth).Error; err != nil {
 		return Summary{}, fmt.Errorf("summary by month: %w", err)
 	}
 
+	bySportScope := base()
+	if year != "" {
+		bySportScope = bySportScope.Where("to_char(started_at AT TIME ZONE ?, 'YYYY') = ?", zone, year)
+	}
 	var bySport []SummaryBucket
-	if err := filtered().
+	if err := bySportScope.
 		Select("sport_type as key, " + summaryMetrics).
 		Group("sport_type").Order("activity_count desc").Scan(&bySport).Error; err != nil {
 		return Summary{}, fmt.Errorf("summary by sport: %w", err)
@@ -260,24 +296,33 @@ func (s *Service) Summary(year, sport string) (Summary, error) {
 		if activity.DistanceM == nil {
 			continue
 		}
-		yearKey := activity.StartedAt.Format("2006")
-		monthKey := activity.StartedAt.Format("2006-01")
-		if i, ok := byYearIndex[yearKey]; ok {
-			byYear[i].DistanceM += *activity.DistanceM
-			byYear[i].DistanceKnownCount++
-			byYear[i].DistanceUnknownCount--
+		localStartedAt := activity.StartedAt.In(location)
+		yearKey := localStartedAt.Format("2006")
+		monthKey := localStartedAt.Format("2006-01")
+		inYear := year == "" || yearKey == year
+		inSport := sport == "" || activity.SportType == sport
+		if inSport {
+			if i, ok := byYearIndex[yearKey]; ok {
+				byYear[i].DistanceM += *activity.DistanceM
+				byYear[i].DistanceKnownCount++
+				byYear[i].DistanceUnknownCount--
+			}
 		}
-		if (year == "" || yearKey == year) && (sport == "" || activity.SportType == sport) {
+		if inYear && inSport {
 			if i, ok := byMonthIndex[monthKey]; ok {
 				byMonth[i].DistanceM += *activity.DistanceM
 				byMonth[i].DistanceKnownCount++
 				byMonth[i].DistanceUnknownCount--
 			}
+		}
+		if inYear {
 			if i, ok := bySportIndex[activity.SportType]; ok {
 				bySport[i].DistanceM += *activity.DistanceM
 				bySport[i].DistanceKnownCount++
 				bySport[i].DistanceUnknownCount--
 			}
+		}
+		if inYear && inSport {
 			totals.DistanceKnownCount++
 			totals.DistanceUnknownCount--
 			totals.DistanceM += *activity.DistanceM
@@ -287,23 +332,80 @@ func (s *Service) Summary(year, sport string) (Summary, error) {
 		if activity.ElevationGainM == nil {
 			continue
 		}
-		yearKey := activity.StartedAt.Format("2006")
-		monthKey := activity.StartedAt.Format("2006-01")
-		if i, ok := byYearIndex[yearKey]; ok {
-			byYear[i].ElevationGainM += *activity.ElevationGainM
+		localStartedAt := activity.StartedAt.In(location)
+		yearKey := localStartedAt.Format("2006")
+		monthKey := localStartedAt.Format("2006-01")
+		inYear := year == "" || yearKey == year
+		inSport := sport == "" || activity.SportType == sport
+		if inSport {
+			if i, ok := byYearIndex[yearKey]; ok {
+				byYear[i].ElevationGainM += *activity.ElevationGainM
+			}
 		}
-		if (year == "" || yearKey == year) && (sport == "" || activity.SportType == sport) {
+		if inYear && inSport {
 			if i, ok := byMonthIndex[monthKey]; ok {
 				byMonth[i].ElevationGainM += *activity.ElevationGainM
 			}
+		}
+		if inYear {
 			if i, ok := bySportIndex[activity.SportType]; ok {
 				bySport[i].ElevationGainM += *activity.ElevationGainM
 			}
+		}
+		if inYear && inSport {
 			totals.ElevationGainM += *activity.ElevationGainM
 		}
 	}
 
 	return Summary{Totals: totals, ByYear: byYear, ByMonth: byMonth, BySport: bySport}, nil
+}
+
+func (s *Service) Overview(timezone string, recentLimit int) (Overview, error) {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return Overview{}, fmt.Errorf("load timezone: %w", err)
+	}
+	if recentLimit <= 0 || recentLimit > 100 {
+		recentLimit = 5
+	}
+
+	summary, err := s.SummaryInTimezone("", "", timezone)
+	if err != nil {
+		return Overview{}, err
+	}
+	recent, err := s.List(ListFilters{Limit: recentLimit})
+	if err != nil {
+		return Overview{}, fmt.Errorf("overview recent activities: %w", err)
+	}
+
+	var activeDays []ActiveDay
+	if err := s.db.Model(&models.Activity{}).
+		Select("to_char(started_at AT TIME ZONE ?, 'YYYY-MM-DD') as day, count(*) as activity_count", location.String()).
+		Group("day").Order("day desc").Scan(&activeDays).Error; err != nil {
+		return Overview{}, fmt.Errorf("overview active days: %w", err)
+	}
+	if activeDays == nil {
+		activeDays = []ActiveDay{}
+	}
+
+	active := make(map[string]struct{}, len(activeDays))
+	for _, day := range activeDays {
+		active[day.Day] = struct{}{}
+	}
+	streak := 0
+	for day := time.Now().In(location); ; day = day.AddDate(0, 0, -1) {
+		if _, ok := active[day.Format("2006-01-02")]; !ok {
+			break
+		}
+		streak++
+	}
+
+	return Overview{
+		Summary:       summary,
+		ActiveDays:    activeDays,
+		Recent:        recent.Items,
+		CurrentStreak: streak,
+	}, nil
 }
 
 // PeriodFilters defines an activity report window. From is inclusive and To

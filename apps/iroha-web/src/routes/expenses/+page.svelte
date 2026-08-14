@@ -112,7 +112,7 @@
     error = null;
     try {
       const bounds = monthBounds(selectedMonth);
-      const monthExpenses = await listAllExpenses({
+      const expensesRequest = listAllExpenses({
         from: bounds.from,
         to: bounds.to,
         currency: (filterCurrency || undefined) as ExpenseCurrency | undefined,
@@ -126,20 +126,24 @@
       )
         ? [filterCategory as ExpenseCategory]
         : [];
-      const [currenciesForMonth, countsForCurrency] = await Promise.all([
-        getMetricSeries("expenses.amount_minor", {
-          from: bounds.from,
-          to: bounds.to,
-          grain: "month",
-          dimensions: metricDimensions(chartCurrencies, selectedCategory),
-        }),
-        getMetricSeries("expenses.count", {
-          from: bounds.from,
-          to: bounds.to,
-          grain: "month",
-          dimensions: metricDimensions(chartCurrencies, selectedCategory),
-        }),
-      ]);
+      const [monthExpenses, [currenciesForMonth, countsForCurrency]] =
+        await Promise.all([
+          expensesRequest,
+          Promise.all([
+            getMetricSeries("expenses.amount_minor", {
+              from: bounds.from,
+              to: bounds.to,
+              grain: "month",
+              dimensions: metricDimensions(chartCurrencies, selectedCategory),
+            }),
+            getMetricSeries("expenses.count", {
+              from: bounds.from,
+              to: bounds.to,
+              grain: "month",
+              dimensions: metricDimensions(chartCurrencies, selectedCategory),
+            }),
+          ]),
+        ]);
       const chartCurrency = (filterCurrency ||
         currenciesForMonth.series.find(
           (_, index) => seriesPointValue(currenciesForMonth, index) != null,

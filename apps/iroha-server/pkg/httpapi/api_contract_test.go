@@ -24,6 +24,7 @@ func TestActiveRouteInventory(t *testing.T) {
 
 	want := []string{
 		"GET /api/v1/activities",
+		"GET /api/v1/activities/overview",
 		"GET /api/v1/activities/routes",
 		"GET /api/v1/activities/summary",
 		"GET /api/v1/activities/{activityId}",
@@ -33,6 +34,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/briefing",
 		"GET /api/v1/daily",
 		"GET /api/v1/daily/aggregates",
+		"GET /api/v1/daily/dates",
 		"GET /api/v1/expenses",
 		"GET /api/v1/expenses/{expenseId}",
 		"GET /api/v1/imports",
@@ -52,6 +54,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/reports/monthly",
 		"GET /api/v1/reports/monthly-series",
 		"GET /api/v1/sleep",
+		"GET /api/v1/sleep/overview",
 		"GET /api/v1/sleep/aggregates",
 		"GET /api/v1/sleep/{sleepId}",
 		"GET /api/v1/sleep/{sleepId}/segments",
@@ -230,6 +233,8 @@ func exampleRequiredFields(schema string) []string {
 		return []string{"items", "next_cursor", "has_more", "status_counts", "active_count"}
 	case "SleepAggregateResponse":
 		return []string{"granularity", "buckets"}
+	case "SleepOverview":
+		return []string{"session_count", "main_sleep_count", "average_asleep_s", "average_efficiency"}
 	case "MetricCatalog":
 		return []string{"schema", "metrics"}
 	case "MetricSeries":

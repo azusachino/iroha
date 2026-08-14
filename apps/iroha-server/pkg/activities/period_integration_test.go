@@ -55,6 +55,57 @@ func TestPeriodReportUsesRequestedHalfOpenWindowAndSportOrder(t *testing.T) {
 	}
 }
 
+func TestSummaryUsesRequestedTimezoneAndKeepsFacetsUsefulForFilters(t *testing.T) {
+	db := openActivitiesIntegrationDB(t)
+	rawID := uuid.New()
+	createdAt := time.Now().UTC()
+	if err := db.Create(&models.RawFile{
+		ID: rawID, SHA256: "activities-summary-facets-" + rawID.String(), OriginalFilename: "summary.gpx",
+		StoragePath: "/tmp/summary.gpx", SourceKind: "gpx", UploadedVia: "test", CreatedAt: createdAt,
+	}).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	t.Cleanup(func() { db.Exec("delete from tb_raw_files where id = ?", rawID) })
+
+	runJanuary := 1000.0
+	runFebruary := 2000.0
+	bikeJanuary := 3000.0
+	rows := []models.Activity{
+		// 15:00 UTC is the following calendar day in Tokyo.
+		{ID: uuid.New(), SportType: "run", StartedAt: time.Date(2098, time.December, 31, 15, 0, 0, 0, time.UTC), DistanceM: &runJanuary, SourceKind: "gpx", FirstRawFileID: rawID, CreatedAt: createdAt, UpdatedAt: createdAt},
+		{ID: uuid.New(), SportType: "bike", StartedAt: time.Date(2098, time.December, 31, 15, 0, 0, 0, time.UTC), DistanceM: &bikeJanuary, SourceKind: "gpx", FirstRawFileID: rawID, CreatedAt: createdAt, UpdatedAt: createdAt},
+		{ID: uuid.New(), SportType: "run", StartedAt: time.Date(2099, time.January, 31, 15, 0, 0, 0, time.UTC), DistanceM: &runFebruary, SourceKind: "gpx", FirstRawFileID: rawID, CreatedAt: createdAt, UpdatedAt: createdAt},
+	}
+	for _, row := range rows {
+		if err := db.Create(&row).Error; err != nil {
+			t.Fatalf("create activity: %v", err)
+		}
+		t.Cleanup(func() { db.Exec("delete from tb_activities where id = ?", row.ID) })
+	}
+
+	summary, err := NewService(db).SummaryInTimezone("2099", "run", "Asia/Tokyo")
+	if err != nil {
+		t.Fatalf("summary: %v", err)
+	}
+	if summary.Totals.ActivityCount != 2 || summary.Totals.DistanceM != 3000 {
+		t.Fatalf("summary totals = %+v", summary.Totals)
+	}
+	if len(summary.ByMonth) != 2 || summary.ByMonth[0].Key != "2099-02" || summary.ByMonth[1].Key != "2099-01" {
+		t.Fatalf("summary months = %+v", summary.ByMonth)
+	}
+	if len(summary.BySport) != 2 {
+		t.Fatalf("summary sports = %+v", summary.BySport)
+	}
+	for _, bucket := range summary.BySport {
+		if bucket.Key == "bike" && bucket.ActivityCount != 1 {
+			t.Fatalf("bike facet = %+v", bucket)
+		}
+		if bucket.Key == "run" && bucket.ActivityCount != 2 {
+			t.Fatalf("run facet = %+v", bucket)
+		}
+	}
+}
+
 func openActivitiesIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("DATABASE_URL")

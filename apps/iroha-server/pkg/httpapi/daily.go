@@ -67,6 +67,20 @@ func (s *Server) handleListDaily(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (s *Server) handleDailyDates(w http.ResponseWriter, _ *http.Request) {
+	dates, err := s.deps.DailyService.Dates()
+	if err != nil {
+		s.deps.Logger.Error("list daily dates", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to list daily dates")
+		return
+	}
+	response := make([]string, 0, len(dates))
+	for _, date := range dates {
+		response = append(response, formatCalendarDate(date))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 type dailyAggregateResponse struct {
 	Granularity string                         `json:"granularity"`
 	Buckets     []dailyAggregateBucketResponse `json:"buckets"`
@@ -214,6 +228,9 @@ func formatCalendarDate(value time.Time) string {
 }
 
 func formatAggregatePeriod(value time.Time, granularity string) string {
+	if granularity == "lifetime" {
+		return "lifetime"
+	}
 	if granularity == "year" {
 		return value.Format("2006")
 	}

@@ -34,6 +34,7 @@ const (
 	NamespaceMedia            = "read_media"
 	NamespaceMetrics          = "read_metrics"
 	NamespaceReports          = "read_reports"
+	NamespaceExpenses         = "read_expenses"
 	NamespacePublicSummary    = "public_summary"
 	NamespacePublicActivities = "public_activities"
 	NamespacePublicRoutes     = "public_routes"
@@ -62,6 +63,7 @@ var changeNamespaces = map[ChangeKind][]string{
 		NamespacePublicRoutes,
 	},
 	ChangeExpense: {
+		NamespaceExpenses,
 		NamespaceMetrics,
 		NamespaceReports,
 	},

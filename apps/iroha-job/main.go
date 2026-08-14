@@ -115,7 +115,7 @@ func main() {
 	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
 
 	jobsService = jobs.NewService(db, logger, registry.Handlers())
-	geocodeService := geocode.NewService(db, nil, nil)
+	geocodeService := geocode.NewService(db, nil, cacheClient)
 	jobs.Register(registry, jobs.KindGeocodeRefresh, func(ctx context.Context, payload geocode.RefreshPayload) error {
 		return geocodeService.Refresh(ctx, payload)
 	})

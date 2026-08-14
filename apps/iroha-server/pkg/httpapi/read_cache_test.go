@@ -262,13 +262,16 @@ func TestReadCacheCachesReportResponses(t *testing.T) {
 func TestReadCacheSkipsMutationsAndUnrelatedPaths(t *testing.T) {
 	server := &Server{deps: Dependencies{Cache: cache.NewWithStore(&readCacheTestStore{})}}
 	for _, method := range []string{http.MethodPost, http.MethodGet} {
-		for _, path := range []string{"/api/v1/media/sync/anilist", "/api/v1/activitiesfoo", "/api/v1/expenses"} {
+		for _, path := range []string{"/api/v1/media/sync/anilist", "/api/v1/activitiesfoo"} {
 			request := httptest.NewRequest(method, path, nil)
 			namespace, ok := readCacheNamespace(request)
 			if ok {
 				t.Fatalf("%s %s classified as cacheable namespace %q", method, path, namespace)
 			}
 		}
+	}
+	if namespace, ok := readCacheNamespace(httptest.NewRequest(http.MethodGet, "/api/v1/expenses?from=2026-08-01", nil)); !ok || namespace != cache.NamespaceExpenses {
+		t.Fatalf("GET expenses classified as %q/%t, want %q/true", namespace, ok, cache.NamespaceExpenses)
 	}
 	for _, path := range []string{"/api/v1/reports/monthly", "/api/v1/reports/monthly-series"} {
 		namespace, ok := readCacheNamespace(httptest.NewRequest(http.MethodGet, path, nil))

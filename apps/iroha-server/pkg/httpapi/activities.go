@@ -19,6 +19,13 @@ type activityListResponse struct {
 	HasMore    bool               `json:"has_more"`
 }
 
+type activityOverviewResponse struct {
+	Summary       activities.Summary     `json:"summary"`
+	ActiveDays    []activities.ActiveDay `json:"active_days"`
+	Recent        []activityResponse     `json:"recent"`
+	CurrentStreak int                    `json:"current_streak"`
+}
+
 type activityResponse struct {
 	ID               string     `json:"id"`
 	SportType        string     `json:"sport_type"`
@@ -202,13 +209,57 @@ func (s *Server) handleGetActivityLaps(w http.ResponseWriter, r *http.Request) {
 // /public/v1 query logic) since the aggregates it builds carry no private
 // fields to begin with — there's nothing left to sanitize away.
 func (s *Server) handleActivitySummary(w http.ResponseWriter, r *http.Request) {
-	summary, err := publicexport.Summary(s.deps.ActivityService, r.URL.Query().Get("year"), r.URL.Query().Get("sport"))
+	timezone := r.URL.Query().Get("timezone")
+	if timezone == "" {
+		timezone = s.deps.Config.Server.Timezone
+	}
+	summary, err := s.deps.ActivityService.SummaryInTimezone(r.URL.Query().Get("year"), r.URL.Query().Get("sport"), timezone)
 	if err != nil {
+		if strings.Contains(err.Error(), "load timezone") {
+			writeError(w, http.StatusBadRequest, "invalid timezone")
+			return
+		}
 		s.deps.Logger.Error("activity summary", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to load summary")
 		return
 	}
 	writeJSON(w, http.StatusOK, summary)
+}
+
+func (s *Server) handleActivityOverview(w http.ResponseWriter, r *http.Request) {
+	timezone := r.URL.Query().Get("timezone")
+	if timezone == "" {
+		timezone = s.deps.Config.Server.Timezone
+	}
+	recentLimit := 5
+	if value := r.URL.Query().Get("recent"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 || parsed > 100 {
+			writeError(w, http.StatusBadRequest, "invalid recent")
+			return
+		}
+		recentLimit = parsed
+	}
+	overview, err := s.deps.ActivityService.Overview(timezone, recentLimit)
+	if err != nil {
+		if strings.Contains(err.Error(), "load timezone") {
+			writeError(w, http.StatusBadRequest, "invalid timezone")
+			return
+		}
+		s.deps.Logger.Error("activity overview", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load activity overview")
+		return
+	}
+	recent := make([]activityResponse, 0, len(overview.Recent))
+	for _, activity := range overview.Recent {
+		recent = append(recent, toActivityResponse(activity))
+	}
+	writeJSON(w, http.StatusOK, activityOverviewResponse{
+		Summary:       overview.Summary,
+		ActiveDays:    overview.ActiveDays,
+		Recent:        recent,
+		CurrentStreak: overview.CurrentStreak,
+	})
 }
 
 func (s *Server) handleActivityRoutes(w http.ResponseWriter, r *http.Request) {

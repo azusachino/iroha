@@ -3,6 +3,7 @@ import {
   listActivities,
   listAllActivities,
   listDaily,
+  getDailyDates,
   listAllDaily,
   getMediaAggregates,
   getMedia,
@@ -12,6 +13,8 @@ import {
   getActivitySamplings,
   getActivityLaps,
   getSleep,
+  getSleepOverview,
+  getActivityOverview,
   getActivitySummary,
   getActivityRoutes,
   listTasks,
@@ -42,6 +45,7 @@ import {
   type SamplingPoint,
   type Lap,
   type Summary,
+  type ActivityOverview,
   type RouteFeatureCollection,
 } from "./api";
 
@@ -194,6 +198,12 @@ describe("control room API", () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch({});
     await getSleep("sleep_1", fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/sleep/sleep_1");
+  });
+
+  it("requests the server-owned sleep overview projection", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getSleepOverview({ recent: 30 }, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/sleep/overview?recent=30");
   });
 
   it("requests a monthly report for the selected month", async () => {
@@ -507,6 +517,12 @@ describe("listAllDaily", () => {
     expect(getCapturedUrl()).toContain("/api/v1/daily");
     expect(getCapturedUrl()).toContain("limit=24");
   });
+
+  it("requests the canonical daily date index", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch(["2026-08-15"]);
+    await getDailyDates(fakeFetch);
+    expect(getCapturedUrl()).toBe("/api/v1/daily/dates");
+  });
 });
 
 describe("getMediaAggregates", () => {
@@ -712,8 +728,10 @@ describe("getActivitySummary", () => {
       totals: {
         activity_count: 0,
         distance_m: 0,
+        distance_known_count: 0,
+        distance_unknown_count: 0,
         duration_s: 0,
-        moving_time_s: 0,
+        elevation_gain_m: 0,
       },
       by_year: [],
       by_month: [],
@@ -731,16 +749,20 @@ describe("getActivitySummary", () => {
       totals: {
         activity_count: 10,
         distance_m: 50000,
+        distance_known_count: 10,
+        distance_unknown_count: 0,
         duration_s: 18000,
-        moving_time_s: 0,
+        elevation_gain_m: 0,
       },
       by_year: [
         {
           key: "2026",
           activity_count: 10,
           distance_m: 50000,
+          distance_known_count: 10,
+          distance_unknown_count: 0,
           duration_s: 18000,
-          moving_time_s: 0,
+          elevation_gain_m: 0,
         },
       ],
       by_month: [
@@ -748,8 +770,10 @@ describe("getActivitySummary", () => {
           key: "2026-07",
           activity_count: 5,
           distance_m: 25000,
+          distance_known_count: 5,
+          distance_unknown_count: 0,
           duration_s: 9000,
-          moving_time_s: 0,
+          elevation_gain_m: 0,
         },
       ],
       by_sport: [
@@ -757,8 +781,10 @@ describe("getActivitySummary", () => {
           key: "run",
           activity_count: 8,
           distance_m: 40000,
+          distance_known_count: 8,
+          distance_unknown_count: 0,
           duration_s: 14000,
-          moving_time_s: 0,
+          elevation_gain_m: 0,
         },
       ],
     };
@@ -773,8 +799,10 @@ describe("getActivitySummary", () => {
       totals: {
         activity_count: 0,
         distance_m: 0,
+        distance_known_count: 0,
+        distance_unknown_count: 0,
         duration_s: 0,
-        moving_time_s: 0,
+        elevation_gain_m: 0,
       },
       by_year: [],
       by_month: [],
@@ -786,6 +814,40 @@ describe("getActivitySummary", () => {
     const url = getCapturedUrl();
     expect(url).toContain("year=2025");
     expect(url).toContain("sport=run");
+  });
+});
+
+describe("getActivityOverview", () => {
+  it("encodes the projection controls and returns the canonical shape", async () => {
+    const mockOverview: ActivityOverview = {
+      summary: {
+        totals: {
+          activity_count: 1,
+          distance_m: 1000,
+          distance_known_count: 1,
+          distance_unknown_count: 0,
+          duration_s: 600,
+          elevation_gain_m: 0,
+        },
+        by_year: [],
+        by_month: [],
+        by_sport: [],
+      },
+      active_days: [{ day: "2026-08-15", activity_count: 1 }],
+      recent: [],
+      current_streak: 1,
+    };
+    const { fakeFetch, getCapturedUrl } = createFakeFetch(mockOverview);
+
+    const result = await getActivityOverview(
+      { recent: 5, timezone: "Asia/Tokyo" },
+      fakeFetch,
+    );
+
+    expect(result).toEqual(mockOverview);
+    expect(getCapturedUrl()).toContain("/api/v1/activities/overview");
+    expect(getCapturedUrl()).toContain("recent=5");
+    expect(getCapturedUrl()).toContain("timezone=Asia%2FTokyo");
   });
 });
 

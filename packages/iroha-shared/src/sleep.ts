@@ -43,11 +43,19 @@ export interface SleepAggregateBucket {
 }
 
 export interface SleepAggregates {
-  granularity: "month" | "year";
+  granularity: "month" | "year" | "lifetime";
   buckets: SleepAggregateBucket[];
 }
 
+export interface SleepOverview {
+  session_count: number;
+  main_sleep_count: number;
+  average_asleep_s: number;
+  average_efficiency: number;
+}
+
 export interface ListSleepParams {
+  // Canonical calendar range: from inclusive, to exclusive.
   from?: string;
   to?: string;
   limit?: number;
