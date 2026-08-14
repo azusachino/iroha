@@ -191,6 +191,10 @@
     display: grid;
     gap: 1rem;
     font-family: var(--font-mono);
+    min-width: 0;
+  }
+  .grapher-dashboard > * {
+    min-width: 0;
   }
   .dashboard-header {
     display: flex;

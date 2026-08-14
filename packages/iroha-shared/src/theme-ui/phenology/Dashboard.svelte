@@ -214,10 +214,14 @@
     display: grid;
     gap: 1.5rem;
     font-family: var(--font-serif);
+    min-width: 0;
     --season-spring: var(--accent-2);
     --season-summer: var(--season-summer-accent);
     --season-autumn: var(--accent);
     --season-winter: var(--text-muted);
+  }
+  .bloom-view > * {
+    min-width: 0;
   }
   .bloom-kicker {
     margin: 0 0 0.5rem;
