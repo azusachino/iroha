@@ -45,7 +45,7 @@ const (
 	// contract or identity scheme.
 	// Bump whenever a cached wire representation or range interpretation
 	// changes; old Valkey entries must never satisfy the new contract.
-	readCacheKeyVersion = "v4"
+	readCacheKeyVersion = "v5"
 	readCacheTTL        = 24 * time.Hour
 	readyzTimeout       = 2 * time.Second
 	statusReady         = "ready"

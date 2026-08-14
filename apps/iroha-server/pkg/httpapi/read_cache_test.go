@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -292,5 +293,13 @@ func TestReadCacheKeyUsesEffectiveTimezone(t *testing.T) {
 	}
 	if omitted == utc {
 		t.Fatalf("Tokyo key = %q, UTC key = %q; want different", omitted, utc)
+	}
+}
+
+func TestReadCacheKeyUsesCurrentWireRepresentationVersion(t *testing.T) {
+	server := &Server{deps: Dependencies{Config: config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}}}}
+	key := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/briefing?date=2026-08-13", nil))
+	if !strings.HasPrefix(key, "v5 GET /api/v1/briefing") {
+		t.Fatalf("cache key = %q, want v5 representation prefix", key)
 	}
 }
