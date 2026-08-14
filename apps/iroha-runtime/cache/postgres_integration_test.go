@@ -40,11 +40,22 @@ func TestPostgresStoreRoundTripAndNamespaceInvalidation(t *testing.T) {
 	if !ok || value["value"] != "one" {
 		t.Fatalf("got %#v/%v, want cached value", value, ok)
 	}
+	_, generation, found := GetWithGeneration[map[string]string](context.Background(), client, namespace, "key")
+	if !found || generation < 1 {
+		t.Fatalf("generation lookup = found %v, generation %d; want cached value and positive generation", found, generation)
+	}
 
 	if err := client.InvalidateNamespace(context.Background(), namespace); err != nil {
 		t.Fatalf("invalidate namespace: %v", err)
 	}
 	if _, ok := Get[map[string]string](context.Background(), client, namespace, "key"); ok {
 		t.Fatal("invalidated entry was still visible")
+	}
+	if stored := SetAtGeneration(context.Background(), client, namespace, "key", generation, time.Minute, map[string]string{"value": "stale"}); stored {
+		t.Fatal("stale generation write was stored")
+	}
+	_, currentGeneration, found := GetWithGeneration[map[string]string](context.Background(), client, namespace, "key")
+	if found || currentGeneration != generation+1 {
+		t.Fatalf("post-invalidation lookup = found %v, generation %d; want false, %d", found, currentGeneration, generation+1)
 	}
 }

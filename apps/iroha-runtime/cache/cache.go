@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -41,6 +42,16 @@ type Store interface {
 	Set(context.Context, string, string, []byte, time.Duration) error
 	InvalidateNamespace(context.Context, string) error
 	Close() error
+}
+
+// GenerationStore extends Store with a compare-and-set boundary for cache
+// population. A loader records the generation observed on its miss; the
+// backend must skip the write if invalidation has advanced that generation
+// before the loader finishes.
+type GenerationStore interface {
+	Store
+	GetWithGeneration(context.Context, string, string) ([]byte, int64, bool, error)
+	SetAtGeneration(context.Context, string, string, int64, []byte, time.Duration) (bool, error)
 }
 
 // Client is the cache facade used by application packages. It owns encoding
@@ -107,7 +118,8 @@ func (c *Client) Close() error {
 // GetOrLoad implements cache-aside lookup. Cache misses, decode failures, and
 // backend errors call loader; only loader's own error is returned.
 func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl time.Duration, loader func() (T, error)) (T, error) {
-	if value, ok := Get[T](ctx, c, namespace, key); ok {
+	value, generation, ok := GetWithGeneration[T](ctx, c, namespace, key)
+	if ok {
 		return value, nil
 	}
 	if c == nil || c.store == nil {
@@ -137,7 +149,7 @@ func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl
 
 	value, err := loader()
 	if err == nil {
-		Set(ctx, c, namespace, key, ttl, value)
+		SetAtGeneration(ctx, c, namespace, key, generation, ttl, value)
 	}
 	c.flightMu.Lock()
 	flight.value = value
@@ -177,6 +189,38 @@ func Get[T any](ctx context.Context, c *Client, namespace, key string) (T, bool)
 	return value, true
 }
 
+// GetWithGeneration returns a decoded cache value, its observed namespace
+// generation, and whether it was found. Stores without generation support use
+// the ordinary Store contract and return generation zero.
+func GetWithGeneration[T any](ctx context.Context, c *Client, namespace, key string) (T, int64, bool) {
+	var zero T
+	if c == nil || c.store == nil {
+		return zero, 0, false
+	}
+
+	store, ok := c.store.(GenerationStore)
+	if !ok {
+		value, found := Get[T](ctx, c, namespace, key)
+		return value, 0, found
+	}
+
+	raw, generation, found, err := store.GetWithGeneration(ctx, namespace, key)
+	if err != nil {
+		slog.Warn("cache get failed", "namespace", namespace, "key", key, "error", err)
+		return zero, 0, false
+	}
+	if !found {
+		return zero, generation, false
+	}
+
+	var value T
+	if err := json.Unmarshal(raw, &value); err != nil {
+		slog.Warn("cache decode failed", "namespace", namespace, "key", key, "error", err)
+		return zero, generation, false
+	}
+	return value, generation, true
+}
+
 // Set best-effort populates the cache. Serialization or backend errors are
 // logged and intentionally do not fail the request.
 func Set[T any](ctx context.Context, c *Client, namespace, key string, ttl time.Duration, value T) {
@@ -194,6 +238,33 @@ func Set[T any](ctx context.Context, c *Client, namespace, key string, ttl time.
 	}
 }
 
+// SetAtGeneration best-effort populates the cache only when the observed
+// namespace generation is still current. Stores without generation support
+// fall back to the ordinary Set contract.
+func SetAtGeneration[T any](ctx context.Context, c *Client, namespace, key string, generation int64, ttl time.Duration, value T) bool {
+	if c == nil || c.store == nil {
+		return false
+	}
+
+	raw, err := json.Marshal(value)
+	if err != nil {
+		slog.Warn("cache encode failed", "namespace", namespace, "key", key, "error", err)
+		return false
+	}
+	if store, ok := c.store.(GenerationStore); ok {
+		stored, err := store.SetAtGeneration(ctx, namespace, key, generation, raw, ttl)
+		if err != nil {
+			slog.Warn("cache conditional set failed", "namespace", namespace, "key", key, "generation", generation, "error", err)
+		}
+		return stored
+	}
+	if err := c.store.Set(ctx, namespace, key, raw, ttl); err != nil {
+		slog.Warn("cache set failed", "namespace", namespace, "key", key, "error", err)
+		return false
+	}
+	return true
+}
+
 // InvalidateNamespace invalidates all entries in one logical namespace.
 func (c *Client) InvalidateNamespace(ctx context.Context, namespace string) error {
 	if c == nil || c.store == nil {
@@ -206,19 +277,32 @@ type valkeyStore struct {
 	client *redis.Client
 }
 
+var setAtGenerationScript = redis.NewScript(`
+if redis.call("GET", KEYS[1]) ~= ARGV[1] then
+	return 0
+end
+redis.call("SET", KEYS[2], ARGV[3], "PX", ARGV[2])
+return 1
+`)
+
 func (s *valkeyStore) Get(ctx context.Context, namespace, key string) ([]byte, bool, error) {
+	raw, _, found, err := s.GetWithGeneration(ctx, namespace, key)
+	return raw, found, err
+}
+
+func (s *valkeyStore) GetWithGeneration(ctx context.Context, namespace, key string) ([]byte, int64, bool, error) {
 	generation, err := s.generation(ctx, namespace)
 	if err != nil {
-		return nil, false, err
+		return nil, 0, false, err
 	}
 	raw, err := s.client.Get(ctx, namespacedKey(namespace, generation, key)).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return nil, false, nil
+			return nil, generation, false, nil
 		}
-		return nil, false, err
+		return nil, generation, false, err
 	}
-	return raw, true, nil
+	return raw, generation, true, nil
 }
 
 func (s *valkeyStore) Set(ctx context.Context, namespace, key string, raw []byte, ttl time.Duration) error {
@@ -227,6 +311,20 @@ func (s *valkeyStore) Set(ctx context.Context, namespace, key string, raw []byte
 		return err
 	}
 	return s.client.Set(ctx, namespacedKey(namespace, generation, key), raw, ttl).Err()
+}
+
+func (s *valkeyStore) SetAtGeneration(ctx context.Context, namespace, key string, generation int64, raw []byte, ttl time.Duration) (bool, error) {
+	if ttl <= 0 {
+		return false, nil
+	}
+	result, err := setAtGenerationScript.Run(ctx, s.client,
+		[]string{generationKey(namespace), namespacedKey(namespace, generation, key)},
+		strconv.FormatInt(generation, 10), strconv.FormatInt(ttl.Milliseconds(), 10), raw,
+	).Int()
+	if err != nil {
+		return false, err
+	}
+	return result == 1, nil
 }
 
 func (s *valkeyStore) InvalidateNamespace(ctx context.Context, namespace string) error {

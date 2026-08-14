@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
+	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 )
 
 type readCacheTestStore struct {
@@ -55,6 +56,61 @@ func (s *readCacheTestStore) cacheKey(namespace, key string) string {
 	return namespace + ":" + key
 }
 
+type generationReadCacheTestStore struct {
+	readCacheTestStore
+	current map[string]int64
+}
+
+func (s *generationReadCacheTestStore) GetWithGeneration(_ context.Context, namespace, key string) ([]byte, int64, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.current == nil {
+		s.current = make(map[string]int64)
+	}
+	if s.current[namespace] == 0 {
+		s.current[namespace] = 1
+	}
+	value, found := s.values[s.cacheKey(namespace, key)]
+	return value, s.current[namespace], found, nil
+}
+
+func (s *generationReadCacheTestStore) SetAtGeneration(_ context.Context, namespace, key string, generation int64, value []byte, _ time.Duration) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.current == nil {
+		s.current = make(map[string]int64)
+	}
+	if s.current[namespace] == 0 {
+		s.current[namespace] = 1
+	}
+	if s.current[namespace] != generation {
+		return false, nil
+	}
+	if s.values == nil {
+		s.values = make(map[string][]byte)
+	}
+	s.values[s.cacheKey(namespace, key)] = append([]byte(nil), value...)
+	return true, nil
+}
+
+func (s *generationReadCacheTestStore) InvalidateNamespace(_ context.Context, namespace string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.current == nil {
+		s.current = make(map[string]int64)
+	}
+	if s.current[namespace] == 0 {
+		s.current[namespace] = 1
+	}
+	s.current[namespace]++
+	for key := range s.values {
+		if len(key) >= len(namespace)+1 && key[:len(namespace)+1] == namespace+":" {
+			delete(s.values, key)
+		}
+	}
+	return nil
+}
+
 func TestReadCacheCachesSuccessfulJSONReads(t *testing.T) {
 	store := &readCacheTestStore{}
 	server := &Server{deps: Dependencies{Cache: cache.NewWithStore(store)}}
@@ -99,6 +155,45 @@ func TestReadCacheInvalidationReloadsData(t *testing.T) {
 
 	if calls != 2 {
 		t.Fatalf("handler calls = %d, want 2 after invalidation", calls)
+	}
+}
+
+func TestReadCacheDoesNotPopulateAfterInvalidation(t *testing.T) {
+	store := &generationReadCacheTestStore{}
+	client := cache.NewWithStore(store)
+	server := &Server{deps: Dependencies{Cache: client}}
+	started := make(chan struct{})
+	release := make(chan struct{})
+	calls := 0
+	handler := server.readCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		if calls == 1 {
+			close(started)
+			<-release
+		}
+		writeJSON(w, http.StatusOK, map[string]int{"call": calls})
+	}))
+
+	firstDone := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?month=2026-08", nil))
+		firstDone <- response
+	}()
+	<-started
+	if err := client.InvalidateNamespace(context.Background(), cache.NamespaceReports); err != nil {
+		t.Fatalf("invalidate reports: %v", err)
+	}
+	close(release)
+	<-firstDone
+
+	second := httptest.NewRecorder()
+	handler.ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?month=2026-08", nil))
+	if calls != 2 {
+		t.Fatalf("handler calls = %d, want 2 after racing invalidation", calls)
+	}
+	if second.Header().Get("X-Iroha-Cache") != "MISS" {
+		t.Fatalf("second cache header = %q, want MISS", second.Header().Get("X-Iroha-Cache"))
 	}
 }
 
@@ -150,4 +245,17 @@ func TestReadCacheSkipsMutationsAndUnrelatedPaths(t *testing.T) {
 		}
 	}
 	_ = server
+}
+
+func TestReadCacheKeyUsesEffectiveTimezone(t *testing.T) {
+	server := &Server{deps: Dependencies{Config: config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}}}}
+	omitted := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?month=2026-08", nil))
+	explicit := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?timezone=Asia%2FTokyo&month=2026-08", nil))
+	utc := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?timezone=UTC&month=2026-08", nil))
+	if omitted != explicit {
+		t.Fatalf("omitted timezone key = %q, explicit key = %q; want equal", omitted, explicit)
+	}
+	if omitted == utc {
+		t.Fatalf("Tokyo key = %q, UTC key = %q; want different", omitted, utc)
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -41,7 +42,7 @@ const apiRateLimitPerMin = 6000
 const (
 	// Bump this when a cached JSON representation changes shape. The cache is
 	// shared across rollouts, so a new server must not serve an older contract.
-	readCacheKeyVersion = "v2"
+	readCacheKeyVersion = "v3"
 	readCacheTTL        = 24 * time.Hour
 	readyzTimeout       = 2 * time.Second
 	statusReady         = "ready"
@@ -234,8 +235,9 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 			return
 		}
 
-		key := readCacheKey(r)
-		if body, ok := cache.Get[[]byte](r.Context(), s.deps.Cache, namespace, key); ok {
+		key := s.readCacheKey(r)
+		body, generation, ok := cache.GetWithGeneration[[]byte](r.Context(), s.deps.Cache, namespace, key)
+		if ok {
 			w.Header().Set("X-Iroha-Cache", "HIT")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -249,7 +251,7 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 		if wrapped.status != http.StatusOK || wrapped.body.Len() == 0 || !isJSONContentType(wrapped.Header().Get("Content-Type")) {
 			return
 		}
-		cache.Set(r.Context(), s.deps.Cache, namespace, key, readCacheTTL, wrapped.body.Bytes())
+		cache.SetAtGeneration(r.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, wrapped.body.Bytes())
 	})
 }
 
@@ -303,10 +305,19 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 	return "", false
 }
 
-func readCacheKey(r *http.Request) string {
+func (s *Server) readCacheKey(r *http.Request) string {
 	key := readCacheKeyVersion + " " + r.Method + " " + r.URL.Path
-	if query := r.URL.Query().Encode(); query != "" {
+	queryValues := r.URL.Query()
+	effectiveTimezone := queryValues.Get("timezone")
+	queryValues.Del("timezone")
+	if query := queryValues.Encode(); query != "" {
 		key += "?" + query
+	}
+	if effectiveTimezone == "" {
+		effectiveTimezone = s.deps.Config.Server.Timezone
+	}
+	if effectiveTimezone != "" {
+		key += "|effective_timezone=" + url.QueryEscape(effectiveTimezone)
 	}
 	return key
 }
