@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Lap } from "$lib/api";
   import { formatDuration, formatPace } from "$lib/format";
-  import BarChart from "$lib/components/BarChart.svelte";
+  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
 
   let {
     laps,

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { SleepAggregateBucket } from "$lib/api";
-  import BarChart from "$lib/components/BarChart.svelte";
+  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
   import { formatDuration, formatMonth } from "$lib/format";
   import { useTheme } from "$lib/themes/context.svelte";
 

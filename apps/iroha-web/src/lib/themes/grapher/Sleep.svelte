@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import type { SleepAggregateBucket, SleepSession } from "$lib/api";
-  import BarChart from "$lib/components/BarChart.svelte";
+  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
   import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
 

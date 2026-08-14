@@ -10,7 +10,7 @@
     type MonthlyReport,
     type MonthlyReportSeries,
   } from "$lib/api";
-  import ReportComparison from "$lib/components/ReportComparison.svelte";
+  import ReportComparison from "@iroha/shared/theme-ui/components/ReportComparison.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
@@ -22,7 +22,8 @@
     yearOptions,
   } from "@iroha/shared/month";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
-  import type { ReportThemeProps } from "$lib/report-view";
+  import type { ReportThemeProps } from "@iroha/shared/report";
+  import { useTheme } from "$lib/themes/context.svelte";
 
   let month = $state(
     canonicalMonth(page.url.searchParams.get("month"), currentMonth()),
@@ -35,6 +36,7 @@
   const periodYears = yearOptions();
   const periodYear = $derived(month.slice(0, 4));
   const periodMonth = $derived(String(Number(month.slice(5, 7))));
+  const theme = useTheme();
 
   onMount(() => {
     void loadReport(month);
@@ -171,7 +173,7 @@
               report.generated_at,
             )}
           </p>
-          <ReportComparison {series} {formatMoney} />
+          <ReportComparison {series} {formatMoney} theme={theme.language()} />
           <ThemeRouteRenderer route="reports" props={themeProps} />
         {/if}
       {/snippet}

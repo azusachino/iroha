@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { MediaDetail } from "$lib/api";
-  import BarChart from "$lib/components/BarChart.svelte";
+  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
   import { mediaEventLabel } from "$lib/format";
 
   let { detail, progress }: { detail: MediaDetail; progress: number } =

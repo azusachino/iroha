@@ -1,19 +1,19 @@
 <script lang="ts">
-  import BarChart from "$lib/components/BarChart.svelte";
-  import ReportCoverage from "$lib/components/ReportCoverage.svelte";
-  import ReportReceipt from "@iroha/shared/theme-ui/components/ReportReceipt.svelte";
-  import type { ReportEvidenceRow } from "@iroha/shared/report";
-  import type { DesignLanguage } from "@iroha/shared/themes";
-  import ReportFactGrid from "$lib/components/ReportFactGrid.svelte";
-  import ReportMetricCard from "$lib/components/ReportMetricCard.svelte";
-  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
-  import type { PanelRow } from "@iroha/shared/metric-panel";
-  import { formatMetricValue } from "$lib/format";
+  import BarChart from "../components/BarChart.svelte";
+  import ReportCoverage from "../components/ReportCoverage.svelte";
+  import ReportReceipt from "../components/ReportReceipt.svelte";
+  import type { ReportEvidenceRow } from "../../report";
+  import type { DesignLanguage } from "../../themes";
+  import ReportFactGrid from "../components/ReportFactGrid.svelte";
+  import ReportMetricCard from "../components/ReportMetricCard.svelte";
+  import MetricPanel from "../../MetricPanel.svelte";
+  import type { PanelRow } from "../../metric-panel";
+  import { formatMetricValue } from "../../format";
   import {
     reportPeriodDays,
     reportSectionData,
     type ReportThemeProps,
-  } from "$lib/report-view";
+  } from "../../report";
 
   let {
     month,
@@ -68,6 +68,21 @@
         ]
       : [],
   );
+  const healthRows = $derived<PanelRow[]>(
+    (health?.metric_averages ?? []).map((item) => ({
+      label: item.metric,
+      value: item.observed_days,
+      display: item.observed_days + " d",
+      breakdown: formatMetricValue(item.value, item.unit) + " " + item.unit,
+    })),
+  );
+  const movementRows = $derived<PanelRow[]>(
+    (movement?.by_sport ?? []).map((item) => ({
+      label: item.sport,
+      value: item.distance_m / 1000,
+      display: number(item.distance_m / 1000) + " km",
+    })),
+  );
   const sleepRows = $derived<PanelRow[]>(
     sleepStages.map(([stage, seconds]) => ({
       label: stage,
@@ -75,43 +90,50 @@
       display: number(seconds / 3600) + "h",
     })),
   );
-  const evidence = $derived<ReportEvidenceRow[]>([
-    ...(sleep
-      ? [
-          {
-            label: "Recovery",
-            value: formatDuration(sleep.average_asleep_s),
-            detail:
-              Math.round(sleep.average_efficiency * 100) +
-              "% efficiency · " +
-              sleep.main_sleep_count +
-              " main sleeps · " +
-              sleep.nap_count +
-              " naps",
-          },
-        ]
-      : []),
-    ...(movement?.by_sport ?? []).map((item) => ({
-      label: "Movement · " + item.sport,
-      value: number(item.distance_m / 1000) + " km",
-      detail: item.activity_count + " sessions",
+  const expenseRows = $derived<PanelRow[]>(
+    categoryTotals.map((item) => ({
+      label: item.category,
+      value: item.amount_minor,
+      display: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
     })),
+  );
+  const evidence = $derived<ReportEvidenceRow[]>([
     ...(health?.metric_averages ?? []).map((item) => ({
       label: "Health · " + item.metric,
       value: formatMetricValue(item.value, item.unit) + " " + item.unit,
       detail: item.observed_days + " observed days",
     })),
+    ...(movement?.by_sport ?? []).map((item) => ({
+      label: "Movement · " + item.sport,
+      value: number(item.distance_m / 1000) + " km",
+      detail: item.activity_count + " activities",
+    })),
+    ...(sleep
+      ? [
+          {
+            label: "Sleep average",
+            value: formatDuration(sleep.average_asleep_s),
+            detail:
+              Math.round(sleep.average_efficiency * 100) +
+              "% efficiency · " +
+              sleep.main_sleep_count +
+              " main · " +
+              sleep.nap_count +
+              " naps",
+          },
+        ]
+      : []),
     ...(media
       ? [
           {
-            label: "Media rhythm",
+            label: "Media events",
             value: media.event_count + " events",
             detail: media.completed_count + " completed",
           },
         ]
       : []),
     ...categoryTotals.map((item) => ({
-      label: "Spend · " + item.category,
+      label: "Expense · " + item.category,
       value: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
       detail: item.expense_count + " records",
     })),
@@ -125,24 +147,136 @@
   }
 </script>
 
-<section class="phenology-reports" aria-labelledby="phenology-reports-title">
-  <header class="phenology-heading">
+<section class="grapher-reports" aria-labelledby="grapher-reports-title">
+  <header class="grapher-heading">
     <div>
-      <p class="kicker">Monthly cycle · {month}</p>
-      <h2 id="phenology-reports-title">Observe the season of the data.</h2>
-      <p>Recovery is the center; the other domains orbit around the month.</p>
+      <p class="kicker">Monthly comparison / {month}</p>
+      <h2 id="grapher-reports-title">Compare the canonical signals.</h2>
+      <p>
+        Every chart exposes its unit, coverage, table parity, and source method.
+      </p>
     </div>
-    <span>{report.period.from} → {report.period.to}</span>
+    <span class="period">{report.period.from} → {report.period.to}</span>
   </header>
 
   <ReportCoverage {report} />
 
-  <div class="cycle-stage">
+  <div class="grapher-primary">
     <ReportMetricCard
-      label="Recovery center"
-      title="Sleep-stage composition"
-      summary={sleep ? formatDuration(sleep.average_asleep_s) : "No records"}
+      label="Daily health"
+      title="Observation coverage"
+      summary={health ? health.observed_days + " observed days" : "No records"}
       tone="feature"
+    >
+      {#if health?.metric_averages.length}
+        <MetricPanel
+          metricId="daily_health.observed_days"
+          label="Observation coverage"
+          unit="days"
+          method={report.sections.daily_health.schema}
+          coverage={{
+            expected_periods: periodDays,
+            observed_periods: health.observed_days,
+          }}
+          rowHeader="Metric"
+          rows={healthRows}
+          period={month}
+        >
+          <BarChart
+            categories={health.metric_averages.map((item) => item.metric)}
+            primary={{
+              name: "Observed days",
+              values: health.metric_averages.map((item) => item.observed_days),
+              color: "var(--accent)",
+              formatter: (value) => value + "d",
+            }}
+            orientation="horizontal"
+            categorical
+            height={270}
+          />
+        </MetricPanel>
+        <ReportFactGrid
+          facts={(health.metric_averages ?? []).slice(0, 3).map((item) => ({
+            label: item.metric,
+            value: formatMetricValue(item.value, item.unit),
+            detail: item.unit,
+          }))}
+        />
+      {:else}<p class="empty">No canonical daily-health observations.</p>{/if}
+    </ReportMetricCard>
+
+    <ReportMetricCard
+      label="Expenses"
+      title="Category comparison"
+      summary={expenses ? expenses.expense_count + " records" : "No records"}
+      tone="feature"
+    >
+      {#if categoryTotals.length}
+        <MetricPanel
+          metricId="expenses.amount_minor"
+          label="Spend by category"
+          unit={primaryCurrency + " minor"}
+          method={report.sections.expenses.schema}
+          rowHeader="Category"
+          rows={expenseRows}
+          period={month}
+        >
+          <BarChart
+            categories={categoryTotals.map((item) => item.category)}
+            primary={{
+              name: primaryCurrency,
+              values: categoryTotals.map((item) => item.amount_minor),
+              color: "var(--accent-2)",
+              formatter: (value) =>
+                formatMoney(value, primaryCurrency, primaryExponent),
+            }}
+            orientation="horizontal"
+            categorical
+            height={270}
+          />
+        </MetricPanel>
+      {:else}<p class="empty">
+          No canonical expenses in {primaryCurrency}.
+        </p>{/if}
+    </ReportMetricCard>
+  </div>
+
+  <div class="grapher-grid">
+    <ReportMetricCard
+      label="Movement"
+      title="Distance by sport"
+      summary={movement ? movement.activity_count + " sessions" : "No records"}
+    >
+      {#if movement?.by_sport.length}
+        <MetricPanel
+          metricId="movement.distance_m"
+          label="Distance by sport"
+          unit="km"
+          method={report.sections.movement.schema}
+          rowHeader="Sport"
+          rows={movementRows}
+          period={month}
+        >
+          <BarChart
+            categories={movement.by_sport.map((item) => item.sport)}
+            primary={{
+              name: "Distance",
+              values: movement.by_sport.map((item) => item.distance_m / 1000),
+              color: "var(--accent)",
+              formatter: (value) => number(value) + " km",
+            }}
+            orientation="horizontal"
+            categorical
+            height={220}
+          />
+        </MetricPanel>
+      {:else}<p class="empty">No canonical movement records.</p>{/if}
+    </ReportMetricCard>
+
+    <ReportMetricCard
+      label="Sleep"
+      title="Stage composition"
+      summary={sleep ? formatDuration(sleep.average_asleep_s) : "No records"}
     >
       {#if sleep}
         <MetricPanel
@@ -163,102 +297,14 @@
               formatter: (value) => number(value) + "h",
             }}
             categorical
-            height={270}
+            height={220}
           />
         </MetricPanel>
-        <ReportFactGrid
-          facts={[
-            {
-              label: "Efficiency",
-              value: Math.round(sleep.average_efficiency * 100) + "%",
-            },
-            { label: "Main sleep", value: String(sleep.main_sleep_count) },
-            { label: "Naps", value: String(sleep.nap_count) },
-          ]}
-        />
       {:else}<p class="empty">No canonical sleep records.</p>{/if}
     </ReportMetricCard>
-  </div>
-
-  <div class="orbit-grid">
-    <ReportMetricCard
-      label="Movement orbit"
-      title="Distance by sport"
-      summary={movement ? movement.activity_count + " sessions" : "No records"}
-    >
-      {#if movement?.by_sport.length}
-        <MetricPanel
-          metricId="movement.distance_m"
-          label="Distance by sport"
-          unit="km"
-          method={report.sections.movement.schema}
-          rowHeader="Sport"
-          rows={movement.by_sport.map((item) => ({
-            label: item.sport,
-            value: item.distance_m / 1000,
-            display: number(item.distance_m / 1000) + " km",
-          }))}
-          period={month}
-        >
-          <BarChart
-            categories={movement.by_sport.map((item) => item.sport)}
-            primary={{
-              name: "Distance",
-              values: movement.by_sport.map((item) => item.distance_m / 1000),
-              color: "var(--accent)",
-              formatter: (value) => number(value) + " km",
-            }}
-            orientation="horizontal"
-            categorical
-            height={220}
-          />
-        </MetricPanel>
-      {:else}<p class="empty">No canonical movement records.</p>{/if}
-    </ReportMetricCard>
 
     <ReportMetricCard
-      label="Body orbit"
-      title="Observation coverage"
-      summary={health ? health.observed_days + " days" : "No records"}
-      tone="quiet"
-    >
-      {#if health?.metric_averages.length}
-        <MetricPanel
-          metricId="daily_health.observed_days"
-          label="Observation coverage"
-          unit="days"
-          method={report.sections.daily_health.schema}
-          coverage={{
-            expected_periods: periodDays,
-            observed_periods: health.observed_days,
-          }}
-          rowHeader="Metric"
-          rows={health.metric_averages.map((item) => ({
-            label: item.metric,
-            value: item.observed_days,
-            display: item.observed_days + " d",
-            breakdown:
-              formatMetricValue(item.value, item.unit) + " " + item.unit,
-          }))}
-          period={month}
-        >
-          <BarChart
-            categories={health.metric_averages.map((item) => item.metric)}
-            primary={{
-              name: "Observed days",
-              values: health.metric_averages.map((item) => item.observed_days),
-              color: "var(--accent)",
-            }}
-            orientation="horizontal"
-            categorical
-            height={220}
-          />
-        </MetricPanel>
-      {:else}<p class="empty">No canonical daily-health observations.</p>{/if}
-    </ReportMetricCard>
-
-    <ReportMetricCard
-      label="Library orbit"
+      label="Media"
       title="Events and completions"
       summary={media ? media.event_count + " events" : "No records"}
     >
@@ -298,65 +344,25 @@
         </MetricPanel>
       {:else}<p class="empty">No canonical media events.</p>{/if}
     </ReportMetricCard>
-
-    <ReportMetricCard
-      label="Ledger orbit"
-      title="Spend by category"
-      summary={expenses ? expenses.expense_count + " records" : "No records"}
-      tone="quiet"
-    >
-      {#if categoryTotals.length}
-        <MetricPanel
-          metricId="expenses.amount_minor"
-          label="Spend by category"
-          unit={primaryCurrency + " minor"}
-          method={report.sections.expenses.schema}
-          rowHeader="Category"
-          rows={categoryTotals.map((item) => ({
-            label: item.category,
-            value: item.amount_minor,
-            display: formatMoney(
-              item.amount_minor,
-              primaryCurrency,
-              primaryExponent,
-            ),
-          }))}
-          period={month}
-        >
-          <BarChart
-            categories={categoryTotals.map((item) => item.category)}
-            primary={{
-              name: primaryCurrency,
-              values: categoryTotals.map((item) => item.amount_minor),
-              color: "var(--accent)",
-              formatter: (value) =>
-                formatMoney(value, primaryCurrency, primaryExponent),
-            }}
-            orientation="horizontal"
-            categorical
-            height={230}
-          />
-        </MetricPanel>
-      {:else}<p class="empty">No canonical expenses.</p>{/if}
-    </ReportMetricCard>
   </div>
 
-  <section class="cycle-evidence" aria-labelledby="cycle-evidence-title">
+  <section class="grapher-evidence" aria-labelledby="grapher-evidence-title">
     <header>
       <div>
-        <p class="kicker">Seasonal notes</p>
-        <h3 id="cycle-evidence-title">The month in evidence.</h3>
+        <p class="kicker">Exact evidence</p>
+        <h3 id="grapher-evidence-title">The comparison remains auditable.</h3>
       </div>
-      <span>{evidence.length} observations</span>
+      <span>{evidence.length} rows</span>
     </header>
     <ReportReceipt rows={evidence} {theme} />
   </section>
 </section>
 
 <style>
-  .phenology-reports {
+  .grapher-reports {
     display: grid;
-    gap: 1.25rem;
+    gap: 1rem;
+    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
   }
 
   h2,
@@ -365,96 +371,87 @@
     margin: 0;
   }
 
-  .phenology-heading {
+  .grapher-heading {
     display: flex;
     align-items: end;
     justify-content: space-between;
     gap: 1rem;
+    border-bottom: 3px solid var(--text);
+    padding-bottom: 1rem;
   }
 
   h2 {
     max-width: 43rem;
-    font-size: clamp(2.4rem, 7vw, 5.5rem);
-    letter-spacing: -0.11em;
-    line-height: 0.88;
+    font-size: clamp(2.8rem, 8vw, 6rem);
+    letter-spacing: -0.12em;
+    line-height: 0.84;
   }
 
-  .phenology-heading p:last-child {
-    max-width: 36rem;
+  .grapher-heading p:last-child {
+    max-width: 38rem;
     margin-top: 0.8rem;
     color: var(--text-muted);
+    font-family: var(--font-sans);
     line-height: 1.5;
   }
 
   .kicker {
     color: var(--accent);
     font-size: 0.66rem;
-    font-weight: 750;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
-  .phenology-heading > span,
-  .cycle-evidence > header > span {
+  .period,
+  .grapher-evidence > header > span {
     color: var(--text-muted);
     font-size: 0.72rem;
   }
 
-  .cycle-stage {
-    display: grid;
-    padding: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 1.4rem;
-    background:
-      radial-gradient(
-        circle at 50% 20%,
-        color-mix(in srgb, var(--accent) 20%, transparent),
-        transparent 48%
-      ),
-      var(--surface);
-  }
-
-  .orbit-grid {
+  .grapher-primary,
+  .grapher-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
   }
 
-  .orbit-grid :global(.report-metric-card) {
-    border-radius: 1rem;
+  .grapher-primary :global(.report-metric-card) {
+    border-top: 3px solid var(--text);
   }
 
-  .cycle-evidence {
+  .grapher-evidence {
     display: grid;
     gap: 0.8rem;
-    border-top: 1px solid var(--border);
+    border-top: 3px solid var(--text);
     padding-top: 1rem;
   }
 
-  .cycle-evidence > header {
+  .grapher-evidence > header {
     display: flex;
     align-items: end;
     justify-content: space-between;
     gap: 1rem;
   }
 
-  .cycle-evidence h3 {
+  .grapher-evidence h3 {
+    font-family: var(--font-sans);
     font-size: 1.3rem;
-    letter-spacing: -0.04em;
   }
 
   .empty {
     color: var(--text-muted);
+    font-family: var(--font-sans);
     font-size: 0.78rem;
   }
 
   @media (max-width: 760px) {
-    .phenology-heading,
-    .cycle-evidence > header {
+    .grapher-heading,
+    .grapher-evidence > header {
       display: grid;
     }
 
-    .orbit-grid {
+    .grapher-primary,
+    .grapher-grid {
       grid-template-columns: 1fr;
     }
   }

@@ -5,7 +5,7 @@
     RouteFeatureCollection,
     Summary,
   } from "$lib/api";
-  import BarChart from "$lib/components/BarChart.svelte";
+  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
   import RouteFootprint from "$lib/components/RouteFootprint.svelte";
   import {
     formatDate,

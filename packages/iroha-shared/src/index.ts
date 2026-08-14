@@ -8,4 +8,5 @@ export * from "./source";
 export * from "./period";
 export * from "./media";
 export * from "./report";
+export * from "./expense";
 export * from "./design-compositions";

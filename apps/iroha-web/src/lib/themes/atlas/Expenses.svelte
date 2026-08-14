@@ -1,5 +1,5 @@
 <script lang="ts">
-  import BarChart from "$lib/components/BarChart.svelte";
+  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
   import ExpenseLedger from "$lib/components/ExpenseLedger.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
   import MetricPanel from "@iroha/shared/MetricPanel.svelte";

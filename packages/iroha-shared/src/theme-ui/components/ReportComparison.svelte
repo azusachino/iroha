@@ -3,14 +3,15 @@
     MonthlyReport,
     MonthlyReportSeries,
     MonthlyReportSeriesPoint,
-  } from "$lib/api";
-  import BarChart from "$lib/components/BarChart.svelte";
-  import { formatCanonicalMonth } from "@iroha/shared/format";
-  import { useTheme } from "$lib/themes/context.svelte";
+  } from "../../report";
+  import type { DesignLanguage } from "../../themes";
+  import BarChart from "./BarChart.svelte";
+  import { formatCanonicalMonth } from "../../format";
 
   let {
     series,
     formatMoney,
+    theme,
   }: {
     series: MonthlyReportSeries | null;
     formatMoney: (
@@ -18,9 +19,8 @@
       currency: string,
       exponent: number,
     ) => string;
+    theme: DesignLanguage;
   } = $props();
-
-  const theme = useTheme();
   const points = $derived(series?.reports ?? []);
   const categories = $derived(
     points.map((point) => formatCanonicalMonth(point.month)),
@@ -144,7 +144,7 @@
 
 <section
   class="report-comparison"
-  data-theme={theme.definition().identity.id}
+  data-theme={theme}
   aria-labelledby="report-comparison-title"
 >
   <header class="comparison-header">

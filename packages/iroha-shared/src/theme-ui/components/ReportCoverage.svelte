@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MonthlyReport } from "$lib/api";
+  import type { MonthlyReport } from "../../report";
 
   let { report }: { report: MonthlyReport } = $props();
 </script>

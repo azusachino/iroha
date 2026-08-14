@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { MetricSeriesResponse } from "$lib/api";
-  import BarChart from "$lib/components/BarChart.svelte";
+  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
   import { formatDistance, formatMonth, formatSport } from "$lib/format";
   import { useTheme } from "$lib/themes/context.svelte";
 

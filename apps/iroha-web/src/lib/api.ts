@@ -1,5 +1,26 @@
 import { API_BASE } from "./config";
 import type { MediaAggregates, MediaRow } from "@iroha/shared/media";
+import type {
+  CreateExpenseInput,
+  Expense,
+  ExpenseCategory,
+  ExpenseCurrency,
+  ExpenseInput,
+  ExpenseItem,
+  ExpenseSource,
+  ListExpensesParams,
+} from "@iroha/shared/expense";
+import type {
+  DailyHealthReportData,
+  ExpensesReportData,
+  MediaReportData,
+  MovementReportData,
+  MonthlyReport,
+  MonthlyReportSeries,
+  MonthlyReportSeriesPoint,
+  ReportSection,
+  SleepReportData,
+} from "@iroha/shared/report";
 
 export type {
   MediaAggregates,
@@ -9,6 +30,27 @@ export type {
   MediaScoreBucket,
   MediaTypeBucket,
 } from "@iroha/shared/media";
+export type {
+  CreateExpenseInput,
+  Expense,
+  ExpenseCategory,
+  ExpenseCurrency,
+  ExpenseInput,
+  ExpenseItem,
+  ExpenseSource,
+  ListExpensesParams,
+} from "@iroha/shared/expense";
+export type {
+  DailyHealthReportData,
+  ExpensesReportData,
+  MediaReportData,
+  MovementReportData,
+  MonthlyReport,
+  MonthlyReportSeries,
+  MonthlyReportSeriesPoint,
+  ReportSection,
+  SleepReportData,
+} from "@iroha/shared/report";
 
 // Types mirror the iroha-server read API JSON contract (snake_case).
 // Optional fields use `?` because the server omits them when absent.
@@ -178,68 +220,6 @@ export interface Job {
   updated_at: string;
 }
 
-export type ExpenseCurrency = "JPY" | "USD" | "EUR" | "GBP";
-export type ExpenseCategory =
-  | "food"
-  | "groceries"
-  | "transport"
-  | "shopping"
-  | "housing"
-  | "utilities"
-  | "health"
-  | "entertainment"
-  | "subscriptions"
-  | "work"
-  | "other";
-
-export interface ExpenseItem {
-  name: string;
-  amount_minor?: number;
-}
-
-export interface ExpenseSource {
-  kind: string;
-  ref: string;
-}
-
-export interface Expense {
-  id: string;
-  occurred_on: string;
-  currency: ExpenseCurrency;
-  currency_exponent: number;
-  amount_minor: number;
-  category: ExpenseCategory;
-  merchant: string;
-  note: string;
-  items: ExpenseItem[];
-  source: ExpenseSource;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ExpenseInput {
-  occurred_on: string;
-  currency: ExpenseCurrency;
-  amount_minor: number;
-  category: ExpenseCategory;
-  merchant?: string;
-  note?: string;
-  items?: ExpenseItem[];
-}
-
-export interface CreateExpenseInput extends ExpenseInput {
-  source: ExpenseSource;
-}
-
-export interface ListExpensesParams {
-  from?: string;
-  to?: string;
-  currency?: ExpenseCurrency;
-  category?: ExpenseCategory;
-  limit?: number;
-  cursor?: string;
-}
-
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -347,48 +327,6 @@ export interface BriefingResponse {
   previous_date: string;
   next_date: string;
   sections: BriefingSection[];
-}
-
-export interface ReportSection<T> {
-  schema: string;
-  state: "available" | "empty";
-  data: T | null;
-}
-
-export interface MonthlyReport {
-  schema: string;
-  period: {
-    kind: "month";
-    month: string;
-    from: string;
-    to: string;
-    timezone: string;
-  };
-  generated_at: string;
-  sections: {
-    movement: ReportSection<MovementReportData>;
-    sleep: ReportSection<SleepReportData>;
-    daily_health: ReportSection<DailyHealthReportData>;
-    media: ReportSection<MediaReportData>;
-    expenses: ReportSection<ExpensesReportData>;
-  };
-}
-
-export interface MonthlyReportSeriesPoint {
-  month: string;
-  completeness: "complete" | "partial";
-  report: MonthlyReport;
-}
-
-export interface MonthlyReportSeries {
-  schema: "monthly-report-series.v1";
-  end_month: string;
-  requested_months: number;
-  from_month: string;
-  to_month: string;
-  generated_at: string;
-  reports: MonthlyReportSeriesPoint[];
-  empty_months: string[];
 }
 
 export interface MetricDimension {
@@ -511,81 +449,6 @@ export function getMetricSeries(
     `/api/v1/metrics/${encodeURIComponent(metricId)}/series?${query.toString()}`,
     fetchFn,
   );
-}
-
-export interface MovementReportData {
-  activity_count: number;
-  distance_m: number;
-  distance_activity_count: number;
-  duration_s: number;
-  by_sport: {
-    sport: string;
-    activity_count: number;
-    distance_m: number;
-    distance_activity_count: number;
-    duration_s: number;
-  }[];
-}
-
-export interface SleepReportData {
-  session_count: number;
-  main_sleep_count: number;
-  nap_count: number;
-  average_asleep_s: number;
-  average_time_in_bed_s: number;
-  average_efficiency: number;
-  stage_seconds: {
-    core: number;
-    deep: number;
-    rem: number;
-    awake: number;
-    unspecified: number;
-  };
-}
-
-export interface DailyHealthReportData {
-  observed_days: number;
-  metric_averages: {
-    metric: string;
-    value: number;
-    unit: string;
-    observed_days: number;
-  }[];
-}
-
-export interface MediaReportData {
-  event_count: number;
-  completed_count: number;
-  rated_count: number;
-  average_rating: number | null;
-  by_kind: {
-    kind: string;
-    event_count: number;
-    completed_count: number;
-  }[];
-  completed_items: {
-    id: string;
-    title: string;
-    media_type: string;
-    completed_at: string;
-  }[];
-}
-
-export interface ExpensesReportData {
-  expense_count: number;
-  totals_by_currency: {
-    currency: ExpenseCurrency;
-    currency_exponent: number;
-    amount_minor: number;
-    expense_count: number;
-  }[];
-  by_category: {
-    category: ExpenseCategory;
-    currency: ExpenseCurrency;
-    currency_exponent: number;
-    amount_minor: number;
-    expense_count: number;
-  }[];
 }
 
 export function getBriefing(

@@ -3,7 +3,7 @@
   import type { DailyRow } from "$lib/api";
   import { formatDateOnly } from "$lib/format";
   import RingGauge, { type Ring } from "$lib/components/RingGauge.svelte";
-  import BarChart from "$lib/components/BarChart.svelte";
+  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
 
   type JournalPeriod = {
     label: string;

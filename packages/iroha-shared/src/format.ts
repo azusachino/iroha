@@ -50,6 +50,15 @@ export function formatHr(bpm?: number): string {
   return `${Math.round(bpm)} bpm`;
 }
 
+export function formatMetricValue(
+  value?: number | null,
+  unit?: string | null,
+): string {
+  if (value == null || !Number.isFinite(value)) return DASH;
+  const maximumFractionDigits = unit?.trim().toLowerCase() === "count" ? 0 : 1;
+  return value.toLocaleString(undefined, { maximumFractionDigits });
+}
+
 export function formatDate(iso?: string, timezone?: string): string {
   if (!iso) return DASH;
   const date = new Date(iso);

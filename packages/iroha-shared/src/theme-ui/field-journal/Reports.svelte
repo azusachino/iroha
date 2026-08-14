@@ -1,18 +1,19 @@
 <script lang="ts">
-  import BarChart from "$lib/components/BarChart.svelte";
-  import ReportCoverage from "$lib/components/ReportCoverage.svelte";
-  import ReportReceipt from "@iroha/shared/theme-ui/components/ReportReceipt.svelte";
-  import type { ReportEvidenceRow } from "@iroha/shared/report";
-  import type { DesignLanguage } from "@iroha/shared/themes";
-  import ReportFactGrid from "$lib/components/ReportFactGrid.svelte";
-  import ReportMetricCard from "$lib/components/ReportMetricCard.svelte";
-  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
-  import { formatMetricValue } from "$lib/format";
+  import BarChart from "../components/BarChart.svelte";
+  import ReportCoverage from "../components/ReportCoverage.svelte";
+  import ReportReceipt from "../components/ReportReceipt.svelte";
+  import type { ReportEvidenceRow } from "../../report";
+  import type { DesignLanguage } from "../../themes";
+  import ReportFactGrid from "../components/ReportFactGrid.svelte";
+  import ReportMetricCard from "../components/ReportMetricCard.svelte";
+  import MetricPanel from "../../MetricPanel.svelte";
+  import type { PanelRow } from "../../metric-panel";
+  import { formatMetricValue } from "../../format";
   import {
     reportPeriodDays,
     reportSectionData,
     type ReportThemeProps,
-  } from "$lib/report-view";
+  } from "../../report";
 
   let {
     month,
@@ -51,7 +52,7 @@
       ReportThemeProps["report"]["sections"]["expenses"]["data"]
     >(report, "expenses"),
   );
-  const categories = $derived(
+  const categoryTotals = $derived(
     [...(expenses?.by_category ?? [])]
       .filter((item) => item.currency === primaryCurrency)
       .sort((left, right) => right.amount_minor - left.amount_minor),
@@ -67,48 +68,73 @@
         ]
       : [],
   );
+  const movementRows = $derived<PanelRow[]>(
+    (movement?.by_sport ?? []).map((item) => ({
+      label: item.sport,
+      value: item.distance_m / 1000,
+      display: number(item.distance_m / 1000) + " km",
+    })),
+  );
+  const sleepRows = $derived<PanelRow[]>(
+    sleepStages.map(([stage, seconds]) => ({
+      label: stage,
+      value: seconds / 3600,
+      display: number(seconds / 3600) + "h",
+    })),
+  );
+  const healthRows = $derived<PanelRow[]>(
+    (health?.metric_averages ?? []).map((item) => ({
+      label: item.metric,
+      value: item.observed_days,
+      display: item.observed_days + " d",
+      breakdown: formatMetricValue(item.value, item.unit) + " " + item.unit,
+    })),
+  );
+  const expenseRows = $derived<PanelRow[]>(
+    categoryTotals.map((item) => ({
+      label: item.category,
+      value: item.amount_minor,
+      display: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
+    })),
+  );
   const evidence = $derived<ReportEvidenceRow[]>([
     ...(movement?.by_sport ?? []).map((item) => ({
-      label: "movement/" + item.sport,
+      label: item.sport,
       value: number(item.distance_m / 1000) + " km",
       detail:
-        item.activity_count +
-        " activities · " +
-        formatDuration(item.duration_s),
+        item.activity_count + " sessions · " + formatDuration(item.duration_s),
     })),
     ...(sleep
       ? [
           {
-            label: "sleep/summary",
+            label: "Sleep",
             value: formatDuration(sleep.average_asleep_s),
             detail:
-              sleep.session_count +
-              " sessions · " +
+              sleep.main_sleep_count +
+              " main sleeps · " +
+              sleep.nap_count +
+              " naps · " +
               Math.round(sleep.average_efficiency * 100) +
               "% efficiency",
           },
         ]
       : []),
     ...(health?.metric_averages ?? []).map((item) => ({
-      label: "health/" + item.metric,
+      label: item.metric,
       value: formatMetricValue(item.value, item.unit) + " " + item.unit,
       detail: item.observed_days + " observed days",
     })),
     ...(media
       ? [
           {
-            label: "media/events",
+            label: "Library events",
             value: media.event_count + " events",
-            detail:
-              media.completed_count +
-              " completed · " +
-              media.rated_count +
-              " rated",
+            detail: media.completed_count + " completed",
           },
         ]
       : []),
-    ...categories.map((item) => ({
-      label: "expenses/" + item.category,
+    ...categoryTotals.map((item) => ({
+      label: item.category,
       value: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
       detail: item.expense_count + " records",
     })),
@@ -122,35 +148,36 @@
   }
 </script>
 
-<section class="archive-reports" aria-labelledby="archive-reports-title">
-  <header class="archive-heading">
+<section class="journal-reports" aria-labelledby="journal-reports-title">
+  <header class="journal-heading">
     <div>
-      <p class="kicker">Archive / monthly report</p>
-      <h2 id="archive-reports-title">The report, exactly as generated.</h2>
+      <p class="date">{month}</p>
+      <p class="kicker">Field report · monthly entry</p>
+      <h2 id="journal-reports-title">What the month held.</h2>
     </div>
-    <span>{report.period.from} → {report.period.to} · {month}</span>
+    <p class="note">
+      A dated record of observed domains, with no readiness score and no
+      invented narrative.
+    </p>
   </header>
 
   <ReportCoverage {report} />
 
-  <section class="archive-index" aria-label="Canonical domain index">
+  <section class="journal-observations" aria-label="Observed monthly domains">
     <ReportMetricCard
-      label="Canonical movement"
-      title="Distance by sport"
-      summary={movement ? movement.activity_count + " records" : "Empty"}
+      label="Movement observation"
+      title="Routes and distances"
+      summary={movement ? movement.activity_count + " sessions" : "No record"}
+      tone="feature"
     >
       {#if movement?.by_sport.length}
         <MetricPanel
           metricId="movement.distance_m"
-          label="Distance by sport"
+          label="Routes and distances"
           unit="km"
           method={report.sections.movement.schema}
           rowHeader="Sport"
-          rows={movement.by_sport.map((item) => ({
-            label: item.sport,
-            value: item.distance_m / 1000,
-            display: number(item.distance_m / 1000) + " km",
-          }))}
+          rows={movementRows}
           period={month}
         >
           <BarChart
@@ -166,26 +193,22 @@
             height={230}
           />
         </MetricPanel>
-      {:else}<p class="empty">No movement rows in this envelope.</p>{/if}
+      {:else}<p class="empty">No movement was recorded.</p>{/if}
     </ReportMetricCard>
 
     <ReportMetricCard
-      label="Canonical rest"
-      title="Sleep-stage composition"
-      summary={sleep ? sleep.session_count + " sessions" : "Empty"}
+      label="Rest observation"
+      title="The shape of sleep"
+      summary={sleep ? formatDuration(sleep.average_asleep_s) : "No record"}
     >
       {#if sleep}
         <MetricPanel
           metricId="sleep.stage_seconds"
-          label="Sleep-stage composition"
+          label="The shape of sleep"
           unit="hours"
           method={report.sections.sleep.schema}
           rowHeader="Stage"
-          rows={sleepStages.map(([stage, seconds]) => ({
-            label: stage,
-            value: seconds / 3600,
-            display: number(seconds / 3600) + "h",
-          }))}
+          rows={sleepRows}
           period={month}
         >
           <BarChart
@@ -200,19 +223,33 @@
             height={230}
           />
         </MetricPanel>
-      {:else}<p class="empty">No sleep rows in this envelope.</p>{/if}
+        <ReportFactGrid
+          facts={[
+            { label: "Average", value: formatDuration(sleep.average_asleep_s) },
+            {
+              label: "Efficiency",
+              value: Math.round(sleep.average_efficiency * 100) + "%",
+            },
+            {
+              label: "Structure",
+              value:
+                sleep.main_sleep_count + " main / " + sleep.nap_count + " naps",
+            },
+          ]}
+        />
+      {:else}<p class="empty">No sleep was recorded.</p>{/if}
     </ReportMetricCard>
 
     <ReportMetricCard
-      label="Canonical health"
-      title="Observed metric days"
-      summary={health ? health.observed_days + " days" : "Empty"}
+      label="Body observation"
+      title="Days with evidence"
+      summary={health ? health.observed_days + " observed days" : "No record"}
       tone="quiet"
     >
       {#if health?.metric_averages.length}
         <MetricPanel
           metricId="daily_health.observed_days"
-          label="Observed metric days"
+          label="Days with evidence"
           unit="days"
           method={report.sections.daily_health.schema}
           coverage={{
@@ -220,13 +257,7 @@
             observed_periods: health.observed_days,
           }}
           rowHeader="Metric"
-          rows={health.metric_averages.map((item) => ({
-            label: item.metric,
-            value: item.observed_days,
-            display: item.observed_days + " d",
-            breakdown:
-              formatMetricValue(item.value, item.unit) + " " + item.unit,
-          }))}
+          rows={healthRows}
           period={month}
         >
           <BarChart
@@ -235,25 +266,26 @@
               name: "Observed days",
               values: health.metric_averages.map((item) => item.observed_days),
               color: "var(--accent)",
+              formatter: (value) => value + "d",
             }}
             orientation="horizontal"
             categorical
             height={230}
           />
         </MetricPanel>
-      {:else}<p class="empty">No health rows in this envelope.</p>{/if}
+      {:else}<p class="empty">No body metrics were recorded.</p>{/if}
     </ReportMetricCard>
 
     <ReportMetricCard
-      label="Canonical media"
-      title="Events and completions"
-      summary={media ? media.event_count + " events" : "Empty"}
+      label="Library observation"
+      title="Things that moved"
+      summary={media ? media.event_count + " events" : "No record"}
       tone="quiet"
     >
       {#if media?.by_kind.length}
         <MetricPanel
           metricId="media.event_count"
-          label="Events and completions"
+          label="Things that moved"
           unit="count"
           method={report.sections.media.schema}
           rowHeader="Kind"
@@ -284,78 +316,60 @@
             height={230}
           />
         </MetricPanel>
-      {:else}<p class="empty">No media rows in this envelope.</p>{/if}
+      {:else}<p class="empty">No library events were recorded.</p>{/if}
     </ReportMetricCard>
 
     <ReportMetricCard
-      label="Canonical expenses"
-      title="Spend by category"
-      summary={expenses ? expenses.expense_count + " records" : "Empty"}
+      label="Ledger observation"
+      title="What spending repeated"
+      summary={expenses ? expenses.expense_count + " entries" : "No record"}
       tone="feature"
     >
-      {#if categories.length}
+      {#if categoryTotals.length}
         <MetricPanel
           metricId="expenses.amount_minor"
-          label="Spend by category"
+          label="What spending repeated"
           unit={primaryCurrency + " minor"}
           method={report.sections.expenses.schema}
           rowHeader="Category"
-          rows={categories.map((item) => ({
-            label: item.category,
-            value: item.amount_minor,
-            display: formatMoney(
-              item.amount_minor,
-              primaryCurrency,
-              primaryExponent,
-            ),
-          }))}
+          rows={expenseRows}
           period={month}
         >
           <BarChart
-            categories={categories.map((item) => item.category)}
+            categories={categoryTotals.map((item) => item.category)}
             primary={{
               name: primaryCurrency,
-              values: categories.map((item) => item.amount_minor),
+              values: categoryTotals.map((item) => item.amount_minor),
               color: "var(--accent)",
               formatter: (value) =>
                 formatMoney(value, primaryCurrency, primaryExponent),
             }}
             orientation="horizontal"
             categorical
-            height={250}
+            height={240}
           />
         </MetricPanel>
-      {:else}<p class="empty">No expense rows in this envelope.</p>{/if}
+      {:else}<p class="empty">No spending entries were recorded.</p>{/if}
     </ReportMetricCard>
   </section>
 
-  <section class="archive-evidence" aria-labelledby="archive-evidence-title">
+  <section class="journal-record" aria-labelledby="journal-record-title">
     <header>
       <div>
-        <p class="kicker">Envelope evidence</p>
-        <h3 id="archive-evidence-title">Indexed rows behind the report.</h3>
+        <p class="kicker">Field notes</p>
+        <h3 id="journal-record-title">The observed record, in order.</h3>
       </div>
-      <span>{evidence.length} rows</span>
+      <span>{evidence.length} entries</span>
     </header>
-    <ReportFactGrid
-      facts={[
-        { label: "Schema", value: report.schema },
-        { label: "Period", value: report.period.month },
-        {
-          label: "Sections",
-          value: Object.keys(report.sections).length + " domains",
-        },
-      ]}
-    />
     <ReportReceipt rows={evidence} {theme} />
   </section>
 </section>
 
 <style>
-  .archive-reports {
+  .journal-reports {
     display: grid;
     gap: 1.25rem;
-    font-family: var(--font-mono);
+    font-family: Georgia, "Times New Roman", serif;
   }
 
   h2,
@@ -364,69 +378,69 @@
     margin: 0;
   }
 
-  .archive-heading {
-    display: flex;
+  .journal-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 15rem;
     align-items: end;
-    justify-content: space-between;
-    gap: 1rem;
-    border-bottom: 3px double var(--text);
-    padding-bottom: 0.8rem;
+    gap: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.25rem;
   }
 
   h2 {
-    font-family: var(--font-sans);
-    font-size: clamp(2.4rem, 6vw, 5rem);
-    letter-spacing: -0.11em;
+    max-width: 40rem;
+    font-size: clamp(2.5rem, 7vw, 5.5rem);
+    font-weight: 500;
+    letter-spacing: -0.1em;
     line-height: 0.88;
   }
 
-  .archive-heading > span,
-  .archive-evidence > header > span {
-    color: var(--text-muted);
-    font-size: 0.72rem;
-  }
-
+  .date,
   .kicker {
     color: var(--accent);
-    font-size: 0.66rem;
-    letter-spacing: 0.14em;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
-  .archive-index {
+  .note {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .journal-observations {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
-    border-top: 3px double var(--text);
-    padding-top: 1rem;
   }
 
-  .archive-index :global(.report-metric-card:last-child) {
-    grid-column: 1 / -1;
+  .journal-observations :global(.report-metric-card) {
+    border-style: dashed;
+    background: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%);
   }
 
-  .archive-index :global(.report-metric-card) {
-    border-width: 2px;
-    border-radius: 0;
-  }
-
-  .archive-evidence {
+  .journal-record {
     display: grid;
     gap: 0.8rem;
-    border-top: 3px double var(--text);
+    border-top: 1px solid var(--border);
     padding-top: 1rem;
   }
 
-  .archive-evidence > header {
+  .journal-record > header {
     display: flex;
     align-items: end;
     justify-content: space-between;
     gap: 1rem;
   }
 
-  .archive-evidence h3 {
-    font-family: var(--font-sans);
-    font-size: 1.3rem;
+  .journal-record h3 {
+    font-size: 1.35rem;
+    font-weight: 500;
+  }
+
+  .journal-record > header > span {
+    color: var(--text-muted);
+    font-size: 0.76rem;
   }
 
   .empty {
@@ -434,18 +448,11 @@
     font-size: 0.78rem;
   }
 
-  @media (max-width: 760px) {
-    .archive-heading,
-    .archive-evidence > header {
-      display: grid;
-    }
-
-    .archive-index {
+  @media (max-width: 700px) {
+    .journal-heading,
+    .journal-record > header {
       grid-template-columns: 1fr;
-    }
-
-    .archive-index :global(.report-metric-card:last-child) {
-      grid-column: auto;
+      display: grid;
     }
   }
 </style>
