@@ -451,8 +451,17 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  body {
+    /* Fixed tiled backgrounds and mobile compositors turn long pages into a
+       repaint on every scroll tick. Keep the visual language, but let the
+       document background move with the page on small screens. */
+    background-attachment: scroll;
+  }
+
   .appbar {
     padding: 0.7rem 0.8rem;
+    backdrop-filter: none;
+    background: var(--bg);
   }
 
   .appbar-actions {

@@ -72,7 +72,7 @@
   const years = $derived(
     summary
       ? summary.by_year.map((b) => b.key).sort((a, b) => b.localeCompare(a))
-      : [new Date().getFullYear().toString()],
+      : [currentYear()],
   );
 
   function handleYearChange() {

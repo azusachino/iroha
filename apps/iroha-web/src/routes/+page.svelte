@@ -32,14 +32,19 @@
     formatDateOnly,
     mediaEventVerb,
   } from "$lib/format";
+  import EmptyState from "@iroha/shared/theme-ui/components/EmptyState.svelte";
+  import { todayInTimezone } from "@iroha/shared/date";
+  import TodaySkeleton from "$lib/components/TodaySkeleton.svelte";
 
   let briefing = $state<BriefingResponse | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
   let toGoTasks = $state<Task[]>([]);
   let taskError = $state<string | null>(null);
+  let briefingRequestVersion = 0;
+  let taskRequestVersion = 0;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInTimezone();
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
   // The selected day — the spine everything on this page snapshots to.
@@ -123,6 +128,11 @@
   );
 
   const dayLabel = $derived(formatDateOnly(day));
+  // During a date change, keep the last committed snapshot mounted. Its
+  // canonical date keeps the old values from being presented as the new day
+  // while the next request is in flight.
+  const dataDay = $derived(briefing?.date ?? day);
+  const dataDayLabel = $derived(formatDateOnly(dataDay));
   const dayHasData = $derived(
     briefing?.sections.some(
       (section) =>
@@ -180,15 +190,18 @@
   }
 
   async function loadBriefing(selectedDay: string) {
+    const requestVersion = ++briefingRequestVersion;
     loading = true;
     error = null;
     try {
       const next = await getBriefing(selectedDay);
-      if (selectedDay === day) briefing = next;
+      if (requestVersion === briefingRequestVersion) briefing = next;
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      if (requestVersion === briefingRequestVersion) {
+        error = e instanceof Error ? e.message : String(e);
+      }
     } finally {
-      loading = false;
+      if (requestVersion === briefingRequestVersion) loading = false;
     }
   }
 
@@ -225,15 +238,19 @@
   });
 
   async function loadTasks(selectedDay: string) {
+    const requestVersion = ++taskRequestVersion;
     taskError = null;
     try {
-      toGoTasks = await listTasks({
+      const next = await listTasks({
         status: "open",
         due: selectedDay,
         limit: 5,
       });
+      if (requestVersion === taskRequestVersion) toGoTasks = next;
     } catch (cause) {
-      taskError = cause instanceof Error ? cause.message : String(cause);
+      if (requestVersion === taskRequestVersion) {
+        taskError = cause instanceof Error ? cause.message : String(cause);
+      }
     }
   }
 
@@ -338,204 +355,248 @@
     {/if}
   </div>
 
-  {#if loading}
-    <p class="muted status">Loading your history…</p>
-  {:else if error}
-    <p class="error status">Could not load data: {error}</p>
-  {:else if !dayHasData}
-    <p class="muted status">No data recorded for {dayLabel}.</p>
-  {:else if hasThemeRoute(theme.definition(), "today")}
-    <ThemeRouteRenderer
-      route="today"
-      props={{
-        dayLabel,
-        day,
-        dRow,
-        mainNight,
-        acts,
-        mediaEvents,
-        onOpenActivity: (id: string) => void goto(`/motion/${id}`),
-        onOpenMedia: (id: string) => void goto(`/library/${id}`),
-      }}
-    />
-  {:else}
-    <header class="command-heading tile hero-surface">
-      <div>
-        <p class="eyebrow">Private command center / {dayLabel}</p>
-        <h1>Today, in one view.</h1>
-        <p class="heading-copy">
-          A calm operating view of movement, recovery, and the things you
-          touched today.
+  {#if !briefing && loading}
+    <TodaySkeleton label={`Loading ${dayLabel}…`} />
+  {:else if !briefing && error}
+    <p class="error status" role="alert">Could not load data: {error}</p>
+  {:else if briefing}
+    <div class="briefing-surface" class:updating={loading} aria-busy={loading}>
+      {#if loading}
+        <p class="briefing-update" role="status" aria-live="polite">
+          Updating {dayLabel}…
         </p>
-        <p class="data-note">
-          Imported snapshot · {day === today
-            ? "latest available day"
-            : "historical day"}
+      {/if}
+      {#if error}
+        <p class="error update-error" role="alert">
+          Could not update {dayLabel}; showing {dataDayLabel}.
         </p>
-      </div>
-      <div class="day-orbit" aria-label="Day signal">
-        <div class="orbit orbit-one"></div>
-        <div class="orbit orbit-two"></div>
-        <div class="orbit-core">
-          <strong>{daySignal.value}</strong>
-          <span>{daySignal.label}</span>
-        </div>
-        <i class="orbit-star star-one"></i>
-        <i class="orbit-star star-two"></i>
-      </div>
-    </header>
-    <div class="home-kpis" aria-label="Today summary">
-      <div class="home-kpi tile">
-        <span>Move</span>
-        <strong>{num(dailyRing?.move_kcal, 0)}<small> kcal</small></strong>
-        <i
-          style={"--fill:" +
-            Math.min(
-              100,
-              ((dailyRing?.move_kcal ?? 0) / (dailyRing?.move_goal_kcal || 1)) *
-                100,
-            ) +
-            "%"}
-        ></i>
-      </div>
-      <div class="home-kpi tile">
-        <span>Exercise</span>
-        <strong>{num(dailyRing?.exercise_min, 0)}<small> min</small></strong>
-        <i
-          style={"--fill:" +
-            Math.min(
-              100,
-              ((dailyRing?.exercise_min ?? 0) /
-                (dailyRing?.exercise_goal_min || 1)) *
-                100,
-            ) +
-            "%"}
-        ></i>
-      </div>
-      <div class="home-kpi tile">
-        <span>Steps</span>
-        <strong>{num(dRow?.steps, 0)}</strong>
-        <small class="kpi-note">{num(dRow?.distance_km, 1)} km walked</small>
-      </div>
-      <div class="home-kpi tile">
-        <span>Recovery</span>
-        <strong
-          >{mainNight
-            ? Math.round(mainNight.efficiency * 100) + "%"
-            : "—"}</strong
-        >
-        <small class="kpi-note">sleep efficiency</small>
-      </div>
-    </div>
-    <div class="bento signal-layout">
-      <!-- Rings -->
-      <a class="card tile feature-card" href="/patterns">
-        <header><span class="ic">◎</span> Activity rings</header>
-        {#if hasRing}
-          <RingGauge rings={ringData} size={116} />
-          <div class="mini-stats">
-            <span>{num(dRow?.steps, 0)} steps</span>
-            <span>{num(dRow?.distance_km, 1)} km</span>
-            <span>{num(dRow?.flights, 0)} flights</span>
-          </div>
+      {/if}
+      <div class="briefing-content">
+        {#if !dayHasData}
+          <EmptyState
+            eyebrow="Quiet day"
+            title={`No records for ${dataDayLabel}.`}
+            description="The canonical cockpit has no imported movement, recovery, health, media, or task records for this date."
+            actionHref={dataDay !== today ? "/" : undefined}
+            actionLabel="Return to today"
+          />
+        {:else if hasThemeRoute(theme.definition(), "today")}
+          <ThemeRouteRenderer
+            route="today"
+            props={{
+              dayLabel: dataDayLabel,
+              day: dataDay,
+              dRow,
+              mainNight,
+              acts,
+              mediaEvents,
+              onOpenActivity: (id: string) => void goto(`/motion/${id}`),
+              onOpenMedia: (id: string) => void goto(`/library/${id}`),
+            }}
+          />
         {:else}
-          <p class="empty">No rings this day</p>
-        {/if}
-      </a>
-
-      <!-- Vitals -->
-      <a class="card tile vitals-card" href="/patterns">
-        <header><span class="ic">♥</span> Body vitals</header>
-        {#if vitals.length}
-          <dl class="vitals">
-            {#each vitals as m}
-              <div>
-                <dt>{m.l}</dt>
-                <dd>{num(m.v, m.d)}<span class="u">{m.u}</span></dd>
+          <header class="command-heading tile hero-surface">
+            <div>
+              <p class="eyebrow">Private command center / {dataDayLabel}</p>
+              <h1>Today, in one view.</h1>
+              <p class="heading-copy">
+                A calm operating view of movement, recovery, and the things you
+                touched today.
+              </p>
+              <p class="data-note">
+                Imported snapshot · {dataDay === today
+                  ? "latest available day"
+                  : "historical day"}
+              </p>
+            </div>
+            <div class="day-orbit" aria-label="Day signal">
+              <div class="orbit orbit-one"></div>
+              <div class="orbit orbit-two"></div>
+              <div class="orbit-core">
+                <strong>{daySignal.value}</strong>
+                <span>{daySignal.label}</span>
               </div>
-            {/each}
-          </dl>
-        {:else}
-          <p class="empty">No vitals this day</p>
-        {/if}
-      </a>
-
-      <!-- Sleep -->
-      <a class="card tile sleep-card" href="/night">
-        <header><span class="ic">☾</span> Sleep</header>
-        {#if mainNight}
-          <div class="sleep-hero">{formatDuration(mainNight.asleep_s)}</div>
-          <div class="mini-stats">
-            <span>{Math.round(mainNight.efficiency * 100)}% efficiency</span>
-            <span>{formatDuration(mainNight.time_in_bed_s)} in bed</span>
-            <span>{mainNight.is_main_sleep ? "Main sleep" : "Nap"}</span>
+              <i class="orbit-star star-one"></i>
+              <i class="orbit-star star-two"></i>
+            </div>
+          </header>
+          <div class="home-kpis" aria-label="Today summary">
+            <div class="home-kpi tile">
+              <span>Move</span>
+              <strong>{num(dailyRing?.move_kcal, 0)}<small> kcal</small></strong
+              >
+              <i
+                style={"--fill:" +
+                  Math.min(
+                    100,
+                    ((dailyRing?.move_kcal ?? 0) /
+                      (dailyRing?.move_goal_kcal || 1)) *
+                      100,
+                  ) +
+                  "%"}
+              ></i>
+            </div>
+            <div class="home-kpi tile">
+              <span>Exercise</span>
+              <strong
+                >{num(dailyRing?.exercise_min, 0)}<small> min</small></strong
+              >
+              <i
+                style={"--fill:" +
+                  Math.min(
+                    100,
+                    ((dailyRing?.exercise_min ?? 0) /
+                      (dailyRing?.exercise_goal_min || 1)) *
+                      100,
+                  ) +
+                  "%"}
+              ></i>
+            </div>
+            <div class="home-kpi tile">
+              <span>Steps</span>
+              <strong>{num(dRow?.steps, 0)}</strong>
+              <small class="kpi-note"
+                >{num(dRow?.distance_km, 1)} km walked</small
+              >
+            </div>
+            <div class="home-kpi tile">
+              <span>Recovery</span>
+              <strong
+                >{mainNight
+                  ? Math.round(mainNight.efficiency * 100) + "%"
+                  : "—"}</strong
+              >
+              <small class="kpi-note">sleep efficiency</small>
+            </div>
           </div>
-        {:else}
-          <p class="empty">No sleep recorded</p>
-        {/if}
-      </a>
+          <div class="bento signal-layout">
+            <!-- Rings -->
+            <a class="card tile feature-card" href="/patterns">
+              <header><span class="ic">◎</span> Activity rings</header>
+              {#if hasRing}
+                <RingGauge rings={ringData} size={116} />
+                <div class="mini-stats">
+                  <span>{num(dRow?.steps, 0)} steps</span>
+                  <span>{num(dRow?.distance_km, 1)} km</span>
+                  <span>{num(dRow?.flights, 0)} flights</span>
+                </div>
+              {:else}
+                <p class="empty">No rings this day</p>
+              {/if}
+            </a>
 
-      <!-- Activities: each row links to its own detail page. -->
-      <div class="card tile wide activity-card">
-        <header>
-          <span class="ic">⚡</span>
-          <a class="hdr-link" href="/motion">Motion</a>
-        </header>
-        {#if acts.length}
-          <ul class="acts">
-            {#each acts as a}
-              <li>
-                <a class="act-row" href={`/motion/${a.id}`}>
-                  <SportBadge sport={a.sport_type} />
-                  <span class="a-title">{a.title || "Untitled"}</span>
-                  <span class="a-metrics">
-                    {#if a.distance_m}{formatDistance(a.distance_m)} ·
-                    {/if}{formatDuration(
-                      a.duration_s ?? a.moving_time_s,
-                    )}{#if a.avg_pace_s_per_km}
-                      · {formatPace(a.avg_pace_s_per_km)}{/if}{#if a.avg_hr}
-                      · {formatHr(a.avg_hr)}{/if}
-                  </span>
-                </a>
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <p class="empty">No activities this day</p>
-        {/if}
-      </div>
+            <!-- Vitals -->
+            <a class="card tile vitals-card" href="/patterns">
+              <header><span class="ic">♥</span> Body vitals</header>
+              {#if vitals.length}
+                <dl class="vitals">
+                  {#each vitals as m}
+                    <div>
+                      <dt>{m.l}</dt>
+                      <dd>{num(m.v, m.d)}<span class="u">{m.u}</span></dd>
+                    </div>
+                  {/each}
+                </dl>
+              {:else}
+                <p class="empty">No vitals this day</p>
+              {/if}
+            </a>
 
-      <!-- Media events: the selected-day slice of the media history. -->
-      <div class="card tile wide media-card">
-        <header>
-          <span class="ic">▤</span>
-          <a class="hdr-link" href="/library">Library</a>
-        </header>
-        {#if mediaEvents.length}
-          <ul class="media-events">
-            {#each mediaEvents as event (event.id)}
-              <li>
-                <a class="media-event-row" href={`/library/${event.media_id}`}>
-                  {#if event.cover_image_url}
-                    <img src={event.cover_image_url} alt="" loading="lazy" />
-                  {:else}
-                    <span class="media-thumb" aria-hidden="true"
-                      >{(event.native_title || event.title).slice(0, 1)}</span
-                    >
-                  {/if}
-                  <span class="media-event-copy">
-                    <strong>{event.native_title || event.title}</strong>
-                    <span>{mediaEventVerb(event)}</span>
-                  </span>
-                  {#if event.rating != null}<span class="media-score"
-                      >{event.rating.toFixed(1)}</span
-                    >{/if}
-                </a>
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <p class="empty">No media events this day</p>
+            <!-- Sleep -->
+            <a class="card tile sleep-card" href="/night">
+              <header><span class="ic">☾</span> Sleep</header>
+              {#if mainNight}
+                <div class="sleep-hero">
+                  {formatDuration(mainNight.asleep_s)}
+                </div>
+                <div class="mini-stats">
+                  <span
+                    >{Math.round(mainNight.efficiency * 100)}% efficiency</span
+                  >
+                  <span>{formatDuration(mainNight.time_in_bed_s)} in bed</span>
+                  <span>{mainNight.is_main_sleep ? "Main sleep" : "Nap"}</span>
+                </div>
+              {:else}
+                <p class="empty">No sleep recorded</p>
+              {/if}
+            </a>
+
+            <!-- Activities: each row links to its own detail page. -->
+            <div class="card tile wide activity-card">
+              <header>
+                <span class="ic">⚡</span>
+                <a class="hdr-link" href="/motion">Motion</a>
+              </header>
+              {#if acts.length}
+                <ul class="acts">
+                  {#each acts as a}
+                    <li>
+                      <a class="act-row" href={`/motion/${a.id}`}>
+                        <SportBadge sport={a.sport_type} />
+                        <span class="a-title">{a.title || "Untitled"}</span>
+                        <span class="a-metrics">
+                          {#if a.distance_m}{formatDistance(a.distance_m)} ·
+                          {/if}{formatDuration(
+                            a.duration_s ?? a.moving_time_s,
+                          )}{#if a.avg_pace_s_per_km}
+                            · {formatPace(
+                              a.avg_pace_s_per_km,
+                            )}{/if}{#if a.avg_hr}
+                            · {formatHr(a.avg_hr)}{/if}
+                        </span>
+                      </a>
+                    </li>
+                  {/each}
+                </ul>
+              {:else}
+                <p class="empty">No activities this day</p>
+              {/if}
+            </div>
+
+            <!-- Media events: the selected-day slice of the media history. -->
+            <div class="card tile wide media-card">
+              <header>
+                <span class="ic">▤</span>
+                <a class="hdr-link" href="/library">Library</a>
+              </header>
+              {#if mediaEvents.length}
+                <ul class="media-events">
+                  {#each mediaEvents as event (event.id)}
+                    <li>
+                      <a
+                        class="media-event-row"
+                        href={`/library/${event.media_id}`}
+                      >
+                        {#if event.cover_image_url}
+                          <img
+                            src={event.cover_image_url}
+                            alt=""
+                            loading="lazy"
+                          />
+                        {:else}
+                          <span class="media-thumb" aria-hidden="true"
+                            >{(event.native_title || event.title).slice(
+                              0,
+                              1,
+                            )}</span
+                          >
+                        {/if}
+                        <span class="media-event-copy">
+                          <strong>{event.native_title || event.title}</strong>
+                          <span>{mediaEventVerb(event)}</span>
+                        </span>
+                        {#if event.rating != null}<span class="media-score"
+                            >{event.rating.toFixed(1)}</span
+                          >{/if}
+                      </a>
+                    </li>
+                  {/each}
+                </ul>
+              {:else}
+                <p class="empty">No media events this day</p>
+              {/if}
+            </div>
+          </div>
         {/if}
       </div>
     </div>
@@ -625,6 +686,45 @@
   }
   .error {
     color: var(--danger);
+  }
+  .briefing-surface {
+    position: relative;
+    min-width: 0;
+  }
+  .briefing-surface.updating::before {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    left: 0;
+    width: 28%;
+    height: 2px;
+    border-radius: 99px;
+    background: var(--accent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
+    content: "";
+    animation: briefing-progress 1.25s ease-in-out infinite;
+  }
+  .briefing-content {
+    min-width: 0;
+  }
+  .briefing-update,
+  .update-error {
+    margin: 0 0 0.65rem;
+    font-size: 0.75rem;
+  }
+  .briefing-update {
+    color: var(--accent);
+  }
+  .update-error {
+    color: var(--danger);
+  }
+  @keyframes briefing-progress {
+    from {
+      transform: translateX(-120%);
+    }
+    to {
+      transform: translateX(430%);
+    }
   }
   .command-heading {
     position: relative;
@@ -1194,6 +1294,12 @@
 
     .to-go-link {
       justify-self: start;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .briefing-surface.updating::before {
+      animation: none;
     }
   }
 </style>

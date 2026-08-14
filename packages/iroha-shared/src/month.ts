@@ -1,9 +1,11 @@
+import { todayInTimezone } from "./date";
+
 export function currentMonth(date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return todayInTimezone(date).slice(0, 7);
 }
 
 export function currentYear(date = new Date()): string {
-  return String(date.getFullYear());
+  return todayInTimezone(date).slice(0, 4);
 }
 
 export const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
@@ -16,7 +18,7 @@ export const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
 
 export function yearOptions(
   firstYear = 2015,
-  lastYear = new Date().getFullYear(),
+  lastYear = Number(currentYear()),
 ): string[] {
   return Array.from(
     { length: Math.max(0, lastYear - firstYear + 1) },
@@ -35,8 +37,8 @@ export function canonicalMonth(
 
 export function shiftMonth(month: string, delta: number): string {
   const [year, monthNumber] = month.split("-").map(Number);
-  const shifted = new Date(year, monthNumber - 1 + delta, 1);
-  return currentMonth(shifted);
+  const shifted = new Date(Date.UTC(year, monthNumber - 1 + delta, 1));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 export function monthBounds(month: string): { from: string; to: string } {

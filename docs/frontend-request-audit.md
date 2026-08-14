@@ -101,12 +101,12 @@ snapshot/version token instead of treating the cursor as one.
 3. Complete: Overview uses one server-owned activity projection instead of a 500-row sweep; sleep uses a server-owned projection.
 4. Complete: expense metric dimensions are batched per metric request, canonical expense source rows are loaded once, and direct GET reads are cacheable.
 5. Complete: reports return one v2 series response with the current report embedded; date coverage, lifetime sleep aggregation, and half-open range semantics are server-owned.
-6. Verification remaining for this branch: rerun a live browser/network capture after deployment and compare it with the request budgets below. This code pass is not yet deployed.
+6. Complete for the deployed date-scope candidate: live browser/network capture, exact-day briefing smoke, and the request-budget checks below passed after the cache representation version bump.
 
 ## Date-scoped correction pass — 2026-08-15
 
-The reported missing `2026-08-13` day was not a lost canonical row. The daily endpoint and date index both contained the day; the root briefing returned empty daily and sleep sections because those two contributors sent
-`From == To` to half-open list filters. The compatibility URL `/today` also had no route even though the canonical cockpit is `/`.
+The reported missing `2026-08-13` day was not a lost canonical row. The daily endpoint and date index both contained the day; the root briefing returned empty daily and sleep sections because those
+two contributors sent `From == To` to half-open list filters. The compatibility URL `/today` also had no route even though the canonical cockpit is `/`.
 
 The correction is intentionally narrow:
 
@@ -116,7 +116,22 @@ The correction is intentionally narrow:
 - the integration regression seeds one record per domain, verifies daily and sleep briefing rows on their selected days, and verifies all four dates in the shared index;
 - the frontend route test verifies the redirect target and query preservation.
 
-The source audit rechecked every canonical date-scoped route and found no other production `From == To` wiring. Motion, night, patterns, expenses, reports, and metrics use shared half-open month bounds or server-owned aggregate/series requests; detail routes request only their visible panels. This pass also retains the existing request-budget checks for duplicate/fan-out regressions.
+The source audit rechecked every canonical date-scoped route and found no other production `From == To` wiring. Motion, night, patterns, expenses, reports, and metrics use shared half-open month
+bounds or server-owned aggregate/series requests; detail routes request only their visible panels. This pass also retains the existing request-budget checks for duplicate/fan-out regressions.
+
+## Presentation correction pass — 2026-08-15
+
+The wire contract still uses typed machine states (`ready`, `empty`, and `unavailable`) and list envelopes with `items`; those values are not visual copy. The shared report coverage component now
+translates report availability into `Included` or `No records`, and the cockpit uses a themed `EmptyState` for a genuinely data-free day. No page is designed from `{}` or `[]` as a visual surface; the
+design workshop continues to use its populated sample fixture when live data is incomplete.
+
+The cockpit now uses stale-while-revalidate navigation. The first load presents a route-shaped skeleton; changing the day keeps the last committed snapshot mounted, labels the request as an update,
+and commits the new snapshot only when its request version is current. Briefing and to-go requests both reject stale responses, so rapid left/right navigation cannot mix dates or collapse the lower
+layout.
+
+The browser's default calendar contract is `Asia/Tokyo`, matching the server default. A shared date helper now drives today, month, year, heatmap, streak, and default timestamp presentation. The
+command palette is a mobile bottom sheet with a bounded internal list and safe-area padding. On small screens the global fixed background and appbar blur are disabled to avoid repaint-heavy scrolling
+while retaining the theme palette.
 
 ## Regression checks
 

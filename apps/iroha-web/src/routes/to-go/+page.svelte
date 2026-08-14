@@ -15,8 +15,9 @@
   } from "$lib/api";
   import { APP_VERSION } from "$lib/config";
   import { formatDate } from "$lib/format";
+  import { todayInTimezone } from "@iroha/shared/date";
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInTimezone();
   let openTasks = $state<Task[]>([]);
   let completedTasks = $state<Task[]>([]);
   let jobs = $state<Job[]>([]);

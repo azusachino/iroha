@@ -1,4 +1,5 @@
 export * from "./format";
+export * from "./date";
 export * from "./month";
 export * from "./metric-series";
 export * from "./metric-panel";

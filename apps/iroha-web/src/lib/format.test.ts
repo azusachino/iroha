@@ -60,6 +60,10 @@ describe("formatDateOnly is yyyy-MM-dd", () => {
   it("preserves canonical date values without timezone conversion", () => {
     expect(formatDateOnly("2026-07-09")).toBe("2026-07-09");
   });
+
+  it("uses Tokyo when formatting an instant without an explicit timezone", () => {
+    expect(formatDateOnly("2026-08-14T15:00:00Z")).toBe("2026-08-15");
+  });
 });
 
 describe("formatMonth is yyyy-MM", () => {

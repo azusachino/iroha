@@ -1,5 +1,8 @@
 <script lang="ts">
-  import type { MonthlyReport } from "../../report";
+  import {
+    reportSectionStateCopy,
+    type MonthlyReport,
+  } from "../../report";
 
   let { report }: { report: MonthlyReport } = $props();
 </script>
@@ -7,8 +10,14 @@
 <div class="report-coverage" aria-label="Canonical coverage">
   <span>Canonical coverage</span>
   {#each Object.entries(report.sections) as [domain, section]}
-    <b class:available={section.state === "available"}>
-      {domain.replace("daily_health", "health").replace("_", " ")} · {section.state}
+    {@const domainLabel = domain.replace("daily_health", "health").replace("_", " ")}
+    {@const stateCopy = reportSectionStateCopy(section.state)}
+    <b
+      class:available={section.state === "available"}
+      class:no-records={section.state === "empty"}
+      aria-label={`${domainLabel}: ${stateCopy.description}`}
+    >
+      {domainLabel} · {stateCopy.label}
     </b>
   {/each}
 </div>
@@ -44,5 +53,10 @@
   .report-coverage b.available {
     border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
     color: var(--accent);
+  }
+
+  .report-coverage b.no-records {
+    border-style: dashed;
+    color: var(--text-muted);
   }
 </style>

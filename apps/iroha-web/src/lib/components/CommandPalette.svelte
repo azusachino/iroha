@@ -185,14 +185,18 @@
     z-index: 40;
     display: grid;
     place-items: start center;
-    padding: 12vh 1rem 1rem;
+    padding: max(12vh, 4rem) 1rem 1rem;
     background: rgb(5 7 10 / 0.62);
     backdrop-filter: blur(10px);
   }
 
   .palette {
+    display: flex;
+    flex-direction: column;
     width: min(34rem, 100%);
+    max-height: min(42rem, 80svh);
     padding: 0.65rem;
+    overflow: hidden;
   }
 
   header {
@@ -220,8 +224,11 @@
   }
 
   .command-list {
+    min-height: 0;
+    overflow-y: auto;
     display: grid;
     gap: 0.3rem;
+    overscroll-behavior: contain;
   }
 
   button {
@@ -252,5 +259,29 @@
   .command-hint {
     color: var(--text-muted);
     font-size: 0.82rem;
+  }
+
+  @media (max-width: 640px) {
+    .palette-backdrop {
+      place-items: end center;
+      padding: 0;
+      backdrop-filter: none;
+    }
+
+    .palette {
+      width: 100%;
+      max-height: min(42rem, 88svh);
+      padding: 0.75rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+
+    header {
+      padding: 0.25rem 0.35rem 0.7rem;
+    }
+
+    button {
+      min-height: 3.7rem;
+      padding-inline: 0.65rem;
+    }
   }
 </style>

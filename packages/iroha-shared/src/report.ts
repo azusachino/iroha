@@ -81,9 +81,26 @@ export interface ExpensesReportData {
   }[];
 }
 
+export type ReportSectionState = "available" | "empty";
+
+export function reportSectionStateCopy(state: ReportSectionState): {
+  label: string;
+  description: string;
+} {
+  return state === "available"
+    ? {
+        label: "Included",
+        description: "Canonical records are present for this period.",
+      }
+    : {
+        label: "No records",
+        description: "No canonical records are present for this period.",
+      };
+}
+
 export interface ReportSection<T> {
   schema: string;
-  state: "available" | "empty";
+  state: ReportSectionState;
   data: T | null;
 }
 
