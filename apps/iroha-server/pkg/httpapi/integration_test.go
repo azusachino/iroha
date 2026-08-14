@@ -463,6 +463,14 @@ func newIntegrationServerWithCache(t *testing.T, db *gorm.DB, responseCache *cac
 		metricseries.SleepServiceSource{Service: sleep.NewService(db)},
 		metricseries.MediaServiceSource{Service: media.NewService(db)},
 	)
+	dailyService := daily.NewService(db)
+	sleepService := sleep.NewService(db)
+	activityService := activities.NewService(db)
+	mediaService := media.NewService(db)
+	briefingRegistry, err := NewBriefingRegistry(dailyService, sleepService, activityService, mediaService)
+	if err != nil {
+		t.Fatalf("create briefing registry: %v", err)
+	}
 
 	// Start background test worker loop to process jobs from tb_jobs
 	ctx, cancel := context.WithCancel(context.Background())
@@ -485,13 +493,14 @@ func newIntegrationServerWithCache(t *testing.T, db *gorm.DB, responseCache *cac
 	return NewServer(Dependencies{
 		Config:                 config.Config{},
 		Logger:                 logger,
-		ActivityService:        activities.NewService(db),
-		SleepService:           sleep.NewService(db),
-		DailyService:           daily.NewService(db),
+		ActivityService:        activityService,
+		SleepService:           sleepService,
+		DailyService:           dailyService,
 		ExpenseService:         expenses.NewService(db),
-		MediaService:           media.NewService(db),
+		MediaService:           mediaService,
 		MetricRegistry:         metricRegistry,
 		MetricSeriesService:    metricSeriesService,
+		BriefingRegistry:       briefingRegistry,
 		MediaResolutionService: mediaresolution.NewService(db),
 		ImportService:          importService,
 		RawFileService:         rawFileService,

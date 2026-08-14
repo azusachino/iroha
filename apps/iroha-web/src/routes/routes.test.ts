@@ -27,6 +27,7 @@ describe("cockpit route layout", () => {
   });
 
   it("keeps the old page URLs as redirects", () => {
+    expect(routeLoads["./today/+page.ts"]).toBeDefined();
     expect(routeLoads["./dashboard/+page.ts"]).toBeDefined();
     expect(routeLoads["./daily/+page.ts"]).toBeDefined();
     expect(routeLoads["./activities/+page.ts"]).toBeDefined();
@@ -35,6 +36,20 @@ describe("cockpit route layout", () => {
     expect(routeLoads["./sleep/[id]/+page.ts"]).toBeDefined();
     expect(routeLoads["./media/+page.ts"]).toBeDefined();
     expect(routeLoads["./media/[id]/+page.ts"]).toBeDefined();
+  });
+
+  it("redirects /today to the canonical root while preserving the selected date", async () => {
+    const { load } = await import("./today/+page");
+    let result: unknown;
+    try {
+      load({ url: new URL("https://iroha.test/today?date=2099-01-02") });
+    } catch (error) {
+      result = error;
+    }
+    expect(result).toMatchObject({
+      status: 308,
+      location: "/?date=2099-01-02",
+    });
   });
 
   it("keeps navigation grouped instead of growing the top tab row", async () => {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -156,16 +157,28 @@ func NewService(db *gorm.DB) *Service {
 
 func (s *Service) Dates() ([]time.Time, error) {
 	var dates []time.Time
-	err := s.db.Table(`(
-		select day from ` + dailySummariesTable + `
-		union
-		select day from ` + dailyMetricsTable + `
-	) as days`).
-		Select("day").Order("day desc").Scan(&dates).Error
+	err := s.db.Raw(`
+		select day from (
+			select day from ` + dailySummariesTable + `
+			union
+			select day from ` + dailyMetricsTable + `
+			union
+			select started_at::date as day from tb_activities
+			union
+			select wake_date as day from tb_sleep_sessions
+			union
+			select event_at::date as day
+			from tb_media_consumption_events
+			where event_at is not null
+		) as days
+		order by day desc`).Scan(&dates).Error
 	if dates == nil {
 		dates = []time.Time{}
 	}
-	return dates, err
+	if err != nil {
+		return dates, fmt.Errorf("list canonical dates: %w", err)
+	}
+	return dates, nil
 }
 
 func (s *Service) MetricValues(ctx context.Context, metric string, from, to time.Time) ([]MetricValue, error) {

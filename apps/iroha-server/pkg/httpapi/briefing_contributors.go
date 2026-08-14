@@ -33,7 +33,7 @@ type dailyBriefingContributor struct{ service *daily.Service }
 func (dailyBriefingContributor) Key() string    { return "daily" }
 func (dailyBriefingContributor) Schema() string { return "daily.day.v1" }
 func (c dailyBriefingContributor) Contribute(_ context.Context, day briefing.Day) (briefing.Section, error) {
-	page, err := c.service.List(daily.ListFilters{From: &day.Date, To: &day.Date, Limit: briefingSectionLimit})
+	page, err := c.service.List(daily.ListFilters{From: &day.Date, To: &day.End, Limit: briefingSectionLimit})
 	if err != nil {
 		return briefing.Section{}, fmt.Errorf("list daily briefing: %w", err)
 	}
@@ -49,7 +49,7 @@ type sleepBriefingContributor struct{ service *sleep.Service }
 func (sleepBriefingContributor) Key() string    { return "sleep" }
 func (sleepBriefingContributor) Schema() string { return "sleep.day.v1" }
 func (c sleepBriefingContributor) Contribute(_ context.Context, day briefing.Day) (briefing.Section, error) {
-	page, err := c.service.List(sleep.ListFilters{From: &day.Date, To: &day.Date, Limit: briefingSectionLimit})
+	page, err := c.service.List(sleep.ListFilters{From: &day.Date, To: &day.End, Limit: briefingSectionLimit})
 	if err != nil {
 		return briefing.Section{}, fmt.Errorf("list sleep briefing: %w", err)
 	}

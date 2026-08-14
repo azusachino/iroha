@@ -49,6 +49,10 @@ a historical availability index, so empty days remain selectable without a histo
 The endpoint queries each domain with `[date 00:00 UTC, date + 1 day)` predicates and does not call HTTP list endpoints or perform cursor pagination internally. Empty domains are successful empty
 sections, not errors. Go keeps typed contributors; the wire envelope is extensible and the web ignores unknown section keys.
 
+`GET /api/v1/daily/dates` is the bounded navigation index for the root cockpit. Despite the historical `/daily` name, it returns the distinct UTC calendar dates represented by the four cockpit contributors:
+daily summaries/metrics, activity start instants, sleep wake dates, and dated media events. Undated media events do not create a selectable day. The endpoint remains a compact date-only
+representation; it does not replace any domain list or aggregate endpoint.
+
 ## Media query semantics
 
 Media list reads should accept explicit filters:
