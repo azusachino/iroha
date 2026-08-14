@@ -19,6 +19,7 @@ import (
 	"time"
 
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
+	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
@@ -27,7 +28,11 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
@@ -380,9 +385,10 @@ func resetIntegrationDB(t *testing.T, db *gorm.DB) {
 		tb_activity_laps,
 		tb_activity_samplings,
 		tb_activity_route_points,
-		tb_external_refs,
-		tb_activities,
-		tb_import_jobs,
+		 tb_external_refs,
+		 tb_activities,
+		 tb_media_resolution_tasks,
+		 tb_import_jobs,
 		tb_raw_files
 		cascade`).Error; err != nil {
 		t.Fatalf("reset integration db: %v", err)
@@ -420,6 +426,10 @@ func makeImportParseHandler(importService **imports.Service) jobs.Handler {
 }
 
 func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
+	return newIntegrationServerWithCache(t, db, nil)
+}
+
+func newIntegrationServerWithCache(t *testing.T, db *gorm.DB, responseCache *cache.Client) http.Handler {
 	t.Helper()
 	rawFileService, err := rawfiles.NewService(db, t.TempDir())
 	if err != nil {
@@ -439,7 +449,20 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 
 	jobsService := jobs.NewService(db, logger, handlers)
 	enqueuer := &testJobEnqueuer{jobsService: jobsService}
-	importService = imports.NewService(db, logger, "integration-test", enqueuer, nil)
+	importService = imports.NewService(db, logger, "integration-test", enqueuer, responseCache)
+	geocodeService := geocode.NewService(db, enqueuer, responseCache)
+	metricRegistry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("create metric registry: %v", err)
+	}
+	metricSeriesService := metricseries.NewService(
+		metricRegistry,
+		metricseries.DailyServiceSource{Service: daily.NewService(db)},
+		metricseries.ActivityServiceSource{Service: activities.NewService(db)},
+		metricseries.ExpenseServiceSource{Service: expenses.NewService(db)},
+		metricseries.SleepServiceSource{Service: sleep.NewService(db)},
+		metricseries.MediaServiceSource{Service: media.NewService(db)},
+	)
 
 	// Start background test worker loop to process jobs from tb_jobs
 	ctx, cancel := context.WithCancel(context.Background())
@@ -460,15 +483,20 @@ func newIntegrationServer(t *testing.T, db *gorm.DB) http.Handler {
 	}()
 
 	return NewServer(Dependencies{
-		Config:          config.Config{},
-		Logger:          logger,
-		ActivityService: activities.NewService(db),
-		SleepService:    sleep.NewService(db),
-		DailyService:    daily.NewService(db),
-		ExpenseService:  expenses.NewService(db),
-		MediaService:    media.NewService(db),
-		ImportService:   importService,
-		RawFileService:  rawFileService,
+		Config:                 config.Config{},
+		Logger:                 logger,
+		ActivityService:        activities.NewService(db),
+		SleepService:           sleep.NewService(db),
+		DailyService:           daily.NewService(db),
+		ExpenseService:         expenses.NewService(db),
+		MediaService:           media.NewService(db),
+		MetricRegistry:         metricRegistry,
+		MetricSeriesService:    metricSeriesService,
+		MediaResolutionService: mediaresolution.NewService(db),
+		ImportService:          importService,
+		RawFileService:         rawFileService,
+		Cache:                  responseCache,
+		GeocodeService:         geocodeService,
 	})
 }
 
