@@ -36,10 +36,9 @@ docs/                 design docs
 
 ## Theme asset boundary (hard rule)
 
-Iroha's registered themes and design compositions, including the current six production languages and newer design-workshop compositions, are core product assets, not `iroha-web` implementation
-details. The source of truth for design identities, the registry, theme-specific compositions, shared visual primitives, charts, controls, and theme-aware presentation components **must live under
-`packages/`** (currently `packages/iroha-shared/`, or a dedicated package when the boundary is split). They must not be created or maintained solely under `apps/iroha-web/src/` or
-`apps/iroha-public-site/src/`.
+Iroha's registered design languages and adopted design compositions are core product assets, not `iroha-web` implementation details. The source of truth for design identities, the registry,
+theme-specific compositions, shared visual primitives, charts, controls, and theme-aware presentation components **must live under `packages/`** (currently `packages/iroha-shared/`, or a dedicated
+package when the boundary is split). They must not be created or maintained solely under `apps/iroha-web/src/` or `apps/iroha-public-site/src/`.
 
 The applications are adapters and hosts:
 

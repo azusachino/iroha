@@ -1,11 +1,11 @@
 # Frontend theme architecture
 
-Status: implementation contract for curated Iroha design languages
+Status: implementation contract for registered design languages and adopted compositions
 
 ## Goal
 
-An Iroha theme is a complete visual and interaction language. Switching it may change the shell, navigation, page composition, typography, chart treatment, surface vocabulary, and motion. It must not
-change API contracts, data meaning, privacy boundaries, or null/error behavior.
+An Iroha design language is a complete visual and interaction language. Switching it may change the shell, navigation, page composition, typography, chart treatment, surface vocabulary, and motion. An
+adopted design composition is a real layout system built on the same canonical view model. Neither may change API contracts, data meaning, privacy boundaries, or null/error behavior.
 
 Light and dark are contrast modes. A design language is a product-level art direction. They are independent axes:
 
@@ -30,10 +30,14 @@ packages/iroha-shared/src/theme-ui/
 └── archive/
 
 packages/iroha-shared/src/
-├── themes.ts            identities, lenses, route and design contracts
+├── themes.ts            registered language identities, lenses, and route contracts
 ├── themes.css           semantic language tokens
+├── design-compositions.ts  adopted composition identities and view contracts
 ├── PeriodSelector.svelte
 └── SelectControl.svelte
+
+packages/iroha-shared/src/theme-ui/compositions/
+└── ...                   package-owned adopted layout implementations
 ```
 
 Each theme directory owns curated visual components, not a second copy of the application data layer:
@@ -105,8 +109,8 @@ type ThemeDefinition = {
 };
 ```
 
-The registry is exhaustive for every adopted entry. Adding a language or design composition without all required production route components is a type/check failure, not a partially working option or
-a design-page-only variant.
+The language registry is exhaustive for every production route. The composition registry is open-ended but equally concrete: adding a composition requires a shared implementation, a canonical
+view-model contract, a runnable design-workshop specimen, and an explicit adoption status. A URL tab or CSS-only variant is not an implementation.
 
 ## Community-standard implementation rules
 
@@ -139,18 +143,19 @@ The same imported day must be rendered through every accepted theme in the desig
 
 The `/design` route contains two real, complementary implementation axes:
 
-- the six registered design languages, selected through the theme registry;
-- the seven implemented layout compositions: Editorial, Command center, Chronicle, Cover page, Personal OS, Field journal, and Quiet.
+- registered design languages, selected through the theme registry;
+- package-owned layout compositions selected through the design-composition registry. The current set is Editorial, Command center, Chronicle, Cover page, Personal OS, Field journal, and Quiet; this
+  list is extensible and is not a ceiling on future Iroha design systems.
 
 The layout compositions are not throwaway mockups. They are executable Svelte compositions bound to the same canonical Today view model, with stable URL selection, accessible controls, responsive
-styles, and deterministic fallback data. They are first-class shared implementations alongside the registered themes, and the acceptance matrix must exercise all of them rather than silently reducing
-them to screenshots. A design-workshop entry is not adopted until its implementation and registry identity leave the app directory.
+styles, and deterministic fallback data. They are first-class shared implementations alongside the registered languages, and the acceptance matrix must exercise all of them rather than silently
+reducing them to screenshots. Production adoption additionally requires route coverage and a public-site fixture consumer.
 
 ## Migration order
 
-1. Define the shared view models and move the current language metadata and registry into the shared theme package.
-2. Promote Editorial, Command center, Chronicle, Cover page, Personal OS, Field journal, and Quiet from the web design route into shared registry entries with real implementations.
-3. Build one complete shared vertical slice—Grapher media, for example—with the web and public-site adapters consuming it.
+1. Define the shared view models and move language metadata and the production registry into the shared theme package.
+2. **Complete:** promote the workshop compositions into the shared composition registry with real implementations.
+3. **In progress:** build complete shared route-family slices—Media is the first slice—with web and public-site adapters consuming them.
 4. Review the same data in the design lab at required breakpoints.
-5. Migrate Daily, Activities, Sleep, Media, Expenses, Reports, and Metrics for every accepted language and composition.
+5. Migrate Daily, Activities, Sleep, Media, Expenses, Reports, and Metrics for every accepted language and adopted composition.
 6. Remove obsolete route-local visual conditionals only after the replacement has passed visual, accessibility, and data-boundary gates.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft for Gate A approval. This plan is derived from the OWID/Iroha research, the six-theme orientation decision, and the current Iroha v0.4 worktree.
+Draft for Gate A approval. This plan is derived from the OWID/Iroha research, the registered-language orientation decision, the adopted-composition boundary, and the current Iroha v0.4 worktree.
 
 Research commits already landed:
 
@@ -19,7 +19,7 @@ Iroha becomes a personal data cockpit that can grow by adding metrics without:
 - changing the canonical database into a generic EAV store;
 - making the browser aggregate raw domain records;
 - weakening the stable expense API;
-- collapsing six design languages into one neutral cockpit;
+- collapsing distinct registered languages or adopted compositions into one neutral cockpit;
 - introducing hidden Telegram/agent workflow coupling;
 - inventing weekly reports.
 
@@ -120,7 +120,7 @@ Approve these decisions explicitly:
 3. metric series API is additive under /api/v1/metrics;
 4. no database migration is needed for the vertical slice;
 5. current monthly-report contract remains compatible;
-6. six themes are analytical lenses;
+6. registered design languages are analytical lenses, and adopted compositions are real shared layout systems rather than palette variants;
 7. global navigation becomes grouped/domain-based;
 8. monthly-only reporting remains in scope;
 9. expense intake remains independent from Telegram and local OCR agents;
@@ -584,13 +584,13 @@ All compositions lead with meaningful visual analysis, then exact records/detail
 
 Acceptance:
 
-- registry points to six distinct components;
+- registry points to distinct components for every registered language;
 - hierarchy, first visual, period framing, and detail order differ;
 - filters update URL and request immediately;
 - no Apply button;
 - category/currency colors are semantic and theme-specific;
 - delete refreshes ledger and chart;
-- screenshots pass for six themes in light and dark.
+- screenshots pass for every registered language in light and dark.
 
 ## 11. Phase 7 — monthly report cockpit
 
@@ -701,9 +701,10 @@ Acceptance:
 - desktop/mobile screenshots have no clipped navigation;
 - keyboard labels and focus order are correct.
 
-## 13. Phase 9 — six-theme completeness
+## 13. Phase 9 — design-system completeness
 
-Expense and report pages are the first mandatory six-theme slice. Then audit the existing pages against the same orientation contract.
+Expense and report pages are the first mandatory registered-language slice. Adopted compositions are exercised as package-owned specimens now and gain production route coverage through the same
+orientation contract.
 
 | Page           | Atlas              | Grapher                      | Field Journal       | Phenology                | Sound Map       | Archive            |
 | -------------- | ------------------ | ---------------------------- | ------------------- | ------------------------ | --------------- | ------------------ |
@@ -788,13 +789,14 @@ Use metrics, reports, expenses, and domain period integration tests. Cover:
 - month URL synchronization;
 - left/right keys;
 - direct year/month;
-- six-theme component identity;
+- registered-language component identity and adopted-composition implementation identity;
 - orientation checklist;
 - grouped navigation/palette consistency.
 
 ### Browser
 
-Use make web-visual-check with expenses and reports for all six themes and light/dark modes. Check browser errors each run. Keep screenshots in ignored visual output.
+Use make web-visual-check with expenses and reports for every registered language and light/dark mode; run the design-workshop specimen matrix for every adopted composition. Check browser errors each
+run. Keep screenshots in ignored visual output.
 
 Required after code phases:
 
@@ -852,12 +854,12 @@ Complete only when:
 - monthly reports remain compatible;
 - expenses/reports use server-provided chart series;
 - chart/table/metadata/download views agree;
-- six themes have real expense/report compositions;
+- every registered language has real expense/report compositions, and every adopted composition has a package-owned runnable implementation;
 - global header is grouped and not metric-shaped;
 - month navigation supports direct year/month and arrow keys;
 - missingness, coverage, units, dimensions, provenance, and method versions are visible;
 - fixtures cover empty, partial, zero, multi-dimensional, currency, and timezone cases;
 - make check and make validate pass;
-- six-theme light/dark visual checks pass;
+- registered-language light/dark visual checks and adopted-composition specimen checks pass;
 - any migration is performance-justified with invalidation/rollback proof;
 - deployment remains a separately approved release step.

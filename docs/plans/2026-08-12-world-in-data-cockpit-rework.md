@@ -12,7 +12,7 @@ Make Iroha a growing personal data cockpit with:
 - a discoverable metric catalog;
 - deterministic server-owned series and report aggregation;
 - chart-first representations with table, record, provenance, and export views;
-- six genuinely distinct visual compositions for supported pages;
+- genuinely distinct compositions for each registered production language, plus an extensible registry of adopted layout systems;
 - scalable domain/local/search navigation that does not turn every metric into a top tab;
 - monthly reports only, with no weekly report feature;
 - direct expense API intake for local agents, independent of Telegram.
@@ -52,7 +52,8 @@ Deliverables:
 - unit and missingness rules;
 - reducer and aggregation method names with versions;
 - a domain/navigation taxonomy;
-- the approved six-theme orientation matrix: primary question, visual grammar, time model, interaction model, and anti-patterns;
+- the approved orientation matrix for registered production languages, plus the adoption contract for new shared compositions: primary question, visual grammar, time model, interaction model, and
+  anti-patterns;
 - fixtures containing empty, partial-coverage, multi-currency, multi-unit, and multi-dimension data.
 
 Acceptance:
@@ -61,7 +62,7 @@ Acceptance:
 - no metric is named only by a presentation label;
 - period boundaries are explicit and consistent;
 - navigation decisions identify primary domains, local views, and tools.
-- each theme can explain why its first chart and first detail surface are different from the other five.
+- each registered language can explain why its first chart and first detail surface differ from the other registered languages, and each adopted composition has a distinct layout intent.
 
 ### Phase 1 — metric catalog, code-owned first
 
@@ -161,8 +162,8 @@ Build shared frontend primitives around the stable series contract:
 - download/copy JSON or CSV for the displayed series;
 - table parity for exact values.
 
-Fix the existing category-color regression with a focused component test: ensure datum-level colors are not overwritten by series-level `itemStyle`. Add a color-token test for all six themes. Do not
-make the API return CSS values.
+Fix the existing category-color regression with a focused component test: ensure datum-level colors are not overwritten by series-level `itemStyle`. Add a color-token test for every registered
+language and adopted composition that renders the chart. Do not make the API return CSS values.
 
 ### Phase 5 — expense and report page architecture
 
@@ -195,7 +196,7 @@ For monthly reports:
 - expose method/coverage/source details;
 - keep monthly-only scope.
 
-For six themes:
+For each registered production language, with adopted compositions joining as their route coverage is implemented:
 
 - add separate `expenses` and `reports` components under each theme, or an equivalent theme-owned composition registry;
 - each must implement the decided lens: Atlas/territory, Grapher/comparison, Field Journal/observation, Phenology/recurrence, Sound Map/rhythm, Archive/provenance;
@@ -204,11 +205,11 @@ For six themes:
 
 Acceptance:
 
-- registry tests prove six distinct component identities for each supported page;
+- registry tests prove distinct component identities for each registered language/page pair and addressable shared implementations for adopted compositions;
 - orientation review proves the first question, chart, time framing, and detail order differ appropriately by theme;
 - browser checks verify chart-first layouts and theme-specific visual markers;
 - keyboard tests cover ArrowLeft, ArrowRight, Escape, and direct period selection;
-- screenshot review covers all six themes for expenses and reports.
+- screenshot review covers all registered languages for expenses and reports, plus every adopted composition specimen.
 
 ### Phase 6 — navigation rework
 
@@ -257,7 +258,7 @@ Pass Go unit/integration tests, OpenAPI contract checks, deterministic JSON fixt
 
 ### Gate C — report and cockpit migration
 
-Pass monthly report compatibility tests, chart-first browser checks, date keyboard checks, six-theme component/visual checks, and no raw-row frontend aggregation checks.
+Pass monthly report compatibility tests, chart-first browser checks, date keyboard checks, registered-language and adopted-composition visual checks, and no raw-row frontend aggregation checks.
 
 ### Gate D — navigation and expansion
 
@@ -269,16 +270,16 @@ Run the repository's normal `make check` and relevant web/server contract target
 
 ## Risks and mitigations
 
-| Risk                                     | Mitigation                                                                |
-| ---------------------------------------- | ------------------------------------------------------------------------- |
-| Generic metric API erases domain meaning | Keep typed domain APIs and adapter-owned semantics                        |
-| Metadata becomes stale                   | Version definitions and aggregation methods; test registry exhaustiveness |
-| Charts look colorful but mislead         | Unit/coverage/method in response and tooltip; table parity                |
-| Six themes collapse into palettes        | Separate page components and visual contract tests                        |
-| More metrics recreate tab overload       | Domain navigation plus metric search/shelf; no metric top tabs            |
-| Materialized values become stale         | On-demand first; measured storage decision later                          |
-| OWID inspiration becomes code copying    | Use concepts only; do not copy source or licensed implementation          |
-| API v0.4 destabilizes late               | Additive endpoints and preserve current monthly contract through release  |
+| Risk                                                                | Mitigation                                                                |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Generic metric API erases domain meaning                            | Keep typed domain APIs and adapter-owned semantics                        |
+| Metadata becomes stale                                              | Version definitions and aggregation methods; test registry exhaustiveness |
+| Charts look colorful but mislead                                    | Unit/coverage/method in response and tooltip; table parity                |
+| Registered languages or adopted compositions collapse into palettes | Separate page components and visual contract tests                        |
+| More metrics recreate tab overload                                  | Domain navigation plus metric search/shelf; no metric top tabs            |
+| Materialized values become stale                                    | On-demand first; measured storage decision later                          |
+| OWID inspiration becomes code copying                               | Use concepts only; do not copy source or licensed implementation          |
+| API v0.4 destabilizes late                                          | Additive endpoints and preserve current monthly contract through release  |
 
 ## First implementation slice after approval
 
