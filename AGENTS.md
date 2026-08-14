@@ -59,6 +59,12 @@ Design identities, route registrations, design compositions, and theme-aware CSS
 and receive a deliberate shared implementation before it is considered adopted. A web-local copy, wrapper that changes the design language, or a CSS switch without a deliberate composition is a
 boundary violation.
 
+## Deployment scope
+
+Classify the changed paths before building a local k3s image. A web-only visual or route change uses `make image-web VERSION=<tag>` and the k3s repo's `make apply-iroha-web`; it does not use
+`make images` or `make apply-iroha`. Use the full image/apply path only when server, job, export, configuration, or migration changes require it. If a shared package has multiple runtime consumers,
+build and verify each affected consumer explicitly.
+
 ## Data & import model (important)
 
 - A full Apple Health export is a **complete snapshot**, reconciled — not appended.
