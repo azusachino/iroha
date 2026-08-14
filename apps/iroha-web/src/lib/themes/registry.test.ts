@@ -146,4 +146,12 @@ describe("Iroha theme registry", () => {
       THEME_DEFINITIONS.every((theme) => hasThemeRoute(theme, "metrics")),
     ).toBe(true);
   });
+
+  it("keeps report composition ownership distinct across languages", () => {
+    const reportComponents = THEME_DEFINITIONS.map(
+      (theme) => theme.components.reports,
+    );
+    expect(reportComponents.every(Boolean)).toBe(true);
+    expect(new Set(reportComponents).size).toBe(THEME_DEFINITIONS.length);
+  });
 });

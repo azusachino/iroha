@@ -77,6 +77,15 @@ Theme components own:
 
 They must not invent metrics or bypass shared state contracts.
 
+### Report composition contract
+
+Reports are a deliberate test of the boundary. The route owns the selected month, the server-generated monthly envelope, the twelve-month series, and URL/error/loading state. The shared primitives own
+chart/table parity, canonical units, coverage, provenance, and export behavior.
+
+Each registered language owns its report composition in its own `themes/<language>/Reports.svelte`. Those files choose domain order, chart orientation, hierarchy, typography, density, and the
+placement of the evidence list. There is no universal five-domain report renderer. A new shared primitive may provide truthful behavior or accessibility, but it must not silently decide the visual
+hierarchy for every language.
+
 ## Registry contract
 
 The registry must provide typed metadata for every language:
@@ -110,9 +119,7 @@ The registry is exhaustive. Adding a language without all required production ro
 5. Keep design tokens semantic; do not route raw hex values into data logic.
 6. Keep accessibility behavior in shared primitives unless the theme has a documented interaction difference.
 7. Keep each theme’s assets and styles colocated with the theme component.
-8. Use the design workshop as a real implementation and review surface. Its
-   layout compositions use canonical fixtures and must remain runnable; they
-   are not static concept boards.
+8. Use the design workshop as a real implementation and review surface. Its layout compositions use canonical fixtures and must remain runnable; they are not static concept boards.
 9. Prefer one complete vertical slice over six superficial variants.
 10. Keep the existing route tree and API paths stable while migrating.
 
@@ -135,15 +142,11 @@ The same imported day must be rendered through every accepted theme in the desig
 The `/design` route contains two real, complementary implementation axes:
 
 - the six registered design languages, selected through the theme registry;
-- the seven implemented layout compositions: Editorial, Command center,
-  Chronicle, Cover page, Personal OS, Field journal, and Quiet.
+- the seven implemented layout compositions: Editorial, Command center, Chronicle, Cover page, Personal OS, Field journal, and Quiet.
 
-The layout compositions are not throwaway mockups. They are executable Svelte
-compositions bound to the same canonical Today view model, with stable URL
-selection, accessible controls, responsive styles, and deterministic fallback
-data. They are first-class workshop implementations alongside the registered
-themes, and the acceptance matrix must exercise all of them rather than
-silently reducing them to screenshots.
+The layout compositions are not throwaway mockups. They are executable Svelte compositions bound to the same canonical Today view model, with stable URL selection, accessible controls, responsive
+styles, and deterministic fallback data. They are first-class workshop implementations alongside the registered themes, and the acceptance matrix must exercise all of them rather than silently
+reducing them to screenshots.
 
 ## Migration order
 
