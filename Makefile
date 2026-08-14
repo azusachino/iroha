@@ -12,6 +12,9 @@ TAG := v$(VERSION)
 OUT := ./dist/public-data
 PRIVACY ?= 0
 MEDIA_BRIDGE_OUT := ./dist/media-bridge
+MOBILE_DEFAULT_THEMES := atlas,grapher,field-journal,phenology,sound-map,archive
+MOBILE_DEFAULT_MODES := light,dark
+MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
 .PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
@@ -103,7 +106,7 @@ web-visual-check: ## Screenshot a themed route with agent-browser (THEME=field-j
 
 web-mobile-check: ## Audit every private route at compact mobile widths (BASE=..., API_BASE=..., VIEWPORTS=...)
 	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
-	BASE="$(or $(BASE),http://127.0.0.1:4173)" API_BASE="$(or $(API_BASE),$(or $(BASE),http://127.0.0.1:4173))" THEMES="$(or $(THEMES),atlas,grapher,field-journal,phenology,sound-map,archive)" MODES="$(or $(MODES),light,dark)" MOTION="$(or $(MOTION),normal,reduced)" VIEWPORTS="$(VIEWPORTS)" OUT="$(or $(OUT),dist/mobile-route-audit.json)" $(TOOL_ENV) uv run python scripts/mobile_route_check.py
+	BASE="$(or $(BASE),http://127.0.0.1:4173)" API_BASE="$(or $(API_BASE),$(or $(BASE),http://127.0.0.1:4173))" THEMES="$(or $(THEMES),$(MOBILE_DEFAULT_THEMES))" MODES="$(or $(MODES),$(MOBILE_DEFAULT_MODES))" MOTION="$(or $(MOTION),$(MOBILE_DEFAULT_MOTION))" VIEWPORTS="$(VIEWPORTS)" OUT="$(or $(OUT),dist/mobile-route-audit.json)" $(TOOL_ENV) uv run python scripts/mobile_route_check.py
 
 ## --- Public static site (apps/iroha-public-site, bun) ---
 public-site-install: ## Install public-site dependencies
