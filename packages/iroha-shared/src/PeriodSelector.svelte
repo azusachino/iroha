@@ -125,6 +125,7 @@
 <style>
   .period-controls {
     display: flex;
+    min-width: 0;
     flex-wrap: wrap;
     align-items: end;
     gap: 0.75rem;

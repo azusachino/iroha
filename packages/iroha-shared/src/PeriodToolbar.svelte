@@ -36,6 +36,7 @@
 <style>
   .period-toolbar {
     display: flex;
+    min-width: 0;
     min-height: 5.25rem;
     align-items: center;
     justify-content: space-between;
