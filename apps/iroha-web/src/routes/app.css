@@ -468,14 +468,11 @@ textarea {
     gap: 0.35rem;
   }
 
-  .command-trigger span {
-    display: none;
-  }
-
   .command-trigger {
-    width: 2.25rem;
+    min-width: 7.1rem;
+    width: auto;
     justify-content: center;
-    padding: 0.45rem;
+    padding: 0.45rem 0.65rem;
   }
 
   .main-nav {
