@@ -1,6 +1,6 @@
 # ADR 0003: Cache backends and invalidation
 
-- Status: Proposed
+- Status: Accepted; cache freshness policy extended by [ADR 0004](0004-cache-correctness-and-report-reads.md)
 - Date: 2026-07-18
 - Depends on: [ADR 0001](0001-provider-observations-and-canonical-records.md)
 
