@@ -1,35 +1,26 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  import type { SleepAggregateBucket, SleepSession } from "$lib/api";
-  import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-  import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
+  import type { SleepThemeProps } from "../../sleep-view";
+  import {
+    formatDateOnly,
+    formatDateShort,
+    formatDuration,
+  } from "../../format";
+  import BarChart from "../components/BarChart.svelte";
+  import SleepAggregateChart from "../components/SleepAggregateChart.svelte";
 
   let {
     sessions,
     selected,
     averageAsleep,
     averageEfficiency,
-    onSelect,
     onOpenDetail,
     sleepSummary = null,
     rollupBuckets = [],
     rollupGranularity = "year",
     rollupScope = "",
+    theme,
     children,
-  }: {
-    sessions: SleepSession[];
-    selected: SleepSession | null;
-    averageAsleep: number;
-    averageEfficiency: number;
-    onSelect: (session: SleepSession) => void;
-    onOpenDetail: (session: SleepSession) => void;
-    sleepSummary?: SleepAggregateBucket | null;
-    rollupBuckets?: SleepAggregateBucket[];
-    rollupGranularity?: "month" | "year";
-    rollupScope?: string;
-    children?: Snippet;
-  } = $props();
+  }: SleepThemeProps = $props();
 
   const avgPct = $derived(Math.round(averageEfficiency * 100));
   const chartSessions = $derived([...sessions].reverse());
@@ -83,6 +74,7 @@
       buckets={rollupBuckets}
       granularity={rollupGranularity}
       scope={rollupScope}
+      {theme}
     />
   {:else}<section class="atlas-plate nights-chart">
       <header class="chart-heading">
@@ -112,7 +104,7 @@
           formatter: (value) => `${value}%`,
         }}
         activeIndex={activeChartIndex}
-        onBarClick={(index) => onSelect(chartSessions[index])}
+        onBarClick={(index) => onOpenDetail(chartSessions[index])}
       />
     </section>{/if}
 

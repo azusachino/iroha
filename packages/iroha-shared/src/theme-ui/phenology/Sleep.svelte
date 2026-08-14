@@ -1,35 +1,41 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  import type { SleepAggregateBucket, SleepSession } from "$lib/api";
-  import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-  import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
+  import type { SleepThemeProps } from "../../sleep-view";
+  import type { SleepSession } from "../../sleep";
+  import {
+    formatDateOnly,
+    formatDateShort,
+    formatDuration,
+  } from "../../format";
+  import BarChart from "../components/BarChart.svelte";
+  import SleepAggregateChart from "../components/SleepAggregateChart.svelte";
 
   let {
     sessions,
     selected,
     averageAsleep,
     averageEfficiency,
-    onSelect,
     onOpenDetail,
     sleepSummary = null,
     rollupBuckets = [],
     rollupGranularity = "year",
     rollupScope = "",
+    theme,
     children,
-  }: {
-    sessions: SleepSession[];
-    selected: SleepSession | null;
-    averageAsleep: number;
-    averageEfficiency: number;
-    onSelect: (session: SleepSession) => void;
-    onOpenDetail: (session: SleepSession) => void;
-    sleepSummary?: SleepAggregateBucket | null;
-    rollupBuckets?: SleepAggregateBucket[];
-    rollupGranularity?: "month" | "year";
-    rollupScope?: string;
-    children?: Snippet;
-  } = $props();
+  }: SleepThemeProps = $props();
+
+  const maxAsleep = $derived(
+    Math.max(1, ...sessions.map((session) => session.asleep_s)),
+  );
+
+  // Each night is still rendered as a phase disc in the field below (size
+  // encodes time asleep, fill encodes efficiency) -- the chart above is the
+  // same data as an interactive, hoverable bar+line series instead of a
+  // second reading of the same two numbers.
+  function discStyle(session: SleepSession): string {
+    const size = 1.5 + (session.asleep_s / maxAsleep) * 1.9;
+    const sweep = Math.max(0, Math.min(1, session.efficiency)) * 360;
+    return `--d: ${size.toFixed(2)}rem; --sweep: ${sweep.toFixed(1)}deg;`;
+  }
 
   const chartSessions = $derived([...sessions].reverse());
   const activeChartIndex = $derived(
@@ -39,22 +45,20 @@
   );
 </script>
 
-<section class="journal-night" aria-labelledby="journal-night-title">
+<section class="bloom-night" aria-labelledby="bloom-night-title">
   <header class="night-opening">
     <div>
-      <p class="journal-kicker">Night notes · recovery record</p>
-      <h1 id="journal-night-title">What the night recorded.</h1>
-      <p>Rest kept as a sequence of nights, not a single verdict.</p>
+      <p class="bloom-kicker">● Night record · recovery</p>
+      <h1 id="bloom-night-title">What the night returned.</h1>
+      <p>Rest read as a sequence of phases, not a single verdict.</p>
     </div>
-    <div class="night-stamp" aria-label="Recorded nights">
+    <div class="night-count">
       <strong>{sleepSummary?.session_count ?? sessions.length}</strong>
       <span>sessions</span>
     </div>
   </header>
 
   {@render children?.()}
-
-  <div class="journal-rule"><span>small signals</span></div>
 
   <dl class="night-summary">
     <div>
@@ -76,11 +80,12 @@
       buckets={rollupBuckets}
       granularity={rollupGranularity}
       scope={rollupScope}
+      {theme}
     />
-  {:else}<section class="night-card">
-      <div class="night-heading">
+  {:else}<section class="phase-panel">
+      <div class="panel-heading">
         <div>
-          <p class="journal-kicker">Observed nights</p>
+          <p class="bloom-kicker">Nightly readings</p>
           <h2>Asleep time</h2>
         </div>
         <span>select a column to inspect</span>
@@ -105,25 +110,55 @@
           formatter: (value) => `${value}%`,
         }}
         activeIndex={activeChartIndex}
-        onBarClick={(index) => onSelect(chartSessions[index])}
+        onBarClick={(index) => onOpenDetail(chartSessions[index])}
       />
+    </section>
+
+    <section class="phase-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="bloom-kicker">Observed nights</p>
+          <h2>Phase by phase</h2>
+        </div>
+        <span>size = time asleep · fill = efficiency</span>
+      </div>
+      <div
+        class="phase-field"
+        role="img"
+        aria-label="Sleep sessions rendered as phase discs, sized by duration and filled by efficiency"
+      >
+        {#each chartSessions as session (session.id)}
+          <button
+            class="phase-disc"
+            class:active={selected?.id === session.id}
+            style={discStyle(session)}
+            title={`${formatDateOnly(session.wake_date)} · ${formatDuration(session.asleep_s)} asleep · ${Math.round(session.efficiency * 100)}%`}
+            onclick={() => onOpenDetail(session)}
+          >
+            <i></i>
+            <small>{formatDateOnly(session.wake_date)}</small>
+          </button>
+        {/each}
+      </div>
     </section>{/if}
 
   {#if selected}
     <aside class="margin-note">
-      <p class="journal-kicker">Latest margin</p>
+      <p class="bloom-kicker">Latest margin</p>
       <h2>{formatDuration(selected.asleep_s)} asleep</h2>
       <p>
         {selected.is_main_sleep ? "Primary overnight sleep" : "Short session"} ·
-        {formatDateOnly(selected.wake_date)}
+        {formatDateOnly(selected.wake_date)} · {Math.round(
+          selected.efficiency * 100,
+        )}% efficient
       </p>
     </aside>
   {/if}
 
-  <section class="night-ledger">
+  <section class="bloom-ledger">
     <header>
       <div>
-        <p class="journal-kicker">Session ledger</p>
+        <p class="bloom-kicker">Session ledger</p>
         <h2>Night by night</h2>
       </div>
       <span
@@ -169,95 +204,80 @@
     </div>
   </section>
 
-  <footer class="journal-source">
-    <span>Source: imported sleep sessions</span>
-    <span>Presentation only · no readiness score inferred</span>
+  <footer class="bloom-source">
+    Source: imported sleep sessions · no readiness score inferred
   </footer>
 </section>
 
 <style>
-  .journal-night {
+  .bloom-night {
     display: grid;
     gap: 1.5rem;
+    font-family: var(--font-serif);
   }
-  .journal-kicker {
-    margin: 0 0 0.55rem;
+  .bloom-kicker {
+    margin: 0 0 0.5rem;
     color: var(--accent);
-    font-size: 0.68rem;
-    letter-spacing: 0.16em;
+    font-size: 0.66rem;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
   }
   h1,
   h2 {
     margin: 0;
-    font-family: var(--font-serif);
     font-weight: 400;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.02em;
   }
   h1 {
-    font-size: clamp(2.6rem, 6vw, 4.8rem);
-    line-height: 0.92;
+    font-size: clamp(2.4rem, 6vw, 4.6rem);
+    line-height: 0.95;
   }
   h2 {
-    margin: 0.25rem 0 0.5rem;
-    font-size: 1.6rem;
+    font-size: 1.5rem;
   }
   .night-opening {
     display: flex;
     justify-content: space-between;
     gap: 2rem;
     align-items: end;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.75rem;
   }
   .night-opening p:last-child {
-    max-width: 36rem;
+    max-width: 34rem;
     color: var(--text-muted);
-    line-height: 1.7;
+    line-height: 1.65;
   }
-  .night-stamp {
+  .night-count {
     display: grid;
     justify-items: end;
     color: var(--text-muted);
   }
-  .night-stamp strong {
+  .night-count strong {
     color: var(--accent);
-    font-family: var(--font-serif);
+    font-style: italic;
     font-size: 3.2rem;
     font-weight: 400;
-    line-height: 0.85;
   }
-  .night-stamp span {
-    margin-top: 0.5rem;
+  .night-count span {
+    margin-top: 0.4rem;
     font-size: 0.68rem;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-  }
-  .journal-rule {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    color: var(--text-muted);
-    font-family: var(--font-serif);
-    font-size: 0.8rem;
-    font-style: italic;
-  }
-  .journal-rule::after {
-    content: "";
-    height: 1px;
-    flex: 1;
-    background: var(--border);
   }
   .night-summary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     margin: 0;
     border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface-1) 84%, transparent);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
   }
   .night-summary div {
     display: grid;
     gap: 0.4rem;
     border-right: 1px solid var(--border);
-    padding: 1.25rem;
+    padding: 1.2rem;
   }
   .night-summary div:last-child {
     border-right: 0;
@@ -268,38 +288,79 @@
   }
   dd {
     margin: 0;
-    font-family: var(--font-serif);
-    font-size: 1.35rem;
+    font-style: italic;
+    font-size: 1.3rem;
   }
-  .night-card,
-  .night-ledger {
+  .phase-panel,
+  .bloom-ledger {
     border: 1px solid var(--border);
+    border-radius: var(--radius);
     padding: 1.5rem;
-    background: color-mix(in srgb, var(--surface-1) 84%, transparent);
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
   }
-  .night-heading,
-  .night-ledger header {
+  .panel-heading,
+  .bloom-ledger header {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
   }
-  .night-heading > span,
-  .night-ledger header > span {
+  .panel-heading > span,
+  .bloom-ledger header > span {
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: 0.7rem;
+    text-align: right;
+  }
+  .phase-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 1.1rem;
+    min-height: 8rem;
+    margin-top: 1.75rem;
+    padding-bottom: 0.5rem;
+  }
+  .phase-disc {
+    display: grid;
+    justify-items: center;
+    gap: 0.45rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .phase-disc i {
+    display: block;
+    width: var(--d);
+    height: var(--d);
+    border-radius: 50%;
+    background: conic-gradient(
+      var(--accent) var(--sweep),
+      color-mix(in srgb, var(--border) 70%, transparent) 0
+    );
+    box-shadow: inset 0 0 0 1px var(--border);
+    opacity: 0.75;
+    transition:
+      opacity 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .phase-disc.active i,
+  .phase-disc:hover i {
+    opacity: 1;
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .phase-disc small {
+    font-size: 0.56rem;
   }
   .margin-note {
+    border-radius: var(--radius);
     border-left: 0.35rem solid var(--accent);
     padding: 1.2rem 1.5rem;
-    background: color-mix(in srgb, var(--accent) 8%, var(--surface-1));
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   }
   .margin-note p {
     margin: 0;
     color: var(--text-muted);
     font-size: 0.78rem;
-  }
-  .night-ledger {
-    padding: 1.5rem;
   }
   .ledger-scroll {
     overflow-x: auto;
@@ -328,7 +389,7 @@
   }
   td:first-child {
     color: var(--accent);
-    font-family: var(--font-serif);
+    font-style: italic;
   }
   tbody tr {
     cursor: pointer;
@@ -336,25 +397,23 @@
   tbody tr.selected td {
     color: var(--accent);
   }
-  .journal-source {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
+  .bloom-source {
     border-top: 1px solid var(--border);
-    padding-top: 1rem;
+    padding-top: 0.85rem;
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: 0.68rem;
   }
   @media (max-width: 680px) {
     .night-opening,
-    .night-heading,
-    .night-ledger header,
-    .journal-source {
+    .panel-heading,
+    .bloom-ledger header {
       display: block;
     }
-    .night-stamp {
-      align-items: start;
-      justify-items: start;
+    .night-count {
+      display: flex;
+      justify-items: initial;
+      align-items: baseline;
+      gap: 0.6rem;
       margin-top: 1.5rem;
     }
     .night-summary {
@@ -367,7 +426,7 @@
     .night-summary div:last-child {
       border-bottom: 0;
     }
-    .night-heading > span {
+    .panel-heading > span {
       display: block;
       margin-top: 0.6rem;
     }

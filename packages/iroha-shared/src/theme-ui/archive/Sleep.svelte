@@ -1,36 +1,32 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  import type { SleepAggregateBucket, SleepSession } from "$lib/api";
-  import { formatDateOnly, formatDateShort, formatDuration } from "$lib/format";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-  import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
+  import type { SleepThemeProps } from "../../sleep-view";
+  import {
+    formatDateOnly,
+    formatDateShort,
+    formatDuration,
+  } from "../../format";
+  import BarChart from "../components/BarChart.svelte";
+  import SleepAggregateChart from "../components/SleepAggregateChart.svelte";
 
   let {
     sessions,
     selected,
     averageAsleep,
     averageEfficiency,
-    onSelect,
     onOpenDetail,
     sleepSummary = null,
     rollupBuckets = [],
     rollupGranularity = "year",
     rollupScope = "",
+    theme,
     children,
-  }: {
-    sessions: SleepSession[];
-    selected: SleepSession | null;
-    averageAsleep: number;
-    averageEfficiency: number;
-    onSelect: (session: SleepSession) => void;
-    onOpenDetail: (session: SleepSession) => void;
-    sleepSummary?: SleepAggregateBucket | null;
-    rollupBuckets?: SleepAggregateBucket[];
-    rollupGranularity?: "month" | "year";
-    rollupScope?: string;
-    children?: Snippet;
-  } = $props();
+  }: SleepThemeProps = $props();
 
+  // Each recorded night becomes a row: most recent night on top, older
+  // nights settle toward the bottom of the list -- the same reading order
+  // as the period core on the Daily page. The chart above reads
+  // chronologically (oldest to newest, left to right) instead.
+  const rows = $derived(sessions.map((session) => ({ session })));
   const chartSessions = $derived([...sessions].reverse());
   const activeChartIndex = $derived(
     selected
@@ -39,23 +35,23 @@
   );
 </script>
 
-<section class="mix-sleep" aria-labelledby="mix-sleep-title">
-  <header class="mix-head">
+<section class="folio-sleep" aria-labelledby="folio-sleep-title">
+  <header class="folio-head">
     <div>
-      <p class="mix-kicker">Night record / recovery</p>
-      <h1 id="mix-sleep-title">How the night unfolds.</h1>
-      <p>Rest is a sequence of recorded levels, not a single verdict.</p>
+      <p class="folio-kicker">Night register / recovery</p>
+      <h1 id="folio-sleep-title">How the night settles.</h1>
+      <p>Rest is a sequence of recorded strata, not a single verdict.</p>
     </div>
-    <div class="mix-readout">
+    <div class="folio-readout">
       <strong>{sleepSummary?.session_count ?? sessions.length}</strong><span
-        >sessions</span
+        >sessions held</span
       >
     </div>
   </header>
 
   {@render children?.()}
 
-  <div class="mix-summary">
+  <div class="folio-summary catalog-card">
     <div>
       <span>Average asleep</span><strong>{formatDuration(averageAsleep)}</strong
       >
@@ -77,16 +73,17 @@
       buckets={rollupBuckets}
       granularity={rollupGranularity}
       scope={rollupScope}
+      {theme}
     />
-  {:else}<section class="mix-chart">
+  {:else}<section class="folio-core catalog-card">
       <header>
         <div>
-          <p class="mix-kicker">Observed nights</p>
-          <h2>Sleep waveform</h2>
+          <p class="folio-kicker">Observed nights</p>
+          <h2>Sleep core</h2>
         </div>
-        <span>bar = time asleep · cap = efficiency</span>
+        <span>thickness = asleep · tone = efficiency</span>
       </header>
-      {#if sessions.length}
+      {#if rows.length}
         <BarChart
           categories={chartSessions.map((session) =>
             formatDateShort(session.wake_date),
@@ -106,17 +103,36 @@
             ),
             formatter: (value) => `${value}%`,
           }}
+          orientation="horizontal"
           activeIndex={activeChartIndex}
-          onBarClick={(index) => onSelect(chartSessions[index])}
+          onBarClick={(index) => onOpenDetail(chartSessions[index])}
+          height={Math.max(220, chartSessions.length * 22)}
         />
+        <div class="core-legend">
+          {#each rows as row (row.session.id)}
+            <button
+              type="button"
+              class="core-row"
+              class:active={selected?.id === row.session.id}
+              onclick={() => onOpenDetail(row.session)}
+            >
+              <strong>{formatDateOnly(row.session.wake_date)}</strong>
+              <span
+                >{formatDuration(row.session.asleep_s)} · {Math.round(
+                  row.session.efficiency * 100,
+                )}%</span
+              >
+            </button>
+          {/each}
+        </div>
       {:else}
-        <p class="mix-empty">No sleep sessions were recorded.</p>
+        <p class="folio-empty">No sleep sessions were recorded.</p>
       {/if}
     </section>{/if}
 
   {#if selected}
-    <aside class="mix-note">
-      <p class="mix-kicker">Selected night</p>
+    <aside class="folio-note catalog-card">
+      <p class="folio-kicker">Selected night</p>
       <strong>{formatDuration(selected.asleep_s)} asleep</strong><span
         >{selected.is_main_sleep ? "Primary overnight sleep" : "Short session"} ·
         {formatDateOnly(selected.wake_date)} · {Math.round(
@@ -126,10 +142,10 @@
     </aside>
   {/if}
 
-  <section class="mix-table">
+  <section class="folio-ledger">
     <header>
       <div>
-        <p class="mix-kicker">Session ledger</p>
+        <p class="folio-kicker">Session ledger</p>
         <h2>Night by night</h2>
       </div>
       <span
@@ -138,7 +154,7 @@
           : "imported values"}</span
       >
     </header>
-    <div class="mix-scroll">
+    <div class="ledger-scroll">
       <table>
         <thead
           ><tr
@@ -168,39 +184,39 @@
       </table>
     </div>
   </section>
-  <footer class="mix-source">
-    <span>Source: imported sleep sessions</span>
-    <span>No readiness score inferred</span>
+  <footer class="folio-source">
+    Source: imported sleep sessions · no readiness score inferred
   </footer>
 </section>
 
 <style>
-  .mix-sleep {
+  .folio-sleep {
     display: grid;
-    gap: 1.35rem;
+    gap: 1.3rem;
   }
-  .mix-kicker {
+  .folio-kicker {
     margin: 0 0 0.5rem;
     color: var(--accent);
-    font-size: 0.66rem;
-    letter-spacing: 0.14em;
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
   }
   h1,
   h2 {
     margin: 0;
+    font-family: var(--font-serif);
     font-weight: 700;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.01em;
   }
   h1 {
-    font-size: clamp(2.3rem, 6vw, 4.2rem);
-    line-height: 0.98;
-    text-transform: uppercase;
+    font-size: clamp(2.5rem, 6.5vw, 5rem);
+    line-height: 0.95;
   }
   h2 {
-    font-size: 1.65rem;
+    font-size: 1.55rem;
   }
-  .mix-head {
+  .folio-head {
     display: flex;
     justify-content: space-between;
     gap: 2rem;
@@ -208,98 +224,160 @@
     border-bottom: 1px solid var(--border);
     padding-bottom: 1.75rem;
   }
-  .mix-head p:last-child {
+  .folio-head p:last-child {
     color: var(--text-muted);
     line-height: 1.6;
   }
-  .mix-readout {
+  .folio-readout {
     display: grid;
     justify-items: end;
-    padding: 0.6rem 0.9rem;
-    border: 1px solid var(--accent);
-    border-radius: var(--radius);
     color: var(--text-muted);
   }
-  .mix-readout strong {
+  .folio-readout strong {
     color: var(--accent);
-    font-size: 2.6rem;
+    font-family: var(--font-serif);
+    font-size: 3.3rem;
     font-weight: 700;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
-  .mix-readout span {
-    margin-top: 0.4rem;
-    font-size: 0.62rem;
-    letter-spacing: 0.08em;
+  .folio-readout span {
+    margin-top: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
     text-transform: uppercase;
   }
-  .mix-summary {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+  .catalog-card {
+    position: relative;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: color-mix(in srgb, var(--surface) 90%, transparent);
+    padding: 1.5rem 1.5rem 1.5rem 1.7rem;
   }
-  .mix-summary div {
+  .catalog-card::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: 1.15rem;
+    width: 4px;
+    height: 2.3rem;
+    background: var(--accent-2);
+    border-radius: 0 2px 2px 0;
+  }
+  .folio-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 0;
+  }
+  .folio-summary::before {
+    display: none;
+  }
+  .folio-summary div {
     display: grid;
     gap: 0.4rem;
     border-right: 1px solid var(--border);
-    padding: 1.2rem;
+    padding: 1.25rem;
   }
-  .mix-summary div:last-child {
+  .folio-summary div:last-child {
     border-right: 0;
   }
-  .mix-summary span {
+  .folio-summary span {
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
   }
-  .mix-summary strong {
+  .folio-summary strong {
+    font-family: var(--font-serif);
     font-size: 1.4rem;
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
   }
-  .mix-chart,
-  .mix-table {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1.4rem;
-    background: color-mix(in srgb, var(--surface) 90%, transparent);
-  }
-  .mix-chart header,
-  .mix-table header {
+  .folio-core header,
+  .folio-ledger header {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
   }
-  .mix-chart header > span,
-  .mix-table header > span {
+  .folio-core header > span,
+  .folio-ledger header > span {
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
     text-align: right;
   }
-  .mix-empty {
+  .core-legend {
+    display: flex;
+    flex-direction: column;
+    margin-top: 1.4rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .core-row {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 1.55rem;
+    overflow: hidden;
+    border: 0;
+    border-top: 1px solid var(--border);
+    padding: 0 0.9rem 0 0.25rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .core-row:first-child {
+    border-top: 0;
+  }
+  .core-row:hover,
+  .core-row.active {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .core-row strong {
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .core-row span {
+    overflow: hidden;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .folio-empty {
     margin-top: 1.4rem;
     color: var(--text-muted);
   }
-  .mix-note {
-    display: grid;
-    gap: 0.35rem;
-    border-left: 0.3rem solid var(--accent);
-    border-radius: var(--radius);
-    padding: 1.2rem 1.5rem;
-    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  }
-  .mix-note strong {
+  .folio-note strong {
+    display: block;
+    font-family: var(--font-serif);
     font-size: 1.5rem;
     font-weight: 700;
   }
-  .mix-note span {
+  .folio-note span {
+    display: block;
+    margin-top: 0.35rem;
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
   }
-  .mix-scroll {
+  .folio-ledger {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+    padding: 1.5rem;
+  }
+  .ledger-scroll {
     overflow-x: auto;
     margin-top: 1rem;
   }
@@ -307,11 +385,12 @@
     width: 100%;
     min-width: 38rem;
     border-collapse: collapse;
-    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
   }
   th {
     color: var(--text-muted);
-    font-size: 0.64rem;
+    font-size: 0.62rem;
     font-weight: 400;
     letter-spacing: 0.08em;
     text-align: left;
@@ -323,7 +402,6 @@
     padding: 0.8rem 0.5rem;
     text-align: left;
     white-space: nowrap;
-    font-variant-numeric: tabular-nums;
   }
   tbody tr {
     cursor: pointer;
@@ -331,47 +409,38 @@
   tbody tr.selected td {
     color: var(--accent);
   }
-  .mix-source {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
+  .folio-source {
     border-top: 1px solid var(--border);
     padding-top: 0.8rem;
     color: var(--text-muted);
+    font-family: var(--font-mono);
     font-size: 0.66rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
   }
   @media (max-width: 680px) {
-    .mix-head,
-    .mix-chart header,
-    .mix-table header,
-    .mix-source {
+    .folio-head,
+    .folio-core header,
+    .folio-ledger header {
       display: block;
     }
-    .mix-readout {
-      display: flex;
-      align-items: baseline;
-      justify-items: initial;
-      gap: 0.5rem;
+    .folio-readout {
+      display: block;
       margin-top: 1.5rem;
     }
-    .mix-readout strong {
-      font-size: 2.2rem;
-    }
-    .mix-chart header > span,
-    .mix-table header > span {
+    .folio-core header > span,
+    .folio-ledger header > span {
       display: block;
       margin-top: 0.8rem;
     }
-    .mix-summary {
+    .folio-summary {
       grid-template-columns: 1fr;
     }
-    .mix-summary div {
+    .folio-summary div {
       border-right: 0;
       border-bottom: 1px solid var(--border);
     }
-    .mix-summary div:last-child {
+    .folio-summary div:last-child {
       border-bottom: 0;
     }
   }

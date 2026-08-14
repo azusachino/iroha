@@ -1,17 +1,17 @@
 <script lang="ts">
-  import type { SleepAggregateBucket } from "$lib/api";
-  import { formatMonth } from "$lib/format";
-  import { useTheme } from "$lib/themes/context.svelte";
+  import type { DesignLanguage } from "../../themes";
+  import type { SleepAggregateBucket } from "../../sleep";
+  import { formatCanonicalMonth } from "../../format";
 
   let {
     summary = null,
     scope = "",
+    theme,
   }: {
     summary?: SleepAggregateBucket | null;
     scope?: string;
+    theme: DesignLanguage;
   } = $props();
-
-  const theme = useTheme();
 
   function count(value: number | undefined): string {
     return value == null || !Number.isFinite(value)
@@ -20,14 +20,14 @@
   }
 
   function scopeLabel(value: string): string {
-    if (/^\d{4}-\d{2}$/.test(value)) return formatMonth(value);
+    if (/^\d{4}-\d{2}$/.test(value)) return formatCanonicalMonth(value);
     return value || "Lifetime";
   }
 </script>
 
 <section
   class="sleep-scope-summary"
-  data-theme={theme.definition().identity.id}
+  data-theme={theme}
   aria-label={`Sleep totals for ${scopeLabel(scope)}`}
 >
   <header>

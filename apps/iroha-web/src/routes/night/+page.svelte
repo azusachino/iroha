@@ -11,9 +11,9 @@
     type SleepSession,
   } from "$lib/api";
   import StatTile from "$lib/components/StatTile.svelte";
-  import SleepScopeSummary from "$lib/components/SleepScopeSummary.svelte";
-  import SleepArchitectureChart from "$lib/components/SleepArchitectureChart.svelte";
-  import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
+  import SleepScopeSummary from "@iroha/shared/theme-ui/components/SleepScopeSummary.svelte";
+  import SleepArchitectureChart from "@iroha/shared/theme-ui/components/SleepArchitectureChart.svelte";
+  import SleepTimelineChart from "@iroha/shared/theme-ui/components/SleepTimelineChart.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import {
@@ -447,7 +447,6 @@
           rollupBuckets,
           rollupGranularity,
           rollupScope: sleepScope,
-          onSelect: (session: SleepSession) => (selected = session),
           onOpenDetail: (session: SleepSession) =>
             void goto(`/night/${session.id}`),
         }}
@@ -465,7 +464,11 @@
               onMonth={changeMonth}
             />
           </PeriodToolbar>
-          <SleepScopeSummary summary={sleepSummary} scope={sleepScope} />
+          <SleepScopeSummary
+            summary={sleepSummary}
+            scope={sleepScope}
+            theme={theme.language()}
+          />
         {/snippet}
       </ThemeRouteRenderer>
       {#if hasMore}
@@ -513,7 +516,11 @@
           onMonth={changeMonth}
         />
       </PeriodToolbar>
-      <SleepScopeSummary summary={sleepSummary} scope={sleepScope} />
+      <SleepScopeSummary
+        summary={sleepSummary}
+        scope={sleepScope}
+        theme={theme.language()}
+      />
       <section class="hero tile">
         <div class="hero-orb"></div>
         <div class="hero-topline">
@@ -728,28 +735,23 @@
         <div class="night-layout">
           <div bind:this={nightListContainer} class="night-list">
             {#each sessions as session (session.id)}
-              <div class="night-row-wrap">
-                <button
-                  class:selected={selected.id === session.id}
-                  class="night-row"
-                  type="button"
-                  onclick={() => selectSession(session)}
-                  onmouseenter={() => selectSession(session)}
-                  onfocus={() => selectSession(session)}
-                  aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? "primary overnight sleep" : "short session"}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
+              <button
+                class:selected={selected.id === session.id}
+                class="night-row"
+                type="button"
+                onclick={() => void goto(`/night/${session.id}`)}
+                onmouseenter={() => selectSession(session)}
+                onfocus={() => selectSession(session)}
+                aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? "primary overnight sleep" : "short session"}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
+              >
+                <span class="night-date"
+                  >{formatDateOnly(session.wake_date)}</span
+                ><span>{formatDuration(session.asleep_s)}</span><b
+                  >{Math.round(session.efficiency * 100)}%</b
+                ><em class:primary={session.is_main_sleep}
+                  >{session.is_main_sleep ? "Primary" : "Short"}</em
                 >
-                  <span class="night-date"
-                    >{formatDateOnly(session.wake_date)}</span
-                  ><span>{formatDuration(session.asleep_s)}</span><b
-                    >{Math.round(session.efficiency * 100)}%</b
-                  ><em class:primary={session.is_main_sleep}
-                    >{session.is_main_sleep ? "Primary" : "Short"}</em
-                  >
-                </button>
-                <a class="night-detail-link" href={`/night/${session.id}`}
-                  >Open</a
-                >
-              </div>
+              </button>
             {/each}
             <div
               bind:this={loadMoreSentinel}
@@ -1162,12 +1164,6 @@
     max-height: 19rem;
     overflow: auto;
   }
-  .night-row-wrap {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    border-top: 1px solid var(--border);
-  }
   .night-row {
     display: grid;
     grid-template-columns: 1fr auto auto auto;
@@ -1204,16 +1200,6 @@
   }
   .night-row em.primary {
     color: var(--accent);
-  }
-  .night-detail-link {
-    padding: 0.35rem 0.45rem;
-    color: var(--accent);
-    font-size: 0.72rem;
-    text-decoration: none;
-  }
-  .night-detail-link:hover,
-  .night-detail-link:focus-visible {
-    text-decoration: underline;
   }
   .timeline-card {
     align-self: center;

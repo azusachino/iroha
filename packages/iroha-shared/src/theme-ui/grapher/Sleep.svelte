@@ -1,35 +1,22 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  import type { SleepAggregateBucket, SleepSession } from "$lib/api";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-  import SleepAggregateChart from "$lib/components/SleepAggregateChart.svelte";
-  import { formatDateOnly, formatDuration } from "$lib/format";
+  import type { SleepThemeProps } from "../../sleep-view";
+  import BarChart from "../components/BarChart.svelte";
+  import SleepAggregateChart from "../components/SleepAggregateChart.svelte";
+  import { formatDateOnly, formatDuration } from "../../format";
 
   let {
     sessions,
     selected,
     averageAsleep,
     averageEfficiency,
-    onSelect,
     onOpenDetail,
     sleepSummary = null,
     rollupBuckets = [],
     rollupGranularity = "year",
     rollupScope = "",
+    theme,
     children,
-  }: {
-    sessions: SleepSession[];
-    selected: SleepSession | null;
-    averageAsleep: number;
-    averageEfficiency: number;
-    onSelect: (session: SleepSession) => void;
-    onOpenDetail: (session: SleepSession) => void;
-    sleepSummary?: SleepAggregateBucket | null;
-    rollupBuckets?: SleepAggregateBucket[];
-    rollupGranularity?: "month" | "year";
-    rollupScope?: string;
-    children?: Snippet;
-  } = $props();
+  }: SleepThemeProps = $props();
 
   const chartSessions = $derived([...sessions].reverse());
 </script>
@@ -68,6 +55,7 @@
       buckets={rollupBuckets}
       granularity={rollupGranularity}
       scope={rollupScope}
+      {theme}
     />
   {:else}<section class="sleep-series" aria-labelledby="sleep-series-title">
       <div class="panel-heading">
@@ -91,7 +79,7 @@
         }}
         onBarClick={(index) => {
           const session = chartSessions[index];
-          if (session) onSelect(session);
+          if (session) onOpenDetail(session);
         }}
       />
     </section>{/if}

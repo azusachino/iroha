@@ -101,6 +101,7 @@ export function formatDate(iso?: string, timezone?: string): string {
 
 export function formatDateOnly(iso?: string, timezone?: string): string {
   if (!iso) return DASH;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   try {
@@ -112,6 +113,31 @@ export function formatDateOnly(iso?: string, timezone?: string): string {
     }).format(date);
   } catch {
     return date.toISOString().slice(0, 10);
+  }
+}
+
+export function formatDateShort(iso?: string, timezone?: string): string {
+  if (!iso) return DASH;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [, year, month, day] = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso) ?? [];
+    if (year && month && day) {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(`${year}-${month}-${day}T00:00:00Z`));
+    }
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: timezone || undefined,
+    }).format(date);
+  } catch {
+    return date.toISOString().slice(5, 10);
   }
 }
 

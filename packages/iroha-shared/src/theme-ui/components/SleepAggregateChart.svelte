@@ -1,23 +1,25 @@
 <script lang="ts">
-  import type { SleepAggregateBucket } from "$lib/api";
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-  import { formatDuration, formatMonth } from "$lib/format";
-  import { useTheme } from "$lib/themes/context.svelte";
+  import type { DesignLanguage } from "../../themes";
+  import type { SleepAggregateBucket } from "../../sleep";
+  import BarChart from "./BarChart.svelte";
+  import { formatDuration, formatCanonicalMonth } from "../../format";
 
   let {
     buckets,
     granularity,
     scope = "",
+    theme,
   }: {
     buckets: SleepAggregateBucket[];
     granularity: "month" | "year";
     scope?: string;
+    theme: DesignLanguage;
   } = $props();
 
-  const theme = useTheme();
-
   function labelFor(period: string): string {
-    return granularity === "year" ? period.slice(0, 4) : formatMonth(period);
+    return granularity === "year"
+      ? period.slice(0, 4)
+      : formatCanonicalMonth(period);
   }
 
   const categories = $derived(buckets.map((bucket) => labelFor(bucket.period)));
@@ -26,12 +28,15 @@
       bucket.main_sleep_count > 0 ? bucket.average_asleep_s : null,
     ),
   );
-  const sessionCount = $derived(buckets.map((bucket) => bucket.session_count));
+  const mainSleepCount = $derived(
+    buckets.map((bucket) => bucket.main_sleep_count),
+  );
+  const napCount = $derived(buckets.map((bucket) => bucket.nap_count));
 </script>
 
 <section
   class="sleep-aggregate-chart"
-  data-theme={theme.definition().identity.id}
+  data-theme={theme}
   aria-labelledby="sleep-rollup-title"
 >
   <header class="chart-header">
@@ -39,7 +44,7 @@
       <p class="eyebrow">Complete {granularity} rollup</p>
       <h2 id="sleep-rollup-title">Sleep rhythm over time</h2>
       <p class="description">
-        Average main-sleep duration and total recorded sessions from the full
+        Average main-sleep duration, main sleeps, and naps from the full
         canonical dataset{scope ? ` · ${scope}` : ""}.
       </p>
     </div>
@@ -62,15 +67,19 @@
       />
     </div>
     <div>
-      <p class="chart-label">Sessions recorded</p>
+      <p class="chart-label">Main sleep and naps</p>
       <BarChart
         {categories}
         primary={{
-          name: "Sessions",
-          values: sessionCount,
+          name: "Main sleep",
+          values: mainSleepCount,
+          color: "var(--accent)",
+        }}
+        secondary={{
+          name: "Naps",
+          values: napCount,
           color: "var(--accent-2)",
         }}
-        categorical
         height={290}
       />
     </div>

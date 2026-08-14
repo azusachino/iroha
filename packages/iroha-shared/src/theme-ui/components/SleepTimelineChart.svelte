@@ -5,22 +5,21 @@
   import { init, use } from "echarts/core";
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
-  import { sleepStageColor, sleepStageLabel } from "$lib/sleep-stages";
+  import type { SleepSegment } from "../../sleep";
+  import { sleepStageColor, sleepStageLabel } from "../../sleep-stages";
 
   use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
-
-  type Segment = { stage: string; started_at: string; ended_at: string };
 
   let {
     segments,
     sessionKind = "main",
-  }: { segments: Segment[]; sessionKind?: "main" | "nap" } = $props();
+  }: { segments: SleepSegment[]; sessionKind?: "main" | "nap" } = $props();
   let container: HTMLDivElement;
   let chart: ECharts | undefined;
 
   const sessionLabel = $derived(sessionKind === "nap" ? "Nap" : "Main sleep");
 
-  function duration(segment: Segment): number {
+  function duration(segment: SleepSegment): number {
     return Math.max(
       0,
       (new Date(segment.ended_at).getTime() -

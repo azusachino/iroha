@@ -6,11 +6,11 @@
     type SleepSegment,
     type SleepSession,
   } from "$lib/api";
-  import SleepTimelineChart from "$lib/components/SleepTimelineChart.svelte";
+  import SleepTimelineChart from "@iroha/shared/theme-ui/components/SleepTimelineChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { formatDate, formatDateOnly, formatDuration } from "$lib/format";
-  import { sleepStageLabel, sleepStageColor } from "$lib/sleep-stages";
+  import { sleepStageLabel, sleepStageColor } from "@iroha/shared/sleep-stages";
   import SourceBadge from "@iroha/shared/SourceBadge.svelte";
 
   let session = $state<SleepSession | null>(null);

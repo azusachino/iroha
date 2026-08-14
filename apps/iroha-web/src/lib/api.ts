@@ -28,6 +28,13 @@ import type {
   ReportSection,
   SleepReportData,
 } from "@iroha/shared/report";
+import type {
+  ListSleepParams,
+  SleepAggregateBucket,
+  SleepAggregates,
+  SleepSegment,
+  SleepSession,
+} from "@iroha/shared/sleep";
 
 export type {
   Activity,
@@ -65,65 +72,16 @@ export type {
   ReportSection,
   SleepReportData,
 } from "@iroha/shared/report";
+export type {
+  ListSleepParams,
+  SleepAggregateBucket,
+  SleepAggregates,
+  SleepSegment,
+  SleepSession,
+} from "@iroha/shared/sleep";
 
 // Types mirror the iroha-server read API JSON contract (snake_case).
 // Optional fields use `?` because the server omits them when absent.
-
-export interface SleepSession {
-  id: string;
-  wake_date: string;
-  started_at: string;
-  ended_at: string;
-  time_in_bed_s: number;
-  asleep_s: number;
-  efficiency: number;
-  is_main_sleep: boolean;
-  core_s: number;
-  deep_s: number;
-  rem_s: number;
-  awake_s: number;
-  unspecified_s: number;
-  source: string;
-  first_raw_file_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SleepSegment {
-  id: string;
-  stage: string;
-  started_at: string;
-  ended_at: string;
-  seq: number;
-}
-
-export interface SleepAggregateBucket {
-  period: string;
-  session_count: number;
-  main_sleep_count: number;
-  nap_count: number;
-  observed_wake_dates: number;
-  average_asleep_s: number;
-  average_time_in_bed_s: number;
-  average_efficiency: number;
-  core_s: number;
-  deep_s: number;
-  rem_s: number;
-  awake_s: number;
-  unspecified_s: number;
-}
-
-export interface SleepAggregates {
-  granularity: "month" | "year";
-  buckets: SleepAggregateBucket[];
-}
-
-export interface ListSleepParams {
-  from?: string;
-  to?: string;
-  limit?: number;
-  cursor?: string;
-}
 
 export interface ListMediaParams {
   status?: string;
