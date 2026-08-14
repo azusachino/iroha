@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { Trash2, WalletCards } from "@lucide/svelte";
-  import { categoryColor } from "@iroha/shared/category-color";
-  import type { Expense } from "$lib/api";
-  import { expenseLedgerCsv } from "$lib/expense-view";
-  import { formatDate } from "$lib/format";
+  import { categoryColor } from "../../category-color";
+  import type { Expense } from "../../expense";
+  import { expenseLedgerCsv } from "../../expense-view";
+  import { formatDate } from "../../format";
 
   let {
     expenses,
@@ -139,7 +138,19 @@
             type="button"
             onclick={() => onRemove(selected!)}
           >
-            <Trash2 size={14} /> Delete
+            <svg
+              class="action-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path
+                d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7l1-3h4l1 3"
+              />
+            </svg>
+            Delete
           </button>
         </header>
 
@@ -201,7 +212,17 @@
         </p>
       {:else}
         <div class="empty-detail">
-          <WalletCards size={22} />
+          <svg
+            class="empty-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            aria-hidden="true"
+          >
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="M7 9h10M7 13h6" />
+          </svg>
           <p>Select an expense to inspect its canonical fields.</p>
         </div>
       {/if}
@@ -380,6 +401,10 @@
     color: var(--danger);
     cursor: pointer;
   }
+  .action-icon {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
   .detail-list {
     display: grid;
     gap: 0.7rem;
@@ -424,6 +449,10 @@
     padding: 4rem 1rem;
     color: var(--text-muted);
     text-align: center;
+  }
+  .empty-icon {
+    width: 1.5rem;
+    height: 1.5rem;
   }
   @media (max-width: 760px) {
     .ledger-heading {

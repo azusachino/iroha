@@ -29,7 +29,7 @@
     expenseMetricDimensions,
     type ExpensePanel,
     type ExpenseThemeProps,
-  } from "$lib/expense-view";
+  } from "@iroha/shared/expense-view";
   import { categoryColor } from "@iroha/shared/category-color";
   import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
 

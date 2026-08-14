@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { panelCsv, seriesPanelRows } from "@iroha/shared/metric-panel";
 import { pointHasValue, pointValue } from "@iroha/shared/metric-series";
-import { expenseLedgerCsv, expenseMetricDimensions } from "$lib/expense-view";
+import {
+  expenseLedgerCsv,
+  expenseMetricDimensions,
+} from "@iroha/shared/expense-view";
 
 describe("shared metric series helpers", () => {
   it("keeps null periods distinct from zero", () => {

@@ -9,4 +9,5 @@ export * from "./period";
 export * from "./media";
 export * from "./report";
 export * from "./expense";
+export * from "./expense-view";
 export * from "./design-compositions";

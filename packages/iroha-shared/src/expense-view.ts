@@ -1,6 +1,6 @@
-import type { PanelCoverage, PanelRow } from "@iroha/shared/metric-panel";
-import { csvCell } from "@iroha/shared/metric-series";
-import type { Expense, ExpenseCategory, ExpenseCurrency } from "$lib/api";
+import type { PanelCoverage, PanelRow } from "./metric-panel";
+import { csvCell } from "./metric-series";
+import type { Expense, ExpenseCategory, ExpenseCurrency } from "./expense";
 
 // Everything a theme needs to hand a chart to the shared MetricPanel. The
 // route owns it so provenance and exact rows cannot diverge per theme.

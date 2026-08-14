@@ -1,10 +1,10 @@
 <script lang="ts">
-  import BarChart from "@iroha/shared/theme-ui/components/BarChart.svelte";
-  import ExpenseLedger from "$lib/components/ExpenseLedger.svelte";
-  import StatTile from "$lib/components/StatTile.svelte";
-  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
-  import type { ExpenseThemeProps } from "$lib/expense-view";
-  import { formatExpenseDay } from "$lib/expense-view";
+  import BarChart from "../components/BarChart.svelte";
+  import ExpenseLedger from "../components/ExpenseLedger.svelte";
+  import StatTile from "../../StatTile.svelte";
+  import MetricPanel from "../../MetricPanel.svelte";
+  import type { ExpenseThemeProps } from "../../expense-view";
+  import { formatExpenseDay } from "../../expense-view";
 
   let {
     month,
