@@ -12,7 +12,7 @@ ARG PUBLIC_IROHA_API_BASE=
 ENV PUBLIC_IROHA_API_BASE=$PUBLIC_IROHA_API_BASE
 ARG PUBLIC_IROHA_VERSION=dev
 ENV PUBLIC_IROHA_VERSION=$PUBLIC_IROHA_VERSION
-RUN bun run build
+RUN rm -rf .svelte-kit build && bun run build
 
 FROM caddy:2-alpine
 COPY ops/images/Caddyfile /etc/caddy/Caddyfile

@@ -182,12 +182,13 @@
   }
   .summary-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     border-block: 1px solid var(--border);
   }
   .summary-row div {
     display: grid;
     gap: 0.4rem;
+    min-width: 0;
     padding: 1rem;
     border-right: 1px solid var(--border);
   }

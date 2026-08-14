@@ -308,6 +308,9 @@
     display: grid;
     gap: 1.25rem;
   }
+  .folio-side > * {
+    min-width: 0;
+  }
   .folio-panel {
     border: 1px solid var(--border);
     border-radius: var(--radius);

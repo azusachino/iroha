@@ -244,6 +244,9 @@
     grid-template-columns: repeat(6, 1fr);
     gap: 1rem;
   }
+  .master-stats > * {
+    min-width: 0;
+  }
   .master-stats .atlas-plate {
     padding: 1.1rem;
   }
@@ -344,7 +347,7 @@
       text-align: left;
     }
     .master-stats {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .entries-plate {
       margin-bottom: 1.25rem;

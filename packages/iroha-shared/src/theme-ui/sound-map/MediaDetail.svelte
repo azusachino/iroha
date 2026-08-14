@@ -368,6 +368,10 @@
     .lower-grid {
       grid-template-columns: 1fr;
     }
+    .progress-panel .panel-heading {
+      display: grid;
+      align-items: start;
+    }
     .cover-frame {
       width: 8rem;
     }

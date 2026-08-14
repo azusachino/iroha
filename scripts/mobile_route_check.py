@@ -161,6 +161,11 @@ def assert_route(
         "width:innerWidth,height:innerHeight,"
         "overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth+1||"
         "document.body.scrollWidth>document.body.clientWidth+1,"
+        "navigation:(()=>{const nav=document.querySelector('.main-nav');if(!nav)return null;"
+        "const rect=nav.getBoundingClientRect();const items=[...nav.children];return {"
+        "overflow:nav.scrollWidth>nav.clientWidth+1,"
+        "clipped:items.some(el=>{const box=el.getBoundingClientRect();return box.left<rect.left-1||box.right>rect.right+1}),"
+        "count:items.length};})(),"
         "headings:document.querySelectorAll('h1,h2').length,"
         "pending:document.querySelectorAll('[aria-busy=\\\"true\\\"],.skeleton').length,"
         "unnamed:[...document.querySelectorAll('a,button,input,select,textarea,summary')]"
@@ -184,6 +189,13 @@ def assert_route(
         raise RuntimeError(f"viewport mismatch for {route}: {state}")
     if state["overflow"]:
         raise RuntimeError(f"horizontal overflow for {theme}/{mode}/{motion}/{route}: {state}")
+    if viewport[0] <= 640 and (
+        not state["navigation"]
+        or state["navigation"]["overflow"]
+        or state["navigation"]["clipped"]
+        or state["navigation"]["count"] != 5
+    ):
+        raise RuntimeError(f"mobile navigation does not fit for {route}: {state}")
     if state["headings"] < 1:
         raise RuntimeError(f"route has no heading for {route}: {state}")
     if state["pending"]:

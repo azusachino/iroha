@@ -514,6 +514,7 @@
   @media (max-width: 640px) {
     .detail-hero {
       align-items: start;
+      flex-direction: column;
     }
     .metric-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));

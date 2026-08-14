@@ -136,7 +136,7 @@ and callbacks. The theme context must be driven by the shared registry; local st
 5. **Complete:** move the component map and theme runtime contracts into the shared package while keeping local persistence and private chrome in the web host. Preserve URL, loading, persistence, and
    navigation behavior.
 6. **Complete:** add public-site fixture data and render all registered themes and adopted compositions in its design workbench. This is the cross-app proof that the boundary is real.
-7. Add a CI/check target that fails if new files appear under `apps/*/src/lib/themes` or if `packages/iroha-shared` imports app aliases.
+7. **Complete:** `make theme-boundary-check` fails if new themed assets appear under app theme directories or if shared code imports app aliases. Keep this check in the pre-commit `make check` gate.
 
 ## Completion criteria
 
@@ -146,3 +146,7 @@ and callbacks. The theme context must be driven by the shared registry; local st
 - Theme IDs, route names, identities, registry entries, and tokens have one canonical definition.
 - The design page exercises the same shared components used by production routes; it is not a parallel mock.
 - Web and public-site checks pass, and every theme is browser-verified with representative fixture/API data.
+
+The boundary check is intentionally source-based and dependency-free: it audits
+the app theme directories, shared-package imports, and shared component export
+surface without requiring a browser or a running API.

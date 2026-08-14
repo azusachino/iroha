@@ -177,22 +177,22 @@ soak-local: ## Run non-mutating HTTP soak checks against the Podman Compose stac
 ## --- k3s local images (build with Podman, import straight into containerd; no registry) ---
 image-server: ## Build iroha-server and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target server -t $(IMAGE_NS)/iroha-server:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-server:$(TAG) | sudo k3s ctr images import --all-platforms --digests -
+	podman save $(IMAGE_NS)/iroha-server:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-job: ## Build iroha-job and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target job -t $(IMAGE_NS)/iroha-job:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-job:$(TAG) | sudo k3s ctr images import --all-platforms --digests -
+	podman save $(IMAGE_NS)/iroha-job:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-db-migrate: ## Build iroha-db-migrate and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target db-migrate -t $(IMAGE_NS)/iroha-db-migrate:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-db-migrate:$(TAG) | sudo k3s ctr images import --all-platforms --digests -
+	podman save $(IMAGE_NS)/iroha-db-migrate:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-web: ## Build iroha-web and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) .
-	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import --all-platforms --digests -
+	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-export-public: ## Build iroha-export-public and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --target export-public -t $(IMAGE_NS)/iroha-export-public:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-export-public:$(TAG) | sudo k3s ctr images import --all-platforms --digests -
+	podman save $(IMAGE_NS)/iroha-export-public:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 images: image-server image-job image-db-migrate image-web image-export-public ## Build and import all iroha images into the local k3s containerd store

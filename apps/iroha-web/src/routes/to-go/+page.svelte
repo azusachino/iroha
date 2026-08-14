@@ -699,6 +699,17 @@
     .task-form input:first-child {
       grid-column: 1 / -1;
     }
+    .resolution-row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    .resolution-actions {
+      flex-wrap: wrap;
+      width: 100%;
+    }
+    .resolution-actions button {
+      flex: 1 1 auto;
+    }
     .job-row time {
       display: none;
     }

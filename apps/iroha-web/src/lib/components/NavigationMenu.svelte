@@ -182,7 +182,8 @@
   }
   @media (max-width: 768px) {
     .navigation-menu {
-      flex: 1 1 auto;
+      flex: 0 1 auto;
+      min-width: 0;
     }
     .navigation-popover {
       position: fixed;
@@ -192,6 +193,20 @@
       min-width: 0;
       max-height: min(60vh, 20rem);
       overflow-y: auto;
+    }
+  }
+  @media (max-width: 640px) {
+    summary {
+      width: 100%;
+      justify-content: center;
+      gap: 0.15rem;
+      padding: 0 0.1rem;
+      font-size: 0.62rem;
+    }
+    .chevron {
+      width: 0.4rem;
+      height: 0.4rem;
+      margin-left: 0.2rem;
     }
   }
 </style>
