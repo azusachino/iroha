@@ -1,4 +1,11 @@
 import { API_BASE } from "./config";
+import type {
+  Activity,
+  Lap,
+  ListActivitiesParams,
+  RoutePoint,
+  SamplingPoint,
+} from "@iroha/shared/activity";
 import type { MediaAggregates, MediaRow } from "@iroha/shared/media";
 import type {
   CreateExpenseInput,
@@ -22,6 +29,13 @@ import type {
   SleepReportData,
 } from "@iroha/shared/report";
 
+export type {
+  Activity,
+  Lap,
+  ListActivitiesParams,
+  RoutePoint,
+  SamplingPoint,
+} from "@iroha/shared/activity";
 export type {
   MediaAggregates,
   MediaCompletionBucket,
@@ -54,27 +68,6 @@ export type {
 
 // Types mirror the iroha-server read API JSON contract (snake_case).
 // Optional fields use `?` because the server omits them when absent.
-
-export interface Activity {
-  id: string;
-  sport_type: string;
-  title: string;
-  started_at: string;
-  ended_at?: string;
-  timezone: string;
-  distance_m?: number;
-  duration_s?: number;
-  moving_time_s?: number;
-  elevation_gain_m?: number;
-  avg_hr?: number;
-  max_hr?: number;
-  avg_pace_s_per_km?: number;
-  source_kind: string;
-  source_activity_id?: string;
-  first_raw_file_id: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export interface SleepSession {
   id: string;
@@ -128,48 +121,6 @@ export interface SleepAggregates {
 export interface ListSleepParams {
   from?: string;
   to?: string;
-  limit?: number;
-  cursor?: string;
-}
-
-export interface RoutePoint {
-  seq: number;
-  ts?: string;
-  lat: number;
-  lon: number;
-  elevation_m?: number;
-  distance_m?: number;
-  speed_mps?: number;
-  heart_rate?: number;
-}
-
-export interface SamplingPoint {
-  id: string;
-  sampling_type: string;
-  ts: string;
-  value: number;
-  unit: string;
-}
-
-export interface Lap {
-  id: string;
-  lap_no: number;
-  start_ts?: string;
-  end_ts?: string;
-  distance_m?: number;
-  duration_s?: number;
-  avg_hr?: number;
-  avg_pace_s_per_km?: number;
-}
-
-export interface ListActivitiesParams {
-  sport_type?: string;
-  // RFC3339 timestamps; inclusive bounds on started_at.
-  started_from?: string;
-  started_to?: string;
-  // Distance bounds in meters; rows with no distance are excluded.
-  min_distance_m?: number;
-  max_distance_m?: number;
   limit?: number;
   cursor?: string;
 }

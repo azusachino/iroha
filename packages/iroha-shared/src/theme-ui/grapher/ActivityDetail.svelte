@@ -1,8 +1,13 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import type { Activity, Lap, RoutePoint, SamplingPoint } from "$lib/api";
-  import SourceBadge from "@iroha/shared/SourceBadge.svelte";
-  import LapChart from "$lib/components/LapChart.svelte";
+  import type {
+    Activity,
+    Lap,
+    RoutePoint,
+    SamplingPoint,
+  } from "../../activity";
+  import SourceBadge from "../../SourceBadge.svelte";
+  import LapChart from "../components/LapChart.svelte";
   import {
     formatDate,
     formatDistance,
@@ -10,8 +15,8 @@
     formatHr,
     formatPace,
     formatSwimmingPace,
-  } from "$lib/format";
-  import { isSwimming, sportLabel } from "$lib/sport";
+  } from "../../format";
+  import { isSwimming, sportLabel } from "../../sport";
 
   let {
     activity,

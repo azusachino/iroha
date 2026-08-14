@@ -26,7 +26,7 @@
   import RouteMap from "$lib/components/RouteMap.svelte";
   import FusedActivityChart from "$lib/components/FusedActivityChart.svelte";
   import ActivityDetailChart from "$lib/components/ActivityDetailChart.svelte";
-  import LapChart from "$lib/components/LapChart.svelte";
+  import LapChart from "@iroha/shared/theme-ui/components/LapChart.svelte";
   import SportBadge from "$lib/components/SportBadge.svelte";
   import StatTile from "$lib/components/StatTile.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";

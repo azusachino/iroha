@@ -40,6 +40,26 @@ export function formatPace(secondsPerKm?: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")} /km`;
 }
 
+export function formatSwimmingPace(
+  distanceM?: number | null,
+  durationS?: number | null,
+): string {
+  if (
+    distanceM == null ||
+    durationS == null ||
+    !Number.isFinite(distanceM) ||
+    !Number.isFinite(durationS) ||
+    distanceM <= 0 ||
+    durationS <= 0
+  ) {
+    return DASH;
+  }
+  const rounded = Math.round(durationS / (distanceM / 100));
+  const minutes = Math.floor(rounded / 60);
+  const seconds = rounded % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")} /100m`;
+}
+
 export function formatElevation(meters?: number): string {
   if (meters == null) return DASH;
   return `${Math.round(meters)} m`;

@@ -7,6 +7,8 @@ export * from "./category-color";
 export * from "./source";
 export * from "./period";
 export * from "./media";
+export * from "./activity";
+export * from "./sport";
 export * from "./report";
 export * from "./expense";
 export * from "./expense-view";
