@@ -311,6 +311,9 @@
     grid-template-columns: 1.35fr 1fr;
     gap: 1.25rem;
   }
+  .view-grid > * {
+    min-width: 0;
+  }
   .side-stack {
     display: grid;
     gap: 1.25rem;

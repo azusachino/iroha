@@ -255,6 +255,9 @@
     grid-template-columns: 1.4fr 1fr;
     gap: 1.25rem;
   }
+  .view-grid > * {
+    min-width: 0;
+  }
   .entries-card,
   .map-card {
     border: 1px solid var(--border);

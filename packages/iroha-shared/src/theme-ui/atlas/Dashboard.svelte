@@ -259,6 +259,9 @@
     grid-template-columns: 1.4fr 1fr;
     gap: 1.25rem;
   }
+  .master-grid > * {
+    min-width: 0;
+  }
   .entries-plate,
   .geo-plate {
     padding: 1.5rem;

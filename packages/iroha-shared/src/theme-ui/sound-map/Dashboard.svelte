@@ -276,6 +276,9 @@
     grid-template-columns: 1.4fr 1fr;
     gap: 1.25rem;
   }
+  .mix-grid > * {
+    min-width: 0;
+  }
   .mix-side {
     display: grid;
     gap: 1.25rem;

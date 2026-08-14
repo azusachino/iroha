@@ -301,6 +301,9 @@
     grid-template-columns: 1.4fr 1fr;
     gap: 1.25rem;
   }
+  .folio-grid > * {
+    min-width: 0;
+  }
   .folio-side {
     display: grid;
     gap: 1.25rem;

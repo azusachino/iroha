@@ -318,6 +318,9 @@
     grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.85fr);
     gap: 1rem;
   }
+  .dashboard-grid > * {
+    min-width: 0;
+  }
   .table-wrap {
     overflow-x: auto;
   }
