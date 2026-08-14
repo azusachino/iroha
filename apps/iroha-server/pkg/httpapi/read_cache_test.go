@@ -102,15 +102,51 @@ func TestReadCacheInvalidationReloadsData(t *testing.T) {
 	}
 }
 
+func TestReadCacheCachesReportResponses(t *testing.T) {
+	store := &readCacheTestStore{}
+	server := &Server{deps: Dependencies{Cache: cache.NewWithStore(store)}}
+	calls := 0
+	handler := server.readCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		writeJSON(w, http.StatusOK, map[string]int{"call": calls})
+	}))
+
+	for _, path := range []string{
+		"/api/v1/reports/monthly?month=2026-08",
+		"/api/v1/reports/monthly-series?end=2026-08&months=12",
+	} {
+		first := httptest.NewRecorder()
+		handler.ServeHTTP(first, httptest.NewRequest(http.MethodGet, path, nil))
+		second := httptest.NewRecorder()
+		handler.ServeHTTP(second, httptest.NewRequest(http.MethodGet, path, nil))
+
+		if first.Header().Get("X-Iroha-Cache") != "MISS" || second.Header().Get("X-Iroha-Cache") != "HIT" {
+			t.Fatalf("%s cache headers = %q/%q, want MISS/HIT", path, first.Header().Get("X-Iroha-Cache"), second.Header().Get("X-Iroha-Cache"))
+		}
+		if first.Body.String() != second.Body.String() {
+			t.Fatalf("%s cached body = %q, want %q", path, second.Body.String(), first.Body.String())
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("handler calls = %d, want one load per report path", calls)
+	}
+}
+
 func TestReadCacheSkipsMutationsAndUnrelatedPaths(t *testing.T) {
 	server := &Server{deps: Dependencies{Cache: cache.NewWithStore(&readCacheTestStore{})}}
 	for _, method := range []string{http.MethodPost, http.MethodGet} {
-		for _, path := range []string{"/api/v1/media/sync/anilist", "/api/v1/activitiesfoo", "/api/v1/expenses", "/api/v1/reports/monthly", "/api/v1/reports/monthly-series"} {
+		for _, path := range []string{"/api/v1/media/sync/anilist", "/api/v1/activitiesfoo", "/api/v1/expenses"} {
 			request := httptest.NewRequest(method, path, nil)
 			namespace, ok := readCacheNamespace(request)
 			if ok {
 				t.Fatalf("%s %s classified as cacheable namespace %q", method, path, namespace)
 			}
+		}
+	}
+	for _, path := range []string{"/api/v1/reports/monthly", "/api/v1/reports/monthly-series"} {
+		namespace, ok := readCacheNamespace(httptest.NewRequest(http.MethodGet, path, nil))
+		if !ok || namespace != cache.NamespaceReports {
+			t.Fatalf("GET %s classified as %q/%t, want %q/true", path, namespace, ok, cache.NamespaceReports)
 		}
 	}
 	_ = server

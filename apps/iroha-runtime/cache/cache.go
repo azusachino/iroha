@@ -31,6 +31,7 @@ const (
 	NamespaceDaily      = "read_daily"
 	NamespaceMedia      = "read_media"
 	NamespaceMetrics    = "read_metrics"
+	NamespaceReports    = "read_reports"
 )
 
 // Store is the backend contract for shared cache data. Namespace is a logical
