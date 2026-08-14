@@ -2,14 +2,16 @@
 
 ## Status
 
-Draft for Gate A approval. This plan is derived from the OWID/Iroha research, the registered-language orientation decision, the adopted-composition boundary, and the current Iroha v0.4 worktree.
+Implementation complete for the v0.4 release candidate; Gate A is approved and Gate C remains the owner release checkpoint. This plan is derived from the OWID/Iroha research, the registered-language
+orientation decision, the adopted-composition boundary, and the Iroha v0.4 worktree.
 
 Research commits already landed:
 
 - d990209 — world-in-data cockpit research
 - 510f3bb — six-theme analytical orientations
 
-No implementation starts until Gate A is approved. This document defines exact boundaries, contracts, files, tests, gates, and stop conditions.
+The original implementation gate was satisfied before the expense/report and cockpit slices began. This document remains the implementation contract and records exact boundaries, contracts, files,
+tests, gates, and stop conditions.
 
 ## 1. Outcome
 
@@ -597,14 +599,15 @@ Acceptance:
 Refactor apps/iroha-web/src/routes/reports/+page.svelte into a controller owning month URL state, report request, stable MonthlyReportPageModel, and section states. The client selects only a month;
 the server resolves the configured personal timezone and returns it in the envelope for semantic transparency. There is no web timezone control.
 
-Remove the current six-month eager request. Initially request selected and previous month only; load more history only when a visible chart requires it.
+Request the selected month plus the server-owned `monthly-report-series.v1` trend with twelve monthly periods. The response omits empty months from `reports` and lists them in `empty_months`; partial
+months remain in the series with an explicit completeness value. The route must not reconstruct this comparison from paginated domain rows.
 
 Page order:
 
 1. month control and report identity;
 2. headline cross-domain comparison;
 3. primary charts;
-4. previous-month comparison;
+4. twelve-month trend and comparison;
 5. exact domain details/tables;
 6. source, method, coverage, and generation metadata.
 
@@ -633,7 +636,7 @@ Acceptance:
 - only monthly controls exist;
 - arrow keys move one month and update URL;
 - direct year/month selection works;
-- previous-month baseline cases are labeled honestly;
+- twelve-month trend labels, empty months, and partial-month completeness are labeled honestly;
 - charts precede detail tables/cards;
 - every registered language component is distinct;
 - v1 section state is preserved;

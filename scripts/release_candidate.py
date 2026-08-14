@@ -19,12 +19,21 @@ WEB_DIR = ROOT / "apps" / "iroha-web"
 SEED_FILE = ROOT / "scripts" / "release_candidate_seed.sql"
 RESET_FILE = ROOT / "scripts" / "release_candidate_reset.sql"
 POSTGIS_IMAGE = "docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21"
+DATABASE_URL_ENV = "DATABASE_URL"
+IROHA_DATABASE_URL_ENV = "IROHA_DATABASE_URL"
+IROHA_SERVER_ADDR_ENV = "IROHA_SERVER_ADDR"
+IROHA_TIMEZONE_ENV = "IROHA_TIMEZONE"
+IROHA_ALLOWED_ORIGINS_ENV = "IROHA_ALLOWED_ORIGINS"
+IROHA_DATA_DIR_ENV = "IROHA_DATA_DIR"
+PUBLIC_IROHA_API_BASE_ENV = "PUBLIC_IROHA_API_BASE"
 THEMES = ("atlas", "grapher", "field-journal", "phenology", "sound-map", "archive")
 MODES = ("light", "dark")
+REPORT_EXPECTED_TEXT = "1 completed"
+METRIC_EXPECTED_TEXT = "Steps"
 ROUTES = (
     ("expenses?month=2026-08", 1, "Fixture merchant 55", 2),
-    ("reports?month=2026-08", 4, "Release Candidate Story", 4),
-    ("metrics?metric=health.steps&month=2026-08", 1, "12345", 1),
+    ("reports?month=2026-08", 4, REPORT_EXPECTED_TEXT, 4),
+    ("metrics?metric=health.steps&month=2026-08", 1, METRIC_EXPECTED_TEXT, 1),
 )
 
 
@@ -248,19 +257,19 @@ def main() -> int:
     env = os.environ.copy()
     env.update(
         {
-            "DATABASE_URL": database_url,
-            "IROHA_DATABASE_URL": database_url,
-            "IROHA_SERVER_ADDR": f"127.0.0.1:{server_port}",
-            "IROHA_TIMEZONE": "Asia/Tokyo",
-            "IROHA_ALLOWED_ORIGINS": web_url,
-            "IROHA_DATA_DIR": str(ROOT / ".iroha-data" / "release-candidate"),
-            "PUBLIC_IROHA_API_BASE": server_url,
+            DATABASE_URL_ENV: database_url,
+            IROHA_DATABASE_URL_ENV: database_url,
+            IROHA_SERVER_ADDR_ENV: f"127.0.0.1:{server_port}",
+            IROHA_TIMEZONE_ENV: "Asia/Tokyo",
+            IROHA_ALLOWED_ORIGINS_ENV: web_url,
+            IROHA_DATA_DIR_ENV: str(ROOT / ".iroha-data" / "release-candidate"),
+            PUBLIC_IROHA_API_BASE_ENV: server_url,
         }
     )
     server_process = None
     web_process = None
     data_dir = tempfile.TemporaryDirectory(prefix="iroha-rc-data-")
-    env["IROHA_DATA_DIR"] = data_dir.name
+    env[IROHA_DATA_DIR_ENV] = data_dir.name
     try:
         run(
             [
@@ -322,7 +331,7 @@ def main() -> int:
                 "exec",
                 "--",
                 "env",
-                f"DATABASE_URL={database_url}",
+                f"{DATABASE_URL_ENV}={database_url}",
                 "go",
                 "-C",
                 str(SERVER_DIR),

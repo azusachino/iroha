@@ -1,10 +1,10 @@
 import { createContext } from "svelte";
-import type { Component } from "svelte";
 import type { DesignLanguage, ThemeDefinition } from "../themes";
+import type { ThemeComponent } from "./registry";
 
 export type ThemeContext = {
   language: () => DesignLanguage;
-  definition: () => ThemeDefinition<Component<any>>;
+  definition: () => ThemeDefinition<ThemeComponent>;
   select: (language: DesignLanguage) => void;
 };
 

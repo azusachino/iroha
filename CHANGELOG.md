@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
-## [0.4.0] — 2026-08-12
+## [0.4.0] — 2026-08-14
 
 ### Added
 
@@ -18,6 +18,12 @@ contract between minor versions.
 - Keep expenses and reports out of the sanitized public export; add a serialized projection regression test for that boundary.
 - Adopt `requests` for the Python CLI transport and lock its dependencies with `uv`.
 - Document the v0.4 local-agent boundary: OCR may happen outside Iroha, while Iroha validates and stores canonical JSON deterministically.
+- Move canonical theme identities, route compositions, charts, controls, and adopted design compositions into `@iroha/shared`; both the private cockpit and public design workbench consume the same
+  assets.
+- Make monthly reports chart-first with twelve-month comparison, truthful empty/partial months, canonical units, provenance, and exact evidence below the visual summary.
+- Add the v0.4 release-candidate contract gates: deterministic seeded integration/runtime checks, six-language light/dark browser coverage, mobile overflow/reduced-motion checks, and the shared-theme
+  boundary check.
+- Harden compact navigation and shared theme layouts at 320, 375, 390, and 414 CSS pixels without changing the private/public data boundary.
 
 ## [0.3.1] — 2026-08-12
 

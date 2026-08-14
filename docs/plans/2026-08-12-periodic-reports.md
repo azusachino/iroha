@@ -1,6 +1,6 @@
 # Iroha Monthly Report Plan v2
 
-> Status: implementation baseline. This plan covers the monthly report across Iroha's existing personal data domains.
+> Status: implementation complete for the v0.4 release candidate. This plan covers the monthly report across Iroha's existing personal data domains and its release evidence.
 
 ## Goal
 
@@ -23,8 +23,8 @@ Iroha does not push reports to Telegram or any other destination. A report is a 
 1. The monthly report has one stable API shape and one period resolution.
 2. A month is a half-open local-date range `[from, to)`.
 3. A month starts on the first calendar day and ends on the first day of the next month.
-4. The API accepts an optional IANA timezone and returns the resolved range and timezone. If omitted, the server uses configured `IROHA_TIMEZONE` (default `Asia/Tokyo`). Web and CLI clients still
-   resolve and send an explicit timezone so a report does not silently change when moved between clients.
+4. The API accepts an optional IANA timezone and returns the resolved range and timezone. If omitted, the server uses configured `IROHA_TIMEZONE` (default `Asia/Tokyo`). Web clients omit the timezone;
+   the CLI inherits the configured value unless the operator passes an explicit override, so a report does not silently change between normal clients.
 5. Each domain owns its aggregation semantics; the report service composes typed domain sections.
 6. Missing data is represented as `empty` or omitted fields, never as zero measurements.
 7. No cross-domain score, ranking, currency conversion, or invented correlation is produced.
@@ -460,9 +460,10 @@ user opens /reports
   -> previous/next changes anchor and repeats the request
 ```
 
-Add a private `/reports` route with a month selector and previous/next month navigation. The selected month loads the current report plus a bounded recent-month window for comparison charts. Render
-sections independently so an empty media section does not hide valid sleep data. A request-level error is shown as an error state for the whole report. The route owns no aggregation logic; it renders
-typed section data, including loading, empty, and error states.
+Add a private `/reports` route with a month selector and previous/next month navigation. The selected month loads the current report plus the server-owned twelve-month trend contract for comparison
+charts. The series omits empty months from its plotted reports while preserving them in `empty_months`, and marks partial months explicitly. Render sections independently so an empty media section
+does not hide valid sleep data. A request-level error is shown as an error state for the whole report. The route owns no aggregation logic; it renders typed section data, including loading, empty, and
+error states.
 
 The Overview may show a small link or selected-period summary, but it must not duplicate the report calculations. One `/reports` route is rendered through the six design-language shells. The report
 data contract and analysis model remain shared; theme wrappers provide the visual treatment without six copies of report logic.

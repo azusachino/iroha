@@ -50,7 +50,7 @@ theme/
 ├── Activities.svelte    archive/list composition
 ├── Sleep.svelte         night composition
 ├── Media.svelte         library composition
-└── Share.svelte         public/editorial composition
+└── Reports.svelte       monthly analytical composition
 ```
 
 Themes may compose shared data visualizations and primitives, but route files must not contain a visual conditional over registered languages or adopted compositions. A route loads a stable view model
@@ -149,13 +149,14 @@ The `/design` route contains two real, complementary implementation axes:
 
 The layout compositions are not throwaway mockups. They are executable Svelte compositions bound to the same canonical Today view model, with stable URL selection, accessible controls, responsive
 styles, and deterministic fallback data. They are first-class shared implementations alongside the registered languages, and the acceptance matrix must exercise all of them rather than silently
-reducing them to screenshots. Production adoption additionally requires route coverage and a public-site fixture consumer.
+reducing them to screenshots. The public-site fixture workbench is the cross-app consumer for these compositions; its 84-case mobile smoke covers every registered language, adopted composition, and
+light/dark mode.
 
 ## Migration order
 
-1. Define the shared view models and move language metadata and the production registry into the shared theme package.
+1. **Complete:** define the shared view models and move language metadata and the production registry into the shared theme package.
 2. **Complete:** promote the workshop compositions into the shared composition registry with real implementations.
-3. **In progress:** build complete shared route-family slices—Media is the first slice—with web and public-site adapters consuming them.
-4. Review the same data in the design lab at required breakpoints.
-5. Migrate Daily, Activities, Sleep, Media, Expenses, Reports, and Metrics for every accepted language and adopted composition.
-6. Remove obsolete route-local visual conditionals only after the replacement has passed visual, accessibility, and data-boundary gates.
+3. **Complete:** build shared route-family slices with web and public-site adapters consuming the package-owned assets.
+4. **Complete for v0.4:** review the same fixture/API data in the design lab at the required breakpoints and contrast modes.
+5. **Complete for v0.4:** migrate Daily, Activities, Sleep, Media, Expenses, Reports, and Metrics for every registered language; adopted compositions are exercised by the shared design workbench.
+6. **Complete for v0.4:** remove obsolete route-local visual conditionals after the visual, accessibility, and data-boundary gates passed.

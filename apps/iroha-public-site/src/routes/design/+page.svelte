@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { base } from "$app/paths";
   import type { Activity } from "@iroha/shared/activity";
   import {
     DESIGN_COMPOSITIONS,
@@ -136,8 +137,9 @@
     mainNight: fixtureSleep,
     acts: fixtureActivities,
     mediaEvents: fixtureMedia,
-    onOpenActivity: (id) => void goto(`/?activity=${encodeURIComponent(id)}`),
-    onOpenMedia: () => void goto("/"),
+    onOpenActivity: (id) =>
+      void goto(`${base}/?activity=${encodeURIComponent(id)}`),
+    onOpenMedia: () => void goto(`${base}/`),
   };
 
   const designToday: DesignTodayData = {
@@ -176,11 +178,11 @@
 
   const readiness = 87;
   const compositionLinks = {
-    motion: "/",
-    night: "/design",
-    patterns: "/design",
-    library: "/",
-    activity: (id: string) => `/?activity=${encodeURIComponent(id)}`,
+    motion: `${base}/`,
+    night: `${base}/design`,
+    patterns: `${base}/design`,
+    library: `${base}/`,
+    activity: (id: string) => `${base}/?activity=${encodeURIComponent(id)}`,
   };
 
   const selectedLanguage = $derived(getThemeDefinition(language));
@@ -204,7 +206,7 @@
   <main class="design-lab" data-language={language}>
     <header class="lab-header tile">
       <div>
-        <a class="back-link" href="/">← Public archive</a>
+        <a class="back-link" href={`${base}/`}>← Public archive</a>
         <p class="eyebrow">Shared design system workbench</p>
         <h1>One payload. Many ways to see it.</h1>
         <p class="lead">

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { browser } from "$app/environment";
+  import { base } from "$app/paths";
   import { page } from "$app/state";
   import { onMount, untrack } from "svelte";
   import {
@@ -359,7 +360,7 @@
     <span>Public snapshot</span>
     <span>Updated {formatDateOnly(meta.generated_at)}</span>
     <span>iroha v{site.version}</span>
-    <a href="/design">Design workbench ↗</a>
+    <a href={`${base}/design`}>Design workbench ↗</a>
   </div>
 </header>
 

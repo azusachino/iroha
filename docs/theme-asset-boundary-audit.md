@@ -147,6 +147,5 @@ and callbacks. The theme context must be driven by the shared registry; local st
 - The design page exercises the same shared components used by production routes; it is not a parallel mock.
 - Web and public-site checks pass, and every theme is browser-verified with representative fixture/API data.
 
-The boundary check is intentionally source-based and dependency-free: it audits
-the app theme directories, shared-package imports, and shared component export
-surface without requiring a browser or a running API.
+The boundary check is intentionally source-based and dependency-free: it audits the app theme directories, shared-package imports, and shared component export surface without requiring a browser or a
+running API.

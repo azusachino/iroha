@@ -17,7 +17,7 @@ MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check build run run-job export-public media-bridge-build web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-pages-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
@@ -118,13 +118,16 @@ public-site-fmt-check: ## Fail if any public-site file is unformatted
 public-site-check: ## Type-check the public site (svelte-check)
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run check
 
-public-site-build: ## Production build of the public site (BASE_PATH=/iroha for GitHub Pages)
+public-site-build: ## Production build of the public site (honours BASE_PATH; use public-site-pages-build for Pages)
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build
+
+public-site-pages-build: ## Production build of the public site with the GitHub Pages base path
+	BASE_PATH=/iroha $(MAKE) public-site-build
 
 public-site-dev: ## Run the public-site dev server, bound to all interfaces
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run dev -- --host 0.0.0.0 --port $(or $(PORT),5174)
 
-public-site-preview: ## Build and serve the public site locally (root path, production output)
+public-site-preview: ## Build and serve the public site locally (honours BASE_PATH, production output)
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run preview -- --host $(or $(HOST),127.0.0.1) --port $(or $(PORT),4173)
 
 ## --- Docs and config formatting (prettier; Go/web/SQL out of scope) ---
@@ -136,7 +139,7 @@ fmt-docs-check: ## Fail if any doc/config file is unformatted
 
 ## --- Aggregate gates ---
 check: fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + theme/responsive boundaries + web checks
-validate: check build web-build ## Pre-PR gate: check + full server and web builds
+validate: check build web-build public-site-fmt-check public-site-check public-site-pages-build ## Pre-PR gate: check + full server, private web, and GitHub Pages web builds
 
 release-candidate: ## Isolated DB integration + seeded production runtime/browser gate
 	$(TOOL_ENV) uv run python scripts/release_candidate.py

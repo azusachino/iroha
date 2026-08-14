@@ -1,6 +1,6 @@
 # Iroha v0.4 Expense Ledger Plan v4
 
-> Status: implementation baseline. This document records the current decisions and frontend boundary for Iroha v0.4.
+> Status: implementation complete for the v0.4 release candidate. This document records the decisions, frontend boundary, and release evidence for Iroha v0.4.
 
 ## Current architecture
 
@@ -26,9 +26,10 @@ OCR, model choice, temporary image files, and any optional preview/confirmation 
 
 ## Frontend sharing boundary
 
-`packages/iroha-shared/` is the source-only common library for code that is identical between `apps/iroha-web` and `apps/iroha-public-site`. It currently owns calendar helpers, the month navigator,
-and the shared statistic tile. Private API clients, report/expense contracts, authentication, public-export policy, and design-language registries remain in their owning app. Move a component into the
-common library only when both applications use the same behavior and accessibility contract; do not use it to blur the private cockpit/public archive boundary.
+`packages/iroha-shared/` is the source-only common library for code that is identical between `apps/iroha-web` and `apps/iroha-public-site`. It owns calendar/period behavior, canonical report/expense
+view contracts and helpers, visual primitives, design-language identities, registered route compositions, and adopted design compositions. Private API clients, authentication, public-export policy,
+and route state remain in their owning app. Move a component into the common library only when both applications use the same behavior and accessibility contract; do not use it to blur the private
+cockpit/public archive boundary.
 
 ## Suzuran boundary
 
@@ -234,8 +235,8 @@ Iroha's web cockpit provides the v0.4 management surface for canonical expenses:
   -> open the expense section and link to the matching /expenses filter
 ```
 
-The page renders server data and owns no aggregation or OCR logic. Browser mutation support requires `PUT`, `DELETE`, and `OPTIONS` in the API CORS allow-list. The web obtains an IANA timezone from
-the browser for monthly report requests and sends it explicitly.
+The page renders server data and owns no aggregation or OCR logic. Browser mutation support requires `PUT`, `DELETE`, and `OPTIONS` in the API CORS allow-list. The web selects only the canonical
+month; the server resolves its configured personal timezone and returns that resolved timezone in the report envelope. The web does not send a browser timezone.
 
 ## Implementation slices
 
@@ -243,8 +244,8 @@ the browser for monthly report requests and sends it explicitly.
 2. **Deterministic reporting:** implement the separate [monthly report plan](2026-08-12-periodic-reports.md) and expense aggregate section.
 3. **General CLI foundation:** shared transport, configuration, source-reference persistence, JSON output, and error handling.
 4. **General CLI v0.4 resources:** `import file`, `expense create/list/get/update/delete`, `report monthly`, metrics, and read-only activity, sleep, daily, and media wrappers over their explicit APIs.
-5. **Private cockpit:** `/expenses` visual aggregation plus read-only list/detail/delete flows with one month-by-month selector, rendered through all six design-language shells. Canonical corrections
-   remain on the API/CLI/agent path. The report page links to the same canonical month and remains the sole owner of expense aggregation.
+5. **Private cockpit:** `/expenses` visual aggregation plus list/detail/delete flows with one month-by-month selector, rendered through all six design-language shells. Canonical corrections remain on
+   the API/CLI/agent path. The report page links to the same canonical month and remains the sole owner of expense aggregation.
 6. **Release hardening:** migration rehearsal, monitoring, docs, OpenAPI, and v0.4 release note. Future external clients are separate follow-up work.
 
 Each slice must remain deterministic inside Iroha and must not depend on a particular client being available.

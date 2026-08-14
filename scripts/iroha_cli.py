@@ -18,6 +18,8 @@ import requests
 
 DEFAULT_API_BASE = "http://127.0.0.1:8080"
 DEFAULT_TIMEOUT_S = 30
+API_BASE_ENV = "IROHA_API_BASE"
+TIMEZONE_ENV = "IROHA_TIMEZONE"
 
 
 class CLIError(Exception):
@@ -43,7 +45,7 @@ class TransportError(CLIError):
 
 
 def api_base_from_environment() -> str:
-    return os.environ.get("IROHA_API_BASE", DEFAULT_API_BASE).rstrip("/")
+    return os.environ.get(API_BASE_ENV, DEFAULT_API_BASE).rstrip("/")
 
 
 def _api_error(status: int, body: bytes) -> APIError:
@@ -447,7 +449,7 @@ def run_expense_command(args: argparse.Namespace, client: IrohaClient) -> int:
 
 
 def run_report_command(args: argparse.Namespace, client: IrohaClient) -> int:
-    timezone = args.timezone or os.environ.get("IROHA_TIMEZONE")
+    timezone = args.timezone or os.environ.get(TIMEZONE_ENV)
     path = query_path("/api/v1/reports/monthly", {"month": args.month, "timezone": timezone})
     output_result(client.request("GET", path), args.format, monthly_report_table)
     return 0

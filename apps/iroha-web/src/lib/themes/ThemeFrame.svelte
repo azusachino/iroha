@@ -5,7 +5,10 @@
 
   let { children }: { children: Snippet } = $props();
   const theme = useTheme();
-  const Shell = $derived(theme.definition().components?.shell);
+  const Shell = $derived(
+    theme.definition().components?.shell as unknown as
+      import("svelte").Component<Record<string, unknown>> | undefined,
+  );
 </script>
 
 {#if Shell}

@@ -79,7 +79,11 @@ import PhenologyMetrics from "./phenology/Metrics.svelte";
 import SoundMapMetrics from "./sound-map/Metrics.svelte";
 import ArchiveMetrics from "./archive/Metrics.svelte";
 
-const registry = defineThemeRegistry<Component<any>>({
+// Registry entries are intentionally heterogeneous. `never` erases their
+// props at the shared boundary; each host supplies the route-specific props.
+export type ThemeComponent = Component<never>;
+
+const registry = defineThemeRegistry<ThemeComponent>({
   atlas: {
     implementation: "curated",
     primitives: { periodControl: { appearance: "atlas" } },
@@ -196,12 +200,12 @@ export { isDesignLanguage };
 
 export function getThemeDefinition(
   language: DesignLanguage,
-): ThemeDefinition<Component<any>> {
+): ThemeDefinition<ThemeComponent> {
   return registry.get(language);
 }
 
 export function hasThemeRoute(
-  theme: ThemeDefinition<Component<any>>,
+  theme: ThemeDefinition<ThemeComponent>,
   route: ThemeRoute,
 ): boolean {
   return registry.hasRoute(theme, route);
