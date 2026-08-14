@@ -18,7 +18,7 @@ MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-pages-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-pages-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-export-public images
 
 PRETTIER := prettier
 DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
@@ -180,6 +180,10 @@ smoke-local: ## Run real import smoke against the Podman Compose server and work
 
 soak-local: ## Run non-mutating HTTP soak checks against the Podman Compose stack
 	$(TOOL_ENV) uv run python scripts/local_stack_soak.py $(SOAK_ARGS)
+
+smoke-k3s-cache: ## Verify the live k3s Valkey cache (API_BASE=..., MONTH=...)
+	@test "$$(kubectl -n harus-core get configmap iroha-config -o jsonpath='{.data.IROHA_CACHE_BACKEND}')" = "valkey" || (echo "harus-core/iroha-config must select valkey" >&2; exit 1)
+	$(TOOL_ENV) uv run python scripts/k3s_cache_smoke.py --api-base "$(or $(API_BASE),https://iroha.h.azusachino.icu)" --month "$(or $(MONTH),2099-01)"
 
 ## --- k3s local images (build with Podman, import straight into containerd; no registry) ---
 image-server: ## Build iroha-server and import it into the local k3s containerd store (TAG=$(TAG))
