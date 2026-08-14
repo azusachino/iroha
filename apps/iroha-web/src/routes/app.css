@@ -252,7 +252,7 @@ textarea {
   min-width: 0;
 }
 
-.main-nav a {
+.main-nav > a {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -264,14 +264,14 @@ textarea {
   white-space: nowrap;
 }
 
-.main-nav a:hover,
-.main-nav a.active {
+.main-nav > a:hover,
+.main-nav > a.active {
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
   color: var(--text);
   text-decoration: none;
 }
 
-.main-nav a.active svg {
+.main-nav > a.active svg {
   color: var(--accent);
 }
 
@@ -444,7 +444,7 @@ textarea {
     display: none;
   }
 
-  .main-nav a {
+  .main-nav > a {
     flex: 0 0 auto;
     justify-content: center;
   }

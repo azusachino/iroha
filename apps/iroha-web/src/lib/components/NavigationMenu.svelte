@@ -164,6 +164,7 @@
   a {
     display: grid;
     gap: 0.18rem;
+    min-width: 0;
     padding: 0.55rem 0.65rem;
     border-radius: calc(var(--radius) - 4px);
     color: var(--text);
@@ -175,6 +176,7 @@
     color: var(--accent);
   }
   small {
+    min-width: 0;
     color: var(--text-muted);
     font-size: 0.68rem;
   }
