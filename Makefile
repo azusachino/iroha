@@ -101,9 +101,9 @@ web-visual-check: ## Screenshot a themed route with agent-browser (THEME=field-j
 	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
 	cd $(WEB_DIR) && BASE="$(or $(BASE),http://127.0.0.1:5173)" THEME="$(or $(THEME),field-journal)" ROUTES="$(or $(ROUTE),overview)" OUT="$(or $(OUT),.visual-check)" bash scripts/visual-check.sh
 
-web-mobile-check: ## Audit every private route at 390x844 (BASE=..., API_BASE=...)
+web-mobile-check: ## Audit every private route at compact mobile widths (BASE=..., API_BASE=..., VIEWPORTS=...)
 	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
-	BASE="$(or $(BASE),http://127.0.0.1:4173)" API_BASE="$(or $(API_BASE),$(or $(BASE),http://127.0.0.1:4173))" THEMES="$(or $(THEMES),atlas,grapher,field-journal,phenology,sound-map,archive)" MODES="$(or $(MODES),light,dark)" MOTION="$(or $(MOTION),normal,reduced)" OUT="$(or $(OUT),dist/mobile-route-audit.json)" $(TOOL_ENV) uv run python scripts/mobile_route_check.py
+	BASE="$(or $(BASE),http://127.0.0.1:4173)" API_BASE="$(or $(API_BASE),$(or $(BASE),http://127.0.0.1:4173))" THEMES="$(or $(THEMES),atlas,grapher,field-journal,phenology,sound-map,archive)" MODES="$(or $(MODES),light,dark)" MOTION="$(or $(MOTION),normal,reduced)" VIEWPORTS="$(VIEWPORTS)" OUT="$(or $(OUT),dist/mobile-route-audit.json)" $(TOOL_ENV) uv run python scripts/mobile_route_check.py
 
 ## --- Public static site (apps/iroha-public-site, bun) ---
 public-site-install: ## Install public-site dependencies

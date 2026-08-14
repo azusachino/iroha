@@ -8,11 +8,12 @@ import os
 import shutil
 import subprocess
 import urllib.request
+from datetime import date
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MOBILE_VIEWPORT = (390, 844)
+MOBILE_VIEWPORTS = ((320, 844), (375, 844), (390, 844), (414, 896))
 THEMES = ("atlas", "grapher", "field-journal", "phenology", "sound-map", "archive")
 MODES = ("light", "dark")
 MOTION_MODES = ("normal", "reduced")
@@ -95,6 +96,34 @@ def parse_values(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
     return values
 
 
+def parse_viewports() -> tuple[tuple[int, int], ...]:
+    raw = os.environ.get("VIEWPORTS")
+    if not raw:
+        return MOBILE_VIEWPORTS
+    viewports = []
+    for value in raw.split(","):
+        width_height = value.strip().lower().split("x")
+        if len(width_height) != 2 or not all(part.isdigit() for part in width_height):
+            raise RuntimeError(f"VIEWPORTS must use WIDTHxHEIGHT values: {value}")
+        width, height = (int(part) for part in width_height)
+        if width <= 0 or height <= 0:
+            raise RuntimeError(f"VIEWPORTS must use positive dimensions: {value}")
+        viewports.append((width, height))
+    if not viewports:
+        raise RuntimeError("VIEWPORTS must contain at least one value")
+    return tuple(viewports)
+
+
+def expected_route_url(route: str, expected_path: str) -> str:
+    """Return the URL contract after the route's canonicalization rules run."""
+
+    if route == "/night" and expected_path == "/night":
+        return f"/night?year={date.today().year}"
+    if route.partition("?")[0] in ("/expenses", "/patterns", "/reports", "/metrics"):
+        return expected_path + ("?" + route.partition("?")[2] if "?" in route else "")
+    return expected_path
+
+
 def assert_route(
     session: str,
     base_url: str,
@@ -103,6 +132,7 @@ def assert_route(
     theme: str,
     mode: str,
     motion: str,
+    viewport: tuple[int, int],
 ) -> dict:
     browser_command(session, "errors", "--clear")
     browser_command(session, "open", f"{base_url.rstrip('/')}{route}")
@@ -130,14 +160,12 @@ def assert_route(
         "reduced:matchMedia('(prefers-reduced-motion: reduce)').matches"
         "}",
     )
-    expected_url = expected_path
-    if route.partition("?")[0] in ("/expenses", "/patterns", "/reports", "/metrics"):
-        expected_url += "?" + route.partition("?")[2] if "?" in route else ""
+    expected_url = expected_route_url(route, expected_path)
     if state["url"] != expected_url:
         raise RuntimeError(f"route redirect mismatch for {route}: {state['url']} != {expected_url}")
     if state["language"] != theme or state["theme"] != mode:
         raise RuntimeError(f"theme state mismatch for {route}: {state}")
-    if state["width"] != MOBILE_VIEWPORT[0] or state["height"] != MOBILE_VIEWPORT[1]:
+    if state["width"] != viewport[0] or state["height"] != viewport[1]:
         raise RuntimeError(f"viewport mismatch for {route}: {state}")
     if state["overflow"]:
         raise RuntimeError(f"horizontal overflow for {theme}/{mode}/{motion}/{route}: {state}")
@@ -169,6 +197,7 @@ def main() -> int:
     themes = parse_values("THEMES", THEMES)
     modes = parse_values("MODES", MODES)
     motions = parse_values("MOTION", MOTION_MODES)
+    viewports = parse_viewports()
     activity_id = first_id(api_base, "/api/v1/activities?limit=1", "activity")
     sleep_id = first_id(api_base, "/api/v1/sleep?limit=1", "sleep")
     media_id = first_id(api_base, "/api/v1/media?limit=1", "library")
@@ -176,43 +205,46 @@ def main() -> int:
     session = f"iroha-mobile-{os.getpid()}"
     report: list[dict] = []
     try:
-        browser_command(session, "set", "viewport", str(MOBILE_VIEWPORT[0]), str(MOBILE_VIEWPORT[1]))
         browser_command(session, "open", base_url)
-        for theme in themes:
-            browser_command(session, "storage", "local", "set", "iroha-design-language", theme)
-            for mode in modes:
-                browser_command(session, "storage", "local", "set", "iroha-theme", mode)
-                for motion in motions:
-                    if motion == "reduced":
-                        browser_command(session, "set", "media", mode, "reduced-motion")
-                    else:
-                        browser_command(session, "set", "media", mode)
-                    for route, expected_path in routes:
-                        state = assert_route(
-                            session,
-                            base_url,
-                            route,
-                            expected_path,
-                            theme,
-                            mode,
-                            motion,
-                        )
-                        report.append(
-                            {
-                                "theme": theme,
-                                "mode": mode,
-                                "motion": motion,
-                                "route": route,
-                                "state": state,
-                            }
-                        )
-                        print(f"checked {theme}/{mode}/{motion}{route}", flush=True)
+        for viewport in viewports:
+            browser_command(session, "set", "viewport", str(viewport[0]), str(viewport[1]))
+            for theme in themes:
+                browser_command(session, "storage", "local", "set", "iroha-design-language", theme)
+                for mode in modes:
+                    browser_command(session, "storage", "local", "set", "iroha-theme", mode)
+                    for motion in motions:
+                        if motion == "reduced":
+                            browser_command(session, "set", "media", mode, "reduced-motion")
+                        else:
+                            browser_command(session, "set", "media", mode)
+                        for route, expected_path in routes:
+                            state = assert_route(
+                                session,
+                                base_url,
+                                route,
+                                expected_path,
+                                theme,
+                                mode,
+                                motion,
+                                viewport,
+                            )
+                            report.append(
+                                {
+                                    "theme": theme,
+                                    "mode": mode,
+                                    "motion": motion,
+                                    "viewport": viewport,
+                                    "route": route,
+                                    "state": state,
+                                }
+                            )
+                            print(f"checked {viewport[0]}x{viewport[1]}/{theme}/{mode}/{motion}{route}", flush=True)
     finally:
         browser_command(session, "close")
 
     output = Path(os.environ.get("OUT", "dist/mobile-route-audit.json"))
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps({"viewport": MOBILE_VIEWPORT, "checks": report}, indent=2) + "\n")
+    output.write_text(json.dumps({"viewports": viewports, "checks": report}, indent=2) + "\n")
     print(f"mobile route audit passed: {len(report)} checks; report={output}")
     return 0
 
