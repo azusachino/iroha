@@ -5,7 +5,7 @@
     MonthlyReportSeriesPoint,
   } from "$lib/api";
   import BarChart from "$lib/components/BarChart.svelte";
-  import { formatMonth } from "$lib/format";
+  import { formatCanonicalMonth } from "@iroha/shared/format";
   import { useTheme } from "$lib/themes/context.svelte";
 
   let {
@@ -22,11 +22,13 @@
 
   const theme = useTheme();
   const points = $derived(series?.reports ?? []);
-  const categories = $derived(points.map((point) => formatMonth(point.month)));
+  const categories = $derived(
+    points.map((point) => formatCanonicalMonth(point.month)),
+  );
   const partialMonths = $derived(
     points
       .filter((point) => point.completeness === "partial")
-      .map((point) => formatMonth(point.month)),
+      .map((point) => formatCanonicalMonth(point.month)),
   );
 
   function sectionData<T>(
@@ -155,7 +157,8 @@
       </p>
     </div>
     {#if series}<span class="period-range"
-        >{formatMonth(series.from_month)} → {formatMonth(series.to_month)}</span
+        >{formatCanonicalMonth(series.from_month)} →
+        {formatCanonicalMonth(series.to_month)}</span
       >{/if}
   </header>
 
