@@ -1,6 +1,6 @@
 # API v1 verification gate
 
-Status: Gate A approved; v0.4.1 release-candidate verification in progress
+Status: Gate A approved; v0.4.1 release-candidate verification complete locally; owner release review pending
 
 ## Gate A — freeze repaired existing contracts
 
@@ -25,8 +25,8 @@ Gate A does not approve the expense data model, monthly report response, CLI wor
 
 The gate is complete when the owner says `Gate A approved` (or supplies corrections). Only then may tasks 12–21, which add expenses and monthly reports, be dispatched.
 
-Gate A is approved. The expense, monthly-report, CLI, and cockpit work described below was implemented after that approval; the 0.4.1 release-candidate and local-k3s evidence are the remaining release
-checkpoints.
+Gate A is approved. The expense, monthly-report, CLI, and cockpit work described below was implemented after that approval; the v0.4.1 release-candidate and local-k3s evidence now pass locally. Remote
+merge/tag and owner release review remain external release checkpoints.
 
 The contract gate verifies the active `/api/v1` surface in place. It is not a backward-compatibility gate for a released v1 and does not require an `/api/v2`.
 
@@ -101,7 +101,8 @@ The same fixture must run against the supported local runtime path and the conta
 - `make check` passes, including the frontend formatter, Svelte check, and frontend tests.
 - `make check` passes on the v0.4.1 cache branch, including the frontend formatter, Svelte check, frontend tests, cache freshness tests, and the performance-gate script tests.
 - The release-candidate target now includes the deterministic cache/report performance fixture and records cold, hit, mutation-freshness, entry-count, and TTL evidence.
-- `make validate`, the complete release-candidate rehearsal, and the local k3s rollout remain pending for this release candidate.
+- `make validate`, the complete release-candidate rehearsal, and the local k3s rollout pass for this release candidate. The candidate remains subject to owner release review and any remote merge/tag
+  action.
 
 The end-to-end worker/import rehearsal is covered by the release-candidate target; repeat it for the final production release after the owner release review.
 
