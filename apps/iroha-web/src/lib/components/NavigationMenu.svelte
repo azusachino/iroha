@@ -12,24 +12,52 @@
 
   const groupActive = $derived(group.items.some((item) => active(item.href)));
   let menu: HTMLDetailsElement;
+  let summary: HTMLElement;
+  let popoverStyle = $state("");
+
+  function updatePopoverPosition() {
+    if (!menu?.open || !summary || typeof window === "undefined") return;
+    const popover = menu.querySelector<HTMLElement>(".navigation-popover");
+    if (!popover) return;
+
+    const trigger = summary.getBoundingClientRect();
+    const viewportPadding = 8;
+    const preferredWidth = Math.min(
+      208,
+      window.innerWidth - viewportPadding * 2,
+    );
+    const height = popover.scrollHeight;
+    const left = Math.min(
+      Math.max(viewportPadding, trigger.left),
+      window.innerWidth - preferredWidth - viewportPadding,
+    );
+    const top = Math.min(
+      trigger.bottom + 6,
+      Math.max(viewportPadding, window.innerHeight - height - viewportPadding),
+    );
+    popoverStyle = `--navigation-popover-top:${top}px;--navigation-popover-left:${left}px;`;
+  }
 
   function closeMenu() {
     if (menu) menu.open = false;
+    popoverStyle = "";
   }
 
   function handleToggle() {
-    if (!menu?.open) return;
+    if (!menu?.open) {
+      popoverStyle = "";
+      return;
+    }
     window.dispatchEvent(
       new CustomEvent<HTMLDetailsElement>("iroha:navigation-open", {
         detail: menu,
       }),
     );
+    requestAnimationFrame(updatePopoverPosition);
   }
 
-  function closeAfterNavigation(event: MouseEvent) {
-    (event.currentTarget as HTMLAnchorElement)
-      .closest("details")
-      ?.removeAttribute("open");
+  function closeAfterNavigation() {
+    closeMenu();
   }
 
   onMount(() => {
@@ -49,10 +77,14 @@
     window.addEventListener("iroha:navigation-open", closeOtherMenus);
     document.addEventListener("pointerdown", closeOnOutsidePointer);
     window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
     return () => {
       window.removeEventListener("iroha:navigation-open", closeOtherMenus);
       document.removeEventListener("pointerdown", closeOnOutsidePointer);
       window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
     };
   });
 </script>
@@ -63,11 +95,15 @@
   class:active={groupActive}
   class="navigation-menu"
 >
-  <summary
+  <summary bind:this={summary} aria-controls={`${group.id}-navigation-menu`}
     ><span>{group.label}</span><i class="chevron" aria-hidden="true"
     ></i></summary
   >
-  <div class="navigation-popover">
+  <div
+    id={`${group.id}-navigation-menu`}
+    class="navigation-popover"
+    style={popoverStyle}
+  >
     {#each group.items as item}
       <a
         class:active={active(item.href)}
@@ -149,8 +185,13 @@
       flex: 1 1 auto;
     }
     .navigation-popover {
-      position: static;
+      position: fixed;
+      top: var(--navigation-popover-top, -9999px);
+      left: var(--navigation-popover-left, -9999px);
+      width: min(13rem, calc(100vw - 1rem));
       min-width: 0;
+      max-height: min(60vh, 20rem);
+      overflow-y: auto;
     }
   }
 </style>
