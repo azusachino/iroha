@@ -460,7 +460,7 @@
               year={selectedYear}
               month={selectedMonth}
               monthDisabled={!selectedYear}
-              appearance="inline"
+              surface="inline"
               onYear={changeYear}
               onMonth={changeMonth}
             />
@@ -508,7 +508,7 @@
           year={selectedYear}
           month={selectedMonth}
           monthDisabled={!selectedYear}
-          appearance="inline"
+          surface="inline"
           onYear={changeYear}
           onMonth={changeMonth}
         />

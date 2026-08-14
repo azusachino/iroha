@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { formatCanonicalMonth } from "@iroha/shared/format";
 import {
   canonicalMonth,
   currentYear,
@@ -13,6 +14,11 @@ describe("shared month helpers", () => {
     expect(canonicalMonth("2026-02", "2026-01")).toBe("2026-02");
     expect(canonicalMonth("2026-2", "2026-01")).toBe("2026-01");
     expect(canonicalMonth("2026-13", "2026-01")).toBe("2026-01");
+  });
+
+  it("keeps month labels canonical for shared controls", () => {
+    expect(formatCanonicalMonth("2026-2")).toBe("2026-02");
+    expect(formatCanonicalMonth("2026-13")).toBe("2026-13");
   });
   it("returns an exclusive upper bound for API month filters", () => {
     expect(monthBounds("2026-02")).toEqual({

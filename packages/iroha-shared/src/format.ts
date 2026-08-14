@@ -1,5 +1,15 @@
 const DASH = "—";
 
+export function formatCanonicalMonth(period?: string): string {
+  if (!period) return DASH;
+  const match = /^(\d{4})-(\d{1,2})$/.exec(period);
+  if (!match) return period;
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12
+    ? `${match[1]}-${String(month).padStart(2, "0")}`
+    : period;
+}
+
 export function formatDistance(meters?: number): string {
   if (meters == null) return DASH;
   if (meters < 1000) return `${Math.round(meters)} m`;

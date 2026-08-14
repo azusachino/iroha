@@ -183,7 +183,7 @@
       years={periodYears}
       months={MONTH_OPTIONS}
       showAllYears={false}
-      appearance="inline"
+      surface="inline"
       onYear={selectPeriodYear}
       onMonth={selectPeriodMonth}
     />

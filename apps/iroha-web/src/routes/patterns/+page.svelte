@@ -412,7 +412,7 @@
               year={gran === "year" ? selectedYear : activeYear}
               month={gran === "day" ? activeMonth : selectedMonth}
               showAllYears={gran === "year"}
-              appearance="inline"
+              surface="inline"
               onYear={selectYear}
               onMonth={selectMonth}
             />
@@ -436,7 +436,7 @@
         year={gran === "year" ? selectedYear : activeYear}
         month={gran === "day" ? activeMonth : selectedMonth}
         showAllYears={gran === "year"}
-        appearance="inline"
+        surface="inline"
         onYear={selectYear}
         onMonth={selectMonth}
       />

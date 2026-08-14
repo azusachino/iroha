@@ -433,7 +433,7 @@
             {years}
             {months}
             monthDisabled={!selectedYear}
-            appearance="inline"
+            surface="inline"
             onYear={(value) => {
               selectedYear = value;
               handleYearChange();
@@ -462,7 +462,7 @@
         {years}
         {months}
         monthDisabled={!selectedYear}
-        appearance="inline"
+        surface="inline"
         onYear={(value) => {
           selectedYear = value;
           handleYearChange();
