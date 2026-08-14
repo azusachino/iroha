@@ -12,7 +12,7 @@
   import MediaBarChart from "@iroha/shared/theme-ui/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   let aggregates = $state<MediaAggregates | null>(null);

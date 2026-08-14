@@ -30,7 +30,7 @@
   } from "$lib/format";
   import { currentActivityStreak } from "$lib/streak";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   const ACTIVITY_SWEEP_LIMIT = 500;

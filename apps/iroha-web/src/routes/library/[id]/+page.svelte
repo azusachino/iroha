@@ -11,7 +11,7 @@
   } from "$lib/format";
   import { heroTitleFontSize } from "$lib/hero-title";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   const HERO_TITLE_CLAMP = { minRem: 1.8, vw: 5, maxRem: 3.4 };

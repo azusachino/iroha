@@ -15,7 +15,7 @@
   import { formatMetricValue } from "$lib/format";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import MetricPanel from "@iroha/shared/MetricPanel.svelte";
   import { seriesPanelRows } from "@iroha/shared/metric-panel";
   import { pointValue } from "@iroha/shared/metric-series";

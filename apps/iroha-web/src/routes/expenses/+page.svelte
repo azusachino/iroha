@@ -31,7 +31,7 @@
     type ExpenseThemeProps,
   } from "@iroha/shared/expense-view";
   import { categoryColor } from "@iroha/shared/category-color";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
 
   const currencies: ExpenseCurrency[] = ["JPY", "USD", "EUR", "GBP"];
   const categories: ExpenseCategory[] = [

@@ -33,7 +33,7 @@
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { isSwimming, sportLabel } from "$lib/sport";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
 
   function displayTitle(title?: string, sport?: string): string {

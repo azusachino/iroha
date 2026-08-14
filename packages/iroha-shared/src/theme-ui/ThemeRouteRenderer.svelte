@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Component, Snippet } from "svelte";
-  import { useTheme } from "$lib/themes/context.svelte";
-  import type { ThemeRoute } from "@iroha/shared/themes";
+  import type { ThemeRoute } from "../themes";
+  import { useTheme } from "./context.svelte";
 
   let {
     route,

@@ -21,7 +21,7 @@
     canonicalMonth,
     yearOptions,
   } from "@iroha/shared/month";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import type { ReportThemeProps } from "@iroha/shared/report";
   import { useTheme } from "$lib/themes/context.svelte";
 

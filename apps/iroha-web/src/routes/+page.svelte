@@ -22,7 +22,7 @@
   import SportBadge from "$lib/components/SportBadge.svelte";
   import DayPicker from "$lib/components/DayPicker.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "$lib/themes/ThemeRouteRenderer.svelte";
+  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
   import {
     formatDistance,
