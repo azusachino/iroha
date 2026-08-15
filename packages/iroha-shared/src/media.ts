@@ -285,8 +285,9 @@ export function mediaWorkTotal(
 }
 
 export function mediaTypeFamily(type: string): string {
-  if (["manga", "one_shot", "light_novel", "book", "novel"].includes(type))
-    return "Manga & books";
+  if (["manga", "one_shot", "light_novel", "novel"].includes(type))
+    return "Manga & light novels";
+  if (type === "book") return "Books";
   if (["anime_season", "movie", "ona", "ova", "special"].includes(type))
     return "Anime";
   if (type === "game") return "Games";
@@ -299,7 +300,8 @@ export function mediaTypeFamily(type: string): string {
 export function mediaTypeColor(type: string): string {
   const family = mediaTypeFamily(type);
   if (family === "Anime") return "var(--mark-teal)";
-  if (family === "Manga & books") return "var(--mark-magenta)";
+  if (family === "Manga & light novels") return "var(--mark-magenta)";
+  if (family === "Books") return "var(--mark-violet)";
   if (family === "Games") return "var(--mark-amber)";
   return "var(--text-muted)";
 }

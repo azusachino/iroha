@@ -35,7 +35,8 @@
   const families = [
     { value: "", label: "All" },
     { value: "anime", label: "Anime" },
-    { value: "manga_book", label: "Manga & books" },
+    { value: "manga_book", label: "Manga & light novels" },
+    { value: "book", label: "Books" },
     { value: "game", label: "Games" },
   ];
 </script>

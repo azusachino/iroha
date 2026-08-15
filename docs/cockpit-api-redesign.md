@@ -72,7 +72,7 @@ Media list reads should accept explicit filters:
 /api/v1/media?family=anime&status=in_progress&completed_year=2025
 ```
 
-`family` is the coarse grouping (`anime`, `manga_book`, `game`); `media_type` remains the granular value. `status` is a stable backend enum (`in_progress`, `completed`, `planned`, `abandoned`,
+`family` is the coarse grouping (`anime`, `manga_book`, `book`, `game`); `media_type` remains the granular value. `status` is a stable backend enum (`in_progress`, `completed`, `planned`, `abandoned`,
 `unknown`). `completed_year` filters completion/progress history, not release metadata. Add `release_year` only when the UI needs that distinct meaning.
 
 The API returns facts, not presentation colors. The web layer owns status tokens and maps them to accessible color-plus-label treatments. `reading`/`watching` is a UI verb derived from `media_type`

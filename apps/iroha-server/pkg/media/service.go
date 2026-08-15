@@ -34,7 +34,8 @@ type ListFilters struct {
 // values the sync stores, so the UI can offer an anime/manga-books/games filter.
 var familyMediaTypes = map[string][]string{
 	"anime":      {"anime_season", "movie", "ona", "ova", "special"},
-	"manga_book": {"manga", "one_shot", "light_novel", "book"},
+	"manga_book": {"manga", "one_shot", "light_novel"},
+	"book":       {"book"},
 	"game":       {"game"},
 }
 
