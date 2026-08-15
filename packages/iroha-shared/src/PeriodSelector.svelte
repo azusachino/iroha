@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { shiftMonth } from "./month";
+  import { currentMonth, shiftMonthWithin } from "./month";
   import { formatCanonicalMonth } from "./format";
   import SelectControl, {
     type SelectControlOption,
@@ -65,21 +65,28 @@
   ]);
 
   function shiftPeriod(delta: number) {
+    const maximumMonth = currentMonth();
+
     if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
-      onMonth(shiftMonth(month, delta));
+      onMonth(shiftMonthWithin(month, delta, maximumMonth));
       return;
     }
     if (!/^\d{4}$/.test(year)) return;
 
     if (!/^(?:[1-9]|1[0-2])$/.test(month)) {
       const nextYear = Number(year) + delta;
-      onYear(String(nextYear));
+      onYear(
+        delta > 0 && nextYear > Number(maximumMonth.slice(0, 4))
+          ? maximumMonth.slice(0, 4)
+          : String(nextYear),
+      );
       onMonth("");
       return;
     }
-    const next = new Date(Date.UTC(Number(year), Number(month) - 1 + delta, 1));
-    onYear(String(next.getUTCFullYear()));
-    onMonth(String(next.getUTCMonth() + 1));
+    const current = `${year}-${String(Number(month)).padStart(2, "0")}`;
+    const bounded = shiftMonthWithin(current, delta, maximumMonth);
+    onYear(bounded.slice(0, 4));
+    onMonth(String(Number(bounded.slice(5, 7))));
   }
 
   function handleKeydown(event: KeyboardEvent) {

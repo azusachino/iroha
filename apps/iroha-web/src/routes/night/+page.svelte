@@ -350,8 +350,8 @@
 <section class="sleep-shell">
   {#if hasThemeRoute(theme.definition(), "sleep")}
     <LoadingBoundary
-      loading={sessionsLoading}
-      ready={!sessionsLoading}
+      loading={sessionsLoading || aggregatesLoading}
+      ready={!sessionsLoading && !aggregatesLoading}
       preserveLayout
       label="Loading sleep data…"
     >

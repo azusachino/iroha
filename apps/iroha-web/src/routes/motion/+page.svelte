@@ -371,7 +371,7 @@
   {#if hasThemeRoute(theme.definition(), "activities")}
     <LoadingBoundary
       loading={loading || activitySeriesLoading || summaryLoading}
-      ready={!loading}
+      ready={!loading && !activitySeriesLoading && !summaryLoading}
       preserveLayout
       label="Loading activities…"
     >

@@ -41,6 +41,15 @@ export function shiftMonth(month: string, delta: number): string {
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+export function shiftMonthWithin(
+  month: string,
+  delta: number,
+  maximum = currentMonth(),
+): string {
+  const candidate = shiftMonth(month, delta);
+  return delta > 0 && candidate > maximum ? maximum : candidate;
+}
+
 export function monthBounds(month: string): { from: string; to: string } {
   const [year, monthNumber] = month.split("-").map(Number);
   const nextMonth = new Date(Date.UTC(year, monthNumber, 1));

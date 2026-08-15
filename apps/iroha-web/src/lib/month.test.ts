@@ -6,6 +6,7 @@ import {
   MONTH_OPTIONS,
   monthBounds,
   shiftMonth,
+  shiftMonthWithin,
   yearOptions,
 } from "@iroha/shared/month";
 
@@ -30,6 +31,12 @@ describe("shared month helpers", () => {
   it("moves across year boundaries", () => {
     expect(shiftMonth("2026-01", -1)).toBe("2025-12");
     expect(shiftMonth("2025-12", 1)).toBe("2026-01");
+  });
+
+  it("does not move period navigation past the current month", () => {
+    expect(shiftMonthWithin("2026-07", 1, "2026-08")).toBe("2026-08");
+    expect(shiftMonthWithin("2026-08", 1, "2026-08")).toBe("2026-08");
+    expect(shiftMonthWithin("2026-08", -1, "2026-08")).toBe("2026-07");
   });
 
   it("provides one shared month and descending year vocabulary", () => {

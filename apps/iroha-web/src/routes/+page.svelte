@@ -192,12 +192,13 @@
   );
 
   function shift(delta: number) {
+    if (delta > 0 && day >= today) return;
     // All in UTC: parsing local midnight then emitting toISOString (UTC)
     // silently dropped a day in +hh zones — hence "left = two days back".
     const d = new Date(day + "T00:00:00Z");
     d.setUTCDate(d.getUTCDate() + delta);
     const next = d.toISOString().slice(0, 10);
-    if (next <= today) day = next;
+    if (next <= today && next !== day) day = next;
   }
   // Arrow keys scrub days (ignored while typing in a field); Escape closes the picker.
   function onKey(e: KeyboardEvent) {
@@ -210,9 +211,10 @@
         t.isContentEditable)
     )
       return;
-    if (e.key === "ArrowLeft") shift(-1);
-    else if (e.key === "ArrowRight") shift(1);
-    else if (e.key === "Escape") pickerOpen = false;
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      shift(e.key === "ArrowLeft" ? -1 : 1);
+    } else if (e.key === "Escape") pickerOpen = false;
   }
   function num(v: number | null | undefined, digits: number): string {
     if (typeof v !== "number" || !Number.isFinite(v)) return "—";
@@ -393,7 +395,7 @@
   {:else if !briefing && error}
     <p class="error status" role="alert">Could not load data: {error}</p>
   {:else if briefing}
-    <div class="briefing-surface" class:updating={loading} aria-busy={loading}>
+    <div class="briefing-surface" aria-busy={loading}>
       {#if loading}
         <p class="briefing-update" role="status" aria-live="polite">
           Updating {dayLabel}…
@@ -741,19 +743,6 @@
     position: relative;
     min-width: 0;
   }
-  .briefing-surface.updating::before {
-    position: absolute;
-    z-index: 3;
-    top: 0;
-    left: 0;
-    width: 28%;
-    height: 2px;
-    border-radius: 99px;
-    background: var(--accent);
-    box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
-    content: "";
-    animation: briefing-progress 1.25s ease-in-out infinite;
-  }
   .briefing-content {
     min-width: 0;
   }
@@ -777,14 +766,6 @@
   }
   .update-error {
     color: var(--danger);
-  }
-  @keyframes briefing-progress {
-    from {
-      transform: translateX(-120%);
-    }
-    to {
-      transform: translateX(430%);
-    }
   }
   .command-heading {
     position: relative;
@@ -1354,12 +1335,6 @@
 
     .to-go-link {
       justify-self: start;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .briefing-surface.updating::before {
-      animation: none;
     }
   }
 </style>

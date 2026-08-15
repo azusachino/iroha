@@ -85,17 +85,19 @@
   }
   .loading-overlay {
     position: absolute;
-    inset: 0;
+    top: 0.65rem;
+    right: 0.65rem;
     z-index: 2;
-    display: grid;
-    place-content: center;
-    gap: 0.7rem;
-    min-height: 16rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--bg) 82%, transparent);
-    color: var(--text-muted);
-    font-size: 0.82rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 650;
     pointer-events: none;
   }
   .update-status {
