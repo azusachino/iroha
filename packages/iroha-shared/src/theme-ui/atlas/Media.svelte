@@ -71,8 +71,10 @@
         value={completedYear}
         onchange={(event) =>
           onYear((event.currentTarget as HTMLSelectElement).value)}
-        ><option value="">Lifetime</option>{#each yearOptions as option}<option
-            value={option.year}>{option.year}</option
+        ><option value="" selected={completedYear === ""}>Lifetime</option
+        >{#each yearOptions as option}<option
+            value={option.year} selected={completedYear === String(option.year)}
+            >{option.year}</option
           >{/each}</select
       ></label
     >

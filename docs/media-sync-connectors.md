@@ -1,7 +1,7 @@
 # Media Sync Connectors: AniList + Bangumi
 
 > **Semantics amendment (2026-08-15):** the connector plumbing described here is retained, but the earlier list-state-to-event mapping is superseded by
-> [ADR-0005](adr/0005-media-provider-time-semantics.md) and the [canonical-history redesign](plans/2026-08-15-media-provider-canonical-history-redesign.md). Current list snapshots become
+> [ADR-0005](adr/0005-media-provider-time-semantics.md) and the [canonical-history redesign](plans/2026-08-15-media-provider-canonical-history.md). Current list snapshots become
 > progress/state history; only exact evidence becomes a consumption event.
 
 Implementation note (updated 2026-07-20). Companion to [`media-history-research.md`](./media-history-research.md), which defines the media _ontology_

@@ -173,7 +173,9 @@
       nextCursor = page.next_cursor;
       hasMore = page.has_more;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
+      if (currentRequest === requestVersion) {
+        error = cause instanceof Error ? cause.message : String(cause);
+      }
     } finally {
       loadingMore = false;
     }
@@ -301,9 +303,13 @@
           onchange={(event) =>
             selectYear((event.currentTarget as HTMLSelectElement).value)}
         >
-          <option value="">Lifetime</option>
+          <option value="" selected={completedYear === ""}>Lifetime</option>
           {#each yearOptions as option (option.year)}
-            <option value={option.year}>{option.year}</option>
+            <option
+              value={option.year}
+              selected={completedYear === String(option.year)}
+              >{option.year}</option
+            >
           {/each}
         </select>
       </label>
