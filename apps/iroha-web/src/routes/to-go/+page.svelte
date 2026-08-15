@@ -461,7 +461,7 @@
   }
   h1 {
     max-width: 12ch;
-    font-size: clamp(2.7rem, 7vw, 5.8rem);
+    font-size: clamp(2rem, 5vw, 3.4rem);
     letter-spacing: -0.09em;
     line-height: 0.9;
   }
