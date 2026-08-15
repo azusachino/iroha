@@ -3,16 +3,19 @@
 package httpapi
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 // TestMediaAggregatesIntegration exercises the real 3-query aggregates SQL
-// against Postgres: completion year rollup (via progress.finished_at OR a
+// against Postgres: completion year rollup (via day-precision progress OR a
 // finished/completed event), score-distribution normalization across differing
 // rating scales, type split by work_kind, and the weighted average / this-year
 // totals computed in Go.
@@ -24,7 +27,7 @@ func TestMediaAggregatesIntegration(t *testing.T) {
 	animeWork := seedWork(t, db, "anime")
 	bookWork := seedWork(t, db, "book")
 
-	// A: anime, completed via progress.finished_at this year, rated 8/10.
+	// A: anime, completed via a day-precision progress fact this year, rated 8/10.
 	itemA := seedItem(t, db, animeWork, "anime_season", "A")
 	seedProgress(t, db, itemA, "completed", ptrTime(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)))
 	seedRatingEvent(t, db, itemA, time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), 8, 10)
@@ -115,19 +118,18 @@ func TestMediaPeriodReportIntegration(t *testing.T) {
 	// B has a dated progress completion but no consumption event.
 	seedProgress(t, db, itemB, "completed", ptrTime(time.Date(2026, 8, 6, 0, 0, 0, 0, time.UTC)))
 
-	// Undated completions are excluded, even when they were synchronized in the
-	// selected month. list_state is a dated provider snapshot, not activity.
+	// Fuzzy/undated completions are excluded from the day-scoped report.
 	itemUndated := seedItem(t, db, work, "game", "Undated")
-	if err := db.Exec(`insert into tb_media_consumption_events
-		(id, media_item_id, event_type, source_kind, created_at)
-		values (?, ?, 'completed', 'test', ?)`, uuid.New(), itemUndated, time.Now().UTC()).Error; err != nil {
-		t.Fatalf("seed undated event: %v", err)
+	seedProgress(t, db, itemUndated, "completed", nil)
+	itemMonth := seedItem(t, db, work, "book", "Month-only")
+	if err := db.Exec(`insert into tb_media_progress (media_item_id, status, completed_on_value, completed_on_precision, updated_at)
+		values (?, 'completed', ?, 'month', ?)`, itemMonth, time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), time.Now().UTC()).Error; err != nil {
+		t.Fatalf("seed month-precision progress: %v", err)
 	}
-	if err := db.Exec(`insert into tb_media_consumption_events
-		(id, media_item_id, event_type, event_at, source_kind, created_at)
-		values (?, ?, 'list_state', ?, 'test', ?)`, uuid.New(), itemUndated,
-		time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC), time.Now().UTC()).Error; err != nil {
-		t.Fatalf("seed snapshot event: %v", err)
+	itemYear := seedItem(t, db, work, "book", "Year-only")
+	if err := db.Exec(`insert into tb_media_progress (media_item_id, status, completed_on_value, completed_on_precision, updated_at)
+		values (?, 'completed', ?, 'year', ?)`, itemYear, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Now().UTC()).Error; err != nil {
+		t.Fatalf("seed year-precision progress: %v", err)
 	}
 
 	result, err := media.NewService(db).PeriodReport(media.PeriodFilters{From: from, To: to})
@@ -148,6 +150,20 @@ func TestMediaPeriodReportIntegration(t *testing.T) {
 	}
 }
 
+func TestMediaEventTypeConstraintIntegration(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetMediaTables(t, db)
+	work := seedWork(t, db, "media")
+	item := seedItem(t, db, work, "book", "Constrained event")
+	err := db.Exec(`insert into tb_media_consumption_events
+		(id, media_item_id, event_type, event_at, source_kind, created_at)
+		values (?, ?, 'unknown_state', ?, 'test', ?)`, uuid.New(), item,
+		time.Date(2026, 8, 15, 10, 30, 0, 0, time.UTC), time.Now().UTC()).Error
+	if err == nil {
+		t.Fatal("database accepted an event type outside the canonical vocabulary")
+	}
+}
+
 func TestMediaEventsIntegration(t *testing.T) {
 	db := openIntegrationDB(t)
 	resetMediaTables(t, db)
@@ -157,18 +173,9 @@ func TestMediaEventsIntegration(t *testing.T) {
 	work := seedWork(t, db, "media")
 	item := seedItem(t, db, work, "manga", "A")
 
-	// A provider list snapshot is synchronization metadata, not a user media
-	// event. Its event_at is intentionally NULL, even when the sync happened
-	// inside the requested day.
-	if err := db.Exec(`insert into tb_media_consumption_events
-		(id, media_item_id, event_type, source_kind, created_at)
-		values (?, ?, 'list_state', 'anilist', ?)`, uuid.New(), item,
-		time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)).Error; err != nil {
-		t.Fatalf("seed list snapshot: %v", err)
-	}
 	if err := db.Exec(`insert into tb_media_consumption_events
 		(id, media_item_id, event_type, event_at, source_kind, created_at)
-		values (?, ?, 'rewatch', ?, 'manual', ?)`, uuid.New(), item,
+		values (?, ?, 'rewatched', ?, 'manual', ?)`, uuid.New(), item,
 		time.Date(2026, 8, 14, 13, 0, 0, 0, time.UTC), time.Now().UTC()).Error; err != nil {
 		t.Fatalf("seed media event: %v", err)
 	}
@@ -179,15 +186,72 @@ func TestMediaEventsIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list media events: %v", err)
 	}
-	if len(result.Items) != 1 || result.Items[0].EventType != "rewatch" {
+	if len(result.Items) != 1 || result.Items[0].EventType != "rewatched" {
 		t.Fatalf("events = %+v, want only the dated user event", result.Items)
 	}
+}
+
+func TestMediaExactEventIdempotencyIntegration(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetMediaTables(t, db)
+	work := seedWork(t, db, "media")
+	item := seedItem(t, db, work, "book", "Idempotent event")
+	at := time.Date(2026, 8, 15, 10, 30, 0, 0, time.UTC)
+	input := media.CreateEventInput{
+		MediaItemID: item, EventType: "read", EventAt: at,
+		SourceKind: "local_agent", SourceEventID: "capture-1", Unit: "pages",
+		Position: floatPtr(12), Note: "exact playback checkpoint",
+	}
+
+	first, err := media.NewService(db).CreateEvent(input)
+	if err != nil {
+		t.Fatalf("create exact event: %v", err)
+	}
+	second, err := media.NewService(db).CreateEvent(input)
+	if err != nil {
+		t.Fatalf("retry exact event: %v", err)
+	}
+	if first.ID != second.ID || !second.OccurredAt.Equal(at) {
+		t.Fatalf("retry = %+v, want the original event %s at %s", second, first.ID, at)
+	}
+
+	input.Note = "different payload"
+	if _, err := media.NewService(db).CreateEvent(input); err != media.ErrEventConflict {
+		t.Fatalf("conflicting retry error = %v, want %v", err, media.ErrEventConflict)
+	}
+	var count int64
+	if err := db.Table("tb_media_consumption_events").Where("source_kind = ? and source_event_id = ?", "local_agent", "capture-1").Count(&count).Error; err != nil {
+		t.Fatalf("count exact events: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("exact event count = %d, want 1", count)
+	}
+}
+
+func TestMediaExactEventHTTPIntegration(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetMediaTables(t, db)
+	work := seedWork(t, db, "media")
+	item := seedItem(t, db, work, "book", "HTTP event")
+	server := newIntegrationServer(t, db)
+	body := `{"media_id":"` + ids.Encode(ids.MediaPrefix, item) + `","event_type":"read","event_at":"2026-08-15T10:30:00Z","idempotency_key":"http-capture-1","unit":"pages","position":12}`
+
+	first := requestJSON(t, server, http.MethodPost, "/api/v1/media/events", body, http.StatusOK, nil)
+	second := requestJSON(t, server, http.MethodPost, "/api/v1/media/events", body, http.StatusOK, nil)
+	if first["id"] != second["id"] || first["event_at"] != "2026-08-15T10:30:00Z" {
+		t.Fatalf("HTTP event retry = %#v/%#v, want one canonical event", first, second)
+	}
+
+	conflict := strings.Replace(body, `"position":12`, `"position":13`, 1)
+	requestJSON(t, server, http.MethodPost, "/api/v1/media/events", conflict, http.StatusConflict, nil)
+	requestJSON(t, server, http.MethodPost, "/api/v1/media/events", `{"media_id":"`+ids.Encode(ids.MediaPrefix, item)+`","event_type":"read","idempotency_key":"missing-time"}`, http.StatusBadRequest, nil)
 }
 
 func resetMediaTables(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	if err := db.Exec(`truncate table
 		tb_media_consumption_events,
+		tb_media_state_history,
 		tb_media_progress,
 		tb_media_items,
 		tb_media_works
@@ -218,10 +282,14 @@ func seedItem(t *testing.T, db *gorm.DB, workID uuid.UUID, mediaType, title stri
 	return id
 }
 
-func seedProgress(t *testing.T, db *gorm.DB, itemID uuid.UUID, status string, finishedAt *time.Time) {
+func seedProgress(t *testing.T, db *gorm.DB, itemID uuid.UUID, status string, completedOn *time.Time) {
 	t.Helper()
-	if err := db.Exec(`insert into tb_media_progress (media_item_id, status, finished_at, updated_at)
-		values (?, ?, ?, ?)`, itemID, status, finishedAt, time.Now().UTC()).Error; err != nil {
+	precision := ""
+	if completedOn != nil {
+		precision = "day"
+	}
+	if err := db.Exec(`insert into tb_media_progress (media_item_id, status, completed_on_value, completed_on_precision, updated_at)
+		values (?, ?, ?, ?, ?)`, itemID, status, completedOn, precision, time.Now().UTC()).Error; err != nil {
 		t.Fatalf("seed progress: %v", err)
 	}
 }
@@ -243,3 +311,5 @@ func seedRatingEvent(t *testing.T, db *gorm.DB, itemID uuid.UUID, at time.Time, 
 }
 
 func ptrTime(t time.Time) *time.Time { return &t }
+
+func floatPtr(value float64) *float64 { return &value }

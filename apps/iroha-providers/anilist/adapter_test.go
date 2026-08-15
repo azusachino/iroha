@@ -39,16 +39,14 @@ func TestParseSnapshotMapsAnimeEntryToMediaGraph(t *testing.T) {
 	if media.ProgressState == nil || media.ProgressState.Paused || media.ProgressState.PlayCount != 2 {
 		t.Fatalf("mapped progress = %#v", media.ProgressState)
 	}
-	if len(media.Events) != 3 {
-		t.Fatalf("mapped events = %d, want list state + 2 rewatches", len(media.Events))
+	if len(media.Events) != 0 {
+		t.Fatalf("mapped events = %d, want no consumption events for a library snapshot", len(media.Events))
 	}
-	if media.Events[0].RatingScale == nil || *media.Events[0].RatingScale != 100 {
-		t.Fatalf("list_state RatingScale = %v, want 100 (POINT_100 scoreFormat)", media.Events[0].RatingScale)
+	if media.StateSourceID != "7" || media.StateRatingScale == nil || *media.StateRatingScale != 100 {
+		t.Fatalf("state provenance = id %q rating scale %v, want entry 7 and 100", media.StateSourceID, media.StateRatingScale)
 	}
-	for i, event := range media.Events {
-		if event.EventAt != nil {
-			t.Fatalf("event %d EventAt = %v, want nil because provider state has no consumption timestamp", i, event.EventAt)
-		}
+	if media.StartedOn == nil || media.StartedOn.String() != "2024-01-02" || media.CompletedOn == nil || media.CompletedOn.String() != "2024-03-04" {
+		t.Fatalf("partial dates = %v/%v", media.StartedOn, media.CompletedOn)
 	}
 }
 
@@ -69,5 +67,21 @@ func TestParseSnapshotMapsMangaAndNullableScore(t *testing.T) {
 	}
 	if media.ProgressState == nil || media.ProgressState.Unit != "volumes" {
 		t.Fatalf("mapped manga progress = %#v", media.ProgressState)
+	}
+}
+
+func TestFuzzyDateDoesNotBecomeAnInstant(t *testing.T) {
+	date := anilistDate{Year: 2024, Month: 3}
+	partial := date.Partial()
+	if partial == nil || partial.String() != "2024-03" {
+		t.Fatalf("partial date = %#v, want 2024-03", partial)
+	}
+	if date.Time() != nil {
+		t.Fatal("year-month provider date became an exact timestamp")
+	}
+
+	invalid := anilistDate{Year: 2024, Day: 31}
+	if invalid.Partial() != nil || invalid.Time() != nil {
+		t.Fatal("provider day without a month was accepted")
 	}
 }

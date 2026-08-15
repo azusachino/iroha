@@ -8,6 +8,8 @@ import {
   getMediaAggregates,
   getMedia,
   listMediaEvents,
+  createMediaEvent,
+  listMediaChanges,
   getActivity,
   getActivityRoute,
   getActivitySamplings,
@@ -554,6 +556,29 @@ describe("listMediaEvents", () => {
     expect(getCapturedUrl()).toContain("/api/v1/media/events");
     expect(getCapturedUrl()).toContain("from=2026-01-01");
     expect(getCapturedUrl()).toContain("to=2026-01-31");
+  });
+});
+
+describe("media exact-event API", () => {
+  it("posts an exact event to the canonical intake route", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await createMediaEvent(
+      {
+        media_id: "med_123",
+        event_type: "read",
+        event_at: "2026-08-15T10:30:00Z",
+        idempotency_key: "capture-1",
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("/api/v1/media/events");
+  });
+
+  it("lists provider state changes separately from exact events", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await listMediaChanges({ from: "2026-01-01", limit: 10 }, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/media/changes");
+    expect(getCapturedUrl()).toContain("from=2026-01-01");
   });
 });
 

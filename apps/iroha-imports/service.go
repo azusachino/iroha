@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -38,7 +39,6 @@ const (
 
 	mediaWorkKind     = "media"
 	mediaItemRole     = "primary"
-	mediaEventType    = "list_state"
 	mediaListKind     = "library"
 	mediaScopeType    = "item"
 	mediaUnknownValue = "unknown"
@@ -296,6 +296,13 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		ParserVersion: job.ParserVersion,
 		CreatedAt:     time.Now().UTC(),
 	}
+	if rawFile.ObservedAt != nil {
+		snapshot.TakenAt = rawFile.ObservedAt
+	} else {
+		// Manual uploads have no source-observation clock. Their ingestion
+		// time is retained only as the Iroha-observed basis.
+		snapshot.TakenAt = &rawFile.CreatedAt
+	}
 
 	if mediaOK {
 		err = s.persistMedia(rawFile, parsedMedia, snapshot, reprocess)
@@ -442,6 +449,9 @@ func purgeDerivedForRawFile(tx *gorm.DB, rawFileID uuid.UUID) error {
 	if err := tx.Where("raw_file_id = ?", rawFileID).Delete(&models.MediaConsumptionEvent{}).Error; err != nil {
 		return err
 	}
+	if err := tx.Where("raw_file_id = ?", rawFileID).Delete(&models.MediaStateHistory{}).Error; err != nil {
+		return err
+	}
 
 	if err := tx.Exec(`
 		delete from tb_apple_source_items
@@ -507,7 +517,7 @@ func (s *Service) persistMedia(rawFile models.RawFile, parsed []observations.Med
 			return err
 		}
 		for _, media := range parsed {
-			if err := persistMediaObservation(tx, rawFile, media, s.mediaBridge); err != nil {
+			if err := persistMediaObservation(tx, rawFile, snapshot, media, s.mediaBridge); err != nil {
 				return err
 			}
 		}
@@ -515,7 +525,7 @@ func (s *Service) persistMedia(rawFile models.RawFile, parsed []observations.Med
 	})
 }
 
-func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observations.Media, bridge MediaRefBridge) error {
+func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, snapshot models.ImportSnapshot, media observations.Media, bridge MediaRefBridge) error {
 	if media.Provider == "" {
 		return errors.New("parsed media missing provider")
 	}
@@ -553,27 +563,29 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 		if err := tx.Create(&work).Error; err != nil {
 			return err
 		}
+		releaseDate, releasePrecision := canonicalReleaseDate(media)
 		item := models.MediaItem{
-			ID:              itemID,
-			WorkID:          &workID,
-			MediaType:       media.MediaType,
-			ItemRole:        itemRoleOrDefault(media.ItemRole),
-			Title:           media.Title,
-			OriginalTitle:   media.Title,
-			ReleaseDate:     media.ReleaseDate,
-			SeasonNumber:    media.SeasonNumber,
-			EpisodeNumber:   media.EpisodeNumber,
-			ChapterNumber:   media.ChapterNumber,
-			VolumeNumber:    media.VolumeNumber,
-			DurationSeconds: media.DurationSeconds,
-			PageCount:       media.PageCount,
-			EpisodeCount:    media.EpisodeCount,
-			ChapterCount:    media.ChapterCount,
-			Language:        media.Language,
-			Country:         media.Country,
-			CoverImageURL:   media.CoverImageURL,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			ID:                   itemID,
+			WorkID:               &workID,
+			MediaType:            media.MediaType,
+			ItemRole:             itemRoleOrDefault(media.ItemRole),
+			Title:                media.Title,
+			OriginalTitle:        media.Title,
+			ReleaseDate:          releaseDate,
+			ReleaseDatePrecision: releasePrecision,
+			SeasonNumber:         media.SeasonNumber,
+			EpisodeNumber:        media.EpisodeNumber,
+			ChapterNumber:        media.ChapterNumber,
+			VolumeNumber:         media.VolumeNumber,
+			DurationSeconds:      media.DurationSeconds,
+			PageCount:            media.PageCount,
+			EpisodeCount:         media.EpisodeCount,
+			ChapterCount:         media.ChapterCount,
+			Language:             media.Language,
+			Country:              media.Country,
+			CoverImageURL:        media.CoverImageURL,
+			CreatedAt:            now,
+			UpdatedAt:            now,
 		}
 		if item.MediaType == "" {
 			item.MediaType = mediaUnknownValue
@@ -694,6 +706,9 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, media observat
 	if err := persistMediaEvents(tx, rawFile, itemID, media); err != nil {
 		return err
 	}
+	if err := persistMediaStateHistory(tx, rawFile, snapshot, itemID, media); err != nil {
+		return err
+	}
 	return upsertMediaProgress(tx, rawFile, itemID, media)
 }
 
@@ -740,30 +755,18 @@ func persistMediaRelations(tx *gorm.DB, itemID uuid.UUID, media observations.Med
 	return nil
 }
 
-// persistMediaEvents appends the adapter's semantic events (list_state,
-// rewatch, ...) to the history log. It falls back to one synthesized
-// list_state event for providers that only emit flat state. Change-detection
-// skips re-appending an event whose stable source entry is unchanged, so
-// repeated full-list syncs don't bloat the log with duplicate rows.
+// persistMediaEvents appends only exact events explicitly supplied by an
+// adapter. Provider list snapshots do not enter this table, and there is no
+// fallback from a fuzzy completion date or import time.
 func persistMediaEvents(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, media observations.Media) error {
-	events := media.Events
-	if len(events) == 0 {
-		eventAt := media.CompletedAt
-		if eventAt == nil {
-			eventAt = media.StartedAt
+	for _, event := range media.Events {
+		if !observations.ValidMediaEventType(event.EventType) {
+			return fmt.Errorf("media exact event has invalid event type %q", event.EventType)
 		}
-		events = []observations.MediaEvent{{
-			EventType:     mediaEventType,
-			EventAt:       eventAt,
-			SourceEventID: media.ExternalID,
-			Position:      media.Progress,
-			Rating:        media.Score,
-		}}
-	}
-	for _, event := range events {
-		if event.EventType == "" {
-			event.EventType = mediaEventType
+		if event.EventAt.IsZero() {
+			return fmt.Errorf("media exact event %q is missing event_at", event.EventType)
 		}
+		event.EventAt = event.EventAt.UTC()
 		unchanged, err := latestEventUnchanged(tx, itemID, rawFile.SourceKind, event)
 		if err != nil {
 			return err
@@ -798,6 +801,127 @@ func persistMediaEvents(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, m
 	return nil
 }
 
+// persistMediaStateHistory records the provider's typed current state. The
+// fingerprint is calculated from canonical fields, so repeated snapshots and
+// reprocessing do not create a second observation. A provider record timestamp
+// remains ordering/provenance only; observed_at is when Iroha saw the state.
+func persistMediaStateHistory(tx *gorm.DB, rawFile models.RawFile, snapshot models.ImportSnapshot, itemID uuid.UUID, media observations.Media) error {
+	observedAt := rawFile.CreatedAt
+	if observedAt.IsZero() {
+		observedAt = time.Now().UTC()
+	}
+	if rawFile.ObservedAt != nil {
+		observedAt = *rawFile.ObservedAt
+	}
+	if snapshot.TakenAt != nil && !snapshot.TakenAt.IsZero() {
+		observedAt = *snapshot.TakenAt
+	}
+	observedAt = observedAt.UTC()
+	sourceEventID := media.StateSourceID
+	if sourceEventID == "" {
+		sourceEventID = media.ExternalID
+	}
+	startedValue, startedPrecision := partialDateFields(media.StartedOn)
+	completedValue, completedPrecision := partialDateFields(media.CompletedOn)
+	state := struct {
+		Status               string
+		Unit                 string
+		Position             *float64
+		Total                *float64
+		ProgressPercent      *float64
+		Rating               *float64
+		RatingScale          *float64
+		Note                 string
+		RepeatCount          int
+		StartedOnValue       *time.Time
+		StartedOnPrecision   string
+		CompletedOnValue     *time.Time
+		CompletedOnPrecision string
+	}{
+		Status: media.Status, Position: media.Progress, Rating: media.Score, Note: media.StateNote,
+		StartedOnValue: startedValue, StartedOnPrecision: startedPrecision,
+		CompletedOnValue: completedValue, CompletedOnPrecision: completedPrecision,
+	}
+	if media.ProgressState != nil {
+		state.Status = media.ProgressState.Status
+		state.Unit = media.ProgressState.Unit
+		state.Position = media.ProgressState.Position
+		state.Total = media.ProgressState.Total
+		state.ProgressPercent = media.ProgressState.ProgressPercent
+		state.RepeatCount = media.ProgressState.PlayCount
+		if state.StartedOnValue == nil {
+			state.StartedOnValue, state.StartedOnPrecision = partialDateFields(media.ProgressState.StartedOn)
+		}
+		if state.CompletedOnValue == nil {
+			state.CompletedOnValue, state.CompletedOnPrecision = partialDateFields(media.ProgressState.CompletedOn)
+		}
+	}
+	state.RatingScale = media.StateRatingScale
+	effectiveOnValue, effectiveOnPrecision := (*time.Time)(nil), ""
+	if state.CompletedOnPrecision == string(observations.DatePrecisionDay) {
+		effectiveOnValue, effectiveOnPrecision = state.CompletedOnValue, state.CompletedOnPrecision
+	}
+	fingerprintBytes, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	digest := sha256.Sum256(fingerprintBytes)
+	fingerprint := hex.EncodeToString(digest[:])
+
+	var existing models.MediaStateHistory
+	result := tx.Where("media_item_id = ? and source_kind = ? and source_event_id = ?", itemID, rawFile.SourceKind, sourceEventID).
+		Order("observed_at desc, created_at desc, id desc").First(&existing)
+	if result.Error == nil && existing.StateFingerprint == fingerprint {
+		return nil
+	}
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return result.Error
+	}
+	changeKind := "snapshot"
+	if result.Error == nil {
+		changeKind = "changed"
+	}
+	timeBasis := "iroha_observed"
+	var providerRecordedAt *time.Time
+	if media.ProgressState != nil && media.ProgressState.LastUpdateAt != nil {
+		timeBasis = "provider_recorded"
+		providerRecordedAt = media.ProgressState.LastUpdateAt
+	}
+	if effectiveOnPrecision == string(observations.DatePrecisionDay) {
+		timeBasis = "source_date"
+	}
+	id, err := ids.New()
+	if err != nil {
+		return err
+	}
+	result = tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&models.MediaStateHistory{
+		ID: id, MediaItemID: itemID, SourceKind: rawFile.SourceKind, SourceEventID: sourceEventID,
+		ObservedAt: observedAt, TimeBasis: timeBasis, ChangeKind: changeKind, StateFingerprint: fingerprint,
+		Status: state.Status, Unit: state.Unit, Position: state.Position, Total: state.Total,
+		ProgressPercent: state.ProgressPercent, Rating: state.Rating, RatingScale: state.RatingScale,
+		Note: state.Note, RepeatCount: state.RepeatCount, StartedOnValue: state.StartedOnValue,
+		StartedOnPrecision: state.StartedOnPrecision, CompletedOnValue: state.CompletedOnValue,
+		CompletedOnPrecision: state.CompletedOnPrecision, EffectiveOnValue: effectiveOnValue,
+		EffectiveOnPrecision: effectiveOnPrecision, ProviderRecordedAt: providerRecordedAt,
+		RawFileID: &rawFile.ID, CreatedAt: time.Now().UTC(),
+	})
+	if result.Error != nil {
+		return result.Error
+	}
+	// The raw-file-scoped fingerprint index makes concurrent retries of the
+	// same snapshot idempotent without preventing a legitimate A -> B -> A
+	// state transition across later observations.
+	return nil
+}
+
+func partialDateFields(value *observations.PartialDate) (*time.Time, string) {
+	if value == nil || !value.Valid() {
+		return nil, ""
+	}
+	date := value.Value
+	return &date, string(value.Precision)
+}
+
 // latestEventUnchanged reports whether the most recent event for the same
 // source entry already records identical progress/rating/note, meaning a fresh
 // sync observed no change. Events without a stable source id always append.
@@ -816,7 +940,7 @@ func latestEventUnchanged(tx *gorm.DB, itemID uuid.UUID, sourceKind string, even
 	if err != nil {
 		return false, err
 	}
-	return timePtrEqual(existing.EventAt, event.EventAt) &&
+	return existing.EventAt.Equal(event.EventAt) &&
 		existing.Unit == event.Unit &&
 		floatPtrEqual(existing.Position, event.Position) &&
 		floatPtrEqual(existing.Total, event.Total) &&
@@ -835,20 +959,20 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 		MediaItemID: itemID,
 		Status:      media.Status,
 		Position:    media.Progress,
-		StartedAt:   media.StartedAt,
-		FinishedAt:  media.CompletedAt,
 		SourceKind:  rawFile.SourceKind,
 		UpdatedAt:   time.Now().UTC(),
 	}
+	progress.StartedOnValue, progress.StartedOnPrecision = partialDateFields(media.StartedOn)
+	progress.CompletedOnValue, progress.CompletedOnPrecision = partialDateFields(media.CompletedOn)
 	if ps := media.ProgressState; ps != nil {
 		progress.Status = ps.Status
 		progress.Unit = ps.Unit
 		progress.Position = ps.Position
 		progress.Total = ps.Total
 		progress.ProgressPercent = ps.ProgressPercent
-		progress.StartedAt = ps.StartedAt
+		progress.StartedOnValue, progress.StartedOnPrecision = partialDateFields(ps.StartedOn)
 		progress.LastUpdateAt = ps.LastUpdateAt
-		progress.FinishedAt = ps.FinishedAt
+		progress.CompletedOnValue, progress.CompletedOnPrecision = partialDateFields(ps.CompletedOn)
 		progress.PlayCount = ps.PlayCount
 		// Paused/on-hold entries stay status=in_progress but must not surface in
 		// the "continue" strip; fold the adapter's Paused flag into the column.
@@ -869,18 +993,20 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 		return createProgressConflictTask(tx, media, itemID, existing.Status, progress.Status)
 	}
 	return tx.Model(&existing).Updates(map[string]any{
-		"status":               progress.Status,
-		"unit":                 progress.Unit,
-		"position":             progress.Position,
-		"total":                progress.Total,
-		"progress_percent":     progress.ProgressPercent,
-		"started_at":           progress.StartedAt,
-		"last_update_at":       progress.LastUpdateAt,
-		"finished_at":          progress.FinishedAt,
-		"play_count":           progress.PlayCount,
-		"hidden_from_continue": progress.HiddenFromContinue,
-		"source_kind":          progress.SourceKind,
-		"updated_at":           progress.UpdatedAt,
+		"status":                 progress.Status,
+		"unit":                   progress.Unit,
+		"position":               progress.Position,
+		"total":                  progress.Total,
+		"progress_percent":       progress.ProgressPercent,
+		"started_on_value":       progress.StartedOnValue,
+		"started_on_precision":   progress.StartedOnPrecision,
+		"last_update_at":         progress.LastUpdateAt,
+		"completed_on_value":     progress.CompletedOnValue,
+		"completed_on_precision": progress.CompletedOnPrecision,
+		"play_count":             progress.PlayCount,
+		"hidden_from_continue":   progress.HiddenFromContinue,
+		"source_kind":            progress.SourceKind,
+		"updated_at":             progress.UpdatedAt,
 	}).Error
 }
 
@@ -891,18 +1017,22 @@ func floatPtrEqual(a, b *float64) bool {
 	return *a == *b
 }
 
-func timePtrEqual(a, b *time.Time) bool {
-	if a == nil || b == nil {
-		return a == b
-	}
-	return a.Equal(*b)
-}
-
 func itemRoleOrDefault(role string) string {
 	if role == "" {
 		return mediaItemRole
 	}
 	return role
+}
+
+func canonicalReleaseDate(media observations.Media) (*time.Time, string) {
+	if media.ReleaseDateOn != nil && media.ReleaseDateOn.Valid() {
+		date := media.ReleaseDateOn.Value
+		return &date, string(media.ReleaseDateOn.Precision)
+	}
+	if media.ReleaseDate != nil {
+		return media.ReleaseDate, string(observations.DatePrecisionDay)
+	}
+	return nil, ""
 }
 
 // titleLanguageRank scores a title string for the JPN > ENG > CHN display
@@ -990,8 +1120,9 @@ func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Me
 	if media.ItemRole != "" {
 		setStr("item_role", item.ItemRole, media.ItemRole)
 	}
-	if media.ReleaseDate != nil && (owned || item.ReleaseDate == nil) {
-		updates["release_date"] = media.ReleaseDate
+	if releaseDate, precision := canonicalReleaseDate(media); releaseDate != nil && (owned || item.ReleaseDate == nil) {
+		updates["release_date"] = releaseDate
+		updates["release_date_precision"] = precision
 	}
 	setInt("season_number", item.SeasonNumber, media.SeasonNumber)
 	setInt("episode_number", item.EpisodeNumber, media.EpisodeNumber)

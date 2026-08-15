@@ -49,7 +49,7 @@ contract-check: ## Verify the registered HTTP route inventory and OpenAPI contra
 	$(TOOL_ENV) go -C $(SERVER_DIR) test ./pkg/httpapi -run '^Test(ActiveRouteInventory|OpenAPIExamples)$$'
 
 test-integration: db-up ## Run DB-backed Go integration tests
-	$(TOOL_ENV) env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -tags=integration ./...
+	$(TOOL_ENV) env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -p 1 -tags=integration ./...
 
 scripts-test: ## Run Python script unit tests
 	$(TOOL_ENV) uv run python -m unittest discover -s scripts -p '*_test.py'

@@ -126,7 +126,7 @@ func (c Connector) Fetch(ctx context.Context, credentials connector.Credentials,
 	}
 	count := countEntries(payload)
 	next := nextCursor(mediaType, page, count, perChunk)
-	return connector.Snapshot{ContentType: "application/json", Body: responseBody, SourceKind: SourceKind, Filename: "anilist_" + mediaType + "_chunk_" + strconv.Itoa(page) + ".json"}, next, nil
+	return connector.Snapshot{ContentType: "application/json", Body: responseBody, SourceKind: SourceKind, Filename: "anilist_" + mediaType + "_chunk_" + strconv.Itoa(page) + ".json", ObservedAt: time.Now().UTC()}, next, nil
 }
 
 func endpoint(value string) string {

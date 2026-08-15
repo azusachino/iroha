@@ -3,7 +3,10 @@
 // that evidence into provider-neutral observations.
 package v1
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type Credentials struct {
 	Values map[string]string `json:"values,omitempty"`
@@ -20,6 +23,9 @@ type Snapshot struct {
 	Body        []byte
 	SourceKind  string
 	Filename    string
+	// ObservedAt is when the connector received this source snapshot. It is
+	// distinct from the time Iroha stores the raw file or processes its job.
+	ObservedAt time.Time
 }
 
 type Descriptor struct {

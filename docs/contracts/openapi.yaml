@@ -760,6 +760,55 @@ paths:
                 $ref: "#/components/schemas/MediaEventPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [media]
+      summary: Record one exact media consumption event.
+      description: |
+        Records an event supplied by a local agent, Telegram/playback client,
+        or another exact source. `event_at` must be an RFC3339 instant and
+        `idempotency_key` is required. Provider library snapshots do not use
+        this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaEventInput"
+      responses:
+        "200":
+          description: Existing or newly recorded exact event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Idempotency key was reused with a different payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/media/changes:
+    get:
+      tags: [media]
+      summary: List provider state changes and dated source facts.
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Provider state-history page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaChangePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/media/aggregates:
     get:
       tags: [media]
@@ -2215,6 +2264,8 @@ components:
         native_title: { type: string }
         episode_count: { type: integer }
         chapter_count: { type: integer }
+        started_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
+        completed_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
     MediaPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
@@ -2229,6 +2280,11 @@ components:
             type: array,
             items: { $ref: "#/components/schemas/MediaHomeEvent" },
           }
+    MediaChangePage:
+      allOf: [{ $ref: "#/components/schemas/Page" }]
+      properties:
+        items:
+          { type: array, items: { $ref: "#/components/schemas/MediaChange" } }
     MediaDetail:
       type: object
       required: [item, work, creators, relations, events]
@@ -2270,13 +2326,13 @@ components:
         position: { type: number }
         total: { type: number }
         progress_percent: { type: number }
-        started_at: { type: string, format: date-time }
+        started_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
         last_update_at: { type: string, format: date-time }
-        finished_at: { type: string, format: date-time }
+        completed_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
         play_count: { type: integer }
     MediaEvent:
       type: object
-      required: [id, event_type]
+      required: [id, event_type, event_at]
       properties:
         id: { type: string }
         event_type: { type: string }
@@ -2287,6 +2343,95 @@ components:
         progress_percent: { type: number }
         rating: { type: number }
         note: { type: string }
+    MediaEventInput:
+      type: object
+      additionalProperties: false
+      required: [media_id, event_type, event_at, idempotency_key]
+      properties:
+        media_id: { type: string }
+        event_type:
+          {
+            type: string,
+            enum:
+              [
+                started,
+                progressed,
+                completed,
+                finished,
+                read,
+                watched,
+                listened,
+                reread,
+                rewatched,
+                abandoned,
+                paused,
+                reopened,
+                rated,
+                noted,
+                bookmarked,
+              ],
+          }
+        event_at: { type: string, format: date-time }
+        source_kind: { type: string, default: manual }
+        idempotency_key: { type: string, minLength: 1 }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        rating: { type: number }
+        rating_scale: { type: number }
+        note: { type: string }
+    MediaChange:
+      type: object
+      required:
+        [
+          id,
+          media_id,
+          title,
+          source_kind,
+          change_kind,
+          time_basis,
+          observed_at,
+          repeat_count,
+        ]
+      properties:
+        id: { type: string }
+        media_id: { type: string }
+        title: { type: string }
+        native_title: { type: string }
+        cover_image_url: { type: string }
+        source_kind: { type: string }
+        change_kind:
+          {
+            type: string,
+            enum: [snapshot, changed, removed, provider_activity],
+          }
+        time_basis:
+          {
+            type: string,
+            enum:
+              [
+                manual_exact,
+                provider_activity,
+                provider_recorded,
+                iroha_observed,
+                source_fuzzy_date,
+                source_date,
+              ],
+          }
+        observed_at: { type: string, format: date-time }
+        effective_at: { type: string, format: date-time }
+        effective_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
+        date_precision: { type: string, enum: [year, month, day] }
+        provider_recorded_at: { type: string, format: date-time }
+        status: { type: string }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        rating: { type: number }
+        note: { type: string }
+        repeat_count: { type: integer }
     MediaHomeEvent:
       type: object
       required: [id, media_id, title, event_type, occurred_at]

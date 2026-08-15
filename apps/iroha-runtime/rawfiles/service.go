@@ -157,6 +157,7 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 		StoragePath:      storagePath,
 		SourceKind:       snapshot.SourceKind,
 		UploadedVia:      "connector",
+		ObservedAt:       timePtrOrNow(snapshot.ObservedAt, now),
 		CreatedAt:        now,
 	}
 	if err := s.db.Create(&rawFile).Error; err != nil {
@@ -164,6 +165,13 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 		return models.RawFile{}, err
 	}
 	return rawFile, nil
+}
+
+func timePtrOrNow(value, fallback time.Time) *time.Time {
+	if value.IsZero() {
+		value = fallback
+	}
+	return &value
 }
 
 func (s *Service) List(limit int) ([]models.RawFile, error) {

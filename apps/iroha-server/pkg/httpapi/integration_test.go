@@ -192,7 +192,7 @@ func TestIntegrationSleepEndpoints(t *testing.T) {
 			t.Fatalf("second sleep page = %#v", body)
 		}
 	})
-	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?from=2024-01-02&to=2024-01-02", "", http.StatusOK, func(body map[string]any) {
+	requestJSON(t, server, http.MethodGet, "/api/v1/sleep/?from=2024-01-02&to=2024-01-03", "", http.StatusOK, func(body map[string]any) {
 		if len(body["items"].([]any)) != 1 {
 			t.Fatalf("date-filtered sleep page = %#v", body)
 		}
@@ -382,6 +382,7 @@ func resetIntegrationDB(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	if err := db.Exec(`truncate table
 		tb_expenses,
+		tb_geocode_cache,
 		tb_activity_laps,
 		tb_activity_samplings,
 		tb_activity_route_points,

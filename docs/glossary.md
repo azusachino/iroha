@@ -7,6 +7,24 @@ This glossary defines terms used by the canonical-data, cache, and report contra
 An authoritative personal-data record owned and validated by Iroha, such as an activity, sleep session, daily health fact, media event, or expense. Canonical records remain in Postgres and are not
 reconstructed from frontend rows or disposable cache entries.
 
+## True media event
+
+An append-only media record with a real, exact event instant. Its database `event_at` is required and is never filled with importer time, a provider record-update time, or a fabricated midnight.
+
+## Media state observation
+
+A canonical record of a provider's current library state as observed by Iroha. It may include a provider-recorded timestamp or an exact provider activity timestamp, but it is not automatically a
+consumption session.
+
+## Partial canonical date
+
+A calendar value with explicit precision: `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`. It preserves what a provider actually supplied. A database representative date is never displayed without its precision.
+
+## Time basis
+
+The declared meaning of a timestamp or calendar date: `manual_exact`, `provider_activity`, `provider_recorded`, `iroha_observed`, `source_date`, or `source_fuzzy_date`. Date-scoped consumption
+aggregates accept only bases that prove a real dated event; a `source_date` is a day-level fact, not an exact-time session.
+
 ## Response cache
 
 A disposable cache of a complete successful HTTP representation. It may reduce repeated work but cannot become the source of truth. A cache miss, expiry, backend outage, or invalidation bypass must

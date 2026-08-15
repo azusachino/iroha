@@ -299,7 +299,7 @@ func TestReadCacheKeyUsesEffectiveTimezone(t *testing.T) {
 func TestReadCacheKeyUsesCurrentWireRepresentationVersion(t *testing.T) {
 	server := &Server{deps: Dependencies{Config: config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}}}}
 	key := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/briefing?date=2026-08-13", nil))
-	if !strings.HasPrefix(key, "v6 GET /api/v1/briefing") {
-		t.Fatalf("cache key = %q, want v6 representation prefix", key)
+	if !strings.HasPrefix(key, "v7 GET /api/v1/briefing") {
+		t.Fatalf("cache key = %q, want v7 representation prefix", key)
 	}
 }

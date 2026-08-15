@@ -18,7 +18,12 @@ import type {
 } from "@iroha/shared/daily";
 import type {
   MediaAggregates,
+  MediaChange,
+  MediaChangePage,
   MediaDetail,
+  MediaEvent,
+  MediaEventInput,
+  MediaEventPage,
   MediaHomeEvent,
   MediaRow,
 } from "@iroha/shared/media";
@@ -81,8 +86,13 @@ export type {
 } from "@iroha/shared/daily";
 export type {
   MediaAggregates,
+  MediaChange,
+  MediaChangePage,
   MediaCompletionBucket,
   MediaDetail,
+  MediaEvent,
+  MediaEventInput,
+  MediaEventPage,
   MediaHomeEvent,
   MediaPage,
   MediaRow,
@@ -193,6 +203,8 @@ export interface ListMediaEventsParams {
   limit?: number;
   cursor?: string;
 }
+
+export interface ListMediaChangesParams extends ListMediaEventsParams {}
 
 // One keyset page. `next_cursor` is null when no further rows exist.
 export interface Page<T> {
@@ -657,17 +669,34 @@ export function getMedia(
 export function listMediaEvents(
   params: ListMediaEventsParams = {},
   fetchFn: typeof fetch = fetch,
-): Promise<Page<MediaHomeEvent>> {
+): Promise<MediaEventPage> {
   const query = new URLSearchParams();
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<Page<MediaHomeEvent>>(
-    `/api/v1/media/events${suffix}`,
-    fetchFn,
-  );
+  return getJSON<MediaEventPage>(`/api/v1/media/events${suffix}`, fetchFn);
+}
+
+export function createMediaEvent(
+  input: MediaEventInput,
+  fetchFn: typeof fetch = fetch,
+): Promise<MediaEvent> {
+  return mutateJSON<MediaEvent>("/api/v1/media/events", "POST", input, fetchFn);
+}
+
+export function listMediaChanges(
+  params: ListMediaChangesParams = {},
+  fetchFn: typeof fetch = fetch,
+): Promise<MediaChangePage> {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.cursor) query.set("cursor", params.cursor);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<MediaChangePage>(`/api/v1/media/changes${suffix}`, fetchFn);
 }
 
 export function listSleep(

@@ -5,8 +5,12 @@ import (
 	"sort"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const defaultPageLimit = 50
@@ -38,23 +42,27 @@ func IsFamily(value string) bool {
 }
 
 type Item struct {
-	ID                 uuid.UUID
-	Title              string
-	MediaType          string
-	ItemRole           string
-	CoverImageURL      string
-	Status             *string
-	Position           *float64
-	Total              *float64
-	Unit               *string
-	ProgressPercent    *float64
-	LastUpdateAt       time.Time
-	Rating             *float64
-	RatingScale        *float64
-	HiddenFromContinue bool
-	NativeTitle        *string
-	EpisodeCount       *int
-	ChapterCount       *int
+	ID                   uuid.UUID
+	Title                string
+	MediaType            string
+	ItemRole             string
+	CoverImageURL        string
+	Status               *string
+	Position             *float64
+	Total                *float64
+	Unit                 *string
+	ProgressPercent      *float64
+	LastUpdateAt         time.Time
+	Rating               *float64
+	RatingScale          *float64
+	HiddenFromContinue   bool
+	NativeTitle          *string
+	EpisodeCount         *int
+	ChapterCount         *int
+	StartedOnValue       *time.Time
+	StartedOnPrecision   string
+	CompletedOnValue     *time.Time
+	CompletedOnPrecision string
 }
 
 type Page struct {
@@ -154,28 +162,30 @@ type RelationDetail struct {
 }
 
 type EventDetail struct {
-	ID              uuid.UUID  `gorm:"column:id"`
-	EventType       string     `gorm:"column:event_type"`
-	EventAt         *time.Time `gorm:"column:event_at"`
-	Unit            string     `gorm:"column:unit"`
-	Position        *float64   `gorm:"column:position"`
-	Total           *float64   `gorm:"column:total"`
-	ProgressPercent *float64   `gorm:"column:progress_percent"`
-	Rating          *float64   `gorm:"column:rating"`
-	RatingScale     *float64   `gorm:"column:rating_scale"`
-	Note            string     `gorm:"column:note"`
+	ID              uuid.UUID `gorm:"column:id"`
+	EventType       string    `gorm:"column:event_type"`
+	EventAt         time.Time `gorm:"column:event_at"`
+	Unit            string    `gorm:"column:unit"`
+	Position        *float64  `gorm:"column:position"`
+	Total           *float64  `gorm:"column:total"`
+	ProgressPercent *float64  `gorm:"column:progress_percent"`
+	Rating          *float64  `gorm:"column:rating"`
+	RatingScale     *float64  `gorm:"column:rating_scale"`
+	Note            string    `gorm:"column:note"`
 }
 
 type ProgressDetail struct {
-	Status          string     `gorm:"column:status"`
-	Unit            string     `gorm:"column:unit"`
-	Position        *float64   `gorm:"column:position"`
-	Total           *float64   `gorm:"column:total"`
-	ProgressPercent *float64   `gorm:"column:progress_percent"`
-	StartedAt       *time.Time `gorm:"column:started_at"`
-	LastUpdateAt    *time.Time `gorm:"column:last_update_at"`
-	FinishedAt      *time.Time `gorm:"column:finished_at"`
-	PlayCount       int        `gorm:"column:play_count"`
+	Status               string     `gorm:"column:status"`
+	Unit                 string     `gorm:"column:unit"`
+	Position             *float64   `gorm:"column:position"`
+	Total                *float64   `gorm:"column:total"`
+	ProgressPercent      *float64   `gorm:"column:progress_percent"`
+	StartedOnValue       *time.Time `gorm:"column:started_on_value"`
+	StartedOnPrecision   string     `gorm:"column:started_on_precision"`
+	LastUpdateAt         *time.Time `gorm:"column:last_update_at"`
+	CompletedOnValue     *time.Time `gorm:"column:completed_on_value"`
+	CompletedOnPrecision string     `gorm:"column:completed_on_precision"`
+	PlayCount            int        `gorm:"column:play_count"`
 }
 
 type Detail struct {
@@ -216,8 +226,141 @@ type EventPage struct {
 	HasMore    bool
 }
 
+type CreateEventInput struct {
+	MediaItemID     uuid.UUID
+	EventType       string
+	EventAt         time.Time
+	SourceKind      string
+	SourceEventID   string
+	Unit            string
+	Position        *float64
+	Total           *float64
+	ProgressPercent *float64
+	Rating          *float64
+	RatingScale     *float64
+	Note            string
+}
+
+var (
+	ErrEventConflict         = errors.New("media event idempotency key conflicts with existing event")
+	ErrEventAtRequired       = errors.New("event_at is required")
+	ErrInvalidEventType      = errors.New("invalid event_type")
+	ErrSourceEventIDRequired = errors.New("source_event_id is required")
+	ErrMediaItemNotFound     = errors.New("media item not found")
+)
+
+type Change struct {
+	ID                   uuid.UUID
+	MediaItemID          uuid.UUID
+	Title                string
+	NativeTitle          *string
+	CoverImageURL        string
+	SourceKind           string
+	ChangeKind           string
+	TimeBasis            string
+	ObservedAt           time.Time
+	EffectiveAt          *time.Time
+	EffectiveOnValue     *time.Time
+	EffectiveOnPrecision string
+	ProviderRecordedAt   *time.Time
+	Status               string
+	Unit                 string
+	Position             *float64
+	Total                *float64
+	ProgressPercent      *float64
+	Rating               *float64
+	RatingScale          *float64
+	Note                 string
+	RepeatCount          int
+}
+
+type ChangeListFilters struct {
+	From   *time.Time
+	To     *time.Time
+	Limit  int
+	Cursor *Cursor
+}
+
+type ChangePage struct {
+	Items      []Change
+	NextCursor *Cursor
+	HasMore    bool
+}
+
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+func (s *Service) CreateEvent(input CreateEventInput) (Event, error) {
+	if input.MediaItemID == uuid.Nil {
+		return Event{}, ErrMediaItemNotFound
+	}
+	if input.EventAt.IsZero() {
+		return Event{}, ErrEventAtRequired
+	}
+	if !validEventType(input.EventType) {
+		return Event{}, ErrInvalidEventType
+	}
+	if input.SourceKind == "" {
+		input.SourceKind = "manual"
+	}
+	if input.SourceEventID == "" {
+		return Event{}, ErrSourceEventIDRequired
+	}
+	input.EventAt = input.EventAt.UTC()
+	var created Event
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var item struct{ ID uuid.UUID }
+		if err := tx.Table("tb_media_items").Select("id").Where("id = ?", input.MediaItemID).First(&item).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrMediaItemNotFound
+		} else if err != nil {
+			return err
+		}
+		var existing models.MediaConsumptionEvent
+		result := tx.Where("source_kind = ? and source_event_id = ? and event_type = ?", input.SourceKind, input.SourceEventID, input.EventType).First(&existing)
+		if result.Error == nil {
+			if existing.MediaItemID != input.MediaItemID || !existing.EventAt.Equal(input.EventAt) || existing.Unit != input.Unit ||
+				!floatPtrEqual(existing.Position, input.Position) || !floatPtrEqual(existing.Total, input.Total) ||
+				!floatPtrEqual(existing.ProgressPercent, input.ProgressPercent) || !floatPtrEqual(existing.Rating, input.Rating) ||
+				!floatPtrEqual(existing.RatingScale, input.RatingScale) || existing.Note != input.Note {
+				return ErrEventConflict
+			}
+			created = Event{ID: existing.ID, MediaItemID: existing.MediaItemID, EventType: existing.EventType, OccurredAt: existing.EventAt, Unit: existing.Unit, Position: existing.Position, Total: existing.Total, ProgressPercent: existing.ProgressPercent, Rating: existing.Rating, RatingScale: existing.RatingScale}
+			return nil
+		}
+		if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return result.Error
+		}
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		row := models.MediaConsumptionEvent{ID: id, MediaItemID: input.MediaItemID, EventType: input.EventType, EventAt: input.EventAt, SourceKind: input.SourceKind, SourceEventID: input.SourceEventID, Unit: input.Unit, Position: input.Position, Total: input.Total, ProgressPercent: input.ProgressPercent, Rating: input.Rating, RatingScale: input.RatingScale, Note: input.Note, CreatedAt: time.Now().UTC()}
+		result = tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			if err := tx.Where("source_kind = ? and source_event_id = ? and event_type = ?", input.SourceKind, input.SourceEventID, input.EventType).First(&existing).Error; err != nil {
+				return err
+			}
+			if existing.MediaItemID != input.MediaItemID || !existing.EventAt.Equal(input.EventAt) || existing.Unit != input.Unit ||
+				!floatPtrEqual(existing.Position, input.Position) || !floatPtrEqual(existing.Total, input.Total) ||
+				!floatPtrEqual(existing.ProgressPercent, input.ProgressPercent) || !floatPtrEqual(existing.Rating, input.Rating) ||
+				!floatPtrEqual(existing.RatingScale, input.RatingScale) || existing.Note != input.Note {
+				return ErrEventConflict
+			}
+			created = Event{ID: existing.ID, MediaItemID: existing.MediaItemID, EventType: existing.EventType, OccurredAt: existing.EventAt, Unit: existing.Unit, Position: existing.Position, Total: existing.Total, ProgressPercent: existing.ProgressPercent, Rating: existing.Rating, RatingScale: existing.RatingScale}
+			return nil
+		}
+		created = Event{ID: id, MediaItemID: row.MediaItemID, EventType: row.EventType, OccurredAt: row.EventAt, Unit: row.Unit, Position: row.Position, Total: row.Total, ProgressPercent: row.ProgressPercent, Rating: row.Rating, RatingScale: row.RatingScale}
+		return nil
+	})
+	return created, err
+}
+
+func validEventType(value string) bool {
+	return observations.ValidMediaEventType(value)
 }
 
 func (s *Service) CompletedMetricValues(filters PeriodFilters) ([]MetricValue, error) {
@@ -232,10 +375,10 @@ func (s *Service) CompletedMetricValues(filters PeriodFilters) ([]MetricValue, e
 	}
 	var rows []completionRow
 	if err := s.db.Raw(`
-		SELECT item.id AS item_id, item.media_type AS media_kind, progress.finished_at AS completed_at, progress.source_kind AS source
+		SELECT item.id AS item_id, item.media_type AS media_kind, progress.completed_on_value::timestamptz AS completed_at, progress.source_kind AS source
 		FROM tb_media_progress AS progress
 		JOIN tb_media_items AS item ON item.id = progress.media_item_id
-		WHERE progress.finished_at IS NOT NULL AND progress.finished_at >= ? AND progress.finished_at < ?
+		WHERE progress.completed_on_precision = 'day' AND progress.completed_on_value >= CAST(? AS date) AND progress.completed_on_value < CAST(? AS date)
 		UNION ALL
 		SELECT event.media_item_id AS item_id, item.media_type AS media_kind, event.event_at AS completed_at, event.source_kind AS source
 		FROM tb_media_consumption_events AS event
@@ -287,7 +430,6 @@ func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
 		WHERE event.event_at IS NOT NULL
 			AND event.event_at >= ?
 			AND event.event_at < ?
-			AND event.event_type <> 'list_state'
 		GROUP BY item.media_type
 		ORDER BY item.media_type`, filters.From, filters.To).Scan(&aggregateRows).Error; err != nil {
 		return PeriodReport{}, err
@@ -302,12 +444,12 @@ func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
 	}
 	var completionRows []completionRow
 	if err := s.db.Raw(`
-		SELECT item.id, item.id AS item_id, item.title, item.media_type, progress.finished_at AS completed_at
+		SELECT item.id, item.id AS item_id, item.title, item.media_type, progress.completed_on_value::timestamptz AS completed_at
 		FROM tb_media_progress AS progress
 		JOIN tb_media_items AS item ON item.id = progress.media_item_id
-		WHERE progress.finished_at IS NOT NULL
-			AND progress.finished_at >= ?
-			AND progress.finished_at < ?
+		WHERE progress.completed_on_precision = 'day'
+			AND progress.completed_on_value >= CAST(? AS date)
+			AND progress.completed_on_value < CAST(? AS date)
 		UNION ALL
 		SELECT event.id, event.media_item_id AS item_id, item.title, item.media_type, event.event_at AS completed_at
 		FROM tb_media_consumption_events AS event
@@ -400,6 +542,10 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 			end) AS total,
 			progress.unit,
 			progress.progress_percent,
+			progress.started_on_value,
+			progress.started_on_precision,
+			progress.completed_on_value,
+			progress.completed_on_precision,
 			coalesce(progress.last_update_at, item.updated_at) AS last_update_at,
 			rating.rating,
 			rating.rating_scale,
@@ -409,18 +555,22 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title`).
 		Joins("LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id").
 		Joins(`LEFT JOIN LATERAL (
-			SELECT event.rating, event.rating_scale
+			SELECT state.rating, state.rating_scale, state.observed_at AS rated_at
+			FROM tb_media_state_history AS state
+			WHERE state.media_item_id = item.id AND state.rating IS NOT NULL
+			UNION ALL
+			SELECT event.rating, event.rating_scale, event.event_at AS rated_at
 			FROM tb_media_consumption_events AS event
 			WHERE event.media_item_id = item.id AND event.rating IS NOT NULL
-			ORDER BY event.event_at DESC NULLS LAST, event.created_at DESC, event.id DESC
+			ORDER BY rated_at DESC
 			LIMIT 1
 		) AS rating ON true`)
 	query = query.Joins(`LEFT JOIN LATERAL (
 		SELECT max(completed_at) AS completed_at
 		FROM (
-			SELECT finished_at AS completed_at
+			SELECT completed_on_value::timestamptz AS completed_at
 			FROM tb_media_progress
-			WHERE media_item_id = item.id AND finished_at IS NOT NULL
+			WHERE media_item_id = item.id AND completed_on_precision = 'day'
 			UNION ALL
 			SELECT event_at AS completed_at
 			FROM tb_media_consumption_events
@@ -476,8 +626,8 @@ func (s *Service) Counts(filters ListFilters) (map[string]int, int, error) {
 		Joins(`LEFT JOIN LATERAL (
 			SELECT max(completed_at) AS completed_at
 			FROM (
-				SELECT finished_at AS completed_at FROM tb_media_progress
-				WHERE media_item_id = item.id AND finished_at IS NOT NULL
+				SELECT completed_on_value::timestamptz AS completed_at FROM tb_media_progress
+				WHERE media_item_id = item.id AND completed_on_precision = 'day'
 				UNION ALL
 				SELECT event_at AS completed_at FROM tb_media_consumption_events
 				WHERE media_item_id = item.id
@@ -512,9 +662,9 @@ func (s *Service) Counts(filters ListFilters) (map[string]int, int, error) {
 func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 	completionSQL := `
 		WITH completion_dates AS (
-			SELECT media_item_id, finished_at AS completed_at
+			SELECT media_item_id, completed_on_value::timestamptz AS completed_at
 			FROM tb_media_progress
-			WHERE finished_at IS NOT NULL
+			WHERE completed_on_precision = 'day'
 			UNION ALL
 			SELECT media_item_id, event_at AS completed_at
 			FROM tb_media_consumption_events
@@ -538,9 +688,16 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 			SELECT DISTINCT ON (media_item_id)
 				media_item_id,
 				rating / nullif(rating_scale, 0) * 10 AS normalized_rating
-			FROM tb_media_consumption_events
-			WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
-			ORDER BY media_item_id, event_at DESC NULLS LAST, created_at DESC, id DESC
+			FROM (
+				SELECT media_item_id, rating, rating_scale, observed_at AS rated_at, created_at, id
+				FROM tb_media_state_history
+				WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
+				UNION ALL
+				SELECT media_item_id, rating, rating_scale, event_at AS rated_at, created_at, id
+				FROM tb_media_consumption_events
+				WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
+			) AS ratings
+			ORDER BY media_item_id, rated_at DESC, created_at DESC, id DESC
 		)
 		SELECT round(least(greatest(normalized_rating, 0), 10)) AS score, count(*)::int AS count
 		FROM latest_ratings
@@ -556,13 +713,20 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 			SELECT DISTINCT ON (media_item_id)
 				media_item_id,
 				rating / nullif(rating_scale, 0) * 10 AS normalized_rating
-			FROM tb_media_consumption_events
-			WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
-			ORDER BY media_item_id, event_at DESC NULLS LAST, created_at DESC, id DESC
+			FROM (
+				SELECT media_item_id, rating, rating_scale, observed_at AS rated_at, created_at, id
+				FROM tb_media_state_history
+				WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
+				UNION ALL
+				SELECT media_item_id, rating, rating_scale, event_at AS rated_at, created_at, id
+				FROM tb_media_consumption_events
+				WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
+			) AS ratings
+			ORDER BY media_item_id, rated_at DESC, created_at DESC, id DESC
 		), completion_dates AS (
-			SELECT media_item_id, finished_at AS completed_at
+			SELECT media_item_id, completed_on_value::timestamptz AS completed_at
 			FROM tb_media_progress
-			WHERE finished_at IS NOT NULL
+			WHERE completed_on_precision = 'day'
 			UNION ALL
 			SELECT media_item_id, event_at AS completed_at
 			FROM tb_media_consumption_events
@@ -629,34 +793,40 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 
 func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 	var row struct {
-		ID                 uuid.UUID  `gorm:"column:id"`
-		Title              string     `gorm:"column:title"`
-		MediaType          string     `gorm:"column:media_type"`
-		ItemRole           string     `gorm:"column:item_role"`
-		CoverImageURL      string     `gorm:"column:cover_image_url"`
-		Status             *string    `gorm:"column:status"`
-		Position           *float64   `gorm:"column:position"`
-		Total              *float64   `gorm:"column:total"`
-		ProgressPercent    *float64   `gorm:"column:progress_percent"`
-		LastUpdateAt       time.Time  `gorm:"column:last_update_at"`
-		Rating             *float64   `gorm:"column:rating"`
-		RatingScale        *float64   `gorm:"column:rating_scale"`
-		HiddenFromContinue bool       `gorm:"column:hidden_from_continue"`
-		NativeTitle        *string    `gorm:"column:native_title"`
-		EpisodeCount       *int       `gorm:"column:episode_count"`
-		ChapterCount       *int       `gorm:"column:chapter_count"`
-		WorkID             uuid.UUID  `gorm:"column:work_id"`
-		WorkKind           string     `gorm:"column:work_kind"`
-		PrimaryTitle       string     `gorm:"column:primary_title"`
-		OriginalTitle      string     `gorm:"column:original_title"`
-		OriginalLanguage   string     `gorm:"column:original_language"`
-		FirstReleaseDate   *time.Time `gorm:"column:first_release_date"`
-		Description        string     `gorm:"column:description"`
+		ID                   uuid.UUID  `gorm:"column:id"`
+		Title                string     `gorm:"column:title"`
+		MediaType            string     `gorm:"column:media_type"`
+		ItemRole             string     `gorm:"column:item_role"`
+		CoverImageURL        string     `gorm:"column:cover_image_url"`
+		Status               *string    `gorm:"column:status"`
+		Position             *float64   `gorm:"column:position"`
+		Total                *float64   `gorm:"column:total"`
+		ProgressPercent      *float64   `gorm:"column:progress_percent"`
+		StartedOnValue       *time.Time `gorm:"column:started_on_value"`
+		StartedOnPrecision   string     `gorm:"column:started_on_precision"`
+		CompletedOnValue     *time.Time `gorm:"column:completed_on_value"`
+		CompletedOnPrecision string     `gorm:"column:completed_on_precision"`
+		LastUpdateAt         time.Time  `gorm:"column:last_update_at"`
+		Rating               *float64   `gorm:"column:rating"`
+		RatingScale          *float64   `gorm:"column:rating_scale"`
+		HiddenFromContinue   bool       `gorm:"column:hidden_from_continue"`
+		NativeTitle          *string    `gorm:"column:native_title"`
+		EpisodeCount         *int       `gorm:"column:episode_count"`
+		ChapterCount         *int       `gorm:"column:chapter_count"`
+		WorkID               uuid.UUID  `gorm:"column:work_id"`
+		WorkKind             string     `gorm:"column:work_kind"`
+		PrimaryTitle         string     `gorm:"column:primary_title"`
+		OriginalTitle        string     `gorm:"column:original_title"`
+		OriginalLanguage     string     `gorm:"column:original_language"`
+		FirstReleaseDate     *time.Time `gorm:"column:first_release_date"`
+		Description          string     `gorm:"column:description"`
 	}
 	result := s.db.Table("tb_media_items AS item").
 		Select(`item.id, item.title, item.media_type, item.item_role, item.cover_image_url,
 			item.episode_count, item.chapter_count,
 			progress.status, progress.position, progress.total, progress.progress_percent,
+			progress.started_on_value, progress.started_on_precision,
+			progress.completed_on_value, progress.completed_on_precision,
 			coalesce(progress.last_update_at, item.updated_at) AS last_update_at,
 			rating.rating, rating.rating_scale,
 			coalesce(progress.hidden_from_continue, false) AS hidden_from_continue,
@@ -668,10 +838,14 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 		Joins("LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id").
 		Joins("LEFT JOIN tb_media_works AS work ON work.id = item.work_id").
 		Joins(`LEFT JOIN LATERAL (
-			SELECT event.rating, event.rating_scale
+			SELECT state.rating, state.rating_scale, state.observed_at AS rated_at
+			FROM tb_media_state_history AS state
+			WHERE state.media_item_id = item.id AND state.rating IS NOT NULL
+			UNION ALL
+			SELECT event.rating, event.rating_scale, event.event_at AS rated_at
 			FROM tb_media_consumption_events AS event
 			WHERE event.media_item_id = item.id AND event.rating IS NOT NULL
-			ORDER BY event.event_at DESC NULLS LAST, event.created_at DESC, event.id DESC
+			ORDER BY rated_at DESC
 			LIMIT 1
 		) AS rating ON true`).
 		Where("item.id = ?", id).
@@ -690,6 +864,8 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 			Total: row.Total, ProgressPercent: row.ProgressPercent, LastUpdateAt: row.LastUpdateAt,
 			Rating: row.Rating, RatingScale: row.RatingScale, HiddenFromContinue: row.HiddenFromContinue,
 			NativeTitle: row.NativeTitle, EpisodeCount: row.EpisodeCount, ChapterCount: row.ChapterCount,
+			StartedOnValue: row.StartedOnValue, StartedOnPrecision: row.StartedOnPrecision,
+			CompletedOnValue: row.CompletedOnValue, CompletedOnPrecision: row.CompletedOnPrecision,
 		},
 		Work: WorkDetail{
 			ID: row.WorkID, WorkKind: row.WorkKind, PrimaryTitle: row.PrimaryTitle,
@@ -728,7 +904,7 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 		return Detail{}, false, err
 	}
 	detail.Relations = dedupeRelations(detail.Relations)
-	if err := s.db.Table("tb_media_consumption_events").Where("media_item_id = ?", id).Order("event_at DESC NULLS LAST, created_at DESC, id DESC").Scan(&detail.Events).Error; err != nil {
+	if err := s.db.Table("tb_media_consumption_events").Where("media_item_id = ?", id).Order("event_at DESC, created_at DESC, id DESC").Scan(&detail.Events).Error; err != nil {
 		return Detail{}, false, err
 	}
 	return detail, true, nil
@@ -797,7 +973,8 @@ func (s *Service) Events(filters EventListFilters) (EventPage, error) {
 			event.unit, event.position, event.total, event.progress_percent,
 			event.rating, event.rating_scale`).
 		Joins("JOIN tb_media_items AS item ON item.id = event.media_item_id")
-	query = query.Where("event.event_type <> 'list_state'").Where("event.event_at IS NOT NULL")
+	// The schema makes event_at non-null and rejects list_state, so the exact
+	// event contract is structural rather than a best-effort filter.
 	if filters.From != nil {
 		query = query.Where("event.event_at >= ?", *filters.From)
 	}
@@ -819,4 +996,49 @@ func (s *Service) Events(filters EventListFilters) (EventPage, error) {
 		page.NextCursor = &Cursor{LastUpdateAt: last.OccurredAt, ID: last.ID}
 	}
 	return page, nil
+}
+
+func (s *Service) Changes(filters ChangeListFilters) (ChangePage, error) {
+	limit := filters.Limit
+	if limit <= 0 || limit > 100 {
+		limit = defaultPageLimit
+	}
+	query := s.db.Table("tb_media_state_history AS state").
+		Select(`state.id, state.media_item_id, item.title, item.cover_image_url,
+			(SELECT t.title FROM tb_media_titles t
+			 WHERE t.scope_type = 'item' AND t.scope_id = item.id AND t.title_kind = 'original'
+			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title,
+			state.source_kind, state.change_kind, state.time_basis, state.observed_at,
+			state.effective_at, state.effective_on_value, state.effective_on_precision,
+			state.provider_recorded_at, state.status, state.unit, state.position, state.total,
+			state.progress_percent, state.rating, state.rating_scale, state.note, state.repeat_count`).
+		Joins("JOIN tb_media_items AS item ON item.id = state.media_item_id")
+	if filters.From != nil {
+		query = query.Where("state.observed_at >= ?", *filters.From)
+	}
+	if filters.To != nil {
+		query = query.Where("state.observed_at < ?", *filters.To)
+	}
+	if filters.Cursor != nil {
+		query = query.Where("(state.observed_at, state.id) < (?, ?)", filters.Cursor.LastUpdateAt, filters.Cursor.ID)
+	}
+	var rows []Change
+	if err := query.Order("state.observed_at DESC, state.id DESC").Limit(limit + 1).Scan(&rows).Error; err != nil {
+		return ChangePage{}, err
+	}
+	page := ChangePage{Items: rows}
+	if len(rows) > limit {
+		page.Items = rows[:limit]
+		page.HasMore = true
+		last := page.Items[len(page.Items)-1]
+		page.NextCursor = &Cursor{LastUpdateAt: last.ObservedAt, ID: last.ID}
+	}
+	return page, nil
+}
+
+func floatPtrEqual(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }

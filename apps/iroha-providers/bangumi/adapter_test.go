@@ -27,7 +27,13 @@ func TestParseSnapshotMapsAnimeAndBookCollection(t *testing.T) {
 	if entries[1].CoverImageURL != "" {
 		t.Fatalf("CoverImageURL = %q, want empty when images is absent", entries[1].CoverImageURL)
 	}
-	if len(entries[0].Events) != 1 || entries[0].Events[0].EventAt != nil {
-		t.Fatalf("Bangumi list_state EventAt = %v, want nil because updated_at is sync metadata", entries[0].Events[0].EventAt)
+	if len(entries[0].Events) != 0 {
+		t.Fatalf("Bangumi snapshot events = %d, want no consumption events", len(entries[0].Events))
+	}
+	if entries[0].ProgressState.LastUpdateAt != nil {
+		t.Fatalf("Bangumi last_update_at = %v, want nil because updated_at is unreliable provider metadata", entries[0].ProgressState.LastUpdateAt)
+	}
+	if entries[0].StateSourceID != "20" || entries[0].StateRatingScale == nil || *entries[0].StateRatingScale != 10 {
+		t.Fatalf("Bangumi state provenance = %#v", entries[0])
 	}
 }

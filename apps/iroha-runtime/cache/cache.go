@@ -40,6 +40,7 @@ const (
 	NamespacePublicRoutes     = "public_routes"
 
 	ChangeImport          ChangeKind = "import"
+	ChangeMedia           ChangeKind = "media"
 	ChangeExpense         ChangeKind = "expense"
 	ChangeMediaResolution ChangeKind = "media_resolution"
 	ChangeGeocode         ChangeKind = "geocode"
@@ -61,6 +62,13 @@ var changeNamespaces = map[ChangeKind][]string{
 		NamespacePublicSummary,
 		NamespacePublicActivities,
 		NamespacePublicRoutes,
+	},
+	ChangeMedia: {
+		NamespaceBriefing,
+		NamespaceDaily,
+		NamespaceMedia,
+		NamespaceMetrics,
+		NamespaceReports,
 	},
 	ChangeExpense: {
 		NamespaceExpenses,

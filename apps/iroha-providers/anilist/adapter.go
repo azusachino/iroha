@@ -115,64 +115,52 @@ func mapEntry(entry mediaListEntry, scoreScale *float64) observations.Media {
 	}
 	status, paused := mapStatus(entry.Status)
 	score := normalizeScore(entry.Score)
-	startedAt := entry.StartedAt.Time()
-	completedAt := entry.CompletedAt.Time()
+	startedOn := entry.StartedAt.Partial()
+	completedOn := entry.CompletedAt.Partial()
+	releaseOn := media.StartDate.Partial()
 	lastUpdateAt := unixTime(entry.UpdatedAt)
 
 	result := observations.Media{
-		Provider:        ProviderID,
-		ExternalID:      strconv.Itoa(media.ID),
-		MediaType:       mediaType,
-		ItemRole:        itemRole,
-		Title:           primaryTitle,
-		WorkExternalID:  strconv.Itoa(media.ID),
-		WorkKind:        "series",
-		WorkTitle:       primaryTitle,
-		ReleaseDate:     media.StartDate.Time(),
-		DurationSeconds: nil,
-		EpisodeCount:    media.Episodes,
-		ChapterCount:    media.Chapters,
-		CoverImageURL:   media.CoverImage.Large,
-		Description:     strings.TrimSpace(media.Description),
-		Status:          status,
-		Progress:        position,
-		Score:           score,
-		StartedAt:       startedAt,
-		CompletedAt:     completedAt,
-		Titles:          mapTitles(media.Title),
-		ExternalRefs:    mapExternalRefs(media),
-		Relations:       mapRelations(media),
+		Provider:         ProviderID,
+		ExternalID:       strconv.Itoa(media.ID),
+		MediaType:        mediaType,
+		ItemRole:         itemRole,
+		Title:            primaryTitle,
+		WorkExternalID:   strconv.Itoa(media.ID),
+		WorkKind:         "series",
+		WorkTitle:        primaryTitle,
+		ReleaseDate:      media.StartDate.Time(),
+		ReleaseDateOn:    releaseOn,
+		DurationSeconds:  nil,
+		EpisodeCount:     media.Episodes,
+		ChapterCount:     media.Chapters,
+		CoverImageURL:    media.CoverImage.Large,
+		Description:      strings.TrimSpace(media.Description),
+		Status:           status,
+		Progress:         position,
+		Score:            score,
+		StartedOn:        startedOn,
+		CompletedOn:      completedOn,
+		StateSourceID:    strconv.Itoa(entry.ID),
+		StateNote:        entry.Notes,
+		StateRatingScale: scoreScale,
+		Titles:           mapTitles(media.Title),
+		ExternalRefs:     mapExternalRefs(media),
+		Relations:        mapRelations(media),
 		ProgressState: &observations.MediaProgress{
 			Status:             status,
 			Unit:               unit,
 			Position:           position,
-			StartedAt:          startedAt,
 			LastUpdateAt:       lastUpdateAt,
-			FinishedAt:         completedAt,
+			StartedOn:          startedOn,
+			CompletedOn:        completedOn,
 			PlayCount:          entry.Repeat,
 			HiddenFromContinue: false,
 			Paused:             paused,
 		},
 	}
-	listEvent := observations.MediaEvent{
-		EventType:     "list_state",
-		SourceEventID: strconv.Itoa(entry.ID),
-		Unit:          unit,
-		Position:      position,
-		Rating:        score,
-		Note:          entry.Notes,
-	}
-	if score != nil {
-		listEvent.RatingScale = scoreScale
-	}
-	result.Events = append(result.Events, listEvent)
-	for i := 0; i < entry.Repeat; i++ {
-		result.Events = append(result.Events, observations.MediaEvent{
-			EventType:     "rewatch",
-			SourceEventID: strconv.Itoa(entry.ID) + ":repeat:" + strconv.Itoa(i+1),
-			Unit:          unit,
-		})
-	}
+	// A MediaList row is current provider state, not a dated consumption
+	// event. The entry ID, score, and note are retained by state history.
 	return result
 }
 

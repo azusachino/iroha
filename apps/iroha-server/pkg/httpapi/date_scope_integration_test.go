@@ -16,6 +16,7 @@ func TestIntegrationDateScopedCockpitUsesHalfOpenRangesAndAllDomainDates(t *test
 	resetIntegrationDB(t, db)
 	t.Cleanup(func() {
 		_ = db.Exec("delete from tb_media_consumption_events")
+		_ = db.Exec("delete from tb_media_state_history")
 		_ = db.Exec("delete from tb_media_items")
 		_ = db.Exec("delete from tb_media_works")
 		resetIntegrationDB(t, db)
@@ -74,7 +75,7 @@ func TestIntegrationDateScopedCockpitUsesHalfOpenRangesAndAllDomainDates(t *test
 	}
 	mediaDay := time.Date(2099, time.January, 5, 0, 0, 0, 0, time.UTC)
 	if err := db.Create(&models.MediaConsumptionEvent{
-		ID: uuid.New(), MediaItemID: itemID, EventType: "finished", EventAt: &mediaDay,
+		ID: uuid.New(), MediaItemID: itemID, EventType: "finished", EventAt: mediaDay,
 		SourceKind: "integration", CreatedAt: createdAt,
 	}).Error; err != nil {
 		t.Fatalf("create media event: %v", err)

@@ -17,6 +17,8 @@ export interface MediaRow {
   native_title?: string;
   episode_count?: number;
   chapter_count?: number;
+  started_on?: string;
+  completed_on?: string;
 }
 
 export interface MediaHomeEvent {
@@ -32,6 +34,18 @@ export interface MediaHomeEvent {
   total?: number;
   progress_percent?: number;
   rating?: number;
+}
+
+export interface MediaEvent {
+  id: string;
+  event_type: string;
+  event_at: string;
+  unit?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  rating?: number;
+  note?: string;
 }
 
 export interface MediaCompletionBucket {
@@ -86,9 +100,9 @@ export interface MediaDetail {
     position?: number;
     total?: number;
     progress_percent?: number;
-    started_at?: string;
+    started_on?: string;
     last_update_at?: string;
-    finished_at?: string;
+    completed_on?: string;
     play_count: number;
   };
   creators: { id: string; name: string; role: string }[];
@@ -101,18 +115,59 @@ export interface MediaDetail {
     related_type: string;
     cover_image_url?: string;
   }[];
-  events: {
-    id: string;
-    event_type: string;
-    event_at?: string;
-    unit?: string;
-    position?: number;
-    total?: number;
-    progress_percent?: number;
-    rating?: number;
-    note?: string;
-  }[];
+  events: MediaEvent[];
 }
+
+export interface MediaEventInput {
+  media_id: string;
+  event_type: string;
+  event_at: string;
+  source_kind?: string;
+  idempotency_key: string;
+  unit?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  rating?: number;
+  rating_scale?: number;
+  note?: string;
+}
+
+export interface MediaChange {
+  id: string;
+  media_id: string;
+  title: string;
+  native_title?: string;
+  cover_image_url?: string;
+  source_kind: string;
+  change_kind: string;
+  time_basis: string;
+  observed_at: string;
+  effective_at?: string;
+  effective_on?: string;
+  date_precision?: "year" | "month" | "day";
+  provider_recorded_at?: string;
+  status?: string;
+  unit?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  rating?: number;
+  note?: string;
+  repeat_count: number;
+}
+
+export type MediaEventPage = {
+  items: MediaHomeEvent[];
+  next_cursor: string | null;
+  has_more: boolean;
+};
+
+export type MediaChangePage = {
+  items: MediaChange[];
+  next_cursor: string | null;
+  has_more: boolean;
+};
 
 export interface MediaDetailThemeProps {
   detail: MediaDetail;
@@ -160,7 +215,6 @@ export function mediaTypeLabel(type: string): string {
 }
 
 export function mediaEventLabel(eventType: string): string {
-  if (eventType === "list_state") return "Library snapshot";
   return eventType.replaceAll("_", " ");
 }
 

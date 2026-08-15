@@ -1,5 +1,9 @@
 # Media Sync Connectors: AniList + Bangumi
 
+> **Semantics amendment (2026-08-15):** the connector plumbing described here is retained, but the earlier list-state-to-event mapping is superseded by
+> [ADR-0005](adr/0005-media-provider-time-semantics.md) and the [canonical-history redesign](plans/2026-08-15-media-provider-canonical-history-redesign.md). Current list snapshots become
+> progress/state history; only exact evidence becomes a consumption event.
+
 Implementation note (updated 2026-07-20). Companion to [`media-history-research.md`](./media-history-research.md), which defines the media _ontology_
 (works/items/titles/relations/external_refs/consumption_events/progress) and the product direction. This document bridges that ontology to iroha's **actual provider abstraction** and specifies the
 first two API connectors: AniList (GraphQL) and Bangumi.tv (REST v0).
@@ -114,8 +118,8 @@ works/items/titles/ external_refs/events/progress, the media observation the ada
 - **titles[]**: `{title, language, script, title_kind, is_primary, provider}` — AniList and Bangumi both return native + romanized + english/localized titles; all become `tb_media_titles` rows.
 - **external_refs[]**: `{provider, external_id, external_url, matched_by, confidence}` — AniList media carries `idMal`; Bangumi subjects can be cross-linked. This is the dedupe backbone.
 - **work linkage**: enough to create/attach a `tb_media_works` row (series-level identity) above the item.
-- **event + progress**: list status → progress projection; score/notes/dates/repeat-count → consumption events. List state is _user state_, so imported entries become events + current progress, not
-  just metadata (per research doc).
+  - **state + progress**: list status → progress projection/state observation; score/notes/dates/repeat-count remain sourced current state. They do not become consumption events without an exact event
+    time. AniList `ListActivity` is a separate optional dated provider-update source.
 
 Keep the emitted observation provider-neutral: both connectors map their native shape into the same `observations.Media` graph, and persistence is identical downstream.
 
@@ -132,10 +136,10 @@ Keep the emitted observation provider-neutral: both connectors map their native 
   - `media.type` + `media.format` → `media_type` (`ANIME`+`TV`→anime_season, `MOVIE`→movie, `MANGA`→manga, `NOVEL`→light_novel, `OVA`/`ONA`/`SPECIAL`→respective).
   - `title.{romaji,english,native}` → three `tb_media_titles` rows (romanized/localized/original).
   - external refs: `{provider: anilist, external_id: media.id}` + `{provider: mal, external_id: idMal}`.
-  - list `status` → progress `status` (CURRENT→in_progress, COMPLETED→completed, PLANNING→planned, DROPPED→abandoned, PAUSED→in_progress+paused flag, REPEATING→in_progress + a rewatch event).
+  - list `status` → progress `status` (CURRENT→in_progress, COMPLETED→completed, PLANNING→planned, DROPPED→abandoned, PAUSED→in_progress+paused flag, REPEATING→in_progress).
   - `progress`/`progressVolumes` → progress position (unit episodes/chapters/volumes).
   - `score` → rating (carry AniList's scale; normalize at read time, not on ingest).
-  - `startedAt`/`completedAt` → event timestamps; `repeat` → N rewatch/reread events.
+  - `startedAt`/`completedAt` → fuzzy progress dates; `updatedAt` → provider-recorded state metadata; `repeat` → current repeat count, not N historical rewatch events.
 
 ## 6. Bangumi.tv connector
 
@@ -155,7 +159,7 @@ Keep the emitted observation provider-neutral: both connectors map their native 
   - collection `type` → progress status (do→in_progress, collect→completed, wish→planned, dropped→abandoned, on_hold→in_progress+paused).
   - `ep_status`/`vol_status` → progress position (unit episodes / volumes).
   - `rate` (0–10) → rating; `comment`/`tags` → event judgment fields.
-  - `updated_at` → event/progress `last_update_at`.
+  - `updated_at` → retained untrusted provider metadata; it is not a canonical event time or ordering watermark.
 
 ## 7. Identity & cross-provider dedup
 
@@ -187,13 +191,14 @@ punctuation, inconsistent subtitle spacing) were accounted for.
 - **Current implementation boundary**: the AniList and Bangumi adapters checkpoint their page cursor while a sync is running, so a retry resumes from the failed page. Their current upstream requests
   do not expose a reliable changed-since filter, so a completed sync starts a new full pagination pass. Persistence is still incremental: unchanged snapshot pages and source records are content-hash
   deduplicated, while changed and new records are upserted.
-- **Future network incrementality**: persist a per-connector cursor/watermark once a provider-specific changed-since API is available; then fetch only entries changed since the last `updated_at`. Full
-  re-sync remains available on demand (or on a parser_version bump → reprocess from stored snapshots).
+- **Future network incrementality**: persist a per-connector cursor/watermark once a provider-specific changed-since API is available; Bangumi's documented `updated_at` limitation means it cannot be
+  used as a trusted historical watermark without an additional provider guarantee. Full re-sync remains available on demand (or on a parser_version bump → reprocess from stored snapshots).
 - **Rate limits and failures**: a connector error preserves the current cursor. HTTP 429 responses parse both delta-seconds and HTTP-date `Retry-After` values; the job queue honors that delay, with
   bounded exponential backoff as the fallback.
-- **User state is authoritative history, not a mirror**: a connector sync must **not** erase locally added Telegram/web events. Imported list state becomes events + current progress; conflicts (e.g.
-  local "completed" vs remote "dropped") go to the inbox (`tb_media_resolution_tasks`), never a silent overwrite. This is the same append-only-events + projection discipline health uses.
-- **Rewatches/rereads**: AniList `repeat` and re-`completed` transitions create new events, not overwrites.
+- **User state is authoritative current state, not a mirror**: a connector sync must **not** erase locally added Telegram/web events. Imported list state becomes current progress plus provider state
+  history; conflicts (e.g. local "completed" vs remote "dropped") go to the inbox (`tb_media_resolution_tasks`), never a silent overwrite.
+- **Rewatches/rereads**: AniList `repeat` and re-`completed` state are retained as counts/status/date facts. They become new events only when the source supplies an exact event or the user records
+  one.
 - **Reprocess**: bump the media parser_version to re-derive canonical rows from the same snapshots after a mapping fix — no re-fetch, no lost evidence, identical to apple-health reprocess-from-raw.
 
 ## 9. Auth & config
@@ -223,8 +228,8 @@ Ordered smallest → biggest to build momentum; each ends green on `make check`.
    resolution tasks, which today still only record a human's decision without acting on it.
 3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and a richer web inbox UI beyond the `/to-go` confirm/dismiss panel.
 
-Deferred (explicitly out of this draft's scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Letterboxd/Goodreads/WeRead CSV; TMDb/Open Library enrichment; self-hosted
-(Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/inbox/history).
+Deferred (explicitly out of this draft's connector scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Goodreads/WeRead/Apple Books/Kindle adapters; Letterboxd CSV; TMDb/Open
+Library enrichment; self-hosted (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/inbox/history).
 
 ## 11. Spike results (2026-07-13, verified on real accounts)
 

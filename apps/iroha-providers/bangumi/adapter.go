@@ -81,7 +81,6 @@ func mapRecord(record collectionRecord) observations.Media {
 		unit = ""
 	}
 	primaryTitle := firstNonEmpty(subject.NameCN, subject.Name)
-	updatedAt := parseTime(record.UpdatedAt)
 	result := observations.Media{
 		Provider:       ProviderID,
 		ExternalID:     strconv.Itoa(subject.ID),
@@ -98,13 +97,14 @@ func mapRecord(record collectionRecord) observations.Media {
 		Status:         status,
 		Progress:       position,
 		Score:          normalizeRate(record.Rate),
+		StateSourceID:  strconv.Itoa(subject.ID),
+		StateNote:      strings.Join(record.Tags, ", ") + noteSuffix(record.Comment),
 		Titles:         mapTitles(subject),
 		ExternalRefs:   []observations.MediaExternalRef{{Provider: ProviderID, ExternalID: strconv.Itoa(subject.ID), MatchedBy: "provider_id"}},
 		ProgressState: &observations.MediaProgress{
 			Status:             status,
 			Unit:               unit,
 			Position:           position,
-			LastUpdateAt:       updatedAt,
 			PlayCount:          0,
 			HiddenFromContinue: false,
 			Paused:             paused,
@@ -113,21 +113,11 @@ func mapRecord(record collectionRecord) observations.Media {
 	if unit == "" {
 		result.ProgressState.Unit = "unknown"
 	}
-	rating := normalizeRate(record.Rate)
-	listEvent := observations.MediaEvent{
-		EventType:     "list_state",
-		SourceEventID: strconv.Itoa(subject.ID),
-		Unit:          unit,
-		Position:      position,
-		Rating:        rating,
-		Note:          strings.Join(record.Tags, ", ") + noteSuffix(record.Comment),
-	}
-	if rating != nil {
+	if result.Score != nil {
 		// Bangumi ratings are a fixed 0-10 scale.
 		scale := 10.0
-		listEvent.RatingScale = &scale
+		result.StateRatingScale = &scale
 	}
-	result.Events = []observations.MediaEvent{listEvent}
 	return result
 }
 
@@ -203,18 +193,6 @@ func parseDate(value string) *time.Time {
 	if err != nil {
 		return nil
 	}
-	return &result
-}
-
-func parseTime(value string) *time.Time {
-	if value == "" {
-		return nil
-	}
-	result, err := time.Parse(time.RFC3339, value)
-	if err != nil {
-		return nil
-	}
-	result = result.UTC()
 	return &result
 }
 

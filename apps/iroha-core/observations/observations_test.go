@@ -26,7 +26,7 @@ func TestMediaCarriesProviderNeutralOntology(t *testing.T) {
 		EpisodeNumber:    &episode,
 		Titles:           []MediaTitle{{Title: "Example Season 2", TitleKind: "primary", IsPrimary: true}},
 		ExternalRefs:     []MediaExternalRef{{Provider: "mal", ExternalID: "456", MatchedBy: "provider_id"}},
-		Events:           []MediaEvent{{EventType: "watched", Position: &position, Rating: &rating}},
+		Events:           []MediaEvent{{EventType: MediaEventWatched, EventAt: releaseDate, Position: &position, Rating: &rating}},
 		ProgressState:    &MediaProgress{Status: "in_progress", Position: &position},
 	}
 
@@ -60,5 +60,36 @@ func TestMediaSupportsBookFieldsAndNullableRatings(t *testing.T) {
 	}
 	if media.Score != nil || media.Progress != nil {
 		t.Fatal("sparse provider ratings/progress must remain nullable")
+	}
+}
+
+func TestPartialDatePreservesSourcePrecision(t *testing.T) {
+	cases := []struct {
+		name      string
+		month     int
+		day       int
+		want      string
+		precision DatePrecision
+	}{
+		{name: "year", want: "2024", precision: DatePrecisionYear},
+		{name: "month", month: 3, want: "2024-03", precision: DatePrecisionMonth},
+		{name: "day", month: 3, day: 9, want: "2024-03-09", precision: DatePrecisionDay},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			date, err := NewPartialDate(2024, test.month, test.day)
+			if err != nil {
+				t.Fatalf("NewPartialDate() error = %v", err)
+			}
+			if date.String() != test.want || date.Precision != test.precision {
+				t.Fatalf("partial date = %q/%q, want %q/%q", date.String(), date.Precision, test.want, test.precision)
+			}
+		})
+	}
+}
+
+func TestPartialDateRejectsInvalidProviderDay(t *testing.T) {
+	if _, err := NewPartialDate(2024, 2, 31); err == nil {
+		t.Fatal("NewPartialDate() accepted an impossible provider day")
 	}
 }

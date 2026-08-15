@@ -105,8 +105,8 @@ func (c Connector) Fetch(ctx context.Context, credentials connector.Credentials,
 		return connector.Snapshot{}, nil, &provider.Error{Kind: provider.ErrorInvalidSource, Provider: ProviderID, SourceKind: SourceKind, Op: "decode_response", Err: err}
 	}
 	if len(payload.Data) == 0 || offset+len(payload.Data) >= payload.Total {
-		return connector.Snapshot{ContentType: "application/json", Body: body, SourceKind: SourceKind, Filename: "bangumi_page_" + strconv.Itoa(page) + ".json"}, nil, nil
+		return connector.Snapshot{ContentType: "application/json", Body: body, SourceKind: SourceKind, Filename: "bangumi_page_" + strconv.Itoa(page) + ".json", ObservedAt: time.Now().UTC()}, nil, nil
 	}
 	next := &connector.Cursor{Page: page + 1}
-	return connector.Snapshot{ContentType: "application/json", Body: body, SourceKind: SourceKind, Filename: "bangumi_page_" + strconv.Itoa(page) + ".json"}, next, nil
+	return connector.Snapshot{ContentType: "application/json", Body: body, SourceKind: SourceKind, Filename: "bangumi_page_" + strconv.Itoa(page) + ".json", ObservedAt: time.Now().UTC()}, next, nil
 }

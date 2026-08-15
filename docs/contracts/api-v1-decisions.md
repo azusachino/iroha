@@ -17,8 +17,8 @@ may change together when the verification gate is updated in the same change.
 - JSON field names use `snake_case`.
 - IDs are opaque strings. Clients must not parse the embedded UUID or depend on the prefix beyond validating the documented resource type.
 - Instants use RFC 3339 JSON timestamps. Calendar-only values use `YYYY-MM-DD` and are not midnight timestamps.
-- Daily and sleep list/aggregate `from` and `to` filters accept `YYYY-MM-DD`; both bounds are currently inclusive for these existing endpoints. New period-based report methods use explicit half-open
-  `[from,to)` boundaries internally and do not reuse these list filters.
+- Daily and sleep list/aggregate `from` and `to` filters accept `YYYY-MM-DD` with a half-open `[from,to)` range; the `to` date is the first date excluded. New period-based report methods use the same
+  explicit half-open boundary internally and do not reuse these list filters.
 - Monthly aggregate periods serialize as `YYYY-MM`; yearly aggregate periods serialize as `YYYY`.
 - Daily rows expose ring measurements as a nullable `ring` object; metric-only days return `ring: null` rather than fabricated zero ring values. Daily aggregate `metrics` is always an array of
   `{metric, value, unit, observed_days}` entries, grouped by metric and unit.
