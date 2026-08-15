@@ -143,11 +143,11 @@
     margin: 0;
   }
   h1 {
-    max-width: 16ch;
+    max-width: 32ch;
     font-family: var(--font-sans);
-    font-size: clamp(2.8rem, 8vw, 7rem);
-    letter-spacing: -0.12em;
-    line-height: 0.82;
+    font-size: clamp(1.8rem, 3.2vw, 3.2rem);
+    letter-spacing: -0.06em;
+    line-height: 0.95;
   }
   h2 {
     font-family: var(--font-sans);
