@@ -248,11 +248,13 @@ Exit criteria:
 
 Goal: make repeated metric and cross-domain report reads cheap without adding a second canonical data store or a clock-driven aggregate job.
 
-Status: released locally as v0.4.1; the source tag is complete, while remote publication and any production image rollout remain separate handoffs.
+Status: released locally as v0.4.1; the source tag is complete, while remote publication and any production image rollout remain separate handoffs. The initial local tag was cut before live k3s
+testing surfaced a loading-flicker root cause and a bounds-navigation edge case; both are fixed and re-verified, and the tag now points at the hardened commit.
 
 Current plan: [Iroha v0.4.1 cache and aggregation plan](plans/2026-08-14-iroha-0.4.1-cache-and-aggregation.md).
 
-Current evidence: [v0.4.1 release audit](audits/2026-08-15-v0.4.1-release.md); the earlier [release-candidate audit](audits/2026-08-14-v0.4.1-cache-release-candidate.md) remains historical evidence.
+Current evidence: [v0.4.1 release audit](audits/2026-08-15-v0.4.1-release.md), updated after live-testing follow-up fixes; the earlier
+[release-candidate audit](audits/2026-08-14-v0.4.1-cache-release-candidate.md) remains historical evidence.
 
 ## Future Module: Reading and Watching Stats
 

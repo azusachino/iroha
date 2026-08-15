@@ -14,6 +14,9 @@ contract between minor versions.
 - Add bounded Postgres cache cleanup for expired and superseded-generation entries, including hourly worker maintenance.
 - Add a deterministic large-fixture release performance gate for cold canonical reads, cache hits, mutation freshness, and cache retention.
 - Add canonical media provider history and dated AniList activity import, keeping exact consumption events separate from provider state changes.
+- Add a distinct Book media family, separate from manga and light novels, ahead of future book-provider adapters.
+- Add `apps/iroha-web/src/lib/asyncResource.svelte.ts`, one shared reactive resource primitive (data/loading/error/sticky-ready) that every route's `LoadingBoundary` usage now goes through instead of
+  a hand-rolled loading/error/request-counter triple per route.
 
 ### Changed
 
@@ -23,6 +26,9 @@ contract between minor versions.
 - Keep direct expense records live and canonical while caching derived metric and report representations.
 - Make media library filters, current-status totals, completion-year selection, charts, Today updates, and detail history use the same canonical scope.
 - Preserve provider date precision and source basis; connector snapshots never become exact daily consumption sessions.
+- Make period navigation (year/month selectors, including arrow-key shifts) clamp to the real imported data range instead of the current date.
+- Consolidate each theme's page-shell width into a single `--shell-width` custom property instead of a literal duplicated across the base rule, the mobile breakpoint, and (for three themes) the footer
+  padding calc.
 
 ### Fixed
 
@@ -30,6 +36,10 @@ contract between minor versions.
 - Refresh activity route representations after geocode changes and media/report representations after media resolution changes.
 - Correct media detail evidence to distinguish exact events from dated provider updates and hide internal observation snapshots.
 - Normalize Grapher media-detail titles to a regular responsive record-heading scale instead of a landing-page hero scale.
+- Fix Grapher Activities/Dashboard and the shared movement-series chart replacing their whole DOM structure with a status message on every data refetch (period/filter change) instead of only the first
+  load; the same non-sticky-ready bug was live on Motion, Night, Patterns, and Overview and is now structurally prevented by `LoadingBoundary` taking an async resource directly rather than
+  caller-computed loading/ready booleans.
+- Fix the To-go page's oversized headline crowding the actual task list on what's meant to be a short, fast, daily-use page.
 
 ## [0.4.0] — 2026-08-14
 
