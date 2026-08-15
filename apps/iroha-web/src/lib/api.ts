@@ -20,6 +20,7 @@ import type {
   MediaAggregates,
   MediaChange,
   MediaChangePage,
+  MediaDaySection,
   MediaDetail,
   MediaEvent,
   MediaEventInput,
@@ -88,6 +89,7 @@ export type {
   MediaAggregates,
   MediaChange,
   MediaChangePage,
+  MediaDaySection,
   MediaCompletionBucket,
   MediaDetail,
   MediaEvent,
@@ -651,9 +653,20 @@ export function listMedia(
 }
 
 export function getMediaAggregates(
+  params: Pick<
+    ListMediaParams,
+    "status" | "media_type" | "family" | "completed_year"
+  > = {},
   fetchFn: typeof fetch = fetch,
 ): Promise<MediaAggregates> {
-  return getJSON<MediaAggregates>("/api/v1/media/aggregates", fetchFn);
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.media_type) query.set("media_type", params.media_type);
+  if (params.family) query.set("family", params.family);
+  if (params.completed_year != null)
+    query.set("completed_year", String(params.completed_year));
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return getJSON<MediaAggregates>(`/api/v1/media/aggregates${suffix}`, fetchFn);
 }
 
 export function getMedia(

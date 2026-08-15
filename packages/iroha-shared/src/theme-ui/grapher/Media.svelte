@@ -51,7 +51,10 @@
   </nav>
   <div class="filters">
     <label
-      >Status<select value={status} onchange={onStatus}
+      >Status<select
+        value={status}
+        onchange={(event) =>
+          onStatus((event.currentTarget as HTMLSelectElement).value)}
         ><option value="">All statuses</option><option value="in_progress"
           >In progress</option
         ><option value="completed">Completed</option><option value="planned"
@@ -60,7 +63,10 @@
       ></label
     >
     <label
-      >Completed year<select value={completedYear} onchange={onYear}
+      >Completed year<select
+        value={completedYear}
+        onchange={(event) =>
+          onYear((event.currentTarget as HTMLSelectElement).value)}
         ><option value="">Lifetime</option
         >{#each yearOptions as option (option.year)}<option value={option.year}
             >{option.year}</option

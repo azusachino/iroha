@@ -194,8 +194,12 @@ func (s *Server) handleListMedia(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
-func (s *Server) handleMediaAggregates(w http.ResponseWriter, _ *http.Request) {
-	aggregates, err := s.deps.MediaService.Aggregates(time.Now().UTC())
+func (s *Server) handleMediaAggregates(w http.ResponseWriter, r *http.Request) {
+	filters, ok := parseMediaFilters(w, r)
+	if !ok {
+		return
+	}
+	aggregates, err := s.deps.MediaService.AggregatesFiltered(time.Now().UTC(), filters)
 	if err != nil {
 		s.deps.Logger.Error("aggregate media", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to aggregate media")

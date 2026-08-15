@@ -4,6 +4,7 @@
     getMediaAggregates,
     listMedia,
     type MediaAggregates,
+    type MediaCompletionBucket,
     type MediaRow,
   } from "$lib/api";
   import { progressPercent } from "$lib/format";
@@ -14,6 +15,7 @@
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
 
   let aggregates = $state<MediaAggregates | null>(null);
   let items = $state<MediaRow[]>([]);
@@ -27,6 +29,8 @@
   let completedYear = $state("");
   let statusCounts = $state<Record<string, number>>({});
   let activeCount = $state(0);
+  let availableYears = $state<MediaCompletionBucket[]>([]);
+  let requestVersion = 0;
   const theme = useTheme();
 
   const FAMILIES = [
@@ -92,86 +96,79 @@
   const completions = $derived(aggregates?.completions_by_year ?? []);
   const scores = $derived(aggregates?.score_distribution ?? []);
   const yearOptions = $derived(
-    [...completions].sort((a, b) => b.year - a.year),
+    [...availableYears].sort((a, b) => b.year - a.year),
   );
 
   onMount(() => {
     void load();
   });
 
+  function currentFilters() {
+    return {
+      family: family || undefined,
+      status: status || undefined,
+      completed_year: completedYear ? Number(completedYear) : undefined,
+    };
+  }
+
   async function load() {
+    const currentRequest = ++requestVersion;
+    const filters = currentFilters();
     loading = true;
     error = null;
     try {
       const [nextAggregates, page] = await Promise.all([
-        getMediaAggregates(),
-        listMedia({
-          limit: 100,
-          family: family || undefined,
-          status: status || undefined,
-          completed_year: completedYear ? Number(completedYear) : undefined,
-        }),
+        getMediaAggregates(filters),
+        listMedia({ limit: 100, ...filters }),
       ]);
+      if (currentRequest !== requestVersion) return;
       aggregates = nextAggregates;
+      if (!filters.completed_year) {
+        availableYears = nextAggregates.completions_by_year;
+      }
       items = page.items;
       nextCursor = page.next_cursor;
       hasMore = page.has_more;
       statusCounts = page.status_counts ?? {};
       activeCount = page.active_count ?? 0;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
+      if (currentRequest === requestVersion) {
+        error = cause instanceof Error ? cause.message : String(cause);
+      }
     } finally {
-      loading = false;
+      if (currentRequest === requestVersion) loading = false;
     }
   }
 
   async function selectFamily(value: string) {
     if (value === family) return;
     family = value;
-    await reloadItems();
+    await load();
   }
 
-  async function selectStatus() {
-    await reloadItems();
+  async function selectStatus(value: string) {
+    if (value === status) return;
+    status = value;
+    await load();
   }
 
-  async function selectYear() {
-    await reloadItems();
-  }
-
-  async function reloadItems() {
-    loading = true;
-    error = null;
-    try {
-      const page = await listMedia({
-        limit: 100,
-        family: family || undefined,
-        status: status || undefined,
-        completed_year: completedYear ? Number(completedYear) : undefined,
-      });
-      items = page.items;
-      nextCursor = page.next_cursor;
-      hasMore = page.has_more;
-      statusCounts = page.status_counts ?? {};
-      activeCount = page.active_count ?? 0;
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-    } finally {
-      loading = false;
-    }
+  async function selectYear(value: string) {
+    if (value === completedYear) return;
+    completedYear = value;
+    await load();
   }
 
   async function loadMore() {
     if (!nextCursor || loadingMore) return;
+    const currentRequest = requestVersion;
     loadingMore = true;
     try {
       const page = await listMedia({
         limit: 100,
         cursor: nextCursor,
-        family: family || undefined,
-        status: status || undefined,
-        completed_year: completedYear ? Number(completedYear) : undefined,
+        ...currentFilters(),
       });
+      if (currentRequest !== requestVersion) return;
       items = [...items, ...page.items];
       nextCursor = page.next_cursor;
       hasMore = page.has_more;
@@ -225,32 +222,39 @@
 
 <section class="media-shell">
   {#if hasThemeRoute(theme.definition(), "media")}
-    {#if loading}
+    {#if !aggregates && loading}
       <p class="muted" aria-live="polite">Loading media history…</p>
-    {:else if error}
+    {:else if !aggregates && error}
       <p class="error" aria-live="assertive">Failed to load media: {error}</p>
     {:else if aggregates}
-      <ThemeRouteRenderer
-        route="media"
-        props={{
-          items,
-          aggregates,
-          family,
-          status,
-          completedYear,
-          yearOptions,
-          typeFamilies,
-          completions,
-          scores,
-          activeCount,
-          onFamily: selectFamily,
-          onStatus: selectStatus,
-          onYear: selectYear,
-          onLoadMore: loadMore,
-          hasMore,
-          loadingMore,
-        }}
-      />
+      <LoadingBoundary {loading} ready={true} label="Loading media history…">
+        {#if error}
+          <p class="error" aria-live="assertive">
+            Could not update media; showing the previous result: {error}
+          </p>
+        {/if}
+        <ThemeRouteRenderer
+          route="media"
+          props={{
+            items,
+            aggregates,
+            family,
+            status,
+            completedYear,
+            yearOptions,
+            typeFamilies,
+            completions,
+            scores,
+            activeCount,
+            onFamily: selectFamily,
+            onStatus: selectStatus,
+            onYear: selectYear,
+            onLoadMore: loadMore,
+            hasMore,
+            loadingMore,
+          }}
+        />
+      </LoadingBoundary>
     {/if}
   {:else}
     <RouteIntro
@@ -278,7 +282,11 @@
     <div class="filter-options" aria-label="Media filters">
       <label>
         <span>Status</span>
-        <select bind:value={status} onchange={() => selectStatus()}>
+        <select
+          value={status}
+          onchange={(event) =>
+            selectStatus((event.currentTarget as HTMLSelectElement).value)}
+        >
           <option value="">All statuses</option>
           <option value="in_progress">In progress</option>
           <option value="completed">Completed</option>
@@ -288,7 +296,11 @@
       </label>
       <label>
         <span>Completed year</span>
-        <select bind:value={completedYear} onchange={() => selectYear()}>
+        <select
+          value={completedYear}
+          onchange={(event) =>
+            selectYear((event.currentTarget as HTMLSelectElement).value)}
+        >
           <option value="">Lifetime</option>
           {#each yearOptions as option (option.year)}
             <option value={option.year}>{option.year}</option>
@@ -297,193 +309,213 @@
       </label>
     </div>
 
-    {#if loading}
+    {#if !aggregates && loading}
       <p class="muted" aria-live="polite">Loading media history…</p>
-    {:else if error}
+    {:else if !aggregates && error}
       <p class="error" aria-live="assertive">Failed to load media: {error}</p>
     {:else if aggregates}
-      <div class="stat-strip">
-        <StatTile
-          label="Library"
-          value={aggregates.totals.item_count.toLocaleString()}
-          sub="Tracked titles"
-        />
-        <StatTile
-          label="Completed"
-          value={aggregates.totals.completed_count.toLocaleString()}
-          sub={`${aggregates.totals.this_year_completed} this year`}
-        />
-        <StatTile
-          label="Avg score"
-          value={aggregates.totals.average_rating
-            ? aggregates.totals.average_rating.toFixed(1)
-            : "—"}
-          sub="Out of 10"
-        />
-        <StatTile
-          label="In progress"
-          value={continueItems.length.toLocaleString()}
-          sub="Watching or reading"
-        />
-      </div>
+      <LoadingBoundary {loading} ready={true} label="Loading media history…">
+        {#if error}
+          <p class="error" aria-live="assertive">
+            Could not update media; showing the previous result: {error}
+          </p>
+        {/if}
+        <div class="stat-strip">
+          <StatTile
+            label="Library"
+            value={aggregates.totals.item_count.toLocaleString()}
+            sub="Tracked titles"
+          />
+          <StatTile
+            label="Completed"
+            value={aggregates.totals.completed_count.toLocaleString()}
+            sub={`${aggregates.totals.this_year_completed} this year`}
+          />
+          <StatTile
+            label="Avg score"
+            value={aggregates.totals.average_rating
+              ? aggregates.totals.average_rating.toFixed(1)
+              : "—"}
+            sub="Out of 10"
+          />
+          <StatTile
+            label="In progress"
+            value={continueItems.length.toLocaleString()}
+            sub="Watching or reading"
+          />
+        </div>
 
-      <div class="analytics-grid">
-        <section class="chart-card tile">
-          <header class="chart-head">
-            <h2>Completions by year</h2>
-            <span class="chart-total">{aggregates.totals.completed_count}</span>
-          </header>
-          {#if completions.length}
-            <MediaBarChart
-              labels={completions.map((b) => b.year)}
-              values={completions.map((b) => b.count)}
-              color="--accent"
-            />
-          {:else}
-            <p class="empty-copy">No completed items yet.</p>
-          {/if}
-        </section>
+        <div class="analytics-grid">
+          <section class="chart-card tile">
+            <header class="chart-head">
+              <h2>Completions by year</h2>
+              <span class="chart-total"
+                >{aggregates.totals.completed_count}</span
+              >
+            </header>
+            {#if completions.length}
+              <MediaBarChart
+                labels={completions.map((b) => b.year)}
+                values={completions.map((b) => b.count)}
+                color="--accent"
+              />
+            {:else}
+              <p class="empty-copy">No completed items yet.</p>
+            {/if}
+          </section>
 
-        <section class="chart-card tile">
-          <header class="chart-head">
-            <h2>Score distribution</h2>
-            <span class="chart-total">0–10</span>
-          </header>
-          {#if scores.length}
-            <MediaBarChart
-              labels={scores.map((b) => b.score)}
-              values={scores.map((b) => b.count)}
-              color="--accent-2"
-            />
-          {:else}
-            <p class="empty-copy">No ratings yet.</p>
-          {/if}
-        </section>
+          <section class="chart-card tile">
+            <header class="chart-head">
+              <h2>Score distribution</h2>
+              <span class="chart-total">0–10</span>
+            </header>
+            {#if scores.length}
+              <MediaBarChart
+                labels={scores.map((b) => b.score)}
+                values={scores.map((b) => b.count)}
+                color="--accent-2"
+              />
+            {:else}
+              <p class="empty-copy">No ratings yet.</p>
+            {/if}
+          </section>
 
-        <section class="chart-card tile">
-          <header class="chart-head">
-            <h2>By kind</h2>
-          </header>
-          {#if typeFamilies.length}
-            <MediaBarChart
-              labels={typeFamilies.map((f) => f.type)}
-              values={typeFamilies.map((f) => f.count)}
-              color="--mark-teal"
-              horizontal
-            />
-          {:else}
-            <p class="empty-copy">Your collection will take shape here.</p>
-          {/if}
-        </section>
-      </div>
+          <section class="chart-card tile">
+            <header class="chart-head">
+              <h2>By kind</h2>
+            </header>
+            {#if typeFamilies.length}
+              <MediaBarChart
+                labels={typeFamilies.map((f) => f.type)}
+                values={typeFamilies.map((f) => f.count)}
+                color="--mark-teal"
+                horizontal
+              />
+            {:else}
+              <p class="empty-copy">Your collection will take shape here.</p>
+            {/if}
+          </section>
+        </div>
 
-      {#if continueItems.length}
-        <section class="shelf">
-          <header class="shelf-head">
-            <div>
-              <p class="eyebrow">Keep going</p>
-              <h2>Watching &amp; reading</h2>
-            </div>
-            <span class="muted"
-              >{activeCount} active{activeCount > 6 ? " · showing 6" : ""}</span
-            >
-          </header>
-          <div class="continue-grid">
-            {#each continueItems as item (item.id)}
-              <a class="continue-card tile" href={`/library/${item.id}`}>
-                <div class="thumb">
-                  {#if item.cover_image_url}
-                    <img src={item.cover_image_url} alt="" loading="lazy" />
-                  {:else}
-                    <span class="thumb-ph" aria-hidden="true"
-                      >{initial(item)}</span
-                    >
-                  {/if}
-                </div>
-                <div class="continue-copy">
-                  <span class="kicker">
-                    <span
-                      class="dot"
-                      style={`background:${mediaTypeColor(item.media_type)}`}
-                    ></span>{mediaTypeLabel(item.media_type)}
-                  </span>
-                  <h3>{primaryTitle(item)}</h3>
-                  {#if altTitle(item)}<span class="alt">{altTitle(item)}</span
-                    >{/if}
-                  {#if item.total}
-                    <div class="progress-track">
-                      <span style={`width:${progressValue(item)}%`}></span>
-                    </div>
-                  {/if}
-                  <span class="progress-label">
-                    {item.position ?? 0}{item.total ? ` / ${item.total}` : ""}
-                    {item.unit ?? ""}
-                  </span>
-                </div>
-              </a>
-            {/each}
-          </div>
-        </section>
-      {/if}
-
-      <section class="shelf">
-        <header class="shelf-head">
-          <div>
-            <p class="eyebrow">Collection</p>
-            <h2>Everything in the index</h2>
-          </div>
-          <span class="muted">{items.length} shown</span>
-        </header>
-        {#if groupedItems.length}
-          {#each groupedItems as [status, group] (status)}
-            <div class="status-group">
-              <header class="status-head">
-                <h3>
-                  <span
-                    class={`status-dot ${statusTone(status)}`}
-                    aria-hidden="true"
-                  ></span>
-                  {statusLabel(status)}
-                </h3>
-                <span>{statusCounts[status] ?? group.length}</span>
-              </header>
-              <div class="poster-grid">
-                {#each group as item (item.id)}
-                  <a class="poster" href={`/library/${item.id}`}>
-                    <div class="cover">
-                      {#if item.cover_image_url}
-                        <img src={item.cover_image_url} alt="" loading="lazy" />
-                      {:else}
-                        <span class="cover-ph" aria-hidden="true"
-                          >{initial(item)}</span
-                        >
-                      {/if}
-                      {#if item.rating != null}
-                        <span class="score-badge">{item.rating.toFixed(1)}</span
-                        >
-                      {/if}
-                    </div>
-                    <h3 title={primaryTitle(item)}>{primaryTitle(item)}</h3>
-                    <span class="poster-sub">
+        {#if continueItems.length}
+          <section class="shelf">
+            <header class="shelf-head">
+              <div>
+                <p class="eyebrow">Keep going</p>
+                <h2>Watching &amp; reading</h2>
+              </div>
+              <span class="muted"
+                >{activeCount} active{activeCount > 6
+                  ? " · showing 6"
+                  : ""}</span
+              >
+            </header>
+            <div class="continue-grid">
+              {#each continueItems as item (item.id)}
+                <a class="continue-card tile" href={`/library/${item.id}`}>
+                  <div class="thumb">
+                    {#if item.cover_image_url}
+                      <img src={item.cover_image_url} alt="" loading="lazy" />
+                    {:else}
+                      <span class="thumb-ph" aria-hidden="true"
+                        >{initial(item)}</span
+                      >
+                    {/if}
+                  </div>
+                  <div class="continue-copy">
+                    <span class="kicker">
                       <span
                         class="dot"
                         style={`background:${mediaTypeColor(item.media_type)}`}
                       ></span>{mediaTypeLabel(item.media_type)}
                     </span>
-                  </a>
-                {/each}
-              </div>
+                    <h3>{primaryTitle(item)}</h3>
+                    {#if altTitle(item)}<span class="alt">{altTitle(item)}</span
+                      >{/if}
+                    {#if item.total}
+                      <div class="progress-track">
+                        <span style={`width:${progressValue(item)}%`}></span>
+                      </div>
+                    {/if}
+                    <span class="progress-label">
+                      {item.position ?? 0}{item.total ? ` / ${item.total}` : ""}
+                      {item.unit ?? ""}
+                    </span>
+                  </div>
+                </a>
+              {/each}
             </div>
-          {/each}
-          {#if hasMore}
-            <button class="load-more" onclick={loadMore} disabled={loadingMore}>
-              {loadingMore ? "Loading…" : "Load more"}
-            </button>
-          {/if}
-        {:else}
-          <div class="empty-panel tile">No media items found.</div>
+          </section>
         {/if}
-      </section>
+
+        <section class="shelf">
+          <header class="shelf-head">
+            <div>
+              <p class="eyebrow">Collection</p>
+              <h2>Everything in the index</h2>
+            </div>
+            <span class="muted">{items.length} shown</span>
+          </header>
+          {#if groupedItems.length}
+            {#each groupedItems as [status, group] (status)}
+              <div class="status-group">
+                <header class="status-head">
+                  <h3>
+                    <span
+                      class={`status-dot ${statusTone(status)}`}
+                      aria-hidden="true"
+                    ></span>
+                    {statusLabel(status)}
+                  </h3>
+                  <span>{statusCounts[status] ?? group.length}</span>
+                </header>
+                <div class="poster-grid">
+                  {#each group as item (item.id)}
+                    <a class="poster" href={`/library/${item.id}`}>
+                      <div class="cover">
+                        {#if item.cover_image_url}
+                          <img
+                            src={item.cover_image_url}
+                            alt=""
+                            loading="lazy"
+                          />
+                        {:else}
+                          <span class="cover-ph" aria-hidden="true"
+                            >{initial(item)}</span
+                          >
+                        {/if}
+                        {#if item.rating != null}
+                          <span class="score-badge"
+                            >{item.rating.toFixed(1)}</span
+                          >
+                        {/if}
+                      </div>
+                      <h3 title={primaryTitle(item)}>{primaryTitle(item)}</h3>
+                      <span class="poster-sub">
+                        <span
+                          class="dot"
+                          style={`background:${mediaTypeColor(item.media_type)}`}
+                        ></span>{mediaTypeLabel(item.media_type)}
+                      </span>
+                    </a>
+                  {/each}
+                </div>
+              </div>
+            {/each}
+            {#if hasMore}
+              <button
+                class="load-more"
+                onclick={loadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            {/if}
+          {:else}
+            <div class="empty-panel tile">No media items found.</div>
+          {/if}
+        </section>
+      </LoadingBoundary>
     {/if}
   {/if}
 </section>

@@ -2,7 +2,9 @@ package media
 
 import (
 	"errors"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
@@ -660,7 +662,12 @@ func (s *Service) Counts(filters ListFilters) (map[string]int, int, error) {
 }
 
 func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
-	completionSQL := `
+	return s.AggregatesFiltered(now, ListFilters{})
+}
+
+func (s *Service) AggregatesFiltered(now time.Time, filters ListFilters) (Aggregates, error) {
+	filterSQL, filterArgs := aggregateFilterSQL(filters)
+	completionSQL := fmt.Sprintf(`
 		WITH completion_dates AS (
 			SELECT media_item_id, completed_on_value::timestamptz AS completed_at
 			FROM tb_media_progress
@@ -673,42 +680,24 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 			SELECT media_item_id, max(completed_at) AS completed_at
 			FROM completion_dates
 			GROUP BY media_item_id
+		), filtered_items AS (
+			SELECT item.id, item.media_type, progress.status, completions.completed_at
+			FROM tb_media_items AS item
+			LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id
+			LEFT JOIN completions ON completions.media_item_id = item.id
+			WHERE %s
 		)
 		SELECT extract(year FROM completed_at)::int AS year, count(*)::int AS count
-		FROM completions
+		FROM filtered_items
+		WHERE completed_at IS NOT NULL
 		GROUP BY year
-		ORDER BY year`
+		ORDER BY year`, filterSQL)
 	var completionRows []CompletionBucket
-	if err := s.db.Raw(completionSQL).Scan(&completionRows).Error; err != nil {
+	if err := s.db.Raw(completionSQL, filterArgs...).Scan(&completionRows).Error; err != nil {
 		return Aggregates{}, err
 	}
 
-	ratingSQL := `
-		WITH latest_ratings AS (
-			SELECT DISTINCT ON (media_item_id)
-				media_item_id,
-				rating / nullif(rating_scale, 0) * 10 AS normalized_rating
-			FROM (
-				SELECT media_item_id, rating, rating_scale, observed_at AS rated_at, created_at, id
-				FROM tb_media_state_history
-				WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
-				UNION ALL
-				SELECT media_item_id, rating, rating_scale, event_at AS rated_at, created_at, id
-				FROM tb_media_consumption_events
-				WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
-			) AS ratings
-			ORDER BY media_item_id, rated_at DESC, created_at DESC, id DESC
-		)
-		SELECT round(least(greatest(normalized_rating, 0), 10)) AS score, count(*)::int AS count
-		FROM latest_ratings
-		GROUP BY score
-		ORDER BY score`
-	var scoreRows []ScoreBucket
-	if err := s.db.Raw(ratingSQL).Scan(&scoreRows).Error; err != nil {
-		return Aggregates{}, err
-	}
-
-	typeSQL := `
+	ratingSQL := fmt.Sprintf(`
 		WITH latest_ratings AS (
 			SELECT DISTINCT ON (media_item_id)
 				media_item_id,
@@ -735,6 +724,56 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 			SELECT media_item_id, max(completed_at) AS completed_at
 			FROM completion_dates
 			GROUP BY media_item_id
+		), filtered_items AS (
+			SELECT item.id, item.media_type, progress.status, completions.completed_at
+			FROM tb_media_items AS item
+			LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id
+			LEFT JOIN completions ON completions.media_item_id = item.id
+			WHERE %s
+		)
+		SELECT round(least(greatest(normalized_rating, 0), 10)) AS score, count(*)::int AS count
+		FROM latest_ratings
+		JOIN filtered_items ON filtered_items.id = latest_ratings.media_item_id
+		GROUP BY score
+		ORDER BY score`, filterSQL)
+	var scoreRows []ScoreBucket
+	if err := s.db.Raw(ratingSQL, filterArgs...).Scan(&scoreRows).Error; err != nil {
+		return Aggregates{}, err
+	}
+
+	typeSQL := fmt.Sprintf(`
+		WITH latest_ratings AS (
+			SELECT DISTINCT ON (media_item_id)
+				media_item_id,
+				rating / nullif(rating_scale, 0) * 10 AS normalized_rating
+			FROM (
+				SELECT media_item_id, rating, rating_scale, observed_at AS rated_at, created_at, id
+				FROM tb_media_state_history
+				WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
+				UNION ALL
+				SELECT media_item_id, rating, rating_scale, event_at AS rated_at, created_at, id
+				FROM tb_media_consumption_events
+				WHERE rating IS NOT NULL AND rating_scale IS NOT NULL
+			) AS ratings
+			ORDER BY media_item_id, rated_at DESC, created_at DESC, id DESC
+		), completion_dates AS (
+			SELECT media_item_id, completed_on_value::timestamptz AS completed_at
+			FROM tb_media_progress
+			WHERE completed_on_precision = 'day'
+			UNION ALL
+			SELECT media_item_id, event_at AS completed_at
+			FROM tb_media_consumption_events
+			WHERE event_type IN ('finished', 'completed') AND event_at IS NOT NULL
+		), completions AS (
+			SELECT media_item_id, max(completed_at) AS completed_at
+			FROM completion_dates
+			GROUP BY media_item_id
+		), filtered_items AS (
+			SELECT item.id, item.media_type, progress.status, completions.completed_at
+			FROM tb_media_items AS item
+			LEFT JOIN tb_media_progress AS progress ON progress.media_item_id = item.id
+			LEFT JOIN completions ON completions.media_item_id = item.id
+			WHERE %s
 		), grouped AS (
 			-- Kind lives on the item (media_type: anime_season, manga, movie…);
 			-- the parent work_kind is a generic 'media', so group by media_type.
@@ -742,16 +781,15 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 				count(*)::int AS count,
 				avg(latest_ratings.normalized_rating) AS average_rating,
 				count(latest_ratings.normalized_rating)::int AS rating_count,
-				count(completions.media_item_id)::int AS completed_count
-			FROM tb_media_items AS item
+				count(item.completed_at)::int AS completed_count
+			FROM filtered_items AS item
 			LEFT JOIN latest_ratings ON latest_ratings.media_item_id = item.id
-			LEFT JOIN completions ON completions.media_item_id = item.id
 			GROUP BY type
 		)
 		SELECT type, count, average_rating, rating_count, completed_count,
 			sum(count) OVER ()::int AS item_count
 		FROM grouped
-		ORDER BY type`
+		ORDER BY type`, filterSQL)
 	var typeRows []struct {
 		Type           string  `gorm:"column:type"`
 		Count          int     `gorm:"column:count"`
@@ -760,7 +798,7 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 		CompletedCount int     `gorm:"column:completed_count"`
 		ItemCount      int     `gorm:"column:item_count"`
 	}
-	if err := s.db.Raw(typeSQL).Scan(&typeRows).Error; err != nil {
+	if err := s.db.Raw(typeSQL, filterArgs...).Scan(&typeRows).Error; err != nil {
 		return Aggregates{}, err
 	}
 
@@ -789,6 +827,31 @@ func (s *Service) Aggregates(now time.Time) (Aggregates, error) {
 		}
 	}
 	return result, nil
+}
+
+func aggregateFilterSQL(filters ListFilters) (string, []any) {
+	clauses := []string{"TRUE"}
+	args := make([]any, 0, 3)
+	if filters.Status != "" {
+		clauses = append(clauses, "progress.status = ?")
+		args = append(args, filters.Status)
+	}
+	if filters.MediaType != "" {
+		clauses = append(clauses, "item.media_type = ?")
+		args = append(args, filters.MediaType)
+	}
+	if types, ok := familyMediaTypes[filters.Family]; ok {
+		placeholders := strings.TrimSuffix(strings.Repeat("?,", len(types)), ",")
+		clauses = append(clauses, "item.media_type IN ("+placeholders+")")
+		for _, mediaType := range types {
+			args = append(args, mediaType)
+		}
+	}
+	if filters.CompletedYear != nil {
+		clauses = append(clauses, "extract(year from completions.completed_at) = ?")
+		args = append(args, *filters.CompletedYear)
+	}
+	return strings.Join(clauses, " AND "), args
 }
 
 func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
@@ -1024,6 +1087,52 @@ func (s *Service) Changes(filters ChangeListFilters) (ChangePage, error) {
 	}
 	var rows []Change
 	if err := query.Order("state.observed_at DESC, state.id DESC").Limit(limit + 1).Scan(&rows).Error; err != nil {
+		return ChangePage{}, err
+	}
+	page := ChangePage{Items: rows}
+	if len(rows) > limit {
+		page.Items = rows[:limit]
+		page.HasMore = true
+		last := page.Items[len(page.Items)-1]
+		page.NextCursor = &Cursor{LastUpdateAt: last.ObservedAt, ID: last.ID}
+	}
+	return page, nil
+}
+
+// DatedChanges returns provider-state changes that have a source-proven date
+// inside the requested calendar window. It deliberately does not use
+// observed_at: a connector may observe a snapshot today that describes a
+// completion on an earlier source date.
+func (s *Service) DatedChanges(from, to time.Time, limit int) (ChangePage, error) {
+	if !from.Before(to) {
+		return ChangePage{}, errors.New("dated change from must be before to")
+	}
+	if limit <= 0 || limit > 100 {
+		limit = defaultPageLimit
+	}
+	fromDate := from.Format("2006-01-02")
+	toDate := to.Format("2006-01-02")
+	query := s.db.Table("tb_media_state_history AS state").
+		Select(`state.id, state.media_item_id, item.title, item.cover_image_url,
+			(SELECT t.title FROM tb_media_titles t
+			 WHERE t.scope_type = 'item' AND t.scope_id = item.id AND t.title_kind = 'original'
+			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title,
+			state.source_kind, state.change_kind, state.time_basis, state.observed_at,
+			state.effective_at, state.effective_on_value, state.effective_on_precision,
+			state.provider_recorded_at, state.status, state.unit, state.position, state.total,
+			state.progress_percent, state.rating, state.rating_scale, state.note, state.repeat_count`).
+		Joins("JOIN tb_media_items AS item ON item.id = state.media_item_id").
+		Where(`(
+			(state.time_basis = 'source_date'
+				AND state.effective_on_precision = 'day'
+				AND state.effective_on_value >= CAST(? AS date)
+				AND state.effective_on_value < CAST(? AS date))
+			OR (state.time_basis = 'provider_activity'
+				AND state.effective_at >= ?
+				AND state.effective_at < ?)
+		)`, fromDate, toDate, from, to)
+	var rows []Change
+	if err := query.Order("coalesce(state.effective_at, state.effective_on_value::timestamptz) DESC, state.id DESC").Limit(limit + 1).Scan(&rows).Error; err != nil {
 		return ChangePage{}, err
 	}
 	page := ChangePage{Items: rows}

@@ -94,6 +94,47 @@ func TestMediaAggregatesIntegration(t *testing.T) {
 	}
 }
 
+func TestMediaAggregatesFiltersIntegration(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetMediaTables(t, db)
+
+	now := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	animeWork := seedWork(t, db, "anime")
+	bookWork := seedWork(t, db, "book")
+	animeCompleted := seedItem(t, db, animeWork, "anime_season", "Anime completed")
+	seedProgress(t, db, animeCompleted, "completed", ptrTime(time.Date(2026, 2, 3, 0, 0, 0, 0, time.UTC)))
+	animeActive := seedItem(t, db, animeWork, "movie", "Anime active")
+	seedProgress(t, db, animeActive, "in_progress", nil)
+	bookCompleted := seedItem(t, db, bookWork, "book", "Book completed")
+	seedProgress(t, db, bookCompleted, "completed", ptrTime(time.Date(2026, 3, 4, 0, 0, 0, 0, time.UTC)))
+
+	service := media.NewService(db)
+	family, err := service.AggregatesFiltered(now, media.ListFilters{Family: "anime"})
+	if err != nil {
+		t.Fatalf("anime aggregates: %v", err)
+	}
+	if family.Totals.ItemCount != 2 || family.Totals.CompletedCount != 1 {
+		t.Fatalf("anime totals = %+v, want 2 items and 1 completed", family.Totals)
+	}
+
+	completed, err := service.AggregatesFiltered(now, media.ListFilters{Status: "completed"})
+	if err != nil {
+		t.Fatalf("completed aggregates: %v", err)
+	}
+	if completed.Totals.ItemCount != 2 || completed.Totals.CompletedCount != 2 {
+		t.Fatalf("completed totals = %+v, want 2 items and 2 completed", completed.Totals)
+	}
+
+	year := 2026
+	yearOnly, err := service.AggregatesFiltered(now, media.ListFilters{CompletedYear: &year})
+	if err != nil {
+		t.Fatalf("year aggregates: %v", err)
+	}
+	if yearOnly.Totals.ItemCount != 2 || yearOnly.Totals.CompletedCount != 2 {
+		t.Fatalf("year totals = %+v, want 2 items and 2 completed", yearOnly.Totals)
+	}
+}
+
 func TestMediaPeriodReportIntegration(t *testing.T) {
 	db := openIntegrationDB(t)
 	resetMediaTables(t, db)
@@ -245,6 +286,51 @@ func TestMediaExactEventHTTPIntegration(t *testing.T) {
 	conflict := strings.Replace(body, `"position":12`, `"position":13`, 1)
 	requestJSON(t, server, http.MethodPost, "/api/v1/media/events", conflict, http.StatusConflict, nil)
 	requestJSON(t, server, http.MethodPost, "/api/v1/media/events", `{"media_id":"`+ids.Encode(ids.MediaPrefix, item)+`","event_type":"read","idempotency_key":"missing-time"}`, http.StatusBadRequest, nil)
+}
+
+func TestMediaDatedChangesUseEffectiveDateIntegration(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetMediaTables(t, db)
+	work := seedWork(t, db, "media")
+	item := seedItem(t, db, work, "manga", "Dated manga update")
+	observedAfterDate := time.Date(2026, 8, 16, 2, 0, 0, 0, time.UTC)
+	sourceDate := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	providerActivity := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+
+	if err := db.Exec(`insert into tb_media_state_history
+		(id, media_item_id, source_kind, source_event_id, observed_at, time_basis, change_kind,
+		 state_fingerprint, status, effective_on_value, effective_on_precision, created_at)
+		values (?, ?, 'anilist', 'entry-1', ?, 'source_date', 'changed', ?, 'completed', ?, 'day', ?)`,
+		uuid.New(), item, observedAfterDate, "source-date-fingerprint", sourceDate, observedAfterDate).Error; err != nil {
+		t.Fatalf("seed source-date change: %v", err)
+	}
+	if err := db.Exec(`insert into tb_media_state_history
+		(id, media_item_id, source_kind, source_event_id, observed_at, effective_at, time_basis, change_kind,
+		 state_fingerprint, status, created_at)
+		values (?, ?, 'anilist', 'activity-1', ?, ?, 'provider_activity', 'provider_activity', ?, 'in_progress', ?)`,
+		uuid.New(), item, observedAfterDate, providerActivity, "provider-activity-fingerprint", observedAfterDate).Error; err != nil {
+		t.Fatalf("seed provider activity: %v", err)
+	}
+	if err := db.Exec(`insert into tb_media_state_history
+		(id, media_item_id, source_kind, source_event_id, observed_at, time_basis, change_kind,
+		 state_fingerprint, status, created_at)
+		values (?, ?, 'bangumi', 'snapshot-1', ?, 'iroha_observed', 'snapshot', ?, 'in_progress', ?)`,
+		uuid.New(), item, sourceDate, "observed-only-fingerprint", sourceDate).Error; err != nil {
+		t.Fatalf("seed observed-only change: %v", err)
+	}
+
+	page, err := media.NewService(db).DatedChanges(sourceDate, sourceDate.Add(24*time.Hour), 100)
+	if err != nil {
+		t.Fatalf("dated changes: %v", err)
+	}
+	if len(page.Items) != 2 {
+		t.Fatalf("dated changes = %d, want source-date and provider-activity rows", len(page.Items))
+	}
+	for _, change := range page.Items {
+		if change.TimeBasis == "iroha_observed" {
+			t.Fatalf("observation-only row entered dated changes: %+v", change)
+		}
+	}
 }
 
 func resetMediaTables(t *testing.T, db *gorm.DB) {

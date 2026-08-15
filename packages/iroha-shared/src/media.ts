@@ -169,6 +169,22 @@ export type MediaChangePage = {
   has_more: boolean;
 };
 
+export interface MediaDayList<T> {
+  state: "ready" | "empty";
+  items: T[];
+  count: number;
+  has_more: boolean;
+}
+
+export interface MediaDaySection {
+  sessions: MediaDayList<MediaHomeEvent>;
+  dated_updates: MediaDayList<MediaChange>;
+  coverage: {
+    timezone: string;
+    date: string;
+  };
+}
+
 export interface MediaDetailThemeProps {
   detail: MediaDetail;
   progress: number;
@@ -188,8 +204,8 @@ export interface MediaThemeProps {
   activeCount: number;
   theme: DesignLanguage;
   onFamily: (value: string) => void;
-  onStatus: () => void;
-  onYear: () => void;
+  onStatus: (value: string) => void;
+  onYear: (value: string) => void;
   onLoadMore: () => void;
   hasMore: boolean;
   loadingMore: boolean;

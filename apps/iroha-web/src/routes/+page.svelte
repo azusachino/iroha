@@ -12,7 +12,7 @@
     type DailyRow,
     type SleepSession,
     type Activity,
-    type MediaHomeEvent,
+    type MediaDaySection,
     type BriefingResponse,
     type Task,
   } from "$lib/api";
@@ -35,6 +35,7 @@
   import EmptyState from "@iroha/shared/theme-ui/components/EmptyState.svelte";
   import { todayInTimezone } from "@iroha/shared/date";
   import TodaySkeleton from "$lib/components/TodaySkeleton.svelte";
+  import MediaUpdateList from "@iroha/shared/theme-ui/components/MediaUpdateList.svelte";
 
   let briefing = $state<BriefingResponse | null>(null);
   let loading = $state(true);
@@ -75,15 +76,39 @@
     );
   }
 
+  function mediaSection(): MediaDaySection {
+    const section = briefing?.sections.find((item) => item.key === "media");
+    const data = section?.data as Partial<MediaDaySection> | undefined;
+    return {
+      sessions: data?.sessions ?? {
+        state: "empty",
+        items: [],
+        count: 0,
+        has_more: false,
+      },
+      dated_updates: data?.dated_updates ?? {
+        state: "empty",
+        items: [],
+        count: 0,
+        has_more: false,
+      },
+      coverage: data?.coverage ?? {
+        timezone: "Asia/Tokyo",
+        date: briefing?.date ?? day,
+      },
+    };
+  }
+
   const daily = $derived(sectionData<DailyRow>("daily"));
   const sleep = $derived(sectionData<SleepSession>("sleep"));
   const activities = $derived(sectionData<Activity>("activities"));
-  const media = $derived(sectionData<MediaHomeEvent>("media"));
+  const media = $derived(mediaSection());
   const dRow = $derived(daily.items[0]);
   const nights = $derived(sleep.items);
   const mainNight = $derived(nights.find((n) => n.is_main_sleep) ?? nights[0]);
   const acts = $derived(activities.items);
-  const mediaEvents = $derived(media.items);
+  const mediaEvents = $derived(media.sessions.items);
+  const mediaUpdates = $derived(media.dated_updates.items);
   const dailyRing = $derived(dRow?.ring);
   const hasRing = $derived(!!dailyRing && dailyRing.move_goal_kcal > 0);
   const ringData = $derived<Ring[]>(
@@ -134,11 +159,19 @@
   const dataDay = $derived(briefing?.date ?? day);
   const dataDayLabel = $derived(formatDateOnly(dataDay));
   const dayHasData = $derived(
-    briefing?.sections.some(
-      (section) =>
-        section.state === "ready" &&
-        (section.data as { items?: unknown[] }).items?.length,
-    ) ?? false,
+    briefing?.sections.some((section) => {
+      if (section.state !== "ready") return false;
+      const data = section.data as {
+        items?: unknown[];
+        sessions?: { items?: unknown[] };
+        dated_updates?: { items?: unknown[] };
+      };
+      return section.key === "media"
+        ? Boolean(
+            data.sessions?.items?.length || data.dated_updates?.items?.length,
+          )
+        : Boolean(data.items?.length);
+    }) ?? false,
   );
   const daysSet = $derived(
     availableDays.size > 0 ? availableDays : new Set([day]),
@@ -390,6 +423,7 @@
               mainNight,
               acts,
               mediaEvents,
+              mediaUpdates,
               onOpenActivity: (id: string) => void goto(`/motion/${id}`),
               onOpenMedia: (id: string) => void goto(`/library/${id}`),
             }}
@@ -593,9 +627,25 @@
                   {/each}
                 </ul>
               {:else}
-                <p class="empty">No media events this day</p>
+                <p class="empty">No exact media sessions this day</p>
               {/if}
             </div>
+            {#if mediaUpdates.length}
+              <div class="card tile wide media-card media-updates-card">
+                <header>
+                  <span class="ic">↻</span>
+                  <div>
+                    <span class="hdr-link">Library updates</span>
+                    <small>dated provider facts</small>
+                  </div>
+                  <span>{mediaUpdates.length} updates</span>
+                </header>
+                <MediaUpdateList
+                  updates={mediaUpdates}
+                  onOpenMedia={(id) => void goto(`/library/${id}`)}
+                />
+              </div>
+            {/if}
           </div>
         {/if}
       </div>

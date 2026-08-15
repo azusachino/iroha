@@ -10,7 +10,7 @@
     type DesignTodayData,
   } from "@iroha/shared/design-compositions";
   import type { DailyRow } from "@iroha/shared/daily";
-  import type { MediaHomeEvent } from "@iroha/shared/media";
+  import type { MediaChange, MediaHomeEvent } from "@iroha/shared/media";
   import type { SleepSession } from "@iroha/shared/sleep";
   import type { DesignLanguage } from "@iroha/shared/themes";
   import {
@@ -118,6 +118,26 @@
     },
   ];
 
+  const fixtureMediaUpdates: MediaChange[] = [
+    {
+      id: "public-design-media-update",
+      media_id: "public-design-media",
+      title: "A quiet chapter",
+      source_kind: "anilist",
+      change_kind: "changed",
+      time_basis: "source_date",
+      observed_at: `${fixtureDate}T23:00:00Z`,
+      effective_on: fixtureDate,
+      date_precision: "day",
+      status: "in_progress",
+      unit: "chapters",
+      position: 76,
+      total: 100,
+      progress_percent: 76,
+      repeat_count: 0,
+    },
+  ];
+
   const todayProps: Omit<
     DesignCompositionProps,
     "today" | "readiness" | "links"
@@ -128,6 +148,7 @@
     mainNight: SleepSession;
     acts: Activity[];
     mediaEvents: MediaHomeEvent[];
+    mediaUpdates: MediaChange[];
     onOpenActivity: (id: string) => void;
     onOpenMedia: (id: string) => void;
   } = {
@@ -137,6 +158,7 @@
     mainNight: fixtureSleep,
     acts: fixtureActivities,
     mediaEvents: fixtureMedia,
+    mediaUpdates: fixtureMediaUpdates,
     onOpenActivity: (id) =>
       void goto(`${base}/?activity=${encodeURIComponent(id)}`),
     onOpenMedia: () => void goto(`${base}/`),

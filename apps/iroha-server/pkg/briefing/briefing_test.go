@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type testContributor struct {
@@ -72,5 +73,21 @@ func TestParseDayUsesHalfOpenUTCWindow(t *testing.T) {
 	}
 	if day.End.Sub(day.Start).Hours() != 24 {
 		t.Fatalf("window = %s", day.End.Sub(day.Start))
+	}
+}
+
+func TestParseDayInLocationUsesConfiguredCalendarWindow(t *testing.T) {
+	day, err := ParseDayInLocation("2026-08-15", "Asia/Tokyo")
+	if err != nil {
+		t.Fatalf("parse day: %v", err)
+	}
+	if got := day.Start.UTC().Format(time.RFC3339); got != "2026-08-14T15:00:00Z" {
+		t.Fatalf("start = %s, want Tokyo midnight", got)
+	}
+	if got := day.End.UTC().Format(time.RFC3339); got != "2026-08-15T15:00:00Z" {
+		t.Fatalf("end = %s, want next Tokyo midnight", got)
+	}
+	if day.Timezone != "Asia/Tokyo" {
+		t.Fatalf("timezone = %q", day.Timezone)
 	}
 }

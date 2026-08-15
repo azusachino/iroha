@@ -7,7 +7,11 @@ import (
 )
 
 func (s *Server) handleBriefing(w http.ResponseWriter, r *http.Request) {
-	day, err := briefing.ParseDay(r.URL.Query().Get("date"))
+	timezone := s.deps.Config.Server.Timezone
+	if timezone == "" {
+		timezone = "Asia/Tokyo"
+	}
+	day, err := briefing.ParseDayInLocation(r.URL.Query().Get("date"), timezone)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid date")
 		return

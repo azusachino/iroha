@@ -59,7 +59,11 @@
   <div class="shelf-filters">
     <label>
       <span>Status</span>
-      <select value={status} onchange={onStatus}>
+      <select
+        value={status}
+        onchange={(event) =>
+          onStatus((event.currentTarget as HTMLSelectElement).value)}
+      >
         <option value="">All statuses</option>
         <option value="in_progress">In progress</option>
         <option value="completed">Completed</option>
@@ -69,7 +73,11 @@
     </label>
     <label>
       <span>Completed year</span>
-      <select value={completedYear} onchange={onYear}>
+      <select
+        value={completedYear}
+        onchange={(event) =>
+          onYear((event.currentTarget as HTMLSelectElement).value)}
+      >
         <option value="">Lifetime</option>
         {#each yearOptions as option (option.year)}
           <option value={option.year}>{option.year}</option>

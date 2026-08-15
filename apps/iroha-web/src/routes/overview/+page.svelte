@@ -138,7 +138,7 @@
   async function loadMedia() {
     mediaLoading = true;
     try {
-      mediaAggregates = await getMediaAggregates();
+      mediaAggregates = await getMediaAggregates({});
     } catch {
       mediaAggregates = null;
     } finally {

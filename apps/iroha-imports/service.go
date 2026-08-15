@@ -881,10 +881,13 @@ func persistMediaStateHistory(tx *gorm.DB, rawFile models.RawFile, snapshot mode
 	if result.Error == nil {
 		changeKind = "changed"
 	}
+	// Provider timestamps describe when the upstream record changed, but a
+	// current list snapshot is not an activity event. Keep that timestamp as
+	// provenance only; the state observation itself is still Iroha-observed
+	// until a connector supplies a real provider activity record.
 	timeBasis := "iroha_observed"
 	var providerRecordedAt *time.Time
 	if media.ProgressState != nil && media.ProgressState.LastUpdateAt != nil {
-		timeBasis = "provider_recorded"
 		providerRecordedAt = media.ProgressState.LastUpdateAt
 	}
 	if effectiveOnPrecision == string(observations.DatePrecisionDay) {

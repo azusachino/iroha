@@ -2,6 +2,7 @@
   import type { TodayThemeProps } from "../../today-view";
   import { formatDistance, formatDuration, formatPace } from "../../format";
   import { mediaEventVerb } from "../../media";
+  import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
   let {
     dayLabel,
@@ -10,6 +11,7 @@
     mainNight,
     acts,
     mediaEvents,
+    mediaUpdates,
     theme,
     onOpenActivity,
     onOpenMedia,
@@ -205,6 +207,19 @@
       <p class="bloom-empty">No media event was recorded for this date.</p>
     {/if}
   </section>
+
+  {#if mediaUpdates.length}
+    <section class="bloom-sessions">
+      <div class="sessions-heading">
+        <div>
+          <p class="bloom-kicker">◔ Provider dates</p>
+          <h2>Library updates</h2>
+        </div>
+        <span>{mediaUpdates.length} updates</span>
+      </div>
+      <MediaUpdateList updates={mediaUpdates} {onOpenMedia} />
+    </section>
+  {/if}
 
   <footer class="bloom-source">
     <span>Source: imported daily snapshot</span>

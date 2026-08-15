@@ -530,9 +530,21 @@ describe("listAllDaily", () => {
 describe("getMediaAggregates", () => {
   it("requests the media aggregates endpoint", async () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch({});
-    await getMediaAggregates(fakeFetch);
+    await getMediaAggregates({}, fakeFetch);
 
     expect(getCapturedUrl()).toContain("/api/v1/media/aggregates");
+  });
+
+  it("sends the same library filters as the media list", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMediaAggregates(
+      { family: "anime", status: "completed", completed_year: 2026 },
+      fakeFetch,
+    );
+
+    expect(getCapturedUrl()).toContain("family=anime");
+    expect(getCapturedUrl()).toContain("status=completed");
+    expect(getCapturedUrl()).toContain("completed_year=2026");
   });
 });
 

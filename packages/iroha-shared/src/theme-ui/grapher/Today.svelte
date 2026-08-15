@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { TodayThemeProps } from "../../today-view";
   import { formatDistance, formatDuration, formatPace } from "../../format";
+  import { mediaEventVerb } from "../../media";
+  import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
   let {
     dayLabel,
@@ -8,8 +10,9 @@
     dRow,
     mainNight,
     acts,
-    theme,
     mediaEvents,
+    mediaUpdates,
+    theme,
     onOpenActivity,
     onOpenMedia,
   }: TodayThemeProps = $props();
@@ -156,6 +159,37 @@
       {/if}
     </section>
   </div>
+
+  <section class="data-panel" aria-labelledby="media-record-title">
+    <p class="grapher-kicker">Media record</p>
+    <h2 id="media-record-title">Library changes fixed to this day</h2>
+    {#if mediaEvents.length}
+      <table>
+        <thead><tr><th>Title</th><th>Evidence</th><th>At</th></tr></thead>
+        <tbody>
+          {#each mediaEvents as event (event.id)}
+            <tr>
+              <td>
+                <button
+                  class="media-link"
+                  type="button"
+                  onclick={() => onOpenMedia(event.media_id)}
+                >{event.native_title || event.title}</button>
+              </td>
+              <td>{mediaEventVerb(event)}</td>
+              <td>{event.occurred_at.slice(0, 10)}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {:else}
+      <p class="muted">No exact media sessions recorded for this day.</p>
+    {/if}
+    {#if mediaUpdates.length}
+      <h3 class="media-updates-heading">Dated provider updates</h3>
+      <MediaUpdateList updates={mediaUpdates} {onOpenMedia} />
+    {/if}
+  </section>
 
   <footer class="source-note">
     This view is a presentation of imported facts. It does not calculate a
@@ -348,6 +382,26 @@
     color: var(--text-muted);
     font-size: 0.65rem;
     font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .media-link {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+  .media-link:hover {
+    text-decoration: underline;
+  }
+  .media-updates-heading {
+    margin: 1.4rem 0 0.7rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
