@@ -493,6 +493,7 @@ func newIntegrationServerWithCache(t *testing.T, db *gorm.DB, responseCache *cac
 
 	return NewServer(Dependencies{
 		Config:                 config.Config{},
+		Now:                    func() time.Time { return time.Date(2099, time.December, 31, 12, 0, 0, 0, time.UTC) },
 		Logger:                 logger,
 		ActivityService:        activityService,
 		SleepService:           sleepService,

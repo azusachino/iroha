@@ -74,11 +74,13 @@ type Dependencies struct {
 	ReadyCheck             func(context.Context) error
 	MaxUploadBytes         int64
 	AllowedOrigins         []string
+	Now                    func() time.Time
 }
 
 type Server struct {
 	deps Dependencies
 	mux  chi.Router
+	now  func() time.Time
 }
 
 func NewServer(deps Dependencies) http.Handler {
@@ -95,6 +97,10 @@ func NewServer(deps Dependencies) http.Handler {
 	server := &Server{
 		deps: deps,
 		mux:  chi.NewRouter(),
+		now:  time.Now,
+	}
+	if deps.Now != nil {
+		server.now = deps.Now
 	}
 	if server.deps.BriefingRegistry == nil {
 		server.deps.BriefingRegistry, _ = briefing.NewRegistry()
@@ -123,6 +129,7 @@ func (s *Server) routes() {
 		// see the rate-limit budget comment above for why.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
 		r.Use(limitByIP(apiRateLimitPerMin))
+		r.Use(s.rejectFutureReadScope)
 		r.Use(s.readCache)
 		r.Get("/briefing", s.handleBriefing)
 		r.Get("/metrics", s.handleListMetrics)
