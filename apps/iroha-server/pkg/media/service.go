@@ -1092,6 +1092,7 @@ func (s *Service) Changes(filters ChangeListFilters) (ChangePage, error) {
 		Joins("JOIN tb_media_items AS item ON item.id = state.media_item_id")
 	if filters.MediaItemID != nil {
 		query = query.Where("state.media_item_id = ?", *filters.MediaItemID)
+		query = query.Where("(state.change_kind = 'provider_activity' OR state.time_basis IN ('source_date', 'source_fuzzy_date'))")
 	}
 	if filters.From != nil {
 		query = query.Where("state.observed_at >= ?", *filters.From)

@@ -252,6 +252,13 @@ func TestMediaDetailIncludesProviderUpdatesSeparately(t *testing.T) {
 	effectiveAt := time.Date(2026, 8, 15, 2, 6, 0, 0, time.UTC)
 	observedAt := effectiveAt.Add(2 * time.Minute)
 	if err := db.Exec(`insert into tb_media_state_history
+		(id, media_item_id, source_kind, source_event_id, observed_at, time_basis,
+		 change_kind, state_fingerprint, status, created_at)
+		values (?, ?, 'anilist', 'snapshot-1', ?, 'iroha_observed', 'snapshot', ?, 'in_progress', ?)`,
+		uuid.New(), item, observedAt, "detail-observation", observedAt).Error; err != nil {
+		t.Fatalf("seed observation snapshot: %v", err)
+	}
+	if err := db.Exec(`insert into tb_media_state_history
 		(id, media_item_id, source_kind, source_event_id, observed_at, effective_at,
 		 time_basis, change_kind, state_fingerprint, status, unit, position, note, created_at)
 		values (?, ?, 'anilist', 'activity-1', ?, ?, 'provider_activity',
