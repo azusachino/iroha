@@ -55,7 +55,7 @@
     <div class="readout"><strong>{streak}</strong><span>day streak</span></div>
   </header>
 
-  {#if loading}
+  {#if loading && !summary}
     <p class="status">Loading the canonical overview…</p>
   {:else if error}
     <p class="status error">{error}</p>

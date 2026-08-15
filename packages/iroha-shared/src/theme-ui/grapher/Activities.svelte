@@ -93,7 +93,7 @@
     </div>
   </div>
 
-  {#if loading}
+  {#if loading && activities.length === 0}
     <p class="muted">Loading activity data…</p>
   {:else if error}
     <p class="error">Could not load activity data: {error}</p>

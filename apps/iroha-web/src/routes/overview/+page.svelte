@@ -15,6 +15,7 @@
   } from "$lib/api";
   import ArchiveTotals from "$lib/components/ArchiveTotals.svelte";
   import DomainTile from "$lib/components/DomainTile.svelte";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import Heatmap from "$lib/components/Heatmap.svelte";
   import RouteFootprint from "$lib/components/RouteFootprint.svelte";
@@ -212,37 +213,44 @@
       : mediaAggregates.totals.item_count}
   />
   {#if hasThemeRoute(theme.definition(), "dashboard")}
-    <ThemeRouteRenderer
-      route="dashboard"
-      props={{
-        summary,
-        activities,
-        routes,
-        streak: streakValue,
-        loading: summaryLoading || activitiesLoading,
-        error: summaryError || activitiesError,
-        routesLoading,
-        routesError,
-        sleepSummary,
-        sleepLoading,
-        mediaAggregates,
-        mediaLoading,
-        onLoadRoutes: () => void loadRoutes(),
-        onRetry: () => void reloadDashboard(),
-        onOpenActivity: (id: string) => void goto(`/motion/${id}`),
-        onOpenSport: (sport: string) =>
-          void goto(`/motion?sport=${encodeURIComponent(sport)}`),
-      }}
+    <LoadingBoundary
+      loading={summaryLoading || activitiesLoading}
+      ready={!summaryLoading && !activitiesLoading}
+      preserveLayout
+      label="Loading overview…"
     >
-      {#snippet children()}
-        <RouteFootprint
-          {routes}
-          loading={routesLoading}
-          error={routesError}
-          onLoad={() => void loadRoutes()}
-        />
-      {/snippet}
-    </ThemeRouteRenderer>
+      <ThemeRouteRenderer
+        route="dashboard"
+        props={{
+          summary,
+          activities,
+          routes,
+          streak: streakValue,
+          loading: summaryLoading || activitiesLoading,
+          error: summaryError || activitiesError,
+          routesLoading,
+          routesError,
+          sleepSummary,
+          sleepLoading,
+          mediaAggregates,
+          mediaLoading,
+          onLoadRoutes: () => void loadRoutes(),
+          onRetry: () => void reloadDashboard(),
+          onOpenActivity: (id: string) => void goto(`/motion/${id}`),
+          onOpenSport: (sport: string) =>
+            void goto(`/motion?sport=${encodeURIComponent(sport)}`),
+        }}
+      >
+        {#snippet children()}
+          <RouteFootprint
+            {routes}
+            loading={routesLoading}
+            error={routesError}
+            onLoad={() => void loadRoutes()}
+          />
+        {/snippet}
+      </ThemeRouteRenderer>
+    </LoadingBoundary>
   {:else}
     <RouteIntro
       eyebrow="Observatory / long view"
