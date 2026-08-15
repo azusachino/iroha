@@ -398,7 +398,9 @@ textarea {
   flex: 1;
   width: 100%;
   min-width: 0;
-  max-width: 1240px;
+  /* Matches the default (grapher) theme's --shell-width, since this
+     rule only renders when a theme declares no Shell component. */
+  max-width: 1180px;
   margin: 0 auto;
   padding: 1.5rem 1.25rem;
 }
