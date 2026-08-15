@@ -54,6 +54,21 @@
     requestAnimationFrame(updatePopoverPosition);
   }
 
+  function isHoverPointer(event: PointerEvent): boolean {
+    return (
+      (event.pointerType === "mouse" || event.pointerType === "pen") &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches
+    );
+  }
+
+  function openOnPointer(event: PointerEvent) {
+    if (isHoverPointer(event)) menu.open = true;
+  }
+
+  function closeOnPointer(event: PointerEvent) {
+    if (isHoverPointer(event)) closeMenu();
+  }
+
   function closeAfterNavigation() {
     closeMenu();
   }
@@ -90,6 +105,8 @@
 <details
   bind:this={menu}
   ontoggle={handleToggle}
+  onpointerenter={openOnPointer}
+  onpointerleave={closeOnPointer}
   class:active={groupActive}
   class="navigation-menu"
 >

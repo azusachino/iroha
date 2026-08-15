@@ -22,6 +22,11 @@
     loadingMore,
   }: MediaThemeProps = $props();
 
+  let selectedYear = $state("");
+  $effect(() => {
+    selectedYear = completedYear;
+  });
+
   const families = [
     { value: "", label: "All" },
     { value: "anime", label: "Anime" },
@@ -68,13 +73,12 @@
       ></label
     ><label
       >Completed year<select
-        value={completedYear}
+        bind:value={selectedYear}
         onchange={(event) =>
           onYear((event.currentTarget as HTMLSelectElement).value)}
-        ><option value="" selected={completedYear === ""}>Lifetime</option
+        ><option value="">Lifetime</option
         >{#each yearOptions as option (option.year)}<option
-            value={option.year} selected={completedYear === String(option.year)}
-            >{option.year}</option
+            value={option.year}>{option.year}</option
           >{/each}</select
       ></label
     >

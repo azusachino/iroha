@@ -27,6 +27,7 @@
   let family = $state("");
   let status = $state("");
   let completedYear = $state("");
+  let selectedYear = $state("");
   let statusCounts = $state<Record<string, number>>({});
   let activeCount = $state(0);
   let availableYears = $state<MediaCompletionBucket[]>([]);
@@ -98,6 +99,10 @@
   const yearOptions = $derived(
     [...availableYears].sort((a, b) => b.year - a.year),
   );
+
+  $effect(() => {
+    selectedYear = completedYear;
+  });
 
   onMount(() => {
     void load();
@@ -299,17 +304,13 @@
       <label>
         <span>Completed year</span>
         <select
-          value={completedYear}
+          bind:value={selectedYear}
           onchange={(event) =>
             selectYear((event.currentTarget as HTMLSelectElement).value)}
         >
-          <option value="" selected={completedYear === ""}>Lifetime</option>
+          <option value="">Lifetime</option>
           {#each yearOptions as option (option.year)}
-            <option
-              value={option.year}
-              selected={completedYear === String(option.year)}
-              >{option.year}</option
-            >
+            <option value={option.year}>{option.year}</option>
           {/each}
         </select>
       </label>
