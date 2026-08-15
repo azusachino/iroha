@@ -28,6 +28,7 @@
   let status = $state("");
   let completedYear = $state("");
   let selectedYear = $state("");
+  let yearSelect = $state<HTMLSelectElement>();
   let statusCounts = $state<Record<string, number>>({});
   let activeCount = $state(0);
   let availableYears = $state<MediaCompletionBucket[]>([]);
@@ -102,6 +103,9 @@
 
   $effect(() => {
     selectedYear = completedYear;
+    if (yearSelect && yearSelect.value !== completedYear) {
+      yearSelect.value = completedYear;
+    }
   });
 
   onMount(() => {
@@ -304,6 +308,7 @@
       <label>
         <span>Completed year</span>
         <select
+          bind:this={yearSelect}
           bind:value={selectedYear}
           onchange={(event) =>
             selectYear((event.currentTarget as HTMLSelectElement).value)}

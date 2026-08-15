@@ -23,8 +23,12 @@
   }: MediaThemeProps = $props();
 
   let selectedYear = $state("");
+  let yearSelect = $state<HTMLSelectElement>();
   $effect(() => {
     selectedYear = completedYear;
+    if (yearSelect && yearSelect.value !== completedYear) {
+      yearSelect.value = completedYear;
+    }
   });
 
   const families = [
@@ -80,6 +84,7 @@
     <label>
       <span>Completed year</span>
       <select
+        bind:this={yearSelect}
         bind:value={selectedYear}
         onchange={(event) =>
           onYear((event.currentTarget as HTMLSelectElement).value)}
