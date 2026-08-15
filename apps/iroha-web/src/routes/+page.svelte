@@ -1,24 +1,7 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { replaceState } from "$app/navigation";
-  import { page } from "$app/state";
   import { Check, ListTodo } from "@lucide/svelte";
-  import {
-    getBriefing,
-    getDailyDates,
-    listTasks,
-    updateTask,
-    type DailyRow,
-    type SleepSession,
-    type Activity,
-    type MediaDaySection,
-    type BriefingResponse,
-    type Task,
-  } from "$lib/api";
-  import RingGauge, {
-    type Ring,
-  } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
+  import RingGauge from "@iroha/shared/theme-ui/components/RingGauge.svelte";
   import SportBadge from "@iroha/shared/SportBadge.svelte";
   import DayPicker from "$lib/components/DayPicker.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -29,325 +12,65 @@
     formatDuration,
     formatPace,
     formatHr,
-    formatDateOnly,
     mediaEventVerb,
   } from "$lib/format";
   import EmptyState from "@iroha/shared/theme-ui/components/EmptyState.svelte";
-  import { todayInTimezone } from "@iroha/shared/date";
-  import { IROHA_TIMEZONE } from "$lib/config";
   import TodaySkeleton from "$lib/components/TodaySkeleton.svelte";
   import MediaUpdateList from "@iroha/shared/theme-ui/components/MediaUpdateList.svelte";
+  import { createTodayState } from "./today-state.svelte";
 
-  let briefing = $state<BriefingResponse | null>(null);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
-  let toGoTasks = $state<Task[]>([]);
-  let taskError = $state<string | null>(null);
-  let briefingRequestVersion = 0;
-  let taskRequestVersion = 0;
-
-  const today = todayInTimezone(new Date(), IROHA_TIMEZONE);
-  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-  // The selected day — the spine everything on this page snapshots to.
-  // Seeded from ?date= so a refresh or shared link lands back on the same
-  // day instead of resetting to today; a future or malformed date falls
-  // back to today rather than showing an empty briefing.
-  function dayFromUrl(): string {
-    const requested = page.url.searchParams.get("date");
-    if (requested && DATE_RE.test(requested) && requested <= today) {
-      return requested;
-    }
-    return today;
-  }
-
-  let day = $state<string>(dayFromUrl());
-  let pickerOpen = $state(false);
   const theme = useTheme();
-  let availableDays = $state<Set<string>>(new Set());
-
-  type BriefingList<T> = { items: T[]; has_more: boolean };
-  function sectionData<T>(key: string): BriefingList<T> {
-    const section = briefing?.sections.find((item) => item.key === key);
-    return (
-      (section?.data as BriefingList<T> | undefined) ?? {
-        items: [],
-        has_more: false,
-      }
-    );
-  }
-
-  function mediaSection(): MediaDaySection {
-    const section = briefing?.sections.find((item) => item.key === "media");
-    const data = section?.data as Partial<MediaDaySection> | undefined;
-    return {
-      sessions: data?.sessions ?? {
-        state: "empty",
-        items: [],
-        count: 0,
-        has_more: false,
-      },
-      dated_updates: data?.dated_updates ?? {
-        state: "empty",
-        items: [],
-        count: 0,
-        has_more: false,
-      },
-      coverage: data?.coverage ?? {
-        timezone: IROHA_TIMEZONE,
-        date: briefing?.date ?? day,
-      },
-    };
-  }
-
-  const daily = $derived(sectionData<DailyRow>("daily"));
-  const sleep = $derived(sectionData<SleepSession>("sleep"));
-  const activities = $derived(sectionData<Activity>("activities"));
-  const media = $derived(mediaSection());
-  const dRow = $derived(daily.items[0]);
-  const nights = $derived(sleep.items);
-  const mainNight = $derived(nights.find((n) => n.is_main_sleep) ?? nights[0]);
-  const acts = $derived(activities.items);
-  const mediaEvents = $derived(media.sessions.items);
-  const mediaUpdates = $derived(media.dated_updates.items);
-  const dailyRing = $derived(dRow?.ring);
-  const hasRing = $derived(!!dailyRing && dailyRing.move_goal_kcal > 0);
-  const ringData = $derived<Ring[]>(
-    hasRing && dailyRing
-      ? [
-          {
-            label: "Move",
-            value: dailyRing.move_kcal,
-            goal: dailyRing.move_goal_kcal,
-            unit: "kcal",
-            color: "var(--ring-move)",
-          },
-          {
-            label: "Exercise",
-            value: dailyRing.exercise_min,
-            goal: dailyRing.exercise_goal_min,
-            unit: "min",
-            color: "var(--ring-exercise)",
-          },
-          {
-            label: "Stand",
-            value: dailyRing.stand_hours,
-            goal: dailyRing.stand_goal_hours,
-            unit: "h",
-            color: "var(--ring-stand)",
-          },
-        ]
-      : [],
-  );
-
-  const vitals = $derived(
-    dRow
-      ? [
-          { l: "Resting HR", v: dRow.resting_hr, u: "bpm", d: 0 },
-          { l: "HRV", v: dRow.hrv_sdnn, u: "ms", d: 0 },
-          { l: "SpO₂", v: dRow.spo2_avg, u: "%", d: 1 },
-          { l: "Respiratory", v: dRow.respiratory_rate, u: "/min", d: 1 },
-          { l: "VO₂max", v: dRow.vo2max, u: "", d: 1 },
-          { l: "Body mass", v: dRow.body_mass_kg, u: "kg", d: 1 },
-        ].filter((m) => typeof m.v === "number")
-      : [],
-  );
-
-  const dayLabel = $derived(formatDateOnly(day));
-  // During a date change, keep the last committed snapshot mounted. Its
-  // canonical date keeps the old values from being presented as the new day
-  // while the next request is in flight.
-  const dataDay = $derived(briefing?.date ?? day);
-  const dataDayLabel = $derived(formatDateOnly(dataDay));
-  const dayHasData = $derived(
-    briefing?.sections.some((section) => {
-      if (section.state !== "ready") return false;
-      const data = section.data as {
-        items?: unknown[];
-        sessions?: { items?: unknown[] };
-        dated_updates?: { items?: unknown[] };
-      };
-      return section.key === "media"
-        ? Boolean(
-            data.sessions?.items?.length || data.dated_updates?.items?.length,
-          )
-        : Boolean(data.items?.length);
-    }) ?? false,
-  );
-  const daysSet = $derived(
-    availableDays.size > 0 ? availableDays : new Set([day]),
-  );
-  const canMoveNext = $derived(day < today);
-  const daySignal = $derived(
-    mainNight
-      ? {
-          value: `${Math.round(mainNight.efficiency * 100)}%`,
-          label: "sleep efficiency",
-        }
-      : dailyRing && dailyRing.move_goal_kcal > 0
-        ? {
-            value: `${Math.round((dailyRing.move_kcal / dailyRing.move_goal_kcal) * 100)}%`,
-            label: "move goal",
-          }
-        : { value: "—", label: "no baseline" },
-  );
-
-  function shift(delta: number) {
-    if (delta > 0 && day >= today) return;
-    // All in UTC: parsing local midnight then emitting toISOString (UTC)
-    // silently dropped a day in +hh zones — hence "left = two days back".
-    const d = new Date(day + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() + delta);
-    const next = d.toISOString().slice(0, 10);
-    if (next <= today && next !== day) day = next;
-  }
-  // Arrow keys scrub days (ignored while typing in a field); Escape closes the picker.
-  function onKey(e: KeyboardEvent) {
-    const t = e.target as HTMLElement | null;
-    if (
-      t &&
-      (t.tagName === "INPUT" ||
-        t.tagName === "TEXTAREA" ||
-        t.tagName === "SELECT" ||
-        t.isContentEditable)
-    )
-      return;
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      e.preventDefault();
-      shift(e.key === "ArrowLeft" ? -1 : 1);
-    } else if (e.key === "Escape") pickerOpen = false;
-  }
-  function num(v: number | null | undefined, digits: number): string {
-    if (typeof v !== "number" || !Number.isFinite(v)) return "—";
-    return v.toLocaleString(undefined, {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    });
-  }
-
-  async function loadBriefing(selectedDay: string) {
-    const requestVersion = ++briefingRequestVersion;
-    loading = true;
-    error = null;
-    try {
-      const next = await getBriefing(selectedDay);
-      if (requestVersion === briefingRequestVersion) briefing = next;
-    } catch (e) {
-      if (requestVersion === briefingRequestVersion) {
-        error = e instanceof Error ? e.message : String(e);
-      }
-    } finally {
-      if (requestVersion === briefingRequestVersion) loading = false;
-    }
-  }
-
-  async function loadAvailableDays() {
-    try {
-      availableDays = new Set(await getDailyDates());
-    } catch {
-      // The briefing remains useful even when the calendar index is unavailable.
-    }
-  }
-
-  $effect(() => {
-    void loadBriefing(day);
-    void loadTasks(day);
-  });
-
-  // Keep ?date= in sync with the selected day -- replaceState rather than
-  // goto so scrubbing days doesn't spam browser history, just the current
-  // entry. Omitted entirely for today so the common-case URL stays plain "/".
-  $effect(() => {
-    const url = new URL(window.location.href);
-    if (day === today) {
-      url.searchParams.delete("date");
-    } else {
-      url.searchParams.set("date", day);
-    }
-    if (url.search !== window.location.search) {
-      replaceState(url, page.state);
-    }
-  });
-
-  onMount(() => {
-    void loadAvailableDays();
-  });
-
-  async function loadTasks(selectedDay: string) {
-    const requestVersion = ++taskRequestVersion;
-    taskError = null;
-    try {
-      const next = await listTasks({
-        status: "open",
-        due: selectedDay,
-        limit: 5,
-      });
-      if (requestVersion === taskRequestVersion) toGoTasks = next;
-    } catch (cause) {
-      if (requestVersion === taskRequestVersion) {
-        taskError = cause instanceof Error ? cause.message : String(cause);
-      }
-    }
-  }
-
-  async function finishTask(task: Task) {
-    try {
-      await updateTask(task.id, "completed");
-      toGoTasks = toGoTasks.filter((item) => item.id !== task.id);
-    } catch (cause) {
-      taskError = cause instanceof Error ? cause.message : String(cause);
-    }
-  }
+  const t = createTodayState();
 </script>
 
 <svelte:head>
   <title>Today · iroha</title>
 </svelte:head>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={t.onKey} />
 
 <section class="cockpit">
   <div class="scrubber tile glow">
-    <button class="nav" aria-label="Previous day" onclick={() => shift(-1)}
+    <button class="nav" aria-label="Previous day" onclick={() => t.shift(-1)}
       >‹</button
     >
     <button
       class="scrub-center"
       aria-haspopup="dialog"
-      aria-expanded={pickerOpen}
-      onclick={() => (pickerOpen = !pickerOpen)}
+      aria-expanded={t.pickerOpen}
+      onclick={() => (t.pickerOpen = !t.pickerOpen)}
     >
-      <span class="day-main">{dayLabel}</span>
+      <span class="day-main">{t.dayLabel}</span>
       <span class="day-hint">pick a day · ← → to move</span>
     </button>
     <button
       class="nav"
       aria-label="Next day"
-      disabled={!canMoveNext}
-      onclick={() => shift(1)}>›</button
+      disabled={!t.canMoveNext}
+      onclick={() => t.shift(1)}>›</button
     >
-    {#if pickerOpen}
+    {#if t.pickerOpen}
       <button
         class="pk-backdrop"
         aria-label="Close picker"
-        onclick={() => (pickerOpen = false)}
+        onclick={() => (t.pickerOpen = false)}
       ></button>
       <div class="pk-pop tile" role="dialog" aria-label="Pick a day">
         <DayPicker
-          value={day}
-          days={daysSet}
-          max={today}
+          value={t.day}
+          days={t.daysSet}
+          max={t.today}
           onselect={(d) => {
-            day = d;
-            pickerOpen = false;
+            t.day = d;
+            t.pickerOpen = false;
           }}
         />
         <button
           class="today-link"
           type="button"
           onclick={() => {
-            day = today;
-            pickerOpen = false;
+            t.day = t.today;
+            t.pickerOpen = false;
           }}
         >
           Return to today
@@ -355,7 +78,7 @@
       </div>
     {/if}
 
-    {#if !taskError}
+    {#if !t.taskError}
       <section class="to-go-strip tile" aria-labelledby="to-go-title">
         <div class="to-go-heading">
           <span class="to-go-icon" aria-hidden="true"
@@ -364,20 +87,20 @@
           <div>
             <p class="eyebrow">Daily to-go</p>
             <h2 id="to-go-title">
-              {toGoTasks.length
-                ? `${toGoTasks.length} things to carry`
+              {t.toGoTasks.length
+                ? `${t.toGoTasks.length} things to carry`
                 : "A clear next step"}
             </h2>
           </div>
         </div>
         <div class="to-go-items">
-          {#if toGoTasks.length}
-            {#each toGoTasks as task (task.id)}
+          {#if t.toGoTasks.length}
+            {#each t.toGoTasks as task (task.id)}
               <div class="to-go-task">
                 <button
                   type="button"
                   aria-label={`Complete ${task.title}`}
-                  onclick={() => finishTask(task)}><Check size={14} /></button
+                  onclick={() => t.finishTask(task)}><Check size={14} /></button
                 >
                 <span>{task.title}</span>
               </div>
@@ -391,42 +114,42 @@
     {/if}
   </div>
 
-  {#if !briefing && loading}
-    <TodaySkeleton label={`Loading ${dayLabel}…`} />
-  {:else if !briefing && error}
-    <p class="error status" role="alert">Could not load data: {error}</p>
-  {:else if briefing}
-    <div class="briefing-surface" aria-busy={loading}>
-      {#if loading}
+  {#if !t.briefing && t.loading}
+    <TodaySkeleton label={`Loading ${t.dayLabel}…`} />
+  {:else if !t.briefing && t.error}
+    <p class="error status" role="alert">Could not load data: {t.error}</p>
+  {:else if t.briefing}
+    <div class="briefing-surface" aria-busy={t.loading}>
+      {#if t.loading}
         <p class="briefing-update" role="status" aria-live="polite">
-          Updating {dayLabel}…
+          Updating {t.dayLabel}…
         </p>
       {/if}
-      {#if error}
+      {#if t.error}
         <p class="error update-error" role="alert">
-          Could not update {dayLabel}; showing {dataDayLabel}.
+          Could not update {t.dayLabel}; showing {t.dataDayLabel}.
         </p>
       {/if}
       <div class="briefing-content">
-        {#if !dayHasData}
+        {#if !t.dayHasData}
           <EmptyState
             eyebrow="Quiet day"
-            title={`No records for ${dataDayLabel}.`}
+            title={`No records for ${t.dataDayLabel}.`}
             description="The canonical cockpit has no imported movement, recovery, health, media, or task records for this date."
-            actionHref={dataDay !== today ? "/" : undefined}
+            actionHref={t.dataDay !== t.today ? "/" : undefined}
             actionLabel="Return to today"
           />
         {:else if hasThemeRoute(theme.definition(), "today")}
           <ThemeRouteRenderer
             route="today"
             props={{
-              dayLabel: dataDayLabel,
-              day: dataDay,
-              dRow,
-              mainNight,
-              acts,
-              mediaEvents,
-              mediaUpdates,
+              dayLabel: t.dataDayLabel,
+              day: t.dataDay,
+              dRow: t.dRow,
+              mainNight: t.mainNight,
+              acts: t.acts,
+              mediaEvents: t.mediaEvents,
+              mediaUpdates: t.mediaUpdates,
               onOpenActivity: (id: string) => void goto(`/motion/${id}`),
               onOpenMedia: (id: string) => void goto(`/library/${id}`),
             }}
@@ -434,14 +157,14 @@
         {:else}
           <header class="command-heading tile hero-surface">
             <div>
-              <p class="eyebrow">Private command center / {dataDayLabel}</p>
+              <p class="eyebrow">Private command center / {t.dataDayLabel}</p>
               <h1>Today, in one view.</h1>
               <p class="heading-copy">
                 A calm operating view of movement, recovery, and the things you
                 touched today.
               </p>
               <p class="data-note">
-                Imported snapshot · {dataDay === today
+                Imported snapshot · {t.dataDay === t.today
                   ? "latest available day"
                   : "historical day"}
               </p>
@@ -450,8 +173,8 @@
               <div class="orbit orbit-one"></div>
               <div class="orbit orbit-two"></div>
               <div class="orbit-core">
-                <strong>{daySignal.value}</strong>
-                <span>{daySignal.label}</span>
+                <strong>{t.daySignal.value}</strong>
+                <span>{t.daySignal.label}</span>
               </div>
               <i class="orbit-star star-one"></i>
               <i class="orbit-star star-two"></i>
@@ -460,14 +183,15 @@
           <div class="home-kpis" aria-label="Today summary">
             <div class="home-kpi tile">
               <span>Move</span>
-              <strong>{num(dailyRing?.move_kcal, 0)}<small> kcal</small></strong
+              <strong
+                >{t.num(t.dailyRing?.move_kcal, 0)}<small> kcal</small></strong
               >
               <i
                 style={"--fill:" +
                   Math.min(
                     100,
-                    ((dailyRing?.move_kcal ?? 0) /
-                      (dailyRing?.move_goal_kcal || 1)) *
+                    ((t.dailyRing?.move_kcal ?? 0) /
+                      (t.dailyRing?.move_goal_kcal || 1)) *
                       100,
                   ) +
                   "%"}
@@ -476,14 +200,16 @@
             <div class="home-kpi tile">
               <span>Exercise</span>
               <strong
-                >{num(dailyRing?.exercise_min, 0)}<small> min</small></strong
+                >{t.num(t.dailyRing?.exercise_min, 0)}<small>
+                  min</small
+                ></strong
               >
               <i
                 style={"--fill:" +
                   Math.min(
                     100,
-                    ((dailyRing?.exercise_min ?? 0) /
-                      (dailyRing?.exercise_goal_min || 1)) *
+                    ((t.dailyRing?.exercise_min ?? 0) /
+                      (t.dailyRing?.exercise_goal_min || 1)) *
                       100,
                   ) +
                   "%"}
@@ -491,16 +217,16 @@
             </div>
             <div class="home-kpi tile">
               <span>Steps</span>
-              <strong>{num(dRow?.steps, 0)}</strong>
+              <strong>{t.num(t.dRow?.steps, 0)}</strong>
               <small class="kpi-note"
-                >{num(dRow?.distance_km, 1)} km walked</small
+                >{t.num(t.dRow?.distance_km, 1)} km walked</small
               >
             </div>
             <div class="home-kpi tile">
               <span>Recovery</span>
               <strong
-                >{mainNight
-                  ? Math.round(mainNight.efficiency * 100) + "%"
+                >{t.mainNight
+                  ? Math.round(t.mainNight.efficiency * 100) + "%"
                   : "—"}</strong
               >
               <small class="kpi-note">sleep efficiency</small>
@@ -510,12 +236,12 @@
             <!-- Rings -->
             <a class="card tile feature-card" href="/patterns">
               <header><span class="ic">◎</span> Activity rings</header>
-              {#if hasRing}
-                <RingGauge rings={ringData} size={116} />
+              {#if t.hasRing}
+                <RingGauge rings={t.ringData} size={116} />
                 <div class="mini-stats">
-                  <span>{num(dRow?.steps, 0)} steps</span>
-                  <span>{num(dRow?.distance_km, 1)} km</span>
-                  <span>{num(dRow?.flights, 0)} flights</span>
+                  <span>{t.num(t.dRow?.steps, 0)} steps</span>
+                  <span>{t.num(t.dRow?.distance_km, 1)} km</span>
+                  <span>{t.num(t.dRow?.flights, 0)} flights</span>
                 </div>
               {:else}
                 <p class="empty">No rings this day</p>
@@ -525,12 +251,12 @@
             <!-- Vitals -->
             <a class="card tile vitals-card" href="/patterns">
               <header><span class="ic">♥</span> Body vitals</header>
-              {#if vitals.length}
+              {#if t.vitals.length}
                 <dl class="vitals">
-                  {#each vitals as m}
+                  {#each t.vitals as m}
                     <div>
                       <dt>{m.l}</dt>
-                      <dd>{num(m.v, m.d)}<span class="u">{m.u}</span></dd>
+                      <dd>{t.num(m.v, m.d)}<span class="u">{m.u}</span></dd>
                     </div>
                   {/each}
                 </dl>
@@ -542,16 +268,18 @@
             <!-- Sleep -->
             <a class="card tile sleep-card" href="/night">
               <header><span class="ic">☾</span> Sleep</header>
-              {#if mainNight}
+              {#if t.mainNight}
                 <div class="sleep-hero">
-                  {formatDuration(mainNight.asleep_s)}
+                  {formatDuration(t.mainNight.asleep_s)}
                 </div>
                 <div class="mini-stats">
                   <span
-                    >{Math.round(mainNight.efficiency * 100)}% efficiency</span
+                    >{Math.round(t.mainNight.efficiency * 100)}% efficiency</span
                   >
-                  <span>{formatDuration(mainNight.time_in_bed_s)} in bed</span>
-                  <span>{mainNight.is_main_sleep ? "Main sleep" : "Nap"}</span>
+                  <span>{formatDuration(t.mainNight.time_in_bed_s)} in bed</span
+                  >
+                  <span>{t.mainNight.is_main_sleep ? "Main sleep" : "Nap"}</span
+                  >
                 </div>
               {:else}
                 <p class="empty">No sleep recorded</p>
@@ -564,9 +292,9 @@
                 <span class="ic">⚡</span>
                 <a class="hdr-link" href="/motion">Motion</a>
               </header>
-              {#if acts.length}
+              {#if t.acts.length}
                 <ul class="acts">
-                  {#each acts as a}
+                  {#each t.acts as a}
                     <li>
                       <a class="act-row" href={`/motion/${a.id}`}>
                         <SportBadge sport={a.sport_type} />
@@ -596,9 +324,9 @@
                 <span class="ic">▤</span>
                 <a class="hdr-link" href="/library">Library</a>
               </header>
-              {#if mediaEvents.length}
+              {#if t.mediaEvents.length}
                 <ul class="media-events">
-                  {#each mediaEvents as event (event.id)}
+                  {#each t.mediaEvents as event (event.id)}
                     <li>
                       <a
                         class="media-event-row"
@@ -633,7 +361,7 @@
                 <p class="empty">No exact media sessions this day</p>
               {/if}
             </div>
-            {#if mediaUpdates.length}
+            {#if t.mediaUpdates.length}
               <div class="card tile wide media-card media-updates-card">
                 <header>
                   <span class="ic">↻</span>
@@ -641,10 +369,10 @@
                     <span class="hdr-link">Library updates</span>
                     <small>dated provider facts</small>
                   </div>
-                  <span>{mediaUpdates.length} updates</span>
+                  <span>{t.mediaUpdates.length} updates</span>
                 </header>
                 <MediaUpdateList
-                  updates={mediaUpdates}
+                  updates={t.mediaUpdates}
                   onOpenMedia={(id) => void goto(`/library/${id}`)}
                 />
               </div>
