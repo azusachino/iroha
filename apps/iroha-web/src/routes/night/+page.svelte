@@ -1,422 +1,21 @@
 <script lang="ts">
-  import { goto, replaceState } from "$app/navigation";
-  import { page } from "$app/state";
-  import { onMount } from "svelte";
-  import {
-    getSleepSegments,
-    listSleep,
-    listSleepAggregates,
-    type SleepAggregateBucket,
-    type SleepSegment,
-    type SleepSession,
-  } from "$lib/api";
+  import { goto } from "$app/navigation";
+  import type { SleepSession } from "$lib/api";
   import StatTile from "@iroha/shared/StatTile.svelte";
   import SleepScopeSummary from "@iroha/shared/theme-ui/components/SleepScopeSummary.svelte";
   import SleepArchitectureChart from "@iroha/shared/theme-ui/components/SleepArchitectureChart.svelte";
-  import SleepTimelineChart from "@iroha/shared/theme-ui/components/SleepTimelineChart.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import {
-    formatDate,
-    formatDateOnly,
-    formatDuration,
-    formatMonth,
-  } from "$lib/format";
-  import { currentYear } from "@iroha/shared/month";
+  import { formatDateOnly, formatDuration } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+  import { createNightState } from "./night-state.svelte";
 
-  const PAGE_SIZE = 31;
-  const initialMonthParam = page.url.searchParams.get("month") ?? "";
-  const initialMonth = /^\d{4}-\d{2}$/.test(initialMonthParam)
-    ? initialMonthParam
-    : "";
-  const initialYearParam = page.url.searchParams.get("year") ?? "";
-  const initialYear = /^\d{4}$/.test(initialYearParam)
-    ? initialYearParam
-    : initialMonth.slice(0, 4) || currentYear();
-  let sessions = $state<SleepSession[]>([]);
-  let selected = $state<SleepSession | null>(null);
-  let segments = $state<SleepSegment[]>([]);
-  let sessionsLoading = $state(true);
-  let loadingMore = $state(false);
-  let cursor = $state<string | null>(null);
-  let hasMore = $state(false);
-  let loadMoreSentinel = $state<HTMLDivElement>();
-  let nightListContainer = $state<HTMLDivElement>();
-  let segmentCache = $state<Record<string, SleepSegment[]>>({});
-  let selectionRequest = 0;
-  let segmentsLoading = $state(false);
-  let error = $state<string | null>(null);
-  let yearBuckets = $state<SleepAggregateBucket[]>([]);
-  let monthBuckets = $state<SleepAggregateBucket[]>([]);
-  let aggregatesLoading = $state(true);
-  let aggregatesError = $state<string | null>(null);
-  let selectedYear = $state(initialYear);
-  let selectedMonth = $state(initialMonth);
-  let selectedStage = $state("Core");
-  let hoveredStage = $state<string | null>(null);
   const theme = useTheme();
-
-  const loadedMainSleep = $derived(
-    sessions.filter((session) => session.is_main_sleep),
-  );
-  const loadedAverageAsleep = $derived(
-    loadedMainSleep.length
-      ? loadedMainSleep.reduce(
-          (total, session) => total + session.asleep_s,
-          0,
-        ) / loadedMainSleep.length
-      : 0,
-  );
-  const loadedAverageEfficiency = $derived(
-    loadedMainSleep.length
-      ? loadedMainSleep.reduce(
-          (total, session) => total + session.efficiency,
-          0,
-        ) / loadedMainSleep.length
-      : 0,
-  );
-  const monthlyBuckets = $derived(monthBuckets.slice().reverse());
-  const yearlyBuckets = $derived(yearBuckets.slice().reverse());
-  const availableYears = $derived(
-    yearBuckets.map((bucket) => bucket.period.slice(0, 4)).reverse(),
-  );
-  const availableMonths = $derived(
-    monthBuckets
-      .filter(
-        (bucket) =>
-          selectedYear === "" || bucket.period.slice(0, 4) === selectedYear,
-      )
-      .map((bucket) => bucket.period.slice(0, 7))
-      .reverse(),
-  );
-  const periodYears = $derived(
-    availableYears.map((year) => ({ value: year, label: year })),
-  );
-  const periodMonths = $derived(
-    availableMonths.map((month) => ({
-      value: month,
-      label: formatPeriod(`${month}-01T00:00:00Z`, "month"),
-    })),
-  );
-  const visibleYears = $derived(
-    selectedYear === ""
-      ? yearlyBuckets
-      : yearlyBuckets.filter(
-          (bucket) => bucket.period.slice(0, 4) === selectedYear,
-        ),
-  );
-  const visibleMonths = $derived(
-    monthlyBuckets.filter((bucket) => {
-      const period = bucket.period.slice(0, 7);
-      return (
-        (selectedYear === "" || period.slice(0, 4) === selectedYear) &&
-        (selectedMonth === "" || period === selectedMonth)
-      );
-    }),
-  );
-  const focusedBucket = $derived(
-    selectedMonth !== ""
-      ? monthBuckets.find(
-          (bucket) => bucket.period.slice(0, 7) === selectedMonth,
-        )
-      : selectedYear !== ""
-        ? yearBuckets.find(
-            (bucket) => bucket.period.slice(0, 4) === selectedYear,
-          )
-        : null,
-  );
-  const isPeriodFiltered = $derived(selectedYear !== "");
-  function combineBuckets(
-    buckets: SleepAggregateBucket[],
-    period: string,
-  ): SleepAggregateBucket | null {
-    if (buckets.length === 0) return null;
-    const mainSleepCount = buckets.reduce(
-      (total, bucket) => total + bucket.main_sleep_count,
-      0,
-    );
-    const weightedAverage = (
-      field: "average_asleep_s" | "average_efficiency",
-    ) =>
-      mainSleepCount === 0
-        ? 0
-        : buckets.reduce(
-            (total, bucket) => total + bucket[field] * bucket.main_sleep_count,
-            0,
-          ) / mainSleepCount;
-    return {
-      period,
-      session_count: buckets.reduce(
-        (total, bucket) => total + bucket.session_count,
-        0,
-      ),
-      main_sleep_count: mainSleepCount,
-      nap_count: buckets.reduce((total, bucket) => total + bucket.nap_count, 0),
-      observed_wake_dates: buckets.reduce(
-        (total, bucket) => total + (bucket.observed_wake_dates ?? 0),
-        0,
-      ),
-      average_asleep_s: weightedAverage("average_asleep_s"),
-      average_time_in_bed_s:
-        mainSleepCount === 0
-          ? 0
-          : buckets.reduce(
-              (total, bucket) =>
-                total + bucket.average_time_in_bed_s * bucket.main_sleep_count,
-              0,
-            ) / mainSleepCount,
-      average_efficiency: weightedAverage("average_efficiency"),
-      core_s: buckets.reduce((total, bucket) => total + bucket.core_s, 0),
-      deep_s: buckets.reduce((total, bucket) => total + bucket.deep_s, 0),
-      rem_s: buckets.reduce((total, bucket) => total + bucket.rem_s, 0),
-      awake_s: buckets.reduce((total, bucket) => total + bucket.awake_s, 0),
-      unspecified_s: buckets.reduce(
-        (total, bucket) => total + bucket.unspecified_s,
-        0,
-      ),
-    };
-  }
-  const sleepSummary = $derived.by<SleepAggregateBucket | null>(() => {
-    if (selectedMonth !== "") {
-      return (
-        monthBuckets.find(
-          (bucket) => bucket.period.slice(0, 7) === selectedMonth,
-        ) ?? null
-      );
-    }
-    if (selectedYear !== "") {
-      return (
-        yearBuckets.find(
-          (bucket) => bucket.period.slice(0, 4) === selectedYear,
-        ) ?? null
-      );
-    }
-    return combineBuckets(yearBuckets, "lifetime");
-  });
-  const sleepScope = $derived(selectedMonth || selectedYear || "Lifetime");
-  const rollupGranularity = $derived<"month" | "year">(
-    selectedYear === "" ? "year" : "month",
-  );
-  const rollupBuckets = $derived.by(() => {
-    if (selectedMonth !== "") return [];
-    if (selectedYear !== "") {
-      return monthBuckets.filter(
-        (bucket) => bucket.period.slice(0, 4) === selectedYear,
-      );
-    }
-    return yearBuckets;
-  });
-  const averageAsleep = $derived(
-    sleepSummary?.average_asleep_s ?? loadedAverageAsleep,
-  );
-  const averageEfficiency = $derived(
-    sleepSummary?.average_efficiency ?? loadedAverageEfficiency,
-  );
-  const heroEyebrow = $derived(
-    isPeriodFiltered
-      ? `Selected night · ${selectedMonth !== "" ? formatPeriod(`${selectedMonth}-01T00:00:00Z`, "month") : selectedYear}`
-      : `Last night · ${selected ? formatDateOnly(selected.wake_date) : ""}`,
-  );
-  const nightsHeading = $derived(
-    selectedMonth !== ""
-      ? "Sessions in selected month"
-      : "Recent session detail",
-  );
-  const monthMaxAsleep = $derived(
-    Math.max(1, ...monthBuckets.map((bucket) => bucket.average_asleep_s)),
-  );
-  const yearMaxSessions = $derived(
-    Math.max(1, ...yearBuckets.map((bucket) => bucket.session_count)),
-  );
-  const architectureStages = $derived([
-    { name: "Core", value: selected?.core_s ?? 0, color: "var(--accent)" },
-    { name: "Deep", value: selected?.deep_s ?? 0, color: "var(--accent-2)" },
-    { name: "REM", value: selected?.rem_s ?? 0, color: "var(--ring-move)" },
-    {
-      name: "Awake",
-      value: selected?.awake_s ?? 0,
-      color: "var(--ring-exercise)",
-    },
-    ...(selected?.unspecified_s
-      ? [
-          {
-            name: "Unspecified",
-            value: selected.unspecified_s,
-            color: "var(--text-muted)",
-          },
-        ]
-      : []),
-  ]);
-  const activeStage = $derived(hoveredStage ?? selectedStage);
-  const activeStageSeconds = $derived(
-    activeStage === "Core"
-      ? (selected?.core_s ?? 0)
-      : activeStage === "Deep"
-        ? (selected?.deep_s ?? 0)
-        : activeStage === "REM"
-          ? (selected?.rem_s ?? 0)
-          : activeStage === "Awake"
-            ? (selected?.awake_s ?? 0)
-            : (selected?.unspecified_s ?? 0),
-  );
-
-  function errorMessage(value: unknown): string {
-    return value instanceof Error ? value.message : String(value);
-  }
-
-  function syncPeriodUrl() {
-    const url = new URL(window.location.href);
-    if (selectedYear) url.searchParams.set("year", selectedYear);
-    else url.searchParams.delete("year");
-    if (selectedMonth) url.searchParams.set("month", selectedMonth);
-    else url.searchParams.delete("month");
-    if (url.href !== window.location.href) replaceState(url, page.state);
-  }
-
-  async function selectSession(session: SleepSession) {
-    const requestId = ++selectionRequest;
-    selected = session;
-    segmentsLoading = true;
-    if (segmentCache[session.id]) {
-      segments = segmentCache[session.id];
-      segmentsLoading = false;
-      return;
-    }
-    try {
-      const loaded = await getSleepSegments(session.id);
-      if (requestId !== selectionRequest) return;
-      segmentCache[session.id] = loaded;
-      segments = loaded;
-    } catch (value) {
-      error = errorMessage(value);
-      segments = [];
-    } finally {
-      segmentsLoading = false;
-    }
-  }
-
-  function selectedRange(): { from?: string; to?: string } {
-    if (selectedMonth !== "") {
-      const [year, month] = selectedMonth.split("-").map(Number);
-      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-      return {
-        from: `${selectedMonth}-01`,
-        to: `${selectedMonth}-${String(lastDay).padStart(2, "0")}`,
-      };
-    }
-    if (selectedYear !== "")
-      return { from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` };
-    return {};
-  }
-
-  let sessionsRequest = 0;
-
-  async function loadSessions(append = false) {
-    if (append && (!hasMore || !cursor || loadingMore)) return;
-    const requestId = ++sessionsRequest;
-    if (append) loadingMore = true;
-    else {
-      sessionsLoading = true;
-      loadingMore = false;
-      cursor = null;
-      hasMore = false;
-    }
-    error = null;
-    try {
-      const page = await listSleep({
-        limit: PAGE_SIZE,
-        cursor: append ? (cursor ?? undefined) : undefined,
-        ...selectedRange(),
-      });
-      if (requestId !== sessionsRequest) return;
-      sessions = append ? [...sessions, ...page.items] : page.items;
-      cursor = page.next_cursor;
-      hasMore = page.has_more;
-      if (!append) {
-        if (page.items[0]) await selectSession(page.items[0]);
-        else {
-          selected = null;
-          segments = [];
-        }
-      }
-    } catch (value) {
-      if (requestId !== sessionsRequest) return;
-      error = errorMessage(value);
-    } finally {
-      if (requestId === sessionsRequest) {
-        sessionsLoading = false;
-        loadingMore = false;
-      }
-    }
-  }
-
-  function changeYear(value: string) {
-    selectedYear = value;
-    selectedMonth = "";
-    syncPeriodUrl();
-    void loadSessions(false);
-  }
-
-  function changeMonth(value: string) {
-    selectedMonth = value;
-    if (value) selectedYear = value.slice(0, 4);
-    syncPeriodUrl();
-    void loadSessions(false);
-  }
-
-  $effect(() => {
-    if (!loadMoreSentinel || !hasMore) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting))
-          void loadSessions(true);
-      },
-      { root: nightListContainer ?? null, rootMargin: "120px" },
-    );
-    observer.observe(loadMoreSentinel);
-    return () => observer.disconnect();
-  });
-
-  async function loadAggregates() {
-    aggregatesLoading = true;
-    aggregatesError = null;
-    try {
-      const [years, months] = await Promise.all([
-        listSleepAggregates("year"),
-        listSleepAggregates("month"),
-      ]);
-      yearBuckets = years.buckets;
-      monthBuckets = months.buckets;
-      const validYears = new Set(
-        yearBuckets.map((bucket) => bucket.period.slice(0, 4)),
-      );
-      const validMonths = new Set(
-        monthBuckets.map((bucket) => bucket.period.slice(0, 7)),
-      );
-      if (selectedMonth) selectedYear = selectedMonth.slice(0, 4);
-      if (selectedYear && !validYears.has(selectedYear)) selectedYear = "";
-      if (selectedMonth && !validMonths.has(selectedMonth)) selectedMonth = "";
-      syncPeriodUrl();
-    } catch (value) {
-      aggregatesError = errorMessage(value);
-    } finally {
-      aggregatesLoading = false;
-    }
-  }
-
-  function formatPeriod(period: string, granularity: "month" | "year"): string {
-    if (granularity === "year") return period.slice(0, 4);
-    return formatMonth(period.slice(0, 7));
-  }
-
-  onMount(async () => {
-    await loadAggregates();
-    void loadSessions(false);
-  });
+  const t = createNightState();
 </script>
 
 <svelte:head>
@@ -425,28 +24,27 @@
 
 <section class="sleep-shell">
   {#if hasThemeRoute(theme.definition(), "sleep")}
-    {#if sessionsLoading && sessions.length === 0}
-      <section class="status tile"><p>Loading sleep data…</p></section>
-    {:else if error && !selected}
-      <section class="status tile">
-        <p class="error">Sleep could not be loaded: {error}</p>
-      </section>
-    {:else if sessions.length === 0}
-      <section class="status tile">
-        <p class="muted">No sleep sessions imported yet.</p>
-      </section>
-    {:else}
+    <LoadingBoundary
+      resource={[t.sessionsResource, t.aggregatesResource]}
+      preserveLayout
+      label="Loading sleep data…"
+    >
+      {#if t.sessionsResource.error}
+        <p class="error" role="alert">
+          Sleep could not be loaded: {t.sessionsResource.error}
+        </p>
+      {/if}
       <ThemeRouteRenderer
         route="sleep"
         props={{
-          sessions,
-          selected,
-          averageAsleep,
-          averageEfficiency,
-          sleepSummary,
-          rollupBuckets,
-          rollupGranularity,
-          rollupScope: sleepScope,
+          sessions: t.sessions,
+          selected: t.selected,
+          averageAsleep: t.averageAsleep,
+          averageEfficiency: t.averageEfficiency,
+          sleepSummary: t.sleepSummary,
+          rollupBuckets: t.rollupBuckets,
+          rollupGranularity: t.rollupGranularity,
+          rollupScope: t.sleepScope,
           onOpenDetail: (session: SleepSession) =>
             void goto(`/night/${session.id}`),
         }}
@@ -454,35 +52,36 @@
         {#snippet children()}
           <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
             <PeriodSelector
-              years={periodYears}
-              months={periodMonths}
-              year={selectedYear}
-              month={selectedMonth}
-              monthDisabled={!selectedYear}
+              years={t.periodYears}
+              months={t.periodMonths}
+              year={t.selectedYear}
+              month={t.selectedMonth}
+              bounds={t.bounds}
+              monthDisabled={!t.selectedYear}
               surface="inline"
-              onYear={changeYear}
-              onMonth={changeMonth}
+              onYear={t.changeYear}
+              onMonth={t.changeMonth}
             />
           </PeriodToolbar>
           <SleepScopeSummary
-            summary={sleepSummary}
-            scope={sleepScope}
+            summary={t.sleepSummary}
+            scope={t.sleepScope}
             theme={theme.language()}
           />
         {/snippet}
       </ThemeRouteRenderer>
-      {#if hasMore}
-        <div
-          bind:this={loadMoreSentinel}
-          class="theme-load-more"
-          aria-live="polite"
-        >
-          {#if loadingMore}<span>Loading more nights…</span>{:else}<button
-              type="button"
-              onclick={() => loadSessions(true)}>Load more nights</button
-            >{/if}
-        </div>
-      {/if}
+    </LoadingBoundary>
+    {#if t.hasMore}
+      <div
+        bind:this={t.loadMoreSentinel}
+        class="theme-load-more"
+        aria-live="polite"
+      >
+        {#if t.loadingMore}<span>Loading more nights…</span>{:else}<button
+            type="button"
+            onclick={() => t.loadSessions(true)}>Load more nights</button
+          >{/if}
+      </div>
     {/if}
   {:else}
     <RouteIntro
@@ -493,44 +92,47 @@
       actionLabel="Back to Today"
     />
 
-    {#if sessionsLoading && sessions.length === 0}
+    {#if t.sessionsResource.loading && t.sessions.length === 0}
       <section class="status tile"><p>Loading your sleep history…</p></section>
-    {:else if error && !selected}
+    {:else if t.sessionsResource.error && !t.selected}
       <section class="status tile">
-        <p class="error">Sleep could not be loaded: {error}</p>
+        <p class="error">
+          Sleep could not be loaded: {t.sessionsResource.error}
+        </p>
       </section>
-    {:else if !selected}
+    {:else if !t.selected}
       <section class="status tile">
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
       <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
         <PeriodSelector
-          years={periodYears}
-          months={periodMonths}
-          year={selectedYear}
-          month={selectedMonth}
-          monthDisabled={!selectedYear}
+          years={t.periodYears}
+          months={t.periodMonths}
+          year={t.selectedYear}
+          month={t.selectedMonth}
+          bounds={t.bounds}
+          monthDisabled={!t.selectedYear}
           surface="inline"
-          onYear={changeYear}
-          onMonth={changeMonth}
+          onYear={t.changeYear}
+          onMonth={t.changeMonth}
         />
       </PeriodToolbar>
       <SleepScopeSummary
-        summary={sleepSummary}
-        scope={sleepScope}
+        summary={t.sleepSummary}
+        scope={t.sleepScope}
         theme={theme.language()}
       />
       <section class="hero tile">
         <div class="hero-orb"></div>
         <div class="hero-topline">
           <div>
-            <p class="eyebrow">{heroEyebrow}</p>
-            <h2>{formatDuration(selected.asleep_s)} <span>asleep</span></h2>
+            <p class="eyebrow">{t.heroEyebrow}</p>
+            <h2>{formatDuration(t.selected.asleep_s)} <span>asleep</span></h2>
           </div>
           <div class="hero-status">
             <span class="status-pill"
-              >{selected.is_main_sleep
+              >{t.selected.is_main_sleep
                 ? "Primary overnight sleep"
                 : "Short session"}</span
             >
@@ -544,10 +146,11 @@
           </div>
         </div>
         <p class="hero-copy">
-          {#if selected.is_main_sleep}
+          {#if t.selected.is_main_sleep}
             Your main overnight window was {formatDuration(
-              selected.time_in_bed_s,
-            )} in bed, with {Math.round(selected.efficiency * 100)}% efficiency.
+              t.selected.time_in_bed_s,
+            )} in bed, with {Math.round(t.selected.efficiency * 100)}%
+            efficiency.
           {:else}
             This session is under three hours asleep, so iroha treats it as a
             nap or short fragment.
@@ -556,22 +159,22 @@
         <div class="hero-metrics">
           <div>
             <span>In bed</span><strong
-              >{formatDuration(selected.time_in_bed_s)}</strong
+              >{formatDuration(t.selected.time_in_bed_s)}</strong
             >
           </div>
           <div>
             <span>Efficiency</span><strong
-              >{Math.round(selected.efficiency * 100)}%</strong
+              >{Math.round(t.selected.efficiency * 100)}%</strong
             >
           </div>
           <div>
             <span>Deep + REM</span><strong
-              >{formatDuration(selected.deep_s + selected.rem_s)}</strong
+              >{formatDuration(t.selected.deep_s + t.selected.rem_s)}</strong
             >
           </div>
           <div>
             <span>Source</span><strong
-              >{selected.source || "Apple Health"}</strong
+              >{t.selected.source || "Apple Health"}</strong
             >
           </div>
         </div>
@@ -581,19 +184,19 @@
         <StatTile
           label="Main sleep"
           value={(
-            sleepSummary?.main_sleep_count ?? loadedMainSleep.length
+            t.sleepSummary?.main_sleep_count ?? t.loadedMainSleep.length
           ).toLocaleString()}
           sub="Canonical sessions in scope"
         />
         <StatTile
           label="Naps"
-          value={(sleepSummary?.nap_count ?? 0).toLocaleString()}
+          value={(t.sleepSummary?.nap_count ?? 0).toLocaleString()}
           sub="Separate from main sleep"
         />
         <StatTile
           label="Wake dates"
           value={(
-            sleepSummary?.observed_wake_dates ?? loadedMainSleep.length
+            t.sleepSummary?.observed_wake_dates ?? t.loadedMainSleep.length
           ).toLocaleString()}
           sub="Distinct canonical dates"
         />
@@ -606,24 +209,24 @@
             <h2>Sleep over time</h2>
           </div>
         </header>
-        {#if aggregatesLoading}
+        {#if t.aggregatesResource.loading && t.yearBuckets.length === 0}
           <p class="muted panel-loading">Building your history…</p>
-        {:else if aggregatesError}
+        {:else if t.aggregatesResource.error}
           <p class="error panel-loading">
-            History could not be loaded: {aggregatesError}
+            History could not be loaded: {t.aggregatesResource.error}
           </p>
         {:else}
           <div class="year-trend">
-            {#each visibleYears as bucket (bucket.period)}
+            {#each t.visibleYears as bucket (bucket.period)}
               <div class="year-card">
                 <div class="year-heading">
-                  <strong>{formatPeriod(bucket.period, "year")}</strong><span
+                  <strong>{t.formatPeriod(bucket.period, "year")}</strong><span
                     >{bucket.session_count} sessions</span
                   >
                 </div>
                 <div class="year-bar">
                   <span
-                    style={`width: ${(bucket.session_count / yearMaxSessions) * 100}%`}
+                    style={`width: ${(bucket.session_count / t.yearMaxSessions) * 100}%`}
                   ></span>
                 </div>
                 <div class="year-detail">
@@ -634,18 +237,18 @@
               </div>
             {/each}
           </div>
-          {#if focusedBucket}
+          {#if t.focusedBucket}
             <div class="focus-callout">
               <span
-                >{selectedMonth !== ""
-                  ? formatPeriod(focusedBucket.period, "month")
-                  : selectedYear}</span
+                >{t.selectedMonth !== ""
+                  ? t.formatPeriod(t.focusedBucket.period, "month")
+                  : t.selectedYear}</span
               ><strong
-                >{focusedBucket.session_count} sessions · {formatDuration(
-                  focusedBucket.average_asleep_s,
+                >{t.focusedBucket.session_count} sessions · {formatDuration(
+                  t.focusedBucket.average_asleep_s,
                 )} average asleep</strong
               ><em
-                >{focusedBucket.main_sleep_count} primary overnight sessions</em
+                >{t.focusedBucket.main_sleep_count} primary overnight sessions</em
               >
             </div>
           {/if}
@@ -667,25 +270,25 @@
           </header>
           <div class="architecture">
             <SleepArchitectureChart
-              stages={architectureStages}
-              {selectedStage}
-              onStageSelect={(stage) => (selectedStage = stage)}
-              onStageHover={(stage) => (hoveredStage = stage)}
+              stages={t.architectureStages}
+              selectedStage={t.selectedStage}
+              onStageSelect={(stage) => (t.selectedStage = stage)}
+              onStageHover={(stage) => (t.hoveredStage = stage)}
             />
             <div class="stage-list">
-              {#each architectureStages as stage (stage.name)}
+              {#each t.architectureStages as stage (stage.name)}
                 <button
-                  class:selected={selectedStage === stage.name}
+                  class:selected={t.selectedStage === stage.name}
                   class="stage-button"
-                  onclick={() => (selectedStage = stage.name)}
+                  onclick={() => (t.selectedStage = stage.name)}
                   ><i class="dot" style={`background: ${stage.color}`}></i><span
                     >{stage.name}</span
                   ><b>{formatDuration(stage.value)}</b></button
                 >
               {/each}
               <div class="stage-focus">
-                <span>Selected stage</span><strong>{activeStage}</strong><b
-                  >{formatDuration(activeStageSeconds)}</b
+                <span>Selected stage</span><strong>{t.activeStage}</strong><b
+                  >{formatDuration(t.activeStageSeconds)}</b
                 >
               </div>
             </div>
@@ -705,12 +308,12 @@
             <span class="section-note">Average asleep</span>
           </header>
           <div class="month-list">
-            {#each visibleMonths.slice(0, 12) as bucket (bucket.period)}
+            {#each t.visibleMonths.slice(0, 12) as bucket (bucket.period)}
               <div class="month-row">
-                <span>{formatPeriod(bucket.period, "month")}</span>
+                <span>{t.formatPeriod(bucket.period, "month")}</span>
                 <div class="month-bar">
                   <i
-                    style={`width: ${(bucket.average_asleep_s / monthMaxAsleep) * 100}%`}
+                    style={`width: ${(bucket.average_asleep_s / t.monthMaxAsleep) * 100}%`}
                   ></i>
                 </div>
                 <b>{formatDuration(bucket.average_asleep_s)}</b>
@@ -724,24 +327,24 @@
         <header class="section-heading">
           <div>
             <p class="eyebrow">Drill down</p>
-            <h2>{nightsHeading}</h2>
-            <p class="muted">Select a night to see the stage timeline.</p>
+            <h2>{t.nightsHeading}</h2>
+            <p class="muted">Open a night to see its stage timeline.</p>
           </div>
           <span class="section-note"
-            >{sessions.length}{hasMore ? "+" : ""} loaded · {sleepSummary?.session_count ??
-              sessions.length} total sessions</span
+            >{t.sessions.length}{t.hasMore ? "+" : ""} loaded · {t.sleepSummary
+              ?.session_count ?? t.sessions.length} total sessions</span
           >
         </header>
         <div class="night-layout">
-          <div bind:this={nightListContainer} class="night-list">
-            {#each sessions as session (session.id)}
+          <div bind:this={t.nightListContainer} class="night-list">
+            {#each t.sessions as session (session.id)}
               <button
-                class:selected={selected.id === session.id}
+                class:selected={t.selected && t.selected.id === session.id}
                 class="night-row"
                 type="button"
                 onclick={() => void goto(`/night/${session.id}`)}
-                onmouseenter={() => selectSession(session)}
-                onfocus={() => selectSession(session)}
+                onmouseenter={() => t.selectSession(session)}
+                onfocus={() => t.selectSession(session)}
                 aria-label={`${formatDateOnly(session.wake_date)}, ${session.is_main_sleep ? "primary overnight sleep" : "short session"}, ${formatDuration(session.asleep_s)} asleep, ${Math.round(session.efficiency * 100)} percent efficiency`}
               >
                 <span class="night-date"
@@ -754,40 +357,36 @@
               </button>
             {/each}
             <div
-              bind:this={loadMoreSentinel}
+              bind:this={t.loadMoreSentinel}
               class="load-more-sentinel"
               aria-live="polite"
             >
-              {#if loadingMore}<span>Loading more nights…</span
-                >{:else if hasMore}<span>Scroll for more nights</span>{/if}
+              {#if t.loadingMore}<span>Loading more nights…</span
+                >{:else if t.hasMore}<span>Scroll for more nights</span>{/if}
             </div>
           </div>
           <div class="timeline-card">
             <div class="timeline-meta">
-              <span>{formatDateOnly(selected.wake_date)}</span><span
-                >{selected.is_main_sleep
+              <span>{formatDateOnly(t.selected.wake_date)}</span><span
+                >{t.selected.is_main_sleep
                   ? "Primary overnight sleep"
                   : "Short session"}</span
               >
             </div>
-            {#if segmentsLoading}<p class="muted panel-loading">
-                Loading stages…
-              </p>{:else}<SleepTimelineChart {segments} />{/if}
-            <div class="timeline-axis">
-              <span>{formatDate(selected.started_at)}</span><span
-                >{formatDate(selected.ended_at)}</span
-              >
-            </div>
+            <p class="muted panel-loading">
+              Open this session to inspect its stage timeline.
+            </p>
+            <a href={`/night/${t.selected.id}`}>Open session details</a>
           </div>
         </div>
-        {#if hasMore}
+        {#if t.hasMore}
           <button
             class="load-more-button"
             type="button"
-            disabled={loadingMore}
-            onclick={() => loadSessions(true)}
+            disabled={t.loadingMore}
+            onclick={() => t.loadSessions(true)}
           >
-            {loadingMore ? "Loading…" : "Load more nights"}
+            {t.loadingMore ? "Loading…" : "Load more nights"}
           </button>
         {/if}
       </section>
@@ -1208,8 +807,7 @@
     border-radius: 10px;
     background: color-mix(in srgb, var(--surface-2) 25%, transparent);
   }
-  .timeline-meta,
-  .timeline-axis {
+  .timeline-meta {
     display: flex;
     justify-content: space-between;
     gap: 1rem;

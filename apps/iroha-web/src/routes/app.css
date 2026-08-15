@@ -39,6 +39,7 @@
   --mark-teal: #14a89b;
   --mark-magenta: #e0447a;
   --mark-amber: #c98500;
+  --mark-violet: #7a5fc7;
   --ring-move: #e0447a;
   --ring-exercise: #c98500;
   --ring-stand: #14a89b;
@@ -397,7 +398,9 @@ textarea {
   flex: 1;
   width: 100%;
   min-width: 0;
-  max-width: 1240px;
+  /* Matches the default (grapher) theme's --shell-width, since this
+     rule only renders when a theme declares no Shell component. */
+  max-width: 1180px;
   margin: 0 auto;
   padding: 1.5rem 1.25rem;
 }
@@ -451,22 +454,28 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  body {
+    /* Fixed tiled backgrounds and mobile compositors turn long pages into a
+       repaint on every scroll tick. Keep the visual language, but let the
+       document background move with the page on small screens. */
+    background-attachment: scroll;
+  }
+
   .appbar {
     padding: 0.7rem 0.8rem;
+    backdrop-filter: none;
+    background: var(--bg);
   }
 
   .appbar-actions {
     gap: 0.35rem;
   }
 
-  .command-trigger span {
-    display: none;
-  }
-
   .command-trigger {
-    width: 2.25rem;
+    min-width: 7.1rem;
+    width: auto;
     justify-content: center;
-    padding: 0.45rem;
+    padding: 0.45rem 0.65rem;
   }
 
   .main-nav {

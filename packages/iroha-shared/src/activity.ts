@@ -28,16 +28,23 @@ export interface ActivityDisplaySummary {
 export interface ActivitySummaryTotals {
   activity_count: number;
   distance_m: number;
+  distance_known_count: number;
+  distance_unknown_count: number;
   duration_s: number;
-  moving_time_s: number;
+  elevation_gain_m: number;
+  // Legacy presentation data is not emitted by the canonical summary API.
+  moving_time_s?: number;
 }
 
 export interface ActivitySummaryBucket {
   key: string;
   activity_count: number;
   distance_m: number;
+  distance_known_count: number;
+  distance_unknown_count: number;
   duration_s: number;
-  moving_time_s: number;
+  elevation_gain_m: number;
+  moving_time_s?: number;
 }
 
 export interface ActivitySummary {
@@ -45,6 +52,18 @@ export interface ActivitySummary {
   by_year: ActivitySummaryBucket[];
   by_month: ActivitySummaryBucket[];
   by_sport: ActivitySummaryBucket[];
+}
+
+export interface ActivityActiveDay {
+  day: string;
+  activity_count: number;
+}
+
+export interface ActivityOverview {
+  summary: ActivitySummary;
+  active_days: ActivityActiveDay[];
+  recent: Activity[];
+  current_streak: number;
 }
 
 // Privacy-trimmed route geometry returned by the activity overview API.
@@ -103,8 +122,11 @@ export interface Lap {
 }
 
 export interface ListActivitiesParams {
+  // Canonical calendar scope. The server resolves it in the requested IANA
+  // timezone into started_from/started_to service bounds.
+  date?: string;
   sport_type?: string;
-  // RFC3339 timestamps; inclusive bounds on started_at.
+  // RFC3339 timestamps; started_from is inclusive and started_to is exclusive.
   started_from?: string;
   started_to?: string;
   // Distance bounds in meters; rows with no distance are excluded.

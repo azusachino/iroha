@@ -55,8 +55,12 @@ Iroha can represent:
 - canonical media works and concrete items;
 - titles, aliases, relations, and external provider references;
 - consumption events such as started, progressed, completed, abandoned, read, watched, reread, and rewatched;
-- current progress as a projection of event history;
+- current progress as a provider-state projection with explicit observation provenance;
+- provider state observations and explicitly labeled dated provider updates;
 - provider comparison and unresolved identity matches.
+
+Provider list snapshots are not consumption events. A current list state may have no event time, and a provider's record-update time is not automatically a consumption time. Exact events and provider
+state changes are separate read contracts.
 
 ## Cross-cutting guarantees
 

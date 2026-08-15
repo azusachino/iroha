@@ -3,15 +3,20 @@ import {
   listActivities,
   listAllActivities,
   listDaily,
+  getDailyDates,
   listAllDaily,
   getMediaAggregates,
   getMedia,
   listMediaEvents,
+  createMediaEvent,
+  listMediaChanges,
   getActivity,
   getActivityRoute,
   getActivitySamplings,
   getActivityLaps,
   getSleep,
+  getSleepOverview,
+  getActivityOverview,
   getActivitySummary,
   getActivityRoutes,
   listTasks,
@@ -42,6 +47,7 @@ import {
   type SamplingPoint,
   type Lap,
   type Summary,
+  type ActivityOverview,
   type RouteFeatureCollection,
 } from "./api";
 
@@ -196,21 +202,27 @@ describe("control room API", () => {
     expect(getCapturedUrl()).toContain("/api/v1/sleep/sleep_1");
   });
 
+  it("requests the server-owned sleep overview projection", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getSleepOverview({ recent: 30 }, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/sleep/overview?recent=30");
+  });
+
   it("requests a monthly report for the selected month", async () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch({});
     await getMonthlyReport("2026-08", fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/reports/monthly?");
-    expect(getCapturedUrl()).toContain("month=2026-08");
-    expect(getCapturedUrl()).not.toContain("timezone=");
+    expect(getCapturedUrl()).toContain("date=2026-08");
+    expect(getCapturedUrl()).toContain("timezone=Asia%2FTokyo");
   });
 
   it("requests the server-owned twelve-month report series", async () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch({});
     await getMonthlyReportSeries("2026-08", 12, fakeFetch);
     expect(getCapturedUrl()).toContain("/api/v1/reports/monthly-series?");
-    expect(getCapturedUrl()).toContain("end=2026-08");
+    expect(getCapturedUrl()).toContain("date=2026-08");
     expect(getCapturedUrl()).toContain("months=12");
-    expect(getCapturedUrl()).not.toContain("timezone=");
+    expect(getCapturedUrl()).toContain("timezone=Asia%2FTokyo");
   });
 
   it("requests catalog and lossless metric series parameters", async () => {
@@ -237,7 +249,7 @@ describe("control room API", () => {
       { from: "2026-01-01", to: "2026-02-01", grain: "month" },
       fakeFetch,
     );
-    expect(getCapturedUrl()).not.toContain("timezone=");
+    expect(getCapturedUrl()).toContain("timezone=Asia%2FTokyo");
   });
 });
 
@@ -507,14 +519,32 @@ describe("listAllDaily", () => {
     expect(getCapturedUrl()).toContain("/api/v1/daily");
     expect(getCapturedUrl()).toContain("limit=24");
   });
+
+  it("requests the canonical daily date index", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch(["2026-08-15"]);
+    await getDailyDates(fakeFetch);
+    expect(getCapturedUrl()).toBe("/api/v1/daily/dates?timezone=Asia%2FTokyo");
+  });
 });
 
 describe("getMediaAggregates", () => {
   it("requests the media aggregates endpoint", async () => {
     const { fakeFetch, getCapturedUrl } = createFakeFetch({});
-    await getMediaAggregates(fakeFetch);
+    await getMediaAggregates({}, fakeFetch);
 
     expect(getCapturedUrl()).toContain("/api/v1/media/aggregates");
+  });
+
+  it("sends the same library filters as the media list", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await getMediaAggregates(
+      { family: "anime", status: "completed", completed_year: 2026 },
+      fakeFetch,
+    );
+
+    expect(getCapturedUrl()).toContain("family=anime");
+    expect(getCapturedUrl()).toContain("status=completed");
+    expect(getCapturedUrl()).toContain("completed_year=2026");
   });
 });
 
@@ -538,6 +568,29 @@ describe("listMediaEvents", () => {
     expect(getCapturedUrl()).toContain("/api/v1/media/events");
     expect(getCapturedUrl()).toContain("from=2026-01-01");
     expect(getCapturedUrl()).toContain("to=2026-01-31");
+  });
+});
+
+describe("media exact-event API", () => {
+  it("posts an exact event to the canonical intake route", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await createMediaEvent(
+      {
+        media_id: "med_123",
+        event_type: "read",
+        event_at: "2026-08-15T10:30:00Z",
+        idempotency_key: "capture-1",
+      },
+      fakeFetch,
+    );
+    expect(getCapturedUrl()).toContain("/api/v1/media/events");
+  });
+
+  it("lists provider state changes separately from exact events", async () => {
+    const { fakeFetch, getCapturedUrl } = createFakeFetch({});
+    await listMediaChanges({ from: "2026-01-01", limit: 10 }, fakeFetch);
+    expect(getCapturedUrl()).toContain("/api/v1/media/changes");
+    expect(getCapturedUrl()).toContain("from=2026-01-01");
   });
 });
 
@@ -712,8 +765,10 @@ describe("getActivitySummary", () => {
       totals: {
         activity_count: 0,
         distance_m: 0,
+        distance_known_count: 0,
+        distance_unknown_count: 0,
         duration_s: 0,
-        moving_time_s: 0,
+        elevation_gain_m: 0,
       },
       by_year: [],
       by_month: [],
@@ -731,16 +786,20 @@ describe("getActivitySummary", () => {
       totals: {
         activity_count: 10,
         distance_m: 50000,
+        distance_known_count: 10,
+        distance_unknown_count: 0,
         duration_s: 18000,
-        moving_time_s: 0,
+        elevation_gain_m: 0,
       },
       by_year: [
         {
           key: "2026",
           activity_count: 10,
           distance_m: 50000,
+          distance_known_count: 10,
+          distance_unknown_count: 0,
           duration_s: 18000,
-          moving_time_s: 0,
+          elevation_gain_m: 0,
         },
       ],
       by_month: [
@@ -748,8 +807,10 @@ describe("getActivitySummary", () => {
           key: "2026-07",
           activity_count: 5,
           distance_m: 25000,
+          distance_known_count: 5,
+          distance_unknown_count: 0,
           duration_s: 9000,
-          moving_time_s: 0,
+          elevation_gain_m: 0,
         },
       ],
       by_sport: [
@@ -757,8 +818,10 @@ describe("getActivitySummary", () => {
           key: "run",
           activity_count: 8,
           distance_m: 40000,
+          distance_known_count: 8,
+          distance_unknown_count: 0,
           duration_s: 14000,
-          moving_time_s: 0,
+          elevation_gain_m: 0,
         },
       ],
     };
@@ -773,8 +836,10 @@ describe("getActivitySummary", () => {
       totals: {
         activity_count: 0,
         distance_m: 0,
+        distance_known_count: 0,
+        distance_unknown_count: 0,
         duration_s: 0,
-        moving_time_s: 0,
+        elevation_gain_m: 0,
       },
       by_year: [],
       by_month: [],
@@ -786,6 +851,40 @@ describe("getActivitySummary", () => {
     const url = getCapturedUrl();
     expect(url).toContain("year=2025");
     expect(url).toContain("sport=run");
+  });
+});
+
+describe("getActivityOverview", () => {
+  it("encodes the projection controls and returns the canonical shape", async () => {
+    const mockOverview: ActivityOverview = {
+      summary: {
+        totals: {
+          activity_count: 1,
+          distance_m: 1000,
+          distance_known_count: 1,
+          distance_unknown_count: 0,
+          duration_s: 600,
+          elevation_gain_m: 0,
+        },
+        by_year: [],
+        by_month: [],
+        by_sport: [],
+      },
+      active_days: [{ day: "2026-08-15", activity_count: 1 }],
+      recent: [],
+      current_streak: 1,
+    };
+    const { fakeFetch, getCapturedUrl } = createFakeFetch(mockOverview);
+
+    const result = await getActivityOverview(
+      { recent: 5, timezone: "Asia/Tokyo" },
+      fakeFetch,
+    );
+
+    expect(result).toEqual(mockOverview);
+    expect(getCapturedUrl()).toContain("/api/v1/activities/overview");
+    expect(getCapturedUrl()).toContain("recent=5");
+    expect(getCapturedUrl()).toContain("timezone=Asia%2FTokyo");
   });
 });
 

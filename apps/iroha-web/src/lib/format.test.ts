@@ -60,6 +60,10 @@ describe("formatDateOnly is yyyy-MM-dd", () => {
   it("preserves canonical date values without timezone conversion", () => {
     expect(formatDateOnly("2026-07-09")).toBe("2026-07-09");
   });
+
+  it("uses Tokyo when formatting an instant without an explicit timezone", () => {
+    expect(formatDateOnly("2026-08-14T15:00:00Z")).toBe("2026-08-15");
+  });
 });
 
 describe("formatMonth is yyyy-MM", () => {
@@ -319,6 +323,10 @@ describe("progressPercent", () => {
 
   it("treats a completed item's position as its own total, filling the bar", () => {
     expect(progressPercent("completed", 10, undefined, undefined)).toBe(100);
+  });
+
+  it("does not divide zero by zero when a completed item has no known total", () => {
+    expect(progressPercent("completed", 0, 0, undefined)).toBe(0);
   });
 
   it("returns 0 only when nothing is known, and never fabricates a fill for unfinished progress", () => {

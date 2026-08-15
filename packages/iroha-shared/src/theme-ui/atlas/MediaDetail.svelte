@@ -7,8 +7,9 @@
     mediaWorkTotal,
   } from "../../media";
   import { heroTitleFontSize } from "../../hero-title";
+  import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
-  let { detail, progress, theme }: MediaDetailThemeProps = $props();
+  let { detail, progress, hasKnownTotal, theme }: MediaDetailThemeProps = $props();
   const boundedProgress = $derived(Math.min(Math.max(progress, 0), 100));
   // A percentage implies a known total, which most media never has (an
   // ongoing manga, an unfinished anime season). Show what's actually known.
@@ -78,16 +79,18 @@
         </div>
         <strong>{progressLabel}</strong>
       </div>
-      <div class="scale-bar">
-        <div class="scale-track">
-          <i class="scale-fill" style={`width: ${boundedProgress}%`}></i>
+      {#if hasKnownTotal}
+        <div class="scale-bar">
+          <div class="scale-track">
+            <i class="scale-fill" style={`width: ${boundedProgress}%`}></i>
+          </div>
+          <div class="scale-ticks">
+            <span>0</span><span>25</span><span>50</span><span>75</span><span
+              >100%</span
+            >
+          </div>
         </div>
-        <div class="scale-ticks">
-          <span>0</span><span>25</span><span>50</span><span>75</span><span
-            >100%</span
-          >
-        </div>
-      </div>
+      {/if}
       <div class="progress-meta">
         <span
           >{detail.progress?.position ?? 0}{detail.progress?.total != null
@@ -117,6 +120,10 @@
           <dd>{detail.events.length}</dd>
         </div>
         <div>
+          <dt>Provider updates</dt>
+          <dd>{detail.updates.length}</dd>
+        </div>
+        <div>
           <dt>Work kind</dt>
           <dd>{detail.work.work_kind}</dd>
         </div>
@@ -129,7 +136,7 @@
       <div class="panel-heading">
         <div>
           <p class="atlas-kicker">Timeline</p>
-          <h2>Watch history</h2>
+          <h2>Exact event history</h2>
         </div>
         <span>{detail.events.length} entries</span>
       </div>
@@ -143,8 +150,18 @@
                   >{Math.round(event.progress_percent)}%</strong
                 >{/if}
             </li>{/each}
-        </ol>{:else}<p class="atlas-empty">No event history recorded.</p>{/if}
+        </ol>{:else}<p class="atlas-empty">No exact events recorded.</p>{/if}
     </section>
+    {#if detail.updates.length}<section class="atlas-plate timeline-plate">
+        <div class="panel-heading">
+          <div>
+            <p class="atlas-kicker">Provider record</p>
+            <h2>Reading updates</h2>
+          </div>
+          <span>{detail.updates.length} entries</span>
+        </div>
+        <MediaUpdateList updates={detail.updates} />
+      </section>{/if}
     {#if detail.relations.length}<section class="atlas-plate relations-plate">
         <p class="atlas-kicker">Connections</p>
         <h2>Related works</h2>

@@ -59,6 +59,24 @@ Design identities, route registrations, design compositions, and theme-aware CSS
 and receive a deliberate shared implementation before it is considered adopted. A web-local copy, wrapper that changes the design language, or a CSS switch without a deliberate composition is a
 boundary violation.
 
+Some `theme-ui/<language>/` files (`Media.svelte`, `Shell.svelte`, and similar) are six independent per-language copies rather than one parameterized component, because their content genuinely differs
+(labels, widths, decoration). That does not make them exempt from "one canonical definition" for whatever _is_ shared across them — a loading guard, a filter-chip set, a width convention. Before
+calling a fix in one theme's copy complete, `rg` the component's filename across all six `theme-ui/*/` directories and check whether the same fix applies there too.
+
+## Loading state (hard rule)
+
+Route-level async data goes through `apps/iroha-web/src/lib/asyncResource.svelte.ts` (`createAsyncResource`) — never a hand-rolled `loading`/`error` pair plus a manual request-id counter.
+`LoadingBoundary` takes a `resource`/`resource[]` prop, not `loading`/`ready` booleans, specifically so a caller cannot recompute `ready` as `!loading`: that expression is non-sticky and flips back to
+`false` on every refetch, which re-triggers the boundary's first-load overlay (and its `inert`/`aria-hidden` content) on a routine period or filter change instead of the intended quiet "Updating…"
+pill. This was a real, shipped bug on four routes before `AsyncResource` made the mistake unrepresentable — see the `v0.4.1` release audit's "Post-tag hardening" section. If a route needs `ready`
+outside `LoadingBoundary` (a fallback branch, a button's disabled state), read it off the resource (`resource.ready`); never re-derive it from `loading`.
+
+## Deployment scope
+
+Classify the changed paths before building a local k3s image. A web-only visual or route change uses `make image-web VERSION=<tag>` and the k3s repo's `make apply-iroha-web`; it does not use
+`make images` or `make apply-iroha`. Use the full image/apply path only when server, job, export, configuration, or migration changes require it. If a shared package has multiple runtime consumers,
+build and verify each affected consumer explicitly.
+
 ## Data & import model (important)
 
 - A full Apple Health export is a **complete snapshot**, reconciled — not appended.

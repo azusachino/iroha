@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -15,9 +16,10 @@ import (
 )
 
 const (
-	ProviderID     = "anilist"
-	SourceKind     = coreimports.KindAniList
-	AdapterVersion = "anilist-2026-07-1"
+	ProviderID         = "anilist"
+	SourceKind         = coreimports.KindAniList
+	ActivitySourceKind = coreimports.KindAniListActivity
+	AdapterVersion     = "anilist-2026-07-1"
 )
 
 type Adapter struct{}
@@ -29,12 +31,13 @@ func (Adapter) Descriptor() provider.Descriptor {
 		ID:             ProviderID,
 		DisplayName:    "AniList",
 		AdapterVersion: AdapterVersion,
-		SourceKinds:    []string{SourceKind},
+		SourceKinds:    []string{SourceKind, ActivitySourceKind},
 		Domains:        []provider.Domain{provider.DomainMedia},
 		Capabilities: []provider.Capability{
 			provider.CapabilityMediaLibrary,
 			provider.CapabilityMediaProgress,
 			provider.CapabilityMediaRating,
+			provider.CapabilityMediaActivity,
 		},
 	}
 }
@@ -79,6 +82,132 @@ func ParseSnapshot(body []byte) ([]observations.Media, error) {
 	return entries, nil
 }
 
+func (Adapter) ImportMediaHistory(ctx context.Context, source provider.Source, _ provider.ImportOptions) ([]observations.MediaHistory, error) {
+	reader, err := source.Open(ctx)
+	if err != nil {
+		return nil, &provider.Error{Kind: provider.ErrorInvalidSource, Provider: ProviderID, SourceKind: source.Kind, Op: "open_activity_snapshot", Err: err}
+	}
+	defer func() { _ = reader.Close() }()
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, &provider.Error{Kind: provider.ErrorInvalidSource, Provider: ProviderID, SourceKind: source.Kind, Op: "read_activity_snapshot", Err: err}
+	}
+	var response activityGraphQLResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("decode anilist activity snapshot: %w", err)
+	}
+	if len(response.Errors) > 0 {
+		return nil, fmt.Errorf("anilist graphql error: %s", response.Errors[0].Message)
+	}
+	history := make([]observations.MediaHistory, 0, len(response.Data.Page.Activities))
+	for _, activity := range response.Data.Page.Activities {
+		if activity.ID == 0 || activity.CreatedAt == 0 || activity.Media.ID == 0 {
+			continue
+		}
+		media := mapActivityMedia(activity.Media)
+		position, unit := parseActivityProgress(activity.Progress, media.MediaType)
+		note := strings.TrimSpace(strings.Join([]string{activity.Status, activity.Progress}, " "))
+		effectiveAt := time.Unix(activity.CreatedAt, 0).UTC()
+		history = append(history, observations.MediaHistory{
+			Media: media,
+			Updates: []observations.MediaStateUpdate{{
+				SourceEventID: "activity:" + strconv.Itoa(activity.ID),
+				EffectiveAt:   effectiveAt,
+				Status:        mapActivityStatus(activity.Status),
+				Unit:          unit,
+				Position:      position,
+				Total:         activityTotal(activity.Media, unit),
+				Note:          note,
+			}},
+		})
+	}
+	return history, nil
+}
+
+func mapActivityMedia(media mediaNode) observations.Media {
+	mediaType, itemRole := mapMediaType(media.Type, media.Format)
+	title := firstNonEmpty(media.Title.English, media.Title.Romaji, media.Title.Native)
+	return observations.Media{
+		Provider:       ProviderID,
+		ExternalID:     strconv.Itoa(media.ID),
+		MediaType:      mediaType,
+		ItemRole:       itemRole,
+		Title:          title,
+		WorkExternalID: strconv.Itoa(media.ID),
+		WorkKind:       "series",
+		WorkTitle:      title,
+		EpisodeCount:   media.Episodes,
+		ChapterCount:   media.Chapters,
+		CoverImageURL:  media.CoverImage.Large,
+		Titles:         mapTitles(media.Title),
+		ExternalRefs:   mapExternalRefs(media),
+	}
+}
+
+var (
+	activityNumberPattern = regexp.MustCompile(`[0-9]+(?:\.[0-9]+)?`)
+	activityUnitPattern   = regexp.MustCompile(`(?i)\b(chapters?|episodes?|volumes?)\b`)
+)
+
+func parseActivityProgress(progress, mediaType string) (*float64, string) {
+	unit := "episodes"
+	if mediaType == "manga" || mediaType == "light_novel" || mediaType == "one_shot" {
+		unit = "chapters"
+	}
+	if match := activityUnitPattern.FindString(progress); match != "" {
+		switch strings.ToLower(match[:1]) {
+		case "c":
+			unit = "chapters"
+		case "v":
+			unit = "volumes"
+		}
+	}
+	numbers := activityNumberPattern.FindAllString(progress, -1)
+	if len(numbers) == 0 {
+		return nil, unit
+	}
+	value, err := strconv.ParseFloat(numbers[len(numbers)-1], 64)
+	if err != nil {
+		return nil, unit
+	}
+	return &value, unit
+}
+
+func activityTotal(media mediaNode, unit string) *float64 {
+	var value *int
+	switch unit {
+	case "chapters":
+		value = media.Chapters
+	case "episodes":
+		value = media.Episodes
+	case "volumes":
+		value = media.Volumes
+	}
+	if value == nil {
+		return nil
+	}
+	result := float64(*value)
+	return &result
+}
+
+func mapActivityStatus(status string) string {
+	value := strings.ToLower(strings.TrimSpace(status))
+	switch value {
+	case "completed":
+		return "completed"
+	case "dropped", "abandoned":
+		return "abandoned"
+	case "paused":
+		return "in_progress"
+	case "read", "watched", "listened", "started", "re-watched", "rewatched":
+		return "in_progress"
+	}
+	if strings.Contains(value, "read") || strings.Contains(value, "watch") || strings.Contains(value, "listen") {
+		return "in_progress"
+	}
+	return "unknown"
+}
+
 // scoreFormatScale converts AniList's per-user scoreFormat into the numeric
 // rating scale, so a stored score (e.g. 8.5) is not ambiguous between a /10
 // and a /100 scale.
@@ -115,64 +244,52 @@ func mapEntry(entry mediaListEntry, scoreScale *float64) observations.Media {
 	}
 	status, paused := mapStatus(entry.Status)
 	score := normalizeScore(entry.Score)
-	startedAt := entry.StartedAt.Time()
-	completedAt := entry.CompletedAt.Time()
+	startedOn := entry.StartedAt.Partial()
+	completedOn := entry.CompletedAt.Partial()
+	releaseOn := media.StartDate.Partial()
 	lastUpdateAt := unixTime(entry.UpdatedAt)
 
 	result := observations.Media{
-		Provider:        ProviderID,
-		ExternalID:      strconv.Itoa(media.ID),
-		MediaType:       mediaType,
-		ItemRole:        itemRole,
-		Title:           primaryTitle,
-		WorkExternalID:  strconv.Itoa(media.ID),
-		WorkKind:        "series",
-		WorkTitle:       primaryTitle,
-		ReleaseDate:     media.StartDate.Time(),
-		DurationSeconds: nil,
-		EpisodeCount:    media.Episodes,
-		ChapterCount:    media.Chapters,
-		CoverImageURL:   media.CoverImage.Large,
-		Description:     strings.TrimSpace(media.Description),
-		Status:          status,
-		Progress:        position,
-		Score:           score,
-		StartedAt:       startedAt,
-		CompletedAt:     completedAt,
-		Titles:          mapTitles(media.Title),
-		ExternalRefs:    mapExternalRefs(media),
-		Relations:       mapRelations(media),
+		Provider:         ProviderID,
+		ExternalID:       strconv.Itoa(media.ID),
+		MediaType:        mediaType,
+		ItemRole:         itemRole,
+		Title:            primaryTitle,
+		WorkExternalID:   strconv.Itoa(media.ID),
+		WorkKind:         "series",
+		WorkTitle:        primaryTitle,
+		ReleaseDate:      media.StartDate.Time(),
+		ReleaseDateOn:    releaseOn,
+		DurationSeconds:  nil,
+		EpisodeCount:     media.Episodes,
+		ChapterCount:     media.Chapters,
+		CoverImageURL:    media.CoverImage.Large,
+		Description:      strings.TrimSpace(media.Description),
+		Status:           status,
+		Progress:         position,
+		Score:            score,
+		StartedOn:        startedOn,
+		CompletedOn:      completedOn,
+		StateSourceID:    strconv.Itoa(entry.ID),
+		StateNote:        entry.Notes,
+		StateRatingScale: scoreScale,
+		Titles:           mapTitles(media.Title),
+		ExternalRefs:     mapExternalRefs(media),
+		Relations:        mapRelations(media),
 		ProgressState: &observations.MediaProgress{
 			Status:             status,
 			Unit:               unit,
 			Position:           position,
-			StartedAt:          startedAt,
 			LastUpdateAt:       lastUpdateAt,
-			FinishedAt:         completedAt,
+			StartedOn:          startedOn,
+			CompletedOn:        completedOn,
 			PlayCount:          entry.Repeat,
 			HiddenFromContinue: false,
 			Paused:             paused,
 		},
 	}
-	listEvent := observations.MediaEvent{
-		EventType:     "list_state",
-		SourceEventID: strconv.Itoa(entry.ID),
-		Unit:          unit,
-		Position:      position,
-		Rating:        score,
-		Note:          entry.Notes,
-	}
-	if score != nil {
-		listEvent.RatingScale = scoreScale
-	}
-	result.Events = append(result.Events, listEvent)
-	for i := 0; i < entry.Repeat; i++ {
-		result.Events = append(result.Events, observations.MediaEvent{
-			EventType:     "rewatch",
-			SourceEventID: strconv.Itoa(entry.ID) + ":repeat:" + strconv.Itoa(i+1),
-			Unit:          unit,
-		})
-	}
+	// A MediaList row is current provider state, not a dated consumption
+	// event. The entry ID, score, and note are retained by state history.
 	return result
 }
 

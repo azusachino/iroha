@@ -14,6 +14,7 @@
 
 <style>
   .vault-site {
+    --shell-width: 1180px;
     position: relative;
     min-height: 100vh;
     background:
@@ -39,7 +40,7 @@
 
   .vault-content {
     position: relative;
-    width: min(1180px, calc(100% - 3rem));
+    width: min(var(--shell-width), calc(100% - 3rem));
     margin: 0 auto;
     padding: 3rem 0 4rem 2.25rem;
     border-left: 1px solid
@@ -52,7 +53,7 @@
     justify-content: space-between;
     gap: 1rem;
     border-top: 1px solid var(--border);
-    padding: 1rem max(1rem, calc((100% - 1180px) / 2));
+    padding: 1rem max(1rem, calc((100% - var(--shell-width)) / 2));
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     color: var(--text-muted);
     font-family: var(--font-mono);
@@ -75,7 +76,7 @@
 
   @media (max-width: 640px) {
     .vault-content {
-      width: min(100% - 2rem, 1180px);
+      width: min(100% - 2rem, var(--shell-width));
       padding: 2rem 0 3rem 1.25rem;
     }
 

@@ -47,3 +47,10 @@ func TestMediaEventIDUsesDedicatedPrefix(t *testing.T) {
 		t.Fatalf("media event id = %q, want %q", got, want)
 	}
 }
+
+func TestMediaChangeIDUsesSeparatePrefix(t *testing.T) {
+	id := uuid.MustParse("018cc251-7b2e-7d52-9b0d-6bd6f2c9c9e4")
+	if got, want := ids.Encode(ids.MediaChangePrefix, id), "medchg_018cc251-7b2e-7d52-9b0d-6bd6f2c9c9e4"; got != want {
+		t.Fatalf("media change id = %q, want %q", got, want)
+	}
+}

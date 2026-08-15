@@ -16,6 +16,7 @@ type RawFile struct {
 	StoragePath      string
 	SourceKind       string
 	UploadedVia      string
+	ObservedAt       *time.Time
 	CreatedAt        time.Time
 }
 
@@ -344,29 +345,30 @@ type MediaWork struct {
 func (MediaWork) TableName() string { return "tb_media_works" }
 
 type MediaItem struct {
-	ID              uuid.UUID  `gorm:"type:uuid;primaryKey"`
-	WorkID          *uuid.UUID `gorm:"type:uuid"`
-	ParentItemID    *uuid.UUID `gorm:"type:uuid"`
-	MediaType       string
-	ItemRole        string
-	Title           string
-	SortTitle       string
-	OriginalTitle   string
-	Description     string
-	ReleaseDate     *time.Time `gorm:"type:date"`
-	SeasonNumber    *int
-	EpisodeNumber   *int
-	ChapterNumber   *float64
-	VolumeNumber    *float64
-	DurationSeconds *int
-	PageCount       *int
-	EpisodeCount    *int
-	ChapterCount    *int
-	Language        string
-	Country         string
-	CoverImageURL   string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                   uuid.UUID  `gorm:"type:uuid;primaryKey"`
+	WorkID               *uuid.UUID `gorm:"type:uuid"`
+	ParentItemID         *uuid.UUID `gorm:"type:uuid"`
+	MediaType            string
+	ItemRole             string
+	Title                string
+	SortTitle            string
+	OriginalTitle        string
+	Description          string
+	ReleaseDate          *time.Time `gorm:"type:date"`
+	ReleaseDatePrecision string
+	SeasonNumber         *int
+	EpisodeNumber        *int
+	ChapterNumber        *float64
+	VolumeNumber         *float64
+	DurationSeconds      *int
+	PageCount            *int
+	EpisodeCount         *int
+	ChapterCount         *int
+	Language             string
+	Country              string
+	CoverImageURL        string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 func (MediaItem) TableName() string { return "tb_media_items" }
@@ -443,7 +445,7 @@ type MediaConsumptionEvent struct {
 	ID              uuid.UUID `gorm:"type:uuid;primaryKey"`
 	MediaItemID     uuid.UUID `gorm:"type:uuid"`
 	EventType       string
-	EventAt         *time.Time
+	EventAt         time.Time
 	SourceKind      string
 	SourceEventID   string
 	Unit            string
@@ -460,22 +462,56 @@ type MediaConsumptionEvent struct {
 func (MediaConsumptionEvent) TableName() string { return "tb_media_consumption_events" }
 
 type MediaProgress struct {
-	MediaItemID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Status             string
-	Unit               string
-	Position           *float64
-	Total              *float64
-	ProgressPercent    *float64
-	StartedAt          *time.Time
-	LastUpdateAt       *time.Time
-	FinishedAt         *time.Time
-	PlayCount          int
-	HiddenFromContinue bool
-	SourceKind         string
-	UpdatedAt          time.Time
+	MediaItemID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Status               string
+	Unit                 string
+	Position             *float64
+	Total                *float64
+	ProgressPercent      *float64
+	StartedOnValue       *time.Time `gorm:"column:started_on_value;type:date"`
+	StartedOnPrecision   string
+	LastUpdateAt         *time.Time
+	CompletedOnValue     *time.Time `gorm:"column:completed_on_value;type:date"`
+	CompletedOnPrecision string
+	PlayCount            int
+	HiddenFromContinue   bool
+	SourceKind           string
+	UpdatedAt            time.Time
 }
 
 func (MediaProgress) TableName() string { return "tb_media_progress" }
+
+type MediaStateHistory struct {
+	ID                   uuid.UUID `gorm:"type:uuid;primaryKey"`
+	MediaItemID          uuid.UUID `gorm:"type:uuid"`
+	SourceKind           string
+	SourceEventID        string
+	ObservedAt           time.Time
+	EffectiveAt          *time.Time
+	TimeBasis            string
+	ChangeKind           string
+	StateFingerprint     string
+	Status               string
+	Unit                 string
+	Position             *float64
+	Total                *float64
+	ProgressPercent      *float64
+	Rating               *float64
+	RatingScale          *float64
+	Note                 string
+	RepeatCount          int
+	StartedOnValue       *time.Time `gorm:"type:date"`
+	StartedOnPrecision   string
+	CompletedOnValue     *time.Time `gorm:"type:date"`
+	CompletedOnPrecision string
+	EffectiveOnValue     *time.Time `gorm:"type:date"`
+	EffectiveOnPrecision string
+	ProviderRecordedAt   *time.Time
+	RawFileID            *uuid.UUID `gorm:"type:uuid"`
+	CreatedAt            time.Time
+}
+
+func (MediaStateHistory) TableName() string { return "tb_media_state_history" }
 
 type MediaList struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`

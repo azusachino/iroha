@@ -1,28 +1,56 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { AsyncResource } from "$lib/asyncResource.svelte";
 
+  // Takes the AsyncResource(s) a route is rendering directly, rather than
+  // loading/ready booleans a caller computes by hand -- that used to let
+  // every route reinvent (and often get wrong) its own "is this ready"
+  // logic. See asyncResource.svelte.ts.
   let {
-    loading,
-    ready = true,
+    resource,
+    preserveLayout = false,
     label,
     children,
   }: {
-    loading: boolean;
-    ready?: boolean;
+    resource: AsyncResource<unknown> | AsyncResource<unknown>[];
+    preserveLayout?: boolean;
     label: string;
     children: Snippet;
   } = $props();
+
+  const resources = $derived(Array.isArray(resource) ? resource : [resource]);
+  const loading = $derived(resources.some((r) => r.loading));
+  // Each resource's own `ready` only ever goes false -> true once and stays
+  // true (see asyncResource.svelte.ts), so this conjunction is sticky too --
+  // no separate latch needed here.
+  const ready = $derived(resources.every((r) => r.ready));
 </script>
 
-{#if !ready}
+{#if !ready && !preserveLayout}
   <div class="loading-surface" role="status" aria-live="polite">
     <span class="loading-mark" aria-hidden="true"></span>
     <span>{label}</span>
   </div>
 {:else}
-  <div class="data-surface" class:updating={loading} aria-busy={loading}>
-    {@render children()}
-    {#if loading}
+  <div
+    class="data-surface"
+    class:updating={loading}
+    class:pending={!ready && loading}
+    aria-busy={loading}
+  >
+    <div
+      class="data-content"
+      aria-hidden={!ready && loading}
+      inert={!ready && loading}
+    >
+      {@render children()}
+    </div>
+    {#if !ready && loading}
+      <div class="loading-overlay" role="status" aria-live="polite">
+        <span class="loading-mark" aria-hidden="true"></span>
+        <span>{label}</span>
+      </div>
+    {:else if loading}
       <span class="update-status" role="status" aria-live="polite"
         >Updating…</span
       >
@@ -58,6 +86,29 @@
   .data-surface {
     position: relative;
     min-width: 0;
+  }
+  .data-surface.pending {
+    min-height: 16rem;
+  }
+  .data-content {
+    min-width: 0;
+  }
+  .loading-overlay {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.65rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 650;
+    pointer-events: none;
   }
   .update-status {
     position: absolute;

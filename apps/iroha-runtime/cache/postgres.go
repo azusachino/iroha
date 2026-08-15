@@ -22,20 +22,29 @@ func NewPostgresStore(db *gorm.DB) *PostgresStore {
 }
 
 func (s *PostgresStore) Get(ctx context.Context, namespace, key string) ([]byte, bool, error) {
+	value, _, found, err := s.GetWithGeneration(ctx, namespace, key)
+	return value, found, err
+}
+
+func (s *PostgresStore) GetWithGeneration(ctx context.Context, namespace, key string) ([]byte, int64, bool, error) {
+	var generation int64
 	var value []byte
 	err := s.db.WithContext(ctx).Raw(`
-		select e.value_json
-		from tb_cache_entries e
-		join tb_cache_namespaces n on n.namespace = e.namespace and n.generation = e.generation
-		where e.namespace = ? and e.cache_key = ? and e.expires_at > now()
-	`, namespace, key).Row().Scan(&value)
+		select coalesce(n.generation, 1), e.value_json
+		from (select ?::text as namespace) requested
+		left join tb_cache_namespaces n on n.namespace = requested.namespace
+		left join tb_cache_entries e on e.namespace = requested.namespace
+			and e.cache_key = ?
+			and e.generation = coalesce(n.generation, 1)
+			and e.expires_at > now()
+	`, namespace, key).Row().Scan(&generation, &value)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, false, nil
+			return nil, 0, false, nil
 		}
-		return nil, false, err
+		return nil, 0, false, err
 	}
-	return value, true, nil
+	return value, generation, value != nil, nil
 }
 
 func (s *PostgresStore) Set(ctx context.Context, namespace, key string, value []byte, ttl time.Duration) error {
@@ -67,6 +76,69 @@ func (s *PostgresStore) Set(ctx context.Context, namespace, key string, value []
 				updated_at = excluded.updated_at
 		`, namespace, key, generation, value, time.Now().UTC().Add(ttl)).Error
 	})
+}
+
+func (s *PostgresStore) SetAtGeneration(ctx context.Context, namespace, key string, generation int64, value []byte, ttl time.Duration) (bool, error) {
+	if ttl <= 0 {
+		return false, nil
+	}
+
+	stored := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(`
+			insert into tb_cache_namespaces (namespace, generation, updated_at)
+			values (?, 1, now())
+			on conflict (namespace) do nothing
+		`, namespace).Error; err != nil {
+			return err
+		}
+
+		var current int64
+		if err := tx.Raw(`select generation from tb_cache_namespaces where namespace = ? for update`, namespace).Row().Scan(&current); err != nil {
+			return err
+		}
+		if current != generation {
+			return nil
+		}
+
+		if err := tx.Exec(`
+			insert into tb_cache_entries (namespace, cache_key, generation, value_json, expires_at, created_at, updated_at)
+			values (?, ?, ?, ?::jsonb, ?, now(), now())
+			on conflict (namespace, cache_key) do update set
+				generation = excluded.generation,
+				value_json = excluded.value_json,
+				expires_at = excluded.expires_at,
+				updated_at = excluded.updated_at
+		`, namespace, key, generation, value, time.Now().UTC().Add(ttl)).Error; err != nil {
+			return err
+		}
+		stored = true
+		return nil
+	})
+	return stored, err
+}
+
+// Cleanup removes at most batchSize expired or obsolete-generation entries.
+// PostgreSQL's ctid keeps the delete bounded without scanning or returning a
+// potentially unbounded set of cache keys to the application.
+func (s *PostgresStore) Cleanup(ctx context.Context, batchSize int) (CleanupResult, error) {
+	if batchSize <= 0 || batchSize > DefaultCleanupBatchSize {
+		batchSize = DefaultCleanupBatchSize
+	}
+	result := s.db.WithContext(ctx).Exec(`
+		delete from tb_cache_entries
+		where ctid in (
+			select e.ctid
+			from tb_cache_entries e
+			left join tb_cache_namespaces n on n.namespace = e.namespace
+			where e.expires_at <= now()
+			   or n.generation is null
+			   or e.generation <> n.generation
+			order by e.expires_at asc, e.namespace asc, e.cache_key asc
+			limit ?
+		)
+	`, batchSize)
+	return CleanupResult{DeletedEntries: result.RowsAffected}, result.Error
 }
 
 func (s *PostgresStore) InvalidateNamespace(ctx context.Context, namespace string) error {

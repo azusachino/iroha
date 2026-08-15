@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -39,9 +40,12 @@ import (
 const apiRateLimitPerMin = 6000
 
 const (
-	// Bump this when a cached JSON representation changes shape. The cache is
-	// shared across rollouts, so a new server must not serve an older contract.
-	readCacheKeyVersion = "v2"
+	// Bump this when a cached JSON representation or key input changes. The
+	// cache is shared across rollouts, so a new server must not reuse an older
+	// contract or identity scheme.
+	// Bump whenever a cached wire representation or range interpretation
+	// changes; old Valkey entries must never satisfy the new contract.
+	readCacheKeyVersion = "v12"
 	readCacheTTL        = 24 * time.Hour
 	readyzTimeout       = 2 * time.Second
 	statusReady         = "ready"
@@ -70,11 +74,13 @@ type Dependencies struct {
 	ReadyCheck             func(context.Context) error
 	MaxUploadBytes         int64
 	AllowedOrigins         []string
+	Now                    func() time.Time
 }
 
 type Server struct {
 	deps Dependencies
 	mux  chi.Router
+	now  func() time.Time
 }
 
 func NewServer(deps Dependencies) http.Handler {
@@ -91,6 +97,10 @@ func NewServer(deps Dependencies) http.Handler {
 	server := &Server{
 		deps: deps,
 		mux:  chi.NewRouter(),
+		now:  time.Now,
+	}
+	if deps.Now != nil {
+		server.now = deps.Now
 	}
 	if server.deps.BriefingRegistry == nil {
 		server.deps.BriefingRegistry, _ = briefing.NewRegistry()
@@ -119,6 +129,7 @@ func (s *Server) routes() {
 		// see the rate-limit budget comment above for why.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
 		r.Use(limitByIP(apiRateLimitPerMin))
+		r.Use(s.rejectFutureReadScope)
 		r.Use(s.readCache)
 		r.Get("/briefing", s.handleBriefing)
 		r.Get("/metrics", s.handleListMetrics)
@@ -136,7 +147,9 @@ func (s *Server) routes() {
 		})
 		r.Route("/activities", func(r chi.Router) {
 			r.Get("/", s.handleListActivities)
+			r.Get("/overview", s.handleActivityOverview)
 			r.Get("/summary", s.handleActivitySummary)
+			r.Get("/bounds", s.handleActivityBounds)
 			r.Get("/routes", s.handleActivityRoutes)
 			r.Get("/{activityId}", s.handleGetActivity)
 			r.Get("/{activityId}/route", s.handleGetActivityRoute)
@@ -145,17 +158,22 @@ func (s *Server) routes() {
 		})
 		r.Route("/sleep", func(r chi.Router) {
 			r.Get("/", s.handleListSleep)
+			r.Get("/overview", s.handleSleepOverview)
 			r.Get("/aggregates", s.handleSleepAggregates)
+			r.Get("/bounds", s.handleSleepBounds)
 			r.Get("/{sleepId}", s.handleGetSleep)
 			r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
 		})
 		r.Route("/daily", func(r chi.Router) {
+			r.Get("/dates", s.handleDailyDates)
+			r.Get("/bounds", s.handleDailyBounds)
 			r.Get("/", s.handleListDaily)
 			r.Get("/aggregates", s.handleDailyAggregates)
 		})
 		r.Route("/expenses", func(r chi.Router) {
 			r.Post("/", s.handleCreateExpense)
 			r.Get("/", s.handleListExpenses)
+			r.Get("/bounds", s.handleExpenseBounds)
 			r.Get("/{expenseId}", s.handleGetExpense)
 			r.Put("/{expenseId}", s.handleReplaceExpense)
 			r.Delete("/{expenseId}", s.handleDeleteExpense)
@@ -167,7 +185,9 @@ func (s *Server) routes() {
 		r.Route("/media", func(r chi.Router) {
 			r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
 			r.Get("/aggregates", s.handleMediaAggregates)
+			r.Post("/events", s.handleCreateMediaEvent)
 			r.Get("/events", s.handleListMediaEvents)
+			r.Get("/changes", s.handleListMediaChanges)
 			r.Get("/resolution-tasks", s.handleListMediaResolutionTasks)
 			r.Patch("/resolution-tasks/{taskId}", s.handleUpdateMediaResolutionTask)
 			r.Get("/", s.handleListMedia)
@@ -233,9 +253,15 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		if s.deps.Cache.IsDegraded(namespace) {
+			w.Header().Set("X-Iroha-Cache", "BYPASS")
+			next.ServeHTTP(w, r)
+			return
+		}
 
-		key := readCacheKey(r)
-		if body, ok := cache.Get[[]byte](r.Context(), s.deps.Cache, namespace, key); ok {
+		key := s.readCacheKey(r)
+		body, generation, ok := cache.GetWithGeneration[[]byte](r.Context(), s.deps.Cache, namespace, key)
+		if ok {
 			w.Header().Set("X-Iroha-Cache", "HIT")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -249,7 +275,7 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 		if wrapped.status != http.StatusOK || wrapped.body.Len() == 0 || !isJSONContentType(wrapped.Header().Get("Content-Type")) {
 			return
 		}
-		cache.Set(r.Context(), s.deps.Cache, namespace, key, readCacheTTL, wrapped.body.Bytes())
+		cache.SetAtGeneration(r.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, wrapped.body.Bytes())
 	})
 }
 
@@ -284,10 +310,6 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 	if r.URL.Path == "/api/v1/media/sync" || strings.HasPrefix(r.URL.Path, "/api/v1/media/sync/") {
 		return "", false
 	}
-	if r.URL.Path == "/api/v1/expenses" || strings.HasPrefix(r.URL.Path, "/api/v1/expenses/") ||
-		r.URL.Path == "/api/v1/reports/monthly" || r.URL.Path == "/api/v1/reports/monthly-series" {
-		return "", false
-	}
 	for prefix, namespace := range map[string]string{
 		"/api/v1/activities": cache.NamespaceActivities,
 		"/api/v1/briefing":   cache.NamespaceBriefing,
@@ -295,6 +317,8 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 		"/api/v1/media":      cache.NamespaceMedia,
 		"/api/v1/sleep":      cache.NamespaceSleep,
 		"/api/v1/metrics":    cache.NamespaceMetrics,
+		"/api/v1/reports":    cache.NamespaceReports,
+		"/api/v1/expenses":   cache.NamespaceExpenses,
 	} {
 		if r.URL.Path == prefix || strings.HasPrefix(r.URL.Path, prefix+"/") {
 			return namespace, true
@@ -303,12 +327,50 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 	return "", false
 }
 
-func readCacheKey(r *http.Request) string {
+func (s *Server) readCacheKey(r *http.Request) string {
 	key := readCacheKeyVersion + " " + r.Method + " " + r.URL.Path
-	if query := r.URL.Query().Encode(); query != "" {
+	queryValues := s.canonicalScopeQuery(r)
+	effectiveTimezone := queryValues.Get("timezone")
+	queryValues.Del("timezone")
+	if query := queryValues.Encode(); query != "" {
 		key += "?" + query
 	}
+	if effectiveTimezone == "" {
+		effectiveTimezone = s.deps.Config.Server.Timezone
+	}
+	if effectiveTimezone != "" {
+		key += "|effective_timezone=" + url.QueryEscape(effectiveTimezone)
+	}
 	return key
+}
+
+func (s *Server) canonicalScopeQuery(r *http.Request) url.Values {
+	query := cloneValues(r.URL.Query())
+	if location, err := scopeLocation(query, s.deps.Config.Server.Timezone); err == nil {
+		query.Set("timezone", location.String())
+	}
+	input, active, err := readScopeInput(query, s.deps.Config.Server.Timezone)
+	if err != nil || !active {
+		return query
+	}
+	scope, err := ResolveReadScope(input, s.clockNow())
+	if err != nil {
+		return query
+	}
+	for _, name := range []string{"date", "scope", "month", "year", "end", "from", "to"} {
+		query.Del(name)
+	}
+	switch scope.Kind {
+	case ScopeLifetime:
+		query.Set("scope", string(ScopeLifetime))
+	case ScopeRange:
+		query.Set("from", scope.Calendar.From.Format(calendarDateLayout))
+		query.Set("to", scope.Calendar.ToExclusive.Format(calendarDateLayout))
+	default:
+		query.Set("date", canonicalScopeDate(scope))
+	}
+	query.Set("_scope", canonicalScopeVersion)
+	return query
 }
 
 func isJSONContentType(value string) bool {

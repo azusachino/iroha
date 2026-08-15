@@ -35,6 +35,13 @@ Use [`docs/dev-runtime.md`](docs/dev-runtime.md) for local development and [`doc
 The v0.4 local client is `scripts/iroha_cli.py`. It uploads files into the canonical import pipeline, reads activities, sleep, daily health, media, metrics, and monthly reports, and manages expenses.
 JSON is preserved by default; receipt OCR remains an external local-agent concern. Run `uv run python scripts/iroha_cli.py --help` for the exact commands.
 
+The v0.4.1 runtime cache is a shared, backend-neutral disposable read layer for the private cockpit. Canonical records remain in Postgres; Postgres is also the default cache backend, Valkey is
+supported for the k3s compatibility deployment, and `none` disables caching. There is no production process-memory cache and no scheduled aggregate table in this release. The public archive remains a
+separate static, sanitized projection and does not consume private cache responses.
+
+After a local k3s rollout, run `make smoke-k3s-cache` for a non-mutating deployment check. It verifies the k3s ConfigMap selects Valkey and that two identical monthly-report reads return the expected
+cache hit on the second request.
+
 ## References
 
 - [API contract](docs/contracts/openapi.yaml)

@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { MediaDetailThemeProps } from "../../media";
   import BarChart from "../components/BarChart.svelte";
+  import MediaUpdateList from "../components/MediaUpdateList.svelte";
   import { mediaEventLabel } from "../../media";
 
-  let { detail, progress, theme }: MediaDetailThemeProps = $props();
+  let { detail, progress, hasKnownTotal, theme }: MediaDetailThemeProps = $props();
   const progressEvents = $derived(
     detail.events.filter((event) => event.progress_percent != null),
   );
@@ -38,11 +39,17 @@
     <header>
       <p class="kicker">Continuity</p>
       <h2>Progress through the record</h2>
-      <strong>{Math.round(progress)}%</strong>
+      {#if hasKnownTotal}
+        <strong>{Math.round(progress)}%</strong>
+      {:else}
+        <span class="muted">Total not reported</span>
+      {/if}
     </header>
-    <div class="progress">
-      <span style={`width:${Math.min(Math.max(progress, 0), 100)}%`}></span>
-    </div>
+    {#if hasKnownTotal}
+      <div class="progress">
+        <span style={`width:${Math.min(Math.max(progress, 0), 100)}%`}></span>
+      </div>
+    {/if}
     <p class="muted">
       {detail.progress?.position ?? 0}{detail.progress?.total != null
         ? ` / ${detail.progress.total}`
@@ -74,7 +81,7 @@
     <section>
       <header>
         <p class="kicker">Event log</p>
-        <h2>{detail.events.length} recorded events</h2>
+        <h2>{detail.events.length} exact events</h2>
       </header>
       {#if detail.events.length}<ol>
           {#each detail.events.slice(0, 20) as event (event.id)}<li>
@@ -84,8 +91,17 @@
                   >{Math.round(event.progress_percent)}%</strong
                 >{/if}
             </li>{/each}
-        </ol>{:else}<p class="muted">No event history recorded.</p>{/if}
+        </ol>{:else}<p class="muted">No exact events recorded.</p>{/if}
     </section>
+    {#if detail.updates.length}
+      <section>
+        <header>
+          <p class="kicker">Provider record</p>
+          <h2>{detail.updates.length} dated updates</h2>
+        </header>
+        <MediaUpdateList updates={detail.updates} />
+      </section>
+    {/if}
     <aside>
       <p class="kicker">Provenance</p>
       <h2>Held in context</h2>
@@ -101,6 +117,10 @@
         <div>
           <dt>Events</dt>
           <dd>{detail.events.length}</dd>
+        </div>
+        <div>
+          <dt>Provider updates</dt>
+          <dd>{detail.updates.length}</dd>
         </div>
         <div>
           <dt>Work kind</dt>
@@ -123,11 +143,11 @@
     margin: 0;
   }
   h1 {
-    max-width: 16ch;
+    max-width: 32ch;
     font-family: var(--font-sans);
-    font-size: clamp(2.8rem, 8vw, 7rem);
-    letter-spacing: -0.12em;
-    line-height: 0.82;
+    font-size: clamp(1.8rem, 3.2vw, 3.2rem);
+    letter-spacing: -0.06em;
+    line-height: 0.95;
   }
   h2 {
     font-family: var(--font-sans);

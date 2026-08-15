@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
@@ -99,6 +100,9 @@ func (s *Server) handleCreateExpense(w http.ResponseWriter, r *http.Request) {
 	status := http.StatusOK
 	if result.Created {
 		status = http.StatusCreated
+		if err := s.invalidateExpenseCaches(r); err != nil {
+			s.deps.Logger.Error("invalidate caches after expense creation", "error", err)
+		}
 	}
 	writeJSON(w, status, toExpenseResponse(result.Expense))
 }
@@ -108,7 +112,7 @@ func (s *Server) handleListExpenses(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "expense service unavailable")
 		return
 	}
-	filters, ok := parseExpenseFilters(w, r)
+	filters, ok := s.parseExpenseFilters(w, r)
 	if !ok {
 		return
 	}
@@ -170,6 +174,9 @@ func (s *Server) handleReplaceExpense(w http.ResponseWriter, r *http.Request) {
 		writeExpenseError(w, err)
 		return
 	}
+	if err := s.invalidateExpenseCaches(r); err != nil {
+		s.deps.Logger.Error("invalidate caches after expense replacement", "error", err)
+	}
 	writeJSON(w, http.StatusOK, toExpenseResponse(row))
 }
 
@@ -186,7 +193,39 @@ func (s *Server) handleDeleteExpense(w http.ResponseWriter, r *http.Request) {
 		writeExpenseError(w, err)
 		return
 	}
+	if err := s.invalidateExpenseCaches(r); err != nil {
+		s.deps.Logger.Error("invalidate caches after expense deletion", "error", err)
+	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleExpenseBounds(w http.ResponseWriter, r *http.Request) {
+	if s.deps.ExpenseService == nil {
+		writeError(w, http.StatusServiceUnavailable, "expense service unavailable")
+		return
+	}
+	timezone := r.URL.Query().Get("timezone")
+	if timezone == "" {
+		timezone = s.deps.Config.Server.Timezone
+	}
+	minDate, maxDate, ok, err := s.deps.ExpenseService.Bounds(s.clockNow(), timezone)
+	if err != nil {
+		if strings.Contains(err.Error(), "load timezone") {
+			writeError(w, http.StatusBadRequest, "invalid timezone")
+			return
+		}
+		s.deps.Logger.Error("expense bounds", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load expense bounds")
+		return
+	}
+	writeBounds(w, minDate, maxDate, ok)
+}
+
+func (s *Server) invalidateExpenseCaches(r *http.Request) error {
+	if s.deps.Cache == nil {
+		return nil
+	}
+	return s.deps.Cache.InvalidateChange(r.Context(), cache.ChangeExpense)
 }
 
 func (r createExpenseRequest) createInput() (expenses.CreateInput, error) {

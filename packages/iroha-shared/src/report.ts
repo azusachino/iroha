@@ -81,9 +81,26 @@ export interface ExpensesReportData {
   }[];
 }
 
+export type ReportSectionState = "available" | "empty";
+
+export function reportSectionStateCopy(state: ReportSectionState): {
+  label: string;
+  description: string;
+} {
+  return state === "available"
+    ? {
+        label: "Included",
+        description: "Canonical records are present for this period.",
+      }
+    : {
+        label: "No records",
+        description: "No canonical records are present for this period.",
+      };
+}
+
 export interface ReportSection<T> {
   schema: string;
-  state: "available" | "empty";
+  state: ReportSectionState;
   data: T | null;
 }
 
@@ -109,16 +126,28 @@ export interface MonthlyReport {
 export interface MonthlyReportSeriesPoint {
   month: string;
   completeness: "complete" | "partial";
-  report: MonthlyReport;
+  movement: { distance_m: number } | null;
+  sleep: { average_asleep_s: number } | null;
+  daily_health: { observed_days: number } | null;
+  media: { event_count: number; completed_count: number } | null;
+  expenses: {
+    totals_by_currency: {
+      currency: ExpenseCurrency;
+      currency_exponent: number;
+      amount_minor: number;
+      expense_count: number;
+    }[];
+  } | null;
 }
 
 export interface MonthlyReportSeries {
-  schema: "monthly-report-series.v1";
+  schema: "monthly-report-series.v2";
   end_month: string;
   requested_months: number;
   from_month: string;
   to_month: string;
   generated_at: string;
+  current_report: MonthlyReport;
   reports: MonthlyReportSeriesPoint[];
   empty_months: string[];
 }

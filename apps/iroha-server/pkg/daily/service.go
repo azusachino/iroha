@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -154,6 +155,84 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
+// Dates returns the canonical calendar days represented by any domain. Date
+// columns are already calendar values; timestamp columns are projected into
+// the caller's IANA timezone before their date is taken.
+func (s *Service) Dates(timezone string) ([]time.Time, error) {
+	var dates []time.Time
+	err := s.db.Raw(`
+		select day from (
+			select day from `+dailySummariesTable+`
+			union
+			select day from `+dailyMetricsTable+`
+			union
+			select (started_at at time zone ?)::date as day from tb_activities
+			union
+			select wake_date as day from tb_sleep_sessions
+			union
+			select (event_at at time zone ?)::date as day
+			from tb_media_consumption_events
+			where event_at is not null
+		) as days
+		order by day desc`, timezone, timezone).Scan(&dates).Error
+	if dates == nil {
+		dates = []time.Time{}
+	}
+	if err != nil {
+		return dates, fmt.Errorf("list canonical dates: %w", err)
+	}
+	return dates, nil
+}
+
+// Bounds returns the earliest and latest calendar days represented by any
+// domain -- the same cross-domain union Dates uses, reduced to its two
+// ends instead of the full list. maxDate is capped at now (in the
+// requested timezone) so a bad-import row with a future timestamp can
+// never widen the navigable range; the past is never capped. ok is false
+// when no domain has any record yet.
+func (s *Service) Bounds(now time.Time, timezone string) (minDate, maxDate string, ok bool, err error) {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return "", "", false, fmt.Errorf("load timezone: %w", err)
+	}
+	zone := location.String()
+	var row struct {
+		Min *string
+		Max *string
+	}
+	queryErr := s.db.Raw(`
+		select to_char(min(day), 'YYYY-MM-DD') as min, to_char(max(day), 'YYYY-MM-DD') as max from (
+			select day from `+dailySummariesTable+`
+			union
+			select day from `+dailyMetricsTable+`
+			union
+			select (started_at at time zone ?)::date as day from tb_activities
+			union
+			select wake_date as day from tb_sleep_sessions
+			union
+			select (event_at at time zone ?)::date as day
+			from tb_media_consumption_events
+			where event_at is not null
+		) as days`, zone, zone).Scan(&row).Error
+	if queryErr != nil {
+		return "", "", false, fmt.Errorf("daily bounds: %w", queryErr)
+	}
+	if row.Min == nil || row.Max == nil {
+		return "", "", false, nil
+	}
+	nowDate := now.In(location).Format("2006-01-02")
+	maxDate = *row.Max
+	if maxDate > nowDate {
+		maxDate = nowDate
+	}
+	if *row.Min > maxDate {
+		// Every real row across every domain is dated after now (test
+		// fixtures or bad imports) -- there is no usable historical range.
+		return "", "", false, nil
+	}
+	return *row.Min, maxDate, true, nil
+}
+
 func (s *Service) MetricValues(ctx context.Context, metric string, from, to time.Time) ([]MetricValue, error) {
 	var values []MetricValue
 	if column, unit, ok := summaryMetricColumn(metric); ok {
@@ -233,7 +312,7 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		query = query.Where("days.day >= ?", *filters.From)
 	}
 	if filters.To != nil {
-		query = query.Where("days.day <= ?", *filters.To)
+		query = query.Where("days.day < ?", *filters.To)
 	}
 	if filters.Cursor != nil {
 		query = query.Where("(days.day, coalesce(s.id, anchor.id)) < (?, ?)", filters.Cursor.Day, filters.Cursor.ID)
@@ -267,7 +346,7 @@ func (s *Service) Aggregates(filters AggregateFilters) ([]AggregateBucket, error
 			q = q.Where("day >= ?", *filters.From)
 		}
 		if filters.To != nil {
-			q = q.Where("day <= ?", *filters.To)
+			q = q.Where("day < ?", *filters.To)
 		}
 		return q
 	}

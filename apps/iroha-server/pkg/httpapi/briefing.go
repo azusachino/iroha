@@ -7,7 +7,22 @@ import (
 )
 
 func (s *Server) handleBriefing(w http.ResponseWriter, r *http.Request) {
-	day, err := briefing.ParseDay(r.URL.Query().Get("date"))
+	scope, active, err := s.resolveReadScope(r)
+	if err != nil {
+		writeReadScopeError(w, err)
+		return
+	}
+	date := r.URL.Query().Get("date")
+	timezone := s.deps.Config.Server.Timezone
+	if active {
+		if scope.Kind != ScopeDay {
+			writeError(w, http.StatusBadRequest, "invalid date")
+			return
+		}
+		date = scope.Calendar.From.Format(calendarDateLayout)
+		timezone = scope.Timezone
+	}
+	day, err := briefing.ParseDayInLocation(date, timezone)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid date")
 		return

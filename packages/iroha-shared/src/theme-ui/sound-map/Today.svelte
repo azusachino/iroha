@@ -2,6 +2,7 @@
   import type { TodayThemeProps } from "../../today-view";
   import { formatDistance, formatDuration, formatPace } from "../../format";
   import { mediaEventVerb } from "../../media";
+  import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
   let {
     dayLabel,
@@ -10,6 +11,7 @@
     mainNight,
     acts,
     mediaEvents,
+    mediaUpdates,
     theme,
     onOpenActivity,
     onOpenMedia,
@@ -185,6 +187,19 @@
       <p class="mix-empty">No media events were recorded for this date.</p>
     {/if}
   </section>
+
+  {#if mediaUpdates.length}
+    <section class="mix-sessions">
+      <header>
+        <div>
+          <p class="mix-kicker">Provider dates</p>
+          <h2>Library updates</h2>
+        </div>
+        <span>{mediaUpdates.length} updates</span>
+      </header>
+      <MediaUpdateList updates={mediaUpdates} {onOpenMedia} />
+    </section>
+  {/if}
 
   <footer class="mix-source">
     <span>Source: imported raw evidence</span>

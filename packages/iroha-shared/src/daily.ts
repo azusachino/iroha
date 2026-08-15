@@ -29,11 +29,16 @@ export interface DailyRow {
 }
 
 export interface ListDailyParams {
+  // Canonical scalar calendar scope; the server resolves it into from/to.
+  date?: string;
+  // Canonical calendar range: from inclusive, to exclusive.
   from?: string;
   to?: string;
   limit?: number;
   cursor?: string;
 }
+
+export type DailyDates = string[];
 
 export interface DailyMetricAggregate {
   metric: string;

@@ -15,8 +15,10 @@
   } from "$lib/api";
   import { APP_VERSION } from "$lib/config";
   import { formatDate } from "$lib/format";
+  import { todayInTimezone } from "@iroha/shared/date";
+  import { IROHA_TIMEZONE } from "$lib/config";
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInTimezone(new Date(), IROHA_TIMEZONE);
   let openTasks = $state<Task[]>([]);
   let completedTasks = $state<Task[]>([]);
   let jobs = $state<Job[]>([]);
@@ -28,6 +30,8 @@
   let loading = $state(true);
   let saving = $state(false);
   let error = $state<string | null>(null);
+  let pollTimer: number | null = null;
+  let pollDelay = 4000;
 
   const activeJobs = $derived(
     jobs.filter((job) => job.status === "queued" || job.status === "running"),
@@ -37,12 +41,38 @@
   );
 
   onMount(() => {
-    void load();
-    const timer = window.setInterval(() => {
-      if (activeJobs.length) void loadJobs();
-    }, 4000);
-    return () => window.clearInterval(timer);
+    const onVisibilityChange = () => {
+      pollDelay = 4000;
+      schedulePolling();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    void load().finally(schedulePolling);
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   });
+
+  function stopPolling() {
+    if (pollTimer != null) {
+      window.clearTimeout(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function schedulePolling() {
+    stopPolling();
+    if (document.visibilityState === "hidden" || activeJobs.length === 0)
+      return;
+    pollTimer = window.setTimeout(async () => {
+      pollTimer = null;
+      await loadJobs();
+      pollDelay = activeJobs.length
+        ? Math.min(Math.round(pollDelay * 1.5), 30_000)
+        : 4000;
+      schedulePolling();
+    }, pollDelay);
+  }
 
   async function load() {
     loading = true;
@@ -118,6 +148,7 @@
     try {
       const job = await triggerAction(action);
       jobs = [job, ...jobs.filter((item) => item.id !== job.id)];
+      schedulePolling();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     }
@@ -430,7 +461,7 @@
   }
   h1 {
     max-width: 12ch;
-    font-size: clamp(2.7rem, 7vw, 5.8rem);
+    font-size: clamp(2rem, 5vw, 3.4rem);
     letter-spacing: -0.09em;
     line-height: 0.9;
   }

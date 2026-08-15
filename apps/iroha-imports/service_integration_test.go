@@ -112,18 +112,14 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	rawFileID := uuid.New()
 	jobID := uuid.New()
 	now := time.Now().UTC()
-	startedAt := now.Add(-time.Hour)
-	completedAt := now.Add(-30 * time.Minute)
 	media := observations.Media{
-		Provider:    "anilist",
-		ExternalID:  "media-integration-" + rawFileID.String(),
-		MediaType:   "anime",
-		Title:       "Integration Media",
-		Status:      "completed",
-		Progress:    float64Ptr(12),
-		Score:       float64Ptr(9),
-		StartedAt:   &startedAt,
-		CompletedAt: &completedAt,
+		Provider:   "anilist",
+		ExternalID: "media-integration-" + rawFileID.String(),
+		MediaType:  "anime",
+		Title:      "Integration Media",
+		Status:     "completed",
+		Progress:   float64Ptr(12),
+		Score:      float64Ptr(9),
 	}
 	if err := db.Create(&models.RawFile{
 		ID:               rawFileID,
@@ -138,6 +134,7 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		_ = db.Exec("delete from tb_media_consumption_events where raw_file_id = ?", rawFileID).Error
+		_ = db.Exec("delete from tb_media_state_history where raw_file_id = ?", rawFileID).Error
 		_ = db.Exec("delete from tb_media_list_items where media_item_id in (select id from tb_media_items where title = ?)", media.Title).Error
 		_ = db.Exec("delete from tb_media_lists where source_kind = ? and name = ?", media.Provider, media.Provider+" library").Error
 		_ = db.Exec("delete from tb_media_external_refs where external_id = ?", media.ExternalID).Error
@@ -160,7 +157,7 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	}
 
 	snapshot1 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "media-snapshot-1", ParserVersion: DefaultParserVersion, CreatedAt: now}
-	if err := (&Service{db: db}).persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList}, []observations.Media{media}, snapshot1, false); err != nil {
+	if err := (&Service{db: db}).persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now}, []observations.Media{media}, snapshot1, false); err != nil {
 		t.Fatalf("persist media: %v", err)
 	}
 	var itemCount, eventCount int64
@@ -170,8 +167,12 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	if err := db.Model(&models.MediaConsumptionEvent{}).Where("raw_file_id = ?", rawFileID).Count(&eventCount).Error; err != nil {
 		t.Fatalf("count media events: %v", err)
 	}
-	if itemCount != 1 || eventCount != 1 {
-		t.Fatalf("persisted media item/event counts = %d/%d, want 1/1", itemCount, eventCount)
+	var stateCount int64
+	if err := db.Model(&models.MediaStateHistory{}).Where("raw_file_id = ?", rawFileID).Count(&stateCount).Error; err != nil {
+		t.Fatalf("count media state history: %v", err)
+	}
+	if itemCount != 1 || eventCount != 0 || stateCount != 1 {
+		t.Fatalf("persisted media item/event/state counts = %d/%d/%d, want 1/0/1", itemCount, eventCount, stateCount)
 	}
 
 	bridgeMedia := observations.Media{
@@ -183,7 +184,7 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 		BangumiToMAL: map[string]string{bridgeMedia.ExternalID: "mal-" + rawFileID.String()},
 		MALToAniList: map[string]string{"mal-" + rawFileID.String(): media.ExternalID},
 	}
-	if err := persistMediaObservation(db, models.RawFile{ID: rawFileID, SourceKind: parsers.KindBangumi}, bridgeMedia, bridge); err != nil {
+	if err := persistMediaObservation(db, models.RawFile{ID: rawFileID, SourceKind: parsers.KindBangumi, CreatedAt: now}, snapshot1, bridgeMedia, bridge); err != nil {
 		t.Fatalf("persist bridged Bangumi media: %v", err)
 	}
 	var bridgedRef models.MediaExternalRef
@@ -198,7 +199,7 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	}
 
 	snapshot2 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "media-snapshot-2", ParserVersion: "media-reprocess", CreatedAt: now.Add(time.Second)}
-	if err := (&Service{db: db}).persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList}, []observations.Media{media}, snapshot2, true); err != nil {
+	if err := (&Service{db: db}).persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now.Add(time.Second)}, []observations.Media{media}, snapshot2, true); err != nil {
 		t.Fatalf("reprocess media: %v", err)
 	}
 	if err := db.Model(&models.MediaItem{}).Where("title = ?", media.Title).Count(&itemCount).Error; err != nil {
@@ -207,8 +208,8 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	if err := db.Model(&models.MediaConsumptionEvent{}).Where("raw_file_id = ?", rawFileID).Count(&eventCount).Error; err != nil {
 		t.Fatalf("count reprocessed media events: %v", err)
 	}
-	if itemCount != 1 || eventCount != 1 {
-		t.Fatalf("reprocessed media item/event counts = %d/%d, want 1/1", itemCount, eventCount)
+	if itemCount != 1 || eventCount != 0 {
+		t.Fatalf("reprocessed media item/event counts = %d/%d, want 1/0", itemCount, eventCount)
 	}
 }
 
@@ -224,6 +225,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	t.Cleanup(func() {
 		db.Exec("delete from tb_media_relations where provider = 'anilist' and (from_id in (select id from tb_media_items where title in (?, ?)) or to_id in (select id from tb_media_items where title in (?, ?)))", titleA, titleB, titleA, titleB)
 		db.Exec("delete from tb_media_consumption_events where source_event_id like ?", "%"+suffix)
+		db.Exec("delete from tb_media_state_history where source_event_id like ?", "%"+suffix)
 		db.Exec("delete from tb_media_progress where media_item_id in (select id from tb_media_items where title in (?, ?))", titleA, titleB)
 		db.Exec("delete from tb_media_external_refs where external_id in (?, ?)", idA, idB)
 		db.Exec("delete from tb_media_items where title in (?, ?)", titleA, titleB)
@@ -245,7 +247,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 			t.Fatalf("create import job %s: %v", tag, err)
 		}
 		snap := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "rich-snap-" + tag + "-" + suffix, ParserVersion: DefaultParserVersion, CreatedAt: time.Now().UTC()}
-		if err := svc.persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList}, []observations.Media{media}, snap, reprocess); err != nil {
+		if err := svc.persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: snap.CreatedAt}, []observations.Media{media}, snap, reprocess); err != nil {
 			t.Fatalf("persist %s: %v", tag, err)
 		}
 	}
@@ -255,8 +257,8 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 			Provider: "anilist", ExternalID: idA, MediaType: "anime_season", Title: titleA, Status: "in_progress",
 			Description:   "Original synopsis " + suffix,
 			ExternalRefs:  []observations.MediaExternalRef{{Provider: "anilist", ExternalID: idA, MatchedBy: "provider_id"}},
+			StateSourceID: "entry-A-" + suffix,
 			ProgressState: &observations.MediaProgress{Status: "in_progress", Unit: "episodes", Position: float64Ptr(position), PlayCount: 2},
-			Events:        []observations.MediaEvent{{EventType: "list_state", SourceEventID: "entry-A-" + suffix, Unit: "episodes", Position: float64Ptr(position)}},
 		}
 	}
 	workDescription := func() string {
@@ -268,7 +270,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 		return work.Description
 	}
 
-	// First sync: item + progress (rich fields) + one event.
+	// First sync: item + progress (rich fields) + one provider state row.
 	persist("a1", mediaA(12), false)
 	var progress models.MediaProgress
 	if err := db.Joins("join tb_media_items on tb_media_items.id = tb_media_progress.media_item_id").Where("tb_media_items.title = ?", titleA).First(&progress).Error; err != nil {
@@ -280,68 +282,40 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	if got := workDescription(); got != "Original synopsis "+suffix {
 		t.Fatalf("work description after first sync = %q, want the synced description (description lives on tb_media_works, not tb_media_items)", got)
 	}
-	countEvents := func() int64 {
+	countStates := func() int64 {
 		var n int64
-		db.Model(&models.MediaConsumptionEvent{}).Where("source_event_id = ?", "entry-A-"+suffix).Count(&n)
+		db.Model(&models.MediaStateHistory{}).Where("source_event_id = ?", "entry-A-"+suffix).Count(&n)
 		return n
 	}
-	if got := countEvents(); got != 1 {
-		t.Fatalf("events after first sync = %d, want 1", got)
+	if got := countStates(); got != 1 {
+		t.Fatalf("state history after first sync = %d, want 1", got)
 	}
-	var storedEvent models.MediaConsumptionEvent
-	if err := db.Where("source_event_id = ?", "entry-A-"+suffix).First(&storedEvent).Error; err != nil {
-		t.Fatalf("load first media event: %v", err)
+	var storedState models.MediaStateHistory
+	if err := db.Where("source_event_id = ?", "entry-A-"+suffix).First(&storedState).Error; err != nil {
+		t.Fatalf("load first media state: %v", err)
 	}
-	if storedEvent.EventAt != nil {
-		t.Fatalf("unknown list_state event_at = %v, want NULL", storedEvent.EventAt)
-	}
-	baseEvent := observations.MediaEvent{
-		EventType: "list_state", SourceEventID: "entry-A-" + suffix,
-		Unit: "episodes", Position: float64Ptr(12),
-	}
-	unchanged, err := latestEventUnchanged(db, storedEvent.MediaItemID, "anilist", baseEvent)
-	if err != nil || !unchanged {
-		t.Fatalf("unchanged event comparison = %v, %v; want true, nil", unchanged, err)
-	}
-	changedEvents := []struct {
-		name   string
-		mutate func(*observations.MediaEvent)
-	}{
-		{name: "event_at", mutate: func(event *observations.MediaEvent) {
-			at := time.Date(2026, time.August, 12, 10, 0, 0, 0, time.UTC)
-			event.EventAt = &at
-		}},
-		{name: "unit", mutate: func(event *observations.MediaEvent) { event.Unit = "chapters" }},
-		{name: "total", mutate: func(event *observations.MediaEvent) { event.Total = float64Ptr(24) }},
-		{name: "progress_percent", mutate: func(event *observations.MediaEvent) { event.ProgressPercent = float64Ptr(50) }},
-		{name: "rating", mutate: func(event *observations.MediaEvent) { event.Rating = float64Ptr(8) }},
-		{name: "rating_scale", mutate: func(event *observations.MediaEvent) { event.RatingScale = float64Ptr(10) }},
-		{name: "note", mutate: func(event *observations.MediaEvent) { event.Note = "changed" }},
-	}
-	for _, test := range changedEvents {
-		t.Run("changed_"+test.name, func(t *testing.T) {
-			event := baseEvent
-			test.mutate(&event)
-			unchanged, err := latestEventUnchanged(db, storedEvent.MediaItemID, "anilist", event)
-			if err != nil {
-				t.Fatalf("compare changed event: %v", err)
-			}
-			if unchanged {
-				t.Fatal("changed event was treated as unchanged")
-			}
-		})
+	if storedState.TimeBasis != "iroha_observed" || storedState.ObservedAt.IsZero() {
+		t.Fatalf("provider state timing = %q/%v, want observed state", storedState.TimeBasis, storedState.ObservedAt)
 	}
 
-	// Re-sync unchanged (new raw file, not reprocess): must NOT append a duplicate event.
+	// Re-sync unchanged (new raw file, not reprocess): must NOT append a duplicate state.
 	persist("a2", mediaA(12), false)
-	if got := countEvents(); got != 1 {
-		t.Fatalf("events after unchanged re-sync = %d, want 1 (dedup failed)", got)
+	if got := countStates(); got != 1 {
+		t.Fatalf("state history after unchanged re-sync = %d, want 1 (dedup failed)", got)
 	}
 
-	// Re-sync with real progress change: append a new history point.
+	// Re-sync with real progress change: append a new state-history point.
 	persist("a3", mediaA(13), false)
-	if got := countEvents(); got != 2 {
-		t.Fatalf("events after changed re-sync = %d, want 2", got)
+	if got := countStates(); got != 2 {
+		t.Fatalf("state history after changed re-sync = %d, want 2", got)
+	}
+
+	// Returning to an earlier state is a real history point, not a duplicate
+	// snapshot. The idempotency index is scoped to the source snapshot so this
+	// A -> B -> A transition remains representable.
+	persist("a3-revert", mediaA(12), false)
+	if got := countStates(); got != 3 {
+		t.Fatalf("state history after reverted re-sync = %d, want 3", got)
 	}
 
 	// M2: the owning provider re-syncing a corrected core field overwrites it.
@@ -382,12 +356,12 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	}
 }
 
-func TestIntegrationProviderMediaEventsPreserveTimestamps(t *testing.T) {
+func TestIntegrationProviderMediaStatePreservesDatePrecision(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	svc := &Service{db: db}
 	suffix := uuid.New().String()
 
-	persist := func(t *testing.T, sourceKind string, media observations.Media) (models.MediaConsumptionEvent, models.MediaProgress) {
+	persist := func(t *testing.T, sourceKind string, media observations.Media) (models.MediaStateHistory, models.MediaProgress) {
 		t.Helper()
 		rawFileID := uuid.New()
 		jobID := uuid.New()
@@ -399,16 +373,16 @@ func TestIntegrationProviderMediaEventsPreserveTimestamps(t *testing.T) {
 			t.Fatalf("create import job: %v", err)
 		}
 		snapshot := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "provider-events-snapshot-" + suffix + sourceKind, ParserVersion: DefaultParserVersion, CreatedAt: now}
-		if err := svc.persistMedia(models.RawFile{ID: rawFileID, SourceKind: sourceKind}, []observations.Media{media}, snapshot, false); err != nil {
+		if err := svc.persistMedia(models.RawFile{ID: rawFileID, SourceKind: sourceKind, CreatedAt: now}, []observations.Media{media}, snapshot, false); err != nil {
 			t.Fatalf("persist provider media: %v", err)
 		}
 		var ref models.MediaExternalRef
 		if err := db.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&ref).Error; err != nil {
 			t.Fatalf("load provider ref: %v", err)
 		}
-		var event models.MediaConsumptionEvent
-		if err := db.Where("media_item_id = ?", ref.ScopeID).First(&event).Error; err != nil {
-			t.Fatalf("load provider event: %v", err)
+		var state models.MediaStateHistory
+		if err := db.Where("media_item_id = ?", ref.ScopeID).First(&state).Error; err != nil {
+			t.Fatalf("load provider state: %v", err)
 		}
 		var progress models.MediaProgress
 		if err := db.Where("media_item_id = ?", ref.ScopeID).First(&progress).Error; err != nil {
@@ -416,6 +390,7 @@ func TestIntegrationProviderMediaEventsPreserveTimestamps(t *testing.T) {
 		}
 		t.Cleanup(func() {
 			db.Exec("delete from tb_media_consumption_events where raw_file_id = ?", rawFileID)
+			db.Exec("delete from tb_media_state_history where raw_file_id = ?", rawFileID)
 			db.Exec("delete from tb_media_list_items where media_item_id = ?", ref.ScopeID)
 			db.Exec("delete from tb_media_progress where media_item_id = ?", ref.ScopeID)
 			db.Exec("delete from tb_media_external_refs where id = ?", ref.ID)
@@ -425,7 +400,7 @@ func TestIntegrationProviderMediaEventsPreserveTimestamps(t *testing.T) {
 			db.Exec("delete from tb_import_jobs where id = ?", jobID)
 			db.Exec("delete from tb_raw_files where id = ?", rawFileID)
 		})
-		return event, progress
+		return state, progress
 	}
 
 	aniEntries, err := anilist.ParseSnapshot([]byte(fmt.Sprintf(`{
@@ -437,12 +412,12 @@ func TestIntegrationProviderMediaEventsPreserveTimestamps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse AniList provider fixture: %v", err)
 	}
-	aniEvent, aniProgress := persist(t, parsers.KindAniList, aniEntries[0])
-	if aniEvent.EventAt != nil {
-		t.Fatalf("AniList list_state event_at = %v, want NULL", aniEvent.EventAt)
+	aniState, aniProgress := persist(t, parsers.KindAniList, aniEntries[0])
+	if aniState.TimeBasis != "source_date" || aniState.ProviderRecordedAt != nil || aniState.EffectiveOnPrecision != "day" || aniState.EffectiveOnValue == nil {
+		t.Fatalf("AniList state timing = %q/%v effective=%v/%q, want source-date day fact", aniState.TimeBasis, aniState.ProviderRecordedAt, aniState.EffectiveOnValue, aniState.EffectiveOnPrecision)
 	}
-	if aniProgress.FinishedAt == nil || aniProgress.FinishedAt.Format("2006-01-02") != "2026-08-10" {
-		t.Fatalf("AniList finished_at = %v, want 2026-08-10", aniProgress.FinishedAt)
+	if aniProgress.CompletedOnValue == nil || aniProgress.CompletedOnPrecision != "day" || aniProgress.CompletedOnValue.Format("2006-01-02") != "2026-08-10" {
+		t.Fatalf("AniList completed_on = %v/%q, want 2026-08-10/day", aniProgress.CompletedOnValue, aniProgress.CompletedOnPrecision)
 	}
 
 	bangumiEntries, err := bangumi.ParseSnapshot([]byte(fmt.Sprintf(`{
@@ -452,12 +427,12 @@ func TestIntegrationProviderMediaEventsPreserveTimestamps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse Bangumi provider fixture: %v", err)
 	}
-	bgEvent, bgProgress := persist(t, parsers.KindBangumi, bangumiEntries[0])
-	if bgEvent.EventAt != nil {
-		t.Fatalf("Bangumi list_state event_at = %v, want NULL", bgEvent.EventAt)
+	bgState, bgProgress := persist(t, parsers.KindBangumi, bangumiEntries[0])
+	if bgState.TimeBasis != "iroha_observed" || bgState.ProviderRecordedAt != nil {
+		t.Fatalf("Bangumi state timing = %q/%v, want observed-only", bgState.TimeBasis, bgState.ProviderRecordedAt)
 	}
-	if bgProgress.Status != "completed" || bgProgress.FinishedAt != nil {
-		t.Fatalf("Bangumi completion projection = status %q finished_at %v, want completed/NULL", bgProgress.Status, bgProgress.FinishedAt)
+	if bgProgress.Status != "completed" || bgProgress.CompletedOnValue != nil || bgProgress.CompletedOnPrecision != "" {
+		t.Fatalf("Bangumi completion projection = status %q completed_on %v/%q, want completed/empty", bgProgress.Status, bgProgress.CompletedOnValue, bgProgress.CompletedOnPrecision)
 	}
 }
 

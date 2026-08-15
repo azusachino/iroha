@@ -12,17 +12,26 @@ const dateLayout = "2006-01-02"
 var ErrDuplicateContributor = errors.New("duplicate briefing contributor")
 
 type Day struct {
-	Date  time.Time
-	Start time.Time
-	End   time.Time
+	Date     time.Time
+	Start    time.Time
+	End      time.Time
+	Timezone string
 }
 
 func ParseDay(value string) (Day, error) {
-	date, err := time.ParseInLocation(dateLayout, value, time.UTC)
+	return ParseDayInLocation(value, "UTC")
+}
+
+func ParseDayInLocation(value, timezone string) (Day, error) {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return Day{}, fmt.Errorf("invalid briefing timezone: %w", err)
+	}
+	date, err := time.ParseInLocation(dateLayout, value, location)
 	if err != nil {
 		return Day{}, fmt.Errorf("invalid briefing date: %w", err)
 	}
-	return Day{Date: date, Start: date, End: date.AddDate(0, 0, 1)}, nil
+	return Day{Date: date, Start: date, End: date.AddDate(0, 0, 1), Timezone: location.String()}, nil
 }
 
 type SectionState string

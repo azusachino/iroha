@@ -236,7 +236,8 @@ Iroha's web cockpit provides the v0.4 management surface for canonical expenses:
 ```
 
 The page renders server data and owns no aggregation or OCR logic. Browser mutation support requires `PUT`, `DELETE`, and `OPTIONS` in the API CORS allow-list. The web selects only the canonical
-month; the server resolves its configured personal timezone and returns that resolved timezone in the report envelope. The web does not send a browser timezone.
+month; the server resolves its configured personal timezone and returns that resolved timezone in the report envelope. The web has no browser-timezone picker; its build-time `PUBLIC_IROHA_TIMEZONE` is
+sent on date-sensitive reads.
 
 ## Implementation slices
 

@@ -33,7 +33,7 @@ type dailyBriefingContributor struct{ service *daily.Service }
 func (dailyBriefingContributor) Key() string    { return "daily" }
 func (dailyBriefingContributor) Schema() string { return "daily.day.v1" }
 func (c dailyBriefingContributor) Contribute(_ context.Context, day briefing.Day) (briefing.Section, error) {
-	page, err := c.service.List(daily.ListFilters{From: &day.Date, To: &day.Date, Limit: briefingSectionLimit})
+	page, err := c.service.List(daily.ListFilters{From: &day.Date, To: &day.End, Limit: briefingSectionLimit})
 	if err != nil {
 		return briefing.Section{}, fmt.Errorf("list daily briefing: %w", err)
 	}
@@ -49,7 +49,7 @@ type sleepBriefingContributor struct{ service *sleep.Service }
 func (sleepBriefingContributor) Key() string    { return "sleep" }
 func (sleepBriefingContributor) Schema() string { return "sleep.day.v1" }
 func (c sleepBriefingContributor) Contribute(_ context.Context, day briefing.Day) (briefing.Section, error) {
-	page, err := c.service.List(sleep.ListFilters{From: &day.Date, To: &day.Date, Limit: briefingSectionLimit})
+	page, err := c.service.List(sleep.ListFilters{From: &day.Date, To: &day.End, Limit: briefingSectionLimit})
 	if err != nil {
 		return briefing.Section{}, fmt.Errorf("list sleep briefing: %w", err)
 	}
@@ -83,22 +83,74 @@ func (c activityBriefingContributor) Contribute(_ context.Context, day briefing.
 type mediaBriefingContributor struct{ service *media.Service }
 
 func (mediaBriefingContributor) Key() string    { return "media" }
-func (mediaBriefingContributor) Schema() string { return "media.day.v1" }
+func (mediaBriefingContributor) Schema() string { return "media.day.v2" }
 func (c mediaBriefingContributor) Contribute(_ context.Context, day briefing.Day) (briefing.Section, error) {
-	page, err := c.service.Events(media.EventListFilters{From: &day.Start, To: &day.End, Limit: briefingSectionLimit})
+	eventPage, err := c.service.Events(media.EventListFilters{From: &day.Start, To: &day.End, Limit: briefingSectionLimit})
 	if err != nil {
-		return briefing.Section{}, fmt.Errorf("list media briefing: %w", err)
+		return briefing.Section{}, fmt.Errorf("list media sessions briefing: %w", err)
 	}
-	items := make([]mediaHomeEventResponse, 0, len(page.Items))
-	for _, event := range page.Items {
-		items = append(items, mediaHomeEventResponse{
+	changePage, err := c.service.DatedChanges(day.Start, day.End, briefingSectionLimit)
+	if err != nil {
+		return briefing.Section{}, fmt.Errorf("list media dated updates briefing: %w", err)
+	}
+	sessions := make([]mediaHomeEventResponse, 0, len(eventPage.Items))
+	for _, event := range eventPage.Items {
+		sessions = append(sessions, mediaHomeEventResponse{
 			ID: mediaEventID(event.ID), MediaID: ids.Encode(ids.MediaPrefix, event.MediaItemID),
 			Title: event.Title, NativeTitle: event.NativeTitle, CoverImageURL: event.CoverImageURL, EventType: event.EventType,
 			OccurredAt: event.OccurredAt, Unit: event.Unit, Position: event.Position, Total: event.Total,
 			ProgressPercent: event.ProgressPercent, Rating: normalizedRating(event.Rating, event.RatingScale),
 		})
 	}
-	return listSection(mediaEventListResponse{Items: items, HasMore: page.HasMore}, len(items)), nil
+	updates := make([]mediaChangeResponse, 0, len(changePage.Items))
+	for _, change := range changePage.Items {
+		updates = append(updates, toMediaChangeResponse(change))
+	}
+	timezone := day.Timezone
+	if timezone == "" {
+		timezone = "UTC"
+	}
+	state := briefing.StateEmpty
+	if len(sessions)+len(updates) > 0 {
+		state = briefing.StateReady
+	}
+	return briefing.Section{
+		State: state,
+		Data: mediaDayResponse{
+			Sessions: mediaDayList[mediaHomeEventResponse]{
+				State: briefingListState(len(sessions)), Items: sessions, Count: len(sessions), HasMore: eventPage.HasMore,
+			},
+			DatedUpdates: mediaDayList[mediaChangeResponse]{
+				State: briefingListState(len(updates)), Items: updates, Count: len(updates), HasMore: changePage.HasMore,
+			},
+			Coverage: mediaDayCoverage{Timezone: timezone, Date: day.Date.Format("2006-01-02")},
+		},
+	}, nil
+}
+
+type mediaDayList[T any] struct {
+	State   briefing.SectionState `json:"state"`
+	Items   []T                   `json:"items"`
+	Count   int                   `json:"count"`
+	HasMore bool                  `json:"has_more"`
+}
+
+type mediaDayCoverage struct {
+	Timezone string `json:"timezone"`
+	Date     string `json:"date"`
+}
+
+type mediaDayResponse struct {
+	Sessions     mediaDayList[mediaHomeEventResponse] `json:"sessions"`
+	DatedUpdates mediaDayList[mediaChangeResponse]    `json:"dated_updates"`
+	Coverage     mediaDayCoverage                     `json:"coverage"`
+}
+
+func briefingListState(itemCount int) briefing.SectionState {
+	if itemCount == 0 {
+		return briefing.StateEmpty
+	}
+	return briefing.StateReady
 }
 
 func listSection(data any, itemCount int) briefing.Section {

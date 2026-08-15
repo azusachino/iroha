@@ -1,5 +1,8 @@
 # Iroha Monthly Report Plan v2
 
+> **Media semantics amendment (2026-08-15):** report media sections now consume the provider-backed contracts in [ADR-0005](../adr/0005-media-provider-time-semantics.md). Exact sessions, dated
+> provider updates, and day-level source facts are separate; the older nullable `event_at` wording below is historical and is superseded.
+
 > Status: implementation complete for the v0.4 release candidate. This plan covers the monthly report across Iroha's existing personal data domains and its release evidence.
 
 ## Goal
@@ -23,8 +26,8 @@ Iroha does not push reports to Telegram or any other destination. A report is a 
 1. The monthly report has one stable API shape and one period resolution.
 2. A month is a half-open local-date range `[from, to)`.
 3. A month starts on the first calendar day and ends on the first day of the next month.
-4. The API accepts an optional IANA timezone and returns the resolved range and timezone. If omitted, the server uses configured `IROHA_TIMEZONE` (default `Asia/Tokyo`). Web clients omit the timezone;
-   the CLI inherits the configured value unless the operator passes an explicit override, so a report does not silently change between normal clients.
+4. The API accepts an optional IANA timezone and returns the resolved range and timezone. If omitted, the server uses configured `IROHA_TIMEZONE` (default `Asia/Tokyo`). The web build uses
+   `PUBLIC_IROHA_TIMEZONE` and sends it explicitly; the CLI inherits the configured value unless the operator passes an explicit override, so a report does not silently change between normal clients.
 5. Each domain owns its aggregation semantics; the report service composes typed domain sections.
 6. Missing data is represented as `empty` or omitted fields, never as zero measurements.
 7. No cross-domain score, ranking, currency conversion, or invented correlation is produced.
@@ -346,9 +349,9 @@ Source: `tb_media_consumption_events` for period activity, with `tb_media_items`
 ```
 
 The media aggregate service currently provides all-time/current-year-oriented aggregates. Add period-aware queries for this report rather than filtering a potentially truncated media list in the
-client. `event_count` counts dated, non-snapshot consumption events with a non-null `event_at` in the selected month. `completed_count` counts distinct items whose resolved canonical completion
-timestamp falls in the month, resolved from `tb_media_progress.finished_at` plus explicit completion events and deduplicated by item. Rewatch events are excluded from `completed_count` and are not a
-separate v0.4 bucket. Undated completions are excluded from monthly buckets; they are not assigned the sync timestamp.
+client. `event_count` counts dated, non-snapshot consumption events with a non-null `event_at` in the selected month. `completed_count` counts distinct items whose resolved canonical completion date
+falls in the month, resolved from `tb_media_progress.completed_on_value` only when `completed_on_precision = 'day'`, plus explicit completion events, and deduplicated by item. Rewatch events are
+excluded from `completed_count` and are not a separate v0.4 bucket. Year/month fuzzy completions are excluded from monthly day-fact buckets; they are not assigned the sync timestamp.
 
 ### Expenses
 
@@ -373,9 +376,9 @@ The report is not allowed to paper over incompatible existing semantics. These a
 - **Sleep:** keep existing wake-date membership, but calculate monthly averages and stage totals from main sleeps only and report naps separately.
 - **Daily health:** add an exclusive-upper-bound report adapter and group averages by `(metric, unit)` so incompatible units cannot be combined.
 - **Daily wire data:** stop serializing missing ring summaries as zero measurements; use nullable/nested ring data. Return `[]`, not `null`, for every repeated field.
-- **Media persistence:** do not count provider `list_state` snapshots as consumption events, preserve unknown `event_at` as null, compare all semantic event fields during deduplication, and add
-  provider-through-persistence tests. Dated completion data is required for monthly buckets; Bangumi-style status without a completion date is excluded. Give media events their own `medevt_` ID prefix
-  before exposing them through the general CLI.
+- **Media persistence:** do not count provider list snapshots as consumption events; rebuild exact events with non-null `event_at`, persist provider state history with explicit time basis, preserve
+  source day facts such as Goodreads `Date Read`, compare all semantic state fields during deduplication, and add provider-through-persistence tests. Bangumi-style status without a trusted effective
+  date is excluded from date-scoped fact buckets. Give exact media events their own `medevt_` ID prefix before exposing them through the general CLI.
 - **Runtime/API:** configure `IROHA_TIMEZONE` with a production timezone database, preserve the existing error envelope, register the monthly route in OpenAPI/route inventory, and allow browser
   `PUT`/`DELETE` preflights for the expense cockpit. Decode IDs separately from service errors: malformed IDs are `400`, missing rows are `404`, and database failures are `500`.
 - **Shared wire contracts:** encode calendar dates as `YYYY-MM-DD` strings and aggregate periods as date/month strings; reserve RFC3339 for instants. Centralize pagination parsing so an explicitly
@@ -418,8 +421,8 @@ HTTP behavior is explicit:
 - `500 Internal Server Error`: any domain query, assembly, or serialization failure. A failed section never becomes a partial `200` response.
 
 The server loads timezone data from the image (`tzdata`) or the Go embedded timezone database and exposes `IROHA_TIMEZONE`, defaulting to `Asia/Tokyo`. An omitted `timezone` resolves to that
-configured personal timezone on every period API, so the same month means the same thing on every surface. The web omits `timezone` and selects only a period; machine clients may still send an
-explicit IANA timezone, and every response carries the resolved zone back.
+configured personal timezone on every period API, so the same month means the same thing on every surface. The web selects only a period in its UI but sends its configured build timezone; machine
+clients may still send an explicit IANA timezone, and every response carries the resolved zone back.
 
 The report API response is the only Iroha output. It is not posted to a Telegram chat, written to Valkey as a draft, or stored as a report artifact.
 
@@ -511,7 +514,8 @@ Client file boundary:
 - JPY and USD totals remain separate.
 - Deleted expenses are excluded.
 - Any domain query failure produces a top-level `500` and is not cached; an empty domain produces an `empty` section with `data: null`.
-- Media provider fixtures prove snapshots are not consumption events, unknown dates are not assigned sync time, dated completions are deduplicated, and undated completions are excluded.
+- Media provider fixtures prove snapshots are not consumption events, unknown dates are not assigned sync time, dated provider updates/source day facts are represented separately, exact events are
+  deduplicated, and undated state observations are excluded from date-scoped fact buckets.
 - Date-only wire fields, invalid IDs, database failures, invalid pagination limits, exact OpenAPI schemas, null unions, route/method parity, and cache-key versioning are tested.
 - Fresh report requests always query canonical data; web and CLI consume the API response without local aggregation.
 - `make check`, integration tests with representative fixtures, OpenAPI validation, and web tests pass.

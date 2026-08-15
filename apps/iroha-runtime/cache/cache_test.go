@@ -118,6 +118,136 @@ func TestClient_UsesBackendNamespaceContract(t *testing.T) {
 	}
 }
 
+type generationFakeStore struct {
+	fakeStore
+	generation int64
+}
+
+func (s *generationFakeStore) GetWithGeneration(_ context.Context, namespace, key string) ([]byte, int64, bool, error) {
+	if s.generation == 0 {
+		s.generation = 1
+	}
+	value, found := s.values[namespace+":"+key]
+	return value, s.generation, found, nil
+}
+
+func (s *generationFakeStore) SetAtGeneration(_ context.Context, namespace, key string, generation int64, value []byte, _ time.Duration) (bool, error) {
+	if s.generation == 0 {
+		s.generation = 1
+	}
+	if generation != s.generation {
+		return false, nil
+	}
+	if s.values == nil {
+		s.values = make(map[string][]byte)
+	}
+	s.values[namespace+":"+key] = value
+	return true, nil
+}
+
+func (s *generationFakeStore) InvalidateNamespace(_ context.Context, namespace string) error {
+	s.generation++
+	s.invalidated = namespace
+	return nil
+}
+
+func TestGenerationAwarePopulationSkipsStaleWrite(t *testing.T) {
+	store := &generationFakeStore{}
+	c := NewWithStore(store)
+
+	_, generation, found := GetWithGeneration[string](context.Background(), c, "read_reports", "month=2026-08")
+	if found || generation != 1 {
+		t.Fatalf("initial lookup = found %v, generation %d; want false, 1", found, generation)
+	}
+	if err := c.InvalidateNamespace(context.Background(), "read_reports"); err != nil {
+		t.Fatalf("invalidate namespace: %v", err)
+	}
+	if stored := SetAtGeneration(context.Background(), c, "read_reports", "month=2026-08", generation, time.Minute, "stale"); stored {
+		t.Fatal("stale generation write was stored")
+	}
+	if _, found := Get[string](context.Background(), c, "read_reports", "month=2026-08"); found {
+		t.Fatal("stale value remained in cache")
+	}
+
+	_, generation, found = GetWithGeneration[string](context.Background(), c, "read_reports", "month=2026-08")
+	if found || generation != 2 {
+		t.Fatalf("post-invalidation lookup = found %v, generation %d; want false, 2", found, generation)
+	}
+	if stored := SetAtGeneration(context.Background(), c, "read_reports", "month=2026-08", generation, time.Minute, "fresh"); !stored {
+		t.Fatal("current generation write was not stored")
+	}
+	if value, found := Get[string](context.Background(), c, "read_reports", "month=2026-08"); !found || value != "fresh" {
+		t.Fatalf("current value = %q/%v, want fresh/true", value, found)
+	}
+}
+
+type invalidationFakeStore struct {
+	fakeStore
+	failures   int
+	attempts   int
+	namespaces []string
+}
+
+func (s *invalidationFakeStore) InvalidateNamespace(_ context.Context, namespace string) error {
+	s.attempts++
+	s.namespaces = append(s.namespaces, namespace)
+	if s.failures > 0 {
+		s.failures--
+		return errors.New("cache backend unavailable")
+	}
+	return nil
+}
+
+func TestInvalidateChangeUsesDependencyMatrix(t *testing.T) {
+	store := &invalidationFakeStore{}
+	c := NewWithStore(store)
+	if err := c.InvalidateChange(context.Background(), ChangeExpense); err != nil {
+		t.Fatalf("invalidate expense change: %v", err)
+	}
+	if got, want := store.namespaces, []string{NamespaceExpenses, NamespaceMetrics, NamespaceReports}; !equalStrings(got, want) {
+		t.Fatalf("invalidated namespaces = %#v, want %#v", got, want)
+	}
+	if err := c.InvalidateChange(context.Background(), ChangeKind("unknown")); err == nil {
+		t.Fatal("unknown change kind did not fail")
+	}
+}
+
+func TestInvalidateNamespaceRetriesAndMarksDegraded(t *testing.T) {
+	store := &invalidationFakeStore{failures: invalidationAttempts}
+	c := NewWithStore(store)
+	if err := c.InvalidateNamespace(context.Background(), NamespaceReports); err == nil {
+		t.Fatal("persistent invalidation failure did not return an error")
+	}
+	if store.attempts != invalidationAttempts {
+		t.Fatalf("invalidation attempts = %d, want %d", store.attempts, invalidationAttempts)
+	}
+	if !c.IsDegraded(NamespaceReports) {
+		t.Fatal("failed namespace was not marked degraded")
+	}
+	if c.InvalidationFailureCount() != 1 {
+		t.Fatalf("invalidation failure count = %d, want 1", c.InvalidationFailureCount())
+	}
+
+	if err := c.InvalidateNamespace(context.Background(), NamespaceReports); err != nil {
+		t.Fatalf("recovered invalidation: %v", err)
+	}
+	if c.IsDegraded(NamespaceReports) {
+		t.Fatal("recovered namespace remained degraded")
+	}
+}
+
+func equalStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestValkeyKeysUseApplicationPrefix(t *testing.T) {
 	if got, want := generationKey("read_daily"), "iroha:cache:v2:read_daily:__generation"; got != want {
 		t.Fatalf("generation key = %q, want %q", got, want)

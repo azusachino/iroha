@@ -1,5 +1,7 @@
 <script lang="ts">
-  const DAY_MS = 24 * 60 * 60 * 1000;
+  import { todayInTimezone } from "@iroha/shared/date";
+  import { IROHA_TIMEZONE } from "$lib/config";
+
   const WEEKDAYS = ["", "Mon", "", "Wed", "", "Fri", ""];
   const LEGEND_LEVELS = [0, 1, 2, 3, 4];
 
@@ -19,40 +21,39 @@
     label: string;
   };
 
-  const today = $derived(startOfDay(new Date()));
+  const today = $derived(todayInTimezone(new Date(), IROHA_TIMEZONE));
   const cells = $derived(buildCells(dates, today));
   const weeks = $derived(chunkWeeks(cells));
   const total = $derived(cells.reduce((sum, cell) => sum + cell.count, 0));
 
-  function startOfDay(date: Date): Date {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  function previousOrNextDay(day: string, delta: number): string {
+    const date = new Date(`${day}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + delta);
+    return date.toISOString().slice(0, 10);
   }
 
-  function keyFor(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+  function keyFor(value: string): string | null {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : todayInTimezone(parsed);
   }
 
-  function buildCells(sourceDates: string[], endDate: Date): DayCell[] {
+  function buildCells(sourceDates: string[], endDay: string): DayCell[] {
     const counts = new Map<string, number>();
     for (const value of sourceDates) {
-      const parsed = new Date(value);
-      if (Number.isNaN(parsed.getTime())) continue;
-      const key = keyFor(startOfDay(parsed));
+      const key = keyFor(value);
+      if (!key) continue;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
 
-    const start = new Date(endDate.getTime() - 364 * DAY_MS);
+    const start = previousOrNextDay(endDay, -364);
     const cells: DayCell[] = [];
     for (let i = 0; i < 365; i++) {
-      const date = new Date(start.getTime() + i * DAY_MS);
-      const key = keyFor(date);
+      const key = previousOrNextDay(start, i);
       const count = counts.get(key) ?? 0;
       cells.push({
         key,
-        day: date.getDay(),
+        day: new Date(`${key}T00:00:00Z`).getUTCDay(),
         count,
         level: heatLevel(count),
         label: `${key}: ${count} ${count === 1 ? "activity" : "activities"}`,

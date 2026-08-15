@@ -1,14 +1,9 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DEFAULT_TIMEZONE, todayInTimezone } from "@iroha/shared/date";
 
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function dayKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function previousDay(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
 }
 
 // Counts consecutive calendar days ending today. Multiple activities on the
@@ -16,18 +11,20 @@ function dayKey(date: Date): string {
 export function currentActivityStreak(
   startedAt: string[],
   now: Date = new Date(),
+  timezone = DEFAULT_TIMEZONE,
 ): number {
   const activeDays = new Set<string>();
   for (const value of startedAt) {
     const date = new Date(value);
-    if (!Number.isNaN(date.getTime())) activeDays.add(dayKey(startOfDay(date)));
+    if (!Number.isNaN(date.getTime()))
+      activeDays.add(todayInTimezone(date, timezone));
   }
 
   let streak = 0;
   for (
-    let date = startOfDay(now);
-    activeDays.has(dayKey(date));
-    date = new Date(date.getTime() - DAY_MS)
+    let day = todayInTimezone(now, timezone);
+    activeDays.has(day);
+    day = previousDay(day)
   ) {
     streak++;
   }

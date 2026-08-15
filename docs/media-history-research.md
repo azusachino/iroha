@@ -1,5 +1,14 @@
 # Reading and Watching History Research
 
+> **Provider-semantics amendment (2026-08-15):** this research established the broad media ontology, but its earlier recommendation to treat AniList/Bangumi list entries as user-state events is
+> superseded. The current provider-backed contract is [ADR-0005](adr/0005-media-provider-time-semantics.md) and the implementation plan is
+> [Media provider canonical-history redesign](plans/2026-08-15-media-provider-canonical-history.md). In particular, current list snapshots are state/projection input; only exact evidence becomes a
+> consumption event.
+
+> **Implementation boundary:** for v0.4.1, `tb_media_progress` is the current provider-state projection, `tb_media_state_history` is the deduplicated provider observation timeline, and
+> `tb_media_consumption_events` contains only exact events with a non-null `event_at`. The old illustrative schema and workflows below remain research context; the migration and API contract in
+> [the implementation plan](plans/2026-08-15-media-provider-canonical-history.md) are authoritative.
+
 ## Conclusion
 
 Iroha should model reading and watching history as a sibling module to fitness, not as a media-server clone.
@@ -8,7 +17,7 @@ The durable shape should stay the same as the running module:
 
 ```text
 intake payloads, raw imports, and connector snapshots
-  -> canonical media items and consumption events
+  -> canonical media items, provider state history, and exact consumption events
   -> private dashboards and optional sanitized summaries
 ```
 
@@ -25,8 +34,9 @@ For Iroha, the stable design should be ontology-first and event-backed:
 - `tb_media_titles`: original titles, translated titles, romanizations, aliases, search aliases, and user aliases.
 - `tb_media_relations`: adaptations, sequels, prequels, side stories, compilations, alternate versions, and provider-specific graph edges.
 - `tb_media_external_refs`: provider IDs such as TMDb, IMDb, TVDb, Open Library, ISBN, AniList, MAL, YouTube, Jellyfin item ID, Komga book ID, or Audiobookshelf item ID.
-- `tb_media_consumption_events`: append-only user history events.
-- `tb_media_progress`: latest resumable state per item/part, derived from events but stored for fast "continue" views.
+- `tb_media_consumption_events`: append-only exact user/client history events.
+- `tb_media_state_history`: append-only provider-state observations and source-date facts.
+- `tb_media_progress`: latest provider/user state per item/part, stored for fast "continue" views; it is not a substitute for event history.
 - `tb_media_sources` and `tb_media_import_jobs`: connector/scraper runs, following `tb_raw_files` and `tb_import_jobs`.
 - `tb_media_notes`: private notes, quotes, bookmarks, review text, and spoiler flags.
 
@@ -66,7 +76,11 @@ tb_intake_payloads
 Large files can still live in `tb_raw_files`; media history can either reuse that table or add `tb_intake_payloads` as the generalized sibling once the module starts. The important product behavior is
 that the user never has to re-explain their history after parser or matcher improvements.
 
-## UX Direction
+## Historical and future UX research
+
+The generic intake flow below is research for a later capture workflow, not the v0.4.1 API contract. The implemented exact-event producer is `POST /api/v1/media/events`: a local agent, playback
+client, or Telegram adapter sends a canonical media ID, exact `event_at`, event type, and idempotency key. Provider sync remains state/history input and does not pass through this capture flow. No
+`/api/v1/media/intake` route or media-specific intake tables are claimed by v0.4.1.
 
 The first UX should optimize for fast capture with later cleanup.
 
@@ -78,17 +92,11 @@ The Telegram bot should stay an external client, like the existing upload-client
 Flow:
 
 ```text
-user -> Telegram bot: "watched Dune Part Two tonight 4.5/5"
-  -> bot POST /api/v1/media/intake
-  -> iroha stores original request payload
-  -> iroha creates an intake job
-  -> iroha extracts candidate facts
-  -> iroha searches local media refs
-  -> iroha calls enrichment providers if needed
-  -> iroha creates or links tb_media_items
+user -> Telegram bot: selects an existing canonical media item and exact event time
+  -> bot POST /api/v1/media/events
+  -> iroha validates media_id, event_at, event_type, and idempotency_key
   -> iroha appends tb_media_consumption_events
-  -> iroha updates tb_media_progress
-  -> bot replies with confirmation or disambiguation choices
+  -> bot replies with the server receipt
 ```
 
 The bot response should be concise:
@@ -99,7 +107,7 @@ Event: watched on 2026-07-08
 Rating: 4.5/5
 ```
 
-If Iroha is not confident:
+For a later natural-language identity-capture feature (not the current exact-event endpoint):
 
 ```text
 Which one?
@@ -363,14 +371,14 @@ Provider refs are the dedupe backbone.
 
 ### Consumption Event
 
-Use append-only events, then derive current status.
+Use append-only exact events for sessions. Provider snapshots do not become events; they update the current projection and state history.
 
 Required:
 
 - `id`
 - `media_item_id`
 - `event_type`: `started`, `progressed`, `completed`, `abandoned`, `reopened`, `rewatched`, `reread`, `rated`, `noted`, `bookmarked`, `hidden_from_continue`
-- `event_at`
+- `event_at` (required RFC3339 instant)
 - `source_kind`: manual, telegram, web_manual, csv, anilist, bangumi, jellyfin, plex, trakt, komga, audiobookshelf, openlibrary, browser, rss
 - `source_event_id`
 - `raw_payload_id`
@@ -382,8 +390,6 @@ Progress fields:
 - `total`
 - `progress_percent`
 - `duration_seconds`
-- `started_at`
-- `finished_at`
 - `last_update_at`
 
 Judgment fields:
@@ -405,7 +411,7 @@ Context fields:
 
 ### Current Progress
 
-Store current progress separately for fast UI, but treat it as a projection:
+Store current provider progress separately for fast UI, but keep its fuzzy dates as value/precision pairs:
 
 ```text
 media_item_id
@@ -414,9 +420,9 @@ status: planned | in_progress | completed | abandoned
 position
 unit
 progress_percent
-started_at
+started_on_value / started_on_precision
 last_update_at
-finished_at
+completed_on_value / completed_on_precision
 play_count/read_count
 hidden_from_continue
 source_kind
@@ -453,8 +459,9 @@ These are closer to Iroha's product goal than generic metadata APIs because they
 - Trakt: useful for movie/show watched history and watchlists if the user already uses it.
 - Letterboxd: start with CSV export before considering scraping.
 
-For AniList and Bangumi, Iroha should treat imported list entries as user-state events and current progress, not just metadata. A later connector sync should not erase locally added Telegram/web
-events; conflicts go to the inbox.
+For AniList and Bangumi, Iroha treats imported list entries as current user state plus provider state observations, not as dated consumption sessions. AniList's optional `ListActivity` feed can add
+explicitly labeled dated provider updates. Bangumi collection timestamps are not trusted for history. A later connector sync should not erase locally added Telegram/web events; conflicts go to the
+inbox.
 
 ### Phase 3: Self-Hosted App Connectors
 
@@ -505,7 +512,7 @@ This should come after manual/file imports because live activity capture creates
 - Keep source confidence. A TMDb match found by title/year is weaker than a direct TMDb ID.
 - Separate private history from public summaries. Public summaries should aggregate counts, time, pages, tags, and favorites without exposing raw notes or exact URLs unless explicitly published.
 
-## Stable Schema
+## Earlier schema sketch (superseded for v0.4.1)
 
 The stable schema is intentionally broader than the first UI. It should be able to represent provider sync, manual capture, translations, editions, parts, adaptations, rereads, rewatches, and later
 write-back without destructive migrations.
@@ -639,7 +646,7 @@ create table tb_media_consumption_events (
   id uuid primary key,
   media_item_id uuid not null references tb_media_items(id) on delete cascade,
   event_type text not null,
-  event_at timestamptz,
+  event_at timestamptz not null,
   source_kind text not null,
   source_event_id text not null default '',
   unit text not null default '',
@@ -651,7 +658,8 @@ create table tb_media_consumption_events (
   note text not null default '',
   raw_file_id uuid references tb_raw_files(id),
   intake_payload_id uuid,
-  created_at timestamptz not null
+  created_at timestamptz not null,
+  check (event_type <> 'list_state')
 );
 
 create table tb_media_progress (
@@ -661,9 +669,11 @@ create table tb_media_progress (
   position numeric,
   total numeric,
   progress_percent numeric,
-  started_at timestamptz,
+  started_on_value date,
+  started_on_precision text not null default '',
   last_update_at timestamptz,
-  finished_at timestamptz,
+  completed_on_value date,
+  completed_on_precision text not null default '',
   play_count integer not null default 0,
   hidden_from_continue boolean not null default false,
   source_kind text not null default '',
@@ -704,7 +714,7 @@ create table tb_media_resolution_tasks (
 Polymorphic `scope_type/scope_id` references are deliberate here. Provider refs, titles, creators, and relations can target either an abstract work or a concrete item. Application code must enforce
 valid scope IDs because SQL foreign keys cannot directly target multiple tables.
 
-## Stable Workflow
+## Earlier workflow sketch (future intake, not v0.4.1)
 
 All sources use the same server-owned workflow:
 
@@ -715,8 +725,9 @@ receive payload
   -> parse source-specific shape into candidate facts
   -> resolve provider refs
   -> resolve or create works/items/titles/relations
-  -> append consumption events
-  -> update progress projection
+  -> append exact consumption events when the source proves an instant
+  -> append a fingerprinted state-history observation for provider state
+  -> update current progress projection
   -> create resolution tasks for ambiguity/conflicts
   -> return UI/bot-sized result
 ```
@@ -727,8 +738,8 @@ Provider-specific examples:
 AniList MediaList entry
   -> external ref on anime/manga item
   -> titles from media metadata
-  -> list state to progress projection
-  -> score/notes/private/custom lists to events/lists
+  -> list state to progress projection/state history
+  -> score/notes/private/custom lists to state fields/lists
 ```
 
 ```text

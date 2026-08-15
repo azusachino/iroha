@@ -28,7 +28,8 @@ Add:
 GET /api/v1/briefing?date=YYYY-MM-DD
 ```
 
-The date is a UTC calendar day. The response is an ordered registry of versioned sections so future modules do not require a growing fixed top-level struct:
+The date is a canonical calendar day in the requested IANA timezone. The server uses configured `IROHA_TIMEZONE` when the optional `timezone` query parameter is omitted. The response is an ordered
+registry of versioned sections so future modules do not require a growing fixed top-level struct:
 
 ```json
 {
@@ -37,7 +38,16 @@ The date is a UTC calendar day. The response is an ordered registry of versioned
   "next_date": "2026-07-15",
   "sections": [
     { "key": "daily", "schema": "daily.day.v1", "state": "ready", "data": { "items": [] } },
-    { "key": "media", "schema": "media.day.v1", "state": "empty", "data": { "items": [], "has_more": false } }
+    {
+      "key": "media",
+      "schema": "media.day.v2",
+      "state": "empty",
+      "data": {
+        "sessions": { "state": "empty", "items": [], "count": 0, "has_more": false },
+        "dated_updates": { "state": "empty", "items": [], "count": 0, "has_more": false },
+        "coverage": { "timezone": "Asia/Tokyo", "date": "2026-07-14" }
+      }
+    }
   ]
 }
 ```
@@ -46,8 +56,13 @@ Each contributor owns its section key/schema and returns `ready` or `empty`; que
 are `daily`, `sleep`, `activities`, and `media`, each capped at 20 rows. A domain page remains responsible for full history and pagination. `previous_date` and `next_date` are calendar navigation, not
 a historical availability index, so empty days remain selectable without a history sweep.
 
-The endpoint queries each domain with `[date 00:00 UTC, date + 1 day)` predicates and does not call HTTP list endpoints or perform cursor pagination internally. Empty domains are successful empty
+The endpoint queries each domain with the requested timezone's local calendar window and does not call HTTP list endpoints or perform cursor pagination internally. Empty domains are successful empty
 sections, not errors. Go keeps typed contributors; the wire envelope is extensible and the web ignores unknown section keys.
+
+`GET /api/v1/daily/dates` is the bounded navigation index for the root cockpit. Despite the historical `/daily` name, it returns the distinct calendar dates represented by the four cockpit
+contributors: daily summaries/metrics, activity start instants, sleep wake dates, and dated media events. Undated media events do not create a selectable day. The endpoint remains a compact date-only
+representation; it does not replace any domain list or aggregate endpoint. Media day data distinguishes exact sessions from source-dated provider updates and never uses provider observation time as a
+day fact.
 
 ## Media query semantics
 
@@ -57,7 +72,7 @@ Media list reads should accept explicit filters:
 /api/v1/media?family=anime&status=in_progress&completed_year=2025
 ```
 
-`family` is the coarse grouping (`anime`, `manga_book`, `game`); `media_type` remains the granular value. `status` is a stable backend enum (`in_progress`, `completed`, `planned`, `abandoned`,
+`family` is the coarse grouping (`anime`, `manga_book`, `book`, `game`); `media_type` remains the granular value. `status` is a stable backend enum (`in_progress`, `completed`, `planned`, `abandoned`,
 `unknown`). `completed_year` filters completion/progress history, not release metadata. Add `release_year` only when the UI needs that distinct meaning.
 
 The API returns facts, not presentation colors. The web layer owns status tokens and maps them to accessible color-plus-label treatments. `reading`/`watching` is a UI verb derived from `media_type`

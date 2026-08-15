@@ -1,4 +1,5 @@
 export * from "./format";
+export * from "./date";
 export * from "./month";
 export * from "./metric-series";
 export * from "./metric-panel";
@@ -6,6 +7,7 @@ export * from "./themes";
 export * from "./category-color";
 export * from "./source";
 export * from "./period";
+export * from "./scope";
 export * from "./media";
 export * from "./hero-title";
 export * from "./activity";

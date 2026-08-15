@@ -17,6 +17,8 @@ export interface MediaRow {
   native_title?: string;
   episode_count?: number;
   chapter_count?: number;
+  started_on?: string;
+  completed_on?: string;
 }
 
 export interface MediaHomeEvent {
@@ -32,6 +34,18 @@ export interface MediaHomeEvent {
   total?: number;
   progress_percent?: number;
   rating?: number;
+}
+
+export interface MediaEvent {
+  id: string;
+  event_type: string;
+  event_at: string;
+  unit?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  rating?: number;
+  note?: string;
 }
 
 export interface MediaCompletionBucket {
@@ -53,6 +67,7 @@ export interface MediaAggregates {
   totals: {
     item_count: number;
     completed_count: number;
+    current_completed_count: number;
     this_year_completed: number;
     average_rating: number;
   };
@@ -86,9 +101,9 @@ export interface MediaDetail {
     position?: number;
     total?: number;
     progress_percent?: number;
-    started_at?: string;
+    started_on?: string;
     last_update_at?: string;
-    finished_at?: string;
+    completed_on?: string;
     play_count: number;
   };
   creators: { id: string; name: string; role: string }[];
@@ -101,22 +116,81 @@ export interface MediaDetail {
     related_type: string;
     cover_image_url?: string;
   }[];
-  events: {
-    id: string;
-    event_type: string;
-    event_at?: string;
-    unit?: string;
-    position?: number;
-    total?: number;
-    progress_percent?: number;
-    rating?: number;
-    note?: string;
-  }[];
+  events: MediaEvent[];
+  updates: MediaChange[];
+}
+
+export interface MediaEventInput {
+  media_id: string;
+  event_type: string;
+  event_at: string;
+  source_kind?: string;
+  idempotency_key: string;
+  unit?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  rating?: number;
+  rating_scale?: number;
+  note?: string;
+}
+
+export interface MediaChange {
+  id: string;
+  media_id: string;
+  title: string;
+  native_title?: string;
+  cover_image_url?: string;
+  source_kind: string;
+  change_kind: string;
+  time_basis: string;
+  observed_at: string;
+  effective_at?: string;
+  effective_on?: string;
+  date_precision?: "year" | "month" | "day";
+  provider_recorded_at?: string;
+  status?: string;
+  unit?: string;
+  position?: number;
+  total?: number;
+  progress_percent?: number;
+  rating?: number;
+  note?: string;
+  repeat_count: number;
+}
+
+export type MediaEventPage = {
+  items: MediaHomeEvent[];
+  next_cursor: string | null;
+  has_more: boolean;
+};
+
+export type MediaChangePage = {
+  items: MediaChange[];
+  next_cursor: string | null;
+  has_more: boolean;
+};
+
+export interface MediaDayList<T> {
+  state: "ready" | "empty";
+  items: T[];
+  count: number;
+  has_more: boolean;
+}
+
+export interface MediaDaySection {
+  sessions: MediaDayList<MediaHomeEvent>;
+  dated_updates: MediaDayList<MediaChange>;
+  coverage: {
+    timezone: string;
+    date: string;
+  };
 }
 
 export interface MediaDetailThemeProps {
   detail: MediaDetail;
   progress: number;
+  hasKnownTotal: boolean;
   theme: DesignLanguage;
 }
 
@@ -130,11 +204,12 @@ export interface MediaThemeProps {
   typeFamilies: { type: string; count: number }[];
   completions: MediaCompletionBucket[];
   scores: MediaScoreBucket[];
+  currentCompletedCount: number;
   activeCount: number;
   theme: DesignLanguage;
   onFamily: (value: string) => void;
-  onStatus: () => void;
-  onYear: () => void;
+  onStatus: (value: string) => void;
+  onYear: (value: string) => void;
   onLoadMore: () => void;
   hasMore: boolean;
   loadingMore: boolean;
@@ -160,7 +235,6 @@ export function mediaTypeLabel(type: string): string {
 }
 
 export function mediaEventLabel(eventType: string): string {
-  if (eventType === "list_state") return "Library snapshot";
   return eventType.replaceAll("_", " ");
 }
 
@@ -211,8 +285,9 @@ export function mediaWorkTotal(
 }
 
 export function mediaTypeFamily(type: string): string {
-  if (["manga", "one_shot", "light_novel", "book", "novel"].includes(type))
-    return "Manga & books";
+  if (["manga", "one_shot", "light_novel", "novel"].includes(type))
+    return "Manga & light novels";
+  if (type === "book") return "Books";
   if (["anime_season", "movie", "ona", "ova", "special"].includes(type))
     return "Anime";
   if (type === "game") return "Games";
@@ -225,7 +300,8 @@ export function mediaTypeFamily(type: string): string {
 export function mediaTypeColor(type: string): string {
   const family = mediaTypeFamily(type);
   if (family === "Anime") return "var(--mark-teal)";
-  if (family === "Manga & books") return "var(--mark-magenta)";
+  if (family === "Manga & light novels") return "var(--mark-magenta)";
+  if (family === "Books") return "var(--mark-violet)";
   if (family === "Games") return "var(--mark-amber)";
   return "var(--text-muted)";
 }
@@ -239,7 +315,12 @@ function effectiveTotal(
   workTotal?: number | null,
 ): number | undefined {
   if (total != null && Number.isFinite(total) && total > 0) return total;
-  if (status === "completed" && position != null && Number.isFinite(position)) {
+  if (
+    status === "completed" &&
+    position != null &&
+    Number.isFinite(position) &&
+    position > 0
+  ) {
     return position;
   }
   if (workTotal != null && Number.isFinite(workTotal) && workTotal > 0) {

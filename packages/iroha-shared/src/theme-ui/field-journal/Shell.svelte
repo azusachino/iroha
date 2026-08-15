@@ -14,6 +14,7 @@
 
 <style>
   .field-journal-site {
+    --shell-width: 1120px;
     min-height: 100vh;
     background:
       radial-gradient(
@@ -26,7 +27,7 @@
   }
 
   .field-journal-content {
-    width: min(1120px, calc(100% - 3rem));
+    width: min(var(--shell-width), calc(100% - 3rem));
     margin: 0 auto;
     padding: 3rem 0 5rem;
   }
@@ -36,7 +37,7 @@
     justify-content: space-between;
     gap: 1rem;
     border-top: 1px solid var(--border);
-    padding: 1rem max(1rem, calc((100% - 1120px) / 2));
+    padding: 1rem max(1rem, calc((100% - var(--shell-width)) / 2));
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     color: var(--text-muted);
     font-family: var(--font-mono);
@@ -47,7 +48,7 @@
 
   @media (max-width: 640px) {
     .field-journal-content {
-      width: min(100% - 2rem, 1120px);
+      width: min(100% - 2rem, var(--shell-width));
       padding-top: 2rem;
     }
 

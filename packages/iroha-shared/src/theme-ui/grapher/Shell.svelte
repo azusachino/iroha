@@ -20,7 +20,8 @@
   }
 
   .grapher-content {
-    width: min(1180px, calc(100% - 3rem));
+    --shell-width: 1180px;
+    width: min(var(--shell-width), calc(100% - 3rem));
     margin: 0 auto;
     padding: 3rem 0 5rem;
   }
@@ -37,7 +38,7 @@
 
   @media (max-width: 640px) {
     .grapher-content {
-      width: min(100% - 2rem, 1180px);
+      width: min(100% - 2rem, var(--shell-width));
       padding-top: 2rem;
     }
 

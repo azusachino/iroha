@@ -45,7 +45,7 @@ type dailyRingResponse struct {
 }
 
 func (s *Server) handleListDaily(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseDailyFilters(w, r)
+	filters, ok := s.parseDailyFilters(w, r)
 	if !ok {
 		return
 	}
@@ -65,6 +65,40 @@ func (s *Server) handleListDaily(w http.ResponseWriter, r *http.Request) {
 		response.NextCursor = &cursor
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) handleDailyDates(w http.ResponseWriter, r *http.Request) {
+	timezone, err := scopeLocation(r.URL.Query(), s.deps.Config.Server.Timezone)
+	if err != nil {
+		writeReadScopeError(w, err)
+		return
+	}
+	dates, err := s.deps.DailyService.Dates(timezone.String())
+	if err != nil {
+		s.deps.Logger.Error("list daily dates", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to list daily dates")
+		return
+	}
+	response := make([]string, 0, len(dates))
+	for _, date := range dates {
+		response = append(response, formatCalendarDate(date))
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) handleDailyBounds(w http.ResponseWriter, r *http.Request) {
+	timezone, err := scopeLocation(r.URL.Query(), s.deps.Config.Server.Timezone)
+	if err != nil {
+		writeReadScopeError(w, err)
+		return
+	}
+	minDate, maxDate, ok, err := s.deps.DailyService.Bounds(s.clockNow(), timezone.String())
+	if err != nil {
+		s.deps.Logger.Error("daily bounds", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load daily bounds")
+		return
+	}
+	writeBounds(w, minDate, maxDate, ok)
 }
 
 type dailyAggregateResponse struct {
@@ -90,7 +124,7 @@ type dailyMetricAggregateResponse struct {
 }
 
 func (s *Server) handleDailyAggregates(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseDailyAggregateFilters(w, r)
+	filters, ok := s.parseDailyAggregateFilters(w, r)
 	if !ok {
 		return
 	}
@@ -214,6 +248,9 @@ func formatCalendarDate(value time.Time) string {
 }
 
 func formatAggregatePeriod(value time.Time, granularity string) string {
+	if granularity == "lifetime" {
+		return "lifetime"
+	}
 	if granularity == "year" {
 		return value.Format("2006")
 	}

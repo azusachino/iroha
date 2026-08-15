@@ -3,6 +3,7 @@
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import {
+    getDailyBounds,
     listDaily,
     listDailyAggregates,
     type DailyRow,
@@ -20,20 +21,41 @@
     formatDateOnly,
     formatMonth as formatCanonicalMonth,
   } from "$lib/format";
-  import { currentYear } from "@iroha/shared/month";
+  import { currentYear, yearOptionsInRange } from "@iroha/shared/month";
+  import {
+    currentCalendarScope,
+    parseCalendarScope,
+    readCalendarScope,
+    scopeBounds,
+    scopeFromParts,
+    serializeCalendarScope,
+    writeCalendarScope,
+    type DateBounds,
+  } from "@iroha/shared/scope";
+  import { IROHA_TIMEZONE } from "$lib/config";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   type Gran = "day" | "month" | "year";
-  let dayRows = $state<DailyRow[]>([]);
-  let latestDay = $state<DailyRow | null>(null);
-  let monthly = $state<DailyAggregateBucket[]>([]);
-  let yearly = $state<DailyAggregateBucket[]>([]);
-  let loading = $state(true);
-  let dayRowsLoading = $state(false);
-  let error = $state<string | null>(null);
+  const monthlyResource = createAsyncResource<DailyAggregateBucket[]>();
+  const yearlyResource = createAsyncResource<DailyAggregateBucket[]>();
+  const daysResource = createAsyncResource<DailyRow[]>();
+  const latestDayResource = createAsyncResource<DailyRow | null>();
+  const monthly = $derived(monthlyResource.data ?? []);
+  const yearly = $derived(yearlyResource.data ?? []);
+  const dayRows = $derived(daysResource.data ?? []);
+  const latestDay = $derived(latestDayResource.data ?? null);
+  const error = $derived(
+    monthlyResource.error ??
+      latestDayResource.error ??
+      yearlyResource.error ??
+      daysResource.error ??
+      null,
+  );
   function granFromUrl(): Gran {
     const value = page.url.searchParams.get("gran");
     return value === "day" || value === "year" ? value : "month";
@@ -43,34 +65,55 @@
   // Set directly by drilling into a bar/row (see drillIntoPeriod), and reset
   // to "" -- meaning "default to the latest" -- by the day/month/year tabs
   // themselves, so a tab always means "zoom all the way out to this level."
-  const initialMonthParam = page.url.searchParams.get("month") ?? "";
-  const initialMonth = /^\d{4}-\d{2}$/.test(initialMonthParam)
-    ? initialMonthParam
-    : "";
-  const initialYearParam = page.url.searchParams.get("year") ?? "";
-  const initialYear = /^\d{4}$/.test(initialYearParam)
-    ? initialYearParam
-    : initialMonth.slice(0, 4) || currentYear();
+  const defaultScope = currentCalendarScope("year", new Date(), IROHA_TIMEZONE);
+  const requestedScope = readCalendarScope(page.url.searchParams, {
+    fallback: defaultScope,
+    allowDay: false,
+  });
+  const initialMonth =
+    requestedScope.kind === "month"
+      ? (serializeCalendarScope(requestedScope) as string)
+      : "";
+  const initialYear =
+    requestedScope.kind === "year" || requestedScope.kind === "month"
+      ? String(requestedScope.year)
+      : requestedScope.kind === "lifetime"
+        ? ""
+        : currentYear(new Date(), IROHA_TIMEZONE);
   let selectedMonth = $state(initialMonth);
   let selectedYear = $state(initialYear);
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
-  let monthlyLoaded = false;
-  let yearlyLoaded = false;
+  let monthlyLoadedKey = "";
+  let yearlyLoadedKey = "";
   let loadedDayMonth = "";
   const theme = useTheme();
 
-  const availableMonths = $derived(
-    monthly
-      .map((bucket) => bucket.period.slice(0, 7))
-      .sort()
-      .reverse(),
-  );
-  const availableYears = $derived(
-    [...new Set(monthly.map((bucket) => bucket.period.slice(0, 4)))]
-      .sort()
-      .reverse(),
-  );
+  // The real data range (fetched once, independent of the current
+  // selection/granularity) -- drives which years/months are navigable, as
+  // a continuous range rather than only the periods with a chart bucket.
+  // That's what lets `scopedYear`/`scopedMonth` below equal the real
+  // selection whenever it's genuinely within history, instead of silently
+  // substituting whatever period happens to have data.
+  let dailyBounds = $state<DateBounds>({});
+  const availableYears = $derived(yearOptionsInRange(dailyBounds));
+  const availableMonths = $derived.by(() => {
+    if (!dailyBounds.min || !dailyBounds.max) return [];
+    const months: string[] = [];
+    let year = Number(dailyBounds.max.slice(0, 4));
+    let month = Number(dailyBounds.max.slice(5, 7));
+    const minYear = Number(dailyBounds.min.slice(0, 4));
+    const minMonth = Number(dailyBounds.min.slice(5, 7));
+    while (year > minYear || (year === minYear && month >= minMonth)) {
+      months.push(`${year}-${String(month).padStart(2, "0")}`);
+      month -= 1;
+      if (month === 0) {
+        month = 12;
+        year -= 1;
+      }
+    }
+    return months;
+  });
   const scopedYear = $derived(
     availableYears.includes(selectedYear) ? selectedYear : "",
   );
@@ -268,56 +311,55 @@
   }
 
   async function loadMonthly() {
-    if (monthlyLoaded) return;
+    const key = selectedYear || "lifetime";
+    if (monthlyLoadedKey === key) return;
+    const result = await monthlyResource.run(() =>
+      listDailyAggregates(
+        "month",
+        selectedYear ? { date: selectedYear } : {},
+      ).then((r) => r.buckets),
+    );
+    if (result) monthlyLoadedKey = key;
+  }
+
+  async function loadBounds() {
     try {
-      const result = await listDailyAggregates("month");
-      monthly = result.buckets;
-      monthlyLoaded = true;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      dailyBounds = await getDailyBounds();
+    } catch {
+      dailyBounds = {};
     }
   }
 
   async function loadLatestDay() {
-    try {
+    await latestDayResource.run(async () => {
       const result = await listDaily({ limit: 1 });
-      latestDay = result.items[0] ?? null;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    }
+      return result.items[0] ?? null;
+    });
   }
 
   async function loadYearly() {
-    if (yearlyLoaded) return;
-    try {
-      const result = await listDailyAggregates("year");
-      yearly = result.buckets;
-      yearlyLoaded = true;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    }
+    const key = selectedYear || "lifetime";
+    if (yearlyLoadedKey === key) return;
+    const result = await yearlyResource.run(() =>
+      listDailyAggregates(
+        "year",
+        selectedYear ? { date: selectedYear } : {},
+      ).then((r) => r.buckets),
+    );
+    if (result) yearlyLoadedKey = key;
   }
 
   async function loadDays(month: string) {
-    if (!month || loadedDayMonth === month || dayRowsLoading) return;
-    const [year, monthNumber] = month.split("-").map(Number);
-    const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
-    rangeFrom = `${month}-01`;
-    rangeTo = `${month}-${String(lastDay).padStart(2, "0")}`;
-    dayRowsLoading = true;
-    try {
-      const result = await listDaily({
-        from: rangeFrom,
-        to: rangeTo,
-        limit: 31,
-      });
-      dayRows = result.items;
-      loadedDayMonth = month;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    } finally {
-      dayRowsLoading = false;
-    }
+    if (!month || loadedDayMonth === month || daysResource.loading) return;
+    const bounds = scopeBounds(parseCalendarScope(month)!);
+    if (!bounds) return;
+    rangeFrom = bounds.from;
+    rangeTo = bounds.to;
+    const result = await daysResource.run(async () => {
+      const r = await listDaily({ date: month, limit: 31 });
+      return r.items;
+    });
+    if (result) loadedDayMonth = month;
   }
 
   // A day/month/year tab always means "zoom all the way out to this level" --
@@ -332,13 +374,23 @@
   function selectYear(value: string) {
     selectedYear = value;
     selectedMonth = "";
+    monthlyLoadedKey = "";
+    yearlyLoadedKey = "";
+    void loadMonthly();
+    if (gran === "year") void loadYearly();
     if (gran === "day") void loadDays(activeMonth);
     syncUrl();
   }
 
   function selectMonth(value: string) {
     selectedMonth = value;
-    if (value) selectedYear = value.slice(0, 4);
+    if (value && selectedYear !== value.slice(0, 4)) {
+      selectedYear = value.slice(0, 4);
+      monthlyLoadedKey = "";
+      yearlyLoadedKey = "";
+      void loadMonthly();
+      if (gran === "year") void loadYearly();
+    }
     if (gran === "day") void loadDays(activeMonth);
     syncUrl();
   }
@@ -346,10 +398,12 @@
   function syncUrl() {
     const url = new URL(window.location.href);
     url.searchParams.set("gran", gran);
-    if (scopedYear) url.searchParams.set("year", scopedYear);
-    else url.searchParams.delete("year");
-    if (scopedMonth) url.searchParams.set("month", scopedMonth);
-    else url.searchParams.delete("month");
+    writeCalendarScope(
+      url.searchParams,
+      scopedMonth
+        ? (parseCalendarScope(scopedMonth) ?? scopeFromParts(scopedYear))
+        : scopeFromParts(scopedYear),
+    );
     if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
@@ -374,11 +428,22 @@
   }
 
   onMount(async () => {
-    await Promise.all([loadMonthly(), loadLatestDay()]);
+    await Promise.all([loadMonthly(), loadLatestDay(), loadBounds()]);
     if (gran === "year") await loadYearly();
     if (gran === "day") await loadDays(activeMonth);
-    loading = false;
   });
+
+  // Only the resources the current granularity actually fetches -- yearly
+  // and day-row resources are never run outside their own tab, so including
+  // them unconditionally would leave the boundary waiting on data that's
+  // never coming.
+  const activeResources = $derived(
+    gran === "year"
+      ? [monthlyResource, latestDayResource, yearlyResource]
+      : gran === "day"
+        ? [monthlyResource, latestDayResource, daysResource]
+        : [monthlyResource, latestDayResource],
+  );
 </script>
 
 <svelte:head>
@@ -387,13 +452,16 @@
 
 <section class="daily">
   {#if hasThemeRoute(theme.definition(), "daily")}
-    {#if loading}
-      <p class="muted status">Loading time-series data…</p>
-    {:else if error}
-      <p class="error status">Could not load daily data: {error}</p>
-    {:else if monthly.length === 0 && dayRows.length === 0}
-      <p class="muted status">No daily data imported yet.</p>
-    {:else}
+    <LoadingBoundary
+      resource={activeResources}
+      preserveLayout
+      label="Loading time-series data…"
+    >
+      {#if error}
+        <p class="error status" role="alert">
+          Could not load daily data: {error}
+        </p>
+      {/if}
       <ThemeRouteRenderer
         route="daily"
         props={{
@@ -413,6 +481,7 @@
               months={periodMonths}
               year={gran === "year" ? selectedYear : activeYear}
               month={gran === "day" ? activeMonth : selectedMonth}
+              bounds={dailyBounds}
               showAllYears={gran === "year"}
               surface="inline"
               onYear={selectYear}
@@ -421,7 +490,7 @@
           </PeriodToolbar>
         {/snippet}
       </ThemeRouteRenderer>
-    {/if}
+    </LoadingBoundary>
   {:else}
     <RouteIntro
       eyebrow="Patterns / personal history"
@@ -437,6 +506,7 @@
         months={periodMonths}
         year={gran === "year" ? selectedYear : activeYear}
         month={gran === "day" ? activeMonth : selectedMonth}
+        bounds={dailyBounds}
         showAllYears={gran === "year"}
         surface="inline"
         onYear={selectYear}
@@ -444,7 +514,7 @@
       />
     </PeriodToolbar>
 
-    {#if loading}
+    {#if activeResources.some((r) => r.loading) && dayRows.length === 0}
       <p class="muted status">Loading daily history…</p>
     {:else if error}
       <p class="error status">Could not load daily data: {error}</p>
@@ -483,7 +553,7 @@
           {/if}
         </span>
         {#if rangeFrom && rangeTo}<span class="muted small"
-            >Range: {rangeFrom} → {rangeTo}</span
+            >Range: {rangeFrom} → before {rangeTo}</span
           >{/if}
       </div>
       <div class="trend-panel tile">

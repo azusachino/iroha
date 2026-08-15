@@ -53,6 +53,7 @@ export interface CreateExpenseInput extends ExpenseInput {
 }
 
 export interface ListExpensesParams {
+  date?: string;
   from?: string;
   to?: string;
   currency?: ExpenseCurrency;

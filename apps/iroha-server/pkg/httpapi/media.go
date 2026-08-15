@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/go-chi/chi/v5"
@@ -36,6 +38,8 @@ type mediaResponse struct {
 	NativeTitle        *string   `json:"native_title,omitempty"`
 	EpisodeCount       *int      `json:"episode_count,omitempty"`
 	ChapterCount       *int      `json:"chapter_count,omitempty"`
+	StartedOn          *string   `json:"started_on,omitempty"`
+	CompletedOn        *string   `json:"completed_on,omitempty"`
 }
 
 type mediaDetailResponse struct {
@@ -45,6 +49,7 @@ type mediaDetailResponse struct {
 	Creators  []mediaCreatorResponse  `json:"creators"`
 	Relations []mediaRelationResponse `json:"relations"`
 	Events    []mediaEventResponse    `json:"events"`
+	Updates   []mediaChangeResponse   `json:"updates"`
 }
 
 type mediaWorkResponse struct {
@@ -63,9 +68,9 @@ type mediaProgressResponse struct {
 	Position        *float64   `json:"position,omitempty"`
 	Total           *float64   `json:"total,omitempty"`
 	ProgressPercent *float64   `json:"progress_percent,omitempty"`
-	StartedAt       *time.Time `json:"started_at,omitempty"`
+	StartedOn       *string    `json:"started_on,omitempty"`
 	LastUpdateAt    *time.Time `json:"last_update_at,omitempty"`
-	FinishedAt      *time.Time `json:"finished_at,omitempty"`
+	CompletedOn     *string    `json:"completed_on,omitempty"`
 	PlayCount       int        `json:"play_count"`
 }
 
@@ -86,15 +91,60 @@ type mediaRelationResponse struct {
 }
 
 type mediaEventResponse struct {
-	ID              string     `json:"id"`
-	EventType       string     `json:"event_type"`
-	EventAt         *time.Time `json:"event_at,omitempty"`
-	Unit            string     `json:"unit,omitempty"`
-	Position        *float64   `json:"position,omitempty"`
-	Total           *float64   `json:"total,omitempty"`
-	ProgressPercent *float64   `json:"progress_percent,omitempty"`
-	Rating          *float64   `json:"rating,omitempty"`
-	Note            string     `json:"note,omitempty"`
+	ID              string    `json:"id"`
+	EventType       string    `json:"event_type"`
+	EventAt         time.Time `json:"event_at"`
+	Unit            string    `json:"unit,omitempty"`
+	Position        *float64  `json:"position,omitempty"`
+	Total           *float64  `json:"total,omitempty"`
+	ProgressPercent *float64  `json:"progress_percent,omitempty"`
+	Rating          *float64  `json:"rating,omitempty"`
+	Note            string    `json:"note,omitempty"`
+}
+
+type mediaCreateEventRequest struct {
+	MediaID         string    `json:"media_id"`
+	EventType       string    `json:"event_type"`
+	EventAt         time.Time `json:"event_at"`
+	SourceKind      string    `json:"source_kind"`
+	IdempotencyKey  string    `json:"idempotency_key"`
+	Unit            string    `json:"unit"`
+	Position        *float64  `json:"position"`
+	Total           *float64  `json:"total"`
+	ProgressPercent *float64  `json:"progress_percent"`
+	Rating          *float64  `json:"rating"`
+	RatingScale     *float64  `json:"rating_scale"`
+	Note            string    `json:"note"`
+}
+
+type mediaChangeListResponse struct {
+	Items      []mediaChangeResponse `json:"items"`
+	NextCursor *string               `json:"next_cursor"`
+	HasMore    bool                  `json:"has_more"`
+}
+
+type mediaChangeResponse struct {
+	ID                 string     `json:"id"`
+	MediaID            string     `json:"media_id"`
+	Title              string     `json:"title"`
+	NativeTitle        *string    `json:"native_title,omitempty"`
+	CoverImageURL      string     `json:"cover_image_url,omitempty"`
+	SourceKind         string     `json:"source_kind"`
+	ChangeKind         string     `json:"change_kind"`
+	TimeBasis          string     `json:"time_basis"`
+	ObservedAt         time.Time  `json:"observed_at"`
+	EffectiveAt        *time.Time `json:"effective_at,omitempty"`
+	EffectiveOn        *string    `json:"effective_on,omitempty"`
+	DatePrecision      string     `json:"date_precision,omitempty"`
+	ProviderRecordedAt *time.Time `json:"provider_recorded_at,omitempty"`
+	Status             string     `json:"status,omitempty"`
+	Unit               string     `json:"unit,omitempty"`
+	Position           *float64   `json:"position,omitempty"`
+	Total              *float64   `json:"total,omitempty"`
+	ProgressPercent    *float64   `json:"progress_percent,omitempty"`
+	Rating             *float64   `json:"rating,omitempty"`
+	Note               string     `json:"note,omitempty"`
+	RepeatCount        int        `json:"repeat_count"`
 }
 
 type mediaEventListResponse struct {
@@ -145,8 +195,12 @@ func (s *Server) handleListMedia(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
-func (s *Server) handleMediaAggregates(w http.ResponseWriter, _ *http.Request) {
-	aggregates, err := s.deps.MediaService.Aggregates(time.Now().UTC())
+func (s *Server) handleMediaAggregates(w http.ResponseWriter, r *http.Request) {
+	filters, ok := parseMediaFilters(w, r)
+	if !ok {
+		return
+	}
+	aggregates, err := s.deps.MediaService.AggregatesFiltered(s.clockNow().UTC(), filters)
 	if err != nil {
 		s.deps.Logger.Error("aggregate media", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to aggregate media")
@@ -156,7 +210,7 @@ func (s *Server) handleMediaAggregates(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleListMediaEvents(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseMediaEventFilters(w, r)
+	filters, ok := s.parseMediaEventFilters(w, r)
 	if !ok {
 		return
 	}
@@ -176,6 +230,80 @@ func (s *Server) handleListMediaEvents(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	response := mediaEventListResponse{Items: items, HasMore: page.HasMore}
+	if page.NextCursor != nil {
+		cursor := media.EncodeCursor(*page.NextCursor)
+		response.NextCursor = &cursor
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) handleCreateMediaEvent(w http.ResponseWriter, r *http.Request) {
+	if s.deps.MediaService == nil {
+		writeError(w, http.StatusServiceUnavailable, "media service unavailable")
+		return
+	}
+	var request mediaCreateEventRequest
+	if err := decodeJSONBody(w, r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	mediaID, err := ids.Decode(ids.MediaPrefix, request.MediaID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid media id")
+		return
+	}
+	event, err := s.deps.MediaService.CreateEvent(media.CreateEventInput{
+		MediaItemID: mediaID, EventType: request.EventType, EventAt: request.EventAt,
+		SourceKind: request.SourceKind, SourceEventID: request.IdempotencyKey,
+		Unit: request.Unit, Position: request.Position, Total: request.Total,
+		ProgressPercent: request.ProgressPercent, Rating: request.Rating,
+		RatingScale: request.RatingScale, Note: request.Note,
+	})
+	if err != nil {
+		switch err {
+		case media.ErrMediaItemNotFound:
+			writeError(w, http.StatusNotFound, err.Error())
+		case media.ErrEventConflict:
+			writeError(w, http.StatusConflict, err.Error())
+		default:
+			if errors.Is(err, media.ErrEventAtRequired) || errors.Is(err, media.ErrInvalidEventType) || errors.Is(err, media.ErrSourceEventIDRequired) {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			s.deps.Logger.Error("create media event", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to create media event")
+		}
+		return
+	}
+	if s.deps.Cache != nil {
+		if err := s.deps.Cache.InvalidateChange(r.Context(), cache.ChangeMedia); err != nil {
+			s.deps.Logger.Error("invalidate caches after media event", "error", err)
+		}
+	}
+	writeJSON(w, http.StatusOK, mediaEventResponse{
+		ID: mediaEventID(event.ID), EventType: event.EventType, EventAt: event.OccurredAt,
+		Unit: event.Unit, Position: event.Position, Total: event.Total,
+		ProgressPercent: event.ProgressPercent, Rating: normalizedRating(event.Rating, event.RatingScale),
+	})
+}
+
+func (s *Server) handleListMediaChanges(w http.ResponseWriter, r *http.Request) {
+	filters, ok := s.parseMediaEventFilters(w, r)
+	if !ok {
+		return
+	}
+	page, err := s.deps.MediaService.Changes(media.ChangeListFilters{
+		From: filters.From, To: filters.To, Limit: filters.Limit, Cursor: filters.Cursor,
+	})
+	if err != nil {
+		s.deps.Logger.Error("list media changes", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to list media changes")
+		return
+	}
+	response := mediaChangeListResponse{Items: make([]mediaChangeResponse, 0, len(page.Items)), HasMore: page.HasMore}
+	for _, change := range page.Items {
+		response.Items = append(response.Items, toMediaChangeResponse(change))
+	}
 	if page.NextCursor != nil {
 		cursor := media.EncodeCursor(*page.NextCursor)
 		response.NextCursor = &cursor
@@ -223,14 +351,20 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 			ID: ids.Encode(ids.MediaPrefix, creator.ID), Name: creator.Name, Role: creator.Role,
 		})
 	}
+	updates := make([]mediaChangeResponse, 0, len(detail.Updates))
+	for _, change := range detail.Updates {
+		updates = append(updates, toMediaChangeResponse(change))
+	}
 	var progress *mediaProgressResponse
 	if detail.Progress != nil {
 		progress = &mediaProgressResponse{
 			Status: detail.Progress.Status, Unit: detail.Progress.Unit,
 			Position: detail.Progress.Position, Total: detail.Progress.Total,
-			ProgressPercent: detail.Progress.ProgressPercent, StartedAt: detail.Progress.StartedAt,
-			LastUpdateAt: detail.Progress.LastUpdateAt, FinishedAt: detail.Progress.FinishedAt,
-			PlayCount: detail.Progress.PlayCount,
+			ProgressPercent: detail.Progress.ProgressPercent,
+			StartedOn:       partialDateString(detail.Progress.StartedOnValue, detail.Progress.StartedOnPrecision),
+			LastUpdateAt:    detail.Progress.LastUpdateAt,
+			CompletedOn:     partialDateString(detail.Progress.CompletedOnValue, detail.Progress.CompletedOnPrecision),
+			PlayCount:       detail.Progress.PlayCount,
 		}
 	}
 	writeJSON(w, http.StatusOK, mediaDetailResponse{
@@ -241,7 +375,7 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 			OriginalLanguage: detail.Work.OriginalLanguage, FirstReleaseDate: detail.Work.FirstReleaseDate,
 			Description: detail.Work.Description,
 		},
-		Progress: progress, Creators: creators, Relations: relations, Events: events,
+		Progress: progress, Creators: creators, Relations: relations, Events: events, Updates: updates,
 	})
 }
 
@@ -298,9 +432,6 @@ func parseMediaEventFilters(w http.ResponseWriter, r *http.Request) (media.Event
 				writeError(w, http.StatusBadRequest, "invalid "+key)
 				return media.EventListFilters{}, false
 			}
-			if key == "to" {
-				parsed = parsed.Add(24 * time.Hour)
-			}
 			*destination = &parsed
 		}
 	}
@@ -333,7 +464,42 @@ func toMediaResponse(row media.Item) mediaResponse {
 		NativeTitle:        row.NativeTitle,
 		EpisodeCount:       row.EpisodeCount,
 		ChapterCount:       row.ChapterCount,
+		StartedOn:          partialDateString(row.StartedOnValue, row.StartedOnPrecision),
+		CompletedOn:        partialDateString(row.CompletedOnValue, row.CompletedOnPrecision),
 	}
+}
+
+func toMediaChangeResponse(change media.Change) mediaChangeResponse {
+	return mediaChangeResponse{
+		ID: ids.Encode(ids.MediaChangePrefix, change.ID), MediaID: ids.Encode(ids.MediaPrefix, change.MediaItemID),
+		Title: change.Title, NativeTitle: change.NativeTitle, CoverImageURL: change.CoverImageURL,
+		SourceKind: change.SourceKind, ChangeKind: change.ChangeKind, TimeBasis: change.TimeBasis,
+		ObservedAt: change.ObservedAt, EffectiveAt: change.EffectiveAt,
+		EffectiveOn:   partialDateString(change.EffectiveOnValue, change.EffectiveOnPrecision),
+		DatePrecision: change.EffectiveOnPrecision, ProviderRecordedAt: change.ProviderRecordedAt,
+		Status: change.Status, Unit: change.Unit, Position: change.Position, Total: change.Total,
+		ProgressPercent: change.ProgressPercent, Rating: normalizedRating(change.Rating, change.RatingScale),
+		Note: change.Note, RepeatCount: change.RepeatCount,
+	}
+}
+
+func partialDateString(value *time.Time, precision string) *string {
+	if value == nil {
+		return nil
+	}
+	var format string
+	switch precision {
+	case "year":
+		format = "2006"
+	case "month":
+		format = "2006-01"
+	case "day":
+		format = "2006-01-02"
+	default:
+		return nil
+	}
+	result := value.UTC().Format(format)
+	return &result
 }
 
 func normalizedRating(rating, scale *float64) *float64 {

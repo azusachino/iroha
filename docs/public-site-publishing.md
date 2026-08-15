@@ -41,6 +41,13 @@ aborts before any `git add`/`commit`/`push`.
 `meta.json` (`{"generated_at": "..."}`) is written alongside the data files. The public site reads it in `+page.ts` and shows "Data as of \<date\>" in the hero, so a visitor never mistakes the
 snapshot for a live feed.
 
+### Cache boundary
+
+The public archive does not use Iroha's runtime response-cache module and does not call `/api/v1`. Its HTML and sanitized `data/*.json` files are static GitHub Pages artifacts; GitHub Pages and its
+CDN control HTTP/browser caching for those files, not `IROHA_CACHE_BACKEND`. The `cache: true` setting in `public-site.yml` caches CI tool installations only. `meta.json` provides snapshot freshness
+in the UI, while the workflow's post-deploy fetches verify that the newly published artifact is reachable. Private `read_reports`, expense records, and cache rows must never be copied into this public
+build.
+
 ### CI smoke check
 
 The last step of `.github/workflows/public-site.yml` curls the deployed `page_url` after `deploy-pages` and asserts:

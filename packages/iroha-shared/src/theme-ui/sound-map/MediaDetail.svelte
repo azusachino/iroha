@@ -7,8 +7,9 @@
     mediaWorkTotal,
   } from "../../media";
   import { heroTitleFontSize } from "../../hero-title";
+  import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
-  let { detail, progress, theme }: MediaDetailThemeProps = $props();
+  let { detail, progress, hasKnownTotal, theme }: MediaDetailThemeProps = $props();
   const boundedProgress = $derived(Math.min(Math.max(progress, 0), 100));
   // A percentage implies a known total, which most media never has (an
   // ongoing manga, an unfinished anime season). Show what's actually known.
@@ -76,10 +77,12 @@
         </div>
         <strong class="progress-readout">{progressLabel}</strong>
       </div>
-      <div class="mix-scrub-track">
-        <i style={`width: ${boundedProgress}%`}></i>
-        <b style={`left: ${boundedProgress}%`}></b>
-      </div>
+      {#if hasKnownTotal}
+        <div class="mix-scrub-track">
+          <i style={`width: ${boundedProgress}%`}></i>
+          <b style={`left: ${boundedProgress}%`}></b>
+        </div>
+      {/if}
       <div class="progress-meta">
         <span
           >{detail.progress?.position ?? 0}{detail.progress?.total != null
@@ -109,6 +112,10 @@
           <dd>{detail.events.length}</dd>
         </div>
         <div>
+          <dt>Provider updates</dt>
+          <dd>{detail.updates.length}</dd>
+        </div>
+        <div>
           <dt>Work kind</dt>
           <dd>{detail.work.work_kind}</dd>
         </div>
@@ -121,7 +128,7 @@
       <div class="panel-heading">
         <div>
           <p class="mix-kicker">Playback log</p>
-          <h2>Watch history</h2>
+          <h2>Exact event history</h2>
         </div>
         <span>{detail.events.length} entries</span>
       </div>
@@ -136,9 +143,21 @@
             </li>{/each}
         </ol>
       {:else}
-        <p class="empty">No event history recorded.</p>
+        <p class="empty">No exact events recorded.</p>
       {/if}
     </section>
+    {#if detail.updates.length}
+      <section class="events-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="mix-kicker">Provider record</p>
+            <h2>Reading updates</h2>
+          </div>
+          <span>{detail.updates.length} entries</span>
+        </div>
+        <MediaUpdateList updates={detail.updates} />
+      </section>
+    {/if}
     {#if detail.relations.length}
       <section class="relations-panel">
         <p class="mix-kicker">Connections</p>

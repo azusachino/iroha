@@ -14,6 +14,7 @@
   let menu: HTMLDetailsElement;
   let summary: HTMLElement;
   let popoverStyle = $state("");
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
   function updatePopoverPosition() {
     if (!menu?.open || !summary || typeof window === "undefined") return;
@@ -37,8 +38,19 @@
   }
 
   function closeMenu() {
+    if (closeTimer) {
+      clearTimeout(closeTimer);
+      closeTimer = undefined;
+    }
     if (menu) menu.open = false;
     popoverStyle = "";
+  }
+
+  function cancelClose() {
+    if (closeTimer) {
+      clearTimeout(closeTimer);
+      closeTimer = undefined;
+    }
   }
 
   function handleToggle() {
@@ -52,6 +64,28 @@
       }),
     );
     requestAnimationFrame(updatePopoverPosition);
+  }
+
+  function isHoverPointer(event: PointerEvent): boolean {
+    return (
+      (event.pointerType === "mouse" || event.pointerType === "pen") &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches
+    );
+  }
+
+  function openOnPointer(event: PointerEvent) {
+    if (!isHoverPointer(event)) return;
+    cancelClose();
+    menu.open = true;
+  }
+
+  function closeOnPointer(event: PointerEvent) {
+    if (!isHoverPointer(event)) return;
+    cancelClose();
+    closeTimer = setTimeout(() => {
+      closeTimer = undefined;
+      closeMenu();
+    }, 180);
   }
 
   function closeAfterNavigation() {
@@ -78,6 +112,7 @@
     window.addEventListener("resize", updatePopoverPosition);
     window.addEventListener("scroll", updatePopoverPosition, true);
     return () => {
+      cancelClose();
       window.removeEventListener("iroha:navigation-open", closeOtherMenus);
       document.removeEventListener("pointerdown", closeOnOutsidePointer);
       window.removeEventListener("keydown", closeOnEscape);
@@ -90,6 +125,8 @@
 <details
   bind:this={menu}
   ontoggle={handleToggle}
+  onpointerenter={openOnPointer}
+  onpointerleave={closeOnPointer}
   class:active={groupActive}
   class="navigation-menu"
 >

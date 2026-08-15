@@ -75,10 +75,11 @@ insert into tb_media_consumption_events (
 );
 
 insert into tb_media_progress (
-  media_item_id, status, finished_at, source_kind, updated_at
+  media_item_id, status, completed_on_value, completed_on_precision,
+  source_kind, updated_at
 ) values (
   '51000000-0000-0000-0000-000000000001', 'completed',
-  '2026-08-03T12:00:00Z', 'release-candidate', '2026-08-03T12:00:00Z'
+  '2026-08-03', 'day', 'release-candidate', '2026-08-03T12:00:00Z'
 );
 
 insert into tb_expenses (

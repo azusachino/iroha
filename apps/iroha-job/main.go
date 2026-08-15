@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -93,8 +94,18 @@ func main() {
 		logger.Error("create raw file service", "error", err)
 		os.Exit(1)
 	}
+	activityConnector := anilist.NewActivityConnector(os.Getenv(config.EnvAniListUsername), os.Getenv(config.EnvAniListToken))
+	if value := os.Getenv(config.EnvAniListActivityLookbackDays); value != "" {
+		days, parseErr := strconv.Atoi(value)
+		if parseErr != nil || days <= 0 {
+			logger.Warn("invalid AniList activity lookback days; using default", "value", value, "default_days", int(anilist.DefaultActivityLookback/(24*time.Hour)))
+		} else {
+			activityConnector.Lookback = time.Duration(days) * 24 * time.Hour
+		}
+	}
 	connectors, err := connectorregistry.New(
 		anilist.NewConnector(os.Getenv(config.EnvAniListUsername), os.Getenv(config.EnvAniListToken)),
+		activityConnector,
 		bangumi.NewConnector(os.Getenv(config.EnvBangumiUsername), os.Getenv(config.EnvBangumiToken)),
 	)
 	if err != nil {
@@ -115,7 +126,7 @@ func main() {
 	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
 
 	jobsService = jobs.NewService(db, logger, registry.Handlers())
-	geocodeService := geocode.NewService(db, nil, nil)
+	geocodeService := geocode.NewService(db, nil, cacheClient)
 	jobs.Register(registry, jobs.KindGeocodeRefresh, func(ctx context.Context, payload geocode.RefreshPayload) error {
 		return geocodeService.Refresh(ctx, payload)
 	})
@@ -123,6 +134,10 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	cleanupCache(ctx, cacheClient, logger)
+	if !*once {
+		go runCacheMaintenance(ctx, cacheClient, logger)
+	}
 
 	if *once {
 		if _, err := jobsService.EnqueueDueSchedules(1); err != nil {
@@ -140,6 +155,30 @@ func main() {
 		Concurrency:  *concurrency,
 		PollInterval: *pollInterval,
 	})
+}
+
+func cleanupCache(ctx context.Context, cacheClient *cache.Client, logger *slog.Logger) {
+	result, err := cacheClient.Cleanup(ctx, cache.DefaultCleanupBatchSize)
+	if err != nil {
+		logger.Error("cleanup cache", "error", err)
+		return
+	}
+	if result.DeletedEntries > 0 {
+		logger.Info("cleaned disposable cache entries", "deleted_entries", result.DeletedEntries)
+	}
+}
+
+func runCacheMaintenance(ctx context.Context, cacheClient *cache.Client, logger *slog.Logger) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cleanupCache(ctx, cacheClient, logger)
+		}
+	}
 }
 
 func defaultWorkerID() (string, error) {
@@ -191,6 +230,12 @@ func mediaSyncHandler(runner *imports.SyncRunner, connectorID string) func(conte
 		if payload.ConnectorID == "" {
 			payload.ConnectorID = connectorID
 		}
-		return runner.Run(ctx, payload.ConnectorID, payload.Credentials)
+		if err := runner.Run(ctx, payload.ConnectorID, payload.Credentials); err != nil {
+			return err
+		}
+		if payload.ConnectorID == "anilist" {
+			return runner.Run(ctx, anilist.ActivityConnectorID, payload.Credentials)
+		}
+		return nil
 	}
 }

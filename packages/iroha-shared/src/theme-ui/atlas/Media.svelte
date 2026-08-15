@@ -12,6 +12,7 @@
     typeFamilies,
     completions,
     scores,
+    currentCompletedCount,
     activeCount,
     theme,
     onFamily,
@@ -22,10 +23,20 @@
     loadingMore,
   }: MediaThemeProps = $props();
 
+  let selectedYear = $state("");
+  let yearSelect = $state<HTMLSelectElement>();
+  $effect(() => {
+    selectedYear = completedYear;
+    if (yearSelect && yearSelect.value !== completedYear) {
+      yearSelect.value = completedYear;
+    }
+  });
+
   const families = [
     { value: "", label: "All regions" },
     { value: "anime", label: "Anime" },
-    { value: "manga_book", label: "Manga & books" },
+    { value: "manga_book", label: "Manga & light novels" },
+    { value: "book", label: "Books" },
     { value: "game", label: "Games" },
   ];
 </script>
@@ -56,7 +67,10 @@
 
   <div class="shelf-filters">
     <label
-      >Status<select value={status} onchange={onStatus}
+      >Status<select
+        value={status}
+        onchange={(event) =>
+          onStatus((event.currentTarget as HTMLSelectElement).value)}
         ><option value="">All statuses</option><option value="in_progress"
           >In progress</option
         ><option value="completed">Completed</option><option value="planned"
@@ -64,8 +78,13 @@
         ><option value="abandoned">Abandoned</option></select
       ></label
     ><label
-      >Completed year<select value={completedYear} onchange={onYear}
-        ><option value="">Lifetime</option>{#each yearOptions as option}<option
+      >Completed year<select
+        bind:this={yearSelect}
+        bind:value={selectedYear}
+        onchange={(event) =>
+          onYear((event.currentTarget as HTMLSelectElement).value)}
+        ><option value="">Lifetime</option
+        >{#each yearOptions as option}<option
             value={option.year}>{option.year}</option
           >{/each}</select
       ></label
@@ -75,7 +94,7 @@
   <div class="shelf-summary">
     <div class="atlas-plate">
       <p class="atlas-kicker">Completed</p>
-      <strong>{aggregates.totals.completed_count}</strong>
+      <strong>{currentCompletedCount}</strong>
     </div>
     <div class="atlas-plate">
       <p class="atlas-kicker">This year</p>

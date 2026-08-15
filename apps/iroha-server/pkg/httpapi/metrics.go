@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
@@ -62,13 +61,16 @@ func (s *Server) handleMetricSeries(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) parseMetricSeriesRequest(w http.ResponseWriter, r *http.Request) (metricseries.Request, bool) {
 	query := r.URL.Query()
-	from, err := time.Parse("2006-01-02", query.Get("from"))
+	scope, active, err := s.resolveReadScope(r)
 	if err != nil {
+		writeReadScopeError(w, err)
+		return metricseries.Request{}, false
+	}
+	if !active {
 		writeError(w, http.StatusBadRequest, "invalid metric series request")
 		return metricseries.Request{}, false
 	}
-	to, err := time.Parse("2006-01-02", query.Get("to"))
-	if err != nil {
+	if scope.Kind == ScopeLifetime {
 		writeError(w, http.StatusBadRequest, "invalid metric series request")
 		return metricseries.Request{}, false
 	}
@@ -77,11 +79,7 @@ func (s *Server) parseMetricSeriesRequest(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "invalid metric series request")
 		return metricseries.Request{}, false
 	}
-	timezone := query.Get("timezone")
-	if timezone == "" {
-		timezone = s.deps.Config.Server.Timezone
-	}
-	location, err := time.LoadLocation(timezone)
+	location, err := scopeLocation(query, s.deps.Config.Server.Timezone)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid metric series request")
 		return metricseries.Request{}, false
@@ -97,8 +95,8 @@ func (s *Server) parseMetricSeriesRequest(w http.ResponseWriter, r *http.Request
 	}
 	return metricseries.Request{
 		MetricID:   chi.URLParam(r, "metricId"),
-		From:       time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, location),
-		To:         time.Date(to.Year(), to.Month(), to.Day(), 0, 0, 0, 0, location),
+		From:       scope.Instant.From,
+		To:         scope.Instant.ToExclusive,
 		Grain:      grain,
 		Timezone:   location,
 		Dimensions: dimensions,

@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: Iroha API
-  version: 0.4.0
+  version: 0.4.1
   description: |
     Active-development contract for Iroha's private data cockpit.
     /api/v1 is still pre-1.0 and may evolve between minor releases. This
-    document is the implementation target for release 0.4.0.
+    document is the implementation target for release 0.4.1.
 servers:
   - url: /
     description: Same-origin or reverse-proxy deployment
@@ -66,6 +66,7 @@ paths:
       tags: [system]
       parameters:
         - $ref: "#/components/parameters/Date"
+        - $ref: "#/components/parameters/Timezone"
       responses:
         "200":
           description: Day briefing with versioned sections.
@@ -115,20 +116,19 @@ paths:
           schema: { type: string }
         - name: from
           in: query
-          required: true
           schema: { type: string, format: date }
         - name: to
           in: query
-          required: true
           description: Exclusive end date.
           schema: { type: string, format: date }
+        - $ref: "#/components/parameters/ScopeDate"
         - name: grain
           in: query
           required: true
           schema: { type: string, enum: [day, month, year] }
         - name: timezone
           in: query
-          schema: { type: string, default: UTC }
+          schema: { type: string, default: Asia/Tokyo }
       responses:
         "200":
           description: Complete metric series with explicit missingness and coverage.
@@ -258,10 +258,15 @@ paths:
           schema: { type: string }
         - name: started_from
           in: query
+          description: Inclusive lower bound for started_at.
           schema: { type: string, format: date-time }
         - name: started_to
           in: query
+          description: Exclusive upper bound for started_at.
           schema: { type: string, format: date-time }
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - name: min_distance_m
           in: query
           schema: { type: number }
@@ -277,6 +282,26 @@ paths:
                 $ref: "#/components/schemas/ActivityPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/activities/overview:
+    get:
+      tags: [activities]
+      parameters:
+        - name: recent
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 5 }
+        - name: timezone
+          in: query
+          schema:
+            { type: string, description: IANA timezone used for calendar days }
+      responses:
+        "200":
+          description: Dashboard activity projection with canonical active days and recent rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/activities/summary:
     get:
       tags: [activities]
@@ -284,9 +309,18 @@ paths:
         - name: year
           in: query
           schema: { type: string }
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
         - name: sport
           in: query
           schema: { type: string }
+        - name: timezone
+          in: query
+          schema:
+            {
+              type: string,
+              description: IANA timezone used for calendar buckets,
+            }
       responses:
         "200":
           description: Activity summary aggregates (totals, by year/month/sport).
@@ -294,6 +328,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ActivitySummary"
+  /api/v1/activities/bounds:
+    get:
+      tags: [activities]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Earliest and latest calendar date with a real activity record, capped at today.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DateBounds"
   /api/v1/activities/routes:
     get:
       tags: [activities]
@@ -380,6 +426,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
       responses:
@@ -391,13 +440,33 @@ paths:
                 $ref: "#/components/schemas/SleepPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/sleep/overview:
+    get:
+      tags: [sleep]
+      parameters:
+        - name: recent
+          in: query
+          description: Number of most recent sleep rows used for the main-sleep averages.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+      responses:
+        "200":
+          description: Server-owned sleep dashboard projection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SleepOverview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/sleep/aggregates:
     get:
       tags: [sleep]
       parameters:
-        - $ref: "#/components/parameters/Granularity"
+        - $ref: "#/components/parameters/SleepGranularity"
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
       responses:
         "200":
           description: Sleep aggregate buckets.
@@ -407,6 +476,18 @@ paths:
                 $ref: "#/components/schemas/SleepAggregateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/sleep/bounds:
+    get:
+      tags: [sleep]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Earliest and latest wake date with a real sleep session, capped at today.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DateBounds"
   /api/v1/sleep/{sleepId}:
     get:
       tags: [sleep]
@@ -447,6 +528,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
       responses:
@@ -458,6 +542,31 @@ paths:
                 $ref: "#/components/schemas/DailyPage"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/daily/dates:
+    get:
+      tags: [daily]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Canonical dates represented by daily facts, activities, sleep wake dates, or dated media events in the requested timezone.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: string, format: date }
+  /api/v1/daily/bounds:
+    get:
+      tags: [daily]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Earliest and latest calendar date represented by any domain, capped at today.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DateBounds"
   /api/v1/daily/aggregates:
     get:
       tags: [daily]
@@ -465,6 +574,9 @@ paths:
         - $ref: "#/components/parameters/Granularity"
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
       responses:
         "200":
           description: Daily aggregate buckets.
@@ -478,6 +590,7 @@ paths:
     get:
       tags: [system]
       parameters:
+        - $ref: "#/components/parameters/ReportDate"
         - $ref: "#/components/parameters/Month"
         - $ref: "#/components/parameters/Timezone"
       responses:
@@ -495,6 +608,7 @@ paths:
     get:
       tags: [system]
       parameters:
+        - $ref: "#/components/parameters/ReportDate"
         - $ref: "#/components/parameters/ReportEndMonth"
         - $ref: "#/components/parameters/ReportSeriesMonths"
         - $ref: "#/components/parameters/Timezone"
@@ -515,6 +629,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
         - name: currency
@@ -576,6 +693,18 @@ paths:
           $ref: "#/components/responses/Conflict"
         "410":
           $ref: "#/components/responses/Gone"
+  /api/v1/expenses/bounds:
+    get:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Earliest and latest occurred-on date among active expenses, capped at today.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DateBounds"
   /api/v1/expenses/{expenseId}:
     get:
       tags: [expenses]
@@ -692,6 +821,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
       responses:
@@ -701,6 +833,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MediaEventPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [media]
+      summary: Record one exact media consumption event.
+      description: |
+        Records an event supplied by a local agent, Telegram/playback client,
+        or another exact source. `event_at` must be an RFC3339 instant and
+        `idempotency_key` is required. Provider library snapshots do not use
+        this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaEventInput"
+      responses:
+        "200":
+          description: Existing or newly recorded exact event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Idempotency key was reused with a different payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/media/changes:
+    get:
+      tags: [media]
+      summary: List provider state changes and dated source facts.
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Provider state-history page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaChangePage"
         "400":
           $ref: "#/components/responses/BadRequest"
   /api/v1/media/aggregates:
@@ -965,23 +1149,47 @@ components:
       in: query
       required: true
       schema: { type: string, format: date }
+    ScopeDate:
+      name: date
+      in: query
+      description: "Canonical scalar calendar scope: YYYY, YYYY-MM, or YYYY-MM-DD, as supported by the route."
+      schema:
+        type: string
+        pattern: "^[0-9]{4}(?:-[0-9]{2})?(?:-[0-9]{2})?$"
+    Scope:
+      name: scope
+      in: query
+      description: Explicit unbounded history selector. Do not combine with date, from, or to.
+      schema:
+        type: string
+        enum: [lifetime]
     DateFrom:
       name: from
       in: query
+      description: Inclusive calendar start of an explicit half-open range.
       schema: { type: string, format: date }
     DateTo:
       name: to
       in: query
+      description: Exclusive calendar end of an explicit half-open range.
       schema: { type: string, format: date }
+    ReportDate:
+      name: date
+      in: query
+      required: true
+      description: Canonical report month, YYYY-MM.
+      schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
     Month:
       name: month
       in: query
-      required: true
+      deprecated: true
+      description: Compatibility alias for date.
       schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
     ReportEndMonth:
       name: end
       in: query
-      required: true
+      deprecated: true
+      description: Compatibility alias for date.
       schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
     ReportSeriesMonths:
       name: months
@@ -1003,6 +1211,10 @@ components:
       name: granularity
       in: query
       schema: { type: string, enum: [month, year], default: month }
+    SleepGranularity:
+      name: granularity
+      in: query
+      schema: { type: string, enum: [month, year, lifetime], default: month }
   responses:
     BadRequest:
       description: Request could not be parsed or validated.
@@ -1426,16 +1638,18 @@ components:
           from_month,
           to_month,
           generated_at,
+          current_report,
           reports,
           empty_months,
         ]
       properties:
-        schema: { type: string, const: monthly-report-series.v1 }
+        schema: { type: string, const: monthly-report-series.v2 }
         end_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
         requested_months: { type: integer, minimum: 1, maximum: 24 }
         from_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
         to_month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
         generated_at: { type: string, format: date-time }
+        current_report: { $ref: "#/components/schemas/MonthlyReport" }
         reports:
           type: array
           items: { $ref: "#/components/schemas/MonthlyReportSeriesPoint" }
@@ -1445,11 +1659,64 @@ components:
     MonthlyReportSeriesPoint:
       type: object
       additionalProperties: false
-      required: [month, completeness, report]
+      required:
+        [month, completeness, movement, sleep, daily_health, media, expenses]
       properties:
         month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
         completeness: { type: string, enum: [complete, partial] }
-        report: { $ref: "#/components/schemas/MonthlyReport" }
+        movement:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlyMovementTrend"
+            - type: "null"
+        sleep:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlySleepTrend"
+            - type: "null"
+        daily_health:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlyDailyHealthTrend"
+            - type: "null"
+        media:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlyMediaTrend"
+            - type: "null"
+        expenses:
+          oneOf:
+            - $ref: "#/components/schemas/MonthlyExpensesTrend"
+            - type: "null"
+    MonthlyMovementTrend:
+      type: object
+      additionalProperties: false
+      required: [distance_m]
+      properties:
+        distance_m: { type: number }
+    MonthlySleepTrend:
+      type: object
+      additionalProperties: false
+      required: [average_asleep_s]
+      properties:
+        average_asleep_s: { type: number }
+    MonthlyDailyHealthTrend:
+      type: object
+      additionalProperties: false
+      required: [observed_days]
+      properties:
+        observed_days: { type: integer }
+    MonthlyMediaTrend:
+      type: object
+      additionalProperties: false
+      required: [event_count, completed_count]
+      properties:
+        event_count: { type: integer }
+        completed_count: { type: integer }
+    MonthlyExpensesTrend:
+      type: object
+      additionalProperties: false
+      required: [totals_by_currency]
+      properties:
+        totals_by_currency:
+          type: array
+          items: { $ref: "#/components/schemas/ExpenseCurrencyTotal" }
     ReportPeriod:
       type: object
       additionalProperties: false
@@ -1791,6 +2058,24 @@ components:
           { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
         by_sport:
           { type: array, items: { $ref: "#/components/schemas/SummaryBucket" } }
+    ActivityActiveDay:
+      type: object
+      required: [day, activity_count]
+      properties:
+        day: { type: string, format: date }
+        activity_count: { type: integer }
+    ActivityOverview:
+      type: object
+      required: [summary, active_days, recent, current_streak]
+      properties:
+        summary: { $ref: "#/components/schemas/ActivitySummary" }
+        active_days:
+          type: array
+          items: { $ref: "#/components/schemas/ActivityActiveDay" }
+        recent:
+          type: array
+          items: { $ref: "#/components/schemas/Activity" }
+        current_streak: { type: integer, minimum: 0 }
     RouteFeatureCollection:
       type: object
       required: [type, features]
@@ -1973,12 +2258,28 @@ components:
       type: object
       required: [granularity, buckets]
       properties:
-        granularity: { type: string, enum: [month, year] }
+        granularity: { type: string, enum: [month, year, lifetime] }
         buckets:
           {
             type: array,
             items: { $ref: "#/components/schemas/SleepAggregateBucket" },
           }
+    SleepOverview:
+      type: object
+      required:
+        [session_count, main_sleep_count, average_asleep_s, average_efficiency]
+      properties:
+        session_count: { type: integer }
+        main_sleep_count: { type: integer }
+        average_asleep_s: { type: number }
+        average_efficiency: { type: number }
+    DateBounds:
+      type: object
+      description: The earliest and latest calendar date with a real record. Both fields are omitted when the domain has no data yet.
+      required: []
+      properties:
+        min: { type: string, format: date }
+        max: { type: string, format: date }
     SleepAggregateBucket:
       type: object
       required:
@@ -2072,6 +2373,8 @@ components:
         native_title: { type: string }
         episode_count: { type: integer }
         chapter_count: { type: integer }
+        started_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
+        completed_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
     MediaPage:
       allOf: [{ $ref: "#/components/schemas/Page" }]
       properties:
@@ -2086,9 +2389,14 @@ components:
             type: array,
             items: { $ref: "#/components/schemas/MediaHomeEvent" },
           }
+    MediaChangePage:
+      allOf: [{ $ref: "#/components/schemas/Page" }]
+      properties:
+        items:
+          { type: array, items: { $ref: "#/components/schemas/MediaChange" } }
     MediaDetail:
       type: object
-      required: [item, work, creators, relations, events]
+      required: [item, work, creators, relations, events, updates]
       properties:
         item: { $ref: "#/components/schemas/Media" }
         work: { $ref: "#/components/schemas/MediaWork" }
@@ -2099,6 +2407,8 @@ components:
           { type: array, items: { $ref: "#/components/schemas/MediaRelation" } }
         events:
           { type: array, items: { $ref: "#/components/schemas/MediaEvent" } }
+        updates:
+          { type: array, items: { $ref: "#/components/schemas/MediaChange" } }
     MediaWork:
       type: object
       required:
@@ -2127,13 +2437,13 @@ components:
         position: { type: number }
         total: { type: number }
         progress_percent: { type: number }
-        started_at: { type: string, format: date-time }
+        started_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
         last_update_at: { type: string, format: date-time }
-        finished_at: { type: string, format: date-time }
+        completed_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
         play_count: { type: integer }
     MediaEvent:
       type: object
-      required: [id, event_type]
+      required: [id, event_type, event_at]
       properties:
         id: { type: string }
         event_type: { type: string }
@@ -2144,6 +2454,95 @@ components:
         progress_percent: { type: number }
         rating: { type: number }
         note: { type: string }
+    MediaEventInput:
+      type: object
+      additionalProperties: false
+      required: [media_id, event_type, event_at, idempotency_key]
+      properties:
+        media_id: { type: string }
+        event_type:
+          {
+            type: string,
+            enum:
+              [
+                started,
+                progressed,
+                completed,
+                finished,
+                read,
+                watched,
+                listened,
+                reread,
+                rewatched,
+                abandoned,
+                paused,
+                reopened,
+                rated,
+                noted,
+                bookmarked,
+              ],
+          }
+        event_at: { type: string, format: date-time }
+        source_kind: { type: string, default: manual }
+        idempotency_key: { type: string, minLength: 1 }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        rating: { type: number }
+        rating_scale: { type: number }
+        note: { type: string }
+    MediaChange:
+      type: object
+      required:
+        [
+          id,
+          media_id,
+          title,
+          source_kind,
+          change_kind,
+          time_basis,
+          observed_at,
+          repeat_count,
+        ]
+      properties:
+        id: { type: string }
+        media_id: { type: string }
+        title: { type: string }
+        native_title: { type: string }
+        cover_image_url: { type: string }
+        source_kind: { type: string }
+        change_kind:
+          {
+            type: string,
+            enum: [snapshot, changed, removed, provider_activity],
+          }
+        time_basis:
+          {
+            type: string,
+            enum:
+              [
+                manual_exact,
+                provider_activity,
+                provider_recorded,
+                iroha_observed,
+                source_fuzzy_date,
+                source_date,
+              ],
+          }
+        observed_at: { type: string, format: date-time }
+        effective_at: { type: string, format: date-time }
+        effective_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
+        date_precision: { type: string, enum: [year, month, day] }
+        provider_recorded_at: { type: string, format: date-time }
+        status: { type: string }
+        unit: { type: string }
+        position: { type: number }
+        total: { type: number }
+        progress_percent: { type: number }
+        rating: { type: number }
+        note: { type: string }
+        repeat_count: { type: integer }
     MediaHomeEvent:
       type: object
       required: [id, media_id, title, event_type, occurred_at]

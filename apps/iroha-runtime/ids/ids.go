@@ -19,6 +19,7 @@ const (
 	TaskPrefix                = "task"
 	ExpensePrefix             = "exp"
 	MediaEventPrefix          = "medevt"
+	MediaChangePrefix         = "medchg"
 	MediaResolutionTaskPrefix = "medres"
 )
 

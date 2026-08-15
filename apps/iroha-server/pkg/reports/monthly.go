@@ -90,6 +90,7 @@ func GenerateMonthlySeries(endMonth, timezone string, months int, services Servi
 		FromMonth:       fromMonth.Format("2006-01"),
 		ToMonth:         endPeriod.Month,
 		GeneratedAt:     generatedAt.UTC(),
+		CurrentReport:   nil,
 		Reports:         make([]MonthlyReportSeriesPoint, 0, months),
 		EmptyMonths:     make([]string, 0),
 	}
@@ -100,16 +101,64 @@ func GenerateMonthlySeries(endMonth, timezone string, months int, services Servi
 			return MonthlyReportSeries{}, err
 		}
 		if !reportHasData(report) {
+			if periodMonth == endPeriod.Month {
+				series.CurrentReport = &report
+			}
 			series.EmptyMonths = append(series.EmptyMonths, periodMonth)
 			continue
+		}
+		if periodMonth == endPeriod.Month {
+			series.CurrentReport = &report
 		}
 		series.Reports = append(series.Reports, MonthlyReportSeriesPoint{
 			Month:        periodMonth,
 			Completeness: monthCompleteness(report.Period, generatedAt, location),
-			Report:       report,
+			Movement:     monthlyMovementTrend(report),
+			Sleep:        monthlySleepTrend(report),
+			DailyHealth:  monthlyDailyHealthTrend(report),
+			Media:        monthlyMediaTrend(report),
+			Expenses:     monthlyExpensesTrend(report),
 		})
 	}
 	return series, nil
+}
+
+func monthlyMovementTrend(report MonthlyReport) *MonthlyReportMovementTrend {
+	if report.Sections.Movement.Data == nil {
+		return nil
+	}
+	return &MonthlyReportMovementTrend{DistanceM: report.Sections.Movement.Data.DistanceM}
+}
+
+func monthlySleepTrend(report MonthlyReport) *MonthlyReportSleepTrend {
+	if report.Sections.Sleep.Data == nil {
+		return nil
+	}
+	return &MonthlyReportSleepTrend{AverageAsleepS: report.Sections.Sleep.Data.AverageAsleepS}
+}
+
+func monthlyDailyHealthTrend(report MonthlyReport) *MonthlyReportDailyHealthTrend {
+	if report.Sections.DailyHealth.Data == nil {
+		return nil
+	}
+	return &MonthlyReportDailyHealthTrend{ObservedDays: report.Sections.DailyHealth.Data.ObservedDays}
+}
+
+func monthlyMediaTrend(report MonthlyReport) *MonthlyReportMediaTrend {
+	if report.Sections.Media.Data == nil {
+		return nil
+	}
+	return &MonthlyReportMediaTrend{
+		EventCount:     report.Sections.Media.Data.EventCount,
+		CompletedCount: report.Sections.Media.Data.CompletedCount,
+	}
+}
+
+func monthlyExpensesTrend(report MonthlyReport) *MonthlyReportExpensesTrend {
+	if report.Sections.Expenses.Data == nil {
+		return nil
+	}
+	return &MonthlyReportExpensesTrend{TotalsByCurrency: report.Sections.Expenses.Data.TotalsByCurrency}
 }
 
 func servicesConfigured(services Services) bool {

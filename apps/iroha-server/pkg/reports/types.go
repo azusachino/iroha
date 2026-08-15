@@ -27,14 +27,40 @@ type MonthlyReportSeries struct {
 	FromMonth       string                     `json:"from_month"`
 	ToMonth         string                     `json:"to_month"`
 	GeneratedAt     time.Time                  `json:"generated_at"`
+	CurrentReport   *MonthlyReport             `json:"current_report"`
 	Reports         []MonthlyReportSeriesPoint `json:"reports"`
 	EmptyMonths     []string                   `json:"empty_months"`
 }
 
 type MonthlyReportSeriesPoint struct {
-	Month        string        `json:"month"`
-	Completeness string        `json:"completeness"`
-	Report       MonthlyReport `json:"report"`
+	Month        string                         `json:"month"`
+	Completeness string                         `json:"completeness"`
+	Movement     *MonthlyReportMovementTrend    `json:"movement"`
+	Sleep        *MonthlyReportSleepTrend       `json:"sleep"`
+	DailyHealth  *MonthlyReportDailyHealthTrend `json:"daily_health"`
+	Media        *MonthlyReportMediaTrend       `json:"media"`
+	Expenses     *MonthlyReportExpensesTrend    `json:"expenses"`
+}
+
+type MonthlyReportMovementTrend struct {
+	DistanceM float64 `json:"distance_m"`
+}
+
+type MonthlyReportSleepTrend struct {
+	AverageAsleepS float64 `json:"average_asleep_s"`
+}
+
+type MonthlyReportDailyHealthTrend struct {
+	ObservedDays int `json:"observed_days"`
+}
+
+type MonthlyReportMediaTrend struct {
+	EventCount     int `json:"event_count"`
+	CompletedCount int `json:"completed_count"`
+}
+
+type MonthlyReportExpensesTrend struct {
+	TotalsByCurrency []ExpenseCurrencyTotal `json:"totals_by_currency"`
 }
 
 type ReportMonth struct {

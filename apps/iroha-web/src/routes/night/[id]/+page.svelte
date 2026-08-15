@@ -12,11 +12,14 @@
   import { formatDate, formatDateOnly, formatDuration } from "$lib/format";
   import { sleepStageLabel, sleepStageColor } from "@iroha/shared/sleep-stages";
   import SourceBadge from "@iroha/shared/SourceBadge.svelte";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
-  let session = $state<SleepSession | null>(null);
-  let segments = $state<SleepSegment[]>([]);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
+  const detailResource = createAsyncResource<{
+    session: SleepSession;
+    segments: SleepSegment[];
+  }>();
+  const session = $derived(detailResource.data?.session ?? null);
+  const segments = $derived(detailResource.data?.segments ?? []);
   const id = $derived(page.params.id ?? "");
 
   function segmentDuration(segment: SleepSegment): number {
@@ -56,19 +59,13 @@
 
   $effect(() => {
     if (!id) return;
-    loading = true;
-    error = null;
-    Promise.all([getSleep(id), getSleepSegments(id)])
-      .then(([loadedSession, loadedSegments]) => {
-        session = loadedSession;
-        segments = loadedSegments;
-      })
-      .catch((value) => {
-        error = value instanceof Error ? value.message : String(value);
-      })
-      .finally(() => {
-        loading = false;
-      });
+    void detailResource.run(async () => {
+      const [loadedSession, loadedSegments] = await Promise.all([
+        getSleep(id),
+        getSleepSegments(id),
+      ]);
+      return { session: loadedSession, segments: loadedSegments };
+    });
   });
 </script>
 
@@ -89,12 +86,8 @@
     actionLabel="Back to Night"
   />
 
-  {#if session || loading}
-    <LoadingBoundary
-      {loading}
-      ready={session != null}
-      label="Loading Night detail…"
-    >
+  {#if session || detailResource.loading}
+    <LoadingBoundary resource={detailResource} label="Loading Night detail…">
       {#snippet children()}
         {#if session}
           <section class="detail-grid">
@@ -239,9 +232,9 @@
         {/if}
       {/snippet}
     </LoadingBoundary>
-  {:else if error}
+  {:else if detailResource.error}
     <section class="status tile">
-      <p class="error">Night could not be loaded: {error}</p>
+      <p class="error">Night could not be loaded: {detailResource.error}</p>
     </section>
   {/if}
 </section>

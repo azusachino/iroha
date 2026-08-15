@@ -109,57 +109,59 @@ func (s *Service) Series(ctx context.Context, request Request) (metrics.Series, 
 	if err != nil {
 		return metrics.Series{}, ErrInvalidRequest
 	}
+	var (
+		dailyValues    []DailyMetricValue
+		activityValues []ActivityMetricValue
+		expenseValues  []ExpenseMetricValue
+		sleepValues    []SleepMetricValue
+		mediaValues    []MediaMetricValue
+	)
+	switch request.MetricID {
+	case "health.distance_km", "health.exercise_min", "health.flights", "health.hrv_sdnn", "health.move_kcal", "health.resting_hr", "health.stand_hours", "health.steps":
+		if s.daily == nil || len(selections) != 1 || len(selections[0]) != 0 {
+			return metrics.Series{}, ErrInvalidRequest
+		}
+		dailyValues, err = s.daily.MetricValues(ctx, request.MetricID[len("health."):], request.From, request.To)
+	case "movement.activity_count", "movement.distance_m", "movement.duration_s":
+		if s.activities == nil {
+			return metrics.Series{}, ErrInvalidRequest
+		}
+		activityValues, err = s.activities.ActivityValues(request.From, request.To, request.Timezone.String())
+	case "expenses.amount_minor", "expenses.count":
+		if s.expenses == nil {
+			return metrics.Series{}, ErrInvalidRequest
+		}
+		expenseValues, err = s.expenses.ExpenseValues(request.From, request.To)
+	case "sleep.asleep_s", "sleep.efficiency":
+		if s.sleep == nil {
+			return metrics.Series{}, ErrInvalidRequest
+		}
+		sleepValues, err = s.sleep.SleepValues(request.From, request.To)
+	case "media.completed_count":
+		if s.media == nil {
+			return metrics.Series{}, ErrInvalidRequest
+		}
+		mediaValues, err = s.media.MediaValues(request.From, request.To)
+	default:
+		return metrics.Series{}, ErrInvalidRequest
+	}
+	if err != nil {
+		return metrics.Series{}, err
+	}
 	series := make([]metrics.DimensionSeries, 0, len(selections))
 	for _, selection := range selections {
 		var dimensionSeries metrics.DimensionSeries
 		switch request.MetricID {
 		case "health.distance_km", "health.exercise_min", "health.flights", "health.hrv_sdnn", "health.move_kcal", "health.resting_hr", "health.stand_hours", "health.steps":
-			if s.daily == nil || len(selection) != 0 {
-				return metrics.Series{}, ErrInvalidRequest
-			}
-			values, err := s.daily.MetricValues(ctx, request.MetricID[len("health."):], request.From, request.To)
-			if err != nil {
-				return metrics.Series{}, err
-			}
-			dimensionSeries = dailyDimensionSeries(periods, values, definition, request)
+			dimensionSeries = dailyDimensionSeries(periods, dailyValues, definition, request)
 		case "movement.activity_count", "movement.distance_m", "movement.duration_s":
-			if s.activities == nil {
-				return metrics.Series{}, ErrInvalidRequest
-			}
-			values, err := s.activities.ActivityValues(request.From, request.To, request.Timezone.String())
-			if err != nil {
-				return metrics.Series{}, err
-			}
-			dimensionSeries = activityDimensionSeries(periods, values, definition, request, selection)
+			dimensionSeries = activityDimensionSeries(periods, activityValues, definition, request, selection)
 		case "expenses.amount_minor", "expenses.count":
-			if s.expenses == nil {
-				return metrics.Series{}, ErrInvalidRequest
-			}
-			values, err := s.expenses.ExpenseValues(request.From, request.To)
-			if err != nil {
-				return metrics.Series{}, err
-			}
-			dimensionSeries = expenseDimensionSeries(periods, values, definition, request, selection)
+			dimensionSeries = expenseDimensionSeries(periods, expenseValues, definition, request, selection)
 		case "sleep.asleep_s", "sleep.efficiency":
-			if s.sleep == nil {
-				return metrics.Series{}, ErrInvalidRequest
-			}
-			values, err := s.sleep.SleepValues(request.From, request.To)
-			if err != nil {
-				return metrics.Series{}, err
-			}
-			dimensionSeries = sleepDimensionSeries(periods, values, definition, request, selection)
+			dimensionSeries = sleepDimensionSeries(periods, sleepValues, definition, request, selection)
 		case "media.completed_count":
-			if s.media == nil {
-				return metrics.Series{}, ErrInvalidRequest
-			}
-			values, err := s.media.MediaValues(request.From, request.To)
-			if err != nil {
-				return metrics.Series{}, err
-			}
-			dimensionSeries = mediaDimensionSeries(periods, values, definition, request, selection)
-		default:
-			return metrics.Series{}, ErrInvalidRequest
+			dimensionSeries = mediaDimensionSeries(periods, mediaValues, definition, request, selection)
 		}
 		dimensionSeries.Dimensions = selection
 		series = append(series, dimensionSeries)

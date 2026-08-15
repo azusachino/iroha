@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { shiftMonth } from "./month";
+  import {
+    scopeFromParts,
+    scopeParts,
+    serializeCalendarScope,
+    shiftCalendarScope,
+    type DateBounds,
+  } from "./scope";
   import { formatCanonicalMonth } from "./format";
   import SelectControl, {
     type SelectControlOption,
@@ -17,6 +23,8 @@
     showAllYears = true,
     appearance = "grapher",
     surface = "panel",
+    timezone,
+    bounds,
     onYear,
     onMonth,
   }: {
@@ -28,6 +36,8 @@
     showAllYears?: boolean;
     surface?: "panel" | "inline";
     appearance?: DesignLanguage;
+    timezone?: string;
+    bounds?: DateBounds;
     onYear: (value: string) => void;
     onMonth: (value: string) => void;
   } = $props();
@@ -65,21 +75,22 @@
   ]);
 
   function shiftPeriod(delta: number) {
-    if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
-      onMonth(shiftMonth(month, delta));
+    const current = scopeFromParts(year, month);
+    if (current.kind === "lifetime") return;
+    const shifted = shiftCalendarScope(current, delta, new Date(), timezone, bounds);
+    // A boundary clamp (nothing further to shift to) must be a no-op --
+    // otherwise onYear/onMonth still fire with the unchanged value, and
+    // every page's handler unconditionally reloads on that "change".
+    if (serializeCalendarScope(shifted) === serializeCalendarScope(current)) {
       return;
     }
-    if (!/^\d{4}$/.test(year)) return;
-
-    if (!/^(?:[1-9]|1[0-2])$/.test(month)) {
-      const nextYear = Number(year) + delta;
-      onYear(String(nextYear));
-      onMonth("");
-      return;
-    }
-    const next = new Date(Date.UTC(Number(year), Number(month) - 1 + delta, 1));
-    onYear(String(next.getUTCFullYear()));
-    onMonth(String(next.getUTCMonth() + 1));
+    const parts = scopeParts(shifted);
+    onYear(parts.year);
+    onMonth(
+      /^\d{4}-(?:0[1-9]|1[0-2])$/.test(month) && shifted.kind === "month"
+        ? (serializeCalendarScope(shifted) ?? "")
+        : parts.month,
+    );
   }
 
   function handleKeydown(event: KeyboardEvent) {

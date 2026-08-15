@@ -1,6 +1,10 @@
 package anilist
 
-import "time"
+import (
+	"time"
+
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
+)
 
 type graphQLResponse struct {
 	Data struct {
@@ -10,6 +14,30 @@ type graphQLResponse struct {
 	Errors []struct {
 		Message string `json:"message"`
 	} `json:"errors"`
+}
+
+type activityGraphQLResponse struct {
+	Data struct {
+		Page activityPage `json:"Page"`
+	} `json:"data"`
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
+type activityPage struct {
+	PageInfo struct {
+		HasNextPage bool `json:"hasNextPage"`
+	} `json:"pageInfo"`
+	Activities []listActivity `json:"activities"`
+}
+
+type listActivity struct {
+	ID        int       `json:"id"`
+	Status    string    `json:"status"`
+	Progress  string    `json:"progress"`
+	CreatedAt int64     `json:"createdAt"`
+	Media     mediaNode `json:"media"`
 }
 
 type anilistUser struct {
@@ -77,13 +105,21 @@ type anilistDate struct {
 }
 
 func (d anilistDate) Time() *time.Time {
+	partial := d.Partial()
+	if partial == nil || partial.Precision != observations.DatePrecisionDay {
+		return nil
+	}
+	result := partial.Value
+	return &result
+}
+
+func (d anilistDate) Partial() *observations.PartialDate {
 	if d.Year == 0 {
 		return nil
 	}
-	month := time.Month(d.Month)
-	if month == 0 {
-		month = time.January
+	partial, err := observations.NewPartialDate(d.Year, d.Month, d.Day)
+	if err != nil {
+		return nil
 	}
-	result := time.Date(d.Year, month, d.Day, 0, 0, 0, 0, time.UTC)
-	return &result
+	return partial
 }

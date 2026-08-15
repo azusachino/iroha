@@ -76,8 +76,8 @@ func (s *Server) handleUpdateMediaResolutionTask(w http.ResponseWriter, r *http.
 		return
 	}
 	if s.deps.Cache != nil {
-		if err := s.deps.Cache.InvalidateNamespace(r.Context(), cache.NamespaceMedia); err != nil {
-			s.deps.Logger.Error("invalidate media cache", "error", err)
+		if err := s.deps.Cache.InvalidateChange(r.Context(), cache.ChangeMediaResolution); err != nil {
+			s.deps.Logger.Error("invalidate caches after media resolution", "error", err)
 		}
 	}
 	writeJSON(w, http.StatusOK, toMediaResolutionTaskResponse(task))

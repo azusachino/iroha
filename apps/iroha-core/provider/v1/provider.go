@@ -24,6 +24,7 @@ const (
 	CapabilityMediaLibrary       Capability = "media.library"
 	CapabilityMediaProgress      Capability = "media.progress"
 	CapabilityMediaRating        Capability = "media.rating"
+	CapabilityMediaActivity      Capability = "media.provider_activity"
 )
 
 type Domain string
@@ -69,6 +70,14 @@ type DailyImporter interface {
 
 type MediaImporter interface {
 	ImportMedia(context.Context, Source, ImportOptions) ([]observations.Media, error)
+}
+
+// MediaHistoryImporter imports dated provider updates without treating them
+// as exact consumption sessions. The importer is separate from MediaImporter
+// because an activity feed may mention an item that is no longer in the
+// provider's current library projection.
+type MediaHistoryImporter interface {
+	ImportMediaHistory(context.Context, Source, ImportOptions) ([]observations.MediaHistory, error)
 }
 
 // BatchImporter is an optional optimization for file-backed providers that
@@ -273,6 +282,9 @@ func implementsCapability(adapter Adapter, capability Capability) bool {
 		return ok || batch
 	case CapabilityMediaLibrary, CapabilityMediaProgress, CapabilityMediaRating:
 		_, ok := adapter.(MediaImporter)
+		return ok
+	case CapabilityMediaActivity:
+		_, ok := adapter.(MediaHistoryImporter)
 		return ok
 	default:
 		return false

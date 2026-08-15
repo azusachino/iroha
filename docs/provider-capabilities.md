@@ -10,6 +10,8 @@ Provider implementations:
 - [Bangumi](capabilities/providers/bangumi.md)
 - [Goodreads](capabilities/providers/goodreads.md)
 - [WeRead](capabilities/providers/weread.md)
+- [Apple Books / iBooks](capabilities/providers/apple-books.md)
+- [Kindle](capabilities/providers/kindle.md)
 
 This document describes how external data providers implement Iroha's core domain capabilities. It is intentionally written in trait/implementation style even though the Go code uses interfaces,
 registries, and concrete adapters rather than language traits.
@@ -143,27 +145,35 @@ tb_media_external_refs
 
 AniList and Bangumi implement this capability independently while linking to one canonical work/item when identity matching succeeds.
 
-### Media consumption event
+### Media current state, date fact, and consumption event
 
-Produces user events such as started, progressed, completed, abandoned, read, watched, reread, or rewatched. Provider list state may be converted into an event, but the original provider snapshot
-remains evidence.
+These are three separate capabilities:
+
+- current state: status, position, rating, shelves, and annotations;
+- source date fact: a provider-supplied calendar date such as Goodreads `Date Read`;
+- exact consumption event: a user/client/provider record with a real event instant.
+
+Provider list state is not automatically a consumption event. A provider that exposes only current state declares that limitation; the original snapshot remains evidence.
 
 ```text
 tb_media_consumption_events
+tb_media_state_history
 tb_media_progress
 ```
 
 ## Provider matrix
 
-| Provider     | Activity    | Route       | Sampling    | Laps        | Sleep       | Daily summary | Daily metrics | Media identity | Consumption |
-| ------------ | ----------- | ----------- | ----------- | ----------- | ----------- | ------------- | ------------- | -------------- | ----------- |
-| Apple Health | implemented | implemented | implemented | implemented | implemented | implemented   | implemented   | -              | -           |
-| GPX          | implemented | implemented | -           | -           | -           | -             | -             | -              | -           |
-| Garmin       | planned     | planned     | planned     | planned     | planned     | planned       | planned       | -              | -           |
-| AniList      | -           | -           | -           | -           | -           | -             | -             | planned        | planned     |
-| Bangumi      | -           | -           | -           | -           | -           | -             | -             | planned        | planned     |
-| Goodreads    | -           | -           | -           | -           | -           | -             | -             | deferred       | deferred    |
-| WeRead       | -           | -           | -           | -           | -           | -             | -             | deferred       | deferred    |
+| Provider     | Activity    | Route       | Sampling    | Laps        | Sleep       | Daily summary | Daily metrics | Media identity | State/date facts | Exact consumption |
+| ------------ | ----------- | ----------- | ----------- | ----------- | ----------- | ------------- | ------------- | -------------- | ---------------- | ----------------- |
+| Apple Health | implemented | implemented | implemented | implemented | implemented | implemented   | implemented   | -              | -                | -                 |
+| GPX          | implemented | implemented | -           | -           | -           | -             | -             | -              | -                | -                 |
+| Garmin       | planned     | planned     | planned     | planned     | planned     | planned       | planned       | -              | -                | -                 |
+| AniList      | -           | -           | -           | -           | -           | -             | -             | planned        | planned          | planned           |
+| Bangumi      | -           | -           | -           | -           | -           | -             | -             | planned        | planned          | planned           |
+| Goodreads    | -           | -           | -           | -           | -           | -             | -             | planned        | planned          | deferred          |
+| WeRead       | -           | -           | -           | -           | -           | -             | -             | planned        | planned          | deferred          |
+| Apple Books  | -           | -           | -           | -           | -           | -             | -             | planned        | planned          | deferred          |
+| Kindle       | -           | -           | -           | -           | -           | -             | -             | planned        | planned          | deferred          |
 
 “Implemented” means parser/adapter, persistence, and verification exist. A possible file format is “planned,” not implemented.
 

@@ -18,3 +18,10 @@ func TestLoadTimezoneFromEnvironment(t *testing.T) {
 		t.Fatalf("timezone = %q, want UTC", got.Server.Timezone)
 	}
 }
+
+func TestLoadRejectsInvalidTimezone(t *testing.T) {
+	t.Setenv(EnvTimezone, "Not/A/Timezone")
+	if _, err := Load("does-not-exist.toml"); err == nil {
+		t.Fatal("invalid timezone loaded successfully")
+	}
+}

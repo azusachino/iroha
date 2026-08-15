@@ -5,7 +5,7 @@
   import { FileText, RefreshCw } from "@lucide/svelte";
   import {
     ApiError,
-    getMonthlyReport,
+    getDailyBounds,
     getMonthlyReportSeries,
     type MonthlyReport,
     type MonthlyReportSeries,
@@ -16,59 +16,122 @@
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDate } from "$lib/format";
   import {
-    MONTH_OPTIONS,
     currentMonth,
-    canonicalMonth,
-    yearOptions,
+    monthOptionsInRange,
+    yearOptionsInRange,
   } from "@iroha/shared/month";
+  import {
+    currentCalendarScope,
+    readCalendarScope,
+    serializeCalendarScope,
+    writeCalendarScope,
+    type DateBounds,
+  } from "@iroha/shared/scope";
+  import { IROHA_TIMEZONE } from "$lib/config";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import type { ReportThemeProps } from "@iroha/shared/report";
   import { useTheme } from "$lib/themes/context.svelte";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
-  let month = $state(
-    canonicalMonth(page.url.searchParams.get("month"), currentMonth()),
+  const defaultMonthScope = currentCalendarScope(
+    "month",
+    new Date(),
+    IROHA_TIMEZONE,
   );
-  let report = $state<MonthlyReport | null>(null);
-  let series = $state<MonthlyReportSeries | null>(null);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
-  let requestVersion = 0;
-  const periodYears = yearOptions();
+  const requestedMonthScope = readCalendarScope(page.url.searchParams, {
+    fallback: defaultMonthScope,
+    allowDay: false,
+  });
+  let month = $state(
+    requestedMonthScope.kind === "month"
+      ? (serializeCalendarScope(requestedMonthScope) as string)
+      : currentMonth(new Date(), IROHA_TIMEZONE),
+  );
+  const reportResource = createAsyncResource<MonthlyReportSeries>();
+  const series = $derived(reportResource.data);
+  const report = $derived(reportResource.data?.current_report ?? null);
+  // The real cross-domain data range (fetched once, independent of the
+  // current selection) -- not a hardcoded 2015 guess, and not every month.
+  let bounds = $state<DateBounds>({});
+  const periodYears = $derived(yearOptionsInRange(bounds));
   const periodYear = $derived(month.slice(0, 4));
   const periodMonth = $derived(String(Number(month.slice(5, 7))));
+  const periodMonths = $derived(monthOptionsInRange(periodYear, bounds));
   const theme = useTheme();
+
+  async function loadBounds() {
+    try {
+      bounds = await getDailyBounds();
+    } catch {
+      bounds = {};
+    }
+    if (!bounds.min || !bounds.max) return;
+    if (month < bounds.min.slice(0, 7)) month = bounds.min.slice(0, 7);
+    else if (month > bounds.max.slice(0, 7)) month = bounds.max.slice(0, 7);
+    else return;
+    moveMonth(month);
+  }
+
+  function loadingReportFor(value: string): MonthlyReport {
+    const [year, monthNumber] = value.split("-").map(Number);
+    const to = new Date(Date.UTC(year, monthNumber, 1))
+      .toISOString()
+      .slice(0, 10);
+    const emptySection = (schema: string) => ({
+      schema,
+      state: "empty" as const,
+      data: null,
+    });
+    return {
+      schema: "monthly-report.v1",
+      period: {
+        kind: "month",
+        month: value,
+        from: `${value}-01`,
+        to,
+        timezone: IROHA_TIMEZONE,
+      },
+      generated_at: "",
+      sections: {
+        movement: emptySection("loading"),
+        sleep: emptySection("loading"),
+        daily_health: emptySection("loading"),
+        media: emptySection("loading"),
+        expenses: emptySection("loading"),
+      },
+    };
+  }
 
   onMount(() => {
     void loadReport(month);
+    void loadBounds();
   });
 
   async function loadReport(requestedMonth: string) {
-    const version = ++requestVersion;
-    loading = true;
-    error = null;
-    try {
-      const [current, trend] = await Promise.all([
-        getMonthlyReport(requestedMonth),
-        getMonthlyReportSeries(requestedMonth),
-      ]);
-      if (version !== requestVersion) return;
-      report = current;
-      series = trend;
-    } catch (cause) {
-      if (version !== requestVersion) return;
-      if (cause instanceof ApiError && cause.requestId)
-        error = `${cause.message} (${cause.code}, request ${cause.requestId})`;
-      else if (cause instanceof Error) error = cause.message;
-      else error = String(cause);
-    } finally {
-      if (version === requestVersion) loading = false;
+    await reportResource.run(async () => {
+      try {
+        return await getMonthlyReportSeries(requestedMonth);
+      } catch (cause) {
+        throw new Error(formatError(cause));
+      }
+    });
+  }
+
+  function formatError(cause: unknown): string {
+    if (cause instanceof ApiError && cause.requestId) {
+      return `${cause.message} (${cause.code}, request ${cause.requestId})`;
     }
+    return cause instanceof Error ? cause.message : String(cause);
   }
 
   function moveMonth(value: string) {
     month = value;
     const url = new URL(window.location.href);
-    url.searchParams.set("month", value);
+    writeCalendarScope(url.searchParams, {
+      kind: "month",
+      year: Number(value.slice(0, 4)),
+      month: Number(value.slice(5, 7)),
+    });
     if (url.search !== window.location.search) replaceState(url, page.state);
     void loadReport(value);
   }
@@ -109,6 +172,7 @@
   }
 
   const currentExpenseData = $derived(expenseData(report));
+  const reportForView = $derived(report ?? loadingReportFor(month));
   const primaryCurrency = $derived(
     currentExpenseData?.totals_by_currency[0]?.currency ?? "JPY",
   );
@@ -119,7 +183,7 @@
   );
   const themeProps = $derived<ReportThemeProps>({
     month,
-    report: report!,
+    report: reportForView,
     primaryCurrency,
     primaryExponent,
     formatMoney,
@@ -144,7 +208,7 @@
       class="refresh"
       type="button"
       onclick={() => void loadReport(month)}
-      disabled={loading}><RefreshCw size={15} /> Refresh</button
+      disabled={reportResource.loading}><RefreshCw size={15} /> Refresh</button
     >
   </header>
   <PeriodToolbar title="Monthly cross-domain report" ariaLabel="Report period">
@@ -152,33 +216,34 @@
       year={periodYear}
       month={periodMonth}
       years={periodYears}
-      months={MONTH_OPTIONS}
+      months={periodMonths}
+      {bounds}
       showAllYears={false}
       surface="inline"
       onYear={selectPeriodYear}
       onMonth={selectPeriodMonth}
     />
   </PeriodToolbar>
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
-  {#if report || loading}
-    <LoadingBoundary
-      {loading}
-      ready={report != null}
-      label="Generating the monthly report…"
-    >
-      {#snippet children()}
-        {#if report}
-          <p class="generated">
-            {report.period.from} → {report.period.to} · Generated {formatDate(
-              report.generated_at,
-            )}
-          </p>
-          <ReportComparison {series} {formatMoney} theme={theme.language()} />
-          <ThemeRouteRenderer route="reports" props={themeProps} />
-        {/if}
-      {/snippet}
-    </LoadingBoundary>
+  {#if reportResource.error}
+    <p class="error" role="alert">{reportResource.error}</p>
   {/if}
+  <LoadingBoundary
+    resource={reportResource}
+    preserveLayout
+    label="Generating the monthly report…"
+  >
+    {#snippet children()}
+      {#if report}
+        <p class="generated">
+          {report.period.from} → {report.period.to} · Generated {formatDate(
+            report.generated_at,
+          )}
+        </p>
+      {/if}
+      <ReportComparison {series} {formatMoney} theme={theme.language()} />
+      <ThemeRouteRenderer route="reports" props={themeProps} />
+    {/snippet}
+  </LoadingBoundary>
 </section>
 
 <style>

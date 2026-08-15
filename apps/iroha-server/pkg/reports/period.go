@@ -11,7 +11,7 @@ const DefaultTimezone = "Asia/Tokyo"
 
 const (
 	MonthlyReportSchema       = "monthly-report.v1"
-	MonthlyReportSeriesSchema = "monthly-report-series.v1"
+	MonthlyReportSeriesSchema = "monthly-report-series.v2"
 	MovementSchema            = "monthly-report.movement.v1"
 	SleepSchema               = "monthly-report.sleep.v1"
 	DailyHealthSchema         = "monthly-report.daily-health.v1"

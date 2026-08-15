@@ -1,6 +1,6 @@
 # API v1 verification gate
 
-Status: Gate A approved; v0.4.0 release-candidate verification
+Status: Gate A approved; v0.4.1 released locally
 
 ## Gate A — freeze repaired existing contracts
 
@@ -10,22 +10,26 @@ Gate A is the owner approval checkpoint between existing-contract repairs and ne
 
 Gate A covers only the existing data domains and shared HTTP behavior. The owner reviews and approves these decisions:
 
-- calendar-only values use `YYYY-MM-DD`; instants use RFC 3339; existing daily/sleep list filters remain inclusive;
-- future report adapters use explicit half-open `[from,to)` ranges internally;
+- calendar-only values use `YYYY-MM-DD`; instants use RFC 3339; date ranges use half-open `[from,to)` semantics;
+- report, activity, sleep, daily, and expense period adapters use explicit half-open `[from,to)` ranges internally;
 - daily rows use `ring: null` when no ring record exists, and daily aggregate metrics are explicit `(metric, unit, observed_days)` entries;
 - sleep aggregates report `nap_count` separately and calculate averages/stages from main sleep only;
 - media event IDs are distinct from media item IDs, undated events remain undated, and undated events are excluded from time-based reporting;
 - list limits are omitted/defaulted to 50 or explicitly bounded to 1..100; cursors remain opaque; errors use `{code,message,request_id}`;
 - web mutations support PUT/DELETE and 204 responses, and private CORS allows their preflights;
 - the OpenAPI document, representative fixtures, and registered Chi routes remain in parity;
-- the cache namespace is versioned for the repaired contract, while future expense/report routes are uncached;
+- the cache namespace is versioned for the repaired contract; successful private GET reads, including direct expense records, use the shared cache module, while canonical mutations invalidate their
+  dependent namespaces;
 - `/api/v1` remains unauthenticated but private-network-only, and the sanitized public export remains a separate projection.
 
 Gate A does not approve the expense data model, monthly report response, CLI workflow, cockpit UX, Telegram, Suzuran, OCR, or scheduled report delivery. Those remain later implementation decisions.
 
-The gate is complete when the owner says `Gate A approved` (or supplies corrections). Only then may tasks 12–21, which add expenses and monthly reports, be dispatched.
+At the time of the Gate A review, the gate was complete when the owner said `Gate A approved` (or supplied corrections); only then could tasks 12–21, which add expenses and monthly reports, be
+dispatched. Those tasks are now part of the released v0.4.1 surface.
 
-Gate A is approved. The expense, monthly-report, CLI, and cockpit work described below was implemented after that approval; Gate C is the remaining owner release checkpoint.
+Gate A is approved. The expense, monthly-report, CLI, and cockpit work described below was implemented after that approval. The v0.4.1 branch completed the canonical projection, request fan-out,
+date-range, cache, media-history, release-candidate, and local deployment checks. The local `v0.4.1` tag records this release boundary; remote merge/publication and any production image rollout remain
+external handoffs.
 
 The contract gate verifies the active `/api/v1` surface in place. It is not a backward-compatibility gate for a released v1 and does not require an `/api/v2`.
 
@@ -97,13 +101,13 @@ The same fixture must run against the supported local runtime path and the conta
 
 - `make contract-check` passes against the registered private route inventory and OpenAPI path set.
 - Rate-limit tests cover `429`, the common error body, and `Retry-After`.
-- `make check` passes, including the frontend formatter, Svelte check, and frontend tests.
-- `make release-candidate` passed against isolated seeded data, including migration, integration, API, production build, and the six-language light/dark browser matrix.
-- `make public-site-fmt-check`, `make public-site-check`, and `make public-site-build` pass; the public design workbench has no mobile overflow or browser errors across its 84 theme/composition/mode
-  cases.
+- The previous local release-candidate evidence is retained in the dated audit record; the final release evidence is in [the v0.4.1 release audit](../audits/2026-08-15-v0.4.1-release.md).
+- The final release reran `make check`, `make validate`, and `make release-candidate` after the projection, contract, media-history, and detail changes.
+- Local k3s deployment and live cache/browser smoke are recorded separately from the source release; the current cluster remains on explicitly named dev image pins.
 
-The end-to-end worker/import rehearsal is covered by the release-candidate target; repeat it for the final production release after Gate C approval.
+The end-to-end worker/import rehearsal is covered by the release-candidate target; repeat it for each future production release.
 
 ## Completion rule
 
-The route inventory and contract decisions were reviewed before implementation. The v0.4 release remains a candidate until the owner reviews the attached evidence and approves Gate C.
+The route inventory and contract decisions were reviewed before implementation. The attached release evidence is complete for the local `v0.4.1` source tag. This document does not promise backward
+compatibility for future pre-1.0 releases.

@@ -1,3 +1,5 @@
+import { DEFAULT_TIMEZONE } from "./date";
+
 const DASH = "—";
 
 export function formatCanonicalMonth(period?: string): string {
@@ -92,7 +94,7 @@ export function formatDate(iso?: string, timezone?: string): string {
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
-      timeZone: timezone || undefined,
+      timeZone: timezone || DEFAULT_TIMEZONE,
     }).format(date);
   } catch {
     return date.toISOString().slice(0, 19).replace("T", " ");
@@ -109,7 +111,7 @@ export function formatDateOnly(iso?: string, timezone?: string): string {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
-      timeZone: timezone || undefined,
+      timeZone: timezone || DEFAULT_TIMEZONE,
     }).format(date);
   } catch {
     return date.toISOString().slice(0, 10);
@@ -134,7 +136,7 @@ export function formatDateShort(iso?: string, timezone?: string): string {
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
-      timeZone: timezone || undefined,
+      timeZone: timezone || DEFAULT_TIMEZONE,
     }).format(date);
   } catch {
     return date.toISOString().slice(5, 10);

@@ -18,6 +18,7 @@ type fakeActivitySource struct {
 
 type fakeExpenseSource struct {
 	values []ExpenseMetricValue
+	calls  *int
 }
 
 type fakeSleepSource struct {
@@ -37,6 +38,9 @@ func (f fakeSleepSource) SleepValues(time.Time, time.Time) ([]SleepMetricValue, 
 }
 
 func (f fakeExpenseSource) ExpenseValues(time.Time, time.Time) ([]ExpenseMetricValue, error) {
+	if f.calls != nil {
+		*f.calls++
+	}
 	return f.values, nil
 }
 
@@ -254,6 +258,43 @@ func TestExpenseSeriesSupportsDailyPoints(t *testing.T) {
 	points := series.Series[0].Points
 	if len(points) != 3 || points[0].ValueMinor != nil || points[1].ValueMinor == nil || *points[1].ValueMinor != 800 {
 		t.Fatalf("daily points = %+v", points)
+	}
+}
+
+func TestExpenseSeriesLoadsCanonicalValuesOnceForMultipleDimensions(t *testing.T) {
+	registry, err := metrics.DefaultRegistry()
+	if err != nil {
+		t.Fatalf("default registry: %v", err)
+	}
+	location := time.UTC
+	calls := 0
+	service := NewService(registry, nil, nil, fakeExpenseSource{
+		calls: &calls,
+		values: []ExpenseMetricValue{{
+			OccurredOn:  time.Date(2026, time.January, 2, 0, 0, 0, 0, location),
+			Currency:    "JPY",
+			Category:    "food",
+			AmountMinor: 800,
+		}},
+	}, nil, nil)
+	series, err := service.Series(context.Background(), Request{
+		MetricID: "expenses.amount_minor",
+		From:     time.Date(2026, time.January, 1, 0, 0, 0, 0, location),
+		To:       time.Date(2026, time.February, 1, 0, 0, 0, 0, location),
+		Grain:    "month",
+		Timezone: location,
+		Dimensions: map[string][]string{
+			"currency": {"EUR", "GBP", "JPY", "USD"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("series: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expense source calls = %d, want one snapshot load", calls)
+	}
+	if len(series.Series) != 4 {
+		t.Fatalf("series count = %d, want four currency dimensions", len(series.Series))
 	}
 }
 

@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SERVER_DIR = ROOT / "apps" / "iroha-server"
 WEB_DIR = ROOT / "apps" / "iroha-web"
 SEED_FILE = ROOT / "scripts" / "release_candidate_seed.sql"
+PERFORMANCE_SEED_FILE = ROOT / "scripts" / "release_candidate_performance_seed.sql"
 RESET_FILE = ROOT / "scripts" / "release_candidate_reset.sql"
 POSTGIS_IMAGE = "docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21"
 DATABASE_URL_ENV = "DATABASE_URL"
@@ -26,6 +27,7 @@ IROHA_TIMEZONE_ENV = "IROHA_TIMEZONE"
 IROHA_ALLOWED_ORIGINS_ENV = "IROHA_ALLOWED_ORIGINS"
 IROHA_DATA_DIR_ENV = "IROHA_DATA_DIR"
 PUBLIC_IROHA_API_BASE_ENV = "PUBLIC_IROHA_API_BASE"
+PUBLIC_IROHA_TIMEZONE_ENV = "PUBLIC_IROHA_TIMEZONE"
 THEMES = ("atlas", "grapher", "field-journal", "phenology", "sound-map", "archive")
 MODES = ("light", "dark")
 REPORT_EXPECTED_TEXT = "1 completed"
@@ -82,6 +84,132 @@ def get_json(url: str) -> dict:
         return json.load(response)
 
 
+def timed_json(url: str) -> tuple[dict, dict[str, str], float]:
+    started = time.perf_counter()
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        body = json.load(response)
+        headers = {key.lower(): value for key, value in response.headers.items()}
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    return body, headers, elapsed_ms
+
+
+def post_json(url: str, payload: dict) -> dict:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers={"Accept": "application/json", "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response)
+
+
+def psql_scalar(container: str, statement: str) -> str | None:
+    result = subprocess.run(
+        [
+            "podman",
+            "exec",
+            "--env",
+            "PGPASSWORD=iroha_dev",
+            container,
+            "psql",
+            "-h",
+            "127.0.0.1",
+            "-At",
+            "-U",
+            "iroha",
+            "-d",
+            "iroha",
+            "-c",
+            statement,
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def percentile(values: list[float], fraction: float) -> float:
+    ordered = sorted(values)
+    if not ordered:
+        return 0.0
+    index = min(len(ordered) - 1, int((len(ordered) - 1) * fraction))
+    return ordered[index]
+
+
+def performance_gate(server_url: str, container: str) -> None:
+    urls = {
+        "metric_day": f"{server_url}/api/v1/metrics/health.steps/series?from=2025-12-01&to=2026-01-01&grain=day",
+        "metric_month": f"{server_url}/api/v1/metrics/movement.distance_m/series?from=2025-12-01&to=2026-01-01&grain=month&dimension=sport:run",
+        "metric_year": f"{server_url}/api/v1/metrics/sleep.asleep_s/series?from=2016-01-01&to=2026-01-01&grain=year",
+        "report_series": f"{server_url}/api/v1/reports/monthly-series?end=2025-12&months=12",
+    }
+    measurements: dict[str, dict[str, float | str]] = {}
+    cold_values: list[float] = []
+    hit_values: list[float] = []
+    for name, url in urls.items():
+        body, headers, cold_ms = timed_json(url)
+        if not body.get("series") and name.startswith("metric_"):
+            raise RuntimeError(f"performance metric returned no series: {name}")
+        if headers.get("x-iroha-cache") != "MISS":
+            raise RuntimeError(f"performance cold request was not a MISS: {name} {headers}")
+        _, hit_headers, hit_ms = timed_json(url)
+        if hit_headers.get("x-iroha-cache") != "HIT":
+            raise RuntimeError(f"performance repeated request was not a HIT: {name} {hit_headers}")
+        cold_values.append(cold_ms)
+        hit_values.append(hit_ms)
+        measurements[name] = {
+            "cold_ms": round(cold_ms, 2),
+            "hit_ms": round(hit_ms, 2),
+            "cold_cache": headers["x-iroha-cache"],
+            "hit_cache": hit_headers["x-iroha-cache"],
+        }
+
+    post_json(
+        f"{server_url}/api/v1/expenses",
+        {
+            "occurred_on": "2025-12-28",
+            "currency": "JPY",
+            "amount_minor": 777,
+            "category": "food",
+            "merchant": "Performance gate mutation",
+            "source": {"kind": "release-candidate-performance", "ref": "gate-mutation"},
+        },
+    )
+    _, invalidation_headers, invalidation_ms = timed_json(urls["metric_month"])
+    if invalidation_headers.get("x-iroha-cache") != "MISS":
+        raise RuntimeError(
+            f"performance request after canonical mutation was not a MISS: {invalidation_headers}"
+        )
+
+    entry_count = psql_scalar(container, "select count(*) from tb_cache_entries")
+    min_ttl = psql_scalar(
+        container,
+        "select coalesce(round(min(extract(epoch from expires_at - now())))::bigint, 0) from tb_cache_entries",
+    )
+    query_stats = psql_scalar(
+        container,
+        "select coalesce(sum(calls), 0)::bigint || ',' || coalesce(round(sum(total_exec_time)::numeric, 2), 0) from pg_stat_statements where query like '%tb_%'",
+    )
+    cold_p95 = percentile(cold_values, 0.95)
+    evidence = {
+        "requests": measurements,
+        "cold_p50_ms": round(percentile(cold_values, 0.50), 2),
+        "cold_p95_ms": round(cold_p95, 2),
+        "hit_p50_ms": round(percentile(hit_values, 0.50), 2),
+        "mutation_miss_ms": round(invalidation_ms, 2),
+        "cache_entry_count": int(entry_count) if entry_count else None,
+        "cache_min_ttl_s": int(min_ttl) if min_ttl else None,
+        "postgres_query_stats": query_stats or "unavailable",
+        "durable_read_model_decision": "defer" if cold_p95 <= 500 else "investigate",
+    }
+    print("+ performance gate " + json.dumps(evidence, sort_keys=True), flush=True)
+
+
 def get_status(url: str) -> tuple[int, dict]:
     try:
         return 200, get_json(url)
@@ -90,14 +218,15 @@ def get_status(url: str) -> tuple[int, dict]:
 
 
 def assert_api_contract(server_url: str) -> None:
-    first_page = get_json(f"{server_url}/api/v1/expenses?limit=50")
+    expense_scope = "from=2026-08-01&to=2026-09-01"
+    first_page = get_json(f"{server_url}/api/v1/expenses?limit=50&{expense_scope}")
     if len(first_page["items"]) != 50 or not first_page["has_more"]:
         raise RuntimeError(f"expense pagination boundary failed: {first_page}")
     cursor = urllib.parse.quote(first_page["next_cursor"], safe="")
-    second_page = get_json(f"{server_url}/api/v1/expenses?limit=50&cursor={cursor}")
+    second_page = get_json(f"{server_url}/api/v1/expenses?limit=50&{expense_scope}&cursor={cursor}")
     if not second_page["items"] or second_page["has_more"]:
         raise RuntimeError(f"expense cursor page failed: {second_page}")
-    all_expenses = get_json(f"{server_url}/api/v1/expenses?limit=100")["items"]
+    all_expenses = get_json(f"{server_url}/api/v1/expenses?limit=100&{expense_scope}")["items"]
     walked_ids = [item["id"] for item in first_page["items"] + second_page["items"]]
     all_ids = [item["id"] for item in all_expenses]
     if (
@@ -124,7 +253,7 @@ def assert_api_contract(server_url: str) -> None:
         raise RuntimeError(f"media fixture failed: {sections['media']}")
     if sections["expenses"]["data"]["expense_count"] != 56:
         raise RuntimeError(f"expense report count failed: {sections['expenses']}")
-    empty_report = get_json(f"{server_url}/api/v1/reports/monthly?month=2026-09")
+    empty_report = get_json(f"{server_url}/api/v1/reports/monthly?month=2026-07")
     if any(section["state"] != "empty" for section in empty_report["sections"].values()):
         raise RuntimeError(f"empty report period was not empty: {empty_report['sections']}")
 
@@ -264,6 +393,7 @@ def main() -> int:
             IROHA_ALLOWED_ORIGINS_ENV: web_url,
             IROHA_DATA_DIR_ENV: str(ROOT / ".iroha-data" / "release-candidate"),
             PUBLIC_IROHA_API_BASE_ENV: server_url,
+            PUBLIC_IROHA_TIMEZONE_ENV: "Asia/Tokyo",
         }
     )
     server_process = None
@@ -390,6 +520,30 @@ def main() -> int:
                 stdin=seed,
                 check=True,
             )
+        with PERFORMANCE_SEED_FILE.open("rb") as performance_seed:
+            print("+ seed isolated performance database", flush=True)
+            subprocess.run(
+                [
+                    "podman",
+                    "exec",
+                    "-i",
+                    "--env",
+                    "PGPASSWORD=iroha_dev",
+                    container,
+                    "psql",
+                    "-h",
+                    "127.0.0.1",
+                    "-v",
+                    "ON_ERROR_STOP=1",
+                    "-U",
+                    "iroha",
+                    "-d",
+                    "iroha",
+                ],
+                cwd=ROOT,
+                stdin=performance_seed,
+                check=True,
+            )
         run(["make", "web-build"], env=env)
 
         print("+ start production server", flush=True)
@@ -406,6 +560,7 @@ def main() -> int:
         if readiness.get("status") != "ready":
             raise RuntimeError(f"database readiness contract failed: {readiness}")
         assert_api_contract(server_url)
+        performance_gate(server_url, container)
         print("+ start production web preview", flush=True)
         web_process = subprocess.Popen(
             [
