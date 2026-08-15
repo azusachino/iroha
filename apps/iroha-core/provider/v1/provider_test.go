@@ -18,7 +18,13 @@ type fakeHealthAdapter struct{ fakeAdapter }
 
 type fakeMediaAdapter struct{ fakeAdapter }
 
+type fakeMediaHistoryAdapter struct{ fakeAdapter }
+
 func (fakeMediaAdapter) ImportMedia(context.Context, Source, ImportOptions) ([]observations.Media, error) {
+	return nil, nil
+}
+
+func (fakeMediaHistoryAdapter) ImportMediaHistory(context.Context, Source, ImportOptions) ([]observations.MediaHistory, error) {
 	return nil, nil
 }
 
@@ -101,6 +107,20 @@ func TestNewRegistryAcceptsMediaCapabilityWithMediaImporter(t *testing.T) {
 
 	if _, err := NewRegistry(adapter); err != nil {
 		t.Fatalf("NewRegistry() rejected media adapter: %v", err)
+	}
+}
+
+func TestNewRegistryAcceptsMediaActivityCapabilityWithHistoryImporter(t *testing.T) {
+	adapter := fakeMediaHistoryAdapter{fakeAdapter{descriptor: Descriptor{
+		ID:             "anilist",
+		AdapterVersion: "test-v1",
+		Domains:        []Domain{DomainMedia},
+		SourceKinds:    []string{"anilist_activity"},
+		Capabilities:   []Capability{CapabilityMediaActivity},
+	}}}
+
+	if _, err := NewRegistry(adapter); err != nil {
+		t.Fatalf("NewRegistry() rejected media activity adapter: %v", err)
 	}
 }
 

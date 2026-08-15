@@ -283,6 +283,9 @@ func implementsCapability(adapter Adapter, capability Capability) bool {
 	case CapabilityMediaLibrary, CapabilityMediaProgress, CapabilityMediaRating:
 		_, ok := adapter.(MediaImporter)
 		return ok
+	case CapabilityMediaActivity:
+		_, ok := adapter.(MediaHistoryImporter)
+		return ok
 	default:
 		return false
 	}
