@@ -1,8 +1,8 @@
 # Media Sync Connectors: AniList + Bangumi
 
 > **Semantics amendment (2026-08-15):** the connector plumbing described here is retained, but the earlier list-state-to-event mapping is superseded by
-> [ADR-0005](adr/0005-media-provider-time-semantics.md) and the [canonical-history redesign](plans/2026-08-15-media-provider-canonical-history.md). Current list snapshots become
-> progress/state history; only exact evidence becomes a consumption event.
+> [ADR-0005](adr/0005-media-provider-time-semantics.md) and the [canonical-history redesign](plans/2026-08-15-media-provider-canonical-history.md). Current list snapshots become progress/state
+> history; only exact evidence becomes a consumption event.
 
 Implementation note (updated 2026-07-20). Companion to [`media-history-research.md`](./media-history-research.md), which defines the media _ontology_
 (works/items/titles/relations/external_refs/consumption_events/progress) and the product direction. This document bridges that ontology to iroha's **actual provider abstraction** and specifies the
@@ -78,21 +78,24 @@ type Snapshot struct {
 
 Ownership:
 
-- **iroha-server** exposes `POST /api/v1/media/sync/{connectorId}` for configured `anilist` and `bangumi` connectors. An AniList run executes the current-list connector and then the bounded activity connector. It queues work and returns a typed job ID; it does not accept credentials in the
-  request body.
+- **iroha-server** exposes `POST /api/v1/media/sync/{connectorId}` for configured `anilist` and `bangumi` connectors. An AniList run executes the current-list connector and then the bounded activity
+  connector. It queues work and returns a typed job ID; it does not accept credentials in the request body.
 - **iroha-job** runs the fetch loop. Credentials are resolved from worker environment variables, keeping secrets out of `tb_jobs` and browser traffic.
 - **Scheduling** reuses the existing durable `tb_jobs` + `EnqueueDueSchedules` interval mechanism (jobs.Service already supports interval schedules with `ClaimNext` + `FOR UPDATE SKIP LOCKED`). A
   media sync is a scheduled job kind (`media_sync_anilist`, `media_sync_bangumi`) that runs `Fetch` in a loop until the cursor is exhausted, creating one import job per snapshot page.
 - **Cursor durability**: store per-connector sync cursor (page number / `updatedAfter` watermark) in a small `tb_media_sync_state` row so incremental syncs resume and only pull changed entries.
-- **AniList activity window**: the first run defaults to 365 days; set `IROHA_ANILIST_ACTIVITY_LOOKBACK_DAYS` on the worker to choose another bounded backfill window. Successful runs retain a 24-hour overlap cursor and deduplicate by activity ID.
+- **AniList activity window**: the first run defaults to 365 days; set `IROHA_ANILIST_ACTIVITY_LOOKBACK_DAYS` on the worker to choose another bounded backfill window. Successful runs retain a 24-hour
+  overlap cursor and deduplicate by activity ID.
 
-Connectors are registered in a connector registry sibling to the provider registry (`iroha-providers/registry`), and their snapshots' `SourceKind` must match a registered media importer or media-history importer adapter's declared source kind.
+Connectors are registered in a connector registry sibling to the provider registry (`iroha-providers/registry`), and their snapshots' `SourceKind` must match a registered media importer or
+media-history importer adapter's declared source kind.
 
 ## 3. Media dispatch (shipped)
 
 The formerly planned dispatch and persistence changes are complete:
 
-1. **Dispatch** — `imports.Process` type-asserts `provider.MediaImporter` for current-list snapshots and `provider.MediaHistoryImporter` for dated provider activity; media is not carried by `ImportBatch`.
+1. **Dispatch** — `imports.Process` type-asserts `provider.MediaImporter` for current-list snapshots and `provider.MediaHistoryImporter` for dated provider activity; media is not carried by
+   `ImportBatch`.
 2. **Persistence** — `persistMedia(...)` writes canonical media rows under the same snapshot dedupe and parser-version reprocess discipline used by health imports.
 
 The `anilist`, `anilist_activity`, and `bangumi` source kinds are registered in the parser/provider registries and accepted by `imports.Create`.

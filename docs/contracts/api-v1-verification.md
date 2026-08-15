@@ -1,6 +1,6 @@
 # API v1 verification gate
 
-Status: Gate A approved; v0.4.1 request/read audit correction in progress
+Status: Gate A approved; v0.4.1 released locally
 
 ## Gate A — freeze repaired existing contracts
 
@@ -24,10 +24,12 @@ Gate A covers only the existing data domains and shared HTTP behavior. The owner
 
 Gate A does not approve the expense data model, monthly report response, CLI workflow, cockpit UX, Telegram, Suzuran, OCR, or scheduled report delivery. Those remain later implementation decisions.
 
-The gate is complete when the owner says `Gate A approved` (or supplies corrections). Only then may tasks 12–21, which add expenses and monthly reports, be dispatched.
+At the time of the Gate A review, the gate was complete when the owner said `Gate A approved` (or supplied corrections); only then could tasks 12–21, which add expenses and monthly reports, be
+dispatched. Those tasks are now part of the released v0.4.1 surface.
 
-Gate A is approved. The expense, monthly-report, CLI, and cockpit work described below was implemented after that approval. The current branch is applying a second audit pass for canonical server
-projections, request fan-out, date-range consistency, and cache coverage; remote merge/tag, deployment, and owner release review remain external release checkpoints.
+Gate A is approved. The expense, monthly-report, CLI, and cockpit work described below was implemented after that approval. The v0.4.1 branch completed the canonical projection, request fan-out,
+date-range, cache, media-history, release-candidate, and local deployment checks. The local `v0.4.1` tag records this release boundary; remote merge/publication and any production image rollout remain
+external handoffs.
 
 The contract gate verifies the active `/api/v1` surface in place. It is not a backward-compatibility gate for a released v1 and does not require an `/api/v2`.
 
@@ -99,12 +101,13 @@ The same fixture must run against the supported local runtime path and the conta
 
 - `make contract-check` passes against the registered private route inventory and OpenAPI path set.
 - Rate-limit tests cover `429`, the common error body, and `Retry-After`.
-- The previous local release-candidate evidence is retained in the dated audit record; it predates the current request/read audit correction.
-- The current branch must rerun `make check` after the projection and contract changes before it is considered locally verified.
-- Deployment, release-candidate rehearsal, and live request-count smoke checks are intentionally not claimed for this un-deployed correction pass.
+- The previous local release-candidate evidence is retained in the dated audit record; the final release evidence is in [the v0.4.1 release audit](../audits/2026-08-15-v0.4.1-release.md).
+- The final release reran `make check`, `make validate`, and `make release-candidate` after the projection, contract, media-history, and detail changes.
+- Local k3s deployment and live cache/browser smoke are recorded separately from the source release; the current cluster remains on explicitly named dev image pins.
 
-The end-to-end worker/import rehearsal is covered by the release-candidate target; repeat it for the final production release after the owner release review.
+The end-to-end worker/import rehearsal is covered by the release-candidate target; repeat it for each future production release.
 
 ## Completion rule
 
-The route inventory and contract decisions were reviewed before implementation. The v0.4.1 release remains a candidate until the attached release evidence is complete and the owner approves it.
+The route inventory and contract decisions were reviewed before implementation. The attached release evidence is complete for the local `v0.4.1` source tag. This document does not promise backward
+compatibility for future pre-1.0 releases.

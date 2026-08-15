@@ -1,8 +1,8 @@
 # Media provider canonical-history redesign
 
-- Status: Approved for implementation — Claude Code review blockers incorporated
+- Status: Implemented in v0.4.1 — Claude Code review blockers incorporated
 - Date: 2026-08-15
-- Target: v0.4.1 follow-up
+- Target: v0.4.1
 - Depends on: [ADR-0001](../adr/0001-provider-observations-and-canonical-records.md), [ADR-0002](../adr/0002-provider-adapter-contracts.md)
 - Supersedes: the earlier assumption that every AniList/Bangumi list snapshot can become a media consumption event
 
@@ -197,10 +197,11 @@ Keep the current `MediaListCollection` connector for the library projection. Cha
 
 ### AniList activity connector
 
-Implementation status (2026-08-15): enabled in the AniList sync path. The worker resolves the configured username to an AniList user ID, fetches a bounded 365-day `ListActivity` window, preserves each response as raw evidence, and writes dated `provider_activity` history rows. The current-list sync remains independent and still supplies the library projection.
+Implementation status (2026-08-15): enabled in the AniList sync path. The worker resolves the configured username to an AniList user ID, fetches a bounded 365-day `ListActivity` window, preserves each
+response as raw evidence, and writes dated `provider_activity` history rows. The current-list sync remains independent and still supplies the library projection.
 
-The separate connector/source kind for `Page.activities` is filtered to the user's `ListActivity` records. It resolves the user ID once, fetches by a bounded created-at window, and retains a
-24-hour overlap cursor for incremental runs. It deduplicates by AniList activity ID and preserves each raw GraphQL response.
+The separate connector/source kind for `Page.activities` is filtered to the user's `ListActivity` records. It resolves the user ID once, fetches by a bounded created-at window, and retains a 24-hour
+overlap cursor for incremental runs. It deduplicates by AniList activity ID and preserves each raw GraphQL response.
 
 The adapter may map an activity's `status` and `progress` when the progress text is unambiguous. It must preserve the original progress string and refrain from inventing a numeric position for formats
 it cannot parse. These rows are `provider_activity` dated list updates, not watched/read sessions. If the activity feed is unavailable, private, disabled, merged, or incomplete, the current-list

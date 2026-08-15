@@ -248,15 +248,18 @@ Exit criteria:
 
 Goal: make repeated metric and cross-domain report reads cheap without adding a second canonical data store or a clock-driven aggregate job.
 
-Status: implementation and isolated release-candidate verification are complete; local k3s deployment and live cache/public-boundary smoke remain.
+Status: released locally as v0.4.1; the source tag is complete, while remote publication and any production image rollout remain separate handoffs.
 
 Current plan: [Iroha v0.4.1 cache and aggregation plan](plans/2026-08-14-iroha-0.4.1-cache-and-aggregation.md).
 
-Current evidence: [v0.4.1 cache release-candidate audit](audits/2026-08-14-v0.4.1-cache-release-candidate.md).
+Current evidence: [v0.4.1 release audit](audits/2026-08-15-v0.4.1-release.md); the earlier [release-candidate audit](audits/2026-08-14-v0.4.1-cache-release-candidate.md) remains historical evidence.
 
 ## Future Module: Reading and Watching Stats
 
 Goal: track personal media consumption without turning iroha into a social media clone.
+
+The v0.4.1 release ships the provider-state and dated-provider-update foundation. Exact reading/watching sessions still require an external exact-event producer; future book, ebook, audiobook, and
+provider-specific session work remains here.
 
 See [Reading and Watching History Research](media-history-research.md) for the researched data model, source connectors, and implementation boundary. See also
 [Personal Data Cockpit Model](personal-data-cockpit.md) for the shared intake, job, sync, and trigger model.

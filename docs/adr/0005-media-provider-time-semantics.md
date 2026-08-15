@@ -1,6 +1,6 @@
 # ADR-0005: Media provider time semantics
 
-- Status: Accepted for v0.4.1 implementation
+- Status: Accepted and implemented in v0.4.1
 - Date: 2026-08-15
 - Scope: AniList, Bangumi, media current state, media history, Today briefing
 - Detailed plan: [Media provider canonical-history redesign](../plans/2026-08-15-media-provider-canonical-history.md)

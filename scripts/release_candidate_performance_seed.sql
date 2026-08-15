@@ -92,11 +92,13 @@ select
 from generate_series(date '2016-01-01', date '2025-12-01', interval '1 month') as months(month);
 
 insert into tb_media_progress (
-  media_item_id, status, finished_at, source_kind, updated_at
+  media_item_id, status, completed_on_value, completed_on_precision,
+  source_kind, updated_at
 )
 select
   md5('performance-item:' || to_char(month, 'YYYY-MM'))::uuid,
-  'completed', month + interval '15 days', 'release-candidate-performance', month::timestamptz
+  'completed', (month + interval '15 days')::date, 'day',
+  'release-candidate-performance', month::timestamptz
 from generate_series(date '2016-01-01', date '2025-12-01', interval '1 month') as months(month);
 
 insert into tb_expenses (

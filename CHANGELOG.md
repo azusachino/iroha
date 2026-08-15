@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
-## [0.4.1] — 2026-08-14
+## [0.4.1] — 2026-08-15
 
 ### Added
 
@@ -13,6 +13,7 @@ contract between minor versions.
 - Add complete response caching for monthly and twelve-month reports under the `read_reports` namespace.
 - Add bounded Postgres cache cleanup for expired and superseded-generation entries, including hourly worker maintenance.
 - Add a deterministic large-fixture release performance gate for cold canonical reads, cache hits, mutation freshness, and cache retention.
+- Add canonical media provider history and dated AniList activity import, keeping exact consumption events separate from provider state changes.
 
 ### Changed
 
@@ -20,11 +21,15 @@ contract between minor versions.
 - Make cache population generation-safe and make successful canonical mutations invalidate their dependent namespaces after commit.
 - Make known invalidation failures bypass affected cache namespaces until a later invalidation succeeds.
 - Keep direct expense records live and canonical while caching derived metric and report representations.
+- Make media library filters, current-status totals, completion-year selection, charts, Today updates, and detail history use the same canonical scope.
+- Preserve provider date precision and source basis; connector snapshots never become exact daily consumption sessions.
 
 ### Fixed
 
 - Refresh expense metric/report reads after expense create, replace, and delete.
 - Refresh activity route representations after geocode changes and media/report representations after media resolution changes.
+- Correct media detail evidence to distinguish exact events from dated provider updates and hide internal observation snapshots.
+- Normalize Grapher media-detail titles to a regular responsive record-heading scale instead of a landing-page hero scale.
 
 ## [0.4.0] — 2026-08-14
 
