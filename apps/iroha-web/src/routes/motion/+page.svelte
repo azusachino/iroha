@@ -47,6 +47,7 @@
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   // Draft filter inputs (bound to the form); committed to `applied` on submit
   // so "Load more" keeps paging the same query the user actually ran.
@@ -69,20 +70,21 @@
   let selectedMonth = $state(initialMonth);
   let applied = $state<ListActivitiesParams>({});
 
-  let activities = $state<Activity[]>([]);
-  let loading = $state(true);
+  const activitiesResource = createAsyncResource<Activity[]>();
+  const summaryResource = createAsyncResource<ActivitySummary>();
+  const seriesResource = createAsyncResource<{
+    distance: MetricSeriesResponse;
+    duration: MetricSeriesResponse;
+  }>();
   let loadingMore = $state(false);
   let cursor = $state<string | null>(null);
   let hasMore = $state(false);
-  let error = $state<string | null>(null);
-  let summary = $state<ActivitySummary | null>(null);
-  let summaryLoading = $state(true);
-  let activitySeries = $state<MetricSeriesResponse | null>(null);
-  let activityDurationSeries = $state<MetricSeriesResponse | null>(null);
-  let activitySeriesLoading = $state(true);
-  let activitySeriesError = $state<string | null>(null);
-  let activitySeriesRequest = 0;
-  let summaryRequest = 0;
+  const activities = $derived(activitiesResource.data ?? []);
+  const summary = $derived(summaryResource.data);
+  const activitySeries = $derived(seriesResource.data?.distance ?? null);
+  const activityDurationSeries = $derived(
+    seriesResource.data?.duration ?? null,
+  );
   const theme = useTheme();
   const sportOptions = $derived(
     summary ? summary.by_sport.map((b) => b.key).sort() : [],
@@ -170,17 +172,8 @@
 
   async function loadActivitySeries() {
     const window = chartWindow();
-    if (!window) {
-      activitySeries = null;
-      activityDurationSeries = null;
-      activitySeriesLoading = false;
-      activitySeriesError = null;
-      return;
-    }
-    const requestId = ++activitySeriesRequest;
-    activitySeriesLoading = true;
-    activitySeriesError = null;
-    try {
+    if (!window) return;
+    await seriesResource.run(async () => {
       const params = {
         ...window,
         timezone: IROHA_TIMEZONE,
@@ -190,19 +183,8 @@
         getMetricSeries("movement.distance_m", params),
         getMetricSeries("movement.duration_s", params),
       ]);
-      if (requestId === activitySeriesRequest) {
-        activitySeries = distance;
-        activityDurationSeries = duration;
-      }
-    } catch (cause) {
-      if (requestId !== activitySeriesRequest) return;
-      activitySeries = null;
-      activityDurationSeries = null;
-      activitySeriesError =
-        cause instanceof Error ? cause.message : String(cause);
-    } finally {
-      if (requestId === activitySeriesRequest) activitySeriesLoading = false;
-    }
+      return { distance, duration };
+    });
   }
 
   function syncUrl() {
@@ -232,24 +214,31 @@
   // Fetch one page. `append` distinguishes a fresh query (replace) from
   // "Load more" (accumulate). Cursor + has_more drive the keyset walk.
   async function load(append: boolean) {
-    if (append) loadingMore = true;
-    else loading = true;
-    error = null;
-    try {
-      const params: ListActivitiesParams = { ...applied };
-      if (append && cursor) params.cursor = cursor;
-      const page = await listActivities(params);
-      activities = append ? [...activities, ...page.items] : page.items;
+    if (append) {
+      if (!hasMore || !cursor || loadingMore) return;
+      loadingMore = true;
+      try {
+        const page = await listActivities({ ...applied, cursor });
+        activitiesResource.mutate((current) => [
+          ...(current ?? []),
+          ...page.items,
+        ]);
+        cursor = page.next_cursor;
+        hasMore = page.has_more;
+      } catch {
+        // Load-more failures are retry-safe -- keep the rows already
+        // showing rather than replacing a working view with an error.
+      } finally {
+        loadingMore = false;
+      }
+      return;
+    }
+    await activitiesResource.run(async () => {
+      const page = await listActivities(applied);
       cursor = page.next_cursor;
       hasMore = page.has_more;
-      // Handled statically via derived summary key mapping
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-      if (!append) activities = [];
-    } finally {
-      loading = false;
-      loadingMore = false;
-    }
+      return page.items;
+    });
   }
 
   function clear() {
@@ -264,22 +253,15 @@
   }
 
   async function loadSummary() {
-    const requestId = ++summaryRequest;
-    summaryLoading = true;
-    try {
-      const next = await getActivitySummary({
+    await summaryResource.run(() =>
+      getActivitySummary({
         date: serializeCalendarScope(
           scopeFromParts(selectedYear, selectedMonth),
         ),
         sport: sportType || null,
         timezone: IROHA_TIMEZONE,
-      });
-      if (requestId === summaryRequest) summary = next;
-    } catch {
-      if (requestId === summaryRequest) summary = null;
-    } finally {
-      if (requestId === summaryRequest) summaryLoading = false;
-    }
+      }),
+    );
   }
 
   const displaySummary = $derived.by<ActivityDisplaySummary>(() => {
@@ -341,7 +323,12 @@
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !activitiesResource.loading &&
+          !loadingMore
+        ) {
           void load(true);
         }
       },
@@ -401,8 +388,7 @@
 <section class="activities-shell">
   {#if hasThemeRoute(theme.definition(), "activities")}
     <LoadingBoundary
-      loading={loading || activitySeriesLoading || summaryLoading}
-      ready={!loading && !activitySeriesLoading && !summaryLoading}
+      resource={[activitiesResource, summaryResource, seriesResource]}
       preserveLayout
       label="Loading activities…"
     >
@@ -413,14 +399,14 @@
           displaySummary,
           sportType,
           sportOptions,
-          loading,
-          error,
+          loading: activitiesResource.loading,
+          error: activitiesResource.error,
           hasMore,
           loadingMore,
           activitySeries,
           activityDurationSeries,
-          activitySeriesLoading,
-          activitySeriesError,
+          activitySeriesLoading: seriesResource.loading,
+          activitySeriesError: seriesResource.error,
           activitySeriesScope: selectedMonth
             ? `${selectedYear}-${selectedMonth.padStart(2, "0")}`
             : selectedYear || "Lifetime",
@@ -488,28 +474,32 @@
     <div class="stat-strip" aria-label="Activity summary">
       <StatTile
         label="Activities"
-        value={summaryLoading
+        value={summaryResource.loading
           ? "—"
           : displaySummary.activity_count.toLocaleString()}
         sub={sportType || selectedYear ? "Filtered count" : "Imported sessions"}
       />
       <StatTile
         label="Distance"
-        value={summaryLoading ? "—" : formatDistance(displaySummary.distance_m)}
+        value={summaryResource.loading
+          ? "—"
+          : formatDistance(displaySummary.distance_m)}
         sub={sportType || selectedYear
           ? "Filtered distance"
           : "Across all activities"}
       />
       <StatTile
         label="Total time"
-        value={summaryLoading ? "—" : formatDuration(displaySummary.duration_s)}
+        value={summaryResource.loading
+          ? "—"
+          : formatDuration(displaySummary.duration_s)}
         sub={sportType || selectedYear
           ? "Filtered duration"
           : "Recorded duration"}
       />
       <StatTile
         label="Sports"
-        value={summaryLoading ? "—" : trackedSports.toLocaleString()}
+        value={summaryResource.loading ? "—" : trackedSports.toLocaleString()}
         sub="Activity types tracked"
       />
     </div>
@@ -540,10 +530,12 @@
       </div>
     </form>
 
-    {#if loading}
+    {#if activitiesResource.loading && activities.length === 0}
       <p class="muted">Loading activities…</p>
-    {:else if error}
-      <p class="error">Failed to load activities: {error}</p>
+    {:else if activitiesResource.error}
+      <p class="error">
+        Failed to load activities: {activitiesResource.error}
+      </p>
     {:else if activities.length === 0}
       <p class="muted">No activities found.</p>
     {:else}

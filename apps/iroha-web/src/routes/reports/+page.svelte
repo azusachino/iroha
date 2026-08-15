@@ -31,6 +31,7 @@
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import type { ReportThemeProps } from "@iroha/shared/report";
   import { useTheme } from "$lib/themes/context.svelte";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   const defaultMonthScope = currentCalendarScope(
     "month",
@@ -46,11 +47,9 @@
       ? (serializeCalendarScope(requestedMonthScope) as string)
       : currentMonth(new Date(), IROHA_TIMEZONE),
   );
-  let report = $state<MonthlyReport | null>(null);
-  let series = $state<MonthlyReportSeries | null>(null);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
-  let requestVersion = 0;
+  const reportResource = createAsyncResource<MonthlyReportSeries>();
+  const series = $derived(reportResource.data);
+  const report = $derived(reportResource.data?.current_report ?? null);
   // The real cross-domain data range (fetched once, independent of the
   // current selection) -- not a hardcoded 2015 guess, and not every month.
   let bounds = $state<DateBounds>({});
@@ -109,23 +108,20 @@
   });
 
   async function loadReport(requestedMonth: string) {
-    const version = ++requestVersion;
-    loading = true;
-    error = null;
-    try {
-      const trend = await getMonthlyReportSeries(requestedMonth);
-      if (version !== requestVersion) return;
-      report = trend.current_report;
-      series = trend;
-    } catch (cause) {
-      if (version !== requestVersion) return;
-      if (cause instanceof ApiError && cause.requestId)
-        error = `${cause.message} (${cause.code}, request ${cause.requestId})`;
-      else if (cause instanceof Error) error = cause.message;
-      else error = String(cause);
-    } finally {
-      if (version === requestVersion) loading = false;
+    await reportResource.run(async () => {
+      try {
+        return await getMonthlyReportSeries(requestedMonth);
+      } catch (cause) {
+        throw new Error(formatError(cause));
+      }
+    });
+  }
+
+  function formatError(cause: unknown): string {
+    if (cause instanceof ApiError && cause.requestId) {
+      return `${cause.message} (${cause.code}, request ${cause.requestId})`;
     }
+    return cause instanceof Error ? cause.message : String(cause);
   }
 
   function moveMonth(value: string) {
@@ -212,7 +208,7 @@
       class="refresh"
       type="button"
       onclick={() => void loadReport(month)}
-      disabled={loading}><RefreshCw size={15} /> Refresh</button
+      disabled={reportResource.loading}><RefreshCw size={15} /> Refresh</button
     >
   </header>
   <PeriodToolbar title="Monthly cross-domain report" ariaLabel="Report period">
@@ -228,10 +224,11 @@
       onMonth={selectPeriodMonth}
     />
   </PeriodToolbar>
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if reportResource.error}
+    <p class="error" role="alert">{reportResource.error}</p>
+  {/if}
   <LoadingBoundary
-    {loading}
-    ready={report != null}
+    resource={reportResource}
     preserveLayout
     label="Generating the monthly report…"
   >

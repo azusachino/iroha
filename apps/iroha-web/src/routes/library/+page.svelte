@@ -16,23 +16,28 @@
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
-  let aggregates = $state<MediaAggregates | null>(null);
-  let items = $state<MediaRow[]>([]);
-  let nextCursor = $state<string | null>(null);
-  let hasMore = $state(false);
+  const libraryResource = createAsyncResource<{
+    aggregates: MediaAggregates;
+    items: MediaRow[];
+    nextCursor: string | null;
+    hasMore: boolean;
+    statusCounts: Record<string, number>;
+    activeCount: number;
+  }>();
+  const aggregates = $derived(libraryResource.data?.aggregates ?? null);
+  const items = $derived(libraryResource.data?.items ?? []);
+  const hasMore = $derived(libraryResource.data?.hasMore ?? false);
+  const statusCounts = $derived(libraryResource.data?.statusCounts ?? {});
+  const activeCount = $derived(libraryResource.data?.activeCount ?? 0);
   let loadingMore = $state(false);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
   let family = $state("");
   let status = $state("");
   let completedYear = $state("");
   let selectedYear = $state("");
   let yearSelect = $state<HTMLSelectElement>();
-  let statusCounts = $state<Record<string, number>>({});
-  let activeCount = $state(0);
   let availableYears = $state<MediaCompletionBucket[]>([]);
-  let requestVersion = 0;
   const theme = useTheme();
   const EMPTY_AGGREGATES: MediaAggregates = {
     totals: {
@@ -135,31 +140,23 @@
   }
 
   async function load() {
-    const currentRequest = ++requestVersion;
     const filters = currentFilters();
-    loading = true;
-    error = null;
-    try {
+    const result = await libraryResource.run(async () => {
       const [nextAggregates, page] = await Promise.all([
         getMediaAggregates(filters),
         listMedia({ limit: 100, ...filters }),
       ]);
-      if (currentRequest !== requestVersion) return;
-      aggregates = nextAggregates;
-      if (!filters.completed_year) {
-        availableYears = nextAggregates.completions_by_year ?? [];
-      }
-      items = page.items;
-      nextCursor = page.next_cursor;
-      hasMore = page.has_more;
-      statusCounts = page.status_counts ?? {};
-      activeCount = page.active_count ?? 0;
-    } catch (cause) {
-      if (currentRequest === requestVersion) {
-        error = cause instanceof Error ? cause.message : String(cause);
-      }
-    } finally {
-      if (currentRequest === requestVersion) loading = false;
+      return {
+        aggregates: nextAggregates,
+        items: page.items,
+        nextCursor: page.next_cursor,
+        hasMore: page.has_more,
+        statusCounts: page.status_counts ?? {},
+        activeCount: page.active_count ?? 0,
+      };
+    });
+    if (result && !filters.completed_year) {
+      availableYears = result.aggregates.completions_by_year ?? [];
     }
   }
 
@@ -182,23 +179,26 @@
   }
 
   async function loadMore() {
-    if (!nextCursor || loadingMore) return;
-    const currentRequest = requestVersion;
+    const cursor = libraryResource.data?.nextCursor;
+    if (!cursor || loadingMore) return;
     loadingMore = true;
     try {
       const page = await listMedia({
         limit: 100,
-        cursor: nextCursor,
+        cursor,
         ...currentFilters(),
       });
-      if (currentRequest !== requestVersion) return;
-      items = [...items, ...page.items];
-      nextCursor = page.next_cursor;
-      hasMore = page.has_more;
-    } catch (cause) {
-      if (currentRequest === requestVersion) {
-        error = cause instanceof Error ? cause.message : String(cause);
-      }
+      libraryResource.mutate((current) => ({
+        aggregates: current?.aggregates ?? EMPTY_AGGREGATES,
+        statusCounts: current?.statusCounts ?? {},
+        activeCount: current?.activeCount ?? 0,
+        items: [...(current?.items ?? []), ...page.items],
+        nextCursor: page.next_cursor,
+        hasMore: page.has_more,
+      }));
+    } catch {
+      // Load-more failures are retry-safe -- keep the rows already showing
+      // rather than replacing a working view with an error.
     } finally {
       loadingMore = false;
     }
@@ -248,17 +248,16 @@
 <section class="media-shell">
   {#if hasThemeRoute(theme.definition(), "media")}
     <LoadingBoundary
-      {loading}
-      ready={aggregates != null}
+      resource={libraryResource}
       preserveLayout
       label="Loading media history…"
     >
-      {#if error}
+      {#if libraryResource.error}
         <p class="error" aria-live="assertive">
           {#if aggregates}
-            Could not update media; showing the previous result: {error}
+            Could not update media; showing the previous result: {libraryResource.error}
           {:else}
-            Failed to load media: {error}
+            Failed to load media: {libraryResource.error}
           {/if}
         </p>
       {/if}
@@ -340,15 +339,20 @@
       </label>
     </div>
 
-    {#if !aggregates && loading}
+    {#if !aggregates && libraryResource.loading}
       <p class="muted" aria-live="polite">Loading media history…</p>
-    {:else if !aggregates && error}
-      <p class="error" aria-live="assertive">Failed to load media: {error}</p>
+    {:else if !aggregates && libraryResource.error}
+      <p class="error" aria-live="assertive">
+        Failed to load media: {libraryResource.error}
+      </p>
     {:else if aggregates}
-      <LoadingBoundary {loading} ready={true} label="Loading media history…">
-        {#if error}
+      <LoadingBoundary
+        resource={libraryResource}
+        label="Loading media history…"
+      >
+        {#if libraryResource.error}
           <p class="error" aria-live="assertive">
-            Could not update media; showing the previous result: {error}
+            Could not update media; showing the previous result: {libraryResource.error}
           </p>
         {/if}
         <div class="stat-strip">

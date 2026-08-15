@@ -31,33 +31,33 @@
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   const RECENT_ACTIVITY_LIMIT = 5;
 
-  let summary = $state<Summary | null>(null);
-  let summaryError = $state<string | null>(null);
-  let summaryLoading = $state(true);
-
-  let activities = $state<Activity[]>([]);
-  let activeDays = $state<ActivityActiveDay[]>([]);
-  let currentStreak = $state(0);
-  let activitiesError = $state<string | null>(null);
-  let activitiesLoading = $state(true);
-
-  let routes = $state<RouteFeatureCollection | null>(null);
-  let routesError = $state<string | null>(null);
-  let routesLoading = $state(true);
+  const overviewResource = createAsyncResource<{
+    summary: Summary;
+    recent: Activity[];
+    active_days: ActivityActiveDay[];
+    current_streak: number;
+  }>();
+  const routesResource = createAsyncResource<RouteFeatureCollection>();
 
   // Recent-nights window for the Overview's sleep tile -- same averaging
   // approach as the Night page, just a smaller recent slice since this is a
   // summary tile, not the full history.
   const SLEEP_SWEEP_LIMIT = 30;
-  let sleepOverview = $state<SleepOverview | null>(null);
-  let sleepSessionCount = $state<number | null>(null);
-  let sleepLoading = $state(true);
+  const sleepResource = createAsyncResource<SleepOverview>();
+  const mediaResource = createAsyncResource<MediaAggregates>();
 
-  let mediaAggregates = $state<MediaAggregates | null>(null);
-  let mediaLoading = $state(true);
+  const summary = $derived(overviewResource.data?.summary ?? null);
+  const activities = $derived(overviewResource.data?.recent ?? []);
+  const activeDays = $derived(overviewResource.data?.active_days ?? []);
+  const currentStreak = $derived(overviewResource.data?.current_streak ?? 0);
+  const routes = $derived(routesResource.data ?? null);
+  const sleepOverview = $derived(sleepResource.data ?? null);
+  const sleepSessionCount = $derived(sleepOverview?.session_count ?? null);
+  const mediaAggregates = $derived(mediaResource.data ?? null);
 
   const theme = useTheme();
 
@@ -82,69 +82,27 @@
   );
   const streakValue = $derived(streak === 1 ? "1 day" : `${streak} days`);
 
-  function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-  }
-
   async function loadActivityOverview() {
-    summaryLoading = true;
-    activitiesLoading = true;
-    summaryError = null;
-    activitiesError = null;
-    try {
-      const overview = await getActivityOverview({
-        recent: RECENT_ACTIVITY_LIMIT,
-      });
-      summary = overview.summary;
-      activities = overview.recent;
-      activeDays = overview.active_days;
-      currentStreak = overview.current_streak;
-    } catch (error) {
-      const message = errorMessage(error);
-      summaryError = message;
-      activitiesError = message;
-    } finally {
-      summaryLoading = false;
-      activitiesLoading = false;
-    }
+    await overviewResource.run(() =>
+      getActivityOverview({ recent: RECENT_ACTIVITY_LIMIT }),
+    );
   }
 
   async function loadRoutes() {
-    routesLoading = true;
-    routesError = null;
-    try {
-      routes = await getActivityRoutes();
-    } catch (error) {
-      routesError = errorMessage(error);
-    } finally {
-      routesLoading = false;
-    }
+    await routesResource.run(() => getActivityRoutes());
   }
 
   async function loadSleep() {
-    sleepLoading = true;
-    try {
-      sleepOverview = await getSleepOverview({ recent: SLEEP_SWEEP_LIMIT });
-      sleepSessionCount = sleepOverview.session_count;
-    } catch {
-      // The Overview's sleep tile is supplemental -- a failure here
-      // shouldn't block the rest of the dashboard from rendering.
-      sleepOverview = null;
-      sleepSessionCount = null;
-    } finally {
-      sleepLoading = false;
-    }
+    // The Overview's sleep tile is supplemental -- a failure here shouldn't
+    // block the rest of the dashboard from rendering (sleepResource.error
+    // isn't surfaced anywhere on this page).
+    await sleepResource.run(() =>
+      getSleepOverview({ recent: SLEEP_SWEEP_LIMIT }),
+    );
   }
 
   async function loadMedia() {
-    mediaLoading = true;
-    try {
-      mediaAggregates = await getMediaAggregates({});
-    } catch {
-      mediaAggregates = null;
-    } finally {
-      mediaLoading = false;
-    }
+    await mediaResource.run(() => getMediaAggregates({}));
   }
 
   async function reloadDashboard() {
@@ -206,16 +164,17 @@
 
 <section class="dashboard-shell">
   <ArchiveTotals
-    activityCount={summaryLoading || summaryError ? null : activityCount}
-    nightCount={sleepLoading ? null : sleepSessionCount}
-    mediaCount={mediaLoading || !mediaAggregates
+    activityCount={overviewResource.loading || overviewResource.error
+      ? null
+      : activityCount}
+    nightCount={sleepResource.loading ? null : sleepSessionCount}
+    mediaCount={mediaResource.loading || !mediaAggregates
       ? null
       : mediaAggregates.totals.item_count}
   />
   {#if hasThemeRoute(theme.definition(), "dashboard")}
     <LoadingBoundary
-      loading={summaryLoading || activitiesLoading}
-      ready={!summaryLoading && !activitiesLoading}
+      resource={overviewResource}
       preserveLayout
       label="Loading overview…"
     >
@@ -226,14 +185,14 @@
           activities,
           routes,
           streak: streakValue,
-          loading: summaryLoading || activitiesLoading,
-          error: summaryError || activitiesError,
-          routesLoading,
-          routesError,
+          loading: overviewResource.loading,
+          error: overviewResource.error,
+          routesLoading: routesResource.loading,
+          routesError: routesResource.error,
           sleepSummary,
-          sleepLoading,
+          sleepLoading: sleepResource.loading,
           mediaAggregates,
-          mediaLoading,
+          mediaLoading: mediaResource.loading,
           onLoadRoutes: () => void loadRoutes(),
           onRetry: () => void reloadDashboard(),
           onOpenActivity: (id: string) => void goto(`/motion/${id}`),
@@ -244,8 +203,8 @@
         {#snippet children()}
           <RouteFootprint
             {routes}
-            loading={routesLoading}
-            error={routesError}
+            loading={routesResource.loading}
+            error={routesResource.error}
             onLoad={() => void loadRoutes()}
           />
         {/snippet}
@@ -261,50 +220,56 @@
     <div class="stats-grid" aria-label="Activity totals">
       <StatTile
         label="Total distance"
-        value={summaryLoading || summaryError ? "—" : totalDistance}
-        sub={summaryLoading
+        value={overviewResource.loading || overviewResource.error
+          ? "—"
+          : totalDistance}
+        sub={overviewResource.loading
           ? "Loading totals…"
-          : summaryError
+          : overviewResource.error
             ? "Summary unavailable"
             : undefined}
       />
       <StatTile
         label="Archive records"
-        value={summaryLoading || summaryError
+        value={overviewResource.loading || overviewResource.error
           ? "—"
           : archiveRecordCount.toLocaleString()}
-        sub={summaryLoading
+        sub={overviewResource.loading
           ? "Loading totals…"
-          : summaryError
+          : overviewResource.error
             ? "Summary unavailable"
             : "Activities, nights, and media items"}
       />
       <StatTile
         label="Total time"
-        value={summaryLoading || summaryError ? "—" : totalDuration}
-        sub={summaryLoading
+        value={overviewResource.loading || overviewResource.error
+          ? "—"
+          : totalDuration}
+        sub={overviewResource.loading
           ? "Loading totals…"
-          : summaryError
+          : overviewResource.error
             ? "Summary unavailable"
             : undefined}
       />
       <StatTile
         label="Current streak"
-        value={activitiesLoading || activitiesError ? "—" : streakValue}
-        sub={activitiesLoading
+        value={overviewResource.loading || overviewResource.error
+          ? "—"
+          : streakValue}
+        sub={overviewResource.loading
           ? "Loading activity days…"
-          : activitiesError
+          : overviewResource.error
             ? "Activity history unavailable"
             : "Consecutive days ending today"}
       />
     </div>
 
     <div class="bento-grid">
-      {#if activitiesLoading}
+      {#if overviewResource.loading}
         <section class="status-tile tile heatmap-tile">
           <p>Loading activity history…</p>
         </section>
-      {:else if activitiesError}
+      {:else if overviewResource.error}
         <section class="status-tile tile heatmap-tile">
           <p>Activity history could not be loaded.</p>
         </section>
@@ -320,9 +285,9 @@
           </div>
           <a href="/motion">View all</a>
         </header>
-        {#if activitiesLoading}
+        {#if overviewResource.loading}
           <p class="muted">Loading activities…</p>
-        {:else if activitiesError}
+        {:else if overviewResource.error}
           <p class="error">Recent activity could not be loaded.</p>
         {:else if recentActivities.length === 0}
           <p class="muted">No activities imported yet.</p>
@@ -383,8 +348,8 @@
         <div class="dashboard-map">
           <RouteFootprint
             {routes}
-            loading={routesLoading}
-            error={routesError}
+            loading={routesResource.loading}
+            error={routesResource.error}
             onLoad={() => void loadRoutes()}
           />
         </div>
@@ -398,7 +363,7 @@
         <div class="domain-grid">
           <DomainTile
             name="Activity"
-            stat={summaryLoading || summaryError
+            stat={overviewResource.loading || overviewResource.error
               ? "Loading activity count…"
               : `${activityCount.toLocaleString()} sessions`}
             href="/motion"
@@ -406,7 +371,7 @@
           />
           <DomainTile
             name="Sleep"
-            stat={sleepLoading || sleepSessionCount == null
+            stat={sleepResource.loading || sleepSessionCount == null
               ? "Loading night count…"
               : `${sleepSessionCount.toLocaleString()} sessions`}
             href="/night"
@@ -414,7 +379,7 @@
           />
           <DomainTile
             name="Media"
-            stat={mediaLoading || !mediaAggregates
+            stat={mediaResource.loading || !mediaAggregates
               ? "Loading media count…"
               : `${mediaAggregates.totals.item_count.toLocaleString()} items`}
             href="/library"

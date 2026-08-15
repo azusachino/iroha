@@ -40,6 +40,7 @@
   } from "@iroha/shared/expense-view";
   import { categoryColor } from "@iroha/shared/category-color";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   const currencies: ExpenseCurrency[] = ["JPY", "USD", "EUR", "GBP"];
   const categories: ExpenseCategory[] = [
@@ -67,17 +68,26 @@
     })),
   ];
 
-  let expenses = $state<Expense[]>([]);
+  const expensesResource = createAsyncResource<{
+    expenses: Expense[];
+    dailySeries: MetricSeriesResponse | null;
+    categorySeries: MetricSeriesResponse[];
+    currencySeries: MetricSeriesResponse[];
+    currencyCountSeries: MetricSeriesResponse[];
+  }>();
+  const expenses = $derived(expensesResource.data?.expenses ?? []);
+  const dailySeries = $derived(expensesResource.data?.dailySeries ?? null);
+  const categorySeries = $derived(expensesResource.data?.categorySeries ?? []);
+  const currencySeries = $derived(expensesResource.data?.currencySeries ?? []);
+  const currencyCountSeries = $derived(
+    expensesResource.data?.currencyCountSeries ?? [],
+  );
   let selected = $state<Expense | null>(null);
   let selectedId = $state("");
-  let loading = $state(true);
-  let hasLoaded = $state(false);
   let detailLoading = $state(false);
-  let error = $state<string | null>(null);
-  let dailySeries = $state<MetricSeriesResponse | null>(null);
-  let categorySeries = $state<MetricSeriesResponse[]>([]);
-  let currencySeries = $state<MetricSeriesResponse[]>([]);
-  let currencyCountSeries = $state<MetricSeriesResponse[]>([]);
+  // Only for delete failures -- load failures surface through
+  // expensesResource.error instead.
+  let deleteError = $state<string | null>(null);
 
   const defaultMonthScope = currentCalendarScope(
     "month",
@@ -114,7 +124,6 @@
   const periodYear = $derived(month.slice(0, 4));
   const periodMonth = $derived(String(Number(month.slice(5, 7))));
   const periodMonths = $derived(monthOptionsInRange(periodYear, dateBounds));
-  let requestVersion = 0;
 
   async function loadBounds() {
     try {
@@ -147,100 +156,85 @@
   });
 
   async function loadExpenses(selectedMonth = month) {
-    const version = ++requestVersion;
-    loading = true;
-    error = null;
-    try {
-      const bounds = scopeBounds(parseCalendarScope(selectedMonth)!)!;
-      const expensesRequest = listAllExpenses({
-        date: selectedMonth,
-        currency: (filterCurrency || undefined) as ExpenseCurrency | undefined,
-        category: (filterCategory || undefined) as ExpenseCategory | undefined,
-      });
-      const chartCurrencies = filterCurrency
-        ? [filterCurrency as ExpenseCurrency]
-        : currencies;
-      const selectedCategory = categories.includes(
-        filterCategory as ExpenseCategory,
-      )
-        ? [filterCategory as ExpenseCategory]
-        : [];
-      const [monthExpenses, [currenciesForMonth, countsForCurrency]] =
-        await Promise.all([
-          expensesRequest,
-          Promise.all([
-            getMetricSeries("expenses.amount_minor", {
-              from: bounds.from,
-              to: bounds.to,
-              grain: "month",
-              dimensions: metricDimensions(chartCurrencies, selectedCategory),
-            }),
-            getMetricSeries("expenses.count", {
-              from: bounds.from,
-              to: bounds.to,
-              grain: "month",
-              dimensions: metricDimensions(chartCurrencies, selectedCategory),
-            }),
-          ]),
+    const result = await expensesResource.run(async () => {
+      try {
+        const bounds = scopeBounds(parseCalendarScope(selectedMonth)!)!;
+        const expensesRequest = listAllExpenses({
+          date: selectedMonth,
+          currency: (filterCurrency || undefined) as
+            ExpenseCurrency | undefined,
+          category: (filterCategory || undefined) as
+            ExpenseCategory | undefined,
+        });
+        const chartCurrencies = filterCurrency
+          ? [filterCurrency as ExpenseCurrency]
+          : currencies;
+        const selectedCategory = categories.includes(
+          filterCategory as ExpenseCategory,
+        )
+          ? [filterCategory as ExpenseCategory]
+          : [];
+        const [monthExpenses, [currenciesForMonth, countsForCurrency]] =
+          await Promise.all([
+            expensesRequest,
+            Promise.all([
+              getMetricSeries("expenses.amount_minor", {
+                from: bounds.from,
+                to: bounds.to,
+                grain: "month",
+                dimensions: metricDimensions(chartCurrencies, selectedCategory),
+              }),
+              getMetricSeries("expenses.count", {
+                from: bounds.from,
+                to: bounds.to,
+                grain: "month",
+                dimensions: metricDimensions(chartCurrencies, selectedCategory),
+              }),
+            ]),
+          ]);
+        const chartCurrency = (filterCurrency ||
+          currenciesForMonth.series.find(
+            (_, index) => seriesPointValue(currenciesForMonth, index) != null,
+          )?.dimensions.currency ||
+          "JPY") as ExpenseCurrency;
+        const chartCategories: ExpenseCategory[] = filterCategory
+          ? [filterCategory as ExpenseCategory]
+          : categories;
+        const [daily, categoriesForCurrency] = await Promise.all([
+          getMetricSeries("expenses.amount_minor", {
+            from: bounds.from,
+            to: bounds.to,
+            grain: "day",
+            dimensions: metricDimensions([chartCurrency], selectedCategory),
+          }),
+          getMetricSeries("expenses.amount_minor", {
+            from: bounds.from,
+            to: bounds.to,
+            grain: "month",
+            dimensions: metricDimensions([chartCurrency], chartCategories),
+          }),
         ]);
-      const chartCurrency = (filterCurrency ||
-        currenciesForMonth.series.find(
-          (_, index) => seriesPointValue(currenciesForMonth, index) != null,
-        )?.dimensions.currency ||
-        "JPY") as ExpenseCurrency;
-      const chartCategories: ExpenseCategory[] = filterCategory
-        ? [filterCategory as ExpenseCategory]
-        : categories;
-      const [daily, categoriesForCurrency] = await Promise.all([
-        getMetricSeries("expenses.amount_minor", {
-          from: bounds.from,
-          to: bounds.to,
-          grain: "day",
-          dimensions: metricDimensions([chartCurrency], selectedCategory),
-        }),
-        getMetricSeries("expenses.amount_minor", {
-          from: bounds.from,
-          to: bounds.to,
-          grain: "month",
-          dimensions: metricDimensions([chartCurrency], chartCategories),
-        }),
-      ]);
-      if (version !== requestVersion) return;
-      expenses = monthExpenses;
-      dailySeries = daily;
-      categorySeries = [categoriesForCurrency];
-      currencySeries = [currenciesForMonth];
-      currencyCountSeries = [countsForCurrency];
-      if (!monthExpenses.length) {
-        selected = null;
-        selectedId = "";
-      } else if (!monthExpenses.some((expense) => expense.id === selectedId)) {
-        selected = monthExpenses[0];
-        selectedId = monthExpenses[0].id;
-      } else {
-        selected =
-          monthExpenses.find((expense) => expense.id === selectedId) ?? null;
+        return {
+          expenses: monthExpenses,
+          dailySeries: daily,
+          categorySeries: [categoriesForCurrency],
+          currencySeries: [currenciesForMonth],
+          currencyCountSeries: [countsForCurrency],
+        };
+      } catch (cause) {
+        throw new Error(formatError(cause));
       }
-    } catch (cause) {
-      if (version !== requestVersion) return;
-      // Keep the last complete composition visible while a refresh fails. A
-      // transient API error must not turn a usable page into a second loading
-      // state or make the bottom half of the route jump.
-      if (!hasLoaded) {
-        expenses = [];
-        selected = null;
-        selectedId = "";
-        dailySeries = null;
-        categorySeries = [];
-        currencySeries = [];
-        currencyCountSeries = [];
-      }
-      showError(cause);
-    } finally {
-      if (version === requestVersion) {
-        loading = false;
-        if (!error) hasLoaded = true;
-      }
+    });
+    if (!result) return;
+    if (!result.expenses.length) {
+      selected = null;
+      selectedId = "";
+    } else if (!result.expenses.some((expense) => expense.id === selectedId)) {
+      selected = result.expenses[0];
+      selectedId = result.expenses[0].id;
+    } else {
+      selected =
+        result.expenses.find((expense) => expense.id === selectedId) ?? null;
     }
   }
 
@@ -296,23 +290,20 @@
 
   async function removeExpense(expense: Expense) {
     if (!window.confirm(`Delete expense from ${expense.occurred_on}?`)) return;
-    error = null;
+    deleteError = null;
     try {
       await deleteExpense(expense.id);
       await loadExpenses();
     } catch (cause) {
-      showError(cause);
+      deleteError = formatError(cause);
     }
   }
 
-  function showError(cause: unknown) {
+  function formatError(cause: unknown): string {
     if (cause instanceof ApiError && cause.requestId) {
-      error = `${cause.message} (${cause.code}, request ${cause.requestId})`;
-    } else if (cause instanceof Error) {
-      error = cause.message;
-    } else {
-      error = String(cause);
+      return `${cause.message} (${cause.code}, request ${cause.requestId})`;
     }
+    return cause instanceof Error ? cause.message : String(cause);
   }
 
   function formatMoney(
@@ -464,7 +455,8 @@
       class="refresh"
       type="button"
       onclick={() => void loadExpenses()}
-      disabled={loading}><RefreshCw size={15} /> Refresh</button
+      disabled={expensesResource.loading}
+      ><RefreshCw size={15} /> Refresh</button
     >
   </header>
   <PeriodToolbar title="Monthly ledger scope" ariaLabel="Expense period">
@@ -497,10 +489,11 @@
       </div>
     </div>
   </PeriodToolbar>
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if expensesResource.error || deleteError}
+    <p class="error" role="alert">{expensesResource.error || deleteError}</p>
+  {/if}
   <LoadingBoundary
-    {loading}
-    ready={hasLoaded}
+    resource={expensesResource}
     preserveLayout
     label="Loading expenses…"
   >

@@ -1,19 +1,29 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { AsyncResource } from "$lib/asyncResource.svelte";
 
+  // Takes the AsyncResource(s) a route is rendering directly, rather than
+  // loading/ready booleans a caller computes by hand -- that used to let
+  // every route reinvent (and often get wrong) its own "is this ready"
+  // logic. See asyncResource.svelte.ts.
   let {
-    loading,
-    ready = true,
+    resource,
     preserveLayout = false,
     label,
     children,
   }: {
-    loading: boolean;
-    ready?: boolean;
+    resource: AsyncResource<unknown> | AsyncResource<unknown>[];
     preserveLayout?: boolean;
     label: string;
     children: Snippet;
   } = $props();
+
+  const resources = $derived(Array.isArray(resource) ? resource : [resource]);
+  const loading = $derived(resources.some((r) => r.loading));
+  // Each resource's own `ready` only ever goes false -> true once and stays
+  // true (see asyncResource.svelte.ts), so this conjunction is sticky too --
+  // no separate latch needed here.
+  const ready = $derived(resources.every((r) => r.ready));
 </script>
 
 {#if !ready && !preserveLayout}

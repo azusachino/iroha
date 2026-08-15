@@ -38,15 +38,24 @@
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   type Gran = "day" | "month" | "year";
-  let dayRows = $state<DailyRow[]>([]);
-  let latestDay = $state<DailyRow | null>(null);
-  let monthly = $state<DailyAggregateBucket[]>([]);
-  let yearly = $state<DailyAggregateBucket[]>([]);
-  let loading = $state(true);
-  let dayRowsLoading = $state(false);
-  let error = $state<string | null>(null);
+  const monthlyResource = createAsyncResource<DailyAggregateBucket[]>();
+  const yearlyResource = createAsyncResource<DailyAggregateBucket[]>();
+  const daysResource = createAsyncResource<DailyRow[]>();
+  const latestDayResource = createAsyncResource<DailyRow | null>();
+  const monthly = $derived(monthlyResource.data ?? []);
+  const yearly = $derived(yearlyResource.data ?? []);
+  const dayRows = $derived(daysResource.data ?? []);
+  const latestDay = $derived(latestDayResource.data ?? null);
+  const error = $derived(
+    monthlyResource.error ??
+      latestDayResource.error ??
+      yearlyResource.error ??
+      daysResource.error ??
+      null,
+  );
   function granFromUrl(): Gran {
     const value = page.url.searchParams.get("gran");
     return value === "day" || value === "year" ? value : "month";
@@ -77,8 +86,6 @@
   let rangeTo = $state<string | undefined>(undefined);
   let monthlyLoadedKey = "";
   let yearlyLoadedKey = "";
-  let monthlyRequest = 0;
-  let yearlyRequest = 0;
   let loadedDayMonth = "";
   const theme = useTheme();
 
@@ -306,18 +313,13 @@
   async function loadMonthly() {
     const key = selectedYear || "lifetime";
     if (monthlyLoadedKey === key) return;
-    const request = ++monthlyRequest;
-    try {
-      const result = await listDailyAggregates(
+    const result = await monthlyResource.run(() =>
+      listDailyAggregates(
         "month",
         selectedYear ? { date: selectedYear } : {},
-      );
-      if (request !== monthlyRequest) return;
-      monthly = result.buckets;
-      monthlyLoadedKey = key;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    }
+      ).then((r) => r.buckets),
+    );
+    if (result) monthlyLoadedKey = key;
   }
 
   async function loadBounds() {
@@ -329,50 +331,35 @@
   }
 
   async function loadLatestDay() {
-    try {
+    await latestDayResource.run(async () => {
       const result = await listDaily({ limit: 1 });
-      latestDay = result.items[0] ?? null;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    }
+      return result.items[0] ?? null;
+    });
   }
 
   async function loadYearly() {
     const key = selectedYear || "lifetime";
     if (yearlyLoadedKey === key) return;
-    const request = ++yearlyRequest;
-    try {
-      const result = await listDailyAggregates(
+    const result = await yearlyResource.run(() =>
+      listDailyAggregates(
         "year",
         selectedYear ? { date: selectedYear } : {},
-      );
-      if (request !== yearlyRequest) return;
-      yearly = result.buckets;
-      yearlyLoadedKey = key;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    }
+      ).then((r) => r.buckets),
+    );
+    if (result) yearlyLoadedKey = key;
   }
 
   async function loadDays(month: string) {
-    if (!month || loadedDayMonth === month || dayRowsLoading) return;
+    if (!month || loadedDayMonth === month || daysResource.loading) return;
     const bounds = scopeBounds(parseCalendarScope(month)!);
     if (!bounds) return;
     rangeFrom = bounds.from;
     rangeTo = bounds.to;
-    dayRowsLoading = true;
-    try {
-      const result = await listDaily({
-        date: month,
-        limit: 31,
-      });
-      dayRows = result.items;
-      loadedDayMonth = month;
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    } finally {
-      dayRowsLoading = false;
-    }
+    const result = await daysResource.run(async () => {
+      const r = await listDaily({ date: month, limit: 31 });
+      return r.items;
+    });
+    if (result) loadedDayMonth = month;
   }
 
   // A day/month/year tab always means "zoom all the way out to this level" --
@@ -444,8 +431,19 @@
     await Promise.all([loadMonthly(), loadLatestDay(), loadBounds()]);
     if (gran === "year") await loadYearly();
     if (gran === "day") await loadDays(activeMonth);
-    loading = false;
   });
+
+  // Only the resources the current granularity actually fetches -- yearly
+  // and day-row resources are never run outside their own tab, so including
+  // them unconditionally would leave the boundary waiting on data that's
+  // never coming.
+  const activeResources = $derived(
+    gran === "year"
+      ? [monthlyResource, latestDayResource, yearlyResource]
+      : gran === "day"
+        ? [monthlyResource, latestDayResource, daysResource]
+        : [monthlyResource, latestDayResource],
+  );
 </script>
 
 <svelte:head>
@@ -455,8 +453,7 @@
 <section class="daily">
   {#if hasThemeRoute(theme.definition(), "daily")}
     <LoadingBoundary
-      loading={loading || dayRowsLoading}
-      ready={!loading && !error}
+      resource={activeResources}
       preserveLayout
       label="Loading time-series data…"
     >
@@ -517,7 +514,7 @@
       />
     </PeriodToolbar>
 
-    {#if loading}
+    {#if activeResources.some((r) => r.loading) && dayRows.length === 0}
       <p class="muted status">Loading daily history…</p>
     {:else if error}
       <p class="error status">Could not load daily data: {error}</p>

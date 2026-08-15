@@ -31,6 +31,7 @@
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   const PAGE_SIZE = 31;
   const defaultScope = currentCalendarScope("year", new Date(), IROHA_TIMEZONE);
@@ -48,24 +49,27 @@
       : requestedScope.kind === "lifetime"
         ? ""
         : currentYear(new Date(), IROHA_TIMEZONE);
-  let sessions = $state<SleepSession[]>([]);
+  const sessionsResource = createAsyncResource<SleepSession[]>();
+  const aggregatesResource = createAsyncResource<{
+    years: SleepAggregateBucket[];
+    months: SleepAggregateBucket[];
+    lifetime: SleepAggregateBucket | null;
+    bounds: DateBounds;
+  }>();
+  const sessions = $derived(sessionsResource.data ?? []);
   let selected = $state<SleepSession | null>(null);
-  let sessionsLoading = $state(true);
   let loadingMore = $state(false);
   let cursor = $state<string | null>(null);
   let hasMore = $state(false);
   let loadMoreSentinel = $state<HTMLDivElement>();
   let nightListContainer = $state<HTMLDivElement>();
-  let error = $state<string | null>(null);
-  let yearBuckets = $state<SleepAggregateBucket[]>([]);
-  let monthBuckets = $state<SleepAggregateBucket[]>([]);
-  let lifetimeBucket = $state<SleepAggregateBucket | null>(null);
-  let aggregatesLoading = $state(true);
-  let aggregatesError = $state<string | null>(null);
+  const yearBuckets = $derived(aggregatesResource.data?.years ?? []);
+  const monthBuckets = $derived(aggregatesResource.data?.months ?? []);
+  const lifetimeBucket = $derived(aggregatesResource.data?.lifetime ?? null);
   // The real data range (fetched once, independent of the current
   // selection) -- drives the picker option lists and arrow-key clamping.
   // yearBuckets/monthBuckets above stay chart data; this is navigation only.
-  let bounds = $state<DateBounds>({});
+  const bounds = $derived(aggregatesResource.data?.bounds ?? {});
   let selectedYear = $state(initialYear);
   let selectedMonth = $state(initialMonth);
   let selectedStage = $state("Core");
@@ -226,10 +230,6 @@
             : (selected?.unspecified_s ?? 0),
   );
 
-  function errorMessage(value: unknown): string {
-    return value instanceof Error ? value.message : String(value);
-  }
-
   function syncPeriodUrl() {
     const url = new URL(window.location.href);
     writeCalendarScope(
@@ -251,41 +251,41 @@
     return {};
   }
 
-  let sessionsRequest = 0;
-
   async function loadSessions(append = false) {
-    if (append && (!hasMore || !cursor || loadingMore)) return;
-    const requestId = ++sessionsRequest;
-    if (append) loadingMore = true;
-    else {
-      sessionsLoading = true;
-      loadingMore = false;
-      cursor = null;
-      hasMore = false;
-    }
-    error = null;
-    try {
-      const page = await listSleep({
-        limit: PAGE_SIZE,
-        cursor: append ? (cursor ?? undefined) : undefined,
-        ...selectedScope(),
-      });
-      if (requestId !== sessionsRequest) return;
-      sessions = append ? [...sessions, ...page.items] : page.items;
-      cursor = page.next_cursor;
-      hasMore = page.has_more;
-      if (!append) {
-        if (page.items[0]) selectSession(page.items[0]);
-        else selected = null;
-      }
-    } catch (value) {
-      if (requestId !== sessionsRequest) return;
-      error = errorMessage(value);
-    } finally {
-      if (requestId === sessionsRequest) {
-        sessionsLoading = false;
+    if (append) {
+      if (!hasMore || !cursor || loadingMore) return;
+      loadingMore = true;
+      try {
+        const page = await listSleep({
+          limit: PAGE_SIZE,
+          cursor: cursor ?? undefined,
+          ...selectedScope(),
+        });
+        sessionsResource.mutate((current) => [
+          ...(current ?? []),
+          ...page.items,
+        ]);
+        cursor = page.next_cursor;
+        hasMore = page.has_more;
+      } catch {
+        // Load-more failures are retry-safe -- keep the rows already
+        // showing rather than replacing a working view with an error.
+      } finally {
         loadingMore = false;
       }
+      return;
+    }
+    cursor = null;
+    hasMore = false;
+    const items = await sessionsResource.run(async () => {
+      const page = await listSleep({ limit: PAGE_SIZE, ...selectedScope() });
+      cursor = page.next_cursor;
+      hasMore = page.has_more;
+      return page.items;
+    });
+    if (items) {
+      if (items[0]) selectSession(items[0]);
+      else selected = null;
     }
   }
 
@@ -317,34 +317,31 @@
   });
 
   async function loadAggregates() {
-    aggregatesLoading = true;
-    aggregatesError = null;
-    try {
+    const result = await aggregatesResource.run(async () => {
       const [years, months, lifetime, nextBounds] = await Promise.all([
         listSleepAggregates("year"),
         listSleepAggregates("month"),
         listSleepAggregates("lifetime"),
         getSleepBounds().catch(() => ({}) as DateBounds),
       ]);
-      yearBuckets = years.buckets;
-      monthBuckets = months.buckets;
-      lifetimeBucket = lifetime.buckets[0] ?? null;
-      bounds = nextBounds;
-      const validYears = new Set(yearOptionsInRange(bounds));
-      if (selectedMonth) selectedYear = selectedMonth.slice(0, 4);
-      if (selectedYear && !validYears.has(selectedYear)) selectedYear = "";
-      if (
-        selectedMonth &&
-        !periodMonths.some((option) => option.value === selectedMonth)
-      ) {
-        selectedMonth = "";
-      }
-      syncPeriodUrl();
-    } catch (value) {
-      aggregatesError = errorMessage(value);
-    } finally {
-      aggregatesLoading = false;
+      return {
+        years: years.buckets,
+        months: months.buckets,
+        lifetime: lifetime.buckets[0] ?? null,
+        bounds: nextBounds,
+      };
+    });
+    if (!result) return;
+    const validYears = new Set(yearOptionsInRange(result.bounds));
+    if (selectedMonth) selectedYear = selectedMonth.slice(0, 4);
+    if (selectedYear && !validYears.has(selectedYear)) selectedYear = "";
+    if (
+      selectedMonth &&
+      !periodMonths.some((option) => option.value === selectedMonth)
+    ) {
+      selectedMonth = "";
     }
+    syncPeriodUrl();
   }
 
   function formatPeriod(period: string, granularity: "month" | "year"): string {
@@ -365,13 +362,14 @@
 <section class="sleep-shell">
   {#if hasThemeRoute(theme.definition(), "sleep")}
     <LoadingBoundary
-      loading={sessionsLoading || aggregatesLoading}
-      ready={!sessionsLoading && !aggregatesLoading}
+      resource={[sessionsResource, aggregatesResource]}
       preserveLayout
       label="Loading sleep data…"
     >
-      {#if error}
-        <p class="error" role="alert">Sleep could not be loaded: {error}</p>
+      {#if sessionsResource.error}
+        <p class="error" role="alert">
+          Sleep could not be loaded: {sessionsResource.error}
+        </p>
       {/if}
       <ThemeRouteRenderer
         route="sleep"
@@ -431,11 +429,11 @@
       actionLabel="Back to Today"
     />
 
-    {#if sessionsLoading && sessions.length === 0}
+    {#if sessionsResource.loading && sessions.length === 0}
       <section class="status tile"><p>Loading your sleep history…</p></section>
-    {:else if error && !selected}
+    {:else if sessionsResource.error && !selected}
       <section class="status tile">
-        <p class="error">Sleep could not be loaded: {error}</p>
+        <p class="error">Sleep could not be loaded: {sessionsResource.error}</p>
       </section>
     {:else if !selected}
       <section class="status tile">
@@ -545,11 +543,11 @@
             <h2>Sleep over time</h2>
           </div>
         </header>
-        {#if aggregatesLoading}
+        {#if aggregatesResource.loading && yearBuckets.length === 0}
           <p class="muted panel-loading">Building your history…</p>
-        {:else if aggregatesError}
+        {:else if aggregatesResource.error}
           <p class="error panel-loading">
-            History could not be loaded: {aggregatesError}
+            History could not be loaded: {aggregatesResource.error}
           </p>
         {:else}
           <div class="year-trend">

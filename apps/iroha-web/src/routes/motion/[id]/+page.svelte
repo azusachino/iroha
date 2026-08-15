@@ -35,6 +35,7 @@
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   function displayTitle(title?: string, sport?: string): string {
     if (!title) return sportLabel(sport);
@@ -42,12 +43,16 @@
     return title;
   }
 
-  let activity = $state<Activity | null>(null);
-  let route = $state<RoutePoint[]>([]);
-  let samplings = $state<SamplingPoint[]>([]);
-  let laps = $state<Lap[]>([]);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
+  const detailResource = createAsyncResource<{
+    activity: Activity;
+    route: RoutePoint[];
+    samplings: SamplingPoint[];
+    laps: Lap[];
+  }>();
+  const activity = $derived(detailResource.data?.activity ?? null);
+  const route = $derived(detailResource.data?.route ?? []);
+  const samplings = $derived(detailResource.data?.samplings ?? []);
+  const laps = $derived(detailResource.data?.laps ?? []);
   let selectedRouteIndex = $state<number | null>(null);
   const theme = useTheme();
 
@@ -56,34 +61,23 @@
   $effect(() => {
     const activityId = id;
     if (!activityId) return;
-    loading = true;
-    error = null;
-    Promise.all([
-      getActivity(activityId),
-      // Sub-resources are best-effort; an empty/failed one should not blank the page.
-      getActivityRoute(activityId)
-        .then((r) => r ?? [])
-        .catch(() => [] as RoutePoint[]),
-      // The charts only use heart_rate; skip the larger power/energy/speed streams.
-      getActivitySamplings(activityId, ["heart_rate"])
-        .then((s) => s ?? [])
-        .catch(() => [] as SamplingPoint[]),
-      getActivityLaps(activityId)
-        .then((l) => l ?? [])
-        .catch(() => [] as Lap[]),
-    ])
-      .then(([a, r, s, l]) => {
-        activity = a;
-        route = r;
-        samplings = s;
-        laps = l;
-      })
-      .catch((e) => {
-        error = e instanceof Error ? e.message : String(e);
-      })
-      .finally(() => {
-        loading = false;
-      });
+    void detailResource.run(async () => {
+      const [a, r, s, l] = await Promise.all([
+        getActivity(activityId),
+        // Sub-resources are best-effort; an empty/failed one should not blank the page.
+        getActivityRoute(activityId)
+          .then((r) => r ?? [])
+          .catch(() => [] as RoutePoint[]),
+        // The charts only use heart_rate; skip the larger power/energy/speed streams.
+        getActivitySamplings(activityId, ["heart_rate"])
+          .then((s) => s ?? [])
+          .catch(() => [] as SamplingPoint[]),
+        getActivityLaps(activityId)
+          .then((l) => l ?? [])
+          .catch(() => [] as Lap[]),
+      ]);
+      return { activity: a, route: r, samplings: s, laps: l };
+    });
   });
 
   function populateSpeed(points: RoutePoint[]): RoutePoint[] {
@@ -438,12 +432,8 @@
 </svelte:head>
 
 {#if hasThemeRoute(theme.definition(), "activity-detail")}
-  {#if activity || loading}
-    <LoadingBoundary
-      {loading}
-      ready={activity != null}
-      label="Loading activity…"
-    >
+  {#if activity || detailResource.loading}
+    <LoadingBoundary resource={detailResource} label="Loading activity…">
       {#snippet children()}
         {#if activity}
           <ThemeRouteRenderer
@@ -497,16 +487,16 @@
         {/if}
       {/snippet}
     </LoadingBoundary>
-  {:else if error}
-    <p class="error">Failed to load activity: {error}</p>
+  {:else if detailResource.error}
+    <p class="error">Failed to load activity: {detailResource.error}</p>
   {/if}
 {:else}
   <p class="detail-back"><a href="/motion">← Back to Motion</a></p>
 
-  {#if loading}
+  {#if detailResource.loading}
     <p class="muted">Loading activity…</p>
-  {:else if error}
-    <p class="error">Failed to load activity: {error}</p>
+  {:else if detailResource.error}
+    <p class="error">Failed to load activity: {detailResource.error}</p>
   {:else if activity}
     <RouteIntro
       eyebrow="Motion / performance report"

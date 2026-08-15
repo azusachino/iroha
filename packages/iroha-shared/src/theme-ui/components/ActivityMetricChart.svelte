@@ -150,7 +150,7 @@
     {/if}
   </header>
 
-  {#if loading}
+  {#if loading && !series}
     <p class="chart-status">Building the canonical movement series…</p>
   {:else if error}
     <p class="chart-status error">{error}</p>
