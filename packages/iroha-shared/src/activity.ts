@@ -122,6 +122,9 @@ export interface Lap {
 }
 
 export interface ListActivitiesParams {
+  // Canonical calendar scope. The server resolves it in the requested IANA
+  // timezone into started_from/started_to service bounds.
+  date?: string;
   sport_type?: string;
   // RFC3339 timestamps; started_from is inclusive and started_to is exclusive.
   started_from?: string;

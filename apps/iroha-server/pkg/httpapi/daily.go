@@ -45,7 +45,7 @@ type dailyRingResponse struct {
 }
 
 func (s *Server) handleListDaily(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseDailyFilters(w, r)
+	filters, ok := s.parseDailyFilters(w, r)
 	if !ok {
 		return
 	}
@@ -67,8 +67,13 @@ func (s *Server) handleListDaily(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
-func (s *Server) handleDailyDates(w http.ResponseWriter, _ *http.Request) {
-	dates, err := s.deps.DailyService.Dates()
+func (s *Server) handleDailyDates(w http.ResponseWriter, r *http.Request) {
+	timezone, err := scopeLocation(r.URL.Query(), s.deps.Config.Server.Timezone)
+	if err != nil {
+		writeReadScopeError(w, err)
+		return
+	}
+	dates, err := s.deps.DailyService.Dates(timezone.String())
 	if err != nil {
 		s.deps.Logger.Error("list daily dates", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list daily dates")
@@ -104,7 +109,7 @@ type dailyMetricAggregateResponse struct {
 }
 
 func (s *Server) handleDailyAggregates(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseDailyAggregateFilters(w, r)
+	filters, ok := s.parseDailyAggregateFilters(w, r)
 	if !ok {
 		return
 	}

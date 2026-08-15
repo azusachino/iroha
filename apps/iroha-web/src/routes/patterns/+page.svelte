@@ -21,6 +21,16 @@
     formatMonth as formatCanonicalMonth,
   } from "$lib/format";
   import { currentYear } from "@iroha/shared/month";
+  import {
+    currentCalendarScope,
+    parseCalendarScope,
+    readCalendarScope,
+    scopeBounds,
+    scopeFromParts,
+    serializeCalendarScope,
+    writeCalendarScope,
+  } from "@iroha/shared/scope";
+  import { IROHA_TIMEZONE } from "$lib/config";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -44,20 +54,29 @@
   // Set directly by drilling into a bar/row (see drillIntoPeriod), and reset
   // to "" -- meaning "default to the latest" -- by the day/month/year tabs
   // themselves, so a tab always means "zoom all the way out to this level."
-  const initialMonthParam = page.url.searchParams.get("month") ?? "";
-  const initialMonth = /^\d{4}-\d{2}$/.test(initialMonthParam)
-    ? initialMonthParam
-    : "";
-  const initialYearParam = page.url.searchParams.get("year") ?? "";
-  const initialYear = /^\d{4}$/.test(initialYearParam)
-    ? initialYearParam
-    : initialMonth.slice(0, 4) || currentYear();
+  const defaultScope = currentCalendarScope("year", new Date(), IROHA_TIMEZONE);
+  const requestedScope = readCalendarScope(page.url.searchParams, {
+    fallback: defaultScope,
+    allowDay: false,
+  });
+  const initialMonth =
+    requestedScope.kind === "month"
+      ? (serializeCalendarScope(requestedScope) as string)
+      : "";
+  const initialYear =
+    requestedScope.kind === "year" || requestedScope.kind === "month"
+      ? String(requestedScope.year)
+      : requestedScope.kind === "lifetime"
+        ? ""
+        : currentYear(new Date(), IROHA_TIMEZONE);
   let selectedMonth = $state(initialMonth);
   let selectedYear = $state(initialYear);
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
-  let monthlyLoaded = false;
-  let yearlyLoaded = false;
+  let monthlyLoadedKey = "";
+  let yearlyLoadedKey = "";
+  let monthlyRequest = 0;
+  let yearlyRequest = 0;
   let loadedDayMonth = "";
   const theme = useTheme();
 
@@ -269,11 +288,17 @@
   }
 
   async function loadMonthly() {
-    if (monthlyLoaded) return;
+    const key = selectedYear || "lifetime";
+    if (monthlyLoadedKey === key) return;
+    const request = ++monthlyRequest;
     try {
-      const result = await listDailyAggregates("month");
+      const result = await listDailyAggregates(
+        "month",
+        selectedYear ? { date: selectedYear } : {},
+      );
+      if (request !== monthlyRequest) return;
       monthly = result.buckets;
-      monthlyLoaded = true;
+      monthlyLoadedKey = key;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -289,11 +314,17 @@
   }
 
   async function loadYearly() {
-    if (yearlyLoaded) return;
+    const key = selectedYear || "lifetime";
+    if (yearlyLoadedKey === key) return;
+    const request = ++yearlyRequest;
     try {
-      const result = await listDailyAggregates("year");
+      const result = await listDailyAggregates(
+        "year",
+        selectedYear ? { date: selectedYear } : {},
+      );
+      if (request !== yearlyRequest) return;
       yearly = result.buckets;
-      yearlyLoaded = true;
+      yearlyLoadedKey = key;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -301,16 +332,14 @@
 
   async function loadDays(month: string) {
     if (!month || loadedDayMonth === month || dayRowsLoading) return;
-    const [year, monthNumber] = month.split("-").map(Number);
-    rangeFrom = `${month}-01`;
-    rangeTo = new Date(Date.UTC(year, monthNumber, 1))
-      .toISOString()
-      .slice(0, 10);
+    const bounds = scopeBounds(parseCalendarScope(month)!);
+    if (!bounds) return;
+    rangeFrom = bounds.from;
+    rangeTo = bounds.to;
     dayRowsLoading = true;
     try {
       const result = await listDaily({
-        from: rangeFrom,
-        to: rangeTo,
+        date: month,
         limit: 31,
       });
       dayRows = result.items;
@@ -334,13 +363,23 @@
   function selectYear(value: string) {
     selectedYear = value;
     selectedMonth = "";
+    monthlyLoadedKey = "";
+    yearlyLoadedKey = "";
+    void loadMonthly();
+    if (gran === "year") void loadYearly();
     if (gran === "day") void loadDays(activeMonth);
     syncUrl();
   }
 
   function selectMonth(value: string) {
     selectedMonth = value;
-    if (value) selectedYear = value.slice(0, 4);
+    if (value && selectedYear !== value.slice(0, 4)) {
+      selectedYear = value.slice(0, 4);
+      monthlyLoadedKey = "";
+      yearlyLoadedKey = "";
+      void loadMonthly();
+      if (gran === "year") void loadYearly();
+    }
     if (gran === "day") void loadDays(activeMonth);
     syncUrl();
   }
@@ -348,10 +387,12 @@
   function syncUrl() {
     const url = new URL(window.location.href);
     url.searchParams.set("gran", gran);
-    if (scopedYear) url.searchParams.set("year", scopedYear);
-    else url.searchParams.delete("year");
-    if (scopedMonth) url.searchParams.set("month", scopedMonth);
-    else url.searchParams.delete("month");
+    writeCalendarScope(
+      url.searchParams,
+      scopedMonth
+        ? (parseCalendarScope(scopedMonth) ?? scopeFromParts(scopedYear))
+        : scopeFromParts(scopedYear),
+    );
     if (url.search !== window.location.search) replaceState(url, page.state);
   }
 

@@ -1,4 +1,4 @@
-import { API_BASE } from "./config";
+import { API_BASE, IROHA_TIMEZONE } from "./config";
 import type {
   Activity,
   ActivityOverview,
@@ -200,6 +200,7 @@ export class ApiError extends Error {
 }
 
 export interface ListMediaEventsParams {
+  date?: string;
   from?: string;
   to?: string;
   limit?: number;
@@ -292,6 +293,10 @@ export interface MetricSeriesParams {
   dimensions?: string[];
 }
 
+function setTimezone(query: URLSearchParams, timezone = IROHA_TIMEZONE): void {
+  query.set("timezone", timezone);
+}
+
 export function getMetricSeries(
   metricId: string,
   params: MetricSeriesParams,
@@ -302,7 +307,7 @@ export function getMetricSeries(
     to: params.to,
     grain: params.grain,
   });
-  if (params.timezone) query.set("timezone", params.timezone);
+  setTimezone(query, params.timezone ?? IROHA_TIMEZONE);
   for (const dimension of params.dimensions ?? []) {
     query.append("dimension", dimension);
   }
@@ -316,8 +321,10 @@ export function getBriefing(
   date: string,
   fetchFn: typeof fetch = fetch,
 ): Promise<BriefingResponse> {
+  const query = new URLSearchParams({ date });
+  setTimezone(query);
   return getJSON<BriefingResponse>(
-    `/api/v1/briefing?date=${encodeURIComponent(date)}`,
+    `/api/v1/briefing?${query.toString()}`,
     fetchFn,
   );
 }
@@ -326,7 +333,8 @@ export function getMonthlyReport(
   month: string,
   fetchFn: typeof fetch = fetch,
 ): Promise<MonthlyReport> {
-  const query = new URLSearchParams({ month });
+  const query = new URLSearchParams({ date: month });
+  setTimezone(query);
   return getJSON<MonthlyReport>(
     `/api/v1/reports/monthly?${query.toString()}`,
     fetchFn,
@@ -338,7 +346,8 @@ export function getMonthlyReportSeries(
   months = 12,
   fetchFn: typeof fetch = fetch,
 ): Promise<MonthlyReportSeries> {
-  const query = new URLSearchParams({ end: endMonth, months: String(months) });
+  const query = new URLSearchParams({ date: endMonth, months: String(months) });
+  setTimezone(query);
   return getJSON<MonthlyReportSeries>(
     `/api/v1/reports/monthly-series?${query.toString()}`,
     fetchFn,
@@ -350,12 +359,16 @@ export function getMonthlyReportSeries(
 // missing ring is different from a ring whose values happen to be zero.
 export function listDailyAggregates(
   granularity: "month" | "year",
-  params: { from?: string; to?: string } = {},
+  params: { date?: string; from?: string; to?: string } = {},
   fetchFn: typeof fetch = fetch,
 ): Promise<DailyAggregates> {
   const query = new URLSearchParams({ granularity });
-  if (params.from) query.set("from", params.from);
-  if (params.to) query.set("to", params.to);
+  if (params.date) query.set("date", params.date);
+  else {
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+  }
+  setTimezone(query);
   return getJSON<DailyAggregates>(
     `/api/v1/daily/aggregates?${query.toString()}`,
     fetchFn,
@@ -478,8 +491,12 @@ export function listExpenses(
   fetchFn: typeof fetch = fetch,
 ): Promise<Page<Expense>> {
   const query = new URLSearchParams();
-  if (params.from) query.set("from", params.from);
-  if (params.to) query.set("to", params.to);
+  if (params.date) query.set("date", params.date);
+  else {
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+  }
+  if (params.date || params.from || params.to) setTimezone(query);
   if (params.currency) query.set("currency", params.currency);
   if (params.category) query.set("category", params.category);
   if (params.limit != null) query.set("limit", String(params.limit));
@@ -597,15 +614,19 @@ export function listActivities(
   fetchFn: typeof fetch = fetch,
 ): Promise<Page<Activity>> {
   const query = new URLSearchParams();
+  if (params.date) query.set("date", params.date);
   if (params.sport_type) query.set("sport_type", params.sport_type);
-  if (params.started_from) query.set("started_from", params.started_from);
-  if (params.started_to) query.set("started_to", params.started_to);
+  if (!params.date && params.started_from)
+    query.set("started_from", params.started_from);
+  if (!params.date && params.started_to)
+    query.set("started_to", params.started_to);
   if (params.min_distance_m != null)
     query.set("min_distance_m", String(params.min_distance_m));
   if (params.max_distance_m != null)
     query.set("max_distance_m", String(params.max_distance_m));
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
+  if (params.date) setTimezone(query);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<Page<Activity>>(`/api/v1/activities${suffix}`, fetchFn);
 }
@@ -684,10 +705,14 @@ export function listMediaEvents(
   fetchFn: typeof fetch = fetch,
 ): Promise<MediaEventPage> {
   const query = new URLSearchParams();
-  if (params.from) query.set("from", params.from);
-  if (params.to) query.set("to", params.to);
+  if (params.date) query.set("date", params.date);
+  else {
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+  }
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
+  if (params.date || params.from || params.to) setTimezone(query);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<MediaEventPage>(`/api/v1/media/events${suffix}`, fetchFn);
 }
@@ -704,10 +729,14 @@ export function listMediaChanges(
   fetchFn: typeof fetch = fetch,
 ): Promise<MediaChangePage> {
   const query = new URLSearchParams();
-  if (params.from) query.set("from", params.from);
-  if (params.to) query.set("to", params.to);
+  if (params.date) query.set("date", params.date);
+  else {
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+  }
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
+  if (params.date || params.from || params.to) setTimezone(query);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<MediaChangePage>(`/api/v1/media/changes${suffix}`, fetchFn);
 }
@@ -717,10 +746,14 @@ export function listSleep(
   fetchFn: typeof fetch = fetch,
 ): Promise<Page<SleepSession>> {
   const query = new URLSearchParams();
-  if (params.from) query.set("from", params.from);
-  if (params.to) query.set("to", params.to);
+  if (params.date) query.set("date", params.date);
+  else {
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+  }
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
+  if (params.date || params.from || params.to) setTimezone(query);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<Page<SleepSession>>(`/api/v1/sleep${suffix}`, fetchFn);
 }
@@ -747,12 +780,16 @@ export function getSleepSegments(
 
 export function listSleepAggregates(
   granularity: "month" | "year" | "lifetime",
-  params: { from?: string; to?: string } = {},
+  params: { date?: string; from?: string; to?: string } = {},
   fetchFn: typeof fetch = fetch,
 ): Promise<SleepAggregates> {
   const query = new URLSearchParams({ granularity });
-  if (params.from) query.set("from", params.from);
-  if (params.to) query.set("to", params.to);
+  if (params.date) query.set("date", params.date);
+  else {
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+  }
+  setTimezone(query);
   return getJSON<SleepAggregates>(
     `/api/v1/sleep/aggregates?${query.toString()}`,
     fetchFn,
@@ -774,10 +811,14 @@ export function listDaily(
   fetchFn: typeof fetch = fetch,
 ): Promise<Page<DailyRow>> {
   const query = new URLSearchParams();
-  if (params.from) query.set("from", params.from);
-  if (params.to) query.set("to", params.to);
+  if (params.date) query.set("date", params.date);
+  else {
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+  }
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
+  if (params.date || params.from || params.to) setTimezone(query);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<Page<DailyRow>>(`/api/v1/daily${suffix}`, fetchFn);
 }
@@ -785,7 +826,12 @@ export function listDaily(
 export function getDailyDates(
   fetchFn: typeof fetch = fetch,
 ): Promise<DailyDates> {
-  return getJSON<DailyDates>("/api/v1/daily/dates", fetchFn);
+  const query = new URLSearchParams();
+  setTimezone(query);
+  return getJSON<DailyDates>(
+    `/api/v1/daily/dates?${query.toString()}`,
+    fetchFn,
+  );
 }
 
 // Walk the keyset pages for history views. The daily endpoint caps any single
@@ -862,8 +908,10 @@ export function getActivityLaps(
 // --- Activity aggregates ---
 
 export interface ActivitySummaryParams {
-  // Scope every breakdown to one calendar year and/or one sport_type. Omit for
-  // all-time / all-sport totals.
+  // Scope every breakdown to one calendar year/month and/or one sport_type.
+  // `date` is canonical; `year` remains a compatibility input for callers
+  // that have not migrated yet. Omit both for all-time / all-sport totals.
+  date?: string | null;
   year?: string | null;
   sport?: string | null;
   timezone?: string | null;
@@ -874,9 +922,11 @@ export function getActivitySummary(
   fetchFn: typeof fetch = fetch,
 ): Promise<ActivitySummary> {
   const query = new URLSearchParams();
-  if (params.year) query.set("year", params.year);
+  if (params.date) query.set("date", params.date);
+  else if (params.year) query.set("year", params.year);
   if (params.sport) query.set("sport", params.sport);
   if (params.timezone) query.set("timezone", params.timezone);
+  else if (params.date || params.year) setTimezone(query);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<ActivitySummary>(
     `/api/v1/activities/summary${suffix}`,
@@ -895,6 +945,7 @@ export function getActivityOverview(
 ): Promise<ActivityOverview> {
   const query = new URLSearchParams();
   if (params.recent != null) query.set("recent", String(params.recent));
+  setTimezone(query);
   if (params.timezone) query.set("timezone", params.timezone);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<ActivityOverview>(

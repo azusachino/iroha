@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { currentMonth, shiftMonthWithin } from "./month";
+  import {
+    scopeFromParts,
+    scopeParts,
+    serializeCalendarScope,
+    shiftCalendarScope,
+  } from "./scope";
   import { formatCanonicalMonth } from "./format";
   import SelectControl, {
     type SelectControlOption,
@@ -17,6 +22,7 @@
     showAllYears = true,
     appearance = "grapher",
     surface = "panel",
+    timezone,
     onYear,
     onMonth,
   }: {
@@ -28,6 +34,7 @@
     showAllYears?: boolean;
     surface?: "panel" | "inline";
     appearance?: DesignLanguage;
+    timezone?: string;
     onYear: (value: string) => void;
     onMonth: (value: string) => void;
   } = $props();
@@ -65,28 +72,16 @@
   ]);
 
   function shiftPeriod(delta: number) {
-    const maximumMonth = currentMonth();
-
-    if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
-      onMonth(shiftMonthWithin(month, delta, maximumMonth));
-      return;
-    }
-    if (!/^\d{4}$/.test(year)) return;
-
-    if (!/^(?:[1-9]|1[0-2])$/.test(month)) {
-      const nextYear = Number(year) + delta;
-      onYear(
-        delta > 0 && nextYear > Number(maximumMonth.slice(0, 4))
-          ? maximumMonth.slice(0, 4)
-          : String(nextYear),
-      );
-      onMonth("");
-      return;
-    }
-    const current = `${year}-${String(Number(month)).padStart(2, "0")}`;
-    const bounded = shiftMonthWithin(current, delta, maximumMonth);
-    onYear(bounded.slice(0, 4));
-    onMonth(String(Number(bounded.slice(5, 7))));
+    const current = scopeFromParts(year, month);
+    if (current.kind === "lifetime") return;
+    const shifted = shiftCalendarScope(current, delta, new Date(), timezone);
+    const parts = scopeParts(shifted);
+    onYear(parts.year);
+    onMonth(
+      /^\d{4}-(?:0[1-9]|1[0-2])$/.test(month) && shifted.kind === "month"
+        ? (serializeCalendarScope(shifted) ?? "")
+        : parts.month,
+    );
   }
 
   function handleKeydown(event: KeyboardEvent) {

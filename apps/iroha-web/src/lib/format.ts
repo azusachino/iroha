@@ -10,6 +10,7 @@ export {
   progressPercent,
 } from "@iroha/shared/media";
 import { DEFAULT_TIMEZONE } from "@iroha/shared/date";
+import { IROHA_TIMEZONE } from "./config";
 
 const DASH = "—";
 
@@ -77,7 +78,7 @@ export function formatDate(iso?: string, timezone?: string): string {
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
-      timeZone: timezone || DEFAULT_TIMEZONE,
+      timeZone: timezone || IROHA_TIMEZONE || DEFAULT_TIMEZONE,
     }).format(d);
   } catch {
     return d.toISOString().slice(0, 19).replace("T", " ");
@@ -95,7 +96,7 @@ export function formatDateOnly(iso?: string, timezone?: string): string {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
-      timeZone: timezone || DEFAULT_TIMEZONE,
+      timeZone: timezone || IROHA_TIMEZONE || DEFAULT_TIMEZONE,
     }).format(d);
   } catch {
     return d.toISOString().slice(0, 10);
@@ -125,7 +126,7 @@ export function formatDateShort(iso?: string, timezone?: string): string {
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
-      timeZone: timezone || DEFAULT_TIMEZONE,
+      timeZone: timezone || IROHA_TIMEZONE || DEFAULT_TIMEZONE,
     }).format(d);
   } catch {
     return d.toISOString().slice(5, 10);

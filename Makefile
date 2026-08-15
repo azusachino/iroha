@@ -12,6 +12,8 @@ VERSION := $(shell tr -d '\n' < VERSION)
 TAG := v$(VERSION)
 OUT := ./dist/public-data
 PRIVACY ?= 0
+IROHA_TIMEZONE ?= Asia/Tokyo
+PUBLIC_IROHA_TIMEZONE ?= $(IROHA_TIMEZONE)
 MEDIA_BRIDGE_OUT := ./dist/media-bridge
 MOBILE_DEFAULT_THEMES := atlas,grapher,field-journal,phenology,sound-map,archive
 MOBILE_DEFAULT_MODES := light,dark
@@ -95,10 +97,10 @@ web-test: ## Run unit tests for the web app (vitest)
 	cd $(WEB_DIR) && $(TOOL_ENV) bun run test
 
 web-build: ## Production build of the web app
-	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build
+	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) $(TOOL_ENV) bun run build
 
 web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
-	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run dev --host 0.0.0.0
+	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) $(TOOL_ENV) bun run dev --host 0.0.0.0
 
 web-visual-install: ## One-time: install the browser binary for agent-browser visual checks
 	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
@@ -199,7 +201,7 @@ image-db-migrate: ## Build iroha-db-migrate and import it into the local k3s con
 	podman save $(IMAGE_NS)/iroha-db-migrate:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-web: ## Build iroha-web and import it into the local k3s containerd store (TAG=$(TAG))
-	podman build -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) .
+	podman build -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) --build-arg PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) .
 	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-export-public: ## Build iroha-export-public and import it into the local k3s containerd store (TAG=$(TAG))

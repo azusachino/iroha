@@ -29,6 +29,8 @@ export interface DailyRow {
 }
 
 export interface ListDailyParams {
+  // Canonical scalar calendar scope; the server resolves it into from/to.
+  date?: string;
   // Canonical calendar range: from inclusive, to exclusive.
   from?: string;
   to?: string;

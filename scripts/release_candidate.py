@@ -27,6 +27,7 @@ IROHA_TIMEZONE_ENV = "IROHA_TIMEZONE"
 IROHA_ALLOWED_ORIGINS_ENV = "IROHA_ALLOWED_ORIGINS"
 IROHA_DATA_DIR_ENV = "IROHA_DATA_DIR"
 PUBLIC_IROHA_API_BASE_ENV = "PUBLIC_IROHA_API_BASE"
+PUBLIC_IROHA_TIMEZONE_ENV = "PUBLIC_IROHA_TIMEZONE"
 THEMES = ("atlas", "grapher", "field-journal", "phenology", "sound-map", "archive")
 MODES = ("light", "dark")
 REPORT_EXPECTED_TEXT = "1 completed"
@@ -252,7 +253,7 @@ def assert_api_contract(server_url: str) -> None:
         raise RuntimeError(f"media fixture failed: {sections['media']}")
     if sections["expenses"]["data"]["expense_count"] != 56:
         raise RuntimeError(f"expense report count failed: {sections['expenses']}")
-    empty_report = get_json(f"{server_url}/api/v1/reports/monthly?month=2026-09")
+    empty_report = get_json(f"{server_url}/api/v1/reports/monthly?month=2026-07")
     if any(section["state"] != "empty" for section in empty_report["sections"].values()):
         raise RuntimeError(f"empty report period was not empty: {empty_report['sections']}")
 
@@ -392,6 +393,7 @@ def main() -> int:
             IROHA_ALLOWED_ORIGINS_ENV: web_url,
             IROHA_DATA_DIR_ENV: str(ROOT / ".iroha-data" / "release-candidate"),
             PUBLIC_IROHA_API_BASE_ENV: server_url,
+            PUBLIC_IROHA_TIMEZONE_ENV: "Asia/Tokyo",
         }
     )
     server_process = None

@@ -1,6 +1,7 @@
 <script lang="ts">
   import SharedPeriodSelector from "@iroha/shared/PeriodSelector.svelte";
   import type { PeriodOption } from "@iroha/shared/PeriodSelector.svelte";
+  import { IROHA_TIMEZONE } from "$lib/config";
   import { useTheme } from "$lib/themes/context.svelte";
 
   export type { PeriodOption };
@@ -13,6 +14,7 @@
     monthDisabled = false,
     showAllYears = true,
     surface = "panel",
+    timezone = IROHA_TIMEZONE,
     onYear,
     onMonth,
   }: {
@@ -23,6 +25,7 @@
     monthDisabled?: boolean;
     showAllYears?: boolean;
     surface?: "panel" | "inline";
+    timezone?: string;
     onYear: (value: string) => void;
     onMonth: (value: string) => void;
   } = $props();
@@ -38,6 +41,7 @@
   {monthDisabled}
   {showAllYears}
   {surface}
+  {timezone}
   appearance={theme.definition().primitives.periodControl.appearance}
   {onYear}
   {onMonth}

@@ -1,11 +1,11 @@
 import { todayInTimezone } from "./date";
 
-export function currentMonth(date = new Date()): string {
-  return todayInTimezone(date).slice(0, 7);
+export function currentMonth(date = new Date(), timezone?: string): string {
+  return todayInTimezone(date, timezone).slice(0, 7);
 }
 
-export function currentYear(date = new Date()): string {
-  return todayInTimezone(date).slice(0, 4);
+export function currentYear(date = new Date(), timezone?: string): string {
+  return todayInTimezone(date, timezone).slice(0, 4);
 }
 
 export const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({

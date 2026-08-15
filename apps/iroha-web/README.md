@@ -25,6 +25,12 @@ The API base URL is read from `PUBLIC_IROHA_API_BASE` and defaults to
 container deployment, set it to an empty value so the browser uses the Caddy
 `/api` proxy.
 
+Calendar behavior is configured independently with `PUBLIC_IROHA_TIMEZONE`, an
+IANA timezone such as `Asia/Tokyo` or `America/New_York`. Keep it equal to the
+server's `IROHA_TIMEZONE` when the static web bundle and API are deployed
+separately. The web sends this value on date-sensitive reads; API clients may
+omit `timezone` and use the server default.
+
 ```bash
 cp .env.example .env
 # then edit PUBLIC_IROHA_API_BASE if the server is elsewhere

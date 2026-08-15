@@ -10,6 +10,7 @@ services:
       target: server
     environment:
       IROHA_SERVER_ADDR: 0.0.0.0:8080
+      IROHA_TIMEZONE: ${IROHA_TIMEZONE:-Asia/Tokyo}
       IROHA_DATABASE_URL: postgres://iroha:iroha_dev@db:5432/iroha?sslmode=disable
       IROHA_DATA_DIR: /data
       IROHA_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://harus-macmini:5173,http://harus-mini:5173
@@ -45,6 +46,7 @@ services:
       dockerfile: ops/images/Containerfile.web
       args:
         PUBLIC_IROHA_API_BASE: ""
+        PUBLIC_IROHA_TIMEZONE: ${IROHA_TIMEZONE:-Asia/Tokyo}
     environment:
       IROHA_SERVER_UPSTREAM: server:8080
     ports:

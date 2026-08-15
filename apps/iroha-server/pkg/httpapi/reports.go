@@ -4,17 +4,16 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/reports"
 )
 
 func (s *Server) handleMonthlyReport(w http.ResponseWriter, r *http.Request) {
-	timezone := r.URL.Query().Get("timezone")
-	if timezone == "" {
-		timezone = s.deps.Config.Server.Timezone
+	month, timezone, ok := s.reportMonthScope(w, r, "month")
+	if !ok {
+		return
 	}
-	report, err := reports.GenerateMonthly(r.URL.Query().Get("month"), timezone, s.reportServices(), time.Now().UTC())
+	report, err := reports.GenerateMonthly(month, timezone, s.reportServices(), s.clockNow().UTC())
 	if err != nil {
 		if errors.Is(err, reports.ErrInvalidMonth) || errors.Is(err, reports.ErrInvalidTimezone) {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -28,9 +27,9 @@ func (s *Server) handleMonthlyReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMonthlyReportSeries(w http.ResponseWriter, r *http.Request) {
-	timezone := r.URL.Query().Get("timezone")
-	if timezone == "" {
-		timezone = s.deps.Config.Server.Timezone
+	endMonth, timezone, ok := s.reportMonthScope(w, r, "end")
+	if !ok {
+		return
 	}
 	months := reports.DefaultSeriesMonths
 	if value := r.URL.Query().Get("months"); value != "" {
@@ -41,7 +40,7 @@ func (s *Server) handleMonthlyReportSeries(w http.ResponseWriter, r *http.Reques
 		}
 		months = parsed
 	}
-	series, err := reports.GenerateMonthlySeries(r.URL.Query().Get("end"), timezone, months, s.reportServices(), time.Now().UTC())
+	series, err := reports.GenerateMonthlySeries(endMonth, timezone, months, s.reportServices(), s.clockNow().UTC())
 	if err != nil {
 		if errors.Is(err, reports.ErrInvalidMonth) || errors.Is(err, reports.ErrInvalidTimezone) || errors.Is(err, reports.ErrInvalidSeriesMonths) {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -52,6 +51,26 @@ func (s *Server) handleMonthlyReportSeries(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeJSON(w, http.StatusOK, series)
+}
+
+func (s *Server) reportMonthScope(w http.ResponseWriter, r *http.Request, legacy string) (string, string, bool) {
+	scope, active, err := s.resolveReadScope(r)
+	if err != nil {
+		writeReadScopeError(w, err)
+		return "", "", false
+	}
+	if active {
+		if scope.Kind != ScopeMonth {
+			writeError(w, http.StatusBadRequest, "invalid report month")
+			return "", "", false
+		}
+		return scope.Calendar.From.Format(calendarMonthLayout), scope.Timezone, true
+	}
+	timezone := r.URL.Query().Get("timezone")
+	if timezone == "" {
+		timezone = s.deps.Config.Server.Timezone
+	}
+	return r.URL.Query().Get(legacy), timezone, true
 }
 
 func (s *Server) reportServices() reports.Services {

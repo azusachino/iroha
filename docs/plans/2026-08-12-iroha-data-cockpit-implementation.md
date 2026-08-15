@@ -597,7 +597,8 @@ Acceptance:
 ## 11. Phase 7 — monthly report cockpit
 
 Refactor apps/iroha-web/src/routes/reports/+page.svelte into a controller owning month URL state, report request, stable MonthlyReportPageModel, and section states. The client selects only a month;
-the server resolves the configured personal timezone and returns it in the envelope for semantic transparency. There is no web timezone control.
+the server resolves the configured personal timezone and returns it in the envelope for semantic transparency. There is no user-facing web timezone control; the static bundle uses
+`PUBLIC_IROHA_TIMEZONE` and sends it on date-sensitive reads.
 
 Request the selected month plus the server-owned `monthly-report-series.v1` trend with twelve monthly periods. The response omits empty months from `reports` and lists them in `empty_months`; partial
 months remain in the series with an explicit completeness value. The route must not reconstruct this comparison from paginated domain rows.

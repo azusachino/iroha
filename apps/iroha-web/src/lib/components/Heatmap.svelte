@@ -1,5 +1,6 @@
 <script lang="ts">
   import { todayInTimezone } from "@iroha/shared/date";
+  import { IROHA_TIMEZONE } from "$lib/config";
 
   const WEEKDAYS = ["", "Mon", "", "Wed", "", "Fri", ""];
   const LEGEND_LEVELS = [0, 1, 2, 3, 4];
@@ -20,7 +21,7 @@
     label: string;
   };
 
-  const today = $derived(todayInTimezone());
+  const today = $derived(todayInTimezone(new Date(), IROHA_TIMEZONE));
   const cells = $derived(buildCells(dates, today));
   const weeks = $derived(chunkWeeks(cells));
   const total = $derived(cells.reduce((sum, cell) => sum + cell.count, 0));

@@ -101,6 +101,27 @@ func TestIntegrationDateScopedCockpitUsesHalfOpenRangesAndAllDomainDates(t *test
 			t.Errorf("daily date index missing %s: %v", want, got)
 		}
 	}
+
+	utcDates := requestJSON(t, server, http.MethodGet, "/api/v1/daily/dates?timezone=UTC", "", http.StatusOK, nil)["items"].([]any)
+	if !containsCalendarDate(utcDates, "2099-01-05") {
+		t.Fatalf("UTC daily date index missing media event day: %v", utcDates)
+	}
+	losAngelesDates := requestJSON(t, server, http.MethodGet, "/api/v1/daily/dates?timezone=America%2FLos_Angeles", "", http.StatusOK, nil)["items"].([]any)
+	if !containsCalendarDate(losAngelesDates, "2099-01-04") {
+		t.Fatalf("Los Angeles daily date index missing projected media day: %v", losAngelesDates)
+	}
+	if containsCalendarDate(losAngelesDates, "2099-01-05") {
+		t.Fatalf("Los Angeles daily date index retained UTC media day: %v", losAngelesDates)
+	}
+}
+
+func containsCalendarDate(values []any, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func integrationBriefingSection(t *testing.T, response map[string]any, key string) map[string]any {

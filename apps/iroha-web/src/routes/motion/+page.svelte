@@ -26,6 +26,14 @@
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { currentYear, MONTH_OPTIONS, monthBounds } from "@iroha/shared/month";
+  import {
+    currentCalendarScope,
+    readCalendarScope,
+    scopeFromParts,
+    serializeCalendarScope,
+    writeCalendarScope,
+  } from "@iroha/shared/scope";
+  import { IROHA_TIMEZONE } from "$lib/config";
   import { sportColor, sportLabel } from "$lib/sport";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
@@ -36,14 +44,19 @@
   // Draft filter inputs (bound to the form); committed to `applied` on submit
   // so "Load more" keeps paging the same query the user actually ran.
   const initialSport = page.url.searchParams.get("sport") ?? "";
-  const initialYearParam = page.url.searchParams.get("year") ?? "";
-  const initialYear = /^\d{4}$/.test(initialYearParam)
-    ? initialYearParam
-    : currentYear();
-  const initialMonthParam = page.url.searchParams.get("month") ?? "";
-  const initialMonth = /^(?:[1-9]|1[0-2])$/.test(initialMonthParam)
-    ? initialMonthParam
-    : "";
+  const defaultScope = currentCalendarScope("year", new Date(), IROHA_TIMEZONE);
+  const requestedScope = readCalendarScope(page.url.searchParams, {
+    fallback: defaultScope,
+    allowDay: false,
+  });
+  const initialYear =
+    requestedScope.kind === "year" || requestedScope.kind === "month"
+      ? String(requestedScope.year)
+      : requestedScope.kind === "lifetime"
+        ? ""
+        : currentYear(new Date(), IROHA_TIMEZONE);
+  const initialMonth =
+    requestedScope.kind === "month" ? String(requestedScope.month) : "";
   let sportType = $state(initialSport);
   let selectedYear = $state(initialYear);
   let selectedMonth = $state(initialMonth);
@@ -73,7 +86,7 @@
   const years = $derived(
     summary
       ? summary.by_year.map((b) => b.key).sort((a, b) => b.localeCompare(a))
-      : [currentYear()],
+      : [currentYear(new Date(), IROHA_TIMEZONE)],
   );
 
   function handleYearChange() {
@@ -144,6 +157,7 @@
     try {
       const params = {
         ...window,
+        timezone: IROHA_TIMEZONE,
         dimensions: sportType ? [`sport:${metricSport(sportType)}`] : [],
       };
       const [distance, duration] = await Promise.all([
@@ -169,10 +183,10 @@
     const url = new URL(window.location.href);
     if (sportType) url.searchParams.set("sport", sportType);
     else url.searchParams.delete("sport");
-    if (selectedYear) url.searchParams.set("year", selectedYear);
-    else url.searchParams.delete("year");
-    if (selectedMonth) url.searchParams.set("month", selectedMonth);
-    else url.searchParams.delete("month");
+    writeCalendarScope(
+      url.searchParams,
+      scopeFromParts(selectedYear, selectedMonth),
+    );
     if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
@@ -183,22 +197,9 @@
   function buildParams(): ListActivitiesParams {
     const params: ListActivitiesParams = { limit: PAGE_SIZE };
     if (sportType) params.sport_type = sportType;
-
-    if (selectedYear) {
-      const y = Number(selectedYear);
-      if (selectedMonth) {
-        const m = Number(selectedMonth);
-        const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
-        const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
-        params.started_from = start.toISOString();
-        params.started_to = end.toISOString();
-      } else {
-        params.started_from = new Date(
-          Date.UTC(y, 0, 1, 0, 0, 0),
-        ).toISOString();
-        params.started_to = new Date(Date.UTC(y + 1, 0, 1)).toISOString();
-      }
-    }
+    const scope = scopeFromParts(selectedYear, selectedMonth);
+    const date = serializeCalendarScope(scope);
+    if (date) params.date = date;
     return params;
   }
 
@@ -241,8 +242,11 @@
     summaryLoading = true;
     try {
       const next = await getActivitySummary({
-        year: selectedYear || null,
+        date: serializeCalendarScope(
+          scopeFromParts(selectedYear, selectedMonth),
+        ),
         sport: sportType || null,
+        timezone: IROHA_TIMEZONE,
       });
       if (requestId === summaryRequest) summary = next;
     } catch {

@@ -34,6 +34,7 @@
   } from "$lib/format";
   import EmptyState from "@iroha/shared/theme-ui/components/EmptyState.svelte";
   import { todayInTimezone } from "@iroha/shared/date";
+  import { IROHA_TIMEZONE } from "$lib/config";
   import TodaySkeleton from "$lib/components/TodaySkeleton.svelte";
   import MediaUpdateList from "@iroha/shared/theme-ui/components/MediaUpdateList.svelte";
 
@@ -45,7 +46,7 @@
   let briefingRequestVersion = 0;
   let taskRequestVersion = 0;
 
-  const today = todayInTimezone();
+  const today = todayInTimezone(new Date(), IROHA_TIMEZONE);
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
   // The selected day — the spine everything on this page snapshots to.
@@ -93,7 +94,7 @@
         has_more: false,
       },
       coverage: data?.coverage ?? {
-        timezone: "Asia/Tokyo",
+        timezone: IROHA_TIMEZONE,
         date: briefing?.date ?? day,
       },
     };

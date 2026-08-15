@@ -200,7 +200,7 @@ func (s *Server) handleMediaAggregates(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	aggregates, err := s.deps.MediaService.AggregatesFiltered(time.Now().UTC(), filters)
+	aggregates, err := s.deps.MediaService.AggregatesFiltered(s.clockNow().UTC(), filters)
 	if err != nil {
 		s.deps.Logger.Error("aggregate media", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to aggregate media")
@@ -210,7 +210,7 @@ func (s *Server) handleMediaAggregates(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListMediaEvents(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseMediaEventFilters(w, r)
+	filters, ok := s.parseMediaEventFilters(w, r)
 	if !ok {
 		return
 	}
@@ -288,7 +288,7 @@ func (s *Server) handleCreateMediaEvent(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleListMediaChanges(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseMediaEventFilters(w, r)
+	filters, ok := s.parseMediaEventFilters(w, r)
 	if !ok {
 		return
 	}
@@ -431,9 +431,6 @@ func parseMediaEventFilters(w http.ResponseWriter, r *http.Request) (media.Event
 			if err != nil {
 				writeError(w, http.StatusBadRequest, "invalid "+key)
 				return media.EventListFilters{}, false
-			}
-			if key == "to" {
-				parsed = parsed.Add(24 * time.Hour)
 			}
 			*destination = &parsed
 		}

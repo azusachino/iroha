@@ -287,9 +287,13 @@ func TestReadCacheKeyUsesEffectiveTimezone(t *testing.T) {
 	server := &Server{deps: Dependencies{Config: config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}}}}
 	omitted := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?month=2026-08", nil))
 	explicit := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?timezone=Asia%2FTokyo&month=2026-08", nil))
+	canonical := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?date=2026-08", nil))
 	utc := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?timezone=UTC&month=2026-08", nil))
 	if omitted != explicit {
 		t.Fatalf("omitted timezone key = %q, explicit key = %q; want equal", omitted, explicit)
+	}
+	if omitted != canonical {
+		t.Fatalf("legacy key = %q, canonical key = %q; want equal", omitted, canonical)
 	}
 	if omitted == utc {
 		t.Fatalf("Tokyo key = %q, UTC key = %q; want different", omitted, utc)
@@ -299,7 +303,7 @@ func TestReadCacheKeyUsesEffectiveTimezone(t *testing.T) {
 func TestReadCacheKeyUsesCurrentWireRepresentationVersion(t *testing.T) {
 	server := &Server{deps: Dependencies{Config: config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}}}}
 	key := server.readCacheKey(httptest.NewRequest(http.MethodGet, "/api/v1/briefing?date=2026-08-13", nil))
-	if !strings.HasPrefix(key, "v11 GET /api/v1/briefing") {
-		t.Fatalf("cache key = %q, want v11 representation prefix", key)
+	if !strings.HasPrefix(key, readCacheKeyVersion+" GET /api/v1/briefing") {
+		t.Fatalf("cache key = %q, want %s representation prefix", key, readCacheKeyVersion)
 	}
 }

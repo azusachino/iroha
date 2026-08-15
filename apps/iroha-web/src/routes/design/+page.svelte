@@ -21,6 +21,7 @@
   import { useTheme } from "$lib/themes/context.svelte";
   import { THEME_DEFINITIONS } from "$lib/themes/registry";
   import { todayInTimezone } from "@iroha/shared/date";
+  import { IROHA_TIMEZONE } from "$lib/config";
 
   let variant = $state<DesignCompositionId>(
     designComposition(page.url.searchParams.get("composition")),
@@ -58,7 +59,9 @@
 
   async function loadToday() {
     try {
-      const briefing = await getBriefing(todayInTimezone());
+      const briefing = await getBriefing(
+        todayInTimezone(new Date(), IROHA_TIMEZONE),
+      );
       const live = fromBriefing(briefing);
       if (
         live.daily ||

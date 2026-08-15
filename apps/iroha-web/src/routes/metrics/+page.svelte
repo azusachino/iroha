@@ -20,18 +20,35 @@
   import { seriesPanelRows } from "@iroha/shared/metric-panel";
   import { pointValue } from "@iroha/shared/metric-series";
   import {
-    canonicalMonth,
     currentMonth,
     MONTH_OPTIONS,
     monthBounds,
     shiftMonth,
     yearOptions,
   } from "@iroha/shared/month";
+  import {
+    currentCalendarScope,
+    readCalendarScope,
+    serializeCalendarScope,
+    writeCalendarScope,
+  } from "@iroha/shared/scope";
+  import { IROHA_TIMEZONE } from "$lib/config";
 
   let catalog = $state<MetricDefinition[]>([]);
   let metricId = $state(page.url.searchParams.get("metric") ?? "");
+  const defaultMonthScope = currentCalendarScope(
+    "month",
+    new Date(),
+    IROHA_TIMEZONE,
+  );
+  const requestedMonthScope = readCalendarScope(page.url.searchParams, {
+    fallback: defaultMonthScope,
+    allowDay: false,
+  });
   let month = $state(
-    canonicalMonth(page.url.searchParams.get("month"), currentMonth()),
+    requestedMonthScope.kind === "month"
+      ? (serializeCalendarScope(requestedMonthScope) as string)
+      : currentMonth(new Date(), IROHA_TIMEZONE),
   );
   let dimensions = $state<Record<string, string>>({});
   let series = $state<MetricSeriesResponse | null>(null);
@@ -157,7 +174,11 @@
   function syncUrl() {
     const url = new URL(window.location.href);
     url.searchParams.set("metric", metricId);
-    url.searchParams.set("month", month);
+    writeCalendarScope(url.searchParams, {
+      kind: "month",
+      year: Number(month.slice(0, 4)),
+      month: Number(month.slice(5, 7)),
+    });
     url.searchParams.delete("dimension");
     for (const [id, value] of Object.entries(dimensions)) {
       if (value) url.searchParams.append("dimension", `${id}:${value}`);

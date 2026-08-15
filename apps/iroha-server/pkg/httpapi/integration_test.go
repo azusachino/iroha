@@ -119,6 +119,7 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 			t.Fatalf("activity summary totals = %#v", totals)
 		}
 	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/activities/summary?date=2099-12-31", "", http.StatusBadRequest, nil)
 }
 
 func TestIntegrationSleepEndpoints(t *testing.T) {

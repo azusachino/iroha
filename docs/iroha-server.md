@@ -278,6 +278,8 @@ Example:
 ```toml
 [server]
 addr = "127.0.0.1:8080"
+# IANA timezone used for calendar scopes and timestamp bucketing.
+timezone = "Asia/Tokyo"
 
 [database]
 url = "postgres://iroha:iroha_dev@localhost:5432/iroha"
@@ -290,6 +292,7 @@ Environment variables override TOML:
 
 ```text
 IROHA_SERVER_ADDR
+IROHA_TIMEZONE
 IROHA_DATABASE_URL
 IROHA_DATA_DIR
 ```

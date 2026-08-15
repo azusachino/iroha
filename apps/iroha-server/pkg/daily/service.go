@@ -155,23 +155,26 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
-func (s *Service) Dates() ([]time.Time, error) {
+// Dates returns the canonical calendar days represented by any domain. Date
+// columns are already calendar values; timestamp columns are projected into
+// the caller's IANA timezone before their date is taken.
+func (s *Service) Dates(timezone string) ([]time.Time, error) {
 	var dates []time.Time
 	err := s.db.Raw(`
 		select day from (
-			select day from ` + dailySummariesTable + `
+			select day from `+dailySummariesTable+`
 			union
-			select day from ` + dailyMetricsTable + `
+			select day from `+dailyMetricsTable+`
 			union
-			select started_at::date as day from tb_activities
+			select (started_at at time zone ?)::date as day from tb_activities
 			union
 			select wake_date as day from tb_sleep_sessions
 			union
-			select event_at::date as day
+			select (event_at at time zone ?)::date as day
 			from tb_media_consumption_events
 			where event_at is not null
 		) as days
-		order by day desc`).Scan(&dates).Error
+		order by day desc`, timezone, timezone).Scan(&dates).Error
 	if dates == nil {
 		dates = []time.Time{}
 	}

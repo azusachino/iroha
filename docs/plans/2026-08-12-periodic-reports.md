@@ -26,8 +26,8 @@ Iroha does not push reports to Telegram or any other destination. A report is a 
 1. The monthly report has one stable API shape and one period resolution.
 2. A month is a half-open local-date range `[from, to)`.
 3. A month starts on the first calendar day and ends on the first day of the next month.
-4. The API accepts an optional IANA timezone and returns the resolved range and timezone. If omitted, the server uses configured `IROHA_TIMEZONE` (default `Asia/Tokyo`). Web clients omit the timezone;
-   the CLI inherits the configured value unless the operator passes an explicit override, so a report does not silently change between normal clients.
+4. The API accepts an optional IANA timezone and returns the resolved range and timezone. If omitted, the server uses configured `IROHA_TIMEZONE` (default `Asia/Tokyo`). The web build uses
+   `PUBLIC_IROHA_TIMEZONE` and sends it explicitly; the CLI inherits the configured value unless the operator passes an explicit override, so a report does not silently change between normal clients.
 5. Each domain owns its aggregation semantics; the report service composes typed domain sections.
 6. Missing data is represented as `empty` or omitted fields, never as zero measurements.
 7. No cross-domain score, ranking, currency conversion, or invented correlation is produced.
@@ -421,8 +421,8 @@ HTTP behavior is explicit:
 - `500 Internal Server Error`: any domain query, assembly, or serialization failure. A failed section never becomes a partial `200` response.
 
 The server loads timezone data from the image (`tzdata`) or the Go embedded timezone database and exposes `IROHA_TIMEZONE`, defaulting to `Asia/Tokyo`. An omitted `timezone` resolves to that
-configured personal timezone on every period API, so the same month means the same thing on every surface. The web omits `timezone` and selects only a period; machine clients may still send an
-explicit IANA timezone, and every response carries the resolved zone back.
+configured personal timezone on every period API, so the same month means the same thing on every surface. The web selects only a period in its UI but sends its configured build timezone; machine
+clients may still send an explicit IANA timezone, and every response carries the resolved zone back.
 
 The report API response is the only Iroha output. It is not posted to a Telegram chat, written to Valkey as a draft, or stored as a report artifact.
 

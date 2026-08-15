@@ -55,6 +55,7 @@ export interface SleepOverview {
 }
 
 export interface ListSleepParams {
+  date?: string;
   // Canonical calendar range: from inclusive, to exclusive.
   from?: string;
   to?: string;

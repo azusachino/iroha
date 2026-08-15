@@ -28,7 +28,8 @@ Add:
 GET /api/v1/briefing?date=YYYY-MM-DD
 ```
 
-The date is a canonical `Asia/Tokyo` calendar day in the private cockpit. The response is an ordered registry of versioned sections so future modules do not require a growing fixed top-level struct:
+The date is a canonical calendar day in the requested IANA timezone. The server uses configured `IROHA_TIMEZONE` when the optional `timezone` query parameter is omitted. The response is an ordered
+registry of versioned sections so future modules do not require a growing fixed top-level struct:
 
 ```json
 {
@@ -58,7 +59,7 @@ a historical availability index, so empty days remain selectable without a histo
 The endpoint queries each domain with the requested timezone's local calendar window and does not call HTTP list endpoints or perform cursor pagination internally. Empty domains are successful empty
 sections, not errors. Go keeps typed contributors; the wire envelope is extensible and the web ignores unknown section keys.
 
-`GET /api/v1/daily/dates` is the bounded navigation index for the root cockpit. Despite the historical `/daily` name, it returns the distinct UTC calendar dates represented by the four cockpit
+`GET /api/v1/daily/dates` is the bounded navigation index for the root cockpit. Despite the historical `/daily` name, it returns the distinct calendar dates represented by the four cockpit
 contributors: daily summaries/metrics, activity start instants, sleep wake dates, and dated media events. Undated media events do not create a selectable day. The endpoint remains a compact date-only
 representation; it does not replace any domain list or aggregate endpoint. Media day data distinguishes exact sessions from source-dated provider updates and never uses provider observation time as a
 day fact.

@@ -16,8 +16,9 @@
   import { APP_VERSION } from "$lib/config";
   import { formatDate } from "$lib/format";
   import { todayInTimezone } from "@iroha/shared/date";
+  import { IROHA_TIMEZONE } from "$lib/config";
 
-  const today = todayInTimezone();
+  const today = todayInTimezone(new Date(), IROHA_TIMEZONE);
   let openTasks = $state<Task[]>([]);
   let completedTasks = $state<Task[]>([]);
   let jobs = $state<Job[]>([]);

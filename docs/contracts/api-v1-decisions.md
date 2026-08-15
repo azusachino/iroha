@@ -27,6 +27,23 @@ may change together when the verification gate is updated in the same change.
 - Response objects use named schemas rather than exposing persistence models.
 - Unknown response fields must be ignored by clients; unknown request fields are rejected once request validation is added.
 
+## Temporal scope and timezone abstraction
+
+Date-sensitive reads use one transport contract and domain-specific adapters:
+
+- `date=YYYY`, `date=YYYY-MM`, or `date=YYYY-MM-DD` selects a year, month, or day when that route supports the grain;
+- `scope=lifetime` explicitly selects the unbounded history view;
+- `from=YYYY-MM-DD&to=YYYY-MM-DD` is an explicit half-open calendar range, with `to` excluded;
+- `timezone` is an optional IANA timezone. The server resolves it against `IROHA_TIMEZONE` when omitted (default `Asia/Tokyo`) and rejects unknown zones.
+
+The frontend's shared `@iroha/shared/scope` module parses and serializes canonical URL state, calculates date-only bounds, clamps future navigation, and uses the configured `PUBLIC_IROHA_TIMEZONE`.
+Date-sensitive web requests send that effective timezone explicitly. The backend `httpapi.ReadScope` resolver validates the same vocabulary before cache lookup; its adapters then map a scope to either
+UTC calendar-date bounds for date-keyed tables or local-midnight instant bounds for timestamp-keyed tables. Domain services and SQL remain responsible for their own reducers and predicates; they do
+not share a fabricated universal SQL query.
+
+The old `month`, `year`, and report `end` parameters remain read-only compatibility aliases. Cache keys normalize them to the canonical scope before lookup, so equivalent requests share one
+representation.
+
 ## Pagination
 
 List endpoints use this envelope:

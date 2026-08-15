@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -60,6 +62,12 @@ func Load(path string) (Config, error) {
 	}
 
 	applyEnv(&cfg)
+	if cfg.Server.Timezone == "" {
+		cfg.Server.Timezone = Default().Server.Timezone
+	}
+	if _, err := time.LoadLocation(cfg.Server.Timezone); err != nil {
+		return Config{}, fmt.Errorf("invalid server timezone %q: %w", cfg.Server.Timezone, err)
+	}
 	return cfg, nil
 }
 

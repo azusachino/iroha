@@ -45,7 +45,7 @@ const (
 	// contract or identity scheme.
 	// Bump whenever a cached wire representation or range interpretation
 	// changes; old Valkey entries must never satisfy the new contract.
-	readCacheKeyVersion = "v11"
+	readCacheKeyVersion = "v12"
 	readCacheTTL        = 24 * time.Hour
 	readyzTimeout       = 2 * time.Second
 	statusReady         = "ready"
@@ -325,7 +325,7 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 
 func (s *Server) readCacheKey(r *http.Request) string {
 	key := readCacheKeyVersion + " " + r.Method + " " + r.URL.Path
-	queryValues := r.URL.Query()
+	queryValues := s.canonicalScopeQuery(r)
 	effectiveTimezone := queryValues.Get("timezone")
 	queryValues.Del("timezone")
 	if query := queryValues.Encode(); query != "" {
@@ -338,6 +338,35 @@ func (s *Server) readCacheKey(r *http.Request) string {
 		key += "|effective_timezone=" + url.QueryEscape(effectiveTimezone)
 	}
 	return key
+}
+
+func (s *Server) canonicalScopeQuery(r *http.Request) url.Values {
+	query := cloneValues(r.URL.Query())
+	if location, err := scopeLocation(query, s.deps.Config.Server.Timezone); err == nil {
+		query.Set("timezone", location.String())
+	}
+	input, active, err := readScopeInput(query, s.deps.Config.Server.Timezone)
+	if err != nil || !active {
+		return query
+	}
+	scope, err := ResolveReadScope(input, s.clockNow())
+	if err != nil {
+		return query
+	}
+	for _, name := range []string{"date", "scope", "month", "year", "end", "from", "to"} {
+		query.Del(name)
+	}
+	switch scope.Kind {
+	case ScopeLifetime:
+		query.Set("scope", string(ScopeLifetime))
+	case ScopeRange:
+		query.Set("from", scope.Calendar.From.Format(calendarDateLayout))
+		query.Set("to", scope.Calendar.ToExclusive.Format(calendarDateLayout))
+	default:
+		query.Set("date", canonicalScopeDate(scope))
+	}
+	query.Set("_scope", canonicalScopeVersion)
+	return query
 }
 
 func isJSONContentType(value string) bool {

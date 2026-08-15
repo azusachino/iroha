@@ -293,6 +293,7 @@ Environment variables should override matching TOML fields:
 
 ```text
 IROHA_SERVER_ADDR
+IROHA_TIMEZONE
 IROHA_DATABASE_URL
 IROHA_DATA_DIR
 IROHA_CACHE_BACKEND

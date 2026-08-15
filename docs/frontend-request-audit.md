@@ -129,9 +129,9 @@ The cockpit now uses stale-while-revalidate navigation. The first load presents 
 and commits the new snapshot only when its request version is current. Briefing and to-go requests both reject stale responses, so rapid left/right navigation cannot mix dates or collapse the lower
 layout.
 
-The browser's default calendar contract is `Asia/Tokyo`, matching the server default. A shared date helper now drives today, month, year, heatmap, streak, and default timestamp presentation. The
-command palette is a mobile bottom sheet with a bounded internal list and safe-area padding. On small screens the global fixed background and appbar blur are disabled to avoid repaint-heavy scrolling
-while retaining the theme palette.
+The browser's default calendar contract is the configured `PUBLIC_IROHA_TIMEZONE`, defaulting to `Asia/Tokyo` and intended to match the server's `IROHA_TIMEZONE`. A shared date helper now drives
+today, month, year, heatmap, streak, and default timestamp presentation. The command palette is a mobile bottom sheet with a bounded internal list and safe-area padding. On small screens the global
+fixed background and appbar blur are disabled to avoid repaint-heavy scrolling while retaining the theme palette.
 
 ## Regression checks
 

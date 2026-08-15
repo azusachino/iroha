@@ -15,6 +15,15 @@
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDateOnly, formatDuration, formatMonth } from "$lib/format";
   import { currentYear } from "@iroha/shared/month";
+  import {
+    currentCalendarScope,
+    parseCalendarScope,
+    readCalendarScope,
+    scopeFromParts,
+    serializeCalendarScope,
+    writeCalendarScope,
+  } from "@iroha/shared/scope";
+  import { IROHA_TIMEZONE } from "$lib/config";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
@@ -22,14 +31,21 @@
   import { hasThemeRoute } from "$lib/themes/registry";
 
   const PAGE_SIZE = 31;
-  const initialMonthParam = page.url.searchParams.get("month") ?? "";
-  const initialMonth = /^\d{4}-\d{2}$/.test(initialMonthParam)
-    ? initialMonthParam
-    : "";
-  const initialYearParam = page.url.searchParams.get("year") ?? "";
-  const initialYear = /^\d{4}$/.test(initialYearParam)
-    ? initialYearParam
-    : initialMonth.slice(0, 4) || currentYear();
+  const defaultScope = currentCalendarScope("year", new Date(), IROHA_TIMEZONE);
+  const requestedScope = readCalendarScope(page.url.searchParams, {
+    fallback: defaultScope,
+    allowDay: false,
+  });
+  const initialMonth =
+    requestedScope.kind === "month"
+      ? (serializeCalendarScope(requestedScope) as string)
+      : "";
+  const initialYear =
+    requestedScope.kind === "year" || requestedScope.kind === "month"
+      ? String(requestedScope.year)
+      : requestedScope.kind === "lifetime"
+        ? ""
+        : currentYear(new Date(), IROHA_TIMEZONE);
   let sessions = $state<SleepSession[]>([]);
   let selected = $state<SleepSession | null>(null);
   let sessionsLoading = $state(true);
@@ -210,10 +226,12 @@
 
   function syncPeriodUrl() {
     const url = new URL(window.location.href);
-    if (selectedYear) url.searchParams.set("year", selectedYear);
-    else url.searchParams.delete("year");
-    if (selectedMonth) url.searchParams.set("month", selectedMonth);
-    else url.searchParams.delete("month");
+    writeCalendarScope(
+      url.searchParams,
+      selectedMonth
+        ? (parseCalendarScope(selectedMonth) ?? scopeFromParts(selectedYear))
+        : scopeFromParts(selectedYear),
+    );
     if (url.href !== window.location.href) replaceState(url, page.state);
   }
 
@@ -221,20 +239,9 @@
     selected = session;
   }
 
-  function selectedRange(): { from?: string; to?: string } {
-    if (selectedMonth !== "") {
-      const [year, month] = selectedMonth.split("-").map(Number);
-      const nextMonth = new Date(Date.UTC(year, month, 1));
-      return {
-        from: `${selectedMonth}-01`,
-        to: nextMonth.toISOString().slice(0, 10),
-      };
-    }
-    if (selectedYear !== "")
-      return {
-        from: `${selectedYear}-01-01`,
-        to: `${Number(selectedYear) + 1}-01-01`,
-      };
+  function selectedScope(): { date?: string } {
+    if (selectedMonth !== "") return { date: selectedMonth };
+    if (selectedYear !== "") return { date: selectedYear };
     return {};
   }
 
@@ -255,7 +262,7 @@
       const page = await listSleep({
         limit: PAGE_SIZE,
         cursor: append ? (cursor ?? undefined) : undefined,
-        ...selectedRange(),
+        ...selectedScope(),
       });
       if (requestId !== sessionsRequest) return;
       sessions = append ? [...sessions, ...page.items] : page.items;

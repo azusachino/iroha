@@ -112,7 +112,7 @@ func (s *Server) handleListExpenses(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "expense service unavailable")
 		return
 	}
-	filters, ok := parseExpenseFilters(w, r)
+	filters, ok := s.parseExpenseFilters(w, r)
 	if !ok {
 		return
 	}

@@ -74,7 +74,7 @@ type sleepAggregateBucketResponse struct {
 }
 
 func (s *Server) handleListSleep(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseSleepFilters(w, r)
+	filters, ok := s.parseSleepFilters(w, r)
 	if !ok {
 		return
 	}
@@ -157,7 +157,7 @@ func (s *Server) handleGetSleepSegments(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleSleepAggregates(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseSleepAggregateFilters(w, r)
+	filters, ok := s.parseSleepAggregateFilters(w, r)
 	if !ok {
 		return
 	}

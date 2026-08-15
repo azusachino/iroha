@@ -78,7 +78,7 @@ type activityLapResponse struct {
 }
 
 func (s *Server) handleListActivities(w http.ResponseWriter, r *http.Request) {
-	filters, ok := parseActivityFilters(w, r)
+	filters, ok := s.parseActivityFilters(w, r)
 	if !ok {
 		return
 	}
@@ -101,6 +101,25 @@ func (s *Server) handleListActivities(w http.ResponseWriter, r *http.Request) {
 		response.NextCursor = &cursor
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) parseActivityFilters(w http.ResponseWriter, r *http.Request) (activities.ListFilters, bool) {
+	filters, ok := parseActivityFilters(w, r)
+	if !ok {
+		return filters, ok
+	}
+	scope, active, err := s.resolveReadScope(r)
+	if err != nil {
+		writeReadScopeError(w, err)
+		return activities.ListFilters{}, false
+	}
+	if !active || scope.Kind == ScopeLifetime {
+		return filters, true
+	}
+	from, to := scope.Instant.From, scope.Instant.ToExclusive
+	filters.StartedFrom = &from
+	filters.StartedTo = &to
+	return filters, true
 }
 
 func (s *Server) handleGetActivity(w http.ResponseWriter, r *http.Request) {
@@ -213,7 +232,24 @@ func (s *Server) handleActivitySummary(w http.ResponseWriter, r *http.Request) {
 	if timezone == "" {
 		timezone = s.deps.Config.Server.Timezone
 	}
-	summary, err := s.deps.ActivityService.SummaryInTimezone(r.URL.Query().Get("year"), r.URL.Query().Get("sport"), timezone)
+	year := r.URL.Query().Get("year")
+	scope, active, scopeErr := s.resolveReadScope(r)
+	if scopeErr != nil {
+		writeReadScopeError(w, scopeErr)
+		return
+	}
+	if active {
+		timezone = scope.Timezone
+		switch scope.Kind {
+		case ScopeLifetime:
+		case ScopeYear, ScopeMonth:
+			year = scope.Calendar.From.Format(calendarYearLayout)
+		default:
+			writeError(w, http.StatusBadRequest, "invalid activity summary scope")
+			return
+		}
+	}
+	summary, err := s.deps.ActivityService.SummaryInTimezone(year, r.URL.Query().Get("sport"), timezone)
 	if err != nil {
 		if strings.Contains(err.Error(), "load timezone") {
 			writeError(w, http.StatusBadRequest, "invalid timezone")

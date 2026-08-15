@@ -17,15 +17,32 @@
   import {
     MONTH_OPTIONS,
     currentMonth,
-    canonicalMonth,
     yearOptions,
   } from "@iroha/shared/month";
+  import {
+    currentCalendarScope,
+    readCalendarScope,
+    serializeCalendarScope,
+    writeCalendarScope,
+  } from "@iroha/shared/scope";
+  import { IROHA_TIMEZONE } from "$lib/config";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import type { ReportThemeProps } from "@iroha/shared/report";
   import { useTheme } from "$lib/themes/context.svelte";
 
+  const defaultMonthScope = currentCalendarScope(
+    "month",
+    new Date(),
+    IROHA_TIMEZONE,
+  );
+  const requestedMonthScope = readCalendarScope(page.url.searchParams, {
+    fallback: defaultMonthScope,
+    allowDay: false,
+  });
   let month = $state(
-    canonicalMonth(page.url.searchParams.get("month"), currentMonth()),
+    requestedMonthScope.kind === "month"
+      ? (serializeCalendarScope(requestedMonthScope) as string)
+      : currentMonth(new Date(), IROHA_TIMEZONE),
   );
   let report = $state<MonthlyReport | null>(null);
   let series = $state<MonthlyReportSeries | null>(null);
@@ -54,7 +71,7 @@
         month: value,
         from: `${value}-01`,
         to,
-        timezone: "Asia/Tokyo",
+        timezone: IROHA_TIMEZONE,
       },
       generated_at: "",
       sections: {
@@ -94,7 +111,11 @@
   function moveMonth(value: string) {
     month = value;
     const url = new URL(window.location.href);
-    url.searchParams.set("month", value);
+    writeCalendarScope(url.searchParams, {
+      kind: "month",
+      year: Number(value.slice(0, 4)),
+      month: Number(value.slice(5, 7)),
+    });
     if (url.search !== window.location.search) replaceState(url, page.state);
     void loadReport(value);
   }

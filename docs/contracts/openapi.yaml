@@ -66,6 +66,7 @@ paths:
       tags: [system]
       parameters:
         - $ref: "#/components/parameters/Date"
+        - $ref: "#/components/parameters/Timezone"
       responses:
         "200":
           description: Day briefing with versioned sections.
@@ -115,20 +116,19 @@ paths:
           schema: { type: string }
         - name: from
           in: query
-          required: true
           schema: { type: string, format: date }
         - name: to
           in: query
-          required: true
           description: Exclusive end date.
           schema: { type: string, format: date }
+        - $ref: "#/components/parameters/ScopeDate"
         - name: grain
           in: query
           required: true
           schema: { type: string, enum: [day, month, year] }
         - name: timezone
           in: query
-          schema: { type: string, default: UTC }
+          schema: { type: string, default: Asia/Tokyo }
       responses:
         "200":
           description: Complete metric series with explicit missingness and coverage.
@@ -264,6 +264,9 @@ paths:
           in: query
           description: Exclusive upper bound for started_at.
           schema: { type: string, format: date-time }
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - name: min_distance_m
           in: query
           schema: { type: number }
@@ -306,6 +309,8 @@ paths:
         - name: year
           in: query
           schema: { type: string }
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
         - name: sport
           in: query
           schema: { type: string }
@@ -409,6 +414,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
       responses:
@@ -444,6 +452,9 @@ paths:
         - $ref: "#/components/parameters/SleepGranularity"
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
       responses:
         "200":
           description: Sleep aggregate buckets.
@@ -493,6 +504,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
       responses:
@@ -507,9 +521,11 @@ paths:
   /api/v1/daily/dates:
     get:
       tags: [daily]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
       responses:
         "200":
-          description: Canonical daily dates with at least one stored summary or metric.
+          description: Canonical dates represented by daily facts, activities, sleep wake dates, or dated media events in the requested timezone.
           content:
             application/json:
               schema:
@@ -522,6 +538,9 @@ paths:
         - $ref: "#/components/parameters/Granularity"
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
       responses:
         "200":
           description: Daily aggregate buckets.
@@ -535,6 +554,7 @@ paths:
     get:
       tags: [system]
       parameters:
+        - $ref: "#/components/parameters/ReportDate"
         - $ref: "#/components/parameters/Month"
         - $ref: "#/components/parameters/Timezone"
       responses:
@@ -552,6 +572,7 @@ paths:
     get:
       tags: [system]
       parameters:
+        - $ref: "#/components/parameters/ReportDate"
         - $ref: "#/components/parameters/ReportEndMonth"
         - $ref: "#/components/parameters/ReportSeriesMonths"
         - $ref: "#/components/parameters/Timezone"
@@ -572,6 +593,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
         - name: currency
@@ -749,6 +773,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
       responses:
@@ -798,6 +825,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DateFrom"
         - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/ScopeDate"
+        - $ref: "#/components/parameters/Scope"
+        - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
       responses:
@@ -1071,23 +1101,47 @@ components:
       in: query
       required: true
       schema: { type: string, format: date }
+    ScopeDate:
+      name: date
+      in: query
+      description: "Canonical scalar calendar scope: YYYY, YYYY-MM, or YYYY-MM-DD, as supported by the route."
+      schema:
+        type: string
+        pattern: "^[0-9]{4}(?:-[0-9]{2})?(?:-[0-9]{2})?$"
+    Scope:
+      name: scope
+      in: query
+      description: Explicit unbounded history selector. Do not combine with date, from, or to.
+      schema:
+        type: string
+        enum: [lifetime]
     DateFrom:
       name: from
       in: query
+      description: Inclusive calendar start of an explicit half-open range.
       schema: { type: string, format: date }
     DateTo:
       name: to
       in: query
+      description: Exclusive calendar end of an explicit half-open range.
       schema: { type: string, format: date }
+    ReportDate:
+      name: date
+      in: query
+      required: true
+      description: Canonical report month, YYYY-MM.
+      schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
     Month:
       name: month
       in: query
-      required: true
+      deprecated: true
+      description: Compatibility alias for date.
       schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
     ReportEndMonth:
       name: end
       in: query
-      required: true
+      deprecated: true
+      description: Compatibility alias for date.
       schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
     ReportSeriesMonths:
       name: months

@@ -19,11 +19,18 @@
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import {
     MONTH_OPTIONS,
-    canonicalMonth,
     currentMonth,
-    monthBounds,
     yearOptions,
   } from "@iroha/shared/month";
+  import {
+    currentCalendarScope,
+    parseCalendarScope,
+    readCalendarScope,
+    scopeBounds,
+    serializeCalendarScope,
+    writeCalendarScope,
+  } from "@iroha/shared/scope";
+  import { IROHA_TIMEZONE } from "$lib/config";
   import {
     expenseCategoryLabel,
     type ExpensePanel,
@@ -70,8 +77,19 @@
   let currencySeries = $state<MetricSeriesResponse[]>([]);
   let currencyCountSeries = $state<MetricSeriesResponse[]>([]);
 
+  const defaultMonthScope = currentCalendarScope(
+    "month",
+    new Date(),
+    IROHA_TIMEZONE,
+  );
+  const requestedMonthScope = readCalendarScope(page.url.searchParams, {
+    fallback: defaultMonthScope,
+    allowDay: false,
+  });
   let month = $state(
-    canonicalMonth(page.url.searchParams.get("month"), currentMonth()),
+    requestedMonthScope.kind === "month"
+      ? (serializeCalendarScope(requestedMonthScope) as string)
+      : currentMonth(new Date(), IROHA_TIMEZONE),
   );
   let filterCurrency = $state(
     currencies.includes(
@@ -111,10 +129,9 @@
     loading = true;
     error = null;
     try {
-      const bounds = monthBounds(selectedMonth);
+      const bounds = scopeBounds(parseCalendarScope(selectedMonth)!)!;
       const expensesRequest = listAllExpenses({
-        from: bounds.from,
-        to: bounds.to,
+        date: selectedMonth,
         currency: (filterCurrency || undefined) as ExpenseCurrency | undefined,
         category: (filterCategory || undefined) as ExpenseCategory | undefined,
       });
@@ -244,7 +261,10 @@
 
   function syncUrl() {
     const url = new URL(window.location.href);
-    url.searchParams.set("month", month);
+    writeCalendarScope(
+      url.searchParams,
+      parseCalendarScope(month) ?? defaultMonthScope,
+    );
     if (filterCurrency) url.searchParams.set("currency", filterCurrency);
     else url.searchParams.delete("currency");
     if (filterCategory) url.searchParams.set("category", filterCategory);
