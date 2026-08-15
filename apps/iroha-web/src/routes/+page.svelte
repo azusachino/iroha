@@ -763,7 +763,17 @@
     font-size: 0.75rem;
   }
   .briefing-update {
-    color: var(--accent);
+    /* Keep the live announcement out of layout so date scrubbing cannot
+       move the whole data surface while the next snapshot is loading. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+    margin: -1px;
   }
   .update-error {
     color: var(--danger);
