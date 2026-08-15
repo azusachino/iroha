@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
@@ -118,6 +119,24 @@ func (s *Server) handleSleepOverview(w http.ResponseWriter, r *http.Request) {
 		AverageAsleepS:    overview.AverageAsleepS,
 		AverageEfficiency: overview.AverageEfficiency,
 	})
+}
+
+func (s *Server) handleSleepBounds(w http.ResponseWriter, r *http.Request) {
+	timezone := r.URL.Query().Get("timezone")
+	if timezone == "" {
+		timezone = s.deps.Config.Server.Timezone
+	}
+	minDate, maxDate, ok, err := s.deps.SleepService.Bounds(s.clockNow(), timezone)
+	if err != nil {
+		if strings.Contains(err.Error(), "load timezone") {
+			writeError(w, http.StatusBadRequest, "invalid timezone")
+			return
+		}
+		s.deps.Logger.Error("sleep bounds", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load sleep bounds")
+		return
+	}
+	writeBounds(w, minDate, maxDate, ok)
 }
 
 func (s *Server) handleGetSleep(w http.ResponseWriter, r *http.Request) {

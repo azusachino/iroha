@@ -3,6 +3,7 @@
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import {
+    getDailyBounds,
     listDaily,
     listDailyAggregates,
     type DailyRow,
@@ -20,7 +21,7 @@
     formatDateOnly,
     formatMonth as formatCanonicalMonth,
   } from "$lib/format";
-  import { currentYear } from "@iroha/shared/month";
+  import { currentYear, yearOptionsInRange } from "@iroha/shared/month";
   import {
     currentCalendarScope,
     parseCalendarScope,
@@ -29,6 +30,7 @@
     scopeFromParts,
     serializeCalendarScope,
     writeCalendarScope,
+    type DateBounds,
   } from "@iroha/shared/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
@@ -80,17 +82,31 @@
   let loadedDayMonth = "";
   const theme = useTheme();
 
-  const availableMonths = $derived(
-    monthly
-      .map((bucket) => bucket.period.slice(0, 7))
-      .sort()
-      .reverse(),
-  );
-  const availableYears = $derived(
-    [...new Set(monthly.map((bucket) => bucket.period.slice(0, 4)))]
-      .sort()
-      .reverse(),
-  );
+  // The real data range (fetched once, independent of the current
+  // selection/granularity) -- drives which years/months are navigable, as
+  // a continuous range rather than only the periods with a chart bucket.
+  // That's what lets `scopedYear`/`scopedMonth` below equal the real
+  // selection whenever it's genuinely within history, instead of silently
+  // substituting whatever period happens to have data.
+  let dailyBounds = $state<DateBounds>({});
+  const availableYears = $derived(yearOptionsInRange(dailyBounds));
+  const availableMonths = $derived.by(() => {
+    if (!dailyBounds.min || !dailyBounds.max) return [];
+    const months: string[] = [];
+    let year = Number(dailyBounds.max.slice(0, 4));
+    let month = Number(dailyBounds.max.slice(5, 7));
+    const minYear = Number(dailyBounds.min.slice(0, 4));
+    const minMonth = Number(dailyBounds.min.slice(5, 7));
+    while (year > minYear || (year === minYear && month >= minMonth)) {
+      months.push(`${year}-${String(month).padStart(2, "0")}`);
+      month -= 1;
+      if (month === 0) {
+        month = 12;
+        year -= 1;
+      }
+    }
+    return months;
+  });
   const scopedYear = $derived(
     availableYears.includes(selectedYear) ? selectedYear : "",
   );
@@ -304,6 +320,14 @@
     }
   }
 
+  async function loadBounds() {
+    try {
+      dailyBounds = await getDailyBounds();
+    } catch {
+      dailyBounds = {};
+    }
+  }
+
   async function loadLatestDay() {
     try {
       const result = await listDaily({ limit: 1 });
@@ -417,7 +441,7 @@
   }
 
   onMount(async () => {
-    await Promise.all([loadMonthly(), loadLatestDay()]);
+    await Promise.all([loadMonthly(), loadLatestDay(), loadBounds()]);
     if (gran === "year") await loadYearly();
     if (gran === "day") await loadDays(activeMonth);
     loading = false;
@@ -460,6 +484,7 @@
               months={periodMonths}
               year={gran === "year" ? selectedYear : activeYear}
               month={gran === "day" ? activeMonth : selectedMonth}
+              bounds={dailyBounds}
               showAllYears={gran === "year"}
               surface="inline"
               onYear={selectYear}
@@ -484,6 +509,7 @@
         months={periodMonths}
         year={gran === "year" ? selectedYear : activeYear}
         month={gran === "day" ? activeMonth : selectedMonth}
+        bounds={dailyBounds}
         showAllYears={gran === "year"}
         surface="inline"
         onYear={selectYear}

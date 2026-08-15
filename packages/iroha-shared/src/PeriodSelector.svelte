@@ -4,6 +4,7 @@
     scopeParts,
     serializeCalendarScope,
     shiftCalendarScope,
+    type DateBounds,
   } from "./scope";
   import { formatCanonicalMonth } from "./format";
   import SelectControl, {
@@ -23,6 +24,7 @@
     appearance = "grapher",
     surface = "panel",
     timezone,
+    bounds,
     onYear,
     onMonth,
   }: {
@@ -35,6 +37,7 @@
     surface?: "panel" | "inline";
     appearance?: DesignLanguage;
     timezone?: string;
+    bounds?: DateBounds;
     onYear: (value: string) => void;
     onMonth: (value: string) => void;
   } = $props();
@@ -74,7 +77,7 @@
   function shiftPeriod(delta: number) {
     const current = scopeFromParts(year, month);
     if (current.kind === "lifetime") return;
-    const shifted = shiftCalendarScope(current, delta, new Date(), timezone);
+    const shifted = shiftCalendarScope(current, delta, new Date(), timezone, bounds);
     const parts = scopeParts(shifted);
     onYear(parts.year);
     onMonth(

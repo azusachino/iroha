@@ -97,6 +97,34 @@ describe("calendar scope", () => {
     ).toEqual({ kind: "month", year: 2026, month: 7 });
   });
 
+  it("clamps shifts to a supplied data range, tighter than the plain future guard", () => {
+    const bounds = { min: "2019-03-02", max: "2026-06-20" };
+    // Without bounds this would land on August 2026 (today's month, not
+    // future) -- bounds.max is earlier than today, so it wins.
+    expect(
+      shiftCalendarScope(
+        { kind: "month", year: 2026, month: 7 },
+        1,
+        NOW,
+        "UTC",
+        bounds,
+      ),
+    ).toEqual({ kind: "month", year: 2026, month: 6 });
+    // Backward shifts, previously unclamped entirely, now stop at bounds.min.
+    expect(
+      shiftCalendarScope({ kind: "year", year: 2019 }, -1, NOW, "UTC", bounds),
+    ).toEqual({ kind: "year", year: 2019 });
+    // An ordinary shift fully inside the range is untouched.
+    expect(
+      shiftCalendarScope({ kind: "year", year: 2021 }, -1, NOW, "UTC", bounds),
+    ).toEqual({ kind: "year", year: 2020 });
+    // Omitting bounds entirely preserves the pre-existing, unclamped-backward
+    // behavior for every current call site.
+    expect(
+      shiftCalendarScope({ kind: "year", year: 2019 }, -1, NOW, "UTC"),
+    ).toEqual({ kind: "year", year: 2018 });
+  });
+
   it("represents lifetime explicitly without treating it as a date", () => {
     const params = new URLSearchParams("scope=lifetime");
     expect(

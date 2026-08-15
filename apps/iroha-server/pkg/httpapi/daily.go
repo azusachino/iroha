@@ -86,6 +86,21 @@ func (s *Server) handleDailyDates(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (s *Server) handleDailyBounds(w http.ResponseWriter, r *http.Request) {
+	timezone, err := scopeLocation(r.URL.Query(), s.deps.Config.Server.Timezone)
+	if err != nil {
+		writeReadScopeError(w, err)
+		return
+	}
+	minDate, maxDate, ok, err := s.deps.DailyService.Bounds(s.clockNow(), timezone.String())
+	if err != nil {
+		s.deps.Logger.Error("daily bounds", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load daily bounds")
+		return
+	}
+	writeBounds(w, minDate, maxDate, ok)
+}
+
 type dailyAggregateResponse struct {
 	Granularity string                         `json:"granularity"`
 	Buckets     []dailyAggregateBucketResponse `json:"buckets"`

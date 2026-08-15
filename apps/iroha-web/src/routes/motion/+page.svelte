@@ -3,6 +3,7 @@
   import { onMount, untrack } from "svelte";
   import { page } from "$app/state";
   import {
+    getActivityBounds,
     getActivitySummary,
     getMetricSeries,
     listActivities,
@@ -25,13 +26,19 @@
   } from "$lib/format";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import { currentYear, MONTH_OPTIONS, monthBounds } from "@iroha/shared/month";
+  import {
+    currentYear,
+    monthBounds,
+    monthOptionsInRange,
+    yearOptionsInRange,
+  } from "@iroha/shared/month";
   import {
     currentCalendarScope,
     readCalendarScope,
     scopeFromParts,
     serializeCalendarScope,
     writeCalendarScope,
+    type DateBounds,
   } from "@iroha/shared/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
   import { sportColor, sportLabel } from "$lib/sport";
@@ -81,13 +88,32 @@
     summary ? summary.by_sport.map((b) => b.key).sort() : [],
   );
 
-  const months = MONTH_OPTIONS;
+  // The real data range (fetched once, independent of the current
+  // selection) -- not "today". A scoped summary request failing (e.g. a
+  // stale/tampered URL naming an out-of-range period) must never collapse
+  // these option lists, so they never read from `summary`.
+  let bounds = $state<DateBounds>({});
+  const years = $derived(yearOptionsInRange(bounds));
+  const months = $derived(monthOptionsInRange(selectedYear, bounds));
 
-  const years = $derived(
-    summary
-      ? summary.by_year.map((b) => b.key).sort((a, b) => b.localeCompare(a))
-      : [currentYear(new Date(), IROHA_TIMEZONE)],
-  );
+  async function loadBounds() {
+    try {
+      bounds = await getActivityBounds();
+    } catch {
+      bounds = {};
+    }
+    const validYears = new Set(yearOptionsInRange(bounds));
+    if (selectedYear && !validYears.has(selectedYear)) {
+      selectedYear = "";
+      selectedMonth = "";
+    } else if (selectedMonth) {
+      const validMonths = new Set(
+        monthOptionsInRange(selectedYear, bounds).map((option) => option.value),
+      );
+      if (!validMonths.has(selectedMonth)) selectedMonth = "";
+    }
+    syncUrl();
+  }
 
   function handleYearChange() {
     if (!selectedYear) {
@@ -303,6 +329,7 @@
 
   onMount(() => {
     void loadSummary();
+    void loadBounds();
   });
 
   // Infinite scroll: when the sentinel below the grid scrolls near the
@@ -413,6 +440,7 @@
               month={selectedMonth}
               {years}
               {months}
+              {bounds}
               monthDisabled={!selectedYear}
               surface="inline"
               onYear={(value) => {
@@ -443,6 +471,7 @@
         month={selectedMonth}
         {years}
         {months}
+        {bounds}
         monthDisabled={!selectedYear}
         surface="inline"
         onYear={(value) => {

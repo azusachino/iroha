@@ -4,6 +4,7 @@
   import { page } from "$app/state";
   import { Activity } from "@lucide/svelte";
   import {
+    getDailyBounds,
     getMetricCatalog,
     getMetricSeries,
     type MetricDefinition,
@@ -21,16 +22,17 @@
   import { pointValue } from "@iroha/shared/metric-series";
   import {
     currentMonth,
-    MONTH_OPTIONS,
     monthBounds,
+    monthOptionsInRange,
     shiftMonth,
-    yearOptions,
+    yearOptionsInRange,
   } from "@iroha/shared/month";
   import {
     currentCalendarScope,
     readCalendarScope,
     serializeCalendarScope,
     writeCalendarScope,
+    type DateBounds,
   } from "@iroha/shared/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
 
@@ -55,9 +57,27 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let requestVersion = 0;
-  const periodYears = yearOptions();
+  // The real cross-domain data range (fetched once, independent of the
+  // current selection) -- not a hardcoded 2015 guess, and not every month.
+  let bounds = $state<DateBounds>({});
+  const periodYears = $derived(yearOptionsInRange(bounds));
   const periodYear = $derived(month.slice(0, 4));
   const periodMonth = $derived(String(Number(month.slice(5, 7))));
+  const periodMonths = $derived(monthOptionsInRange(periodYear, bounds));
+
+  async function loadBounds() {
+    try {
+      bounds = await getDailyBounds();
+    } catch {
+      bounds = {};
+    }
+    if (!bounds.min || !bounds.max) return;
+    if (month < bounds.min.slice(0, 7)) month = bounds.min.slice(0, 7);
+    else if (month > bounds.max.slice(0, 7)) month = bounds.max.slice(0, 7);
+    else return;
+    syncUrl();
+    void loadSeries();
+  }
 
   const definition = $derived(
     catalog.find((metric) => metric.id === metricId) ?? null,
@@ -87,6 +107,7 @@
       }
       resetDimensions();
       await loadSeries();
+      void loadBounds();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
       loading = false;
@@ -202,7 +223,8 @@
       year={periodYear}
       month={periodMonth}
       years={periodYears}
-      months={MONTH_OPTIONS}
+      months={periodMonths}
+      {bounds}
       showAllYears={false}
       surface="inline"
       onYear={selectPeriodYear}

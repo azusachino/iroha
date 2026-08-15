@@ -19,6 +19,22 @@ type errorResponse struct {
 	RequestID string `json:"request_id"`
 }
 
+// boundsResponse is the shared shape for every domain's /bounds endpoint --
+// the earliest and latest calendar date with a real record. Both fields are
+// omitted when the domain has no data yet.
+type boundsResponse struct {
+	Min string `json:"min,omitempty"`
+	Max string `json:"max,omitempty"`
+}
+
+func writeBounds(w http.ResponseWriter, minDate, maxDate string, ok bool) {
+	if !ok {
+		writeJSON(w, http.StatusOK, boundsResponse{})
+		return
+	}
+	writeJSON(w, http.StatusOK, boundsResponse{Min: minDate, Max: maxDate})
+}
+
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

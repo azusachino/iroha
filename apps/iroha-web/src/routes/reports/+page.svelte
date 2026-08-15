@@ -5,6 +5,7 @@
   import { FileText, RefreshCw } from "@lucide/svelte";
   import {
     ApiError,
+    getDailyBounds,
     getMonthlyReportSeries,
     type MonthlyReport,
     type MonthlyReportSeries,
@@ -15,15 +16,16 @@
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDate } from "$lib/format";
   import {
-    MONTH_OPTIONS,
     currentMonth,
-    yearOptions,
+    monthOptionsInRange,
+    yearOptionsInRange,
   } from "@iroha/shared/month";
   import {
     currentCalendarScope,
     readCalendarScope,
     serializeCalendarScope,
     writeCalendarScope,
+    type DateBounds,
   } from "@iroha/shared/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
@@ -49,10 +51,27 @@
   let loading = $state(true);
   let error = $state<string | null>(null);
   let requestVersion = 0;
-  const periodYears = yearOptions();
+  // The real cross-domain data range (fetched once, independent of the
+  // current selection) -- not a hardcoded 2015 guess, and not every month.
+  let bounds = $state<DateBounds>({});
+  const periodYears = $derived(yearOptionsInRange(bounds));
   const periodYear = $derived(month.slice(0, 4));
   const periodMonth = $derived(String(Number(month.slice(5, 7))));
+  const periodMonths = $derived(monthOptionsInRange(periodYear, bounds));
   const theme = useTheme();
+
+  async function loadBounds() {
+    try {
+      bounds = await getDailyBounds();
+    } catch {
+      bounds = {};
+    }
+    if (!bounds.min || !bounds.max) return;
+    if (month < bounds.min.slice(0, 7)) month = bounds.min.slice(0, 7);
+    else if (month > bounds.max.slice(0, 7)) month = bounds.max.slice(0, 7);
+    else return;
+    moveMonth(month);
+  }
 
   function loadingReportFor(value: string): MonthlyReport {
     const [year, monthNumber] = value.split("-").map(Number);
@@ -86,6 +105,7 @@
 
   onMount(() => {
     void loadReport(month);
+    void loadBounds();
   });
 
   async function loadReport(requestedMonth: string) {
@@ -200,7 +220,8 @@
       year={periodYear}
       month={periodMonth}
       years={periodYears}
-      months={MONTH_OPTIONS}
+      months={periodMonths}
+      {bounds}
       showAllYears={false}
       surface="inline"
       onYear={selectPeriodYear}

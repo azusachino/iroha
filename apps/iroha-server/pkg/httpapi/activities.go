@@ -298,6 +298,24 @@ func (s *Server) handleActivityOverview(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+func (s *Server) handleActivityBounds(w http.ResponseWriter, r *http.Request) {
+	timezone := r.URL.Query().Get("timezone")
+	if timezone == "" {
+		timezone = s.deps.Config.Server.Timezone
+	}
+	minDate, maxDate, ok, err := s.deps.ActivityService.Bounds(s.clockNow(), timezone)
+	if err != nil {
+		if strings.Contains(err.Error(), "load timezone") {
+			writeError(w, http.StatusBadRequest, "invalid timezone")
+			return
+		}
+		s.deps.Logger.Error("activity bounds", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load activity bounds")
+		return
+	}
+	writeBounds(w, minDate, maxDate, ok)
+}
+
 func (s *Server) handleActivityRoutes(w http.ResponseWriter, r *http.Request) {
 	collection, err := publicexport.Routes(r.Context(), s.deps.ActivityService, s.deps.GeocodeService, true)
 	if err != nil {

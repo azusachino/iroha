@@ -218,6 +218,42 @@ func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
 	return PeriodReport{ExpenseCount: int(expenseCountValue), TotalsByCurrency: totalsByCurrency, ByCategory: byCategory}, nil
 }
 
+// Bounds returns the earliest and latest occurred-on dates among active
+// (non-deleted) expenses. maxDate is capped at now (in the requested
+// timezone) so a bad entry with a future date can never widen the
+// navigable range; the past is never capped. ok is false when no active
+// expenses exist.
+func (s *Service) Bounds(now time.Time, timezone string) (minDate, maxDate string, ok bool, err error) {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return "", "", false, fmt.Errorf("load timezone: %w", err)
+	}
+	var row struct {
+		Min *string
+		Max *string
+	}
+	if err := s.db.Model(&models.Expense{}).
+		Where("deleted_at is null").
+		Select("to_char(min(occurred_on), 'YYYY-MM-DD') as min, to_char(max(occurred_on), 'YYYY-MM-DD') as max").
+		Scan(&row).Error; err != nil {
+		return "", "", false, fmt.Errorf("expense bounds: %w", err)
+	}
+	if row.Min == nil || row.Max == nil {
+		return "", "", false, nil
+	}
+	nowDate := now.In(location).Format("2006-01-02")
+	maxDate = *row.Max
+	if maxDate > nowDate {
+		maxDate = nowDate
+	}
+	if *row.Min > maxDate {
+		// Every active row is dated after now (test fixtures or a bad
+		// entry) -- there is no usable historical range yet.
+		return "", "", false, nil
+	}
+	return *row.Min, maxDate, true, nil
+}
+
 // NormalizeCreate validates and canonicalizes a create payload and returns
 // the fingerprint used for idempotent source retries.
 func NormalizeCreate(input CreateInput) (CreateInput, string, error) {

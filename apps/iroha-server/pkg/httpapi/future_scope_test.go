@@ -64,3 +64,36 @@ func TestFutureReadScopeAllowsCurrentPeriodEnvelope(t *testing.T) {
 		t.Fatalf("response = %d, calls = %d, want 204/1", response.Code, calls)
 	}
 }
+
+// TestFutureReadScopeAllowsParamFreeBoundsRequests confirms every new
+// /bounds route -- which takes no date/from/to/scope param and so can never
+// itself resolve to a future scope -- passes straight through the guard
+// unaffected, the same way a health check would.
+func TestFutureReadScopeAllowsParamFreeBoundsRequests(t *testing.T) {
+	server := &Server{
+		deps: Dependencies{Config: config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}}},
+		now: func() time.Time {
+			return time.Date(2026, time.August, 15, 12, 0, 0, 0, time.FixedZone("JST", 9*60*60))
+		},
+	}
+	for _, path := range []string{
+		"/api/v1/activities/bounds",
+		"/api/v1/sleep/bounds",
+		"/api/v1/expenses/bounds",
+		"/api/v1/daily/bounds",
+		"/api/v1/activities/bounds?timezone=Asia/Tokyo",
+	} {
+		t.Run(path, func(t *testing.T) {
+			calls := 0
+			handler := server.rejectFutureReadScope(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls++
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+			if response.Code != http.StatusNoContent || calls != 1 {
+				t.Fatalf("response = %d, calls = %d, want 204/1", response.Code, calls)
+			}
+		})
+	}
+}

@@ -199,6 +199,28 @@ func (s *Server) handleDeleteExpense(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) handleExpenseBounds(w http.ResponseWriter, r *http.Request) {
+	if s.deps.ExpenseService == nil {
+		writeError(w, http.StatusServiceUnavailable, "expense service unavailable")
+		return
+	}
+	timezone := r.URL.Query().Get("timezone")
+	if timezone == "" {
+		timezone = s.deps.Config.Server.Timezone
+	}
+	minDate, maxDate, ok, err := s.deps.ExpenseService.Bounds(s.clockNow(), timezone)
+	if err != nil {
+		if strings.Contains(err.Error(), "load timezone") {
+			writeError(w, http.StatusBadRequest, "invalid timezone")
+			return
+		}
+		s.deps.Logger.Error("expense bounds", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load expense bounds")
+		return
+	}
+	writeBounds(w, minDate, maxDate, ok)
+}
+
 func (s *Server) invalidateExpenseCaches(r *http.Request) error {
 	if s.deps.Cache == nil {
 		return nil

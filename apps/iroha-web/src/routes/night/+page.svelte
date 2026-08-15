@@ -3,6 +3,7 @@
   import { page } from "$app/state";
   import { onMount } from "svelte";
   import {
+    getSleepBounds,
     listSleep,
     listSleepAggregates,
     type SleepAggregateBucket,
@@ -14,7 +15,7 @@
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDateOnly, formatDuration, formatMonth } from "$lib/format";
-  import { currentYear } from "@iroha/shared/month";
+  import { currentYear, yearOptionsInRange } from "@iroha/shared/month";
   import {
     currentCalendarScope,
     parseCalendarScope,
@@ -22,6 +23,7 @@
     scopeFromParts,
     serializeCalendarScope,
     writeCalendarScope,
+    type DateBounds,
   } from "@iroha/shared/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
@@ -60,6 +62,10 @@
   let lifetimeBucket = $state<SleepAggregateBucket | null>(null);
   let aggregatesLoading = $state(true);
   let aggregatesError = $state<string | null>(null);
+  // The real data range (fetched once, independent of the current
+  // selection) -- drives the picker option lists and arrow-key clamping.
+  // yearBuckets/monthBuckets above stay chart data; this is navigation only.
+  let bounds = $state<DateBounds>({});
   let selectedYear = $state(initialYear);
   let selectedMonth = $state(initialMonth);
   let selectedStage = $state("Core");
@@ -87,27 +93,27 @@
   );
   const monthlyBuckets = $derived(monthBuckets.slice().reverse());
   const yearlyBuckets = $derived(yearBuckets.slice().reverse());
-  const availableYears = $derived(
-    yearBuckets.map((bucket) => bucket.period.slice(0, 4)).reverse(),
-  );
-  const availableMonths = $derived(
-    monthBuckets
-      .filter(
-        (bucket) =>
-          selectedYear === "" || bucket.period.slice(0, 4) === selectedYear,
-      )
-      .map((bucket) => bucket.period.slice(0, 7))
-      .reverse(),
-  );
-  const periodYears = $derived(
-    availableYears.map((year) => ({ value: year, label: year })),
-  );
-  const periodMonths = $derived(
-    availableMonths.map((month) => ({
-      value: month,
-      label: formatPeriod(`${month}-01T00:00:00Z`, "month"),
-    })),
-  );
+  const periodYears = $derived(yearOptionsInRange(bounds));
+  // Full "YYYY-MM" period values (this page's own month convention), not
+  // month.ts's bare 1-12 -- built directly from bounds rather than reusing
+  // monthOptionsInRange, which returns the other convention.
+  const periodMonths = $derived.by(() => {
+    if (!selectedYear || !bounds.min || !bounds.max) return [];
+    const minYear = bounds.min.slice(0, 4);
+    const maxYear = bounds.max.slice(0, 4);
+    if (selectedYear < minYear || selectedYear > maxYear) return [];
+    const start = selectedYear === minYear ? Number(bounds.min.slice(5, 7)) : 1;
+    const end = selectedYear === maxYear ? Number(bounds.max.slice(5, 7)) : 12;
+    const options: { value: string; label: string }[] = [];
+    for (let month = start; month <= end; month++) {
+      const period = `${selectedYear}-${String(month).padStart(2, "0")}`;
+      options.push({
+        value: period,
+        label: formatPeriod(`${period}-01T00:00:00Z`, "month"),
+      });
+    }
+    return options;
+  });
   const visibleYears = $derived(
     selectedYear === ""
       ? yearlyBuckets
@@ -314,23 +320,25 @@
     aggregatesLoading = true;
     aggregatesError = null;
     try {
-      const [years, months, lifetime] = await Promise.all([
+      const [years, months, lifetime, nextBounds] = await Promise.all([
         listSleepAggregates("year"),
         listSleepAggregates("month"),
         listSleepAggregates("lifetime"),
+        getSleepBounds().catch(() => ({}) as DateBounds),
       ]);
       yearBuckets = years.buckets;
       monthBuckets = months.buckets;
       lifetimeBucket = lifetime.buckets[0] ?? null;
-      const validYears = new Set(
-        yearBuckets.map((bucket) => bucket.period.slice(0, 4)),
-      );
-      const validMonths = new Set(
-        monthBuckets.map((bucket) => bucket.period.slice(0, 7)),
-      );
+      bounds = nextBounds;
+      const validYears = new Set(yearOptionsInRange(bounds));
       if (selectedMonth) selectedYear = selectedMonth.slice(0, 4);
       if (selectedYear && !validYears.has(selectedYear)) selectedYear = "";
-      if (selectedMonth && !validMonths.has(selectedMonth)) selectedMonth = "";
+      if (
+        selectedMonth &&
+        !periodMonths.some((option) => option.value === selectedMonth)
+      ) {
+        selectedMonth = "";
+      }
       syncPeriodUrl();
     } catch (value) {
       aggregatesError = errorMessage(value);
@@ -387,6 +395,7 @@
               months={periodMonths}
               year={selectedYear}
               month={selectedMonth}
+              {bounds}
               monthDisabled={!selectedYear}
               surface="inline"
               onYear={changeYear}
@@ -439,6 +448,7 @@
           months={periodMonths}
           year={selectedYear}
           month={selectedMonth}
+          {bounds}
           monthDisabled={!selectedYear}
           surface="inline"
           onYear={changeYear}

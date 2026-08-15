@@ -408,6 +408,41 @@ func (s *Service) Overview(timezone string, recentLimit int) (Overview, error) {
 	}, nil
 }
 
+// Bounds returns the earliest and latest calendar dates with a real
+// activity record, in the requested timezone. maxDate is capped at now so a
+// bad-import row with a future timestamp can never widen the navigable
+// range; the past is never capped. ok is false when no activities exist.
+func (s *Service) Bounds(now time.Time, timezone string) (minDate, maxDate string, ok bool, err error) {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return "", "", false, fmt.Errorf("load timezone: %w", err)
+	}
+	zone := location.String()
+	var row struct {
+		Min *string
+		Max *string
+	}
+	if err := s.db.Model(&models.Activity{}).
+		Select("to_char(min(started_at) AT TIME ZONE ?, 'YYYY-MM-DD') as min, to_char(max(started_at) AT TIME ZONE ?, 'YYYY-MM-DD') as max", zone, zone).
+		Scan(&row).Error; err != nil {
+		return "", "", false, fmt.Errorf("activity bounds: %w", err)
+	}
+	if row.Min == nil || row.Max == nil {
+		return "", "", false, nil
+	}
+	nowDate := now.In(location).Format("2006-01-02")
+	maxDate = *row.Max
+	if maxDate > nowDate {
+		maxDate = nowDate
+	}
+	if *row.Min > maxDate {
+		// Every real row is dated after now (test fixtures or bad imports) --
+		// there is no usable historical range yet.
+		return "", "", false, nil
+	}
+	return *row.Min, maxDate, true, nil
+}
+
 // PeriodFilters defines an activity report window. From is inclusive and To
 // is exclusive. Callers provide calendar boundaries in Timezone; converting
 // them to UTC before querying keeps membership stable across database session

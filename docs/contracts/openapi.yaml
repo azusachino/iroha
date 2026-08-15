@@ -328,6 +328,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ActivitySummary"
+  /api/v1/activities/bounds:
+    get:
+      tags: [activities]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Earliest and latest calendar date with a real activity record, capped at today.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DateBounds"
   /api/v1/activities/routes:
     get:
       tags: [activities]
@@ -464,6 +476,18 @@ paths:
                 $ref: "#/components/schemas/SleepAggregateResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/sleep/bounds:
+    get:
+      tags: [sleep]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Earliest and latest wake date with a real sleep session, capped at today.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DateBounds"
   /api/v1/sleep/{sleepId}:
     get:
       tags: [sleep]
@@ -531,6 +555,18 @@ paths:
               schema:
                 type: array
                 items: { type: string, format: date }
+  /api/v1/daily/bounds:
+    get:
+      tags: [daily]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Earliest and latest calendar date represented by any domain, capped at today.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DateBounds"
   /api/v1/daily/aggregates:
     get:
       tags: [daily]
@@ -657,6 +693,18 @@ paths:
           $ref: "#/components/responses/Conflict"
         "410":
           $ref: "#/components/responses/Gone"
+  /api/v1/expenses/bounds:
+    get:
+      tags: [expenses]
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Earliest and latest occurred-on date among active expenses, capped at today.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DateBounds"
   /api/v1/expenses/{expenseId}:
     get:
       tags: [expenses]
@@ -2225,6 +2273,13 @@ components:
         main_sleep_count: { type: integer }
         average_asleep_s: { type: number }
         average_efficiency: { type: number }
+    DateBounds:
+      type: object
+      description: The earliest and latest calendar date with a real record. Both fields are omitted when the domain has no data yet.
+      required: []
+      properties:
+        min: { type: string, format: date }
+        max: { type: string, format: date }
     SleepAggregateBucket:
       type: object
       required:

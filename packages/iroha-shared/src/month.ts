@@ -1,4 +1,5 @@
 import { todayInTimezone } from "./date";
+import type { DateBounds } from "./scope";
 
 export function currentMonth(date = new Date(), timezone?: string): string {
   return todayInTimezone(date, timezone).slice(0, 7);
@@ -15,6 +16,37 @@ export const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
     timeZone: "UTC",
   }),
 }));
+
+// Years with a real record, newest first. Empty when the domain has no
+// data yet -- callers should fall back to lifetime-only in that case.
+export function yearOptionsInRange(bounds: DateBounds): string[] {
+  if (!bounds.min || !bounds.max) return [];
+  const minYear = Number(bounds.min.slice(0, 4));
+  const maxYear = Number(bounds.max.slice(0, 4));
+  return Array.from({ length: Math.max(0, maxYear - minYear + 1) }, (_, index) =>
+    String(maxYear - index),
+  );
+}
+
+// Months within the domain's real range for the given year -- the full
+// twelve for a year strictly inside the range, clipped to the actual
+// min/max month at the boundary years. Empty when the year itself is
+// outside the range (including when the domain has no data yet).
+export function monthOptionsInRange(
+  year: string,
+  bounds: DateBounds,
+): typeof MONTH_OPTIONS {
+  if (!bounds.min || !bounds.max) return [];
+  const minYear = bounds.min.slice(0, 4);
+  const maxYear = bounds.max.slice(0, 4);
+  if (year < minYear || year > maxYear) return [];
+  const start = year === minYear ? Number(bounds.min.slice(5, 7)) : 1;
+  const end = year === maxYear ? Number(bounds.max.slice(5, 7)) : 12;
+  return MONTH_OPTIONS.filter((option) => {
+    const month = Number(option.value);
+    return month >= start && month <= end;
+  });
+}
 
 export function yearOptions(
   firstYear = 2015,

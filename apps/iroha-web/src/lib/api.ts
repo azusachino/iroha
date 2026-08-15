@@ -1,4 +1,5 @@
 import { API_BASE, IROHA_TIMEZONE } from "./config";
+import type { DateBounds } from "@iroha/shared/scope";
 import type {
   Activity,
   ActivityOverview,
@@ -529,6 +530,17 @@ export function getExpense(
   );
 }
 
+export function getExpenseBounds(
+  fetchFn: typeof fetch = fetch,
+): Promise<DateBounds> {
+  const query = new URLSearchParams();
+  setTimezone(query);
+  return getJSON<DateBounds>(
+    `/api/v1/expenses/bounds?${query.toString()}`,
+    fetchFn,
+  );
+}
+
 export function createExpense(
   input: CreateExpenseInput,
   fetchFn: typeof fetch = fetch,
@@ -806,6 +818,17 @@ export function getSleepOverview(
   return getJSON<SleepOverview>(`/api/v1/sleep/overview${suffix}`, fetchFn);
 }
 
+export function getSleepBounds(
+  fetchFn: typeof fetch = fetch,
+): Promise<DateBounds> {
+  const query = new URLSearchParams();
+  setTimezone(query);
+  return getJSON<DateBounds>(
+    `/api/v1/sleep/bounds?${query.toString()}`,
+    fetchFn,
+  );
+}
+
 export function listDaily(
   params: ListDailyParams = {},
   fetchFn: typeof fetch = fetch,
@@ -830,6 +853,17 @@ export function getDailyDates(
   setTimezone(query);
   return getJSON<DailyDates>(
     `/api/v1/daily/dates?${query.toString()}`,
+    fetchFn,
+  );
+}
+
+export function getDailyBounds(
+  fetchFn: typeof fetch = fetch,
+): Promise<DateBounds> {
+  const query = new URLSearchParams();
+  setTimezone(query);
+  return getJSON<DateBounds>(
+    `/api/v1/daily/bounds?${query.toString()}`,
     fetchFn,
   );
 }
@@ -930,6 +964,17 @@ export function getActivitySummary(
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<ActivitySummary>(
     `/api/v1/activities/summary${suffix}`,
+    fetchFn,
+  );
+}
+
+export function getActivityBounds(
+  fetchFn: typeof fetch = fetch,
+): Promise<DateBounds> {
+  const query = new URLSearchParams();
+  setTimezone(query);
+  return getJSON<DateBounds>(
+    `/api/v1/activities/bounds?${query.toString()}`,
     fetchFn,
   );
 }

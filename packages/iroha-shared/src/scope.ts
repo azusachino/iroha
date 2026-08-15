@@ -19,6 +19,14 @@ export interface ScopeQueryOptions {
   allowDay?: boolean;
 }
 
+// The earliest and latest calendar date with a real record for one domain,
+// as returned by that domain's /bounds endpoint. Both are canonical
+// YYYY-MM-DD strings; either may be absent when the domain has no data yet.
+export interface DateBounds {
+  min?: string;
+  max?: string;
+}
+
 const YEAR_PATTERN = /^(\d{4})$/;
 const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
 const DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -208,11 +216,21 @@ export function isFutureScope(
         (value.month === today.month && value.day > today.day)));
 }
 
+// truncateToScopeKind reduces a canonical YYYY-MM-DD bound to the same
+// granularity as the scope being clamped, so a year scope compares against
+// a bound's year, a month scope against its year-month, and so on.
+function truncateToScopeKind(date: string, kind: CalendarScopeKind): string {
+  if (kind === "year") return date.slice(0, 4);
+  if (kind === "month") return date.slice(0, 7);
+  return date.slice(0, 10);
+}
+
 export function shiftCalendarScope(
   scope: CalendarScope,
   delta: number,
   now = new Date(),
   timezone = DEFAULT_TIMEZONE,
+  bounds?: DateBounds,
 ): CalendarScope {
   if (scope.kind === "lifetime") return scope;
   let value: Date;
@@ -243,9 +261,21 @@ export function shiftCalendarScope(
       day: value.getUTCDate(),
     };
   }
-  return isFutureScope(next, now, timezone)
+  const clamped = isFutureScope(next, now, timezone)
     ? currentCalendarScope(scope.kind, now, timezone)
     : next;
+  if (!bounds) return clamped;
+
+  const candidate = serializeCalendarScope(clamped) as string;
+  if (bounds.max) {
+    const max = truncateToScopeKind(bounds.max, clamped.kind);
+    if (candidate > max) return parseCalendarScope(max) ?? clamped;
+  }
+  if (bounds.min) {
+    const min = truncateToScopeKind(bounds.min, clamped.kind);
+    if (candidate < min) return parseCalendarScope(min) ?? clamped;
+  }
+  return clamped;
 }
 
 function formatDate(value: Date): string {
