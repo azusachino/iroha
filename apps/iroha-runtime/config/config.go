@@ -8,13 +8,14 @@ import (
 )
 
 const (
-	EnvAniListUsername  = "IROHA_ANILIST_USERNAME"
-	EnvAniListToken     = "IROHA_ANILIST_TOKEN"
-	EnvBangumiUsername  = "IROHA_BANGUMI_USERNAME"
-	EnvBangumiToken     = "IROHA_BANGUMI_TOKEN"
-	EnvBangumiBridge    = "IROHA_BANGUMI_BRIDGE_PATH"
-	EnvMALAniListBridge = "IROHA_MAL_ANILIST_BRIDGE_PATH"
-	EnvTimezone         = "IROHA_TIMEZONE"
+	EnvAniListUsername             = "IROHA_ANILIST_USERNAME"
+	EnvAniListToken                = "IROHA_ANILIST_TOKEN"
+	EnvAniListActivityLookbackDays = "IROHA_ANILIST_ACTIVITY_LOOKBACK_DAYS"
+	EnvBangumiUsername             = "IROHA_BANGUMI_USERNAME"
+	EnvBangumiToken                = "IROHA_BANGUMI_TOKEN"
+	EnvBangumiBridge               = "IROHA_BANGUMI_BRIDGE_PATH"
+	EnvMALAniListBridge            = "IROHA_MAL_ANILIST_BRIDGE_PATH"
+	EnvTimezone                    = "IROHA_TIMEZONE"
 )
 
 // defaultAllowedOrigins lets the local web dev server reach the private API.

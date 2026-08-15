@@ -73,13 +73,14 @@ const (
 	KindGPX               = coreimports.KindGPX
 	KindAppleHealthExport = coreimports.KindAppleHealthExport
 	KindAniList           = coreimports.KindAniList
+	KindAniListActivity   = coreimports.KindAniListActivity
 	KindBangumi           = coreimports.KindBangumi
 )
 
 // IsImplemented reports whether Parse has a working parser for kind.
 func IsImplemented(kind string) bool {
 	switch kind {
-	case KindGPX, KindAppleHealthExport, KindAniList, KindBangumi:
+	case KindGPX, KindAppleHealthExport, KindAniList, KindAniListActivity, KindBangumi:
 		return true
 	default:
 		return false

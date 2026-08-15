@@ -1,7 +1,10 @@
 package anilist
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -65,6 +68,46 @@ func TestConnectorMapsRateLimit(t *testing.T) {
 	}
 }
 
+func TestActivityConnectorFetchesBoundedListActivity(t *testing.T) {
+	var request struct {
+		Query     string         `json:"query"`
+		Variables map[string]any `json:"variables"`
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(request.Query, "User(name:") {
+			_, _ = w.Write([]byte(`{"data":{"User":{"id":42}}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"Page":{"pageInfo":{"hasNextPage":false},"activities":[{"id":9,"status":"read","progress":"chapter 2","createdAt":1786752000,"media":{"id":321,"type":"MANGA","format":"MANGA","title":{"native":"例示漫画"}}}]}}}`))
+	}))
+	defer server.Close()
+
+	client := NewActivityConnector("azusachino", "secret")
+	client.Endpoint = server.URL
+	client.PerPage = 10
+	client.Lookback = 24 * time.Hour
+	snapshot, next, err := client.Fetch(context.Background(), connector.Credentials{}, nil)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+	if snapshot.SourceKind != ActivitySourceKind || next != nil {
+		t.Fatalf("snapshot/next = %#v/%#v", snapshot, next)
+	}
+	if got := request.Variables["userID"]; got != float64(42) {
+		t.Fatalf("userID variable = %#v", got)
+	}
+	if got := request.Variables["perPage"]; got != float64(10) {
+		t.Fatalf("perPage variable = %#v", got)
+	}
+	if !strings.Contains(request.Query, "ListActivity") || !strings.Contains(request.Query, "createdAt_greater") {
+		t.Fatalf("activity query = %q", request.Query)
+	}
+}
+
 func TestLivePublicUsername(t *testing.T) {
 	if os.Getenv("IROHA_ANILIST_LIVE") != "1" {
 		t.Skip("set IROHA_ANILIST_LIVE=1 to run the public AniList smoke")
@@ -83,5 +126,33 @@ func TestLivePublicUsername(t *testing.T) {
 	}
 	if len(entries) == 0 {
 		t.Fatal("live AniList snapshot returned no entries")
+	}
+}
+
+func TestLiveActivityPublicUsername(t *testing.T) {
+	if os.Getenv("IROHA_ANILIST_ACTIVITY_LIVE") != "1" {
+		t.Skip("set IROHA_ANILIST_ACTIVITY_LIVE=1 to run the public AniList activity smoke")
+	}
+	username := os.Getenv("IROHA_ANILIST_USERNAME")
+	if username == "" {
+		t.Fatal("IROHA_ANILIST_USERNAME is required for the live smoke")
+	}
+	client := NewActivityConnector(username, "")
+	client.Lookback = 30 * 24 * time.Hour
+	snapshot, _, err := client.Fetch(context.Background(), connector.Credentials{}, nil)
+	if err != nil {
+		t.Fatalf("live AniList activity fetch: %v", err)
+	}
+	entries, err := NewAdapter().ImportMediaHistory(context.Background(), provider.Source{
+		Kind: ActivitySourceKind,
+		Open: func(context.Context) (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(snapshot.Body)), nil
+		},
+	}, provider.ImportOptions{})
+	if err != nil {
+		t.Fatalf("decode live AniList activity snapshot: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("live AniList activity snapshot returned no list activity")
 	}
 }

@@ -84,7 +84,10 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 			return err
 		}
 		if nextCursor == nil {
-			return s.updateSyncState(state, mediaSyncStatusCompleted, nil, nil, true)
+			if resumable, ok := item.(connector.ResumeCursorProvider); ok {
+				nextCursor = resumable.ResumeCursor()
+			}
+			return s.updateSyncState(state, mediaSyncStatusCompleted, nil, nextCursor, true)
 		}
 		cursor = nextCursor
 	}

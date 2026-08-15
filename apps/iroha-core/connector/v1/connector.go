@@ -16,6 +16,8 @@ type Cursor struct {
 	Token        string `json:"token,omitempty"`
 	Page         int    `json:"page,omitempty"`
 	UpdatedAfter string `json:"updated_after,omitempty"`
+	CreatedAfter int64  `json:"created_after,omitempty"`
+	UserID       int    `json:"user_id,omitempty"`
 }
 
 type Snapshot struct {
@@ -38,4 +40,11 @@ type Descriptor struct {
 type Connector interface {
 	Descriptor() Descriptor
 	Fetch(context.Context, Credentials, *Cursor) (Snapshot, *Cursor, error)
+}
+
+// ResumeCursorProvider lets a bounded connector retain a small watermark after
+// a successful run. The sync runner stores this cursor without fetching it in
+// the same run; the next run starts from the connector's overlap window.
+type ResumeCursorProvider interface {
+	ResumeCursor() *Cursor
 }

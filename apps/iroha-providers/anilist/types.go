@@ -16,6 +16,30 @@ type graphQLResponse struct {
 	} `json:"errors"`
 }
 
+type activityGraphQLResponse struct {
+	Data struct {
+		Page activityPage `json:"Page"`
+	} `json:"data"`
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
+type activityPage struct {
+	PageInfo struct {
+		HasNextPage bool `json:"hasNextPage"`
+	} `json:"pageInfo"`
+	Activities []listActivity `json:"activities"`
+}
+
+type listActivity struct {
+	ID        int       `json:"id"`
+	Status    string    `json:"status"`
+	Progress  string    `json:"progress"`
+	CreatedAt int64     `json:"createdAt"`
+	Media     mediaNode `json:"media"`
+}
+
 type anilistUser struct {
 	MediaListOptions struct {
 		ScoreFormat string `json:"scoreFormat"`

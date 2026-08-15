@@ -199,6 +199,29 @@ type Media struct {
 	ProgressState    *MediaProgress
 }
 
+// MediaHistory is a provider's dated state-update evidence. It identifies the
+// canonical media item and carries one or more provider activity records. The
+// records are deliberately not MediaEvent values: a list update is not proof
+// of a playback or reading session.
+type MediaHistory struct {
+	Media   Media
+	Updates []MediaStateUpdate
+}
+
+type MediaStateUpdate struct {
+	SourceEventID   string
+	EffectiveAt     time.Time
+	Status          string
+	Unit            string
+	Position        *float64
+	Total           *float64
+	ProgressPercent *float64
+	Rating          *float64
+	RatingScale     *float64
+	Note            string
+	RepeatCount     int
+}
+
 type MediaTitle struct {
 	Title      string
 	Language   string

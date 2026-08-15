@@ -197,8 +197,10 @@ Keep the current `MediaListCollection` connector for the library projection. Cha
 
 ### AniList activity connector
 
-Add a separate optional connector/source kind for `Page.activities` filtered to the user's `ListActivity` records. Resolve the user ID once, fetch by a bounded created-at window with an overlap on
-incremental runs, and deduplicate by AniList activity ID. Preserve each raw GraphQL response.
+Implementation status (2026-08-15): enabled in the AniList sync path. The worker resolves the configured username to an AniList user ID, fetches a bounded 365-day `ListActivity` window, preserves each response as raw evidence, and writes dated `provider_activity` history rows. The current-list sync remains independent and still supplies the library projection.
+
+The separate connector/source kind for `Page.activities` is filtered to the user's `ListActivity` records. It resolves the user ID once, fetches by a bounded created-at window, and retains a
+24-hour overlap cursor for incremental runs. It deduplicates by AniList activity ID and preserves each raw GraphQL response.
 
 The adapter may map an activity's `status` and `progress` when the progress text is unambiguous. It must preserve the original progress string and refrain from inventing a numeric position for formats
 it cannot parse. These rows are `provider_activity` dated list updates, not watched/read sessions. If the activity feed is unavailable, private, disabled, merged, or incomplete, the current-list

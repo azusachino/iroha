@@ -72,30 +72,30 @@ type Connector interface {
 type Snapshot struct {
     ContentType string // application/json
     Body        []byte // the raw provider response, stored verbatim as evidence
-    SourceKind  string // "anilist" | "bangumi" — routes to the media adapter
+    SourceKind  string // "anilist" | "anilist_activity" | "bangumi" — routes to the media adapter
 }
 ```
 
 Ownership:
 
-- **iroha-server** exposes `POST /api/v1/media/sync/{connectorId}` for configured `anilist` and `bangumi` connectors. It queues work and returns a typed job ID; it does not accept credentials in the
+- **iroha-server** exposes `POST /api/v1/media/sync/{connectorId}` for configured `anilist` and `bangumi` connectors. An AniList run executes the current-list connector and then the bounded activity connector. It queues work and returns a typed job ID; it does not accept credentials in the
   request body.
 - **iroha-job** runs the fetch loop. Credentials are resolved from worker environment variables, keeping secrets out of `tb_jobs` and browser traffic.
 - **Scheduling** reuses the existing durable `tb_jobs` + `EnqueueDueSchedules` interval mechanism (jobs.Service already supports interval schedules with `ClaimNext` + `FOR UPDATE SKIP LOCKED`). A
   media sync is a scheduled job kind (`media_sync_anilist`, `media_sync_bangumi`) that runs `Fetch` in a loop until the cursor is exhausted, creating one import job per snapshot page.
 - **Cursor durability**: store per-connector sync cursor (page number / `updatedAfter` watermark) in a small `tb_media_sync_state` row so incremental syncs resume and only pull changed entries.
+- **AniList activity window**: the first run defaults to 365 days; set `IROHA_ANILIST_ACTIVITY_LOOKBACK_DAYS` on the worker to choose another bounded backfill window. Successful runs retain a 24-hour overlap cursor and deduplicate by activity ID.
 
-Connectors are registered in a connector registry sibling to the provider registry (`iroha-providers/registry`), and their snapshots' `SourceKind` must match a registered `MediaImporter` adapter's
-declared source kind.
+Connectors are registered in a connector registry sibling to the provider registry (`iroha-providers/registry`), and their snapshots' `SourceKind` must match a registered media importer or media-history importer adapter's declared source kind.
 
 ## 3. Media dispatch (shipped)
 
 The formerly planned dispatch and persistence changes are complete:
 
-1. **Dispatch** — `imports.Process` type-asserts `provider.MediaImporter` and calls `ImportMedia(ctx, source, options)`; media is not carried by `ImportBatch`.
+1. **Dispatch** — `imports.Process` type-asserts `provider.MediaImporter` for current-list snapshots and `provider.MediaHistoryImporter` for dated provider activity; media is not carried by `ImportBatch`.
 2. **Persistence** — `persistMedia(...)` writes canonical media rows under the same snapshot dedupe and parser-version reprocess discipline used by health imports.
 
-The `anilist` and `bangumi` source kinds are registered in the parser/provider registries and accepted by `imports.Create`.
+The `anilist`, `anilist_activity`, and `bangumi` source kinds are registered in the parser/provider registries and accepted by `imports.Create`.
 
 ## 4. Full-schema adoption
 
@@ -119,7 +119,7 @@ works/items/titles/ external_refs/events/progress, the media observation the ada
 - **external_refs[]**: `{provider, external_id, external_url, matched_by, confidence}` — AniList media carries `idMal`; Bangumi subjects can be cross-linked. This is the dedupe backbone.
 - **work linkage**: enough to create/attach a `tb_media_works` row (series-level identity) above the item.
   - **state + progress**: list status → progress projection/state observation; score/notes/dates/repeat-count remain sourced current state. They do not become consumption events without an exact event
-    time. AniList `ListActivity` is a separate optional dated provider-update source.
+    time. AniList `ListActivity` is a dated provider-update source with the provider's exact `createdAt`, never a consumption session.
 
 Keep the emitted observation provider-neutral: both connectors map their native shape into the same `observations.Media` graph, and persistence is identical downstream.
 

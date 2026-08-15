@@ -1,6 +1,14 @@
 package anilist
 
-import "testing"
+import (
+	"context"
+	"io"
+	"strings"
+	"testing"
+	"time"
+
+	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
+)
 
 func TestParseSnapshotMapsAnimeEntryToMediaGraph(t *testing.T) {
 	entries, err := ParseSnapshot([]byte(`{
@@ -83,5 +91,33 @@ func TestFuzzyDateDoesNotBecomeAnInstant(t *testing.T) {
 	invalid := anilistDate{Year: 2024, Day: 31}
 	if invalid.Partial() != nil || invalid.Time() != nil {
 		t.Fatal("provider day without a month was accepted")
+	}
+}
+
+func TestImportMediaHistoryMapsDatedMangaProgress(t *testing.T) {
+	entries, err := NewAdapter().ImportMediaHistory(context.Background(), provider.Source{
+		Kind: ActivitySourceKind,
+		Open: func(context.Context) (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader(`{
+  "data": {"Page": {"activities": [{
+    "id": 9, "status": "read", "progress": "chapter 2", "createdAt": 1786752000,
+    "media": {"id": 321, "type": "MANGA", "format": "MANGA", "chapters": 42,
+      "title": {"native": "例示漫画"}}
+  }]}}
+}`)), nil
+		},
+	}, provider.ImportOptions{})
+	if err != nil {
+		t.Fatalf("ImportMediaHistory() error = %v", err)
+	}
+	if len(entries) != 1 || len(entries[0].Updates) != 1 {
+		t.Fatalf("history = %#v", entries)
+	}
+	update := entries[0].Updates[0]
+	if update.SourceEventID != "activity:9" || update.Status != "in_progress" || update.Unit != "chapters" || update.Position == nil || *update.Position != 2 {
+		t.Fatalf("update = %#v", update)
+	}
+	if update.EffectiveAt != time.Unix(1786752000, 0).UTC() || update.Note != "read chapter 2" {
+		t.Fatalf("timing/note = %v/%q", update.EffectiveAt, update.Note)
 	}
 }

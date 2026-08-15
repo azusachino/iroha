@@ -106,7 +106,7 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 		jobKind = jobs.KindAppleImportParse
 	case coreimports.KindGPX:
 		jobKind = jobs.KindGPXImportParse
-	case coreimports.KindAniList, coreimports.KindBangumi:
+	case coreimports.KindAniList, coreimports.KindAniListActivity, coreimports.KindBangumi:
 		jobKind = jobs.KindMediaIntakeParse
 	default:
 		return models.ImportJob{}, fmt.Errorf("unsupported parser kind: %s", input.ParserKind)
@@ -240,12 +240,22 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 	}
 	options := provider.ImportOptions{}
 	var parsedMedia []observations.Media
+	var parsedMediaHistory []observations.MediaHistory
 	var parsed []observations.Activity
 	var parsedSleep []observations.Sleep
 	var parsedDailySummaries []observations.DailySummary
 	var parsedDailyMetrics []observations.DailyMetric
 	mediaImporter, mediaOK := adapter.(provider.MediaImporter)
-	if mediaOK {
+	mediaHistoryImporter, mediaHistoryOK := adapter.(provider.MediaHistoryImporter)
+	if job.ParserKind == coreimports.KindAniListActivity {
+		if !mediaHistoryOK {
+			return s.fail(jobID, fmt.Sprintf("provider %q does not implement media history import", adapter.Descriptor().ID))
+		}
+		parsedMediaHistory, err = mediaHistoryImporter.ImportMediaHistory(ctx, source, options)
+		if err != nil {
+			return s.fail(jobID, err.Error())
+		}
+	} else if mediaOK {
 		parsedMedia, err = mediaImporter.ImportMedia(ctx, source, options)
 		if err != nil {
 			return s.fail(jobID, err.Error())
@@ -304,7 +314,9 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		snapshot.TakenAt = &rawFile.CreatedAt
 	}
 
-	if mediaOK {
+	if job.ParserKind == coreimports.KindAniListActivity {
+		err = s.persistMediaHistory(rawFile, parsedMediaHistory, snapshot, reprocess)
+	} else if mediaOK {
 		err = s.persistMedia(rawFile, parsedMedia, snapshot, reprocess)
 	} else {
 		err = s.persistActivities(rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess)
@@ -525,141 +537,105 @@ func (s *Service) persistMedia(rawFile models.RawFile, parsed []observations.Med
 	})
 }
 
-func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, snapshot models.ImportSnapshot, media observations.Media, bridge MediaRefBridge) error {
-	if media.Provider == "" {
-		return errors.New("parsed media missing provider")
-	}
-	if media.ExternalID == "" {
-		return errors.New("parsed media missing external id")
-	}
-	if media.Title == "" {
-		return errors.New("parsed media missing title")
-	}
+func (s *Service) persistMediaHistory(rawFile models.RawFile, parsed []observations.MediaHistory, snapshot models.ImportSnapshot, reprocess bool) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if reprocess {
+			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
+				return err
+			}
+		}
+		if err := tx.Create(&snapshot).Error; err != nil {
+			return err
+		}
+		for _, history := range parsed {
+			itemID, err := ensureMediaItem(tx, history.Media, s.mediaBridge)
+			if err != nil {
+				return err
+			}
+			if err := persistMediaMetadata(tx, itemID, history.Media); err != nil {
+				return err
+			}
+			if err := persistMediaRelations(tx, itemID, history.Media); err != nil {
+				return err
+			}
+			for _, update := range history.Updates {
+				if err := persistMediaStateUpdate(tx, rawFile, snapshot, itemID, update); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
 
-	resolution, err := resolveMediaItem(tx, media, bridge)
+func persistMediaStateUpdate(tx *gorm.DB, rawFile models.RawFile, snapshot models.ImportSnapshot, itemID uuid.UUID, update observations.MediaStateUpdate) error {
+	if update.SourceEventID == "" {
+		return errors.New("media provider activity missing source event id")
+	}
+	if update.EffectiveAt.IsZero() {
+		return fmt.Errorf("media provider activity %q is missing effective_at", update.SourceEventID)
+	}
+	update.EffectiveAt = update.EffectiveAt.UTC()
+	fingerprintBytes, err := json.Marshal(update)
 	if err != nil {
 		return err
 	}
-	var externalRef models.MediaExternalRef
-	if resolution.ItemID == uuid.Nil {
-		workID, err := ids.New()
-		if err != nil {
-			return err
-		}
-		itemID, err := ids.New()
-		if err != nil {
-			return err
-		}
-		now := time.Now().UTC()
-		work := models.MediaWork{
-			ID:            workID,
-			WorkKind:      mediaWorkKind,
-			PrimaryTitle:  media.Title,
-			OriginalTitle: media.Title,
-			Description:   media.Description,
-			CreatedAt:     now,
-			UpdatedAt:     now,
-		}
-		if err := tx.Create(&work).Error; err != nil {
-			return err
-		}
-		releaseDate, releasePrecision := canonicalReleaseDate(media)
-		item := models.MediaItem{
-			ID:                   itemID,
-			WorkID:               &workID,
-			MediaType:            media.MediaType,
-			ItemRole:             itemRoleOrDefault(media.ItemRole),
-			Title:                media.Title,
-			OriginalTitle:        media.Title,
-			ReleaseDate:          releaseDate,
-			ReleaseDatePrecision: releasePrecision,
-			SeasonNumber:         media.SeasonNumber,
-			EpisodeNumber:        media.EpisodeNumber,
-			ChapterNumber:        media.ChapterNumber,
-			VolumeNumber:         media.VolumeNumber,
-			DurationSeconds:      media.DurationSeconds,
-			PageCount:            media.PageCount,
-			EpisodeCount:         media.EpisodeCount,
-			ChapterCount:         media.ChapterCount,
-			Language:             media.Language,
-			Country:              media.Country,
-			CoverImageURL:        media.CoverImageURL,
-			CreatedAt:            now,
-			UpdatedAt:            now,
-		}
-		if item.MediaType == "" {
-			item.MediaType = mediaUnknownValue
-		}
-		if err := tx.Create(&item).Error; err != nil {
-			return err
-		}
-		externalRefID, err := ids.New()
-		if err != nil {
-			return err
-		}
-		externalRef = models.MediaExternalRef{
-			ID:         externalRefID,
-			ScopeType:  mediaScopeType,
-			ScopeID:    itemID,
-			Provider:   media.Provider,
-			ExternalID: media.ExternalID,
-			MatchedBy:  "provider_id",
-			CreatedAt:  now,
-		}
-		if err := tx.Create(&externalRef).Error; err != nil {
-			return err
-		}
-		resolution.ItemID = itemID
-	} else {
-		if err := requireMediaResolution(resolution); err != nil {
-			return err
-		}
-		itemID := resolution.ItemID
-		// The item is "owned" by this provider when its own primary ref already
-		// pointed here before this sync: then a fresh parse (e.g. a reprocess
-		// after a parser fix) may overwrite the item's core fields. If the item
-		// was reached via a bridge/title match from a different provider, only
-		// fill empty fields so we don't clobber the owner's values each sync.
-		ownedItem := true
-		lookupErr := tx.Where("scope_type = ? and scope_id = ? and provider = ? and external_id = ?", mediaScopeType, itemID, media.Provider, media.ExternalID).First(&externalRef).Error
-		if errors.Is(lookupErr, gorm.ErrRecordNotFound) {
-			ownedItem = false
-			refID, idErr := ids.New()
-			if idErr != nil {
-				return idErr
-			}
-			// INSERT ... ON CONFLICT DO NOTHING: (provider, external_id) is
-			// unique across all items, so a concurrent job may have already
-			// claimed this ref for a different item while we were resolving.
-			newRef := models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
-			result := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "provider"}, {Name: "external_id"}},
-				DoNothing: true,
-			}).Create(&newRef)
-			if result.Error != nil {
-				return result.Error
-			}
-			if result.RowsAffected == 0 {
-				var existing models.MediaExternalRef
-				if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&existing).Error; err != nil {
-					return err
-				}
-				if existing.ScopeID != itemID {
-					return createExternalRefConflictTask(tx, itemID, observations.MediaExternalRef{Provider: media.Provider, ExternalID: media.ExternalID}, existing.ScopeID)
-				}
-				externalRef = existing
-			} else {
-				externalRef = newRef
-			}
-		} else if lookupErr != nil {
-			return lookupErr
-		}
-		if err := refreshMediaItemFields(tx, itemID, media, ownedItem); err != nil {
-			return err
-		}
+	digest := sha256.Sum256(fingerprintBytes)
+	fingerprint := hex.EncodeToString(digest[:])
+	const sourceKind = coreimports.KindAniList
+	var existing models.MediaStateHistory
+	result := tx.Where("media_item_id = ? and source_kind = ? and source_event_id = ?", itemID, sourceKind, update.SourceEventID).
+		Order("observed_at desc, created_at desc, id desc").First(&existing)
+	if result.Error == nil && existing.StateFingerprint == fingerprint {
+		return nil
+	}
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return result.Error
+	}
+	observedAt := rawFile.CreatedAt
+	if observedAt.IsZero() {
+		observedAt = time.Now().UTC()
+	}
+	if rawFile.ObservedAt != nil {
+		observedAt = *rawFile.ObservedAt
+	}
+	if snapshot.TakenAt != nil && !snapshot.TakenAt.IsZero() {
+		observedAt = *snapshot.TakenAt
+	}
+	id, err := ids.New()
+	if err != nil {
+		return err
+	}
+	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&models.MediaStateHistory{
+		ID:               id,
+		MediaItemID:      itemID,
+		SourceKind:       sourceKind,
+		SourceEventID:    update.SourceEventID,
+		ObservedAt:       observedAt.UTC(),
+		EffectiveAt:      &update.EffectiveAt,
+		TimeBasis:        "provider_activity",
+		ChangeKind:       "provider_activity",
+		StateFingerprint: fingerprint,
+		Status:           update.Status,
+		Unit:             update.Unit,
+		Position:         update.Position,
+		Total:            update.Total,
+		ProgressPercent:  update.ProgressPercent,
+		Rating:           update.Rating,
+		RatingScale:      update.RatingScale,
+		Note:             update.Note,
+		RepeatCount:      update.RepeatCount,
+		RawFileID:        &rawFile.ID,
+		CreatedAt:        time.Now().UTC(),
+	}).Error
+}
+
+func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, snapshot models.ImportSnapshot, media observations.Media, bridge MediaRefBridge) error {
+	itemID, err := ensureMediaItem(tx, media, bridge)
+	if err != nil {
+		return err
 	}
 
-	itemID := resolution.ItemID
 	if err := persistMediaMetadata(tx, itemID, media); err != nil {
 		return err
 	}
@@ -710,6 +686,161 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, snapshot model
 		return err
 	}
 	return upsertMediaProgress(tx, rawFile, itemID, media)
+}
+
+func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridge) (uuid.UUID, error) {
+	if media.Provider == "" {
+		return uuid.Nil, errors.New("parsed media missing provider")
+	}
+	if media.ExternalID == "" {
+		return uuid.Nil, errors.New("parsed media missing external id")
+	}
+	if media.Title == "" {
+		return uuid.Nil, errors.New("parsed media missing title")
+	}
+
+	resolution, err := resolveMediaItem(tx, media, bridge)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	var externalRef models.MediaExternalRef
+	if resolution.ItemID == uuid.Nil {
+		workID, err := ids.New()
+		if err != nil {
+			return uuid.Nil, err
+		}
+		itemID, err := ids.New()
+		if err != nil {
+			return uuid.Nil, err
+		}
+		now := time.Now().UTC()
+		work := models.MediaWork{
+			ID:            workID,
+			WorkKind:      mediaWorkKind,
+			PrimaryTitle:  media.Title,
+			OriginalTitle: media.Title,
+			Description:   media.Description,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		}
+		if err := tx.Create(&work).Error; err != nil {
+			return uuid.Nil, err
+		}
+		releaseDate, releasePrecision := canonicalReleaseDate(media)
+		item := models.MediaItem{
+			ID:                   itemID,
+			WorkID:               &workID,
+			MediaType:            media.MediaType,
+			ItemRole:             itemRoleOrDefault(media.ItemRole),
+			Title:                media.Title,
+			OriginalTitle:        media.Title,
+			ReleaseDate:          releaseDate,
+			ReleaseDatePrecision: releasePrecision,
+			SeasonNumber:         media.SeasonNumber,
+			EpisodeNumber:        media.EpisodeNumber,
+			ChapterNumber:        media.ChapterNumber,
+			VolumeNumber:         media.VolumeNumber,
+			DurationSeconds:      media.DurationSeconds,
+			PageCount:            media.PageCount,
+			EpisodeCount:         media.EpisodeCount,
+			ChapterCount:         media.ChapterCount,
+			Language:             media.Language,
+			Country:              media.Country,
+			CoverImageURL:        media.CoverImageURL,
+			CreatedAt:            now,
+			UpdatedAt:            now,
+		}
+		if item.MediaType == "" {
+			item.MediaType = mediaUnknownValue
+		}
+		if err := tx.Create(&item).Error; err != nil {
+			return uuid.Nil, err
+		}
+		externalRefID, err := ids.New()
+		if err != nil {
+			return uuid.Nil, err
+		}
+		externalRef = models.MediaExternalRef{
+			ID:         externalRefID,
+			ScopeType:  mediaScopeType,
+			ScopeID:    itemID,
+			Provider:   media.Provider,
+			ExternalID: media.ExternalID,
+			MatchedBy:  "provider_id",
+			CreatedAt:  now,
+		}
+		result := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "provider"}, {Name: "external_id"}},
+			DoNothing: true,
+		}).Create(&externalRef)
+		if result.Error != nil {
+			return uuid.Nil, result.Error
+		}
+		if result.RowsAffected == 0 {
+			var existing models.MediaExternalRef
+			if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&existing).Error; err != nil {
+				return uuid.Nil, err
+			}
+			if err := tx.Delete(&models.MediaItem{}, itemID).Error; err != nil {
+				return uuid.Nil, err
+			}
+			if err := tx.Delete(&models.MediaWork{}, workID).Error; err != nil {
+				return uuid.Nil, err
+			}
+			resolution.ItemID = existing.ScopeID
+		}
+		if resolution.ItemID == uuid.Nil {
+			resolution.ItemID = itemID
+		}
+	} else {
+		if err := requireMediaResolution(resolution); err != nil {
+			return uuid.Nil, err
+		}
+		itemID := resolution.ItemID
+		// The item is "owned" by this provider when its own primary ref already
+		// pointed here before this sync: then a fresh parse (e.g. a reprocess
+		// after a parser fix) may overwrite the item's core fields. If the item
+		// was reached via a bridge/title match from a different provider, only
+		// fill empty fields so we don't clobber the owner's values each sync.
+		ownedItem := true
+		lookupErr := tx.Where("scope_type = ? and scope_id = ? and provider = ? and external_id = ?", mediaScopeType, itemID, media.Provider, media.ExternalID).First(&externalRef).Error
+		if errors.Is(lookupErr, gorm.ErrRecordNotFound) {
+			ownedItem = false
+			refID, idErr := ids.New()
+			if idErr != nil {
+				return uuid.Nil, idErr
+			}
+			// INSERT ... ON CONFLICT DO NOTHING: (provider, external_id) is
+			// unique across all items, so a concurrent job may have already
+			// claimed this ref for a different item while we were resolving.
+			newRef := models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
+			result := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "provider"}, {Name: "external_id"}},
+				DoNothing: true,
+			}).Create(&newRef)
+			if result.Error != nil {
+				return uuid.Nil, result.Error
+			}
+			if result.RowsAffected == 0 {
+				var existing models.MediaExternalRef
+				if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&existing).Error; err != nil {
+					return uuid.Nil, err
+				}
+				if existing.ScopeID != itemID {
+					return uuid.Nil, createExternalRefConflictTask(tx, itemID, observations.MediaExternalRef{Provider: media.Provider, ExternalID: media.ExternalID}, existing.ScopeID)
+				}
+				externalRef = existing
+			} else {
+				externalRef = newRef
+			}
+		} else if lookupErr != nil {
+			return uuid.Nil, lookupErr
+		}
+		if err := refreshMediaItemFields(tx, itemID, media, ownedItem); err != nil {
+			return uuid.Nil, err
+		}
+	}
+	return resolution.ItemID, nil
 }
 
 // persistMediaRelations writes the provider relation graph (adaptation/sequel/
