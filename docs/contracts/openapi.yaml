@@ -2287,7 +2287,7 @@ components:
           { type: array, items: { $ref: "#/components/schemas/MediaChange" } }
     MediaDetail:
       type: object
-      required: [item, work, creators, relations, events]
+      required: [item, work, creators, relations, events, updates]
       properties:
         item: { $ref: "#/components/schemas/Media" }
         work: { $ref: "#/components/schemas/MediaWork" }
@@ -2298,6 +2298,8 @@ components:
           { type: array, items: { $ref: "#/components/schemas/MediaRelation" } }
         events:
           { type: array, items: { $ref: "#/components/schemas/MediaEvent" } }
+        updates:
+          { type: array, items: { $ref: "#/components/schemas/MediaChange" } }
     MediaWork:
       type: object
       required:

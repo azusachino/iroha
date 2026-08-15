@@ -256,6 +256,7 @@
             typeFamilies,
             completions,
             scores,
+            currentCompletedCount: aggregates.totals.current_completed_count,
             activeCount,
             onFamily: selectFamily,
             onStatus: selectStatus,
@@ -340,7 +341,7 @@
           />
           <StatTile
             label="Completed"
-            value={aggregates.totals.completed_count.toLocaleString()}
+            value={aggregates.totals.current_completed_count.toLocaleString()}
             sub={`${aggregates.totals.this_year_completed} this year`}
           />
           <StatTile
@@ -352,7 +353,7 @@
           />
           <StatTile
             label="In progress"
-            value={continueItems.length.toLocaleString()}
+            value={activeCount.toLocaleString()}
             sub="Watching or reading"
           />
         </div>

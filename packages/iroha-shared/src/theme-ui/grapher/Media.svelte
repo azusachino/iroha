@@ -13,6 +13,7 @@
     typeFamilies,
     completions,
     scores,
+    currentCompletedCount,
     activeCount,
     theme,
     onFamily,
@@ -124,7 +125,7 @@
 
   <div class="stats">
     <div>
-      <span>Completed</span><strong>{aggregates.totals.completed_count}</strong>
+      <span>Completed</span><strong>{currentCompletedCount}</strong>
     </div>
     <div>
       <span>This year</span><strong

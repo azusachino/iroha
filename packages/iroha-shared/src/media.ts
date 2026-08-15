@@ -67,6 +67,7 @@ export interface MediaAggregates {
   totals: {
     item_count: number;
     completed_count: number;
+    current_completed_count: number;
     this_year_completed: number;
     average_rating: number;
   };
@@ -116,6 +117,7 @@ export interface MediaDetail {
     cover_image_url?: string;
   }[];
   events: MediaEvent[];
+  updates: MediaChange[];
 }
 
 export interface MediaEventInput {
@@ -188,6 +190,7 @@ export interface MediaDaySection {
 export interface MediaDetailThemeProps {
   detail: MediaDetail;
   progress: number;
+  hasKnownTotal: boolean;
   theme: DesignLanguage;
 }
 
@@ -201,6 +204,7 @@ export interface MediaThemeProps {
   typeFamilies: { type: string; count: number }[];
   completions: MediaCompletionBucket[];
   scores: MediaScoreBucket[];
+  currentCompletedCount: number;
   activeCount: number;
   theme: DesignLanguage;
   onFamily: (value: string) => void;

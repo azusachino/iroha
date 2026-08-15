@@ -12,6 +12,7 @@
     typeFamilies,
     completions,
     scores,
+    currentCompletedCount,
     activeCount,
     theme,
     onFamily,
@@ -100,7 +101,7 @@
   <dl class="shelf-summary">
     <div>
       <dt>Completed</dt>
-      <dd>{aggregates.totals.completed_count}</dd>
+      <dd>{currentCompletedCount}</dd>
     </div>
     <div>
       <dt>This year</dt>

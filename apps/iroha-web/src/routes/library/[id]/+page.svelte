@@ -109,7 +109,11 @@
   {#if hasThemeRoute(theme.definition(), "media-detail") && !loading && !error && detail}
     <ThemeRouteRenderer
       route="media-detail"
-      props={{ detail, progress: progressValue() }}
+      props={{
+        detail,
+        progress: progressValue(),
+        hasKnownTotal: hasKnownTotal(),
+      }}
     />
   {:else if loading}
     <p class="muted">Loading item…</p>

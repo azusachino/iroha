@@ -49,6 +49,7 @@ type mediaDetailResponse struct {
 	Creators  []mediaCreatorResponse  `json:"creators"`
 	Relations []mediaRelationResponse `json:"relations"`
 	Events    []mediaEventResponse    `json:"events"`
+	Updates   []mediaChangeResponse   `json:"updates"`
 }
 
 type mediaWorkResponse struct {
@@ -291,7 +292,9 @@ func (s *Server) handleListMediaChanges(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	page, err := s.deps.MediaService.Changes(media.ChangeListFilters(filters))
+	page, err := s.deps.MediaService.Changes(media.ChangeListFilters{
+		From: filters.From, To: filters.To, Limit: filters.Limit, Cursor: filters.Cursor,
+	})
 	if err != nil {
 		s.deps.Logger.Error("list media changes", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to list media changes")
@@ -348,6 +351,10 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 			ID: ids.Encode(ids.MediaPrefix, creator.ID), Name: creator.Name, Role: creator.Role,
 		})
 	}
+	updates := make([]mediaChangeResponse, 0, len(detail.Updates))
+	for _, change := range detail.Updates {
+		updates = append(updates, toMediaChangeResponse(change))
+	}
 	var progress *mediaProgressResponse
 	if detail.Progress != nil {
 		progress = &mediaProgressResponse{
@@ -368,7 +375,7 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 			OriginalLanguage: detail.Work.OriginalLanguage, FirstReleaseDate: detail.Work.FirstReleaseDate,
 			Description: detail.Work.Description,
 		},
-		Progress: progress, Creators: creators, Relations: relations, Events: events,
+		Progress: progress, Creators: creators, Relations: relations, Events: events, Updates: updates,
 	})
 }
 

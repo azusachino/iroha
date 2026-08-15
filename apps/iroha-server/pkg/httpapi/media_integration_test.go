@@ -85,6 +85,9 @@ func TestMediaAggregatesIntegration(t *testing.T) {
 	if result.Totals.CompletedCount != 3 {
 		t.Fatalf("completed_count = %d, want 3", result.Totals.CompletedCount)
 	}
+	if result.Totals.CurrentCompletedCount != 2 {
+		t.Fatalf("current_completed_count = %d, want 2", result.Totals.CurrentCompletedCount)
+	}
 	if result.Totals.ThisYearCompleted != 2 {
 		t.Fatalf("this_year_completed = %d, want 2", result.Totals.ThisYearCompleted)
 	}
@@ -113,7 +116,7 @@ func TestMediaAggregatesFiltersIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("anime aggregates: %v", err)
 	}
-	if family.Totals.ItemCount != 2 || family.Totals.CompletedCount != 1 {
+	if family.Totals.ItemCount != 2 || family.Totals.CompletedCount != 1 || family.Totals.CurrentCompletedCount != 1 {
 		t.Fatalf("anime totals = %+v, want 2 items and 1 completed", family.Totals)
 	}
 
@@ -121,7 +124,7 @@ func TestMediaAggregatesFiltersIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("completed aggregates: %v", err)
 	}
-	if completed.Totals.ItemCount != 2 || completed.Totals.CompletedCount != 2 {
+	if completed.Totals.ItemCount != 2 || completed.Totals.CompletedCount != 2 || completed.Totals.CurrentCompletedCount != 2 {
 		t.Fatalf("completed totals = %+v, want 2 items and 2 completed", completed.Totals)
 	}
 
@@ -130,7 +133,7 @@ func TestMediaAggregatesFiltersIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("year aggregates: %v", err)
 	}
-	if yearOnly.Totals.ItemCount != 2 || yearOnly.Totals.CompletedCount != 2 {
+	if yearOnly.Totals.ItemCount != 2 || yearOnly.Totals.CompletedCount != 2 || yearOnly.Totals.CurrentCompletedCount != 2 {
 		t.Fatalf("year totals = %+v, want 2 items and 2 completed", yearOnly.Totals)
 	}
 
@@ -237,6 +240,38 @@ func TestMediaEventsIntegration(t *testing.T) {
 	}
 	if len(result.Items) != 1 || result.Items[0].EventType != "rewatched" {
 		t.Fatalf("events = %+v, want only the dated user event", result.Items)
+	}
+}
+
+func TestMediaDetailIncludesProviderUpdatesSeparately(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetMediaTables(t, db)
+	work := seedWork(t, db, "media")
+	item := seedItem(t, db, work, "manga", "Provider activity detail")
+	seedProgress(t, db, item, "in_progress", nil)
+	effectiveAt := time.Date(2026, 8, 15, 2, 6, 0, 0, time.UTC)
+	observedAt := effectiveAt.Add(2 * time.Minute)
+	if err := db.Exec(`insert into tb_media_state_history
+		(id, media_item_id, source_kind, source_event_id, observed_at, effective_at,
+		 time_basis, change_kind, state_fingerprint, status, unit, position, note, created_at)
+		values (?, ?, 'anilist', 'activity-1', ?, ?, 'provider_activity',
+		 'provider_activity', ?, 'in_progress', 'chapters', 210, 'read chapter 210', ?)`,
+		uuid.New(), item, observedAt, effectiveAt, "detail-provider-activity", observedAt).Error; err != nil {
+		t.Fatalf("seed provider activity: %v", err)
+	}
+
+	detail, found, err := media.NewService(db).Get(item)
+	if err != nil {
+		t.Fatalf("get media detail: %v", err)
+	}
+	if !found {
+		t.Fatal("media detail not found")
+	}
+	if len(detail.Events) != 0 {
+		t.Fatalf("exact events = %d, want no exact events", len(detail.Events))
+	}
+	if len(detail.Updates) != 1 || detail.Updates[0].Position == nil || *detail.Updates[0].Position != 210 {
+		t.Fatalf("provider updates = %+v, want one chapter-210 update", detail.Updates)
 	}
 }
 

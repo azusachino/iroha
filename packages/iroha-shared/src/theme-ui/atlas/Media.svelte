@@ -12,6 +12,7 @@
     typeFamilies,
     completions,
     scores,
+    currentCompletedCount,
     activeCount,
     theme,
     onFamily,
@@ -92,7 +93,7 @@
   <div class="shelf-summary">
     <div class="atlas-plate">
       <p class="atlas-kicker">Completed</p>
-      <strong>{aggregates.totals.completed_count}</strong>
+      <strong>{currentCompletedCount}</strong>
     </div>
     <div class="atlas-plate">
       <p class="atlas-kicker">This year</p>

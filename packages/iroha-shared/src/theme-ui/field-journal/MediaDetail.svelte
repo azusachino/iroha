@@ -7,8 +7,9 @@
     mediaWorkTotal,
   } from "../../media";
   import { heroTitleFontSize } from "../../hero-title";
+  import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
-  let { detail, progress, theme }: MediaDetailThemeProps = $props();
+  let { detail, progress, hasKnownTotal, theme }: MediaDetailThemeProps = $props();
   const boundedProgress = $derived(Math.min(Math.max(progress, 0), 100));
   // A percentage implies a known total, which most media never has (an
   // ongoing manga, an unfinished anime season). Show what's actually known.
@@ -79,9 +80,11 @@
         </div>
         <strong>{progressLabel}</strong>
       </div>
-      <div class="ink-line">
-        <i style={`width: ${boundedProgress}%`}></i>
-      </div>
+      {#if hasKnownTotal}
+        <div class="ink-line">
+          <i style={`width: ${boundedProgress}%`}></i>
+        </div>
+      {/if}
       <div class="progress-meta">
         <span
           >{detail.progress?.position ?? 0}{detail.progress?.total != null
@@ -112,6 +115,10 @@
           <dd>{detail.events.length}</dd>
         </div>
         <div>
+          <dt>Provider updates</dt>
+          <dd>{detail.updates.length}</dd>
+        </div>
+        <div>
           <dt>Work kind</dt>
           <dd>{detail.work.work_kind}</dd>
         </div>
@@ -124,7 +131,7 @@
       <div class="panel-heading">
         <div>
           <p class="journal-kicker">Timeline</p>
-          <h2>Watch history</h2>
+          <h2>Exact event history</h2>
         </div>
         <span>{detail.events.length} entries</span>
       </div>
@@ -146,9 +153,21 @@
           {/each}
         </ol>
       {:else}
-        <p class="journal-empty">No event history recorded.</p>
+        <p class="journal-empty">No exact events recorded.</p>
       {/if}
     </section>
+    {#if detail.updates.length}
+      <section class="timeline-card">
+        <div class="panel-heading">
+          <div>
+            <p class="journal-kicker">Provider record</p>
+            <h2>Reading updates</h2>
+          </div>
+          <span>{detail.updates.length} entries</span>
+        </div>
+        <MediaUpdateList updates={detail.updates} />
+      </section>
+    {/if}
     {#if detail.relations.length}
       <section class="relations-card">
         <p class="journal-kicker">Connections</p>

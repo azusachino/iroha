@@ -91,10 +91,11 @@ type TypeBucket struct {
 }
 
 type Totals struct {
-	ItemCount         int     `json:"item_count"`
-	CompletedCount    int     `json:"completed_count"`
-	ThisYearCompleted int     `json:"this_year_completed"`
-	AverageRating     float64 `json:"average_rating"`
+	ItemCount             int     `json:"item_count"`
+	CompletedCount        int     `json:"completed_count"`
+	CurrentCompletedCount int     `json:"current_completed_count"`
+	ThisYearCompleted     int     `json:"this_year_completed"`
+	AverageRating         float64 `json:"average_rating"`
 }
 
 type Aggregates struct {
@@ -197,6 +198,7 @@ type Detail struct {
 	Creators  []CreatorDetail
 	Relations []RelationDetail
 	Events    []EventDetail
+	Updates   []Change
 }
 
 type Event struct {
@@ -277,10 +279,11 @@ type Change struct {
 }
 
 type ChangeListFilters struct {
-	From   *time.Time
-	To     *time.Time
-	Limit  int
-	Cursor *Cursor
+	From        *time.Time
+	To          *time.Time
+	Limit       int
+	Cursor      *Cursor
+	MediaItemID *uuid.UUID
 }
 
 type ChangePage struct {
@@ -781,22 +784,25 @@ func (s *Service) AggregatesFiltered(now time.Time, filters ListFilters) (Aggreg
 				count(*)::int AS count,
 				avg(latest_ratings.normalized_rating) AS average_rating,
 				count(latest_ratings.normalized_rating)::int AS rating_count,
-				count(item.completed_at)::int AS completed_count
+				count(item.completed_at)::int AS completed_count,
+				count(*) FILTER (WHERE item.status = 'completed')::int AS current_completed_count
 			FROM filtered_items AS item
 			LEFT JOIN latest_ratings ON latest_ratings.media_item_id = item.id
 			GROUP BY type
 		)
 		SELECT type, count, average_rating, rating_count, completed_count,
+			current_completed_count,
 			sum(count) OVER ()::int AS item_count
 		FROM grouped
 		ORDER BY type`, filterSQL)
 	var typeRows []struct {
-		Type           string  `gorm:"column:type"`
-		Count          int     `gorm:"column:count"`
-		AverageRating  float64 `gorm:"column:average_rating"`
-		RatingCount    int     `gorm:"column:rating_count"`
-		CompletedCount int     `gorm:"column:completed_count"`
-		ItemCount      int     `gorm:"column:item_count"`
+		Type                  string  `gorm:"column:type"`
+		Count                 int     `gorm:"column:count"`
+		AverageRating         float64 `gorm:"column:average_rating"`
+		RatingCount           int     `gorm:"column:rating_count"`
+		CompletedCount        int     `gorm:"column:completed_count"`
+		CurrentCompletedCount int     `gorm:"column:current_completed_count"`
+		ItemCount             int     `gorm:"column:item_count"`
 	}
 	if err := s.db.Raw(typeSQL, filterArgs...).Scan(&typeRows).Error; err != nil {
 		return Aggregates{}, err
@@ -813,6 +819,7 @@ func (s *Service) AggregatesFiltered(now time.Time, filters ListFilters) (Aggreg
 		result.TypeSplit = append(result.TypeSplit, TypeBucket{Type: row.Type, Count: row.Count})
 		result.Totals.ItemCount += row.Count
 		result.Totals.CompletedCount += row.CompletedCount
+		result.Totals.CurrentCompletedCount += row.CurrentCompletedCount
 		result.Totals.AverageRating += row.AverageRating * float64(row.RatingCount)
 	}
 	var ratedCount int
@@ -972,6 +979,11 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 	if err := s.db.Table("tb_media_consumption_events").Where("media_item_id = ?", id).Order("event_at DESC, created_at DESC, id DESC").Scan(&detail.Events).Error; err != nil {
 		return Detail{}, false, err
 	}
+	changes, err := s.Changes(ChangeListFilters{MediaItemID: &id, Limit: 50})
+	if err != nil {
+		return Detail{}, false, err
+	}
+	detail.Updates = changes.Items
 	return detail, true, nil
 }
 
@@ -1078,6 +1090,9 @@ func (s *Service) Changes(filters ChangeListFilters) (ChangePage, error) {
 			state.provider_recorded_at, state.status, state.unit, state.position, state.total,
 			state.progress_percent, state.rating, state.rating_scale, state.note, state.repeat_count`).
 		Joins("JOIN tb_media_items AS item ON item.id = state.media_item_id")
+	if filters.MediaItemID != nil {
+		query = query.Where("state.media_item_id = ?", *filters.MediaItemID)
+	}
 	if filters.From != nil {
 		query = query.Where("state.observed_at >= ?", *filters.From)
 	}
@@ -1088,7 +1103,11 @@ func (s *Service) Changes(filters ChangeListFilters) (ChangePage, error) {
 		query = query.Where("(state.observed_at, state.id) < (?, ?)", filters.Cursor.LastUpdateAt, filters.Cursor.ID)
 	}
 	var rows []Change
-	if err := query.Order("state.observed_at DESC, state.id DESC").Limit(limit + 1).Scan(&rows).Error; err != nil {
+	orderBy := "state.observed_at DESC, state.id DESC"
+	if filters.MediaItemID != nil {
+		orderBy = "coalesce(state.effective_at, state.effective_on_value::timestamptz, state.observed_at) DESC, state.id DESC"
+	}
+	if err := query.Order(orderBy).Limit(limit + 1).Scan(&rows).Error; err != nil {
 		return ChangePage{}, err
 	}
 	page := ChangePage{Items: rows}
