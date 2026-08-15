@@ -4,25 +4,43 @@
   let {
     loading,
     ready = true,
+    preserveLayout = false,
     label,
     children,
   }: {
     loading: boolean;
     ready?: boolean;
+    preserveLayout?: boolean;
     label: string;
     children: Snippet;
   } = $props();
 </script>
 
-{#if !ready}
+{#if !ready && !preserveLayout}
   <div class="loading-surface" role="status" aria-live="polite">
     <span class="loading-mark" aria-hidden="true"></span>
     <span>{label}</span>
   </div>
 {:else}
-  <div class="data-surface" class:updating={loading} aria-busy={loading}>
-    {@render children()}
-    {#if loading}
+  <div
+    class="data-surface"
+    class:updating={loading}
+    class:pending={!ready && loading}
+    aria-busy={loading}
+  >
+    <div
+      class="data-content"
+      aria-hidden={!ready && loading}
+      inert={!ready && loading}
+    >
+      {@render children()}
+    </div>
+    {#if !ready && loading}
+      <div class="loading-overlay" role="status" aria-live="polite">
+        <span class="loading-mark" aria-hidden="true"></span>
+        <span>{label}</span>
+      </div>
+    {:else if loading}
       <span class="update-status" role="status" aria-live="polite"
         >Updating…</span
       >
@@ -58,6 +76,27 @@
   .data-surface {
     position: relative;
     min-width: 0;
+  }
+  .data-surface.pending {
+    min-height: 16rem;
+  }
+  .data-content {
+    min-width: 0;
+  }
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-content: center;
+    gap: 0.7rem;
+    min-height: 16rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    pointer-events: none;
   }
   .update-status {
     position: absolute;

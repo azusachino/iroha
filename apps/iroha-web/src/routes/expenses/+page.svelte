@@ -456,7 +456,12 @@
   </PeriodToolbar>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
   {#if hasLoaded || loading}
-    <LoadingBoundary {loading} ready={hasLoaded} label="Loading expenses…">
+    <LoadingBoundary
+      {loading}
+      ready={hasLoaded}
+      preserveLayout
+      label="Loading expenses…"
+    >
       {#snippet children()}
         <ThemeRouteRenderer route="expenses" props={themeProps} />
       {/snippet}

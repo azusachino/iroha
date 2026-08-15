@@ -37,6 +37,36 @@
   const periodMonth = $derived(String(Number(month.slice(5, 7))));
   const theme = useTheme();
 
+  function loadingReportFor(value: string): MonthlyReport {
+    const [year, monthNumber] = value.split("-").map(Number);
+    const to = new Date(Date.UTC(year, monthNumber, 1))
+      .toISOString()
+      .slice(0, 10);
+    const emptySection = (schema: string) => ({
+      schema,
+      state: "empty" as const,
+      data: null,
+    });
+    return {
+      schema: "monthly-report.v1",
+      period: {
+        kind: "month",
+        month: value,
+        from: `${value}-01`,
+        to,
+        timezone: "Asia/Tokyo",
+      },
+      generated_at: "",
+      sections: {
+        movement: emptySection("loading"),
+        sleep: emptySection("loading"),
+        daily_health: emptySection("loading"),
+        media: emptySection("loading"),
+        expenses: emptySection("loading"),
+      },
+    };
+  }
+
   onMount(() => {
     void loadReport(month);
   });
@@ -105,6 +135,7 @@
   }
 
   const currentExpenseData = $derived(expenseData(report));
+  const reportForView = $derived(report ?? loadingReportFor(month));
   const primaryCurrency = $derived(
     currentExpenseData?.totals_by_currency[0]?.currency ?? "JPY",
   );
@@ -115,7 +146,7 @@
   );
   const themeProps = $derived<ReportThemeProps>({
     month,
-    report: report!,
+    report: reportForView,
     primaryCurrency,
     primaryExponent,
     formatMoney,
@@ -156,25 +187,24 @@
     />
   </PeriodToolbar>
   {#if error}<p class="error" role="alert">{error}</p>{/if}
-  {#if report || loading}
-    <LoadingBoundary
-      {loading}
-      ready={report != null}
-      label="Generating the monthly report…"
-    >
-      {#snippet children()}
-        {#if report}
-          <p class="generated">
-            {report.period.from} → {report.period.to} · Generated {formatDate(
-              report.generated_at,
-            )}
-          </p>
-          <ReportComparison {series} {formatMoney} theme={theme.language()} />
-          <ThemeRouteRenderer route="reports" props={themeProps} />
-        {/if}
-      {/snippet}
-    </LoadingBoundary>
-  {/if}
+  <LoadingBoundary
+    {loading}
+    ready={report != null}
+    preserveLayout
+    label="Generating the monthly report…"
+  >
+    {#snippet children()}
+      {#if report}
+        <p class="generated">
+          {report.period.from} → {report.period.to} · Generated {formatDate(
+            report.generated_at,
+          )}
+        </p>
+      {/if}
+      <ReportComparison {series} {formatMoney} theme={theme.language()} />
+      <ThemeRouteRenderer route="reports" props={themeProps} />
+    {/snippet}
+  </LoadingBoundary>
 </section>
 
 <style>

@@ -16,6 +16,7 @@
   import { formatDateOnly, formatDuration, formatMonth } from "$lib/format";
   import { currentYear } from "@iroha/shared/month";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
@@ -348,17 +349,15 @@
 
 <section class="sleep-shell">
   {#if hasThemeRoute(theme.definition(), "sleep")}
-    {#if sessionsLoading && sessions.length === 0}
-      <section class="status tile"><p>Loading sleep data…</p></section>
-    {:else if error && !selected}
-      <section class="status tile">
-        <p class="error">Sleep could not be loaded: {error}</p>
-      </section>
-    {:else if sessions.length === 0}
-      <section class="status tile">
-        <p class="muted">No sleep sessions imported yet.</p>
-      </section>
-    {:else}
+    <LoadingBoundary
+      loading={sessionsLoading}
+      ready={!sessionsLoading}
+      preserveLayout
+      label="Loading sleep data…"
+    >
+      {#if error}
+        <p class="error" role="alert">Sleep could not be loaded: {error}</p>
+      {/if}
       <ThemeRouteRenderer
         route="sleep"
         props={{
@@ -394,18 +393,18 @@
           />
         {/snippet}
       </ThemeRouteRenderer>
-      {#if hasMore}
-        <div
-          bind:this={loadMoreSentinel}
-          class="theme-load-more"
-          aria-live="polite"
-        >
-          {#if loadingMore}<span>Loading more nights…</span>{:else}<button
-              type="button"
-              onclick={() => loadSessions(true)}>Load more nights</button
-            >{/if}
-        </div>
-      {/if}
+    </LoadingBoundary>
+    {#if hasMore}
+      <div
+        bind:this={loadMoreSentinel}
+        class="theme-load-more"
+        aria-live="polite"
+      >
+        {#if loadingMore}<span>Loading more nights…</span>{:else}<button
+            type="button"
+            onclick={() => loadSessions(true)}>Load more nights</button
+          >{/if}
+      </div>
     {/if}
   {:else}
     <RouteIntro

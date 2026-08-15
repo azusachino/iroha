@@ -34,6 +34,19 @@
   let availableYears = $state<MediaCompletionBucket[]>([]);
   let requestVersion = 0;
   const theme = useTheme();
+  const EMPTY_AGGREGATES: MediaAggregates = {
+    totals: {
+      item_count: 0,
+      completed_count: 0,
+      current_completed_count: 0,
+      this_year_completed: 0,
+      average_rating: 0,
+    },
+    completions_by_year: [],
+    score_distribution: [],
+    type_split: [],
+  };
+  const aggregatesForView = $derived(aggregates ?? EMPTY_AGGREGATES);
 
   const FAMILIES = [
     { value: "", label: "All" },
@@ -233,41 +246,45 @@
 
 <section class="media-shell">
   {#if hasThemeRoute(theme.definition(), "media")}
-    {#if !aggregates && loading}
-      <p class="muted" aria-live="polite">Loading media history…</p>
-    {:else if !aggregates && error}
-      <p class="error" aria-live="assertive">Failed to load media: {error}</p>
-    {:else if aggregates}
-      <LoadingBoundary {loading} ready={true} label="Loading media history…">
-        {#if error}
-          <p class="error" aria-live="assertive">
+    <LoadingBoundary
+      {loading}
+      ready={aggregates != null}
+      preserveLayout
+      label="Loading media history…"
+    >
+      {#if error}
+        <p class="error" aria-live="assertive">
+          {#if aggregates}
             Could not update media; showing the previous result: {error}
-          </p>
-        {/if}
-        <ThemeRouteRenderer
-          route="media"
-          props={{
-            items,
-            aggregates,
-            family,
-            status,
-            completedYear,
-            yearOptions,
-            typeFamilies,
-            completions,
-            scores,
-            currentCompletedCount: aggregates.totals.current_completed_count,
-            activeCount,
-            onFamily: selectFamily,
-            onStatus: selectStatus,
-            onYear: selectYear,
-            onLoadMore: loadMore,
-            hasMore,
-            loadingMore,
-          }}
-        />
-      </LoadingBoundary>
-    {/if}
+          {:else}
+            Failed to load media: {error}
+          {/if}
+        </p>
+      {/if}
+      <ThemeRouteRenderer
+        route="media"
+        props={{
+          items,
+          aggregates: aggregatesForView,
+          family,
+          status,
+          completedYear,
+          yearOptions,
+          typeFamilies,
+          completions,
+          scores,
+          currentCompletedCount:
+            aggregatesForView.totals.current_completed_count,
+          activeCount,
+          onFamily: selectFamily,
+          onStatus: selectStatus,
+          onYear: selectYear,
+          onLoadMore: loadMore,
+          hasMore,
+          loadingMore,
+        }}
+      />
+    </LoadingBoundary>
   {:else}
     <RouteIntro
       eyebrow="Library / things in orbit"

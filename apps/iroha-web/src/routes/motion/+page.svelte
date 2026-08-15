@@ -27,6 +27,7 @@
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { currentYear, MONTH_OPTIONS, monthBounds } from "@iroha/shared/month";
   import { sportColor, sportLabel } from "$lib/sport";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
@@ -368,54 +369,61 @@
 
 <section class="activities-shell">
   {#if hasThemeRoute(theme.definition(), "activities")}
-    <ThemeRouteRenderer
-      route="activities"
-      props={{
-        activities,
-        displaySummary,
-        sportType,
-        sportOptions,
-        loading,
-        error,
-        hasMore,
-        loadingMore,
-        activitySeries,
-        activityDurationSeries,
-        activitySeriesLoading,
-        activitySeriesError,
-        activitySeriesScope: selectedMonth
-          ? `${selectedYear}-${selectedMonth.padStart(2, "0")}`
-          : selectedYear || "Lifetime",
-        onSportType: (value: string) => {
-          sportType = value;
-          syncUrl();
-          void loadSummary();
-        },
-        onLoadMore: () => void load(true),
-        onOpenDetail: (id: string) => void goto(`/motion/${id}`),
-      }}
+    <LoadingBoundary
+      loading={loading || activitySeriesLoading || summaryLoading}
+      ready={!loading}
+      preserveLayout
+      label="Loading activities…"
     >
-      {#snippet children()}
-        <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
-          <PeriodSelector
-            year={selectedYear}
-            month={selectedMonth}
-            {years}
-            {months}
-            monthDisabled={!selectedYear}
-            surface="inline"
-            onYear={(value) => {
-              selectedYear = value;
-              handleYearChange();
-            }}
-            onMonth={(value) => {
-              selectedMonth = value;
-              handleMonthChange();
-            }}
-          />
-        </PeriodToolbar>
-      {/snippet}
-    </ThemeRouteRenderer>
+      <ThemeRouteRenderer
+        route="activities"
+        props={{
+          activities,
+          displaySummary,
+          sportType,
+          sportOptions,
+          loading,
+          error,
+          hasMore,
+          loadingMore,
+          activitySeries,
+          activityDurationSeries,
+          activitySeriesLoading,
+          activitySeriesError,
+          activitySeriesScope: selectedMonth
+            ? `${selectedYear}-${selectedMonth.padStart(2, "0")}`
+            : selectedYear || "Lifetime",
+          onSportType: (value: string) => {
+            sportType = value;
+            syncUrl();
+            void loadSummary();
+          },
+          onLoadMore: () => void load(true),
+          onOpenDetail: (id: string) => void goto(`/motion/${id}`),
+        }}
+      >
+        {#snippet children()}
+          <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
+            <PeriodSelector
+              year={selectedYear}
+              month={selectedMonth}
+              {years}
+              {months}
+              monthDisabled={!selectedYear}
+              surface="inline"
+              onYear={(value) => {
+                selectedYear = value;
+                handleYearChange();
+              }}
+              onMonth={(value) => {
+                selectedMonth = value;
+                handleMonthChange();
+              }}
+            />
+          </PeriodToolbar>
+        {/snippet}
+      </ThemeRouteRenderer>
+    </LoadingBoundary>
   {:else}
     <RouteIntro
       eyebrow="Motion / activity archive"

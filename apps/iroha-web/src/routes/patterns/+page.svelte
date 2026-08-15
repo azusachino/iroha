@@ -21,6 +21,7 @@
     formatMonth as formatCanonicalMonth,
   } from "$lib/format";
   import { currentYear } from "@iroha/shared/month";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
@@ -388,13 +389,17 @@
 
 <section class="daily">
   {#if hasThemeRoute(theme.definition(), "daily")}
-    {#if loading}
-      <p class="muted status">Loading time-series data…</p>
-    {:else if error}
-      <p class="error status">Could not load daily data: {error}</p>
-    {:else if monthly.length === 0 && dayRows.length === 0}
-      <p class="muted status">No daily data imported yet.</p>
-    {:else}
+    <LoadingBoundary
+      loading={loading || dayRowsLoading}
+      ready={!loading && !error}
+      preserveLayout
+      label="Loading time-series data…"
+    >
+      {#if error}
+        <p class="error status" role="alert">
+          Could not load daily data: {error}
+        </p>
+      {/if}
       <ThemeRouteRenderer
         route="daily"
         props={{
@@ -422,7 +427,7 @@
           </PeriodToolbar>
         {/snippet}
       </ThemeRouteRenderer>
-    {/if}
+    </LoadingBoundary>
   {:else}
     <RouteIntro
       eyebrow="Patterns / personal history"
