@@ -309,7 +309,12 @@ function effectiveTotal(
   workTotal?: number | null,
 ): number | undefined {
   if (total != null && Number.isFinite(total) && total > 0) return total;
-  if (status === "completed" && position != null && Number.isFinite(position)) {
+  if (
+    status === "completed" &&
+    position != null &&
+    Number.isFinite(position) &&
+    position > 0
+  ) {
     return position;
   }
   if (workTotal != null && Number.isFinite(workTotal) && workTotal > 0) {

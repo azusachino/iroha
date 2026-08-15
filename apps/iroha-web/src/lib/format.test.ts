@@ -325,6 +325,10 @@ describe("progressPercent", () => {
     expect(progressPercent("completed", 10, undefined, undefined)).toBe(100);
   });
 
+  it("does not divide zero by zero when a completed item has no known total", () => {
+    expect(progressPercent("completed", 0, 0, undefined)).toBe(0);
+  });
+
   it("returns 0 only when nothing is known, and never fabricates a fill for unfinished progress", () => {
     expect(progressPercent("in_progress", 46, undefined, undefined)).toBe(0);
     expect(progressPercent(undefined, undefined, undefined, undefined)).toBe(0);

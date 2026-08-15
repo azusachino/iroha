@@ -124,7 +124,7 @@
       if (currentRequest !== requestVersion) return;
       aggregates = nextAggregates;
       if (!filters.completed_year) {
-        availableYears = nextAggregates.completions_by_year;
+        availableYears = nextAggregates.completions_by_year ?? [];
       }
       items = page.items;
       nextCursor = page.next_cursor;

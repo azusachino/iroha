@@ -133,6 +133,14 @@ func TestMediaAggregatesFiltersIntegration(t *testing.T) {
 	if yearOnly.Totals.ItemCount != 2 || yearOnly.Totals.CompletedCount != 2 {
 		t.Fatalf("year totals = %+v, want 2 items and 2 completed", yearOnly.Totals)
 	}
+
+	empty, err := service.AggregatesFiltered(now, media.ListFilters{Family: "game"})
+	if err != nil {
+		t.Fatalf("empty game aggregates: %v", err)
+	}
+	if empty.CompletionsByYear == nil || empty.ScoreDistribution == nil || empty.TypeSplit == nil {
+		t.Fatal("empty aggregate arrays must be non-nil")
+	}
 }
 
 func TestMediaPeriodReportIntegration(t *testing.T) {

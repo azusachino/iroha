@@ -803,10 +803,12 @@ func (s *Service) AggregatesFiltered(now time.Time, filters ListFilters) (Aggreg
 	}
 
 	result := Aggregates{
-		CompletionsByYear: completionRows,
-		ScoreDistribution: scoreRows,
+		CompletionsByYear: make([]CompletionBucket, 0, len(completionRows)),
+		ScoreDistribution: make([]ScoreBucket, 0, len(scoreRows)),
 		TypeSplit:         make([]TypeBucket, 0, len(typeRows)),
 	}
+	result.CompletionsByYear = append(result.CompletionsByYear, completionRows...)
+	result.ScoreDistribution = append(result.ScoreDistribution, scoreRows...)
 	for _, row := range typeRows {
 		result.TypeSplit = append(result.TypeSplit, TypeBucket{Type: row.Type, Count: row.Count})
 		result.Totals.ItemCount += row.Count
