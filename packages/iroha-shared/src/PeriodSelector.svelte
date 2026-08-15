@@ -78,6 +78,12 @@
     const current = scopeFromParts(year, month);
     if (current.kind === "lifetime") return;
     const shifted = shiftCalendarScope(current, delta, new Date(), timezone, bounds);
+    // A boundary clamp (nothing further to shift to) must be a no-op --
+    // otherwise onYear/onMonth still fire with the unchanged value, and
+    // every page's handler unconditionally reloads on that "change".
+    if (serializeCalendarScope(shifted) === serializeCalendarScope(current)) {
+      return;
+    }
     const parts = scopeParts(shifted);
     onYear(parts.year);
     onMonth(
