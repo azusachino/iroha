@@ -79,12 +79,11 @@ func main() {
 		logger.Error("build provider registry", "error", err)
 		os.Exit(1)
 	}
-	bridge, err := imports.LoadTwoHopMediaRefBridgeFromDB(db)
+	mediaBridge, err := imports.NewReloadableMediaRefBridge(db)
 	if err != nil {
 		logger.Error("load media bridge", "error", err)
 		os.Exit(1)
 	}
-	var mediaBridge imports.MediaRefBridge = bridge
 	importService := imports.NewServiceWithRegistryAndBridge(db, logger, parserVersion, enqueuer, cacheClient, providers, mediaBridge)
 	rawFileService, err := rawfiles.NewService(db, cfg.Storage.DataDir)
 	if err != nil {
@@ -121,6 +120,7 @@ func main() {
 	jobs.Register(registry, jobs.KindMediaIntakeParse, importHandler)
 	jobs.Register(registry, jobs.KindMediaSyncAniList, mediaSyncHandler(syncRunner, "anilist"))
 	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
+	jobs.Register(registry, jobs.KindMediaBridgeRefresh, mediaBridgeRefreshHandler(db, mediaBridge))
 
 	jobsService = jobs.NewService(db, logger, registry.Handlers())
 	geocodeService := geocode.NewService(db, nil, cacheClient)
@@ -234,5 +234,18 @@ func mediaSyncHandler(runner *imports.SyncRunner, connectorID string) func(conte
 			return runner.Run(ctx, anilist.ActivityConnectorID, payload.Credentials)
 		}
 		return nil
+	}
+}
+
+// mediaBridgeRefreshHandler re-fetches the Bangumi->MAL->AniList crosswalk
+// and reloads this worker's in-memory bridge immediately afterward, so a
+// manual trigger (the /to-go inbox's "Refresh media bridge" action) takes
+// effect on the very next media sync, not on some later poll or restart.
+func mediaBridgeRefreshHandler(db *gorm.DB, bridge *imports.ReloadableMediaRefBridge) func(context.Context, struct{}) error {
+	return func(ctx context.Context, _ struct{}) error {
+		if err := imports.RefreshMediaRefBridge(ctx, db); err != nil {
+			return err
+		}
+		return bridge.Reload(db)
 	}
 }

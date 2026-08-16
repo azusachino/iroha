@@ -615,7 +615,7 @@ export function getJob(
 }
 
 export function triggerAction(
-  action: "media-sync-anilist" | "media-sync-bangumi",
+  action: "media-sync-anilist" | "media-sync-bangumi" | "media-bridge-refresh",
   fetchFn: typeof fetch = fetch,
 ): Promise<Job> {
   return mutateJSON<Job>(`/api/v1/actions/${action}`, "POST", {}, fetchFn);

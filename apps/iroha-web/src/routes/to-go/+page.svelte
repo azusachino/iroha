@@ -81,7 +81,7 @@
       const [taskRows, recentJobs, openResolutionTasks] = await Promise.all([
         listTasks({ limit: 100 }),
         listJobs({
-          kind: "media_sync_anilist,media_sync_bangumi",
+          kind: "media_sync_anilist,media_sync_bangumi,media_bridge_refresh",
           limit: 30,
         }),
         listMediaResolutionTasks({ status: "open" }),
@@ -142,7 +142,8 @@
   }
 
   async function runAction(
-    action: "media-sync-anilist" | "media-sync-bangumi",
+    action:
+      "media-sync-anilist" | "media-sync-bangumi" | "media-bridge-refresh",
   ) {
     if (activeActionKinds.has(action.replaceAll("-", "_"))) return;
     try {
@@ -157,6 +158,7 @@
   function actionLabel(action: string): string {
     if (action === "media_sync_anilist") return "AniList sync";
     if (action === "media_sync_bangumi") return "Bangumi sync";
+    if (action === "media_bridge_refresh") return "Media bridge refresh";
     return action.replaceAll("_", " ");
   }
 
@@ -341,6 +343,19 @@
               ></span
             ><Play size={15} />
           </button>
+          <button
+            type="button"
+            disabled={actionIsActive("media-bridge-refresh")}
+            onclick={() => runAction("media-bridge-refresh")}
+          >
+            <span
+              ><strong>Media bridge</strong><small
+                >{actionIsActive("media-bridge-refresh")
+                  ? "Refresh already running"
+                  : "Re-fetch the Bangumi/AniList crosswalk"}</small
+              ></span
+            ><Play size={15} />
+          </button>
         </div>
       </section>
     </div>
@@ -422,8 +437,8 @@
         >
       </header>
       <p class="panel-copy queue-note">
-        Only top-level AniList/Bangumi syncs are shown here. Their importer jobs
-        stay out of this personal control room.
+        Only the actions above are shown here. Their importer jobs stay out of
+        this personal control room.
       </p>
       {#if jobs.length}
         <div class="job-list">

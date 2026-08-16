@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
@@ -96,6 +97,66 @@ func LoadTwoHopMediaRefBridgeFromDB(db *gorm.DB) (TwoHopMediaRefBridge, error) {
 		}
 	}
 	return bridge, nil
+}
+
+// ReloadableMediaRefBridge wraps a TwoHopMediaRefBridge behind an atomic
+// pointer so a background refresh (see iroha-job's runMediaBridgeRefresh)
+// can swap in freshly built rows without a process restart, while an
+// in-flight import job's Lookup calls never observe a half-swapped bridge.
+// scripts/build_media_bridge.py upserting new rows takes effect on this
+// process's next Reload, not immediately -- there is still no push
+// notification, just a periodic pull.
+type ReloadableMediaRefBridge struct {
+	current atomic.Pointer[TwoHopMediaRefBridge]
+}
+
+// NewReloadableMediaRefBridge performs the first load synchronously so
+// startup fails fast on a real DB error instead of silently running with an
+// empty bridge.
+func NewReloadableMediaRefBridge(db *gorm.DB) (*ReloadableMediaRefBridge, error) {
+	r := &ReloadableMediaRefBridge{}
+	if err := r.Reload(db); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *ReloadableMediaRefBridge) Reload(db *gorm.DB) error {
+	bridge, err := LoadTwoHopMediaRefBridgeFromDB(db)
+	if err != nil {
+		return err
+	}
+	r.current.Store(&bridge)
+	return nil
+}
+
+func (r *ReloadableMediaRefBridge) Lookup(provider, externalID string) (observations.MediaExternalRef, bool) {
+	current := r.current.Load()
+	if current == nil {
+		return observations.MediaExternalRef{}, false
+	}
+	return current.Lookup(provider, externalID)
+}
+
+// UpsertMediaRefBridge writes one hop's source->target mapping into
+// tb_media_ref_bridge, updating target_id/updated_at on conflict. Used by
+// cmd/iroha-media-bridge-sync (the automated CronJob refresh) and available
+// to any other caller that needs to write this table without duplicating
+// its shape.
+func UpsertMediaRefBridge(db *gorm.DB, hop string, mapping map[string]string) error {
+	if len(mapping) == 0 {
+		return nil
+	}
+	rows := make([]mediaRefBridgeRow, 0, len(mapping))
+	for sourceID, targetID := range mapping {
+		rows = append(rows, mediaRefBridgeRow{Hop: hop, SourceID: sourceID, TargetID: targetID})
+	}
+	return db.Table("tb_media_ref_bridge").
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "hop"}, {Name: "source_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"target_id", "updated_at"}),
+		}).
+		Create(&rows).Error
 }
 
 func (b TwoHopMediaRefBridge) Lookup(provider, externalID string) (observations.MediaExternalRef, bool) {
