@@ -71,6 +71,31 @@ Route-level async data goes through `apps/iroha-web/src/lib/asyncResource.svelte
 pill. This was a real, shipped bug on four routes before `AsyncResource` made the mistake unrepresentable — see the `v0.4.1` release audit's "Post-tag hardening" section. If a route needs `ready`
 outside `LoadingBoundary` (a fallback branch, a button's disabled state), read it off the resource (`resource.ready`); never re-derive it from `loading`.
 
+## Month/year/lifetime scope (hard rule)
+
+Viewing the same data at different time granularities, and comparing across them, is core to what iroha is for — not an optional nicety on top of a "current month" view. The scope model is already
+fully built, on both sides:
+
+- Server: `ReadScope`/`ResolveReadScope` (`apps/iroha-server/pkg/httpapi/read_scope.go`) parses a `date=` query param of `"YYYY"` (year), `"YYYY-MM"` (month), or `"YYYY-MM-DD"` (day), or an explicit
+  `lifetime` flag, into calendar bounds. List-style endpoints (expenses, daily, sleep, activities, media events) resolve it through `scope_filters.go`'s per-domain wrappers (`parseExpenseFilters`,
+  `parseDailyFilters`, ...) and treat a nil bound as "no filter" — lifetime queries are not a special case the service layer has to know about.
+- Client: `CalendarScope` (`packages/iroha-shared/src/format/scope.ts`) mirrors the same three-way `{lifetime, year, month}` (plus day) model — `parseCalendarScope`, `scopeBounds`, `scopeFromParts`.
+  `PeriodSelector.svelte` renders "Lifetime" and "All months" options gated by `showAllYears`/`showAllMonths` (both default `true`).
+
+**The rule**: before wiring a route's period selector, decide _deliberately_ per level whether it applies, and make the choice actually true end to end:
+
+- If a level applies, the option must work — not just render. `date=2026` (year) reaching an endpoint that only ever reads `from`/`to` from a hand-rolled month string is not "supported," it's a dead
+  option users can select and watch do nothing. This exact bug shipped on the Expenses route: `selectPeriodMonth` regex-rejected the "" value "All months" sends, so the URL and every chart silently
+  stayed pinned to whatever month was last selected. Fixing the handler wasn't enough by itself either — the category/currency totals charts read `series[0].points[0]` assuming the requested `grain`
+  produces exactly one bucket spanning the query window; leaving `grain: "month"` for a year-wide query would have "worked" (no error) while silently showing only the first month's total as if it were
+  the year's.
+- If a level genuinely doesn't apply, say so explicitly with `showAllYears={false}` / `showAllMonths={false}` — don't leave the option reachable and let the handler silently no-op. Reports is the
+  legitimate case: `reportMonthScope` (`apps/iroha-server/pkg/httpapi/reports.go`) explicitly rejects any `ReadScope.Kind` other than `ScopeMonth` — there is no yearly or lifetime report, so
+  `showAllMonths={false}` there is the honest state of the feature, not a workaround. Metrics is the other legitimate case: its selector already anchors a rolling 12-month window
+  (`monthBounds(shiftMonth(month, -11))`) regardless of which month is picked, so "All months" has no separate meaning to add.
+- A copy-pasted `selectPeriodMonth`/`selectPeriodYear` handler is not evidence the target route was designed the same way as its source — check what the route's own data-loading call can actually do
+  with a year or lifetime bound before assuming the guard is load-bearing versus just inherited dead weight.
+
 ## Deployment scope
 
 Classify the changed paths before building a local k3s image. A web-only visual or route change uses `make image-web VERSION=<tag>` and the k3s repo's `make apply-iroha-web`; it does not use

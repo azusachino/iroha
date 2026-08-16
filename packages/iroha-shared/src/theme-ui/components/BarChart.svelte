@@ -128,7 +128,10 @@
       animationEasing: "cubicOut",
       grid:
         orientation === "horizontal"
-          ? { top: 12, right: 24, bottom: 12, left: 90 }
+          ? // right must fit the widest formatted value label drawn past the
+            // bar end (e.g. a JPY total like "¥244,053") -- 24px only fit
+            // 2-3 characters and clipped every value with a thousands group.
+            { top: 12, right: 64, bottom: 12, left: 90 }
           : { top: 12, right: secondary ? 44 : 16, bottom: 32, left: 48 },
       legend: {
         show: !!secondary,

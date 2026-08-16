@@ -98,8 +98,10 @@
     fallback: defaultMonthScope,
     allowDay: false,
   });
+  // Either a specific "YYYY-MM" or a whole calendar year "YYYY" -- "All
+  // months" in the period selector means the latter, not "no filter".
   let month = $state(
-    requestedMonthScope.kind === "month"
+    requestedMonthScope.kind === "month" || requestedMonthScope.kind === "year"
       ? (serializeCalendarScope(requestedMonthScope) as string)
       : currentMonth(new Date(), IROHA_TIMEZONE),
   );
@@ -122,7 +124,9 @@
   let dateBounds = $state<DateBounds>({});
   const periodYears = $derived(yearOptionsInRange(dateBounds));
   const periodYear = $derived(month.slice(0, 4));
-  const periodMonth = $derived(String(Number(month.slice(5, 7))));
+  const periodMonth = $derived(
+    /^\d{4}-\d{2}$/.test(month) ? String(Number(month.slice(5, 7))) : "",
+  );
   const periodMonths = $derived(monthOptionsInRange(periodYear, dateBounds));
 
   async function loadBounds() {
@@ -132,6 +136,10 @@
       dateBounds = {};
     }
     if (!dateBounds.min || !dateBounds.max) return;
+    // Only clamp a specific month against the real data range -- a
+    // deliberately wider "All months" (year) selection isn't stale state
+    // to correct back to, it's what the user asked to see.
+    if (!/^\d{4}-\d{2}$/.test(month)) return;
     if (month < dateBounds.min.slice(0, 7)) month = dateBounds.min.slice(0, 7);
     else if (month > dateBounds.max.slice(0, 7))
       month = dateBounds.max.slice(0, 7);
@@ -158,7 +166,14 @@
   async function loadExpenses(selectedMonth = month) {
     const result = await expensesResource.run(async () => {
       try {
-        const bounds = scopeBounds(parseCalendarScope(selectedMonth)!)!;
+        const scope = parseCalendarScope(selectedMonth)!;
+        const bounds = scopeBounds(scope)!;
+        // A totals bucket must span exactly [bounds.from, bounds.to) so
+        // points[0] below is genuinely "the total for this scope" -- a
+        // month scope needs a month-grain bucket, a year scope a
+        // year-grain one; using "month" for a whole year would return 12
+        // points and silently read only the first month's total.
+        const totalsGrain = scope.kind === "year" ? "year" : "month";
         const expensesRequest = listAllExpenses({
           date: selectedMonth,
           currency: (filterCurrency || undefined) as
@@ -181,13 +196,13 @@
               getMetricSeries("expenses.amount_minor", {
                 from: bounds.from,
                 to: bounds.to,
-                grain: "month",
+                grain: totalsGrain,
                 dimensions: metricDimensions(chartCurrencies, selectedCategory),
               }),
               getMetricSeries("expenses.count", {
                 from: bounds.from,
                 to: bounds.to,
-                grain: "month",
+                grain: totalsGrain,
                 dimensions: metricDimensions(chartCurrencies, selectedCategory),
               }),
             ]),
@@ -210,7 +225,7 @@
           getMetricSeries("expenses.amount_minor", {
             from: bounds.from,
             to: bounds.to,
-            grain: "month",
+            grain: totalsGrain,
             dimensions: metricDimensions([chartCurrency], chartCategories),
           }),
         ]);
@@ -246,10 +261,17 @@
 
   function selectPeriodYear(value: string) {
     if (!/^\d{4}$/.test(value)) return;
-    selectMonth(`${value}-${month.slice(5, 7)}`);
+    selectMonth(
+      periodMonth ? `${value}-${periodMonth.padStart(2, "0")}` : value,
+    );
   }
 
   function selectPeriodMonth(value: string) {
+    if (value === "") {
+      // "All months" -- zoom out from a specific month to the whole year.
+      selectMonth(periodYear);
+      return;
+    }
     if (!/^(?:[1-9]|1[0-2])$/.test(value)) return;
     selectMonth(`${periodYear}-${value.padStart(2, "0")}`);
   }

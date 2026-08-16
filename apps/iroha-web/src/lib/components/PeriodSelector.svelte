@@ -14,6 +14,7 @@
     months,
     monthDisabled = false,
     showAllYears = true,
+    showAllMonths = true,
     surface = "panel",
     timezone = IROHA_TIMEZONE,
     bounds,
@@ -26,6 +27,7 @@
     months: PeriodOption[];
     monthDisabled?: boolean;
     showAllYears?: boolean;
+    showAllMonths?: boolean;
     surface?: "panel" | "inline";
     timezone?: string;
     bounds?: DateBounds;
@@ -43,6 +45,7 @@
   {months}
   {monthDisabled}
   {showAllYears}
+  {showAllMonths}
   {surface}
   {timezone}
   {bounds}

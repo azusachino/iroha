@@ -226,6 +226,7 @@
       months={periodMonths}
       {bounds}
       showAllYears={false}
+      showAllMonths={false}
       surface="inline"
       onYear={selectPeriodYear}
       onMonth={selectPeriodMonth}
