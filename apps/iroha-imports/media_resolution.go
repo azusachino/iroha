@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -64,35 +63,39 @@ type TwoHopMediaRefBridge struct {
 	MALToAniList map[string]string
 }
 
-// LoadTwoHopMediaRefBridge loads the two provider-maintained maps from local
-// JSON cache files. Each file is a JSON object keyed by the source ID. Keeping
-// refresh/download policy outside the importer avoids network access in jobs.
-func LoadTwoHopMediaRefBridge(bangumiPath, malAniListPath string) (TwoHopMediaRefBridge, error) {
-	var bridge TwoHopMediaRefBridge
-	if bangumiPath != "" {
-		if err := loadStringMap(bangumiPath, &bridge.BangumiToMAL); err != nil {
-			return TwoHopMediaRefBridge{}, fmt.Errorf("load Bangumi bridge: %w", err)
-		}
+// mediaRefBridgeRow mirrors tb_media_ref_bridge (migration 00012).
+type mediaRefBridgeRow struct {
+	Hop      string
+	SourceID string
+	TargetID string
+}
+
+// LoadTwoHopMediaRefBridgeFromDB loads both hops from tb_media_ref_bridge in
+// one query into an in-memory map, same shape as the old file-based loader --
+// scripts/build_media_bridge.py populates that table instead of writing
+// JSON files now. An empty or missing table degrades the same way an unset
+// bridge always has: Lookup just returns not-found and resolution falls
+// through to the title+year inbox.
+func LoadTwoHopMediaRefBridgeFromDB(db *gorm.DB) (TwoHopMediaRefBridge, error) {
+	bridge := TwoHopMediaRefBridge{
+		BangumiToMAL: make(map[string]string),
+		MALToAniList: make(map[string]string),
 	}
-	if malAniListPath != "" {
-		if err := loadStringMap(malAniListPath, &bridge.MALToAniList); err != nil {
-			return TwoHopMediaRefBridge{}, fmt.Errorf("load MAL/AniList bridge: %w", err)
+	var rows []mediaRefBridgeRow
+	if err := db.Table("tb_media_ref_bridge").
+		Select("hop, source_id, target_id").
+		Find(&rows).Error; err != nil {
+		return TwoHopMediaRefBridge{}, fmt.Errorf("load media ref bridge: %w", err)
+	}
+	for _, row := range rows {
+		switch row.Hop {
+		case "bangumi_to_mal":
+			bridge.BangumiToMAL[row.SourceID] = row.TargetID
+		case "mal_to_anilist":
+			bridge.MALToAniList[row.SourceID] = row.TargetID
 		}
 	}
 	return bridge, nil
-}
-
-func loadStringMap(path string, target *map[string]string) error {
-	body, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	var values map[string]string
-	if err := json.Unmarshal(body, &values); err != nil {
-		return err
-	}
-	*target = values
-	return nil
 }
 
 func (b TwoHopMediaRefBridge) Lookup(provider, externalID string) (observations.MediaExternalRef, bool) {

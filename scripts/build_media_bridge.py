@@ -1,30 +1,42 @@
 #!/usr/bin/env python3
-"""Build the two-hop Bangumi->MAL->AniList media bridge cache.
+"""Refresh the two-hop Bangumi->MAL->AniList media bridge in Postgres.
 
-Writes bangumi_to_mal.json and mal_to_anilist.json to --out, in the
-map[string]string shape apps/iroha-imports/media_resolution.go's
-TwoHopMediaRefBridge.Lookup expects (string keys AND string values --
-Bangumi/MAL/AniList external IDs are compared as strings throughout the
-resolver, so int-typed values would fail every lookup silently).
+Upserts tb_media_ref_bridge (migration 00012), which
+apps/iroha-imports/media_resolution.go's LoadTwoHopMediaRefBridgeFromDB loads
+into an in-memory map at iroha-job startup, same shape as before this moved
+out of ConfigMap-mounted JSON files.
 
 Sources (community-maintained, not iroha's own data):
   Bangumi subject id -> MAL id : Rhilip/BangumiExtLinker  data/anime_map.json
   MAL id -> AniList id         : Fribb/anime-lists         anime-list-mini.json
 
 Usage:
-  uv run python scripts/build_media_bridge.py --out dist/media-bridge
+  uv run python scripts/build_media_bridge.py
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 import urllib.request
-from pathlib import Path
+
+import psycopg
 
 UA = "iroha/0.1 (+https://github.com/azusachino/iroha)"
 BGM_MAP_URL = "https://rhilip.github.io/BangumiExtLinker/data/anime_map.json"
 FRIBB_URL = "https://raw.githubusercontent.com/Fribb/anime-lists/master/anime-list-mini.json"
+
+HOP_BANGUMI_TO_MAL = "bangumi_to_mal"
+HOP_MAL_TO_ANILIST = "mal_to_anilist"
+
+UPSERT_SQL = """
+    insert into tb_media_ref_bridge (hop, source_id, target_id, updated_at)
+    values (%s, %s, %s, now())
+    on conflict (hop, source_id) do update
+      set target_id = excluded.target_id, updated_at = excluded.updated_at
+"""
 
 
 def fetch_json(url: str) -> object:
@@ -55,29 +67,34 @@ def build_mal_to_anilist(records: list[dict]) -> dict[str, str]:
     return out
 
 
-def write_json(path: Path, data: dict[str, str]) -> None:
-    path.write_text(json.dumps(data, sort_keys=True, separators=(",", ":")))
+def upsert_hop(conn: psycopg.Connection, hop: str, mapping: dict[str, str]) -> None:
+    with conn.cursor() as cur:
+        cur.executemany(UPSERT_SQL, [(hop, source_id, target_id) for source_id, target_id in mapping.items()])
+    conn.commit()
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default="dist/media-bridge", help="output directory")
-    args = parser.parse_args()
+    parser.parse_args()
 
-    out_dir = Path(args.out)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    database_url = os.environ.get("DATABASE_URL") or os.environ.get("IROHA_DATABASE_URL")
+    if not database_url:
+        print("DATABASE_URL or IROHA_DATABASE_URL is required", file=sys.stderr)
+        return 2
 
     print(f"fetching {BGM_MAP_URL}")
     bgm_to_mal = build_bangumi_to_mal(fetch_json(BGM_MAP_URL))
     print(f"fetching {FRIBB_URL}")
     mal_to_anilist = build_mal_to_anilist(fetch_json(FRIBB_URL))
 
-    write_json(out_dir / "bangumi_to_mal.json", bgm_to_mal)
-    write_json(out_dir / "mal_to_anilist.json", mal_to_anilist)
+    with psycopg.connect(database_url) as conn:
+        upsert_hop(conn, HOP_BANGUMI_TO_MAL, bgm_to_mal)
+        upsert_hop(conn, HOP_MAL_TO_ANILIST, mal_to_anilist)
 
-    print(f"wrote {len(bgm_to_mal)} bangumi->mal entries to {out_dir / 'bangumi_to_mal.json'}")
-    print(f"wrote {len(mal_to_anilist)} mal->anilist entries to {out_dir / 'mal_to_anilist.json'}")
+    print(f"upserted {len(bgm_to_mal)} bangumi->mal rows")
+    print(f"upserted {len(mal_to_anilist)} mal->anilist rows")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

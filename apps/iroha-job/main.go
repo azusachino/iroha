@@ -79,15 +79,12 @@ func main() {
 		logger.Error("build provider registry", "error", err)
 		os.Exit(1)
 	}
-	var mediaBridge imports.MediaRefBridge
-	if os.Getenv(config.EnvBangumiBridge) != "" || os.Getenv(config.EnvMALAniListBridge) != "" {
-		bridge, err := imports.LoadTwoHopMediaRefBridge(os.Getenv(config.EnvBangumiBridge), os.Getenv(config.EnvMALAniListBridge))
-		if err != nil {
-			logger.Error("load media bridge", "error", err)
-			os.Exit(1)
-		}
-		mediaBridge = bridge
+	bridge, err := imports.LoadTwoHopMediaRefBridgeFromDB(db)
+	if err != nil {
+		logger.Error("load media bridge", "error", err)
+		os.Exit(1)
 	}
+	var mediaBridge imports.MediaRefBridge = bridge
 	importService := imports.NewServiceWithRegistryAndBridge(db, logger, parserVersion, enqueuer, cacheClient, providers, mediaBridge)
 	rawFileService, err := rawfiles.NewService(db, cfg.Storage.DataDir)
 	if err != nil {
