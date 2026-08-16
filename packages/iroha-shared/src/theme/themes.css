@@ -11,7 +11,15 @@
   --surface-1: var(--surface);
 }
 
-:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+:where(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
   outline: 2px solid var(--color-focus, var(--accent));
   outline-offset: 3px;
 }

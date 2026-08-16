@@ -1,7 +1,7 @@
 import type { Snippet } from "svelte";
-import type { Activity, ActivityDisplaySummary } from "./activity";
-import type { MetricSeriesResponse } from "./metric-series";
-import type { DesignLanguage } from "./themes";
+import type { Activity, ActivityDisplaySummary } from "../domain/activity";
+import type { MetricSeriesResponse } from "../components/metric-series";
+import type { DesignLanguage } from "../theme/themes";
 
 export type ActivityThemeProps = {
   activities: Activity[];

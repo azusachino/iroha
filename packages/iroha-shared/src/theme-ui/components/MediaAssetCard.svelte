@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { MediaRow } from "../../media";
+  import type { MediaRow } from "../../domain/media";
   import {
     formatProgressCount,
     mediaTypeColor,
     mediaTypeLabel,
     progressPercent,
-  } from "../../media";
-  import type { DesignLanguage } from "../../themes";
+  } from "../../domain/media";
+  import type { DesignLanguage } from "../../theme/themes";
 
   let {
     item,

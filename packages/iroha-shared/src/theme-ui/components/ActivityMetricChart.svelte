@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { DesignLanguage } from "../../themes";
-  import type { MetricSeriesResponse } from "../../metric-series";
+  import type { DesignLanguage } from "../../theme/themes";
+  import type { MetricSeriesResponse } from "../../components/metric-series";
   import BarChart from "./BarChart.svelte";
   import {
     formatCanonicalMonth,
     formatDistance,
     formatSport,
-  } from "../../format";
+  } from "../../format/format";
 
   let {
     series,

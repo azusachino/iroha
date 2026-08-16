@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ArrowRight, BookOpen } from "@lucide/svelte";
-  import { PAGE_PERIOD_DEFAULTS } from "@iroha/shared/period";
+  import { PAGE_PERIOD_DEFAULTS } from "@iroha/shared/format/period";
   import { THEME_DEFINITIONS } from "$lib/themes/registry";
   import { useTheme } from "$lib/themes/context.svelte";
 

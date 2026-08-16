@@ -10,8 +10,11 @@
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { formatDate, formatDateOnly, formatDuration } from "$lib/format";
-  import { sleepStageLabel, sleepStageColor } from "@iroha/shared/sleep-stages";
-  import SourceBadge from "@iroha/shared/SourceBadge.svelte";
+  import {
+    sleepStageLabel,
+    sleepStageColor,
+  } from "@iroha/shared/domain/sleep-stages";
+  import SourceBadge from "@iroha/shared/components/SourceBadge.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   const detailResource = createAsyncResource<{

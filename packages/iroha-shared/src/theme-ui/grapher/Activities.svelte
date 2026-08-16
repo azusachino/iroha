@@ -1,13 +1,13 @@
 <script lang="ts">
-  import type { ActivityThemeProps } from "../../activity-view";
+  import type { ActivityThemeProps } from "../../view-contracts/activity-view";
   import ActivityMetricChart from "../components/ActivityMetricChart.svelte";
   import {
     formatDateOnly,
     formatDistance,
     formatDuration,
     formatPace,
-  } from "../../format";
-  import { sportLabel } from "../../sport";
+  } from "../../format/format";
+  import { sportLabel } from "../../domain/sport";
   let {
     activities,
     displaySummary,

@@ -8,8 +8,8 @@ export {
   mediaEventVerb,
   mediaWorkTotal,
   progressPercent,
-} from "@iroha/shared/media";
-import { DEFAULT_TIMEZONE } from "@iroha/shared/date";
+} from "@iroha/shared/domain/media";
+import { DEFAULT_TIMEZONE } from "@iroha/shared/format/date";
 import { IROHA_TIMEZONE } from "./config";
 
 const DASH = "—";
@@ -24,7 +24,7 @@ export function formatPercent(value?: number | null): string {
   return `${Math.round(boundPercent(value))}%`;
 }
 
-export { formatMetricValue } from "@iroha/shared/format";
+export { formatMetricValue } from "@iroha/shared/format/format";
 
 export function formatDistance(meters?: number): string {
   if (meters == null) return DASH;
@@ -51,7 +51,7 @@ export function formatPace(secPerKm?: number): string {
   return `${m}:${pad(s)} /km`;
 }
 
-export { formatSwimmingPace } from "@iroha/shared/format";
+export { formatSwimmingPace } from "@iroha/shared/format/format";
 
 export function formatElevation(meters?: number): string {
   if (meters == null) return DASH;

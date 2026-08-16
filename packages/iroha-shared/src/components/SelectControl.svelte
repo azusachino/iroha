@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DesignLanguage } from "./themes";
+  import type { DesignLanguage } from "../theme/themes";
 
   export type SelectControlOption = {
     value: string;

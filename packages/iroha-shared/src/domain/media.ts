@@ -1,4 +1,4 @@
-import type { DesignLanguage } from "./themes";
+import type { DesignLanguage } from "../theme/themes";
 
 export interface MediaRow {
   id: string;

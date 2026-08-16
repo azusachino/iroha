@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Lap } from "../../activity";
-  import { formatDuration, formatPace } from "../../format";
+  import type { Lap } from "../../domain/activity";
+  import { formatDuration, formatPace } from "../../format/format";
   import BarChart from "./BarChart.svelte";
 
   let {

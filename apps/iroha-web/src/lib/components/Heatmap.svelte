@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { todayInTimezone } from "@iroha/shared/date";
+  import { todayInTimezone } from "@iroha/shared/format/date";
   import { IROHA_TIMEZONE } from "$lib/config";
 
   const WEEKDAYS = ["", "Mon", "", "Wed", "", "Fri", ""];

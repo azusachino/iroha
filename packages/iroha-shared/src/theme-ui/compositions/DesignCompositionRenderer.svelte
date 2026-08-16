@@ -3,7 +3,7 @@
   import {
     type DesignCompositionId,
     type DesignCompositionProps,
-  } from "../../design-compositions";
+  } from "../../theme/design-compositions";
   import Chronicle from "./Chronicle.svelte";
   import CommandCenter from "./CommandCenter.svelte";
   import CoverPage from "./CoverPage.svelte";

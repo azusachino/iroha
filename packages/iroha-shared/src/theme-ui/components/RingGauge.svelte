@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ActivityRing } from "../../daily-view";
+  import type { ActivityRing } from "../../view-contracts/daily-view";
   // Apple-style concentric activity rings. Form = progress-to-goal, so the
   // honest mark is a radial gauge. Arcs use the validated MARK-tier trio
   // (Move=magenta, Exercise=amber, Stand=teal, CVD-safe); the neon glow is

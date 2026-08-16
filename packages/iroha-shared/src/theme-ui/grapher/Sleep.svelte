@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { SleepThemeProps } from "../../sleep-view";
+  import type { SleepThemeProps } from "../../view-contracts/sleep-view";
   import BarChart from "../components/BarChart.svelte";
   import SleepAggregateChart from "../components/SleepAggregateChart.svelte";
-  import { formatDateOnly, formatDuration } from "../../format";
+  import { formatDateOnly, formatDuration } from "../../format/format";
 
   let {
     sessions,

@@ -19,17 +19,17 @@
     currentMonth,
     monthOptionsInRange,
     yearOptionsInRange,
-  } from "@iroha/shared/month";
+  } from "@iroha/shared/format/month";
   import {
     currentCalendarScope,
     readCalendarScope,
     serializeCalendarScope,
     writeCalendarScope,
     type DateBounds,
-  } from "@iroha/shared/scope";
+  } from "@iroha/shared/format/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
-  import type { ReportThemeProps } from "@iroha/shared/report";
+  import type { ReportThemeProps } from "@iroha/shared/domain/report";
   import { useTheme } from "$lib/themes/context.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
 

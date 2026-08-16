@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MediaThemeProps } from "../../media";
+  import type { MediaThemeProps } from "../../domain/media";
   import MediaAssetCard from "../components/MediaAssetCard.svelte";
 
   let {

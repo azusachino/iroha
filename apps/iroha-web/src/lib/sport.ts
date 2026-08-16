@@ -1,1 +1,1 @@
-export { isSwimming, sportColor, sportLabel } from "@iroha/shared/sport";
+export { isSwimming, sportColor, sportLabel } from "@iroha/shared/domain/sport";

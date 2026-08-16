@@ -2,17 +2,17 @@
   import BarChart from "../components/BarChart.svelte";
   import ReportCoverage from "../components/ReportCoverage.svelte";
   import ReportReceipt from "../components/ReportReceipt.svelte";
-  import type { ReportEvidenceRow } from "../../report";
-  import type { DesignLanguage } from "../../themes";
+  import type { ReportEvidenceRow } from "../../domain/report";
+  import type { DesignLanguage } from "../../theme/themes";
   import ReportFactGrid from "../components/ReportFactGrid.svelte";
   import ReportMetricCard from "../components/ReportMetricCard.svelte";
-  import MetricPanel from "../../MetricPanel.svelte";
-  import { formatMetricValue } from "../../format";
+  import MetricPanel from "../../components/MetricPanel.svelte";
+  import { formatMetricValue } from "../../format/format";
   import {
     reportPeriodDays,
     reportSectionData,
     type ReportThemeProps,
-  } from "../../report";
+  } from "../../domain/report";
 
   let {
     month,

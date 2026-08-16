@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { DashboardThemeProps } from "../../dashboard-view";
-  import { formatDistance, formatDuration, formatDate } from "../../format";
-  import { sportColor, sportLabel } from "../../sport";
+  import type { DashboardThemeProps } from "../../view-contracts/dashboard-view";
+  import { formatDistance, formatDuration, formatDate } from "../../format/format";
+  import { sportColor, sportLabel } from "../../domain/sport";
   import RetryNotice from "../components/RetryNotice.svelte";
 
   let {

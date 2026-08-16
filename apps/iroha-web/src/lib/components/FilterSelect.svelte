@@ -1,7 +1,7 @@
 <script lang="ts">
   import SharedSelectControl, {
     type SelectControlOption,
-  } from "@iroha/shared/SelectControl.svelte";
+  } from "@iroha/shared/components/SelectControl.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
 
   export type { SelectControlOption };

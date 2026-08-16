@@ -5,12 +5,12 @@
     serializeCalendarScope,
     shiftCalendarScope,
     type DateBounds,
-  } from "./scope";
-  import { formatCanonicalMonth } from "./format";
+  } from "../format/scope";
+  import { formatCanonicalMonth } from "../format/format";
   import SelectControl, {
     type SelectControlOption,
   } from "./SelectControl.svelte";
-  import type { DesignLanguage } from "./themes";
+  import type { DesignLanguage } from "../theme/themes";
 
   export type PeriodOption = { value: string; label: string };
 

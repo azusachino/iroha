@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ShellThemeProps } from "../../shell-view";
+  import type { ShellThemeProps } from "../../view-contracts/shell-view";
   let { children, theme }: ShellThemeProps = $props();
 </script>
 

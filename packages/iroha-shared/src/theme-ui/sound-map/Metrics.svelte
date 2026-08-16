@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MetricsThemeProps } from "../../metrics-view";
+  import type { MetricsThemeProps } from "../../view-contracts/metrics-view";
 
   let { children, theme }: MetricsThemeProps = $props();
 </script>

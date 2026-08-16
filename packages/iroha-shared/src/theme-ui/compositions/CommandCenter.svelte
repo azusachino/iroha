@@ -8,7 +8,7 @@
     designSportLabel,
     designTimeLabel,
     type DesignCompositionProps,
-  } from "../../design-compositions";
+  } from "../../theme/design-compositions";
   import DesignRingGauge from "./DesignRingGauge.svelte";
 
   let { today, readiness, links }: DesignCompositionProps = $props();

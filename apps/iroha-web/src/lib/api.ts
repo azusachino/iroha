@@ -1,5 +1,5 @@
 import { API_BASE, IROHA_TIMEZONE } from "./config";
-import type { DateBounds } from "@iroha/shared/scope";
+import type { DateBounds } from "@iroha/shared/format/scope";
 import type {
   Activity,
   ActivityOverview,
@@ -9,14 +9,14 @@ import type {
   RoutePoint,
   RouteFeatureCollection,
   SamplingPoint,
-} from "@iroha/shared/activity";
-import type { MetricSeriesResponse } from "@iroha/shared/metric-series";
+} from "@iroha/shared/domain/activity";
+import type { MetricSeriesResponse } from "@iroha/shared/components/metric-series";
 import type {
   DailyAggregates,
   DailyDates,
   DailyRow,
   ListDailyParams,
-} from "@iroha/shared/daily";
+} from "@iroha/shared/domain/daily";
 import type {
   MediaAggregates,
   MediaChange,
@@ -28,7 +28,7 @@ import type {
   MediaEventPage,
   MediaHomeEvent,
   MediaRow,
-} from "@iroha/shared/media";
+} from "@iroha/shared/domain/media";
 import type {
   CreateExpenseInput,
   Expense,
@@ -38,7 +38,7 @@ import type {
   ExpenseItem,
   ExpenseSource,
   ListExpensesParams,
-} from "@iroha/shared/expense";
+} from "@iroha/shared/domain/expense";
 import type {
   DailyHealthReportData,
   ExpensesReportData,
@@ -49,7 +49,7 @@ import type {
   MonthlyReportSeriesPoint,
   ReportSection,
   SleepReportData,
-} from "@iroha/shared/report";
+} from "@iroha/shared/domain/report";
 import type {
   ListSleepParams,
   SleepAggregateBucket,
@@ -57,7 +57,7 @@ import type {
   SleepOverview,
   SleepSegment,
   SleepSession,
-} from "@iroha/shared/sleep";
+} from "@iroha/shared/domain/sleep";
 
 export type {
   Activity,
@@ -75,8 +75,8 @@ export type {
   RouteFeatureProperties,
   RoutePoint,
   SamplingPoint,
-} from "@iroha/shared/activity";
-export type { MetricSeriesResponse } from "@iroha/shared/metric-series";
+} from "@iroha/shared/domain/activity";
+export type { MetricSeriesResponse } from "@iroha/shared/components/metric-series";
 export type {
   DailyAggregateBucket,
   DailyAggregates,
@@ -85,7 +85,7 @@ export type {
   DailyRing,
   DailyRow,
   ListDailyParams,
-} from "@iroha/shared/daily";
+} from "@iroha/shared/domain/daily";
 export type {
   MediaAggregates,
   MediaChange,
@@ -101,7 +101,7 @@ export type {
   MediaRow,
   MediaScoreBucket,
   MediaTypeBucket,
-} from "@iroha/shared/media";
+} from "@iroha/shared/domain/media";
 export type {
   CreateExpenseInput,
   Expense,
@@ -111,7 +111,7 @@ export type {
   ExpenseItem,
   ExpenseSource,
   ListExpensesParams,
-} from "@iroha/shared/expense";
+} from "@iroha/shared/domain/expense";
 export type {
   DailyHealthReportData,
   ExpensesReportData,
@@ -122,7 +122,7 @@ export type {
   MonthlyReportSeriesPoint,
   ReportSection,
   SleepReportData,
-} from "@iroha/shared/report";
+} from "@iroha/shared/domain/report";
 export type {
   ListSleepParams,
   SleepAggregateBucket,
@@ -130,7 +130,7 @@ export type {
   SleepOverview,
   SleepSegment,
   SleepSession,
-} from "@iroha/shared/sleep";
+} from "@iroha/shared/domain/sleep";
 
 // Types mirror the iroha-server read API JSON contract (snake_case).
 // Optional fields use `?` because the server omits them when absent.

@@ -3,9 +3,9 @@ import type {
   Activity,
   ActivitySummary,
   RouteFeatureCollection,
-} from "./activity";
-import type { MediaAggregates } from "./media";
-import type { DesignLanguage } from "./themes";
+} from "../domain/activity";
+import type { MediaAggregates } from "../domain/media";
+import type { DesignLanguage } from "../theme/themes";
 
 export interface DashboardSleepSummary {
   averageAsleepS: number;

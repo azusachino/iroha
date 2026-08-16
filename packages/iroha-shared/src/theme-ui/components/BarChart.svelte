@@ -15,7 +15,7 @@
   import { init, use } from "echarts/core";
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
-  import { categoryColor } from "../../category-color";
+  import { categoryColor } from "../../domain/category-color";
 
   use([
     EchartsBarChart,

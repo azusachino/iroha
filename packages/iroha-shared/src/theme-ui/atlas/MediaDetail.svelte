@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { MediaDetailThemeProps } from "../../media";
+  import type { MediaDetailThemeProps } from "../../domain/media";
   import {
     cleanDescription,
     formatProgressCount,
     mediaEventLabel,
     mediaWorkTotal,
-  } from "../../media";
-  import { heroTitleFontSize } from "../../hero-title";
+  } from "../../domain/media";
+  import { heroTitleFontSize } from "../../theme/hero-title";
   import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
   let { detail, progress, hasKnownTotal, theme }: MediaDetailThemeProps = $props();

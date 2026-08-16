@@ -15,7 +15,7 @@
   } from "$lib/api";
   import { APP_VERSION } from "$lib/config";
   import { formatDate } from "$lib/format";
-  import { todayInTimezone } from "@iroha/shared/date";
+  import { todayInTimezone } from "@iroha/shared/format/date";
   import { IROHA_TIMEZONE } from "$lib/config";
 
   const today = todayInTimezone(new Date(), IROHA_TIMEZONE);

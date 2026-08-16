@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { DashboardThemeProps } from "../../dashboard-view";
+  import type { DashboardThemeProps } from "../../view-contracts/dashboard-view";
   import BarChart from "../components/BarChart.svelte";
-  import { formatDate, formatDistance, formatDuration } from "../../format";
-  import { formatMonth } from "../../month";
+  import { formatDate, formatDistance, formatDuration } from "../../format/format";
+  import { formatMonth } from "../../format/month";
 
   let {
     summary,

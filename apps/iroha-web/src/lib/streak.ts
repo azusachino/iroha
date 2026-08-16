@@ -1,4 +1,4 @@
-import { DEFAULT_TIMEZONE, todayInTimezone } from "@iroha/shared/date";
+import { DEFAULT_TIMEZONE, todayInTimezone } from "@iroha/shared/format/date";
 
 function previousDay(day: string): string {
   const date = new Date(`${day}T00:00:00Z`);

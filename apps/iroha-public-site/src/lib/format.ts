@@ -11,4 +11,4 @@ export {
   formatPace,
   formatSport,
   formatSwimmingPace,
-} from "@iroha/shared/format";
+} from "@iroha/shared/format/format";

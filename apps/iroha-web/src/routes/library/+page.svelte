@@ -1,6 +1,6 @@
 <script lang="ts">
   import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
-  import StatTile from "@iroha/shared/StatTile.svelte";
+  import StatTile from "@iroha/shared/components/StatTile.svelte";
   import MediaBarChart from "@iroha/shared/theme-ui/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { DailyThemeProps } from "../../daily-view";
-  import { formatDateOnly } from "../../format";
+  import type { DailyThemeProps } from "../../view-contracts/daily-view";
+  import { formatDateOnly } from "../../format/format";
   import RingGauge from "../components/RingGauge.svelte";
   import BarChart from "../components/BarChart.svelte";
 

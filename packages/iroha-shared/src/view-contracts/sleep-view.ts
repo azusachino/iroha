@@ -1,6 +1,6 @@
 import type { Snippet } from "svelte";
-import type { DesignLanguage } from "./themes";
-import type { SleepAggregateBucket, SleepSession } from "./sleep";
+import type { DesignLanguage } from "../theme/themes";
+import type { SleepAggregateBucket, SleepSession } from "../domain/sleep";
 
 export type SleepThemeProps = {
   sessions: SleepSession[];

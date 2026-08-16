@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { ReportEvidenceRow } from "../../report";
-  import type { DesignLanguage } from "../../themes";
+  import type { ReportEvidenceRow } from "../../domain/report";
+  import type { DesignLanguage } from "../../theme/themes";
 
   let {
     rows,

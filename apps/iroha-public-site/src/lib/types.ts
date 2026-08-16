@@ -14,4 +14,4 @@ export type {
   PublicSummary as Summary,
   PublicSummaryBucket as SummaryBucket,
   PublicSummaryTotals as SummaryTotals,
-} from "@iroha/shared/public-activity";
+} from "@iroha/shared/domain/public-activity";

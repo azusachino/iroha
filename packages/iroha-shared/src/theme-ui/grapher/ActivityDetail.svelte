@@ -5,8 +5,8 @@
     Lap,
     RoutePoint,
     SamplingPoint,
-  } from "../../activity";
-  import SourceBadge from "../../SourceBadge.svelte";
+  } from "../../domain/activity";
+  import SourceBadge from "../../components/SourceBadge.svelte";
   import LapChart from "../components/LapChart.svelte";
   import {
     formatDate,
@@ -15,8 +15,8 @@
     formatHr,
     formatPace,
     formatSwimmingPace,
-  } from "../../format";
-  import { isSwimming, sportLabel } from "../../sport";
+  } from "../../format/format";
+  import { isSwimming, sportLabel } from "../../domain/sport";
 
   let {
     activity,

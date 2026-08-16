@@ -1,10 +1,10 @@
 <script lang="ts">
   import BarChart from "../components/BarChart.svelte";
   import ExpenseLedger from "../components/ExpenseLedger.svelte";
-  import StatTile from "../../StatTile.svelte";
-  import MetricPanel from "../../MetricPanel.svelte";
-  import type { ExpenseThemeProps } from "../../expense-view";
-  import { formatExpenseDay } from "../../expense-view";
+  import StatTile from "../../components/StatTile.svelte";
+  import MetricPanel from "../../components/MetricPanel.svelte";
+  import type { ExpenseThemeProps } from "../../view-contracts/expense-view";
+  import { formatExpenseDay } from "../../view-contracts/expense-view";
 
   let {
     month,

@@ -73,8 +73,7 @@ export function parseCalendarScope(
   options: { allowDay?: boolean } = {},
 ): CalendarScope | null {
   if (!value) return null;
-  const parsed =
-    parseDay(value) ?? parseMonth(value) ?? parseYear(value);
+  const parsed = parseDay(value) ?? parseMonth(value) ?? parseYear(value);
   if (parsed?.kind === "day" && options.allowDay === false) return null;
   return parsed;
 }
@@ -163,13 +162,20 @@ export function scopeBounds(scope: CalendarScope): ScopeBounds | null {
 export function scopeFromParts(year: string, month = ""): CalendarScope {
   if (!year) return { kind: "lifetime" };
   if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
-    return parseCalendarScope(month, { allowDay: false }) ?? { kind: "lifetime" };
+    return (
+      parseCalendarScope(month, { allowDay: false }) ?? { kind: "lifetime" }
+    );
   }
-  const parsed = parseCalendarScope(month ? `${year}-${month.padStart(2, "0")}` : year);
+  const parsed = parseCalendarScope(
+    month ? `${year}-${month.padStart(2, "0")}` : year,
+  );
   return parsed ?? { kind: "lifetime" };
 }
 
-export function scopeParts(scope: CalendarScope): { year: string; month: string } {
+export function scopeParts(scope: CalendarScope): {
+  year: string;
+  month: string;
+} {
   if (scope.kind === "lifetime") return { year: "", month: "" };
   return {
     year: String(scope.year),
@@ -207,13 +213,17 @@ export function isFutureScope(
   };
   if (value.month == null) return value.year > today.year;
   if (value.day == null) {
-    return value.year > today.year ||
-      (value.year === today.year && value.month > today.month);
+    return (
+      value.year > today.year ||
+      (value.year === today.year && value.month > today.month)
+    );
   }
-  return value.year > today.year ||
+  return (
+    value.year > today.year ||
     (value.year === today.year &&
       (value.month > today.month ||
-        (value.month === today.month && value.day > today.day)));
+        (value.month === today.month && value.day > today.day)))
+  );
 }
 
 // truncateToScopeKind reduces a canonical YYYY-MM-DD bound to the same
@@ -241,12 +251,15 @@ export function shiftCalendarScope(
   } else {
     value = new Date(Date.UTC(scope.year, scope.month - 1, scope.day));
   }
-  if (scope.kind === "year") value.setUTCFullYear(value.getUTCFullYear() + delta);
-  else if (scope.kind === "month") value.setUTCMonth(value.getUTCMonth() + delta);
+  if (scope.kind === "year")
+    value.setUTCFullYear(value.getUTCFullYear() + delta);
+  else if (scope.kind === "month")
+    value.setUTCMonth(value.getUTCMonth() + delta);
   else value.setUTCDate(value.getUTCDate() + delta);
 
   let next: CalendarScope;
-  if (scope.kind === "year") next = { kind: "year", year: value.getUTCFullYear() };
+  if (scope.kind === "year")
+    next = { kind: "year", year: value.getUTCFullYear() };
   else if (scope.kind === "month") {
     next = {
       kind: "month",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCanonicalMonth } from "@iroha/shared/format";
+import { formatCanonicalMonth } from "@iroha/shared/format/format";
 import {
   canonicalMonth,
   currentYear,
@@ -8,7 +8,7 @@ import {
   shiftMonth,
   shiftMonthWithin,
   yearOptions,
-} from "@iroha/shared/month";
+} from "@iroha/shared/format/month";
 
 describe("shared month helpers", () => {
   it("accepts only canonical YYYY-MM values", () => {

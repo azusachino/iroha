@@ -97,7 +97,8 @@ export const THEME_IDENTITIES = {
         time: "Twelve monthly points ending at the selected month.",
         interaction: "Read slopes and deltas, then inspect the selected month.",
         detail: "Exact section facts and method metadata follow charts.",
-        avoid: "Do not draw a trend for an empty month or annualize a partial one.",
+        avoid:
+          "Do not draw a trend for an empty month or annualize a partial one.",
       },
     },
   },
@@ -116,7 +117,8 @@ export const THEME_IDENTITIES = {
         time: "A month as a sequence of observed days.",
         interaction: "Read the entry sequence, then open one record.",
         detail: "Canonical notes and source fields close the entry.",
-        avoid: "Do not infer a cause or story that the record does not contain.",
+        avoid:
+          "Do not infer a cause or story that the record does not contain.",
       },
       reports: {
         question: "What was observed this month?",
@@ -149,7 +151,8 @@ export const THEME_IDENTITIES = {
         question: "What phase is the year in?",
         lead: "Monthly cycles and recurring phases across the available domains.",
         time: "Twelve months as a seasonal loop ending at the selected month.",
-        interaction: "Follow the cycle, then inspect the selected month’s facts.",
+        interaction:
+          "Follow the cycle, then inspect the selected month’s facts.",
         detail: "Exact values and coverage remain explicit.",
         avoid: "Do not imply biological seasonality from a sparse observation.",
       },
@@ -169,7 +172,8 @@ export const THEME_IDENTITIES = {
         time: "A selected month on a cadence-oriented day axis.",
         interaction: "Follow bursts, then inspect the exact ledger.",
         detail: "Rows and provenance keep the signal honest.",
-        avoid: "Do not pretend expense data is audio or fill quiet days as zero.",
+        avoid:
+          "Do not pretend expense data is audio or fill quiet days as zero.",
       },
       reports: {
         question: "What cadence carried the month?",
@@ -177,7 +181,8 @@ export const THEME_IDENTITIES = {
         time: "A twelve-month signal ending at the selected month.",
         interaction: "Compare bands, then open domain evidence.",
         detail: "The report preserves units, coverage, and method.",
-        avoid: "Do not use decoration to suggest a relationship the data lacks.",
+        avoid:
+          "Do not use decoration to suggest a relationship the data lacks.",
       },
     },
   },
@@ -193,7 +198,8 @@ export const THEME_IDENTITIES = {
         question: "What exactly was recorded?",
         lead: "The canonical ledger, source identity, and immutable record detail.",
         time: "Selected month in record order, with derived views secondary.",
-        interaction: "Open the row first; use charts as an index to the archive.",
+        interaction:
+          "Open the row first; use charts as an index to the archive.",
         detail: "Canonical record detail and source trail lead.",
         avoid: "Do not let a decorative aggregate replace the source record.",
       },

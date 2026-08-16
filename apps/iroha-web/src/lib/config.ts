@@ -1,5 +1,5 @@
 import { env } from "$env/dynamic/public";
-import { DEFAULT_TIMEZONE, resolveTimezone } from "@iroha/shared/date";
+import { DEFAULT_TIMEZONE, resolveTimezone } from "@iroha/shared/format/date";
 
 // API base URL for iroha-server. Empty by default so requests are same-origin
 // and go through the Vite dev proxy (see vite.config.ts) — this is what makes

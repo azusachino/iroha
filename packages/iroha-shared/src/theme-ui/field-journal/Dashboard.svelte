@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { DashboardThemeProps } from "../../dashboard-view";
-  import { formatDistance, formatDuration, formatDate } from "../../format";
+  import type { DashboardThemeProps } from "../../view-contracts/dashboard-view";
+  import { formatDistance, formatDuration, formatDate } from "../../format/format";
   import RetryNotice from "../components/RetryNotice.svelte";
 
   let {

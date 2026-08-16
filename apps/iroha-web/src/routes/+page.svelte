@@ -2,7 +2,7 @@
   import { goto } from "$app/navigation";
   import { Check, ListTodo } from "@lucide/svelte";
   import RingGauge from "@iroha/shared/theme-ui/components/RingGauge.svelte";
-  import SportBadge from "@iroha/shared/SportBadge.svelte";
+  import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import DayPicker from "$lib/components/DayPicker.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";

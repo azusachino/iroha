@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reportSectionStateCopy } from "@iroha/shared/report";
+import { reportSectionStateCopy } from "@iroha/shared/domain/report";
 
 describe("report section presentation state", () => {
   it("translates the wire empty state into human-facing copy", () => {

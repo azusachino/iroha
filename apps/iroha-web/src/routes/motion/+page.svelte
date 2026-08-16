@@ -13,8 +13,8 @@
     type ListActivitiesParams,
     type MetricSeriesResponse,
   } from "$lib/api";
-  import SportBadge from "@iroha/shared/SportBadge.svelte";
-  import StatTile from "@iroha/shared/StatTile.svelte";
+  import SportBadge from "@iroha/shared/components/SportBadge.svelte";
+  import StatTile from "@iroha/shared/components/StatTile.svelte";
   import {
     formatDate,
     formatDateOnly,
@@ -31,7 +31,7 @@
     monthBounds,
     monthOptionsInRange,
     yearOptionsInRange,
-  } from "@iroha/shared/month";
+  } from "@iroha/shared/format/month";
   import {
     currentCalendarScope,
     readCalendarScope,
@@ -39,7 +39,7 @@
     serializeCalendarScope,
     writeCalendarScope,
     type DateBounds,
-  } from "@iroha/shared/scope";
+  } from "@iroha/shared/format/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
   import { sportColor, sportLabel } from "$lib/sport";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";

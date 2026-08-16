@@ -9,7 +9,7 @@ import {
   type SleepSession,
 } from "$lib/api";
 import { formatDateOnly, formatMonth } from "$lib/format";
-import { currentYear, yearOptionsInRange } from "@iroha/shared/month";
+import { currentYear, yearOptionsInRange } from "@iroha/shared/format/month";
 import {
   currentCalendarScope,
   parseCalendarScope,
@@ -18,7 +18,7 @@ import {
   serializeCalendarScope,
   writeCalendarScope,
   type DateBounds,
-} from "@iroha/shared/scope";
+} from "@iroha/shared/format/scope";
 import { IROHA_TIMEZONE } from "$lib/config";
 import { createAsyncResource } from "$lib/asyncResource.svelte";
 

@@ -1,6 +1,10 @@
-import type { PanelCoverage, PanelRow } from "./metric-panel";
-import { csvCell } from "./metric-series";
-import type { Expense, ExpenseCategory, ExpenseCurrency } from "./expense";
+import type { PanelCoverage, PanelRow } from "../components/metric-panel";
+import { csvCell } from "../components/metric-series";
+import type {
+  Expense,
+  ExpenseCategory,
+  ExpenseCurrency,
+} from "../domain/expense";
 
 // Everything a theme needs to hand a chart to the shared MetricPanel. The
 // route owns it so provenance and exact rows cannot diverge per theme.

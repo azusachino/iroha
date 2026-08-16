@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { MonthlyReportSeries } from "../../report";
-  import type { DesignLanguage } from "../../themes";
+  import type { MonthlyReportSeries } from "../../domain/report";
+  import type { DesignLanguage } from "../../theme/themes";
   import BarChart from "./BarChart.svelte";
-  import { formatCanonicalMonth } from "../../format";
+  import { formatCanonicalMonth } from "../../format/format";
 
   let {
     series,

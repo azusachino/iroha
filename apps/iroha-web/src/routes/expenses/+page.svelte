@@ -22,7 +22,7 @@
     currentMonth,
     monthOptionsInRange,
     yearOptionsInRange,
-  } from "@iroha/shared/month";
+  } from "@iroha/shared/format/month";
   import {
     currentCalendarScope,
     parseCalendarScope,
@@ -31,14 +31,14 @@
     serializeCalendarScope,
     writeCalendarScope,
     type DateBounds,
-  } from "@iroha/shared/scope";
+  } from "@iroha/shared/format/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
   import {
     expenseCategoryLabel,
     type ExpensePanel,
     type ExpenseThemeProps,
-  } from "@iroha/shared/expense-view";
-  import { categoryColor } from "@iroha/shared/category-color";
+  } from "@iroha/shared/view-contracts/expense-view";
+  import { categoryColor } from "@iroha/shared/domain/category-color";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
 
