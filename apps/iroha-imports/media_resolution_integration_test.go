@@ -12,6 +12,33 @@ import (
 	"gorm.io/gorm"
 )
 
+// TestLoadTwoHopMediaRefBridgeFromDB reproduces both hops from
+// tb_media_ref_bridge (migration 00012, populated by
+// scripts/build_media_bridge.py) into the same in-memory map shape the
+// resolver's Lookup expects.
+func TestLoadTwoHopMediaRefBridgeFromDB(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	rows := []mediaRefBridgeRow{
+		{Hop: "bangumi_to_mal", SourceID: "integration-bridge-8", TargetID: "integration-bridge-2904"},
+		{Hop: "mal_to_anilist", SourceID: "integration-bridge-2904", TargetID: "integration-bridge-99423"},
+	}
+	if err := db.Table("tb_media_ref_bridge").Create(&rows).Error; err != nil {
+		t.Fatalf("seed tb_media_ref_bridge: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Exec("delete from tb_media_ref_bridge where source_id like 'integration-bridge-%'").Error
+	})
+
+	bridge, err := LoadTwoHopMediaRefBridgeFromDB(db)
+	if err != nil {
+		t.Fatalf("LoadTwoHopMediaRefBridgeFromDB: %v", err)
+	}
+	ref, ok := bridge.Lookup("bangumi", "integration-bridge-8")
+	if !ok || ref.Provider != "anilist" || ref.ExternalID != "integration-bridge-99423" {
+		t.Fatalf("loaded bridge lookup = %#v, %v; want anilist/integration-bridge-99423", ref, ok)
+	}
+}
+
 type seededMediaItem struct {
 	workID, itemID, titleID uuid.UUID
 }

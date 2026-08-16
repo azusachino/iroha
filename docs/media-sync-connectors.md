@@ -213,13 +213,14 @@ punctuation, inconsistent subtitle spacing) were accounted for.
 
 ### Bridge cache
 
-`make media-bridge-build` (`scripts/build_media_bridge.py`) fetches BangumiExtLinker + Fribb (§7) and writes `bangumi_to_mal.json` / `mal_to_anilist.json` — plain `{string: string}` maps, since
-`TwoHopMediaRefBridge.Lookup` (`apps/iroha-imports/media_resolution.go`) compares provider IDs as strings throughout. `iroha-job` loads them from local files at startup via `IROHA_BANGUMI_BRIDGE_PATH`
-/ `IROHA_MAL_ANILIST_BRIDGE_PATH` (`LoadTwoHopMediaRefBridge`); either or both may be unset, in which case that hop of the bridge is simply skipped and unresolved items fall through to the title+year
-inbox (§7 step 3). These are deployment artifacts, not application code — the k3s ConfigMaps that mount them onto `iroha-job` live in harus-k3s, generated from this command's output the same way a
-sealed secret is generated locally and committed to its target repo. Re-run the build and redeploy the ConfigMaps periodically (there is no auto-refresh): the anime tail in §11 is mostly recent
-seasonal anime the upstream datasets haven't mapped yet, so that tail shrinks the closer to "now" the cache was last built — but **rebuilding will not help manga coverage**, which is 0% regardless of
-freshness (§7). Don't read "bridge cache" as "the general cross-provider dedup mechanism"; for manga it isn't in the loop at all.
+`make media-bridge-build` (`scripts/build_media_bridge.py`) fetches BangumiExtLinker + Fribb (§7) and upserts `tb_media_ref_bridge` (migration `00012_media_ref_bridge.sql`) — one row per
+`(hop, source_id) -> target_id`, `hop` being `bangumi_to_mal` or `mal_to_anilist`, since `TwoHopMediaRefBridge.Lookup` (`apps/iroha-imports/media_resolution.go`) compares provider IDs as strings
+throughout. `iroha-job` loads both hops into an in-memory map once at startup via `LoadTwoHopMediaRefBridgeFromDB`; an empty or unpopulated table degrades the same way an unset bridge always has —
+that hop is simply skipped and unresolved items fall through to the title+year inbox (§7 step 3). This used to be two ConfigMap-mounted JSON files generated locally and committed to harus-k3s
+(`IROHA_BANGUMI_BRIDGE_PATH` / `IROHA_MAL_ANILIST_BRIDGE_PATH`); moved into Postgres 2026-08-16 so a refresh is a normal DB write instead of a rebuild-and-redeploy cycle, and the table is queryable
+and incrementally upsertable rather than replaced whole. Re-run `make media-bridge-build` periodically (there is still no auto-refresh schedule): the anime tail in §11 is mostly recent seasonal anime
+the upstream datasets haven't mapped yet, so that tail shrinks the closer to "now" the table was last refreshed — but **rebuilding will not help manga coverage**, which is 0% regardless of freshness
+(§7). Don't read "bridge cache" as "the general cross-provider dedup mechanism"; for manga it isn't in the loop at all.
 
 ## 10. Delivery status and remaining work
 

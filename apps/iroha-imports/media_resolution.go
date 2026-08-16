@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
@@ -64,35 +64,99 @@ type TwoHopMediaRefBridge struct {
 	MALToAniList map[string]string
 }
 
-// LoadTwoHopMediaRefBridge loads the two provider-maintained maps from local
-// JSON cache files. Each file is a JSON object keyed by the source ID. Keeping
-// refresh/download policy outside the importer avoids network access in jobs.
-func LoadTwoHopMediaRefBridge(bangumiPath, malAniListPath string) (TwoHopMediaRefBridge, error) {
-	var bridge TwoHopMediaRefBridge
-	if bangumiPath != "" {
-		if err := loadStringMap(bangumiPath, &bridge.BangumiToMAL); err != nil {
-			return TwoHopMediaRefBridge{}, fmt.Errorf("load Bangumi bridge: %w", err)
-		}
+// mediaRefBridgeRow mirrors tb_media_ref_bridge (migration 00012).
+type mediaRefBridgeRow struct {
+	Hop      string
+	SourceID string
+	TargetID string
+}
+
+// LoadTwoHopMediaRefBridgeFromDB loads both hops from tb_media_ref_bridge in
+// one query into an in-memory map, same shape as the old file-based loader --
+// scripts/build_media_bridge.py populates that table instead of writing
+// JSON files now. An empty or missing table degrades the same way an unset
+// bridge always has: Lookup just returns not-found and resolution falls
+// through to the title+year inbox.
+func LoadTwoHopMediaRefBridgeFromDB(db *gorm.DB) (TwoHopMediaRefBridge, error) {
+	bridge := TwoHopMediaRefBridge{
+		BangumiToMAL: make(map[string]string),
+		MALToAniList: make(map[string]string),
 	}
-	if malAniListPath != "" {
-		if err := loadStringMap(malAniListPath, &bridge.MALToAniList); err != nil {
-			return TwoHopMediaRefBridge{}, fmt.Errorf("load MAL/AniList bridge: %w", err)
+	var rows []mediaRefBridgeRow
+	if err := db.Table("tb_media_ref_bridge").
+		Select("hop, source_id, target_id").
+		Find(&rows).Error; err != nil {
+		return TwoHopMediaRefBridge{}, fmt.Errorf("load media ref bridge: %w", err)
+	}
+	for _, row := range rows {
+		switch row.Hop {
+		case "bangumi_to_mal":
+			bridge.BangumiToMAL[row.SourceID] = row.TargetID
+		case "mal_to_anilist":
+			bridge.MALToAniList[row.SourceID] = row.TargetID
 		}
 	}
 	return bridge, nil
 }
 
-func loadStringMap(path string, target *map[string]string) error {
-	body, err := os.ReadFile(path)
+// ReloadableMediaRefBridge wraps a TwoHopMediaRefBridge behind an atomic
+// pointer so a background refresh (see iroha-job's runMediaBridgeRefresh)
+// can swap in freshly built rows without a process restart, while an
+// in-flight import job's Lookup calls never observe a half-swapped bridge.
+// scripts/build_media_bridge.py upserting new rows takes effect on this
+// process's next Reload, not immediately -- there is still no push
+// notification, just a periodic pull.
+type ReloadableMediaRefBridge struct {
+	current atomic.Pointer[TwoHopMediaRefBridge]
+}
+
+// NewReloadableMediaRefBridge performs the first load synchronously so
+// startup fails fast on a real DB error instead of silently running with an
+// empty bridge.
+func NewReloadableMediaRefBridge(db *gorm.DB) (*ReloadableMediaRefBridge, error) {
+	r := &ReloadableMediaRefBridge{}
+	if err := r.Reload(db); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *ReloadableMediaRefBridge) Reload(db *gorm.DB) error {
+	bridge, err := LoadTwoHopMediaRefBridgeFromDB(db)
 	if err != nil {
 		return err
 	}
-	var values map[string]string
-	if err := json.Unmarshal(body, &values); err != nil {
-		return err
-	}
-	*target = values
+	r.current.Store(&bridge)
 	return nil
+}
+
+func (r *ReloadableMediaRefBridge) Lookup(provider, externalID string) (observations.MediaExternalRef, bool) {
+	current := r.current.Load()
+	if current == nil {
+		return observations.MediaExternalRef{}, false
+	}
+	return current.Lookup(provider, externalID)
+}
+
+// UpsertMediaRefBridge writes one hop's source->target mapping into
+// tb_media_ref_bridge, updating target_id/updated_at on conflict. Used by
+// cmd/iroha-media-bridge-sync (the automated CronJob refresh) and available
+// to any other caller that needs to write this table without duplicating
+// its shape.
+func UpsertMediaRefBridge(db *gorm.DB, hop string, mapping map[string]string) error {
+	if len(mapping) == 0 {
+		return nil
+	}
+	rows := make([]mediaRefBridgeRow, 0, len(mapping))
+	for sourceID, targetID := range mapping {
+		rows = append(rows, mediaRefBridgeRow{Hop: hop, SourceID: sourceID, TargetID: targetID})
+	}
+	return db.Table("tb_media_ref_bridge").
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "hop"}, {Name: "source_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"target_id", "updated_at"}),
+		}).
+		Create(&rows).Error
 }
 
 func (b TwoHopMediaRefBridge) Lookup(provider, externalID string) (observations.MediaExternalRef, bool) {

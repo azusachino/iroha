@@ -45,6 +45,24 @@ func (s *Server) enqueueMediaSync(w http.ResponseWriter, connectorID string) {
 	writeJSON(w, http.StatusAccepted, toMediaSyncJobResponse(job))
 }
 
+// enqueueMediaBridgeRefresh enqueues a re-fetch of the Bangumi->MAL->AniList
+// crosswalk (tb_media_ref_bridge) -- the /to-go inbox's manual trigger for
+// keeping cross-provider dedup current, since there is no scheduled refresh
+// for it. Dispatched from handleAction, same as the two media syncs.
+func (s *Server) enqueueMediaBridgeRefresh(w http.ResponseWriter) {
+	if s.deps.JobEnqueuer == nil {
+		writeError(w, http.StatusServiceUnavailable, "job dispatcher unavailable")
+		return
+	}
+	job, err := s.deps.JobEnqueuer.EnqueueTx(nil, jobs.KindMediaBridgeRefresh, struct{}{})
+	if err != nil {
+		s.deps.Logger.Error("enqueue media bridge refresh", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to enqueue media bridge refresh")
+		return
+	}
+	writeJSON(w, http.StatusAccepted, toMediaSyncJobResponse(job))
+}
+
 func mediaSyncJobKind(connectorID string) (string, bool) {
 	switch connectorID {
 	case "anilist":

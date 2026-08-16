@@ -14,7 +14,6 @@ OUT := ./dist/public-data
 PRIVACY ?= 0
 IROHA_TIMEZONE ?= Asia/Tokyo
 PUBLIC_IROHA_TIMEZONE ?= $(IROHA_TIMEZONE)
-MEDIA_BRIDGE_OUT := ./dist/media-bridge
 MOBILE_DEFAULT_THEMES := atlas,grapher,field-journal,phenology,sound-map,archive
 MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
@@ -74,8 +73,8 @@ run-job: db-up ## Run one iroha-job polling worker against the local dev stack
 export-public: db-up ## Export public data (PRIVACY=1 omits every route trace)
 	$(TOOL_ENV) go -C $(SERVER_DIR) run ./cmd/iroha-export-public --out $(abspath $(OUT)) $(if $(filter 1 true yes,$(PRIVACY)),--privacy,)
 
-media-bridge-build: ## Build the Bangumi->MAL->AniList bridge cache (MEDIA_BRIDGE_OUT=./dist/media-bridge)
-	$(TOOL_ENV) uv run python scripts/build_media_bridge.py --out $(MEDIA_BRIDGE_OUT)
+media-bridge-build: db-up ## Refresh the Bangumi->MAL->AniList bridge in tb_media_ref_bridge
+	$(TOOL_ENV) env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable uv run python scripts/build_media_bridge.py
 
 ## --- Web frontend (apps/iroha-web, bun) ---
 shared-install: ## Install shared frontend-package dependencies

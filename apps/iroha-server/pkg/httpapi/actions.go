@@ -12,6 +12,8 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 		s.enqueueMediaSync(w, "anilist")
 	case "media-sync-bangumi":
 		s.enqueueMediaSync(w, "bangumi")
+	case "media-bridge-refresh":
+		s.enqueueMediaBridgeRefresh(w)
 	default:
 		writeError(w, http.StatusBadRequest, "unsupported action")
 	}
