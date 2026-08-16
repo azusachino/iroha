@@ -1,20 +1,20 @@
 {
   "totals": {
-    "activity_count": 499,
-    "distance_m": 1433646.55532548,
-    "distance_known_count": 439,
+    "activity_count": 500,
+    "distance_m": 1436655.89532548,
+    "distance_known_count": 440,
     "distance_unknown_count": 60,
-    "duration_s": 960099,
+    "duration_s": 961441,
     "elevation_gain_m": 265.71214799999984
   },
   "by_year": [
     {
       "key": "2026",
-      "activity_count": 72,
-      "distance_m": 188814.13075705306,
-      "distance_known_count": 51,
+      "activity_count": 73,
+      "distance_m": 191823.4707570531,
+      "distance_known_count": 52,
       "distance_unknown_count": 21,
-      "duration_s": 181854,
+      "duration_s": 183196,
       "elevation_gain_m": 197.459857
     },
     {
@@ -48,11 +48,11 @@
   "by_month": [
     {
       "key": "2026-08",
-      "activity_count": 2,
-      "distance_m": 1471.009757053073,
-      "distance_known_count": 2,
+      "activity_count": 3,
+      "distance_m": 4480.349757053073,
+      "distance_known_count": 3,
       "distance_unknown_count": 0,
-      "duration_s": 5568,
+      "duration_s": 6910,
       "elevation_gain_m": 184.943605
     },
     {
@@ -347,11 +347,11 @@
   "by_sport": [
     {
       "key": "run",
-      "activity_count": 219,
-      "distance_m": 965118.266,
-      "distance_known_count": 219,
+      "activity_count": 220,
+      "distance_m": 968127.606,
+      "distance_known_count": 220,
       "distance_unknown_count": 0,
-      "duration_s": 388327,
+      "duration_s": 389669,
       "elevation_gain_m": 18.470905
     },
     {

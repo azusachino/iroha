@@ -1,5 +1,20 @@
 [
   {
+    "id": "act_01a0092d-0a55-7b82-84b2-a420be3e021b",
+    "sport_type": "run",
+    "title": "Running",
+    "started_at": "2026-08-15T07:12:50Z",
+    "ended_at": "2026-08-15T07:35:24Z",
+    "timezone": "",
+    "distance_m": 3009.3399999999997,
+    "duration_s": 1342,
+    "moving_time_s": 1342,
+    "elevation_gain_m": 0,
+    "avg_hr": 171,
+    "max_hr": 192,
+    "avg_pace_s_per_km": 445.94495803066457
+  },
+  {
     "id": "act_019fcbee-4d6e-7f41-80a1-fd12d7fc43c9",
     "sport_type": "Swimming",
     "title": "Swimming",
