@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
+## [0.4.2] — 2026-08-16
+
+### Added
+
+- Add `scripts/paypay_import.py`, a PayPay transaction-history CSV importer that creates canonical expenses idempotently (safe to re-run against overlapping exports), excluding balance top-ups,
+  points, PayPay's spare-change auto-invest, received money, and refunds from spend totals.
+- Complete the frontend modularization follow-up from issue #53: extract `library`/`patterns` route business logic into co-located `.svelte.ts` state modules, and reorganize
+  `packages/iroha-shared/src`'s 42 flat files into domain subdirectories (`view-contracts/`, `domain/`, `format/`, `components/`, `theme/`).
+- Document the month/year/lifetime scope model as a hard rule in AGENTS.md.
+
+### Fixed
+
+- Fix Expenses' "All months" period option, which was reachable but silently did nothing; the category/currency totals charts also needed their metric-series aggregation grain switched to match the
+  selected scope width so a year view reflects the real year-wide total instead of only its first month.
+- Fix `BarChart`'s horizontal-orientation grid right margin clipping longer formatted value labels (e.g. a JPY total with a thousands separator).
+- Fix `ops/images/Containerfile.server`'s `export-public` stage missing `tzdata`, needed for the CronJob's Asia/Tokyo schedule check.
+
 ## [0.4.1] — 2026-08-15
 
 ### Added
