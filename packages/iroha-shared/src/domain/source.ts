@@ -26,10 +26,7 @@ export function sourceBrand(source?: string | null): SourceBrand {
   const raw = source?.trim() ?? "";
   const normalized = raw.toLowerCase().replace(/[\s-]+/g, "_");
 
-  if (
-    normalized.includes("apple_health") ||
-    normalized.includes("healthkit")
-  ) {
+  if (normalized.includes("apple_health") || normalized.includes("healthkit")) {
     return { id: "apple-health", label: "Apple Health", mark: "", raw };
   }
   if (normalized.includes("apple") || normalized.includes("watch")) {

@@ -2,14 +2,14 @@
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import { onMount } from "svelte";
-  import type { DesignLanguage } from "@iroha/shared/themes";
+  import type { DesignLanguage } from "@iroha/shared/theme/themes";
   import {
     DESIGN_COMPOSITIONS,
     designComposition,
     designDuration,
     type DesignCompositionId,
     type DesignTodayData,
-  } from "@iroha/shared/design-compositions";
+  } from "@iroha/shared/theme/design-compositions";
   import DesignCompositionRenderer from "@iroha/shared/theme-ui/compositions/DesignCompositionRenderer.svelte";
   import {
     getBriefing,
@@ -20,7 +20,7 @@
   } from "$lib/api";
   import { useTheme } from "$lib/themes/context.svelte";
   import { THEME_DEFINITIONS } from "$lib/themes/registry";
-  import { todayInTimezone } from "@iroha/shared/date";
+  import { todayInTimezone } from "@iroha/shared/format/date";
   import { IROHA_TIMEZONE } from "$lib/config";
 
   let variant = $state<DesignCompositionId>(

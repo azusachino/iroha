@@ -1,5 +1,5 @@
 import { createContext } from "svelte";
-import type { DesignLanguage, ThemeDefinition } from "../themes";
+import type { DesignLanguage, ThemeDefinition } from "../theme/themes";
 import type { ThemeComponent } from "./registry";
 
 export type ThemeContext = {

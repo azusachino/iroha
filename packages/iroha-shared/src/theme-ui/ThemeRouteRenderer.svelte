@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Component, Snippet } from "svelte";
-  import type { ThemeRoute } from "../themes";
+  import type { ThemeRoute } from "../theme/themes";
   import { useTheme } from "./context.svelte";
 
   let {

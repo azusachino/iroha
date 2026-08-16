@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import SharedPeriodToolbar from "@iroha/shared/PeriodToolbar.svelte";
+  import SharedPeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
 
   let {

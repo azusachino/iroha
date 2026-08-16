@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sourceBrand } from "@iroha/shared/source";
+import { sourceBrand } from "@iroha/shared/domain/source";
 
 describe("source brand registry", () => {
   it("maps canonical Apple export sources to a business label", () => {

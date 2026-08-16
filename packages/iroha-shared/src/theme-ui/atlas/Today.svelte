@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { TodayThemeProps } from "../../today-view";
-  import { formatDistance, formatDuration, formatPace } from "../../format";
-  import { mediaEventVerb } from "../../media";
+  import type { TodayThemeProps } from "../../view-contracts/today-view";
+  import { formatDistance, formatDuration, formatPace } from "../../format/format";
+  import { mediaEventVerb } from "../../domain/media";
   import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
   let {

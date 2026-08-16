@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { sourceBrand } from "./source";
+  import { sourceBrand } from "../domain/source";
 
   let { source }: { source?: string | null } = $props();
   const brand = $derived(sourceBrand(source));

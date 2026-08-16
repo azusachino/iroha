@@ -7,7 +7,7 @@
     designPercent,
     designTimeLabel,
     type DesignCompositionProps,
-  } from "../../design-compositions";
+  } from "../../theme/design-compositions";
 
   let { today, readiness, links }: DesignCompositionProps = $props();
 </script>

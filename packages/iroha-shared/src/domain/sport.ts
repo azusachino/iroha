@@ -1,4 +1,4 @@
-import { formatSport } from "./format";
+import { formatSport } from "../format/format";
 
 const SPORT_COLOR_RUN = "var(--sport-run)";
 const SPORT_COLOR_WALK = "var(--sport-walk)";

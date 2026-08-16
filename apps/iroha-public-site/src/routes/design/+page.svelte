@@ -1,18 +1,18 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { base } from "$app/paths";
-  import type { Activity } from "@iroha/shared/activity";
+  import type { Activity } from "@iroha/shared/domain/activity";
   import {
     DESIGN_COMPOSITIONS,
     designComposition,
     type DesignCompositionId,
     type DesignCompositionProps,
     type DesignTodayData,
-  } from "@iroha/shared/design-compositions";
-  import type { DailyRow } from "@iroha/shared/daily";
-  import type { MediaChange, MediaHomeEvent } from "@iroha/shared/media";
-  import type { SleepSession } from "@iroha/shared/sleep";
-  import type { DesignLanguage } from "@iroha/shared/themes";
+  } from "@iroha/shared/theme/design-compositions";
+  import type { DailyRow } from "@iroha/shared/domain/daily";
+  import type { MediaChange, MediaHomeEvent } from "@iroha/shared/domain/media";
+  import type { SleepSession } from "@iroha/shared/domain/sleep";
+  import type { DesignLanguage } from "@iroha/shared/theme/themes";
   import {
     THEME_DEFINITIONS,
     getThemeDefinition,

@@ -23,8 +23,9 @@ export function yearOptionsInRange(bounds: DateBounds): string[] {
   if (!bounds.min || !bounds.max) return [];
   const minYear = Number(bounds.min.slice(0, 4));
   const maxYear = Number(bounds.max.slice(0, 4));
-  return Array.from({ length: Math.max(0, maxYear - minYear + 1) }, (_, index) =>
-    String(maxYear - index),
+  return Array.from(
+    { length: Math.max(0, maxYear - minYear + 1) },
+    (_, index) => String(maxYear - index),
   );
 }
 

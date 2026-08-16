@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { DesignLanguage } from "../../themes";
-  import type { SleepAggregateBucket } from "../../sleep";
+  import type { DesignLanguage } from "../../theme/themes";
+  import type { SleepAggregateBucket } from "../../domain/sleep";
   import BarChart from "./BarChart.svelte";
-  import { formatDuration, formatCanonicalMonth } from "../../format";
+  import { formatDuration, formatCanonicalMonth } from "../../format/format";
 
   let {
     buckets,

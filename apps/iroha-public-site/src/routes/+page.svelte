@@ -25,16 +25,16 @@
     formatSport,
   } from "$lib/format";
   import { site } from "$lib/site";
-  import { sportColor } from "@iroha/shared/sport";
+  import { sportColor } from "@iroha/shared/domain/sport";
   import type { Activity } from "$lib/types";
   import ApprovedActivityDetail from "$lib/components/ApprovedActivityDetail.svelte";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
   import ActivityDetail from "$lib/components/ActivityDetail.svelte";
   import MonthlyBarChart from "$lib/components/MonthlyBarChart.svelte";
-  import SportBadge from "@iroha/shared/SportBadge.svelte";
-  import StatTile from "@iroha/shared/StatTile.svelte";
+  import SportBadge from "@iroha/shared/components/SportBadge.svelte";
+  import StatTile from "@iroha/shared/components/StatTile.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
-  import YearProgressChart from "@iroha/shared/YearProgressChart.svelte";
+  import YearProgressChart from "@iroha/shared/components/YearProgressChart.svelte";
   import type { PageProps } from "./$types";
 
   let { data }: PageProps = $props();

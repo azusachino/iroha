@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { currentMonth, formatMonth, shiftMonth } from "./month";
-  import type { DesignLanguage } from "./themes";
+  import { currentMonth, formatMonth, shiftMonth } from "../format/month";
+  import type { DesignLanguage } from "../theme/themes";
 
   const monthNames = Array.from({ length: 12 }, (_, index) =>
     new Date(Date.UTC(2026, index, 1)).toLocaleDateString(undefined, {

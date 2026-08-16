@@ -5,8 +5,8 @@
   import { init, use } from "echarts/core";
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
-  import type { SleepSegment } from "../../sleep";
-  import { sleepStageColor, sleepStageLabel } from "../../sleep-stages";
+  import type { SleepSegment } from "../../domain/sleep";
+  import { sleepStageColor, sleepStageLabel } from "../../domain/sleep-stages";
 
   use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 

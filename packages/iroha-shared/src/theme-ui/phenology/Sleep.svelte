@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { SleepThemeProps } from "../../sleep-view";
-  import type { SleepSession } from "../../sleep";
+  import type { SleepThemeProps } from "../../view-contracts/sleep-view";
+  import type { SleepSession } from "../../domain/sleep";
   import {
     formatDateOnly,
     formatDateShort,
     formatDuration,
-  } from "../../format";
+  } from "../../format/format";
   import BarChart from "../components/BarChart.svelte";
   import SleepAggregateChart from "../components/SleepAggregateChart.svelte";
 

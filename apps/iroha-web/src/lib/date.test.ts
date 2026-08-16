@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { todayInTimezone } from "@iroha/shared/date";
+import { todayInTimezone } from "@iroha/shared/format/date";
 
 describe("canonical default timezone", () => {
   it("uses Tokyo for the application calendar day", () => {

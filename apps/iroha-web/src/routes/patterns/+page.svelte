@@ -1,449 +1,22 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { replaceState } from "$app/navigation";
-  import { page } from "$app/state";
-  import {
-    getDailyBounds,
-    listDaily,
-    listDailyAggregates,
-    type DailyRow,
-    type DailyAggregateBucket,
-  } from "$lib/api";
-  import RingGauge, {
-    type Ring,
-  } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
-  import DailySmallMultiples, {
-    type SmallMultiple,
-  } from "@iroha/shared/theme-ui/components/DailySmallMultiples.svelte";
+  import RingGauge from "@iroha/shared/theme-ui/components/RingGauge.svelte";
+  import DailySmallMultiples from "@iroha/shared/theme-ui/components/DailySmallMultiples.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import {
     formatDateOnly,
     formatMonth as formatCanonicalMonth,
   } from "$lib/format";
-  import { currentYear, yearOptionsInRange } from "@iroha/shared/month";
-  import {
-    currentCalendarScope,
-    parseCalendarScope,
-    readCalendarScope,
-    scopeBounds,
-    scopeFromParts,
-    serializeCalendarScope,
-    writeCalendarScope,
-    type DateBounds,
-  } from "@iroha/shared/scope";
-  import { IROHA_TIMEZONE } from "$lib/config";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
-  import { createAsyncResource } from "$lib/asyncResource.svelte";
+  import { createPatternsState } from "./patterns-state.svelte";
 
   type Gran = "day" | "month" | "year";
-  const monthlyResource = createAsyncResource<DailyAggregateBucket[]>();
-  const yearlyResource = createAsyncResource<DailyAggregateBucket[]>();
-  const daysResource = createAsyncResource<DailyRow[]>();
-  const latestDayResource = createAsyncResource<DailyRow | null>();
-  const monthly = $derived(monthlyResource.data ?? []);
-  const yearly = $derived(yearlyResource.data ?? []);
-  const dayRows = $derived(daysResource.data ?? []);
-  const latestDay = $derived(latestDayResource.data ?? null);
-  const error = $derived(
-    monthlyResource.error ??
-      latestDayResource.error ??
-      yearlyResource.error ??
-      daysResource.error ??
-      null,
-  );
-  function granFromUrl(): Gran {
-    const value = page.url.searchParams.get("gran");
-    return value === "day" || value === "year" ? value : "month";
-  }
-
-  let gran = $state<Gran>(granFromUrl());
-  // Set directly by drilling into a bar/row (see drillIntoPeriod), and reset
-  // to "" -- meaning "default to the latest" -- by the day/month/year tabs
-  // themselves, so a tab always means "zoom all the way out to this level."
-  const defaultScope = currentCalendarScope("year", new Date(), IROHA_TIMEZONE);
-  const requestedScope = readCalendarScope(page.url.searchParams, {
-    fallback: defaultScope,
-    allowDay: false,
-  });
-  const initialMonth =
-    requestedScope.kind === "month"
-      ? (serializeCalendarScope(requestedScope) as string)
-      : "";
-  const initialYear =
-    requestedScope.kind === "year" || requestedScope.kind === "month"
-      ? String(requestedScope.year)
-      : requestedScope.kind === "lifetime"
-        ? ""
-        : currentYear(new Date(), IROHA_TIMEZONE);
-  let selectedMonth = $state(initialMonth);
-  let selectedYear = $state(initialYear);
-  let rangeFrom = $state<string | undefined>(undefined);
-  let rangeTo = $state<string | undefined>(undefined);
-  let monthlyLoadedKey = "";
-  let yearlyLoadedKey = "";
-  let loadedDayMonth = "";
   const theme = useTheme();
-
-  // The real data range (fetched once, independent of the current
-  // selection/granularity) -- drives which years/months are navigable, as
-  // a continuous range rather than only the periods with a chart bucket.
-  // That's what lets `scopedYear`/`scopedMonth` below equal the real
-  // selection whenever it's genuinely within history, instead of silently
-  // substituting whatever period happens to have data.
-  let dailyBounds = $state<DateBounds>({});
-  const availableYears = $derived(yearOptionsInRange(dailyBounds));
-  const availableMonths = $derived.by(() => {
-    if (!dailyBounds.min || !dailyBounds.max) return [];
-    const months: string[] = [];
-    let year = Number(dailyBounds.max.slice(0, 4));
-    let month = Number(dailyBounds.max.slice(5, 7));
-    const minYear = Number(dailyBounds.min.slice(0, 4));
-    const minMonth = Number(dailyBounds.min.slice(5, 7));
-    while (year > minYear || (year === minYear && month >= minMonth)) {
-      months.push(`${year}-${String(month).padStart(2, "0")}`);
-      month -= 1;
-      if (month === 0) {
-        month = 12;
-        year -= 1;
-      }
-    }
-    return months;
-  });
-  const scopedYear = $derived(
-    availableYears.includes(selectedYear) ? selectedYear : "",
-  );
-  const activeYear = $derived(scopedYear || availableYears[0] || "");
-  const monthsInScope = $derived(
-    availableMonths.filter((month) => month.startsWith(activeYear)),
-  );
-  const periodYears = $derived(
-    availableYears.map((year) => ({ value: year, label: year })),
-  );
-  const periodMonths = $derived(
-    monthsInScope.map((month) => ({
-      value: month,
-      label: formatCanonicalMonth(month),
-    })),
-  );
-  const scopedMonth = $derived(
-    monthsInScope.includes(selectedMonth) ? selectedMonth : "",
-  );
-  const activeMonth = $derived(scopedMonth || monthsInScope[0] || "");
-  const periodLabel = $derived(
-    gran === "year"
-      ? scopedYear || "Lifetime"
-      : gran === "month"
-        ? scopedMonth || `${activeYear} · all months`
-        : activeMonth
-          ? formatCanonicalMonth(activeMonth)
-          : "No month selected",
-  );
-
-  // Hero uses the latest real ring day, independent of the chosen granularity.
-  const latestRingDay = $derived(latestDay);
-  const latestRing = $derived(latestRingDay?.ring);
-  const ringData = $derived<Ring[]>(
-    latestRing
-      ? [
-          {
-            label: "Move",
-            value: latestRing.move_kcal,
-            goal: latestRing.move_goal_kcal,
-            unit: "kcal",
-            color: "var(--ring-move)",
-          },
-          {
-            label: "Exercise",
-            value: latestRing.exercise_min,
-            goal: latestRing.exercise_goal_min,
-            unit: "min",
-            color: "var(--ring-exercise)",
-          },
-          {
-            label: "Stand",
-            value: latestRing.stand_hours,
-            goal: latestRing.stand_goal_hours,
-            unit: "h",
-            color: "var(--ring-stand)",
-          },
-        ]
-      : [],
-  );
-
-  // A granularity-agnostic display row so the table + trends share one shape.
-  interface Disp {
-    label: string;
-    // Raw, unformatted period ("2026-08-10" / "2026-08" / "2026") -- what
-    // drillIntoPeriod acts on; label is display-only and not safe to parse.
-    period: string;
-    days: number | null;
-    move: number | null;
-    exercise: number | null;
-    stand: number | null;
-    moveClosedPct: number | null;
-    steps: number | null;
-    distance: number | null;
-    resting_hr: number | null;
-    hrv_sdnn: number | null;
-    spo2_avg: number | null;
-    respiratory_rate: number | null;
-    vo2max: number | null;
-    body_mass_kg: number | null;
-  }
-
-  function fmtPeriod(iso: string): string {
-    const d = new Date(iso);
-    if (gran === "year") return String(d.getUTCFullYear());
-    return formatCanonicalMonth(iso.slice(0, 7));
-  }
-  function dayToDisp(r: DailyRow): Disp {
-    const ring = r.ring;
-    const hasRing = ring != null && ring.move_goal_kcal > 0;
-    return {
-      label: formatDateOnly(r.day),
-      period: r.day.slice(0, 10),
-      days: null,
-      move: hasRing ? ring.move_kcal : null,
-      exercise: hasRing ? ring.exercise_min : null,
-      stand: hasRing ? ring.stand_hours : null,
-      moveClosedPct: hasRing
-        ? ring.move_kcal >= ring.move_goal_kcal
-          ? 100
-          : 0
-        : null,
-      steps: r.steps ?? null,
-      distance: r.distance_km ?? null,
-      resting_hr: r.resting_hr ?? null,
-      hrv_sdnn: r.hrv_sdnn ?? null,
-      spo2_avg: r.spo2_avg ?? null,
-      respiratory_rate: r.respiratory_rate ?? null,
-      vo2max: r.vo2max ?? null,
-      body_mass_kg: r.body_mass_kg ?? null,
-    };
-  }
-  function aggToDisp(b: DailyAggregateBucket): Disp {
-    const metricValue = (metric: string): number | null =>
-      b.metrics.find((item) => item.metric === metric)?.value ?? null;
-    const move = b.move_kcal_avg === 0 ? null : b.move_kcal_avg;
-    return {
-      label: fmtPeriod(b.period),
-      period: gran === "year" ? b.period.slice(0, 4) : b.period.slice(0, 7),
-      days: b.days,
-      move,
-      exercise: b.exercise_min_avg === 0 ? null : b.exercise_min_avg,
-      stand: b.stand_hours_avg === 0 ? null : b.stand_hours_avg,
-      moveClosedPct: move == null ? null : Math.round(b.move_closed_pct),
-      steps: metricValue("steps"),
-      distance: metricValue("distance_km"),
-      resting_hr: metricValue("resting_hr"),
-      hrv_sdnn: metricValue("hrv_sdnn"),
-      spo2_avg: metricValue("spo2_avg"),
-      respiratory_rate: metricValue("respiratory_rate"),
-      vo2max: metricValue("vo2max"),
-      body_mass_kg: metricValue("body_mass_kg"),
-    };
-  }
-
-  // Chronological (oldest→newest) for sparklines; table is its reverse.
-  const chrono = $derived.by<Disp[]>(() => {
-    if (gran === "day") {
-      return [...dayRows]
-        .filter((row) => !activeMonth || row.day.startsWith(activeMonth))
-        .reverse()
-        .map(dayToDisp);
-    }
-    if (gran === "month") {
-      return monthly
-        .filter(
-          (bucket) =>
-            (!activeYear || bucket.period.startsWith(activeYear)) &&
-            (!scopedMonth || bucket.period.startsWith(scopedMonth)),
-        )
-        .map(aggToDisp);
-    }
-    return yearly
-      .filter((bucket) => !scopedYear || bucket.period.startsWith(scopedYear))
-      .map(aggToDisp);
-  });
-  const table = $derived([...chrono].reverse());
-  const aggregated = $derived(gran !== "day");
-
-  function ser(pick: (d: Disp) => number | null): (number | null)[] {
-    return chrono.map((d) => pick(d));
-  }
-  const trendCharts = $derived.by<SmallMultiple[]>(() => [
-    {
-      label: "Steps",
-      values: ser((d) => d.steps),
-      color: "var(--accent)",
-      unit: "steps",
-    },
-    {
-      label: "Resting HR",
-      values: ser((d) => d.resting_hr),
-      color: "var(--sport-run)",
-      unit: "bpm",
-    },
-    {
-      label: "HRV",
-      values: ser((d) => d.hrv_sdnn),
-      color: "var(--sport-cycling)",
-      unit: "ms",
-    },
-    {
-      label: "Move ring closed",
-      values: ser((d) => d.moveClosedPct),
-      color: "var(--ring-move)",
-      unit: "%",
-    },
-  ]);
-  function fmt(v: number | null | undefined, digits: number): string {
-    if (typeof v !== "number" || !Number.isFinite(v)) return "—";
-    return v.toLocaleString(undefined, {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    });
-  }
-
-  async function loadMonthly() {
-    const key = selectedYear || "lifetime";
-    if (monthlyLoadedKey === key) return;
-    const result = await monthlyResource.run(() =>
-      listDailyAggregates(
-        "month",
-        selectedYear ? { date: selectedYear } : {},
-      ).then((r) => r.buckets),
-    );
-    if (result) monthlyLoadedKey = key;
-  }
-
-  async function loadBounds() {
-    try {
-      dailyBounds = await getDailyBounds();
-    } catch {
-      dailyBounds = {};
-    }
-  }
-
-  async function loadLatestDay() {
-    await latestDayResource.run(async () => {
-      const result = await listDaily({ limit: 1 });
-      return result.items[0] ?? null;
-    });
-  }
-
-  async function loadYearly() {
-    const key = selectedYear || "lifetime";
-    if (yearlyLoadedKey === key) return;
-    const result = await yearlyResource.run(() =>
-      listDailyAggregates(
-        "year",
-        selectedYear ? { date: selectedYear } : {},
-      ).then((r) => r.buckets),
-    );
-    if (result) yearlyLoadedKey = key;
-  }
-
-  async function loadDays(month: string) {
-    if (!month || loadedDayMonth === month || daysResource.loading) return;
-    const bounds = scopeBounds(parseCalendarScope(month)!);
-    if (!bounds) return;
-    rangeFrom = bounds.from;
-    rangeTo = bounds.to;
-    const result = await daysResource.run(async () => {
-      const r = await listDaily({ date: month, limit: 31 });
-      return r.items;
-    });
-    if (result) loadedDayMonth = month;
-  }
-
-  // A day/month/year tab always means "zoom all the way out to this level" --
-  // reset any scope a bar/row click drilled into, rather than keeping it.
-  async function changeGranularity(value: Gran) {
-    gran = value;
-    if (value === "year") await loadYearly();
-    if (value === "day") await loadDays(activeMonth);
-    syncUrl();
-  }
-
-  function selectYear(value: string) {
-    selectedYear = value;
-    selectedMonth = "";
-    monthlyLoadedKey = "";
-    yearlyLoadedKey = "";
-    void loadMonthly();
-    if (gran === "year") void loadYearly();
-    if (gran === "day") void loadDays(activeMonth);
-    syncUrl();
-  }
-
-  function selectMonth(value: string) {
-    selectedMonth = value;
-    if (value && selectedYear !== value.slice(0, 4)) {
-      selectedYear = value.slice(0, 4);
-      monthlyLoadedKey = "";
-      yearlyLoadedKey = "";
-      void loadMonthly();
-      if (gran === "year") void loadYearly();
-    }
-    if (gran === "day") void loadDays(activeMonth);
-    syncUrl();
-  }
-
-  function syncUrl() {
-    const url = new URL(window.location.href);
-    url.searchParams.set("gran", gran);
-    writeCalendarScope(
-      url.searchParams,
-      scopedMonth
-        ? (parseCalendarScope(scopedMonth) ?? scopeFromParts(scopedYear))
-        : scopeFromParts(scopedYear),
-    );
-    if (url.search !== window.location.search) replaceState(url, page.state);
-  }
-
-  // Clicking a bar or table row zooms in one level: a year scopes month
-  // view to it, a month scopes day view to it. Day is already the finest
-  // granularity, so a day period has nothing further to drill into.
-  function drillIntoPeriod(period: string) {
-    if (gran === "year") {
-      selectedYear = period;
-      gran = "month";
-    } else if (gran === "month") {
-      selectedMonth = period;
-      gran = "day";
-      void loadDays(period);
-    }
-    syncUrl();
-  }
-
-  function drillIntoIndex(index: number) {
-    const period = chrono[index]?.period;
-    if (period) drillIntoPeriod(period);
-  }
-
-  onMount(async () => {
-    await Promise.all([loadMonthly(), loadLatestDay(), loadBounds()]);
-    if (gran === "year") await loadYearly();
-    if (gran === "day") await loadDays(activeMonth);
-  });
-
-  // Only the resources the current granularity actually fetches -- yearly
-  // and day-row resources are never run outside their own tab, so including
-  // them unconditionally would leave the boundary waiting on data that's
-  // never coming.
-  const activeResources = $derived(
-    gran === "year"
-      ? [monthlyResource, latestDayResource, yearlyResource]
-      : gran === "day"
-        ? [monthlyResource, latestDayResource, daysResource]
-        : [monthlyResource, latestDayResource],
-  );
+  const t = createPatternsState();
 </script>
 
 <svelte:head>
@@ -453,39 +26,39 @@
 <section class="daily">
   {#if hasThemeRoute(theme.definition(), "daily")}
     <LoadingBoundary
-      resource={activeResources}
+      resource={t.activeResources}
       preserveLayout
       label="Loading time-series data…"
     >
-      {#if error}
+      {#if t.error}
         <p class="error status" role="alert">
-          Could not load daily data: {error}
+          Could not load daily data: {t.error}
         </p>
       {/if}
       <ThemeRouteRenderer
         route="daily"
         props={{
-          chrono,
-          gran,
-          onGran: (value: Gran) => void changeGranularity(value),
-          onDrillIndex: drillIntoIndex,
-          onDrillPeriod: drillIntoPeriod,
-          ringData,
-          latestRingDay,
+          chrono: t.chrono,
+          gran: t.gran,
+          onGran: (value: Gran) => void t.changeGranularity(value),
+          onDrillIndex: t.drillIntoIndex,
+          onDrillPeriod: t.drillIntoPeriod,
+          ringData: t.ringData,
+          latestRingDay: t.latestRingDay,
         }}
       >
         {#snippet children()}
           <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
             <PeriodSelector
-              years={periodYears}
-              months={periodMonths}
-              year={gran === "year" ? selectedYear : activeYear}
-              month={gran === "day" ? activeMonth : selectedMonth}
-              bounds={dailyBounds}
-              showAllYears={gran === "year"}
+              years={t.periodYears}
+              months={t.periodMonths}
+              year={t.gran === "year" ? t.selectedYear : t.activeYear}
+              month={t.gran === "day" ? t.activeMonth : t.selectedMonth}
+              bounds={t.dailyBounds}
+              showAllYears={t.gran === "year"}
               surface="inline"
-              onYear={selectYear}
-              onMonth={selectMonth}
+              onYear={t.selectYear}
+              onMonth={t.selectMonth}
             />
           </PeriodToolbar>
         {/snippet}
@@ -502,33 +75,33 @@
 
     <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
       <PeriodSelector
-        years={periodYears}
-        months={periodMonths}
-        year={gran === "year" ? selectedYear : activeYear}
-        month={gran === "day" ? activeMonth : selectedMonth}
-        bounds={dailyBounds}
-        showAllYears={gran === "year"}
+        years={t.periodYears}
+        months={t.periodMonths}
+        year={t.gran === "year" ? t.selectedYear : t.activeYear}
+        month={t.gran === "day" ? t.activeMonth : t.selectedMonth}
+        bounds={t.dailyBounds}
+        showAllYears={t.gran === "year"}
         surface="inline"
-        onYear={selectYear}
-        onMonth={selectMonth}
+        onYear={t.selectYear}
+        onMonth={t.selectMonth}
       />
     </PeriodToolbar>
 
-    {#if activeResources.some((r) => r.loading) && dayRows.length === 0}
+    {#if t.activeResources.some((r) => r.loading) && t.dayRows.length === 0}
       <p class="muted status">Loading daily history…</p>
-    {:else if error}
-      <p class="error status">Could not load daily data: {error}</p>
-    {:else if dayRows.length === 0}
+    {:else if t.error}
+      <p class="error status">Could not load daily data: {t.error}</p>
+    {:else if t.dayRows.length === 0}
       <p class="muted status">No daily data imported yet.</p>
     {:else}
       <div class="hero tile glow">
         <div class="hero-head">
           <span class="hero-kicker">Latest rings</span>
-          {#if latestRingDay}<span class="hero-date"
-              >{formatDateOnly(latestRingDay.day)}</span
+          {#if t.latestRingDay}<span class="hero-date"
+              >{formatDateOnly(t.latestRingDay.day)}</span
             >{/if}
         </div>
-        <RingGauge rings={ringData} />
+        <RingGauge rings={t.ringData} />
       </div>
 
       <div class="controls">
@@ -536,24 +109,24 @@
           {#each ["day", "month", "year"] as const as g}
             <button
               role="tab"
-              aria-selected={gran === g}
-              class:active={gran === g}
-              onclick={() => void changeGranularity(g)}
+              aria-selected={t.gran === g}
+              class:active={t.gran === g}
+              onclick={() => void t.changeGranularity(g)}
             >
               {g[0].toUpperCase() + g.slice(1)}
             </button>
           {/each}
         </div>
         <span class="muted small">
-          {#if aggregated}
-            {chrono.length}
-            {gran}s in {gran === "year" ? "view" : activeYear} · per-day averages
+          {#if t.aggregated}
+            {t.chrono.length}
+            {t.gran}s in {t.gran === "year" ? "view" : t.activeYear} · per-day averages
           {:else}
-            {chrono.length} days in {formatCanonicalMonth(activeMonth)}
+            {t.chrono.length} days in {formatCanonicalMonth(t.activeMonth)}
           {/if}
         </span>
-        {#if rangeFrom && rangeTo}<span class="muted small"
-            >Range: {rangeFrom} → before {rangeTo}</span
+        {#if t.rangeFrom && t.rangeTo}<span class="muted small"
+            >Range: {t.rangeFrom} → before {t.rangeTo}</span
           >{/if}
       </div>
       <div class="trend-panel tile">
@@ -567,22 +140,22 @@
           >
         </div>
         <DailySmallMultiples
-          labels={chrono.map((d) => d.label)}
-          charts={trendCharts}
+          labels={t.chrono.map((d) => d.label)}
+          charts={t.trendCharts}
         />
       </div>
 
       <section class="atlas-note tile" aria-label="Pattern reading guide">
         <div>
           <span class="t-label">Reading the atlas</span>
-          <h2>{gran[0].toUpperCase() + gran.slice(1)} view</h2>
+          <h2>{t.gran[0].toUpperCase() + t.gran.slice(1)} view</h2>
         </div>
         <p>
           Compare movement and body signals at this scale, then use the table as
           the precise record. Missing values remain unfilled rather than being
           treated as zero.
         </p>
-        <span class="muted small">{chrono.length} periods in view</span>
+        <span class="muted small">{t.chrono.length} periods in view</span>
       </section>
 
       <div class="table-wrap tile">
@@ -590,16 +163,16 @@
           <thead>
             <tr>
               <th class="l"
-                >{gran === "day"
+                >{t.gran === "day"
                   ? "Day"
-                  : gran === "month"
+                  : t.gran === "month"
                     ? "Month"
                     : "Year"}</th
               >
-              {#if aggregated}<th>Days</th>{/if}
+              {#if t.aggregated}<th>Days</th>{/if}
               <th>Move</th><th>Exer</th><th>Stand</th><th>Move ✓</th>
-              <th>Steps{aggregated ? "/d" : ""}</th><th
-                >Dist{aggregated ? "/d" : ""}</th
+              <th>Steps{t.aggregated ? "/d" : ""}</th><th
+                >Dist{t.aggregated ? "/d" : ""}</th
               >
               <th>rHR</th><th>HRV</th><th>SpO₂</th><th>Resp</th><th>VO₂</th><th
                 >Mass</th
@@ -607,31 +180,31 @@
             </tr>
           </thead>
           <tbody>
-            {#each table as d}
+            {#each t.table as d}
               <tr
-                class:drillable={gran !== "day"}
-                onclick={gran !== "day"
-                  ? () => drillIntoPeriod(d.period)
+                class:drillable={t.gran !== "day"}
+                onclick={t.gran !== "day"
+                  ? () => t.drillIntoPeriod(d.period)
                   : undefined}
               >
                 <td class="l">{d.label}</td>
-                {#if aggregated}<td>{d.days}</td>{/if}
-                <td>{fmt(d.move, 0)}</td>
-                <td>{fmt(d.exercise, 0)}</td>
-                <td>{fmt(d.stand, 0)}</td>
+                {#if t.aggregated}<td>{d.days}</td>{/if}
+                <td>{t.fmt(d.move, 0)}</td>
+                <td>{t.fmt(d.exercise, 0)}</td>
+                <td>{t.fmt(d.stand, 0)}</td>
                 <td
                   >{d.moveClosedPct == null
                     ? "—"
                     : `${Math.round(d.moveClosedPct)}%`}</td
                 >
-                <td>{fmt(d.steps, 0)}</td>
-                <td>{fmt(d.distance, 1)}</td>
-                <td>{fmt(d.resting_hr, 0)}</td>
-                <td>{fmt(d.hrv_sdnn, 0)}</td>
-                <td>{fmt(d.spo2_avg, 1)}</td>
-                <td>{fmt(d.respiratory_rate, 1)}</td>
-                <td>{fmt(d.vo2max, 1)}</td>
-                <td>{fmt(d.body_mass_kg, 1)}</td>
+                <td>{t.fmt(d.steps, 0)}</td>
+                <td>{t.fmt(d.distance, 1)}</td>
+                <td>{t.fmt(d.resting_hr, 0)}</td>
+                <td>{t.fmt(d.hrv_sdnn, 0)}</td>
+                <td>{t.fmt(d.spo2_avg, 1)}</td>
+                <td>{t.fmt(d.respiratory_rate, 1)}</td>
+                <td>{t.fmt(d.vo2max, 1)}</td>
+                <td>{t.fmt(d.body_mass_kg, 1)}</td>
               </tr>
             {/each}
           </tbody>

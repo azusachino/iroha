@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryColor } from "@iroha/shared/category-color";
+import { categoryColor } from "@iroha/shared/domain/category-color";
 
 describe("canonical category colors", () => {
   it("keeps category identity stable regardless of chart rank", () => {

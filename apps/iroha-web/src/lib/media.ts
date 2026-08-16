@@ -2,4 +2,4 @@ export {
   mediaTypeColor,
   mediaTypeFamily,
   mediaTypeLabel,
-} from "@iroha/shared/media";
+} from "@iroha/shared/domain/media";

@@ -1,7 +1,7 @@
 import { THEME_DEFINITIONS, isDesignLanguage } from "$lib/themes/registry";
-import type { DesignLanguage } from "@iroha/shared/themes";
+import type { DesignLanguage } from "@iroha/shared/theme/themes";
 
-export type { DesignLanguage } from "@iroha/shared/themes";
+export type { DesignLanguage } from "@iroha/shared/theme/themes";
 
 export const DESIGN_LANGUAGES = THEME_DEFINITIONS;
 

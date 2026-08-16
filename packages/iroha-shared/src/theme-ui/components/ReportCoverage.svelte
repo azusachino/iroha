@@ -2,7 +2,7 @@
   import {
     reportSectionStateCopy,
     type MonthlyReport,
-  } from "../../report";
+  } from "../../domain/report";
 
   let { report }: { report: MonthlyReport } = $props();
 </script>

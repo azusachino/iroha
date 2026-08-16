@@ -1,7 +1,7 @@
 <script lang="ts">
-  import SharedPeriodSelector from "@iroha/shared/PeriodSelector.svelte";
-  import type { PeriodOption } from "@iroha/shared/PeriodSelector.svelte";
-  import type { DateBounds } from "@iroha/shared/scope";
+  import SharedPeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import type { PeriodOption } from "@iroha/shared/components/PeriodSelector.svelte";
+  import type { DateBounds } from "@iroha/shared/format/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
   import { useTheme } from "$lib/themes/context.svelte";
 
@@ -14,6 +14,7 @@
     months,
     monthDisabled = false,
     showAllYears = true,
+    showAllMonths = true,
     surface = "panel",
     timezone = IROHA_TIMEZONE,
     bounds,
@@ -26,6 +27,7 @@
     months: PeriodOption[];
     monthDisabled?: boolean;
     showAllYears?: boolean;
+    showAllMonths?: boolean;
     surface?: "panel" | "inline";
     timezone?: string;
     bounds?: DateBounds;
@@ -43,6 +45,7 @@
   {months}
   {monthDisabled}
   {showAllYears}
+  {showAllMonths}
   {surface}
   {timezone}
   {bounds}

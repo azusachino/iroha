@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DesignTodayData } from "../../design-compositions";
+  import type { DesignTodayData } from "../../theme/design-compositions";
 
   let {
     today,

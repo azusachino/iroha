@@ -5,7 +5,7 @@
     designDuration,
     designPercent,
     type DesignCompositionProps,
-  } from "../../design-compositions";
+  } from "../../theme/design-compositions";
 
   let { today, readiness, links }: DesignCompositionProps = $props();
   const sleep = $derived(today.sleep);

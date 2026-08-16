@@ -3,7 +3,7 @@ import {
   DESIGN_COMPOSITIONS,
   designComposition,
   isDesignComposition,
-} from "@iroha/shared/design-compositions";
+} from "@iroha/shared/theme/design-compositions";
 
 describe("design workshop compositions", () => {
   it("keeps every implemented layout addressable", () => {

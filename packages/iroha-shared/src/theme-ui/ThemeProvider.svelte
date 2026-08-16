@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import type { Snippet } from "svelte";
-  import type { DesignLanguage } from "../themes";
+  import type { DesignLanguage } from "../theme/themes";
   import { getThemeDefinition } from "./registry";
   import { provideTheme } from "./context.svelte";
 

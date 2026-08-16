@@ -1,244 +1,16 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import {
-    getMediaAggregates,
-    listMedia,
-    type MediaAggregates,
-    type MediaCompletionBucket,
-    type MediaRow,
-  } from "$lib/api";
-  import { progressPercent } from "$lib/format";
-  import { mediaTypeColor, mediaTypeFamily, mediaTypeLabel } from "$lib/media";
-  import StatTile from "@iroha/shared/StatTile.svelte";
+  import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
+  import StatTile from "@iroha/shared/components/StatTile.svelte";
   import MediaBarChart from "@iroha/shared/theme-ui/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
-  import { createAsyncResource } from "$lib/asyncResource.svelte";
+  import { createLibraryState } from "./library-state.svelte";
 
-  const libraryResource = createAsyncResource<{
-    aggregates: MediaAggregates;
-    items: MediaRow[];
-    nextCursor: string | null;
-    hasMore: boolean;
-    statusCounts: Record<string, number>;
-    activeCount: number;
-  }>();
-  const aggregates = $derived(libraryResource.data?.aggregates ?? null);
-  const items = $derived(libraryResource.data?.items ?? []);
-  const hasMore = $derived(libraryResource.data?.hasMore ?? false);
-  const statusCounts = $derived(libraryResource.data?.statusCounts ?? {});
-  const activeCount = $derived(libraryResource.data?.activeCount ?? 0);
-  let loadingMore = $state(false);
-  let family = $state("");
-  let status = $state("");
-  let completedYear = $state("");
-  let selectedYear = $state("");
-  let yearSelect = $state<HTMLSelectElement>();
-  let availableYears = $state<MediaCompletionBucket[]>([]);
   const theme = useTheme();
-  const EMPTY_AGGREGATES: MediaAggregates = {
-    totals: {
-      item_count: 0,
-      completed_count: 0,
-      current_completed_count: 0,
-      this_year_completed: 0,
-      average_rating: 0,
-    },
-    completions_by_year: [],
-    score_distribution: [],
-    type_split: [],
-  };
-  const aggregatesForView = $derived(aggregates ?? EMPTY_AGGREGATES);
-
-  const FAMILIES = [
-    { value: "", label: "All" },
-    { value: "anime", label: "Anime" },
-    { value: "manga_book", label: "Manga & light novels" },
-    { value: "book", label: "Books" },
-    { value: "game", label: "Games" },
-  ];
-
-  // Only actively-in-progress items belong in the "continue" strip; paused /
-  // on-hold entries keep status=in_progress but carry hidden_from_continue.
-  const isContinuing = (item: MediaRow) =>
-    item.status === "in_progress" && !item.hidden_from_continue;
-  const continueItems = $derived(items.filter(isContinuing).slice(0, 6));
-
-  const STATUS_ORDER = [
-    "paused",
-    "completed",
-    "planned",
-    "abandoned",
-    "unknown",
-  ];
-  const groupedItems = $derived(
-    Object.entries(
-      items
-        .filter((item) => !isContinuing(item))
-        .reduce(
-          (groups, item) => {
-            // Paused items share the in_progress status; give them a shelf.
-            const key =
-              item.status === "in_progress"
-                ? "paused"
-                : item.status || "unknown";
-            (groups[key] ??= []).push(item);
-            return groups;
-          },
-          {} as Record<string, MediaRow[]>,
-        ),
-    ).sort(
-      ([a], [b]) =>
-        (STATUS_ORDER.indexOf(a) + 1 || 99) -
-        (STATUS_ORDER.indexOf(b) + 1 || 99),
-    ),
-  );
-
-  // The API splits by raw media_type (anime_season, manga, movie, ova…);
-  // collapse those into display families for the "By kind" chart.
-  const typeFamilies = $derived(
-    Object.entries(
-      (aggregates?.type_split ?? []).reduce(
-        (families, bucket) => {
-          const key = mediaTypeFamily(bucket.type);
-          families[key] = (families[key] ?? 0) + bucket.count;
-          return families;
-        },
-        {} as Record<string, number>,
-      ),
-    )
-      .map(([type, count]) => ({ type, count }))
-      .sort((a, b) => b.count - a.count),
-  );
-
-  const completions = $derived(aggregates?.completions_by_year ?? []);
-  const scores = $derived(aggregates?.score_distribution ?? []);
-  const yearOptions = $derived(
-    [...availableYears].sort((a, b) => b.year - a.year),
-  );
-
-  $effect(() => {
-    selectedYear = completedYear;
-    if (yearSelect && yearSelect.value !== completedYear) {
-      yearSelect.value = completedYear;
-    }
-  });
-
-  onMount(() => {
-    void load();
-  });
-
-  function currentFilters() {
-    return {
-      family: family || undefined,
-      status: status || undefined,
-      completed_year: completedYear ? Number(completedYear) : undefined,
-    };
-  }
-
-  async function load() {
-    const filters = currentFilters();
-    const result = await libraryResource.run(async () => {
-      const [nextAggregates, page] = await Promise.all([
-        getMediaAggregates(filters),
-        listMedia({ limit: 100, ...filters }),
-      ]);
-      return {
-        aggregates: nextAggregates,
-        items: page.items,
-        nextCursor: page.next_cursor,
-        hasMore: page.has_more,
-        statusCounts: page.status_counts ?? {},
-        activeCount: page.active_count ?? 0,
-      };
-    });
-    if (result && !filters.completed_year) {
-      availableYears = result.aggregates.completions_by_year ?? [];
-    }
-  }
-
-  async function selectFamily(value: string) {
-    if (value === family) return;
-    family = value;
-    await load();
-  }
-
-  async function selectStatus(value: string) {
-    if (value === status) return;
-    status = value;
-    await load();
-  }
-
-  async function selectYear(value: string) {
-    if (value === completedYear) return;
-    completedYear = value;
-    await load();
-  }
-
-  async function loadMore() {
-    const cursor = libraryResource.data?.nextCursor;
-    if (!cursor || loadingMore) return;
-    loadingMore = true;
-    try {
-      const page = await listMedia({
-        limit: 100,
-        cursor,
-        ...currentFilters(),
-      });
-      libraryResource.mutate((current) => ({
-        aggregates: current?.aggregates ?? EMPTY_AGGREGATES,
-        statusCounts: current?.statusCounts ?? {},
-        activeCount: current?.activeCount ?? 0,
-        items: [...(current?.items ?? []), ...page.items],
-        nextCursor: page.next_cursor,
-        hasMore: page.has_more,
-      }));
-    } catch {
-      // Load-more failures are retry-safe -- keep the rows already showing
-      // rather than replacing a working view with an error.
-    } finally {
-      loadingMore = false;
-    }
-  }
-
-  function statusLabel(status: string): string {
-    return status
-      .replaceAll("_", " ")
-      .replace(/^./, (char) => char.toUpperCase());
-  }
-  function statusTone(status: string): string {
-    if (status === "completed") return "completed";
-    if (status === "planned") return "planned";
-    if (status === "abandoned") return "abandoned";
-    if (status === "paused") return "paused";
-    return "unknown";
-  }
-
-  function progressValue(item: MediaRow): number {
-    return progressPercent(
-      item.status,
-      item.position,
-      item.total,
-      item.progress_percent,
-    );
-  }
-
-  // Default to the native (Japanese) title; keep the English/romaji as a
-  // secondary line when it differs.
-  function primaryTitle(item: MediaRow): string {
-    return item.native_title || item.title;
-  }
-  function altTitle(item: MediaRow): string {
-    return item.native_title && item.native_title !== item.title
-      ? item.title
-      : "";
-  }
-  function initial(item: MediaRow): string {
-    return primaryTitle(item).slice(0, 1);
-  }
+  const l = createLibraryState();
 </script>
 
 <svelte:head>
@@ -248,40 +20,41 @@
 <section class="media-shell">
   {#if hasThemeRoute(theme.definition(), "media")}
     <LoadingBoundary
-      resource={libraryResource}
+      resource={l.libraryResource}
       preserveLayout
       label="Loading media history…"
     >
-      {#if libraryResource.error}
+      {#if l.libraryResource.error}
         <p class="error" aria-live="assertive">
-          {#if aggregates}
-            Could not update media; showing the previous result: {libraryResource.error}
+          {#if l.aggregates}
+            Could not update media; showing the previous result: {l
+              .libraryResource.error}
           {:else}
-            Failed to load media: {libraryResource.error}
+            Failed to load media: {l.libraryResource.error}
           {/if}
         </p>
       {/if}
       <ThemeRouteRenderer
         route="media"
         props={{
-          items,
-          aggregates: aggregatesForView,
-          family,
-          status,
-          completedYear,
-          yearOptions,
-          typeFamilies,
-          completions,
-          scores,
+          items: l.items,
+          aggregates: l.aggregatesForView,
+          family: l.family,
+          status: l.status,
+          completedYear: l.completedYear,
+          yearOptions: l.yearOptions,
+          typeFamilies: l.typeFamilies,
+          completions: l.completions,
+          scores: l.scores,
           currentCompletedCount:
-            aggregatesForView.totals.current_completed_count,
-          activeCount,
-          onFamily: selectFamily,
-          onStatus: selectStatus,
-          onYear: selectYear,
-          onLoadMore: loadMore,
-          hasMore,
-          loadingMore,
+            l.aggregatesForView.totals.current_completed_count,
+          activeCount: l.activeCount,
+          onFamily: l.selectFamily,
+          onStatus: l.selectStatus,
+          onYear: l.selectYear,
+          onLoadMore: l.loadMore,
+          hasMore: l.hasMore,
+          loadingMore: l.loadingMore,
         }}
       />
     </LoadingBoundary>
@@ -293,15 +66,15 @@
     />
 
     <div class="filter-bar" role="tablist" aria-label="Filter by kind">
-      {#each FAMILIES as f (f.value)}
+      {#each l.FAMILIES as f (f.value)}
         <button
           type="button"
           class="chip"
-          class:active={family === f.value}
+          class:active={l.family === f.value}
           role="tab"
-          aria-selected={family === f.value}
+          aria-selected={l.family === f.value}
           aria-label={`Filter media by ${f.label}`}
-          onclick={() => selectFamily(f.value)}
+          onclick={() => l.selectFamily(f.value)}
         >
           {f.label}
         </button>
@@ -312,9 +85,9 @@
       <label>
         <span>Status</span>
         <select
-          value={status}
+          value={l.status}
           onchange={(event) =>
-            selectStatus((event.currentTarget as HTMLSelectElement).value)}
+            l.selectStatus((event.currentTarget as HTMLSelectElement).value)}
         >
           <option value="">All statuses</option>
           <option value="in_progress">In progress</option>
@@ -326,56 +99,57 @@
       <label>
         <span>Completed year</span>
         <select
-          bind:this={yearSelect}
-          bind:value={selectedYear}
+          bind:this={l.yearSelect}
+          bind:value={l.selectedYear}
           onchange={(event) =>
-            selectYear((event.currentTarget as HTMLSelectElement).value)}
+            l.selectYear((event.currentTarget as HTMLSelectElement).value)}
         >
           <option value="">Lifetime</option>
-          {#each yearOptions as option (option.year)}
+          {#each l.yearOptions as option (option.year)}
             <option value={option.year}>{option.year}</option>
           {/each}
         </select>
       </label>
     </div>
 
-    {#if !aggregates && libraryResource.loading}
+    {#if !l.aggregates && l.libraryResource.loading}
       <p class="muted" aria-live="polite">Loading media history…</p>
-    {:else if !aggregates && libraryResource.error}
+    {:else if !l.aggregates && l.libraryResource.error}
       <p class="error" aria-live="assertive">
-        Failed to load media: {libraryResource.error}
+        Failed to load media: {l.libraryResource.error}
       </p>
-    {:else if aggregates}
+    {:else if l.aggregates}
       <LoadingBoundary
-        resource={libraryResource}
+        resource={l.libraryResource}
         label="Loading media history…"
       >
-        {#if libraryResource.error}
+        {#if l.libraryResource.error}
           <p class="error" aria-live="assertive">
-            Could not update media; showing the previous result: {libraryResource.error}
+            Could not update media; showing the previous result: {l
+              .libraryResource.error}
           </p>
         {/if}
         <div class="stat-strip">
           <StatTile
             label="Library"
-            value={aggregates.totals.item_count.toLocaleString()}
+            value={l.aggregates.totals.item_count.toLocaleString()}
             sub="Tracked titles"
           />
           <StatTile
             label="Completed"
-            value={aggregates.totals.current_completed_count.toLocaleString()}
-            sub={`${aggregates.totals.this_year_completed} this year`}
+            value={l.aggregates.totals.current_completed_count.toLocaleString()}
+            sub={`${l.aggregates.totals.this_year_completed} this year`}
           />
           <StatTile
             label="Avg score"
-            value={aggregates.totals.average_rating
-              ? aggregates.totals.average_rating.toFixed(1)
+            value={l.aggregates.totals.average_rating
+              ? l.aggregates.totals.average_rating.toFixed(1)
               : "—"}
             sub="Out of 10"
           />
           <StatTile
             label="In progress"
-            value={activeCount.toLocaleString()}
+            value={l.activeCount.toLocaleString()}
             sub="Watching or reading"
           />
         </div>
@@ -385,13 +159,13 @@
             <header class="chart-head">
               <h2>Completions by year</h2>
               <span class="chart-total"
-                >{aggregates.totals.completed_count}</span
+                >{l.aggregates.totals.completed_count}</span
               >
             </header>
-            {#if completions.length}
+            {#if l.completions.length}
               <MediaBarChart
-                labels={completions.map((b) => b.year)}
-                values={completions.map((b) => b.count)}
+                labels={l.completions.map((b) => b.year)}
+                values={l.completions.map((b) => b.count)}
                 color="--accent"
               />
             {:else}
@@ -404,10 +178,10 @@
               <h2>Score distribution</h2>
               <span class="chart-total">0–10</span>
             </header>
-            {#if scores.length}
+            {#if l.scores.length}
               <MediaBarChart
-                labels={scores.map((b) => b.score)}
-                values={scores.map((b) => b.count)}
+                labels={l.scores.map((b) => b.score)}
+                values={l.scores.map((b) => b.count)}
                 color="--accent-2"
               />
             {:else}
@@ -419,10 +193,10 @@
             <header class="chart-head">
               <h2>By kind</h2>
             </header>
-            {#if typeFamilies.length}
+            {#if l.typeFamilies.length}
               <MediaBarChart
-                labels={typeFamilies.map((f) => f.type)}
-                values={typeFamilies.map((f) => f.count)}
+                labels={l.typeFamilies.map((f) => f.type)}
+                values={l.typeFamilies.map((f) => f.count)}
                 color="--mark-teal"
                 horizontal
               />
@@ -432,7 +206,7 @@
           </section>
         </div>
 
-        {#if continueItems.length}
+        {#if l.continueItems.length}
           <section class="shelf">
             <header class="shelf-head">
               <div>
@@ -440,20 +214,20 @@
                 <h2>Watching &amp; reading</h2>
               </div>
               <span class="muted"
-                >{activeCount} active{activeCount > 6
+                >{l.activeCount} active{l.activeCount > 6
                   ? " · showing 6"
                   : ""}</span
               >
             </header>
             <div class="continue-grid">
-              {#each continueItems as item (item.id)}
+              {#each l.continueItems as item (item.id)}
                 <a class="continue-card tile" href={`/library/${item.id}`}>
                   <div class="thumb">
                     {#if item.cover_image_url}
                       <img src={item.cover_image_url} alt="" loading="lazy" />
                     {:else}
                       <span class="thumb-ph" aria-hidden="true"
-                        >{initial(item)}</span
+                        >{l.initial(item)}</span
                       >
                     {/if}
                   </div>
@@ -464,12 +238,13 @@
                         style={`background:${mediaTypeColor(item.media_type)}`}
                       ></span>{mediaTypeLabel(item.media_type)}
                     </span>
-                    <h3>{primaryTitle(item)}</h3>
-                    {#if altTitle(item)}<span class="alt">{altTitle(item)}</span
+                    <h3>{l.primaryTitle(item)}</h3>
+                    {#if l.altTitle(item)}<span class="alt"
+                        >{l.altTitle(item)}</span
                       >{/if}
                     {#if item.total}
                       <div class="progress-track">
-                        <span style={`width:${progressValue(item)}%`}></span>
+                        <span style={`width:${l.progressValue(item)}%`}></span>
                       </div>
                     {/if}
                     <span class="progress-label">
@@ -489,20 +264,20 @@
               <p class="eyebrow">Collection</p>
               <h2>Everything in the index</h2>
             </div>
-            <span class="muted">{items.length} shown</span>
+            <span class="muted">{l.items.length} shown</span>
           </header>
-          {#if groupedItems.length}
-            {#each groupedItems as [status, group] (status)}
+          {#if l.groupedItems.length}
+            {#each l.groupedItems as [status, group] (status)}
               <div class="status-group">
                 <header class="status-head">
                   <h3>
                     <span
-                      class={`status-dot ${statusTone(status)}`}
+                      class={`status-dot ${l.statusTone(status)}`}
                       aria-hidden="true"
                     ></span>
-                    {statusLabel(status)}
+                    {l.statusLabel(status)}
                   </h3>
-                  <span>{statusCounts[status] ?? group.length}</span>
+                  <span>{l.statusCounts[status] ?? group.length}</span>
                 </header>
                 <div class="poster-grid">
                   {#each group as item (item.id)}
@@ -516,7 +291,7 @@
                           />
                         {:else}
                           <span class="cover-ph" aria-hidden="true"
-                            >{initial(item)}</span
+                            >{l.initial(item)}</span
                           >
                         {/if}
                         {#if item.rating != null}
@@ -525,7 +300,9 @@
                           >
                         {/if}
                       </div>
-                      <h3 title={primaryTitle(item)}>{primaryTitle(item)}</h3>
+                      <h3 title={l.primaryTitle(item)}>
+                        {l.primaryTitle(item)}
+                      </h3>
                       <span class="poster-sub">
                         <span
                           class="dot"
@@ -537,13 +314,13 @@
                 </div>
               </div>
             {/each}
-            {#if hasMore}
+            {#if l.hasMore}
               <button
                 class="load-more"
-                onclick={loadMore}
-                disabled={loadingMore}
+                onclick={l.loadMore}
+                disabled={l.loadingMore}
               >
-                {loadingMore ? "Loading…" : "Load more"}
+                {l.loadingMore ? "Loading…" : "Load more"}
               </button>
             {/if}
           {:else}

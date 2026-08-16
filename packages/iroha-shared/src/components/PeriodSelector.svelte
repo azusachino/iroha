@@ -5,12 +5,12 @@
     serializeCalendarScope,
     shiftCalendarScope,
     type DateBounds,
-  } from "./scope";
-  import { formatCanonicalMonth } from "./format";
+  } from "../format/scope";
+  import { formatCanonicalMonth } from "../format/format";
   import SelectControl, {
     type SelectControlOption,
   } from "./SelectControl.svelte";
-  import type { DesignLanguage } from "./themes";
+  import type { DesignLanguage } from "../theme/themes";
 
   export type PeriodOption = { value: string; label: string };
 
@@ -21,6 +21,7 @@
     months,
     monthDisabled = false,
     showAllYears = true,
+    showAllMonths = true,
     appearance = "grapher",
     surface = "panel",
     timezone,
@@ -34,6 +35,7 @@
     months: PeriodOption[];
     monthDisabled?: boolean;
     showAllYears?: boolean;
+    showAllMonths?: boolean;
     surface?: "panel" | "inline";
     appearance?: DesignLanguage;
     timezone?: string;
@@ -67,7 +69,7 @@
   ]);
 
   const monthSelectOptions = $derived<SelectControlOption[]>([
-    { value: "", label: "All months" },
+    ...(showAllMonths ? [{ value: "", label: "All months" }] : []),
     ...months.map((option) => ({
       value: option.value,
       label: monthOptionLabel(option),

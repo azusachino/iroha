@@ -5,7 +5,7 @@ import {
   type DesignLanguage,
   type ThemeDefinition,
   type ThemeRoute,
-} from "../themes";
+} from "../theme/themes";
 import GrapherActivities from "./grapher/Activities.svelte";
 import GrapherDaily from "./grapher/Daily.svelte";
 import GrapherShell from "./grapher/Shell.svelte";

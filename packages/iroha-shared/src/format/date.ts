@@ -27,6 +27,7 @@ export function todayInTimezone(
     day: "2-digit",
     timeZone: timezone,
   }).formatToParts(date);
-  const part = (type: string) => parts.find((item) => item.type === type)?.value;
+  const part = (type: string) =>
+    parts.find((item) => item.type === type)?.value;
   return `${part("year")}-${part("month")}-${part("day")}`;
 }

@@ -77,6 +77,11 @@ class IrohaClient:
         self.session = session or requests.Session()
 
     def request(self, method: str, path: str, body: bytes | None = None) -> bytes:
+        return self.request_with_status(method, path, body)[1]
+
+    def request_with_status(
+        self, method: str, path: str, body: bytes | None = None
+    ) -> tuple[int, bytes]:
         if not path.startswith("/"):
             raise CLIError(f"API path must start with '/': {path}")
         headers = {"Accept": "application/json"}
@@ -96,7 +101,7 @@ class IrohaClient:
         response_body = response.content
         if status < 200 or status >= 300:
             raise _api_error(status, response_body)
-        return response_body
+        return status, response_body
 
     def upload_file(self, path: str, source_kind: str) -> bytes:
         file_path = Path(path)

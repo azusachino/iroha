@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DailyThemeProps } from "../../daily-view";
+  import type { DailyThemeProps } from "../../view-contracts/daily-view";
   import RingGauge from "../components/RingGauge.svelte";
   import BarChart from "../components/BarChart.svelte";
 

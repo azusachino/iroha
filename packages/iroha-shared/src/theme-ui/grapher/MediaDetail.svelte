@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { MediaDetailThemeProps } from "../../media";
+  import type { MediaDetailThemeProps } from "../../domain/media";
   import BarChart from "../components/BarChart.svelte";
   import MediaUpdateList from "../components/MediaUpdateList.svelte";
-  import { mediaEventLabel } from "../../media";
+  import { mediaEventLabel } from "../../domain/media";
 
   let { detail, progress, hasKnownTotal, theme }: MediaDetailThemeProps = $props();
   const progressEvents = $derived(

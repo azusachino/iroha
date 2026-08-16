@@ -14,7 +14,7 @@ import {
   type Task,
 } from "$lib/api";
 import type { Ring } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
-import { todayInTimezone } from "@iroha/shared/date";
+import { todayInTimezone } from "@iroha/shared/format/date";
 import { IROHA_TIMEZONE } from "$lib/config";
 import { formatDateOnly } from "$lib/format";
 

@@ -61,9 +61,10 @@ CMD ["up"]
 # Batch job image for the k3s CronJob that keeps the public GitHub Pages site
 # fresh: exports sanitized data from the in-cluster Postgres and pushes it,
 # from inside the private network, to the repo the Pages deploy workflow
-# watches. git (not needed by the other images) is the only extra package.
+# watches. git (not needed by the other images) is the only extra package;
+# tzdata is required for the CronJob's Asia/Tokyo schedule check.
 FROM alpine:3.22 AS export-public
-RUN apk add --no-cache ca-certificates tini git \
+RUN apk add --no-cache ca-certificates tini git tzdata \
   && addgroup -S iroha && adduser -S -G iroha iroha
 COPY --from=build /out/iroha-export-public /usr/local/bin/iroha-export-public
 COPY ops/scripts/export-public-cron.sh /usr/local/bin/export-public-cron.sh

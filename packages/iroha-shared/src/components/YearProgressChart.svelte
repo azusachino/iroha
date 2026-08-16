@@ -9,8 +9,8 @@
   import { init, use } from "echarts/core";
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
-  import type { ActivitySummaryBucket } from "./activity";
-  import { formatDistance } from "./format";
+  import type { ActivitySummaryBucket } from "../domain/activity";
+  import { formatDistance } from "../format/format";
 
   use([
     LineChart,

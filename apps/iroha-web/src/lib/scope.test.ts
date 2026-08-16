@@ -10,7 +10,7 @@ import {
   serializeCalendarScope,
   shiftCalendarScope,
   writeCalendarScope,
-} from "@iroha/shared/scope";
+} from "@iroha/shared/format/scope";
 
 const NOW = new Date("2026-08-15T03:00:00Z");
 

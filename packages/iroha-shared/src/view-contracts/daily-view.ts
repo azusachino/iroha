@@ -1,6 +1,6 @@
 import type { Snippet } from "svelte";
-import type { DailyRow } from "./daily";
-import type { DesignLanguage } from "./themes";
+import type { DailyRow } from "../domain/daily";
+import type { DesignLanguage } from "../theme/themes";
 
 export interface ActivityRing {
   label: string;

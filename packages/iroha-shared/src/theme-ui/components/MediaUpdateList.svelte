@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { MediaChange } from "../../media";
-  import { formatDateOnly } from "../../format";
+  import type { MediaChange } from "../../domain/media";
+  import { formatDateOnly } from "../../format/format";
 
   let {
     updates,

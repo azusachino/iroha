@@ -17,23 +17,23 @@
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
-  import MetricPanel from "@iroha/shared/MetricPanel.svelte";
-  import { seriesPanelRows } from "@iroha/shared/metric-panel";
-  import { pointValue } from "@iroha/shared/metric-series";
+  import MetricPanel from "@iroha/shared/components/MetricPanel.svelte";
+  import { seriesPanelRows } from "@iroha/shared/components/metric-panel";
+  import { pointValue } from "@iroha/shared/components/metric-series";
   import {
     currentMonth,
     monthBounds,
     monthOptionsInRange,
     shiftMonth,
     yearOptionsInRange,
-  } from "@iroha/shared/month";
+  } from "@iroha/shared/format/month";
   import {
     currentCalendarScope,
     readCalendarScope,
     serializeCalendarScope,
     writeCalendarScope,
     type DateBounds,
-  } from "@iroha/shared/scope";
+  } from "@iroha/shared/format/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
 
   let catalog = $state<MetricDefinition[]>([]);
@@ -226,6 +226,7 @@
       months={periodMonths}
       {bounds}
       showAllYears={false}
+      showAllMonths={false}
       surface="inline"
       onYear={selectPeriodYear}
       onMonth={selectPeriodMonth}

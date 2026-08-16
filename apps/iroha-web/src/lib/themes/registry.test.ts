@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { THEME_ROUTES } from "@iroha/shared/themes";
+import { THEME_ROUTES } from "@iroha/shared/theme/themes";
 import {
   THEME_DEFINITIONS,
   getThemeDefinition,

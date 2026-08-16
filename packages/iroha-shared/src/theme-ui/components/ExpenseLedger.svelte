@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { categoryColor } from "../../category-color";
-  import type { Expense } from "../../expense";
-  import { expenseLedgerCsv } from "../../expense-view";
-  import { formatDate } from "../../format";
+  import { categoryColor } from "../../domain/category-color";
+  import type { Expense } from "../../domain/expense";
+  import { expenseLedgerCsv } from "../../view-contracts/expense-view";
+  import { formatDate } from "../../format/format";
 
   let {
     expenses,

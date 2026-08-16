@@ -1,8 +1,8 @@
-import type { Activity } from "./activity";
-import type { DailyRow } from "./daily";
-import type { MediaChange, MediaHomeEvent } from "./media";
-import type { SleepSession } from "./sleep";
-import type { DesignLanguage } from "./themes";
+import type { Activity } from "../domain/activity";
+import type { DailyRow } from "../domain/daily";
+import type { MediaChange, MediaHomeEvent } from "../domain/media";
+import type { SleepSession } from "../domain/sleep";
+import type { DesignLanguage } from "../theme/themes";
 
 export type TodayThemeProps = {
   dayLabel: string;

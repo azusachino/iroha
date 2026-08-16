@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { sportColor, sportLabel } from "./sport";
+  import { sportColor, sportLabel } from "../domain/sport";
 
   let { sport }: { sport?: string | null } = $props();
 

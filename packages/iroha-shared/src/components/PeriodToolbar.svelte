@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import type { DesignLanguage } from "./themes";
+  import type { DesignLanguage } from "../theme/themes";
 
   let {
     title,

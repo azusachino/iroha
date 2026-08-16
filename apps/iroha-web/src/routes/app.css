@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "@iroha/shared/themes.css";
+@import "@iroha/shared/theme/themes.css";
 
 @theme {
   --color-bg: #0f1115;

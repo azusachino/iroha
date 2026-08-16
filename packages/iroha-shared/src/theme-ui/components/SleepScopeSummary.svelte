@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { DesignLanguage } from "../../themes";
-  import type { SleepAggregateBucket } from "../../sleep";
-  import { formatCanonicalMonth } from "../../format";
+  import type { DesignLanguage } from "../../theme/themes";
+  import type { SleepAggregateBucket } from "../../domain/sleep";
+  import { formatCanonicalMonth } from "../../format/format";
 
   let {
     summary = null,
