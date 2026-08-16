@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
+## [0.4.3] — 2026-08-16
+
+### Changed
+
+- Move the Bangumi->MAL->AniList cross-provider media resolution bridge from two ConfigMap-mounted JSON files (rebuilt and redeployed manually, no queryability) to a `tb_media_ref_bridge` Postgres
+  table (migration `00012_media_ref_bridge.sql`). `iroha-job` still loads both hops into an in-memory map at startup; refresh is now a manual, on-demand `media_bridge_refresh` job handled by the
+  already-running worker (no new pod or scheduled job), triggered from a new "Media bridge" button on `/to-go` next to the existing AniList/Bangumi sync actions.
+- `scripts/build_media_bridge.py` now upserts into Postgres via `psycopg` instead of writing JSON files (still available for local dev convenience).
+
 ## [0.4.2] — 2026-08-16
 
 ### Added
