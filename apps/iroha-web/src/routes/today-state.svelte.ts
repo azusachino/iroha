@@ -18,9 +18,13 @@ import { todayInTimezone } from "@iroha/shared/format/date";
 import { IROHA_TIMEZONE } from "$lib/config";
 import { formatDateOnly } from "$lib/format";
 
-export function latestRecordedDay(days: Iterable<string>): string | null {
+export function latestRecordedDay(
+  days: Iterable<string>,
+  maximumDay: string,
+): string | null {
   let latest: string | null = null;
   for (const day of days) {
+    if (day > maximumDay) continue;
     if (latest == null || day > latest) latest = day;
   }
   return latest;
@@ -170,7 +174,7 @@ export function createTodayState() {
   const daysSet = $derived(
     availableDays.size > 0 ? availableDays : new Set([day]),
   );
-  const latestDay = $derived(latestRecordedDay(availableDays));
+  const latestDay = $derived(latestRecordedDay(availableDays, today));
   const canJumpToLatestDay = $derived(
     !dayHasData && latestDay != null && latestDay !== dataDay,
   );
