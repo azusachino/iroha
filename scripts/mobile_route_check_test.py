@@ -62,6 +62,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             "firstHeading": "H2",
             "focusOrderMismatch": True,
             "smallTargetCount": 1,
+            "focusContrast": 2.5,
             "mouseOnlyRows": 0,
             "periodDrillLabelFailures": 1,
         }
@@ -73,6 +74,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
                 "H1 is not the single first heading",
                 "compact focus order differs from visual order",
                 "1 standalone controls are smaller than 24x24px",
+                "focus indicator contrast is below 3:1: 2.50:1",
                 "period controls missing period/evidence labels: 1",
             ],
         )
@@ -86,6 +88,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             "firstHeading": "H1",
             "focusOrderMismatch": True,
             "smallTargetCount": 0,
+            "focusContrast": 3.1,
             "mouseOnlyRows": 0,
             "periodDrillLabelFailures": 0,
         }
@@ -104,6 +107,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             "firstHeading": "H1",
             "focusOrderMismatch": False,
             "smallTargetCount": 0,
+            "focusContrast": 3.1,
             "mouseOnlyRows": 1,
             "periodDrillLabelFailures": 0,
         }

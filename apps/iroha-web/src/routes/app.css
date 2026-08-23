@@ -107,7 +107,7 @@
   --color-signal-secondary: var(--accent-2);
   --color-positive: var(--mark-teal);
   --color-warning: var(--mark-amber);
-  --color-focus: var(--accent);
+  --color-focus: #08736c;
   --accent-glow: 0 0 20px rgb(14 143 134 / 0.2);
   --accent-2-glow: 0 0 20px rgb(214 63 116 / 0.18);
   --brand-ink: #ffffff;
