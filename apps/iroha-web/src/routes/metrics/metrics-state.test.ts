@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { MetricDefinition, MetricSeriesResponse } from "$lib/api";
 import {
   metricDimensionsFromUrl,
+  metricSearchParams,
   metricSelectionIsComplete,
+  metricSeriesDimensions,
   metricSeriesHasValues,
   missingRequiredMetricDimensions,
 } from "./metrics-state";
@@ -65,6 +67,38 @@ describe("Metrics selection state", () => {
     expect(
       metricDimensionsFromUrl(expenseDefinition, ["currency:UNKNOWN"]),
     ).toEqual({});
+  });
+
+  it("defers requests and URL writes until required dimensions are chosen", () => {
+    expect(metricSeriesDimensions(expenseDefinition, {})).toBeNull();
+    expect(
+      metricSearchParams(
+        "?source=manual",
+        expenseDefinition.id,
+        "2026-08",
+        expenseDefinition,
+        {},
+      ),
+    ).toBeNull();
+  });
+
+  it("writes the explicit selection to request and URL state", () => {
+    const dimensions = { currency: "EUR" };
+
+    expect(metricSeriesDimensions(expenseDefinition, dimensions)).toEqual([
+      "currency:EUR",
+    ]);
+    expect(
+      metricSearchParams(
+        "?source=manual",
+        expenseDefinition.id,
+        "2026-08",
+        expenseDefinition,
+        dimensions,
+      )?.toString(),
+    ).toBe(
+      "source=manual&metric=expenses.amount_minor&date=2026-08&dimension=currency%3AEUR",
+    );
   });
 
   it("distinguishes all-null series from observed zero", () => {

@@ -16,6 +16,7 @@
   import { formatMetricValue } from "$lib/format";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import MetricStateNotice from "./MetricStateNotice.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import MetricPanel from "@iroha/shared/components/MetricPanel.svelte";
   import { seriesPanelRows } from "@iroha/shared/components/metric-panel";
@@ -31,14 +32,14 @@
     currentCalendarScope,
     readCalendarScope,
     serializeCalendarScope,
-    writeCalendarScope,
     type DateBounds,
   } from "@iroha/shared/format/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
   import {
     metricDimensionsFromUrl,
-    metricSelectionIsComplete,
+    metricSearchParams,
+    metricSeriesDimensions,
     metricSeriesHasValues,
     missingRequiredMetricDimensions,
   } from "./metrics-state";
@@ -146,7 +147,8 @@
   }
 
   async function loadSeries() {
-    if (!definition || missingDimensions.length) return;
+    const requestDimensions = metricSeriesDimensions(definition, dimensions);
+    if (!definition || requestDimensions === null) return;
     const from = monthBounds(shiftMonth(month, -11)).from;
     const to = monthBounds(month).to;
     await seriesResource.run(() =>
@@ -154,9 +156,7 @@
         from,
         to,
         grain: "month",
-        dimensions: Object.entries(dimensions)
-          .filter(([, value]) => value)
-          .map(([key, value]) => `${key}:${value}`),
+        dimensions: requestDimensions,
       }),
     );
   }
@@ -191,18 +191,16 @@
   }
 
   function syncUrl() {
-    if (!metricSelectionIsComplete(definition, dimensions)) return;
+    const params = metricSearchParams(
+      window.location.search,
+      metricId,
+      month,
+      definition,
+      dimensions,
+    );
+    if (!params) return;
     const url = new URL(window.location.href);
-    url.searchParams.set("metric", metricId);
-    writeCalendarScope(url.searchParams, {
-      kind: "month",
-      year: Number(month.slice(0, 4)),
-      month: Number(month.slice(5, 7)),
-    });
-    url.searchParams.delete("dimension");
-    for (const [id, value] of Object.entries(dimensions)) {
-      if (value) url.searchParams.append("dimension", `${id}:${value}`);
-    }
+    url.search = params.toString();
     if (url.search !== window.location.search) replaceState(url, page.state);
   }
 </script>
@@ -262,28 +260,19 @@
     </div>
 
     {#if missingDimensions.length}
-      <section class="selection-state panel" role="status" aria-live="polite">
-        <p class="eyebrow">Selection required</p>
-        <h2>
-          Choose {missingDimensions.map((item) => item.label).join(" and ")}
-        </h2>
-        <p>
-          This metric requires an explicit breakdown before Iroha can request or
-          draw a truthful series.
-        </p>
-      </section>
+      <MetricStateNotice
+        kind="required"
+        labels={missingDimensions.map((item) => item.label)}
+      />
     {:else if loading}<p class="status" role="status">Loading metric series…</p>
     {:else if error}<p class="error" role="alert">{error}</p>
     {:else if series && definition && !hasValues}
-      <section class="selection-state panel" role="status">
-        <p class="eyebrow">No observations</p>
-        <h2>No {definition.label.toLowerCase()} values in this window.</h2>
-        <p>
-          The 12-month window ending {month} has no recorded values{dimensionSummary
-            ? ` for ${dimensionSummary}`
-            : ""}. The explicit selection remains unchanged.
-        </p>
-      </section>
+      <MetricStateNotice
+        kind="empty"
+        metricLabel={definition.label}
+        {month}
+        {dimensionSummary}
+      />
     {:else if series && definition}
       <section class="chart panel">
         <div class="section-head">
@@ -378,12 +367,7 @@
     display: grid;
     gap: 1rem;
   }
-  .selection-state {
-    display: grid;
-    gap: 0.55rem;
-  }
   .section-head p:last-child,
-  .selection-state > p:last-child,
   .status {
     color: var(--text-muted);
   }
