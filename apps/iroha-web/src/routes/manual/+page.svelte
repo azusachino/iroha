@@ -621,6 +621,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
+    min-height: var(--control-target-min);
     color: var(--accent);
     font-weight: 750;
     text-decoration: none;
