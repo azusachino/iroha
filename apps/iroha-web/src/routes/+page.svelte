@@ -30,6 +30,9 @@
 <svelte:window onkeydown={t.onKey} />
 
 <section class="cockpit">
+  {#if !t.briefing || !t.dayHasData}
+    <h1 class="visually-hidden">Today, {t.dayLabel}</h1>
+  {/if}
   <div class="scrubber tile glow">
     <button class="nav" aria-label="Previous day" onclick={() => t.shift(-1)}
       >‹</button
@@ -79,18 +82,18 @@
     {/if}
 
     {#if !t.taskError}
-      <section class="to-go-strip tile" aria-labelledby="to-go-title">
+      <section class="to-go-strip tile" aria-label="Daily to-go">
         <div class="to-go-heading">
           <span class="to-go-icon" aria-hidden="true"
             ><ListTodo size={17} /></span
           >
           <div>
             <p class="eyebrow">Daily to-go</p>
-            <h2 id="to-go-title">
+            <p class="to-go-title">
               {t.toGoTasks.length
                 ? `${t.toGoTasks.length} things to carry`
                 : "A clear next step"}
-            </h2>
+            </p>
           </div>
         </div>
         <div class="to-go-items">
@@ -414,9 +417,10 @@
   .to-go-heading .eyebrow {
     margin-bottom: 0.1rem;
   }
-  .to-go-heading h2 {
+  .to-go-title {
     margin: 0;
     font-size: 0.98rem;
+    font-weight: 700;
   }
   .to-go-items {
     display: flex;
