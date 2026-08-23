@@ -187,6 +187,7 @@
                   {#if t.gran !== "day"}<PeriodDrill
                       label={d.label}
                       period={d.period}
+                      value={d.steps}
                       onDrill={t.drillIntoPeriod}
                     />{:else}{d.label}{/if}
                 </td>
