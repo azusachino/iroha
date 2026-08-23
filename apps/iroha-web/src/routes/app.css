@@ -383,6 +383,7 @@ textarea {
 }
 
 .theme-toggle {
+  flex: 0 0 2.25rem;
   min-height: 2.25rem;
   width: 2.25rem;
   display: inline-flex;
