@@ -11,6 +11,7 @@
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
+  import PeriodDrill from "@iroha/shared/theme-ui/components/PeriodDrill.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
   import { createPatternsState } from "./patterns-state.svelte";
 
@@ -183,12 +184,11 @@
             {#each t.table as d}
               <tr>
                 <td class="l">
-                  {#if t.gran !== "day"}<button
-                      class="period-drill"
-                      type="button"
-                      onclick={() => t.drillIntoPeriod(d.period)}
-                      >{d.label}</button
-                    >{:else}{d.label}{/if}
+                  {#if t.gran !== "day"}<PeriodDrill
+                      label={d.label}
+                      period={d.period}
+                      onDrill={t.drillIntoPeriod}
+                    />{:else}{d.label}{/if}
                 </td>
                 {#if t.aggregated}<td>{d.days}</td>{/if}
                 <td>{t.fmt(d.move, 0)}</td>
@@ -356,17 +356,6 @@
   }
   tbody tr + tr td {
     border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  }
-  .period-drill {
-    min-height: var(--control-target-min);
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
   }
   .l {
     text-align: left;

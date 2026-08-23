@@ -3,6 +3,7 @@
   import { formatDateOnly } from "../../format/format";
   import RingGauge from "../components/RingGauge.svelte";
   import BarChart from "../components/BarChart.svelte";
+  import PeriodDrill from "../components/PeriodDrill.svelte";
 
   let {
     chrono,
@@ -161,12 +162,11 @@
           {#each [...chrono].reverse() as period}
             <tr>
               <td>
-                {#if drillable}<button
-                    class="period-drill"
-                    type="button"
-                    onclick={() => onDrillPeriod(period.period)}
-                    >{period.label}</button
-                  >{:else}{period.label}{/if}
+                {#if drillable}<PeriodDrill
+                    label={period.label}
+                    period={period.period}
+                    onDrill={onDrillPeriod}
+                  />{:else}{period.label}{/if}
               </td>
               <td>{number(period.steps)}</td>
               <td>{number(period.distance, 1)} km</td>
@@ -370,17 +370,6 @@
   td:first-child {
     color: var(--accent);
     font-style: italic;
-  }
-  .period-drill {
-    min-height: var(--control-target-min);
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
   }
   .drill-hint {
     margin: -0.5rem 0 0;
