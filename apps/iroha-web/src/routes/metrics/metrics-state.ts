@@ -31,6 +31,13 @@ export function missingRequiredMetricDimensions(
   );
 }
 
+export function metricSelectionIsComplete(
+  definition: MetricDefinition | null,
+  dimensions: Record<string, string>,
+): boolean {
+  return missingRequiredMetricDimensions(definition, dimensions).length === 0;
+}
+
 export function metricSeriesHasValues(
   response: MetricSeriesResponse | null,
 ): boolean {

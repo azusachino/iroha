@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { MetricDefinition, MetricSeriesResponse } from "$lib/api";
 import {
   metricDimensionsFromUrl,
+  metricSelectionIsComplete,
   metricSeriesHasValues,
   missingRequiredMetricDimensions,
 } from "./metrics-state";
@@ -19,11 +20,15 @@ const expenseDefinition = {
   ],
 } as MetricDefinition;
 
-function series(value: number | null): MetricSeriesResponse {
+function series(...values: Array<number | null>): MetricSeriesResponse {
   return {
     series: [
       {
-        points: [{ period: "2026-08", value_minor: value, observed_days: 1 }],
+        points: values.map((value, index) => ({
+          period: `2026-${String(index + 1).padStart(2, "0")}`,
+          value_minor: value,
+          observed_days: value == null ? 0 : 1,
+        })),
       },
     ],
   } as MetricSeriesResponse;
@@ -50,6 +55,10 @@ describe("Metrics selection state", () => {
     expect(missingRequiredMetricDimensions(expenseDefinition, {})).toEqual([
       expenseDefinition.dimensions[0],
     ]);
+    expect(metricSelectionIsComplete(expenseDefinition, {})).toBe(false);
+    expect(
+      metricSelectionIsComplete(expenseDefinition, { currency: "EUR" }),
+    ).toBe(true);
   });
 
   it("rejects unknown URL dimension values", () => {
@@ -61,5 +70,9 @@ describe("Metrics selection state", () => {
   it("distinguishes all-null series from observed zero", () => {
     expect(metricSeriesHasValues(series(null))).toBe(false);
     expect(metricSeriesHasValues(series(0))).toBe(true);
+  });
+
+  it("treats a partial series as observed without hiding its gaps", () => {
+    expect(metricSeriesHasValues(series(null, 1200, null))).toBe(true);
   });
 });

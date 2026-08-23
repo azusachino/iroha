@@ -38,6 +38,7 @@
   import { createAsyncResource } from "$lib/asyncResource.svelte";
   import {
     metricDimensionsFromUrl,
+    metricSelectionIsComplete,
     metricSeriesHasValues,
     missingRequiredMetricDimensions,
   } from "./metrics-state";
@@ -190,6 +191,7 @@
   }
 
   function syncUrl() {
+    if (!metricSelectionIsComplete(definition, dimensions)) return;
     const url = new URL(window.location.href);
     url.searchParams.set("metric", metricId);
     writeCalendarScope(url.searchParams, {
