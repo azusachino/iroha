@@ -391,4 +391,9 @@
       grid-template-columns: 1fr;
     }
   }
+  @media (max-width: 420px) {
+    .metric-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
