@@ -40,9 +40,7 @@ STATIC_ROUTES = (
 )
 
 
-def route_inventory(
-    activity_id: str, sleep_id: str, media_id: str
-) -> list[tuple[str, str]]:
+def route_inventory(activity_id: str, sleep_id: str, media_id: str) -> list[tuple[str, str]]:
     """Return canonical and compatibility routes in deterministic order."""
 
     dynamic = (
@@ -139,6 +137,39 @@ def expected_route_url(route: str, expected_path: str) -> str:
     return expected_path
 
 
+def report_route(route: str) -> str:
+    """Redact record identifiers before persisting an audit report."""
+
+    path, separator, query = route.partition("?")
+    parts = path.strip("/").split("/")
+    if len(parts) == 2 and parts[0] in {
+        "activities",
+        "library",
+        "media",
+        "motion",
+        "night",
+        "sleep",
+    }:
+        path = f"/{parts[0]}/:id"
+    return path + (separator + query if separator else "")
+
+
+def accessibility_failures(state: dict, viewport: tuple[int, int]) -> list[str]:
+    """Return deterministic accessibility-contract failures for a route state."""
+
+    failures = []
+    skip_link = state["skipLink"]
+    if not skip_link["exists"] or not skip_link["targetExists"]:
+        failures.append("missing or invalid skip link")
+    if state["h1Count"] != 1 or state["firstHeading"] != "H1":
+        failures.append("H1 is not the single first heading")
+    if viewport[0] <= 640 and state["focusOrderMismatch"]:
+        failures.append("compact focus order differs from visual order")
+    if state["smallTargetCount"]:
+        failures.append(f"{state['smallTargetCount']} standalone controls are smaller than 24x24px")
+    return failures
+
+
 def assert_route(
     session: str,
     base_url: str,
@@ -167,6 +198,22 @@ def assert_route(
         "clipped:items.some(el=>{const box=el.getBoundingClientRect();return box.left<rect.left-1||box.right>rect.right+1}),"
         "count:items.length};})(),"
         "headings:document.querySelectorAll('h1,h2').length,"
+        "h1Count:document.querySelectorAll('h1').length,"
+        "firstHeading:document.querySelector('h1,h2,h3,h4,h5,h6')?.tagName??null,"
+        "skipLink:(()=>{const link=document.querySelector('a.skip-link[href^=\\\"#\\\"]');"
+        "const target=link&&document.querySelector(link.getAttribute('href'));return {"
+        "exists:Boolean(link),targetExists:Boolean(target)};})(),"
+        "focusOrderMismatch:(()=>{const items=[...document.querySelectorAll("
+        "'.appbar a[href],.appbar button:not([disabled]),.appbar summary,.appbar select')].filter(el=>"
+        "el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden').map((el,index)=>{"
+        "const box=el.getBoundingClientRect();return {index,top:box.top,left:box.left};});"
+        "const visual=[...items].sort((a,b)=>Math.abs(a.top-b.top)>8?a.top-b.top:a.left-b.left);"
+        "return visual.some((item,index)=>item.index!==items[index].index);})(),"
+        "smallTargetCount:[...document.querySelectorAll("
+        "'a[href],button,summary,input:not([type=hidden]),select,textarea')].filter(el=>{"
+        "if(!el.getClientRects().length||getComputedStyle(el).visibility==='hidden')return false;"
+        "if(el.matches('a')&&el.closest('p')&&getComputedStyle(el).display==='inline')return false;"
+        "const box=el.getBoundingClientRect();return box.width<24||box.height<24;}).length,"
         "pending:document.querySelectorAll('[aria-busy=\\\"true\\\"],.skeleton').length,"
         "unnamed:[...document.querySelectorAll('a,button,input,select,textarea,summary')]"
         ".filter(el=>!el.getAttribute('aria-label')&&!el.getAttribute('title')&&"
@@ -196,8 +243,9 @@ def assert_route(
         or state["navigation"]["count"] != 5
     ):
         raise RuntimeError(f"mobile navigation does not fit for {route}: {state}")
-    if state["headings"] < 1:
-        raise RuntimeError(f"route has no heading for {route}: {state}")
+    failures = accessibility_failures(state, viewport)
+    if failures:
+        raise RuntimeError(f"accessibility contract failed for {route}: {failures}; {state}")
     if state["pending"]:
         raise RuntimeError(f"route still has loading UI for {route}: {state}")
     if state["unnamed"]:
@@ -213,7 +261,7 @@ def assert_route(
     errors = browser_command(session, "errors").stdout.strip()
     if errors and "No page errors" not in errors:
         raise RuntimeError(f"browser errors for {route}: {errors}")
-    return state
+    return {**state, "url": report_route(state["url"])}
 
 
 def main() -> int:
@@ -237,7 +285,9 @@ def main() -> int:
             for viewport in viewports:
                 browser_command(session, "set", "viewport", str(viewport[0]), str(viewport[1]))
                 for theme in themes:
-                    browser_command(session, "storage", "local", "set", "iroha-design-language", theme)
+                    browser_command(
+                        session, "storage", "local", "set", "iroha-design-language", theme
+                    )
                     for mode in modes:
                         browser_command(session, "storage", "local", "set", "iroha-theme", mode)
                         browser_command(session, "set", "media", mode)
@@ -258,11 +308,14 @@ def main() -> int:
                                     "mode": mode,
                                     "motion": motion,
                                     "viewport": viewport,
-                                    "route": route,
+                                    "route": report_route(route),
                                     "state": state,
                                 }
                             )
-                            print(f"checked {viewport[0]}x{viewport[1]}/{theme}/{mode}/{motion}{route}", flush=True)
+                            print(
+                                f"checked {viewport[0]}x{viewport[1]}/{theme}/{mode}/{motion}{route}",
+                                flush=True,
+                            )
         finally:
             browser_command(session, "close")
 

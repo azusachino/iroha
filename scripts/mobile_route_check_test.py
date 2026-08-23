@@ -46,6 +46,49 @@ class MobileRouteInventoryTest(unittest.TestCase):
                 ((320, 844), (414, 896)),
             )
 
+    def test_accessibility_failures_report_verified_compact_defects(self):
+        state = {
+            "skipLink": {"exists": False, "targetExists": False},
+            "h1Count": 1,
+            "firstHeading": "H2",
+            "focusOrderMismatch": True,
+            "smallTargetCount": 1,
+        }
+
+        self.assertEqual(
+            mobile_route_check.accessibility_failures(state, (375, 844)),
+            [
+                "missing or invalid skip link",
+                "H1 is not the single first heading",
+                "compact focus order differs from visual order",
+                "1 standalone controls are smaller than 24x24px",
+            ],
+        )
+
+    def test_accessibility_failures_accept_conforming_desktop_state(self):
+        state = {
+            "skipLink": {"exists": True, "targetExists": True},
+            "h1Count": 1,
+            "firstHeading": "H1",
+            "focusOrderMismatch": True,
+            "smallTargetCount": 0,
+        }
+
+        self.assertEqual(
+            mobile_route_check.accessibility_failures(state, (1440, 900)),
+            [],
+        )
+
+    def test_report_route_redacts_detail_identifiers(self):
+        self.assertEqual(
+            mobile_route_check.report_route("/motion/private-activity-id"),
+            "/motion/:id",
+        )
+        self.assertEqual(
+            mobile_route_check.report_route("/metrics?metric=health.steps"),
+            "/metrics?metric=health.steps",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
