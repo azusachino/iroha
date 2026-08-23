@@ -177,6 +177,7 @@
                 {#if drillable}<PeriodDrill
                     label={period.label}
                     period={period.period}
+                    value={period.steps}
                     onDrill={onDrillPeriod}
                   />{:else}{period.label}{/if}
               </td>
