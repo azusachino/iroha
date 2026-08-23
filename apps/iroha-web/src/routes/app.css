@@ -479,6 +479,16 @@ textarea {
     gap: 0.35rem;
   }
 
+  .language-picker {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .language-picker select {
+    width: 100%;
+    min-width: 0;
+  }
+
   .command-trigger {
     min-width: 7.1rem;
     width: auto;
