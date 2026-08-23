@@ -37,9 +37,9 @@ describe("Metrics selection state", () => {
     } as unknown as MetricDefinition;
 
     expect(metricDimensionsFromUrl(canonicalDefinition, [])).toEqual({});
-    expect(
-      missingRequiredMetricDimensions(canonicalDefinition, {}),
-    ).toEqual([]);
+    expect(missingRequiredMetricDimensions(canonicalDefinition, {})).toEqual(
+      [],
+    );
   });
 
   it("preserves an explicit valid dimension without inventing a default", () => {
