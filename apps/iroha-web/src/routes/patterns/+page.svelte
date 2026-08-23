@@ -11,9 +11,9 @@
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
-  import PeriodDrill from "@iroha/shared/theme-ui/components/PeriodDrill.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
   import { createPatternsState } from "./patterns-state.svelte";
+  import FallbackPatternsTable from "./FallbackPatternsTable.svelte";
 
   type Gran = "day" | "month" | "year";
   const theme = useTheme();
@@ -160,58 +160,13 @@
       </section>
 
       <div class="table-wrap tile">
-        <table>
-          <thead>
-            <tr>
-              <th class="l"
-                >{t.gran === "day"
-                  ? "Day"
-                  : t.gran === "month"
-                    ? "Month"
-                    : "Year"}</th
-              >
-              {#if t.aggregated}<th>Days</th>{/if}
-              <th>Move</th><th>Exer</th><th>Stand</th><th>Move ✓</th>
-              <th>Steps{t.aggregated ? "/d" : ""}</th><th
-                >Dist{t.aggregated ? "/d" : ""}</th
-              >
-              <th>rHR</th><th>HRV</th><th>SpO₂</th><th>Resp</th><th>VO₂</th><th
-                >Mass</th
-              >
-            </tr>
-          </thead>
-          <tbody>
-            {#each t.table as d}
-              <tr>
-                <td class="l">
-                  {#if t.gran !== "day"}<PeriodDrill
-                      label={d.label}
-                      period={d.period}
-                      value={d.steps}
-                      onDrill={t.drillIntoPeriod}
-                    />{:else}{d.label}{/if}
-                </td>
-                {#if t.aggregated}<td>{d.days}</td>{/if}
-                <td>{t.fmt(d.move, 0)}</td>
-                <td>{t.fmt(d.exercise, 0)}</td>
-                <td>{t.fmt(d.stand, 0)}</td>
-                <td
-                  >{d.moveClosedPct == null
-                    ? "—"
-                    : `${Math.round(d.moveClosedPct)}%`}</td
-                >
-                <td>{t.fmt(d.steps, 0)}</td>
-                <td>{t.fmt(d.distance, 1)}</td>
-                <td>{t.fmt(d.resting_hr, 0)}</td>
-                <td>{t.fmt(d.hrv_sdnn, 0)}</td>
-                <td>{t.fmt(d.spo2_avg, 1)}</td>
-                <td>{t.fmt(d.respiratory_rate, 1)}</td>
-                <td>{t.fmt(d.vo2max, 1)}</td>
-                <td>{t.fmt(d.body_mass_kg, 1)}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+        <FallbackPatternsTable
+          gran={t.gran}
+          aggregated={t.aggregated}
+          rows={t.table}
+          format={t.fmt}
+          onDrill={t.drillIntoPeriod}
+        />
       </div>
     {/if}
   {/if}
@@ -332,36 +287,6 @@
     padding: 0.4rem 0.4rem 0.6rem;
     overflow-x: auto;
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-variant-numeric: tabular-nums;
-    font-size: 0.84rem;
-  }
-  th,
-  td {
-    padding: 0.5rem 0.6rem;
-    text-align: right;
-    white-space: nowrap;
-  }
-  th {
-    color: var(--text-muted);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    background: var(--surface);
-  }
-  td {
-    color: var(--text);
-  }
-  tbody tr + tr td {
-    border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  }
-  .l {
-    text-align: left;
-  }
-
   @media (max-width: 768px) {
     .atlas-note {
       grid-template-columns: 1fr;
