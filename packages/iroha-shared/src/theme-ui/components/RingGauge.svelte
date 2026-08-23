@@ -141,4 +141,9 @@
     font-weight: 700;
     margin-left: 0.15rem;
   }
+  @media (max-width: 420px) {
+    .legend {
+      flex-basis: 100%;
+    }
+  }
 </style>
