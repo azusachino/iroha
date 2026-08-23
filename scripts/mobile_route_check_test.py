@@ -55,6 +55,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             "firstHeading": "H2",
             "focusOrderMismatch": True,
             "smallTargetCount": 1,
+            "mouseOnlyRows": 0,
         }
 
         self.assertEqual(
@@ -76,6 +77,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             "firstHeading": "H1",
             "focusOrderMismatch": True,
             "smallTargetCount": 0,
+            "mouseOnlyRows": 0,
         }
 
         self.assertEqual(
@@ -92,6 +94,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             "firstHeading": "H1",
             "focusOrderMismatch": False,
             "smallTargetCount": 0,
+            "mouseOnlyRows": 1,
         }
 
         self.assertEqual(
@@ -99,6 +102,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             [
                 "expected exactly one main landmark",
                 "theme footer is inside the main landmark",
+                "mouse-only clickable table rows: 1",
             ],
         )
 

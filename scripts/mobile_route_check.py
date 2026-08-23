@@ -171,6 +171,8 @@ def accessibility_failures(state: dict, viewport: tuple[int, int]) -> list[str]:
         failures.append("compact focus order differs from visual order")
     if state["smallTargetCount"]:
         failures.append(f"{state['smallTargetCount']} standalone controls are smaller than 24x24px")
+    if state["mouseOnlyRows"]:
+        failures.append(f"mouse-only clickable table rows: {state['mouseOnlyRows']}")
     return failures
 
 
@@ -222,6 +224,9 @@ def assert_route(
         "if(el.closest('details:not([open])')&&!el.matches('summary'))return false;"
         "if(el.matches('a')&&el.closest('p')&&getComputedStyle(el).display==='inline')return false;"
         "const box=el.getBoundingClientRect();return box.width<24||box.height<24;}).length,"
+        "mouseOnlyRows:[...document.querySelectorAll('tbody tr')].filter(row=>"
+        "getComputedStyle(row).cursor==='pointer'&&!row.querySelector("
+        "'a[href],button,input,select,textarea,summary')).length,"
         "pending:document.querySelectorAll('[aria-busy=\\\"true\\\"],.skeleton').length,"
         "unnamed:[...document.querySelectorAll('a,button,input,select,textarea,summary')]"
         ".filter(el=>!el.getAttribute('aria-label')&&!el.getAttribute('title')&&"

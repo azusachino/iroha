@@ -97,7 +97,7 @@
       onBarClick={drillable ? onDrillIndex : undefined}
     />
     {#if drillable}
-      <p class="drill-hint">Click a bar to zoom in.</p>
+      <p class="drill-hint">Use a bar or the period table to zoom in.</p>
     {/if}
   </section>
 
@@ -120,9 +120,14 @@
         <tbody>
           {#each [...chrono].reverse() as item}
             <tr
-              class:drillable
-              onclick={drillable ? () => onDrillPeriod(item.period) : undefined}
-              ><td>{item.label}</td><td>{display(item.steps)}</td><td
+              ><td
+                >{#if drillable}<button
+                    class="period-drill"
+                    type="button"
+                    onclick={() => onDrillPeriod(item.period)}
+                    >{item.label}</button
+                  >{:else}{item.label}{/if}</td
+              ><td>{display(item.steps)}</td><td
                 >{display(item.distance, 1)}</td
               ><td>{display(item.resting_hr, 1)}</td><td
                 >{display(item.hrv_sdnn, 1)}</td
@@ -231,11 +236,16 @@
     border: 1px solid var(--border);
     background: var(--surface);
   }
-  tr.drillable {
+  .period-drill {
+    min-height: var(--control-target-min);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
     cursor: pointer;
-  }
-  tr.drillable:hover td {
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
   .drill-hint {
     margin: 0.75rem 0 0;
