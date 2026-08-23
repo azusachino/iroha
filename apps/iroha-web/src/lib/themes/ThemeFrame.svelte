@@ -12,8 +12,22 @@
 </script>
 
 {#if Shell}
-  <Shell theme={theme.language()}>{@render children()}</Shell>
+  <Shell theme={theme.language()}>
+    <main id="main-content" class="theme-content" tabindex="-1">
+      {@render children()}
+    </main>
+  </Shell>
 {:else}
-  <main class="content">{@render children()}</main>
+  <main id="main-content" class="content" tabindex="-1">
+    {@render children()}
+  </main>
   <footer class="footer">Private activity viewer · v{APP_VERSION}</footer>
 {/if}
+
+<style>
+  .theme-content,
+  .content {
+    min-width: 0;
+    scroll-margin-top: 8rem;
+  }
+</style>

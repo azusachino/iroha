@@ -49,6 +49,8 @@ class MobileRouteInventoryTest(unittest.TestCase):
     def test_accessibility_failures_report_verified_compact_defects(self):
         state = {
             "skipLink": {"exists": False, "targetExists": False},
+            "mainCount": 1,
+            "footerInMain": False,
             "h1Count": 1,
             "firstHeading": "H2",
             "focusOrderMismatch": True,
@@ -68,6 +70,8 @@ class MobileRouteInventoryTest(unittest.TestCase):
     def test_accessibility_failures_accept_conforming_desktop_state(self):
         state = {
             "skipLink": {"exists": True, "targetExists": True},
+            "mainCount": 1,
+            "footerInMain": False,
             "h1Count": 1,
             "firstHeading": "H1",
             "focusOrderMismatch": True,
@@ -77,6 +81,25 @@ class MobileRouteInventoryTest(unittest.TestCase):
         self.assertEqual(
             mobile_route_check.accessibility_failures(state, (1440, 900)),
             [],
+        )
+
+    def test_accessibility_failures_reject_nested_main_and_footer(self):
+        state = {
+            "skipLink": {"exists": True, "targetExists": True},
+            "mainCount": 2,
+            "footerInMain": True,
+            "h1Count": 1,
+            "firstHeading": "H1",
+            "focusOrderMismatch": False,
+            "smallTargetCount": 0,
+        }
+
+        self.assertEqual(
+            mobile_route_check.accessibility_failures(state, (375, 844)),
+            [
+                "expected exactly one main landmark",
+                "theme footer is inside the main landmark",
+            ],
         )
 
     def test_report_route_redacts_detail_identifiers(self):

@@ -161,6 +161,10 @@ def accessibility_failures(state: dict, viewport: tuple[int, int]) -> list[str]:
     skip_link = state["skipLink"]
     if not skip_link["exists"] or not skip_link["targetExists"]:
         failures.append("missing or invalid skip link")
+    if state["mainCount"] != 1:
+        failures.append("expected exactly one main landmark")
+    if state["footerInMain"]:
+        failures.append("theme footer is inside the main landmark")
     if state["h1Count"] != 1 or state["firstHeading"] != "H1":
         failures.append("H1 is not the single first heading")
     if viewport[0] <= 640 and state["focusOrderMismatch"]:
@@ -203,6 +207,8 @@ def assert_route(
         "skipLink:(()=>{const link=document.querySelector('a.skip-link[href^=\\\"#\\\"]');"
         "const target=link&&document.querySelector(link.getAttribute('href'));return {"
         "exists:Boolean(link),targetExists:Boolean(target)};})(),"
+        "mainCount:document.querySelectorAll('main').length,"
+        "footerInMain:Boolean(document.querySelector('main footer')),"
         "focusOrderMismatch:(()=>{const items=[...document.querySelectorAll("
         "'.appbar a[href],.appbar button:not([disabled]),.appbar summary,.appbar select')].filter(el=>"
         "el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden').map((el,index)=>{"
