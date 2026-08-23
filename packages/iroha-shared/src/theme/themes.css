@@ -9,6 +9,19 @@
 
 :root {
   --surface-1: var(--surface);
+  --control-target-min: 1.5rem;
+}
+
+:where(.chart-data, .map-data) > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-target-min);
+}
+
+.activity-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-target-min);
 }
 
 :where(
