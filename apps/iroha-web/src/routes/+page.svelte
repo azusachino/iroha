@@ -139,8 +139,13 @@
             eyebrow="Quiet day"
             title={`No records for ${t.dataDayLabel}.`}
             description="The canonical cockpit has no imported movement, recovery, health, media, or task records for this date."
-            actionHref={t.dataDay !== t.today ? "/" : undefined}
-            actionLabel="Return to today"
+            actionHref={!t.canJumpToLatestDay && t.dataDay !== t.today
+              ? "/"
+              : undefined}
+            actionLabel={t.canJumpToLatestDay
+              ? "Jump to latest recorded day"
+              : "Return to today"}
+            actionOnclick={t.canJumpToLatestDay ? t.jumpToLatestDay : undefined}
           />
         {:else if hasThemeRoute(theme.definition(), "today")}
           <ThemeRouteRenderer

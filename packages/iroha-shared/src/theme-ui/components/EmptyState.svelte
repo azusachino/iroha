@@ -5,12 +5,14 @@
     description,
     actionHref,
     actionLabel,
+    actionOnclick,
   }: {
     eyebrow?: string;
     title: string;
     description: string;
     actionHref?: string;
     actionLabel?: string;
+    actionOnclick?: () => void;
   } = $props();
 </script>
 
@@ -20,7 +22,9 @@
     <p class="empty-eyebrow">{eyebrow}</p>
     <h2>{title}</h2>
     <p>{description}</p>
-    {#if actionHref && actionLabel}
+    {#if actionOnclick && actionLabel}
+      <button type="button" onclick={actionOnclick}>{actionLabel} →</button>
+    {:else if actionHref && actionLabel}
       <a href={actionHref}>{actionLabel} →</a>
     {/if}
   </div>
@@ -82,12 +86,20 @@
     line-height: 1.55;
   }
 
-  a {
-    display: inline-block;
+  a,
+  button {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-target-min);
     margin-top: 1rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--accent);
+    font: inherit;
     font-size: 0.82rem;
     font-weight: 650;
+    cursor: pointer;
   }
 
   @media (max-width: 640px) {
