@@ -93,7 +93,7 @@
         onBarClick={drillable ? onDrillIndex : undefined}
       />
       {#if drillable}
-        <p class="drill-hint">Click a bar to zoom in.</p>
+        <p class="drill-hint">Use a bar or the period table to zoom in.</p>
       {/if}
     {:else}
       <p class="mix-empty">No periods available for this interval.</p>
@@ -141,13 +141,16 @@
         ><tbody>
           {#each [...chrono].reverse() as period, index (period.label + index)}
             <tr
-              class:drillable
-              onclick={drillable
-                ? () => onDrillPeriod(period.period)
-                : undefined}
               ><td class="track-index"
                 >{String(chrono.length - index).padStart(2, "0")}</td
-              ><td>{period.label}</td><td>{number(period.steps)}</td><td
+              ><td
+                >{#if drillable}<button
+                    class="period-drill"
+                    type="button"
+                    onclick={() => onDrillPeriod(period.period)}
+                    >{period.label}</button
+                  >{:else}{period.label}{/if}</td
+              ><td>{number(period.steps)}</td><td
                 >{number(period.distance, 1)} km</td
               ><td
                 >{period.moveClosedPct == null
@@ -337,11 +340,16 @@
   .track-index {
     color: var(--accent);
   }
-  tr.drillable {
+  .period-drill {
+    min-height: var(--control-target-min);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
     cursor: pointer;
-  }
-  tr.drillable:hover td {
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
   .drill-hint {
     margin: -0.5rem 0 0;

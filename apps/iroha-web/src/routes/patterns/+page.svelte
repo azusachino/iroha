@@ -181,13 +181,15 @@
           </thead>
           <tbody>
             {#each t.table as d}
-              <tr
-                class:drillable={t.gran !== "day"}
-                onclick={t.gran !== "day"
-                  ? () => t.drillIntoPeriod(d.period)
-                  : undefined}
-              >
-                <td class="l">{d.label}</td>
+              <tr>
+                <td class="l">
+                  {#if t.gran !== "day"}<button
+                      class="period-drill"
+                      type="button"
+                      onclick={() => t.drillIntoPeriod(d.period)}
+                      >{d.label}</button
+                    >{:else}{d.label}{/if}
+                </td>
                 {#if t.aggregated}<td>{d.days}</td>{/if}
                 <td>{t.fmt(d.move, 0)}</td>
                 <td>{t.fmt(d.exercise, 0)}</td>
@@ -355,11 +357,16 @@
   tbody tr + tr td {
     border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   }
-  tbody tr.drillable {
+  .period-drill {
+    min-height: var(--control-target-min);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
     cursor: pointer;
-  }
-  tbody tr.drillable:hover td {
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
   .l {
     text-align: left;
