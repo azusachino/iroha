@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
+## [0.4.4] — 2026-08-24
+
+### Added
+
+- Add executable private-route checks for skip-link/main-landmark integrity, heading order, compact visual/focus order, 24x24px standalone controls, and semantic table drill-down controls across the
+  existing language, mode, motion, and mobile viewport matrix.
+- Add a seeded representative UI/UX scorecard covering Today, Overview, Patterns, Metrics, To-go, and Admin without retaining private screenshots or payloads.
+
+### Changed
+
+- Give Grapher's frequently used Motion, Night, Patterns, and Library routes a compact utility-title scale while preserving the editorial Today and Overview hierarchy.
+- Require an explicit Metrics dimension selection instead of guessing the first catalog value; preserve explicit empty selections and load catalog/series state through the shared latest-request-wins
+  async resource.
+- Replace mouse-only Patterns table rows in all six design languages with native period buttons that provide keyboard-equivalent evidence navigation.
+
+### Fixed
+
+- Add a first-focus skip link and one canonical focusable main landmark, align compact header DOM and visual order, raise audited standalone controls to the product's 24x24px floor, and restore Today
+  and Overview's H1-first outline.
+- Give empty Today a `Jump to latest recorded day` action and defer its URL synchronization until SvelteKit's router is initialized.
+- Normalize the API's `null` dimension list for canonical metrics so dimensionless series such as Steps render instead of failing after catalog load.
+
 ## [0.4.3] — 2026-08-16
 
 ### Changed
