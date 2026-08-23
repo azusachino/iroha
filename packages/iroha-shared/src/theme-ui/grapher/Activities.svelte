@@ -170,7 +170,7 @@
   }
   h1 {
     margin: 0;
-    font-size: clamp(2.8rem, 7vw, 6.5rem);
+    font-size: var(--grapher-utility-title-size);
     letter-spacing: -0.1em;
     line-height: 0.88;
   }

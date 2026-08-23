@@ -188,7 +188,7 @@
   h1 {
     max-width: 12ch;
     font-family: var(--font-sans);
-    font-size: clamp(3rem, 8vw, 7rem);
+    font-size: var(--grapher-utility-title-size);
     letter-spacing: -0.12em;
     line-height: 0.82;
   }

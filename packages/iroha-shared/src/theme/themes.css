@@ -74,6 +74,7 @@ html:root[data-language="atlas"] {
 
 html:root[data-language="grapher"] {
   --theme-swatch: #6da9ff;
+  --grapher-utility-title-size: clamp(2.25rem, 4.5vw, 4rem);
   --accent: #6da9ff;
   --accent-2: #f07c78;
   --ring-move: #f07c78;
