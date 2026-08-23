@@ -15,7 +15,7 @@ export function metricDimensionsFromUrl(
   );
 
   return Object.fromEntries(
-    definition.dimensions.flatMap((dimension) => {
+    (definition.dimensions ?? []).flatMap((dimension) => {
       const value = requested.get(dimension.id) ?? "";
       return dimension.values.includes(value) ? [[dimension.id, value]] : [];
     }),

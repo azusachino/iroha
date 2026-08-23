@@ -30,6 +30,18 @@ function series(value: number | null): MetricSeriesResponse {
 }
 
 describe("Metrics selection state", () => {
+  it("treats the API's null dimensions for canonical metrics as empty", () => {
+    const canonicalDefinition = {
+      id: "health.steps",
+      dimensions: null,
+    } as unknown as MetricDefinition;
+
+    expect(metricDimensionsFromUrl(canonicalDefinition, [])).toEqual({});
+    expect(
+      missingRequiredMetricDimensions(canonicalDefinition, {}),
+    ).toEqual([]);
+  });
+
   it("preserves an explicit valid dimension without inventing a default", () => {
     expect(
       metricDimensionsFromUrl(expenseDefinition, ["currency:EUR"]),

@@ -35,7 +35,7 @@ METRIC_EXPECTED_TEXT = "Steps"
 ROUTES = (
     ("expenses?month=2026-08", 1, "Fixture merchant 55", 2),
     ("reports?month=2026-08", 4, REPORT_EXPECTED_TEXT, 4),
-    ("metrics?metric=health.steps&month=2026-08", 1, METRIC_EXPECTED_TEXT, 1),
+    ("metrics?metric=health.steps&date=2026-08", 1, METRIC_EXPECTED_TEXT, 1),
 )
 
 
