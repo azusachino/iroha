@@ -35,8 +35,16 @@
     type DateBounds,
   } from "@iroha/shared/format/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
+  import {
+    metricDimensionsFromUrl,
+    metricSeriesHasValues,
+    missingRequiredMetricDimensions,
+  } from "./metrics-state";
 
-  let catalog = $state<MetricDefinition[]>([]);
+  const catalogResource = createAsyncResource<MetricDefinition[]>();
+  const seriesResource = createAsyncResource<MetricSeriesResponse>();
+  const catalog = $derived(catalogResource.data ?? []);
   let metricId = $state(page.url.searchParams.get("metric") ?? "");
   const defaultMonthScope = currentCalendarScope(
     "month",
@@ -53,10 +61,9 @@
       : currentMonth(new Date(), IROHA_TIMEZONE),
   );
   let dimensions = $state<Record<string, string>>({});
-  let series = $state<MetricSeriesResponse | null>(null);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
-  let requestVersion = 0;
+  const series = $derived(seriesResource.data);
+  const loading = $derived(catalogResource.loading || seriesResource.loading);
+  const error = $derived(catalogResource.error ?? seriesResource.error);
   // The real cross-domain data range (fetched once, independent of the
   // current selection) -- not a hardcoded 2015 guess, and not every month.
   let bounds = $state<DateBounds>({});
@@ -82,6 +89,20 @@
   const definition = $derived(
     catalog.find((metric) => metric.id === metricId) ?? null,
   );
+  const missingDimensions = $derived(
+    missingRequiredMetricDimensions(definition, dimensions),
+  );
+  const hasValues = $derived(metricSeriesHasValues(series));
+  const dimensionSummary = $derived(
+    (definition?.dimensions ?? [])
+      .map((dimension) =>
+        dimensions[dimension.id]
+          ? `${dimension.label}: ${dimensions[dimension.id]}`
+          : null,
+      )
+      .filter(Boolean)
+      .join(" · "),
+  );
   const panelRows = $derived(
     seriesPanelRows(series?.series ?? [], (value) =>
       formatMetricValue(value, series?.unit),
@@ -99,73 +120,49 @@
   );
 
   onMount(async () => {
-    try {
-      const response = await getMetricCatalog();
-      catalog = response.metrics;
-      if (!catalog.some((metric) => metric.id === metricId)) {
-        metricId = catalog[0]?.id ?? "";
-      }
-      resetDimensions();
-      await loadSeries();
-      void loadBounds();
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-      loading = false;
+    const nextCatalog = await catalogResource.run(
+      async () => (await getMetricCatalog()).metrics,
+    );
+    if (!nextCatalog) return;
+    if (!nextCatalog.some((metric) => metric.id === metricId)) {
+      metricId = nextCatalog[0]?.id ?? "";
     }
+    resetDimensions(
+      nextCatalog.find((metric) => metric.id === metricId) ?? null,
+    );
+    syncUrl();
+    await loadSeries();
+    void loadBounds();
   });
 
-  function resetDimensions() {
-    const fromUrl = new Map(
-      page.url.searchParams.getAll("dimension").map((value) => {
-        const separator = value.indexOf(":");
-        return separator > 0
-          ? [value.slice(0, separator), value.slice(separator + 1)]
-          : ["", ""];
-      }),
-    );
-    dimensions = Object.fromEntries(
-      (definition?.dimensions ?? [])
-        .map((dimension) => [
-          dimension.id,
-          dimension.values.includes(fromUrl.get(dimension.id) ?? "")
-            ? fromUrl.get(dimension.id)
-            : dimension.required
-              ? (dimension.values[0] ?? "")
-              : "",
-        ])
-        .filter(([, value]) => value),
-    );
+  function resetDimensions(nextDefinition = definition) {
+    dimensions = nextDefinition
+      ? metricDimensionsFromUrl(
+          nextDefinition,
+          page.url.searchParams.getAll("dimension"),
+        )
+      : {};
   }
 
   async function loadSeries() {
-    if (!definition) return;
-    const version = ++requestVersion;
-    loading = true;
-    error = null;
+    if (!definition || missingDimensions.length) return;
     const from = monthBounds(shiftMonth(month, -11)).from;
     const to = monthBounds(month).to;
-    try {
-      const next = await getMetricSeries(metricId, {
+    await seriesResource.run(() =>
+      getMetricSeries(metricId, {
         from,
         to,
         grain: "month",
         dimensions: Object.entries(dimensions)
           .filter(([, value]) => value)
           .map(([key, value]) => `${key}:${value}`),
-      });
-      if (version === requestVersion) series = next;
-    } catch (cause) {
-      if (version !== requestVersion) return;
-      series = null;
-      error = cause instanceof Error ? cause.message : String(cause);
-    } finally {
-      if (version === requestVersion) loading = false;
-    }
+      }),
+    );
   }
 
   function selectMetric(value: string) {
     metricId = value;
-    resetDimensions();
+    resetDimensions(catalog.find((metric) => metric.id === value) ?? null);
     syncUrl();
     void loadSeries();
   }
@@ -252,7 +249,9 @@
             onchange={(event) =>
               selectDimension(dimension.id, event.currentTarget.value)}
           >
-            {#if !dimension.required}<option value="">All</option>{/if}
+            {#if dimension.required}<option value="" disabled
+                >Choose {dimension.label.toLowerCase()}</option
+              >{:else}<option value="">All</option>{/if}
             {#each dimension.values as value}<option {value}>{value}</option
               >{/each}
           </select></label
@@ -260,8 +259,29 @@
       {/each}
     </div>
 
-    {#if loading}<p class="status">Loading metric series…</p>
+    {#if missingDimensions.length}
+      <section class="selection-state panel" role="status" aria-live="polite">
+        <p class="eyebrow">Selection required</p>
+        <h2>
+          Choose {missingDimensions.map((item) => item.label).join(" and ")}
+        </h2>
+        <p>
+          This metric requires an explicit breakdown before Iroha can request or
+          draw a truthful series.
+        </p>
+      </section>
+    {:else if loading}<p class="status" role="status">Loading metric series…</p>
     {:else if error}<p class="error" role="alert">{error}</p>
+    {:else if series && definition && !hasValues}
+      <section class="selection-state panel" role="status">
+        <p class="eyebrow">No observations</p>
+        <h2>No {definition.label.toLowerCase()} values in this window.</h2>
+        <p>
+          The 12-month window ending {month} has no recorded values{dimensionSummary
+            ? ` for ${dimensionSummary}`
+            : ""}. The explicit selection remains unchanged.
+        </p>
+      </section>
     {:else if series && definition}
       <section class="chart panel">
         <div class="section-head">
@@ -356,7 +376,12 @@
     display: grid;
     gap: 1rem;
   }
+  .selection-state {
+    display: grid;
+    gap: 0.55rem;
+  }
   .section-head p:last-child,
+  .selection-state > p:last-child,
   .status {
     color: var(--text-muted);
   }
