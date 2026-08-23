@@ -244,8 +244,8 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0.15rem;
-  margin-left: 0;
-  margin-right: 0;
+  margin-left: auto;
+  margin-right: auto;
   padding: 0.2rem;
   border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
   border-radius: 999px;
@@ -284,7 +284,6 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  margin-left: auto;
   min-width: 0;
 }
 
@@ -442,11 +441,8 @@ textarea {
   }
 
   .main-nav {
-    order: 3;
-    width: 100%;
     justify-content: flex-start;
     overflow-x: auto;
-    margin: 0;
     scrollbar-width: none;
     overscroll-behavior-inline: contain;
   }
@@ -458,6 +454,13 @@ textarea {
   .main-nav > a {
     flex: 0 0 auto;
     justify-content: center;
+  }
+
+  .appbar-actions {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+    margin: 0;
   }
 }
 
@@ -500,6 +503,8 @@ textarea {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     overflow: visible;
+    width: 100%;
+    margin: 0;
   }
 
   .main-nav > a,

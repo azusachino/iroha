@@ -37,20 +37,6 @@
         <span>iroha</span>
         <small class="brand-version">v{APP_VERSION}</small>
       </a>
-      <div class="appbar-actions">
-        <button
-          class="command-trigger"
-          type="button"
-          aria-label="Open command palette"
-          onclick={openCommandPalette}
-        >
-          <Command size={15} />
-          <span>Command</span>
-          <kbd>⌘K</kbd>
-        </button>
-        <DesignLanguagePicker />
-        <ThemeToggle />
-      </div>
       <nav class="main-nav" aria-label="Primary navigation">
         <a
           class:active={isActive(navigationGroups[0].items[0].href)}
@@ -66,6 +52,20 @@
           <NavigationMenu {group} active={isActive} />
         {/each}
       </nav>
+      <div class="appbar-actions">
+        <button
+          class="command-trigger"
+          type="button"
+          aria-label="Open command palette"
+          onclick={openCommandPalette}
+        >
+          <Command size={15} />
+          <span>Command</span>
+          <kbd>⌘K</kbd>
+        </button>
+        <DesignLanguagePicker />
+        <ThemeToggle />
+      </div>
     </header>
     <CommandPalette />
     <ThemeFrame>
