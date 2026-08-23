@@ -7,25 +7,21 @@
   }: {
     label: string;
     period: string;
-    value?: number | null;
+    value: number | null;
     onDrill: (period: string) => void;
   } = $props();
 
   const evidence = $derived(
-    value === undefined
-      ? ""
-      : value === null
-        ? "no steps recorded"
-        : `${value.toLocaleString()} steps`,
+    value === null ? "no steps recorded" : `${value.toLocaleString()} steps`,
   );
 </script>
 
 <button
   type="button"
-  aria-label={evidence ? `${label}, ${evidence}` : undefined}
+  aria-label={`${label}, ${evidence}`}
   data-period-drill
   data-period={label}
-  data-evidence={evidence || undefined}
+  data-evidence={evidence}
   onclick={() => onDrill(period)}>{label}</button
 >
 

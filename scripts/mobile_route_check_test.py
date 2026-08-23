@@ -63,6 +63,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             "focusOrderMismatch": True,
             "smallTargetCount": 1,
             "mouseOnlyRows": 0,
+            "periodDrillLabelFailures": 1,
         }
 
         self.assertEqual(
@@ -72,6 +73,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
                 "H1 is not the single first heading",
                 "compact focus order differs from visual order",
                 "1 standalone controls are smaller than 24x24px",
+                "period controls missing period/evidence labels: 1",
             ],
         )
 
@@ -85,6 +87,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             "focusOrderMismatch": True,
             "smallTargetCount": 0,
             "mouseOnlyRows": 0,
+            "periodDrillLabelFailures": 0,
         }
 
         self.assertEqual(
@@ -102,6 +105,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
             "focusOrderMismatch": False,
             "smallTargetCount": 0,
             "mouseOnlyRows": 1,
+            "periodDrillLabelFailures": 0,
         }
 
         self.assertEqual(

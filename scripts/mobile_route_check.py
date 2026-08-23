@@ -182,6 +182,10 @@ def accessibility_failures(state: dict, viewport: tuple[int, int]) -> list[str]:
         failures.append(f"{state['smallTargetCount']} standalone controls are smaller than 24x24px")
     if state["mouseOnlyRows"]:
         failures.append(f"mouse-only clickable table rows: {state['mouseOnlyRows']}")
+    if state["periodDrillLabelFailures"]:
+        failures.append(
+            f"period controls missing period/evidence labels: {state['periodDrillLabelFailures']}"
+        )
     return failures
 
 
@@ -239,6 +243,10 @@ def assert_route(
         "'a[href],button,input,select,textarea,summary')&&!row.matches("
         "'[tabindex]:not([tabindex=\"-1\"])[role=\"link\"],"
         "[tabindex]:not([tabindex=\"-1\"])[role=\"button\"]')).length,"
+        "periodDrillLabelFailures:[...document.querySelectorAll('[data-period-drill]')].filter(el=>{"
+        "const name=el.getAttribute('aria-label')??'';const period=el.dataset.period??'';"
+        "const evidence=el.dataset.evidence??'';return !period||!evidence||"
+        "!name.includes(period)||!name.includes(evidence);}).length,"
         "pending:document.querySelectorAll('[aria-busy=\\\"true\\\"],.skeleton').length,"
         "unnamed:[...document.querySelectorAll('a,button,input,select,textarea,summary')]"
         ".filter(el=>!el.getAttribute('aria-label')&&!el.getAttribute('title')&&"
