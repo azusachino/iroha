@@ -10,6 +10,7 @@ class MobileRouteInventoryTest(unittest.TestCase):
         paths = [route for route, _ in routes]
 
         self.assertIn("/", paths)
+        self.assertIn(f"/?date={mobile_route_check.date.today().isoformat()}", paths)
         self.assertIn("/expenses?month=2026-08", paths)
         self.assertIn("/motion/activity-1", paths)
         self.assertIn("/activities/activity-1", paths)

@@ -57,6 +57,7 @@ export function createTodayState() {
   let day = $state<string>(dayFromUrl());
   let pickerOpen = $state(false);
   let availableDays = $state<Set<string>>(new Set());
+  let urlSyncMounted = $state(false);
 
   type BriefingList<T> = { items: T[]; has_more: boolean };
   function sectionData<T>(key: string): BriefingList<T> {
@@ -258,6 +259,7 @@ export function createTodayState() {
   // goto so scrubbing days doesn't spam browser history, just the current
   // entry. Omitted entirely for today so the common-case URL stays plain "/".
   $effect(() => {
+    if (!urlSyncMounted) return;
     const url = new URL(window.location.href);
     if (day === today) {
       url.searchParams.delete("date");
@@ -270,7 +272,11 @@ export function createTodayState() {
   });
 
   onMount(() => {
+    const urlSyncTimer = window.setTimeout(() => {
+      urlSyncMounted = true;
+    });
     void loadAvailableDays();
+    return () => window.clearTimeout(urlSyncTimer);
   });
 
   async function loadTasks(selectedDay: string) {

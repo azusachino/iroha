@@ -20,6 +20,7 @@ MOTION_MODES = ("normal", "reduced")
 
 STATIC_ROUTES = (
     ("/", "/"),
+    (f"/?date={date.today().isoformat()}", "/"),
     ("/overview", "/overview"),
     ("/motion", "/motion"),
     ("/night", "/night"),
