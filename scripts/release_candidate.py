@@ -13,6 +13,8 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+from mobile_route_check import FOCUS_CONTRAST_EXPRESSION
+
 ROOT = Path(__file__).resolve().parents[1]
 SERVER_DIR = ROOT / "apps" / "iroha-server"
 WEB_DIR = ROOT / "apps" / "iroha-web"
@@ -328,7 +330,8 @@ def browser_matrix(base_url: str, session: str) -> None:
                     ".filter(p=>[...p.querySelectorAll('button')]"
                     ".some(b=>b.textContent.trim()==='CSV'&&!b.disabled)).length,"
                     "overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,"
-                    "alerts:document.querySelectorAll('[role=alert]').length"
+                    "alerts:document.querySelectorAll('[role=alert]').length,"
+                    f"focusContrast:{FOCUS_CONTRAST_EXPRESSION}"
                     "})",
                 )
                 state = json.loads(json.loads(result.stdout))
@@ -348,6 +351,10 @@ def browser_matrix(base_url: str, session: str) -> None:
                     )
                 if state["overflow"] or state["alerts"]:
                     raise RuntimeError(f"runtime failure for {theme}/{mode}/{route}: {state}")
+                if state["focusContrast"] < 3:
+                    raise RuntimeError(
+                        f"focus contrast below 3:1 for {theme}/{mode}/{route}: {state}"
+                    )
                 if state["panels"] < minimum_panels:
                     raise RuntimeError(
                         f"missing metric panels for {theme}/{mode}/{route}: {state['panels']}"

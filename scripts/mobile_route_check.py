@@ -18,6 +18,18 @@ MOBILE_VIEWPORTS = ((320, 844), (375, 844), (390, 844), (414, 896))
 THEMES = ("atlas", "grapher", "field-journal", "phenology", "sound-map", "archive")
 MODES = ("light", "dark")
 MOTION_MODES = ("normal", "reduced")
+FOCUS_CONTRAST_EXPRESSION = (
+    "(()=>{const probe=document.createElement('span');"
+    "probe.style.cssText='position:fixed;visibility:hidden';document.body.append(probe);"
+    "const resolve=token=>{probe.style.color=`var(${token})`;return getComputedStyle(probe).color;};"
+    "const rgb=value=>(value.match(/[\\d.]+/g)??[]).slice(0,3).map(Number);"
+    "const luminance=value=>{const [r,g,b]=rgb(value).map(channel=>{const scaled=channel/255;"
+    "return scaled<=0.04045?scaled/12.92:((scaled+0.055)/1.055)**2.4;});"
+    "return 0.2126*r+0.7152*g+0.0722*b;};const focus=luminance(resolve('--color-focus'));"
+    "const ratios=['--bg','--surface','--surface-2'].map(token=>{const background=luminance(resolve(token));"
+    "return (Math.max(focus,background)+0.05)/(Math.min(focus,background)+0.05);});"
+    "probe.remove();return Math.min(...ratios);})()"
+)
 
 STATIC_ROUTES = (
     ("/", "/"),
@@ -242,16 +254,7 @@ def assert_route(
         "if(el.closest('details:not([open])')&&!el.matches('summary'))return false;"
         "if(el.matches('a')&&el.closest('p')&&getComputedStyle(el).display==='inline')return false;"
         "const box=el.getBoundingClientRect();return box.width<24||box.height<24;}).length,"
-        "focusContrast:(()=>{const probe=document.createElement('span');"
-        "probe.style.cssText='position:fixed;visibility:hidden';document.body.append(probe);"
-        "const resolve=token=>{probe.style.color=`var(${token})`;return getComputedStyle(probe).color;};"
-        "const rgb=value=>(value.match(/[\\d.]+/g)??[]).slice(0,3).map(Number);"
-        "const luminance=value=>{const [r,g,b]=rgb(value).map(channel=>{const scaled=channel/255;"
-        "return scaled<=0.04045?scaled/12.92:((scaled+0.055)/1.055)**2.4;});"
-        "return 0.2126*r+0.7152*g+0.0722*b;};const focus=luminance(resolve('--color-focus'));"
-        "const ratios=['--bg','--surface','--surface-2'].map(token=>{const background=luminance(resolve(token));"
-        "return (Math.max(focus,background)+0.05)/(Math.min(focus,background)+0.05);});"
-        "probe.remove();return Math.min(...ratios);})(),"
+        f"focusContrast:{FOCUS_CONTRAST_EXPRESSION},"
         "mouseOnlyRows:[...document.querySelectorAll('tbody tr')].filter(row=>"
         "getComputedStyle(row).cursor==='pointer'&&!row.querySelector("
         "'a[href],button,input,select,textarea,summary')&&!row.matches("
