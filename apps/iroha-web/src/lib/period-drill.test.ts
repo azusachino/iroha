@@ -52,6 +52,23 @@ describe("PeriodDrill", () => {
             vo2max: 51,
             body_mass_kg: 68,
           },
+          {
+            label: "2026-07",
+            period: "2026-07",
+            days: 31,
+            move: null,
+            exercise: null,
+            stand: null,
+            moveClosedPct: null,
+            steps: null,
+            distance: null,
+            resting_hr: null,
+            hrv_sdnn: null,
+            spo2_avg: null,
+            respiratory_rate: null,
+            vo2max: null,
+            body_mass_kg: null,
+          },
         ],
         format,
         onDrill: vi.fn(),
@@ -59,7 +76,9 @@ describe("PeriodDrill", () => {
     });
 
     expect(body).toContain('aria-label="2026-08, 12,345 steps"');
+    expect(body).toContain('aria-label="2026-07, no steps recorded"');
     expect(body).toMatch(/<th[^>]*>Steps\/d<\/th>/);
     expect(body).toMatch(/<td[^>]*data-period-evidence[^>]*>12,345<\/td>/);
+    expect(body).toMatch(/<td[^>]*data-period-evidence[^>]*>—<\/td>/);
   });
 });
