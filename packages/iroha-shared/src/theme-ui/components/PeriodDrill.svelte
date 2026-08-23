@@ -1,3 +1,14 @@
+<script module lang="ts">
+  export function periodDrillAccessibleName(
+    label: string,
+    value: number | null,
+  ): string {
+    const evidence =
+      value === null ? "no steps recorded" : `${value.toLocaleString()} steps`;
+    return `${label}, ${evidence}`;
+  }
+</script>
+
 <script lang="ts">
   let {
     label,
@@ -11,17 +22,13 @@
     onDrill: (period: string) => void;
   } = $props();
 
-  const evidence = $derived(
-    value === null ? "no steps recorded" : `${value.toLocaleString()} steps`,
-  );
+  const accessibleName = $derived(periodDrillAccessibleName(label, value));
 </script>
 
 <button
   type="button"
-  aria-label={`${label}, ${evidence}`}
+  aria-label={accessibleName}
   data-period-drill
-  data-period={label}
-  data-evidence={evidence}
   onclick={() => onDrill(period)}>{label}</button
 >
 
