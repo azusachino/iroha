@@ -245,6 +245,9 @@
     text-transform: uppercase;
   }
   td a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-target-min);
     color: var(--text);
     font-weight: 700;
     text-decoration: none;

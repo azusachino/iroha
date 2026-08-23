@@ -21,19 +21,25 @@ class MobileRouteInventoryTest(unittest.TestCase):
     def test_expected_url_preserves_canonical_period_contracts(self):
         self.assertEqual(
             mobile_route_check.expected_route_url("/night", "/night"),
-            f"/night?year={mobile_route_check.date.today().year}",
+            f"/night?date={mobile_route_check.date.today().year}",
         )
         self.assertEqual(
             mobile_route_check.expected_route_url("/sleep", "/night"),
-            f"/night?year={mobile_route_check.date.today().year}",
+            f"/night?date={mobile_route_check.date.today().year}",
+        )
+        self.assertEqual(
+            mobile_route_check.expected_route_url("/motion", "/motion"),
+            f"/motion?date={mobile_route_check.date.today().year}",
+        )
+        self.assertEqual(
+            mobile_route_check.expected_route_url(
+                "/metrics?metric=health.steps&month=2026-08", "/metrics"
+            ),
+            "/metrics?metric=health.steps&date=2026-08",
         )
         self.assertEqual(
             mobile_route_check.expected_route_url("/expenses?month=2026-08", "/expenses"),
             "/expenses?month=2026-08",
-        )
-        self.assertEqual(
-            mobile_route_check.expected_route_url("/motion", "/motion"),
-            "/motion",
         )
 
     def test_parse_viewports_accepts_compact_matrix(self):

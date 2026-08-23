@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import urllib.request
+import urllib.parse
 from datetime import date
 from pathlib import Path
 
@@ -131,9 +132,16 @@ def parse_viewports() -> tuple[tuple[int, int], ...]:
 def expected_route_url(route: str, expected_path: str) -> str:
     """Return the URL contract after the route's canonicalization rules run."""
 
-    if route in ("/night", "/sleep") and expected_path == "/night":
-        return f"/night?year={date.today().year}"
-    if route.partition("?")[0] in ("/expenses", "/patterns", "/reports", "/metrics"):
+    if expected_path in ("/motion", "/night") and "?" not in route:
+        return f"{expected_path}?date={date.today().year}"
+    route_path, separator, query = route.partition("?")
+    if route_path == "/metrics":
+        params = [
+            ("date" if key in ("month", "year") else key, value)
+            for key, value in urllib.parse.parse_qsl(query, keep_blank_values=True)
+        ]
+        return expected_path + ("?" + urllib.parse.urlencode(params) if params else "")
+    if route_path in ("/expenses", "/patterns", "/reports"):
         return expected_path + ("?" + route.partition("?")[2] if "?" in route else "")
     return expected_path
 
@@ -211,7 +219,8 @@ def assert_route(
         "const target=link&&document.querySelector(link.getAttribute('href'));return {"
         "exists:Boolean(link),targetExists:Boolean(target)};})(),"
         "mainCount:document.querySelectorAll('main').length,"
-        "footerInMain:Boolean(document.querySelector('main footer')),"
+        "footerInMain:Boolean(document.querySelector("
+        "'main :is(.atlas-footer,.grapher-footer,.field-journal-footer,.bloom-footer,.mix-footer,.vault-footer,.footer)')),"
         "focusOrderMismatch:(()=>{const items=[...document.querySelectorAll("
         "'.appbar a[href],.appbar button:not([disabled]),.appbar summary,.appbar select')].filter(el=>"
         "el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden'&&"
