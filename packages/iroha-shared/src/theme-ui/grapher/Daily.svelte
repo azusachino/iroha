@@ -2,6 +2,7 @@
   import type { DailyThemeProps } from "../../view-contracts/daily-view";
   import RingGauge from "../components/RingGauge.svelte";
   import BarChart from "../components/BarChart.svelte";
+  import PeriodDrill from "../components/PeriodDrill.svelte";
 
   let {
     chrono,
@@ -121,14 +122,12 @@
           {#each [...chrono].reverse() as item}
             <tr
               ><td
-                >{#if drillable}<button
-                    class="period-drill"
-                    type="button"
-                    onclick={() => onDrillPeriod(item.period)}
-                    >{item.label}</button
-                  >{:else}{item.label}{/if}</td
-              ><td>{display(item.steps)}</td><td
-                >{display(item.distance, 1)}</td
+                >{#if drillable}<PeriodDrill
+                    label={item.label}
+                    period={item.period}
+                    onDrill={onDrillPeriod}
+                  />{:else}{item.label}{/if}</td
+              ><td>{display(item.steps)}</td><td>{display(item.distance, 1)}</td
               ><td>{display(item.resting_hr, 1)}</td><td
                 >{display(item.hrv_sdnn, 1)}</td
               ><td
@@ -235,17 +234,6 @@
     padding: 1.25rem;
     border: 1px solid var(--border);
     background: var(--surface);
-  }
-  .period-drill {
-    min-height: var(--control-target-min);
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
   }
   .drill-hint {
     margin: 0.75rem 0 0;
