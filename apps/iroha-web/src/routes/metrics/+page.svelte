@@ -260,19 +260,23 @@
     </div>
 
     {#if missingDimensions.length}
-      <MetricStateNotice
-        kind="required"
-        labels={missingDimensions.map((item) => item.label)}
-      />
+      <div class="panel">
+        <MetricStateNotice
+          kind="required"
+          labels={missingDimensions.map((item) => item.label)}
+        />
+      </div>
     {:else if loading}<p class="status" role="status">Loading metric series…</p>
     {:else if error}<p class="error" role="alert">{error}</p>
     {:else if series && definition && !hasValues}
-      <MetricStateNotice
-        kind="empty"
-        metricLabel={definition.label}
-        {month}
-        {dimensionSummary}
-      />
+      <div class="panel">
+        <MetricStateNotice
+          kind="empty"
+          metricLabel={definition.label}
+          {month}
+          {dimensionSummary}
+        />
+      </div>
     {:else if series && definition}
       <section class="chart panel">
         <div class="section-head">

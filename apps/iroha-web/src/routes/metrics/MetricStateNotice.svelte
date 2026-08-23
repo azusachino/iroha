@@ -14,7 +14,7 @@
   } = $props();
 </script>
 
-<section class="selection-state panel" role="status" aria-live="polite">
+<section class="selection-state" role="status" aria-live="polite">
   {#if kind === "required"}
     <p class="eyebrow">Selection required</p>
     <h2>Choose {labels.join(" and ")}</h2>
