@@ -291,7 +291,7 @@
   }
   .ring-value {
     stroke-linecap: round;
-    transition: stroke-dasharray 0.3s ease;
+    transition: stroke-dasharray var(--motion-data-update);
   }
   @media (prefers-reduced-motion: reduce) {
     .ring-value {
