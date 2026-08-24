@@ -54,14 +54,18 @@
   border: 0 !important;
 }
 
+/* A blanket duration crush here would force every deliberate reduced-motion
+   result (e.g. a held confirmation state) to near-zero too, which is a
+   contradiction, not a fix -- see the semantic-motion plan's Decision 4.
+   Stop infinite decorative loops from looping forever; let each component
+   that actually needs a reduced-motion result define it explicitly, the way
+   LoadingBoundary and TodaySkeleton's shimmer/pulse already do. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
   }
 }
 

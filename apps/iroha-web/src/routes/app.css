@@ -655,17 +655,6 @@ button:disabled {
   opacity: 0.58;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.001ms !important;
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-  }
-}
-
 /* Activity list */
 .activity-list {
   list-style: none;

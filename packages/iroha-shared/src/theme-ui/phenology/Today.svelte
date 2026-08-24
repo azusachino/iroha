@@ -293,6 +293,11 @@
     stroke-linecap: round;
     transition: stroke-dasharray 0.3s ease;
   }
+  @media (prefers-reduced-motion: reduce) {
+    .ring-value {
+      transition: none;
+    }
+  }
   .ring-move {
     stroke: var(--accent);
   }

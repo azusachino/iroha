@@ -101,6 +101,11 @@
     fill: none;
     transition: stroke-dasharray 0.6s ease;
   }
+  @media (prefers-reduced-motion: reduce) {
+    .arc {
+      transition: none;
+    }
+  }
   .legend {
     list-style: none;
     margin: 0;
