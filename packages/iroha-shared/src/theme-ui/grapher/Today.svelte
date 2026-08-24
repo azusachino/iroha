@@ -2,6 +2,7 @@
   import type { TodayThemeProps } from "../../view-contracts/today-view";
   import { formatDistance, formatDuration, formatPace } from "../../format/format";
   import { mediaEventVerb } from "../../domain/media";
+  import AnimatedNumber from "../../components/AnimatedNumber.svelte";
   import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
   let {
@@ -16,14 +17,6 @@
     onOpenActivity,
     onOpenMedia,
   }: TodayThemeProps = $props();
-
-  function number(value: number | null | undefined, digits = 0): string {
-    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-    return value.toLocaleString(undefined, {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    });
-  }
 
   const points = $derived([
     {
@@ -95,7 +88,7 @@
       {#each points as point}
         <div class="plot-column">
           <div class="plot-value">
-            {number(point.value)} <small>{point.unit}</small>
+            <AnimatedNumber value={point.value} /> <small>{point.unit}</small>
           </div>
           <div class="plot-track">
             <i
@@ -114,7 +107,7 @@
       <h2 id="recovery-title">Sleep efficiency</h2>
       {#if mainNight}
         <strong class="large-value"
-          >{Math.round(mainNight.efficiency * 100)}%</strong
+          ><AnimatedNumber value={mainNight.efficiency * 100} />%</strong
         >
         <dl>
           <div>
