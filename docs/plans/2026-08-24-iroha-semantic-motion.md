@@ -1,42 +1,43 @@
 # Iroha semantic motion plan
 
-Status: reviewed and ready for implementation (revised after fresh-context review — see "Review corrections" below)
+Status: Tasks 1-9 implemented and verified live; Task 10 (this plan's own formal release step) superseded — see below.
 
-Target release: `v0.4.5`
+Target release: `v0.4.4`. `v0.4.4` had not shipped yet when this work landed — no `v0.4.4` tag exists and PR #58 was still open — so this folded into the still-open `v0.4.4` CHANGELOG entry and PR
+rather than being versioned on its own.
 
-Task board: Asobi epic `iroha:0.4.5-semantic-motion`
+Task board: Asobi epic `iroha:semantic-motion`
 
 ## Objective
 
-Make the private cockpit feel alive, not just correct. `v0.4.4` fixed accessibility and truthful-state defects; it deliberately touched no motion. The result is functionally sound and visually flat: data
-appears with a hard cut, confirmations are silent, menus open with no acknowledgment, headline numbers snap instead of counting, and switching between the six design languages is an instant repaint with
-no sense that something changed. This patch gives Iroha a small, named vocabulary of motion tied to state change — not decoration, and not a Three.js/D3 dependency — and applies it to the surfaces the
-owner actually watches every day: Today's data arriving, a gauge filling, a number counting, a menu opening, a design language switching.
+Make the private cockpit feel alive, not just correct. `v0.4.4` fixed accessibility and truthful-state defects; it deliberately touched no motion. The result is functionally sound and visually flat:
+data appears with a hard cut, confirmations are silent, menus open with no acknowledgment, headline numbers snap instead of counting, and switching between the six design languages is an instant
+repaint with no sense that something changed. This patch gives Iroha a small, named vocabulary of motion tied to state change — not decoration, and not a Three.js/D3 dependency — and applies it to the
+surfaces the owner actually watches every day: Today's data arriving, a gauge filling, a number counting, a menu opening, a design language switching.
 
-This is a personal cockpit, not a compliance tool. "Interesting" is a real product requirement here, not a nice-to-have layered on top of correctness — see the retrospective on why `v0.4.4` landed as a
-disappointment despite being defect-free.
+This is a personal cockpit, not a compliance tool. "Interesting" is a real product requirement here, not a nice-to-have layered on top of correctness — see the retrospective on why `v0.4.4` landed as
+a disappointment despite being defect-free.
 
 ## Review corrections (2026-08-24, fresh-context Opus review)
 
 The first draft of this plan was reviewed before implementation started, per this repo's own culture of catching scope problems on paper instead of mid-patch. Four findings changed the plan materially
 enough to record here rather than silently rewrite history:
 
-1. **The existing global reduced-motion rule contradicts this plan's own Decision 4.** `themes.css` and `app.css` both force `transition-duration: 0.01ms !important; animation-duration: 0.01ms
-   !important` on `*, *::before, *::after`. `!important` beats any more-specific component override, so no task below could ever ship a deliberate, non-instant reduced-motion result even where one is
-   warranted — Task 2 (new) fixes this before any motion lands.
-2. **The original Task 5 (command palette confirmation) assumed a component structure that doesn't exist.** `CommandPalette.svelte`'s `activate()` calls `closePalette()` synchronously and then `await
-   goto()` — the palette unmounts before anything could animate, every command is a navigation with no success/failure branch, and a held confirmation on the hot Cmd+K path would violate Decision 5
-   (frequent keyboard actions stay instant). Replaced with a design-language switch transition (Task 6, new) — the single most dramatic, currently-instant state change in the app, per the review's own
-   assessment of what's "begging for motion." A real command-confirmation task is recorded under Follow-up instead of shipped half-designed.
+1. **The existing global reduced-motion rule contradicts this plan's own Decision 4.** `themes.css` and `app.css` both force
+   `transition-duration: 0.01ms !important; animation-duration: 0.01ms !important` on `*, *::before, *::after`. `!important` beats any more-specific component override, so no task below could ever
+   ship a deliberate, non-instant reduced-motion result even where one is warranted — Task 2 (new) fixes this before any motion lands.
+2. **The original Task 5 (command palette confirmation) assumed a component structure that doesn't exist.** `CommandPalette.svelte`'s `activate()` calls `closePalette()` synchronously and then
+   `await goto()` — the palette unmounts before anything could animate, every command is a navigation with no success/failure branch, and a held confirmation on the hot Cmd+K path would violate
+   Decision 5 (frequent keyboard actions stay instant). Replaced with a design-language switch transition (Task 6, new) — the single most dramatic, currently-instant state change in the app, per the
+   review's own assessment of what's "begging for motion." A real command-confirmation task is recorded under Follow-up instead of shipped half-designed.
 3. **"NavigationMenu already has an open/close transition" was wrong.** Only the chevron icon rotates (`NavigationMenu.svelte:179`); `.navigation-popover` itself has no transition. Corrected in the
    evidence table below, and given its own task (Task 7, new) since the Objective already promised "a menu opening" as a felt example.
 4. **Task 4 (gauges) undercounted the real surface.** Three `theme-ui/<language>/` files draw rings inline via raw `<svg>`/`stroke-dasharray` instead of the shared `RingGauge` component
-   (`field-journal/Today.svelte`, `phenology/Today.svelte`, `phenology/MediaDetail.svelte`) — one already has an untokened `0.3s` transition, two have no transition at all (instant snap). Split into 5a
-   (shared components) / 5b (the three per-language inline rings), matching `v0.4.4`'s own pattern for a fix that spans all `theme-ui/*/` copies per `AGENTS.md`'s "check the filename across all six"
-   rule.
+   (`field-journal/Today.svelte`, `phenology/Today.svelte`, `phenology/MediaDetail.svelte`) — one already has an untokened `0.3s` transition, two have no transition at all (instant snap). Split into
+   5a (shared components) / 5b (the three per-language inline rings), matching `v0.4.4`'s own pattern for a fix that spans all `theme-ui/*/` copies per `AGENTS.md`'s "check the filename across all
+   six" rule.
 5. **Today's headline numbers were a missing felt-motion opportunity, not just an infrastructure gap.** Grapher's `Today.svelte` formats every metric (Move kcal, Exercise min, Steps, sleep efficiency
-   %) through a plain `number()`/`toLocaleString` text binding (`grapher/Today.svelte:20-26`) with no transition — changing the selected day or refetching snaps every number instantly. Added as Task 8,
-   scoped to Grapher only (per Decision 6) with the five-language extension recorded as immediate follow-on work rather than silently expanded into this task's budget.
+   %) through a plain `number()`/`toLocaleString` text binding (`grapher/Today.svelte:20-26`) with no transition — changing the selected day or refetching snaps every number instantly. Added as Task
+   8, scoped to Grapher only (per Decision 6) with the five-language extension recorded as immediate follow-on work rather than silently expanded into this task's budget.
 
 Task numbering below reflects these corrections; there is no separate "old" numbering to reconcile.
 
@@ -44,9 +45,9 @@ Task numbering below reflects these corrections; there is no separate "old" numb
 
 - the workstation research note [`ThreeUI and transitions.dev for Iroha and Felicia`](../../../../docs/research/2026-08/2026-08-22-threeui-and-transitions-dev-for-iroha-felicia.md), specifically its
   "actual Iroha seams" table and "bounded next-fix queue" — this plan executes that queue's Iroha half.
-- [`v0.4.4`'s own deferral](2026-08-24-iroha-0.4.4-ui-ux-quality.md): Decision 4 ("No D3 or Three.js dependency is expected") and Follow-up epic 1 ("Semantic motion: inventory `state change | owner |
-  channels | timing | reduced-motion result | route`, classify public/private parity, then define only repeated semantic tokens and adopt one bounded vertical slice. Frequent keyboard actions remain
-  instant.").
+- [`v0.4.4`'s own deferral](2026-08-24-iroha-0.4.4-ui-ux-quality.md): Decision 4 ("No D3 or Three.js dependency is expected") and Follow-up epic 1 ("Semantic motion: inventory
+  `state change | owner | channels | timing | reduced-motion result | route`, classify public/private parity, then define only repeated semantic tokens and adopt one bounded vertical slice. Frequent
+  keyboard actions remain instant.").
 - [the frontend design contract](../frontend-design-contract.md) and [theme architecture](../frontend-theme-architecture.md) — unchanged by this plan, but the six design languages' personalities
   constrain how loud any given transition family is allowed to be per language.
 - transitions.dev's semantic sequence: `semantic state change -> affected channels -> transition family -> token values -> orchestration -> reduced motion`. Cited as a vocabulary, not a dependency —
@@ -58,9 +59,9 @@ Task numbering below reflects these corrections; there is no separate "old" numb
 
 - A global reduced-motion catch-all in `packages/iroha-shared/src/theme/themes.css` and a duplicate in `apps/iroha-web/src/routes/app.css` — currently too blunt (see Review correction 1), fixed by
   Task 2 rather than removed outright, since the intent (stop decorative/infinite motion) is right.
-- Explicit reduced-motion handling already scoped correctly in MapLibre and the six ECharts-backed chart components (`BarChart`, `DailySmallMultiples`, `FusedActivityChart`,
-  `SleepArchitectureChart`, `SleepTimelineChart`, `YearProgressChart` all pass `animation: !reducedMotion` into ECharts' own option object) — these are confirmed out of scope for the CSS token work
-  below; their animation timing is ECharts-internal, not a CSS literal, and already respects motion preference.
+- Explicit reduced-motion handling already scoped correctly in MapLibre and the six ECharts-backed chart components (`BarChart`, `DailySmallMultiples`, `FusedActivityChart`, `SleepArchitectureChart`,
+  `SleepTimelineChart`, `YearProgressChart` all pass `animation: !reducedMotion` into ECharts' own option object) — these are confirmed out of scope for the CSS token work below; their animation
+  timing is ECharts-internal, not a CSS literal, and already respects motion preference.
 - `RingGauge.svelte` already animates `stroke-dasharray` on value change (`transition: stroke-dasharray 0.6s ease`) — the best existing instance of felt motion in the app, but not yet a named,
   reusable pattern, and not applied consistently (see Review correction 4).
 - `LoadingBoundary.svelte`'s shimmer already has its own local reduced-motion override (`animation: none` under its own `@media` block) — proof the per-component override pattern already works where
@@ -68,44 +69,44 @@ Task numbering below reflects these corrections; there is no separate "old" numb
 
 ### Verified gaps (evidence: `rg` sweep across `packages/iroha-shared/src` and `apps/iroha-web/src`, 2026-08-24, spot-checked line-by-line)
 
-| Priority | Finding | Evidence | Consequence |
-| --- | --- | --- | --- |
-| P0 | The global reduced-motion rule uses `!important` on `transition-duration`/`animation-duration`, which forecloses any deliberate (non-instant) reduced-motion result anywhere in the app. | `themes.css:53-61`, `app.css:627-635`. | Directly contradicts this plan's Decision 4; must be fixed before any other task's reduced-motion acceptance criterion is even checkable. |
-| P0 | No shared motion token exists anywhere in the app. | `themes.css` defines zero `--motion-*` custom properties. | A future fix has nothing to reuse and will add yet another one-off value. |
-| P0 | Durations are scattered with no semantic grouping: `140ms, 160ms(x3), 180ms(x3), 0.12s(x6), 0.2s(x2), 0.3s, 0.6s, 1.1s, 1.4s, 1.8s`. | `app.css:421-556`, `NavigationMenu.svelte:179`, `MonthNavigator.svelte:340`, `manual/+page.svelte:508-509`, `library/+page.svelte:376-622`, `RingGauge.svelte:102`, `phenology/Today.svelte:294`, `TodaySkeleton.svelte:95,131`, `LoadingBoundary.svelte:84`. | No way to tell which durations are load-bearing (chart pacing) versus accidental drift. |
-| P1 | Three `theme-ui/<language>/` files draw rings by hand instead of using the shared `RingGauge`, with inconsistent (or absent) transitions. | `field-journal/Today.svelte:76` (no transition), `phenology/Today.svelte:67,75,294` (has `0.3s ease`, untokened), `phenology/MediaDetail.svelte:92` (no transition). | The one good motion pattern in the app isn't actually applied everywhere it visually should be; two languages snap their rings instantly. |
-| P1 | `LoadingBoundary`'s loading -> ready transition is a hard `{#if}/{:else}` swap. | `LoadingBoundary.svelte:29-59` — no transition directive on either branch. | Every route's first paint is a snap-cut, the single most-seen state change in the app. |
-| P1 | The "Updating…" pill and first-load overlay appear/disappear with no enter/exit motion. | `LoadingBoundary.svelte:48-57`. | Refetches (period change, filter change) look like layout jitter, not a status update. |
-| P1 | `.navigation-popover` has no open/close transition; only its chevron icon rotates. | `NavigationMenu.svelte:179` (chevron only), `NavigationMenu.svelte:187-200` (popover, no `transition`). | Opening Domains/Analyze/More is a hard cut, despite the app bar sitting on every route. |
-| P1 | Switching design languages (`.language-picker`) is an instant full repaint via `html:root[data-language]`. | `DesignLanguagePicker.svelte` + `ThemeFrame.svelte`'s `Shell` swap — no transition anywhere in the chain. | The single most dramatic, most-often-triggered state change in the app (six genuinely different visual identities) has zero acknowledgment. |
-| P2 | Today's headline numbers (Move kcal, Exercise min, Steps, sleep efficiency %) snap instantly on day change or refetch — no count/roll motion. | `grapher/Today.svelte:20-26` (`number()`/`toLocaleString` plain text binding), `+page.svelte:237,285` (sleep efficiency, same pattern). | The one place the owner watches a number change every day has no felt update. |
-| P2 | No action in the app has a success or error confirmation motion. | No `success`/`confirm`/`shake` hits under `apps/iroha-web/src`, `packages/iroha-shared/src` outside test/unrelated CSS. | Recorded as a real gap, but not fixed in this plan — see Review correction 2 and Follow-up. |
+| Priority | Finding                                                                                                                                                                                  | Evidence                                                                                                                                                                                                                                                      | Consequence                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0       | The global reduced-motion rule uses `!important` on `transition-duration`/`animation-duration`, which forecloses any deliberate (non-instant) reduced-motion result anywhere in the app. | `themes.css:53-61`, `app.css:627-635`.                                                                                                                                                                                                                        | Directly contradicts this plan's Decision 4; must be fixed before any other task's reduced-motion acceptance criterion is even checkable.   |
+| P0       | No shared motion token exists anywhere in the app.                                                                                                                                       | `themes.css` defines zero `--motion-*` custom properties.                                                                                                                                                                                                     | A future fix has nothing to reuse and will add yet another one-off value.                                                                   |
+| P0       | Durations are scattered with no semantic grouping: `140ms, 160ms(x3), 180ms(x3), 0.12s(x6), 0.2s(x2), 0.3s, 0.6s, 1.1s, 1.4s, 1.8s`.                                                     | `app.css:421-556`, `NavigationMenu.svelte:179`, `MonthNavigator.svelte:340`, `manual/+page.svelte:508-509`, `library/+page.svelte:376-622`, `RingGauge.svelte:102`, `phenology/Today.svelte:294`, `TodaySkeleton.svelte:95,131`, `LoadingBoundary.svelte:84`. | No way to tell which durations are load-bearing (chart pacing) versus accidental drift.                                                     |
+| P1       | Three `theme-ui/<language>/` files draw rings by hand instead of using the shared `RingGauge`, with inconsistent (or absent) transitions.                                                | `field-journal/Today.svelte:76` (no transition), `phenology/Today.svelte:67,75,294` (has `0.3s ease`, untokened), `phenology/MediaDetail.svelte:92` (no transition).                                                                                          | The one good motion pattern in the app isn't actually applied everywhere it visually should be; two languages snap their rings instantly.   |
+| P1       | `LoadingBoundary`'s loading -> ready transition is a hard `{#if}/{:else}` swap.                                                                                                          | `LoadingBoundary.svelte:29-59` — no transition directive on either branch.                                                                                                                                                                                    | Every route's first paint is a snap-cut, the single most-seen state change in the app.                                                      |
+| P1       | The "Updating…" pill and first-load overlay appear/disappear with no enter/exit motion.                                                                                                  | `LoadingBoundary.svelte:48-57`.                                                                                                                                                                                                                               | Refetches (period change, filter change) look like layout jitter, not a status update.                                                      |
+| P1       | `.navigation-popover` has no open/close transition; only its chevron icon rotates.                                                                                                       | `NavigationMenu.svelte:179` (chevron only), `NavigationMenu.svelte:187-200` (popover, no `transition`).                                                                                                                                                       | Opening Domains/Analyze/More is a hard cut, despite the app bar sitting on every route.                                                     |
+| P1       | Switching design languages (`.language-picker`) is an instant full repaint via `html:root[data-language]`.                                                                               | `DesignLanguagePicker.svelte` + `ThemeFrame.svelte`'s `Shell` swap — no transition anywhere in the chain.                                                                                                                                                     | The single most dramatic, most-often-triggered state change in the app (six genuinely different visual identities) has zero acknowledgment. |
+| P2       | Today's headline numbers (Move kcal, Exercise min, Steps, sleep efficiency %) snap instantly on day change or refetch — no count/roll motion.                                            | `grapher/Today.svelte:20-26` (`number()`/`toLocaleString` plain text binding), `+page.svelte:237,285` (sleep efficiency, same pattern).                                                                                                                       | The one place the owner watches a number change every day has no felt update.                                                               |
+| P2       | No action in the app has a success or error confirmation motion.                                                                                                                         | No `success`/`confirm`/`shake` hits under `apps/iroha-web/src`, `packages/iroha-shared/src` outside test/unrelated CSS.                                                                                                                                       | Recorded as a real gap, but not fixed in this plan — see Review correction 2 and Follow-up.                                                 |
 
 ## Decisions and constraints
 
-1. **Name the state change before choosing the easing.** Every task below follows transitions.dev's sequence: identify what the owner is seeing change, pick the smallest matching transition family, then
-   assign token values. No task adds motion because a surface "feels plain" without naming the specific change it marks.
+1. **Name the state change before choosing the easing.** Every task below follows transitions.dev's sequence: identify what the owner is seeing change, pick the smallest matching transition family,
+   then assign token values. No task adds motion because a surface "feels plain" without naming the specific change it marks.
 2. **Tokens live in `packages/iroha-shared/src/theme/themes.css`**, next to the existing reduced-motion rule and `--control-target-min`. This is shared design-token territory per the theme asset
    boundary hard rule; `apps/iroha-web` consumes the tokens, it does not define new ones locally.
 3. **No new runtime dependency.** CSS custom properties, CSS transitions/animations, and Svelte's built-in `transition:`/`{#key}` primitives are sufficient for every task here. No D3, no Three.js, no
    animation library — this plan intentionally stays inside what `v0.4.4` explicitly ruled out adding, per its Decision 4.
 4. **Reduced motion is a state-preserving behavior, not a shorter duration.** Every new transition must have an explicit reduced-motion result that still communicates the state change — never just
    "the same animation, crushed to near-zero" as the sole mechanism. Audit each task's reduced-motion path as its own acceptance item.
-5. **Frequent keyboard actions remain instant**, carried over from `v0.4.4`'s own constraint. Motion here targets state *arrival* (data, disclosure, language switch), not input handling latency.
+5. **Frequent keyboard actions remain instant**, carried over from `v0.4.4`'s own constraint. Motion here targets state _arrival_ (data, disclosure, language switch), not input handling latency.
 6. **Grapher is the reference language.** New tokens and every shared-component slice must look right in Grapher first, then get an explicit all-six-language pass — matching `v0.4.4`'s own decision 1.
-7. **Each dispatched task changes at most five source, test, or documentation files.** Same discipline `v0.4.4` documented and then repeatedly broke — split before exceeding, and land the split as a new
-   numbered task, not a same-task "fix" commit re-opening a closed one.
-8. **Verify motion in a real browser, both motion preferences, before calling a task done.** A passing type-check does not prove a CSS transition fires, blocks focus, or respects `prefers-reduced-motion`.
-   Where a task uses a Svelte `transition:`/`{#key}` primitive rather than a plain CSS `transition:` property, verify the reduced-motion check actually gates the JS-driven duration too — CSS-only fixes
-   (Task 2) do not automatically cover Svelte's own transition engine.
+7. **Each dispatched task changes at most five source, test, or documentation files.** Same discipline `v0.4.4` documented and then repeatedly broke — split before exceeding, and land the split as a
+   new numbered task, not a same-task "fix" commit re-opening a closed one.
+8. **Verify motion in a real browser, both motion preferences, before calling a task done.** A passing type-check does not prove a CSS transition fires, blocks focus, or respects
+   `prefers-reduced-motion`. Where a task uses a Svelte `transition:`/`{#key}` primitive rather than a plain CSS `transition:` property, verify the reduced-motion check actually gates the JS-driven
+   duration too — CSS-only fixes (Task 2) do not automatically cover Svelte's own transition engine.
 
 ## Delivery plan
 
 ### Task 1: Record the motion inventory and propose the token set
 
 Produce the `state change | owner | channels | timing | reduced-motion result | route` inventory the `v0.4.4` follow-up epic asked for, covering every duration and gap in the evidence table above,
-plus anything this pass finds that the initial sweep missed. Group into named semantic families and propose token values — keep an existing well-tuned literal's value and just name it; don't invent new
-timing values speculatively.
+plus anything this pass finds that the initial sweep missed. Group into named semantic families and propose token values — keep an existing well-tuned literal's value and just name it; don't invent
+new timing values speculatively.
 
 Proposed families (confirm/adjust during the inventory):
 
@@ -135,8 +136,8 @@ override; add one before narrowing the rule, so nothing regresses into full-spee
 Acceptance:
 
 - `transition-duration`/`animation-duration` are no longer forced to `0.01ms !important` app-wide;
-- every animation/transition that previously relied on the blanket crush now has an explicit local `@media (prefers-reduced-motion: reduce)` override, verified by toggling the OS/browser preference and
-  checking each one individually — not just a type-check;
+- every animation/transition that previously relied on the blanket crush now has an explicit local `@media (prefers-reduced-motion: reduce)` override, verified by toggling the OS/browser preference
+  and checking each one individually — not just a type-check;
 - infinite/looping decorative animations (the loading shimmer, any other found during the audit) still stop under reduced motion;
 - `app.css`'s duplicate rule is reconciled with the shared one (either delegate to the shared rule or keep an intentionally-scoped app-local copy with a comment explaining why).
 
@@ -171,7 +172,8 @@ Acceptance:
 - `aria-live`/`aria-busy`/`inert` behavior is unchanged — this task changes presentation only, not the async contract `AGENTS.md`'s loading-state hard rule protects;
 - reduced motion: the state change is still communicated (pill appears/disappears immediately, never stuck mid-transition-invisible) — verified with Task 2 already landed, so this can use a real
   (non-crushed) instant swap rather than fighting the old blanket rule;
-- verified live on an actual `LoadingBoundary` consumer, both the full-boundary swap and the `preserveLayout` update-pill path -- **not** Today or Metrics, neither of which uses this component (confirmed by grep during implementation; the plan's original claim here was wrong). Real consumers: Overview, Library, Patterns, Expenses, `Motion`, Night, Reports.
+- verified live on an actual `LoadingBoundary` consumer, both the full-boundary swap and the `preserveLayout` update-pill path -- **not** Today or Metrics, neither of which uses this component
+  (confirmed by grep during implementation; the plan's original claim here was wrong). Real consumers: Overview, Library, Patterns, Expenses, `Motion`, Night, Reports.
 
 Expected files (maximum 3): `apps/iroha-web/src/lib/components/LoadingBoundary.svelte`, one focused test, this plan if scope shifts.
 
@@ -194,10 +196,10 @@ Verify: `make web-test`, `make theme-boundary-check`, browser check at normal/re
 
 ### Task 5b: Bring the three inline per-language rings onto the same token
 
-`field-journal/Today.svelte`, `phenology/Today.svelte`, and `phenology/MediaDetail.svelte` each draw a ring by hand instead of using `RingGauge`. Give each ring's `stroke-dasharray` transition the same
-`--motion-data-update` token — `phenology/Today.svelte` already has a transition (`0.3s ease`) to retarget; the other two currently snap instantly and need one added. This is not a refactor to the shared
-component (that's a larger, separate change, out of scope here) — it's making the existing per-language rings feel the same as the shared one, per `AGENTS.md`'s rule that whatever's shared across
-`theme-ui/*/` copies needs one canonical value even when the markup itself stays independent.
+`field-journal/Today.svelte`, `phenology/Today.svelte`, and `phenology/MediaDetail.svelte` each draw a ring by hand instead of using `RingGauge`. Give each ring's `stroke-dasharray` transition the
+same `--motion-data-update` token — `phenology/Today.svelte` already has a transition (`0.3s ease`) to retarget; the other two currently snap instantly and need one added. This is not a refactor to
+the shared component (that's a larger, separate change, out of scope here) — it's making the existing per-language rings feel the same as the shared one, per `AGENTS.md`'s rule that whatever's shared
+across `theme-ui/*/` copies needs one canonical value even when the markup itself stays independent.
 
 Acceptance:
 
@@ -249,8 +251,8 @@ Verify: `make web-check`, browser check at normal/reduced motion, keyboard open/
 
 Grapher's `Today.svelte` formats every metric (Move kcal, Exercise min, Steps, sleep efficiency %) through a plain text binding (`number()`/`toLocaleString`, `grapher/Today.svelte:20-26`) with no
 transition. Add a small shared `AnimatedNumber`-style primitive under `packages/iroha-shared` using Svelte's own `svelte/motion` (`tweened`) — already part of Svelte, not a new dependency per Decision
-3 — so headline numbers count toward their new value instead of snapping. Wire it into Grapher's `Today.svelte` only; the other five languages' Today equivalents are explicitly out of this task's budget
-(see below).
+3 — so headline numbers count toward their new value instead of snapping. Wire it into Grapher's `Today.svelte` only; the other five languages' Today equivalents are explicitly out of this task's
+budget (see below).
 
 Acceptance:
 
@@ -268,8 +270,8 @@ Verify: `make web-test`, `make theme-boundary-check`, browser check at normal/re
 ### Task 9: Public/private parity and regression check
 
 Re-run the inventory's affected surfaces against `apps/iroha-public-site` where shared components render publicly (`RingGauge`/`DesignRingGauge` if used there; `ThemeFrame`'s language switch does not
-apply publicly if the public site pins one language — confirm rather than assume). Add a lightweight regression check that would fail if a `--motion-*` token is deleted while still referenced, matching
-`v0.4.4`'s pattern of extending an existing audit script rather than standing up a second stack.
+apply publicly if the public site pins one language — confirm rather than assume). Add a lightweight regression check that would fail if a `--motion-*` token is deleted while still referenced,
+matching `v0.4.4`'s pattern of extending an existing audit script rather than standing up a second stack.
 
 Acceptance:
 
@@ -281,15 +283,15 @@ Expected files (maximum 3): the regression check location, one focused test, `do
 
 Verify: `make public-site-check`, `make theme-boundary-check`, the new regression check's red/green cycle.
 
-### Task 10: Release the bounded v0.4.5 patch
+### Task 10: Fold into the still-open v0.4.4 patch
 
-Bump `VERSION`, add the changelog entry, and prepare the PR. Same release discipline as `v0.4.4`'s Task 10 — but keep later commits inside their originating task's file budget rather than reopening a
-"done" task past its declared scope; if a review finding requires more, dispatch it as a new numbered task instead of extending an old commit's task.
+Superseded in practice: `v0.4.4` had not shipped when this work landed, so there was no released version to bump past. Folded this plan's changes into the still-open `v0.4.4` `CHANGELOG.md` entry and
+PR #58 instead of bumping `VERSION` or opening a second PR.
 
 Acceptance:
 
 - `make check` and `make validate` pass;
-- `VERSION`/`CHANGELOG.md` agree on `0.4.5`;
+- `VERSION`/`CHANGELOG.md` agree on `0.4.4`;
 - the changelog names the token set and each felt change (loading arrival, gauge data-update including the three per-language rings, Grapher's animated headline numbers, language-switch cross-fade,
   popover reveal) as user-visible changes;
 - a fresh-context review confirms no task's final diff exceeds its declared file budget without a recorded split;
@@ -299,13 +301,13 @@ Expected files (maximum 4): `VERSION`, `CHANGELOG.md`, the final review record.
 
 Verify: `make check`, `make validate`, `make release-candidate`, fresh-context review.
 
-## Follow-up (not v0.4.5 scope)
+## Follow-up (not in scope here)
 
 - **A real command-confirmation motion**, deferred per Review correction 2. `CommandPalette.svelte`'s `activate()` closes the palette and navigates in the same tick, with no success/failure branch —
   before this can get motion, someone has to decide what "confirmation" even means for a component whose every action is a navigation (confirmation on route arrival, composing with Task 4's arrival
   transition, is the leading candidate; a held checkmark on the dying palette is not, per Decision 5).
-- Consolidating `field-journal/Today.svelte`, `phenology/Today.svelte`, and `phenology/MediaDetail.svelte`'s inline rings onto the shared `RingGauge` component — a real refactor, not a motion task; Task
-  5b intentionally left the duplication in place and only unified the transition.
+- Consolidating `field-journal/Today.svelte`, `phenology/Today.svelte`, and `phenology/MediaDetail.svelte`'s inline rings onto the shared `RingGauge` component — a real refactor, not a motion task;
+  Task 5b intentionally left the duplication in place and only unified the transition.
 - Extending Task 8's `AnimatedNumber` primitive to the other five languages' Today equivalents — the primitive and the pattern exist after this plan; wiring it into Atlas, Archive, Field Journal,
   Phenology, and Sound Map's own Today compositions is the immediate next task, dispatched separately so it gets its own file budget instead of inflating Task 8's.
 - `RoutesMap`/`RouteFootprint` camera-movement semantics (arrive/reveal framing) — genuinely different problem shape (spatial, not state), deserves its own plan.
@@ -313,19 +315,19 @@ Verify: `make check`, `make validate`, `make release-candidate`, fresh-context r
 
 ## Risks and mitigations
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| The `!important` reduced-motion bug blocks every other task's reduced-motion acceptance until fixed. | High | Task 2 is dispatched second, immediately after the inventory, before any consuming task lands. |
-| Motion added for its own sake instead of a named state change. | High | Decision 1 and each task's acceptance criteria require naming the state change first; Task 1's inventory is a gate before any token is defined. |
-| Reduced-motion users lose state feedback entirely instead of getting an instant equivalent. | High | Decision 4 and Task 2's per-component audit make reduced-motion an explicit, individually-verified acceptance item. |
-| Six languages multiply every visual change. | Medium | Grapher first, then explicit all-language pass per Decision 6. |
-| Task-budget discipline repeats `v0.4.4`'s own violation. | Medium | Decision 7 names the failure mode explicitly and requires a new task number instead of extending an old one. |
-| The language-switch transition (Task 6) hides a landmark/focus regression during the swap. | Medium | Task 6's acceptance explicitly re-checks `v0.4.4`'s skip-link/main-landmark contract, not just the visual fade. |
-| A tweened number animates through a nonsensical value on a `null`/`—` transition (Task 8). | Medium | Task 8's acceptance explicitly requires jumping (not tweening) across `null`/`Infinity` boundaries. |
+| Risk                                                                                                 | Impact | Mitigation                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| The `!important` reduced-motion bug blocks every other task's reduced-motion acceptance until fixed. | High   | Task 2 is dispatched second, immediately after the inventory, before any consuming task lands.                                                  |
+| Motion added for its own sake instead of a named state change.                                       | High   | Decision 1 and each task's acceptance criteria require naming the state change first; Task 1's inventory is a gate before any token is defined. |
+| Reduced-motion users lose state feedback entirely instead of getting an instant equivalent.          | High   | Decision 4 and Task 2's per-component audit make reduced-motion an explicit, individually-verified acceptance item.                             |
+| Six languages multiply every visual change.                                                          | Medium | Grapher first, then explicit all-language pass per Decision 6.                                                                                  |
+| Task-budget discipline repeats `v0.4.4`'s own violation.                                             | Medium | Decision 7 names the failure mode explicitly and requires a new task number instead of extending an old one.                                    |
+| The language-switch transition (Task 6) hides a landmark/focus regression during the swap.           | Medium | Task 6's acceptance explicitly re-checks `v0.4.4`'s skip-link/main-landmark contract, not just the visual fade.                                 |
+| A tweened number animates through a nonsensical value on a `null`/`—` transition (Task 8).           | Medium | Task 8's acceptance explicitly requires jumping (not tweening) across `null`/`Infinity` boundaries.                                             |
 
 ## Definition of done
 
-`v0.4.5` is complete only when:
+This plan is complete only when:
 
 - a named `--motion-*` token set exists in `packages/iroha-shared/src/theme/themes.css`, and the global reduced-motion rule no longer contradicts Decision 4;
 - every duration touched by this plan traces to a named token;
@@ -336,7 +338,7 @@ Verify: `make check`, `make validate`, `make release-candidate`, fresh-context r
 - Grapher's Today headline numbers animate toward their new value instead of snapping;
 - every new transition has a verified, state-preserving reduced-motion result, checked by toggling the OS preference in a real browser;
 - `make check`, `make validate`, `make release-candidate`, and a fresh-context review pass;
-- `VERSION` and changelog identify `v0.4.5`;
+- `VERSION` and changelog identify `v0.4.4`;
 - the feature branch is pushed and a GitHub PR is opened, with no deployment or release publication.
 
 ## Rollback
