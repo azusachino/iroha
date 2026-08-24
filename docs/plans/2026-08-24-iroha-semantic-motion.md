@@ -171,7 +171,7 @@ Acceptance:
 - `aria-live`/`aria-busy`/`inert` behavior is unchanged — this task changes presentation only, not the async contract `AGENTS.md`'s loading-state hard rule protects;
 - reduced motion: the state change is still communicated (pill appears/disappears immediately, never stuck mid-transition-invisible) — verified with Task 2 already landed, so this can use a real
   (non-crushed) instant swap rather than fighting the old blanket rule;
-- verified live on Today (full-boundary swap) and Metrics (`preserveLayout` update-pill path).
+- verified live on an actual `LoadingBoundary` consumer, both the full-boundary swap and the `preserveLayout` update-pill path -- **not** Today or Metrics, neither of which uses this component (confirmed by grep during implementation; the plan's original claim here was wrong). Real consumers: Overview, Library, Patterns, Expenses, `Motion`, Night, Reports.
 
 Expected files (maximum 3): `apps/iroha-web/src/lib/components/LoadingBoundary.svelte`, one focused test, this plan if scope shifts.
 
