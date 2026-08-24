@@ -25,6 +25,7 @@
 </script>
 
 <ThemeProvider>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="app">
     <header class="appbar">
       <a
@@ -72,3 +73,24 @@
     </ThemeFrame>
   </div>
 </ThemeProvider>
+
+<style>
+  .skip-link {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 100;
+    min-height: 2rem;
+    padding: 0.45rem 0.7rem;
+    transform: translateY(calc(-100% - 1rem));
+    border: 2px solid var(--color-focus);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+</style>

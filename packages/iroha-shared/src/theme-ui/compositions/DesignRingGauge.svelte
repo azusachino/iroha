@@ -82,6 +82,13 @@
     filter: drop-shadow(
       0 0 0.25rem color-mix(in srgb, currentcolor 38%, transparent)
     );
+    transition: stroke-dasharray var(--motion-data-update);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ring-value {
+      transition: none;
+    }
   }
 
   text {

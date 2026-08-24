@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
+## [0.4.4] — 2026-08-24
+
+### Added
+
+- Add executable private-route checks for skip-link/main-landmark integrity, heading order, compact visual/focus order, 24x24px standalone controls, and semantic table drill-down controls across the
+  existing language, mode, motion, and mobile viewport matrix.
+- Add a seeded representative UI/UX scorecard covering Today, Overview, Patterns, Metrics, To-go, and Admin without retaining private screenshots or payloads.
+- Introduce a liquid-glass material (backdrop blur + saturate + a layered inset highlight) for floating chrome only — the app bar, primary-nav pill, command palette, and the Domains/Analyze/More and
+  month-picker popovers — with a `prefers-reduced-transparency` fallback to an opaque surface on every surface it touches. Data tiles and route content stay opaque.
+- Add a named `--motion-*` token set (`micro`, `quick-state`, `data-update`, `language-switch`) in the shared theme package and apply it across four felt vertical slices: `LoadingBoundary`'s loading →
+  ready arrival transition, the shared ring gauges' (and three per-language inline rings') value-change sweep, a cross-fade on design-language switching, and a reveal transition on the
+  Domains/Analyze/More navigation popover (`@starting-style` + `transition-behavior: allow-discrete`, since it lives inside a native `<details>`).
+- Animate Grapher's Today headline numbers (Move, Exercise, Steps, sleep efficiency) on change via a new shared `AnimatedNumber` primitive (`svelte/motion`'s `tweened`), jumping instead of tweening
+  across `null`/absent-data transitions.
+- Add `make motion-tokens-check` (wired into `make check`): fails if a `var(--motion-*)` reference has no matching definition in the shared theme package.
+
+### Changed
+
+- Give Grapher's frequently used Motion, Night, Patterns, and Library routes a compact utility-title scale while preserving the editorial Today and Overview hierarchy.
+- Require an explicit Metrics dimension selection instead of guessing the first catalog value; preserve explicit empty selections and load catalog/series state through the shared latest-request-wins
+  async resource.
+- Replace mouse-only Patterns table rows in all six design languages with native period buttons that provide keyboard-equivalent evidence navigation.
+- Give every design language a real base typeface instead of falling back to `system-ui` — five of six languages, and the base document text in both the private cockpit and the public site, had no
+  `--font-sans` of their own.
+- List a period selector's month dropdown newest-first, matching the year dropdown's own long-standing convention — every consumer (Motion, Overview, Expenses, Reports, Metrics, Night) listed January
+  first regardless of which month was actually most recent.
+- Narrow the global `prefers-reduced-motion` rule so it stops decorative/infinite loops without crushing every transition duration to near-zero via `!important`, which foreclosed any deliberate
+  reduced-motion result a component might need.
+
+### Fixed
+
+- Add a first-focus skip link and one canonical focusable main landmark, align compact header DOM and visual order, raise audited standalone controls to the product's 24x24px floor, and restore Today
+  and Overview's H1-first outline.
+- Give empty Today a `Jump to latest recorded day` action and defer its URL synchronization until SvelteKit's router is initialized.
+- Normalize the API's `null` dimension list for canonical metrics so dimensionless series such as Steps render instead of failing after catalog load.
+- Restore the desktop-centered primary navigation without reopening the compact focus-order fix above — the DOM reorder that fixed 375px focus order had also pushed the nav flush right on desktop; the
+  compact "own full row" treatment now targets the app-bar actions instead of the nav, so DOM order still matches visual order at every width.
+- Retint dark mode's tile shadow to match the background hue (light mode already did this), and fix a popover shadow that referenced an undefined `--shadow` custom property and always silently fell
+  back to a flat black default regardless of theme.
+- Stop the Overview route-summaries table from blowing out of its card and off the page — a pre-existing `min-width: auto` grid-overflow bug — and relax its flat `34rem` minimum width so the actual
+  content fits without forcing an unnecessary horizontal scroll in a half-width dashboard card.
+
 ## [0.4.3] — 2026-08-16
 
 ### Changed

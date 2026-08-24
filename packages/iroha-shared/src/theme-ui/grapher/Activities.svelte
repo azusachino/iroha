@@ -170,7 +170,7 @@
   }
   h1 {
     margin: 0;
-    font-size: clamp(2.8rem, 7vw, 6.5rem);
+    font-size: var(--grapher-utility-title-size);
     letter-spacing: -0.1em;
     line-height: 0.88;
   }
@@ -245,6 +245,9 @@
     text-transform: uppercase;
   }
   td a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-target-min);
     color: var(--text);
     font-weight: 700;
     text-decoration: none;

@@ -14,11 +14,11 @@
   }
 </script>
 
-<section class="archive-totals tile" aria-labelledby="archive-totals-title">
+<section class="archive-totals tile" aria-label="Across the archive">
   <div class="totals-heading">
     <div>
       <p class="eyebrow">Across the archive</p>
-      <h2 id="archive-totals-title">Every record has a place.</h2>
+      <p class="totals-title">Every record has a place.</p>
     </div>
     <span>All imported records, not only movement.</span>
   </div>
@@ -58,9 +58,10 @@
     letter-spacing: 0.11em;
     text-transform: uppercase;
   }
-  h2 {
+  .totals-title {
     margin: 0;
     font-size: 1.05rem;
+    font-weight: 700;
   }
   .totals-heading > span {
     color: var(--text-muted);

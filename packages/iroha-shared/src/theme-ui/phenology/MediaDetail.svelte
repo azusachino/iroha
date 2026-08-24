@@ -321,6 +321,12 @@
   .ring-value {
     stroke: var(--accent);
     stroke-linecap: round;
+    transition: stroke-dasharray var(--motion-data-update);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ring-value {
+      transition: none;
+    }
   }
   .progress-ring strong {
     position: relative;

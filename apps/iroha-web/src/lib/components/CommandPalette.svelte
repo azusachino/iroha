@@ -197,6 +197,16 @@
     max-height: min(42rem, 80svh);
     padding: 0.65rem;
     overflow: hidden;
+    background: var(--glass-surface);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    box-shadow: var(--glass-highlight), var(--tile-shadow);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .palette {
+      background: var(--surface);
+      backdrop-filter: none;
+    }
   }
 
   header {

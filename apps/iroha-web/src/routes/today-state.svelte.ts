@@ -18,6 +18,18 @@ import { todayInTimezone } from "@iroha/shared/format/date";
 import { IROHA_TIMEZONE } from "$lib/config";
 import { formatDateOnly } from "$lib/format";
 
+export function latestRecordedDay(
+  days: Iterable<string>,
+  maximumDay: string,
+): string | null {
+  let latest: string | null = null;
+  for (const day of days) {
+    if (day > maximumDay) continue;
+    if (latest == null || day > latest) latest = day;
+  }
+  return latest;
+}
+
 // All state, derivations, and data loading for the Today route, kept out of
 // the .svelte file so the template isn't interleaved with ~300 lines of
 // business logic. `theme` (a Svelte context lookup) stays in the component
@@ -49,6 +61,7 @@ export function createTodayState() {
   let day = $state<string>(dayFromUrl());
   let pickerOpen = $state(false);
   let availableDays = $state<Set<string>>(new Set());
+  let urlSyncMounted = $state(false);
 
   type BriefingList<T> = { items: T[]; has_more: boolean };
   function sectionData<T>(key: string): BriefingList<T> {
@@ -161,6 +174,10 @@ export function createTodayState() {
   const daysSet = $derived(
     availableDays.size > 0 ? availableDays : new Set([day]),
   );
+  const latestDay = $derived(latestRecordedDay(availableDays, today));
+  const canJumpToLatestDay = $derived(
+    !dayHasData && latestDay != null && latestDay !== dataDay,
+  );
   const canMoveNext = $derived(day < today);
   const daySignal = $derived(
     mainNight
@@ -184,6 +201,10 @@ export function createTodayState() {
     d.setUTCDate(d.getUTCDate() + delta);
     const next = d.toISOString().slice(0, 10);
     if (next <= today && next !== day) day = next;
+  }
+
+  function jumpToLatestDay() {
+    if (latestDay && latestDay !== day) day = latestDay;
   }
   // Arrow keys scrub days (ignored while typing in a field); Escape closes the picker.
   function onKey(e: KeyboardEvent) {
@@ -242,6 +263,7 @@ export function createTodayState() {
   // goto so scrubbing days doesn't spam browser history, just the current
   // entry. Omitted entirely for today so the common-case URL stays plain "/".
   $effect(() => {
+    if (!urlSyncMounted) return;
     const url = new URL(window.location.href);
     if (day === today) {
       url.searchParams.delete("date");
@@ -254,7 +276,11 @@ export function createTodayState() {
   });
 
   onMount(() => {
+    const urlSyncTimer = window.setTimeout(() => {
+      urlSyncMounted = true;
+    });
     void loadAvailableDays();
+    return () => window.clearTimeout(urlSyncTimer);
   });
 
   async function loadTasks(selectedDay: string) {
@@ -357,10 +383,14 @@ export function createTodayState() {
     get canMoveNext() {
       return canMoveNext;
     },
+    get canJumpToLatestDay() {
+      return canJumpToLatestDay;
+    },
     get daySignal() {
       return daySignal;
     },
     shift,
+    jumpToLatestDay,
     onKey,
     num,
     finishTask,

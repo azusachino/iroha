@@ -9,6 +9,41 @@
 
 :root {
   --surface-1: var(--surface);
+  --control-target-min: 1.5rem;
+  /* Base sans stack for every language that doesn't declare its own
+     --font-sans (currently only Atlas does). Reuses Atlas's already-chosen
+     value rather than introducing a second default. */
+  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+
+  /* Named motion families (2026-08-24 semantic-motion plan). Each pairs a
+     duration with an easing so a consumer writes `transition: opacity
+     var(--motion-quick-state)`. Unused until a later task's vertical slice
+     consumes one -- see the plan for which state change owns which family. */
+  /* Hover/press feedback, disclosure toggles. Anchored to NavigationMenu's
+     existing chevron rotation. */
+  --motion-micro: 160ms ease-out;
+  /* Loading -> ready swaps, pill/overlay enter-exit, popover reveal. */
+  --motion-quick-state: 220ms ease;
+  /* Gauge/number/chart value changes, where the change itself is the
+     content. Anchored to RingGauge's existing stroke-dasharray transition. */
+  --motion-data-update: 600ms ease-in-out;
+  /* The Shell cross-fade on design-language switch -- kept separate from
+     --motion-quick-state because it's a full-composition swap, not a small
+     UI element. */
+  --motion-language-switch: 300ms ease-in-out;
+}
+
+:where(.chart-data, .map-data) > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-target-min);
+}
+
+.activity-link,
+.activity-row a[href] {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-target-min);
 }
 
 :where(
@@ -36,14 +71,18 @@
   border: 0 !important;
 }
 
+/* A blanket duration crush here would force every deliberate reduced-motion
+   result (e.g. a held confirmation state) to near-zero too, which is a
+   contradiction, not a fix -- see the semantic-motion plan's Decision 4.
+   Stop infinite decorative loops from looping forever; let each component
+   that actually needs a reduced-motion result define it explicitly, the way
+   LoadingBoundary and TodaySkeleton's shimmer/pulse already do. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
   }
 }
 
@@ -55,12 +94,12 @@ html:root[data-language="atlas"] {
   --ring-exercise: #e07b58;
   --ring-stand: #58c7c0;
   --radius: 10px;
-  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
 }
 
 html:root[data-language="grapher"] {
   --theme-swatch: #6da9ff;
+  --grapher-utility-title-size: clamp(2.25rem, 4.5vw, 4rem);
   --accent: #6da9ff;
   --accent-2: #f07c78;
   --ring-move: #f07c78;

@@ -2,6 +2,7 @@
   import type { DailyThemeProps } from "../../view-contracts/daily-view";
   import RingGauge from "../components/RingGauge.svelte";
   import BarChart from "../components/BarChart.svelte";
+  import PeriodDrill from "../components/PeriodDrill.svelte";
 
   let {
     chrono,
@@ -97,7 +98,7 @@
       onBarClick={drillable ? onDrillIndex : undefined}
     />
     {#if drillable}
-      <p class="drill-hint">Click a bar to zoom in.</p>
+      <p class="drill-hint">Use a bar or the period table to zoom in.</p>
     {/if}
   </section>
 
@@ -120,10 +121,14 @@
         <tbody>
           {#each [...chrono].reverse() as item}
             <tr
-              class:drillable
-              onclick={drillable ? () => onDrillPeriod(item.period) : undefined}
-              ><td>{item.label}</td><td>{display(item.steps)}</td><td
-                >{display(item.distance, 1)}</td
+              ><td
+                >{#if drillable}<PeriodDrill
+                    label={item.label}
+                    period={item.period}
+                    value={item.steps}
+                    onDrill={onDrillPeriod}
+                  />{:else}{item.label}{/if}</td
+              ><td>{display(item.steps)}</td><td>{display(item.distance, 1)}</td
               ><td>{display(item.resting_hr, 1)}</td><td
                 >{display(item.hrv_sdnn, 1)}</td
               ><td
@@ -167,7 +172,7 @@
     letter-spacing: -0.07em;
   }
   h1 {
-    font-size: clamp(2.8rem, 7vw, 6.5rem);
+    font-size: var(--grapher-utility-title-size);
     line-height: 0.88;
   }
   h2 {
@@ -230,12 +235,6 @@
     padding: 1.25rem;
     border: 1px solid var(--border);
     background: var(--surface);
-  }
-  tr.drillable {
-    cursor: pointer;
-  }
-  tr.drillable:hover td {
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
   .drill-hint {
     margin: 0.75rem 0 0;

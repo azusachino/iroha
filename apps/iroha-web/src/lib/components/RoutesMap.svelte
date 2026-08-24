@@ -162,6 +162,7 @@
   .map-shell {
     display: grid;
     gap: 0.55rem;
+    min-width: 0;
   }
   .map {
     width: 100%;
@@ -170,6 +171,7 @@
     border-radius: var(--radius);
   }
   .map-data {
+    min-width: 0;
     color: var(--text-muted);
     font-size: 0.78rem;
   }
@@ -183,7 +185,7 @@
   }
   table {
     width: 100%;
-    min-width: 34rem;
+    min-width: min(34rem, 100%);
     border-collapse: collapse;
     color: var(--text);
     font-variant-numeric: tabular-nums;

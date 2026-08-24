@@ -5,6 +5,7 @@ import {
   currentYear,
   MONTH_OPTIONS,
   monthBounds,
+  monthOptionsInRange,
   shiftMonth,
   shiftMonthWithin,
   yearOptions,
@@ -47,5 +48,16 @@ describe("shared month helpers", () => {
 
   it("derives the canonical current year without local formatting", () => {
     expect(currentYear(new Date("2026-08-14T12:00:00+09:00"))).toBe("2026");
+  });
+
+  it("lists months newest first, matching yearOptionsInRange's convention", () => {
+    const bounds = { min: "2024-06-01", max: "2026-08-31" };
+    expect(
+      monthOptionsInRange("2026", bounds).map((option) => option.value),
+    ).toEqual(["8", "7", "6", "5", "4", "3", "2", "1"]);
+    // A boundary year clips to the real min/max month, still newest first.
+    expect(
+      monthOptionsInRange("2024", bounds).map((option) => option.value),
+    ).toEqual(["12", "11", "10", "9", "8", "7", "6"]);
   });
 });

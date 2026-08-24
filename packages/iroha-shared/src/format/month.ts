@@ -29,10 +29,12 @@ export function yearOptionsInRange(bounds: DateBounds): string[] {
   );
 }
 
-// Months within the domain's real range for the given year -- the full
-// twelve for a year strictly inside the range, clipped to the actual
-// min/max month at the boundary years. Empty when the year itself is
-// outside the range (including when the domain has no data yet).
+// Months within the domain's real range for the given year, newest first --
+// the full twelve for a year strictly inside the range, clipped to the
+// actual min/max month at the boundary years. Empty when the year itself is
+// outside the range (including when the domain has no data yet). Matches
+// yearOptionsInRange's own newest-first convention; before this, months
+// listed January-first regardless of which was most recent.
 export function monthOptionsInRange(
   year: string,
   bounds: DateBounds,
@@ -46,7 +48,7 @@ export function monthOptionsInRange(
   return MONTH_OPTIONS.filter((option) => {
     const month = Number(option.value);
     return month >= start && month <= end;
-  });
+  }).reverse();
 }
 
 export function yearOptions(

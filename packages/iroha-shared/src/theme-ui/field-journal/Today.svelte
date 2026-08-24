@@ -345,6 +345,12 @@
   .gauge-value {
     stroke: var(--accent);
     stroke-linecap: round;
+    transition: stroke-dasharray var(--motion-data-update);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .gauge-value {
+      transition: none;
+    }
   }
   .signal-gauge strong,
   .signal-gauge span {

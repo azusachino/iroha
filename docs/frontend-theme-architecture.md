@@ -56,6 +56,9 @@ theme/
 Themes may compose shared data visualizations and primitives, but route files must not contain a visual conditional over registered languages or adopted compositions. A route loads a stable view model
 and delegates rendering to the selected shared component.
 
+`themes.css` also owns a small named `--motion-*` token vocabulary (`micro`, `quick-state`, `data-update`, `language-switch`) shared across every language, pairing a duration with an easing so a
+consumer writes `transition: opacity var(--motion-quick-state)` rather than a local literal. `make motion-tokens-check` fails if a reference has no matching definition.
+
 ## Layer boundaries
 
 ### Data and view models

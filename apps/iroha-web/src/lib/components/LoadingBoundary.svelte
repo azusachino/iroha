@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import { fade } from "svelte/transition";
+  import { browser } from "$app/environment";
   import type { AsyncResource } from "$lib/asyncResource.svelte";
 
   // Takes the AsyncResource(s) a route is rendering directly, rather than
@@ -24,10 +26,25 @@
   // true (see asyncResource.svelte.ts), so this conjunction is sticky too --
   // no separate latch needed here.
   const ready = $derived(resources.every((r) => r.ready));
+
+  // Svelte's transition duration is a JS number, not the CSS custom property
+  // directly -- 220 mirrors --motion-quick-state (themes.css) by hand. SSR
+  // has no matchMedia; the server-rendered/first-paint transition is inert
+  // either way since it only fires on a later state change.
+  const quickState = browser
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? { duration: 0 }
+      : { duration: 220 }
+    : { duration: 0 };
 </script>
 
 {#if !ready && !preserveLayout}
-  <div class="loading-surface" role="status" aria-live="polite">
+  <div
+    class="loading-surface"
+    role="status"
+    aria-live="polite"
+    transition:fade={quickState}
+  >
     <span class="loading-mark" aria-hidden="true"></span>
     <span>{label}</span>
   </div>
@@ -37,6 +54,7 @@
     class:updating={loading}
     class:pending={!ready && loading}
     aria-busy={loading}
+    transition:fade={quickState}
   >
     <div
       class="data-content"
@@ -46,13 +64,21 @@
       {@render children()}
     </div>
     {#if !ready && loading}
-      <div class="loading-overlay" role="status" aria-live="polite">
+      <div
+        class="loading-overlay"
+        role="status"
+        aria-live="polite"
+        transition:fade={quickState}
+      >
         <span class="loading-mark" aria-hidden="true"></span>
         <span>{label}</span>
       </div>
     {:else if loading}
-      <span class="update-status" role="status" aria-live="polite"
-        >Updating…</span
+      <span
+        class="update-status"
+        role="status"
+        aria-live="polite"
+        transition:fade={quickState}>Updating…</span
       >
     {/if}
   </div>

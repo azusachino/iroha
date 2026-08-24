@@ -93,7 +93,8 @@ export function createNightState() {
   const periodYears = $derived(yearOptionsInRange(bounds));
   // Full "YYYY-MM" period values (this page's own month convention), not
   // month.ts's bare 1-12 -- built directly from bounds rather than reusing
-  // monthOptionsInRange, which returns the other convention.
+  // monthOptionsInRange, which returns the other convention. Newest first,
+  // matching yearOptionsInRange's and monthOptionsInRange's own convention.
   const periodMonths = $derived.by(() => {
     if (!selectedYear || !bounds.min || !bounds.max) return [];
     const minYear = bounds.min.slice(0, 4);
@@ -102,7 +103,7 @@ export function createNightState() {
     const start = selectedYear === minYear ? Number(bounds.min.slice(5, 7)) : 1;
     const end = selectedYear === maxYear ? Number(bounds.max.slice(5, 7)) : 12;
     const options: { value: string; label: string }[] = [];
-    for (let month = start; month <= end; month++) {
+    for (let month = end; month >= start; month--) {
       const period = `${selectedYear}-${String(month).padStart(2, "0")}`;
       options.push({
         value: period,

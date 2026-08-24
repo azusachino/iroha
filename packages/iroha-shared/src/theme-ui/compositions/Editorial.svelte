@@ -160,7 +160,10 @@
   }
 
   .date-link {
+    display: inline-flex;
+    align-items: center;
     flex: 0 0 auto;
+    min-height: var(--control-target-min);
     border-bottom: 1px solid var(--accent);
     padding-bottom: 0.25rem;
     font-family: var(--font-sans, system-ui, sans-serif);

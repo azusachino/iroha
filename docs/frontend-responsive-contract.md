@@ -21,6 +21,10 @@ The source check is `make responsive-check`. It scans both applications and `pac
 Every route must be opened at 320 × 844 and 390 × 844 and checked for:
 
 - no page-level horizontal overflow;
+- a first-Tab skip link that resolves to the single main landmark;
+- one H1, exposed before lower-level headings;
+- compact header focus order that follows the visual row order;
+- standalone controls with a minimum 24 × 24px target; inline prose links are exempt;
 - a reachable first heading and first primary action;
 - controls that remain readable and do not overlap;
 - charts/tables/maps with an intentional compact or overflow treatment;
@@ -29,6 +33,9 @@ Every route must be opened at 320 × 844 and 390 × 844 and checked for:
 
 The route audit is browser-based because type-checking cannot prove layout. Run `make web-mobile-check BASE=https://...` against a running cockpit; it covers the route inventory, every registered
 language, both color modes, and normal and reduced-motion browser preferences. Reduced motion is emulated at browser launch with Chromium's `--force-prefers-reduced-motion` flag.
+
+Persisted audit reports redact record identifiers from detail-route URLs. Browser checks against a live private cockpit are baseline-only: committed JSON, screenshots, and fixture paths must come from
+the isolated seeded release candidate.
 
 At widths up to 640px the private navigation is a five-item grid: Today, Overview, Domains, Analyze, and More remain visible in one row. The three menus use a viewport-clamped fixed popover, so
 opening one cannot widen the document or push another tab out of the viewport. This is part of the route audit, not a visual-only convention.

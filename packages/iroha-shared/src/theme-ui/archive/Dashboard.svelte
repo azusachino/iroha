@@ -371,7 +371,7 @@
   .core-strip {
     display: flex;
     flex-direction: column;
-    width: 1.4rem;
+    width: var(--control-target-min);
     flex-shrink: 0;
   }
   .core-band {

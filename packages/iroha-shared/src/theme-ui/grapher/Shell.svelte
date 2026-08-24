@@ -5,7 +5,7 @@
 </script>
 
 <div class="grapher-site" data-theme={theme}>
-  <main class="grapher-content">{@render children()}</main>
+  <div class="grapher-content">{@render children()}</div>
   <footer class="grapher-footer">
     <span>iroha grapher</span>
     <span>Every value remains traceable to imported evidence.</span>

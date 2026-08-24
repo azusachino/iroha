@@ -99,7 +99,12 @@
   }
   .arc {
     fill: none;
-    transition: stroke-dasharray 0.6s ease;
+    transition: stroke-dasharray var(--motion-data-update);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .arc {
+      transition: none;
+    }
   }
   .legend {
     list-style: none;
@@ -140,5 +145,10 @@
     color: var(--accent);
     font-weight: 700;
     margin-left: 0.15rem;
+  }
+  @media (max-width: 640px) {
+    .legend {
+      flex-basis: 100%;
+    }
   }
 </style>
