@@ -199,6 +199,34 @@
     backdrop-filter: blur(calc(var(--glass-blur) / 2))
       saturate(var(--glass-saturate));
     box-shadow: var(--glass-highlight), var(--tile-shadow);
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition:
+      opacity var(--motion-quick-state),
+      transform var(--motion-quick-state),
+      display var(--motion-quick-state) allow-discrete,
+      overlay var(--motion-quick-state) allow-discrete;
+  }
+  /* .navigation-menu is the <details> element; :not([open]) is the native
+     reflected state, not a Svelte-controlled one -- Svelte's transition:
+     directive can't hook a native display:none toggle, so this reveal is
+     plain CSS: an explicit closed state plus @starting-style below give the
+     browser both ends of the display:none <-> grid interpolation. */
+  .navigation-menu:not([open]) .navigation-popover {
+    display: none;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  @starting-style {
+    .navigation-menu[open] .navigation-popover {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .navigation-popover {
+      transition: none;
+    }
   }
   a {
     display: grid;
