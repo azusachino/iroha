@@ -14,6 +14,23 @@
      --font-sans (currently only Atlas does). Reuses Atlas's already-chosen
      value rather than introducing a second default. */
   --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+
+  /* Named motion families (2026-08-24 semantic-motion plan). Each pairs a
+     duration with an easing so a consumer writes `transition: opacity
+     var(--motion-quick-state)`. Unused until a later task's vertical slice
+     consumes one -- see the plan for which state change owns which family. */
+  /* Hover/press feedback, disclosure toggles. Anchored to NavigationMenu's
+     existing chevron rotation. */
+  --motion-micro: 160ms ease-out;
+  /* Loading -> ready swaps, pill/overlay enter-exit, popover reveal. */
+  --motion-quick-state: 220ms ease;
+  /* Gauge/number/chart value changes, where the change itself is the
+     content. Anchored to RingGauge's existing stroke-dasharray transition. */
+  --motion-data-update: 600ms ease-in-out;
+  /* The Shell cross-fade on design-language switch -- kept separate from
+     --motion-quick-state because it's a full-composition swap, not a small
+     UI element. */
+  --motion-language-switch: 300ms ease-in-out;
 }
 
 :where(.chart-data, .map-data) > summary {
