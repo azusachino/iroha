@@ -10,6 +10,10 @@
 :root {
   --surface-1: var(--surface);
   --control-target-min: 1.5rem;
+  /* Base sans stack for every language that doesn't declare its own
+     --font-sans (currently only Atlas does). Reuses Atlas's already-chosen
+     value rather than introducing a second default. */
+  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
 }
 
 :where(.chart-data, .map-data) > summary {
@@ -69,7 +73,6 @@ html:root[data-language="atlas"] {
   --ring-exercise: #e07b58;
   --ring-stand: #58c7c0;
   --radius: 10px;
-  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
 }
 

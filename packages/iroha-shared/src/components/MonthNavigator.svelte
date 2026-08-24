@@ -353,7 +353,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface-2);
-    box-shadow: var(--shadow, 0 16px 40px rgb(0 0 0 / 25%));
+    box-shadow: var(--tile-shadow);
     transform: translateX(-50%);
   }
 

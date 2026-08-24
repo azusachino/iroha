@@ -65,14 +65,9 @@
       rgb(255 255 255 / 0)
     )
     var(--surface);
-  --tile-shadow: 0 16px 48px rgb(0 0 0 / 0.22);
+  --tile-shadow: 0 16px 48px rgb(5 7 14 / 0.4);
   --radius: 14px;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* Light theme. Overrides both the Tailwind @theme tokens (--color-*, driving
