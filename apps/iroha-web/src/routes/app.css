@@ -68,6 +68,17 @@
   --tile-shadow: 0 16px 48px rgb(5 7 14 / 0.4);
   --radius: 14px;
   font-family: var(--font-sans);
+  /* Liquid-glass material for floating chrome (app bar, popovers, command
+     palette) -- an approximation, not Apple's real-time refraction. Data
+     tiles and route content stay opaque; this is scoped to overlay chrome
+     only so dense metrics never lose contrast to a blur. */
+  --glass-surface: color-mix(in srgb, var(--surface) 55%, transparent);
+  --glass-surface-strong: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  --glass-blur: 22px;
+  --glass-saturate: 160%;
+  --glass-highlight:
+    inset 0 1px 0 rgb(255 255 255 / 0.12), inset 0 -1px 0 rgb(0 0 0 / 0.3);
+  --glass-border: 1px solid rgb(255 255 255 / 0.08);
 }
 
 /* Light theme. Overrides both the Tailwind @theme tokens (--color-*, driving
@@ -111,6 +122,13 @@
   --tile-surface: linear-gradient(180deg, rgb(0 0 0 / 0.015), rgb(0 0 0 / 0))
     var(--surface);
   --tile-shadow: 0 12px 32px rgb(20 30 60 / 0.1);
+  --glass-surface: color-mix(in srgb, var(--surface) 62%, transparent);
+  --glass-surface-strong: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  --glass-blur: 22px;
+  --glass-saturate: 160%;
+  --glass-highlight:
+    inset 0 1px 0 rgb(255 255 255 / 0.6), inset 0 -1px 0 rgb(0 0 0 / 0.06);
+  --glass-border: 1px solid rgb(255 255 255 / 0.5);
 }
 
 * {
@@ -199,9 +217,17 @@ textarea {
       color-mix(in srgb, var(--accent) 5%, transparent),
       transparent 45%
     ),
-    color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: blur(14px);
+    var(--glass-surface);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight);
   min-width: 0;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .appbar {
+    background: var(--surface);
+    backdrop-filter: none;
+  }
 }
 
 .brand {
@@ -242,10 +268,20 @@ textarea {
   margin-left: auto;
   margin-right: auto;
   padding: 0.2rem;
-  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border: var(--glass-border);
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(calc(var(--glass-blur) / 2))
+    saturate(var(--glass-saturate));
+  box-shadow: var(--glass-highlight);
   min-width: 0;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .main-nav {
+    background: var(--surface);
+    backdrop-filter: none;
+  }
 }
 
 .main-nav > a {

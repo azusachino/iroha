@@ -352,9 +352,20 @@
     padding: 0.75rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--surface-2);
-    box-shadow: var(--tile-shadow);
+    background: var(--glass-surface-strong, var(--surface-2));
+    backdrop-filter: blur(calc(var(--glass-blur, 0) / 2))
+      saturate(var(--glass-saturate, 100%));
+    box-shadow:
+      var(--glass-highlight, none),
+      var(--tile-shadow);
     transform: translateX(-50%);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .month-popover {
+      background: var(--surface-2);
+      backdrop-filter: none;
+    }
   }
 
   .month-popover header {

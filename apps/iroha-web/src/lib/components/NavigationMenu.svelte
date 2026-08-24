@@ -195,8 +195,10 @@
     padding: 0.45rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--surface-2);
-    box-shadow: var(--tile-shadow);
+    background: var(--glass-surface-strong);
+    backdrop-filter: blur(calc(var(--glass-blur) / 2))
+      saturate(var(--glass-saturate));
+    box-shadow: var(--glass-highlight), var(--tile-shadow);
   }
   a {
     display: grid;
@@ -244,6 +246,12 @@
       width: 0.4rem;
       height: 0.4rem;
       margin-left: 0.2rem;
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .navigation-popover {
+      background: var(--surface-2);
+      backdrop-filter: none;
     }
   }
 </style>
