@@ -99,7 +99,7 @@
   }
   .arc {
     fill: none;
-    transition: stroke-dasharray 0.6s ease;
+    transition: stroke-dasharray var(--motion-data-update);
   }
   @media (prefers-reduced-motion: reduce) {
     .arc {
