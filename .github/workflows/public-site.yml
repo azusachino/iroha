@@ -6,6 +6,7 @@ on:
     paths:
       - "apps/iroha-public-site/**"
       - "packages/iroha-shared/**"
+      - "scripts/sync-iroha-assets.ts"
       - ".github/workflows/public-site.yml"
       - ".mise.toml"
       - "Makefile"
