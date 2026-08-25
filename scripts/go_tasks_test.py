@@ -13,7 +13,7 @@ class DiscoverModulesTest(unittest.TestCase):
 
     def test_parses_use_block(self):
         work = self._write(
-            "go 1.26.4\n\nuse (\n\t./apps/iroha-core\n\t./apps/iroha-server\n)\n"
+            "go 1.27\n\nuse (\n\t./apps/iroha-core\n\t./apps/iroha-server\n)\n"
         )
         self.assertEqual(
             go_tasks.discover_modules(work),
@@ -21,12 +21,12 @@ class DiscoverModulesTest(unittest.TestCase):
         )
 
     def test_parses_single_line_use(self):
-        work = self._write("go 1.26.4\n\nuse ./apps/iroha-core\n")
+        work = self._write("go 1.27\n\nuse ./apps/iroha-core\n")
         self.assertEqual(go_tasks.discover_modules(work), ["apps/iroha-core"])
 
     def test_ignores_comments_and_blanks(self):
         work = self._write(
-            "go 1.26.4\n\nuse (\n\t// a note\n\n\t./apps/iroha-job\n)\n"
+            "go 1.27\n\nuse (\n\t// a note\n\n\t./apps/iroha-job\n)\n"
         )
         self.assertEqual(go_tasks.discover_modules(work), ["apps/iroha-job"])
 

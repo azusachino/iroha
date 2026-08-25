@@ -269,4 +269,4 @@ func firstNonEmpty(values ...string) string {
 	return "Unknown"
 }
 
-var _ imports.Enqueuer = (Enqueuer)(nil)
+var _ imports.Enqueuer = Enqueuer(nil)
