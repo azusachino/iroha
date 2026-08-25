@@ -1,6 +1,6 @@
 module github.com/azusachino/iroha/apps/iroha-providers
 
-go 1.26.4
+go 1.27
 
 require github.com/azusachino/iroha/apps/iroha-core v0.1.0
 

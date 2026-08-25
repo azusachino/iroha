@@ -1,5 +1,5 @@
 module github.com/azusachino/iroha/apps/iroha-core
 
-go 1.26.4
+go 1.27
 
 require github.com/google/uuid v1.6.0

@@ -1,4 +1,4 @@
-FROM golang:1.26-bookworm AS build
+FROM golang:1.27-bookworm AS build
 
 WORKDIR /src
 COPY apps/iroha-core/go.mod ./apps/iroha-core/
@@ -41,8 +41,8 @@ COPY --from=build /out/iroha-job /usr/local/bin/iroha-job
 USER iroha
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-job"]
 
-FROM golang:1.26-bookworm AS goose
-RUN CGO_ENABLED=0 go install github.com/pressly/goose/v3/cmd/goose@v3.27.2
+FROM golang:1.27-bookworm AS goose
+RUN CGO_ENABLED=0 go install github.com/pressly/goose/v3/cmd/goose@v3.27.3
 
 # Standalone migration runner image: run as a k8s Job/initContainer ahead of
 # the server rollout. Reads DATABASE_URL or IROHA_DATABASE_URL, same as

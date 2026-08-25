@@ -260,8 +260,7 @@
             bind:value={notes}
             placeholder="Context or next step (optional)…"
             aria-label="Task notes"
-            rows="2"
-          ></textarea>
+            rows="2"></textarea>
         </form>
 
         {#if openTasks.length}
