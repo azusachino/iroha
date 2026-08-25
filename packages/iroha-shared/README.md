@@ -10,6 +10,8 @@ Both apps expose the package as `@iroha/shared` through their Vite and TypeScrip
 public archive. If a component differs only in theme appearance, keep the behavior here and make each adopted composition explicit in the shared theme package rather than forking it inside an app. A
 web-local theme component or visual primitive is migration debt, not a valid second home.
 
+The canonical app-icon set lives in [`assets/`](./assets/). Both apps expose those files through symlinks in their `static/` directories, so icon changes have one source of truth.
+
 The theme manifest is also shared: it owns each language's mark, swatch, page lens, and extensible route registry. The design-composition manifest and package-owned composition renderer are a
 separate, open-ended registry for adopted layout systems; a new composition is a real shared implementation, not a web-only variant. `themes.css` owns the semantic language tokens that both registries
 consume. Do not add a second palette, page-intent table, route registry, or theme composition in an app.
