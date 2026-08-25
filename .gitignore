@@ -206,6 +206,18 @@ iroha.toml
 .cursorindexingignore
 packages/iroha-shared/node_modules/
 
+# Shared app icons are copied into each app's static output before dev/build.
+/apps/iroha-public-site/static/apple-touch-icon.png
+/apps/iroha-public-site/static/favicon.ico
+/apps/iroha-public-site/static/favicon.svg
+/apps/iroha-public-site/static/icon-192.png
+/apps/iroha-public-site/static/icon-512.png
+/apps/iroha-web/static/apple-touch-icon.png
+/apps/iroha-web/static/favicon.ico
+/apps/iroha-web/static/favicon.svg
+/apps/iroha-web/static/icon-192.png
+/apps/iroha-web/static/icon-512.png
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
