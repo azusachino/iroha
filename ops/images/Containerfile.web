@@ -3,12 +3,10 @@ FROM oven/bun:1.4.0 AS build
 WORKDIR /app
 COPY apps/iroha-web/package.json apps/iroha-web/bun.lock ./apps/iroha-web/
 WORKDIR /app/apps/iroha-web
-# The source-dependent asset sync runs in prebuild after the full source copy.
-RUN bun install --frozen-lockfile --ignore-scripts
+RUN bun install --frozen-lockfile
 WORKDIR /app
 COPY apps/iroha-web ./apps/iroha-web
 COPY packages/iroha-shared ./packages/iroha-shared
-COPY scripts/sync-iroha-assets.ts ./scripts/sync-iroha-assets.ts
 WORKDIR /app/apps/iroha-web
 ARG PUBLIC_IROHA_API_BASE=
 ENV PUBLIC_IROHA_API_BASE=$PUBLIC_IROHA_API_BASE
