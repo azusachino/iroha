@@ -5,12 +5,7 @@
 
 <div class="mix-site" data-theme={theme}>
   <header class="appbar mix-console">
-    <div class="mix-console-brand">
-      <span class="mix-meter mix-meter-header" aria-hidden="true">
-        <i></i><i></i><i></i><i></i>
-      </span>
-      {@render brand()}
-    </div>
+    {@render brand()}
     <span class="mix-console-tag" aria-hidden="true">CH</span>
     {@render nav()}
     <div class="appbar-actions mix-console-master">
@@ -115,11 +110,6 @@
     height: 22%;
   }
 
-  .mix-meter-header {
-    height: 0.7rem;
-    margin-right: 0.55rem;
-  }
-
   /* Everything below restyles the shared appbar/nav/actions markup into a
      mixing-console rack; the elements themselves (links, buttons, the
      select) are unchanged, so focus order, tap targets, and accessible
@@ -133,12 +123,6 @@
     );
     border-bottom: 1px solid var(--console-line);
     box-shadow: none;
-  }
-
-  .mix-console-brand {
-    display: inline-flex;
-    align-items: center;
-    min-width: max-content;
   }
 
   .mix-console :global(.brand) {
@@ -200,8 +184,7 @@
       padding: 1rem;
     }
 
-    .mix-console-tag,
-    .mix-meter-header {
+    .mix-console-tag {
       display: none;
     }
   }

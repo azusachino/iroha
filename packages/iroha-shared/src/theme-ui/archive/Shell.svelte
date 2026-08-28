@@ -5,10 +5,7 @@
 
 <div class="vault-site" data-theme={theme}>
   <header class="appbar vault-header">
-    <div class="vault-header-brand">
-      <span class="vault-stamp vault-stamp-header" aria-hidden="true">№</span>
-      {@render brand()}
-    </div>
+    {@render brand()}
     {@render nav()}
     <div class="appbar-actions vault-header-actions">
       {@render actions()}
@@ -84,12 +81,6 @@
     font-size: 0.95rem;
   }
 
-  .vault-stamp-header {
-    width: 1.3rem;
-    height: 1.3rem;
-    font-size: 0.7rem;
-  }
-
   /* Everything below restyles the shared appbar/nav/actions markup into a
      card-catalog drawer label strip; the links/buttons/select themselves
      are untouched, so focus order, tap targets, and accessible names stay
@@ -99,13 +90,6 @@
     border-bottom: 1px solid
       color-mix(in srgb, var(--accent-2) 40%, var(--border));
     box-shadow: none;
-  }
-
-  .vault-header-brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: max-content;
   }
 
   .vault-header :global(.brand) {
@@ -155,10 +139,6 @@
       align-items: flex-start;
       gap: 0.4rem;
       padding: 1rem;
-    }
-
-    .vault-stamp-header {
-      display: none;
     }
   }
 </style>

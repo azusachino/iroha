@@ -6,16 +6,7 @@
 
 <div class="atlas-site" data-theme={theme}>
   <header class="appbar atlas-header">
-    <div class="atlas-header-brand">
-      <span class="atlas-compass atlas-compass-header" aria-hidden="true">
-        <svg viewBox="0 0 32 32" role="img" aria-hidden="true">
-          <circle cx="16" cy="16" r="14" />
-          <path d="M16 4 L19 16 L16 28 L13 16 Z" />
-          <text x="16" y="9" text-anchor="middle">N</text>
-        </svg>
-      </span>
-      {@render brand()}
-    </div>
+    {@render brand()}
     {@render nav()}
     <div class="appbar-actions atlas-header-legend">
       {@render actions()}
@@ -98,10 +89,6 @@
     font-family: var(--font-mono);
   }
 
-  .atlas-compass-header {
-    margin-right: 0.4rem;
-  }
-
   /* Everything below restyles the shared appbar/nav/actions markup into a
      surveyor's map legend; the links/buttons/select themselves are
      untouched, so focus order, tap targets, and accessible names stay
@@ -117,12 +104,6 @@
     border-bottom: 1px dashed
       color-mix(in srgb, var(--accent) 35%, var(--border));
     box-shadow: none;
-  }
-
-  .atlas-header-brand {
-    display: inline-flex;
-    align-items: center;
-    min-width: max-content;
   }
 
   .atlas-header :global(.brand) {
@@ -183,10 +164,6 @@
       align-items: flex-start;
       gap: 0.4rem;
       padding: 1rem;
-    }
-
-    .atlas-compass-header {
-      display: none;
     }
   }
 </style>
