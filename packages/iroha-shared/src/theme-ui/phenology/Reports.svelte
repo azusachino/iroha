@@ -14,6 +14,7 @@
   import { healthMetricLabel } from "../../domain/health-metric-labels";
   import { healthMetricIcon } from "../../domain/health-metric-icons";
   import { healthMetricColorVar } from "../../domain/health-metric-colors";
+  import { healthMetricRange } from "../../domain/health-metric-ranges";
   import { sportLabel, sportColorVar } from "../../domain/sport";
   import { sportIcon } from "../../domain/sport-icons";
   import { expenseCategoryLabel } from "../../view-contracts/expense-view";
@@ -153,9 +154,10 @@
         label: healthMetricLabel(item.metric),
         icon: healthMetricIcon(item.metric),
         colorVar: healthMetricColorVar(item.metric),
-        value: pct,
-        display: pct + "%",
-        breakdown: formatMetricValue(item.value, item.unit) + " " + item.unit,
+        value: item.value,
+        display: formatMetricValue(item.value, item.unit) + " " + item.unit,
+        range: healthMetricRange(item.metric),
+        breakdown: `${pct}% coverage (${item.observed_days}/${periodDays} days)`,
       };
     }),
   );
@@ -264,7 +266,7 @@
         <MetricPanel
           metricId="daily_health.observed_days"
           label="Observation coverage"
-          unit="%"
+          unit="mixed"
           method={report.sections.daily_health.schema}
           coverage={{
             expected_periods: periodDays,
@@ -274,7 +276,7 @@
           rows={healthRows}
           period={month}
         >
-          <CoverageBars rows={healthRows} max={100} />
+          <CoverageBars rows={healthRows} />
         </MetricPanel>
       {:else}<p class="empty">No canonical daily-health observations.</p>{/if}
     </ReportMetricCard>

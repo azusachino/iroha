@@ -13,6 +13,7 @@
   import { formatMetricValue } from "../../format/format";
   import { healthMetricLabel } from "../../domain/health-metric-labels";
   import { healthMetricIcon } from "../../domain/health-metric-icons";
+  import { healthMetricRange } from "../../domain/health-metric-ranges";
   import { sportLabel } from "../../domain/sport";
   import { sportIcon } from "../../domain/sport-icons";
   import { expenseCategoryLabel } from "../../view-contracts/expense-view";
@@ -84,9 +85,10 @@
       return {
         label: healthMetricLabel(item.metric),
         icon: healthMetricIcon(item.metric),
-        value: pct,
-        display: pct + "%",
-        breakdown: formatMetricValue(item.value, item.unit) + " " + item.unit,
+        value: item.value,
+        display: formatMetricValue(item.value, item.unit) + " " + item.unit,
+        range: healthMetricRange(item.metric),
+        breakdown: `${pct}% coverage (${item.observed_days}/${periodDays} days)`,
       };
     }),
   );
@@ -187,7 +189,7 @@
         <MetricPanel
           metricId="daily_health.observed_days"
           label="Observation coverage"
-          unit="%"
+          unit="mixed"
           method={report.sections.daily_health.schema}
           coverage={{
             expected_periods: periodDays,
@@ -197,7 +199,7 @@
           rows={healthRows}
           period={month}
         >
-          <CoverageBars rows={healthRows} max={100} />
+          <CoverageBars rows={healthRows} />
         </MetricPanel>
         <ReportFactGrid
           facts={(health.metric_averages ?? []).slice(0, 3).map((item) => ({
