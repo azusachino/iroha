@@ -9,6 +9,10 @@ contract between minor versions.
 
 ### Changed
 
+- Give Admin a real operational question instead of a generic heading, per the v0.4.4 scorecard's own follow-up note ("give app-only Admin a specific operational question and compact utility-header
+  contract"). Replace the "Admin" hero heading with "What needs attention?" at the compact `--grapher-utility-title-size` scale Motion/Night/Patterns/Library already use (Admin's own heading was still
+  at full editorial hero size). Swap the static "Metric catalog" status card for a "Needs attention" card surfacing the failed-job count — the metric catalog total is still shown in the Metric
+  definitions panel header, just no longer duplicated as its own status tile that didn't answer the page's question.
 - Give every registered design language real ownership of the persistent app-bar/nav shell instead of leaving it fully host-owned and identical regardless of theme. `Shell.svelte`'s contract
   (`ShellThemeProps`) now accepts `brand`/`nav`/`actions` snippets from the host, and each of the six languages restyles that shared markup into its own header via scoped selectors — a dashed
   map-legend for Atlas, flat axis-tick tabs for Grapher, a dotted/wavy-underline masthead for Field Journal, a phase-dot pill for Phenology, a rack-style "mixing console" for Cadence, and a
