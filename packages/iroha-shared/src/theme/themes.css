@@ -107,6 +107,14 @@ html:root[data-language="atlas"] {
   --ring-exercise: #e07b58;
   --ring-stand: #58c7c0;
   --radius: 10px;
+  /* Legend-style semantic colors instead of the app-wide neon red: clay for
+     danger echoes a restricted-zone chart marking (kept in the existing
+     --ring-exercise terracotta family rather than a new hue), signal/caution
+     tie directly to the map's own water/brass accents. */
+  --danger: #c1552f;
+  --color-danger: #c1552f;
+  --color-positive: var(--accent);
+  --color-warning: var(--accent-2);
   --font-mono: "Space Mono", "SFMono-Regular", ui-monospace, monospace;
   --tile-surface: repeating-linear-gradient(
       90deg,
