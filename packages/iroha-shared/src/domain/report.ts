@@ -128,7 +128,7 @@ export interface MonthlyReportSeriesPoint {
   completeness: "complete" | "partial";
   movement: { distance_m: number } | null;
   sleep: { average_asleep_s: number } | null;
-  daily_health: { observed_days: number } | null;
+  daily_health: DailyHealthReportData | null;
   media: { event_count: number; completed_count: number } | null;
   expenses: {
     totals_by_currency: {
@@ -168,6 +168,16 @@ export function reportPeriodDays(report: MonthlyReport): number {
       Date.parse(`${report.period.from}T00:00:00Z`)) /
       86_400_000,
   );
+}
+
+// A per-metric observed_days count only means something next to the period
+// it's out of -- comparing raw day counts across metrics with different
+// coverage denominators is what read as an oddly-scaled bar chart. This is
+// the one place that ratio is computed so every theme's health-coverage
+// chart/table agrees.
+export function coveragePercent(observedDays: number, periodDays: number): number {
+  if (periodDays <= 0) return 0;
+  return Math.round((observedDays / periodDays) * 100);
 }
 
 export type ReportThemeProps = {

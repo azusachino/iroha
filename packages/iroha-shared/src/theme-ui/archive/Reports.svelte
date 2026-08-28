@@ -1,5 +1,7 @@
 <script lang="ts">
   import BarChart from "../components/BarChart.svelte";
+  import CoverageBars from "../../components/CoverageBars.svelte";
+  import IconLegend from "../../components/IconLegend.svelte";
   import ReportCoverage from "../components/ReportCoverage.svelte";
   import ReportReceipt from "../components/ReportReceipt.svelte";
   import type { ReportEvidenceRow } from "../../domain/report";
@@ -7,7 +9,15 @@
   import ReportFactGrid from "../components/ReportFactGrid.svelte";
   import ReportMetricCard from "../components/ReportMetricCard.svelte";
   import MetricPanel from "../../components/MetricPanel.svelte";
+  import type { PanelRow } from "../../components/metric-panel";
   import { formatMetricValue } from "../../format/format";
+  import { healthMetricLabel } from "../../domain/health-metric-labels";
+  import { healthPanelRows } from "../../domain/health-panel-rows";
+  import { sportLabel, sportColorVar } from "../../domain/sport";
+  import { sportIcon } from "../../domain/sport-icons";
+  import { expenseCategoryLabel } from "../../view-contracts/expense-view";
+  import { expenseCategoryIcon } from "../../domain/expense-icons";
+  import { categoryColorVar } from "../../domain/category-color";
   import {
     reportPeriodDays,
     reportSectionData,
@@ -69,7 +79,7 @@
   );
   const evidence = $derived<ReportEvidenceRow[]>([
     ...(movement?.by_sport ?? []).map((item) => ({
-      label: "movement/" + item.sport,
+      label: "movement/" + sportLabel(item.sport),
       value: number(item.distance_m / 1000) + " km",
       detail:
         item.activity_count +
@@ -90,7 +100,7 @@
         ]
       : []),
     ...(health?.metric_averages ?? []).map((item) => ({
-      label: "health/" + item.metric,
+      label: "health/" + healthMetricLabel(item.metric),
       value: formatMetricValue(item.value, item.unit) + " " + item.unit,
       detail: item.observed_days + " observed days",
     })),
@@ -108,12 +118,33 @@
         ]
       : []),
     ...categories.map((item) => ({
-      label: "expenses/" + item.category,
+      label: "expenses/" + expenseCategoryLabel[item.category],
       value: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
       detail: item.expense_count + " records",
     })),
   ]);
   const periodDays = $derived(reportPeriodDays(report));
+  const healthRows = $derived<PanelRow[]>(
+    healthPanelRows(health?.metric_averages ?? [], periodDays),
+  );
+  const movementRows = $derived<PanelRow[]>(
+    (movement?.by_sport ?? []).map((item) => ({
+      label: sportLabel(item.sport),
+      icon: sportIcon(item.sport),
+      colorVar: sportColorVar(item.sport),
+      value: item.distance_m / 1000,
+      display: number(item.distance_m / 1000) + " km",
+    })),
+  );
+  const expenseRows = $derived<PanelRow[]>(
+    categories.map((item) => ({
+      label: expenseCategoryLabel[item.category],
+      icon: expenseCategoryIcon(item.category),
+      colorVar: categoryColorVar(item.category),
+      value: item.amount_minor,
+      display: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
+    })),
+  );
 
   function number(value: number): string {
     return new Intl.NumberFormat(undefined, {
@@ -137,7 +168,7 @@
     <ReportMetricCard
       label="Canonical movement"
       title="Distance by sport"
-      summary={movement ? movement.activity_count + " records" : "No records"}
+      summary={movement ? movement.activity_count + " records" : "Uncatalogued"}
     >
       {#if movement?.by_sport.length}
         <MetricPanel
@@ -146,23 +177,19 @@
           unit="km"
           method={report.sections.movement.schema}
           rowHeader="Sport"
-          rows={movement.by_sport.map((item) => ({
-            label: item.sport,
-            value: item.distance_m / 1000,
-            display: number(item.distance_m / 1000) + " km",
-          }))}
+          rows={movementRows}
           period={month}
         >
+          <IconLegend rows={movementRows} />
           <BarChart
-            categories={movement.by_sport.map((item) => item.sport)}
+            categories={movementRows.map((row) => row.label)}
             primary={{
               name: "Distance",
-              values: movement.by_sport.map((item) => item.distance_m / 1000),
-              color: "var(--accent)",
+              values: movementRows.map((row) => row.value),
+              colors: movementRows.map((row) => `var(${row.colorVar})`),
               formatter: (value) => number(value) + " km",
             }}
             orientation="horizontal"
-            categorical
             height={230}
           />
         </MetricPanel>
@@ -172,7 +199,7 @@
     <ReportMetricCard
       label="Canonical rest"
       title="Sleep-stage composition"
-      summary={sleep ? sleep.session_count + " sessions" : "No records"}
+      summary={sleep ? sleep.session_count + " sessions" : "Uncatalogued"}
     >
       {#if sleep}
         <MetricPanel
@@ -206,40 +233,24 @@
     <ReportMetricCard
       label="Canonical health"
       title="Observed metric days"
-      summary={health ? health.observed_days + " days" : "No records"}
+      summary={health ? health.observed_days + " days" : "Uncatalogued"}
       tone="quiet"
     >
       {#if health?.metric_averages.length}
         <MetricPanel
           metricId="daily_health.observed_days"
           label="Observed metric days"
-          unit="days"
+          unit="mixed"
           method={report.sections.daily_health.schema}
           coverage={{
             expected_periods: periodDays,
             observed_periods: health.observed_days,
           }}
           rowHeader="Metric"
-          rows={health.metric_averages.map((item) => ({
-            label: item.metric,
-            value: item.observed_days,
-            display: item.observed_days + " d",
-            breakdown:
-              formatMetricValue(item.value, item.unit) + " " + item.unit,
-          }))}
+          rows={healthRows}
           period={month}
         >
-          <BarChart
-            categories={health.metric_averages.map((item) => item.metric)}
-            primary={{
-              name: "Observed days",
-              values: health.metric_averages.map((item) => item.observed_days),
-              color: "var(--accent)",
-            }}
-            orientation="horizontal"
-            categorical
-            height={230}
-          />
+          <CoverageBars rows={healthRows} />
         </MetricPanel>
       {:else}<p class="empty">No health rows in this envelope.</p>{/if}
     </ReportMetricCard>
@@ -247,7 +258,7 @@
     <ReportMetricCard
       label="Canonical media"
       title="Events and completions"
-      summary={media ? media.event_count + " events" : "No records"}
+      summary={media ? media.event_count + " events" : "Uncatalogued"}
       tone="quiet"
     >
       {#if media?.by_kind.length}
@@ -290,7 +301,7 @@
     <ReportMetricCard
       label="Canonical expenses"
       title="Spend by category"
-      summary={expenses ? expenses.expense_count + " records" : "No records"}
+      summary={expenses ? expenses.expense_count + " records" : "Uncatalogued"}
       tone="feature"
     >
       {#if categories.length}
@@ -300,28 +311,20 @@
           unit={primaryCurrency + " minor"}
           method={report.sections.expenses.schema}
           rowHeader="Category"
-          rows={categories.map((item) => ({
-            label: item.category,
-            value: item.amount_minor,
-            display: formatMoney(
-              item.amount_minor,
-              primaryCurrency,
-              primaryExponent,
-            ),
-          }))}
+          rows={expenseRows}
           period={month}
         >
+          <IconLegend rows={expenseRows} />
           <BarChart
-            categories={categories.map((item) => item.category)}
+            categories={expenseRows.map((row) => row.label)}
             primary={{
               name: primaryCurrency,
-              values: categories.map((item) => item.amount_minor),
-              color: "var(--accent)",
+              values: expenseRows.map((row) => row.value),
+              colors: expenseRows.map((row) => `var(${row.colorVar})`),
               formatter: (value) =>
                 formatMoney(value, primaryCurrency, primaryExponent),
             }}
             orientation="horizontal"
-            categorical
             height={250}
           />
         </MetricPanel>

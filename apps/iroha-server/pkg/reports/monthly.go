@@ -141,7 +141,10 @@ func monthlyDailyHealthTrend(report MonthlyReport) *MonthlyReportDailyHealthTren
 	if report.Sections.DailyHealth.Data == nil {
 		return nil
 	}
-	return &MonthlyReportDailyHealthTrend{ObservedDays: report.Sections.DailyHealth.Data.ObservedDays}
+	return &MonthlyReportDailyHealthTrend{
+		ObservedDays:   report.Sections.DailyHealth.Data.ObservedDays,
+		MetricAverages: report.Sections.DailyHealth.Data.MetricAverages,
+	}
 }
 
 func monthlyMediaTrend(report MonthlyReport) *MonthlyReportMediaTrend {

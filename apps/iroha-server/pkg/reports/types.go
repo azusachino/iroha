@@ -51,7 +51,8 @@ type MonthlyReportSleepTrend struct {
 }
 
 type MonthlyReportDailyHealthTrend struct {
-	ObservedDays int `json:"observed_days"`
+	ObservedDays   int             `json:"observed_days"`
+	MetricAverages []MetricAverage `json:"metric_averages"`
 }
 
 type MonthlyReportMediaTrend struct {

@@ -5,6 +5,91 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
+## [Unreleased]
+
+## [0.4.5] — 2026-08-28
+
+### Added
+
+- Give Atlas an ambient WebGL background: a flat survey chart of scattered teal "dust" points and larger amber legend markers with a handful of faint triangulation lines between them, drifting at a
+  near-imperceptible compass-card rotation. This is the first slice of a per-theme ambient layer (infra: `packages/iroha-shared/src/theme-ui/ambient/`) mounted once at the root layout behind
+  everything — every data tile already paints an opaque `--tile-surface`, so the canvas only shows through chrome and empty space and never touches data legibility. A theme with no registered scene
+  (Grapher, and the four not yet built) renders nothing, continuing Grapher's established plainest-of-six identity. Reduced motion is a state contract, not a slower loop: a preferring client gets
+  exactly one rendered frame and `requestAnimationFrame` is never scheduled. Adds `three` (core entrypoint only — no loaders/postprocessing) as a lazily-imported dependency, dynamically loaded from
+  inside the host component so it never lands on the initial critical-path bundle: production build grew from 3.5M to 4.0M on disk, entirely inside one new lazy chunk (518 kB raw / 128 kB gzip, absent
+  from `index.html`'s eager references) that only fetches once the ambient layer actually needs to build a scene. This is the "recorded seam justification and bundle comparison" the v0.4.4 plan's
+  decision #4 asked for before any Three.js dependency — approved for this pass as a deliberate personal-project "try the fancy stuff" call, not a user-problem fix.
+- Give Field Journal, Phenology, Cadence, and Archive their own ambient WebGL scene, completing the per-theme ambient layer Atlas started above. Field Journal: two columns of ruled margin tick-marks
+  drifting downward and wrapping, a bullet-journal's date/note column down each page edge. Phenology: a phase wheel — a ring of dial ticks with four season markers hubbed to the center by spokes, the
+  whole wheel slowly rotating, the one scene where rotation is the primary motion rather than a near-imperceptible touch. Cadence: a level-meter rack of 24 independently pulsing vertical bars, each on
+  a phase/frequency derived deterministically from its own index, never driven by any audio input — matching Cadence's own lens copy ("do not pretend expense data is audio"). Archive: a card-catalog
+  drawer sweep — a row of vertical card-edge ticks whose brightness travels left to right and wraps, fading toward `--surface` rather than to black so a dim card reads as "unlit," not "gone." Every
+  scene was verified via `visual-check.mjs`'s `CANVAS_SELECTOR` pixel-readback mode rather than a literal screenshot, since headless Chromium's software compositor doesn't reliably paint WebGL canvas
+  content into `page.screenshot()` even when the canvas genuinely has drawn content.
+- Add `CoverageBars.svelte`, a real DOM/CSS bar list for daily-health metrics with a per-metric icon and label, replacing an ECharts chart that couldn't host a Svelte icon component inside its own
+  canvas-rendered axis labels. Bars show the metric's real value; for the 4 of 11 tracked metrics with a genuine, citable, general-adult-population reference range (resting HR: American Heart
+  Association; SpO₂ avg/min: clinical pulse-oximetry consensus; respiratory rate: American Lung Association — see `domain/health-metric-ranges.ts` for exact sourcing), the bar is positioned within
+  that range and switches to the theme's own `--danger` color when the value falls outside it. The other 7 metrics (steps, distance, flights, walking HR, HRV, VO₂max, body mass) intentionally get no
+  range — none of them has one that's both official and general-population (steps' "10,000" is a popularized proxy, not WHO's actual activity-minutes-based guidance; HRV and VO₂max need age/sex
+  percentile bands this app's data model doesn't carry; body mass needs height to mean anything) — and a fabricated range would be worse than none.
+- Plot a real month-over-month line trend for every daily-health metric with data in the twelve-month window ("Twelve-month trends"), replacing a single "Observed days" line that only ever measured
+  how many days had _any_ value, never what the value was. Required a small backend addition: the monthly report series endpoint was already computing per-metric averages for every month but
+  discarding them down to `observed_days` alone when reducing into a trend point.
+- Add per-sport, per-expense-category, and per-health-metric icons to `SportBadge`, `ExpenseLedger`, every theme's `Activities.svelte` table, and a new `IconLegend` strip above the Movement and
+  Expenses reports charts — icons are colored by a stable per-identity color map (`domain/*-colors.ts`, keyed by identity rather than array position) instead of an order-dependent categorical palette,
+  so a metric or category's color no longer changes just because the API happened to return it in a different order.
+
+### Changed
+
+- Give Atlas its own semantic status colors and no-data copy voice instead of sharing the app-wide neon danger/positive/warning set and the generic "No records" fallback with all six languages. Danger
+  moves to a clay/terracotta already in Atlas's own `--ring-exercise` family; positive/warning tie directly to the map's own water/brass accents (`--accent`/`--accent-2`). Report cards' zero-data
+  fallback now reads "Uncharted", scoped to Atlas's own `Reports.svelte`.
+- Give Field Journal, Phenology, Cadence, and Archive their own semantic status colors and no-data copy voice, completing the pass Atlas started above. Field Journal: a ballpoint-red danger and
+  highlighter-amber warning read as bullet-journal ink. Phenology: a wilted/dried-bloom danger and a growth-green positive. Cadence: a mixing-console clip-light danger. Archive: a
+  due-date/withdrawn-stamp danger and a certification-gold positive. Each theme's own "no records" fallback: "No record" (Field Journal, already in place), "Dormant" (Phenology), "Silence" (Cadence),
+  "Uncatalogued" (Archive).
+- Change the daily-health panel's bars to show each metric's real value instead of an `observed_days / period_days` coverage percent — coverage reads as near-100% noise for anything that syncs daily
+  (HRV) and never actually said what the value was. Coverage moves into the row's tooltip instead. Also fixes the panel's `unit="%"` label, stale now that rows carry mixed real units (km, bpm, ms, %,
+  ...) instead of one shared percentage.
+- Give Admin a real operational question instead of a generic heading, per the v0.4.4 scorecard's own follow-up note ("give app-only Admin a specific operational question and compact utility-header
+  contract"). Replace the "Admin" hero heading with "What needs attention?" at the compact `--grapher-utility-title-size` scale Motion/Night/Patterns/Library already use (Admin's own heading was still
+  at full editorial hero size). Swap the static "Metric catalog" status card for a "Needs attention" card surfacing the failed-job count — the metric catalog total is still shown in the Metric
+  definitions panel header, just no longer duplicated as its own status tile that didn't answer the page's question.
+- Give every registered design language real ownership of the persistent app-bar/nav shell instead of leaving it fully host-owned and identical regardless of theme. `Shell.svelte`'s contract
+  (`ShellThemeProps`) now accepts `brand`/`nav`/`actions` snippets from the host, and each of the six languages restyles that shared markup into its own header via scoped selectors — a dashed
+  map-legend for Atlas, flat axis-tick tabs for Grapher, a dotted/wavy-underline masthead for Field Journal, a phase-dot pill for Phenology, a rack-style "mixing console" for Cadence, and a
+  card-catalog drawer strip for Archive — without duplicating the underlying interactive elements, so the existing audited focus order, tap-target sizes, and accessible names carry over unchanged.
+- Give every language its own `--tile-surface`/`--tile-shadow` (every data tile app-wide reads these) and its own glyph for the shared "no records" empty-state mark, instead of both being identical
+  across all six and differing only by accent color. Atlas's active nav item also gets a small triangle marker ahead of the label, borrowed from cartography's own convention for "the most important
+  point." The empty-state glyphs are sourced from each theme's real-world reference rather than invented: bullet-journal notation for Field Journal, a coordinate crosshair for Atlas, a phase-wheel
+  glyph for Phenology, paused-channel bars for Cadence, and the empty-set symbol for Archive.
+- Give Field Journal and Phenology's shell root the `font-family` each already declared via `--font-serif` but never actually applied outside a few hand-styled headings, so their whole page reads in
+  the theme's typeface rather than falling back to the shared default sans. Give Atlas its own monospace stack instead of reusing Cadence's byte-identical one. Add `--body-leading` and
+  `--heading-tracking`, consumed by `body`/`h1`/`h2`, so line-height and letter-spacing also vary per language.
+- Fix the language-switch cross-fade, which was silently inert: its wrapper was `display: contents`, a box-less display mode that opacity/transform transitions cannot render anything on. A distinct
+  motion signature per language (lateral pan, overshoot bloom, stamp scale, etc.) was tried and read as over-designed in practice, so the fix keeps one shared plain fade for all six — a
+  full-composition swap should stay calm regardless of which language is switching in. Each language still gets its own `--motion-micro`/`--motion-quick-state` hover/press timing.
+- Give the shared sport/source badges (`SportBadge`, `SourceBadge`) each theme's own corner radius via the existing `--radius` token instead of a hardcoded pill shape — the only two shared controls
+  with no per-language styling; every other shared control (`SelectControl`, `MonthNavigator`, `PeriodToolbar`/`PeriodDrill`, most chart/report components) already had it. Give `LoadingBoundary`'s
+  shared progress-bar track its own shape and texture per language the same way the empty-state mark got one.
+- Self-host the Latin subset of each theme's display typeface (Space Mono, IBM Plex Mono, Roboto Slab, Lora, Crimson Pro, Outfit; both `iroha-web` and the public-site design workbench) instead of
+  naming a system font and hoping it's installed, with no third-party font request at runtime. Insert the self-hosted fallback into Field Journal's and Phenology's `--font-serif` stacks (before the
+  final generic `serif`) so they no longer converge on the same generic serif when their preferred system fonts aren't present, and add one to the shared base `--font-sans`.
+
+- Rename the `sound-map` design language to `cadence`. Its identity copy already described "cadence, intensity, and flow" without ever mentioning anything spatial — the built design (rack-style mixing
+  console, level meters, channel strips) is a rhythm/audio language, not a cartographic one, so "Sound Map" over-promised a "map" half it never delivered. `Cadence` is the word its own lens copy
+  already used. The design itself, its route implementation, and every color/token are unchanged; only the id (`DesignLanguage`, `theme-ui/cadence/`, `data-language="cadence"`) and label
+  (`Iroha Sound Map` → `Iroha Cadence`) moved.
+- Drop the header brand icons (Atlas's compass, Cadence's meter bars, Archive's stamp) added earlier this release — an accident of which theme already had a reusable footer glyph to promote, not a
+  deliberate rule, and it read as clutter once all six were compared side by side. Each icon stays exactly where it already lived, in the footer.
+
+### Fixed
+
+- Un-clobber every theme's tile shadow: `app.css` declared `.tile` twice, and the second declaration's hardcoded `box-shadow` silently won over the first's `var(--tile-shadow)` (same specificity,
+  later in source order) — every language's per-theme tile shadow from this release has been invisible since it landed. Merged into one rule that keeps both the per-theme shadow and the existing
+  glossy top-edge highlight. Also moved `.tile`/`.tile-interactive`'s hover transition off a hardcoded 140–180ms onto `var(--motion-micro)`, so each theme's hover feel actually reaches the most
+  frequent interaction in the app instead of only the once-per-session language switch.
+
 ## [0.4.4] — 2026-08-24
 
 ### Added

@@ -2,7 +2,8 @@
   import type { MonthlyReportSeries } from "../../domain/report";
   import type { DesignLanguage } from "../../theme/themes";
   import BarChart from "./BarChart.svelte";
-  import { formatCanonicalMonth } from "../../format/format";
+  import { formatCanonicalMonth, formatMetricValue } from "../../format/format";
+  import { healthMetricLabel } from "../../domain/health-metric-labels";
 
   let {
     series,
@@ -37,9 +38,34 @@
       point.sleep == null ? null : point.sleep.average_asleep_s / 3600,
     ),
   );
-  const healthValues = $derived(
-    points.map((point) => point.daily_health?.observed_days ?? null),
-  );
+  const healthMetrics = $derived.by(() => {
+    const metrics = new Set<string>();
+    for (const point of points) {
+      for (const item of point.daily_health?.metric_averages ?? []) {
+        metrics.add(item.metric);
+      }
+    }
+    return [...metrics].sort();
+  });
+
+  function healthValuesFor(metric: string): (number | null)[] {
+    return points.map(
+      (point) =>
+        point.daily_health?.metric_averages.find((item) => item.metric === metric)
+          ?.value ?? null,
+    );
+  }
+
+  function healthUnitFor(metric: string): string {
+    return (
+      points
+        .map((point) =>
+          point.daily_health?.metric_averages.find((item) => item.metric === metric)
+            ?.unit,
+        )
+        .find((unit) => unit != null) ?? ""
+    );
+  }
   const mediaValues = $derived(
     points.map((point) => point.media?.event_count ?? null),
   );
@@ -168,18 +194,28 @@
           {trendDelta(sleepValues, (value) => number(value) + " h")}
         </p>
       </article>
-      <article>
-        <header><span>Daily health</span><strong>Observed days</strong></header>
-        <BarChart
-          {categories}
-          primary={{ name: "Observed days", values: healthValues }}
-          primaryType="line"
-          height={210}
-        />
-        <p class="delta">
-          {trendDelta(healthValues, (value) => number(value) + " days")}
-        </p>
-      </article>
+      {#each healthMetrics as metric (metric)}
+        {@const values = healthValuesFor(metric)}
+        {@const unit = healthUnitFor(metric)}
+        <article>
+          <header>
+            <span>Daily health</span><strong>{healthMetricLabel(metric)}</strong>
+          </header>
+          <BarChart
+            {categories}
+            primary={{
+              name: healthMetricLabel(metric),
+              values,
+              formatter: (value) => formatMetricValue(value, unit) + " " + unit,
+            }}
+            primaryType="line"
+            height={210}
+          />
+          <p class="delta">
+            {trendDelta(values, (value) => formatMetricValue(value, unit) + " " + unit)}
+          </p>
+        </article>
+      {/each}
       <article>
         <header>
           <span>Media</span><strong>Events and completions</strong>
@@ -248,7 +284,7 @@
   .report-comparison[data-theme="phenology"] {
     border-radius: 1.2rem;
   }
-  .report-comparison[data-theme="sound-map"] {
+  .report-comparison[data-theme="cadence"] {
     border-inline-width: 3px;
   }
   .report-comparison[data-theme="archive"] {

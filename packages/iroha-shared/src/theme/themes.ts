@@ -3,7 +3,7 @@ export const THEME_IDS = [
   "grapher",
   "field-journal",
   "phenology",
-  "sound-map",
+  "cadence",
   "archive",
 ] as const;
 
@@ -158,9 +158,9 @@ export const THEME_IDENTITIES = {
       },
     },
   },
-  "sound-map": {
-    id: "sound-map",
-    label: "Iroha Sound Map",
+  cadence: {
+    id: "cadence",
+    label: "Iroha Cadence",
     hint: "rhythm and intensity",
     description: "A rhythmic language for cadence, intensity, and flow.",
     mark: "≈",

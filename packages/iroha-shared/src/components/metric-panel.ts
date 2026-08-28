@@ -1,18 +1,42 @@
+import type { LucideIcon } from "@lucide/svelte";
 import { csvCell, pointValue, type SharedMetricSeries } from "./metric-series";
+import type { HealthMetricRange } from "../domain/health-metric-ranges";
 
 // One exact row behind a displayed chart. `value` stays raw for analysis while
 // `display` preserves what the chart actually rendered.
 export interface PanelRow {
   label: string;
+  // Every current producer (sportIcon, expenseCategoryIcon, healthMetricIcon)
+  // draws from @lucide/svelte, so the field is typed to that icon set
+  // directly instead of a generic `Component<any>`.
+  icon?: LucideIcon;
+  // A CSS custom property name (e.g. "--accent"), not a resolved color --
+  // lets a row's accent follow the active theme instead of being baked in.
+  colorVar?: string;
   breakdown?: string;
   value: number | null;
   display: string;
   observed?: number;
+  // Only present for rows with a real, citable reference range (see
+  // domain/health-metric-ranges.ts) -- absence means "no range exists",
+  // not "not loaded yet".
+  range?: HealthMetricRange;
 }
 
 export interface PanelCoverage {
   expected_periods: number;
   observed_periods: number;
+}
+
+// Shared by CoverageBars (visual, aria-hidden) and MetricTable (the
+// accessible fallback) so a row's in/out-of-range status can never read
+// differently between the two -- computed once, not duplicated per consumer.
+export function isOutOfRange(row: PanelRow): boolean {
+  return (
+    row.range != null &&
+    row.value != null &&
+    (row.value < row.range.min || row.value > row.range.max)
+  );
 }
 
 export function panelCsv(

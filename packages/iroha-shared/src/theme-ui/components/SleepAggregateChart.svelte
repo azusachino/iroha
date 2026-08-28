@@ -153,7 +153,7 @@
     border-radius: 1.2rem;
   }
 
-  .sleep-aggregate-chart[data-theme="sound-map"] {
+  .sleep-aggregate-chart[data-theme="cadence"] {
     border-inline-width: 3px;
   }
 

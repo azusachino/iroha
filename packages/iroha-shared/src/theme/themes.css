@@ -13,7 +13,8 @@
   /* Base sans stack for every language that doesn't declare its own
      --font-sans (currently only Atlas does). Reuses Atlas's already-chosen
      value rather than introducing a second default. */
-  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+  --font-sans:
+    "Avenir Next", "Century Gothic", "Outfit", ui-sans-serif, sans-serif;
 
   /* Named motion families (2026-08-24 semantic-motion plan). Each pairs a
      duration with an easing so a consumer writes `transition: opacity
@@ -86,7 +87,19 @@
   }
 }
 
+/*
+ * --tile-surface and --tile-shadow below override the host's own
+ * contrast-mode-only defaults (apps/iroha-web/src/routes/app.css) the same
+ * way --accent and --radius already do: every shared card/tile primitive
+ * already reads these two tokens, so giving each language its own value is
+ * one edit here instead of a `.tile` override in every consuming component.
+ * Each keeps `var(--surface)` as its base so light/dark mode still applies.
+ */
+
 html:root[data-language="atlas"] {
+  --motion-micro: 180ms ease-out;
+  --motion-quick-state: 240ms ease-out;
+  --heading-tracking: 0.01em;
   --theme-swatch: #58c7c0;
   --accent: #58c7c0;
   --accent-2: #e7b65a;
@@ -94,7 +107,22 @@ html:root[data-language="atlas"] {
   --ring-exercise: #e07b58;
   --ring-stand: #58c7c0;
   --radius: 10px;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  /* Legend-style semantic colors instead of the app-wide neon red: clay for
+     danger echoes a restricted-zone chart marking (kept in the existing
+     --ring-exercise terracotta family rather than a new hue), signal/caution
+     tie directly to the map's own water/brass accents. */
+  --danger: #c1552f;
+  --color-danger: #c1552f;
+  --color-positive: var(--accent);
+  --color-warning: var(--accent-2);
+  --font-mono: "Space Mono", "SFMono-Regular", ui-monospace, monospace;
+  --tile-surface: repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 4%, transparent) 0 1px,
+      transparent 1px 1.5rem
+    )
+    var(--surface);
+  --tile-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 16%, #05070e73);
 }
 
 html:root[data-language="grapher"] {
@@ -106,17 +134,43 @@ html:root[data-language="grapher"] {
   --ring-exercise: #e7b65a;
   --ring-stand: #6da9ff;
   --radius: 6px;
+  --tile-surface: var(--surface);
+  --tile-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 18%, var(--border)),
+    0 8px 20px color-mix(in srgb, var(--accent) 10%, #0a0e1a40);
 }
 
 html:root[data-language="field-journal"] {
+  --motion-micro: 200ms ease-out;
+  --motion-quick-state: 260ms ease-in-out;
+  --body-leading: 1.65;
+  --heading-tracking: -0.01em;
   --theme-swatch: #39c5bb;
   --accent: #39c5bb;
   --accent-2: #ff5c8a;
+  /* Bullet-journal ink colors instead of the app-wide neon set: a ballpoint
+     red for danger, a highlighter amber for warning -- distinct from
+     --accent-2's magenta so a corrected/flagged entry doesn't read as the
+     same ink as a normal highlight. Positive stays the page's own accent. */
+  --danger: #c0392b;
+  --color-danger: #c0392b;
+  --color-positive: var(--accent);
+  --color-warning: #d6a726;
   --radius: 14px;
-  --font-serif: Georgia, "Times New Roman", serif;
+  --font-serif: Georgia, "Lora", "Times New Roman", serif;
+  --tile-surface: radial-gradient(
+      circle at 15% 0%,
+      color-mix(in srgb, var(--accent) 6%, transparent),
+      transparent 70%
+    )
+    var(--surface);
+  --tile-shadow: 0 14px 30px color-mix(in srgb, var(--accent-2) 12%, #0a080e4d);
 }
 
 html:root[data-language="phenology"] {
+  --motion-micro: 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-quick-state: 320ms ease-in-out;
+  --body-leading: 1.7;
   --theme-swatch: #d68bba;
   --accent: #d68bba;
   --accent-2: #a5c76a;
@@ -124,11 +178,38 @@ html:root[data-language="phenology"] {
   --ring-exercise: #e7b65a;
   --ring-stand: #a5c76a;
   --radius: 20px;
-  --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  /* Cyclical-season colors instead of the app-wide neon set: danger reads as
+     a wilted/dried bloom (muted, in the accent's own pink family rather than
+     a hue lifted from another theme), positive ties to the accent-2 green
+     (growth), warning reuses the exercise ring's existing gold rather than
+     adding a fourth hue. */
+  --danger: #9c4a63;
+  --color-danger: #9c4a63;
+  --color-positive: var(--accent-2);
+  --color-warning: var(--ring-exercise);
+  --font-serif:
+    "Iowan Old Style", "Palatino Linotype", Georgia, "Crimson Pro", serif;
   --season-summer-accent: #e7b65a;
+  --tile-surface:
+    radial-gradient(
+      circle at 88% 100%,
+      color-mix(in srgb, var(--accent-2) 8%, transparent),
+      transparent 65%
+    ),
+    radial-gradient(
+        circle at 8% 0%,
+        color-mix(in srgb, var(--accent) 8%, transparent),
+        transparent 60%
+      )
+      var(--surface);
+  --tile-shadow: 0 18px 40px color-mix(in srgb, var(--accent) 14%, #0a080e40);
 }
 
-html:root[data-language="sound-map"] {
+html:root[data-language="cadence"] {
+  --motion-micro: 100ms linear;
+  --motion-quick-state: 140ms ease-out;
+  --body-leading: 1.4;
+  --heading-tracking: 0.02em;
   --theme-swatch: #63b7ff;
   --accent: #63b7ff;
   --accent-2: #ff9c66;
@@ -136,10 +217,30 @@ html:root[data-language="sound-map"] {
   --ring-exercise: #b5e36b;
   --ring-stand: #63b7ff;
   --radius: 5px;
+  /* Mixing-console colors instead of the app-wide neon set: danger reads as
+     a channel clip light (a saturated red distinct from every other
+     language's danger hue), positive ties to the exercise ring's green
+     (levels reading clean), warning reuses the accent-2 orange already in
+     the console's own warm-signal range. */
+  --danger: #e2453a;
+  --color-danger: #e2453a;
+  --color-positive: var(--ring-exercise);
+  --color-warning: var(--accent-2);
   --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  --tile-surface: repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--accent) 4%, transparent) 0 1px,
+      transparent 1px 2rem
+    )
+    var(--surface);
+  --tile-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 14%, #04060a66);
 }
 
 html:root[data-language="archive"] {
+  --motion-micro: 120ms ease-in;
+  --motion-quick-state: 180ms ease-out;
+  --body-leading: 1.4;
+  --heading-tracking: -0.02em;
   --theme-swatch: #b8a0ff;
   --accent: #b8a0ff;
   --accent-2: #d9b56d;
@@ -147,6 +248,122 @@ html:root[data-language="archive"] {
   --ring-exercise: #c786a9;
   --ring-stand: #b8a0ff;
   --radius: 3px;
+  /* Card-catalog colors instead of the app-wide neon set: danger reads as a
+     due-date/withdrawn ink stamp (a deep brick red distinct from every other
+     language's danger hue), positive ties to the accent-2 gold (a
+     certification seal), warning reuses the exercise ring's mauve already in
+     the catalog's own palette. */
+  --danger: #9a3f35;
+  --color-danger: #9a3f35;
+  --color-positive: var(--accent-2);
+  --color-warning: var(--ring-exercise);
   --font-serif: "Rockwell", "Roboto Slab", Georgia, serif;
   --font-mono: "Courier New", "Consolas", ui-monospace, monospace;
+  --tile-surface: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent-2) 5%, transparent),
+      transparent 40%
+    )
+    var(--surface);
+  --tile-shadow: 0 6px 16px color-mix(in srgb, var(--accent-2) 18%, #0a08064d);
+}
+
+/*
+ * The shared EmptyState primitive (packages/iroha-shared/src/theme-ui/
+ * components/EmptyState.svelte) renders one literal "no records" mark
+ * (an em dash in a circle) for every language -- another shared asset that
+ * was quietly opting all six out of differentiation. Its mark is
+ * `aria-hidden`, so swapping the glyph per language via `::before` is purely
+ * visual; it never changes what's announced. Grapher keeps the component's
+ * own default untouched, matching its identity as the plainest of the six.
+ */
+html:root[data-language="atlas"] .empty-mark {
+  font-size: 0;
+  border-style: dashed;
+}
+html:root[data-language="atlas"] .empty-mark::before {
+  content: "+";
+  font-size: 2rem;
+  line-height: 1;
+}
+
+html:root[data-language="field-journal"] .empty-mark {
+  font-size: 0;
+}
+html:root[data-language="field-journal"] .empty-mark::before {
+  content: "○";
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+html:root[data-language="phenology"] .empty-mark {
+  font-size: 0;
+}
+html:root[data-language="phenology"] .empty-mark::before {
+  content: "◔";
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+html:root[data-language="cadence"] .empty-mark {
+  font-size: 0;
+  border-radius: var(--radius);
+}
+html:root[data-language="cadence"] .empty-mark::before {
+  content: "‖";
+  font-size: 1.5rem;
+  line-height: 1;
+  font-family: var(--font-mono);
+}
+
+html:root[data-language="archive"] .empty-mark {
+  font-size: 0;
+  border-radius: var(--radius);
+}
+html:root[data-language="archive"] .empty-mark::before {
+  content: "∅";
+  font-size: 1.8rem;
+  line-height: 1;
+  font-family: var(--font-serif);
+}
+
+/*
+ * The shared LoadingBoundary primitive (apps/iroha-web/src/lib/components/
+ * LoadingBoundary.svelte -- a host adapter, since it reads AsyncResource
+ * state, not themed content) renders one literal sweeping-bar mark for
+ * every language. Grapher keeps the component's own default, matching its
+ * identity as the plainest of the six; the rest restyle the track's shape
+ * and texture, leaving the sweep animation itself untouched since changing
+ * it would need visual QA this session couldn't do.
+ */
+html:root[data-language="atlas"] .loading-mark {
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 30%, var(--border)) 0 4px,
+    transparent 4px 7px
+  );
+}
+
+html:root[data-language="field-journal"] .loading-mark {
+  height: 0.15rem;
+  border-radius: 999px;
+}
+
+html:root[data-language="phenology"] .loading-mark {
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+html:root[data-language="cadence"] .loading-mark {
+  height: 0.6rem;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 22%, var(--border)) 0 3px,
+    transparent 3px 5px
+  );
+}
+
+html:root[data-language="archive"] .loading-mark {
+  height: 0.35rem;
+  border-radius: 0;
 }

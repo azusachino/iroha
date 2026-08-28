@@ -7,7 +7,8 @@
     formatDuration,
     formatPace,
   } from "../../format/format";
-  import { sportLabel } from "../../domain/sport";
+  import { sportColor, sportLabel } from "../../domain/sport";
+  import { sportIcon } from "../../domain/sport-icons";
 
   let {
     activities,
@@ -154,7 +155,16 @@
                   >{activity.title || sportLabel(activity.sport_type)}</a
                 >
               </td>
-              <td>{sportLabel(activity.sport_type)}</td>
+              <td class="sport-cell"
+                >{#if sportIcon(activity.sport_type)}
+                  {@const Icon = sportIcon(activity.sport_type)}
+                  <Icon
+                    size={14}
+                    style={`color: ${sportColor(activity.sport_type)}`}
+                    aria-hidden="true"
+                  />
+                {/if}{sportLabel(activity.sport_type)}</td
+              >
               <td>{formatDistance(activity.distance_m)}</td>
               <td
                 >{formatDuration(
@@ -298,6 +308,11 @@
   td:first-child {
     color: var(--accent);
     font-style: italic;
+  }
+  .sport-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
   }
   td a {
     color: var(--text);

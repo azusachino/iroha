@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MOBILE_VIEWPORTS = ((320, 844), (375, 844), (390, 844), (414, 896))
-THEMES = ("atlas", "grapher", "field-journal", "phenology", "sound-map", "archive")
+THEMES = ("atlas", "grapher", "field-journal", "phenology", "cadence", "archive")
 MODES = ("light", "dark")
 MOTION_MODES = ("normal", "reduced")
 FOCUS_CONTRAST_EXPRESSION = (

@@ -258,7 +258,7 @@
     background: color-mix(in srgb, var(--accent) 9%, var(--surface-2));
   }
 
-  .month-navigator[data-appearance="sound-map"] {
+  .month-navigator[data-appearance="cadence"] {
     border-inline: 3px solid var(--accent-2);
     box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--accent) 35%, transparent);
   }

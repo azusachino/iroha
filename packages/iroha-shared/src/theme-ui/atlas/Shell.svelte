@@ -1,10 +1,17 @@
 <script lang="ts">
   import type { ShellThemeProps } from "../../view-contracts/shell-view";
 
-  let { children, theme }: ShellThemeProps = $props();
+  let { children, theme, brand, nav, actions }: ShellThemeProps = $props();
 </script>
 
 <div class="atlas-site" data-theme={theme}>
+  <header class="appbar atlas-header">
+    {@render brand()}
+    {@render nav()}
+    <div class="appbar-actions atlas-header-legend">
+      {@render actions()}
+    </div>
+  </header>
   <div class="atlas-content">{@render children()}</div>
   <footer class="atlas-footer">
     <span class="atlas-compass" aria-hidden="true">
@@ -80,6 +87,70 @@
     fill: var(--text-muted);
     font-size: 8px;
     font-family: var(--font-mono);
+  }
+
+  /* Everything below restyles the shared appbar/nav/actions markup into a
+     surveyor's map legend; the links/buttons/select themselves are
+     untouched, so focus order, tap targets, and accessible names stay
+     whatever the host defines. */
+  .atlas-header {
+    background:
+      repeating-linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent) 8%, transparent) 0 1px,
+        transparent 1px 2.5rem
+      ),
+      color-mix(in srgb, var(--bg) 92%, transparent);
+    border-bottom: 1px dashed
+      color-mix(in srgb, var(--accent) 35%, var(--border));
+    box-shadow: none;
+  }
+
+  .atlas-header :global(.brand) {
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+  }
+
+  .atlas-header :global(.main-nav) {
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
+  }
+
+  .atlas-header :global(.main-nav > a),
+  .atlas-header :global(.navigation-menu > summary) {
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+  }
+
+  .atlas-header :global(.main-nav > a:hover),
+  .atlas-header :global(.main-nav > a.active),
+  .atlas-header :global(.navigation-menu.active > summary) {
+    background: transparent;
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  /* A small filled triangle ahead of the active label -- cartography's own
+     convention for "the most important point," borrowed as a "you are
+     here" peak marker instead of a generic dot or fill. */
+  .atlas-header :global(.main-nav > a.active)::before,
+  .atlas-header :global(.navigation-menu.active > summary)::before {
+    content: "";
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-right: 0.35rem;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 6px solid var(--accent);
+    vertical-align: middle;
+  }
+
+  .atlas-header-legend {
+    padding: 0.2rem 0.5rem;
+    border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
   }
 
   @media (max-width: 640px) {

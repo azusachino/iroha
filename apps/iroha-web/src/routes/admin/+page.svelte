@@ -1,12 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import {
-    Activity,
-    CheckCircle2,
-    Database,
-    RefreshCw,
-    Server,
-  } from "@lucide/svelte";
+  import { CheckCircle2, Database, RefreshCw, Server } from "@lucide/svelte";
   import {
     getMetricCatalog,
     listJobs,
@@ -32,9 +26,6 @@
   );
   const failedJobs = $derived(jobs.filter((job) => job.status === "failed"));
   const executionGroups = $derived(groupJobs(jobs));
-  const domains = $derived(
-    [...new Set(metrics.map((metric) => metric.domain))].sort(),
-  );
 
   async function load(): Promise<void> {
     loading = true;
@@ -68,11 +59,11 @@
 <section class="admin-page" data-theme={theme.definition().identity.id}>
   <header class="page-head">
     <div>
-      <p class="eyebrow"><Server size={14} /> System administration</p>
-      <h1>Admin</h1>
+      <p class="eyebrow"><Server size={14} /> Operational status</p>
+      <h1>What needs attention?</h1>
       <p class="intro">
-        Read-only operational facts for the canonical cockpit: server health,
-        registered metrics, and background work.
+        Server health, background jobs, and the metric catalog the cockpit reads
+        from.
       </p>
     </div>
     <button type="button" onclick={() => void load()} disabled={loading}>
@@ -98,9 +89,15 @@
       <small>API read path · iroha v{APP_VERSION}</small>
     </article>
     <article class="status-card">
-      <span><Activity size={15} /> Metric catalog</span>
-      <strong>{loading ? "—" : metrics.length}</strong>
-      <small>{domains.length ? domains.join(" · ") : "No catalog loaded"}</small
+      <span><CheckCircle2 size={15} /> Needs attention</span>
+      <strong
+        class:healthy={!loading && failedJobs.length === 0}
+        class:bad={failedJobs.length > 0}
+      >
+        {loading ? "—" : failedJobs.length}
+      </strong>
+      <small
+        >failed job execution{failedJobs.length === 1 ? "" : "s"} in the recent ledger</small
       >
     </article>
     <article class="status-card">
@@ -197,9 +194,13 @@
   }
 
   h1 {
-    font-size: clamp(2.7rem, 7vw, 5.8rem);
+    max-width: 16ch;
+    /* Matches the compact utility-title scale Motion/Night/Patterns/Library
+       already use (v0.4.4) instead of the full editorial hero size Today
+       and Overview keep -- Admin is a utility route, not an editorial one. */
+    font-size: var(--grapher-utility-title-size);
     letter-spacing: -0.09em;
-    line-height: 0.9;
+    line-height: 0.95;
   }
 
   h2 {

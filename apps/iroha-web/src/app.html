@@ -21,12 +21,21 @@
           }
           document.documentElement.dataset.theme = t;
           var language = localStorage.getItem("iroha-design-language");
+          // "sound-map" was cadence's id before the rename -- migrate a
+          // persisted pre-rename value instead of silently dropping the
+          // user's actual preference back to the default.
+          if (language === "sound-map") {
+            language = "cadence";
+            try {
+              localStorage.setItem("iroha-design-language", language);
+            } catch (e) {}
+          }
           var languages = [
             "atlas",
             "grapher",
             "field-journal",
             "phenology",
-            "sound-map",
+            "cadence",
             "archive",
           ];
           document.documentElement.dataset.language = languages.includes(

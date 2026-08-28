@@ -1,7 +1,11 @@
 <script lang="ts">
   import { categoryColor } from "../../domain/category-color";
+  import { expenseCategoryIcon } from "../../domain/expense-icons";
   import type { Expense } from "../../domain/expense";
-  import { expenseLedgerCsv } from "../../view-contracts/expense-view";
+  import {
+    expenseCategoryLabel,
+    expenseLedgerCsv,
+  } from "../../view-contracts/expense-view";
   import { formatDate } from "../../format/format";
 
   let {
@@ -88,13 +92,28 @@
                 onclick={() => onSelect(expense.id)}
               >
                 <span>
-                  <strong
-                    ><i
-                      class="category-mark"
-                      style={`background: ${categoryColor(expense.category) ?? "var(--text-muted)"}`}
-                    ></i>{expense.merchant || expense.category}</strong
+                  <strong>
+                    {#if expenseCategoryIcon(expense.category)}
+                      {@const Icon = expenseCategoryIcon(expense.category)}
+                      <Icon
+                        class="category-icon"
+                        size={14}
+                        style={`color: ${categoryColor(expense.category) ?? "var(--text-muted)"}`}
+                        aria-hidden="true"
+                      />
+                    {:else}
+                      <i
+                        class="category-mark"
+                        style={`background: ${categoryColor(expense.category) ?? "var(--text-muted)"}`}
+                      ></i>
+                    {/if}{expense.merchant ||
+                      expenseCategoryLabel[expense.category]}</strong
                   >
-                  <small>{expense.occurred_on} · {expense.category}</small>
+                  <small
+                    >{expense.occurred_on} · {expenseCategoryLabel[
+                      expense.category
+                    ]}</small
+                  >
                 </span>
                 <b
                   >{formatMoney(
@@ -130,7 +149,7 @@
           <div>
             <p class="eyebrow">Selected record</p>
             <h3 id="expense-detail-title">
-              {selected.merchant || selected.category}
+              {selected.merchant || expenseCategoryLabel[selected.category]}
             </h3>
           </div>
           <button
@@ -175,7 +194,7 @@
           </div>
           <div>
             <dt>Category</dt>
-            <dd>{selected.category}</dd>
+            <dd>{expenseCategoryLabel[selected.category]}</dd>
           </div>
           <div>
             <dt>Note</dt>
@@ -359,6 +378,9 @@
     width: 0.55rem;
     height: 0.55rem;
     border-radius: 50%;
+  }
+  :global(.category-icon) {
+    flex: 0 0 auto;
   }
   .expense-row small {
     color: var(--text-muted);

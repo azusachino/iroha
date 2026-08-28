@@ -23,7 +23,7 @@
     min-height: 1.7rem;
     padding: 0.2rem 0.55rem 0.2rem 0.28rem;
     border: 1px solid color-mix(in srgb, var(--source-color) 42%, var(--border));
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--source-color) 12%, var(--surface));
     color: var(--text);
     font-size: 0.75rem;

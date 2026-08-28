@@ -90,7 +90,7 @@
     border-radius: 1.25rem;
   }
 
-  .sleep-scope-summary[data-theme="sound-map"] {
+  .sleep-scope-summary[data-theme="cadence"] {
     border-inline-width: 3px;
   }
 
