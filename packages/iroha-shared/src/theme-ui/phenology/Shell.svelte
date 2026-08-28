@@ -43,6 +43,7 @@
       ),
       var(--bg);
     color: var(--text);
+    font-family: var(--font-serif);
   }
 
   .bloom-content {

@@ -555,14 +555,23 @@ textarea {
   }
 }
 
+body {
+  /* Per-language line-height/letter-spacing (packages/iroha-shared/theme/
+     themes.css) so reading rhythm differs, not just typeface -- falls back
+     to a neutral default before a language is resolved. */
+  line-height: var(--body-leading, 1.5);
+}
+
 h1 {
   font-size: 1.5rem;
   margin: 0 0 1rem;
+  letter-spacing: var(--heading-tracking, normal);
 }
 
 h2 {
   font-size: 1.1rem;
   margin: 1.5rem 0 0.75rem;
+  letter-spacing: var(--heading-tracking, normal);
 }
 
 .muted {

@@ -96,6 +96,7 @@
  */
 
 html:root[data-language="atlas"] {
+  --heading-tracking: 0.01em;
   --theme-swatch: #58c7c0;
   --accent: #58c7c0;
   --accent-2: #e7b65a;
@@ -103,7 +104,7 @@ html:root[data-language="atlas"] {
   --ring-exercise: #e07b58;
   --ring-stand: #58c7c0;
   --radius: 10px;
-  --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  --font-mono: "Space Mono", "SFMono-Regular", ui-monospace, monospace;
   --tile-surface: repeating-linear-gradient(
       90deg,
       color-mix(in srgb, var(--accent) 4%, transparent) 0 1px,
@@ -129,6 +130,8 @@ html:root[data-language="grapher"] {
 }
 
 html:root[data-language="field-journal"] {
+  --body-leading: 1.65;
+  --heading-tracking: -0.01em;
   --theme-swatch: #39c5bb;
   --accent: #39c5bb;
   --accent-2: #ff5c8a;
@@ -144,6 +147,7 @@ html:root[data-language="field-journal"] {
 }
 
 html:root[data-language="phenology"] {
+  --body-leading: 1.7;
   --theme-swatch: #d68bba;
   --accent: #d68bba;
   --accent-2: #a5c76a;
@@ -169,6 +173,8 @@ html:root[data-language="phenology"] {
 }
 
 html:root[data-language="sound-map"] {
+  --body-leading: 1.4;
+  --heading-tracking: 0.02em;
   --theme-swatch: #63b7ff;
   --accent: #63b7ff;
   --accent-2: #ff9c66;
@@ -187,6 +193,8 @@ html:root[data-language="sound-map"] {
 }
 
 html:root[data-language="archive"] {
+  --body-leading: 1.4;
+  --heading-tracking: -0.02em;
   --theme-swatch: #b8a0ff;
   --accent: #b8a0ff;
   --accent-2: #d9b56d;

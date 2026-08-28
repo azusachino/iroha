@@ -31,6 +31,7 @@
       ),
       var(--bg);
     color: var(--text);
+    font-family: var(--font-serif);
   }
 
   .field-journal-content {
