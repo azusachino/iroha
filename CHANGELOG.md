@@ -9,10 +9,10 @@ contract between minor versions.
 
 ### Changed
 
-- Give registered design languages real ownership of the persistent app-bar/nav shell instead of leaving it fully host-owned regardless of theme. `Shell.svelte`'s contract (`ShellThemeProps`) now
-  accepts `brand`/`nav`/`actions` snippets from the host; five languages render the unstyled `DefaultAppHeader.svelte` (pixel-identical to the previous shared bar), and Sound Map gets a first bespoke
-  header — a rack-style "mixing console" that restyles the shared nav/actions markup via scoped selectors instead of duplicating the interactive elements. The remaining five languages' shells are the
-  next milestone.
+- Give every registered design language real ownership of the persistent app-bar/nav shell instead of leaving it fully host-owned and identical regardless of theme. `Shell.svelte`'s contract
+  (`ShellThemeProps`) now accepts `brand`/`nav`/`actions` snippets from the host, and each of the six languages restyles that shared markup into its own header via scoped selectors — a dashed
+  map-legend for Atlas, flat axis-tick tabs for Grapher, a dotted/wavy-underline masthead for Field Journal, a phase-dot pill for Phenology, a rack-style "mixing console" for Sound Map, and a
+  card-catalog drawer strip for Archive — without duplicating the underlying interactive elements, so the existing audited focus order, tap-target sizes, and accessible names carry over unchanged.
 
 ## [0.4.4] — 2026-08-24
 
