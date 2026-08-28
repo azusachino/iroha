@@ -1,5 +1,6 @@
 import type { Component } from "svelte";
 import { csvCell, pointValue, type SharedMetricSeries } from "./metric-series";
+import type { HealthMetricRange } from "../domain/health-metric-ranges";
 
 // One exact row behind a displayed chart. `value` stays raw for analysis while
 // `display` preserves what the chart actually rendered.
@@ -16,6 +17,10 @@ export interface PanelRow {
   value: number | null;
   display: string;
   observed?: number;
+  // Only present for rows with a real, citable reference range (see
+  // domain/health-metric-ranges.ts) -- absence means "no range exists",
+  // not "not loaded yet".
+  range?: HealthMetricRange;
 }
 
 export interface PanelCoverage {

@@ -128,7 +128,7 @@ export interface MonthlyReportSeriesPoint {
   completeness: "complete" | "partial";
   movement: { distance_m: number } | null;
   sleep: { average_asleep_s: number } | null;
-  daily_health: { observed_days: number } | null;
+  daily_health: DailyHealthReportData | null;
   media: { event_count: number; completed_count: number } | null;
   expenses: {
     totals_by_currency: {
