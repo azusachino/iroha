@@ -1,6 +1,7 @@
 <script lang="ts">
   import BarChart from "../components/BarChart.svelte";
   import CoverageBars from "../../components/CoverageBars.svelte";
+  import IconLegend from "../../components/IconLegend.svelte";
   import ReportCoverage from "../components/ReportCoverage.svelte";
   import ReportReceipt from "../components/ReportReceipt.svelte";
   import type { ReportEvidenceRow } from "../../domain/report";
@@ -232,6 +233,7 @@
           rows={movementRows}
           period={month}
         >
+          <IconLegend rows={movementRows} />
           <BarChart
             categories={movementRows.map((row) => row.label)}
             primary={{
@@ -332,6 +334,7 @@
           rows={expenseRows}
           period={month}
         >
+          <IconLegend rows={expenseRows} />
           <BarChart
             categories={expenseRows.map((row) => row.label)}
             primary={{
