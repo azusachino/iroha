@@ -9,6 +9,7 @@
   import { navigationGroups } from "$lib/navigation";
   import ThemeFrame from "$lib/themes/ThemeFrame.svelte";
   import ThemeProvider from "$lib/themes/ThemeProvider.svelte";
+  import AmbientBackground from "@iroha/shared/theme-ui/ambient/AmbientBackground.svelte";
   import "./app.css";
 
   let { children } = $props();
@@ -70,6 +71,7 @@
 {/snippet}
 
 <ThemeProvider>
+  <AmbientBackground />
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="app">
     <CommandPalette />

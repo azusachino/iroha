@@ -38,6 +38,7 @@
 		"@lucide/svelte": "^1.34.0",
 		"echarts": "^6.1.0",
 		"maplibre-gl": "^6.6.0",
+		"three": "^0.185.1",
 		"uplot": "^1.6.32"
 	}
 }
