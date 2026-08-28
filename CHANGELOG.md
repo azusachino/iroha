@@ -20,9 +20,9 @@ contract between minor versions.
 - Give Field Journal and Phenology's shell root the `font-family` each already declared via `--font-serif` but never actually applied outside a few hand-styled headings, so their whole page reads in
   the theme's typeface rather than falling back to the shared default sans. Give Atlas its own monospace stack instead of reusing Sound Map's byte-identical one. Add `--body-leading` and
   `--heading-tracking`, consumed by `body`/`h1`/`h2`, so line-height and letter-spacing also vary per language.
-- Fix the language-switch cross-fade, which was silently inert: its wrapper was `display: contents`, a box-less display mode that opacity/transform transitions cannot render anything on. Give each
-  language its own switch transition (lateral pan for Atlas, a soft settle for Field Journal, an overshoot bloom for Phenology, a quick snap for Sound Map, a stamp-like scale for Archive, plain fade
-  for Grapher) and its own `--motion-micro`/`--motion-quick-state` hover/press timing.
+- Fix the language-switch cross-fade, which was silently inert: its wrapper was `display: contents`, a box-less display mode that opacity/transform transitions cannot render anything on. A distinct
+  motion signature per language (lateral pan, overshoot bloom, stamp scale, etc.) was tried and read as over-designed in practice, so the fix keeps one shared plain fade for all six — a
+  full-composition swap should stay calm regardless of which language is switching in. Each language still gets its own `--motion-micro`/`--motion-quick-state` hover/press timing.
 - Give the shared sport/source badges (`SportBadge`, `SourceBadge`) each theme's own corner radius via the existing `--radius` token instead of a hardcoded pill shape — the only two shared controls
   with no per-language styling; every other shared control (`SelectControl`, `MonthNavigator`, `PeriodToolbar`/`PeriodDrill`, most chart/report components) already had it. Give `LoadingBoundary`'s
   shared progress-bar track its own shape and texture per language the same way the empty-state mark got one.
