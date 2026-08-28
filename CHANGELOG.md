@@ -26,6 +26,16 @@ contract between minor versions.
 - Give the shared sport/source badges (`SportBadge`, `SourceBadge`) each theme's own corner radius via the existing `--radius` token instead of a hardcoded pill shape — the only two shared controls
   with no per-language styling; every other shared control (`SelectControl`, `MonthNavigator`, `PeriodToolbar`/`PeriodDrill`, most chart/report components) already had it. Give `LoadingBoundary`'s
   shared progress-bar track its own shape and texture per language the same way the empty-state mark got one.
+- Self-host the Latin subset of each theme's display typeface (Space Mono, IBM Plex Mono, Roboto Slab, Lora, Crimson Pro, Outfit; both `iroha-web` and the public-site design workbench) instead of
+  naming a system font and hoping it's installed, with no third-party font request at runtime. Insert the self-hosted fallback into Field Journal's and Phenology's `--font-serif` stacks (before the
+  final generic `serif`) so they no longer converge on the same generic serif when their preferred system fonts aren't present, and add one to the shared base `--font-sans`.
+
+### Fixed
+
+- Un-clobber every theme's tile shadow: `app.css` declared `.tile` twice, and the second declaration's hardcoded `box-shadow` silently won over the first's `var(--tile-shadow)` (same specificity,
+  later in source order) — every language's per-theme tile shadow from this release has been invisible since it landed. Merged into one rule that keeps both the per-theme shadow and the existing
+  glossy top-edge highlight. Also moved `.tile`/`.tile-interactive`'s hover transition off a hardcoded 140–180ms onto `var(--motion-micro)`, so each theme's hover feel actually reaches the most
+  frequent interaction in the app instead of only the once-per-session language switch.
 
 ## [0.4.4] — 2026-08-24
 
