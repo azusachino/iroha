@@ -1,0 +1,76 @@
+/*
+ * Self-hosted Latin subset of each theme's display typeface (Space Mono,
+ * IBM Plex Mono, Roboto Slab, Lora, Crimson Pro) plus the shared base sans
+ * (Outfit), so a theme's declared font actually renders instead of falling
+ * back silently on a machine that doesn't have Space Mono/Rockwell/Iowan
+ * Old Style/etc. installed. No third-party font request at runtime -- a
+ * private activity viewer shouldn't call out to a font CDN on every load.
+ * Only the Latin subset is bundled; see packages/iroha-shared/src/theme/
+ * themes.css for which language requests which family and where it sits
+ * in the fallback order.
+ */
+
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/space-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/space-mono-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-500.woff2") format("woff2");
+}
+
+/* Roboto Slab, Lora, Crimson Pro, and Outfit are shipped by Google Fonts as
+   variable files -- one file covers the whole weight range instead of a
+   separate static file per weight. */
+@font-face {
+  font-family: "Roboto Slab";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/roboto-slab-variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Lora";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/lora-variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Crimson Pro";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/crimson-pro-variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/outfit-variable.woff2") format("woff2");
+}
