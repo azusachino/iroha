@@ -77,7 +77,7 @@
     gap: 0.2rem;
     padding: 0.8rem;
     border: 1px solid var(--border);
-    border-radius: 9px;
+    border-radius: var(--radius);
     color: inherit;
     text-decoration: none;
   }
