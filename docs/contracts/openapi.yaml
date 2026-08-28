@@ -1699,9 +1699,11 @@ components:
     MonthlyDailyHealthTrend:
       type: object
       additionalProperties: false
-      required: [observed_days]
+      required: [observed_days, metric_averages]
       properties:
         observed_days: { type: integer }
+        metric_averages:
+          { type: array, items: { $ref: "#/components/schemas/MetricAverage" } }
     MonthlyMediaTrend:
       type: object
       additionalProperties: false
