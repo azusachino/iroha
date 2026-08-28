@@ -175,6 +175,13 @@ Motion should explain state changes, not decorate every surface.
 - Respect `prefers-reduced-motion` globally.
 - Never use motion to communicate information that has no static equivalent.
 
+**Amendment (2026-08-28): per-language ambient backgrounds.** Five of the six registered design languages (all but Grapher, which stays undecorated) mount a low-opacity, near-imperceptible WebGL
+scene (`packages/iroha-shared/src/theme-ui/ambient/`) at the root layout, behind every route rather than limited to Today/design-archive as the rule above states literally. This is a deliberate,
+scoped exception, not a lapse: every data tile paints an opaque `--tile-surface`, so the scene is only ever visible through chrome and empty space and never behind real data; `prefers-reduced-motion`
+is a state contract (exactly one rendered frame, `requestAnimationFrame` never scheduled), not a slower loop; and each language's scene is an explicit opt-in entry in `ambient/factories.ts`, not a
+default. Approved for this personal project as a deliberate "try the fancy stuff" call rather than a response to a specific user problem. Any future perpetual-motion addition outside Today/design-
+archive should get the same explicit sign-off and the same amendment treatment here, not a silent exception.
+
 ## Data and privacy boundaries
 
 Private surfaces consume `/api/v1`. There is no in-app public surface: the sanitized public projection is built by a standalone export (`apps/iroha-server/pkg/publicexport`) and rendered by a separate
