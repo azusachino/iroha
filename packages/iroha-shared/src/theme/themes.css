@@ -86,6 +86,15 @@
   }
 }
 
+/*
+ * --tile-surface and --tile-shadow below override the host's own
+ * contrast-mode-only defaults (apps/iroha-web/src/routes/app.css) the same
+ * way --accent and --radius already do: every shared card/tile primitive
+ * already reads these two tokens, so giving each language its own value is
+ * one edit here instead of a `.tile` override in every consuming component.
+ * Each keeps `var(--surface)` as its base so light/dark mode still applies.
+ */
+
 html:root[data-language="atlas"] {
   --theme-swatch: #58c7c0;
   --accent: #58c7c0;
@@ -95,6 +104,13 @@ html:root[data-language="atlas"] {
   --ring-stand: #58c7c0;
   --radius: 10px;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  --tile-surface: repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 4%, transparent) 0 1px,
+      transparent 1px 1.5rem
+    )
+    var(--surface);
+  --tile-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 16%, #05070e73);
 }
 
 html:root[data-language="grapher"] {
@@ -106,6 +122,10 @@ html:root[data-language="grapher"] {
   --ring-exercise: #e7b65a;
   --ring-stand: #6da9ff;
   --radius: 6px;
+  --tile-surface: var(--surface);
+  --tile-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 18%, var(--border)),
+    0 8px 20px color-mix(in srgb, var(--accent) 10%, #0a0e1a40);
 }
 
 html:root[data-language="field-journal"] {
@@ -114,6 +134,13 @@ html:root[data-language="field-journal"] {
   --accent-2: #ff5c8a;
   --radius: 14px;
   --font-serif: Georgia, "Times New Roman", serif;
+  --tile-surface: radial-gradient(
+      circle at 15% 0%,
+      color-mix(in srgb, var(--accent) 6%, transparent),
+      transparent 70%
+    )
+    var(--surface);
+  --tile-shadow: 0 14px 30px color-mix(in srgb, var(--accent-2) 12%, #0a080e4d);
 }
 
 html:root[data-language="phenology"] {
@@ -126,6 +153,19 @@ html:root[data-language="phenology"] {
   --radius: 20px;
   --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --season-summer-accent: #e7b65a;
+  --tile-surface:
+    radial-gradient(
+      circle at 88% 100%,
+      color-mix(in srgb, var(--accent-2) 8%, transparent),
+      transparent 65%
+    ),
+    radial-gradient(
+        circle at 8% 0%,
+        color-mix(in srgb, var(--accent) 8%, transparent),
+        transparent 60%
+      )
+      var(--surface);
+  --tile-shadow: 0 18px 40px color-mix(in srgb, var(--accent) 14%, #0a080e40);
 }
 
 html:root[data-language="sound-map"] {
@@ -137,6 +177,13 @@ html:root[data-language="sound-map"] {
   --ring-stand: #63b7ff;
   --radius: 5px;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  --tile-surface: repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--accent) 4%, transparent) 0 1px,
+      transparent 1px 2rem
+    )
+    var(--surface);
+  --tile-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 14%, #04060a66);
 }
 
 html:root[data-language="archive"] {
@@ -149,4 +196,11 @@ html:root[data-language="archive"] {
   --radius: 3px;
   --font-serif: "Rockwell", "Roboto Slab", Georgia, serif;
   --font-mono: "Courier New", "Consolas", ui-monospace, monospace;
+  --tile-surface: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent-2) 5%, transparent),
+      transparent 40%
+    )
+    var(--surface);
+  --tile-shadow: 0 6px 16px color-mix(in srgb, var(--accent-2) 18%, #0a08064d);
 }
