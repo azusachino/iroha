@@ -13,6 +13,11 @@
   import { healthMetricLabel } from "../../domain/health-metric-labels";
   import { healthMetricIcon } from "../../domain/health-metric-icons";
   import { healthMetricColorVar } from "../../domain/health-metric-colors";
+  import { sportLabel, sportColorVar } from "../../domain/sport-labels";
+  import { sportIcon } from "../../domain/sport-icons";
+  import { expenseCategoryLabel } from "../../domain/expense-labels";
+  import { expenseCategoryIcon } from "../../domain/expense-icons";
+  import { categoryColorVar } from "../../domain/category-color";
   import {
     coveragePercent,
     reportPeriodDays,
@@ -75,7 +80,9 @@
   );
   const movementRows = $derived<PanelRow[]>(
     (movement?.by_sport ?? []).map((item) => ({
-      label: item.sport,
+      label: sportLabel(item.sport),
+      icon: sportIcon(item.sport),
+      colorVar: sportColorVar(item.sport),
       value: item.distance_m / 1000,
       display: number(item.distance_m / 1000) + " km",
     })),
@@ -103,14 +110,16 @@
   );
   const expenseRows = $derived<PanelRow[]>(
     categoryTotals.map((item) => ({
-      label: item.category,
+      label: expenseCategoryLabel(item.category),
+      icon: expenseCategoryIcon(item.category),
+      colorVar: categoryColorVar(item.category),
       value: item.amount_minor,
       display: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
     })),
   );
   const evidence = $derived<ReportEvidenceRow[]>([
     ...(movement?.by_sport ?? []).map((item) => ({
-      label: item.sport,
+      label: sportLabel(item.sport),
       value: number(item.distance_m / 1000) + " km",
       detail:
         item.activity_count + " sessions · " + formatDuration(item.duration_s),
@@ -145,7 +154,7 @@
         ]
       : []),
     ...categoryTotals.map((item) => ({
-      label: item.category,
+      label: expenseCategoryLabel(item.category),
       value: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
       detail: item.expense_count + " records",
     })),
@@ -190,18 +199,7 @@
           rows={movementRows}
           period={month}
         >
-          <BarChart
-            categories={movement.by_sport.map((item) => item.sport)}
-            primary={{
-              name: "Distance",
-              values: movement.by_sport.map((item) => item.distance_m / 1000),
-              color: "var(--accent)",
-              formatter: (value) => number(value) + " km",
-            }}
-            orientation="horizontal"
-            categorical
-            height={230}
-          />
+          <CoverageBars rows={movementRows} />
         </MetricPanel>
       {:else}<p class="empty">No movement was recorded.</p>{/if}
     </ReportMetricCard>
@@ -270,7 +268,7 @@
           rows={healthRows}
           period={month}
         >
-          <CoverageBars rows={healthRows} />
+          <CoverageBars rows={healthRows} max={100} />
         </MetricPanel>
       {:else}<p class="empty">No body metrics were recorded.</p>{/if}
     </ReportMetricCard>
@@ -334,19 +332,7 @@
           rows={expenseRows}
           period={month}
         >
-          <BarChart
-            categories={categoryTotals.map((item) => item.category)}
-            primary={{
-              name: primaryCurrency,
-              values: categoryTotals.map((item) => item.amount_minor),
-              color: "var(--accent)",
-              formatter: (value) =>
-                formatMoney(value, primaryCurrency, primaryExponent),
-            }}
-            orientation="horizontal"
-            categorical
-            height={240}
-          />
+          <CoverageBars rows={expenseRows} />
         </MetricPanel>
       {:else}<p class="empty">No spending entries were recorded.</p>{/if}
     </ReportMetricCard>

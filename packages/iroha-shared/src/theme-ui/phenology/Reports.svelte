@@ -13,6 +13,11 @@
   import { healthMetricLabel } from "../../domain/health-metric-labels";
   import { healthMetricIcon } from "../../domain/health-metric-icons";
   import { healthMetricColorVar } from "../../domain/health-metric-colors";
+  import { sportLabel, sportColorVar } from "../../domain/sport-labels";
+  import { sportIcon } from "../../domain/sport-icons";
+  import { expenseCategoryLabel } from "../../domain/expense-labels";
+  import { expenseCategoryIcon } from "../../domain/expense-icons";
+  import { categoryColorVar } from "../../domain/category-color";
   import {
     coveragePercent,
     reportPeriodDays,
@@ -80,6 +85,24 @@
       display: number(seconds / 3600) + "h",
     })),
   );
+  const movementRows = $derived<PanelRow[]>(
+    (movement?.by_sport ?? []).map((item) => ({
+      label: sportLabel(item.sport),
+      icon: sportIcon(item.sport),
+      colorVar: sportColorVar(item.sport),
+      value: item.distance_m / 1000,
+      display: number(item.distance_m / 1000) + " km",
+    })),
+  );
+  const expenseRows = $derived<PanelRow[]>(
+    categoryTotals.map((item) => ({
+      label: expenseCategoryLabel(item.category),
+      icon: expenseCategoryIcon(item.category),
+      colorVar: categoryColorVar(item.category),
+      value: item.amount_minor,
+      display: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
+    })),
+  );
   const evidence = $derived<ReportEvidenceRow[]>([
     ...(sleep
       ? [
@@ -97,7 +120,7 @@
         ]
       : []),
     ...(movement?.by_sport ?? []).map((item) => ({
-      label: "Movement · " + item.sport,
+      label: "Movement · " + sportLabel(item.sport),
       value: number(item.distance_m / 1000) + " km",
       detail: item.activity_count + " sessions",
     })),
@@ -116,7 +139,7 @@
         ]
       : []),
     ...categoryTotals.map((item) => ({
-      label: "Spend · " + item.category,
+      label: "Spend · " + expenseCategoryLabel(item.category),
       value: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
       detail: item.expense_count + " records",
     })),
@@ -211,25 +234,10 @@
           unit="km"
           method={report.sections.movement.schema}
           rowHeader="Sport"
-          rows={movement.by_sport.map((item) => ({
-            label: item.sport,
-            value: item.distance_m / 1000,
-            display: number(item.distance_m / 1000) + " km",
-          }))}
+          rows={movementRows}
           period={month}
         >
-          <BarChart
-            categories={movement.by_sport.map((item) => item.sport)}
-            primary={{
-              name: "Distance",
-              values: movement.by_sport.map((item) => item.distance_m / 1000),
-              color: "var(--accent)",
-              formatter: (value) => number(value) + " km",
-            }}
-            orientation="horizontal"
-            categorical
-            height={220}
-          />
+          <CoverageBars rows={movementRows} />
         </MetricPanel>
       {:else}<p class="empty">No canonical movement records.</p>{/if}
     </ReportMetricCard>
@@ -254,7 +262,7 @@
           rows={healthRows}
           period={month}
         >
-          <CoverageBars rows={healthRows} />
+          <CoverageBars rows={healthRows} max={100} />
         </MetricPanel>
       {:else}<p class="empty">No canonical daily-health observations.</p>{/if}
     </ReportMetricCard>
@@ -314,30 +322,10 @@
           unit={primaryCurrency + " minor"}
           method={report.sections.expenses.schema}
           rowHeader="Category"
-          rows={categoryTotals.map((item) => ({
-            label: item.category,
-            value: item.amount_minor,
-            display: formatMoney(
-              item.amount_minor,
-              primaryCurrency,
-              primaryExponent,
-            ),
-          }))}
+          rows={expenseRows}
           period={month}
         >
-          <BarChart
-            categories={categoryTotals.map((item) => item.category)}
-            primary={{
-              name: primaryCurrency,
-              values: categoryTotals.map((item) => item.amount_minor),
-              color: "var(--accent)",
-              formatter: (value) =>
-                formatMoney(value, primaryCurrency, primaryExponent),
-            }}
-            orientation="horizontal"
-            categorical
-            height={230}
-          />
+          <CoverageBars rows={expenseRows} />
         </MetricPanel>
       {:else}<p class="empty">No canonical expenses.</p>{/if}
     </ReportMetricCard>

@@ -9,17 +9,29 @@
   // ECharts draws to canvas, so a component can't sit inside its axis
   // labels. MetricTable remains the accessible/exact-values source (this
   // is presentational, matching BarChart's own aria: {enabled:false}).
-  let { rows }: { rows: PanelRow[] } = $props();
+  let { rows, max }: { rows: PanelRow[]; max?: number } = $props();
 
-  function clampPct(value: number | null): number {
+  // Percentage rows (coverage) already sit on a 0-100 scale; a row set with
+  // its own units (km, currency, ...) needs its bar width relative to the
+  // largest value present instead -- same "smallest matching scale" BarChart
+  // itself used, just computed here instead of by ECharts.
+  const scale = $derived(
+    max ?? Math.max(1, ...rows.map((row) => row.value ?? 0)),
+  );
+
+  function barPct(value: number | null): number {
     if (value == null) return 0;
-    return Math.min(100, Math.max(0, value));
+    return Math.min(100, Math.max(0, (value / scale) * 100));
+  }
+
+  function hoverTitle(row: PanelRow): string {
+    return row.breakdown ? `${row.label}: ${row.display} · ${row.breakdown}` : `${row.label}: ${row.display}`;
   }
 </script>
 
 <ul class="coverage-bars" aria-hidden="true">
   {#each rows as row}
-    <li>
+    <li title={hoverTitle(row)}>
       <span class="coverage-icon" style:color={`var(${row.colorVar ?? "--accent"})`}>
         {#if row.icon}<row.icon size={15} />{/if}
       </span>
@@ -27,7 +39,7 @@
       <span class="coverage-track">
         <span
           class="coverage-fill"
-          style:width={`${clampPct(row.value)}%`}
+          style:width={`${barPct(row.value)}%`}
           style:background={`var(${row.colorVar ?? "--accent"})`}
         ></span>
       </span>
