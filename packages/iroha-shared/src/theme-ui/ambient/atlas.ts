@@ -18,8 +18,8 @@ import type { AmbientFactory } from "./renderer";
 // comment), with a handful of faint triangulation lines between nearby
 // markers. Camera is far back with a narrow FOV so the scene reads planar,
 // like looking straight down at a chart, rather than a 3D object.
-const DUST_COUNT = 350;
-const MARKER_COUNT = 40;
+const DUST_COUNT = 500;
+const MARKER_COUNT = 60;
 const MAX_LINK_DISTANCE = 3;
 const MAX_LINKS_PER_MARKER = 2;
 
@@ -78,10 +78,10 @@ export const createAtlasAmbientScene: AmbientFactory = (canvas, getColors) => {
   const dustGeometry = new BufferGeometry();
   dustGeometry.setAttribute("position", new BufferAttribute(dustPositions, 3));
   const dustMaterial = new PointsMaterial({
-    size: 0.045,
+    size: 0.09,
     sizeAttenuation: true,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.75,
   });
   group.add(new Points(dustGeometry, dustMaterial));
 
@@ -89,10 +89,10 @@ export const createAtlasAmbientScene: AmbientFactory = (canvas, getColors) => {
   const markerGeometry = new BufferGeometry();
   markerGeometry.setAttribute("position", new BufferAttribute(markerPositions, 3));
   const markerMaterial = new PointsMaterial({
-    size: 0.09,
+    size: 0.16,
     sizeAttenuation: true,
     transparent: true,
-    opacity: 0.9,
+    opacity: 1,
   });
   group.add(new Points(markerGeometry, markerMaterial));
 
@@ -101,7 +101,7 @@ export const createAtlasAmbientScene: AmbientFactory = (canvas, getColors) => {
     "position",
     new BufferAttribute(buildLinkSegments(markerPositions), 3),
   );
-  const linkMaterial = new LineBasicMaterial({ transparent: true, opacity: 0.2 });
+  const linkMaterial = new LineBasicMaterial({ transparent: true, opacity: 0.4 });
   group.add(new LineSegments(linkGeometry, linkMaterial));
 
   return {
@@ -115,7 +115,7 @@ export const createAtlasAmbientScene: AmbientFactory = (canvas, getColors) => {
       dustMaterial.color.set(colors.accent);
       markerMaterial.color.set(colors.accent2);
       linkMaterial.color.set(colors.accent2);
-      group.rotation.z += 0.00006;
+      group.rotation.z += 0.00035;
       renderer.render(scene, camera);
     },
     dispose() {
