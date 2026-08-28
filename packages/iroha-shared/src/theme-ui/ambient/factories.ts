@@ -1,6 +1,7 @@
 import type { DesignLanguage } from "../../theme/themes";
 import type { AmbientFactory } from "./renderer";
 import { createAtlasAmbientScene } from "./atlas";
+import { createCadenceAmbientScene } from "./cadence";
 import { createFieldJournalAmbientScene } from "./field-journal";
 import { createPhenologyAmbientScene } from "./phenology";
 
@@ -13,4 +14,5 @@ export const AMBIENT_FACTORIES: Partial<Record<DesignLanguage, AmbientFactory>> 
     atlas: createAtlasAmbientScene,
     "field-journal": createFieldJournalAmbientScene,
     phenology: createPhenologyAmbientScene,
+    cadence: createCadenceAmbientScene,
   };
