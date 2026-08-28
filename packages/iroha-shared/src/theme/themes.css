@@ -13,7 +13,8 @@
   /* Base sans stack for every language that doesn't declare its own
      --font-sans (currently only Atlas does). Reuses Atlas's already-chosen
      value rather than introducing a second default. */
-  --font-sans: "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
+  --font-sans:
+    "Avenir Next", "Century Gothic", "Outfit", ui-sans-serif, sans-serif;
 
   /* Named motion families (2026-08-24 semantic-motion plan). Each pairs a
      duration with an easing so a consumer writes `transition: opacity
@@ -140,7 +141,7 @@ html:root[data-language="field-journal"] {
   --accent: #39c5bb;
   --accent-2: #ff5c8a;
   --radius: 14px;
-  --font-serif: Georgia, "Times New Roman", serif;
+  --font-serif: Georgia, "Lora", "Times New Roman", serif;
   --tile-surface: radial-gradient(
       circle at 15% 0%,
       color-mix(in srgb, var(--accent) 6%, transparent),
@@ -161,7 +162,8 @@ html:root[data-language="phenology"] {
   --ring-exercise: #e7b65a;
   --ring-stand: #a5c76a;
   --radius: 20px;
-  --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-serif:
+    "Iowan Old Style", "Palatino Linotype", Georgia, "Crimson Pro", serif;
   --season-summer-accent: #e7b65a;
   --tile-surface:
     radial-gradient(
