@@ -13,6 +13,10 @@ contract between minor versions.
   (`ShellThemeProps`) now accepts `brand`/`nav`/`actions` snippets from the host, and each of the six languages restyles that shared markup into its own header via scoped selectors — a dashed
   map-legend for Atlas, flat axis-tick tabs for Grapher, a dotted/wavy-underline masthead for Field Journal, a phase-dot pill for Phenology, a rack-style "mixing console" for Sound Map, and a
   card-catalog drawer strip for Archive — without duplicating the underlying interactive elements, so the existing audited focus order, tap-target sizes, and accessible names carry over unchanged.
+- Give every language its own `--tile-surface`/`--tile-shadow` (every data tile app-wide reads these) and its own glyph for the shared "no records" empty-state mark, instead of both being identical
+  across all six and differing only by accent color. Atlas's active nav item also gets a small triangle marker ahead of the label, borrowed from cartography's own convention for "the most important
+  point." The empty-state glyphs are sourced from each theme's real-world reference rather than invented: bullet-journal notation for Field Journal, a coordinate crosshair for Atlas, a phase-wheel
+  glyph for Phenology, paused-channel bars for Sound Map, and the empty-set symbol for Archive.
 
 ## [0.4.4] — 2026-08-24
 
