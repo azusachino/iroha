@@ -1,11 +1,19 @@
 <script lang="ts">
   import type { ShellThemeProps } from "../../view-contracts/shell-view";
-  import DefaultAppHeader from "../components/DefaultAppHeader.svelte";
   let { children, theme, brand, nav, actions }: ShellThemeProps = $props();
 </script>
 
 <div class="vault-site" data-theme={theme}>
-  <DefaultAppHeader {brand} {nav} {actions} />
+  <header class="appbar vault-header">
+    <div class="vault-header-brand">
+      <span class="vault-stamp vault-stamp-header" aria-hidden="true">№</span>
+      {@render brand()}
+    </div>
+    {@render nav()}
+    <div class="appbar-actions vault-header-actions">
+      {@render actions()}
+    </div>
+  </header>
   <div class="vault-content">{@render children()}</div>
   <footer class="vault-footer">
     <span class="vault-stamp" aria-hidden="true">№</span>
@@ -76,6 +84,66 @@
     font-size: 0.95rem;
   }
 
+  .vault-stamp-header {
+    width: 1.3rem;
+    height: 1.3rem;
+    font-size: 0.7rem;
+  }
+
+  /* Everything below restyles the shared appbar/nav/actions markup into a
+     card-catalog drawer label strip; the links/buttons/select themselves
+     are untouched, so focus order, tap targets, and accessible names stay
+     whatever the host defines. */
+  .vault-header {
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--accent-2) 40%, var(--border));
+    box-shadow: none;
+  }
+
+  .vault-header-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: max-content;
+  }
+
+  .vault-header :global(.brand) {
+    font-family: var(--font-serif);
+  }
+
+  .vault-header :global(.main-nav) {
+    border-radius: 0;
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent-2) 35%, var(--border));
+  }
+
+  .vault-header :global(.main-nav > a),
+  .vault-header :global(.navigation-menu > summary) {
+    border-radius: 0;
+    border-right: 1px solid
+      color-mix(in srgb, var(--accent-2) 35%, var(--border));
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .vault-header :global(.main-nav > a:last-child) {
+    border-right: none;
+  }
+
+  .vault-header :global(.main-nav > a.active),
+  .vault-header :global(.navigation-menu.active > summary) {
+    background: color-mix(in srgb, var(--accent-2) 22%, transparent);
+    color: var(--text);
+  }
+
+  .vault-header-actions {
+    border-radius: 0;
+    border: 1px solid color-mix(in srgb, var(--accent-2) 35%, var(--border));
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+  }
+
   @media (max-width: 640px) {
     .vault-content {
       width: min(100% - 2rem, var(--shell-width));
@@ -87,6 +155,10 @@
       align-items: flex-start;
       gap: 0.4rem;
       padding: 1rem;
+    }
+
+    .vault-stamp-header {
+      display: none;
     }
   }
 </style>
