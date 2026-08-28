@@ -10,7 +10,7 @@ adopted design composition is a real layout system built on the same canonical v
 Light and dark are contrast modes. A design language is a product-level art direction. They are independent axes:
 
 ```text
-registered language: Field Journal / Grapher / Atlas / Phenology / Sound Map / Archive
+registered language: Field Journal / Grapher / Atlas / Phenology / Cadence / Archive
 contrast mode:   light / dark
 ```
 
@@ -26,7 +26,7 @@ packages/iroha-shared/src/theme-ui/
 ├── grapher/
 ├── atlas/
 ├── phenology/
-├── sound-map/
+├── cadence/
 └── archive/
 
 packages/iroha-shared/src/
@@ -60,7 +60,7 @@ and delegates rendering to the selected shared component.
 primary-nav disclosure menus, the command-palette trigger, the design-language picker, and the theme toggle are host interaction/state and must not move into `packages/`. What a theme owns is
 arrangement and decoration: where the header sits, how dense it is, what visual language wraps those snippets. Each of the six languages renders its own `<header>` and restyles the host's
 `.main-nav`/`.appbar-actions` markup with scoped `:global()` selectors — a dashed map-legend for Atlas, flat axis-tick tabs for Grapher, a dotted/wavy-underline masthead for Field Journal, a phase-dot
-pill for Phenology, a rack-style "mixing console" for Sound Map, and a card-catalog drawer strip for Archive — rather than duplicating the interactive elements. This keeps the audited focus order,
+pill for Phenology, a rack-style "mixing console" for Cadence, and a card-catalog drawer strip for Archive — rather than duplicating the interactive elements. This keeps the audited focus order,
 tap-target sizes, and accessible names in one place while still letting the persistent chrome look meaningfully different per theme, not just recolored. `ThemeFrame.svelte`'s own fallback branch (used
 only if a theme is missing a `shell` component, which the registry tests forbid) renders the same three snippets in a plain, unstyled `<header class="appbar">` since it has no theme identity to draw
 on.

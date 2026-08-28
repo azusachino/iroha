@@ -21,62 +21,62 @@ import FieldJournalDaily from "./field-journal/Daily.svelte";
 import FieldJournalActivities from "./field-journal/Activities.svelte";
 import AtlasShell from "./atlas/Shell.svelte";
 import PhenologyShell from "./phenology/Shell.svelte";
-import SoundMapShell from "./sound-map/Shell.svelte";
+import CadenceShell from "./cadence/Shell.svelte";
 import ArchiveShell from "./archive/Shell.svelte";
 import AtlasToday from "./atlas/Today.svelte";
 import PhenologyToday from "./phenology/Today.svelte";
-import SoundMapToday from "./sound-map/Today.svelte";
+import CadenceToday from "./cadence/Today.svelte";
 import ArchiveToday from "./archive/Today.svelte";
 import AtlasDaily from "./atlas/Daily.svelte";
 import PhenologyDaily from "./phenology/Daily.svelte";
-import SoundMapDaily from "./sound-map/Daily.svelte";
+import CadenceDaily from "./cadence/Daily.svelte";
 import ArchiveDaily from "./archive/Daily.svelte";
 import AtlasActivities from "./atlas/Activities.svelte";
 import PhenologyActivities from "./phenology/Activities.svelte";
-import SoundMapActivities from "./sound-map/Activities.svelte";
+import CadenceActivities from "./cadence/Activities.svelte";
 import ArchiveActivities from "./archive/Activities.svelte";
 import AtlasSleep from "./atlas/Sleep.svelte";
 import FieldJournalSleep from "./field-journal/Sleep.svelte";
 import PhenologySleep from "./phenology/Sleep.svelte";
-import SoundMapSleep from "./sound-map/Sleep.svelte";
+import CadenceSleep from "./cadence/Sleep.svelte";
 import ArchiveSleep from "./archive/Sleep.svelte";
 import AtlasMedia from "./atlas/Media.svelte";
 import FieldJournalMedia from "./field-journal/Media.svelte";
 import PhenologyMedia from "./phenology/Media.svelte";
-import SoundMapMedia from "./sound-map/Media.svelte";
+import CadenceMedia from "./cadence/Media.svelte";
 import ArchiveMedia from "./archive/Media.svelte";
 import AtlasDashboard from "./atlas/Dashboard.svelte";
 import FieldJournalDashboard from "./field-journal/Dashboard.svelte";
 import PhenologyDashboard from "./phenology/Dashboard.svelte";
-import SoundMapDashboard from "./sound-map/Dashboard.svelte";
+import CadenceDashboard from "./cadence/Dashboard.svelte";
 import ArchiveDashboard from "./archive/Dashboard.svelte";
 import AtlasActivityDetail from "./atlas/ActivityDetail.svelte";
 import FieldJournalActivityDetail from "./field-journal/ActivityDetail.svelte";
 import PhenologyActivityDetail from "./phenology/ActivityDetail.svelte";
-import SoundMapActivityDetail from "./sound-map/ActivityDetail.svelte";
+import CadenceActivityDetail from "./cadence/ActivityDetail.svelte";
 import ArchiveActivityDetail from "./archive/ActivityDetail.svelte";
 import AtlasMediaDetail from "./atlas/MediaDetail.svelte";
 import FieldJournalMediaDetail from "./field-journal/MediaDetail.svelte";
 import PhenologyMediaDetail from "./phenology/MediaDetail.svelte";
-import SoundMapMediaDetail from "./sound-map/MediaDetail.svelte";
+import CadenceMediaDetail from "./cadence/MediaDetail.svelte";
 import ArchiveMediaDetail from "./archive/MediaDetail.svelte";
 import AtlasExpenses from "./atlas/Expenses.svelte";
 import GrapherExpenses from "./grapher/Expenses.svelte";
 import FieldJournalExpenses from "./field-journal/Expenses.svelte";
 import PhenologyExpenses from "./phenology/Expenses.svelte";
-import SoundMapExpenses from "./sound-map/Expenses.svelte";
+import CadenceExpenses from "./cadence/Expenses.svelte";
 import ArchiveExpenses from "./archive/Expenses.svelte";
 import AtlasReports from "./atlas/Reports.svelte";
 import GrapherReports from "./grapher/Reports.svelte";
 import FieldJournalReports from "./field-journal/Reports.svelte";
 import PhenologyReports from "./phenology/Reports.svelte";
-import SoundMapReports from "./sound-map/Reports.svelte";
+import CadenceReports from "./cadence/Reports.svelte";
 import ArchiveReports from "./archive/Reports.svelte";
 import AtlasMetrics from "./atlas/Metrics.svelte";
 import GrapherMetrics from "./grapher/Metrics.svelte";
 import FieldJournalMetrics from "./field-journal/Metrics.svelte";
 import PhenologyMetrics from "./phenology/Metrics.svelte";
-import SoundMapMetrics from "./sound-map/Metrics.svelte";
+import CadenceMetrics from "./cadence/Metrics.svelte";
 import ArchiveMetrics from "./archive/Metrics.svelte";
 
 // Registry entries are intentionally heterogeneous. `never` erases their
@@ -156,22 +156,22 @@ const registry = defineThemeRegistry<ThemeComponent>({
       metrics: PhenologyMetrics,
     },
   },
-  "sound-map": {
+  cadence: {
     implementation: "curated",
-    primitives: { periodControl: { appearance: "sound-map" } },
+    primitives: { periodControl: { appearance: "cadence" } },
     components: {
-      shell: SoundMapShell,
-      today: SoundMapToday,
-      daily: SoundMapDaily,
-      activities: SoundMapActivities,
-      "activity-detail": SoundMapActivityDetail,
-      sleep: SoundMapSleep,
-      media: SoundMapMedia,
-      "media-detail": SoundMapMediaDetail,
-      dashboard: SoundMapDashboard,
-      expenses: SoundMapExpenses,
-      reports: SoundMapReports,
-      metrics: SoundMapMetrics,
+      shell: CadenceShell,
+      today: CadenceToday,
+      daily: CadenceDaily,
+      activities: CadenceActivities,
+      "activity-detail": CadenceActivityDetail,
+      sleep: CadenceSleep,
+      media: CadenceMedia,
+      "media-detail": CadenceMediaDetail,
+      dashboard: CadenceDashboard,
+      expenses: CadenceExpenses,
+      reports: CadenceReports,
+      metrics: CadenceMetrics,
     },
   },
   archive: {

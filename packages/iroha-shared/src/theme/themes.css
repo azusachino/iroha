@@ -180,7 +180,7 @@ html:root[data-language="phenology"] {
   --tile-shadow: 0 18px 40px color-mix(in srgb, var(--accent) 14%, #0a080e40);
 }
 
-html:root[data-language="sound-map"] {
+html:root[data-language="cadence"] {
   --motion-micro: 100ms linear;
   --motion-quick-state: 140ms ease-out;
   --body-leading: 1.4;
@@ -262,11 +262,11 @@ html:root[data-language="phenology"] .empty-mark::before {
   line-height: 1;
 }
 
-html:root[data-language="sound-map"] .empty-mark {
+html:root[data-language="cadence"] .empty-mark {
   font-size: 0;
   border-radius: var(--radius);
 }
-html:root[data-language="sound-map"] .empty-mark::before {
+html:root[data-language="cadence"] .empty-mark::before {
   content: "‖";
   font-size: 1.5rem;
   line-height: 1;
@@ -311,7 +311,7 @@ html:root[data-language="phenology"] .loading-mark {
   overflow: hidden;
 }
 
-html:root[data-language="sound-map"] .loading-mark {
+html:root[data-language="cadence"] .loading-mark {
   height: 0.6rem;
   background: repeating-linear-gradient(
     90deg,

@@ -14,7 +14,7 @@ OUT := ./dist/public-data
 PRIVACY ?= 0
 IROHA_TIMEZONE ?= Asia/Tokyo
 PUBLIC_IROHA_TIMEZONE ?= $(IROHA_TIMEZONE)
-MOBILE_DEFAULT_THEMES := atlas,grapher,field-journal,phenology,sound-map,archive
+MOBILE_DEFAULT_THEMES := atlas,grapher,field-journal,phenology,cadence,archive
 MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 

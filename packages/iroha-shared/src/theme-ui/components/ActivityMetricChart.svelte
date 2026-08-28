@@ -275,7 +275,7 @@
     border-radius: 1.2rem;
   }
 
-  .activity-metric-chart[data-theme="sound-map"] {
+  .activity-metric-chart[data-theme="cadence"] {
     border-inline-width: 3px;
   }
 

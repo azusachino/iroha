@@ -13,7 +13,7 @@ describe("Iroha theme registry", () => {
       "grapher",
       "field-journal",
       "phenology",
-      "sound-map",
+      "cadence",
       "archive",
     ]);
   });
@@ -131,10 +131,10 @@ describe("Iroha theme registry", () => {
       "activity-detail": expect.anything(),
       "media-detail": expect.anything(),
     });
-    expect(getThemeDefinition("sound-map").implementation).toBe("curated");
-    expect(hasThemeRoute(getThemeDefinition("sound-map"), "today")).toBe(true);
-    expect(hasThemeRoute(getThemeDefinition("sound-map"), "daily")).toBe(true);
-    expect(getThemeDefinition("sound-map").components).toMatchObject({
+    expect(getThemeDefinition("cadence").implementation).toBe("curated");
+    expect(hasThemeRoute(getThemeDefinition("cadence"), "today")).toBe(true);
+    expect(hasThemeRoute(getThemeDefinition("cadence"), "daily")).toBe(true);
+    expect(getThemeDefinition("cadence").components).toMatchObject({
       shell: expect.anything(),
       today: expect.anything(),
       daily: expect.anything(),

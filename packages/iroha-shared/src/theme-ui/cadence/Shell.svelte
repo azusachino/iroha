@@ -18,7 +18,7 @@
     <span class="mix-meter" aria-hidden="true">
       <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
     </span>
-    <span>iroha sound-map · rhythm, cadence, intensity</span>
+    <span>iroha cadence · rhythm, intensity, flow</span>
     <span>every level traces back to an imported source</span>
   </footer>
 </div>

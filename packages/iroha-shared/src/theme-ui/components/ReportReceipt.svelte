@@ -133,12 +133,12 @@
     margin: 0.3rem;
   }
 
-  .report-receipt[data-theme="sound-map"] {
+  .report-receipt[data-theme="cadence"] {
     border-left: 3px solid var(--accent);
     border-radius: 0.25rem;
   }
 
-  .report-receipt[data-theme="sound-map"] li {
+  .report-receipt[data-theme="cadence"] li {
     border-bottom-style: dotted;
   }
 

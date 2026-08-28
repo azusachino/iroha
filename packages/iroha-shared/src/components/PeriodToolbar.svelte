@@ -70,7 +70,7 @@
     border-radius: 1.2rem;
   }
 
-  .period-toolbar[data-appearance="sound-map"] {
+  .period-toolbar[data-appearance="cadence"] {
     border-inline-width: 3px;
   }
 

@@ -122,7 +122,7 @@
     border-radius: 1.2rem;
   }
 
-  .activity-detail-chart[data-theme="sound-map"] {
+  .activity-detail-chart[data-theme="cadence"] {
     border-inline-width: 3px;
   }
 

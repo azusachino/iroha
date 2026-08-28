@@ -127,7 +127,7 @@
     background: color-mix(in srgb, var(--accent) 9%, var(--surface-2));
   }
 
-  .select-control[data-appearance="sound-map"] select {
+  .select-control[data-appearance="cadence"] select {
     border-inline-width: 2px;
     box-shadow: inset 0 -2px 0
       color-mix(in srgb, var(--accent) 35%, transparent);

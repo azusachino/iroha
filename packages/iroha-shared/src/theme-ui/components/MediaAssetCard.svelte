@@ -70,7 +70,7 @@
     )}</small
   >
 
-  {#if theme === "sound-map"}
+  {#if theme === "cadence"}
     <span class="asset-scrub" aria-label={`${percent}% progress`}>
       <i style={`width: ${percent}%`}></i>
       <b style={`left: ${percent}%`}></b>
@@ -228,11 +228,11 @@
     font-weight: 400;
   }
 
-  .media-asset-card[data-theme="sound-map"] .asset-cover {
+  .media-asset-card[data-theme="cadence"] .asset-cover {
     border-radius: calc(var(--radius) * 0.6);
   }
 
-  .media-asset-card[data-theme="sound-map"] .asset-title {
+  .media-asset-card[data-theme="cadence"] .asset-title {
     font-size: 0.86rem;
   }
 

@@ -248,7 +248,7 @@
   .report-comparison[data-theme="phenology"] {
     border-radius: 1.2rem;
   }
-  .report-comparison[data-theme="sound-map"] {
+  .report-comparison[data-theme="cadence"] {
     border-inline-width: 3px;
   }
   .report-comparison[data-theme="archive"] {

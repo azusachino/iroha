@@ -11,14 +11,14 @@ contract between minor versions.
 
 - Give every registered design language real ownership of the persistent app-bar/nav shell instead of leaving it fully host-owned and identical regardless of theme. `Shell.svelte`'s contract
   (`ShellThemeProps`) now accepts `brand`/`nav`/`actions` snippets from the host, and each of the six languages restyles that shared markup into its own header via scoped selectors — a dashed
-  map-legend for Atlas, flat axis-tick tabs for Grapher, a dotted/wavy-underline masthead for Field Journal, a phase-dot pill for Phenology, a rack-style "mixing console" for Sound Map, and a
+  map-legend for Atlas, flat axis-tick tabs for Grapher, a dotted/wavy-underline masthead for Field Journal, a phase-dot pill for Phenology, a rack-style "mixing console" for Cadence, and a
   card-catalog drawer strip for Archive — without duplicating the underlying interactive elements, so the existing audited focus order, tap-target sizes, and accessible names carry over unchanged.
 - Give every language its own `--tile-surface`/`--tile-shadow` (every data tile app-wide reads these) and its own glyph for the shared "no records" empty-state mark, instead of both being identical
   across all six and differing only by accent color. Atlas's active nav item also gets a small triangle marker ahead of the label, borrowed from cartography's own convention for "the most important
   point." The empty-state glyphs are sourced from each theme's real-world reference rather than invented: bullet-journal notation for Field Journal, a coordinate crosshair for Atlas, a phase-wheel
-  glyph for Phenology, paused-channel bars for Sound Map, and the empty-set symbol for Archive.
+  glyph for Phenology, paused-channel bars for Cadence, and the empty-set symbol for Archive.
 - Give Field Journal and Phenology's shell root the `font-family` each already declared via `--font-serif` but never actually applied outside a few hand-styled headings, so their whole page reads in
-  the theme's typeface rather than falling back to the shared default sans. Give Atlas its own monospace stack instead of reusing Sound Map's byte-identical one. Add `--body-leading` and
+  the theme's typeface rather than falling back to the shared default sans. Give Atlas its own monospace stack instead of reusing Cadence's byte-identical one. Add `--body-leading` and
   `--heading-tracking`, consumed by `body`/`h1`/`h2`, so line-height and letter-spacing also vary per language.
 - Fix the language-switch cross-fade, which was silently inert: its wrapper was `display: contents`, a box-less display mode that opacity/transform transitions cannot render anything on. A distinct
   motion signature per language (lateral pan, overshoot bloom, stamp scale, etc.) was tried and read as over-designed in practice, so the fix keeps one shared plain fade for all six — a
@@ -29,6 +29,13 @@ contract between minor versions.
 - Self-host the Latin subset of each theme's display typeface (Space Mono, IBM Plex Mono, Roboto Slab, Lora, Crimson Pro, Outfit; both `iroha-web` and the public-site design workbench) instead of
   naming a system font and hoping it's installed, with no third-party font request at runtime. Insert the self-hosted fallback into Field Journal's and Phenology's `--font-serif` stacks (before the
   final generic `serif`) so they no longer converge on the same generic serif when their preferred system fonts aren't present, and add one to the shared base `--font-sans`.
+
+- Rename the `sound-map` design language to `cadence`. Its identity copy already described "cadence, intensity, and flow" without ever mentioning anything spatial — the built design (rack-style mixing
+  console, level meters, channel strips) is a rhythm/audio language, not a cartographic one, so "Sound Map" over-promised a "map" half it never delivered. `Cadence` is the word its own lens copy
+  already used. The design itself, its route implementation, and every color/token are unchanged; only the id (`DesignLanguage`, `theme-ui/cadence/`, `data-language="cadence"`) and label
+  (`Iroha Sound Map` → `Iroha Cadence`) moved.
+- Drop the header brand icons (Atlas's compass, Cadence's meter bars, Archive's stamp) added earlier this release — an accident of which theme already had a reusable footer glyph to promote, not a
+  deliberate rule, and it read as clutter once all six were compared side by side. Each icon stays exactly where it already lived, in the footer.
 
 ### Fixed
 
