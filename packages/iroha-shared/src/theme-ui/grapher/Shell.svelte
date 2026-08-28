@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { ShellThemeProps } from "../../view-contracts/shell-view";
+  import DefaultAppHeader from "../components/DefaultAppHeader.svelte";
 
-  let { children, theme }: ShellThemeProps = $props();
+  let { children, theme, brand, nav, actions }: ShellThemeProps = $props();
 </script>
 
 <div class="grapher-site" data-theme={theme}>
+  <DefaultAppHeader {brand} {nav} {actions} />
   <div class="grapher-content">{@render children()}</div>
   <footer class="grapher-footer">
     <span>iroha grapher</span>

@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
+## [Unreleased]
+
+### Changed
+
+- Give registered design languages real ownership of the persistent app-bar/nav shell instead of leaving it fully host-owned regardless of theme. `Shell.svelte`'s contract (`ShellThemeProps`) now
+  accepts `brand`/`nav`/`actions` snippets from the host; five languages render the unstyled `DefaultAppHeader.svelte` (pixel-identical to the previous shared bar), and Sound Map gets a first bespoke
+  header — a rack-style "mixing console" that restyles the shared nav/actions markup via scoped selectors instead of duplicating the interactive elements. The remaining five languages' shells are the
+  next milestone.
+
 ## [0.4.4] — 2026-08-24
 
 ### Added

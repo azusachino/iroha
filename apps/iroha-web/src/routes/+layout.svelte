@@ -24,51 +24,56 @@
   }
 </script>
 
+{#snippet brand()}
+  <a
+    class="brand brand-observatory"
+    href="/"
+    aria-label="iroha — sound and flower"
+  >
+    <img class="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" />
+    <span>iroha</span>
+    <small class="brand-version">v{APP_VERSION}</small>
+  </a>
+{/snippet}
+
+{#snippet nav()}
+  <nav class="main-nav" aria-label="Primary navigation">
+    <a
+      class:active={isActive(navigationGroups[0].items[0].href)}
+      href={navigationGroups[0].items[0].href}
+      ><HeartPulse size={14} />{navigationGroups[0].items[0].label}</a
+    >
+    <a
+      class:active={isActive(navigationGroups[0].items[1].href)}
+      href={navigationGroups[0].items[1].href}
+      ><LayoutDashboard size={14} />{navigationGroups[0].items[1].label}</a
+    >
+    {#each navigationGroups.slice(1) as group}
+      <NavigationMenu {group} active={isActive} />
+    {/each}
+  </nav>
+{/snippet}
+
+{#snippet actions()}
+  <button
+    class="command-trigger"
+    type="button"
+    aria-label="Open command palette"
+    onclick={openCommandPalette}
+  >
+    <Command size={15} />
+    <span>Command</span>
+    <kbd>⌘K</kbd>
+  </button>
+  <DesignLanguagePicker />
+  <ThemeToggle />
+{/snippet}
+
 <ThemeProvider>
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="app">
-    <header class="appbar">
-      <a
-        class="brand brand-observatory"
-        href="/"
-        aria-label="iroha — sound and flower"
-      >
-        <img class="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" />
-        <span>iroha</span>
-        <small class="brand-version">v{APP_VERSION}</small>
-      </a>
-      <nav class="main-nav" aria-label="Primary navigation">
-        <a
-          class:active={isActive(navigationGroups[0].items[0].href)}
-          href={navigationGroups[0].items[0].href}
-          ><HeartPulse size={14} />{navigationGroups[0].items[0].label}</a
-        >
-        <a
-          class:active={isActive(navigationGroups[0].items[1].href)}
-          href={navigationGroups[0].items[1].href}
-          ><LayoutDashboard size={14} />{navigationGroups[0].items[1].label}</a
-        >
-        {#each navigationGroups.slice(1) as group}
-          <NavigationMenu {group} active={isActive} />
-        {/each}
-      </nav>
-      <div class="appbar-actions">
-        <button
-          class="command-trigger"
-          type="button"
-          aria-label="Open command palette"
-          onclick={openCommandPalette}
-        >
-          <Command size={15} />
-          <span>Command</span>
-          <kbd>⌘K</kbd>
-        </button>
-        <DesignLanguagePicker />
-        <ThemeToggle />
-      </div>
-    </header>
     <CommandPalette />
-    <ThemeFrame>
+    <ThemeFrame {brand} {nav} {actions}>
       {@render children()}
     </ThemeFrame>
   </div>

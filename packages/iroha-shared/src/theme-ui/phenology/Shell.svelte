@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { ShellThemeProps } from "../../view-contracts/shell-view";
+  import DefaultAppHeader from "../components/DefaultAppHeader.svelte";
 
-  let { children, theme }: ShellThemeProps = $props();
+  let { children, theme, brand, nav, actions }: ShellThemeProps = $props();
 </script>
 
 <div class="bloom-site" data-theme={theme}>
+  <DefaultAppHeader {brand} {nav} {actions} />
   <div class="bloom-content">{@render children()}</div>
   <footer class="bloom-footer">
     <span class="bloom-phases" aria-hidden="true">○ ◔ ◑ ◕ ●</span>

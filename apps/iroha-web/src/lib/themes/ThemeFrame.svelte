@@ -5,7 +5,13 @@
   import { APP_VERSION } from "$lib/config";
   import { useTheme } from "$lib/themes/context.svelte";
 
-  let { children }: { children: Snippet } = $props();
+  let {
+    children,
+    brand,
+    nav,
+    actions,
+  }: { children: Snippet; brand: Snippet; nav: Snippet; actions: Snippet } =
+    $props();
   const theme = useTheme();
   const Shell = $derived(
     theme.definition().components?.shell as unknown as
@@ -24,7 +30,7 @@
 {#if Shell}
   {#key theme.language()}
     <div class="theme-transition" transition:fade={languageSwitch}>
-      <Shell theme={theme.language()}>
+      <Shell theme={theme.language()} {brand} {nav} {actions}>
         <main id="main-content" class="theme-content" tabindex="-1">
           {@render children()}
         </main>
@@ -32,6 +38,13 @@
     </div>
   {/key}
 {:else}
+  <header class="appbar">
+    {@render brand()}
+    {@render nav()}
+    <div class="appbar-actions">
+      {@render actions()}
+    </div>
+  </header>
   <main id="main-content" class="content" tabindex="-1">
     {@render children()}
   </main>

@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { ShellThemeProps } from "../../view-contracts/shell-view";
+  import DefaultAppHeader from "../components/DefaultAppHeader.svelte";
 
-  let { children, theme }: ShellThemeProps = $props();
+  let { children, theme, brand, nav, actions }: ShellThemeProps = $props();
 </script>
 
 <div class="atlas-site" data-theme={theme}>
+  <DefaultAppHeader {brand} {nav} {actions} />
   <div class="atlas-content">{@render children()}</div>
   <footer class="atlas-footer">
     <span class="atlas-compass" aria-hidden="true">

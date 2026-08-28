@@ -56,6 +56,13 @@ theme/
 Themes may compose shared data visualizations and primitives, but route files must not contain a visual conditional over registered languages or adopted compositions. A route loads a stable view model
 and delegates rendering to the selected shared component.
 
+`Shell.svelte`'s `ShellThemeProps` (`view-contracts/shell-view.ts`) includes `brand`, `nav`, and `actions` snippets alongside `children`. The web host still owns their contents — the brand link, the
+primary-nav disclosure menus, the command-palette trigger, the design-language picker, and the theme toggle are host interaction/state and must not move into `packages/`. What a theme owns is
+arrangement and decoration: where the header sits, how dense it is, what visual language wraps those snippets. A theme that has not earned a bespoke header renders
+`theme-ui/components/DefaultAppHeader.svelte`, which reproduces the plain `.appbar` top bar unchanged. A theme with a real shell/nav identity (Sound Map's rack-style "mixing console" header is the
+first) renders its own `<header>` and restyles the host's `.main-nav`/`.appbar-actions` markup with scoped `:global()` selectors rather than duplicating the interactive elements — this keeps the
+audited focus order, tap-target sizes, and accessible names in one place while still letting the persistent chrome look meaningfully different per theme, not just recolored.
+
 `themes.css` also owns a small named `--motion-*` token vocabulary (`micro`, `quick-state`, `data-update`, `language-switch`) shared across every language, pairing a duration with an easing so a
 consumer writes `transition: opacity var(--motion-quick-state)` rather than a local literal. `make motion-tokens-check` fails if a reference has no matching definition.
 

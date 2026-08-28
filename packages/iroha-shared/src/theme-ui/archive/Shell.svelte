@@ -1,9 +1,11 @@
 <script lang="ts">
   import type { ShellThemeProps } from "../../view-contracts/shell-view";
-  let { children, theme }: ShellThemeProps = $props();
+  import DefaultAppHeader from "../components/DefaultAppHeader.svelte";
+  let { children, theme, brand, nav, actions }: ShellThemeProps = $props();
 </script>
 
 <div class="vault-site" data-theme={theme}>
+  <DefaultAppHeader {brand} {nav} {actions} />
   <div class="vault-content">{@render children()}</div>
   <footer class="vault-footer">
     <span class="vault-stamp" aria-hidden="true">№</span>
