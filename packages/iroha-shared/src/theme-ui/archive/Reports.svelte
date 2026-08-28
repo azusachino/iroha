@@ -1,5 +1,6 @@
 <script lang="ts">
   import BarChart from "../components/BarChart.svelte";
+  import CoverageBars from "../../components/CoverageBars.svelte";
   import ReportCoverage from "../components/ReportCoverage.svelte";
   import ReportReceipt from "../components/ReportReceipt.svelte";
   import type { ReportEvidenceRow } from "../../domain/report";
@@ -11,6 +12,7 @@
   import { formatMetricValue } from "../../format/format";
   import { healthMetricLabel } from "../../domain/health-metric-labels";
   import { healthMetricIcon } from "../../domain/health-metric-icons";
+  import { healthMetricColorVar } from "../../domain/health-metric-colors";
   import {
     coveragePercent,
     reportPeriodDays,
@@ -124,6 +126,7 @@
       return {
         label: healthMetricLabel(item.metric),
         icon: healthMetricIcon(item.metric),
+        colorVar: healthMetricColorVar(item.metric),
         value: pct,
         display: pct + "%",
         breakdown: formatMetricValue(item.value, item.unit) + " " + item.unit,
@@ -239,18 +242,7 @@
           rows={healthRows}
           period={month}
         >
-          <BarChart
-            categories={healthRows.map((row) => row.label)}
-            primary={{
-              name: "Coverage",
-              values: healthRows.map((row) => row.value),
-              color: "var(--accent)",
-              formatter: (value) => value + "%",
-            }}
-            orientation="horizontal"
-            categorical
-            height={230}
-          />
+          <CoverageBars rows={healthRows} />
         </MetricPanel>
       {:else}<p class="empty">No health rows in this envelope.</p>{/if}
     </ReportMetricCard>

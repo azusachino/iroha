@@ -1,5 +1,6 @@
 <script lang="ts">
   import BarChart from "../components/BarChart.svelte";
+  import CoverageBars from "../../components/CoverageBars.svelte";
   import ReportCoverage from "../components/ReportCoverage.svelte";
   import ReportReceipt from "../components/ReportReceipt.svelte";
   import type { ReportEvidenceRow } from "../../domain/report";
@@ -189,17 +190,7 @@
           rows={healthRows}
           period={month}
         >
-          <BarChart
-            categories={healthRows.map((row) => row.label)}
-            primary={{
-              name: "Coverage",
-              values: healthRows.map((row) => row.value),
-              color: "var(--accent)",
-              formatter: (value) => value + "%",
-            }}
-            orientation="horizontal"
-            height={270}
-          />
+          <CoverageBars rows={healthRows} />
         </MetricPanel>
         <ReportFactGrid
           facts={(health.metric_averages ?? []).slice(0, 3).map((item) => ({

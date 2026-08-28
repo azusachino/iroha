@@ -9,6 +9,9 @@ export interface PanelRow {
   // domain/health-metric-icons.ts) own which icon set a row's icon comes
   // from; this file stays generic.
   icon?: Component<any>;
+  // A CSS custom property name (e.g. "--accent"), not a resolved color --
+  // lets a row's accent follow the active theme instead of being baked in.
+  colorVar?: string;
   breakdown?: string;
   value: number | null;
   display: string;
