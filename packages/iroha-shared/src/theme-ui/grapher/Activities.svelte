@@ -8,6 +8,7 @@
     formatPace,
   } from "../../format/format";
   import { sportLabel } from "../../domain/sport";
+  import { sportIcon } from "../../domain/sport-icons";
   let {
     activities,
     displaySummary,
@@ -123,7 +124,12 @@
               <td
                 ><a href={`/motion/${activity.id}`}
                   >{activity.title || sportLabel(activity.sport_type)}</a
-                ><small>{sportLabel(activity.sport_type)}</small></td
+                ><small class="sport-small"
+                    >{#if sportIcon(activity.sport_type)}
+                      {@const Icon = sportIcon(activity.sport_type)}
+                      <Icon size={11} aria-hidden="true" />
+                    {/if}{sportLabel(activity.sport_type)}</small
+                  ></td
               >
               <td>{formatDistance(activity.distance_m)}</td>
               <td
@@ -260,6 +266,11 @@
     margin-top: 0.2rem;
     color: var(--text-muted);
     font-size: 0.65rem;
+  }
+  .sport-small {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
   }
   .load-more {
     padding: 0.7rem 1rem;
