@@ -1,26 +1,33 @@
 import { formatSport } from "../format/format";
 
-const SPORT_COLOR_RUN = "var(--sport-run)";
-const SPORT_COLOR_WALK = "var(--sport-walk)";
-const SPORT_COLOR_HIKE = "var(--sport-hike)";
-const SPORT_COLOR_RIDE = "var(--sport-ride)";
-const SPORT_COLOR_SWIM = "var(--sport-swim)";
-const SPORT_COLOR_OTHER = "var(--sport-other)";
-
-export function sportColor(sport?: string | null): string {
+// The canonical key behind --sport-<key> in apps/iroha-web/src/routes/app.css.
+// sportColor/sportColorVar both resolve through this so a new caller (e.g.
+// domain/sport-icons.ts) matches sport_type strings the same way the
+// existing badge coloring already does, instead of a second guess at it.
+export function canonicalSport(sport?: string | null): string {
   const normalized = sport?.toLowerCase() ?? "";
-  if (normalized.includes("run")) return SPORT_COLOR_RUN;
-  if (normalized.includes("walk")) return SPORT_COLOR_WALK;
-  if (normalized.includes("hik")) return SPORT_COLOR_HIKE;
-  if (normalized.includes("swim")) return SPORT_COLOR_SWIM;
+  if (normalized.includes("run")) return "run";
+  if (normalized.includes("walk")) return "walk";
+  if (normalized.includes("hik")) return "hike";
+  if (normalized.includes("swim")) return "swim";
   if (
     normalized.includes("ride") ||
     normalized.includes("cycl") ||
     normalized.includes("bik")
   ) {
-    return SPORT_COLOR_RIDE;
+    return "ride";
   }
-  return SPORT_COLOR_OTHER;
+  return "other";
+}
+
+export function sportColor(sport?: string | null): string {
+  return `var(--sport-${canonicalSport(sport)})`;
+}
+
+// Bare custom-property name (no var() wrapper), for consumers like
+// PanelRow.colorVar that resolve it themselves.
+export function sportColorVar(sport?: string | null): string {
+  return `--sport-${canonicalSport(sport)}`;
 }
 
 export function sportLabel(sport?: string | null): string {

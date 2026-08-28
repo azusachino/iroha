@@ -13,9 +13,9 @@
   import { healthMetricLabel } from "../../domain/health-metric-labels";
   import { healthMetricIcon } from "../../domain/health-metric-icons";
   import { healthMetricColorVar } from "../../domain/health-metric-colors";
-  import { sportLabel, sportColorVar } from "../../domain/sport-labels";
+  import { sportLabel, sportColorVar } from "../../domain/sport";
   import { sportIcon } from "../../domain/sport-icons";
-  import { expenseCategoryLabel } from "../../domain/expense-labels";
+  import { expenseCategoryLabel } from "../../view-contracts/expense-view";
   import { expenseCategoryIcon } from "../../domain/expense-icons";
   import { categoryColorVar } from "../../domain/category-color";
   import {
@@ -110,7 +110,7 @@
   );
   const expenseRows = $derived<PanelRow[]>(
     categoryTotals.map((item) => ({
-      label: expenseCategoryLabel(item.category),
+      label: expenseCategoryLabel[item.category],
       icon: expenseCategoryIcon(item.category),
       colorVar: categoryColorVar(item.category),
       value: item.amount_minor,
@@ -160,7 +160,7 @@
         ]
       : []),
     ...categoryTotals.map((item) => ({
-      label: "Expense · " + expenseCategoryLabel(item.category),
+      label: "Expense · " + expenseCategoryLabel[item.category],
       value: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
       detail: item.expense_count + " records",
     })),
@@ -205,7 +205,17 @@
           rows={movementRows}
           period={month}
         >
-          <CoverageBars rows={movementRows} />
+          <BarChart
+            categories={movementRows.map((row) => row.label)}
+            primary={{
+              name: "Distance",
+              values: movementRows.map((row) => row.value),
+              colors: movementRows.map((row) => `var(${row.colorVar})`),
+              formatter: (value) => number(value) + " km",
+            }}
+            orientation="horizontal"
+            height={240}
+          />
         </MetricPanel>
         <ReportFactGrid
           facts={[
@@ -349,7 +359,18 @@
           rows={expenseRows}
           period={month}
         >
-          <CoverageBars rows={expenseRows} />
+          <BarChart
+            categories={expenseRows.map((row) => row.label)}
+            primary={{
+              name: primaryCurrency,
+              values: expenseRows.map((row) => row.value),
+              colors: expenseRows.map((row) => `var(${row.colorVar})`),
+              formatter: (value) =>
+                formatMoney(value, primaryCurrency, primaryExponent),
+            }}
+            orientation="horizontal"
+            height={260}
+          />
         </MetricPanel>
       {:else}<p class="empty">
           No canonical expenses in {primaryCurrency}.
