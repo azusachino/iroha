@@ -170,6 +170,16 @@ export function reportPeriodDays(report: MonthlyReport): number {
   );
 }
 
+// A per-metric observed_days count only means something next to the period
+// it's out of -- comparing raw day counts across metrics with different
+// coverage denominators is what read as an oddly-scaled bar chart. This is
+// the one place that ratio is computed so every theme's health-coverage
+// chart/table agrees.
+export function coveragePercent(observedDays: number, periodDays: number): number {
+  if (periodDays <= 0) return 0;
+  return Math.round((observedDays / periodDays) * 100);
+}
+
 export type ReportThemeProps = {
   month: string;
   report: MonthlyReport;

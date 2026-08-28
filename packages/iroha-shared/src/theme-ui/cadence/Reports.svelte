@@ -7,8 +7,12 @@
   import ReportFactGrid from "../components/ReportFactGrid.svelte";
   import ReportMetricCard from "../components/ReportMetricCard.svelte";
   import MetricPanel from "../../components/MetricPanel.svelte";
+  import type { PanelRow } from "../../components/metric-panel";
   import { formatMetricValue } from "../../format/format";
+  import { healthMetricLabel } from "../../domain/health-metric-labels";
+  import { healthMetricIcon } from "../../domain/health-metric-icons";
   import {
+    coveragePercent,
     reportPeriodDays,
     reportSectionData,
     type ReportThemeProps,
@@ -97,7 +101,7 @@
         ]
       : []),
     ...(health?.metric_averages ?? []).map((item) => ({
-      label: "Body · " + item.metric,
+      label: "Body · " + healthMetricLabel(item.metric),
       value: formatMetricValue(item.value, item.unit) + " " + item.unit,
       detail: item.observed_days + " observed days",
     })),
@@ -108,6 +112,18 @@
     })),
   ]);
   const periodDays = $derived(reportPeriodDays(report));
+  const healthRows = $derived<PanelRow[]>(
+    (health?.metric_averages ?? []).map((item) => {
+      const pct = coveragePercent(item.observed_days, periodDays);
+      return {
+        label: healthMetricLabel(item.metric),
+        icon: healthMetricIcon(item.metric),
+        value: pct,
+        display: pct + "%",
+        breakdown: formatMetricValue(item.value, item.unit) + " " + item.unit,
+      };
+    }),
+  );
 
   function number(value: number): string {
     return new Intl.NumberFormat(undefined, {
@@ -265,28 +281,23 @@
         <MetricPanel
           metricId="daily_health.observed_days"
           label="Observed coverage"
-          unit="days"
+          unit="%"
           method={report.sections.daily_health.schema}
           coverage={{
             expected_periods: periodDays,
             observed_periods: health.observed_days,
           }}
           rowHeader="Metric"
-          rows={health.metric_averages.map((item) => ({
-            label: item.metric,
-            value: item.observed_days,
-            display: item.observed_days + " d",
-            breakdown:
-              formatMetricValue(item.value, item.unit) + " " + item.unit,
-          }))}
+          rows={healthRows}
           period={month}
         >
           <BarChart
-            categories={health.metric_averages.map((item) => item.metric)}
+            categories={healthRows.map((row) => row.label)}
             primary={{
-              name: "Observed days",
-              values: health.metric_averages.map((item) => item.observed_days),
+              name: "Coverage",
+              values: healthRows.map((row) => row.value),
               color: "var(--accent-2)",
+              formatter: (value) => value + "%",
             }}
             orientation="horizontal"
             categorical

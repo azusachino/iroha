@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@lucide/svelte": "^1.34.0",
     "echarts": "^6.1.0",
     "three": "^0.185.1"
   },

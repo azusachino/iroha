@@ -1,9 +1,14 @@
+import type { Component } from "svelte";
 import { csvCell, pointValue, type SharedMetricSeries } from "./metric-series";
 
 // One exact row behind a displayed chart. `value` stays raw for analysis while
 // `display` preserves what the chart actually rendered.
 export interface PanelRow {
   label: string;
+  // Icon-set-agnostic on purpose -- callers (e.g. healthMetricIcon in
+  // domain/health-metric-icons.ts) own which icon set a row's icon comes
+  // from; this file stays generic.
+  icon?: Component<any>;
   breakdown?: string;
   value: number | null;
   display: string;
