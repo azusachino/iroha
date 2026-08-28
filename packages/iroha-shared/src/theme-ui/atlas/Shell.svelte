@@ -1,12 +1,26 @@
 <script lang="ts">
   import type { ShellThemeProps } from "../../view-contracts/shell-view";
-  import DefaultAppHeader from "../components/DefaultAppHeader.svelte";
 
   let { children, theme, brand, nav, actions }: ShellThemeProps = $props();
 </script>
 
 <div class="atlas-site" data-theme={theme}>
-  <DefaultAppHeader {brand} {nav} {actions} />
+  <header class="appbar atlas-header">
+    <div class="atlas-header-brand">
+      <span class="atlas-compass atlas-compass-header" aria-hidden="true">
+        <svg viewBox="0 0 32 32" role="img" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" />
+          <path d="M16 4 L19 16 L16 28 L13 16 Z" />
+          <text x="16" y="9" text-anchor="middle">N</text>
+        </svg>
+      </span>
+      {@render brand()}
+    </div>
+    {@render nav()}
+    <div class="appbar-actions atlas-header-legend">
+      {@render actions()}
+    </div>
+  </header>
   <div class="atlas-content">{@render children()}</div>
   <footer class="atlas-footer">
     <span class="atlas-compass" aria-hidden="true">
@@ -84,6 +98,64 @@
     font-family: var(--font-mono);
   }
 
+  .atlas-compass-header {
+    margin-right: 0.4rem;
+  }
+
+  /* Everything below restyles the shared appbar/nav/actions markup into a
+     surveyor's map legend; the links/buttons/select themselves are
+     untouched, so focus order, tap targets, and accessible names stay
+     whatever the host defines. */
+  .atlas-header {
+    background:
+      repeating-linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent) 8%, transparent) 0 1px,
+        transparent 1px 2.5rem
+      ),
+      color-mix(in srgb, var(--bg) 92%, transparent);
+    border-bottom: 1px dashed
+      color-mix(in srgb, var(--accent) 35%, var(--border));
+    box-shadow: none;
+  }
+
+  .atlas-header-brand {
+    display: inline-flex;
+    align-items: center;
+    min-width: max-content;
+  }
+
+  .atlas-header :global(.brand) {
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+  }
+
+  .atlas-header :global(.main-nav) {
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
+  }
+
+  .atlas-header :global(.main-nav > a),
+  .atlas-header :global(.navigation-menu > summary) {
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+  }
+
+  .atlas-header :global(.main-nav > a:hover),
+  .atlas-header :global(.main-nav > a.active),
+  .atlas-header :global(.navigation-menu.active > summary) {
+    background: transparent;
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .atlas-header-legend {
+    padding: 0.2rem 0.5rem;
+    border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+  }
+
   @media (max-width: 640px) {
     .atlas-content {
       width: min(100% - 2rem, var(--shell-width));
@@ -95,6 +167,10 @@
       align-items: flex-start;
       gap: 0.4rem;
       padding: 1rem;
+    }
+
+    .atlas-compass-header {
+      display: none;
     }
   }
 </style>
