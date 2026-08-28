@@ -180,7 +180,7 @@
     <ReportMetricCard
       label="Canonical movement"
       title="Distance by sport"
-      summary={movement ? movement.activity_count + " records" : "No records"}
+      summary={movement ? movement.activity_count + " records" : "Uncatalogued"}
     >
       {#if movement?.by_sport.length}
         <MetricPanel
@@ -211,7 +211,7 @@
     <ReportMetricCard
       label="Canonical rest"
       title="Sleep-stage composition"
-      summary={sleep ? sleep.session_count + " sessions" : "No records"}
+      summary={sleep ? sleep.session_count + " sessions" : "Uncatalogued"}
     >
       {#if sleep}
         <MetricPanel
@@ -245,7 +245,7 @@
     <ReportMetricCard
       label="Canonical health"
       title="Observed metric days"
-      summary={health ? health.observed_days + " days" : "No records"}
+      summary={health ? health.observed_days + " days" : "Uncatalogued"}
       tone="quiet"
     >
       {#if health?.metric_averages.length}
@@ -270,7 +270,7 @@
     <ReportMetricCard
       label="Canonical media"
       title="Events and completions"
-      summary={media ? media.event_count + " events" : "No records"}
+      summary={media ? media.event_count + " events" : "Uncatalogued"}
       tone="quiet"
     >
       {#if media?.by_kind.length}
@@ -313,7 +313,7 @@
     <ReportMetricCard
       label="Canonical expenses"
       title="Spend by category"
-      summary={expenses ? expenses.expense_count + " records" : "No records"}
+      summary={expenses ? expenses.expense_count + " records" : "Uncatalogued"}
       tone="feature"
     >
       {#if categories.length}

@@ -248,6 +248,15 @@ html:root[data-language="archive"] {
   --ring-exercise: #c786a9;
   --ring-stand: #b8a0ff;
   --radius: 3px;
+  /* Card-catalog colors instead of the app-wide neon set: danger reads as a
+     due-date/withdrawn ink stamp (a deep brick red distinct from every other
+     language's danger hue), positive ties to the accent-2 gold (a
+     certification seal), warning reuses the exercise ring's mauve already in
+     the catalog's own palette. */
+  --danger: #9a3f35;
+  --color-danger: #9a3f35;
+  --color-positive: var(--accent-2);
+  --color-warning: var(--ring-exercise);
   --font-serif: "Rockwell", "Roboto Slab", Georgia, serif;
   --font-mono: "Courier New", "Consolas", ui-monospace, monospace;
   --tile-surface: linear-gradient(
