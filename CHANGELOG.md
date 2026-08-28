@@ -17,6 +17,15 @@ contract between minor versions.
   across all six and differing only by accent color. Atlas's active nav item also gets a small triangle marker ahead of the label, borrowed from cartography's own convention for "the most important
   point." The empty-state glyphs are sourced from each theme's real-world reference rather than invented: bullet-journal notation for Field Journal, a coordinate crosshair for Atlas, a phase-wheel
   glyph for Phenology, paused-channel bars for Sound Map, and the empty-set symbol for Archive.
+- Give Field Journal and Phenology's shell root the `font-family` each already declared via `--font-serif` but never actually applied outside a few hand-styled headings, so their whole page reads in
+  the theme's typeface rather than falling back to the shared default sans. Give Atlas its own monospace stack instead of reusing Sound Map's byte-identical one. Add `--body-leading` and
+  `--heading-tracking`, consumed by `body`/`h1`/`h2`, so line-height and letter-spacing also vary per language.
+- Fix the language-switch cross-fade, which was silently inert: its wrapper was `display: contents`, a box-less display mode that opacity/transform transitions cannot render anything on. Give each
+  language its own switch transition (lateral pan for Atlas, a soft settle for Field Journal, an overshoot bloom for Phenology, a quick snap for Sound Map, a stamp-like scale for Archive, plain fade
+  for Grapher) and its own `--motion-micro`/`--motion-quick-state` hover/press timing.
+- Give the shared sport/source badges (`SportBadge`, `SourceBadge`) each theme's own corner radius via the existing `--radius` token instead of a hardcoded pill shape — the only two shared controls
+  with no per-language styling; every other shared control (`SelectControl`, `MonthNavigator`, `PeriodToolbar`/`PeriodDrill`, most chart/report components) already had it. Give `LoadingBoundary`'s
+  shared progress-bar track its own shape and texture per language the same way the empty-state mark got one.
 
 ## [0.4.4] — 2026-08-24
 
