@@ -20,7 +20,7 @@
     max-width: 100%;
     min-width: 0;
     padding: 0.16rem 0.55rem 0.16rem 0.45rem;
-    border-radius: 999px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--sport) 15%, transparent);
     border: 1px solid color-mix(in srgb, var(--sport) 32%, transparent);
     color: var(--text);
