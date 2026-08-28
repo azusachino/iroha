@@ -148,6 +148,14 @@ html:root[data-language="field-journal"] {
   --theme-swatch: #39c5bb;
   --accent: #39c5bb;
   --accent-2: #ff5c8a;
+  /* Bullet-journal ink colors instead of the app-wide neon set: a ballpoint
+     red for danger, a highlighter amber for warning -- distinct from
+     --accent-2's magenta so a corrected/flagged entry doesn't read as the
+     same ink as a normal highlight. Positive stays the page's own accent. */
+  --danger: #c0392b;
+  --color-danger: #c0392b;
+  --color-positive: var(--accent);
+  --color-warning: #d6a726;
   --radius: 14px;
   --font-serif: Georgia, "Lora", "Times New Roman", serif;
   --tile-surface: radial-gradient(
