@@ -1,4 +1,4 @@
-import type { Component } from "svelte";
+import type { LucideIcon } from "@lucide/svelte";
 import {
   ChevronsUp,
   Droplet,
@@ -15,7 +15,7 @@ import {
 // Same key space as health-metric-labels.ts. Kept as a separate module so a
 // consumer that only needs the label (e.g. CSV export) never pulls in
 // @lucide/svelte.
-const HEALTH_METRIC_ICONS: Record<string, Component<any>> = {
+const HEALTH_METRIC_ICONS: Record<string, LucideIcon> = {
   steps: Footprints,
   distance_km: Route,
   flights: ChevronsUp,
@@ -29,6 +29,6 @@ const HEALTH_METRIC_ICONS: Record<string, Component<any>> = {
   body_mass_kg: Scale,
 };
 
-export function healthMetricIcon(metric: string): Component<any> | undefined {
+export function healthMetricIcon(metric: string): LucideIcon | undefined {
   return HEALTH_METRIC_ICONS[metric];
 }

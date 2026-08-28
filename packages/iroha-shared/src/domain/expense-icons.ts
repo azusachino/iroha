@@ -1,4 +1,4 @@
-import type { Component } from "svelte";
+import type { LucideIcon } from "@lucide/svelte";
 import {
   Briefcase,
   Ellipsis,
@@ -13,7 +13,7 @@ import {
   Utensils,
 } from "@lucide/svelte";
 
-const EXPENSE_CATEGORY_ICONS: Record<string, Component<any>> = {
+const EXPENSE_CATEGORY_ICONS: Record<string, LucideIcon> = {
   food: Utensils,
   groceries: ShoppingCart,
   transport: Car,
@@ -27,6 +27,6 @@ const EXPENSE_CATEGORY_ICONS: Record<string, Component<any>> = {
   other: Ellipsis,
 };
 
-export function expenseCategoryIcon(category: string): Component<any> | undefined {
+export function expenseCategoryIcon(category: string): LucideIcon | undefined {
   return EXPENSE_CATEGORY_ICONS[category];
 }

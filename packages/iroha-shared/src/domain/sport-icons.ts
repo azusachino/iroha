@@ -1,8 +1,8 @@
-import type { Component } from "svelte";
+import type { LucideIcon } from "@lucide/svelte";
 import { Bike, Footprints, Mountain, Waves, Zap, Activity } from "@lucide/svelte";
 import { canonicalSport } from "./sport";
 
-const SPORT_ICONS: Record<string, Component<any>> = {
+const SPORT_ICONS: Record<string, LucideIcon> = {
   run: Zap,
   walk: Footprints,
   hike: Mountain,
@@ -11,6 +11,6 @@ const SPORT_ICONS: Record<string, Component<any>> = {
   other: Activity,
 };
 
-export function sportIcon(sport?: string | null): Component<any> | undefined {
+export function sportIcon(sport?: string | null): LucideIcon | undefined {
   return SPORT_ICONS[canonicalSport(sport)];
 }
