@@ -173,7 +173,7 @@
     <ReportMetricCard
       label="Movement"
       title="Distance by sport"
-      summary={movement ? movement.activity_count + " sessions" : "No records"}
+      summary={movement ? movement.activity_count + " sessions" : "Uncharted"}
       tone="feature"
     >
       {#if movement?.by_sport.length}
@@ -220,7 +220,7 @@
       title="Sleep-stage composition"
       summary={sleep
         ? sleep.main_sleep_count + " main · " + sleep.nap_count + " naps"
-        : "No records"}
+        : "Uncharted"}
     >
       {#if sleep}
         <MetricPanel
@@ -260,7 +260,7 @@
     <ReportMetricCard
       label="Daily health"
       title="Observation coverage"
-      summary={health ? health.observed_days + " observed days" : "No records"}
+      summary={health ? health.observed_days + " observed days" : "Uncharted"}
       tone="quiet"
     >
       {#if health?.metric_averages.length}
@@ -296,7 +296,7 @@
     <ReportMetricCard
       label="Media"
       title="Events and completions"
-      summary={media ? media.event_count + " events" : "No records"}
+      summary={media ? media.event_count + " events" : "Uncharted"}
       tone="quiet"
     >
       {#if media?.by_kind.length}
@@ -339,7 +339,7 @@
     <ReportMetricCard
       label="Expenses"
       title="Spend by category"
-      summary={expenses ? expenses.expense_count + " records" : "No records"}
+      summary={expenses ? expenses.expense_count + " records" : "Uncharted"}
       tone="feature"
     >
       {#if categoryTotals.length}
