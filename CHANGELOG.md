@@ -7,8 +7,22 @@ contract between minor versions.
 
 ## [Unreleased]
 
+### Added
+
+- Give Atlas an ambient WebGL background: a flat survey chart of scattered teal "dust" points and larger amber legend markers with a handful of faint triangulation lines between them, drifting at a
+  near-imperceptible compass-card rotation. This is the first slice of a per-theme ambient layer (infra: `packages/iroha-shared/src/theme-ui/ambient/`) mounted once at the root layout behind
+  everything — every data tile already paints an opaque `--tile-surface`, so the canvas only shows through chrome and empty space and never touches data legibility. A theme with no registered scene
+  (Grapher, and the four not yet built) renders nothing, continuing Grapher's established plainest-of-six identity. Reduced motion is a state contract, not a slower loop: a preferring client gets
+  exactly one rendered frame and `requestAnimationFrame` is never scheduled. Adds `three` (core entrypoint only — no loaders/postprocessing) as a lazily-imported dependency, dynamically loaded from
+  inside the host component so it never lands on the initial critical-path bundle: production build grew from 3.5M to 4.0M on disk, entirely inside one new lazy chunk (518 kB raw / 128 kB gzip,
+  absent from `index.html`'s eager references) that only fetches once the ambient layer actually needs to build a scene. This is the "recorded seam justification and bundle comparison" the v0.4.4
+  plan's decision #4 asked for before any Three.js dependency — approved for this pass as a deliberate personal-project "try the fancy stuff" call, not a user-problem fix.
+
 ### Changed
 
+- Give Atlas its own semantic status colors and no-data copy voice instead of sharing the app-wide neon danger/positive/warning set and the generic "No records" fallback with all six languages.
+  Danger moves to a clay/terracotta already in Atlas's own `--ring-exercise` family; positive/warning tie directly to the map's own water/brass accents (`--accent`/`--accent-2`). Report cards' zero-data
+  fallback now reads "Uncharted", scoped to Atlas's own `Reports.svelte`.
 - Give Admin a real operational question instead of a generic heading, per the v0.4.4 scorecard's own follow-up note ("give app-only Admin a specific operational question and compact utility-header
   contract"). Replace the "Admin" hero heading with "What needs attention?" at the compact `--grapher-utility-title-size` scale Motion/Night/Patterns/Library already use (Admin's own heading was still
   at full editorial hero size). Swap the static "Metric catalog" status card for a "Needs attention" card surfacing the failed-job count — the metric catalog total is still shown in the Metric
