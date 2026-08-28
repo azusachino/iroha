@@ -269,7 +269,6 @@
               formatter: (value) => value + "d",
             }}
             orientation="horizontal"
-            categorical
             height={230}
           />
         </MetricPanel>

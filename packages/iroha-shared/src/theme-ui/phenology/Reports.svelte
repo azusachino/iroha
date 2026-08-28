@@ -250,7 +250,6 @@
               color: "var(--accent)",
             }}
             orientation="horizontal"
-            categorical
             height={220}
           />
         </MetricPanel>
