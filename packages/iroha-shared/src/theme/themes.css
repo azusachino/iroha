@@ -178,6 +178,15 @@ html:root[data-language="phenology"] {
   --ring-exercise: #e7b65a;
   --ring-stand: #a5c76a;
   --radius: 20px;
+  /* Cyclical-season colors instead of the app-wide neon set: danger reads as
+     a wilted/dried bloom (muted, in the accent's own pink family rather than
+     a hue lifted from another theme), positive ties to the accent-2 green
+     (growth), warning reuses the exercise ring's existing gold rather than
+     adding a fourth hue. */
+  --danger: #9c4a63;
+  --color-danger: #9c4a63;
+  --color-positive: var(--accent-2);
+  --color-warning: var(--ring-exercise);
   --font-serif:
     "Iowan Old Style", "Palatino Linotype", Georgia, "Crimson Pro", serif;
   --season-summer-accent: #e7b65a;

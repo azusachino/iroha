@@ -183,7 +183,7 @@
     <ReportMetricCard
       label="Recovery center"
       title="Sleep-stage composition"
-      summary={sleep ? formatDuration(sleep.average_asleep_s) : "No records"}
+      summary={sleep ? formatDuration(sleep.average_asleep_s) : "Dormant"}
       tone="feature"
     >
       {#if sleep}
@@ -226,7 +226,7 @@
     <ReportMetricCard
       label="Movement orbit"
       title="Distance by sport"
-      summary={movement ? movement.activity_count + " sessions" : "No records"}
+      summary={movement ? movement.activity_count + " sessions" : "Dormant"}
     >
       {#if movement?.by_sport.length}
         <MetricPanel
@@ -257,7 +257,7 @@
     <ReportMetricCard
       label="Body orbit"
       title="Observation coverage"
-      summary={health ? health.observed_days + " days" : "No records"}
+      summary={health ? health.observed_days + " days" : "Dormant"}
       tone="quiet"
     >
       {#if health?.metric_averages.length}
@@ -282,7 +282,7 @@
     <ReportMetricCard
       label="Library orbit"
       title="Events and completions"
-      summary={media ? media.event_count + " events" : "No records"}
+      summary={media ? media.event_count + " events" : "Dormant"}
     >
       {#if media?.by_kind.length}
         <MetricPanel
@@ -324,7 +324,7 @@
     <ReportMetricCard
       label="Ledger orbit"
       title="Spend by category"
-      summary={expenses ? expenses.expense_count + " records" : "No records"}
+      summary={expenses ? expenses.expense_count + " records" : "Dormant"}
       tone="quiet"
     >
       {#if categoryTotals.length}
