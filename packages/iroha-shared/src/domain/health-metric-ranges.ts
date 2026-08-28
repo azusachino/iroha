@@ -26,16 +26,16 @@ const HEALTH_METRIC_RANGES: Record<string, HealthMetricRange> = {
   spo2_avg: {
     min: 95,
     max: 100,
-    source: "Clinical consensus (pulse oximetry); below 92% is flagged",
+    source: "Clinical consensus (pulse oximetry)",
     caveat:
-      "Altitude above 3000m, age over 70, and consumer pulse-ox error (±2-3%) all shift this.",
+      "This app shows the whole sub-95% band as below normal rather than distinguishing severity -- clinically, readings below 92% are more urgently concerning than 93-94%. Altitude above 3000m, age over 70, and consumer pulse-ox error (±2-3%) all shift this.",
   },
   spo2_min: {
     min: 95,
     max: 100,
-    source: "Clinical consensus (pulse oximetry); below 92% is flagged",
+    source: "Clinical consensus (pulse oximetry)",
     caveat:
-      "Altitude above 3000m, age over 70, and consumer pulse-ox error (±2-3%) all shift this.",
+      "This app shows the whole sub-95% band as below normal rather than distinguishing severity -- clinically, readings below 92% are more urgently concerning than 93-94%. Altitude above 3000m, age over 70, and consumer pulse-ox error (±2-3%) all shift this.",
   },
   respiratory_rate: {
     min: 12,
