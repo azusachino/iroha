@@ -1,11 +1,9 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { fade, fly, scale } from "svelte/transition";
-  import { backOut, cubicOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
   import { browser } from "$app/environment";
   import { APP_VERSION } from "$lib/config";
   import { useTheme } from "$lib/themes/context.svelte";
-  import type { DesignLanguage } from "@iroha/shared/theme/themes";
 
   let {
     children,
@@ -21,52 +19,20 @@
   );
 
   // Mirrors --motion-language-switch (themes.css); Svelte's transition
-  // duration is a JS number, not the CSS custom property directly.
-  const reducedMotion = browser
+  // duration is a JS number, not the CSS custom property directly. One
+  // plain cross-fade for every language -- distinct pan/bloom/stamp motion
+  // per theme read as gimmicky in practice; a full-composition swap should
+  // stay calm regardless of which language is switching in.
+  const languageSwitch = browser
     ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
-  const languageSwitch = { duration: reducedMotion ? 0 : 300 };
-
-  // One motion signature per language instead of a single shared cross-fade
-  // -- Grapher keeps the plain fade, matching its identity as the plainest
-  // of the six. `theme.language()` is read fresh on every call, which is
-  // safe here because {#key theme.language()} below already guarantees a
-  // fresh element (and therefore a fresh transition call) on every switch.
-  function themeTransition(node: Element, params: { duration: number }) {
-    const language: DesignLanguage = theme.language();
-    const { duration } = params;
-    switch (language) {
-      case "atlas":
-        return fly(node, { x: 16, duration, easing: cubicOut });
-      case "field-journal":
-        return scale(node, { start: 0.98, duration, easing: cubicOut });
-      case "phenology":
-        return scale(node, {
-          start: 0.92,
-          duration: duration * 1.3,
-          easing: backOut,
-        });
-      case "sound-map":
-        return fly(node, {
-          y: -8,
-          duration: duration * 0.7,
-          easing: cubicOut,
-        });
-      case "archive":
-        return scale(node, {
-          start: 1.05,
-          duration: duration * 0.7,
-          easing: cubicOut,
-        });
-      default:
-        return fade(node, { duration });
-    }
-  }
+      ? { duration: 0 }
+      : { duration: 300 }
+    : { duration: 0 };
 </script>
 
 {#if Shell}
   {#key theme.language()}
-    <div class="theme-transition" transition:themeTransition={languageSwitch}>
+    <div class="theme-transition" transition:fade={languageSwitch}>
       <Shell theme={theme.language()} {brand} {nav} {actions}>
         <main id="main-content" class="theme-content" tabindex="-1">
           {@render children()}
