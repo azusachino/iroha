@@ -217,6 +217,15 @@ html:root[data-language="cadence"] {
   --ring-exercise: #b5e36b;
   --ring-stand: #63b7ff;
   --radius: 5px;
+  /* Mixing-console colors instead of the app-wide neon set: danger reads as
+     a channel clip light (a saturated red distinct from every other
+     language's danger hue), positive ties to the exercise ring's green
+     (levels reading clean), warning reuses the accent-2 orange already in
+     the console's own warm-signal range. */
+  --danger: #e2453a;
+  --color-danger: #e2453a;
+  --color-positive: var(--ring-exercise);
+  --color-warning: var(--accent-2);
   --font-mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
   --tile-surface: repeating-linear-gradient(
       0deg,

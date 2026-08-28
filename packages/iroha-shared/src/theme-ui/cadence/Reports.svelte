@@ -177,7 +177,7 @@
     <ReportMetricCard
       label="Library signal"
       title="Events and completions"
-      summary={media ? media.event_count + " events" : "No records"}
+      summary={media ? media.event_count + " events" : "Silence"}
       tone="feature"
     >
       {#if media?.by_kind.length}
@@ -221,7 +221,7 @@
     <ReportMetricCard
       label="Movement signal"
       title="Distance intensity"
-      summary={movement ? movement.activity_count + " sessions" : "No records"}
+      summary={movement ? movement.activity_count + " sessions" : "Silence"}
     >
       {#if movement?.by_sport.length}
         <MetricPanel
@@ -252,7 +252,7 @@
     <ReportMetricCard
       label="Recovery signal"
       title="Stage bands"
-      summary={sleep ? formatDuration(sleep.average_asleep_s) : "No records"}
+      summary={sleep ? formatDuration(sleep.average_asleep_s) : "Silence"}
       tone="quiet"
     >
       {#if sleep}
@@ -297,7 +297,7 @@
     <ReportMetricCard
       label="Body signal"
       title="Observed coverage"
-      summary={health ? health.observed_days + " days" : "No records"}
+      summary={health ? health.observed_days + " days" : "Silence"}
       tone="quiet"
     >
       {#if health?.metric_averages.length}
@@ -322,7 +322,7 @@
     <ReportMetricCard
       label="Ledger signal"
       title="Spend bands"
-      summary={expenses ? expenses.expense_count + " records" : "No records"}
+      summary={expenses ? expenses.expense_count + " records" : "Silence"}
     >
       {#if categories.length}
         <MetricPanel
