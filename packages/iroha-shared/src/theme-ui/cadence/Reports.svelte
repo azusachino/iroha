@@ -12,16 +12,13 @@
   import type { PanelRow } from "../../components/metric-panel";
   import { formatMetricValue } from "../../format/format";
   import { healthMetricLabel } from "../../domain/health-metric-labels";
-  import { healthMetricIcon } from "../../domain/health-metric-icons";
-  import { healthMetricColorVar } from "../../domain/health-metric-colors";
-  import { healthMetricRange } from "../../domain/health-metric-ranges";
+  import { healthPanelRows } from "../../domain/health-panel-rows";
   import { sportLabel, sportColorVar } from "../../domain/sport";
   import { sportIcon } from "../../domain/sport-icons";
   import { expenseCategoryLabel } from "../../view-contracts/expense-view";
   import { expenseCategoryIcon } from "../../domain/expense-icons";
   import { categoryColorVar } from "../../domain/category-color";
   import {
-    coveragePercent,
     reportPeriodDays,
     reportSectionData,
     type ReportThemeProps,
@@ -122,18 +119,7 @@
   ]);
   const periodDays = $derived(reportPeriodDays(report));
   const healthRows = $derived<PanelRow[]>(
-    (health?.metric_averages ?? []).map((item) => {
-      const pct = coveragePercent(item.observed_days, periodDays);
-      return {
-        label: healthMetricLabel(item.metric),
-        icon: healthMetricIcon(item.metric),
-        colorVar: healthMetricColorVar(item.metric),
-        value: item.value,
-        display: formatMetricValue(item.value, item.unit) + " " + item.unit,
-        range: healthMetricRange(item.metric),
-        breakdown: `${pct}% coverage (${item.observed_days}/${periodDays} days)`,
-      };
-    }),
+    healthPanelRows(health?.metric_averages ?? [], periodDays),
   );
   const movementRows = $derived<PanelRow[]>(
     (movement?.by_sport ?? []).map((item) => ({
