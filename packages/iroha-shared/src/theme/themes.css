@@ -204,3 +204,62 @@ html:root[data-language="archive"] {
     var(--surface);
   --tile-shadow: 0 6px 16px color-mix(in srgb, var(--accent-2) 18%, #0a08064d);
 }
+
+/*
+ * The shared EmptyState primitive (packages/iroha-shared/src/theme-ui/
+ * components/EmptyState.svelte) renders one literal "no records" mark
+ * (an em dash in a circle) for every language -- another shared asset that
+ * was quietly opting all six out of differentiation. Its mark is
+ * `aria-hidden`, so swapping the glyph per language via `::before` is purely
+ * visual; it never changes what's announced. Grapher keeps the component's
+ * own default untouched, matching its identity as the plainest of the six.
+ */
+html:root[data-language="atlas"] .empty-mark {
+  font-size: 0;
+  border-style: dashed;
+}
+html:root[data-language="atlas"] .empty-mark::before {
+  content: "+";
+  font-size: 2rem;
+  line-height: 1;
+}
+
+html:root[data-language="field-journal"] .empty-mark {
+  font-size: 0;
+}
+html:root[data-language="field-journal"] .empty-mark::before {
+  content: "○";
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+html:root[data-language="phenology"] .empty-mark {
+  font-size: 0;
+}
+html:root[data-language="phenology"] .empty-mark::before {
+  content: "◔";
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+html:root[data-language="sound-map"] .empty-mark {
+  font-size: 0;
+  border-radius: var(--radius);
+}
+html:root[data-language="sound-map"] .empty-mark::before {
+  content: "‖";
+  font-size: 1.5rem;
+  line-height: 1;
+  font-family: var(--font-mono);
+}
+
+html:root[data-language="archive"] .empty-mark {
+  font-size: 0;
+  border-radius: var(--radius);
+}
+html:root[data-language="archive"] .empty-mark::before {
+  content: "∅";
+  font-size: 1.8rem;
+  line-height: 1;
+  font-family: var(--font-serif);
+}

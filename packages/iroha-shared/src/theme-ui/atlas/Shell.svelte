@@ -149,6 +149,22 @@
     box-shadow: inset 0 0 0 1px var(--accent);
   }
 
+  /* A small filled triangle ahead of the active label -- cartography's own
+     convention for "the most important point," borrowed as a "you are
+     here" peak marker instead of a generic dot or fill. */
+  .atlas-header :global(.main-nav > a.active)::before,
+  .atlas-header :global(.navigation-menu.active > summary)::before {
+    content: "";
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-right: 0.35rem;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 6px solid var(--accent);
+    vertical-align: middle;
+  }
+
   .atlas-header-legend {
     padding: 0.2rem 0.5rem;
     border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
