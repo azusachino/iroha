@@ -145,3 +145,45 @@ func TestIntegrationMonthlyReportCrossDomainBoundariesAndStability(t *testing.T)
 		t.Fatalf("currency totals = %#v", currencyTotals)
 	}
 }
+
+func TestIntegrationMonthlyReportSeriesCarriesHealthMetricAverages(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	if err := db.Exec("delete from tb_daily_metrics where day >= '2099-05-01' and day < '2099-06-01'").Error; err != nil {
+		t.Fatalf("reset series fixture: %v", err)
+	}
+	server := newIntegrationServer(t, db)
+
+	now := time.Now().UTC()
+	rawID := uuid.New()
+	if err := db.Create(&models.RawFile{
+		ID: rawID, SHA256: "series-report-" + rawID.String(), OriginalFilename: "series-test.xml",
+		StoragePath: "/tmp/series-test.xml", SourceKind: "test", UploadedVia: "test", CreatedAt: now,
+	}).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	day := time.Date(2099, time.May, 1, 0, 0, 0, 0, time.UTC)
+	metric := models.DailyMetric{ID: uuid.New(), Day: day, Metric: "resting_hr", Value: 62, Unit: "bpm", Source: "test", FirstRawFileID: rawID, CreatedAt: now, UpdatedAt: now}
+	if err := db.Create(&metric).Error; err != nil {
+		t.Fatalf("create daily metric: %v", err)
+	}
+
+	// This is the exact code path monthlyDailyHealthTrend() reduces into a
+	// MonthlyReportSeriesPoint -- the series endpoint had no integration
+	// coverage at all before this, so a metric_averages regression here
+	// would previously have shipped silently.
+	path := "/api/v1/reports/monthly-series?end=2099-05&timezone=UTC&months=1"
+	response := requestJSON(t, server, "GET", path, "", 200, nil)
+	seriesReports := response["reports"].([]any)
+	if len(seriesReports) != 1 {
+		t.Fatalf("series reports = %#v", seriesReports)
+	}
+	daily := seriesReports[0].(map[string]any)["daily_health"].(map[string]any)
+	averages := daily["metric_averages"].([]any)
+	if daily["observed_days"] != float64(1) || len(averages) != 1 {
+		t.Fatalf("daily health trend = %#v", daily)
+	}
+	if averages[0].(map[string]any)["metric"] != "resting_hr" || averages[0].(map[string]any)["unit"] != "bpm" {
+		t.Fatalf("metric average = %#v", averages[0])
+	}
+}

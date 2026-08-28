@@ -54,6 +54,23 @@ func TestMonthlySeriesCompletenessUsesCanonicalPeriodBoundary(t *testing.T) {
 	}
 }
 
+func TestMonthlyDailyHealthTrendPreservesMetricAverages(t *testing.T) {
+	report := MonthlyReport{}
+	if got := monthlyDailyHealthTrend(report); got != nil {
+		t.Fatalf("empty daily-health section trend = %+v, want nil", got)
+	}
+	report.Sections.DailyHealth.Data = &DailyHealthData{
+		ObservedDays: 5,
+		MetricAverages: []MetricAverage{
+			{Metric: "resting_hr", Value: 62, Unit: "bpm", ObservedDays: 5},
+		},
+	}
+	trend := monthlyDailyHealthTrend(report)
+	if trend == nil || trend.ObservedDays != 5 || len(trend.MetricAverages) != 1 || trend.MetricAverages[0].Metric != "resting_hr" {
+		t.Fatalf("trend = %+v, want metric averages preserved", trend)
+	}
+}
+
 func TestReportHasDataOnlyForAvailableSections(t *testing.T) {
 	if reportHasData(MonthlyReport{}) {
 		t.Fatal("empty report has data")
