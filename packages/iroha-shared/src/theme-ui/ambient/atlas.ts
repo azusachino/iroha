@@ -68,7 +68,12 @@ export const createAtlasAmbientScene: AmbientFactory = (canvas, getColors) => {
   camera.position.set(0, 0, 8);
   camera.lookAt(0, 0, 0);
 
-  const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true });
+  const renderer = new WebGLRenderer({
+    canvas,
+    alpha: true,
+    antialias: true,
+    preserveDrawingBuffer: true,
+  });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
   const group = new Group();
