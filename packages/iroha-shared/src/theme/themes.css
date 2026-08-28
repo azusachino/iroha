@@ -96,6 +96,8 @@
  */
 
 html:root[data-language="atlas"] {
+  --motion-micro: 180ms ease-out;
+  --motion-quick-state: 240ms ease-out;
   --heading-tracking: 0.01em;
   --theme-swatch: #58c7c0;
   --accent: #58c7c0;
@@ -130,6 +132,8 @@ html:root[data-language="grapher"] {
 }
 
 html:root[data-language="field-journal"] {
+  --motion-micro: 200ms ease-out;
+  --motion-quick-state: 260ms ease-in-out;
   --body-leading: 1.65;
   --heading-tracking: -0.01em;
   --theme-swatch: #39c5bb;
@@ -147,6 +151,8 @@ html:root[data-language="field-journal"] {
 }
 
 html:root[data-language="phenology"] {
+  --motion-micro: 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-quick-state: 320ms ease-in-out;
   --body-leading: 1.7;
   --theme-swatch: #d68bba;
   --accent: #d68bba;
@@ -173,6 +179,8 @@ html:root[data-language="phenology"] {
 }
 
 html:root[data-language="sound-map"] {
+  --motion-micro: 100ms linear;
+  --motion-quick-state: 140ms ease-out;
   --body-leading: 1.4;
   --heading-tracking: 0.02em;
   --theme-swatch: #63b7ff;
@@ -193,6 +201,8 @@ html:root[data-language="sound-map"] {
 }
 
 html:root[data-language="archive"] {
+  --motion-micro: 120ms ease-in;
+  --motion-quick-state: 180ms ease-out;
   --body-leading: 1.4;
   --heading-tracking: -0.02em;
   --theme-swatch: #b8a0ff;
