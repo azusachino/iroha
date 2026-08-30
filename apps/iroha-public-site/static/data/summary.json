@@ -1,20 +1,20 @@
 {
   "totals": {
-    "activity_count": 501,
+    "activity_count": 502,
     "distance_m": 1440478.4453254798,
     "distance_known_count": 441,
-    "distance_unknown_count": 60,
-    "duration_s": 963034,
+    "distance_unknown_count": 61,
+    "duration_s": 971022,
     "elevation_gain_m": 265.71214799999984
   },
   "by_year": [
     {
       "key": "2026",
-      "activity_count": 74,
+      "activity_count": 75,
       "distance_m": 195646.02075705308,
       "distance_known_count": 53,
-      "distance_unknown_count": 21,
-      "duration_s": 184789,
+      "distance_unknown_count": 22,
+      "duration_s": 192777,
       "elevation_gain_m": 197.459857
     },
     {
@@ -48,11 +48,11 @@
   "by_month": [
     {
       "key": "2026-08",
-      "activity_count": 4,
+      "activity_count": 5,
       "distance_m": 8302.899757053072,
       "distance_known_count": 4,
-      "distance_unknown_count": 0,
-      "duration_s": 8503,
+      "distance_unknown_count": 1,
+      "duration_s": 16491,
       "elevation_gain_m": 184.943605
     },
     {
@@ -365,11 +365,11 @@
     },
     {
       "key": "FitnessGaming",
-      "activity_count": 32,
+      "activity_count": 33,
       "distance_m": 0,
       "distance_known_count": 0,
-      "distance_unknown_count": 32,
-      "duration_s": 119470,
+      "distance_unknown_count": 33,
+      "duration_s": 127458,
       "elevation_gain_m": 0
     },
     {

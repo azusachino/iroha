@@ -1,5 +1,16 @@
 [
   {
+    "id": "act_01a0520b-9b19-7b92-a09f-39e70d54c9b9",
+    "sport_type": "FitnessGaming",
+    "title": "FitnessGaming",
+    "started_at": "2026-08-30T03:08:24Z",
+    "ended_at": "2026-08-30T05:21:33Z",
+    "timezone": "",
+    "duration_s": 7988,
+    "avg_hr": 121,
+    "max_hr": 154
+  },
+  {
     "id": "act_01a030f0-6a4a-7dc4-b72b-8442b2b886d6",
     "sport_type": "run",
     "title": "Running",
