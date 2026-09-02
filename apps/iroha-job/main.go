@@ -25,10 +25,19 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/publicexport"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// defaultPublicExportInterval is the projection_refresh schedule's cadence.
+// jobs.ScheduleKindInterval has no cron/timezone support, so this drifts
+// against wall-clock time across restarts and run durations — acceptable
+// for a personal data snapshot, unlike the fixed daily-at-midnight-JST
+// CronJob this schedule replaces.
+const defaultPublicExportInterval = "24h"
 
 func main() {
 	once := flag.Bool("once", false, "process at most one due schedule and one queued job")
@@ -127,6 +136,19 @@ func main() {
 	jobs.Register(registry, jobs.KindGeocodeRefresh, func(ctx context.Context, payload geocode.RefreshPayload) error {
 		return geocodeService.Refresh(ctx, payload)
 	})
+
+	if exportDir := os.Getenv(config.EnvPublicExportDir); exportDir != "" {
+		activityService := activities.NewService(db)
+		exportPrivacy := os.Getenv(config.EnvPublicExportPrivacy) == "true"
+		jobs.Register(registry, jobs.KindProjectionRefresh, publicExportRefreshHandler(activityService, geocodeService, exportDir, exportPrivacy))
+		if err := ensureSchedule(db, jobs.KindProjectionRefresh, jobs.ScheduleKindInterval, defaultPublicExportInterval); err != nil {
+			logger.Error("ensure public export schedule", "error", err)
+			os.Exit(1)
+		}
+	} else {
+		logger.Info("IROHA_PUBLIC_EXPORT_DIR not set; projection_refresh job kind disabled")
+	}
+
 	jobsService = jobs.NewService(db, logger, registry.Handlers())
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -248,4 +270,44 @@ func mediaBridgeRefreshHandler(db *gorm.DB, bridge *imports.ReloadableMediaRefBr
 		}
 		return bridge.Reload(db)
 	}
+}
+
+// publicExportRefreshHandler regenerates the sanitized public-site snapshot
+// in-process, replacing the standalone iroha-export-public CLI's scheduled
+// use. publicexport.Export validates before writing and swaps outDir into
+// place atomically, so any failure here — a validation error, a write
+// error — surfaces as a real handler error for jobs.Service.Fail's
+// retry/attempts to act on, rather than leaving a partial export in place.
+func publicExportRefreshHandler(activityService *activities.Service, geocodeService *geocode.Service, outDir string, privacy bool) func(context.Context, struct{}) error {
+	return func(ctx context.Context, _ struct{}) error {
+		_, err := publicexport.Export(ctx, activityService, geocodeService, outDir, publicexport.ExportOptions{Privacy: privacy})
+		return err
+	}
+}
+
+// ensureSchedule creates a schedule for kind if one doesn't already exist,
+// so restarting iroha-job never inserts a duplicate tb_job_schedules row.
+func ensureSchedule(db *gorm.DB, kind, scheduleKind, scheduleExpr string) error {
+	var existing models.JobSchedule
+	err := db.Where("kind = ?", kind).First(&existing).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("check existing schedule for %s: %w", kind, err)
+	}
+
+	now := time.Now().UTC()
+	svc := jobs.NewService(db, nil, nil)
+	_, err = svc.CreateSchedule(jobs.ScheduleInput{
+		Kind:         kind,
+		ScheduleKind: scheduleKind,
+		ScheduleExpr: scheduleExpr,
+		NextRunAt:    &now,
+		Enabled:      true,
+	})
+	if err != nil {
+		return fmt.Errorf("create schedule for %s: %w", kind, err)
+	}
+	return nil
 }

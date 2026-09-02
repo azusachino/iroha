@@ -16,6 +16,8 @@ const (
 	EnvBangumiUsername             = "IROHA_BANGUMI_USERNAME"
 	EnvBangumiToken                = "IROHA_BANGUMI_TOKEN"
 	EnvTimezone                    = "IROHA_TIMEZONE"
+	EnvPublicExportDir             = "IROHA_PUBLIC_EXPORT_DIR"
+	EnvPublicExportPrivacy         = "IROHA_PUBLIC_EXPORT_PRIVACY"
 )
 
 // defaultAllowedOrigins lets the local web dev server reach the private API.
