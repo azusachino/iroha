@@ -3,22 +3,22 @@
 _iro & hana_ — a personal data cockpit for keeping, understanding, and selectively sharing personal history.
 
 [![CI](https://github.com/azusachino/iroha/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/azusachino/iroha/actions/workflows/ci.yml)
-[![Public site](https://github.com/azusachino/iroha/actions/workflows/public-site.yml/badge.svg?branch=main)](https://github.com/azusachino/iroha/actions/workflows/public-site.yml)
 [![Release](https://img.shields.io/github/v/release/azusachino/iroha?display_name=tag&sort=semver)](https://github.com/azusachino/iroha/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 ## Two surfaces
 
-The private cockpit stores the complete personal history and runs on a local machine or private k3s/LAN deployment. The public archive is a static GitHub Pages snapshot of deliberately published data;
-it has no live API and no private credentials.
+The private cockpit stores the complete personal history and runs on a local machine or private k3s/LAN deployment. The public archive is a static snapshot of deliberately published data, built and
+served on the same deployment; it has no live API and no private credentials.
 
-| Surface         | Location                                                            | Contents                                                                                                   |
-| --------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Private cockpit | `iroha-server`, `iroha-job`, `iroha-web`                            | Canonical Postgres/PostGIS data, routes, streams, sleep, media, expenses, monthly reports, tasks, and jobs |
-| Public archive  | [`azusachino.github.io/iroha`](https://azusachino.github.io/iroha/) | Public activity snapshot with rich detail for every exported activity                                      |
+| Surface         | Location                                                | Contents                                                                                                   |
+| --------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Private cockpit | `iroha-server`, `iroha-job`, `iroha-web`                | Canonical Postgres/PostGIS data, routes, streams, sleep, media, expenses, monthly reports, tasks, and jobs |
+| Public archive  | [`iroha.azusachino.icu`](https://iroha.azusachino.icu/) | Public activity snapshot with rich detail for every exported activity                                      |
 
-The exporter runs inside the private deployment and pushes only the static snapshot under `apps/iroha-public-site/static/data/`. See [public-site publishing](docs/public-site-publishing.md) for the
-boundary and operator workflow.
+The exporter runs entirely inside the private deployment — a scheduled job on `iroha-job` regenerates the sanitized snapshot, and a separate builder job clones this repo's public code, builds the
+static site, and serves it, all on the same cluster. Nothing is pushed to this repo. See [public-site publishing](docs/public-site-publishing.md) for the boundary and operator workflow. The archive
+was previously published via GitHub Pages at `azusachino.github.io/iroha`; that deployment is retired and the URL no longer updates.
 
 ## Quick start
 
