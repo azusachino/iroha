@@ -94,11 +94,24 @@ func Export(ctx context.Context, activityService *activities.Service, geocodeSer
 		return ExportResult{}, fmt.Errorf("write meta.json: %w", err)
 	}
 
-	if err := os.RemoveAll(outDir); err != nil {
-		return ExportResult{}, fmt.Errorf("remove previous export dir: %w", err)
+	// Swap by rename-aside rather than remove-then-rename: outDir is moved
+	// out of the way first and only removed once tmpDir has successfully
+	// taken its place, so a failure partway through never leaves outDir
+	// missing — the previous export keeps serving under oldDir until the
+	// swap actually succeeds.
+	oldDir := outDir + ".old"
+	if err := os.RemoveAll(oldDir); err != nil {
+		return ExportResult{}, fmt.Errorf("clear stale old dir: %w", err)
+	}
+	if err := os.Rename(outDir, oldDir); err != nil && !os.IsNotExist(err) {
+		return ExportResult{}, fmt.Errorf("move previous export dir aside: %w", err)
 	}
 	if err := os.Rename(tmpDir, outDir); err != nil {
+		_ = os.Rename(oldDir, outDir) // best-effort restore of the previous export
 		return ExportResult{}, fmt.Errorf("swap export dir into place: %w", err)
+	}
+	if err := os.RemoveAll(oldDir); err != nil {
+		return ExportResult{}, fmt.Errorf("remove previous export dir: %w", err)
 	}
 
 	return ExportResult{ActivityCount: len(activityList), RouteCount: len(routes.Features)}, nil
