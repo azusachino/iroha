@@ -145,7 +145,7 @@ fmt-docs-check: ## Fail if any doc/config file is unformatted
 
 ## --- Aggregate gates ---
 check: fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check motion-tokens-check web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + theme/responsive/motion boundaries + web checks
-validate: check build web-build public-site-fmt-check public-site-check public-site-pages-build ## Pre-PR gate: check + full server, private web, and GitHub Pages web builds
+validate: check build web-build public-site-fmt-check public-site-check public-site-build ## Pre-PR gate: check + full server, private web, and public-site builds
 
 release-candidate: ## Isolated DB integration + seeded production runtime/browser gate
 	$(TOOL_ENV) uv run python scripts/release_candidate.py
