@@ -16,7 +16,6 @@ COPY apps/iroha-runtime ./apps/iroha-runtime
 COPY apps/iroha-server ./apps/iroha-server
 COPY apps/iroha-job ./apps/iroha-job
 RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-server ./cmd/iroha-server
-RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-export-public ./cmd/iroha-export-public
 RUN CGO_ENABLED=0 go -C apps/iroha-job build -mod=mod -o /out/iroha-job .
 
 FROM alpine:3.22 AS server
@@ -57,17 +56,3 @@ RUN chmod +x /usr/local/bin/db-migrate-entrypoint.sh
 USER iroha
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/db-migrate-entrypoint.sh"]
 CMD ["up"]
-
-# Batch job image for the k3s CronJob that keeps the public GitHub Pages site
-# fresh: exports sanitized data from the in-cluster Postgres and pushes it,
-# from inside the private network, to the repo the Pages deploy workflow
-# watches. git (not needed by the other images) is the only extra package;
-# tzdata is required for the CronJob's Asia/Tokyo schedule check.
-FROM alpine:3.22 AS export-public
-RUN apk add --no-cache ca-certificates tini git tzdata \
-  && addgroup -S iroha && adduser -S -G iroha iroha
-COPY --from=build /out/iroha-export-public /usr/local/bin/iroha-export-public
-COPY ops/scripts/export-public-cron.sh /usr/local/bin/export-public-cron.sh
-RUN chmod +x /usr/local/bin/export-public-cron.sh
-USER iroha
-ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/export-public-cron.sh"]

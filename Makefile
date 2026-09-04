@@ -19,7 +19,7 @@ MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-pages-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-export-public images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-data public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web images
 
 PRETTIER := prettier
 DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
@@ -124,11 +124,11 @@ public-site-fmt-check: ## Fail if any public-site file is unformatted
 public-site-check: ## Type-check the public site (svelte-check)
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run check
 
-public-site-build: ## Production build of the public site (honours BASE_PATH; use public-site-pages-build for Pages)
-	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build
+public-site-data: db-up ## Regenerate the public site's static/data from the DB (never committed; PRIVACY=1 omits route traces)
+	$(TOOL_ENV) go -C $(SERVER_DIR) run ./cmd/iroha-export-public --out $(abspath $(PUBLIC_SITE_DIR)/static/data) $(if $(filter 1 true yes,$(PRIVACY)),--privacy,)
 
-public-site-pages-build: ## Production build of the public site with the GitHub Pages base path
-	BASE_PATH=/iroha $(MAKE) public-site-build
+public-site-build: public-site-data ## Production build of the public site (regenerates static/data from the DB first)
+	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build
 
 public-site-dev: ## Run the public-site dev server, bound to all interfaces
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run dev -- --host 0.0.0.0 --port $(or $(PORT),5174)
@@ -145,7 +145,7 @@ fmt-docs-check: ## Fail if any doc/config file is unformatted
 
 ## --- Aggregate gates ---
 check: fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check motion-tokens-check web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + theme/responsive/motion boundaries + web checks
-validate: check build web-build public-site-fmt-check public-site-check public-site-pages-build ## Pre-PR gate: check + full server, private web, and GitHub Pages web builds
+validate: check build web-build public-site-fmt-check public-site-check public-site-build ## Pre-PR gate: check + full server, private web, and public-site builds
 
 release-candidate: ## Isolated DB integration + seeded production runtime/browser gate
 	$(TOOL_ENV) uv run python scripts/release_candidate.py
@@ -204,8 +204,4 @@ image-web: ## Build iroha-web and import it into the local k3s containerd store 
 	podman build -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) --build-arg PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) .
 	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
-image-export-public: ## Build iroha-export-public and import it into the local k3s containerd store (TAG=$(TAG))
-	podman build --target export-public -t $(IMAGE_NS)/iroha-export-public:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-export-public:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
-
-images: image-server image-job image-db-migrate image-web image-export-public ## Build and import all iroha images into the local k3s containerd store
+images: image-server image-job image-db-migrate image-web ## Build and import all iroha images into the local k3s containerd store
