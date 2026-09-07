@@ -18,6 +18,7 @@
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import FilterSelect from "$lib/components/FilterSelect.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import {
     currentMonth,
     monthOptionsInRange,
@@ -88,6 +89,8 @@
   // Only for delete failures -- load failures surface through
   // expensesResource.error instead.
   let deleteError = $state<string | null>(null);
+  let confirmDeleteOpen = $state(false);
+  let pendingDelete = $state<Expense | null>(null);
 
   const defaultMonthScope = currentCalendarScope(
     "month",
@@ -310,8 +313,15 @@
     if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
-  async function removeExpense(expense: Expense) {
-    if (!window.confirm(`Delete expense from ${expense.occurred_on}?`)) return;
+  function removeExpense(expense: Expense) {
+    pendingDelete = expense;
+    confirmDeleteOpen = true;
+  }
+
+  async function confirmRemoveExpense() {
+    const expense = pendingDelete;
+    pendingDelete = null;
+    if (!expense) return;
     deleteError = null;
     try {
       await deleteExpense(expense.id);
@@ -524,6 +534,14 @@
     {/snippet}
   </LoadingBoundary>
 </section>
+
+<ConfirmDialog
+  bind:open={confirmDeleteOpen}
+  message={pendingDelete
+    ? `Delete expense from ${pendingDelete.occurred_on}?`
+    : ""}
+  onConfirm={() => void confirmRemoveExpense()}
+/>
 
 <!-- svelte-ignore css_unused_selector -->
 <style>

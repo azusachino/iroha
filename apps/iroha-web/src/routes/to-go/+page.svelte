@@ -721,7 +721,7 @@
     box-shadow: 0 0 0.5rem var(--accent);
   }
   .job-dot.completed {
-    background: var(--success, #5dbb8d);
+    background: var(--color-positive);
   }
   .job-dot.failed {
     background: var(--danger);

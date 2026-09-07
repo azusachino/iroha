@@ -166,6 +166,7 @@
             class:selected={index === selected}
             role="option"
             aria-selected={index === selected}
+            tabindex="-1"
             onmouseenter={() => (selected = index)}
             onclick={() => activate(command)}
           >
