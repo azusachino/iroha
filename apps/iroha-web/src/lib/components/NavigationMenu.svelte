@@ -182,7 +182,7 @@
     transform: rotate(225deg) translate(-1px, -1px);
   }
   .navigation-menu.active summary {
-    color: var(--accent);
+    color: var(--color-focus);
   }
   .navigation-popover {
     position: absolute;
@@ -240,7 +240,7 @@
   a:hover,
   a.active {
     background: color-mix(in srgb, var(--accent) 12%, transparent);
-    color: var(--accent);
+    color: var(--color-focus);
   }
   small {
     min-width: 0;
