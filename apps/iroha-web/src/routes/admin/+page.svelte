@@ -287,7 +287,7 @@
   }
 
   .status-card strong.healthy {
-    color: var(--success, var(--accent));
+    color: var(--color-positive);
   }
 
   .status-card strong.bad,
@@ -347,7 +347,7 @@
   }
 
   .job-status.completed {
-    color: var(--success, var(--accent));
+    color: var(--color-positive);
   }
 
   .job-status.failed {

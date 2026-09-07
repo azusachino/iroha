@@ -38,14 +38,24 @@
 <table>
   <thead>
     <tr>
-      <th class="l"
+      <th class="l" scope="col"
         >{gran === "day" ? "Day" : gran === "month" ? "Month" : "Year"}</th
       >
-      {#if aggregated}<th>Days</th>{/if}
-      <th>Move</th><th>Exer</th><th>Stand</th><th>Move ✓</th>
-      <th>Steps{aggregated ? "/d" : ""}</th><th>Dist{aggregated ? "/d" : ""}</th
+      {#if aggregated}<th scope="col">Days</th>{/if}
+      <th scope="col">Move</th><th scope="col"
+        ><abbr title="Exercise">Exer</abbr></th
+      ><th scope="col">Stand</th><th scope="col"
+        ><abbr title="Move ring closed">Move ✓</abbr></th
       >
-      <th>rHR</th><th>HRV</th><th>SpO₂</th><th>Resp</th><th>VO₂</th><th>Mass</th
+      <th scope="col">Steps{aggregated ? "/d" : ""}</th><th scope="col"
+        >Dist{aggregated ? "/d" : ""}</th
+      >
+      <th scope="col"><abbr title="Resting heart rate">rHR</abbr></th><th
+        scope="col"><abbr title="Heart rate variability (SDNN)">HRV</abbr></th
+      ><th scope="col"><abbr title="Blood oxygen saturation">SpO₂</abbr></th><th
+        scope="col"><abbr title="Respiratory rate">Resp</abbr></th
+      ><th scope="col"><abbr title="VO2 max">VO₂</abbr></th><th scope="col"
+        ><abbr title="Body mass">Mass</abbr></th
       >
     </tr>
   </thead>

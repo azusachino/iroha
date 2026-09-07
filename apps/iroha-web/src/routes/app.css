@@ -195,6 +195,15 @@ textarea {
   font: inherit;
 }
 
+/* Hover and focus-visible are handled throughout the app; press/active
+   feedback was not, on any button anywhere. One shared rule reaches every
+   button, including ones with their own scoped hover transform -- the
+   pressed state should win over a hover lift while the pointer is down. */
+button:active {
+  transform: scale(0.96);
+  transition: transform var(--motion-micro);
+}
+
 .app {
   min-height: 100vh;
   display: flex;
