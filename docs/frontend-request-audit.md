@@ -2,7 +2,7 @@
 
 Date: 2026-08-04
 
-This audit covers every top-level Svelte route plus sampled activity, media, and sleep detail routes. The baseline was captured with headless Chromium against `https://iroha.h.azusachino.icu` before
+This audit covers every top-level Svelte route plus sampled activity, media, and sleep detail routes. The baseline was captured with headless Chromium against `https://iroha.h.azusachino.top` before
 the control-room request fix. The count is the initial API traffic after navigation settles; cursor pages are counted individually.
 
 ## Findings
@@ -31,7 +31,7 @@ The buttons also disable while the same connector action is queued or running, p
 
 ## Live route audit — 2026-08-14 pre-fix baseline
 
-This is a historical browser/network audit against `https://iroha.h.azusachino.icu` after the v0.4.1 cache deployment and before the 2026-08-15 request/read correction. Each canonical route was
+This is a historical browser/network audit against `https://iroha.h.azusachino.top` after the v0.4.1 cache deployment and before the 2026-08-15 request/read correction. Each canonical route was
 hard-navigated, the request log was cleared, the route was reloaded, and the settled trace was captured after 6.5 seconds. API URLs were replayed with `xh`; every captured API URL returned
 successfully. Cursor values and detail identifiers are intentionally omitted here.
 
@@ -138,7 +138,7 @@ fixed background and appbar blur are disabled to avoid repaint-heavy scrolling w
 Use `agent-browser` for the live browser harness and inspect traffic from the same named session:
 
 ```sh
-make web-visual-check BASE=https://iroha.h.azusachino.icu THEME=field-journal ROUTE=overview
+make web-visual-check BASE=https://iroha.h.azusachino.top THEME=field-journal ROUTE=overview
 agent-browser --session iroha-visual network requests --json
 ```
 

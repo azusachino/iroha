@@ -22,7 +22,7 @@ flowchart LR
     STALE -- fresh --> CLONE["clone public repo (no credential)<br/>+ bun install/build"]
     CLONE --> SWAP["atomic swap into the serving volume<br/>(current -> current.old -> next -> current)"]
     SWAP --> CADDY["Caddy serves the build"]
-    CADDY --> LIVE["iroha.azusachino.icu (public, Cloudflare Tunnel)<br/>iroha-public.h.azusachino.icu (tailnet)"]
+    CADDY --> LIVE["iroha.azusachino.top (public, Cloudflare Tunnel)<br/>iroha-public.h.azusachino.top (tailnet)"]
 ```
 
 Everything left of `LIVE` runs inside the private network or on infrastructure this repo doesn't own or trust with credentials; nothing publishes by pushing to this repo. The exported activity,
@@ -63,7 +63,7 @@ whole point of a scheduled job refreshing it unattended. The review loop is: aut
 - **The builder job's staleness check** is the second — a silently-stuck export fails the build loudly instead of serving stale content forever.
 - **The deployment environment's generic Job monitor** should watch both the `projection_refresh` schedule and the builder `CronJob` for suspension, no recorded run, or repeated failure. No
   application-specific monitor is required.
-- **Manual spot-check**: visiting `https://iroha.azusachino.icu/` after a schedule fires. There is no dashboard for "did today's export look right" beyond reading the numbers; that's an acceptable
+- **Manual spot-check**: visiting `https://iroha.azusachino.top/` after a schedule fires. There is no dashboard for "did today's export look right" beyond reading the numbers; that's an acceptable
   cost for a single-operator personal site.
 
 ## Rollback path
@@ -81,7 +81,7 @@ but unlike GitHub Pages, there is currently no automated smoke check confirming 
 
 Live and self-hosted end to end on the deployment cluster: `iroha-job` runs the `projection_refresh` job kind on an interval schedule, writing the sanitized snapshot to a dedicated volume; a separate
 builder job clones this repo's public code, reads that volume read-only, builds `apps/iroha-public-site`, and atomically publishes it to a volume served by Caddy. The site is public at
-[iroha.azusachino.icu](https://iroha.azusachino.icu/) via the deployment's Cloudflare Tunnel, and reachable internally at `iroha-public.h.azusachino.icu` for verification. The former GitHub Pages
+[iroha.azusachino.top](https://iroha.azusachino.top/) via the deployment's Cloudflare Tunnel, and reachable internally at `iroha-public.h.azusachino.top` for verification. The former GitHub Pages
 deployment at `azusachino.github.io/iroha` is retired and no longer updates.
 
 The public site also consumes source-only assets from `packages/iroha-shared`, including the shared activity chart and the `/design` workbench — the builder job's clone always pulls the current state
@@ -103,7 +103,7 @@ Nothing in this repo holds a publishing credential — there is no PAT, no Seale
    `projection_refresh` needs beyond what `iroha-job` already required.
 2. Keep the builder job's manifest in the deployment environment, mounting that same volume read-only and a separate volume for its served output. It needs no database credential at all.
 3. Verify the export job reaches a successful run (`kubectl -n <namespace> logs deploy/iroha-job` or equivalent), then verify the builder job's own run, then confirm
-   [the public site](https://iroha.azusachino.icu/) shows a current `Data as of` timestamp.
+   [the public site](https://iroha.azusachino.top/) shows a current `Data as of` timestamp.
 
 If the export job kind never runs, check that `IROHA_PUBLIC_EXPORT_DIR` is actually set — `iroha-job` logs `"IROHA_PUBLIC_EXPORT_DIR not set; projection_refresh job kind disabled"` and skips
 registering the job kind entirely when it's missing, rather than failing loudly.

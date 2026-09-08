@@ -185,7 +185,7 @@ soak-local: ## Run non-mutating HTTP soak checks against the Podman Compose stac
 
 smoke-k3s-cache: ## Verify the live k3s Valkey cache (API_BASE=..., MONTH=...)
 	@test "$$(kubectl -n harus-core get configmap iroha-config -o jsonpath='{.data.IROHA_CACHE_BACKEND}')" = "valkey" || (echo "harus-core/iroha-config must select valkey" >&2; exit 1)
-	$(TOOL_ENV) uv run python scripts/k3s_cache_smoke.py --api-base "$(or $(API_BASE),https://iroha.h.azusachino.icu)" --month "$(or $(MONTH),2099-01)"
+	$(TOOL_ENV) uv run python scripts/k3s_cache_smoke.py --api-base "$(or $(API_BASE),https://iroha.h.azusachino.top)" --month "$(or $(MONTH),2099-01)"
 
 ## --- k3s local images (build with Podman, import straight into containerd; no registry) ---
 image-server: ## Build iroha-server and import it into the local k3s containerd store (TAG=$(TAG))
