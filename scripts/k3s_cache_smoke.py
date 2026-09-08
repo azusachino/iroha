@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 
 import requests
 
-DEFAULT_API_BASE = "https://iroha.h.azusachino.top"
+DEFAULT_API_BASE = "https://iroha.h.azusachino.com"
 DEFAULT_MONTH = "2099-01"
 REPORT_PATH = "/api/v1/reports/monthly"
 CACHE_HEADER = "X-Iroha-Cache"

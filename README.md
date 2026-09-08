@@ -14,7 +14,7 @@ served on the same deployment; it has no live API and no private credentials.
 | Surface         | Location                                                | Contents                                                                                                   |
 | --------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Private cockpit | `iroha-server`, `iroha-job`, `iroha-web`                | Canonical Postgres/PostGIS data, routes, streams, sleep, media, expenses, monthly reports, tasks, and jobs |
-| Public archive  | [`iroha.azusachino.top`](https://iroha.azusachino.top/) | Public activity snapshot with rich detail for every exported activity                                      |
+| Public archive  | [`iroha.azusachino.com`](https://iroha.azusachino.com/) | Public activity snapshot with rich detail for every exported activity                                      |
 
 The exporter runs entirely inside the private deployment — a scheduled job on `iroha-job` regenerates the sanitized snapshot, and a separate builder job clones this repo's public code, builds the
 static site, and serves it, all on the same cluster. Nothing is pushed to this repo. See [public-site publishing](docs/public-site-publishing.md) for the boundary and operator workflow. The archive
