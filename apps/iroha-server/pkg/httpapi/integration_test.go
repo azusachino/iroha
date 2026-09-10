@@ -227,6 +227,91 @@ func TestIntegrationExpiredFinalJobRecoversWhenQueueEmpty(t *testing.T) {
 	}
 }
 
+func TestIntegrationStaleClaimCannotHeartbeatFinalizeOrPublish(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	now := time.Now().UTC()
+	job := models.Job{
+		ID:          uuid.New(),
+		Kind:        "protected_test",
+		Status:      jobs.StatusQueued,
+		PayloadJSON: json.RawMessage(`{}`),
+		MaxAttempts: 3,
+		RunAfter:    now.Add(-time.Minute),
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := db.Create(&job).Error; err != nil {
+		t.Fatalf("create fenced job: %v", err)
+	}
+
+	paused := make(chan struct{})
+	resume := make(chan struct{})
+	service := jobs.NewService(db, slog.New(slog.NewTextHandler(io.Discard, nil)), map[string]jobs.Handler{
+		"protected_test": func(ctx context.Context, _ models.Job) error {
+			close(paused)
+			<-resume
+			claim, ok := jobs.ClaimFromContext(ctx)
+			if !ok {
+				return errors.New("claim missing from handler context")
+			}
+			return jobs.ProtectedTransaction(ctx, db, claim, func(tx *gorm.DB) error {
+				return tx.Create(&models.Task{ID: uuid.New(), Title: "stale publication", Status: "open", Source: "fence-test", CreatedAt: now, UpdatedAt: now}).Error
+			})
+		},
+	})
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := service.ProcessNext(context.Background(), "worker-a")
+		result <- err
+	}()
+	<-paused
+
+	if err := db.Model(&models.Job{}).Where("id = ?", job.ID).Update("locked_at", now.Add(-(jobs.DefaultLeaseTimeout + time.Minute))).Error; err != nil {
+		t.Fatalf("expire worker-a lease: %v", err)
+	}
+	jobB, err := service.ClaimNext("worker-b")
+	if err != nil {
+		t.Fatalf("reclaim with worker-b: %v", err)
+	}
+	close(resume)
+	if err := <-result; !errors.Is(err, jobs.ErrClaimLost) {
+		t.Fatalf("stale worker result = %v, want claim lost", err)
+	}
+
+	claimA := jobs.ClaimFor(job, "worker-a")
+	if err := service.Heartbeat(claimA, now); !errors.Is(err, jobs.ErrClaimLost) {
+		t.Fatalf("stale heartbeat = %v, want claim lost", err)
+	}
+	if err := service.Complete(claimA); !errors.Is(err, jobs.ErrClaimLost) {
+		t.Fatalf("stale completion = %v, want claim lost", err)
+	}
+	if err := service.Fail(claimA, job, errors.New("stale failure")); !errors.Is(err, jobs.ErrClaimLost) {
+		t.Fatalf("stale failure transition = %v, want claim lost", err)
+	}
+
+	var taskCount int64
+	if err := db.Model(&models.Task{}).Count(&taskCount).Error; err != nil {
+		t.Fatalf("count protected tasks: %v", err)
+	}
+	if taskCount != 0 {
+		t.Fatalf("stale worker published %d protected tasks, want 0", taskCount)
+	}
+
+	claimB := jobs.ClaimFor(jobB, "worker-b")
+	if err := jobs.ProtectedTransaction(context.Background(), db, claimB, func(tx *gorm.DB) error {
+		return tx.Create(&models.Task{ID: uuid.New(), Title: "current publication", Status: "open", Source: "fence-test", CreatedAt: now, UpdatedAt: now}).Error
+	}); err != nil {
+		t.Fatalf("current worker publication: %v", err)
+	}
+	if err := service.Complete(claimB); err != nil {
+		t.Fatalf("current worker completion: %v", err)
+	}
+}
+
 func TestIntegrationSleepEndpoints(t *testing.T) {
 	db := openIntegrationDB(t)
 	resetIntegrationDB(t, db)
@@ -526,7 +611,7 @@ func makeImportParseHandler(importService **imports.Service) jobs.Handler {
 			return err
 		}
 		if importService != nil && *importService != nil {
-			return (*importService).Process(id)
+			return (*importService).ProcessContext(ctx, id)
 		}
 		return fmt.Errorf("import service not set")
 	}

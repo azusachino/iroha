@@ -17,55 +17,51 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (s *Service) persistMedia(rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot, reprocess bool) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		if reprocess {
-			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
-				return err
-			}
-		}
-
-		if err := tx.Create(&snapshot).Error; err != nil {
+func (s *Service) persistMediaTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot, reprocess bool) error {
+	if reprocess {
+		if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
 			return err
 		}
-		for _, media := range parsed {
-			if err := persistMediaObservation(tx, rawFile, snapshot, media, s.mediaBridge); err != nil {
-				return err
-			}
+	}
+
+	if err := tx.Create(&snapshot).Error; err != nil {
+		return err
+	}
+	for _, media := range parsed {
+		if err := persistMediaObservation(tx, rawFile, snapshot, media, s.mediaBridge); err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
-func (s *Service) persistMediaHistory(rawFile models.RawFile, parsed []observations.MediaHistory, snapshot models.ImportSnapshot, reprocess bool) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		if reprocess {
-			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
-				return err
-			}
-		}
-		if err := tx.Create(&snapshot).Error; err != nil {
+func (s *Service) persistMediaHistoryTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.MediaHistory, snapshot models.ImportSnapshot, reprocess bool) error {
+	if reprocess {
+		if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
 			return err
 		}
-		for _, history := range parsed {
-			itemID, err := ensureMediaItem(tx, history.Media, s.mediaBridge)
-			if err != nil {
+	}
+	if err := tx.Create(&snapshot).Error; err != nil {
+		return err
+	}
+	for _, history := range parsed {
+		itemID, err := ensureMediaItem(tx, history.Media, s.mediaBridge)
+		if err != nil {
+			return err
+		}
+		if err := persistMediaMetadata(tx, itemID, history.Media); err != nil {
+			return err
+		}
+		if err := persistMediaRelations(tx, itemID, history.Media); err != nil {
+			return err
+		}
+		for _, update := range history.Updates {
+			if err := persistMediaStateUpdate(tx, rawFile, snapshot, itemID, update); err != nil {
 				return err
-			}
-			if err := persistMediaMetadata(tx, itemID, history.Media); err != nil {
-				return err
-			}
-			if err := persistMediaRelations(tx, itemID, history.Media); err != nil {
-				return err
-			}
-			for _, update := range history.Updates {
-				if err := persistMediaStateUpdate(tx, rawFile, snapshot, itemID, update); err != nil {
-					return err
-				}
 			}
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func persistMediaStateUpdate(tx *gorm.DB, rawFile models.RawFile, snapshot models.ImportSnapshot, itemID uuid.UUID, update observations.MediaStateUpdate) error {

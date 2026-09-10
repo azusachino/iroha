@@ -14,67 +14,65 @@ import (
 	"gorm.io/gorm"
 )
 
-func (s *Service) persistActivities(rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		if reprocess {
-			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
-				return err
-			}
-		}
-
-		if err := tx.Create(&snapshot).Error; err != nil {
+func (s *Service) persistActivitiesTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {
+	if reprocess {
+		if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
 			return err
 		}
+	}
 
-		for _, activity := range parsed {
-			if activity.ExternalID == "" {
-				return fmt.Errorf("parsed activity missing external id")
-			}
+	if err := tx.Create(&snapshot).Error; err != nil {
+		return err
+	}
 
-			// Activities without a content hash (currently: everything but
-			// Apple Health workouts) keep the original always-upsert
-			// behavior; they don't participate in apple_source_items
-			// change-detection.
-			if activity.ContentHash == "" {
-				activityID, err := s.upsertActivity(tx, rawFile, activity)
-				if err != nil {
-					return err
-				}
-				if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
-					return err
-				}
-				if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshot.ID); err != nil {
-					return err
-				}
-				continue
-			}
+	for _, activity := range parsed {
+		if activity.ExternalID == "" {
+			return fmt.Errorf("parsed activity missing external id")
+		}
 
-			if err := s.persistAppleWorkout(tx, rawFile, activity, snapshot.ID); err != nil {
+		// Activities without a content hash (currently: everything but
+		// Apple Health workouts) keep the original always-upsert
+		// behavior; they don't participate in apple_source_items
+		// change-detection.
+		if activity.ContentHash == "" {
+			activityID, err := s.upsertActivity(tx, rawFile, activity)
+			if err != nil {
 				return err
 			}
-		}
-		for _, session := range parsedSleep {
-			if err := s.persistSleepSession(tx, rawFile, session, snapshot.ID); err != nil {
+			if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
 				return err
 			}
-		}
-		for _, summary := range parsedDailySummaries {
-			if err := s.persistDailySummary(tx, rawFile, summary, snapshot.ID); err != nil {
+			if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshot.ID); err != nil {
 				return err
 			}
+			continue
 		}
-		for _, metric := range parsedDailyMetrics {
-			if err := s.persistDailyMetric(tx, rawFile, metric, snapshot.ID); err != nil {
-				return err
-			}
+
+		if err := s.persistAppleWorkout(tx, rawFile, activity, snapshot.ID); err != nil {
+			return err
 		}
-		if rawFile.SourceKind == coreimports.KindAppleHealthExport {
-			if err := reconcileCompleteAppleSnapshot(tx, snapshot.ID); err != nil {
-				return err
-			}
+	}
+	for _, session := range parsedSleep {
+		if err := s.persistSleepSession(tx, rawFile, session, snapshot.ID); err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	for _, summary := range parsedDailySummaries {
+		if err := s.persistDailySummary(tx, rawFile, summary, snapshot.ID); err != nil {
+			return err
+		}
+	}
+	for _, metric := range parsedDailyMetrics {
+		if err := s.persistDailyMetric(tx, rawFile, metric, snapshot.ID); err != nil {
+			return err
+		}
+	}
+	if rawFile.SourceKind == coreimports.KindAppleHealthExport {
+		if err := reconcileCompleteAppleSnapshot(tx, snapshot.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // reconcileCompleteAppleSnapshot removes source items that disappeared from

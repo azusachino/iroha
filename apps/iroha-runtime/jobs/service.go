@@ -12,6 +12,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -48,9 +49,29 @@ const (
 var (
 	ErrNoJobAvailable = errors.New("no job available")
 	ErrUnknownJobKind = errors.New("unknown job kind")
+	ErrClaimLost      = errors.New("job claim lost")
+	ErrClaimRequired  = errors.New("job claim required")
 )
 
 type Handler func(context.Context, models.Job) error
+
+// Claim identifies one ownership generation of a durable job. Attempts is
+// monotonic and therefore fences a worker even if a lease is reassigned to
+// another worker with the same job ID.
+type Claim struct {
+	JobID    uuid.UUID
+	WorkerID string
+	Attempt  int
+}
+
+func ClaimFor(job models.Job, workerID string) Claim {
+	return Claim{JobID: job.ID, WorkerID: workerID, Attempt: job.Attempts}
+}
+
+func (c Claim) matches(job models.Job) bool {
+	return job.ID == c.JobID && job.Status == StatusRunning &&
+		job.Attempts == c.Attempt && job.LockedBy != nil && *job.LockedBy == c.WorkerID
+}
 
 type Service struct {
 	db       *gorm.DB
@@ -227,10 +248,10 @@ func (s *Service) ClaimNext(workerID string) (models.Job, error) {
 	return job, nil
 }
 
-func (s *Service) Complete(jobID uuid.UUID) error {
+func (s *Service) Complete(claim Claim) error {
 	now := time.Now().UTC()
-	return s.db.Model(&models.Job{}).
-		Where("id = ? and status = ?", jobID, StatusRunning).
+	result := s.db.Model(&models.Job{}).
+		Where("id = ? and status = ? and attempts = ? and locked_by = ?", claim.JobID, StatusRunning, claim.Attempt, claim.WorkerID).
 		Updates(map[string]any{
 			"status":        StatusCompleted,
 			"finished_at":   &now,
@@ -238,10 +259,17 @@ func (s *Service) Complete(jobID uuid.UUID) error {
 			"locked_at":     nil,
 			"updated_at":    now,
 			"error_message": nil,
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrClaimLost
+	}
+	return nil
 }
 
-func (s *Service) Fail(job models.Job, cause error) error {
+func (s *Service) Fail(claim Claim, job models.Job, cause error) error {
 	if cause == nil {
 		cause = fmt.Errorf("job failed")
 	}
@@ -263,9 +291,16 @@ func (s *Service) Fail(job models.Job, cause error) error {
 	}
 	updates["status"] = nextStatus
 
-	return s.db.Model(&models.Job{}).
-		Where("id = ? and status = ?", job.ID, StatusRunning).
-		Updates(updates).Error
+	result := s.db.Model(&models.Job{}).
+		Where("id = ? and status = ? and attempts = ? and locked_by = ?", claim.JobID, StatusRunning, claim.Attempt, claim.WorkerID).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrClaimLost
+	}
+	return nil
 }
 
 func (s *Service) ProcessNext(ctx context.Context, workerID string) (models.Job, error) {
@@ -273,34 +308,49 @@ func (s *Service) ProcessNext(ctx context.Context, workerID string) (models.Job,
 	if err != nil {
 		return models.Job{}, err
 	}
+	claim := ClaimFor(job, workerID)
 
 	handler, ok := s.handlers[job.Kind]
 	if !ok {
 		err := fmt.Errorf("%w: %s", ErrUnknownJobKind, job.Kind)
-		if failErr := s.Fail(job, err); failErr != nil {
+		if failErr := s.Fail(claim, job, err); failErr != nil {
 			return job, failErr
 		}
 		return job, err
 	}
 
-	workCtx, cancel := context.WithCancel(ctx)
+	workCtx, cancel := context.WithCancel(WithClaim(ctx, claim))
 	defer cancel()
-	go s.refreshLeaseLoop(workCtx, job.ID, workerID)
+	claimLost := make(chan struct{})
+	go s.refreshLeaseLoop(workCtx, claim, func() {
+		close(claimLost)
+		cancel()
+	})
 
 	if err := handler(workCtx, job); err != nil {
-		if failErr := s.Fail(job, err); failErr != nil {
+		select {
+		case <-claimLost:
+			return job, ErrClaimLost
+		default:
+		}
+		if failErr := s.Fail(claim, job, err); failErr != nil {
 			return job, failErr
 		}
 		return job, err
 	}
 
-	if err := s.Complete(job.ID); err != nil {
+	select {
+	case <-claimLost:
+		return job, ErrClaimLost
+	default:
+	}
+	if err := s.Complete(claim); err != nil {
 		return job, err
 	}
 	return job, nil
 }
 
-func (s *Service) refreshLeaseLoop(ctx context.Context, jobID uuid.UUID, workerID string) {
+func (s *Service) refreshLeaseLoop(ctx context.Context, claim Claim, onLost func()) {
 	ticker := time.NewTicker(DefaultLeaseTimeout / 3)
 	defer ticker.Stop()
 	for {
@@ -308,18 +358,59 @@ func (s *Service) refreshLeaseLoop(ctx context.Context, jobID uuid.UUID, workerI
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
-			result := s.db.Model(&models.Job{}).
-				Where("id = ? and status = ? and locked_by = ?", jobID, StatusRunning, workerID).
-				Updates(map[string]any{"locked_at": now.UTC(), "updated_at": now.UTC()})
-			if result.Error != nil {
-				s.logger.Error("refresh job lease", "job_id", jobID.String(), "worker", workerID, "error", result.Error)
-				return
-			}
-			if result.RowsAffected == 0 {
+			if err := s.Heartbeat(claim, now.UTC()); err != nil {
+				if errors.Is(err, ErrClaimLost) {
+					onLost()
+				} else {
+					s.logger.Error("refresh job lease", "job_id", claim.JobID.String(), "worker", claim.WorkerID, "error", err)
+				}
 				return
 			}
 		}
 	}
+}
+
+// Heartbeat refreshes a lease only for the exact claim that acquired it.
+func (s *Service) Heartbeat(claim Claim, now time.Time) error {
+	result := s.db.Model(&models.Job{}).
+		Where("id = ? and status = ? and attempts = ? and locked_by = ?", claim.JobID, StatusRunning, claim.Attempt, claim.WorkerID).
+		Updates(map[string]any{"locked_at": now.UTC(), "updated_at": now.UTC()})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrClaimLost
+	}
+	return nil
+}
+
+// WithClaim makes a worker claim available to a handler's protected writes.
+func WithClaim(ctx context.Context, claim Claim) context.Context {
+	return context.WithValue(ctx, claimContextKey{}, claim)
+}
+
+// ClaimFromContext returns the claim attached by ProcessNext, if any.
+func ClaimFromContext(ctx context.Context) (Claim, bool) {
+	claim, ok := ctx.Value(claimContextKey{}).(Claim)
+	return claim, ok
+}
+
+type claimContextKey struct{}
+
+// ProtectedTransaction locks and checks the current job claim before allowing
+// a handler to publish protected data. The caller must lock any source scope
+// rows after this job row, keeping the lock order deterministic.
+func ProtectedTransaction(ctx context.Context, db *gorm.DB, claim Claim, publish func(*gorm.DB) error) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var job models.Job
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&job, "id = ?", claim.JobID).Error; err != nil {
+			return err
+		}
+		if !claim.matches(job) {
+			return ErrClaimLost
+		}
+		return publish(tx)
+	})
 }
 
 func (s *Service) CreateSchedule(input ScheduleInput) (models.JobSchedule, error) {

@@ -173,15 +173,11 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if _, ok := jobs.ClaimFromContext(ctx); !ok {
+		return jobs.ErrClaimRequired
+	}
 	now := time.Now().UTC()
-	if err := s.db.Model(&models.ImportJob{}).
-		Where("id = ? and status in ?", jobID, []string{StatusQueued, StatusFailed}).
-		Updates(map[string]any{
-			"status":        StatusParsing,
-			"started_at":    &now,
-			"error_message": nil,
-			"finished_at":   nil,
-		}).Error; err != nil {
+	if err := s.markParsing(ctx, jobID, now); err != nil {
 		return err
 	}
 
@@ -198,7 +194,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		return err
 	}
 	if !found {
-		return s.fail(jobID, errors.New("raw_file not found"))
+		return s.fail(ctx, jobID, errors.New("raw_file not found"))
 	}
 
 	prior, priorFound, err := s.priorCompletedImport(jobID, rawFile.SHA256)
@@ -210,7 +206,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 
 	switch disposition {
 	case dispositionSkip:
-		return s.reuseCompletedImport(jobID, prior)
+		return s.reuseCompletedImport(ctx, jobID, prior, rawFile.SourceKind)
 	case dispositionReprocess:
 		s.logger.Info(
 			"reprocessing import: parser_version differs from prior completed import; purging and re-persisting",
@@ -225,7 +221,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 
 	adapter, ok := s.providers.GetBySourceKind(job.ParserKind)
 	if !ok {
-		return s.fail(jobID, fmt.Errorf("no provider adapter for source kind %q", job.ParserKind))
+		return s.fail(ctx, jobID, fmt.Errorf("no provider adapter for source kind %q", job.ParserKind))
 	}
 	source := provider.Source{
 		Kind:             job.ParserKind,
@@ -246,21 +242,21 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 	mediaHistoryImporter, mediaHistoryOK := adapter.(provider.MediaHistoryImporter)
 	if job.ParserKind == coreimports.KindAniListActivity {
 		if !mediaHistoryOK {
-			return s.fail(jobID, fmt.Errorf("provider %q does not implement media history import", adapter.Descriptor().ID))
+			return s.fail(ctx, jobID, fmt.Errorf("provider %q does not implement media history import", adapter.Descriptor().ID))
 		}
 		parsedMediaHistory, err = mediaHistoryImporter.ImportMediaHistory(ctx, source, options)
 		if err != nil {
-			return s.fail(jobID, err)
+			return s.fail(ctx, jobID, err)
 		}
 	} else if mediaOK {
 		parsedMedia, err = mediaImporter.ImportMedia(ctx, source, options)
 		if err != nil {
-			return s.fail(jobID, err)
+			return s.fail(ctx, jobID, err)
 		}
 	} else if batchImporter, ok := adapter.(provider.BatchImporter); ok {
 		batch, batchErr := batchImporter.ImportAll(ctx, source, options)
 		if batchErr != nil {
-			return s.fail(jobID, batchErr)
+			return s.fail(ctx, jobID, batchErr)
 		}
 		parsed = batch.Activities
 		parsedSleep = batch.Sleep
@@ -269,22 +265,22 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 	} else {
 		activityImporter, activityOK := adapter.(provider.ActivityImporter)
 		if !activityOK {
-			return s.fail(jobID, fmt.Errorf("provider %q does not implement activity import", adapter.Descriptor().ID))
+			return s.fail(ctx, jobID, fmt.Errorf("provider %q does not implement activity import", adapter.Descriptor().ID))
 		}
 		parsed, err = activityImporter.ImportActivities(ctx, source, options)
 		if err != nil {
-			return s.fail(jobID, err)
+			return s.fail(ctx, jobID, err)
 		}
 		if sleepImporter, sleepOK := adapter.(provider.SleepImporter); sleepOK {
 			parsedSleep, err = sleepImporter.ImportSleep(ctx, source, options)
 			if err != nil {
-				return s.fail(jobID, err)
+				return s.fail(ctx, jobID, err)
 			}
 		}
 		if dailyImporter, dailyOK := adapter.(provider.DailyImporter); dailyOK {
 			daily, dailyErr := dailyImporter.ImportDaily(ctx, source, options)
 			if dailyErr != nil {
-				return s.fail(jobID, dailyErr)
+				return s.fail(ctx, jobID, dailyErr)
 			}
 			parsedDailySummaries = daily.Summaries
 			parsedDailyMetrics = daily.Metrics
@@ -293,7 +289,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 
 	snapshotID, err := ids.New()
 	if err != nil {
-		return s.fail(jobID, err)
+		return s.fail(ctx, jobID, err)
 	}
 	snapshot := models.ImportSnapshot{
 		ID:            snapshotID,
@@ -311,26 +307,71 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		snapshot.TakenAt = &rawFile.CreatedAt
 	}
 
-	if job.ParserKind == coreimports.KindAniListActivity {
-		err = s.persistMediaHistory(rawFile, parsedMediaHistory, snapshot, reprocess)
-	} else if mediaOK {
-		err = s.persistMedia(rawFile, parsedMedia, snapshot, reprocess)
-	} else {
-		err = s.persistActivities(rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess)
-	}
+	err = s.publish(ctx, jobID, rawFile, func(tx *gorm.DB) error {
+		if job.ParserKind == coreimports.KindAniListActivity {
+			return s.persistMediaHistoryTx(tx, rawFile, parsedMediaHistory, snapshot, reprocess)
+		}
+		if mediaOK {
+			return s.persistMediaTx(tx, rawFile, parsedMedia, snapshot, reprocess)
+		}
+		return s.persistActivitiesTx(tx, rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess)
+	})
 	if err != nil {
-		return s.fail(jobID, err)
+		return s.fail(ctx, jobID, err)
 	}
 
-	finishedAt := time.Now().UTC()
-	err = s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
-		"status":      StatusCompleted,
-		"finished_at": &finishedAt,
-	}).Error
-	if err == nil {
-		s.flushCache()
+	s.flushCache()
+	return nil
+}
+
+func (s *Service) markParsing(ctx context.Context, jobID uuid.UUID, now time.Time) error {
+	update := func(tx *gorm.DB) error {
+		result := tx.Model(&models.ImportJob{}).
+			Where("id = ? and status in ?", jobID, []string{StatusQueued, StatusFailed, StatusParsing}).
+			Updates(map[string]any{
+				"status":        StatusParsing,
+				"started_at":    &now,
+				"error_message": nil,
+				"finished_at":   nil,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("import job %s cannot enter parsing", jobID)
+		}
+		return nil
 	}
-	return err
+	claim, _ := jobs.ClaimFromContext(ctx)
+	return jobs.ProtectedTransaction(ctx, s.db, claim, update)
+}
+
+// publish holds the job claim first and then the raw-file source scope. All
+// canonical writes and the import receipt completion use that order.
+func (s *Service) publish(ctx context.Context, jobID uuid.UUID, rawFile models.RawFile, publish func(*gorm.DB) error) error {
+	commit := func(tx *gorm.DB) error {
+		// Source instances are introduced in Task 7. Until then, serialize
+		// all publications for one provider/source kind with the same lock.
+		if err := tx.Exec("select pg_advisory_xact_lock(hashtext(?))", "iroha:import:"+rawFile.SourceKind).Error; err != nil {
+			return err
+		}
+		if err := publish(tx); err != nil {
+			return err
+		}
+		finishedAt := time.Now().UTC()
+		result := tx.Model(&models.ImportJob{}).
+			Where("id = ? and status = ?", jobID, StatusParsing).
+			Updates(map[string]any{"status": StatusCompleted, "finished_at": &finishedAt})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("import job %s cannot enter completed", jobID)
+		}
+		return nil
+	}
+	claim, _ := jobs.ClaimFromContext(ctx)
+	return jobs.ProtectedTransaction(ctx, s.db, claim, commit)
 }
 
 // priorCompletedImport looks up the most recent COMPLETED import job for a
@@ -358,7 +399,7 @@ func (s *Service) priorCompletedImport(jobID uuid.UUID, sha256 string) (models.I
 // reuseCompletedImport marks jobID as completed without re-parsing or
 // re-persisting anything, because a prior completed import already covers
 // the same raw file sha256 at the same parser_version (dispositionSkip).
-func (s *Service) reuseCompletedImport(jobID uuid.UUID, existing models.ImportJob) error {
+func (s *Service) reuseCompletedImport(ctx context.Context, jobID uuid.UUID, existing models.ImportJob, sourceKind string) error {
 	s.logger.Info(
 		"reusing prior completed import; skipping re-parse",
 		"job_id", jobID.String(),
@@ -366,11 +407,25 @@ func (s *Service) reuseCompletedImport(jobID uuid.UUID, existing models.ImportJo
 		"parser_version", existing.ParserVersion,
 	)
 
-	finishedAt := time.Now().UTC()
-	err := s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
-		"status":      StatusCompleted,
-		"finished_at": &finishedAt,
-	}).Error
+	claim, _ := jobs.ClaimFromContext(ctx)
+	update := func(tx *gorm.DB) error {
+		if err := tx.Exec("select pg_advisory_xact_lock(hashtext(?))", "iroha:import:"+sourceKind).Error; err != nil {
+			return err
+		}
+		finishedAt := time.Now().UTC()
+		result := tx.Model(&models.ImportJob{}).Where("id = ? and status = ?", jobID, StatusParsing).Updates(map[string]any{
+			"status":      StatusCompleted,
+			"finished_at": &finishedAt,
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("import job %s cannot enter completed", jobID)
+		}
+		return nil
+	}
+	err := jobs.ProtectedTransaction(ctx, s.db, claim, update)
 	if err == nil {
 		s.flushCache()
 	}
@@ -422,17 +477,25 @@ func (s *Service) getRawFile(id uuid.UUID) (models.RawFile, bool, error) {
 	return rawFile, true, nil
 }
 
-func (s *Service) fail(jobID uuid.UUID, cause error) error {
+func (s *Service) fail(ctx context.Context, jobID uuid.UUID, cause error) error {
 	if cause == nil {
 		cause = errors.New("import failed")
 	}
 	message := cause.Error()
 	finishedAt := time.Now().UTC()
-	if err := s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
-		"status":        StatusFailed,
-		"error_message": &message,
-		"finished_at":   &finishedAt,
-	}).Error; err != nil {
+	update := func(tx *gorm.DB) error {
+		return tx.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
+			"status":        StatusFailed,
+			"error_message": &message,
+			"finished_at":   &finishedAt,
+		}).Error
+	}
+	claim, _ := jobs.ClaimFromContext(ctx)
+	err := jobs.ProtectedTransaction(ctx, s.db, claim, update)
+	if err != nil {
+		if errors.Is(err, jobs.ErrClaimLost) {
+			return jobs.ErrClaimLost
+		}
 		return errors.Join(cause, fmt.Errorf("record import failure: %w", err))
 	}
 	return cause

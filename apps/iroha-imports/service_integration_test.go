@@ -18,6 +18,12 @@ import (
 	"gorm.io/gorm"
 )
 
+func persistMediaForTest(svc *Service, rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot, reprocess bool) error {
+	return svc.db.Transaction(func(tx *gorm.DB) error {
+		return svc.persistMediaTx(tx, rawFile, parsed, snapshot, reprocess)
+	})
+}
+
 func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	rawFileID := uuid.New()
@@ -157,7 +163,7 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	}
 
 	snapshot1 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "media-snapshot-1", ParserVersion: DefaultParserVersion, CreatedAt: now}
-	if err := (&Service{db: db}).persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now}, []observations.Media{media}, snapshot1, false); err != nil {
+	if err := persistMediaForTest(&Service{db: db}, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now}, []observations.Media{media}, snapshot1, false); err != nil {
 		t.Fatalf("persist media: %v", err)
 	}
 	var itemCount, eventCount int64
@@ -199,7 +205,7 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	}
 
 	snapshot2 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "media-snapshot-2", ParserVersion: "media-reprocess", CreatedAt: now.Add(time.Second)}
-	if err := (&Service{db: db}).persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now.Add(time.Second)}, []observations.Media{media}, snapshot2, true); err != nil {
+	if err := persistMediaForTest(&Service{db: db}, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now.Add(time.Second)}, []observations.Media{media}, snapshot2, true); err != nil {
 		t.Fatalf("reprocess media: %v", err)
 	}
 	if err := db.Model(&models.MediaItem{}).Where("title = ?", media.Title).Count(&itemCount).Error; err != nil {
@@ -247,7 +253,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 			t.Fatalf("create import job %s: %v", tag, err)
 		}
 		snap := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "rich-snap-" + tag + "-" + suffix, ParserVersion: DefaultParserVersion, CreatedAt: time.Now().UTC()}
-		if err := svc.persistMedia(models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: snap.CreatedAt}, []observations.Media{media}, snap, reprocess); err != nil {
+		if err := persistMediaForTest(svc, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: snap.CreatedAt}, []observations.Media{media}, snap, reprocess); err != nil {
 			t.Fatalf("persist %s: %v", tag, err)
 		}
 	}
@@ -373,7 +379,7 @@ func TestIntegrationProviderMediaStatePreservesDatePrecision(t *testing.T) {
 			t.Fatalf("create import job: %v", err)
 		}
 		snapshot := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "provider-events-snapshot-" + suffix + sourceKind, ParserVersion: DefaultParserVersion, CreatedAt: now}
-		if err := svc.persistMedia(models.RawFile{ID: rawFileID, SourceKind: sourceKind, CreatedAt: now}, []observations.Media{media}, snapshot, false); err != nil {
+		if err := persistMediaForTest(svc, models.RawFile{ID: rawFileID, SourceKind: sourceKind, CreatedAt: now}, []observations.Media{media}, snapshot, false); err != nil {
 			t.Fatalf("persist provider media: %v", err)
 		}
 		var ref models.MediaExternalRef
