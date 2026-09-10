@@ -6,10 +6,13 @@
     type Connection,
     type ConnectionAction,
   } from "$lib/api";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
-  let connections = $state<Connection[]>([]);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
+  const connectionsResource = createAsyncResource<{
+    connections: Connection[];
+  }>();
+  const connections = $derived(connectionsResource.data?.connections ?? []);
+  const error = $derived(connectionsResource.error);
   let running = $state<string | null>(null);
 
   const failed = $derived(
@@ -35,25 +38,16 @@
   }
 
   async function load() {
-    loading = true;
-    error = null;
-    try {
-      connections = (await getConnections()).connections;
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-    } finally {
-      loading = false;
-    }
+    await connectionsResource.run(() => getConnections());
   }
 
   async function run(connection: Connection, action: ConnectionAction) {
     running = connection.id;
-    error = null;
     try {
-      await executeConnectionAction(action);
-      await load();
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
+      await connectionsResource.run(async () => {
+        await executeConnectionAction(action);
+        return getConnections();
+      });
     } finally {
       running = null;
     }
@@ -64,7 +58,7 @@
   });
 </script>
 
-{#if !loading && (connections.length > 0 || error)}
+{#if !connectionsResource.loading && (connections.length > 0 || error)}
   <section class="connection-strip tile" aria-label="Source status">
     <div class="connection-summary">
       <span class="status-dot" class:bad={failed.length > 0} aria-hidden="true"

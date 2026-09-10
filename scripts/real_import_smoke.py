@@ -9,21 +9,19 @@ Three modes:
     database. Runs the same file through the import pipeline twice
     (import #1 = full parse, import #2 = same sha256 + parser_version, should
     hit the reuse guard and short-circuit) and asserts on tables the
-    pre-refactor parser never wrote to: tb_apple_source_items,
-    tb_import_snapshots, tb_activity_samplings, tb_activity_laps, plus
-    route points joined to those new source items, and the absence of any
+    pre-refactor parser never wrote to: tb_source_observations,
+    tb_import_snapshots, tb_activity_observation_samplings,
+    tb_activity_observation_laps, plus route points joined to those new
+    observations, and the absence of any
     NEW standalone provider='gpx' activities created by this run.
-  - --assert-reprocess: exercises the purge-then-repersist reprocess path
-    (see the "iroha:decision:apple-reprocess-from-raw" ADR). Precondition:
+  - --assert-reprocess: exercises the replay-without-purge reprocess path.
+    Precondition:
     the server must already be running with a parser_version DIFFERENT from
     the parser_version of the last COMPLETED import of this file (so the
     disposition is dispositionReprocess, not skip). Captures counts before
     the import, runs the import once, captures counts after, and asserts
-    the derived data was REPLACED, not appended: activities, apple source
-    items, import snapshots, samplings, laps, and route points on source
-    items are all unchanged in total, and there are zero apple_health
-    activities left without a source item (which would mean the purge
-    missed rows and change-detection is now lying).
+    canonical data and source-observation identities are unchanged while a
+    new interpretation snapshot and observation receipt are retained.
 """
 import argparse
 from datetime import date, timedelta
@@ -61,7 +59,7 @@ def main() -> int:
         dest="do_assert_reprocess",
         action="store_true",
         help=(
-            "run the purge-then-repersist reprocess check against Postgres; "
+            "run the replay-without-purge reprocess check against Postgres; "
             "requires the server to be running at a parser_version different "
             "from the last completed import of this file"
         ),
@@ -163,9 +161,9 @@ def run_assert_mode(args: argparse.Namespace) -> int:
 
     d1 = delta(baseline, counts1)
     check(
-        "import#1 apple_source_items(workout) > 0",
-        counts1["source_items_workout"] > 0,
-        f"counts1.source_items_workout={counts1['source_items_workout']}",
+        "import#1 activity source observations > 0",
+        counts1["source_observations_activity"] > 0,
+        f"counts1.source_observations_activity={counts1['source_observations_activity']}",
     )
     check(
         "import#1 sleep sessions and segments > 0",
@@ -173,9 +171,9 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         f"sleep_sessions={counts1['sleep_sessions_total']} sleep_segments={counts1['sleep_segments_total']}",
     )
     check(
-        "import#1 sleep source items > 0",
-        counts1["source_items_sleep_session"] > 0,
-        f"counts1.source_items_sleep_session={counts1['source_items_sleep_session']}",
+        "import#1 sleep source observations > 0",
+        counts1["source_observations_sleep"] > 0,
+        f"counts1.source_observations_sleep={counts1['source_observations_sleep']}",
     )
     check(
         "import#1 sleep rollups consistent",
@@ -188,9 +186,9 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         f"daily_summaries={counts1['daily_summaries_total']} daily_metrics={counts1['daily_metrics_total']}",
     )
     check(
-        "import#1 daily source items > 0",
-        counts1["source_items_daily_summary"] > 0 and counts1["source_items_daily_metric"] > 0,
-        f"daily_summary_items={counts1['source_items_daily_summary']} daily_metric_items={counts1['source_items_daily_metric']}",
+        "import#1 daily source observations > 0",
+        counts1["source_observations_daily_summary"] > 0 and counts1["source_observations_daily_metric"] > 0,
+        f"daily_summary_observations={counts1['source_observations_daily_summary']} daily_metric_observations={counts1['source_observations_daily_metric']}",
     )
     check(
         "import#1 daily API returns rows",
@@ -226,9 +224,9 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         f"counts1.sampling_types={sorted(counts1['sampling_types'])}",
     )
     check(
-        "import#1 route points joined to new source items > 0",
-        counts1["route_points_on_source_items"] > 0,
-        f"counts1.route_points_on_source_items={counts1['route_points_on_source_items']}",
+        "import#1 observation route points > 0",
+        counts1["observation_route_points"] > 0,
+        f"counts1.observation_route_points={counts1['observation_route_points']}",
     )
     check(
         "import#1 creates zero NEW standalone gpx activities",
@@ -286,9 +284,9 @@ def run_assert_mode(args: argparse.Namespace) -> int:
 
     d2 = delta(counts1, counts2)
     check(
-        "import#2 (reuse) apple_source_items unchanged",
-        d2["source_items_total"] == 0,
-        f"delta source_items_total={d2['source_items_total']} ({counts1['source_items_total']} -> {counts2['source_items_total']})",
+        "import#2 (reuse) source observations unchanged",
+        d2["source_observations_total"] == 0,
+        f"delta source_observations_total={d2['source_observations_total']} ({counts1['source_observations_total']} -> {counts2['source_observations_total']})",
     )
     check(
         "import#2 (reuse) sleep rows unchanged",
@@ -325,9 +323,9 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         f"delta laps_total={d2['laps_total']} ({counts1['laps_total']} -> {counts2['laps_total']})",
     )
     check(
-        "import#2 (reuse) route points on source items unchanged",
-        d2["route_points_on_source_items"] == 0,
-        f"delta route_points_on_source_items={d2['route_points_on_source_items']} ({counts1['route_points_on_source_items']} -> {counts2['route_points_on_source_items']})",
+        "import#2 (reuse) observation route points unchanged",
+        d2["observation_route_points"] == 0,
+        f"delta observation_route_points={d2['observation_route_points']} ({counts1['observation_route_points']} -> {counts2['observation_route_points']})",
     )
     check(
         "import#2 creates zero NEW standalone gpx activities (delta vs #1)",
@@ -346,7 +344,7 @@ def run_assert_mode(args: argparse.Namespace) -> int:
 
 
 def run_assert_reprocess_mode(args: argparse.Namespace) -> int:
-    """Exercise the reprocess (purge-then-repersist) path.
+    """Exercise the replay-without-purge reprocess path.
 
     This mode does NOT change the server's parser_version - it can't, that's
     a server-startup config. It assumes the caller has already restarted the
@@ -355,17 +353,17 @@ def run_assert_reprocess_mode(args: argparse.Namespace) -> int:
     dispositionReprocess. If the server is instead still on the SAME
     parser_version as the last completed import, this will hit
     dispositionSkip and the "unchanged" assertions will trivially pass
-    without exercising the purge at all - see the printed disposition hint
+    without exercising replay at all - see the printed disposition hint
     below if that looks likely.
     """
     print("\n=== baseline (before reprocess import) ===")
     baseline = capture_counts(args.dsn)
     print_counts(baseline)
 
-    if baseline["apple_health_activities_without_source_item"] != 0:
+    if baseline["activity_observations_without_source"] != 0:
         print(
-            "[WARN] baseline already has apple_health activities without a "
-            "source_item - prior state is already inconsistent; results below "
+            "[WARN] baseline already has activity observations without a "
+            "source observation - prior state is already inconsistent; results below "
             "may not isolate this run's behavior"
         )
 
@@ -396,7 +394,7 @@ def run_assert_reprocess_mode(args: argparse.Namespace) -> int:
             failures.append(label)
 
     check(
-        "reprocess: activities_total unchanged (replaced, not appended)",
+        "reprocess: activities_total unchanged",
         d["activities_total"] == 0,
         f"delta activities_total={d['activities_total']} ({baseline['activities_total']} -> {after['activities_total']})",
     )
@@ -407,9 +405,9 @@ def run_assert_reprocess_mode(args: argparse.Namespace) -> int:
         f"({baseline['apple_health_activities_total']} -> {after['apple_health_activities_total']})",
     )
     check(
-        "reprocess: apple_source_items total unchanged",
-        d["source_items_total"] == 0,
-        f"delta source_items_total={d['source_items_total']} ({baseline['source_items_total']} -> {after['source_items_total']})",
+        "reprocess: source observations unchanged",
+        d["source_observations_total"] == 0,
+        f"delta source_observations_total={d['source_observations_total']} ({baseline['source_observations_total']} -> {after['source_observations_total']})",
     )
     check(
         "reprocess: sleep rows unchanged in total",
@@ -431,8 +429,8 @@ def run_assert_reprocess_mode(args: argparse.Namespace) -> int:
         f"exercise_avg={d['daily_exercise_avg']} stand_avg={d['daily_stand_avg']}",
     )
     check(
-        "reprocess: import_snapshots unchanged in total (old purged, one new persisted)",
-        d["snapshots"] == 0,
+        "reprocess: one new interpretation snapshot retained",
+        d["snapshots"] == 1,
         f"delta snapshots={d['snapshots']} ({baseline['snapshots']} -> {after['snapshots']})",
     )
     check(
@@ -446,15 +444,15 @@ def run_assert_reprocess_mode(args: argparse.Namespace) -> int:
         f"delta laps_total={d['laps_total']} ({baseline['laps_total']} -> {after['laps_total']})",
     )
     check(
-        "reprocess: route points on source items unchanged in total",
-        d["route_points_on_source_items"] == 0,
-        f"delta route_points_on_source_items={d['route_points_on_source_items']} "
-        f"({baseline['route_points_on_source_items']} -> {after['route_points_on_source_items']})",
+        "reprocess: observation route points unchanged in total",
+        d["observation_route_points"] == 0,
+        f"delta observation_route_points={d['observation_route_points']} "
+        f"({baseline['observation_route_points']} -> {after['observation_route_points']})",
     )
     check(
-        "reprocess: no apple_health activities left without a source_item (purge order sound)",
-        after["apple_health_activities_without_source_item"] == 0,
-        f"after.apple_health_activities_without_source_item={after['apple_health_activities_without_source_item']}",
+        "reprocess: every activity observation retains source evidence",
+        after["activity_observations_without_source"] == 0,
+        f"after.activity_observations_without_source={after['activity_observations_without_source']}",
     )
 
     print("\n=== summary ===")
@@ -477,34 +475,29 @@ def capture_counts(dsn: str) -> dict:
             where er.provider = 'apple_health';
             """,
         ),
-        "apple_health_activities_without_source_item": psql_int(
+        "activity_observations_without_source": psql_int(
             dsn,
             """
-            select count(*)
-            from tb_activities a
-            join tb_external_refs er on er.activity_id = a.id
-            where er.provider = 'apple_health'
-              and not exists (
-                select 1 from tb_apple_source_items si where si.activity_id = a.id
-              );
+            select count(*) from tb_activity_observations ao
+            where not exists (select 1 from tb_source_observations so where so.id = ao.id);
             """,
         ),
-        "source_items_total": psql_int(dsn, "select count(*) from tb_apple_source_items;"),
-        "source_items_workout": psql_int(
-            dsn, "select count(*) from tb_apple_source_items where item_type = 'workout';"
+        "source_observations_total": psql_int(dsn, "select count(*) from tb_source_observations;"),
+        "source_observations_activity": psql_int(
+            dsn, "select count(*) from tb_source_observations where source_kind = 'activity';"
         ),
-        "source_items_sleep_session": psql_int(
-            dsn, "select count(*) from tb_apple_source_items where item_type = 'sleep_session';"
+        "source_observations_sleep": psql_int(
+            dsn, "select count(*) from tb_source_observations where source_kind = 'sleep';"
         ),
-        "source_items_daily_summary": psql_int(
-            dsn, "select count(*) from tb_apple_source_items where item_type = 'daily_summary';"
+        "source_observations_daily_summary": psql_int(
+            dsn, "select count(*) from tb_source_observations where source_kind = 'daily_summary';"
         ),
-        "source_items_daily_metric": psql_int(
-            dsn, "select count(*) from tb_apple_source_items where item_type = 'daily_metric';"
+        "source_observations_daily_metric": psql_int(
+            dsn, "select count(*) from tb_source_observations where source_kind = 'daily_metric';"
         ),
-        "source_items_by_type": psql_rows(
+        "source_observations_by_kind": psql_rows(
             dsn,
-            "select item_type, count(*) from tb_apple_source_items group by item_type order by item_type;",
+            "select source_kind, count(*) from tb_source_observations group by source_kind order by source_kind;",
         ),
         "snapshots": psql_int(dsn, "select count(*) from tb_import_snapshots;"),
         "samplings_total": psql_int(dsn, "select count(*) from tb_activity_samplings;"),
@@ -512,12 +505,13 @@ def capture_counts(dsn: str) -> dict:
             row[0] for row in psql_rows(dsn, "select distinct sampling_type from tb_activity_samplings;")
         },
         "laps_total": psql_int(dsn, "select count(*) from tb_activity_laps;"),
-        "route_points_on_source_items": psql_int(
+        "observation_route_points": psql_int(
             dsn,
             """
             select count(*)
-            from tb_activity_route_points rp
-            join tb_apple_source_items si on si.activity_id = rp.activity_id;
+            from tb_activity_observation_route_points rp
+            join tb_activity_observations ao on ao.id = rp.activity_observation_id
+            join tb_source_observations so on so.id = ao.id;
             """,
         ),
         "sleep_sessions_total": psql_int(dsn, "select count(*) from tb_sleep_sessions;"),

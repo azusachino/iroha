@@ -1,6 +1,6 @@
 # Iroha v0.5: reliable collection, trustworthy history, complete cockpit
 
-Status: executable release proposal; implementation not started.
+Status: implementation and local release-candidate complete; physical Health trial remains `AWAITING_VERIFY`.
 
 Target: `v0.5.0`, evolving the existing `vendor/iroha` project from `0.4.5`. Source review baseline: `8f798b0e9d3876897293204b23d63ed855c37421`, 2026-09-10 JST. The working tree also contains a
 user-owned `.mise.toml` change; it is not part of this plan's documentation change.
@@ -155,8 +155,8 @@ unless the trial proves it. A manual historical archive path is not evidence of 
 
 ### 9. Automatic media with honest history
 
-Create one enabled schedule per configured AniList/Bangumi source. Initial policy: hourly sync with rate-limit-aware backoff and request coalescing; bridge refresh weekly. These are defaults to tune
-against actual provider limits, not exact-time guarantees. Disabled/unconfigured sources get no jobs.
+Create one enabled schedule per configured AniList/Bangumi source. The shipped default is a daily sync with rate-limit-aware backoff and request coalescing; operators can override the interval, and
+the bridge refreshes weekly. These are defaults to tune against actual provider limits, not exact-time guarantees. Disabled/unconfigured sources get no jobs.
 
 Current state, provider date facts, observed changes and exact events remain separate. Preserve conflict/matching decisions through sync; ambiguous matches enter the existing attention workflow with
 provenance and undo. Do not invent sessions for providers that only expose snapshots.
@@ -275,11 +275,11 @@ Checkpoint E: full agreed feature capability is present. Accessibility, themes, 
 
 ### Phase F: Rebuild, rehearse and release
 
-| ID  | Work item / dependency                                    | Likely files                                                         | Acceptance and verification                                                                                                                                                                     |
-| --- | --------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 26  | Rehearse fresh-schema rebuild and rollback / 11,14,20    | Focused replay scripts and tests                                     | Bootstrap a fresh DB, replay raw evidence, restore manual state, compare IDs/totals/details; rollback preserves the source bundle and retained state. Measure duration and retain discrepancy ledger. |
-| 27  | Run full product and operational acceptance / 16-18,22-26 | Existing release-candidate tooling, scenario fixtures, release audit | All gates below pass on representative data; two-week daily trial records interventions/delay/failure recovery. No unverified coverage or foundation claim is marked done.                      |
-| 28  | Cut over and release v0.5.0 / 27                          | Release/version/docs and project-owned deployment targets            | Execute rehearsed window, verify client/public behavior and fresh ingestion, then observe. Tag/deploy/publication follow explicit release authorization; do not change VERSION during planning. |
+| ID  | Work item / dependency                                    | Likely files                                                         | Acceptance and verification                                                                                                                                                                           |
+| --- | --------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 26  | Rehearse fresh-schema rebuild and rollback / 11,14,20     | Focused replay scripts and tests                                     | Bootstrap a fresh DB, replay raw evidence, restore manual state, compare IDs/totals/details; rollback preserves the source bundle and retained state. Measure duration and retain discrepancy ledger. |
+| 27  | Run full product and operational acceptance / 16-18,22-26 | Existing release-candidate tooling, scenario fixtures, release audit | All gates below pass on representative data; the seven-day Health trial records interventions, delay and recovery. No unverified coverage or foundation claim is marked done.                         |
+| 28  | Cut over and release v0.5.0 / 27                          | Release/version/docs and project-owned deployment targets            | Execute the rehearsed window, verify client/public behavior and fresh ingestion, then observe. Tag/deploy/publication follow explicit release authorization after acceptance.                         |
 
 Task 24 is a bounded feature group whose per-route subitems must be dispatched separately, not one giant frontend patch. Other table entries should likewise be split when actual changes exceed a
 focused session. This plan does not force a misleading file-count estimate before implementation tracing.
@@ -300,7 +300,7 @@ First dispatch: task 1, then task 2 and the device-trial preparation for task 3.
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Job correctness      | False-success, expired-final-attempt recovery, claim fencing and stale-handler publication tests pass                                                                                                                                             |
 | Data integrity       | Full/partial, duplicate, out-of-order, source conflict, corrected observation and A/B/reprocess tests preserve intended identities and values                                                                                                     |
-| SQL ownership        | Invalid selected links and duplicate scoped identities are rejected; fresh-schema DDL apply/rollback checks pass                                                                                                                               |
+| SQL ownership        | Invalid selected links and duplicate scoped identities are rejected; fresh-schema DDL apply/rollback checks pass                                                                                                                                  |
 | Read consistency     | Two-process crash-after-commit test and barrier-controlled report test pass for Postgres/Valkey response storage and no-cache mode                                                                                                                |
 | Health usability     | Required daily categories arrive automatically during ordinary use; failed/missed device opportunities recover or have an explicit source limitation; full-fidelity claims match actual transport evidence                                        |
 | Media usability      | No routine sync clicks; exact events/date facts/snapshot state remain distinct and matching decisions persist                                                                                                                                     |
@@ -309,7 +309,7 @@ First dispatch: task 1, then task 2 and the device-trial preparation for task 3.
 | Privacy and security | Scoped ingestion credentials, input limits, redacted diagnostics, private authorization and public-field/route-policy negative tests pass                                                                                                         |
 | Recovery             | Aligned backup restore, maintenance cutover and rollback are exercised, including treatment of post-cutover writes                                                                                                                                |
 | Performance          | On recorded reference hardware and representative ten-year history, target p95 under 500 ms for ordinary non-export reads; expensive routes/exports are bounded. Record cold and warm separately; revise only with evidence and explicit tradeoff |
-| Daily operation      | Two-week trial has no routine export/sync intervention for supported sources; record actual lag, exception interventions and unresolved gaps rather than declaring success from one demo                                                          |
+| Daily operation      | Seven-day trial has no routine export/sync intervention for supported sources; record actual lag, exception interventions and unresolved gaps rather than declaring success from one demo                                                         |
 
 Run `make check` before commits, appropriate disposable DB integration tests for persistence work, `make validate` and `make release-candidate` at release scope. Existing `make test-integration`
 starts dependencies/applies migrations; it must use the intended test environment. `make validate` includes public-site data generation, so use the seeded rehearsal database, not an arbitrary personal
@@ -342,25 +342,24 @@ Include the tooling transition in task 2, before tasks 7 and 8 introduce new sch
   provisioning together, including the migration requirements in `AGENTS.md` and `CONTRIBUTING.md`.
 - Replace the Goose build stage in `ops/images/Containerfile.server` and adapt `ops/images/db-migrate-entrypoint.sh`. Test SQLx in the final runtime image and preserve the deployed invocation
   contract, or coordinate its change with deployment consumers before release.
-- This is a fresh-schema cut-over. Do not adopt, backfill, or mark an existing pre-v0.5 database as SQLx-managed. Preserve the old database only as a comparison/rollback artifact; replay the
-  complete raw evidence set and retained user-authored state into the fresh schema.
+- This is a fresh-schema cut-over. Do not adopt, backfill, or mark an existing pre-v0.5 database as SQLx-managed. Preserve the old database only as a comparison/rollback artifact; replay the complete
+  raw evidence set and retained user-authored state into the fresh schema.
 - Verify a fresh database, a second no-op apply, a failed migration, and reversible rollback/reapply on disposable databases. Compare resulting schemas and retained records. Keep this runner
   transition separate from v0.5 domain/schema changes so failures are attributable.
 - Use the user's Nix-managed SQLx and Prettier where available, with explicit executable/version checks. The currently observed SQLx resolves through `~/.cargo/bin`, so verify the intended executable
   rather than assuming Nix ownership. Document and provision compatible versions in CI and the implementation environment. Keep Go, uv, Bun and golangci-lint project-managed; do not restore Goose as
   the long-term dependency.
 
-This PR contains the planning handoff and the user-selected mise configuration/lockfile changes. Implementation will happen in another environment. Read this file as the canonical plan; the three
-earlier review/rebuild documents retain supporting evidence and alternatives. The local Asobi graph is optional handoff context, not a prerequisite: all task scope, acceptance and dependencies are in
-this file. Revalidate the target checkout, toolchain, deployment data and task status before execution.
+The implementation is now on the v0.5 feature branch. Read this file as the canonical scope and acceptance plan; the three earlier review/rebuild documents retain supporting evidence and alternatives.
+The local Asobi graph records dispatch/review state, while the release audit and foundation baseline record reproducible evidence. Revalidate the target checkout, toolchain, deployment data and task
+status before publication or deployment.
 
 ## Planning verification
 
-This plan chooses concrete decisions from source-backed reviews and independent ingestion/cache feasibility checks. It does not claim that v0.5 changes, live device trials or migrations have been
-executed. The current change includes documentation, local task-state registration and the user-selected mise configuration/lockfile changes. No components or stored data were deleted.
+Implementation evidence on 2026-09-11 is recorded in [the capability inventory](../docs/audits/2026-09-11-v0.5-capability-inventory.md),
+[the foundation baseline](../docs/audits/2026-09-11-v0.5-foundation-baseline.md), and [the release audit](../docs/audits/2026-09-11-v0.5.0-release.md). The isolated fresh-schema SQLx rehearsal,
+complete Apple replay, rollback/reapply, API/web/CLI checks, and local release-candidate gate passed. The old shared database remains a comparison/rollback artifact; no legacy-schema migration was
+added.
 
-Planning validation on 2026-09-10: after the user restored golangci-lint, `make check` and `make validate` passed Go formatting, vet, lint, unit/contract tests, 91 Python script tests and
-theme/responsive/motion checks, then stopped at frontend formatting because `prettier-plugin-svelte` was unavailable. `make web-install public-site-install` could not install dependencies because
-downloads failed with `SELF_SIGNED_CERT_IN_CHAIN`, including retries using the machine's CA bundles; TLS verification remained enabled. Scoped formatting of all four planning documents and staged
-whitespace checks passed. Full repository validation, builds, device trials and database rehearsals remain unverified. The PR also includes the user-selected `.mise.toml` and `mise.lock` changes.
-SQLx CLI is now the provisioned migration runner; the fresh-schema replay and product cut-over remain separate v0.5 work.
+Current handoff state: tasks 1 and 2 are `DONE`; task 3 is `AWAITING_VERIFY` pending the physical seven-day Health Shortcut trial; implementation tasks 4-28 are in reviewer handoff. Do not call v0.5
+externally accepted until that device trial is recorded and the final reviewer checks are closed.
