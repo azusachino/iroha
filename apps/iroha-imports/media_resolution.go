@@ -21,6 +21,7 @@ const (
 	mediaMatchProviderID = "provider_id"
 	mediaMatchBridge     = "bridge_ref"
 	mediaMatchTitleYear  = "title_year"
+	mediaMatchDecision   = "matching_decision"
 	// titleYearToleranceDays widens the release-date match from "same
 	// calendar year" to a symmetric window: different providers frequently
 	// anchor a work's release date to different events (first chapter vs
@@ -180,6 +181,96 @@ type mediaResolution struct {
 	ItemID     uuid.UUID
 	MatchedBy  string
 	Confidence *float64
+	Explicit   bool
+	OwnsItem   bool
+}
+
+const (
+	MediaDecisionAttach       = "attach"
+	MediaDecisionKeepSeparate = "keep_separate"
+	MediaDecisionUndo         = "undo"
+)
+
+// MediaMatchingDecisionInput is the agent-facing write contract for an
+// explicit provider identity choice. TargetItemID is the source-owned item for
+// keep_separate and undo; attach points it at the selected canonical item.
+type MediaMatchingDecisionInput struct {
+	Provider     string
+	ExternalID   string
+	TargetItemID uuid.UUID
+	DecisionKind string
+}
+
+// RecordMediaMatchingDecision applies and records an explicit identity
+// choice. The provider ref is moved transactionally, so the next replay finds
+// the same item before consulting any bridge or title heuristic.
+func (s *Service) RecordMediaMatchingDecision(input MediaMatchingDecisionInput) (models.MediaMatchingDecision, error) {
+	var decision models.MediaMatchingDecision
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var ref models.MediaExternalRef
+		if err := tx.Where("provider = ? and external_id = ?", input.Provider, input.ExternalID).First(&ref).Error; err != nil {
+			return fmt.Errorf("provider ref %s/%s: %w", input.Provider, input.ExternalID, err)
+		}
+		if input.TargetItemID == uuid.Nil {
+			return errors.New("matching decision target item is required")
+		}
+		var target models.MediaItem
+		if err := tx.First(&target, "id = ?", input.TargetItemID).Error; err != nil {
+			return fmt.Errorf("matching decision target item: %w", err)
+		}
+		if input.DecisionKind != MediaDecisionAttach && input.DecisionKind != MediaDecisionKeepSeparate && input.DecisionKind != MediaDecisionUndo {
+			return fmt.Errorf("invalid matching decision kind %q", input.DecisionKind)
+		}
+
+		var previous models.MediaMatchingDecision
+		previousResult := tx.Where("provider = ? and external_id = ?", input.Provider, input.ExternalID).
+			Order("created_at desc, id desc").First(&previous)
+		if previousResult.Error != nil && !errors.Is(previousResult.Error, gorm.ErrRecordNotFound) {
+			return previousResult.Error
+		}
+		sourceItemID := ref.ScopeID
+		if previousResult.Error == nil {
+			sourceItemID = previous.SourceItemID
+		}
+		if sourceItemID == uuid.Nil {
+			return errors.New("matching decision source item is required")
+		}
+
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		decision = models.MediaMatchingDecision{
+			ID: id, Provider: input.Provider, ExternalID: input.ExternalID,
+			SourceItemID: sourceItemID, TargetItemID: input.TargetItemID,
+			DecisionKind: input.DecisionKind, PreviousMatchedBy: ref.MatchedBy,
+			PreviousConfidence: ref.Confidence, CreatedAt: time.Now().UTC(),
+		}
+		if err := tx.Create(&decision).Error; err != nil {
+			return err
+		}
+		updates := map[string]any{"scope_id": input.TargetItemID, "matched_by": mediaMatchDecision, "confidence": nil}
+		if input.DecisionKind == MediaDecisionUndo || input.DecisionKind == MediaDecisionKeepSeparate {
+			updates["scope_id"] = sourceItemID
+		}
+		return tx.Model(&models.MediaExternalRef{}).
+			Where("provider = ? and external_id = ?", input.Provider, input.ExternalID).
+			Updates(updates).Error
+	})
+	return decision, err
+}
+
+func latestMediaMatchingDecision(tx *gorm.DB, provider, externalID string) (*models.MediaMatchingDecision, error) {
+	var decision models.MediaMatchingDecision
+	result := tx.Where("provider = ? and external_id = ?", provider, externalID).
+		Order("created_at desc, id desc").First(&decision)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &decision, nil
 }
 
 // mediaProgressSourceWins keeps the current projection deterministic when
@@ -216,6 +307,15 @@ func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBrid
 	// re-creating a duplicate item (and tripping the unique ref constraint)
 	// on every sync of the same entry.
 	refs := append([]observations.MediaExternalRef{{Provider: media.Provider, ExternalID: media.ExternalID}}, media.ExternalRefs...)
+	for _, ref := range refs {
+		decision, err := latestMediaMatchingDecision(tx, ref.Provider, ref.ExternalID)
+		if err != nil {
+			return mediaResolution{}, err
+		}
+		if decision != nil {
+			return mediaResolution{ItemID: decision.TargetItemID, MatchedBy: mediaMatchDecision, Explicit: true, OwnsItem: decision.SourceItemID == decision.TargetItemID}, nil
+		}
+	}
 	for _, ref := range refs {
 		matched, err := findExternalRef(tx, ref.Provider, ref.ExternalID)
 		if err != nil {

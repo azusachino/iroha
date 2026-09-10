@@ -605,6 +605,24 @@ type MediaResolutionTask struct {
 
 func (MediaResolutionTask) TableName() string { return "tb_media_resolution_tasks" }
 
+// MediaMatchingDecision is an append-only, agent-applied choice for one
+// provider identity. It is separate from the old resolution-task table: a
+// decision is consumed by imports and remains effective after replay or a
+// bridge refresh, without creating a human-facing inbox.
+type MediaMatchingDecision struct {
+	ID                 uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Provider           string
+	ExternalID         string
+	SourceItemID       uuid.UUID `gorm:"type:uuid"`
+	TargetItemID       uuid.UUID `gorm:"type:uuid"`
+	DecisionKind       string
+	PreviousMatchedBy  string
+	PreviousConfidence *float64
+	CreatedAt          time.Time
+}
+
+func (MediaMatchingDecision) TableName() string { return "tb_media_matching_decisions" }
+
 type MediaSyncState struct {
 	ID            uuid.UUID       `gorm:"type:uuid;primaryKey"`
 	ConnectorID   string          `gorm:"uniqueIndex"`

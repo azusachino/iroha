@@ -287,41 +287,55 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 		// after a parser fix) may overwrite the item's core fields. If the item
 		// was reached via a bridge/title match from a different provider, only
 		// fill empty fields so we don't clobber the owner's values each sync.
-		ownedItem := true
+		ownedItem := !resolution.Explicit || resolution.OwnsItem
 		lookupErr := tx.Where("scope_type = ? and scope_id = ? and provider = ? and external_id = ?", mediaScopeType, itemID, media.Provider, media.ExternalID).First(&externalRef).Error
 		if errors.Is(lookupErr, gorm.ErrRecordNotFound) {
 			ownedItem = false
-			refID, idErr := ids.New()
-			if idErr != nil {
-				return uuid.Nil, idErr
-			}
-			// INSERT ... ON CONFLICT DO NOTHING: (provider, external_id) is
-			// unique across all items, so a concurrent job may have already
-			// claimed this ref for a different item while we were resolving.
-			newRef := models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
-			result := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "provider"}, {Name: "external_id"}},
-				DoNothing: true,
-			}).Create(&newRef)
-			if result.Error != nil {
-				return uuid.Nil, result.Error
-			}
-			if result.RowsAffected == 0 {
-				var existing models.MediaExternalRef
-				if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&existing).Error; err != nil {
+			if resolution.Explicit {
+				// An explicit decision is stronger than the ref's current scope.
+				// Rebind it here so an older replay or a concurrent bridge refresh
+				// cannot undo the recorded choice.
+				if err := tx.Model(&models.MediaExternalRef{}).
+					Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).
+					Updates(map[string]any{"scope_id": itemID, "matched_by": mediaMatchDecision, "confidence": nil}).Error; err != nil {
 					return uuid.Nil, err
 				}
-				if existing.ScopeID != itemID {
-					// The provider ref is already owned elsewhere. Preserve the
-					// incoming raw observation, but do not block the import or
-					// create a blocking action for a secondary-ref disagreement.
-					externalRef = existing
-					resolution.ItemID = existing.ScopeID
-				} else {
-					externalRef = existing
+				if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&externalRef).Error; err != nil {
+					return uuid.Nil, err
 				}
 			} else {
-				externalRef = newRef
+				refID, idErr := ids.New()
+				if idErr != nil {
+					return uuid.Nil, idErr
+				}
+				// INSERT ... ON CONFLICT DO NOTHING: (provider, external_id) is
+				// unique across all items, so a concurrent job may have already
+				// claimed this ref for a different item while we were resolving.
+				newRef := models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
+				result := tx.Clauses(clause.OnConflict{
+					Columns:   []clause.Column{{Name: "provider"}, {Name: "external_id"}},
+					DoNothing: true,
+				}).Create(&newRef)
+				if result.Error != nil {
+					return uuid.Nil, result.Error
+				}
+				if result.RowsAffected == 0 {
+					var existing models.MediaExternalRef
+					if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&existing).Error; err != nil {
+						return uuid.Nil, err
+					}
+					if existing.ScopeID != itemID {
+						// The provider ref is already owned elsewhere. Preserve the
+						// incoming raw observation, but do not block the import or
+						// create a blocking action for a secondary-ref disagreement.
+						externalRef = existing
+						resolution.ItemID = existing.ScopeID
+					} else {
+						externalRef = existing
+					}
+				} else {
+					externalRef = newRef
+				}
 			}
 		} else if lookupErr != nil {
 			return uuid.Nil, lookupErr

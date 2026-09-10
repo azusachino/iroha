@@ -227,8 +227,7 @@ Ordered smallest → biggest to build momentum; each ends green on `make check`.
 
 1. **Shipped** — schema, media dispatch/persistence, connector contract, cursor state, AniList/Bangumi pagination, raw snapshot evidence, worker retry handling, private sync trigger, full ontology
    (titles, external refs, work/item linkage, events, progress projections), the bridge cache build/deploy, and cross-provider dedup auto-attach (§7).
-2. **In progress** — the worker now refreshes the bridge dataset weekly while preserving the manual rebuild path; add explicit agent-readable inspection/reconciliation for genuinely ambiguous (2+ candidate)
-   and conflicting cases without making human triage a prerequisite.
+2. **Shipped** — the worker refreshes the bridge dataset weekly while preserving the manual rebuild path; ambiguous identities stay source-owned, and an explicit agent decision can attach, keep them separate, or undo a prior attach. The decision is append-only and consumed before bridge/title matching, so replays and bridge refreshes preserve it. No routine human resolution inbox is created.
 3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and richer agent-readable inspection/reconciliation tooling.
 
 Deferred (explicitly out of this draft's connector scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Goodreads/WeRead/Apple Books/Kindle adapters; Letterboxd CSV; TMDb/Open
