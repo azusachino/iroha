@@ -13,7 +13,7 @@ apps/iroha-runtime/   Shared runtime packages (cache, IDs, jobs, persistence mod
 apps/iroha-server/    Go service (cmd/iroha-server, pkg/{httpapi,activities,daily,sleep,config,rawfiles})
 apps/iroha-job/       Go background worker service
 apps/iroha-web/       Svelte 5 + Vite web app (bun)
-apps/iroha-server/db/migrations/   goose SQL migrations (00001_...)
+apps/iroha-server/db/migrations/   SQLx SQL migrations (00001_*.up/.down.sql)
 scripts/              uv-run Python dev scripts (dev_stack.py, real_import_smoke.py, db.py)
 docs/                 design docs
 ```
@@ -23,7 +23,7 @@ docs/                 design docs
 - **mise-first**: every tool is pinned in `.mise.toml` (`mise install`). `make` targets run through `mise exec --`, and CI (`ci.yml`, `public-site.yml`) resolves the same tool versions — see
   `docs/dev-runtime.md`.
 - **`make` is the task runner** — always reference `make <target>`. `make check` is the pre-commit gate; `make validate` is the pre-PR gate (both enforced by local hooks).
-- Migrations run through **goose** via `make db-up` / `make db-reset` (which call `scripts/dev_stack.py`). There is **no** GORM AutoMigrate — the SQL migration is the source of truth and the
+- Migrations run through **SQLx CLI** via `make db-up` / `make db-reset` (which call `scripts/dev_stack.py`). There is **no** GORM AutoMigrate — the SQL migration is the source of truth and the
   hand-written structs in `internal/models/models.go` must match it.
 
 ## Conventions

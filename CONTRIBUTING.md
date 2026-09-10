@@ -5,7 +5,7 @@ live in [AGENTS.md](AGENTS.md).
 
 ## Development environment
 
-Tooling is pinned by the checked-in `.mise.toml` — do not install Go, goose, bun, or Postgres separately.
+Tooling is pinned by the checked-in `.mise.toml` — do not install Go, SQLx CLI, Bun, or Postgres separately.
 
 ```sh
 mise install

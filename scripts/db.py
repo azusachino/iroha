@@ -17,8 +17,21 @@ def main() -> int:
         print("DATABASE_URL or IROHA_DATABASE_URL is required", file=sys.stderr)
         return 2
 
-    action = {"apply": "up", "rollback": "down", "status": "status"}[sys.argv[1]]
-    cmd = ["goose", "-dir", MIGRATIONS_DIR, "postgres", database_url, action]
+    action = {
+        "apply": "run",
+        "rollback": "revert",
+        "status": "info",
+    }[sys.argv[1]]
+    cmd = [
+        "sqlx",
+        "migrate",
+        action,
+        "--source",
+        MIGRATIONS_DIR,
+        "--no-dotenv",
+        "--database-url",
+        database_url,
+    ]
     return subprocess.call(cmd)
 
 

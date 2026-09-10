@@ -1,4 +1,3 @@
--- +goose Up
 
 create table tb_expenses (
   id uuid primary key,
@@ -28,7 +27,3 @@ create table tb_expenses (
 );
 create index idx_tb_expenses_occurred_on_active on tb_expenses(occurred_on desc, id desc) where deleted_at is null;
 create index idx_tb_expenses_currency_category_active on tb_expenses(currency, category, occurred_on desc) where deleted_at is null;
-
--- +goose Down
-
-drop table if exists tb_expenses;

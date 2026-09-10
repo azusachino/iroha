@@ -277,7 +277,7 @@ Checkpoint E: full agreed feature capability is present. Accessibility, themes, 
 
 | ID  | Work item / dependency                                    | Likely files                                                         | Acceptance and verification                                                                                                                                                                     |
 | --- | --------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 26  | Rehearse data rebuild and rollback / 11,14,20             | Focused migration/replay scripts and tests                           | Restore DB+blobs, convert provenance, replay, restore manual state, compare IDs/totals/details; rollback preserves data. Measure duration and retain discrepancy ledger.                        |
+| 26  | Rehearse fresh-schema rebuild and rollback / 11,14,20    | Focused replay scripts and tests                                     | Bootstrap a fresh DB, replay raw evidence, restore manual state, compare IDs/totals/details; rollback preserves the source bundle and retained state. Measure duration and retain discrepancy ledger. |
 | 27  | Run full product and operational acceptance / 16-18,22-26 | Existing release-candidate tooling, scenario fixtures, release audit | All gates below pass on representative data; two-week daily trial records interventions/delay/failure recovery. No unverified coverage or foundation claim is marked done.                      |
 | 28  | Cut over and release v0.5.0 / 27                          | Release/version/docs and project-owned deployment targets            | Execute rehearsed window, verify client/public behavior and fresh ingestion, then observe. Tag/deploy/publication follow explicit release authorization; do not change VERSION during planning. |
 
@@ -300,7 +300,7 @@ First dispatch: task 1, then task 2 and the device-trial preparation for task 3.
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Job correctness      | False-success, expired-final-attempt recovery, claim fencing and stale-handler publication tests pass                                                                                                                                             |
 | Data integrity       | Full/partial, duplicate, out-of-order, source conflict, corrected observation and A/B/reprocess tests preserve intended identities and values                                                                                                     |
-| SQL ownership        | Invalid selected links and duplicate scoped identities are rejected; migration backfill checks pass                                                                                                                                               |
+| SQL ownership        | Invalid selected links and duplicate scoped identities are rejected; fresh-schema DDL apply/rollback checks pass                                                                                                                               |
 | Read consistency     | Two-process crash-after-commit test and barrier-controlled report test pass for Postgres/Valkey response storage and no-cache mode                                                                                                                |
 | Health usability     | Required daily categories arrive automatically during ordinary use; failed/missed device opportunities recover or have an explicit source limitation; full-fidelity claims match actual transport evidence                                        |
 | Media usability      | No routine sync clicks; exact events/date facts/snapshot state remain distinct and matching decisions persist                                                                                                                                     |
@@ -336,17 +336,16 @@ The [SQLx CLI documentation](https://github.com/launchbadge/sqlx/blob/main/sqlx-
 
 Include the tooling transition in task 2, before tasks 7 and 8 introduce new schema migrations:
 
-- Convert the existing 12 Goose migrations into paired SQLx files, preserving SQL, ordering and rollback behavior. Do not pass the combined Goose files directly to SQLx: their Down sections must not
+- Convert the existing 12 combined migration files into paired SQLx files, preserving SQL, ordering and rollback behavior. Do not pass the combined files directly to SQLx: their Down sections must not
   execute during apply.
 - Update `scripts/db.py` to use SQLx run/revert/info while retaining the existing Make entry points. Update wrapper tests, `scripts/release_candidate_reset.sql`, operational instructions and CI/tool
-  provisioning together, including the Goose requirements in `AGENTS.md` and `CONTRIBUTING.md`.
+  provisioning together, including the migration requirements in `AGENTS.md` and `CONTRIBUTING.md`.
 - Replace the Goose build stage in `ops/images/Containerfile.server` and adapt `ops/images/db-migrate-entrypoint.sh`. Test SQLx in the final runtime image and preserve the deployed invocation
   contract, or coordinate its change with deployment consumers before release.
-- Define and rehearse adoption for an existing Goose-managed database. Verify its applied versions and actual schema before recording equivalent SQLx history/checksums; refuse unknown or partially
-  applied states. Never rerun already-applied DDL or blindly mark migrations applied. Exclude concurrent migration runners during adoption. Retain the original history for audit; rehearse restoring
-  schema and both tools' migration metadata together, including rollback after later SQLx migrations.
-- Verify a fresh database, an upgraded existing database, a second no-op apply, a failed migration, and reversible rollback/reapply on disposable databases. Compare resulting schemas and retained
-  records. Keep this transition separate from v0.5 domain/schema changes so failures are attributable.
+- This is a fresh-schema cut-over. Do not adopt, backfill, or mark an existing pre-v0.5 database as SQLx-managed. Preserve the old database only as a comparison/rollback artifact; replay the
+  complete raw evidence set and retained user-authored state into the fresh schema.
+- Verify a fresh database, a second no-op apply, a failed migration, and reversible rollback/reapply on disposable databases. Compare resulting schemas and retained records. Keep this runner
+  transition separate from v0.5 domain/schema changes so failures are attributable.
 - Use the user's Nix-managed SQLx and Prettier where available, with explicit executable/version checks. The currently observed SQLx resolves through `~/.cargo/bin`, so verify the intended executable
   rather than assuming Nix ownership. Document and provision compatible versions in CI and the implementation environment. Keep Go, uv, Bun and golangci-lint project-managed; do not restore Goose as
   the long-term dependency.
@@ -364,4 +363,4 @@ Planning validation on 2026-09-10: after the user restored golangci-lint, `make 
 theme/responsive/motion checks, then stopped at frontend formatting because `prettier-plugin-svelte` was unavailable. `make web-install public-site-install` could not install dependencies because
 downloads failed with `SELF_SIGNED_CERT_IN_CHAIN`, including retries using the machine's CA bundles; TLS verification remained enabled. Scoped formatting of all four planning documents and staged
 whitespace checks passed. Full repository validation, builds, device trials and database rehearsals remain unverified. The PR also includes the user-selected `.mise.toml` and `mise.lock` changes.
-Goose has been removed from tool provisioning; migration commands still require it until the planned SQLx transition is implemented.
+SQLx CLI is now the provisioned migration runner; the fresh-schema replay and product cut-over remain separate v0.5 work.

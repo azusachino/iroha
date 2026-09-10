@@ -1,4 +1,3 @@
--- +goose Up
 
 create table tb_tasks (
   id uuid primary key,
@@ -14,7 +13,3 @@ create table tb_tasks (
   constraint tb_tasks_status_check check (status in ('open', 'completed', 'canceled'))
 );
 create index idx_tb_tasks_open_due on tb_tasks(status, due_date, priority desc, created_at desc);
-
--- +goose Down
-
-drop table if exists tb_tasks;

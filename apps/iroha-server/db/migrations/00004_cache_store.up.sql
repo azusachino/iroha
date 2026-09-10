@@ -1,4 +1,3 @@
--- +goose Up
 
 create table tb_cache_namespaces (
   namespace text primary key,
@@ -21,8 +20,3 @@ create table tb_cache_entries (
 
 create index idx_tb_cache_entries_expiry on tb_cache_entries(expires_at);
 create index idx_tb_cache_entries_generation on tb_cache_entries(namespace, generation);
-
--- +goose Down
-
-drop table if exists tb_cache_entries;
-drop table if exists tb_cache_namespaces;

@@ -158,7 +158,7 @@ Failures should keep the raw file and error message. Failed imports can be retri
 When introducing a new type of data to be parsed (for example, media/photo data or a new workout type):
 
 1. **Extend Parser Cases**: Implement the file format handler inside the `pkg/parsers` package.
-2. **Define SQL Tables**: Add appropriate goose SQL migrations under `apps/iroha-server/db/migrations/` to create the domain tables (e.g. `tb_activity_<domain>`).
+2. **Define SQL Tables**: Add paired SQLx migrations under `apps/iroha-server/db/migrations/` to create the domain tables (e.g. `tb_activity_<domain>.up.sql` and `.down.sql`).
 3. **Register Job Kind**: Define a job kind constant in `pkg/jobs/service.go` (e.g. `KindMediaIntakeParse`).
 4. **Register Job Handler**: Wire the job kind to its respective handler function inside `apps/iroha-job/main.go`.
 5. **Enqueue Job**: Map the parser kind or file type to the newly registered job kind and enqueue it inside the `imports.Service.Create` function (or a separate ingestion service).

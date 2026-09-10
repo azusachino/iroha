@@ -1,4 +1,3 @@
--- +goose Up
 
 -- Replaces the two ConfigMap-mounted JSON files (bangumi_to_mal.json,
 -- mal_to_anilist.json) iroha-job used to load TwoHopMediaRefBridge from at
@@ -12,7 +11,3 @@ create table tb_media_ref_bridge (
   updated_at timestamptz not null default now(),
   primary key (hop, source_id)
 );
-
--- +goose Down
-
-drop table tb_media_ref_bridge;

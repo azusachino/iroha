@@ -1,4 +1,3 @@
--- +goose Up
 
 -- Keep direct SQL writers from reintroducing provider state rows or an
 -- unbounded event vocabulary. The application validates the same list, but
@@ -11,8 +10,3 @@ alter table tb_media_consumption_events
       'rated', 'noted', 'bookmarked'
     )
   );
-
--- +goose Down
-
-alter table tb_media_consumption_events
-  drop constraint if exists tb_media_consumption_events_allowed_type_check;

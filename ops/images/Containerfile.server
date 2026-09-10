@@ -40,8 +40,9 @@ COPY --from=build /out/iroha-job /usr/local/bin/iroha-job
 USER iroha
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-job"]
 
-FROM golang:1.27-bookworm AS goose
-RUN CGO_ENABLED=0 go install github.com/pressly/goose/v3/cmd/goose@v3.27.3
+FROM rust:1.94-alpine AS sqlx
+RUN apk add --no-cache musl-dev \
+  && cargo install sqlx-cli --version 0.9.0 --no-default-features --features postgres --locked
 
 # Standalone migration runner image: run as a k8s Job/initContainer ahead of
 # the server rollout. Reads DATABASE_URL or IROHA_DATABASE_URL, same as
@@ -49,7 +50,7 @@ RUN CGO_ENABLED=0 go install github.com/pressly/goose/v3/cmd/goose@v3.27.3
 FROM alpine:3.22 AS db-migrate
 RUN apk add --no-cache ca-certificates tini \
   && addgroup -S iroha && adduser -S -G iroha iroha
-COPY --from=goose /go/bin/goose /usr/local/bin/goose
+COPY --from=sqlx /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 COPY apps/iroha-server/db/migrations /migrations
 COPY ops/images/db-migrate-entrypoint.sh /usr/local/bin/db-migrate-entrypoint.sh
 RUN chmod +x /usr/local/bin/db-migrate-entrypoint.sh

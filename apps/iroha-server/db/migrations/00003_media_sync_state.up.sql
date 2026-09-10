@@ -1,4 +1,3 @@
--- +goose Up
 
 create table tb_media_sync_state (
   id uuid primary key,
@@ -12,7 +11,3 @@ create table tb_media_sync_state (
 );
 
 create index idx_tb_media_sync_state_status on tb_media_sync_state(status);
-
--- +goose Down
-
-drop table if exists tb_media_sync_state;

@@ -7,4 +7,11 @@ if [ -z "$DATABASE_URL" ]; then
   exit 2
 fi
 
-exec goose -dir /migrations postgres "$DATABASE_URL" "${1:-up}"
+case "${1:-up}" in
+  up) action=run ;;
+  down) action=revert ;;
+  status) action=info ;;
+  *) echo "unsupported migration action: $1" >&2; exit 2 ;;
+esac
+
+exec sqlx migrate "$action" --source /migrations --no-dotenv --database-url "$DATABASE_URL"

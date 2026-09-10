@@ -1,4 +1,3 @@
--- +goose Up
 
 create extension if not exists postgis;
 
@@ -414,35 +413,3 @@ create table tb_daily_metric_observations (
 create index idx_tb_daily_metric_observations_day_metric on tb_daily_metric_observations(day desc, metric);
 alter table tb_daily_summaries add column selected_observation_id uuid references tb_daily_summary_observations(id);
 alter table tb_daily_metrics add column selected_observation_id uuid references tb_daily_metric_observations(id);
-
--- +goose Down
-drop table if exists tb_daily_metric_observations;
-alter table if exists tb_daily_metrics drop column if exists selected_observation_id;
-drop table if exists tb_daily_summary_observations;
-alter table if exists tb_daily_summaries drop column if exists selected_observation_id;
-drop table if exists tb_sleep_session_observations;
-drop table if exists tb_sleep_observation_segments;
-alter table if exists tb_sleep_sessions drop column if exists selected_observation_id;
-drop table if exists tb_sleep_observations;
-drop table if exists tb_activity_observation_laps;
-drop table if exists tb_activity_observation_samplings;
-drop table if exists tb_activity_observation_route_points;
-alter table if exists tb_activities drop column if exists selected_observation_id;
-drop table if exists tb_activity_observations;
-drop table if exists tb_source_observations;
-drop table if exists tb_job_schedules;
-drop table if exists tb_jobs;
-drop table if exists tb_intake_payloads;
-drop table if exists tb_apple_source_items;
-drop table if exists tb_daily_metrics;
-drop table if exists tb_daily_summaries;
-drop table if exists tb_sleep_segments;
-drop table if exists tb_sleep_sessions;
-drop table if exists tb_activity_laps;
-drop table if exists tb_activity_samplings;
-drop table if exists tb_activity_route_points;
-drop table if exists tb_external_refs;
-drop table if exists tb_activities;
-drop table if exists tb_import_snapshots;
-drop table if exists tb_import_jobs;
-drop table if exists tb_raw_files;

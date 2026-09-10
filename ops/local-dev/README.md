@@ -53,7 +53,7 @@ uv run python scripts/dev_stack.py logs
 uv run python scripts/dev_stack.py stop
 ```
 
-`make db-up` is the preferred dependency entrypoint because it uses the pinned `goose` migration CLI from the active mise toolchain. The direct `uv` command is useful for diagnosing the runner when
+`make db-up` is the preferred dependency entrypoint because it uses the pinned SQLx CLI from the active mise toolchain. The direct `uv` command is useful for diagnosing the runner when
 the mise environment is unavailable.
 
 ## Podman boundary

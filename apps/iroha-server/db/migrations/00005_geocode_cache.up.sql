@@ -1,4 +1,3 @@
--- +goose Up
 
 create table tb_geocode_cache (
   coordinate_key text primary key,
@@ -16,7 +15,3 @@ create table tb_geocode_cache (
 );
 create index idx_tb_geocode_cache_expiry on tb_geocode_cache(expires_at);
 create index idx_tb_geocode_cache_refresh_queued on tb_geocode_cache(refresh_queued_at);
-
--- +goose Down
-
-drop table if exists tb_geocode_cache;
