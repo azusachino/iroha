@@ -9,6 +9,18 @@
 
 <div class="report-coverage" aria-label="Canonical coverage">
   <span>Canonical coverage</span>
+  <b class="status-badge" aria-label={`calendar: ${report.status.calendar_completeness}`}>
+    calendar · {report.status.calendar_completeness}
+  </b>
+  <b class="status-badge" aria-label={`observations: ${report.status.observation_state}`}>
+    observations · {report.status.observation_state}
+  </b>
+  <b
+    class="status-badge"
+    aria-label={`collection: ${report.status.collection_completeness}`}
+  >
+    collection · {report.status.collection_completeness.replace("_", " ")}
+  </b>
   {#each Object.entries(report.sections) as [domain, section]}
     {@const domainLabel = domain.replace("daily_health", "health").replace("_", " ")}
     {@const stateCopy = reportSectionStateCopy(section.state)}
@@ -35,6 +47,11 @@
     font-size: 0.66rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+  }
+
+  .report-coverage .status-badge {
+    border-style: dashed;
+    color: var(--text-muted);
   }
 
   .report-coverage span {
