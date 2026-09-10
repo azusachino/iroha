@@ -61,6 +61,7 @@ import type {
   SleepSession,
 } from "@iroha/shared/domain/sleep";
 import type {
+  ConnectionAction,
   ConnectionList,
   MatchingDecision,
   MatchingDecisionInput,
@@ -349,6 +350,13 @@ export function getConnections(
   fetchFn: typeof fetch = fetch,
 ): Promise<ConnectionList> {
   return getJSON<ConnectionList>("/api/v1/connections", fetchFn);
+}
+
+export function executeConnectionAction(
+  action: ConnectionAction,
+  fetchFn: typeof fetch = fetch,
+): Promise<unknown> {
+  return mutateJSON(action.path, action.method, action.body, fetchFn);
 }
 
 export function recordMatchingDecision(

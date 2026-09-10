@@ -19,6 +19,7 @@
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import Heatmap from "$lib/components/Heatmap.svelte";
   import RouteFootprint from "$lib/components/RouteFootprint.svelte";
+  import ConnectionAttention from "$lib/components/ConnectionAttention.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import {
@@ -163,6 +164,7 @@
 </svelte:head>
 
 <section class="dashboard-shell">
+  <ConnectionAttention />
   <ArchiveTotals
     activityCount={overviewResource.loading || overviewResource.error
       ? null
