@@ -323,9 +323,14 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 					return uuid.Nil, err
 				}
 				if existing.ScopeID != itemID {
-					return uuid.Nil, createExternalRefConflictTask(tx, itemID, observations.MediaExternalRef{Provider: media.Provider, ExternalID: media.ExternalID}, existing.ScopeID)
+					// The provider ref is already owned elsewhere. Preserve the
+					// incoming raw observation, but do not block the import or
+					// create a human task for a secondary-ref disagreement.
+					externalRef = existing
+					resolution.ItemID = existing.ScopeID
+				} else {
+					externalRef = existing
 				}
-				externalRef = existing
 			} else {
 				externalRef = newRef
 			}
@@ -619,8 +624,8 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 	if result.Error != nil {
 		return result.Error
 	}
-	if existing.SourceKind != "" && existing.SourceKind != rawFile.SourceKind && existing.Status != progress.Status {
-		return createProgressConflictTask(tx, media, itemID, existing.Status, progress.Status)
+	if existing.SourceKind != "" && existing.SourceKind != rawFile.SourceKind && !mediaProgressSourceWins(rawFile.SourceKind, existing.SourceKind) {
+		return nil
 	}
 	return tx.Model(&existing).Updates(map[string]any{
 		"status":                 progress.Status,

@@ -25,6 +25,9 @@ Reconciliation is background-first and agent-accessible:
 - conflicting current values are retained as source observations/history, and a
   deterministic domain rule selects the current projection; arrival order is not
   the rule;
+- for the media current-progress projection, the default precedence is
+  `manual/web/telegram > anilist > bangumi > other`, with the rule applied in
+  either arrival order;
 - raw evidence, source observations, and machine-readable match state remain
   queryable so an agent can inspect and reconcile a case when explicitly asked;
 - the default UI and import path contain no resolution inbox, confirmation prompt,

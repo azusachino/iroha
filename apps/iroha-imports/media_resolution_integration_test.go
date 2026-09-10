@@ -70,7 +70,6 @@ func seedMediaItem(t *testing.T, db *gorm.DB, title, mediaType, itemRole string,
 		t.Fatalf("seed media title: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = db.Exec("delete from tb_media_resolution_tasks where candidates_json->>'external_id' like 'integration-%'").Error
 		_ = db.Exec("delete from tb_media_titles where id = ?", seeded.titleID).Error
 		_ = db.Exec("delete from tb_media_items where id = ?", seeded.itemID).Error
 		_ = db.Exec("delete from tb_media_works where id = ?", seeded.workID).Error
@@ -451,14 +450,10 @@ func TestTitlePrefixMatch_RejectsSeasonMarkerWithLeadingSeparator(t *testing.T) 
 	}
 }
 
-// TestResolveMediaItem_PrefixMatchOpensTaskButDoesNotAutoAttach is the
-// safety-critical case: a prefix match must never auto-attach, even when
-// it's the only candidate. TestNormalizeMediaTitle_CanonicalKeyCollisionSafety
-// already shows two different works can share a long, specific opening and
-// diverge only in a trailing subtitle -- unlike an exact normalized-title
-// match, a prefix relationship alone isn't strong enough evidence to merge
-// automatically, so this always stays a human decision.
-func TestResolveMediaItem_PrefixMatchOpensTaskButDoesNotAutoAttach(t *testing.T) {
+// TestResolveMediaItem_PrefixMatchDoesNotInterruptImport is the safety-critical
+// case: a prefix match must never auto-attach, even when it is the only
+// candidate, and it must not create a human task.
+func TestResolveMediaItem_PrefixMatchDoesNotInterruptImport(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	releaseDate := time.Date(2043, time.June, 1, 0, 0, 0, 0, time.UTC)
 	seedMediaItem(t, db, "死ぬ運命にある悪役令嬢の兄に転生したので、妹を育てて未来を変えたいと思います", "manga", "series", releaseDate)
@@ -477,19 +472,18 @@ func TestResolveMediaItem_PrefixMatchOpensTaskButDoesNotAutoAttach(t *testing.T)
 		t.Fatalf("resolveMediaItem.ItemID = %v, want uuid.Nil -- a prefix match must never auto-attach", resolution.ItemID)
 	}
 
-	var task models.MediaResolutionTask
-	if err := db.Where("candidates_json->>'external_id' = ?", incoming.ExternalID).First(&task).Error; err != nil {
-		t.Fatalf("expected an open task for the prefix match: %v", err)
+	var taskCount int64
+	if err := db.Model(&models.MediaResolutionTask{}).Where("candidates_json->>'external_id' = ?", incoming.ExternalID).Count(&taskCount).Error; err != nil {
+		t.Fatalf("count prefix-match tasks: %v", err)
 	}
-	if task.Status != mediaResolutionOpen {
-		t.Fatalf("prefix-match task status = %q, want %q -- it must require human review, not get auto-resolved", task.Status, mediaResolutionOpen)
+	if taskCount != 0 {
+		t.Fatalf("prefix match created %d resolution tasks, want 0", taskCount)
 	}
 }
 
 // TestResolveMediaItem_AutoAttachesOnUnambiguousTitleYearMatch exercises the
 // full resolver: a single unambiguous title/date match must attach to the
-// existing item (not mint a duplicate) and leave an audit trail as an
-// already-resolved task, requiring no human action.
+// existing item (not mint a duplicate) without creating a human task.
 func TestResolveMediaItem_AutoAttachesOnUnambiguousTitleYearMatch(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	releaseDate := time.Date(2036, time.May, 1, 0, 0, 0, 0, time.UTC)
@@ -512,19 +506,19 @@ func TestResolveMediaItem_AutoAttachesOnUnambiguousTitleYearMatch(t *testing.T) 
 		t.Fatalf("resolveMediaItem.MatchedBy = %q, want %q", resolution.MatchedBy, mediaMatchTitleYear)
 	}
 
-	var task models.MediaResolutionTask
-	if err := db.Where("candidates_json->>'external_id' = ?", incoming.ExternalID).First(&task).Error; err != nil {
-		t.Fatalf("expected an audit task for the auto-attach: %v", err)
+	var taskCount int64
+	if err := db.Model(&models.MediaResolutionTask{}).Where("candidates_json->>'external_id' = ?", incoming.ExternalID).Count(&taskCount).Error; err != nil {
+		t.Fatalf("count auto-attach tasks: %v", err)
 	}
-	if task.Status != mediaResolutionResolved {
-		t.Fatalf("audit task status = %q, want %q -- an unambiguous match must not require human review", task.Status, mediaResolutionResolved)
+	if taskCount != 0 {
+		t.Fatalf("auto-attach created %d resolution tasks, want 0", taskCount)
 	}
 }
 
 // TestResolveMediaItem_AmbiguousTitleYearStaysOpen exercises the other side:
 // when two existing items both match, resolveMediaItem must not guess -- it
-// leaves ItemID unset (so the caller mints a fresh item) and opens a task for
-// a human instead of silently picking one.
+// leaves ItemID unset (so the caller mints a fresh source-owned item) without
+// interrupting the import.
 func TestResolveMediaItem_AmbiguousTitleYearStaysOpen(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	releaseDate := time.Date(2037, time.May, 1, 0, 0, 0, 0, time.UTC)
@@ -545,11 +539,11 @@ func TestResolveMediaItem_AmbiguousTitleYearStaysOpen(t *testing.T) {
 		t.Fatalf("resolveMediaItem.ItemID = %v, want uuid.Nil for an ambiguous match", resolution.ItemID)
 	}
 
-	var task models.MediaResolutionTask
-	if err := db.Where("candidates_json->>'external_id' = ?", incoming.ExternalID).First(&task).Error; err != nil {
-		t.Fatalf("expected an open task for the ambiguous match: %v", err)
+	var taskCount int64
+	if err := db.Model(&models.MediaResolutionTask{}).Where("candidates_json->>'external_id' = ?", incoming.ExternalID).Count(&taskCount).Error; err != nil {
+		t.Fatalf("count ambiguous tasks: %v", err)
 	}
-	if task.Status != mediaResolutionOpen {
-		t.Fatalf("ambiguous task status = %q, want %q", task.Status, mediaResolutionOpen)
+	if taskCount != 0 {
+		t.Fatalf("ambiguous match created %d resolution tasks, want 0", taskCount)
 	}
 }
