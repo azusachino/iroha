@@ -9,6 +9,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
+	"gorm.io/gorm"
 )
 
 var ErrMissingService = errors.New("monthly report service is not configured")
@@ -19,6 +20,15 @@ type Services struct {
 	Daily      *daily.Service
 	Media      *media.Service
 	Expenses   *expenses.Service
+}
+
+// WithDB returns report services bound to one database handle. When db is a
+// repeatable-read transaction, every section sees the same committed snapshot.
+func (s Services) WithDB(db *gorm.DB) Services {
+	return Services{
+		Activities: s.Activities.WithDB(db), Sleep: s.Sleep.WithDB(db),
+		Daily: s.Daily.WithDB(db), Media: s.Media.WithDB(db), Expenses: s.Expenses.WithDB(db),
+	}
 }
 
 func GenerateMonthly(month, timezone string, services Services, generatedAt time.Time) (MonthlyReport, error) {

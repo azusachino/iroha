@@ -3,14 +3,70 @@
 package httpapi
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/reports"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
 	"github.com/google/uuid"
 )
+
+func TestIntegrationMonthlyReportUsesOneRepeatableReadSnapshot(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	server := &Server{deps: Dependencies{
+		DB:              db,
+		ActivityService: activities.NewService(db),
+		SleepService:    sleep.NewService(db),
+		DailyService:    daily.NewService(db),
+		ExpenseService:  expenses.NewService(db),
+		MediaService:    media.NewService(db),
+	}}
+
+	snapshotContext, finish, err := server.readSnapshot(context.Background(), cache.NamespaceReports)
+	if err != nil {
+		t.Fatalf("begin report snapshot: %v", err)
+	}
+	defer finish()
+	if _, err := revisions.Read(readSnapshotDB(snapshotContext), revisions.NamespaceReports); err != nil {
+		t.Fatalf("capture report revision: %v", err)
+	}
+
+	if _, err := server.deps.ExpenseService.Create(expenses.CreateInput{
+		OccurredOn: time.Date(2099, time.November, 12, 0, 0, 0, 0, time.UTC),
+		Currency:   "JPY", AmountMinor: 1800, Category: "food",
+		Source: expenses.Source{Kind: "snapshot-test", Ref: uuid.NewString()},
+	}); err != nil {
+		t.Fatalf("commit concurrent expense: %v", err)
+	}
+
+	snapshotReport, err := reports.GenerateMonthly("2099-11", "UTC", server.reportServices(snapshotContext), time.Date(2099, time.December, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("generate snapshot report: %v", err)
+	}
+	if snapshotReport.Sections.Expenses.Data != nil {
+		t.Fatalf("snapshot report saw later expense: %#v", snapshotReport.Sections.Expenses.Data)
+	}
+
+	freshReport, err := reports.GenerateMonthly("2099-11", "UTC", server.reportServices(context.Background()), time.Date(2099, time.December, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("generate fresh report: %v", err)
+	}
+	if freshReport.Sections.Expenses.Data == nil || freshReport.Sections.Expenses.Data.ExpenseCount != 1 {
+		t.Fatalf("fresh report expenses = %#v, want one committed expense", freshReport.Sections.Expenses.Data)
+	}
+}
 
 func TestIntegrationMonthlyReportCrossDomainBoundariesAndStability(t *testing.T) {
 	db := openIntegrationDB(t)

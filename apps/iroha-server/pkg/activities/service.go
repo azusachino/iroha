@@ -57,6 +57,14 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
+// WithDB returns a read-only service view backed by db. Report assembly uses
+// this to bind all domain queries to one database snapshot.
+func (s *Service) WithDB(db *gorm.DB) *Service {
+	copy := *s
+	copy.db = db
+	return &copy
+}
+
 func (s *Service) List(filters ListFilters) (Page, error) {
 	limit := filters.Limit
 	if limit <= 0 || limit > 100 {

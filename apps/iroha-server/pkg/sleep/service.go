@@ -128,6 +128,14 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
+// WithDB returns a read-only service view backed by db. Report assembly uses
+// this to bind all domain queries to one database snapshot.
+func (s *Service) WithDB(db *gorm.DB) *Service {
+	copy := *s
+	copy.db = db
+	return &copy
+}
+
 // Overview returns the exact projection needed by the cockpit dashboard. The
 // count covers the complete sleep ledger; the averages cover main sleeps in
 // the most recent window, matching the former dashboard behavior without

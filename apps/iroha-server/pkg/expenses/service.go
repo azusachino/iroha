@@ -138,6 +138,14 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
+// WithDB returns a read-only service view backed by db. Report assembly uses
+// this to bind all domain queries to one database snapshot.
+func (s *Service) WithDB(db *gorm.DB) *Service {
+	copy := *s
+	copy.db = db
+	return &copy
+}
+
 // PeriodExpenses exposes active canonical expense rows to server-side metric
 // resolvers. It preserves minor-unit integers and never performs currency
 // conversion.

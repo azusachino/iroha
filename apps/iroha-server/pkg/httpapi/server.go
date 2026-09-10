@@ -84,6 +84,8 @@ type Server struct {
 	now  func() time.Time
 }
 
+type readSnapshotContextKey struct{}
+
 func NewServer(deps Dependencies) http.Handler {
 	if deps.Config.Server.Timezone == "" {
 		deps.Config.Server.Timezone = config.Default().Server.Timezone
@@ -249,24 +251,36 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 func (s *Server) readCache(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		namespace, ok := readCacheNamespace(r)
-		if !ok || s.deps.Cache == nil {
+		if !ok {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if s.deps.Cache.IsDegraded(namespace) {
-			w.Header().Set("X-Iroha-Cache", "BYPASS")
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		vector, err := s.readCacheRevisionVector(r.Context(), namespace)
+		requestContext, finishSnapshot, err := s.readSnapshot(r.Context(), namespace)
 		if err != nil {
 			w.Header().Set("X-Iroha-Cache", "BYPASS")
 			next.ServeHTTP(w, r)
 			return
 		}
-		key := cache.KeyWithRevisionVector(s.readCacheKey(r), vector)
-		body, generation, ok := cache.GetWithGeneration[[]byte](r.Context(), s.deps.Cache, namespace, key)
+		defer finishSnapshot()
+		request := r.WithContext(requestContext)
+		if s.deps.Cache == nil {
+			next.ServeHTTP(w, request)
+			return
+		}
+		if s.deps.Cache.IsDegraded(namespace) {
+			w.Header().Set("X-Iroha-Cache", "BYPASS")
+			next.ServeHTTP(w, request)
+			return
+		}
+
+		vector, err := s.readCacheRevisionVector(request.Context(), namespace)
+		if err != nil {
+			w.Header().Set("X-Iroha-Cache", "BYPASS")
+			next.ServeHTTP(w, request)
+			return
+		}
+		key := cache.KeyWithRevisionVector(s.readCacheKey(request), vector)
+		body, generation, ok := cache.GetWithGeneration[[]byte](request.Context(), s.deps.Cache, namespace, key)
 		if ok {
 			w.Header().Set("X-Iroha-Cache", "HIT")
 			w.Header().Set("Content-Type", "application/json")
@@ -277,15 +291,40 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 
 		w.Header().Set("X-Iroha-Cache", "MISS")
 		wrapped := &readCacheResponseWriter{ResponseWriter: w}
-		next.ServeHTTP(wrapped, r)
+		next.ServeHTTP(wrapped, request)
 		if wrapped.status != http.StatusOK || wrapped.body.Len() == 0 || !isJSONContentType(wrapped.Header().Get("Content-Type")) {
 			return
 		}
-		cache.SetAtGeneration(r.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, wrapped.body.Bytes())
+		cache.SetAtGeneration(request.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, wrapped.body.Bytes())
 	})
 }
 
+func (s *Server) readSnapshot(ctx context.Context, namespace string) (context.Context, func(), error) {
+	if namespace != cache.NamespaceReports || s.deps.DB == nil {
+		return ctx, func() {}, nil
+	}
+	tx := s.deps.DB.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return ctx, func() {}, tx.Error
+	}
+	if err := tx.Exec("set transaction isolation level repeatable read read only").Error; err != nil {
+		_ = tx.Rollback().Error
+		return ctx, func() {}, err
+	}
+	return context.WithValue(ctx, readSnapshotContextKey{}, tx), func() {
+		_ = tx.Rollback().Error
+	}, nil
+}
+
+func readSnapshotDB(ctx context.Context) *gorm.DB {
+	tx, _ := ctx.Value(readSnapshotContextKey{}).(*gorm.DB)
+	return tx
+}
+
 func (s *Server) readCacheRevisionVector(ctx context.Context, namespace string) (map[string]int64, error) {
+	if tx := readSnapshotDB(ctx); tx != nil {
+		return revisions.Read(tx.WithContext(ctx), namespace)
+	}
 	if s.deps.DB == nil {
 		return nil, nil
 	}

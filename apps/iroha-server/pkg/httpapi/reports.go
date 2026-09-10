@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -13,7 +14,7 @@ func (s *Server) handleMonthlyReport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	report, err := reports.GenerateMonthly(month, timezone, s.reportServices(), s.clockNow().UTC())
+	report, err := reports.GenerateMonthly(month, timezone, s.reportServices(r.Context()), s.clockNow().UTC())
 	if err != nil {
 		if errors.Is(err, reports.ErrInvalidMonth) || errors.Is(err, reports.ErrInvalidTimezone) {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -40,7 +41,7 @@ func (s *Server) handleMonthlyReportSeries(w http.ResponseWriter, r *http.Reques
 		}
 		months = parsed
 	}
-	series, err := reports.GenerateMonthlySeries(endMonth, timezone, months, s.reportServices(), s.clockNow().UTC())
+	series, err := reports.GenerateMonthlySeries(endMonth, timezone, months, s.reportServices(r.Context()), s.clockNow().UTC())
 	if err != nil {
 		if errors.Is(err, reports.ErrInvalidMonth) || errors.Is(err, reports.ErrInvalidTimezone) || errors.Is(err, reports.ErrInvalidSeriesMonths) {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -73,12 +74,16 @@ func (s *Server) reportMonthScope(w http.ResponseWriter, r *http.Request, legacy
 	return r.URL.Query().Get(legacy), timezone, true
 }
 
-func (s *Server) reportServices() reports.Services {
-	return reports.Services{
+func (s *Server) reportServices(ctx context.Context) reports.Services {
+	services := reports.Services{
 		Activities: s.deps.ActivityService,
 		Sleep:      s.deps.SleepService,
 		Daily:      s.deps.DailyService,
 		Media:      s.deps.MediaService,
 		Expenses:   s.deps.ExpenseService,
 	}
+	if db := readSnapshotDB(ctx); db != nil {
+		return services.WithDB(db)
+	}
+	return services
 }
