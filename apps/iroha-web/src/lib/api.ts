@@ -60,6 +60,11 @@ import type {
   SleepSegment,
   SleepSession,
 } from "@iroha/shared/domain/sleep";
+import type {
+  ConnectionList,
+  MatchingDecision,
+  MatchingDecisionInput,
+} from "@iroha/shared/domain/connections";
 
 export type {
   Activity,
@@ -135,6 +140,16 @@ export type {
   SleepSegment,
   SleepSession,
 } from "@iroha/shared/domain/sleep";
+export type {
+  Connection,
+  ConnectionAction,
+  ConnectionCoverage,
+  ConnectionImport,
+  ConnectionList,
+  ConnectionReceipt,
+  MatchingDecision,
+  MatchingDecisionInput,
+} from "@iroha/shared/domain/connections";
 
 // Types mirror the iroha-server read API JSON contract (snake_case).
 // Optional fields use `?` because the server omits them when absent.
@@ -326,6 +341,24 @@ export function getBriefing(
   setTimezone(query);
   return getJSON<BriefingResponse>(
     `/api/v1/briefing?${query.toString()}`,
+    fetchFn,
+  );
+}
+
+export function getConnections(
+  fetchFn: typeof fetch = fetch,
+): Promise<ConnectionList> {
+  return getJSON<ConnectionList>("/api/v1/connections", fetchFn);
+}
+
+export function recordMatchingDecision(
+  input: MatchingDecisionInput,
+  fetchFn: typeof fetch = fetch,
+): Promise<MatchingDecision> {
+  return mutateJSON<MatchingDecision>(
+    "/api/v1/media/matching-decisions",
+    "POST",
+    input,
     fetchFn,
   );
 }

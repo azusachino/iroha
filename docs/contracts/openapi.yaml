@@ -98,6 +98,24 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/connections:
+    get:
+      tags: [imports]
+      summary: List source connections with their latest receipt and next action.
+      description: |
+        This is an agent-facing operational view. It does not create a human
+        resolution inbox or claim that credentials are connected; it reports
+        evidence already stored by the application and returns executable
+        retry, sync, or bounded-intake actions where applicable.
+      responses:
+        "200":
+          description: Source connection summaries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionList"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/intake/health:
     post:
       tags: [imports]
@@ -919,6 +937,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /api/v1/media/matching-decisions:
+    post:
+      tags: [media]
+      summary: Record an explicit provider matching decision.
+      description: The decision is applied transactionally and is reused by later replays.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchingDecisionRequest"
+      responses:
+        "201":
+          description: Matching decision recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchingDecision"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/media/events:
     get:
       tags: [media]
@@ -2848,6 +2888,96 @@ components:
         collection: { type: string, enum: [unknown, partial, covered, covered_empty] }
         operation: { type: string, enum: [fetching, importing, idle, failed] }
         freshness: { type: string, enum: [within_cadence, overdue, not_scheduled, unknown] }
+    ConnectionList:
+      type: object
+      additionalProperties: false
+      required: [connections]
+      properties:
+        connections:
+          type: array
+          items: { $ref: "#/components/schemas/Connection" }
+    Connection:
+      type: object
+      additionalProperties: false
+      required: [id, provider, instance_key, display_name, availability, collection, operation, freshness, last_receipt, last_import, coverage, next_actions]
+      properties:
+        id: { type: string }
+        provider: { type: string }
+        instance_key: { type: string }
+        display_name: { type: string }
+        availability: { type: string, enum: [supported, unsupported, disabled] }
+        collection: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        operation: { type: string, enum: [importing, idle, failed] }
+        freshness: { type: string, enum: [within_cadence, overdue, not_scheduled, unknown] }
+        last_receipt: { $ref: "#/components/schemas/ConnectionReceipt" }
+        last_import: { $ref: "#/components/schemas/ConnectionImport" }
+        coverage:
+          type: array
+          items: { $ref: "#/components/schemas/ConnectionCoverage" }
+        next_actions:
+          type: array
+          items: { $ref: "#/components/schemas/ConnectionAction" }
+    ConnectionReceipt:
+      type: object
+      additionalProperties: false
+      required: [id, raw_file_id, source_kind, ingestion_mode, received_at]
+      properties:
+        id: { type: string }
+        raw_file_id: { type: string }
+        source_kind: { type: string }
+        ingestion_mode: { type: string }
+        received_at: { type: string, format: date-time }
+        observed_at: { type: [string, 'null'], format: date-time }
+    ConnectionImport:
+      type: object
+      additionalProperties: false
+      required: [id, status, parser_kind, created_at]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [queued, parsing, completed, failed] }
+        parser_kind: { type: string }
+        error_message: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
+    ConnectionCoverage:
+      type: object
+      additionalProperties: false
+      required: [category, from, to, completeness, recorded_at]
+      properties:
+        category: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        completeness: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        recorded_at: { type: string, format: date-time }
+    ConnectionAction:
+      type: object
+      additionalProperties: false
+      required: [kind, method, path]
+      properties:
+        kind: { type: string, enum: [retry_import, sync, send_bounded_payload] }
+        method: { type: string, enum: [POST] }
+        path: { type: string }
+        body: { type: object, additionalProperties: { type: string } }
+    MatchingDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [provider, external_id, target_item_id, decision_kind]
+      properties:
+        provider: { type: string }
+        external_id: { type: string }
+        target_item_id: { type: string }
+        decision_kind: { type: string, enum: [attach, keep_separate, undo] }
+    MatchingDecision:
+      type: object
+      additionalProperties: false
+      required: [id, provider, external_id, target_item_id, decision_kind, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string }
+        external_id: { type: string }
+        target_item_id: { type: string }
+        decision_kind: { type: string, enum: [attach, keep_separate, undo] }
+        created_at: { type: string, format: date-time }
     SourceCoverage:
       type: object
       additionalProperties: false

@@ -87,6 +87,26 @@ POST /api/v1/imports
 Queue execution is lease-based: abandoned running jobs are reclaimed after the worker lease timeout, and retryable provider errors may supply their own `Retry-After` delay. Connector sync cursors are
 checkpointed per snapshot and are retained when a page fails, so a retry resumes from the failed page.
 
+### Connections and agent actions
+
+```text
+GET  /api/v1/connections
+POST /api/v1/media/matching-decisions
+```
+
+`GET /api/v1/connections` is the operational summary for an agent or shell
+client. Each source instance reports its latest receipt, latest import,
+evidence-backed coverage, and an explicit `next_actions` list. A failed import
+returns a replayable `retry_import` action; configured media providers expose a
+`sync` action; Apple Health sources expose the bounded intake action. The
+summary intentionally reports `unknown` when credentials, cadence, or
+collection coverage are not evidenced. It is not a human resolution inbox.
+
+Provider conflicts are resolved through the transactional matching-decision
+endpoint. `attach`, `keep_separate`, and `undo` decisions become durable
+lineage used by later replays, so an agent can resolve a conflict without
+editing the database or waiting for manual intervention.
+
 Read contracts keep status dimensions separate. Briefing sections expose `availability`, `collection`, `operation`, and `freshness`; metric series expose observation coverage separately from `collection_completeness`; monthly reports expose calendar closure, canonical observation state, and collection completeness. A closed calendar period is not evidence that the source covered it, so collection remains `unknown` until a source-scoped assertion is available.
 
 ### Normalized expense statements
