@@ -189,6 +189,78 @@ func TestIntegrationSelectedObservationMustBelongToCanonicalObject(t *testing.T)
 	_ = db.Where("id = ?", rawFileID).Delete(&models.RawFile{}).Error
 }
 
+func TestIntegrationAppleActivityUsesGenericObservation(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	now := time.Now().UTC()
+	rawFileID := uuid.New()
+	jobID := uuid.New()
+	instanceID := uuid.New()
+	receiptID := uuid.New()
+	snapshotID := uuid.New()
+
+	if err := db.Create(&models.RawFile{
+		ID:               rawFileID,
+		SHA256:           "generic-activity-" + rawFileID.String(),
+		OriginalFilename: "apple-health.zip",
+		StoragePath:      "/tmp/apple-health.zip",
+		SourceKind:       parsers.KindAppleHealthExport,
+		UploadedVia:      "integration",
+		CreatedAt:        now,
+	}).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	if err := db.Create(&models.ImportJob{ID: jobID, RawFileID: rawFileID, Status: StatusCompleted, ParserKind: parsers.KindAppleHealthExport, ParserVersion: DefaultParserVersion, CreatedAt: now}).Error; err != nil {
+		t.Fatalf("create import job: %v", err)
+	}
+	if err := db.Create(&models.SourceInstance{ID: instanceID, Provider: "apple_health", InstanceKey: "phone-generic-" + rawFileID.String(), CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("create source instance: %v", err)
+	}
+	if err := db.Create(&models.SourceReceipt{ID: receiptID, SourceInstanceID: instanceID, RawFileID: rawFileID, SourceKind: parsers.KindAppleHealthExport, IngestionMode: "full_snapshot", ScopeJSON: []byte(`{}`), ReceivedAt: now, CreatedAt: now}).Error; err != nil {
+		t.Fatalf("create source receipt: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Model(&models.Activity{}).Where("source_activity_id = ?", "workout-generic-1").Update("selected_observation_id", nil).Error
+		_ = db.Where("source_activity_id = ?", "workout-generic-1").Delete(&models.Activity{}).Error
+		_ = db.Where("raw_file_id = ?", rawFileID).Delete(&models.SourceObservation{}).Error
+		_ = db.Where("id = ?", receiptID).Delete(&models.SourceReceipt{}).Error
+		_ = db.Where("id = ?", instanceID).Delete(&models.SourceInstance{}).Error
+		_ = db.Where("id = ?", snapshotID).Delete(&models.ImportSnapshot{}).Error
+		_ = db.Where("id = ?", jobID).Delete(&models.ImportJob{}).Error
+		_ = db.Where("id = ?", rawFileID).Delete(&models.RawFile{}).Error
+	})
+
+	activity := observations.Activity{
+		Provider:         "apple_health",
+		ExternalID:       "workout-generic-1",
+		SportType:        "running",
+		Title:            "Morning run",
+		StartedAt:        now,
+		SourceKind:       parsers.KindAppleHealthExport,
+		SourceActivityID: "workout-generic-1",
+		ContentHash:      "workout-content-v1",
+	}
+	snapshot := models.ImportSnapshot{ID: snapshotID, ImportJobID: jobID, RawFileID: rawFileID, SHA256: "generic-activity-snapshot", ParserVersion: DefaultParserVersion, CreatedAt: now}
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		return (&Service{}).persistActivitiesTx(tx, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAppleHealthExport}, []observations.Activity{activity}, nil, nil, nil, snapshot, false)
+	}); err != nil {
+		t.Fatalf("persist generic activity: %v", err)
+	}
+
+	var appleItems, sourceObservations, activityCount int64
+	if err := db.Model(&models.AppleSourceItem{}).Where("source_key = ?", activity.ExternalID).Count(&appleItems).Error; err != nil {
+		t.Fatalf("count Apple source items: %v", err)
+	}
+	if err := db.Model(&models.SourceObservation{}).Where("raw_file_id = ? and source_key = ?", rawFileID, activity.ExternalID).Count(&sourceObservations).Error; err != nil {
+		t.Fatalf("count source observations: %v", err)
+	}
+	if err := db.Model(&models.Activity{}).Where("source_activity_id = ?", activity.SourceActivityID).Count(&activityCount).Error; err != nil {
+		t.Fatalf("count activities: %v", err)
+	}
+	if appleItems != 0 || sourceObservations != 1 || activityCount != 1 {
+		t.Fatalf("generic activity counts = Apple %d observations %d activities %d, want 0/1/1", appleItems, sourceObservations, activityCount)
+	}
+}
+
 func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	rawFileID := uuid.New()
