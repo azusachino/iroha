@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -137,6 +138,9 @@ func TestKeyWithRevisionVector_IsStableAndSeparatesRevisions(t *testing.T) {
 	}
 	if first == changed {
 		t.Fatalf("changed vector reused key %q", first)
+	}
+	if strings.ContainsRune(first, '\x00') {
+		t.Fatalf("revision key contains PostgreSQL-incompatible NUL: %q", first)
 	}
 }
 

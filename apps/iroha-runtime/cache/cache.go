@@ -77,7 +77,9 @@ func KeyWithRevisionVector(key string, revisions map[string]int64) string {
 	var builder strings.Builder
 	builder.WriteString(key)
 	for _, name := range names {
-		builder.WriteString("\x00revision:")
+		// Cache keys may be persisted in PostgreSQL text columns. Keep the
+		// revision delimiter printable; PostgreSQL rejects NUL bytes in text.
+		builder.WriteString("|revision:")
 		builder.WriteString(name)
 		builder.WriteByte('=')
 		builder.WriteString(strconv.FormatInt(revisions[name], 10))
