@@ -51,8 +51,8 @@ func main() {
 		os.Exit(1)
 	}
 	// parser_version identifies the parser build; a completed import at a
-	// different version triggers a reprocess (purge + re-persist) rather than
-	// a duplicate append. Overridable via IROHA_PARSER_VERSION so it can be
+	// different version triggers a replay into a new interpretation snapshot
+	// rather than a duplicate append. Overridable via IROHA_PARSER_VERSION so it can be
 	// bumped without recompiling.
 	parserVersion := os.Getenv("IROHA_PARSER_VERSION")
 	if parserVersion == "" {

@@ -35,8 +35,9 @@ const (
 )
 
 // DefaultParserVersion identifies the current parser build. A completed
-// import at a different version triggers a reprocess (purge + re-persist)
-// rather than a duplicate append; bump this when parser semantics change.
+// import at a different version triggers a replay into a new interpretation
+// snapshot rather than a duplicate append; bump this when parser semantics
+// change.
 const DefaultParserVersion = coreimports.DefaultParserVersion
 
 type Enqueuer interface {
@@ -204,7 +205,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		return s.reuseCompletedImport(ctx, jobID, prior, rawFile.SourceKind)
 	case dispositionReprocess:
 		s.logger.Info(
-			"reprocessing import: parser_version differs from prior completed import; purging and re-persisting",
+			"reprocessing import: parser_version differs from prior completed import; replaying retained evidence",
 			"job_id", jobID.String(),
 			"prior_job_id", prior.ID.String(),
 			"prior_parser_version", prior.ParserVersion,
@@ -304,10 +305,10 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 
 	err = s.publish(ctx, jobID, rawFile, func(tx *gorm.DB) error {
 		if job.ParserKind == coreimports.KindAniListActivity {
-			return s.persistMediaHistoryTx(tx, rawFile, parsedMediaHistory, snapshot, reprocess)
+			return s.persistMediaHistoryTx(tx, rawFile, parsedMediaHistory, snapshot)
 		}
 		if mediaOK {
-			return s.persistMediaTx(tx, rawFile, parsedMedia, snapshot, reprocess)
+			return s.persistMediaTx(tx, rawFile, parsedMedia, snapshot)
 		}
 		return s.persistActivitiesTx(tx, rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess)
 	})

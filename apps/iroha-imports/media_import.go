@@ -17,13 +17,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (s *Service) persistMediaTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot, reprocess bool) error {
-	if reprocess {
-		if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
-			return err
-		}
-	}
-
+func (s *Service) persistMediaTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot) error {
 	if err := tx.Create(&snapshot).Error; err != nil {
 		return err
 	}
@@ -35,12 +29,7 @@ func (s *Service) persistMediaTx(tx *gorm.DB, rawFile models.RawFile, parsed []o
 	return nil
 }
 
-func (s *Service) persistMediaHistoryTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.MediaHistory, snapshot models.ImportSnapshot, reprocess bool) error {
-	if reprocess {
-		if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
-			return err
-		}
-	}
+func (s *Service) persistMediaHistoryTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.MediaHistory, snapshot models.ImportSnapshot) error {
 	if err := tx.Create(&snapshot).Error; err != nil {
 		return err
 	}

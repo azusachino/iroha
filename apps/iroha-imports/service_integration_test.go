@@ -18,9 +18,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func persistMediaForTest(svc *Service, rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot, reprocess bool) error {
+func persistMediaForTest(svc *Service, rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot) error {
 	return svc.db.Transaction(func(tx *gorm.DB) error {
-		return svc.persistMediaTx(tx, rawFile, parsed, snapshot, reprocess)
+		return svc.persistMediaTx(tx, rawFile, parsed, snapshot)
 	})
 }
 
@@ -84,7 +84,7 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 		t.Fatalf("create first snapshot: %v", err)
 	}
 	if err := db.Transaction(func(tx *gorm.DB) error {
-		return (&Service{}).persistDailyMetric(tx, models.RawFile{ID: rawFileID}, metric, snapshot1.ID)
+		return (&Service{}).persistDailyMetric(tx, models.RawFile{ID: rawFileID}, metric, snapshot1.ID, false)
 	}); err != nil {
 		t.Fatalf("persist first metric: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 		t.Fatalf("create second snapshot: %v", err)
 	}
 	if err := db.Transaction(func(tx *gorm.DB) error {
-		return (&Service{}).persistDailyMetric(tx, models.RawFile{ID: rawFileID}, metric, snapshot2.ID)
+		return (&Service{}).persistDailyMetric(tx, models.RawFile{ID: rawFileID}, metric, snapshot2.ID, false)
 	}); err != nil {
 		t.Fatalf("reconcile unchanged metric: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 		t.Fatalf("create zero snapshot: %v", err)
 	}
 	if err := db.Transaction(func(tx *gorm.DB) error {
-		return (&Service{}).persistDailyMetric(tx, models.RawFile{ID: rawFileID}, zeroMetric, snapshotZero.ID)
+		return (&Service{}).persistDailyMetric(tx, models.RawFile{ID: rawFileID}, zeroMetric, snapshotZero.ID, false)
 	}); err != nil {
 		t.Fatalf("persist measured zero metric: %v", err)
 	}
@@ -127,13 +127,10 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 
 	snapshot3 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "snapshot-3", ParserVersion: DefaultParserVersion, CreatedAt: now.Add(2 * time.Second)}
 	if err := db.Transaction(func(tx *gorm.DB) error {
-		if err := purgeDerivedForRawFile(tx, rawFileID); err != nil {
-			return err
-		}
 		if err := tx.Create(&snapshot3).Error; err != nil {
 			return err
 		}
-		return (&Service{}).persistDailyMetric(tx, models.RawFile{ID: rawFileID}, metric, snapshot3.ID)
+		return (&Service{}).persistDailyMetric(tx, models.RawFile{ID: rawFileID}, metric, snapshot3.ID, true)
 	}); err != nil {
 		t.Fatalf("reprocess metric: %v", err)
 	}
@@ -199,7 +196,7 @@ func TestIntegrationSleepSessionPersistsCrossMidnightWithoutAppleTracker(t *test
 		t.Fatalf("create first sleep snapshot: %v", err)
 	}
 	if err := db.Transaction(func(tx *gorm.DB) error {
-		return (&Service{}).persistSleepSession(tx, models.RawFile{ID: rawFileID}, session, snapshot1.ID)
+		return (&Service{}).persistSleepSession(tx, models.RawFile{ID: rawFileID}, session, snapshot1.ID, false)
 	}); err != nil {
 		t.Fatalf("persist first sleep session: %v", err)
 	}
@@ -214,7 +211,7 @@ func TestIntegrationSleepSessionPersistsCrossMidnightWithoutAppleTracker(t *test
 		t.Fatalf("create second sleep snapshot: %v", err)
 	}
 	if err := db.Transaction(func(tx *gorm.DB) error {
-		return (&Service{}).persistSleepSession(tx, models.RawFile{ID: rawFileID}, session, snapshot2.ID)
+		return (&Service{}).persistSleepSession(tx, models.RawFile{ID: rawFileID}, session, snapshot2.ID, false)
 	}); err != nil {
 		t.Fatalf("confirm unchanged sleep session: %v", err)
 	}
@@ -422,7 +419,7 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	}
 
 	snapshot1 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "media-snapshot-1", ParserVersion: DefaultParserVersion, CreatedAt: now}
-	if err := persistMediaForTest(&Service{db: db}, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now}, []observations.Media{media}, snapshot1, false); err != nil {
+	if err := persistMediaForTest(&Service{db: db}, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now}, []observations.Media{media}, snapshot1); err != nil {
 		t.Fatalf("persist media: %v", err)
 	}
 	var itemCount, eventCount int64
@@ -464,7 +461,7 @@ func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
 	}
 
 	snapshot2 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "media-snapshot-2", ParserVersion: "media-reprocess", CreatedAt: now.Add(time.Second)}
-	if err := persistMediaForTest(&Service{db: db}, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now.Add(time.Second)}, []observations.Media{media}, snapshot2, true); err != nil {
+	if err := persistMediaForTest(&Service{db: db}, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: now.Add(time.Second)}, []observations.Media{media}, snapshot2); err != nil {
 		t.Fatalf("reprocess media: %v", err)
 	}
 	if err := db.Model(&models.MediaItem{}).Where("title = ?", media.Title).Count(&itemCount).Error; err != nil {
@@ -501,7 +498,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 		db.Exec("delete from tb_raw_files where sha256 like ?", "rich-%"+suffix)
 	})
 
-	persist := func(tag string, media observations.Media, reprocess bool) {
+	persist := func(tag string, media observations.Media) {
 		t.Helper()
 		rawFileID := uuid.New()
 		if err := db.Create(&models.RawFile{ID: rawFileID, SHA256: "rich-" + tag + "-" + suffix, OriginalFilename: "anilist.json", StoragePath: "/tmp/anilist.json", SourceKind: parsers.KindAniList, UploadedVia: "integration", CreatedAt: time.Now().UTC()}).Error; err != nil {
@@ -512,7 +509,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 			t.Fatalf("create import job %s: %v", tag, err)
 		}
 		snap := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "rich-snap-" + tag + "-" + suffix, ParserVersion: DefaultParserVersion, CreatedAt: time.Now().UTC()}
-		if err := persistMediaForTest(svc, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: snap.CreatedAt}, []observations.Media{media}, snap, reprocess); err != nil {
+		if err := persistMediaForTest(svc, models.RawFile{ID: rawFileID, SourceKind: parsers.KindAniList, CreatedAt: snap.CreatedAt}, []observations.Media{media}, snap); err != nil {
 			t.Fatalf("persist %s: %v", tag, err)
 		}
 	}
@@ -536,7 +533,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	}
 
 	// First sync: item + progress (rich fields) + one provider state row.
-	persist("a1", mediaA(12), false)
+	persist("a1", mediaA(12))
 	var progress models.MediaProgress
 	if err := db.Joins("join tb_media_items on tb_media_items.id = tb_media_progress.media_item_id").Where("tb_media_items.title = ?", titleA).First(&progress).Error; err != nil {
 		t.Fatalf("load progress: %v", err)
@@ -564,13 +561,13 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	}
 
 	// Re-sync unchanged (new raw file, not reprocess): must NOT append a duplicate state.
-	persist("a2", mediaA(12), false)
+	persist("a2", mediaA(12))
 	if got := countStates(); got != 1 {
 		t.Fatalf("state history after unchanged re-sync = %d, want 1 (dedup failed)", got)
 	}
 
 	// Re-sync with real progress change: append a new state-history point.
-	persist("a3", mediaA(13), false)
+	persist("a3", mediaA(13))
 	if got := countStates(); got != 2 {
 		t.Fatalf("state history after changed re-sync = %d, want 2", got)
 	}
@@ -578,7 +575,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	// Returning to an earlier state is a real history point, not a duplicate
 	// snapshot. The idempotency index is scoped to the source snapshot so this
 	// A -> B -> A transition remains representable.
-	persist("a3-revert", mediaA(12), false)
+	persist("a3-revert", mediaA(12))
 	if got := countStates(); got != 3 {
 		t.Fatalf("state history after reverted re-sync = %d, want 3", got)
 	}
@@ -587,7 +584,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 	corrected := mediaA(13)
 	corrected.MediaType = "anime"
 	corrected.Description = "Corrected synopsis " + suffix
-	persist("a4", corrected, false)
+	persist("a4", corrected)
 	var item models.MediaItem
 	if err := db.Where("title = ?", titleA).First(&item).Error; err != nil {
 		t.Fatalf("load item: %v", err)
@@ -605,7 +602,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 		ExternalRefs: []observations.MediaExternalRef{{Provider: "anilist", ExternalID: idB, MatchedBy: "provider_id"}},
 		Relations:    []observations.MediaRelation{{FromType: "item", FromExternalID: idB, ToType: "item", ToExternalID: idA, RelationType: "SEQUEL", Provider: "anilist"}},
 	}
-	persist("b1", mediaB, false)
+	persist("b1", mediaB)
 	var relationCount int64
 	if err := db.Model(&models.MediaRelation{}).Where("relation_type = 'SEQUEL' and to_id in (select id from tb_media_items where title = ?)", titleA).Count(&relationCount).Error; err != nil {
 		t.Fatalf("count relations: %v", err)
@@ -614,7 +611,7 @@ func TestIntegrationMediaRichFieldsAndEventDedup(t *testing.T) {
 		t.Fatalf("SEQUEL relations persisted = %d, want 1 (tb_media_relations not written)", relationCount)
 	}
 	// Idempotent: re-syncing B must not duplicate the edge.
-	persist("b2", mediaB, false)
+	persist("b2", mediaB)
 	db.Model(&models.MediaRelation{}).Where("relation_type = 'SEQUEL' and to_id in (select id from tb_media_items where title = ?)", titleA).Count(&relationCount)
 	if relationCount != 1 {
 		t.Fatalf("SEQUEL relations after re-sync = %d, want 1 (edge duplicated)", relationCount)
@@ -638,7 +635,7 @@ func TestIntegrationProviderMediaStatePreservesDatePrecision(t *testing.T) {
 			t.Fatalf("create import job: %v", err)
 		}
 		snapshot := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "provider-events-snapshot-" + suffix + sourceKind, ParserVersion: DefaultParserVersion, CreatedAt: now}
-		if err := persistMediaForTest(svc, models.RawFile{ID: rawFileID, SourceKind: sourceKind, CreatedAt: now}, []observations.Media{media}, snapshot, false); err != nil {
+		if err := persistMediaForTest(svc, models.RawFile{ID: rawFileID, SourceKind: sourceKind, CreatedAt: now}, []observations.Media{media}, snapshot); err != nil {
 			t.Fatalf("persist provider media: %v", err)
 		}
 		var ref models.MediaExternalRef

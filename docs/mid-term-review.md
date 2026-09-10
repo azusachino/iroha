@@ -24,7 +24,7 @@ The local stack should use fully containerized application services. The checked
 
 ## What is working well
 
-- Raw exports remain canonical evidence. Reprocessing is explicit through the parser version and the purge order protects against stale source-item hashes.
+- Raw exports remain canonical evidence. Reprocessing is explicit through the parser version and replays into a new interpretation snapshot without deleting other-source support.
 - Apple Health identity is source-derived rather than zip-derived. This is the correct basis for full-snapshot reconciliation.
 - Sleep, daily rings, and open-ended daily metrics are separate domain facts, while the generic daily-metric table is reused successfully by body vitals.
 - The durable queue is a real Postgres queue: jobs are claimed with `FOR UPDATE SKIP LOCKED`, attempts and retry timing are persisted, and the worker is a separate Go module.

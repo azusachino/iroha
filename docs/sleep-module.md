@@ -43,7 +43,7 @@ tb_sleep_sessions
   is_main_sleep     bool
   core_s / deep_s / rem_s / awake_s / unspecified_s  int  -- denormalized rollup
   source            text          -- sourceName (device)
-  first_raw_file_id uuid  fk -> tb_raw_files (for reprocess purge)
+  first_raw_file_id uuid  fk -> tb_raw_files (initial evidence provenance)
   created_at / updated_at
 
 tb_sleep_segments
@@ -63,7 +63,7 @@ Reuse the existing import machinery unchanged in spirit:
 - Extend `tb_apple_source_items.item_type` beyond `"workout"` to `"sleep_session"`.
 - Stable source key per session: `sourceName | wake_date | started_at | ended_at` (survives re-exports; independent of zip hash).
 - `content_hash` over the session's segments so an unchanged night skips re-persist and a changed night upserts — same skip/upsert/insert logic as workouts.
-- Reprocess purge extends to sleep tables in the load-bearing order (source items first, then sessions cascade to segments).
+- Reprocessing creates a new interpretation snapshot and refreshes the stable source observation; sessions and segments supported by another source remain intact.
 
 ## Parser
 
@@ -96,7 +96,7 @@ Tracked as the `iroha:sleep-module` epic:
 
 1. Migration `00006_create_sleep_core.sql` + Go models.
 2. Parser: sleep pass + `ParsedSleepSession` + gap-merge/union helpers (unit tested, DB-free).
-3. Persist + reconcile: `item_type='sleep_session'`, reprocess purge extension.
+3. Persist + reconcile: `item_type='sleep_session'`, replay snapshots and source-owned selection.
 4. Read API: `/night` + `/night/{id}/segments`.
 5. Smoke assertions + cross-check vs `sleep_explore.py`.
 

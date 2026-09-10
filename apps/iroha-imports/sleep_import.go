@@ -39,7 +39,7 @@ func sleepSessionContentHash(session observations.Sleep) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, session observations.Sleep, snapshotID uuid.UUID) error {
+func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, session observations.Sleep, snapshotID uuid.UUID, reprocess bool) error {
 	sourceKey := sleepSessionSourceKey(session)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed sleep session missing source key")
@@ -72,7 +72,7 @@ func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, sessi
 	if err := replaceSleepSegments(tx, sessionID, session.Segments); err != nil {
 		return err
 	}
-	if err := s.persistSleepObservation(tx, rawFile, session, sessionID, snapshotID); err != nil {
+	if err := s.persistSleepObservation(tx, rawFile, session, sessionID, snapshotID, reprocess); err != nil {
 		return err
 	}
 	return nil
@@ -151,7 +151,7 @@ func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []observati
 	return tx.CreateInBatches(rows, sleepSegmentInsertBatchSize).Error
 }
 
-func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, session observations.Sleep, sessionID, snapshotID uuid.UUID) error {
+func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, session observations.Sleep, sessionID, snapshotID uuid.UUID, reprocess bool) error {
 	contentHash := sleepSessionContentHash(session)
 	observationID, err := upsertSourceObservation(tx, rawFile, "sleep", "apple_health", sleepSessionSourceKey(session), contentHash, snapshotID)
 	if err != nil {
@@ -174,9 +174,6 @@ func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, s
 	}).Error; err != nil {
 		return err
 	}
-	if err := tx.Model(&models.SleepSession{}).Where("id = ?", sessionID).Update("selected_observation_id", observationID).Error; err != nil {
-		return err
-	}
 	if err := tx.Exec(`insert into tb_sleep_session_observations (sleep_session_id, sleep_observation_id, is_preferred)
 values (?, ?, true) on conflict (sleep_session_id, sleep_observation_id) do update set is_preferred = excluded.is_preferred`, sessionID, observationID).Error; err != nil {
 		return err
@@ -184,6 +181,16 @@ values (?, ?, true) on conflict (sleep_session_id, sleep_observation_id) do upda
 	if err := tx.Exec(`delete from tb_sleep_observation_segments where sleep_observation_id = ?`, observationID).Error; err != nil {
 		return err
 	}
-	return tx.Exec(`insert into tb_sleep_observation_segments (id, sleep_observation_id, stage, started_at, ended_at, seq)
-select id, ?, stage, started_at, ended_at, seq from tb_sleep_segments where session_id = ?`, observationID, sessionID).Error
+	if err := tx.Exec(`insert into tb_sleep_observation_segments (id, sleep_observation_id, stage, started_at, ended_at, seq)
+select id, ?, stage, started_at, ended_at, seq from tb_sleep_segments where session_id = ?`, observationID, sessionID).Error; err != nil {
+		return err
+	}
+	selected, err := selectImportedObservation(tx, "tb_sleep_sessions", sessionID, observationID, reprocess)
+	if err != nil {
+		return err
+	}
+	if !selected {
+		return restoreSelectedSleep(tx, sessionID)
+	}
+	return nil
 }

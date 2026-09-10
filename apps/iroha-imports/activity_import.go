@@ -14,12 +14,6 @@ import (
 )
 
 func (s *Service) persistActivitiesTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {
-	if reprocess {
-		if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
-			return err
-		}
-	}
-
 	if err := tx.Create(&snapshot).Error; err != nil {
 		return err
 	}
@@ -42,29 +36,29 @@ func (s *Service) persistActivitiesTx(tx *gorm.DB, rawFile models.RawFile, parse
 		if err := replaceSamplings(tx, activityID, activity.Samplings); err != nil {
 			return err
 		}
-		if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshot.ID); err != nil {
+		if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshot.ID, reprocess); err != nil {
 			return err
 		}
 	}
 	for _, session := range parsedSleep {
-		if err := s.persistSleepSession(tx, rawFile, session, snapshot.ID); err != nil {
+		if err := s.persistSleepSession(tx, rawFile, session, snapshot.ID, reprocess); err != nil {
 			return err
 		}
 	}
 	for _, summary := range parsedDailySummaries {
-		if err := s.persistDailySummary(tx, rawFile, summary, snapshot.ID); err != nil {
+		if err := s.persistDailySummary(tx, rawFile, summary, snapshot.ID, reprocess); err != nil {
 			return err
 		}
 	}
 	for _, metric := range parsedDailyMetrics {
-		if err := s.persistDailyMetric(tx, rawFile, metric, snapshot.ID); err != nil {
+		if err := s.persistDailyMetric(tx, rawFile, metric, snapshot.ID, reprocess); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile, activity observations.Activity, activityID, snapshotID uuid.UUID) error {
+func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile, activity observations.Activity, activityID, snapshotID uuid.UUID, reprocess bool) error {
 	observationID, err := upsertSourceObservation(tx, rawFile, "activity", activity.Provider, activity.ExternalID, activity.ContentHash, snapshotID)
 	if err != nil {
 		return err
@@ -104,9 +98,6 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 	}).Error; err != nil {
 		return err
 	}
-	if err := tx.Model(&models.Activity{}).Where("id = ?", activityID).Update("selected_observation_id", observationID).Error; err != nil {
-		return err
-	}
 	if err := tx.Exec(`delete from tb_activity_observation_route_points where activity_observation_id = ?`, observationID).Error; err != nil {
 		return err
 	}
@@ -124,8 +115,18 @@ select id, ?, sampling_type, ts, value, unit from tb_activity_samplings where ac
 	if err := tx.Exec(`delete from tb_activity_observation_laps where activity_observation_id = ?`, observationID).Error; err != nil {
 		return err
 	}
-	return tx.Exec(`insert into tb_activity_observation_laps (id, activity_observation_id, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal)
-select id, ?, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal from tb_activity_laps where activity_id = ?`, observationID, activityID).Error
+	if err := tx.Exec(`insert into tb_activity_observation_laps (id, activity_observation_id, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal)
+select id, ?, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal from tb_activity_laps where activity_id = ?`, observationID, activityID).Error; err != nil {
+		return err
+	}
+	selected, err := selectImportedObservation(tx, "tb_activities", activityID, observationID, reprocess)
+	if err != nil {
+		return err
+	}
+	if !selected {
+		return restoreSelectedActivity(tx, activityID)
+	}
+	return nil
 }
 
 func upsertSourceObservation(tx *gorm.DB, rawFile models.RawFile, sourceKind, provider, sourceKey, contentHash string, snapshotID uuid.UUID) (uuid.UUID, error) {

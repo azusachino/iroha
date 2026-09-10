@@ -45,7 +45,7 @@ func dailyMetricContentHash(metric observations.DailyMetric) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, snapshotID uuid.UUID) error {
+func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, snapshotID uuid.UUID, reprocess bool) error {
 	sourceKey := dailySummarySourceKey(summary)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed daily summary missing source key")
@@ -68,7 +68,7 @@ func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summa
 	if err := upsertDailySummary(tx, rawFile, summaryID, summary); err != nil {
 		return err
 	}
-	if err := s.persistDailySummaryObservation(tx, rawFile, summary, summaryID, snapshotID); err != nil {
+	if err := s.persistDailySummaryObservation(tx, rawFile, summary, summaryID, snapshotID, reprocess); err != nil {
 		return err
 	}
 	return nil
@@ -109,7 +109,7 @@ func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID
 	}).Error
 }
 
-func (s *Service) persistDailySummaryObservation(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, summaryID, snapshotID uuid.UUID) error {
+func (s *Service) persistDailySummaryObservation(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, summaryID, snapshotID uuid.UUID, reprocess bool) error {
 	observationID, err := upsertSourceObservation(tx, rawFile, "daily_summary", "apple_health", dailySummarySourceKey(summary), dailySummaryContentHash(summary), snapshotID)
 	if err != nil {
 		return err
@@ -130,10 +130,17 @@ func (s *Service) persistDailySummaryObservation(tx *gorm.DB, rawFile models.Raw
 	}).Error; err != nil {
 		return err
 	}
-	return tx.Model(&models.DailySummary{}).Where("id = ?", summaryID).Update("selected_observation_id", observationID).Error
+	selected, err := selectImportedObservation(tx, "tb_daily_summaries", summaryID, observationID, reprocess)
+	if err != nil {
+		return err
+	}
+	if !selected {
+		return restoreSelectedDailySummary(tx, summaryID)
+	}
+	return nil
 }
 
-func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, snapshotID uuid.UUID) error {
+func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, snapshotID uuid.UUID, reprocess bool) error {
 	sourceKey := dailyMetricSourceKey(metric)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed daily metric missing source key")
@@ -156,7 +163,7 @@ func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric
 	if err := upsertDailyMetric(tx, rawFile, metricID, metric); err != nil {
 		return err
 	}
-	if err := s.persistDailyMetricObservation(tx, rawFile, metric, metricID, snapshotID); err != nil {
+	if err := s.persistDailyMetricObservation(tx, rawFile, metric, metricID, snapshotID, reprocess); err != nil {
 		return err
 	}
 	return nil
@@ -191,7 +198,7 @@ func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, 
 	}).Error
 }
 
-func (s *Service) persistDailyMetricObservation(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, metricID, snapshotID uuid.UUID) error {
+func (s *Service) persistDailyMetricObservation(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, metricID, snapshotID uuid.UUID, reprocess bool) error {
 	observationID, err := upsertSourceObservation(tx, rawFile, "daily_metric", "apple_health", dailyMetricSourceKey(metric), dailyMetricContentHash(metric), snapshotID)
 	if err != nil {
 		return err
@@ -211,5 +218,12 @@ func (s *Service) persistDailyMetricObservation(tx *gorm.DB, rawFile models.RawF
 	}).Error; err != nil {
 		return err
 	}
-	return tx.Model(&models.DailyMetric{}).Where("id = ?", metricID).Update("selected_observation_id", observationID).Error
+	selected, err := selectImportedObservation(tx, "tb_daily_metrics", metricID, observationID, reprocess)
+	if err != nil {
+		return err
+	}
+	if !selected {
+		return restoreSelectedDailyMetric(tx, metricID)
+	}
+	return nil
 }
