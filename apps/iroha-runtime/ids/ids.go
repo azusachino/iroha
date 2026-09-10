@@ -9,6 +9,7 @@ import (
 
 const (
 	RawFilePrefix             = "raw"
+	ReceiptPrefix             = "receipt"
 	ImportPrefix              = "imp"
 	ActivityPrefix            = "act"
 	SleepPrefix               = "sleep"

@@ -51,6 +51,13 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 	if duplicateID != rawID {
 		t.Fatalf("duplicate raw id = %q, want %q", duplicateID, rawID)
 	}
+	var receipts []models.SourceReceipt
+	if err := db.Order("received_at asc").Find(&receipts).Error; err != nil {
+		t.Fatalf("load source receipts: %v", err)
+	}
+	if len(receipts) != 2 || receipts[0].ID == receipts[1].ID || receipts[0].RawFileID != receipts[1].RawFileID {
+		t.Fatalf("source receipts = %#v, want two distinct receipts for one blob", receipts)
+	}
 
 	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/"+rawID, "", http.StatusOK, func(body map[string]any) {
 		if body["duplicate"] != nil {
@@ -580,10 +587,122 @@ func resetIntegrationDB(t *testing.T, db *gorm.DB) {
 		 tb_external_refs,
 		 tb_activities,
 		 tb_media_resolution_tasks,
-		 tb_import_jobs,
+		tb_import_jobs,
+		tb_source_receipts,
+		tb_source_instances,
 		tb_raw_files
 		cascade`).Error; err != nil {
 		t.Fatalf("reset integration db: %v", err)
+	}
+}
+
+func TestIntegrationConcurrentRawFileDedupKeepsReceipts(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	service, err := rawfiles.NewService(db, t.TempDir())
+	if err != nil {
+		t.Fatalf("create raw file service: %v", err)
+	}
+	content := []byte("same source bytes")
+	start := make(chan struct{})
+	type result struct {
+		raw       models.RawFile
+		duplicate bool
+		err       error
+	}
+	results := make(chan result, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			file, fileErr := os.CreateTemp(t.TempDir(), "upload-*")
+			if fileErr != nil {
+				results <- result{err: fileErr}
+				return
+			}
+			if _, fileErr = file.Write(content); fileErr == nil {
+				_, fileErr = file.Seek(0, io.SeekStart)
+			}
+			if fileErr != nil {
+				_ = file.Close()
+				results <- result{err: fileErr}
+				return
+			}
+			<-start
+			raw, duplicate, createErr := service.Create(rawfiles.CreateInput{
+				File:              file,
+				OriginalFilename:  "same.gpx",
+				ContentType:       "application/gpx+xml",
+				SourceKind:        "gpx",
+				UploadedVia:       "cli",
+				SourceInstanceKey: "watch-1",
+			})
+			_ = file.Close()
+			results <- result{raw: raw, duplicate: duplicate, err: createErr}
+		}()
+	}
+	close(start)
+	first, second := <-results, <-results
+	if first.err != nil || second.err != nil {
+		t.Fatalf("concurrent uploads: %v / %v", first.err, second.err)
+	}
+	if first.raw.ID != second.raw.ID || first.raw.ReceiptID == nil || second.raw.ReceiptID == nil || *first.raw.ReceiptID == *second.raw.ReceiptID {
+		t.Fatalf("concurrent upload results = %#v / %#v, want one blob and two receipts", first.raw, second.raw)
+	}
+	var rawCount, receiptCount, instanceCount int64
+	if err := db.Model(&models.RawFile{}).Count(&rawCount).Error; err != nil {
+		t.Fatalf("count raw files: %v", err)
+	}
+	if err := db.Model(&models.SourceReceipt{}).Count(&receiptCount).Error; err != nil {
+		t.Fatalf("count source receipts: %v", err)
+	}
+	if err := db.Model(&models.SourceInstance{}).Count(&instanceCount).Error; err != nil {
+		t.Fatalf("count source instances: %v", err)
+	}
+	if rawCount != 1 || receiptCount != 2 || instanceCount != 1 {
+		t.Fatalf("dedup counts = raw %d receipts %d instances %d, want 1/2/1", rawCount, receiptCount, instanceCount)
+	}
+}
+
+func TestIntegrationRawFileReceiptFailureRemovesBlob(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	service, err := rawfiles.NewService(db, t.TempDir())
+	if err != nil {
+		t.Fatalf("create raw file service: %v", err)
+	}
+	file, err := os.CreateTemp(t.TempDir(), "invalid-receipt-*")
+	if err != nil {
+		t.Fatalf("create input: %v", err)
+	}
+	if _, err := file.WriteString("receipt rollback bytes"); err != nil {
+		t.Fatalf("write input: %v", err)
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("rewind input: %v", err)
+	}
+	_, _, err = service.Create(rawfiles.CreateInput{
+		File:             file,
+		OriginalFilename: "broken.gpx",
+		SourceKind:       "gpx",
+		UploadedVia:      "cli",
+		IngestionMode:    "not-a-mode",
+	})
+	_ = file.Close()
+	if err == nil {
+		t.Fatal("invalid receipt mode succeeded")
+	}
+	var rawCount, receiptCount int64
+	if err := db.Model(&models.RawFile{}).Count(&rawCount).Error; err != nil {
+		t.Fatalf("count rolled-back raw files: %v", err)
+	}
+	if err := db.Model(&models.SourceReceipt{}).Count(&receiptCount).Error; err != nil {
+		t.Fatalf("count rolled-back receipts: %v", err)
+	}
+	if rawCount != 0 || receiptCount != 0 {
+		t.Fatalf("rollback counts = raw %d receipts %d, want 0/0", rawCount, receiptCount)
 	}
 }
 

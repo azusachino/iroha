@@ -18,11 +18,38 @@ type RawFile struct {
 	UploadedVia      string
 	ObservedAt       *time.Time
 	CreatedAt        time.Time
+	ReceiptID        *uuid.UUID `gorm:"-"`
 }
 
 func (RawFile) TableName() string {
 	return "tb_raw_files"
 }
+
+type SourceInstance struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Provider    string
+	InstanceKey string
+	DisplayName string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (SourceInstance) TableName() string { return "tb_source_instances" }
+
+type SourceReceipt struct {
+	ID               uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceInstanceID uuid.UUID `gorm:"type:uuid"`
+	RawFileID        uuid.UUID `gorm:"type:uuid"`
+	SourceKind       string
+	IngestionMode    string
+	ScopeJSON        json.RawMessage `gorm:"column:scope_json;type:jsonb"`
+	OrderingBasis    string
+	ObservedAt       *time.Time
+	ReceivedAt       time.Time
+	CreatedAt        time.Time
+}
+
+func (SourceReceipt) TableName() string { return "tb_source_receipts" }
 
 type ImportJob struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`

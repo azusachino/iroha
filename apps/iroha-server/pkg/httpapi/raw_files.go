@@ -8,6 +8,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 var allowedSourceKinds = map[string]bool{
@@ -27,6 +28,7 @@ var allowedUploadSources = map[string]bool{
 
 type rawFileResponse struct {
 	ID               string    `json:"id"`
+	ReceiptID        string    `json:"receipt_id,omitempty"`
 	SHA256           string    `json:"sha256"`
 	OriginalFilename string    `json:"original_filename"`
 	ContentType      string    `json:"content_type"`
@@ -58,6 +60,15 @@ func (s *Server) handleCreateRawFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid uploaded_via")
 		return
 	}
+	sourceInstanceKey := r.FormValue("source_instance_key")
+	ingestionMode := r.FormValue("ingestion_mode")
+	if ingestionMode == "" {
+		ingestionMode = rawfiles.IngestionModeFullSnapshot
+	}
+	if ingestionMode != rawfiles.IngestionModeFullSnapshot && ingestionMode != rawfiles.IngestionModeBoundedReplacement && ingestionMode != rawfiles.IngestionModeIncremental {
+		writeError(w, http.StatusBadRequest, "invalid ingestion_mode")
+		return
+	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
@@ -67,11 +78,13 @@ func (s *Server) handleCreateRawFile(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = file.Close() }()
 
 	rawFile, duplicate, err := s.deps.RawFileService.Create(rawfiles.CreateInput{
-		File:             file,
-		OriginalFilename: header.Filename,
-		ContentType:      header.Header.Get("Content-Type"),
-		SourceKind:       sourceKind,
-		UploadedVia:      uploadedVia,
+		File:              file,
+		OriginalFilename:  header.Filename,
+		ContentType:       header.Header.Get("Content-Type"),
+		SourceKind:        sourceKind,
+		UploadedVia:       uploadedVia,
+		SourceInstanceKey: sourceInstanceKey,
+		IngestionMode:     ingestionMode,
 	})
 	if err != nil {
 		s.deps.Logger.Error("create raw file", "error", err)
@@ -117,6 +130,7 @@ func (s *Server) handleGetRawFile(w http.ResponseWriter, r *http.Request) {
 func toRawFileResponse(rawFile models.RawFile, duplicate bool) rawFileResponse {
 	return rawFileResponse{
 		ID:               ids.Encode(ids.RawFilePrefix, rawFile.ID),
+		ReceiptID:        receiptID(rawFile.ReceiptID),
 		SHA256:           rawFile.SHA256,
 		OriginalFilename: rawFile.OriginalFilename,
 		ContentType:      rawFile.ContentType,
@@ -126,4 +140,11 @@ func toRawFileResponse(rawFile models.RawFile, duplicate bool) rawFileResponse {
 		CreatedAt:        rawFile.CreatedAt,
 		Duplicate:        duplicate,
 	}
+}
+
+func receiptID(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return ids.Encode(ids.ReceiptPrefix, *id)
 }

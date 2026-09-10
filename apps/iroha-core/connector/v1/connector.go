@@ -21,10 +21,12 @@ type Cursor struct {
 }
 
 type Snapshot struct {
-	ContentType string
-	Body        []byte
-	SourceKind  string
-	Filename    string
+	ContentType       string
+	Body              []byte
+	SourceKind        string
+	Filename          string
+	SourceInstanceKey string
+	IngestionMode     string
 	// ObservedAt is when the connector received this source snapshot. It is
 	// distinct from the time Iroha stores the raw file or processes its job.
 	ObservedAt time.Time
