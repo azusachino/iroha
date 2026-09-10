@@ -98,6 +98,44 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/intake/health:
+    post:
+      tags: [imports]
+      summary: Queue a bounded Apple Health Shortcut snapshot.
+      description: |
+        Accepts the versioned `iroha.health.shortcut.v1` envelope, stores the
+        raw payload as evidence, and queues its import. The endpoint is
+        disabled unless the deployment configures `IROHA_HEALTH_INTAKE_TOKEN`.
+      security:
+        - healthIntakeBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [schema, source_instance_key, captured_at, coverage]
+              properties:
+                schema: { type: string, const: iroha.health.shortcut.v1 }
+                source_instance_key: { type: string }
+                captured_at: { type: string, format: date-time }
+                coverage:
+                  type: array
+                  minItems: 1
+                  items: { type: object }
+      responses:
+        "202":
+          description: Raw payload stored and import queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthIntakeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/metrics:
     get:
       tags: [metrics]
@@ -1068,6 +1106,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 components:
+  securitySchemes:
+    healthIntakeBearer:
+      type: http
+      scheme: bearer
+      description: Deployment-scoped token for the local Apple Health Shortcut.
   parameters:
     RawFileId:
       name: rawFileId
@@ -1198,6 +1241,16 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     NotFound:
       description: Resource was not found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid intake credentials.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ServiceUnavailable:
+      description: A required server dependency or optional intake feature is unavailable.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -1364,7 +1417,7 @@ components:
         request_id: { type: string }
     SourceKind:
       type: string
-      enum: [apple_health_export, gpx, fit, tcx, strava_export]
+      enum: [apple_health_export, apple_health_shortcut, gpx, fit, tcx, strava_export]
     UploadSource:
       type: string
       enum: [web, telegram, cli, ios_bridge]
@@ -1375,7 +1428,14 @@ components:
         raw_file_id: { type: string }
         parser_kind:
           type: string
-          enum: [apple_health_export, gpx, anilist, bangumi]
+          enum: [apple_health_export, apple_health_shortcut, gpx, anilist, bangumi]
+    HealthIntakeResponse:
+      type: object
+      required: [raw_file_id, import_id, status]
+      properties:
+        raw_file_id: { type: string }
+        import_id: { type: string }
+        status: { type: string, const: queued }
     RawFile:
       type: object
       required:

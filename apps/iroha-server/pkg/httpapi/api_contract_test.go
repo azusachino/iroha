@@ -70,6 +70,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"POST /api/v1/actions/{action}",
 		"POST /api/v1/expenses",
 		"POST /api/v1/imports",
+		"POST /api/v1/intake/health",
 		"POST /api/v1/media/sync/{connectorId}",
 		"POST /api/v1/media/events",
 		"POST /api/v1/raw-files",

@@ -138,6 +138,7 @@ func (s *Server) routes() {
 		r.Use(s.readCache)
 		r.Get("/briefing", s.handleBriefing)
 		r.Get("/coverage", s.handleCoverage)
+		r.Post("/intake/health", s.handleHealthIntake)
 		r.Get("/metrics", s.handleListMetrics)
 		r.Get("/metrics/{metricId}", s.handleGetMetric)
 		r.Get("/metrics/{metricId}/series", s.handleMetricSeries)

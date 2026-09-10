@@ -70,17 +70,18 @@ type ActivityLap = observations.Lap
 // that can only fail. New formats (fit, tcx, strava_export) get a Kind* const
 // and a Parse case here once their parser lands.
 const (
-	KindGPX               = coreimports.KindGPX
-	KindAppleHealthExport = coreimports.KindAppleHealthExport
-	KindAniList           = coreimports.KindAniList
-	KindAniListActivity   = coreimports.KindAniListActivity
-	KindBangumi           = coreimports.KindBangumi
+	KindGPX                 = coreimports.KindGPX
+	KindAppleHealthExport   = coreimports.KindAppleHealthExport
+	KindAppleHealthShortcut = coreimports.KindAppleHealthShortcut
+	KindAniList             = coreimports.KindAniList
+	KindAniListActivity     = coreimports.KindAniListActivity
+	KindBangumi             = coreimports.KindBangumi
 )
 
 // IsImplemented reports whether Parse has a working parser for kind.
 func IsImplemented(kind string) bool {
 	switch kind {
-	case KindGPX, KindAppleHealthExport, KindAniList, KindAniListActivity, KindBangumi:
+	case KindGPX, KindAppleHealthExport, KindAppleHealthShortcut, KindAniList, KindAniListActivity, KindBangumi:
 		return true
 	default:
 		return false
@@ -96,6 +97,12 @@ func Parse(input Input) ([]ActivityObservation, error) {
 		})
 	case KindAppleHealthExport:
 		return ParseAppleHealthExport(input.StoragePath, input.RawFileSHA256)
+	case KindAppleHealthShortcut:
+		batch, err := ParseAppleHealthShortcut(input.StoragePath, input.RawFileSHA256)
+		if err != nil {
+			return nil, err
+		}
+		return batch.Activities, nil
 	default:
 		return nil, fmt.Errorf("parser %q is not implemented yet", input.ParserKind)
 	}

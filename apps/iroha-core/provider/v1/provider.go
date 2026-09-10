@@ -3,6 +3,7 @@ package v1
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -97,6 +98,17 @@ type ImportBatch struct {
 	Activities []observations.Activity
 	Sleep      []observations.Sleep
 	Daily      DailyObservations
+	Coverage   []CoverageAssertion
+}
+
+type CoverageAssertion struct {
+	Category      string
+	ScopeJSON     json.RawMessage
+	From          time.Time
+	To            time.Time
+	Timezone      string
+	IngestionMode string
+	Completeness  string
 }
 
 type ErrorKind string

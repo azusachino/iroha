@@ -1,0 +1,87 @@
+{
+  "schema": "iroha.health.shortcut.v1",
+  "source_instance_key": "iphone-health:primary",
+  "captured_at": "2026-09-10T23:30:00+09:00",
+  "coverage": [
+    {
+      "category": "activities",
+      "scope": {"workout_types": ["running"]},
+      "from": "2026-09-03T00:00:00+09:00",
+      "to": "2026-09-10T00:00:00+09:00",
+      "timezone": "Asia/Tokyo",
+      "completeness": "covered"
+    },
+    {
+      "category": "sleep",
+      "scope": {},
+      "from": "2026-09-03T00:00:00+09:00",
+      "to": "2026-09-10T00:00:00+09:00",
+      "timezone": "Asia/Tokyo",
+      "completeness": "partial"
+    },
+    {
+      "category": "daily_summary",
+      "scope": {},
+      "from": "2026-09-03T00:00:00+09:00",
+      "to": "2026-09-10T00:00:00+09:00",
+      "timezone": "Asia/Tokyo",
+      "completeness": "covered_empty"
+    }
+  ],
+  "activities": [
+    {
+      "id": "workout-2026-09-09-run",
+      "sport_type": "running",
+      "title": "Evening run",
+      "started_at": "2026-09-09T19:00:00+09:00",
+      "ended_at": "2026-09-09T19:45:00+09:00",
+      "distance_m": 7200,
+      "duration_s": 2700,
+      "avg_hr": 151,
+      "max_hr": 177,
+      "calories_kcal": 540
+    }
+  ],
+  "sleep": [
+    {
+      "wake_date": "2026-09-10",
+      "started_at": "2026-09-09T23:00:00+09:00",
+      "ended_at": "2026-09-10T07:00:00+09:00",
+      "time_in_bed_s": 28800,
+      "asleep_s": 25200,
+      "efficiency": 0.875,
+      "is_main_sleep": true,
+      "core_s": 14400,
+      "deep_s": 5400,
+      "rem_s": 5400,
+      "awake_s": 3600,
+      "unspecified_s": 0,
+      "segments": [
+        {
+          "stage": "core",
+          "started_at": "2026-09-09T23:30:00+09:00",
+          "ended_at": "2026-09-10T03:30:00+09:00"
+        }
+      ]
+    }
+  ],
+  "daily_summaries": [
+    {
+      "day": "2026-09-09",
+      "move_kcal": 540,
+      "move_goal_kcal": 600,
+      "exercise_min": 45,
+      "exercise_goal_min": 30,
+      "stand_hours": 12,
+      "stand_goal_hours": 12
+    }
+  ],
+  "daily_metrics": [
+    {
+      "day": "2026-09-09",
+      "metric": "steps",
+      "value": 12000,
+      "unit": "count"
+    }
+  ]
+}

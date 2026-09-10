@@ -32,7 +32,7 @@ Request fields:
 
 ```text
 file
-source_kind      apple_health_export | gpx | fit | tcx | strava_export
+source_kind      apple_health_export | apple_health_shortcut | gpx | fit | tcx | strava_export
 uploaded_via     web | telegram | cli | ios_bridge
 ```
 
@@ -58,6 +58,16 @@ Request body:
 ```
 
 Reprocessing is modeled as another import job for the same raw file, not as mutation of an old job.
+
+### Automatic Apple Health intake
+
+```text
+POST /api/v1/intake/health
+```
+
+The request body is the strict `iroha.health.shortcut.v1` envelope. The server validates its source instance, capture time, bounded coverage, and supported completeness values before storing the unchanged JSON and queueing `apple_health_shortcut` as a normal import. Configure `IROHA_HEALTH_INTAKE_TOKEN` and send `Authorization: Bearer <token>`; without that setting the endpoint returns `503`.
+
+Shortcut intake uses bounded replacement, not complete-export reconciliation. A partial or empty window therefore adds evidence about that window without deleting older activities, sleep sessions, or daily facts outside it. The same payload is replay-safe because the raw-file hash is deduplicated and a same-version completed import is skipped.
 
 Import jobs are persisted jobs. `iroha-server` enqueues them into the durable Postgres-backed queue and the separate `iroha-job` process claims and executes them. The server and worker must share the
 configured raw-file data directory.
@@ -182,7 +192,7 @@ POST /api/v1/raw-files
 Content-Type: multipart/form-data
 
 file          the raw bytes (e.g. export.zip)
-source_kind   apple_health_export | gpx | fit | tcx | strava_export
+source_kind   apple_health_export | apple_health_shortcut | gpx | fit | tcx | strava_export
 uploaded_via  telegram
 ```
 
@@ -251,8 +261,7 @@ GET /api/v1/imports/{importId}
 
 ## Auth
 
-`/api/v1` and `/healthz` are the only surfaces this process serves, and both are unauthenticated. iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security
-control, not an application-level credential. Do not expose `iroha-server` to an untrusted network.
+Most `/api/v1` endpoints are unauthenticated because iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security control. The automatic Apple Health intake is the exception: `POST /api/v1/intake/health` requires `Authorization: Bearer ...` from `IROHA_HEALTH_INTAKE_TOKEN` and is disabled when no token is configured. Do not expose `iroha-server` to an untrusted network.
 
 Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTTP hardening](#http-hardening).
 
@@ -266,6 +275,8 @@ Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTT
 ## Configuration
 
 Use TOML config with environment variable overrides.
+
+Set `IROHA_HEALTH_INTAKE_TOKEN` to enable the bounded Apple Health Shortcut receiver. Keep the token in the deployment secret environment, not in tracked TOML or request logs.
 
 Default lookup:
 

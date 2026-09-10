@@ -12,11 +12,12 @@ import (
 )
 
 var allowedSourceKinds = map[string]bool{
-	"apple_health_export": true,
-	"gpx":                 true,
-	"fit":                 true,
-	"tcx":                 true,
-	"strava_export":       true,
+	"apple_health_export":   true,
+	"apple_health_shortcut": true,
+	"gpx":                   true,
+	"fit":                   true,
+	"tcx":                   true,
+	"strava_export":         true,
 }
 
 var allowedUploadSources = map[string]bool{

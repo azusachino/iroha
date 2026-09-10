@@ -94,7 +94,7 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 
 	var jobKind string
 	switch input.ParserKind {
-	case coreimports.KindAppleHealthExport:
+	case coreimports.KindAppleHealthExport, coreimports.KindAppleHealthShortcut:
 		jobKind = jobs.KindAppleImportParse
 	case coreimports.KindGPX:
 		jobKind = jobs.KindGPXImportParse
@@ -235,6 +235,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 	var parsedSleep []observations.Sleep
 	var parsedDailySummaries []observations.DailySummary
 	var parsedDailyMetrics []observations.DailyMetric
+	var parsedCoverage []provider.CoverageAssertion
 	mediaImporter, mediaOK := adapter.(provider.MediaImporter)
 	mediaHistoryImporter, mediaHistoryOK := adapter.(provider.MediaHistoryImporter)
 	if job.ParserKind == coreimports.KindAniListActivity {
@@ -259,6 +260,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		parsedSleep = batch.Sleep
 		parsedDailySummaries = batch.Daily.Summaries
 		parsedDailyMetrics = batch.Daily.Metrics
+		parsedCoverage = batch.Coverage
 	} else {
 		activityImporter, activityOK := adapter.(provider.ActivityImporter)
 		if !activityOK {
@@ -311,7 +313,10 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		if mediaOK {
 			return s.persistMediaTx(tx, rawFile, parsedMedia, snapshot)
 		}
-		return s.persistActivitiesTx(tx, rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess)
+		if err := s.persistActivitiesTx(tx, rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess); err != nil {
+			return err
+		}
+		return s.persistCoverageTx(tx, rawFile, parsedCoverage, snapshot)
 	})
 	if err != nil {
 		return s.fail(ctx, jobID, err)
