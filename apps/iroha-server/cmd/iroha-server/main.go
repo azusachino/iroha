@@ -101,6 +101,7 @@ func main() {
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:              cfg,
 		Logger:              logger,
+		DB:                  db,
 		ActivityService:     activityService,
 		SleepService:        sleepService,
 		DailyService:        dailyService,

@@ -15,6 +15,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
@@ -29,6 +30,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	"gorm.io/gorm"
 )
 
 // apiRateLimitPerMin is the per-peer request budget (per minute). The private
@@ -44,7 +46,7 @@ const (
 	// contract or identity scheme.
 	// Bump whenever a cached wire representation or range interpretation
 	// changes; old Valkey entries must never satisfy the new contract.
-	readCacheKeyVersion = "v12"
+	readCacheKeyVersion = "v13"
 	readCacheTTL        = 24 * time.Hour
 	readyzTimeout       = 2 * time.Second
 	statusReady         = "ready"
@@ -54,6 +56,7 @@ const (
 type Dependencies struct {
 	Config              config.Config
 	Logger              *slog.Logger
+	DB                  *gorm.DB
 	ActivityService     *activities.Service
 	SleepService        *sleep.Service
 	DailyService        *daily.Service
@@ -240,8 +243,9 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 }
 
 // readCache caches successful JSON reads over the imported, single-user data.
-// The import pipeline advances each namespace generation after a successful
-// write, so a long TTL is only a safety net for data that is otherwise static.
+// Writers advance the primary-Postgres revision in the same transaction as
+// the canonical write. The revision vector is part of the cache identity;
+// backend generations remain a race-safety mechanism for in-flight loads.
 func (s *Server) readCache(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		namespace, ok := readCacheNamespace(r)
@@ -255,7 +259,13 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 			return
 		}
 
-		key := s.readCacheKey(r)
+		vector, err := s.readCacheRevisionVector(r.Context(), namespace)
+		if err != nil {
+			w.Header().Set("X-Iroha-Cache", "BYPASS")
+			next.ServeHTTP(w, r)
+			return
+		}
+		key := cache.KeyWithRevisionVector(s.readCacheKey(r), vector)
 		body, generation, ok := cache.GetWithGeneration[[]byte](r.Context(), s.deps.Cache, namespace, key)
 		if ok {
 			w.Header().Set("X-Iroha-Cache", "HIT")
@@ -273,6 +283,13 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 		}
 		cache.SetAtGeneration(r.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, wrapped.body.Bytes())
 	})
+}
+
+func (s *Server) readCacheRevisionVector(ctx context.Context, namespace string) (map[string]int64, error) {
+	if s.deps.DB == nil {
+		return nil, nil
+	}
+	return revisions.Read(s.deps.DB.WithContext(ctx), namespace)
 }
 
 type readCacheResponseWriter struct {

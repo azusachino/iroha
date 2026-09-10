@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -49,6 +51,37 @@ const (
 // ChangeKind identifies a canonical write whose dependent read namespaces
 // must be invalidated after the write commits.
 type ChangeKind string
+
+// KeyWithRevisionVector adds a captured primary-database revision vector to a
+// cache key. Callers should build this key before both cache lookup and
+// GetOrLoad so stale revisions cannot share either a response entry or a
+// singleflight.
+func KeyWithRevisionVector(key string, revisions map[string]int64) string {
+	if len(revisions) == 0 {
+		return key
+	}
+
+	names := make([]string, 0, len(revisions))
+	for name := range revisions {
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	if len(names) == 0 {
+		return key
+	}
+
+	var builder strings.Builder
+	builder.WriteString(key)
+	for _, name := range names {
+		builder.WriteString("\x00revision:")
+		builder.WriteString(name)
+		builder.WriteByte('=')
+		builder.WriteString(strconv.FormatInt(revisions[name], 10))
+	}
+	return builder.String()
+}
 
 var changeNamespaces = map[ChangeKind][]string{
 	ChangeImport: {

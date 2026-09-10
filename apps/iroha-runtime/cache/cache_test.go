@@ -118,6 +118,28 @@ func TestClient_UsesBackendNamespaceContract(t *testing.T) {
 	}
 }
 
+func TestKeyWithRevisionVector_IsStableAndSeparatesRevisions(t *testing.T) {
+	first := KeyWithRevisionVector("read", map[string]int64{
+		"read_metrics":    3,
+		"read_activities": 7,
+	})
+	second := KeyWithRevisionVector("read", map[string]int64{
+		"read_activities": 7,
+		"read_metrics":    3,
+	})
+	changed := KeyWithRevisionVector("read", map[string]int64{
+		"read_activities": 8,
+		"read_metrics":    3,
+	})
+
+	if first != second {
+		t.Fatalf("equivalent vectors produced different keys: %q/%q", first, second)
+	}
+	if first == changed {
+		t.Fatalf("changed vector reused key %q", first)
+	}
+}
+
 type generationFakeStore struct {
 	fakeStore
 	generation int64

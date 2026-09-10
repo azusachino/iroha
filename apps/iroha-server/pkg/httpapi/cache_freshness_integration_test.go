@@ -14,6 +14,7 @@ import (
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/google/uuid"
 )
@@ -57,6 +58,33 @@ func TestIntegrationCacheFreshnessAfterExpenseMutations(t *testing.T) {
 		t.Fatalf("post-delete expense metric cache header = %q, want MISS", header)
 	}
 	assertMetricMinor(t, deletedSeries, nil)
+}
+
+func TestIntegrationCacheFreshnessAfterCommittedRevision(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+	responseCache := cache.NewWithStore(&readCacheTestStore{})
+	server := newIntegrationServerWithCache(t, db, responseCache)
+	path := "/api/v1/metrics/expenses.amount_minor/series?from=2026-08-01&to=2026-09-01&grain=month&timezone=UTC&dimension=currency%3AJPY"
+
+	first, header := requestCachedJSON(t, server, http.MethodGet, path, "", http.StatusOK)
+	if header != "MISS" {
+		t.Fatalf("first revision cache header = %q, want MISS", header)
+	}
+	assertMetricMinor(t, first, nil)
+	_, header = requestCachedJSON(t, server, http.MethodGet, path, "", http.StatusOK)
+	if header != "HIT" {
+		t.Fatalf("second revision cache header = %q, want HIT", header)
+	}
+
+	if err := revisions.Bump(db, revisions.NamespaceMetrics); err != nil {
+		t.Fatalf("bump committed read revision: %v", err)
+	}
+	_, header = requestCachedJSON(t, server, http.MethodGet, path, "", http.StatusOK)
+	if header != "MISS" {
+		t.Fatalf("post-commit revision cache header = %q, want MISS", header)
+	}
 }
 
 func TestIntegrationCacheFreshnessAfterGeocodeRefresh(t *testing.T) {
