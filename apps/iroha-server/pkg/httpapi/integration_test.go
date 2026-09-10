@@ -122,6 +122,66 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 	requestJSON(t, server, http.MethodGet, "/api/v1/activities/summary?date=2099-12-31", "", http.StatusBadRequest, nil)
 }
 
+func TestIntegrationImportFailureRetriesAndRecovers(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	server := newIntegrationServer(t, db)
+	rawID := uploadRawFile(t, server, "retry.gpx", "gpx", "cli", "not valid gpx")
+
+	var importID string
+	requestJSON(t, server, http.MethodPost, "/api/v1/imports", `{"raw_file_id":"`+rawID+`","parser_kind":"gpx"}`, http.StatusAccepted, func(body map[string]any) {
+		importID = stringValue(t, body, "id")
+	})
+	waitForImportFailure(t, server, importID)
+
+	importUUID, err := ids.Decode(ids.ImportPrefix, importID)
+	if err != nil {
+		t.Fatalf("decode import id: %v", err)
+	}
+	var queueJob models.Job
+	if err := db.Where("kind = ? and payload_json ->> 'import_job_id' = ?", jobs.KindGPXImportParse, importUUID.String()).First(&queueJob).Error; err != nil {
+		t.Fatalf("load queue job: %v", err)
+	}
+	if queueJob.Status == jobs.StatusCompleted {
+		t.Fatalf("failed import queue job was completed: %#v", queueJob)
+	}
+	if queueJob.Status != jobs.StatusQueued || queueJob.ErrorMessage == nil {
+		t.Fatalf("failed import queue job = %#v, want queued with error", queueJob)
+	}
+
+	rawUUID, err := ids.Decode(ids.RawFilePrefix, rawID)
+	if err != nil {
+		t.Fatalf("decode raw id: %v", err)
+	}
+	var rawFile models.RawFile
+	if err := db.First(&rawFile, "id = ?", rawUUID).Error; err != nil {
+		t.Fatalf("load raw file: %v", err)
+	}
+	if err := os.WriteFile(rawFile.StoragePath, []byte(validGPX()), 0o600); err != nil {
+		t.Fatalf("replace raw evidence for retry: %v", err)
+	}
+	if err := db.Model(&models.Job{}).Where("id = ?", queueJob.ID).Updates(map[string]any{
+		"run_after": time.Now().UTC().Add(-time.Second),
+	}).Error; err != nil {
+		t.Fatalf("release retry: %v", err)
+	}
+
+	waitForImportRecovery(t, server, importID)
+	completed := requestJSON(t, server, http.MethodGet, "/api/v1/imports/"+importID, "", http.StatusOK, nil)
+	if _, ok := completed["error_message"]; ok {
+		t.Fatalf("successful retry retained error_message: %#v", completed)
+	}
+	if err := db.First(&queueJob, "id = ?", queueJob.ID).Error; err != nil {
+		t.Fatalf("reload retried queue job: %v", err)
+	}
+	if queueJob.Status != jobs.StatusCompleted || queueJob.Attempts != 2 {
+		t.Fatalf("retried queue job = %#v, want completed after two attempts", queueJob)
+	}
+	assertCanonicalImportedActivity(t, db, rawID, "Integration Run")
+}
+
 func TestIntegrationSleepEndpoints(t *testing.T) {
 	db := openIntegrationDB(t)
 	resetIntegrationDB(t, db)
@@ -695,6 +755,39 @@ func waitForImportStatus(t *testing.T, handler http.Handler, importID string, wa
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("import %s did not reach %s", importID, want)
+}
+
+func waitForImportFailure(t *testing.T, handler http.Handler, importID string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		response := requestJSON(t, handler, http.MethodGet, "/api/v1/imports/"+importID, "", http.StatusOK, nil)
+		if response["status"] == imports.StatusFailed {
+			if _, ok := response["error_message"].(string); !ok {
+				t.Fatalf("failed import has no error_message: %#v", response)
+			}
+			return
+		}
+		if response["status"] == imports.StatusCompleted {
+			t.Fatalf("invalid import completed: %#v", response)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("import %s did not reach failed", importID)
+}
+
+func waitForImportRecovery(t *testing.T, handler http.Handler, importID string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	var last map[string]any
+	for time.Now().Before(deadline) {
+		last = requestJSON(t, handler, http.MethodGet, "/api/v1/imports/"+importID, "", http.StatusOK, nil)
+		if last["status"] == imports.StatusCompleted {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("import %s did not recover: %#v", importID, last)
 }
 
 func firstActivityID(t *testing.T, handler http.Handler) string {

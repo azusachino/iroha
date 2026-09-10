@@ -175,10 +175,12 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 	}
 	now := time.Now().UTC()
 	if err := s.db.Model(&models.ImportJob{}).
-		Where("id = ? and status = ?", jobID, StatusQueued).
+		Where("id = ? and status in ?", jobID, []string{StatusQueued, StatusFailed}).
 		Updates(map[string]any{
-			"status":     StatusParsing,
-			"started_at": &now,
+			"status":        StatusParsing,
+			"started_at":    &now,
+			"error_message": nil,
+			"finished_at":   nil,
 		}).Error; err != nil {
 		return err
 	}
@@ -196,7 +198,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		return err
 	}
 	if !found {
-		return s.fail(jobID, "raw_file not found")
+		return s.fail(jobID, errors.New("raw_file not found"))
 	}
 
 	prior, priorFound, err := s.priorCompletedImport(jobID, rawFile.SHA256)
@@ -223,7 +225,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 
 	adapter, ok := s.providers.GetBySourceKind(job.ParserKind)
 	if !ok {
-		return s.fail(jobID, fmt.Sprintf("no provider adapter for source kind %q", job.ParserKind))
+		return s.fail(jobID, fmt.Errorf("no provider adapter for source kind %q", job.ParserKind))
 	}
 	source := provider.Source{
 		Kind:             job.ParserKind,
@@ -244,21 +246,21 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 	mediaHistoryImporter, mediaHistoryOK := adapter.(provider.MediaHistoryImporter)
 	if job.ParserKind == coreimports.KindAniListActivity {
 		if !mediaHistoryOK {
-			return s.fail(jobID, fmt.Sprintf("provider %q does not implement media history import", adapter.Descriptor().ID))
+			return s.fail(jobID, fmt.Errorf("provider %q does not implement media history import", adapter.Descriptor().ID))
 		}
 		parsedMediaHistory, err = mediaHistoryImporter.ImportMediaHistory(ctx, source, options)
 		if err != nil {
-			return s.fail(jobID, err.Error())
+			return s.fail(jobID, err)
 		}
 	} else if mediaOK {
 		parsedMedia, err = mediaImporter.ImportMedia(ctx, source, options)
 		if err != nil {
-			return s.fail(jobID, err.Error())
+			return s.fail(jobID, err)
 		}
 	} else if batchImporter, ok := adapter.(provider.BatchImporter); ok {
 		batch, batchErr := batchImporter.ImportAll(ctx, source, options)
 		if batchErr != nil {
-			return s.fail(jobID, batchErr.Error())
+			return s.fail(jobID, batchErr)
 		}
 		parsed = batch.Activities
 		parsedSleep = batch.Sleep
@@ -267,22 +269,22 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 	} else {
 		activityImporter, activityOK := adapter.(provider.ActivityImporter)
 		if !activityOK {
-			return s.fail(jobID, fmt.Sprintf("provider %q does not implement activity import", adapter.Descriptor().ID))
+			return s.fail(jobID, fmt.Errorf("provider %q does not implement activity import", adapter.Descriptor().ID))
 		}
 		parsed, err = activityImporter.ImportActivities(ctx, source, options)
 		if err != nil {
-			return s.fail(jobID, err.Error())
+			return s.fail(jobID, err)
 		}
 		if sleepImporter, sleepOK := adapter.(provider.SleepImporter); sleepOK {
 			parsedSleep, err = sleepImporter.ImportSleep(ctx, source, options)
 			if err != nil {
-				return s.fail(jobID, err.Error())
+				return s.fail(jobID, err)
 			}
 		}
 		if dailyImporter, dailyOK := adapter.(provider.DailyImporter); dailyOK {
 			daily, dailyErr := dailyImporter.ImportDaily(ctx, source, options)
 			if dailyErr != nil {
-				return s.fail(jobID, dailyErr.Error())
+				return s.fail(jobID, dailyErr)
 			}
 			parsedDailySummaries = daily.Summaries
 			parsedDailyMetrics = daily.Metrics
@@ -291,7 +293,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 
 	snapshotID, err := ids.New()
 	if err != nil {
-		return s.fail(jobID, err.Error())
+		return s.fail(jobID, err)
 	}
 	snapshot := models.ImportSnapshot{
 		ID:            snapshotID,
@@ -317,7 +319,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		err = s.persistActivities(rawFile, parsed, parsedSleep, parsedDailySummaries, parsedDailyMetrics, snapshot, reprocess)
 	}
 	if err != nil {
-		return s.fail(jobID, err.Error())
+		return s.fail(jobID, err)
 	}
 
 	finishedAt := time.Now().UTC()
@@ -420,11 +422,18 @@ func (s *Service) getRawFile(id uuid.UUID) (models.RawFile, bool, error) {
 	return rawFile, true, nil
 }
 
-func (s *Service) fail(jobID uuid.UUID, message string) error {
+func (s *Service) fail(jobID uuid.UUID, cause error) error {
+	if cause == nil {
+		cause = errors.New("import failed")
+	}
+	message := cause.Error()
 	finishedAt := time.Now().UTC()
-	return s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
+	if err := s.db.Model(&models.ImportJob{}).Where("id = ?", jobID).Updates(map[string]any{
 		"status":        StatusFailed,
 		"error_message": &message,
 		"finished_at":   &finishedAt,
-	}).Error
+	}).Error; err != nil {
+		return errors.Join(cause, fmt.Errorf("record import failure: %w", err))
+	}
+	return cause
 }
