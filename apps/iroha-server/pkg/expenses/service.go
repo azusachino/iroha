@@ -24,8 +24,14 @@ const (
 	maxMerchantLen   = 200
 	maxNoteLen       = 2000
 	maxItemNameLen   = 200
+	maxAccountKeyLen = 100
 	maxSourceKindLen = 50
 	maxSourceRefLen  = 200
+)
+
+const (
+	KindExpense = "expense"
+	KindRefund  = "refund"
 )
 
 var (
@@ -50,26 +56,32 @@ type Source struct {
 
 // CreateInput is the canonical expense create payload before normalization.
 type CreateInput struct {
-	OccurredOn  time.Time
-	Currency    string
-	AmountMinor int64
-	Category    string
-	Merchant    string
-	Note        string
-	Items       []Item
-	Source      Source
+	OccurredOn        time.Time
+	AccountKey        string
+	Kind              string
+	RefundOfExpenseID *uuid.UUID
+	Currency          string
+	AmountMinor       int64
+	Category          string
+	Merchant          string
+	Note              string
+	Items             []Item
+	Source            Source
 }
 
 // ReplaceInput contains every mutable expense field. Source identity and the
 // original create fingerprint are deliberately absent.
 type ReplaceInput struct {
-	OccurredOn  time.Time
-	Currency    string
-	AmountMinor int64
-	Category    string
-	Merchant    string
-	Note        string
-	Items       []Item
+	OccurredOn        time.Time
+	AccountKey        string
+	Kind              string
+	RefundOfExpenseID *uuid.UUID
+	Currency          string
+	AmountMinor       int64
+	Category          string
+	Merchant          string
+	Note              string
+	Items             []Item
 }
 
 // CreateResult distinguishes a newly inserted row from an idempotent retry.
@@ -87,12 +99,14 @@ type Page struct {
 
 // ListFilters selects active expenses. From is inclusive and To is exclusive.
 type ListFilters struct {
-	From     *time.Time
-	To       *time.Time
-	Currency string
-	Category string
-	Limit    int
-	Cursor   *Cursor
+	From       *time.Time
+	To         *time.Time
+	AccountKey string
+	Kind       string
+	Currency   string
+	Category   string
+	Limit      int
+	Cursor     *Cursor
 }
 
 // Service owns canonical expense persistence and source-identity semantics.
@@ -106,32 +120,43 @@ type PeriodFilters struct {
 }
 
 type PeriodCurrencyTotal struct {
-	Currency         string
-	CurrencyExponent int
-	AmountMinor      int64
-	ExpenseCount     int
+	Currency          string
+	CurrencyExponent  int
+	GrossAmountMinor  int64
+	RefundAmountMinor int64
+	NetAmountMinor    int64
+	PurchaseCount     int
+	RefundCount       int
 }
 
 type PeriodCategoryTotal struct {
-	Category         string
-	Currency         string
-	CurrencyExponent int
-	AmountMinor      int64
-	ExpenseCount     int
+	Category          string
+	Currency          string
+	CurrencyExponent  int
+	GrossAmountMinor  int64
+	RefundAmountMinor int64
+	NetAmountMinor    int64
+	PurchaseCount     int
+	RefundCount       int
 }
 
 type PeriodReport struct {
 	ExpenseCount     int
+	PurchaseCount    int
+	RefundCount      int
 	TotalsByCurrency []PeriodCurrencyTotal
 	ByCategory       []PeriodCategoryTotal
 }
 
 type MetricValue struct {
-	OccurredOn  time.Time
-	Currency    string
-	Category    string
-	AmountMinor int64
-	Source      string
+	OccurredOn     time.Time
+	AccountKey     string
+	Kind           string
+	Currency       string
+	Category       string
+	AmountMinor    int64
+	MagnitudeMinor int64
+	Source         string
 }
 
 func NewService(db *gorm.DB) *Service {
@@ -161,11 +186,10 @@ func (s *Service) PeriodExpenses(filters PeriodFilters) ([]MetricValue, error) {
 	values := make([]MetricValue, len(rows))
 	for index, row := range rows {
 		values[index] = MetricValue{
-			OccurredOn:  row.OccurredOn,
-			Currency:    row.Currency,
-			Category:    row.Category,
-			AmountMinor: row.AmountMinor,
-			Source:      row.SourceKind,
+			OccurredOn: row.OccurredOn, AccountKey: row.AccountKey, Kind: row.Kind,
+			Currency: row.Currency,
+			Category: row.Category, AmountMinor: signedAmount(row), Source: row.SourceKind,
+			MagnitudeMinor: row.AmountMinor,
 		}
 	}
 	return values, nil
@@ -184,27 +208,33 @@ func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
 	}
 
 	type currencyRow struct {
-		Currency     string `gorm:"column:currency"`
-		AmountMinor  int64  `gorm:"column:amount_minor"`
-		ExpenseCount int    `gorm:"column:expense_count"`
+		Currency          string `gorm:"column:currency"`
+		GrossAmountMinor  int64  `gorm:"column:gross_amount_minor"`
+		RefundAmountMinor int64  `gorm:"column:refund_amount_minor"`
+		NetAmountMinor    int64  `gorm:"column:net_amount_minor"`
+		PurchaseCount     int    `gorm:"column:purchase_count"`
+		RefundCount       int    `gorm:"column:refund_count"`
 	}
 	var currencyRows []currencyRow
 	if err := s.db.Model(&models.Expense{}).
-		Select("currency, sum(amount_minor)::bigint AS amount_minor, count(*)::int AS expense_count").
+		Select("currency, coalesce(sum(amount_minor) filter (where kind = 'expense'), 0)::bigint AS gross_amount_minor, coalesce(sum(amount_minor) filter (where kind = 'refund'), 0)::bigint AS refund_amount_minor, coalesce(sum(case when kind = 'refund' then -amount_minor else amount_minor end), 0)::bigint AS net_amount_minor, count(*) filter (where kind = 'expense')::int AS purchase_count, count(*) filter (where kind = 'refund')::int AS refund_count").
 		Where("deleted_at is null and occurred_on >= ? and occurred_on < ?", dateOnly(filters.From), dateOnly(filters.To)).
 		Group("currency").Order("currency").Scan(&currencyRows).Error; err != nil {
 		return PeriodReport{}, err
 	}
 
 	type categoryRow struct {
-		Category     string `gorm:"column:category"`
-		Currency     string `gorm:"column:currency"`
-		AmountMinor  int64  `gorm:"column:amount_minor"`
-		ExpenseCount int    `gorm:"column:expense_count"`
+		Category          string `gorm:"column:category"`
+		Currency          string `gorm:"column:currency"`
+		GrossAmountMinor  int64  `gorm:"column:gross_amount_minor"`
+		RefundAmountMinor int64  `gorm:"column:refund_amount_minor"`
+		NetAmountMinor    int64  `gorm:"column:net_amount_minor"`
+		PurchaseCount     int    `gorm:"column:purchase_count"`
+		RefundCount       int    `gorm:"column:refund_count"`
 	}
 	var categoryRows []categoryRow
 	if err := s.db.Model(&models.Expense{}).
-		Select("category, currency, sum(amount_minor)::bigint AS amount_minor, count(*)::int AS expense_count").
+		Select("category, currency, coalesce(sum(amount_minor) filter (where kind = 'expense'), 0)::bigint AS gross_amount_minor, coalesce(sum(amount_minor) filter (where kind = 'refund'), 0)::bigint AS refund_amount_minor, coalesce(sum(case when kind = 'refund' then -amount_minor else amount_minor end), 0)::bigint AS net_amount_minor, count(*) filter (where kind = 'expense')::int AS purchase_count, count(*) filter (where kind = 'refund')::int AS refund_count").
 		Where("deleted_at is null and occurred_on >= ? and occurred_on < ?", dateOnly(filters.From), dateOnly(filters.To)).
 		Group("category, currency").Order("category, currency").Scan(&categoryRows).Error; err != nil {
 		return PeriodReport{}, err
@@ -214,17 +244,31 @@ func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
 	for _, row := range currencyRows {
 		totalsByCurrency = append(totalsByCurrency, PeriodCurrencyTotal{
 			Currency: row.Currency, CurrencyExponent: SupportedCurrencies[row.Currency],
-			AmountMinor: row.AmountMinor, ExpenseCount: row.ExpenseCount,
+			GrossAmountMinor: row.GrossAmountMinor, RefundAmountMinor: row.RefundAmountMinor, NetAmountMinor: row.NetAmountMinor,
+			PurchaseCount: row.PurchaseCount, RefundCount: row.RefundCount,
 		})
 	}
 	byCategory := make([]PeriodCategoryTotal, 0, len(categoryRows))
 	for _, row := range categoryRows {
 		byCategory = append(byCategory, PeriodCategoryTotal{
 			Category: row.Category, Currency: row.Currency, CurrencyExponent: SupportedCurrencies[row.Currency],
-			AmountMinor: row.AmountMinor, ExpenseCount: row.ExpenseCount,
+			GrossAmountMinor: row.GrossAmountMinor, RefundAmountMinor: row.RefundAmountMinor, NetAmountMinor: row.NetAmountMinor,
+			PurchaseCount: row.PurchaseCount, RefundCount: row.RefundCount,
 		})
 	}
-	return PeriodReport{ExpenseCount: int(expenseCountValue), TotalsByCurrency: totalsByCurrency, ByCategory: byCategory}, nil
+	purchaseCount, refundCount := 0, 0
+	for _, row := range currencyRows {
+		purchaseCount += row.PurchaseCount
+		refundCount += row.RefundCount
+	}
+	return PeriodReport{ExpenseCount: int(expenseCountValue), PurchaseCount: purchaseCount, RefundCount: refundCount, TotalsByCurrency: totalsByCurrency, ByCategory: byCategory}, nil
+}
+
+func signedAmount(row models.Expense) int64 {
+	if row.Kind == KindRefund {
+		return -row.AmountMinor
+	}
+	return row.AmountMinor
 }
 
 // Bounds returns the earliest and latest occurred-on dates among active
@@ -267,12 +311,13 @@ func (s *Service) Bounds(now time.Time, timezone string) (minDate, maxDate strin
 // the fingerprint used for idempotent source retries.
 func NormalizeCreate(input CreateInput) (CreateInput, string, error) {
 	normalized := CreateInput{
-		OccurredOn:  dateOnly(input.OccurredOn),
-		Currency:    strings.ToUpper(strings.TrimSpace(input.Currency)),
-		AmountMinor: input.AmountMinor,
-		Category:    strings.ToLower(strings.TrimSpace(input.Category)),
-		Merchant:    strings.TrimSpace(input.Merchant),
-		Note:        strings.TrimSpace(input.Note),
+		OccurredOn: dateOnly(input.OccurredOn), AccountKey: normalizeAccountKey(input.AccountKey), Kind: normalizeKind(input.Kind),
+		RefundOfExpenseID: input.RefundOfExpenseID,
+		Currency:          strings.ToUpper(strings.TrimSpace(input.Currency)),
+		AmountMinor:       input.AmountMinor,
+		Category:          strings.ToLower(strings.TrimSpace(input.Category)),
+		Merchant:          strings.TrimSpace(input.Merchant),
+		Note:              strings.TrimSpace(input.Note),
 		Source: Source{
 			Kind: strings.ToLower(strings.TrimSpace(input.Source.Kind)),
 			Ref:  strings.TrimSpace(input.Source.Ref),
@@ -292,15 +337,19 @@ func NormalizeCreate(input CreateInput) (CreateInput, string, error) {
 // NormalizeReplace validates and canonicalizes mutable fields.
 func NormalizeReplace(input ReplaceInput) (ReplaceInput, error) {
 	normalized := ReplaceInput{
-		OccurredOn:  dateOnly(input.OccurredOn),
-		Currency:    strings.ToUpper(strings.TrimSpace(input.Currency)),
-		AmountMinor: input.AmountMinor,
-		Category:    strings.ToLower(strings.TrimSpace(input.Category)),
-		Merchant:    strings.TrimSpace(input.Merchant),
-		Note:        strings.TrimSpace(input.Note),
-		Items:       normalizeItems(input.Items),
+		OccurredOn: dateOnly(input.OccurredOn), AccountKey: normalizeAccountKey(input.AccountKey), Kind: normalizeKind(input.Kind),
+		RefundOfExpenseID: input.RefundOfExpenseID,
+		Currency:          strings.ToUpper(strings.TrimSpace(input.Currency)),
+		AmountMinor:       input.AmountMinor,
+		Category:          strings.ToLower(strings.TrimSpace(input.Category)),
+		Merchant:          strings.TrimSpace(input.Merchant),
+		Note:              strings.TrimSpace(input.Note),
+		Items:             normalizeItems(input.Items),
 	}
 	if err := validateMutable(normalized.OccurredOn, normalized.Currency, normalized.AmountMinor, normalized.Category, normalized.Merchant, normalized.Note, normalized.Items); err != nil {
+		return ReplaceInput{}, err
+	}
+	if err := validateAccountAndKind(normalized.AccountKey, normalized.Kind); err != nil {
 		return ReplaceInput{}, err
 	}
 	return normalized, nil
@@ -320,6 +369,9 @@ func validateCreate(input CreateInput) error {
 	}
 	if input.Source.Kind == "" || len(input.Source.Kind) > maxSourceKindLen {
 		return fmt.Errorf("%w: source.kind", ErrInvalidExpense)
+	}
+	if err := validateAccountAndKind(input.AccountKey, input.Kind); err != nil {
+		return err
 	}
 	if input.Source.Ref == "" || len(input.Source.Ref) > maxSourceRefLen || strings.ContainsAny(input.Source.Ref, `/\\`) {
 		return fmt.Errorf("%w: source.ref", ErrInvalidExpense)
@@ -360,20 +412,49 @@ func validateMutable(occurredOn time.Time, currency string, amountMinor int64, c
 	return nil
 }
 
+func validateAccountAndKind(accountKey, kind string) error {
+	if accountKey == "" || utf8.RuneCountInString(accountKey) > maxAccountKeyLen || strings.ContainsAny(accountKey, "/\\") {
+		return fmt.Errorf("%w: account_key", ErrInvalidExpense)
+	}
+	if kind != KindExpense && kind != KindRefund {
+		return fmt.Errorf("%w: kind", ErrInvalidExpense)
+	}
+	return nil
+}
+
+func normalizeAccountKey(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "default"
+	}
+	return value
+}
+
+func normalizeKind(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return KindExpense
+	}
+	return value
+}
+
 type fingerprintPayload struct {
-	OccurredOn  string `json:"occurred_on"`
-	Currency    string `json:"currency"`
-	AmountMinor int64  `json:"amount_minor"`
-	Category    string `json:"category"`
-	Merchant    string `json:"merchant"`
-	Note        string `json:"note"`
-	Items       []Item `json:"items"`
-	Source      Source `json:"source"`
+	OccurredOn        string     `json:"occurred_on"`
+	AccountKey        string     `json:"account_key"`
+	Kind              string     `json:"kind"`
+	RefundOfExpenseID *uuid.UUID `json:"refund_of_expense_id,omitempty"`
+	Currency          string     `json:"currency"`
+	AmountMinor       int64      `json:"amount_minor"`
+	Category          string     `json:"category"`
+	Merchant          string     `json:"merchant"`
+	Note              string     `json:"note"`
+	Items             []Item     `json:"items"`
+	Source            Source     `json:"source"`
 }
 
 func fingerprintCreate(input CreateInput) (string, error) {
 	payload, err := json.Marshal(fingerprintPayload{
-		OccurredOn: input.OccurredOn.Format("2006-01-02"), Currency: input.Currency,
+		OccurredOn: input.OccurredOn.Format("2006-01-02"), AccountKey: input.AccountKey, Kind: input.Kind, RefundOfExpenseID: input.RefundOfExpenseID, Currency: input.Currency,
 		AmountMinor: input.AmountMinor, Category: input.Category, Merchant: input.Merchant,
 		Note: input.Note, Items: input.Items, Source: input.Source,
 	})
@@ -407,10 +488,10 @@ func (s *Service) Create(input CreateInput) (CreateResult, error) {
 		return CreateResult{}, fmt.Errorf("marshal expense items: %w", err)
 	}
 	row := models.Expense{
-		ID: id, OccurredOn: normalized.OccurredOn, Currency: normalized.Currency,
+		ID: id, OccurredOn: normalized.OccurredOn, AccountKey: normalized.AccountKey, Kind: normalized.Kind, Currency: normalized.Currency,
 		AmountMinor: normalized.AmountMinor, Category: normalized.Category,
 		Merchant: normalized.Merchant, Note: normalized.Note, ItemsJSON: itemsJSON,
-		SourceKind: normalized.Source.Kind, SourceRef: normalized.Source.Ref,
+		SourceKind: normalized.Source.Kind, SourceRef: normalized.Source.Ref, RefundOfExpenseID: normalized.RefundOfExpenseID,
 		CreateFingerprint: fingerprint, CreatedAt: now, UpdatedAt: now,
 	}
 	var result CreateResult
@@ -428,7 +509,7 @@ func (s *Service) Create(input CreateInput) (CreateResult, error) {
 		}
 
 		var existing models.Expense
-		if err := tx.Where("source_kind = ? and source_ref = ?", row.SourceKind, row.SourceRef).First(&existing).Error; err != nil {
+		if err := tx.Where("account_key = ? and source_kind = ? and source_ref = ?", row.AccountKey, row.SourceKind, row.SourceRef).First(&existing).Error; err != nil {
 			return err
 		}
 		if existing.DeletedAt != nil {
@@ -454,6 +535,12 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 	}
 	if filters.To != nil {
 		query = query.Where("occurred_on < ?", dateOnly(*filters.To))
+	}
+	if filters.AccountKey != "" {
+		query = query.Where("account_key = ?", normalizeAccountKey(filters.AccountKey))
+	}
+	if filters.Kind != "" {
+		query = query.Where("kind = ?", normalizeKind(filters.Kind))
 	}
 	if filters.Currency != "" {
 		query = query.Where("currency = ?", strings.ToUpper(strings.TrimSpace(filters.Currency)))
@@ -505,10 +592,10 @@ func (s *Service) Replace(id uuid.UUID, input ReplaceInput) (models.Expense, err
 	var row models.Expense
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&models.Expense{}).Where("id = ? and deleted_at is null", id).Updates(map[string]any{
-			"occurred_on": normalized.OccurredOn, "currency": normalized.Currency,
+			"occurred_on": normalized.OccurredOn, "account_key": normalized.AccountKey, "kind": normalized.Kind, "currency": normalized.Currency,
 			"amount_minor": normalized.AmountMinor, "category": normalized.Category,
 			"merchant": normalized.Merchant, "note": normalized.Note,
-			"items_json": itemsJSON, "updated_at": now,
+			"items_json": itemsJSON, "refund_of_expense_id": normalized.RefundOfExpenseID, "updated_at": now,
 		})
 		if result.Error != nil {
 			return result.Error

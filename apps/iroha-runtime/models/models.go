@@ -727,6 +727,8 @@ func (Task) TableName() string {
 type Expense struct {
 	ID                uuid.UUID `gorm:"type:uuid;primaryKey"`
 	OccurredOn        time.Time `gorm:"type:date"`
+	AccountKey        string    `gorm:"default:default"`
+	Kind              string    `gorm:"default:expense"`
 	Currency          string
 	AmountMinor       int64
 	Category          string
@@ -736,6 +738,7 @@ type Expense struct {
 	SourceKind        string
 	SourceRef         string
 	CreateFingerprint string
+	RefundOfExpenseID *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	DeletedAt         *time.Time

@@ -1528,6 +1528,9 @@ components:
       required: [occurred_on, currency, amount_minor, category, source]
       properties:
         occurred_on: { type: string, format: date }
+        account_key: { type: string, default: default, maxLength: 100 }
+        kind: { type: string, enum: [expense, refund], default: expense }
+        refund_of: { type: string, description: Encoded expense ID when this is a linked refund. }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         amount_minor: { type: integer, format: int64, minimum: 1 }
         category:
@@ -1561,6 +1564,9 @@ components:
       required: [occurred_on, currency, amount_minor, category]
       properties:
         occurred_on: { type: string, format: date }
+        account_key: { type: string, default: default, maxLength: 100 }
+        kind: { type: string, enum: [expense, refund], default: expense }
+        refund_of: { type: string, description: Encoded expense ID when this is a linked refund. }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         amount_minor: { type: integer, format: int64, minimum: 1 }
         category:
@@ -1594,6 +1600,8 @@ components:
         [
           id,
           occurred_on,
+          account_key,
+          kind,
           currency,
           currency_exponent,
           amount_minor,
@@ -1608,6 +1616,9 @@ components:
       properties:
         id: { type: string }
         occurred_on: { type: string, format: date }
+        account_key: { type: string }
+        kind: { type: string, enum: [expense, refund] }
+        refund_of: { type: string }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         currency_exponent: { type: integer, enum: [0, 2] }
         amount_minor: { type: integer, format: int64 }
@@ -1969,9 +1980,11 @@ components:
     ExpensesReportData:
       type: object
       additionalProperties: false
-      required: [expense_count, totals_by_currency, by_category]
+      required: [expense_count, purchase_count, refund_count, totals_by_currency, by_category]
       properties:
         expense_count: { type: integer }
+        purchase_count: { type: integer }
+        refund_count: { type: integer }
         totals_by_currency:
           {
             type: array,
@@ -1985,23 +1998,33 @@ components:
     ExpenseCurrencyTotal:
       type: object
       additionalProperties: false
-      required: [currency, currency_exponent, amount_minor, expense_count]
+      required: [currency, currency_exponent, amount_minor, gross_amount_minor, refund_amount_minor, net_amount_minor, expense_count, purchase_count, refund_count]
       properties:
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         currency_exponent: { type: integer, enum: [0, 2] }
         amount_minor: { type: integer, format: int64 }
+        gross_amount_minor: { type: integer, format: int64 }
+        refund_amount_minor: { type: integer, format: int64 }
+        net_amount_minor: { type: integer, format: int64 }
         expense_count: { type: integer }
+        purchase_count: { type: integer }
+        refund_count: { type: integer }
     ExpenseCategoryTotal:
       type: object
       additionalProperties: false
       required:
-        [category, currency, currency_exponent, amount_minor, expense_count]
+        [category, currency, currency_exponent, amount_minor, gross_amount_minor, refund_amount_minor, net_amount_minor, expense_count, purchase_count, refund_count]
       properties:
         category: { type: string }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         currency_exponent: { type: integer, enum: [0, 2] }
         amount_minor: { type: integer, format: int64 }
+        gross_amount_minor: { type: integer, format: int64 }
+        refund_amount_minor: { type: integer, format: int64 }
+        net_amount_minor: { type: integer, format: int64 }
         expense_count: { type: integer }
+        purchase_count: { type: integer }
+        refund_count: { type: integer }
     Task:
       type: object
       required: [id, title, status, priority, source, created_at, updated_at]

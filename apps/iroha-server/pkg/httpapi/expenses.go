@@ -27,6 +27,9 @@ type expenseSourceRequest struct {
 
 type createExpenseRequest struct {
 	OccurredOn  string               `json:"occurred_on"`
+	AccountKey  string               `json:"account_key"`
+	Kind        string               `json:"kind"`
+	RefundOf    string               `json:"refund_of,omitempty"`
 	Currency    string               `json:"currency"`
 	AmountMinor int64                `json:"amount_minor"`
 	Category    string               `json:"category"`
@@ -38,6 +41,9 @@ type createExpenseRequest struct {
 
 type replaceExpenseRequest struct {
 	OccurredOn  string               `json:"occurred_on"`
+	AccountKey  string               `json:"account_key"`
+	Kind        string               `json:"kind"`
+	RefundOf    string               `json:"refund_of,omitempty"`
 	Currency    string               `json:"currency"`
 	AmountMinor int64                `json:"amount_minor"`
 	Category    string               `json:"category"`
@@ -59,6 +65,9 @@ type expenseSourceResponse struct {
 type expenseResponse struct {
 	ID               string                `json:"id"`
 	OccurredOn       string                `json:"occurred_on"`
+	AccountKey       string                `json:"account_key"`
+	Kind             string                `json:"kind"`
+	RefundOf         string                `json:"refund_of,omitempty"`
 	Currency         string                `json:"currency"`
 	CurrencyExponent int                   `json:"currency_exponent"`
 	AmountMinor      int64                 `json:"amount_minor"`
@@ -233,8 +242,12 @@ func (r createExpenseRequest) createInput() (expenses.CreateInput, error) {
 	if err != nil {
 		return expenses.CreateInput{}, errors.Join(expenses.ErrInvalidExpense, errors.New("occurred_on"))
 	}
+	refundOf, err := parseOptionalExpenseID(r.RefundOf)
+	if err != nil {
+		return expenses.CreateInput{}, err
+	}
 	return expenses.CreateInput{
-		OccurredOn:  occurredOn,
+		OccurredOn: occurredOn, AccountKey: r.AccountKey, Kind: r.Kind, RefundOfExpenseID: refundOf,
 		Currency:    r.Currency,
 		AmountMinor: r.AmountMinor,
 		Category:    r.Category,
@@ -250,8 +263,12 @@ func (r replaceExpenseRequest) replaceInput() (expenses.ReplaceInput, error) {
 	if err != nil {
 		return expenses.ReplaceInput{}, errors.Join(expenses.ErrInvalidExpense, errors.New("occurred_on"))
 	}
+	refundOf, err := parseOptionalExpenseID(r.RefundOf)
+	if err != nil {
+		return expenses.ReplaceInput{}, err
+	}
 	return expenses.ReplaceInput{
-		OccurredOn:  occurredOn,
+		OccurredOn: occurredOn, AccountKey: r.AccountKey, Kind: r.Kind, RefundOfExpenseID: refundOf,
 		Currency:    r.Currency,
 		AmountMinor: r.AmountMinor,
 		Category:    r.Category,
@@ -297,6 +314,16 @@ func parseExpenseFilters(w http.ResponseWriter, r *http.Request) (expenses.ListF
 			return expenses.ListFilters{}, false
 		}
 	}
+	if value := query.Get("account_key"); value != "" {
+		filters.AccountKey = strings.TrimSpace(value)
+	}
+	if value := query.Get("kind"); value != "" {
+		filters.Kind = strings.ToLower(strings.TrimSpace(value))
+		if filters.Kind != expenses.KindExpense && filters.Kind != expenses.KindRefund {
+			writeError(w, http.StatusBadRequest, "invalid kind")
+			return expenses.ListFilters{}, false
+		}
+	}
 	if value := query.Get("category"); value != "" {
 		filters.Category = strings.ToLower(strings.TrimSpace(value))
 		if _, ok := expenses.SupportedCategories[filters.Category]; !ok {
@@ -324,6 +351,17 @@ func parseExpenseID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	return id, true
 }
 
+func parseOptionalExpenseID(value string) (*uuid.UUID, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	id, err := ids.Decode(ids.ExpensePrefix, strings.TrimSpace(value))
+	if err != nil {
+		return nil, errors.Join(expenses.ErrInvalidExpense, errors.New("refund_of"))
+	}
+	return &id, nil
+}
+
 func writeExpenseError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, expenses.ErrInvalidExpense):
@@ -348,9 +386,14 @@ func toExpenseResponse(row models.Expense) expenseResponse {
 	for _, item := range items {
 		responseItems = append(responseItems, expenseItemResponse{Name: item.Name, AmountMinor: item.AmountMinor})
 	}
+	refundOf := ""
+	if row.RefundOfExpenseID != nil {
+		refundOf = ids.Encode(ids.ExpensePrefix, *row.RefundOfExpenseID)
+	}
 	return expenseResponse{
-		ID:               ids.Encode(ids.ExpensePrefix, row.ID),
-		OccurredOn:       row.OccurredOn.Format("2006-01-02"),
+		ID:         ids.Encode(ids.ExpensePrefix, row.ID),
+		OccurredOn: row.OccurredOn.Format("2006-01-02"),
+		AccountKey: row.AccountKey, Kind: row.Kind, RefundOf: refundOf,
 		Currency:         row.Currency,
 		CurrencyExponent: expenses.SupportedCurrencies[row.Currency],
 		AmountMinor:      row.AmountMinor,

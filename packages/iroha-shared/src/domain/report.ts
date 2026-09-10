@@ -66,18 +66,30 @@ export interface MediaReportData {
 
 export interface ExpensesReportData {
   expense_count: number;
+  purchase_count: number;
+  refund_count: number;
   totals_by_currency: {
     currency: ExpenseCurrency;
     currency_exponent: number;
     amount_minor: number;
+    gross_amount_minor: number;
+    refund_amount_minor: number;
+    net_amount_minor: number;
     expense_count: number;
+    purchase_count: number;
+    refund_count: number;
   }[];
   by_category: {
     category: ExpenseCategory;
     currency: ExpenseCurrency;
     currency_exponent: number;
     amount_minor: number;
+    gross_amount_minor: number;
+    refund_amount_minor: number;
+    net_amount_minor: number;
     expense_count: number;
+    purchase_count: number;
+    refund_count: number;
   }[];
 }
 

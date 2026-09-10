@@ -114,6 +114,8 @@ type MediaData struct {
 
 type ExpensesData struct {
 	ExpenseCount     int                    `json:"expense_count"`
+	PurchaseCount    int                    `json:"purchase_count"`
+	RefundCount      int                    `json:"refund_count"`
 	TotalsByCurrency []ExpenseCurrencyTotal `json:"totals_by_currency"`
 	ByCategory       []ExpenseCategoryTotal `json:"by_category"`
 }
@@ -155,18 +157,28 @@ type MediaCompleted struct {
 }
 
 type ExpenseCurrencyTotal struct {
-	Currency         string `json:"currency"`
-	CurrencyExponent int    `json:"currency_exponent"`
-	AmountMinor      int64  `json:"amount_minor"`
-	ExpenseCount     int    `json:"expense_count"`
+	Currency          string `json:"currency"`
+	CurrencyExponent  int    `json:"currency_exponent"`
+	AmountMinor       int64  `json:"amount_minor"` // net amount; retained for clients using v1
+	GrossAmountMinor  int64  `json:"gross_amount_minor"`
+	RefundAmountMinor int64  `json:"refund_amount_minor"`
+	NetAmountMinor    int64  `json:"net_amount_minor"`
+	ExpenseCount      int    `json:"expense_count"` // retained for clients using v1
+	PurchaseCount     int    `json:"purchase_count"`
+	RefundCount       int    `json:"refund_count"`
 }
 
 type ExpenseCategoryTotal struct {
-	Category         string `json:"category"`
-	Currency         string `json:"currency"`
-	CurrencyExponent int    `json:"currency_exponent"`
-	AmountMinor      int64  `json:"amount_minor"`
-	ExpenseCount     int    `json:"expense_count"`
+	Category          string `json:"category"`
+	Currency          string `json:"currency"`
+	CurrencyExponent  int    `json:"currency_exponent"`
+	AmountMinor       int64  `json:"amount_minor"` // net amount; retained for clients using v1
+	GrossAmountMinor  int64  `json:"gross_amount_minor"`
+	RefundAmountMinor int64  `json:"refund_amount_minor"`
+	NetAmountMinor    int64  `json:"net_amount_minor"`
+	ExpenseCount      int    `json:"expense_count"` // retained for clients using v1
+	PurchaseCount     int    `json:"purchase_count"`
+	RefundCount       int    `json:"refund_count"`
 }
 
 func NewSection[T any](schema string, data *T) ReportSection[T] {

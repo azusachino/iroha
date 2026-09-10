@@ -34,6 +34,7 @@ import type {
   Expense,
   ExpenseCategory,
   ExpenseCurrency,
+  ExpenseKind,
   ExpenseInput,
   ExpenseItem,
   ExpenseSource,
@@ -107,6 +108,7 @@ export type {
   Expense,
   ExpenseCategory,
   ExpenseCurrency,
+  ExpenseKind,
   ExpenseInput,
   ExpenseItem,
   ExpenseSource,
@@ -490,6 +492,8 @@ export function listExpenses(
   if (params.date || params.from || params.to) setTimezone(query);
   if (params.currency) query.set("currency", params.currency);
   if (params.category) query.set("category", params.category);
+  if (params.account_key) query.set("account_key", params.account_key);
+  if (params.kind) query.set("kind", params.kind);
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";

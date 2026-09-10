@@ -13,6 +13,8 @@ export type ExpenseCategory =
   | "work"
   | "other";
 
+export type ExpenseKind = "expense" | "refund";
+
 export interface ExpenseItem {
   name: string;
   amount_minor?: number;
@@ -26,6 +28,9 @@ export interface ExpenseSource {
 export interface Expense {
   id: string;
   occurred_on: string;
+  account_key: string;
+  kind: ExpenseKind;
+  refund_of?: string;
   currency: ExpenseCurrency;
   currency_exponent: number;
   amount_minor: number;
@@ -40,6 +45,9 @@ export interface Expense {
 
 export interface ExpenseInput {
   occurred_on: string;
+  account_key?: string;
+  kind?: ExpenseKind;
+  refund_of?: string;
   currency: ExpenseCurrency;
   amount_minor: number;
   category: ExpenseCategory;
@@ -58,6 +66,8 @@ export interface ListExpensesParams {
   to?: string;
   currency?: ExpenseCurrency;
   category?: ExpenseCategory;
+  account_key?: string;
+  kind?: ExpenseKind;
   limit?: number;
   cursor?: string;
 }
