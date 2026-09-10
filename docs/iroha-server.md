@@ -87,6 +87,36 @@ POST /api/v1/imports
 Queue execution is lease-based: abandoned running jobs are reclaimed after the worker lease timeout, and retryable provider errors may supply their own `Retry-After` delay. Connector sync cursors are
 checkpointed per snapshot and are retained when a page fails, so a retry resumes from the failed page.
 
+### Normalized expense statements
+
+Monthly bank/card data uses a deliberately small normalized CSV contract rather than a provider-specific parser:
+
+```text
+POST /api/v1/expenses/statements/preview
+POST /api/v1/expenses/statements
+```
+
+Both endpoints accept a JSON body with `manifest` and `csv`:
+
+```json
+{
+  "manifest": {
+    "account_key": "card-main",
+    "source_kind": "bank_csv",
+    "statement_ref": "2026-08",
+    "period_from": "2026-08-01",
+    "period_to": "2026-09-01",
+    "completeness": "complete",
+    "revision": 1
+  },
+  "csv": "transaction_id,occurred_on,currency,amount_minor,kind,category,merchant,note,original_transaction_ref\n..."
+}
+```
+
+The required columns are `transaction_id`, `occurred_on`, `currency`, `amount_minor`, `kind`, `category`, and `merchant`. `note` and `original_transaction_ref` are optional. Amounts are positive minor units; `kind` is `expense` or `refund`, and transfers are rejected. A refund may omit its original transaction reference.
+
+The preview validates every row and writes nothing. Import identity is `(account_key, source_kind, transaction_id)`; an exact revision and CSV hash replay is idempotent, while a changed revision updates only that statement lineage. `partial` statements never delete omitted rows. `complete` statements tombstone omitted rows only inside the declared account/source/period scope. Manual expenses outside that lineage are not deleted or overwritten. Statement revisions and row tombstones remain in the fresh SQLx schema for audit and replay.
+
 Response shape:
 
 ```json

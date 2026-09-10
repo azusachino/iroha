@@ -1,0 +1,6 @@
+drop index idx_tb_expense_statement_rows_period;
+drop index idx_tb_expense_statement_rows_identity;
+drop index idx_tb_expense_statements_scope;
+drop table tb_expense_statement_rows;
+drop table tb_expense_statements;
+alter table tb_expenses drop column original_transaction_ref;

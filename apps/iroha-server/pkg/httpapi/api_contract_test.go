@@ -69,6 +69,8 @@ func TestActiveRouteInventory(t *testing.T) {
 		"PATCH /api/v1/tasks/{taskId}",
 		"POST /api/v1/actions/{action}",
 		"POST /api/v1/expenses",
+		"POST /api/v1/expenses/statements",
+		"POST /api/v1/expenses/statements/preview",
 		"POST /api/v1/imports",
 		"POST /api/v1/intake/health",
 		"POST /api/v1/media/sync/{connectorId}",

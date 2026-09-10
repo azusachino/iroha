@@ -56,32 +56,34 @@ type Source struct {
 
 // CreateInput is the canonical expense create payload before normalization.
 type CreateInput struct {
-	OccurredOn        time.Time
-	AccountKey        string
-	Kind              string
-	RefundOfExpenseID *uuid.UUID
-	Currency          string
-	AmountMinor       int64
-	Category          string
-	Merchant          string
-	Note              string
-	Items             []Item
-	Source            Source
+	OccurredOn             time.Time
+	AccountKey             string
+	Kind                   string
+	RefundOfExpenseID      *uuid.UUID
+	OriginalTransactionRef string
+	Currency               string
+	AmountMinor            int64
+	Category               string
+	Merchant               string
+	Note                   string
+	Items                  []Item
+	Source                 Source
 }
 
 // ReplaceInput contains every mutable expense field. Source identity and the
 // original create fingerprint are deliberately absent.
 type ReplaceInput struct {
-	OccurredOn        time.Time
-	AccountKey        string
-	Kind              string
-	RefundOfExpenseID *uuid.UUID
-	Currency          string
-	AmountMinor       int64
-	Category          string
-	Merchant          string
-	Note              string
-	Items             []Item
+	OccurredOn             time.Time
+	AccountKey             string
+	Kind                   string
+	RefundOfExpenseID      *uuid.UUID
+	OriginalTransactionRef string
+	Currency               string
+	AmountMinor            int64
+	Category               string
+	Merchant               string
+	Note                   string
+	Items                  []Item
 }
 
 // CreateResult distinguishes a newly inserted row from an idempotent retry.
@@ -312,12 +314,13 @@ func (s *Service) Bounds(now time.Time, timezone string) (minDate, maxDate strin
 func NormalizeCreate(input CreateInput) (CreateInput, string, error) {
 	normalized := CreateInput{
 		OccurredOn: dateOnly(input.OccurredOn), AccountKey: normalizeAccountKey(input.AccountKey), Kind: normalizeKind(input.Kind),
-		RefundOfExpenseID: input.RefundOfExpenseID,
-		Currency:          strings.ToUpper(strings.TrimSpace(input.Currency)),
-		AmountMinor:       input.AmountMinor,
-		Category:          strings.ToLower(strings.TrimSpace(input.Category)),
-		Merchant:          strings.TrimSpace(input.Merchant),
-		Note:              strings.TrimSpace(input.Note),
+		RefundOfExpenseID:      input.RefundOfExpenseID,
+		OriginalTransactionRef: strings.TrimSpace(input.OriginalTransactionRef),
+		Currency:               strings.ToUpper(strings.TrimSpace(input.Currency)),
+		AmountMinor:            input.AmountMinor,
+		Category:               strings.ToLower(strings.TrimSpace(input.Category)),
+		Merchant:               strings.TrimSpace(input.Merchant),
+		Note:                   strings.TrimSpace(input.Note),
 		Source: Source{
 			Kind: strings.ToLower(strings.TrimSpace(input.Source.Kind)),
 			Ref:  strings.TrimSpace(input.Source.Ref),
@@ -338,13 +341,14 @@ func NormalizeCreate(input CreateInput) (CreateInput, string, error) {
 func NormalizeReplace(input ReplaceInput) (ReplaceInput, error) {
 	normalized := ReplaceInput{
 		OccurredOn: dateOnly(input.OccurredOn), AccountKey: normalizeAccountKey(input.AccountKey), Kind: normalizeKind(input.Kind),
-		RefundOfExpenseID: input.RefundOfExpenseID,
-		Currency:          strings.ToUpper(strings.TrimSpace(input.Currency)),
-		AmountMinor:       input.AmountMinor,
-		Category:          strings.ToLower(strings.TrimSpace(input.Category)),
-		Merchant:          strings.TrimSpace(input.Merchant),
-		Note:              strings.TrimSpace(input.Note),
-		Items:             normalizeItems(input.Items),
+		RefundOfExpenseID:      input.RefundOfExpenseID,
+		OriginalTransactionRef: strings.TrimSpace(input.OriginalTransactionRef),
+		Currency:               strings.ToUpper(strings.TrimSpace(input.Currency)),
+		AmountMinor:            input.AmountMinor,
+		Category:               strings.ToLower(strings.TrimSpace(input.Category)),
+		Merchant:               strings.TrimSpace(input.Merchant),
+		Note:                   strings.TrimSpace(input.Note),
+		Items:                  normalizeItems(input.Items),
 	}
 	if err := validateMutable(normalized.OccurredOn, normalized.Currency, normalized.AmountMinor, normalized.Category, normalized.Merchant, normalized.Note, normalized.Items); err != nil {
 		return ReplaceInput{}, err
@@ -439,22 +443,23 @@ func normalizeKind(value string) string {
 }
 
 type fingerprintPayload struct {
-	OccurredOn        string     `json:"occurred_on"`
-	AccountKey        string     `json:"account_key"`
-	Kind              string     `json:"kind"`
-	RefundOfExpenseID *uuid.UUID `json:"refund_of_expense_id,omitempty"`
-	Currency          string     `json:"currency"`
-	AmountMinor       int64      `json:"amount_minor"`
-	Category          string     `json:"category"`
-	Merchant          string     `json:"merchant"`
-	Note              string     `json:"note"`
-	Items             []Item     `json:"items"`
-	Source            Source     `json:"source"`
+	OccurredOn             string     `json:"occurred_on"`
+	AccountKey             string     `json:"account_key"`
+	Kind                   string     `json:"kind"`
+	RefundOfExpenseID      *uuid.UUID `json:"refund_of_expense_id,omitempty"`
+	OriginalTransactionRef string     `json:"original_transaction_ref,omitempty"`
+	Currency               string     `json:"currency"`
+	AmountMinor            int64      `json:"amount_minor"`
+	Category               string     `json:"category"`
+	Merchant               string     `json:"merchant"`
+	Note                   string     `json:"note"`
+	Items                  []Item     `json:"items"`
+	Source                 Source     `json:"source"`
 }
 
 func fingerprintCreate(input CreateInput) (string, error) {
 	payload, err := json.Marshal(fingerprintPayload{
-		OccurredOn: input.OccurredOn.Format("2006-01-02"), AccountKey: input.AccountKey, Kind: input.Kind, RefundOfExpenseID: input.RefundOfExpenseID, Currency: input.Currency,
+		OccurredOn: input.OccurredOn.Format("2006-01-02"), AccountKey: input.AccountKey, Kind: input.Kind, RefundOfExpenseID: input.RefundOfExpenseID, OriginalTransactionRef: input.OriginalTransactionRef, Currency: input.Currency,
 		AmountMinor: input.AmountMinor, Category: input.Category, Merchant: input.Merchant,
 		Note: input.Note, Items: input.Items, Source: input.Source,
 	})
@@ -491,7 +496,7 @@ func (s *Service) Create(input CreateInput) (CreateResult, error) {
 		ID: id, OccurredOn: normalized.OccurredOn, AccountKey: normalized.AccountKey, Kind: normalized.Kind, Currency: normalized.Currency,
 		AmountMinor: normalized.AmountMinor, Category: normalized.Category,
 		Merchant: normalized.Merchant, Note: normalized.Note, ItemsJSON: itemsJSON,
-		SourceKind: normalized.Source.Kind, SourceRef: normalized.Source.Ref, RefundOfExpenseID: normalized.RefundOfExpenseID,
+		SourceKind: normalized.Source.Kind, SourceRef: normalized.Source.Ref, RefundOfExpenseID: normalized.RefundOfExpenseID, OriginalTransactionRef: normalized.OriginalTransactionRef,
 		CreateFingerprint: fingerprint, CreatedAt: now, UpdatedAt: now,
 	}
 	var result CreateResult
@@ -595,7 +600,7 @@ func (s *Service) Replace(id uuid.UUID, input ReplaceInput) (models.Expense, err
 			"occurred_on": normalized.OccurredOn, "account_key": normalized.AccountKey, "kind": normalized.Kind, "currency": normalized.Currency,
 			"amount_minor": normalized.AmountMinor, "category": normalized.Category,
 			"merchant": normalized.Merchant, "note": normalized.Note,
-			"items_json": itemsJSON, "refund_of_expense_id": normalized.RefundOfExpenseID, "updated_at": now,
+			"items_json": itemsJSON, "refund_of_expense_id": normalized.RefundOfExpenseID, "original_transaction_ref": normalized.OriginalTransactionRef, "updated_at": now,
 		})
 		if result.Error != nil {
 			return result.Error

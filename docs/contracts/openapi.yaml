@@ -765,6 +765,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DateBounds"
+  /api/v1/expenses/statements/preview:
+    post:
+      tags: [expenses]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseStatementRequest"
+      responses:
+        "200":
+          description: Validated statement preview. No data is written.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseStatementPreview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/expenses/statements:
+    post:
+      tags: [expenses]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseStatementRequest"
+      responses:
+        "201":
+          description: Statement applied.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseStatementImport"
+        "200":
+          description: Exact statement replay returned the existing revision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseStatementImport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/expenses/{expenseId}:
     get:
       tags: [expenses]
@@ -1531,6 +1575,7 @@ components:
         account_key: { type: string, default: default, maxLength: 100 }
         kind: { type: string, enum: [expense, refund], default: expense }
         refund_of: { type: string, description: Encoded expense ID when this is a linked refund. }
+        original_transaction_ref: { type: string, maxLength: 200 }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         amount_minor: { type: integer, format: int64, minimum: 1 }
         category:
@@ -1567,6 +1612,7 @@ components:
         account_key: { type: string, default: default, maxLength: 100 }
         kind: { type: string, enum: [expense, refund], default: expense }
         refund_of: { type: string, description: Encoded expense ID when this is a linked refund. }
+        original_transaction_ref: { type: string, maxLength: 200 }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         amount_minor: { type: integer, format: int64, minimum: 1 }
         category:
@@ -1619,6 +1665,7 @@ components:
         account_key: { type: string }
         kind: { type: string, enum: [expense, refund] }
         refund_of: { type: string }
+        original_transaction_ref: { type: string }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         currency_exponent: { type: integer, enum: [0, 2] }
         amount_minor: { type: integer, format: int64 }
@@ -1655,6 +1702,72 @@ components:
         items: { type: array, items: { $ref: "#/components/schemas/Expense" } }
         next_cursor: { type: [string, "null"] }
         has_more: { type: boolean }
+    ExpenseStatementManifest:
+      type: object
+      additionalProperties: false
+      required: [account_key, source_kind, statement_ref, period_from, period_to, completeness, revision]
+      properties:
+        account_key: { type: string, default: default, maxLength: 100 }
+        source_kind: { type: string, minLength: 1, maxLength: 50 }
+        statement_ref: { type: string, minLength: 1, maxLength: 200 }
+        period_from: { type: string, format: date }
+        period_to: { type: string, format: date }
+        completeness: { type: string, enum: [partial, complete] }
+        revision: { type: integer, format: int64, minimum: 1 }
+    ExpenseStatementRequest:
+      type: object
+      additionalProperties: false
+      required: [manifest, csv]
+      properties:
+        manifest: { $ref: "#/components/schemas/ExpenseStatementManifest" }
+        csv: { type: string }
+    ExpenseStatementValidationError:
+      type: object
+      additionalProperties: false
+      required: [row, field, message]
+      properties:
+        row: { type: integer, minimum: 1 }
+        field: { type: string }
+        message: { type: string }
+    ExpenseStatementPreview:
+      type: object
+      additionalProperties: false
+      required: [manifest, sha256, row_count, valid, errors]
+      properties:
+        manifest: { $ref: "#/components/schemas/ExpenseStatementManifest" }
+        sha256: { type: string, minLength: 64, maxLength: 64 }
+        row_count: { type: integer, minimum: 0 }
+        valid: { type: boolean }
+        errors:
+          type: array
+          items: { $ref: "#/components/schemas/ExpenseStatementValidationError" }
+    ExpenseStatement:
+      type: object
+      additionalProperties: false
+      required: [id, account_key, source_kind, statement_ref, period_from, period_to, completeness, revision, sha256, row_count, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        account_key: { type: string }
+        source_kind: { type: string }
+        statement_ref: { type: string }
+        period_from: { type: string, format: date }
+        period_to: { type: string, format: date }
+        completeness: { type: string, enum: [partial, complete] }
+        revision: { type: integer, format: int64 }
+        sha256: { type: string }
+        row_count: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ExpenseStatementImport:
+      type: object
+      additionalProperties: false
+      required: [statement, created, idempotent, changed, tombstoned]
+      properties:
+        statement: { $ref: "#/components/schemas/ExpenseStatement" }
+        created: { type: boolean }
+        idempotent: { type: boolean }
+        changed: { type: integer, minimum: 0 }
+        tombstoned: { type: integer, minimum: 0 }
     MonthlyReport:
       type: object
       additionalProperties: false

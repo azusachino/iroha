@@ -725,25 +725,59 @@ func (Task) TableName() string {
 }
 
 type Expense struct {
-	ID                uuid.UUID `gorm:"type:uuid;primaryKey"`
-	OccurredOn        time.Time `gorm:"type:date"`
-	AccountKey        string    `gorm:"default:default"`
-	Kind              string    `gorm:"default:expense"`
-	Currency          string
-	AmountMinor       int64
-	Category          string
-	Merchant          string
-	Note              string
-	ItemsJSON         json.RawMessage `gorm:"column:items_json;type:jsonb"`
-	SourceKind        string
-	SourceRef         string
-	CreateFingerprint string
-	RefundOfExpenseID *uuid.UUID `gorm:"type:uuid"`
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	DeletedAt         *time.Time
+	ID                     uuid.UUID `gorm:"type:uuid;primaryKey"`
+	OccurredOn             time.Time `gorm:"type:date"`
+	AccountKey             string    `gorm:"default:default"`
+	Kind                   string    `gorm:"default:expense"`
+	Currency               string
+	AmountMinor            int64
+	Category               string
+	Merchant               string
+	Note                   string
+	OriginalTransactionRef string
+	ItemsJSON              json.RawMessage `gorm:"column:items_json;type:jsonb"`
+	SourceKind             string
+	SourceRef              string
+	CreateFingerprint      string
+	RefundOfExpenseID      *uuid.UUID `gorm:"type:uuid"`
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+	DeletedAt              *time.Time
 }
 
 func (Expense) TableName() string {
 	return "tb_expenses"
 }
+
+type ExpenseStatement struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	AccountKey   string
+	SourceKind   string
+	StatementRef string
+	PeriodFrom   time.Time `gorm:"type:date"`
+	PeriodTo     time.Time `gorm:"type:date"`
+	Completeness string
+	Revision     int64
+	SHA256       string `gorm:"column:csv_sha256"`
+	RowCount     int
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (ExpenseStatement) TableName() string { return "tb_expense_statements" }
+
+type ExpenseStatementRow struct {
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
+	StatementID    uuid.UUID `gorm:"type:uuid"`
+	AccountKey     string
+	SourceKind     string
+	TransactionID  string
+	ExpenseID      uuid.UUID `gorm:"type:uuid"`
+	RowFingerprint string
+	OccurredOn     time.Time `gorm:"type:date"`
+	TombstonedAt   *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (ExpenseStatementRow) TableName() string { return "tb_expense_statement_rows" }

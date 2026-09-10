@@ -26,30 +26,32 @@ type expenseSourceRequest struct {
 }
 
 type createExpenseRequest struct {
-	OccurredOn  string               `json:"occurred_on"`
-	AccountKey  string               `json:"account_key"`
-	Kind        string               `json:"kind"`
-	RefundOf    string               `json:"refund_of,omitempty"`
-	Currency    string               `json:"currency"`
-	AmountMinor int64                `json:"amount_minor"`
-	Category    string               `json:"category"`
-	Merchant    string               `json:"merchant"`
-	Note        string               `json:"note"`
-	Items       []expenseItemRequest `json:"items"`
-	Source      expenseSourceRequest `json:"source"`
+	OccurredOn             string               `json:"occurred_on"`
+	AccountKey             string               `json:"account_key"`
+	Kind                   string               `json:"kind"`
+	RefundOf               string               `json:"refund_of,omitempty"`
+	OriginalTransactionRef string               `json:"original_transaction_ref,omitempty"`
+	Currency               string               `json:"currency"`
+	AmountMinor            int64                `json:"amount_minor"`
+	Category               string               `json:"category"`
+	Merchant               string               `json:"merchant"`
+	Note                   string               `json:"note"`
+	Items                  []expenseItemRequest `json:"items"`
+	Source                 expenseSourceRequest `json:"source"`
 }
 
 type replaceExpenseRequest struct {
-	OccurredOn  string               `json:"occurred_on"`
-	AccountKey  string               `json:"account_key"`
-	Kind        string               `json:"kind"`
-	RefundOf    string               `json:"refund_of,omitempty"`
-	Currency    string               `json:"currency"`
-	AmountMinor int64                `json:"amount_minor"`
-	Category    string               `json:"category"`
-	Merchant    string               `json:"merchant"`
-	Note        string               `json:"note"`
-	Items       []expenseItemRequest `json:"items"`
+	OccurredOn             string               `json:"occurred_on"`
+	AccountKey             string               `json:"account_key"`
+	Kind                   string               `json:"kind"`
+	RefundOf               string               `json:"refund_of,omitempty"`
+	OriginalTransactionRef string               `json:"original_transaction_ref,omitempty"`
+	Currency               string               `json:"currency"`
+	AmountMinor            int64                `json:"amount_minor"`
+	Category               string               `json:"category"`
+	Merchant               string               `json:"merchant"`
+	Note                   string               `json:"note"`
+	Items                  []expenseItemRequest `json:"items"`
 }
 
 type expenseItemResponse struct {
@@ -63,21 +65,68 @@ type expenseSourceResponse struct {
 }
 
 type expenseResponse struct {
-	ID               string                `json:"id"`
-	OccurredOn       string                `json:"occurred_on"`
-	AccountKey       string                `json:"account_key"`
-	Kind             string                `json:"kind"`
-	RefundOf         string                `json:"refund_of,omitempty"`
-	Currency         string                `json:"currency"`
-	CurrencyExponent int                   `json:"currency_exponent"`
-	AmountMinor      int64                 `json:"amount_minor"`
-	Category         string                `json:"category"`
-	Merchant         string                `json:"merchant"`
-	Note             string                `json:"note"`
-	Items            []expenseItemResponse `json:"items"`
-	Source           expenseSourceResponse `json:"source"`
-	CreatedAt        time.Time             `json:"created_at"`
-	UpdatedAt        time.Time             `json:"updated_at"`
+	ID                     string                `json:"id"`
+	OccurredOn             string                `json:"occurred_on"`
+	AccountKey             string                `json:"account_key"`
+	Kind                   string                `json:"kind"`
+	RefundOf               string                `json:"refund_of,omitempty"`
+	OriginalTransactionRef string                `json:"original_transaction_ref,omitempty"`
+	Currency               string                `json:"currency"`
+	CurrencyExponent       int                   `json:"currency_exponent"`
+	AmountMinor            int64                 `json:"amount_minor"`
+	Category               string                `json:"category"`
+	Merchant               string                `json:"merchant"`
+	Note                   string                `json:"note"`
+	Items                  []expenseItemResponse `json:"items"`
+	Source                 expenseSourceResponse `json:"source"`
+	CreatedAt              time.Time             `json:"created_at"`
+	UpdatedAt              time.Time             `json:"updated_at"`
+}
+
+type statementManifestRequest struct {
+	AccountKey   string `json:"account_key"`
+	SourceKind   string `json:"source_kind"`
+	StatementRef string `json:"statement_ref"`
+	PeriodFrom   string `json:"period_from"`
+	PeriodTo     string `json:"period_to"`
+	Completeness string `json:"completeness"`
+	Revision     int64  `json:"revision"`
+}
+
+type statementRequest struct {
+	Manifest statementManifestRequest `json:"manifest"`
+	CSV      string                   `json:"csv"`
+}
+
+type statementPreviewResponse struct {
+	Manifest statementManifestRequest            `json:"manifest"`
+	SHA256   string                              `json:"sha256"`
+	RowCount int                                 `json:"row_count"`
+	Valid    bool                                `json:"valid"`
+	Errors   []expenses.StatementValidationError `json:"errors"`
+}
+
+type statementResponse struct {
+	ID           string    `json:"id"`
+	AccountKey   string    `json:"account_key"`
+	SourceKind   string    `json:"source_kind"`
+	StatementRef string    `json:"statement_ref"`
+	PeriodFrom   string    `json:"period_from"`
+	PeriodTo     string    `json:"period_to"`
+	Completeness string    `json:"completeness"`
+	Revision     int64     `json:"revision"`
+	SHA256       string    `json:"sha256"`
+	RowCount     int       `json:"row_count"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type statementImportResponse struct {
+	Statement  statementResponse `json:"statement"`
+	Created    bool              `json:"created"`
+	Idempotent bool              `json:"idempotent"`
+	Changed    int               `json:"changed"`
+	Tombstoned int               `json:"tombstoned"`
 }
 
 type expensePageResponse struct {
@@ -114,6 +163,65 @@ func (s *Server) handleCreateExpense(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, status, toExpenseResponse(result.Expense))
+}
+
+func (s *Server) handlePreviewExpenseStatement(w http.ResponseWriter, r *http.Request) {
+	if s.deps.ExpenseService == nil {
+		writeError(w, http.StatusServiceUnavailable, "expense service unavailable")
+		return
+	}
+	var request statementRequest
+	if err := decodeJSONBody(w, r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	manifest, err := request.Manifest.input()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	preview := s.deps.ExpenseService.PreviewStatement(manifest, []byte(request.CSV))
+	writeJSON(w, http.StatusOK, statementPreviewResponse{Manifest: statementManifestResponse(preview.Manifest), SHA256: preview.SHA256, RowCount: preview.RowCount, Valid: preview.Valid, Errors: preview.Errors})
+}
+
+func (s *Server) handleImportExpenseStatement(w http.ResponseWriter, r *http.Request) {
+	if s.deps.ExpenseService == nil {
+		writeError(w, http.StatusServiceUnavailable, "expense service unavailable")
+		return
+	}
+	var request statementRequest
+	if err := decodeJSONBody(w, r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	manifest, err := request.Manifest.input()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	result, err := s.deps.ExpenseService.ImportStatement(manifest, []byte(request.CSV))
+	if err != nil {
+		switch {
+		case errors.Is(err, expenses.ErrStatementConflict), errors.Is(err, expenses.ErrStatementOutOfDate), errors.Is(err, expenses.ErrSourceConflict):
+			writeError(w, http.StatusConflict, err.Error())
+		case errors.Is(err, expenses.ErrInvalidStatement):
+			writeError(w, http.StatusBadRequest, err.Error())
+		default:
+			s.deps.Logger.Error("import expense statement", "error", err)
+			writeError(w, http.StatusInternalServerError, "failed to import expense statement")
+		}
+		return
+	}
+	if result.Created && (result.Changed > 0 || result.Tombstoned > 0) {
+		if err := s.invalidateExpenseCaches(r); err != nil {
+			s.deps.Logger.Error("invalidate caches after expense statement import", "error", err)
+		}
+	}
+	status := http.StatusCreated
+	if result.Idempotent {
+		status = http.StatusOK
+	}
+	writeJSON(w, status, statementImportResponse{Statement: toStatementResponse(result.Statement), Created: result.Created, Idempotent: result.Idempotent, Changed: result.Changed, Tombstoned: result.Tombstoned})
 }
 
 func (s *Server) handleListExpenses(w http.ResponseWriter, r *http.Request) {
@@ -247,7 +355,7 @@ func (r createExpenseRequest) createInput() (expenses.CreateInput, error) {
 		return expenses.CreateInput{}, err
 	}
 	return expenses.CreateInput{
-		OccurredOn: occurredOn, AccountKey: r.AccountKey, Kind: r.Kind, RefundOfExpenseID: refundOf,
+		OccurredOn: occurredOn, AccountKey: r.AccountKey, Kind: r.Kind, RefundOfExpenseID: refundOf, OriginalTransactionRef: r.OriginalTransactionRef,
 		Currency:    r.Currency,
 		AmountMinor: r.AmountMinor,
 		Category:    r.Category,
@@ -268,7 +376,7 @@ func (r replaceExpenseRequest) replaceInput() (expenses.ReplaceInput, error) {
 		return expenses.ReplaceInput{}, err
 	}
 	return expenses.ReplaceInput{
-		OccurredOn: occurredOn, AccountKey: r.AccountKey, Kind: r.Kind, RefundOfExpenseID: refundOf,
+		OccurredOn: occurredOn, AccountKey: r.AccountKey, Kind: r.Kind, RefundOfExpenseID: refundOf, OriginalTransactionRef: r.OriginalTransactionRef,
 		Currency:    r.Currency,
 		AmountMinor: r.AmountMinor,
 		Category:    r.Category,
@@ -362,6 +470,26 @@ func parseOptionalExpenseID(value string) (*uuid.UUID, error) {
 	return &id, nil
 }
 
+func (r statementManifestRequest) input() (expenses.StatementManifest, error) {
+	from, err := time.Parse("2006-01-02", strings.TrimSpace(r.PeriodFrom))
+	if err != nil {
+		return expenses.StatementManifest{}, errors.New("invalid period_from")
+	}
+	to, err := time.Parse("2006-01-02", strings.TrimSpace(r.PeriodTo))
+	if err != nil {
+		return expenses.StatementManifest{}, errors.New("invalid period_to")
+	}
+	return expenses.StatementManifest{AccountKey: r.AccountKey, SourceKind: r.SourceKind, StatementRef: r.StatementRef, PeriodFrom: from, PeriodTo: to, Completeness: r.Completeness, Revision: r.Revision}, nil
+}
+
+func statementManifestResponse(manifest expenses.StatementManifest) statementManifestRequest {
+	return statementManifestRequest{AccountKey: manifest.AccountKey, SourceKind: manifest.SourceKind, StatementRef: manifest.StatementRef, PeriodFrom: manifest.PeriodFrom.Format("2006-01-02"), PeriodTo: manifest.PeriodTo.Format("2006-01-02"), Completeness: manifest.Completeness, Revision: manifest.Revision}
+}
+
+func toStatementResponse(statement models.ExpenseStatement) statementResponse {
+	return statementResponse{ID: statement.ID.String(), AccountKey: statement.AccountKey, SourceKind: statement.SourceKind, StatementRef: statement.StatementRef, PeriodFrom: statement.PeriodFrom.Format("2006-01-02"), PeriodTo: statement.PeriodTo.Format("2006-01-02"), Completeness: statement.Completeness, Revision: statement.Revision, SHA256: statement.SHA256, RowCount: statement.RowCount, CreatedAt: statement.CreatedAt, UpdatedAt: statement.UpdatedAt}
+}
+
 func writeExpenseError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, expenses.ErrInvalidExpense):
@@ -393,7 +521,7 @@ func toExpenseResponse(row models.Expense) expenseResponse {
 	return expenseResponse{
 		ID:         ids.Encode(ids.ExpensePrefix, row.ID),
 		OccurredOn: row.OccurredOn.Format("2006-01-02"),
-		AccountKey: row.AccountKey, Kind: row.Kind, RefundOf: refundOf,
+		AccountKey: row.AccountKey, Kind: row.Kind, RefundOf: refundOf, OriginalTransactionRef: row.OriginalTransactionRef,
 		Currency:         row.Currency,
 		CurrencyExponent: expenses.SupportedCurrencies[row.Currency],
 		AmountMinor:      row.AmountMinor,

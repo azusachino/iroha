@@ -181,6 +181,8 @@ func (s *Server) routes() {
 			r.Post("/", s.handleCreateExpense)
 			r.Get("/", s.handleListExpenses)
 			r.Get("/bounds", s.handleExpenseBounds)
+			r.Post("/statements/preview", s.handlePreviewExpenseStatement)
+			r.Post("/statements", s.handleImportExpenseStatement)
 			r.Get("/{expenseId}", s.handleGetExpense)
 			r.Put("/{expenseId}", s.handleReplaceExpense)
 			r.Delete("/{expenseId}", s.handleDeleteExpense)
