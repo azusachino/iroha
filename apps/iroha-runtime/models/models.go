@@ -96,6 +96,7 @@ func (Activity) TableName() string {
 
 type SourceObservation struct {
 	ID                  uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceInstanceID    uuid.UUID `gorm:"type:uuid"`
 	Provider            string
 	SourceKind          string
 	SourceKey           string
@@ -108,6 +109,17 @@ type SourceObservation struct {
 }
 
 func (SourceObservation) TableName() string { return "tb_source_observations" }
+
+type SourceObservationReceipt struct {
+	SourceInstanceID    uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceObservationID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceReceiptID     uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ImportSnapshotID    uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ContentHash         string
+	CreatedAt           time.Time
+}
+
+func (SourceObservationReceipt) TableName() string { return "tb_source_observation_receipts" }
 
 type ActivityObservation struct {
 	ID               uuid.UUID `gorm:"type:uuid;primaryKey"`

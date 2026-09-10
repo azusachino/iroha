@@ -288,8 +288,12 @@ select id, ?, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace
 }
 
 func upsertSourceObservation(tx *gorm.DB, rawFile models.RawFile, sourceKind, provider, sourceKey, contentHash string, snapshotID uuid.UUID) (uuid.UUID, error) {
+	sourceInstanceID, sourceReceiptID, err := ensureRawFileReceiptContext(tx, rawFile)
+	if err != nil {
+		return uuid.Nil, err
+	}
 	var existing models.SourceObservation
-	err := tx.Where("provider = ? and source_kind = ? and source_key = ?", provider, sourceKind, sourceKey).First(&existing).Error
+	err = tx.Where("source_instance_id = ? and source_kind = ? and source_key = ?", sourceInstanceID, sourceKind, sourceKey).First(&existing).Error
 	now := time.Now().UTC()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		id, idErr := ids.New()
@@ -297,15 +301,40 @@ func upsertSourceObservation(tx *gorm.DB, rawFile models.RawFile, sourceKind, pr
 			return uuid.Nil, idErr
 		}
 		first := snapshotID
-		row := models.SourceObservation{ID: id, Provider: provider, SourceKind: sourceKind, SourceKey: sourceKey, ContentHash: contentHash, RawFileID: rawFile.ID, FirstSeenSnapshotID: &first, LastSeenSnapshotID: &snapshotID, CreatedAt: now, UpdatedAt: now}
-		return id, tx.Create(&row).Error
+		row := models.SourceObservation{ID: id, SourceInstanceID: sourceInstanceID, Provider: provider, SourceKind: sourceKind, SourceKey: sourceKey, ContentHash: contentHash, RawFileID: rawFile.ID, FirstSeenSnapshotID: &first, LastSeenSnapshotID: &snapshotID, CreatedAt: now, UpdatedAt: now}
+		if err := tx.Create(&row).Error; err != nil {
+			return uuid.Nil, err
+		}
+		return id, recordObservationReceipt(tx, sourceInstanceID, id, sourceReceiptID, snapshotID, contentHash, now)
 	}
 	if err != nil {
 		return uuid.Nil, err
 	}
-	return existing.ID, tx.Model(&models.SourceObservation{}).Where("id = ?", existing.ID).Updates(map[string]any{
+	if err := tx.Model(&models.SourceObservation{}).Where("id = ?", existing.ID).Updates(map[string]any{
 		"content_hash": contentHash, "raw_file_id": rawFile.ID, "last_seen_snapshot_id": snapshotID, "updated_at": now,
-	}).Error
+	}).Error; err != nil {
+		return uuid.Nil, err
+	}
+	return existing.ID, recordObservationReceipt(tx, sourceInstanceID, existing.ID, sourceReceiptID, snapshotID, contentHash, now)
+}
+
+func ensureRawFileReceiptContext(tx *gorm.DB, rawFile models.RawFile) (uuid.UUID, uuid.UUID, error) {
+	var receipt models.SourceReceipt
+	result := tx.Where("raw_file_id = ?", rawFile.ID).Order("received_at desc, id desc").First(&receipt)
+	if result.Error == nil {
+		return receipt.SourceInstanceID, receipt.ID, nil
+	}
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return uuid.Nil, uuid.Nil, result.Error
+	}
+	return uuid.Nil, uuid.Nil, fmt.Errorf("raw file %s has no source receipt", rawFile.ID)
+}
+
+func recordObservationReceipt(tx *gorm.DB, sourceInstanceID, observationID, receiptID, snapshotID uuid.UUID, contentHash string, now time.Time) error {
+	return tx.Exec(`insert into tb_source_observation_receipts (source_instance_id, source_observation_id, source_receipt_id, import_snapshot_id, content_hash, created_at)
+values (?, ?, ?, ?, ?, ?)
+on conflict (source_receipt_id, source_observation_id, import_snapshot_id)
+do update set content_hash = excluded.content_hash`, sourceInstanceID, observationID, receiptID, snapshotID, contentHash, now).Error
 }
 
 func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed observations.Activity) (uuid.UUID, error) {

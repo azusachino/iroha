@@ -48,9 +48,23 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("create raw file: %v", err)
 	}
+	instanceID := uuid.New()
+	if err := db.Create(&models.SourceInstance{ID: instanceID, Provider: parsers.KindAppleHealthExport, InstanceKey: "integration-" + rawFileID.String(), CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("create source instance: %v", err)
+	}
+	if err := db.Create(&models.SourceReceipt{ID: uuid.New(), SourceInstanceID: instanceID, RawFileID: rawFileID, SourceKind: parsers.KindAppleHealthExport, IngestionMode: "full_snapshot", ScopeJSON: []byte(`{}`), ReceivedAt: now, CreatedAt: now}).Error; err != nil {
+		t.Fatalf("create source receipt: %v", err)
+	}
 	t.Cleanup(func() {
 		_ = db.Exec("delete from tb_apple_source_items where source_key = ?", dailyMetricSourceKey(metric)).Error
 		_ = db.Exec("delete from tb_daily_metrics where first_raw_file_id = ?", rawFileID).Error
+		var instanceIDs []uuid.UUID
+		_ = db.Model(&models.SourceReceipt{}).Where("raw_file_id = ?", rawFileID).Pluck("source_instance_id", &instanceIDs).Error
+		_ = db.Where("raw_file_id = ?", rawFileID).Delete(&models.SourceObservation{}).Error
+		_ = db.Where("raw_file_id = ?", rawFileID).Delete(&models.SourceReceipt{}).Error
+		if len(instanceIDs) > 0 {
+			_ = db.Where("id IN ?", instanceIDs).Delete(&models.SourceInstance{}).Error
+		}
 		_ = db.Exec("delete from tb_import_snapshots where raw_file_id = ?", rawFileID).Error
 		_ = db.Exec("delete from tb_import_jobs where id = ?", jobID).Error
 		_ = db.Exec("delete from tb_raw_files where id = ?", rawFileID).Error
@@ -111,6 +125,68 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 	if metricCount != 1 {
 		t.Fatalf("reprocessed metric count = %d, want 1", metricCount)
 	}
+}
+
+func TestIntegrationSelectedObservationMustBelongToCanonicalObject(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	now := time.Now().UTC()
+	rawFileID := uuid.New()
+	jobID := uuid.New()
+	snapshotID := uuid.New()
+	instanceID := uuid.New()
+	receiptID := uuid.New()
+	observationID := uuid.New()
+	firstActivityID := uuid.New()
+	secondActivityID := uuid.New()
+
+	if err := db.Create(&models.RawFile{
+		ID:               rawFileID,
+		SHA256:           "ownership-raw-" + rawFileID.String(),
+		OriginalFilename: "ownership.gpx",
+		StoragePath:      "/tmp/ownership.gpx",
+		SourceKind:       parsers.KindGPX,
+		UploadedVia:      "integration",
+		CreatedAt:        now,
+	}).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	if err := db.Create(&models.ImportJob{ID: jobID, RawFileID: rawFileID, Status: StatusCompleted, ParserKind: parsers.KindGPX, ParserVersion: DefaultParserVersion, CreatedAt: now}).Error; err != nil {
+		t.Fatalf("create import job: %v", err)
+	}
+	if err := db.Create(&models.ImportSnapshot{ID: snapshotID, ImportJobID: jobID, RawFileID: rawFileID, SHA256: "ownership-snapshot", ParserVersion: DefaultParserVersion, CreatedAt: now}).Error; err != nil {
+		t.Fatalf("create import snapshot: %v", err)
+	}
+	if err := db.Create(&models.SourceInstance{ID: instanceID, Provider: "gpx", InstanceKey: "watch-ownership", CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("create source instance: %v", err)
+	}
+	if err := db.Create(&models.SourceReceipt{ID: receiptID, SourceInstanceID: instanceID, RawFileID: rawFileID, SourceKind: parsers.KindGPX, IngestionMode: "full_snapshot", ScopeJSON: []byte(`{}`), ReceivedAt: now, CreatedAt: now}).Error; err != nil {
+		t.Fatalf("create source receipt: %v", err)
+	}
+	if err := db.Create(&models.SourceObservation{ID: observationID, SourceInstanceID: instanceID, Provider: "gpx", SourceKind: "activity", SourceKey: "activity-ownership", ContentHash: "ownership-hash", RawFileID: rawFileID, FirstSeenSnapshotID: &snapshotID, LastSeenSnapshotID: &snapshotID, CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("create source observation: %v", err)
+	}
+	if err := db.Create(&models.Activity{ID: firstActivityID, SportType: "running", StartedAt: now, SourceKind: parsers.KindGPX, SourceActivityID: "first", FirstRawFileID: rawFileID, CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("create first activity: %v", err)
+	}
+	if err := db.Create(&models.Activity{ID: secondActivityID, SportType: "running", StartedAt: now.Add(time.Hour), SourceKind: parsers.KindGPX, SourceActivityID: "second", FirstRawFileID: rawFileID, CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("create second activity: %v", err)
+	}
+	if err := db.Create(&models.ActivityObservation{ID: observationID, ActivityID: firstActivityID, SourceActivityID: "activity-ownership", SportType: "running", StartedAt: now, MatchStatus: "canonical", CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("create activity observation: %v", err)
+	}
+
+	result := db.Model(&models.Activity{}).Where("id = ?", secondActivityID).Update("selected_observation_id", observationID)
+	if result.Error == nil {
+		t.Fatal("cross-object selected observation was accepted")
+	}
+
+	_ = db.Where("id in ?", []uuid.UUID{firstActivityID, secondActivityID}).Delete(&models.Activity{}).Error
+	_ = db.Where("id = ?", observationID).Delete(&models.SourceObservation{}).Error
+	_ = db.Where("id = ?", receiptID).Delete(&models.SourceReceipt{}).Error
+	_ = db.Where("id = ?", instanceID).Delete(&models.SourceInstance{}).Error
+	_ = db.Where("id = ?", snapshotID).Delete(&models.ImportSnapshot{}).Error
+	_ = db.Where("id = ?", jobID).Delete(&models.ImportJob{}).Error
+	_ = db.Where("id = ?", rawFileID).Delete(&models.RawFile{}).Error
 }
 
 func TestIntegrationMediaPersistsAndReprocesses(t *testing.T) {
