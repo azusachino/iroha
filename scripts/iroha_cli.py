@@ -336,6 +336,29 @@ def metric_series_table(value: object) -> str:
     )
 
 
+def connection_table(value: object) -> str:
+    if not isinstance(value, dict) or not isinstance(value.get("connections"), list):
+        raise CLIError("Iroha returned an unexpected connection response")
+    rows = []
+    for item in value["connections"]:
+        if not isinstance(item, dict):
+            continue
+        actions = item.get("next_actions") or []
+        action_names = ",".join(
+            str(action.get("kind")) for action in actions if isinstance(action, dict)
+        )
+        rows.append(
+            [
+                item.get("provider"),
+                item.get("instance_key"),
+                item.get("operation"),
+                item.get("collection"),
+                action_names,
+            ]
+        )
+    return _table(rows, ["provider", "instance", "operation", "collection", "next actions"])
+
+
 def output_result(
     data: bytes, output_format: str, table_formatter: Callable[[object], str] | None = None
 ) -> None:
@@ -480,6 +503,36 @@ def run_metric_command(args: argparse.Namespace, client: IrohaClient) -> int:
     raise CLIError(f"unsupported metric command: {args.metric_action}")
 
 
+def run_connection_command(args: argparse.Namespace, client: IrohaClient) -> int:
+    if args.connection_action == "list":
+        output_result(client.request("GET", "/api/v1/connections"), args.format, connection_table)
+        return 0
+    if args.connection_action == "action":
+        if not args.path.startswith("/api/v1/"):
+            raise CLIError("connection action path must start with /api/v1/")
+        body = read_json_input(args.input) if args.input else None
+        output_result(client.request("POST", args.path, body), args.format)
+        return 0
+    raise CLIError(f"unsupported connection command: {args.connection_action}")
+
+
+def run_media_command(args: argparse.Namespace, client: IrohaClient) -> int:
+    if args.media_action == "decide":
+        body = json.dumps(
+            {
+                "provider": args.provider,
+                "external_id": args.external_id,
+                "target_item_id": args.target_item_id,
+                "decision_kind": args.decision_kind,
+            }
+        ).encode()
+        output_result(
+            client.request("POST", "/api/v1/media/matching-decisions", body), args.format
+        )
+        return 0
+    raise CLIError(f"unsupported media command: {args.media_action}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="iroha_cli.py", description=__doc__)
     parser.add_argument(
@@ -582,6 +635,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--dimension", action="append", help="repeatable name:value dimension filter"
     )
     metric_series.add_argument("--format", choices=["json", "table"], default="json")
+
+    connection = resources.add_parser(
+        "connection", help="inspect source status and execute an advertised action"
+    )
+    connection_commands = connection.add_subparsers(dest="connection_action", required=True)
+    connection_list = connection_commands.add_parser("list")
+    connection_list.add_argument("--format", choices=["json", "table"], default="json")
+    connection_action = connection_commands.add_parser("action")
+    connection_action.add_argument("path", help="path copied from a connection next_actions entry")
+    connection_action.add_argument("--input", help="JSON body path, or '-' for stdin")
+    connection_action.add_argument("--format", choices=["json"], default="json")
+
+    media_command = resources.add_parser("media-write", help="record an explicit media decision")
+    media_commands = media_command.add_subparsers(dest="media_action", required=True)
+    decide = media_commands.add_parser("decide")
+    decide.add_argument("provider")
+    decide.add_argument("external_id")
+    decide.add_argument("target_item_id")
+    decide.add_argument("decision_kind", choices=["attach", "keep_separate", "undo"])
+    decide.add_argument("--format", choices=["json"], default="json")
     return parser
 
 
@@ -599,6 +672,10 @@ def main(argv: list[str] | None = None) -> int:
         return run_report_command(args, client)
     if args.resource == "metric":
         return run_metric_command(args, client)
+    if args.resource == "connection":
+        return run_connection_command(args, client)
+    if args.resource == "media-write":
+        return run_media_command(args, client)
     raise CLIError(f"unsupported resource: {args.resource}")
 
 

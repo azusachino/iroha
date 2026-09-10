@@ -213,6 +213,51 @@ class IrohaCLIGeneralResourceTest(unittest.TestCase):
         self.assertEqual(client.calls[1][1], "/api/v1/media/media_1")
 
 
+class IrohaCLIConnectionCommandTest(unittest.TestCase):
+    def test_connection_list_and_action_follow_advertised_api(self) -> None:
+        client = FakeClient(b'{"connections":[]}\n')
+        args = iroha_cli.build_parser().parse_args(["connection", "list", "--format", "table"])
+        with mock.patch.object(iroha_cli, "output_result") as output:
+            iroha_cli.run_connection_command(args, client)
+        self.assertEqual(client.calls[0], ("GET", "/api/v1/connections", None))
+        output.assert_called_once_with(client.response, "table", iroha_cli.connection_table)
+
+        with tempfile.TemporaryDirectory() as directory:
+            body_path = Path(directory) / "retry.json"
+            body_path.write_text('{"raw_file_id":"raw_1","parser_kind":"gpx"}')
+            args = iroha_cli.build_parser().parse_args(
+                ["connection", "action", "/api/v1/imports", "--input", str(body_path)]
+            )
+            with mock.patch.object(iroha_cli, "output_result"):
+                iroha_cli.run_connection_command(args, client)
+        self.assertEqual(
+            client.calls[1],
+            (
+                "POST",
+                "/api/v1/imports",
+                b'{"raw_file_id":"raw_1","parser_kind":"gpx"}',
+            ),
+        )
+
+    def test_media_decision_uses_agent_matching_endpoint(self) -> None:
+        client = FakeClient()
+        args = iroha_cli.build_parser().parse_args(
+            ["media-write", "decide", "bangumi", "123", "media_1", "attach"]
+        )
+        with mock.patch.object(iroha_cli, "output_result"):
+            iroha_cli.run_media_command(args, client)
+        self.assertEqual(client.calls[0][0:2], ("POST", "/api/v1/media/matching-decisions"))
+        self.assertEqual(
+            json.loads(client.calls[0][2]),
+            {
+                "provider": "bangumi",
+                "external_id": "123",
+                "target_item_id": "media_1",
+                "decision_kind": "attach",
+            },
+        )
+
+
 class IrohaCLIExpenseCommandTest(unittest.TestCase):
     def test_create_adds_hash_ref_and_persists_it_for_retry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

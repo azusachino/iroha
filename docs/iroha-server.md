@@ -220,6 +220,22 @@ client
 
 The large-file flow is deferred until direct multipart upload becomes painful.
 
+The local client exposes the same agent-facing recovery and resolution
+contracts without requiring database access:
+
+```text
+uv run python scripts/iroha_cli.py connection list
+uv run python scripts/iroha_cli.py connection action /api/v1/imports --input retry.json
+uv run python scripts/iroha_cli.py media-write decide bangumi <external-id> <media-id> attach
+```
+
+The `connection action` path must come from the server's `next_actions` response
+and is restricted to `/api/v1/`. Public publishing remains a separate sanitized
+projection: `make export-public` or `make public-site-build` uses
+`iroha-export-public`, never the private API response cache or expense/report
+records. The export validator and atomic directory swap preserve the previous
+public snapshot if generation fails.
+
 ## External Telegram Bot Boundary
 
 The personal Telegram bot is an external upload client, not an in-repo component and not an importer. It pushes raw bytes plus metadata and lets iroha-server own all parsing and dedupe.
