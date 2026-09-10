@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -264,10 +265,14 @@ def assert_api_contract(server_url: str) -> None:
     )
     step_series = steps["series"][0]
     step_point = next(point for point in step_series["points"] if point["period"] == "2026-08-02")
+    coverage = step_series["coverage"]
     if (
         step_point["value"] != 12345
         or step_point["observed_days"] != 1
-        or step_series["coverage"] != {"expected_periods": 31, "observed_periods": 1}
+        or coverage["expected_periods"] != 31
+        or coverage["observed_periods"] != 1
+        or coverage["observation_state"] != "partial"
+        or coverage["collection_completeness"] != "unknown"
         or step_series["source"]["source_kinds"] != ["release-candidate"]
     ):
         raise RuntimeError(f"metric coverage/source fixture failed: {step_series}")
@@ -371,13 +376,19 @@ def browser_matrix(base_url: str, session: str) -> None:
 
 
 def terminate(process: subprocess.Popen[bytes] | None) -> None:
-    if process is None or process.poll() is not None:
+    if process is None:
         return
-    process.terminate()
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
     try:
         process.wait(timeout=10)
     except subprocess.TimeoutExpired:
-        process.kill()
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         process.wait()
 
 
@@ -558,6 +569,7 @@ def main() -> int:
             ["mise", "exec", "--", "go", "-C", str(SERVER_DIR), "run", "./cmd/iroha-server"],
             cwd=ROOT,
             env=env,
+            start_new_session=True,
         )
         wait_url(server_url + "/healthz")
         wait_url(server_url + "/readyz")
@@ -585,6 +597,7 @@ def main() -> int:
             ],
             cwd=WEB_DIR,
             env=env,
+            start_new_session=True,
         )
         wait_url(web_url)
         if web_process.poll() is not None:
