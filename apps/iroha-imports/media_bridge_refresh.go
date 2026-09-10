@@ -32,7 +32,7 @@ type fribbMapRecord struct {
 // datasets (BangumiExtLinker, Fribb/anime-lists -- see
 // docs/media-sync-connectors.md §9) and upserts tb_media_ref_bridge. Mirrors
 // scripts/build_media_bridge.py's fetch/build logic; kept as the job-queue
-// path (triggered from the /to-go inbox) so a refresh runs on the worker
+// path (triggered from the /to-go control room) so a refresh runs on the worker
 // that's already deployed instead of a separate scheduled job.
 func RefreshMediaRefBridge(ctx context.Context, db *gorm.DB) error {
 	client := &http.Client{}

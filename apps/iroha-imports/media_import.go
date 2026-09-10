@@ -325,7 +325,7 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 				if existing.ScopeID != itemID {
 					// The provider ref is already owned elsewhere. Preserve the
 					// incoming raw observation, but do not block the import or
-					// create a human task for a secondary-ref disagreement.
+					// create a blocking action for a secondary-ref disagreement.
 					externalRef = existing
 					resolution.ItemID = existing.ScopeID
 				} else {
@@ -588,7 +588,7 @@ func latestEventUnchanged(tx *gorm.DB, itemID uuid.UUID, sourceKind string, even
 // upsertMediaProgress recomputes the current-progress projection, preferring
 // the adapter's rich ProgressState (unit/play_count/last_update/hidden) and
 // falling back to flat fields. A cross-source status disagreement is routed to
-// the inbox instead of silently overwriting.
+// the source history instead of silently overwriting.
 func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, media observations.Media) error {
 	progress := models.MediaProgress{
 		MediaItemID: itemID,

@@ -70,7 +70,8 @@ type mediaRefBridgeRow struct {
 // scripts/build_media_bridge.py populates that table instead of writing
 // JSON files now. An empty or missing table degrades the same way an unset
 // bridge always has: Lookup just returns not-found and resolution falls
-// through to the title+year inbox.
+// through to the title+year matching rule and may create a separate
+// source-owned item.
 func LoadTwoHopMediaRefBridgeFromDB(db *gorm.DB) (TwoHopMediaRefBridge, error) {
 	bridge := TwoHopMediaRefBridge{
 		BangumiToMAL: make(map[string]string),
@@ -372,10 +373,10 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 // titles are considered a prefix match. It is a hardcoded heuristic, not a
 // guarantee -- tuned against two real prod pairs (needed to accept a
 // 14-rune shared prefix, needed to reject a 7-rune one) and nothing more
-// rigorous than that. This mechanism only ever opens a review task, never
-// auto-attaches (see resolveMediaItem), so the cost of setting it too low is
-// bounded (a dismissible false-positive task) rather than unbounded (a bad
-// merge) -- but it is still just a tuned number, and titleSeasonMarkerSuffix
+// rigorous than that. This mechanism never auto-attaches (see
+// resolveMediaItem), so it cannot create a bad merge; a match remains a
+// separate source-owned item. It is still just a tuned number, and
+// titleSeasonMarkerSuffix
 // below exists precisely because the number alone was verified insufficient:
 // at this threshold "My Hero Academia" vs "My Hero Academia Season 2" also
 // passes the length check, and those are not duplicates.

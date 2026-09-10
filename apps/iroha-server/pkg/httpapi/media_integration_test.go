@@ -249,6 +249,12 @@ func TestMediaDetailIncludesProviderUpdatesSeparately(t *testing.T) {
 	work := seedWork(t, db, "media")
 	item := seedItem(t, db, work, "manga", "Provider activity detail")
 	seedProgress(t, db, item, "in_progress", nil)
+	if err := db.Exec(`insert into tb_media_external_refs
+		(id, scope_type, scope_id, provider, external_id, matched_by, confidence, created_at)
+		values (?, 'item', ?, 'anilist', 'detail-1', 'bridge_ref', 0.9, ?)`,
+		uuid.New(), item, time.Now().UTC()).Error; err != nil {
+		t.Fatalf("seed external ref: %v", err)
+	}
 	effectiveAt := time.Date(2026, 8, 15, 2, 6, 0, 0, time.UTC)
 	observedAt := effectiveAt.Add(2 * time.Minute)
 	if err := db.Exec(`insert into tb_media_state_history
@@ -274,11 +280,17 @@ func TestMediaDetailIncludesProviderUpdatesSeparately(t *testing.T) {
 	if !found {
 		t.Fatal("media detail not found")
 	}
+	if len(detail.ExternalRefs) != 1 || detail.ExternalRefs[0].Provider != "anilist" || detail.ExternalRefs[0].MatchedBy != "bridge_ref" || detail.ExternalRefs[0].Confidence == nil || *detail.ExternalRefs[0].Confidence != 0.9 {
+		t.Fatalf("external refs = %+v, want the bridge match provenance", detail.ExternalRefs)
+	}
 	if len(detail.Events) != 0 {
 		t.Fatalf("exact events = %d, want no exact events", len(detail.Events))
 	}
 	if len(detail.Updates) != 1 || detail.Updates[0].Position == nil || *detail.Updates[0].Position != 210 {
 		t.Fatalf("provider updates = %+v, want one chapter-210 update", detail.Updates)
+	}
+	if detail.Updates[0].SourceEventID != "activity-1" {
+		t.Fatalf("provider source event id = %q, want activity-1", detail.Updates[0].SourceEventID)
 	}
 }
 

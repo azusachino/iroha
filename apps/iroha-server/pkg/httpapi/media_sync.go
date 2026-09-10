@@ -46,7 +46,7 @@ func (s *Server) enqueueMediaSync(w http.ResponseWriter, connectorID string) {
 }
 
 // enqueueMediaBridgeRefresh enqueues a re-fetch of the Bangumi->MAL->AniList
-// crosswalk (tb_media_ref_bridge) -- the /to-go inbox's manual trigger for
+// crosswalk (tb_media_ref_bridge) -- the /to-go control room's manual trigger for
 // keeping cross-provider dedup current, since there is no scheduled refresh
 // for it. Dispatched from handleAction, same as the two media syncs.
 func (s *Server) enqueueMediaBridgeRefresh(w http.ResponseWriter) {

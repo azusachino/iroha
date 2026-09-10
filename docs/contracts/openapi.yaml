@@ -2330,11 +2330,13 @@ components:
           { type: array, items: { $ref: "#/components/schemas/MediaChange" } }
     MediaDetail:
       type: object
-      required: [item, work, creators, relations, events, updates]
+      required: [item, work, external_refs, creators, relations, events, updates]
       properties:
         item: { $ref: "#/components/schemas/Media" }
         work: { $ref: "#/components/schemas/MediaWork" }
         progress: { $ref: "#/components/schemas/MediaProgress" }
+        external_refs:
+          { type: array, items: { $ref: "#/components/schemas/MediaExternalRef" } }
         creators:
           { type: array, items: { $ref: "#/components/schemas/MediaCreator" } }
         relations:
@@ -2367,6 +2369,7 @@ components:
       required: [status, unit, play_count]
       properties:
         status: { type: string }
+        source_kind: { type: string }
         unit: { type: string }
         position: { type: number }
         total: { type: number }
@@ -2375,6 +2378,15 @@ components:
         last_update_at: { type: string, format: date-time }
         completed_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
         play_count: { type: integer }
+    MediaExternalRef:
+      type: object
+      required: [provider, external_id, matched_by]
+      properties:
+        provider: { type: string }
+        external_id: { type: string }
+        external_url: { type: string }
+        matched_by: { type: string }
+        confidence: { type: number }
     MediaEvent:
       type: object
       required: [id, event_type, event_at]
@@ -2469,6 +2481,8 @@ components:
         effective_on: { type: string, pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$' }
         date_precision: { type: string, enum: [year, month, day] }
         provider_recorded_at: { type: string, format: date-time }
+        source_event_id: { type: string }
+        raw_file_id: { type: string }
         status: { type: string }
         unit: { type: string }
         position: { type: number }

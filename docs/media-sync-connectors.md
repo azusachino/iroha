@@ -229,10 +229,10 @@ Ordered smallest → biggest to build momentum; each ends green on `make check`.
    (titles, external refs, work/item linkage, events, progress projections), the bridge cache build/deploy, and cross-provider dedup auto-attach (§7).
 2. **Next** — automate bridge dataset refresh (currently a manual `make media-bridge-build` + ConfigMap redeploy with no schedule); add agent-readable inspection/reconciliation for genuinely ambiguous
    (2+ candidate) and conflicting cases without making human triage a prerequisite.
-3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and a richer web inbox UI beyond the `/to-go` confirm/dismiss panel.
+3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and richer agent-readable inspection/reconciliation tooling.
 
 Deferred (explicitly out of this draft's connector scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Goodreads/WeRead/Apple Books/Kindle adapters; Letterboxd CSV; TMDb/Open
-Library enrichment; self-hosted (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/inbox/history).
+Library enrichment; self-hosted (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/history).
 
 ## 11. Spike results (2026-07-13, verified on real accounts)
 

@@ -452,7 +452,7 @@ func TestTitlePrefixMatch_RejectsSeasonMarkerWithLeadingSeparator(t *testing.T) 
 
 // TestResolveMediaItem_PrefixMatchDoesNotInterruptImport is the safety-critical
 // case: a prefix match must never auto-attach, even when it is the only
-// candidate, and it must not create a human task.
+// candidate, and it must not block intake.
 func TestResolveMediaItem_PrefixMatchDoesNotInterruptImport(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	releaseDate := time.Date(2043, time.June, 1, 0, 0, 0, 0, time.UTC)
@@ -477,13 +477,13 @@ func TestResolveMediaItem_PrefixMatchDoesNotInterruptImport(t *testing.T) {
 		t.Fatalf("count prefix-match tasks: %v", err)
 	}
 	if taskCount != 0 {
-		t.Fatalf("prefix match created %d resolution tasks, want 0", taskCount)
+		t.Fatalf("prefix match created %d resolution rows, want 0", taskCount)
 	}
 }
 
 // TestResolveMediaItem_AutoAttachesOnUnambiguousTitleYearMatch exercises the
 // full resolver: a single unambiguous title/date match must attach to the
-// existing item (not mint a duplicate) without creating a human task.
+// existing item (not mint a duplicate) without blocking intake.
 func TestResolveMediaItem_AutoAttachesOnUnambiguousTitleYearMatch(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	releaseDate := time.Date(2036, time.May, 1, 0, 0, 0, 0, time.UTC)
@@ -511,15 +511,15 @@ func TestResolveMediaItem_AutoAttachesOnUnambiguousTitleYearMatch(t *testing.T) 
 		t.Fatalf("count auto-attach tasks: %v", err)
 	}
 	if taskCount != 0 {
-		t.Fatalf("auto-attach created %d resolution tasks, want 0", taskCount)
+		t.Fatalf("auto-attach created %d resolution rows, want 0", taskCount)
 	}
 }
 
-// TestResolveMediaItem_AmbiguousTitleYearStaysOpen exercises the other side:
+// TestResolveMediaItem_AmbiguousTitleYearCreatesSeparateItem exercises the other side:
 // when two existing items both match, resolveMediaItem must not guess -- it
 // leaves ItemID unset (so the caller mints a fresh source-owned item) without
 // interrupting the import.
-func TestResolveMediaItem_AmbiguousTitleYearStaysOpen(t *testing.T) {
+func TestResolveMediaItem_AmbiguousTitleYearCreatesSeparateItem(t *testing.T) {
 	db := openImportsIntegrationDB(t)
 	releaseDate := time.Date(2037, time.May, 1, 0, 0, 0, 0, time.UTC)
 	seedMediaItem(t, db, "Ambiguous Eta", "anime_season", "season", releaseDate)
@@ -544,6 +544,6 @@ func TestResolveMediaItem_AmbiguousTitleYearStaysOpen(t *testing.T) {
 		t.Fatalf("count ambiguous tasks: %v", err)
 	}
 	if taskCount != 0 {
-		t.Fatalf("ambiguous match created %d resolution tasks, want 0", taskCount)
+		t.Fatalf("ambiguous match created %d resolution rows, want 0", taskCount)
 	}
 }
