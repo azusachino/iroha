@@ -75,6 +75,7 @@ type ImportJob struct {
 	Status        string
 	ParserKind    string
 	ParserVersion string
+	SyncRunID     *uuid.UUID `gorm:"type:uuid"`
 	ErrorMessage  *string
 	StartedAt     *time.Time
 	FinishedAt    *time.Time
@@ -616,6 +617,19 @@ type MediaSyncState struct {
 }
 
 func (MediaSyncState) TableName() string { return "tb_media_sync_state" }
+
+type MediaSyncRun struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ConnectorID  string
+	Status       string
+	StartedAt    time.Time
+	FinishedAt   *time.Time
+	ErrorMessage *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (MediaSyncRun) TableName() string { return "tb_media_sync_runs" }
 
 type IntakePayload struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`

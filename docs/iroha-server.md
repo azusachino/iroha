@@ -72,6 +72,8 @@ Shortcut intake uses bounded replacement, not complete-export reconciliation. A 
 Import jobs are persisted jobs. `iroha-server` enqueues them into the durable Postgres-backed queue and the separate `iroha-job` process claims and executes them. The server and worker must share the
 configured raw-file data directory.
 
+Connector-created imports also expose `sync_run_id`. A media fetch run is marked successful when its raw evidence and child import jobs are durably recorded; child parsing remains a separate outcome and can be retried from retained evidence.
+
 Current behavior:
 
 ```text
@@ -277,6 +279,8 @@ Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTT
 Use TOML config with environment variable overrides.
 
 Set `IROHA_HEALTH_INTAKE_TOKEN` to enable the bounded Apple Health Shortcut receiver. Keep the token in the deployment secret environment, not in tracked TOML or request logs.
+
+When `IROHA_ANILIST_USERNAME` or `IROHA_BANGUMI_USERNAME` is configured, `iroha-job` creates one enabled daily sync schedule for that provider. Override the cadence with `IROHA_ANILIST_SYNC_INTERVAL` or `IROHA_BANGUMI_SYNC_INTERVAL` (Go duration such as `12h`); set either to `off` to disable its default schedule. The schedules are independent: neither provider silently wins a media conflict; explicit matching decisions remain authoritative. Concurrent runs for one connector are rejected, while the other connector remains independent.
 
 Default lookup:
 

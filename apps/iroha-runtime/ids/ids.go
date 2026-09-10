@@ -21,6 +21,7 @@ const (
 	ExpensePrefix      = "exp"
 	MediaEventPrefix   = "medevt"
 	MediaChangePrefix  = "medchg"
+	SyncRunPrefix      = "sync"
 )
 
 func New() (uuid.UUID, error) {

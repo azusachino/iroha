@@ -58,6 +58,7 @@ type Service struct {
 type CreateInput struct {
 	RawFileID  string
 	ParserKind string
+	SyncRunID  *uuid.UUID
 }
 
 func NewService(db *gorm.DB, logger *slog.Logger, parserVersion string, enqueuer Enqueuer, cacheClient *cache.Client) *Service {
@@ -115,6 +116,7 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 		Status:        StatusQueued,
 		ParserKind:    input.ParserKind,
 		ParserVersion: s.parserVersion,
+		SyncRunID:     input.SyncRunID,
 		CreatedAt:     time.Now().UTC(),
 	}
 

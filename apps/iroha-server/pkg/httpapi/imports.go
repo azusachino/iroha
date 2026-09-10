@@ -22,6 +22,7 @@ type importJobResponse struct {
 	Status        string     `json:"status"`
 	ParserKind    string     `json:"parser_kind"`
 	ParserVersion string     `json:"parser_version"`
+	SyncRunID     *string    `json:"sync_run_id,omitempty"`
 	ErrorMessage  *string    `json:"error_message,omitempty"`
 	StartedAt     *time.Time `json:"started_at,omitempty"`
 	FinishedAt    *time.Time `json:"finished_at,omitempty"`
@@ -89,12 +90,18 @@ func (s *Server) handleGetImportJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func toImportJobResponse(job models.ImportJob) importJobResponse {
+	var syncRunID *string
+	if job.SyncRunID != nil {
+		encoded := ids.Encode(ids.SyncRunPrefix, *job.SyncRunID)
+		syncRunID = &encoded
+	}
 	return importJobResponse{
 		ID:            ids.Encode(ids.ImportPrefix, job.ID),
 		RawFileID:     ids.Encode(ids.RawFilePrefix, job.RawFileID),
 		Status:        job.Status,
 		ParserKind:    job.ParserKind,
 		ParserVersion: job.ParserVersion,
+		SyncRunID:     syncRunID,
 		ErrorMessage:  job.ErrorMessage,
 		StartedAt:     job.StartedAt,
 		FinishedAt:    job.FinishedAt,

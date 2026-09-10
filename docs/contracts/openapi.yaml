@@ -1469,6 +1469,7 @@ components:
         status: { type: string, enum: [queued, parsing, completed, failed] }
         parser_kind: { type: string }
         parser_version: { type: string }
+        sync_run_id: { type: string }
         error_message: { type: string }
         started_at: { type: string, format: date-time }
         finished_at: { type: string, format: date-time }
