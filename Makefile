@@ -81,10 +81,14 @@ media-bridge-build: db-up ## Refresh the Bangumi->MAL->AniList bridge in tb_medi
 
 ## --- Web frontend (apps/iroha-web, bun) ---
 shared-install: ## Install shared frontend-package dependencies
-	cd $(SHARED_DIR) && $(TOOL_ENV) bun install
+	cd $(SHARED_DIR) && $(TOOL_ENV) bun install --frozen-lockfile
 
 web-install: shared-install ## Install web and shared frontend dependencies
-	cd $(WEB_DIR) && $(TOOL_ENV) bun install
+	cd $(WEB_DIR) && $(TOOL_ENV) bun install --frozen-lockfile
+
+# Checks need the project-local formatter/plugins, type checker and test runner.
+# Make shares this prerequisite across the three checks, including parallel runs.
+web-fmt-check web-check web-test: web-install
 
 web-fmt: ## Format the web app (prettier + prettier-plugin-svelte: spaces, double quotes)
 	cd $(WEB_DIR) && $(TOOL_ENV) bun run format
