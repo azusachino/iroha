@@ -39,6 +39,10 @@ import (
 // CronJob this schedule replaces.
 const defaultPublicExportInterval = "24h"
 
+// Bridge datasets change more slowly than provider lists, but a weekly refresh
+// keeps recent anime mappings moving without requiring a manual action.
+const defaultMediaBridgeRefreshInterval = 7 * 24 * time.Hour
+
 func main() {
 	once := flag.Bool("once", false, "process at most one due schedule and one queued job")
 	pollInterval := flag.Duration("poll-interval", time.Second, "idle backoff between polls when the queue is empty")
@@ -130,6 +134,10 @@ func main() {
 	jobs.Register(registry, jobs.KindMediaSyncAniList, mediaSyncHandler(syncRunner, "anilist"))
 	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
 	jobs.Register(registry, jobs.KindMediaBridgeRefresh, mediaBridgeRefreshHandler(db, mediaBridge))
+	if err := ensureSchedule(db, jobs.KindMediaBridgeRefresh, jobs.ScheduleKindInterval, defaultMediaBridgeRefreshInterval.String()); err != nil {
+		logger.Error("ensure media bridge refresh schedule", "error", err)
+		os.Exit(1)
+	}
 
 	jobsService = jobs.NewService(db, logger, registry.Handlers())
 	geocodeService := geocode.NewService(db, nil, cacheClient)
@@ -260,9 +268,8 @@ func mediaSyncHandler(runner *imports.SyncRunner, connectorID string) func(conte
 }
 
 // mediaBridgeRefreshHandler re-fetches the Bangumi->MAL->AniList crosswalk
-// and reloads this worker's in-memory bridge immediately afterward, so a
-// manual trigger (the /to-go inbox's "Refresh media bridge" action) takes
-// effect on the very next media sync, not on some later poll or restart.
+// and reloads this worker's in-memory bridge immediately afterward. It is used
+// by both the weekly schedule and the manual control-room action.
 func mediaBridgeRefreshHandler(db *gorm.DB, bridge *imports.ReloadableMediaRefBridge) func(context.Context, struct{}) error {
 	return func(ctx context.Context, _ struct{}) error {
 		if err := imports.RefreshMediaRefBridge(ctx, db); err != nil {

@@ -217,7 +217,7 @@ punctuation, inconsistent subtitle spacing) were accounted for.
 throughout. `iroha-job` loads both hops into an in-memory map once at startup via `LoadTwoHopMediaRefBridgeFromDB`; an empty or unpopulated table degrades the same way an unset bridge always has —
 that hop is simply skipped and unresolved items fall through to the non-blocking title+year matching rule (§7 step 3). This used to be two ConfigMap-mounted JSON files generated locally and committed to harus-k3s
 (`IROHA_BANGUMI_BRIDGE_PATH` / `IROHA_MAL_ANILIST_BRIDGE_PATH`); moved into Postgres 2026-08-16 so a refresh is a normal DB write instead of a rebuild-and-redeploy cycle, and the table is queryable
-and incrementally upsertable rather than replaced whole. Re-run `make media-bridge-build` periodically (there is still no auto-refresh schedule): the anime tail in §11 is mostly recent seasonal anime
+and incrementally upsertable rather than replaced whole. The worker refreshes this crosswalk automatically once a week; `make media-bridge-build` remains the local/manual rebuild path. The anime tail in §11 is mostly recent seasonal anime
 the upstream datasets haven't mapped yet, so that tail shrinks the closer to "now" the table was last refreshed — but **rebuilding will not help manga coverage**, which is 0% regardless of freshness
 (§7). Don't read "bridge cache" as "the general cross-provider dedup mechanism"; for manga it isn't in the loop at all.
 
@@ -227,8 +227,8 @@ Ordered smallest → biggest to build momentum; each ends green on `make check`.
 
 1. **Shipped** — schema, media dispatch/persistence, connector contract, cursor state, AniList/Bangumi pagination, raw snapshot evidence, worker retry handling, private sync trigger, full ontology
    (titles, external refs, work/item linkage, events, progress projections), the bridge cache build/deploy, and cross-provider dedup auto-attach (§7).
-2. **Next** — automate bridge dataset refresh (currently a manual `make media-bridge-build` + ConfigMap redeploy with no schedule); add agent-readable inspection/reconciliation for genuinely ambiguous
-   (2+ candidate) and conflicting cases without making human triage a prerequisite.
+2. **In progress** — the worker now refreshes the bridge dataset weekly while preserving the manual rebuild path; add explicit agent-readable inspection/reconciliation for genuinely ambiguous (2+ candidate)
+   and conflicting cases without making human triage a prerequisite.
 3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and richer agent-readable inspection/reconciliation tooling.
 
 Deferred (explicitly out of this draft's connector scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Goodreads/WeRead/Apple Books/Kindle adapters; Letterboxd CSV; TMDb/Open
