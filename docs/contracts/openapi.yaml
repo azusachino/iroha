@@ -11,6 +11,7 @@ servers:
     description: Same-origin or reverse-proxy deployment
 tags:
   - name: system
+  - name: coverage
   - name: imports
   - name: activities
   - name: sleep
@@ -76,6 +77,27 @@ paths:
                 $ref: "#/components/schemas/Briefing"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/v1/coverage:
+    get:
+      tags: [coverage]
+      summary: Query evidence-backed collection coverage for one source scope.
+      parameters:
+        - $ref: "#/components/parameters/SourceInstanceId"
+        - $ref: "#/components/parameters/CoverageCategory"
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Collection coverage with covered intervals and derived gaps.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceCoverage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/metrics:
     get:
       tags: [metrics]
@@ -1080,6 +1102,16 @@ components:
     ExpenseId:
       name: expenseId
       in: path
+      required: true
+      schema: { type: string }
+    SourceInstanceId:
+      name: source_instance_id
+      in: query
+      required: true
+      schema: { type: string, format: uuid }
+    CoverageCategory:
+      name: category
+      in: query
       required: true
       schema: { type: string }
     JobId:
@@ -2589,3 +2621,44 @@ components:
         next_date: { type: string, format: date }
         sections:
           { type: array, items: { type: object, additionalProperties: true } }
+    SourceCoverage:
+      type: object
+      additionalProperties: false
+      required: [source_instance_id, category, requested, state, covered, gaps, assertions]
+      properties:
+        source_instance_id: { type: string, format: uuid }
+        category: { type: string }
+        requested: { $ref: "#/components/schemas/SourceCoverageInterval" }
+        state: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        covered:
+          type: array
+          items: { $ref: "#/components/schemas/SourceCoverageInterval" }
+        gaps:
+          type: array
+          items: { $ref: "#/components/schemas/SourceCoverageInterval" }
+        assertions:
+          type: array
+          items: { $ref: "#/components/schemas/SourceCoverageAssertion" }
+    SourceCoverageInterval:
+      type: object
+      additionalProperties: false
+      required: [from, to]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+    SourceCoverageAssertion:
+      type: object
+      additionalProperties: false
+      required: [id, source_instance_id, category, scope, interval, timezone, ingestion_mode, completeness, recorded_at]
+      properties:
+        id: { type: string, format: uuid }
+        source_instance_id: { type: string, format: uuid }
+        source_receipt_id: { type: [string, 'null'], format: uuid }
+        import_snapshot_id: { type: [string, 'null'], format: uuid }
+        category: { type: string }
+        scope: { type: object, additionalProperties: true }
+        interval: { $ref: "#/components/schemas/SourceCoverageInterval" }
+        timezone: { type: string }
+        ingestion_mode: { type: string, enum: [full_snapshot, bounded_replacement, incremental] }
+        completeness: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        recorded_at: { type: string, format: date-time }

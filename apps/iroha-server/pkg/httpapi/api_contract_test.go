@@ -33,6 +33,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/activities/{activityId}/route",
 		"GET /api/v1/activities/{activityId}/samplings",
 		"GET /api/v1/briefing",
+		"GET /api/v1/coverage",
 		"GET /api/v1/daily",
 		"GET /api/v1/daily/aggregates",
 		"GET /api/v1/daily/bounds",

@@ -18,6 +18,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
@@ -65,6 +66,7 @@ type Dependencies struct {
 	MetricRegistry      *metrics.Registry
 	MetricSeriesService *metricseries.Service
 	BriefingRegistry    *briefing.Registry
+	CoverageService     *coverage.Service
 	ImportService       *imports.Service
 	RawFileService      *rawfiles.Service
 	Cache               *cache.Client
@@ -135,6 +137,7 @@ func (s *Server) routes() {
 		r.Use(s.rejectFutureReadScope)
 		r.Use(s.readCache)
 		r.Get("/briefing", s.handleBriefing)
+		r.Get("/coverage", s.handleCoverage)
 		r.Get("/metrics", s.handleListMetrics)
 		r.Get("/metrics/{metricId}", s.handleGetMetric)
 		r.Get("/metrics/{metricId}/series", s.handleMetricSeries)
@@ -365,6 +368,7 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 	for prefix, namespace := range map[string]string{
 		"/api/v1/activities": cache.NamespaceActivities,
 		"/api/v1/briefing":   cache.NamespaceBriefing,
+		"/api/v1/coverage":   cache.NamespaceCoverage,
 		"/api/v1/daily":      cache.NamespaceDaily,
 		"/api/v1/media":      cache.NamespaceMedia,
 		"/api/v1/sleep":      cache.NamespaceSleep,

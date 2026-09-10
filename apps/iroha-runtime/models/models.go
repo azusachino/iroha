@@ -51,6 +51,24 @@ type SourceReceipt struct {
 
 func (SourceReceipt) TableName() string { return "tb_source_receipts" }
 
+type SourceCoverageAssertion struct {
+	ID               uuid.UUID  `gorm:"type:uuid;primaryKey"`
+	SourceInstanceID uuid.UUID  `gorm:"type:uuid"`
+	SourceReceiptID  *uuid.UUID `gorm:"type:uuid"`
+	ImportSnapshotID *uuid.UUID `gorm:"type:uuid"`
+	Category         string
+	ScopeJSON        json.RawMessage `gorm:"column:scope_json;type:jsonb"`
+	IntervalStart    time.Time
+	IntervalEnd      time.Time
+	Timezone         string
+	IngestionMode    string
+	Completeness     string
+	RecordedAt       time.Time
+	CreatedAt        time.Time
+}
+
+func (SourceCoverageAssertion) TableName() string { return "tb_source_coverage_assertions" }
+
 type ImportJob struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
 	RawFileID     uuid.UUID `gorm:"type:uuid"`

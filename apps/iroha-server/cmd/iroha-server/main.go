@@ -18,6 +18,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
@@ -110,6 +111,7 @@ func main() {
 		MetricRegistry:      metricRegistry,
 		MetricSeriesService: metricSeriesService,
 		BriefingRegistry:    briefingRegistry,
+		CoverageService:     coverage.NewService(db),
 		ImportService:       importService,
 		RawFileService:      rawFileService,
 		Cache:               cacheClient,

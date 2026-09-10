@@ -37,6 +37,7 @@ const (
 	NamespaceMetrics          = "read_metrics"
 	NamespaceReports          = "read_reports"
 	NamespaceExpenses         = "read_expenses"
+	NamespaceCoverage         = "read_coverage"
 	NamespacePublicSummary    = "public_summary"
 	NamespacePublicActivities = "public_activities"
 	NamespacePublicRoutes     = "public_routes"
@@ -46,6 +47,7 @@ const (
 	ChangeExpense         ChangeKind = "expense"
 	ChangeMediaResolution ChangeKind = "media_resolution"
 	ChangeGeocode         ChangeKind = "geocode"
+	ChangeCoverage        ChangeKind = "coverage"
 )
 
 // ChangeKind identifies a canonical write whose dependent read namespaces
@@ -115,6 +117,12 @@ var changeNamespaces = map[ChangeKind][]string{
 	ChangeGeocode: {
 		NamespaceActivities,
 		NamespacePublicRoutes,
+	},
+	ChangeCoverage: {
+		NamespaceCoverage,
+		NamespaceBriefing,
+		NamespaceMetrics,
+		NamespaceReports,
 	},
 }
 
