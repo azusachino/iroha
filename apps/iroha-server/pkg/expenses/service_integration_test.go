@@ -14,6 +14,15 @@ func TestServiceCreateIsIdempotentAndTombstonesIdentity(t *testing.T) {
 	clearExpenses(t, db)
 	t.Cleanup(func() { clearExpenses(t, db) })
 	svc := NewService(db)
+	readRevision := func() int64 {
+		t.Helper()
+		var value int64
+		if err := db.Raw("select coalesce((select revision from tb_read_revisions where namespace = 'read_expenses'), 0)").Scan(&value).Error; err != nil {
+			t.Fatalf("read expense revision: %v", err)
+		}
+		return value
+	}
+	initialRevision := readRevision()
 
 	input := testCreateInput("receipt-idempotent", time.Date(2026, time.August, 12, 0, 0, 0, 0, time.UTC))
 	first, err := svc.Create(input)
@@ -22,6 +31,9 @@ func TestServiceCreateIsIdempotentAndTombstonesIdentity(t *testing.T) {
 	}
 	if !first.Created {
 		t.Fatal("first create was not marked Created")
+	}
+	if got := readRevision(); got != initialRevision+1 {
+		t.Fatalf("revision after create = %d, want %d", got, initialRevision+1)
 	}
 
 	retry, err := svc.Create(input)
@@ -48,6 +60,9 @@ func TestServiceCreateIsIdempotentAndTombstonesIdentity(t *testing.T) {
 	if replaced.AmountMinor != 1500 || replaced.Merchant != "Updated merchant" || replaced.SourceRef != input.Source.Ref || replaced.CreateFingerprint != first.Expense.CreateFingerprint {
 		t.Fatalf("replaced expense = %+v", replaced)
 	}
+	if got := readRevision(); got != initialRevision+2 {
+		t.Fatalf("revision after replace = %d, want %d", got, initialRevision+2)
+	}
 
 	current, err := svc.Create(input)
 	if err != nil {
@@ -59,6 +74,9 @@ func TestServiceCreateIsIdempotentAndTombstonesIdentity(t *testing.T) {
 
 	if err := svc.Delete(first.Expense.ID); err != nil {
 		t.Fatalf("delete: %v", err)
+	}
+	if got := readRevision(); got != initialRevision+3 {
+		t.Fatalf("revision after delete = %d, want %d", got, initialRevision+3)
 	}
 	if err := svc.Delete(first.Expense.ID); err != nil {
 		t.Fatalf("repeated delete: %v", err)

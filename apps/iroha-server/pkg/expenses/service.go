@@ -12,6 +12,7 @@ import (
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -404,25 +405,34 @@ func (s *Service) Create(input CreateInput) (CreateResult, error) {
 		SourceKind: normalized.Source.Kind, SourceRef: normalized.Source.Ref,
 		CreateFingerprint: fingerprint, CreatedAt: now, UpdatedAt: now,
 	}
-	result := s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
-	if result.Error != nil {
-		return CreateResult{}, result.Error
-	}
-	if result.RowsAffected == 1 {
-		return CreateResult{Expense: row, Created: true}, nil
-	}
+	var result CreateResult
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		insert := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
+		if insert.Error != nil {
+			return insert.Error
+		}
+		if insert.RowsAffected == 1 {
+			if err := revisions.Bump(tx, revisions.NamespaceExpenses, revisions.NamespaceMetrics, revisions.NamespaceReports); err != nil {
+				return err
+			}
+			result = CreateResult{Expense: row, Created: true}
+			return nil
+		}
 
-	var existing models.Expense
-	if err := s.db.Where("source_kind = ? and source_ref = ?", row.SourceKind, row.SourceRef).First(&existing).Error; err != nil {
-		return CreateResult{}, err
-	}
-	if existing.DeletedAt != nil {
-		return CreateResult{}, ErrDeleted
-	}
-	if existing.CreateFingerprint != fingerprint {
-		return CreateResult{}, ErrSourceConflict
-	}
-	return CreateResult{Expense: existing}, nil
+		var existing models.Expense
+		if err := tx.Where("source_kind = ? and source_ref = ?", row.SourceKind, row.SourceRef).First(&existing).Error; err != nil {
+			return err
+		}
+		if existing.DeletedAt != nil {
+			return ErrDeleted
+		}
+		if existing.CreateFingerprint != fingerprint {
+			return ErrSourceConflict
+		}
+		result = CreateResult{Expense: existing}
+		return nil
+	})
+	return result, err
 }
 
 func (s *Service) List(filters ListFilters) (Page, error) {
@@ -484,28 +494,45 @@ func (s *Service) Replace(id uuid.UUID, input ReplaceInput) (models.Expense, err
 	if err != nil {
 		return models.Expense{}, fmt.Errorf("marshal expense items: %w", err)
 	}
-	result := s.db.Model(&models.Expense{}).Where("id = ? and deleted_at is null", id).Updates(map[string]any{
-		"occurred_on": normalized.OccurredOn, "currency": normalized.Currency,
-		"amount_minor": normalized.AmountMinor, "category": normalized.Category,
-		"merchant": normalized.Merchant, "note": normalized.Note,
-		"items_json": itemsJSON, "updated_at": now,
+	var row models.Expense
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&models.Expense{}).Where("id = ? and deleted_at is null", id).Updates(map[string]any{
+			"occurred_on": normalized.OccurredOn, "currency": normalized.Currency,
+			"amount_minor": normalized.AmountMinor, "category": normalized.Category,
+			"merchant": normalized.Merchant, "note": normalized.Note,
+			"items_json": itemsJSON, "updated_at": now,
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return s.lookupMissingOrDeleted(id)
+		}
+		if err := revisions.Bump(tx, revisions.NamespaceExpenses, revisions.NamespaceMetrics, revisions.NamespaceReports); err != nil {
+			return err
+		}
+		return tx.First(&row, "id = ?", id).Error
 	})
-	if result.Error != nil {
-		return models.Expense{}, result.Error
-	}
-	if result.RowsAffected == 0 {
-		return models.Expense{}, s.lookupMissingOrDeleted(id)
-	}
-	return s.Get(id)
+	return row, err
 }
 
 func (s *Service) Delete(id uuid.UUID) error {
 	now := time.Now().UTC()
-	result := s.db.Model(&models.Expense{}).Where("id = ? and deleted_at is null", id).Updates(map[string]any{
-		"deleted_at": now, "updated_at": now,
+	var result *gorm.DB
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		result = tx.Model(&models.Expense{}).Where("id = ? and deleted_at is null", id).Updates(map[string]any{
+			"deleted_at": now, "updated_at": now,
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 1 {
+			return revisions.Bump(tx, revisions.NamespaceExpenses, revisions.NamespaceMetrics, revisions.NamespaceReports)
+		}
+		return nil
 	})
-	if result.Error != nil {
-		return result.Error
+	if err != nil {
+		return err
 	}
 	if result.RowsAffected == 1 {
 		return nil

@@ -17,6 +17,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -352,6 +353,9 @@ func (s *Service) publish(ctx context.Context, jobID uuid.UUID, rawFile models.R
 			return err
 		}
 		if err := publish(tx); err != nil {
+			return err
+		}
+		if err := revisions.Bump(tx, revisions.ImportNamespaces...); err != nil {
 			return err
 		}
 		finishedAt := time.Now().UTC()
