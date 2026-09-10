@@ -11,15 +11,19 @@ contract between minor versions.
 
 ### Added
 
-- Replace the legacy schema boundary with a fresh SQLx-managed schema through migration 00020. This is a cut-over release: raw evidence is replayed into the new schema; no legacy-schema migration or Goose adoption is provided.
+- Replace the legacy schema boundary with a fresh SQLx-managed schema through migration 00020. This is a cut-over release: raw evidence is replayed into the new schema; no legacy-schema migration or
+  Goose adoption is provided.
 - Replay the complete 2026-09-08 Apple Health export without destructive purges, preserving source receipts, interpretation history, canonical activities, daily health, and sleep projections.
 - Add automatic Apple Health shortcut intake with bounded evidence coverage, scheduled AniList/Bangumi sync runs, agent-applied matching decisions, and source-aware cockpit attention.
-- Add expense accounts, linked and unlinked refunds, revision-backed consistent reads, report evidence status, connection actions, restored agent CLI parity, and an honest sanitized public exporter boundary.
+- Add expense accounts, linked and unlinked refunds, revision-backed consistent reads, report evidence status, connection actions, restored agent CLI parity, and an honest sanitized public exporter
+  boundary.
 
 ### Verification
 
-- `make release-candidate` passed against an isolated PostGIS database: migrations 1–20, all Go integration packages, seeded API/performance checks, production web build, readiness, and the 6-theme × light/dark × 3-route browser matrix.
-- The complete Apple Health replay produced 502 activities, 9,474 daily metrics, 1,392 sleep sessions, and 12,471 source observations; exact replay was idempotent, and migration 00020 rollback/reapply preserved the evidence.
+- `make release-candidate` passed against an isolated PostGIS database: migrations 1–20, all Go integration packages, seeded API/performance checks, production web build, readiness, and the 6-theme ×
+  light/dark × 3-route browser matrix.
+- The complete Apple Health replay produced 502 activities, 9,474 daily metrics, 1,392 sleep sessions, and 12,471 source observations; exact replay was idempotent, and migration 00020 rollback/reapply
+  preserved the evidence.
 
 ## [0.4.5] — 2026-08-28
 
