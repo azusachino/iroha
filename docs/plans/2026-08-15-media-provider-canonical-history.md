@@ -230,7 +230,7 @@ The media contract is intentionally provider-neutral so reading sources do not r
 Source IDs are aliases at the intake boundary only: canonical provider IDs are `goodreads`, `weread`, `apple_books`, and `kindle`. `ibooks` normalizes to `apple_books`.
 
 Book identity follows the existing work/item split. An ISBN-10/ISBN-13, ASIN, provider book ID, or Apple Books asset ID becomes an external reference. A known ISBN/ASIN attaches to an edition/item; a
-title-only row creates an unresolved resolution task rather than silently merging two editions. A reading status belongs to the concrete item that the provider reports, with an optional later rollup
+title-only rows remain separate source-owned items rather than silently merging two editions; their source evidence remains agent-readable for later inspection. A reading status belongs to the concrete item that the provider reports, with an optional later rollup
 to the parent work.
 
 The shared status/unit vocabulary is:

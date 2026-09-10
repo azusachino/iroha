@@ -157,16 +157,6 @@ export interface Task {
   updated_at: string;
 }
 
-export interface MediaResolutionTask {
-  id: string;
-  task_type: "dedupe_candidate" | "progress_conflict";
-  status: "open" | "resolved" | "dismissed";
-  candidates: Record<string, unknown>;
-  resolution: Record<string, unknown>;
-  created_at: string;
-  resolved_at?: string;
-}
-
 export interface Job {
   id: string;
   kind: string;
@@ -566,33 +556,6 @@ export function deleteExpense(
   fetchFn: typeof fetch = fetch,
 ): Promise<void> {
   return deleteJSON(`/api/v1/expenses/${encodeURIComponent(id)}`, fetchFn);
-}
-
-export function listMediaResolutionTasks(
-  params: { status?: MediaResolutionTask["status"] } = {},
-  fetchFn: typeof fetch = fetch,
-): Promise<MediaResolutionTask[]> {
-  const query = new URLSearchParams();
-  if (params.status) query.set("status", params.status);
-  const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<MediaResolutionTask[]>(
-    `/api/v1/media/resolution-tasks${suffix}`,
-    fetchFn,
-  );
-}
-
-export function updateMediaResolutionTask(
-  id: string,
-  status: "resolved" | "dismissed",
-  resolution?: Record<string, unknown>,
-  fetchFn: typeof fetch = fetch,
-): Promise<MediaResolutionTask> {
-  return mutateJSON<MediaResolutionTask>(
-    `/api/v1/media/resolution-tasks/${encodeURIComponent(id)}`,
-    "PATCH",
-    { status, resolution },
-    fetchFn,
-  );
 }
 
 export function listJobs(

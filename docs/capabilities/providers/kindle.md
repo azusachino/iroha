@@ -13,5 +13,5 @@ by themselves provide a stable per-session history.
 | Completion/date facts | Planned  | Only when the export explicitly supplies a date; preserve its precision |
 | Exact sessions        | Deferred | No inferred timestamps from sync or position changes                    |
 
-The adapter must keep ASIN/ISBN as external references and distinguish a Kindle edition from its parent work. Sideloaded books without a reliable identifier create a resolution task rather than a
-silent title merge.
+The adapter must keep ASIN/ISBN as external references and distinguish a Kindle edition from its parent work. Sideloaded books without a reliable identifier remain separate source-owned items with
+preserved evidence rather than a silent title merge.

@@ -13,10 +13,8 @@ import (
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
-	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
 	"github.com/google/uuid"
 )
 
@@ -123,44 +121,6 @@ func TestIntegrationCacheFreshnessAfterGeocodeRefresh(t *testing.T) {
 	assertRouteCity(t, refreshed, "Tokyo")
 }
 
-func TestIntegrationCacheFreshnessAfterMediaResolution(t *testing.T) {
-	db := openIntegrationDB(t)
-	resetIntegrationDB(t, db)
-	t.Cleanup(func() { resetIntegrationDB(t, db) })
-	responseCache := cache.NewWithStore(&readCacheTestStore{})
-	server := newIntegrationServerWithCache(t, db, responseCache)
-	taskID := uuid.New()
-	if err := db.Create(&models.MediaResolutionTask{
-		ID: taskID, TaskType: "dedupe_candidate", Status: mediaresolution.StatusOpen,
-		CandidatesJSON: json.RawMessage(`{"candidates":["candidate-1"]}`),
-		ResolutionJSON: json.RawMessage(`{}`), CreatedAt: time.Date(2099, 8, 14, 12, 0, 0, 0, time.UTC),
-	}).Error; err != nil {
-		t.Fatalf("seed resolution task: %v", err)
-	}
-	t.Cleanup(func() { _ = db.Delete(&models.MediaResolutionTask{}, "id = ?", taskID).Error })
-
-	path := "/api/v1/media/resolution-tasks"
-	first, header := requestCachedJSON(t, server, http.MethodGet, path, "", http.StatusOK)
-	if header != "MISS" {
-		t.Fatalf("first resolution cache header = %q, want MISS", header)
-	}
-	assertResolutionTaskStatus(t, first, mediaresolution.StatusOpen)
-	_, header = requestCachedJSON(t, server, http.MethodGet, path, "", http.StatusOK)
-	if header != "HIT" {
-		t.Fatalf("second resolution cache header = %q, want HIT", header)
-	}
-
-	taskIDValue := ids.Encode(ids.MediaResolutionTaskPrefix, taskID)
-	requestJSON(t, server, http.MethodPatch, "/api/v1/media/resolution-tasks/"+taskIDValue, `{"status":"resolved","resolution":{"decision":"canonical"}}`, http.StatusOK, nil)
-	refreshed, header := requestCachedJSON(t, server, http.MethodGet, path, "", http.StatusOK)
-	if header != "MISS" {
-		t.Fatalf("refreshed resolution cache header = %q, want MISS", header)
-	}
-	if items := refreshed["items"].([]any); len(items) != 0 {
-		t.Fatalf("open resolution items after mutation = %#v, want empty", items)
-	}
-}
-
 func requestCachedJSON(t *testing.T, handler http.Handler, method, path, body string, wantStatus int) (map[string]any, string) {
 	t.Helper()
 	var reader io.Reader
@@ -210,14 +170,6 @@ func assertRouteCity(t *testing.T, response map[string]any, want string) {
 	properties := features[0].(map[string]any)["properties"].(map[string]any)
 	if properties["city"] != want {
 		t.Fatalf("route properties = %#v, want city %q", properties, want)
-	}
-}
-
-func assertResolutionTaskStatus(t *testing.T, response map[string]any, want string) {
-	t.Helper()
-	items := response["items"].([]any)
-	if len(items) != 1 || items[0].(map[string]any)["status"] != want {
-		t.Fatalf("resolution items = %#v, want one %q item", items, want)
 	}
 }
 

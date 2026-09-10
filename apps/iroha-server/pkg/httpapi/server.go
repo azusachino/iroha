@@ -21,7 +21,6 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
@@ -53,28 +52,27 @@ const (
 )
 
 type Dependencies struct {
-	Config                 config.Config
-	Logger                 *slog.Logger
-	ActivityService        *activities.Service
-	SleepService           *sleep.Service
-	DailyService           *daily.Service
-	ExpenseService         *expenses.Service
-	MediaService           *media.Service
-	MediaResolutionService *mediaresolution.Service
-	MetricRegistry         *metrics.Registry
-	MetricSeriesService    *metricseries.Service
-	BriefingRegistry       *briefing.Registry
-	ImportService          *imports.Service
-	RawFileService         *rawfiles.Service
-	Cache                  *cache.Client
-	GeocodeService         *geocode.Service
-	JobEnqueuer            imports.Enqueuer
-	JobsService            *jobs.Service
-	TaskService            *tasks.Service
-	ReadyCheck             func(context.Context) error
-	MaxUploadBytes         int64
-	AllowedOrigins         []string
-	Now                    func() time.Time
+	Config              config.Config
+	Logger              *slog.Logger
+	ActivityService     *activities.Service
+	SleepService        *sleep.Service
+	DailyService        *daily.Service
+	ExpenseService      *expenses.Service
+	MediaService        *media.Service
+	MetricRegistry      *metrics.Registry
+	MetricSeriesService *metricseries.Service
+	BriefingRegistry    *briefing.Registry
+	ImportService       *imports.Service
+	RawFileService      *rawfiles.Service
+	Cache               *cache.Client
+	GeocodeService      *geocode.Service
+	JobEnqueuer         imports.Enqueuer
+	JobsService         *jobs.Service
+	TaskService         *tasks.Service
+	ReadyCheck          func(context.Context) error
+	MaxUploadBytes      int64
+	AllowedOrigins      []string
+	Now                 func() time.Time
 }
 
 type Server struct {
@@ -188,8 +186,6 @@ func (s *Server) routes() {
 			r.Post("/events", s.handleCreateMediaEvent)
 			r.Get("/events", s.handleListMediaEvents)
 			r.Get("/changes", s.handleListMediaChanges)
-			r.Get("/resolution-tasks", s.handleListMediaResolutionTasks)
-			r.Patch("/resolution-tasks/{taskId}", s.handleUpdateMediaResolutionTask)
 			r.Get("/", s.handleListMedia)
 			r.Get("/{mediaId}", s.handleGetMedia)
 		})

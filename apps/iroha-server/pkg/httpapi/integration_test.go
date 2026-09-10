@@ -30,7 +30,6 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
@@ -802,22 +801,21 @@ func newIntegrationServerWithCache(t *testing.T, db *gorm.DB, responseCache *cac
 	}()
 
 	return NewServer(Dependencies{
-		Config:                 config.Config{},
-		Now:                    func() time.Time { return time.Date(2099, time.December, 31, 12, 0, 0, 0, time.UTC) },
-		Logger:                 logger,
-		ActivityService:        activityService,
-		SleepService:           sleepService,
-		DailyService:           dailyService,
-		ExpenseService:         expenses.NewService(db),
-		MediaService:           mediaService,
-		MetricRegistry:         metricRegistry,
-		MetricSeriesService:    metricSeriesService,
-		BriefingRegistry:       briefingRegistry,
-		MediaResolutionService: mediaresolution.NewService(db),
-		ImportService:          importService,
-		RawFileService:         rawFileService,
-		Cache:                  responseCache,
-		GeocodeService:         geocodeService,
+		Config:              config.Config{},
+		Now:                 func() time.Time { return time.Date(2099, time.December, 31, 12, 0, 0, 0, time.UTC) },
+		Logger:              logger,
+		ActivityService:     activityService,
+		SleepService:        sleepService,
+		DailyService:        dailyService,
+		ExpenseService:      expenses.NewService(db),
+		MediaService:        mediaService,
+		MetricRegistry:      metricRegistry,
+		MetricSeriesService: metricSeriesService,
+		BriefingRegistry:    briefingRegistry,
+		ImportService:       importService,
+		RawFileService:      rawFileService,
+		Cache:               responseCache,
+		GeocodeService:      geocodeService,
 	})
 }
 

@@ -728,7 +728,7 @@ receive payload
   -> append exact consumption events when the source proves an instant
   -> append a fingerprinted state-history observation for provider state
   -> update current progress projection
-  -> create resolution tasks for ambiguity/conflicts
+  -> retain source evidence and deterministic projection decisions for ambiguity/conflicts
   -> return UI/bot-sized result
 ```
 
