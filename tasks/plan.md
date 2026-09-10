@@ -351,17 +351,17 @@ Include the tooling transition in task 2, before tasks 7 and 8 introduce new sch
   rather than assuming Nix ownership. Document and provision compatible versions in CI and the implementation environment. Keep Go, uv, Bun and golangci-lint project-managed; do not restore Goose as
   the long-term dependency.
 
-This PR is a planning handoff only. Implementation will happen in another environment. Read this file as the canonical plan; the three earlier review/rebuild documents retain supporting evidence and
-alternatives. The local Asobi graph is optional handoff context, not a prerequisite: all task scope, acceptance and dependencies are in this file. Revalidate the target checkout, toolchain, deployment
-data and task status before execution.
+This PR contains the planning handoff and the user-selected mise configuration/lockfile changes. Implementation will happen in another environment. Read this file as the canonical plan; the three
+earlier review/rebuild documents retain supporting evidence and alternatives. The local Asobi graph is optional handoff context, not a prerequisite: all task scope, acceptance and dependencies are in
+this file. Revalidate the target checkout, toolchain, deployment data and task status before execution.
 
 ## Planning verification
 
 This plan chooses concrete decisions from source-backed reviews and independent ingestion/cache feasibility checks. It does not claim that v0.5 changes, live device trials or migrations have been
-executed. The current change is documentation and local task-state registration only. No components or stored data were deleted.
+executed. The current change includes documentation, local task-state registration and the user-selected mise configuration/lockfile changes. No components or stored data were deleted.
 
 Planning validation on 2026-09-10: after the user restored golangci-lint, `make check` and `make validate` passed Go formatting, vet, lint, unit/contract tests, 91 Python script tests and
 theme/responsive/motion checks, then stopped at frontend formatting because `prettier-plugin-svelte` was unavailable. `make web-install public-site-install` could not install dependencies because
 downloads failed with `SELF_SIGNED_CERT_IN_CHAIN`, including retries using the machine's CA bundles; TLS verification remained enabled. Scoped formatting of all four planning documents and staged
-whitespace checks passed. Full repository validation, builds, device trials and database rehearsals remain unverified. User-owned `.mise.toml` and `mise.lock` changes are excluded from this planning
-PR.
+whitespace checks passed. Full repository validation, builds, device trials and database rehearsals remain unverified. The PR also includes the user-selected `.mise.toml` and `mise.lock` changes.
+Goose has been removed from tool provisioning; migration commands still require it until the planned SQLx transition is implemented.
