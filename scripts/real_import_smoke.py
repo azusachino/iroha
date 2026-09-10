@@ -26,6 +26,7 @@ Three modes:
     missed rows and change-detection is now lying).
 """
 import argparse
+from datetime import date, timedelta
 import json
 import mimetypes
 import os
@@ -206,7 +207,7 @@ def run_assert_mode(args: argparse.Namespace) -> int:
         "import#1 daily API exposes vitals on a non-ring day",
         daily_probes["non_ring"] is not None
         and daily_probes["non_ring"].get("body_mass_kg") is not None
-        and daily_probes["non_ring"].get("move_kcal") == 0,
+        and daily_probes["non_ring"].get("ring") is None,
         f"non_ring_day={daily_probes['non_ring_day']} row={daily_probes['non_ring']}",
     )
     check(
@@ -667,7 +668,8 @@ def daily_vitals_probes(args: argparse.Namespace, dsn: str) -> dict[str, object]
     def row_for(day: str) -> dict | None:
         if not day:
             return None
-        return get_json(args.api_base, f"/api/v1/daily?from={day}&to={day}&limit=1")["items"][0]
+        next_day = (date.fromisoformat(day) + timedelta(days=1)).isoformat()
+        return get_json(args.api_base, f"/api/v1/daily?from={day}&to={next_day}&limit=1")["items"][0]
 
     return {
         "ring_day": ring_day,
