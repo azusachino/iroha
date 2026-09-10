@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,6 +24,28 @@ func TestParseAppleHealthShortcutFixture(t *testing.T) {
 	}
 	if len(batch.Coverage) != 3 || batch.Coverage[0].IngestionMode != "bounded_replacement" {
 		t.Fatalf("coverage = %#v", batch.Coverage)
+	}
+}
+
+func TestValidateAppleHealthShortcutPreservesUnknownCoverage(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "apple_health_shortcut.json"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	body = bytes.Replace(body, []byte(`"completeness": "partial"`), []byte(`"completeness": "unknown"`), 1)
+	if _, err := ValidateAppleHealthShortcut(body); err != nil {
+		t.Fatalf("validate unknown coverage: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "unknown.json")
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatalf("write unknown fixture: %v", err)
+	}
+	batch, err := ParseAppleHealthShortcut(path, "unknown-hash")
+	if err != nil {
+		t.Fatalf("parse unknown coverage: %v", err)
+	}
+	if len(batch.Coverage) != 3 || batch.Coverage[1].Completeness != "unknown" {
+		t.Fatalf("coverage = %#v, want unknown coverage retained", batch.Coverage)
 	}
 }
 

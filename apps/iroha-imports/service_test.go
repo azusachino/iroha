@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
 )
 
@@ -166,6 +167,49 @@ func TestDailyMetricSourceKeyAndContentHash(t *testing.T) {
 	metric.Value++
 	if dailyMetricContentHash(metric) == hash {
 		t.Fatal("dailyMetricContentHash did not change when the metric value changed")
+	}
+}
+
+func TestMediaProgressIsOlderOnlyForSameSource(t *testing.T) {
+	newer := time.Date(2026, time.September, 11, 1, 0, 0, 0, time.UTC)
+	older := newer.Add(-time.Hour)
+	cases := []struct {
+		name     string
+		existing models.MediaProgress
+		incoming models.MediaProgress
+		want     bool
+	}{
+		{
+			name:     "older provider update",
+			existing: models.MediaProgress{SourceKind: "anilist", LastUpdateAt: &newer},
+			incoming: models.MediaProgress{SourceKind: "anilist", LastUpdateAt: &older},
+			want:     true,
+		},
+		{
+			name:     "missing provider timestamp",
+			existing: models.MediaProgress{SourceKind: "anilist", LastUpdateAt: &newer},
+			incoming: models.MediaProgress{SourceKind: "anilist"},
+			want:     true,
+		},
+		{
+			name:     "other source",
+			existing: models.MediaProgress{SourceKind: "anilist", LastUpdateAt: &newer},
+			incoming: models.MediaProgress{SourceKind: "bangumi", LastUpdateAt: &older},
+			want:     false,
+		},
+		{
+			name:     "newer provider update",
+			existing: models.MediaProgress{SourceKind: "anilist", LastUpdateAt: &older},
+			incoming: models.MediaProgress{SourceKind: "anilist", LastUpdateAt: &newer},
+			want:     false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := mediaProgressIsOlder(tc.existing, tc.incoming); got != tc.want {
+				t.Fatalf("mediaProgressIsOlder = %t, want %t", got, tc.want)
+			}
+		})
 	}
 }
 

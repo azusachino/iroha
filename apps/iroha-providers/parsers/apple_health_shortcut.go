@@ -113,7 +113,7 @@ func ParseAppleHealthShortcut(path, rawHash string) (provider.ImportBatch, error
 	}
 
 	for _, item := range envelope.Coverage {
-		if item.Category == "" || item.Timezone == "" || item.Completeness == "unknown" || item.Completeness == "" {
+		if item.Category == "" || item.Timezone == "" || item.Completeness == "" {
 			return provider.ImportBatch{}, errors.New("shortcut coverage must identify a bounded result")
 		}
 		location, err := time.LoadLocation(item.Timezone)
@@ -128,7 +128,7 @@ func ParseAppleHealthShortcut(path, rawHash string) (provider.ImportBatch, error
 		if err != nil || !from.Before(to) {
 			return provider.ImportBatch{}, errors.New("coverage interval must be half-open and non-empty")
 		}
-		if item.Completeness != "partial" && item.Completeness != "covered" && item.Completeness != "covered_empty" {
+		if item.Completeness != "unknown" && item.Completeness != "partial" && item.Completeness != "covered" && item.Completeness != "covered_empty" {
 			return provider.ImportBatch{}, fmt.Errorf("unsupported shortcut completeness %q", item.Completeness)
 		}
 		scope := item.Scope
@@ -243,7 +243,7 @@ func decodeAppleHealthShortcut(body []byte) (shortcutEnvelope, AppleHealthShortc
 
 func validateShortcutCoverage(items []shortcutCoverage) error {
 	for _, item := range items {
-		if item.Category == "" || item.Timezone == "" || item.Completeness == "unknown" || item.Completeness == "" {
+		if item.Category == "" || item.Timezone == "" || item.Completeness == "" {
 			return errors.New("shortcut coverage must identify a bounded result")
 		}
 		location, err := time.LoadLocation(item.Timezone)
@@ -258,7 +258,7 @@ func validateShortcutCoverage(items []shortcutCoverage) error {
 		if err != nil || !from.Before(to) {
 			return errors.New("coverage interval must be half-open and non-empty")
 		}
-		if item.Completeness != "partial" && item.Completeness != "covered" && item.Completeness != "covered_empty" {
+		if item.Completeness != "unknown" && item.Completeness != "partial" && item.Completeness != "covered" && item.Completeness != "covered_empty" {
 			return fmt.Errorf("unsupported shortcut completeness %q", item.Completeness)
 		}
 		scope := item.Scope

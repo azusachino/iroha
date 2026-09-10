@@ -630,6 +630,9 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 	if existing.SourceKind != "" && existing.SourceKind != rawFile.SourceKind && !mediaProgressSourceWins(rawFile.SourceKind, existing.SourceKind) {
 		return nil
 	}
+	if mediaProgressIsOlder(existing, progress) {
+		return nil
+	}
 	return tx.Model(&existing).Updates(map[string]any{
 		"status":                 progress.Status,
 		"unit":                   progress.Unit,
@@ -646,6 +649,16 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 		"source_kind":            progress.SourceKind,
 		"updated_at":             progress.UpdatedAt,
 	}).Error
+}
+
+func mediaProgressIsOlder(existing, incoming models.MediaProgress) bool {
+	if existing.SourceKind != incoming.SourceKind || existing.LastUpdateAt == nil {
+		return false
+	}
+	if incoming.LastUpdateAt == nil {
+		return true
+	}
+	return incoming.LastUpdateAt.Before(*existing.LastUpdateAt)
 }
 
 func floatPtrEqual(a, b *float64) bool {
