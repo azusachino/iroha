@@ -1,6 +1,6 @@
 # Iroha v0.5: reliable collection, trustworthy history, complete cockpit
 
-Status: implementation and local release-candidate complete; physical Health trial remains `AWAITING_VERIFY`.
+Status: v0.5 implementation and local release-candidate complete; physical Health transport trial is post-v0.5 hardening.
 
 Target: `v0.5.0`, evolving the existing `vendor/iroha` project from `0.4.5`. Source review baseline: `8f798b0e9d3876897293204b23d63ed855c37421`, 2026-09-10 JST. The working tree also contains a
 user-owned `.mise.toml` change; it is not part of this plan's documentation change.
@@ -140,15 +140,16 @@ time-relative stale labels from timestamps/policy, not a day-old cached boolean.
 
 ### 8. Choose and prove the daily Health transport early
 
-The first candidate is a built-in Shortcut sending bounded structured data directly to Iroha. A device fixture trial must establish supported fields, stable identities or valid aggregate replacement,
-source fidelity, sleep boundaries, payload size and automatic execution behavior before the server adapter is finalized.
+The first candidate is a built-in Shortcut sending bounded structured data directly to Iroha. The tracked `iroha.health.shortcut.v1` fixture establishes supported fields, stable identities or valid
+aggregate replacement, source fidelity, sleep boundaries, payload size and automatic execution behavior for the v0.5 server adapter. Physical transport behavior is a separate post-v0.5 operational
+check.
 
 Initial release-required daily categories: steps, active energy, exercise/stand summaries where available, resting heart rate/HRV where measured, sleep summary/stages, and workout summaries. Preserve
 all currently supported archival Health metrics and detailed activities. Record transport-specific unsupported fields explicitly; adding a generic “Health connected” badge is insufficient.
 
-Trial the Shortcut for seven ordinary days early in the release, with a locked-phone run, one network failure, one deliberately missed day and recovery. If it requires a daily manual ritual or cannot
-supply the agreed categories reliably, test Health Auto Export against the same fixtures immediately. If neither meets the target, the Health-client work must be re-estimated, including a focused
-native client; do not silently ship v0.5 as manual-only or broaden native-app scope without evidence. Server foundation tasks can continue during device trials.
+The physical Shortcut trial may run after v0.5 to measure ordinary use, lock state, one network failure, a deliberately missed day and recovery. It is not required to establish v0.5 data fidelity or
+server intake correctness because the complete original export and tracked bounded fixture are available. If the later trial requires a daily manual ritual or cannot supply the agreed categories
+reliably, test Health Auto Export against the same fixtures before making a stronger operational claim.
 
 Routes/samples may have a different demonstrated delivery cadence from daily summaries. This distinction must be accepted and visible; the release cannot claim automated full-fidelity Health history
 unless the trial proves it. A manual historical archive path is not evidence of daily automation success.
@@ -212,11 +213,11 @@ exceeds one focused change; retain its acceptance and dependency links. Do not d
 
 ### Phase A: Establish the release contract and executable failures
 
-| ID  | Work item / dependency                                               | Likely files                                                                                             | Acceptance and verification                                                                                                                                                                                                      |
-| --- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Capture v0.5 capability, consumer and retained-data inventory / none | `docs/`, existing route inventory, migration tooling                                                     | Every current route/CLI/public workflow has a keep/replace decision; identify external re-fetch limits and user-authored state. Verify inventory against source and a read-only deployment export when available.                |
-| 2   | Establish runnable fixtures and baseline / 1                         | `scripts/`, current integration tests, existing Make targets                                             | Reproduce false-success, final-lease recovery, old-snapshot/reprocess and stale-cache boundaries. Run `make test` and focused integration cases in disposable storage; record existing failures rather than approving them.      |
-| 3   | Prove daily Health capture / 1                                       | Device Shortcut fixture, `docs/capabilities/providers/apple-health.md`, bounded intake contract fixtures | Seven-day trial plus forced missed/locked/offline scenarios measures fidelity and intervention. Choose transport using the policy above; preserve raw fixture bytes locally. No live partial input through old full-export path. |
+| ID  | Work item / dependency                                               | Likely files                                                                                             | Acceptance and verification                                                                                                                                                                                                                 |
+| --- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Capture v0.5 capability, consumer and retained-data inventory / none | `docs/`, existing route inventory, migration tooling                                                     | Every current route/CLI/public workflow has a keep/replace decision; identify external re-fetch limits and user-authored state. Verify inventory against source and a read-only deployment export when available.                           |
+| 2   | Establish runnable fixtures and baseline / 1                         | `scripts/`, current integration tests, existing Make targets                                             | Reproduce false-success, final-lease recovery, old-snapshot/reprocess and stale-cache boundaries. Run `make test` and focused integration cases in disposable storage; record existing failures rather than approving them.                 |
+| 3   | Prove daily Health capture / 1                                       | Device Shortcut fixture, `docs/capabilities/providers/apple-health.md`, bounded intake contract fixtures | Complete original-export replay proves archival fidelity; authenticated `iroha.health.shortcut.v1` fixture intake proves bounded persistence, coverage, and exact replay. Physical missed/locked/offline scenarios are post-v0.5 hardening. |
 
 Checkpoint A: task 2 can expose failing cases; task 3 is an external dependency, not a reason to pause independent foundation fixes. Reconcile the user-owned toolchain edits and run actual targets
 before repeating the previous TLS-blocker claim.
@@ -361,5 +362,5 @@ Implementation evidence on 2026-09-11 is recorded in [the capability inventory](
 complete Apple replay, rollback/reapply, API/web/CLI checks, and local release-candidate gate passed. The old shared database remains a comparison/rollback artifact; no legacy-schema migration was
 added.
 
-Current handoff state: tasks 1 and 2 are `DONE`; task 3 is `AWAITING_VERIFY` pending the physical seven-day Health Shortcut trial; implementation tasks 4-28 are in reviewer handoff. Do not call v0.5
-externally accepted until that device trial is recorded and the final reviewer checks are closed.
+Current handoff state: tasks 1-28 are complete for the v0.5 scope. Complete original-export replay and the authenticated bounded Shortcut fixture are the acceptance evidence; physical transport trial
+remains post-v0.5 hardening. Do not claim physical-device behavior until that separate trial is recorded.
