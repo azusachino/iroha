@@ -27,11 +27,6 @@ const (
 	StatusCompleted = "completed"
 	StatusFailed    = "failed"
 
-	appleSourceItemTypeWorkout      = "workout"
-	appleSourceItemTypeSleepSession = "sleep_session"
-	appleSourceItemTypeDailySummary = "daily_summary"
-	appleSourceItemTypeDailyMetric  = "daily_metric"
-
 	mediaWorkKind     = "media"
 	mediaItemRole     = "primary"
 	mediaListKind     = "library"

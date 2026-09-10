@@ -56,7 +56,6 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 		t.Fatalf("create source receipt: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = db.Exec("delete from tb_apple_source_items where source_key = ?", dailyMetricSourceKey(metric)).Error
 		_ = db.Exec("delete from tb_daily_metrics where first_raw_file_id = ?", rawFileID).Error
 		var instanceIDs []uuid.UUID
 		_ = db.Model(&models.SourceReceipt{}).Where("raw_file_id = ?", rawFileID).Pluck("source_instance_id", &instanceIDs).Error
@@ -107,6 +106,25 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 		t.Fatalf("reconciled metric count = %d, want 1", metricCount)
 	}
 
+	zeroMetric := metric
+	zeroMetric.Value = 0
+	snapshotZero := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "snapshot-zero", ParserVersion: DefaultParserVersion, CreatedAt: now.Add(1500 * time.Millisecond)}
+	if err := db.Create(&snapshotZero).Error; err != nil {
+		t.Fatalf("create zero snapshot: %v", err)
+	}
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		return (&Service{}).persistDailyMetric(tx, models.RawFile{ID: rawFileID}, zeroMetric, snapshotZero.ID)
+	}); err != nil {
+		t.Fatalf("persist measured zero metric: %v", err)
+	}
+	var storedMetric models.DailyMetric
+	if err := db.Where("day = ? and metric = ?", metric.Day, metric.Metric).First(&storedMetric).Error; err != nil {
+		t.Fatalf("load measured zero metric: %v", err)
+	}
+	if storedMetric.Value != 0 {
+		t.Fatalf("stored measured zero = %v, want 0", storedMetric.Value)
+	}
+
 	snapshot3 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "snapshot-3", ParserVersion: DefaultParserVersion, CreatedAt: now.Add(2 * time.Second)}
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := purgeDerivedForRawFile(tx, rawFileID); err != nil {
@@ -124,6 +142,99 @@ func TestIntegrationDailyMetricPersistsAndReprocesses(t *testing.T) {
 	}
 	if metricCount != 1 {
 		t.Fatalf("reprocessed metric count = %d, want 1", metricCount)
+	}
+	var appleItems, sourceObservations int64
+	if err := db.Model(&models.AppleSourceItem{}).Where("source_key = ?", dailyMetricSourceKey(metric)).Count(&appleItems).Error; err != nil {
+		t.Fatalf("count Apple source items: %v", err)
+	}
+	if err := db.Model(&models.SourceObservation{}).Where("raw_file_id = ? and source_kind = ? and source_key = ?", rawFileID, "daily_metric", dailyMetricSourceKey(metric)).Count(&sourceObservations).Error; err != nil {
+		t.Fatalf("count daily metric observations: %v", err)
+	}
+	if appleItems != 0 || sourceObservations != 1 {
+		t.Fatalf("daily metric authority rows = Apple %d generic %d, want 0/1", appleItems, sourceObservations)
+	}
+}
+
+func TestIntegrationSleepSessionPersistsCrossMidnightWithoutAppleTracker(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	rawFileID := uuid.New()
+	jobID := uuid.New()
+	instanceID := uuid.New()
+	receiptID := uuid.New()
+	now := time.Now().UTC()
+	start := time.Date(2024, time.January, 1, 22, 0, 0, 0, time.FixedZone("-0700", -7*60*60))
+	end := start.Add(8 * time.Hour)
+	session := observations.Sleep{
+		WakeDate: end, StartedAt: start, EndedAt: end, TimeInBedS: 28800, AsleepS: 25200,
+		Efficiency: 0.875, IsMainSleep: true, CoreS: 12600, DeepS: 5400, RemS: 7200,
+		Source: "Watch", Segments: []observations.SleepSegment{{
+			Stage: "in_bed", StartedAt: start, EndedAt: end, Source: "Watch",
+		}},
+	}
+	if err := db.Create(&models.RawFile{ID: rawFileID, SHA256: "sleep-cross-midnight-" + rawFileID.String(), OriginalFilename: "sleep.zip", StoragePath: "/tmp/sleep.zip", SourceKind: parsers.KindAppleHealthExport, UploadedVia: "integration", CreatedAt: now}).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	if err := db.Create(&models.ImportJob{ID: jobID, RawFileID: rawFileID, Status: StatusCompleted, ParserKind: parsers.KindAppleHealthExport, ParserVersion: DefaultParserVersion, CreatedAt: now}).Error; err != nil {
+		t.Fatalf("create import job: %v", err)
+	}
+	if err := db.Create(&models.SourceInstance{ID: instanceID, Provider: parsers.KindAppleHealthExport, InstanceKey: "sleep-integration-" + rawFileID.String(), CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("create source instance: %v", err)
+	}
+	if err := db.Create(&models.SourceReceipt{ID: receiptID, SourceInstanceID: instanceID, RawFileID: rawFileID, SourceKind: parsers.KindAppleHealthExport, IngestionMode: "full_snapshot", ScopeJSON: []byte(`{}`), ReceivedAt: now, CreatedAt: now}).Error; err != nil {
+		t.Fatalf("create source receipt: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Exec("update tb_sleep_sessions set selected_observation_id = null where first_raw_file_id = ?", rawFileID).Error
+		_ = db.Where("first_raw_file_id = ?", rawFileID).Delete(&models.SleepSession{}).Error
+		_ = db.Where("raw_file_id = ?", rawFileID).Delete(&models.SourceObservation{}).Error
+		_ = db.Where("id = ?", receiptID).Delete(&models.SourceReceipt{}).Error
+		_ = db.Where("id = ?", instanceID).Delete(&models.SourceInstance{}).Error
+		_ = db.Where("raw_file_id = ?", rawFileID).Delete(&models.ImportSnapshot{}).Error
+		_ = db.Where("id = ?", jobID).Delete(&models.ImportJob{}).Error
+		_ = db.Where("id = ?", rawFileID).Delete(&models.RawFile{}).Error
+	})
+
+	snapshot1 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "sleep-snapshot-1", ParserVersion: DefaultParserVersion, CreatedAt: now}
+	if err := db.Create(&snapshot1).Error; err != nil {
+		t.Fatalf("create first sleep snapshot: %v", err)
+	}
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		return (&Service{}).persistSleepSession(tx, models.RawFile{ID: rawFileID}, session, snapshot1.ID)
+	}); err != nil {
+		t.Fatalf("persist first sleep session: %v", err)
+	}
+
+	var first models.SleepSession
+	if err := db.Where("first_raw_file_id = ?", rawFileID).First(&first).Error; err != nil {
+		t.Fatalf("load first sleep session: %v", err)
+	}
+	firstID := first.ID
+	snapshot2 := models.ImportSnapshot{ID: uuid.New(), ImportJobID: jobID, RawFileID: rawFileID, SHA256: "sleep-snapshot-2", ParserVersion: DefaultParserVersion, CreatedAt: now.Add(time.Second)}
+	if err := db.Create(&snapshot2).Error; err != nil {
+		t.Fatalf("create second sleep snapshot: %v", err)
+	}
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		return (&Service{}).persistSleepSession(tx, models.RawFile{ID: rawFileID}, session, snapshot2.ID)
+	}); err != nil {
+		t.Fatalf("confirm unchanged sleep session: %v", err)
+	}
+
+	var sessionCount, sourceObservations, appleItems int64
+	if err := db.Model(&models.SleepSession{}).Where("first_raw_file_id = ?", rawFileID).Count(&sessionCount).Error; err != nil {
+		t.Fatalf("count sleep sessions: %v", err)
+	}
+	if err := db.Model(&models.SourceObservation{}).Where("raw_file_id = ? and source_kind = ? and source_key = ?", rawFileID, "sleep", sleepSessionSourceKey(session)).Count(&sourceObservations).Error; err != nil {
+		t.Fatalf("count sleep observations: %v", err)
+	}
+	if err := db.Model(&models.AppleSourceItem{}).Where("source_key = ?", sleepSessionSourceKey(session)).Count(&appleItems).Error; err != nil {
+		t.Fatalf("count Apple source items: %v", err)
+	}
+	var confirmed models.SleepSession
+	if err := db.First(&confirmed, "id = ?", firstID).Error; err != nil {
+		t.Fatalf("load confirmed sleep session: %v", err)
+	}
+	if sessionCount != 1 || sourceObservations != 1 || appleItems != 0 || confirmed.SelectedObservationID == nil {
+		t.Fatalf("cross-midnight sleep rows = sessions %d observations %d Apple %d selected %v, want 1/1/0/non-null", sessionCount, sourceObservations, appleItems, confirmed.SelectedObservationID)
 	}
 }
 

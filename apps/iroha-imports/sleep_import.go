@@ -44,37 +44,23 @@ func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, sessi
 	if sourceKey == "" {
 		return fmt.Errorf("parsed sleep session missing source key")
 	}
-	contentHash := sleepSessionContentHash(session)
-
-	var existing models.AppleSourceItem
-	res := tx.Limit(1).Find(&existing, "source_key = ?", sourceKey)
-	if res.Error != nil {
-		return res.Error
+	sourceInstanceID, _, err := ensureRawFileReceiptContext(tx, rawFile)
+	if err != nil {
+		return err
 	}
-	found := res.RowsAffected > 0
-	if found && existing.ItemType != appleSourceItemTypeSleepSession {
-		return fmt.Errorf("source key %q already belongs to item type %q", sourceKey, existing.ItemType)
-	}
-
-	var existingHash *string
-	if found {
-		existingHash = &existing.ContentHash
-	}
-	now := time.Now().UTC()
-	switch decideSourceItem(existingHash, contentHash) {
-	case sourceItemUnchanged:
-		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"last_seen_snapshot_id": snapshotID,
-			"updated_at":            now,
-		}).Error
-	}
-
 	sessionID := uuid.Nil
-	if found && existing.SleepSessionID != nil {
-		sessionID = *existing.SleepSessionID
+	var sourceObservation models.SourceObservation
+	result := tx.Where("source_instance_id = ? and source_kind = ? and source_key = ?", sourceInstanceID, "sleep", sourceKey).First(&sourceObservation)
+	if result.Error == nil {
+		var existing models.SleepObservation
+		if err := tx.First(&existing, "id = ?", sourceObservation.ID).Error; err != nil {
+			return err
+		}
+		sessionID = existing.SleepSessionID
+	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return result.Error
 	}
 	if sessionID == uuid.Nil {
-		var err error
 		sessionID, err = ids.New()
 		if err != nil {
 			return err
@@ -89,30 +75,7 @@ func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, sessi
 	if err := s.persistSleepObservation(tx, rawFile, session, sessionID, snapshotID); err != nil {
 		return err
 	}
-
-	if found {
-		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"content_hash":          contentHash,
-			"sleep_session_id":      sessionID,
-			"last_seen_snapshot_id": snapshotID,
-			"updated_at":            now,
-		}).Error
-	}
-	itemID, err := ids.New()
-	if err != nil {
-		return err
-	}
-	item := models.AppleSourceItem{
-		ID:                 itemID,
-		SourceKey:          sourceKey,
-		ItemType:           appleSourceItemTypeSleepSession,
-		ContentHash:        contentHash,
-		SleepSessionID:     &sessionID,
-		LastSeenSnapshotID: &snapshotID,
-		CreatedAt:          now,
-		UpdatedAt:          now,
-	}
-	return tx.Create(&item).Error
+	return nil
 }
 
 func upsertSleepSession(tx *gorm.DB, rawFile models.RawFile, sessionID uuid.UUID, parsed observations.Sleep) error {
