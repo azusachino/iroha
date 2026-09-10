@@ -8,9 +8,9 @@ The route and privacy features are geospatial at the core. Starting with PostGIS
 
 ## ORM and Migrations
 
-Use an ORM for application data access, but keep database migrations explicit.
+Use the existing ORM for application data access, but keep database migrations explicit and independent of ORM startup.
 
-Preferred ORM:
+Application data access:
 
 ```text
 GORM
@@ -63,7 +63,7 @@ drop table
 
 The names are conventional. User-facing scripts can call these `apply` and `rollback` if that reads better.
 
-Preferred tool:
+Migration tool:
 
 ```text
 SQLx CLI
@@ -94,7 +94,7 @@ iroha-db migrate rollback
 iroha-db migrate status
 ```
 
-The repository's `scripts/db.py` wrapper calls the mise-provided SQLx CLI. The migration directory is the schema source of truth; application code does not auto-migrate the database.
+The repository's `scripts/db.py` wrapper calls the mise-provided SQLx CLI. The migration directory is the schema source of truth; application code does not auto-migrate the database. v0.5 is a fresh-schema cut-over: deploy a new database, replay raw evidence, and do not attempt to migrate the legacy schema. Goose is not part of the database contract.
 
 First migration:
 
