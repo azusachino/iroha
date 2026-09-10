@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
 	"github.com/google/uuid"
@@ -63,6 +64,11 @@ func TestIntegrationSourceCoveragePreservesGapsAndStates(t *testing.T) {
 	requestJSON(t, server, http.MethodGet, "/api/v1/coverage?source_instance_id="+sourceID.String()+"&category=health.daily&from=2099-01-01&to=2099-01-04&timezone=UTC", "", http.StatusOK, func(body map[string]any) {
 		if body["state"] != coverage.CompletenessCovered {
 			t.Fatalf("API coverage state = %#v, want covered", body["state"])
+		}
+	})
+	requestJSON(t, server, http.MethodGet, "/api/v1/coverage?source_instance_id="+ids.Encode(ids.SourceInstancePrefix, sourceID)+"&category=health.daily&from=2099-01-01&to=2099-01-04&timezone=UTC", "", http.StatusOK, func(body map[string]any) {
+		if body["state"] != coverage.CompletenessCovered {
+			t.Fatalf("encoded API coverage state = %#v, want covered", body["state"])
 		}
 	})
 }

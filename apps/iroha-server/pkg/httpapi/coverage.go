@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
 	"github.com/google/uuid"
 )
@@ -15,7 +16,11 @@ func (s *Server) handleCoverage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "coverage service unavailable")
 		return
 	}
-	sourceInstanceID, err := uuid.Parse(strings.TrimSpace(r.URL.Query().Get("source_instance_id")))
+	sourceInstanceValue := strings.TrimSpace(r.URL.Query().Get("source_instance_id"))
+	sourceInstanceID, err := uuid.Parse(sourceInstanceValue)
+	if err != nil {
+		sourceInstanceID, err = ids.Decode(ids.SourceInstancePrefix, sourceInstanceValue)
+	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid source_instance_id")
 		return

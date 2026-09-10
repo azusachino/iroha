@@ -1235,7 +1235,8 @@ components:
       name: source_instance_id
       in: query
       required: true
-      schema: { type: string, format: uuid }
+      description: Raw UUID or the encoded source ID returned by /api/v1/connections.
+      schema: { type: string }
     CoverageCategory:
       name: category
       in: query
