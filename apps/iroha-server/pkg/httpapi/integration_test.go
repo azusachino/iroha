@@ -182,6 +182,51 @@ func TestIntegrationImportFailureRetriesAndRecovers(t *testing.T) {
 	assertCanonicalImportedActivity(t, db, rawID, "Integration Run")
 }
 
+func TestIntegrationExpiredFinalJobRecoversWhenQueueEmpty(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	now := time.Now().UTC()
+	lockedAt := now.Add(-(jobs.DefaultLeaseTimeout + time.Minute))
+	lockedBy := "worker-a"
+	job := models.Job{
+		ID:          uuid.New(),
+		Kind:        jobs.KindGPXImportParse,
+		Status:      jobs.StatusRunning,
+		PayloadJSON: json.RawMessage(`{}`),
+		Attempts:    jobs.DefaultMaxAttempts,
+		MaxAttempts: jobs.DefaultMaxAttempts,
+		RunAfter:    now.Add(-time.Minute),
+		LockedBy:    &lockedBy,
+		LockedAt:    &lockedAt,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := db.Create(&job).Error; err != nil {
+		t.Fatalf("create expired job: %v", err)
+	}
+
+	service := jobs.NewService(db, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	if _, err := service.ClaimNext("worker-b"); !errors.Is(err, jobs.ErrNoJobAvailable) {
+		t.Fatalf("claim empty queue error = %v, want %v", err, jobs.ErrNoJobAvailable)
+	}
+
+	var recovered models.Job
+	if err := db.First(&recovered, "id = ?", job.ID).Error; err != nil {
+		t.Fatalf("reload expired job: %v", err)
+	}
+	if recovered.Status != jobs.StatusFailed {
+		t.Fatalf("expired final job status = %q, want failed", recovered.Status)
+	}
+	if recovered.LockedBy != nil || recovered.LockedAt != nil || recovered.FinishedAt == nil {
+		t.Fatalf("expired final job lease fields = locked_by %v locked_at %v finished_at %v", recovered.LockedBy, recovered.LockedAt, recovered.FinishedAt)
+	}
+	if recovered.ErrorMessage == nil || *recovered.ErrorMessage != "worker lease expired" {
+		t.Fatalf("expired final job error = %v, want worker lease expired", recovered.ErrorMessage)
+	}
+}
+
 func TestIntegrationSleepEndpoints(t *testing.T) {
 	db := openIntegrationDB(t)
 	resetIntegrationDB(t, db)

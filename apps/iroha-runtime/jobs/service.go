@@ -185,6 +185,7 @@ func (s *Service) ClaimNext(workerID string) (models.Job, error) {
 
 	now := time.Now().UTC()
 	var job models.Job
+	noJobAvailable := false
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := recoverExpiredJobs(tx, now); err != nil {
 			return err
@@ -213,12 +214,15 @@ func (s *Service) ClaimNext(workerID string) (models.Job, error) {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			return ErrNoJobAvailable
+			noJobAvailable = true
 		}
 		return nil
 	})
 	if err != nil {
 		return models.Job{}, err
+	}
+	if noJobAvailable {
+		return models.Job{}, ErrNoJobAvailable
 	}
 	return job, nil
 }
