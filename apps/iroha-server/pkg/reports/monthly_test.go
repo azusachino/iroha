@@ -54,6 +54,22 @@ func TestMonthlySeriesCompletenessUsesCanonicalPeriodBoundary(t *testing.T) {
 	}
 }
 
+func TestPeriodStatusDoesNotTurnCalendarClosureIntoCollectionProof(t *testing.T) {
+	period, err := ParseMonth("2026-08", "Asia/Tokyo")
+	if err != nil {
+		t.Fatalf("parse period: %v", err)
+	}
+	if got := calendarCompleteness(period.Wire(), time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC), period.Timezone); got != CompletenessComplete {
+		t.Fatalf("calendar completeness = %q", got)
+	}
+	if got := observationState(nil, &MovementData{}); got != "observed" {
+		t.Fatalf("observation state = %q", got)
+	}
+	if got := (PeriodStatus{CalendarCompleteness: CompletenessComplete, ObservationState: "observed", CollectionCompleteness: "unknown"}).CollectionCompleteness; got != "unknown" {
+		t.Fatalf("collection completeness = %q", got)
+	}
+}
+
 func TestMonthlyDailyHealthTrendPreservesMetricAverages(t *testing.T) {
 	report := MonthlyReport{}
 	if got := monthlyDailyHealthTrend(report); got != nil {

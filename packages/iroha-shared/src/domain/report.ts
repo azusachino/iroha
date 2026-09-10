@@ -126,6 +126,7 @@ export interface MonthlyReport {
     timezone: string;
   };
   generated_at: string;
+  status: ReportStatus;
   sections: {
     movement: ReportSection<MovementReportData>;
     sleep: ReportSection<SleepReportData>;
@@ -135,9 +136,16 @@ export interface MonthlyReport {
   };
 }
 
+export interface ReportStatus {
+  calendar_completeness: "complete" | "partial";
+  observation_state: "empty" | "observed";
+  collection_completeness: "unknown" | "partial" | "covered" | "covered_empty";
+}
+
 export interface MonthlyReportSeriesPoint {
   month: string;
   completeness: "complete" | "partial";
+  collection_completeness: "unknown" | "partial" | "covered" | "covered_empty";
   movement: { distance_m: number } | null;
   sleep: { average_asleep_s: number } | null;
   daily_health: DailyHealthReportData | null;

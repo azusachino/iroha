@@ -42,6 +42,8 @@ export interface MetricSeriesResponse {
     coverage: {
       expected_periods: number;
       observed_periods: number;
+      observation_state: "empty" | "partial" | "observed";
+      collection_completeness: "unknown" | "partial" | "covered" | "covered_empty";
     };
     source: {
       kind: string;

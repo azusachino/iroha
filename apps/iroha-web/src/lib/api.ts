@@ -48,6 +48,7 @@ import type {
   MonthlyReport,
   MonthlyReportSeries,
   MonthlyReportSeriesPoint,
+  ReportStatus,
   ReportSection,
   SleepReportData,
 } from "@iroha/shared/domain/report";
@@ -122,6 +123,7 @@ export type {
   MonthlyReport,
   MonthlyReportSeries,
   MonthlyReportSeriesPoint,
+  ReportStatus,
   ReportSection,
   SleepReportData,
 } from "@iroha/shared/domain/report";
@@ -215,6 +217,12 @@ export interface BriefingSection<T = unknown> {
   key: string;
   schema: string;
   state: "ready" | "empty" | "unavailable";
+  status: {
+    availability: "supported" | "unsupported" | "disabled";
+    collection: "unknown" | "partial" | "covered" | "covered_empty";
+    operation: "fetching" | "importing" | "idle" | "failed";
+    freshness: "within_cadence" | "overdue" | "not_scheduled" | "unknown";
+  };
   data: T;
 }
 

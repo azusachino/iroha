@@ -467,14 +467,25 @@ func dimensionSeries(points []metrics.Point, sourceKinds []string, definition me
 	return metrics.DimensionSeries{
 		Points: points,
 		Coverage: metrics.Coverage{
-			ExpectedPeriods: len(points),
-			ObservedPeriods: observedPeriods,
+			ExpectedPeriods: len(points), ObservedPeriods: observedPeriods,
+			ObservationState: observationState(observedPeriods, len(points)), CollectionCompleteness: "unknown",
 		},
 		Source: metrics.Source{
 			Kind:        definition.Kind,
 			Method:      definition.AggregationVersion,
 			SourceKinds: sourceKinds,
 		},
+	}
+}
+
+func observationState(observed, expected int) string {
+	switch {
+	case observed == 0:
+		return "empty"
+	case observed < expected:
+		return "partial"
+	default:
+		return "observed"
 	}
 }
 

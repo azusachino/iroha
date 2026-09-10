@@ -120,6 +120,9 @@ func TestSeriesRollsDailyStepsIntoCompleteMonthlyPoints(t *testing.T) {
 	if series.Series[0].Coverage.ExpectedPeriods != 2 || series.Series[0].Coverage.ObservedPeriods != 1 {
 		t.Fatalf("coverage = %+v", series.Series[0].Coverage)
 	}
+	if series.Series[0].Coverage.ObservationState != "partial" || series.Series[0].Coverage.CollectionCompleteness != "unknown" {
+		t.Fatalf("status coverage = %+v", series.Series[0].Coverage)
+	}
 }
 
 func TestSeriesExpandsActivitySportDimensions(t *testing.T) {

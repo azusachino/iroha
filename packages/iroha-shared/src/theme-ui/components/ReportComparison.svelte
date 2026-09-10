@@ -22,9 +22,14 @@
   const categories = $derived(
     points.map((point) => formatCanonicalMonth(point.month)),
   );
-  const partialMonths = $derived(
+  const calendarOpenMonths = $derived(
     points
       .filter((point) => point.completeness === "partial")
+      .map((point) => formatCanonicalMonth(point.month)),
+  );
+  const collectionUnknownMonths = $derived(
+    points
+      .filter((point) => point.collection_completeness === "unknown")
       .map((point) => formatCanonicalMonth(point.month)),
   );
 
@@ -139,8 +144,9 @@
       <p class="eyebrow">Canonical comparison · twelve months</p>
       <h2 id="report-comparison-title">Twelve-month trends</h2>
       <p class="description">
-        Monthly points are aggregated by the server. Months with no canonical
-        records stay out of the plot; partial months remain marked as partial.
+        Monthly points are aggregated by the server. Calendar closure and
+        source coverage are separate; months with no canonical records stay
+        out of the plot.
       </p>
     </div>
     {#if series}<span class="period-range"
@@ -149,10 +155,17 @@
       >{/if}
   </header>
 
-  {#if partialMonths.length}
+  {#if calendarOpenMonths.length}
     <p class="coverage-note">
-      Partial observation: {partialMonths.join(", ")}. No annualization is
-      applied.
+      Calendar still open: {calendarOpenMonths.join(", ")}. No annualization
+      is applied.
+    </p>
+  {/if}
+
+  {#if collectionUnknownMonths.length}
+    <p class="coverage-note">
+      Source coverage is not asserted for: {collectionUnknownMonths.join(", ")}.
+      Observed records are shown without claiming a complete collection.
     </p>
   {/if}
 

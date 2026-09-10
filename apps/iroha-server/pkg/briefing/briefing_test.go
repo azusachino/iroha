@@ -54,6 +54,9 @@ func TestRegistryBuildsOrderedSectionsAndIsolatesErrors(t *testing.T) {
 	if response.Sections[2].State != StateEmpty {
 		t.Fatalf("empty state = %q", response.Sections[2].State)
 	}
+	if response.Sections[0].Status.Collection != "unknown" || response.Sections[1].Status.Operation != "failed" {
+		t.Fatalf("source status = %+v", response.Sections)
+	}
 }
 
 func TestRegistryRejectsDuplicateKeys(t *testing.T) {

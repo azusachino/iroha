@@ -87,6 +87,8 @@ POST /api/v1/imports
 Queue execution is lease-based: abandoned running jobs are reclaimed after the worker lease timeout, and retryable provider errors may supply their own `Retry-After` delay. Connector sync cursors are
 checkpointed per snapshot and are retained when a page fails, so a retry resumes from the failed page.
 
+Read contracts keep status dimensions separate. Briefing sections expose `availability`, `collection`, `operation`, and `freshness`; metric series expose observation coverage separately from `collection_completeness`; monthly reports expose calendar closure, canonical observation state, and collection completeness. A closed calendar period is not evidence that the source covered it, so collection remains `unknown` until a source-scoped assertion is available.
+
 ### Normalized expense statements
 
 Monthly bank/card data uses a deliberately small normalized CSV contract rather than a provider-specific parser:

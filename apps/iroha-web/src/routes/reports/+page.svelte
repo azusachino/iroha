@@ -92,6 +92,11 @@
         timezone: IROHA_TIMEZONE,
       },
       generated_at: "",
+      status: {
+        calendar_completeness: "partial",
+        observation_state: "empty",
+        collection_completeness: "unknown",
+      },
       sections: {
         movement: emptySection("loading"),
         sleep: emptySection("loading"),

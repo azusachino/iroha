@@ -2,6 +2,7 @@ package reports
 
 import (
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
@@ -64,8 +65,14 @@ func GenerateMonthly(month, timezone string, services Services, generatedAt time
 		return MonthlyReport{}, err
 	}
 
+	status := PeriodStatus{
+		CalendarCompleteness:   calendarCompleteness(period.Wire(), generatedAt, period.Timezone),
+		ObservationState:       observationState(movement, sleepData, dailyHealth, mediaData, expenseData),
+		CollectionCompleteness: "unknown",
+	}
 	return MonthlyReport{
 		Schema: MonthlyReportSchema, Period: period.Wire(), GeneratedAt: generatedAt.UTC(),
+		Status: status,
 		Sections: ReportSections{
 			Movement: NewSection(MovementSchema, movement), Sleep: NewSection(SleepSchema, sleepData),
 			DailyHealth: NewSection(DailyHealthSchema, dailyHealth), Media: NewSection(MediaSchema, mediaData),
@@ -121,13 +128,14 @@ func GenerateMonthlySeries(endMonth, timezone string, months int, services Servi
 			series.CurrentReport = &report
 		}
 		series.Reports = append(series.Reports, MonthlyReportSeriesPoint{
-			Month:        periodMonth,
-			Completeness: monthCompleteness(report.Period, generatedAt, location),
-			Movement:     monthlyMovementTrend(report),
-			Sleep:        monthlySleepTrend(report),
-			DailyHealth:  monthlyDailyHealthTrend(report),
-			Media:        monthlyMediaTrend(report),
-			Expenses:     monthlyExpensesTrend(report),
+			Month:                  periodMonth,
+			Completeness:           monthCompleteness(report.Period, generatedAt, location),
+			CollectionCompleteness: report.Status.CollectionCompleteness,
+			Movement:               monthlyMovementTrend(report),
+			Sleep:                  monthlySleepTrend(report),
+			DailyHealth:            monthlyDailyHealthTrend(report),
+			Media:                  monthlyMediaTrend(report),
+			Expenses:               monthlyExpensesTrend(report),
 		})
 	}
 	return series, nil
@@ -183,9 +191,33 @@ func reportHasData(report MonthlyReport) bool {
 }
 
 func monthCompleteness(period ReportMonth, generatedAt time.Time, location *time.Location) string {
+	return calendarCompleteness(period, generatedAt, location.String())
+}
+
+func calendarCompleteness(period ReportMonth, generatedAt time.Time, timezone string) string {
+	location, err := LoadTimezone(timezone)
+	if err != nil {
+		return CompletenessPartial
+	}
 	to, err := time.ParseInLocation("2006-01-02", period.To, location)
 	if err != nil || generatedAt.In(location).Before(to) {
 		return CompletenessPartial
 	}
 	return CompletenessComplete
+}
+
+func observationState(values ...any) string {
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		candidate := reflect.ValueOf(value)
+		if (candidate.Kind() == reflect.Pointer || candidate.Kind() == reflect.Interface) && candidate.IsNil() {
+			continue
+		}
+		if candidate.IsValid() {
+			return "observed"
+		}
+	}
+	return "empty"
 }

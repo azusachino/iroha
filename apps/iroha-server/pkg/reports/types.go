@@ -17,6 +17,7 @@ type MonthlyReport struct {
 	Schema      string         `json:"schema"`
 	Period      ReportMonth    `json:"period"`
 	GeneratedAt time.Time      `json:"generated_at"`
+	Status      PeriodStatus   `json:"status"`
 	Sections    ReportSections `json:"sections"`
 }
 
@@ -33,13 +34,23 @@ type MonthlyReportSeries struct {
 }
 
 type MonthlyReportSeriesPoint struct {
-	Month        string                         `json:"month"`
-	Completeness string                         `json:"completeness"`
-	Movement     *MonthlyReportMovementTrend    `json:"movement"`
-	Sleep        *MonthlyReportSleepTrend       `json:"sleep"`
-	DailyHealth  *MonthlyReportDailyHealthTrend `json:"daily_health"`
-	Media        *MonthlyReportMediaTrend       `json:"media"`
-	Expenses     *MonthlyReportExpensesTrend    `json:"expenses"`
+	Month                  string                         `json:"month"`
+	Completeness           string                         `json:"completeness"` // calendar completeness retained for v1 clients
+	CollectionCompleteness string                         `json:"collection_completeness"`
+	Movement               *MonthlyReportMovementTrend    `json:"movement"`
+	Sleep                  *MonthlyReportSleepTrend       `json:"sleep"`
+	DailyHealth            *MonthlyReportDailyHealthTrend `json:"daily_health"`
+	Media                  *MonthlyReportMediaTrend       `json:"media"`
+	Expenses               *MonthlyReportExpensesTrend    `json:"expenses"`
+}
+
+// PeriodStatus keeps calendar closure separate from what the source actually
+// proved. Collection is unknown until a source-specific coverage assertion is
+// available; observation is derived only from canonical records in this read.
+type PeriodStatus struct {
+	CalendarCompleteness   string `json:"calendar_completeness"`
+	ObservationState       string `json:"observation_state"`
+	CollectionCompleteness string `json:"collection_completeness"`
 }
 
 type MonthlyReportMovementTrend struct {
