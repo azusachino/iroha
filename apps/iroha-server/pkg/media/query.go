@@ -225,6 +225,14 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 			OriginalTitle: row.OriginalTitle, OriginalLanguage: row.OriginalLanguage,
 			FirstReleaseDate: row.FirstReleaseDate, Description: row.Description,
 		},
+		ExternalRefs: make([]ExternalRefDetail, 0),
+	}
+	if err := s.db.Table("tb_media_external_refs").
+		Select("provider, external_id, external_url, matched_by, confidence").
+		Where("scope_type = ? AND scope_id = ?", "item", id).
+		Order("provider, external_id").
+		Scan(&detail.ExternalRefs).Error; err != nil {
+		return Detail{}, false, err
 	}
 
 	var progress ProgressDetail

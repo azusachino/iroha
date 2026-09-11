@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -115,6 +116,31 @@ func TestClient_UsesBackendNamespaceContract(t *testing.T) {
 	}
 	if store.invalidated != "public_summary" {
 		t.Fatalf("invalidated namespace = %q, want public_summary", store.invalidated)
+	}
+}
+
+func TestKeyWithRevisionVector_IsStableAndSeparatesRevisions(t *testing.T) {
+	first := KeyWithRevisionVector("read", map[string]int64{
+		"read_metrics":    3,
+		"read_activities": 7,
+	})
+	second := KeyWithRevisionVector("read", map[string]int64{
+		"read_activities": 7,
+		"read_metrics":    3,
+	})
+	changed := KeyWithRevisionVector("read", map[string]int64{
+		"read_activities": 8,
+		"read_metrics":    3,
+	})
+
+	if first != second {
+		t.Fatalf("equivalent vectors produced different keys: %q/%q", first, second)
+	}
+	if first == changed {
+		t.Fatalf("changed vector reused key %q", first)
+	}
+	if strings.ContainsRune(first, '\x00') {
+		t.Fatalf("revision key contains PostgreSQL-incompatible NUL: %q", first)
 	}
 }
 

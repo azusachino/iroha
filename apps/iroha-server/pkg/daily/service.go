@@ -155,6 +155,14 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
 }
 
+// WithDB returns a read-only service view backed by db. Report assembly uses
+// this to bind all domain queries to one database snapshot.
+func (s *Service) WithDB(db *gorm.DB) *Service {
+	copy := *s
+	copy.db = db
+	return &copy
+}
+
 // Dates returns the canonical calendar days represented by any domain. Date
 // columns are already calendar values; timestamp columns are projected into
 // the caller's IANA timezone before their date is taken.

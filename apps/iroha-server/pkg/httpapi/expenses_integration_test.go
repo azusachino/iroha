@@ -97,6 +97,36 @@ func TestIntegrationExpenseEndpoints(t *testing.T) {
 	})
 }
 
+func TestIntegrationExpenseStatementEndpoints(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+	server := newIntegrationServer(t, db)
+	body := `{"manifest":{"account_key":"card-main","source_kind":"bank_csv","statement_ref":"aug-2026","period_from":"2026-08-01","period_to":"2026-09-01","completeness":"complete","revision":1},"csv":"transaction_id,occurred_on,currency,amount_minor,kind,category,merchant\ntx-1,2026-08-02,JPY,1200,expense,food,Cafe\n"}`
+
+	requestJSON(t, server, http.MethodPost, "/api/v1/expenses/statements/preview", body, http.StatusOK, func(response map[string]any) {
+		if response["valid"] != true || response["row_count"] != float64(1) {
+			t.Fatalf("statement preview = %#v", response)
+		}
+	})
+	requestJSON(t, server, http.MethodPost, "/api/v1/expenses/statements", body, http.StatusCreated, func(response map[string]any) {
+		if response["created"] != true || response["idempotent"] != false || response["changed"] != float64(1) {
+			t.Fatalf("statement import = %#v", response)
+		}
+		statement := response["statement"].(map[string]any)
+		if statement["account_key"] != "card-main" || statement["revision"] != float64(1) {
+			t.Fatalf("statement response = %#v", statement)
+		}
+	})
+	requestJSON(t, server, http.MethodPost, "/api/v1/expenses/statements", body, http.StatusOK, func(response map[string]any) {
+		if response["idempotent"] != true || response["changed"] != float64(0) {
+			t.Fatalf("statement replay = %#v", response)
+		}
+	})
+	invalid := strings.Replace(body, "expense,food", "transfer,food", 1)
+	requestJSON(t, server, http.MethodPost, "/api/v1/expenses/statements", invalid, http.StatusBadRequest, nil)
+}
+
 func TestExpensePeriodReportIntegration(t *testing.T) {
 	db := openIntegrationDB(t)
 	resetIntegrationDB(t, db)
@@ -134,13 +164,13 @@ func TestExpensePeriodReportIntegration(t *testing.T) {
 	if result.ExpenseCount != 4 || len(result.TotalsByCurrency) != 2 || len(result.ByCategory) != 3 {
 		t.Fatalf("result = %+v", result)
 	}
-	if result.TotalsByCurrency[0].Currency != "JPY" || result.TotalsByCurrency[0].AmountMinor != 1800 || result.TotalsByCurrency[0].ExpenseCount != 2 {
+	if result.TotalsByCurrency[0].Currency != "JPY" || result.TotalsByCurrency[0].NetAmountMinor != 1800 || result.TotalsByCurrency[0].PurchaseCount != 2 {
 		t.Fatalf("JPY total = %+v", result.TotalsByCurrency[0])
 	}
-	if result.TotalsByCurrency[1].Currency != "USD" || result.TotalsByCurrency[1].AmountMinor != 3500 || result.TotalsByCurrency[1].ExpenseCount != 2 {
+	if result.TotalsByCurrency[1].Currency != "USD" || result.TotalsByCurrency[1].NetAmountMinor != 3500 || result.TotalsByCurrency[1].PurchaseCount != 2 {
 		t.Fatalf("USD total = %+v", result.TotalsByCurrency[1])
 	}
-	if result.ByCategory[0].Category != "food" || result.ByCategory[0].Currency != "JPY" || result.ByCategory[0].AmountMinor != 1800 || result.ByCategory[1].Category != "food" || result.ByCategory[1].Currency != "USD" || result.ByCategory[2].Category != "transport" {
+	if result.ByCategory[0].Category != "food" || result.ByCategory[0].Currency != "JPY" || result.ByCategory[0].NetAmountMinor != 1800 || result.ByCategory[1].Category != "food" || result.ByCategory[1].Currency != "USD" || result.ByCategory[2].Category != "transport" {
 		t.Fatalf("category totals = %+v", result.ByCategory)
 	}
 }

@@ -1,0 +1,2 @@
+drop index idx_tb_media_matching_decisions_lookup;
+drop table tb_media_matching_decisions;

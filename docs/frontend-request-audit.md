@@ -51,7 +51,7 @@ OpenStreetMap tiles for one map, and the remainder were static assets. A higher 
 | `/metrics`      |    46 |   3 |         0 | metric catalog twice (route + command palette), one metric series                                                                                                    |
 | `/admin`        |    43 |   3 |         0 | metric catalog twice (route + command palette), one jobs page                                                                                                        |
 | `/manual`       |    38 |   1 |         0 | global metric-catalog fetch only                                                                                                                                     |
-| `/to-go`        |    45 |   4 |         0 | tasks, top-level sync jobs, media resolution tasks, plus the global metric-catalog fetch                                                                             |
+| `/to-go`        |    45 |   3 |         0 | tasks, top-level sync jobs, plus the global metric-catalog fetch                                                                                                     |
 | `/design`       |    39 |   2 |         0 | briefing plus the global metric-catalog fetch                                                                                                                        |
 | `/motion/[id]`  |    94 |   5 |        43 | activity, route, heart-rate samples, laps, plus the global metric-catalog fetch; 43 tiles are one map                                                                |
 | `/night/[id]`   |    47 |   3 |         0 | sleep detail, stage segments, plus the global metric-catalog fetch                                                                                                   |
@@ -158,7 +158,7 @@ For a local frontend, run `make web-dev` first and point the same command at `ht
 | `/metrics`  |                    2 | metric catalog, selected metric series                                    |
 | `/admin`    |                    2 | metric catalog, jobs                                                      |
 | `/manual`   |                    0 | static manual content                                                     |
-| `/to-go`    |                    3 | personal tasks, top-level sync jobs, open resolution tasks                |
+| `/to-go`    |                    2 | personal tasks, top-level sync jobs                                         |
 
 ## Read cache boundary
 

@@ -1,0 +1,19 @@
+alter table tb_daily_metrics drop constraint if exists tb_daily_metrics_unit_check;
+alter table tb_daily_metric_observations drop constraint if exists tb_daily_metric_observations_unit_check;
+alter table tb_daily_metrics drop constraint if exists fk_tb_daily_metrics_selected_observation_owner;
+alter table tb_daily_metric_observations drop constraint if exists uq_tb_daily_metric_observations_metric_id;
+alter table tb_daily_summaries drop constraint if exists fk_tb_daily_summaries_selected_observation_owner;
+alter table tb_daily_summary_observations drop constraint if exists uq_tb_daily_summary_observations_summary_id;
+alter table tb_sleep_session_observations drop constraint if exists fk_tb_sleep_session_observations_owner;
+alter table tb_sleep_sessions drop constraint if exists fk_tb_sleep_sessions_selected_observation_owner;
+alter table tb_sleep_observations drop constraint if exists uq_tb_sleep_observations_session_id;
+alter table tb_activities drop constraint if exists fk_tb_activities_selected_observation_owner;
+alter table tb_activity_observations drop constraint if exists uq_tb_activity_observations_activity_id;
+drop table if exists tb_source_observation_receipts;
+alter table tb_source_receipts drop constraint if exists uq_tb_source_receipts_instance_id;
+alter table tb_source_observations drop constraint if exists uq_tb_source_observations_instance_id;
+alter table tb_source_observations drop constraint if exists uq_tb_source_observations_instance_kind_key;
+alter table tb_source_observations
+  add constraint tb_source_observations_provider_source_kind_source_key_key
+  unique (provider, source_kind, source_key);
+alter table tb_source_observations drop column if exists source_instance_id;

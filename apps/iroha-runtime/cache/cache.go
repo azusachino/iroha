@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -35,6 +37,7 @@ const (
 	NamespaceMetrics          = "read_metrics"
 	NamespaceReports          = "read_reports"
 	NamespaceExpenses         = "read_expenses"
+	NamespaceCoverage         = "read_coverage"
 	NamespacePublicSummary    = "public_summary"
 	NamespacePublicActivities = "public_activities"
 	NamespacePublicRoutes     = "public_routes"
@@ -44,11 +47,45 @@ const (
 	ChangeExpense         ChangeKind = "expense"
 	ChangeMediaResolution ChangeKind = "media_resolution"
 	ChangeGeocode         ChangeKind = "geocode"
+	ChangeCoverage        ChangeKind = "coverage"
 )
 
 // ChangeKind identifies a canonical write whose dependent read namespaces
 // must be invalidated after the write commits.
 type ChangeKind string
+
+// KeyWithRevisionVector adds a captured primary-database revision vector to a
+// cache key. Callers should build this key before both cache lookup and
+// GetOrLoad so stale revisions cannot share either a response entry or a
+// singleflight.
+func KeyWithRevisionVector(key string, revisions map[string]int64) string {
+	if len(revisions) == 0 {
+		return key
+	}
+
+	names := make([]string, 0, len(revisions))
+	for name := range revisions {
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	if len(names) == 0 {
+		return key
+	}
+
+	var builder strings.Builder
+	builder.WriteString(key)
+	for _, name := range names {
+		// Cache keys may be persisted in PostgreSQL text columns. Keep the
+		// revision delimiter printable; PostgreSQL rejects NUL bytes in text.
+		builder.WriteString("|revision:")
+		builder.WriteString(name)
+		builder.WriteByte('=')
+		builder.WriteString(strconv.FormatInt(revisions[name], 10))
+	}
+	return builder.String()
+}
 
 var changeNamespaces = map[ChangeKind][]string{
 	ChangeImport: {
@@ -82,6 +119,12 @@ var changeNamespaces = map[ChangeKind][]string{
 	ChangeGeocode: {
 		NamespaceActivities,
 		NamespacePublicRoutes,
+	},
+	ChangeCoverage: {
+		NamespaceCoverage,
+		NamespaceBriefing,
+		NamespaceMetrics,
+		NamespaceReports,
 	},
 }
 

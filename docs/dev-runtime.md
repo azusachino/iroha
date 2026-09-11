@@ -16,7 +16,7 @@ Use the checked-in `.mise.toml` to install the project tools:
 mise install
 ```
 
-The config pins Go, Python, uv, Goose, golangci-lint, Node, Bun, and Prettier. Podman and its machine remain host prerequisites because they are the container runtime, not project tools. Database
+The config pins Go, Python, uv, SQLx CLI, golangci-lint, Bun, and the other project tools selected in `.mise.toml`. Podman and its machine remain host prerequisites because they are the container runtime, not project tools. Database
 readiness is checked with `pg_isready` inside the PostGIS container, so a separate host PostgreSQL installation is not required.
 
 Make automatically uses `mise exec --`, so the normal workflow stays unchanged:
@@ -262,7 +262,7 @@ apps/iroha-server/db/migrations/
 Preferred CLI:
 
 ```text
-Goose
+SQLx CLI 0.9
 ```
 
 The CLI comes from mise for both local development and CI. A `uv` script wraps common operations:
@@ -275,9 +275,11 @@ uv run python scripts/db.py status
 
 The wrapper should read `DATABASE_URL` and pass it to the migration CLI. It should not contain schema logic.
 
-`apply` maps to migration-tool `up`: apply pending schema changes.
+`apply` maps to `sqlx migrate run`: apply pending schema changes.
 
-`rollback` maps to migration-tool `down`: revert the most recent schema change when that is safe during development.
+`rollback` maps to `sqlx migrate revert`: revert the most recent schema change when that is safe during development.
+
+Migrations use paired `<version>_<description>.up.sql` and `.down.sql` files. SQLx records applied versions in `_sqlx_migrations`.
 
 ## Configuration
 

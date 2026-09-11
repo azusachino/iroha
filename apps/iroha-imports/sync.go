@@ -47,47 +47,67 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 	if err != nil {
 		return err
 	}
+	run, err := s.beginSyncRun(connectorID)
+	if err != nil {
+		return err
+	}
 	cursor, err := decodeCursor(state.CursorJSON)
 	if err != nil {
+		_ = s.failSyncRun(run.ID, err)
 		return s.failSyncState(state, err, nil)
 	}
+	fail := func(cause error) error {
+		if runErr := s.failSyncRun(run.ID, cause); runErr != nil {
+			return runErr
+		}
+		return s.failSyncState(state, cause, cursor)
+	}
 	if err := s.updateSyncState(state, mediaSyncStatusRunning, nil, cursor, false); err != nil {
+		_ = s.failSyncRun(run.ID, err)
 		return err
 	}
 
 	for {
 		snapshot, nextCursor, fetchErr := item.Fetch(ctx, credentials, cursor)
 		if fetchErr != nil {
-			return s.failSyncState(state, fetchErr, cursor)
+			return fail(fetchErr)
 		}
 		if snapshot.SourceKind == "" {
 			snapshot.SourceKind = item.Descriptor().SourceKind
 		}
 		if snapshot.SourceKind != item.Descriptor().SourceKind {
-			return s.failSyncState(state, fmt.Errorf("connector %q returned source kind %q, want %q", connectorID, snapshot.SourceKind, item.Descriptor().SourceKind), cursor)
+			return fail(fmt.Errorf("connector %q returned source kind %q, want %q", connectorID, snapshot.SourceKind, item.Descriptor().SourceKind))
 		}
 		if snapshot.Filename == "" {
 			snapshot.Filename = connectorID + ".json"
 		}
 		rawFile, err := s.snapshots.StoreSnapshot(ctx, snapshot)
 		if err != nil {
-			return s.failSyncState(state, err, cursor)
+			return fail(err)
 		}
 		if _, err := s.imports.Create(CreateInput{
 			RawFileID:  ids.Encode(ids.RawFilePrefix, rawFile.ID),
 			ParserKind: snapshot.SourceKind,
+			SyncRunID:  &run.ID,
 		}); err != nil {
-			return s.failSyncState(state, err, cursor)
+			return fail(err)
+		}
+		if err := s.touchSyncRun(run.ID); err != nil {
+			return fail(err)
 		}
 
 		if err := s.updateSyncState(state, mediaSyncStatusRunning, nil, nextCursor, true); err != nil {
-			return err
+			return fail(err)
 		}
 		if nextCursor == nil {
 			if resumable, ok := item.(connector.ResumeCursorProvider); ok {
 				nextCursor = resumable.ResumeCursor()
 			}
-			return s.updateSyncState(state, mediaSyncStatusCompleted, nil, nextCursor, true)
+			if err := s.updateSyncState(state, mediaSyncStatusCompleted, nil, nextCursor, true); err != nil {
+				_ = s.failSyncRun(run.ID, err)
+				return err
+			}
+			return s.completeSyncRun(run.ID)
 		}
 		cursor = nextCursor
 	}

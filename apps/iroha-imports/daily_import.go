@@ -45,32 +45,18 @@ func dailyMetricContentHash(metric observations.DailyMetric) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, snapshotID uuid.UUID) error {
+func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, snapshotID uuid.UUID, reprocess bool) error {
 	sourceKey := dailySummarySourceKey(summary)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed daily summary missing source key")
 	}
-	contentHash := dailySummaryContentHash(summary)
-
-	var existing models.AppleSourceItem
-	res := tx.Limit(1).Find(&existing, "source_key = ?", sourceKey)
-	if res.Error != nil {
-		return res.Error
-	}
-	found := res.RowsAffected > 0
-	if found && existing.ItemType != appleSourceItemTypeDailySummary {
-		return fmt.Errorf("source key %q already belongs to item type %q", sourceKey, existing.ItemType)
-	}
-	if found && existing.ContentHash == contentHash {
-		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"last_seen_snapshot_id": snapshotID,
-			"updated_at":            time.Now().UTC(),
-		}).Error
-	}
-
 	summaryID := uuid.Nil
-	if found && existing.DailySummaryID != nil {
-		summaryID = *existing.DailySummaryID
+	var existing models.DailySummary
+	result := tx.Where("day = ?", summary.Day).First(&existing)
+	if result.Error == nil {
+		summaryID = existing.ID
+	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return result.Error
 	}
 	if summaryID == uuid.Nil {
 		var err error
@@ -82,32 +68,10 @@ func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summa
 	if err := upsertDailySummary(tx, rawFile, summaryID, summary); err != nil {
 		return err
 	}
-	if err := s.persistDailySummaryObservation(tx, rawFile, summary, summaryID, snapshotID); err != nil {
+	if err := s.persistDailySummaryObservation(tx, rawFile, summary, summaryID, snapshotID, reprocess); err != nil {
 		return err
 	}
-	now := time.Now().UTC()
-	if found {
-		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"content_hash":          contentHash,
-			"daily_summary_id":      summaryID,
-			"last_seen_snapshot_id": snapshotID,
-			"updated_at":            now,
-		}).Error
-	}
-	itemID, err := ids.New()
-	if err != nil {
-		return err
-	}
-	return tx.Create(&models.AppleSourceItem{
-		ID:                 itemID,
-		SourceKey:          sourceKey,
-		ItemType:           appleSourceItemTypeDailySummary,
-		ContentHash:        contentHash,
-		DailySummaryID:     &summaryID,
-		LastSeenSnapshotID: &snapshotID,
-		CreatedAt:          now,
-		UpdatedAt:          now,
-	}).Error
+	return nil
 }
 
 func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID, parsed observations.DailySummary) error {
@@ -145,7 +109,7 @@ func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID
 	}).Error
 }
 
-func (s *Service) persistDailySummaryObservation(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, summaryID, snapshotID uuid.UUID) error {
+func (s *Service) persistDailySummaryObservation(tx *gorm.DB, rawFile models.RawFile, summary observations.DailySummary, summaryID, snapshotID uuid.UUID, reprocess bool) error {
 	observationID, err := upsertSourceObservation(tx, rawFile, "daily_summary", "apple_health", dailySummarySourceKey(summary), dailySummaryContentHash(summary), snapshotID)
 	if err != nil {
 		return err
@@ -166,35 +130,28 @@ func (s *Service) persistDailySummaryObservation(tx *gorm.DB, rawFile models.Raw
 	}).Error; err != nil {
 		return err
 	}
-	return tx.Model(&models.DailySummary{}).Where("id = ?", summaryID).Update("selected_observation_id", observationID).Error
+	selected, err := selectImportedObservation(tx, "tb_daily_summaries", summaryID, observationID, reprocess)
+	if err != nil {
+		return err
+	}
+	if !selected {
+		return restoreSelectedDailySummary(tx, summaryID)
+	}
+	return nil
 }
 
-func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, snapshotID uuid.UUID) error {
+func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, snapshotID uuid.UUID, reprocess bool) error {
 	sourceKey := dailyMetricSourceKey(metric)
 	if sourceKey == "" {
 		return fmt.Errorf("parsed daily metric missing source key")
 	}
-	contentHash := dailyMetricContentHash(metric)
-
-	var existing models.AppleSourceItem
-	res := tx.Limit(1).Find(&existing, "source_key = ?", sourceKey)
-	if res.Error != nil {
-		return res.Error
-	}
-	found := res.RowsAffected > 0
-	if found && existing.ItemType != appleSourceItemTypeDailyMetric {
-		return fmt.Errorf("source key %q already belongs to item type %q", sourceKey, existing.ItemType)
-	}
-	if found && existing.ContentHash == contentHash {
-		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"last_seen_snapshot_id": snapshotID,
-			"updated_at":            time.Now().UTC(),
-		}).Error
-	}
-
 	metricID := uuid.Nil
-	if found && existing.DailyMetricID != nil {
-		metricID = *existing.DailyMetricID
+	var existing models.DailyMetric
+	result := tx.Where("day = ? and metric = ?", metric.Day, metric.Metric).First(&existing)
+	if result.Error == nil {
+		metricID = existing.ID
+	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return result.Error
 	}
 	if metricID == uuid.Nil {
 		var err error
@@ -206,32 +163,10 @@ func (s *Service) persistDailyMetric(tx *gorm.DB, rawFile models.RawFile, metric
 	if err := upsertDailyMetric(tx, rawFile, metricID, metric); err != nil {
 		return err
 	}
-	if err := s.persistDailyMetricObservation(tx, rawFile, metric, metricID, snapshotID); err != nil {
+	if err := s.persistDailyMetricObservation(tx, rawFile, metric, metricID, snapshotID, reprocess); err != nil {
 		return err
 	}
-	now := time.Now().UTC()
-	if found {
-		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"content_hash":          contentHash,
-			"daily_metric_id":       metricID,
-			"last_seen_snapshot_id": snapshotID,
-			"updated_at":            now,
-		}).Error
-	}
-	itemID, err := ids.New()
-	if err != nil {
-		return err
-	}
-	return tx.Create(&models.AppleSourceItem{
-		ID:                 itemID,
-		SourceKey:          sourceKey,
-		ItemType:           appleSourceItemTypeDailyMetric,
-		ContentHash:        contentHash,
-		DailyMetricID:      &metricID,
-		LastSeenSnapshotID: &snapshotID,
-		CreatedAt:          now,
-		UpdatedAt:          now,
-	}).Error
+	return nil
 }
 
 func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, parsed observations.DailyMetric) error {
@@ -263,7 +198,7 @@ func upsertDailyMetric(tx *gorm.DB, rawFile models.RawFile, metricID uuid.UUID, 
 	}).Error
 }
 
-func (s *Service) persistDailyMetricObservation(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, metricID, snapshotID uuid.UUID) error {
+func (s *Service) persistDailyMetricObservation(tx *gorm.DB, rawFile models.RawFile, metric observations.DailyMetric, metricID, snapshotID uuid.UUID, reprocess bool) error {
 	observationID, err := upsertSourceObservation(tx, rawFile, "daily_metric", "apple_health", dailyMetricSourceKey(metric), dailyMetricContentHash(metric), snapshotID)
 	if err != nil {
 		return err
@@ -283,5 +218,12 @@ func (s *Service) persistDailyMetricObservation(tx *gorm.DB, rawFile models.RawF
 	}).Error; err != nil {
 		return err
 	}
-	return tx.Model(&models.DailyMetric{}).Where("id = ?", metricID).Update("selected_observation_id", observationID).Error
+	selected, err := selectImportedObservation(tx, "tb_daily_metrics", metricID, observationID, reprocess)
+	if err != nil {
+		return err
+	}
+	if !selected {
+		return restoreSelectedDailyMetric(tx, metricID)
+	}
+	return nil
 }

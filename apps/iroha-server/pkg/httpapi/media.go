@@ -43,13 +43,14 @@ type mediaResponse struct {
 }
 
 type mediaDetailResponse struct {
-	Item      mediaResponse           `json:"item"`
-	Work      mediaWorkResponse       `json:"work"`
-	Progress  *mediaProgressResponse  `json:"progress,omitempty"`
-	Creators  []mediaCreatorResponse  `json:"creators"`
-	Relations []mediaRelationResponse `json:"relations"`
-	Events    []mediaEventResponse    `json:"events"`
-	Updates   []mediaChangeResponse   `json:"updates"`
+	Item         mediaResponse              `json:"item"`
+	Work         mediaWorkResponse          `json:"work"`
+	Progress     *mediaProgressResponse     `json:"progress,omitempty"`
+	ExternalRefs []mediaExternalRefResponse `json:"external_refs"`
+	Creators     []mediaCreatorResponse     `json:"creators"`
+	Relations    []mediaRelationResponse    `json:"relations"`
+	Events       []mediaEventResponse       `json:"events"`
+	Updates      []mediaChangeResponse      `json:"updates"`
 }
 
 type mediaWorkResponse struct {
@@ -64,6 +65,7 @@ type mediaWorkResponse struct {
 
 type mediaProgressResponse struct {
 	Status          string     `json:"status"`
+	SourceKind      string     `json:"source_kind,omitempty"`
 	Unit            string     `json:"unit"`
 	Position        *float64   `json:"position,omitempty"`
 	Total           *float64   `json:"total,omitempty"`
@@ -72,6 +74,14 @@ type mediaProgressResponse struct {
 	LastUpdateAt    *time.Time `json:"last_update_at,omitempty"`
 	CompletedOn     *string    `json:"completed_on,omitempty"`
 	PlayCount       int        `json:"play_count"`
+}
+
+type mediaExternalRefResponse struct {
+	Provider    string   `json:"provider"`
+	ExternalID  string   `json:"external_id"`
+	ExternalURL string   `json:"external_url,omitempty"`
+	MatchedBy   string   `json:"matched_by"`
+	Confidence  *float64 `json:"confidence,omitempty"`
 }
 
 type mediaCreatorResponse struct {
@@ -137,6 +147,8 @@ type mediaChangeResponse struct {
 	EffectiveOn        *string    `json:"effective_on,omitempty"`
 	DatePrecision      string     `json:"date_precision,omitempty"`
 	ProviderRecordedAt *time.Time `json:"provider_recorded_at,omitempty"`
+	SourceEventID      string     `json:"source_event_id,omitempty"`
+	RawFileID          string     `json:"raw_file_id,omitempty"`
 	Status             string     `json:"status,omitempty"`
 	Unit               string     `json:"unit,omitempty"`
 	Position           *float64   `json:"position,omitempty"`
@@ -351,6 +363,13 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 			ID: ids.Encode(ids.MediaPrefix, creator.ID), Name: creator.Name, Role: creator.Role,
 		})
 	}
+	externalRefs := make([]mediaExternalRefResponse, 0, len(detail.ExternalRefs))
+	for _, ref := range detail.ExternalRefs {
+		externalRefs = append(externalRefs, mediaExternalRefResponse{
+			Provider: ref.Provider, ExternalID: ref.ExternalID, ExternalURL: ref.ExternalURL,
+			MatchedBy: ref.MatchedBy, Confidence: ref.Confidence,
+		})
+	}
 	updates := make([]mediaChangeResponse, 0, len(detail.Updates))
 	for _, change := range detail.Updates {
 		updates = append(updates, toMediaChangeResponse(change))
@@ -358,7 +377,7 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 	var progress *mediaProgressResponse
 	if detail.Progress != nil {
 		progress = &mediaProgressResponse{
-			Status: detail.Progress.Status, Unit: detail.Progress.Unit,
+			Status: detail.Progress.Status, SourceKind: detail.Progress.SourceKind, Unit: detail.Progress.Unit,
 			Position: detail.Progress.Position, Total: detail.Progress.Total,
 			ProgressPercent: detail.Progress.ProgressPercent,
 			StartedOn:       partialDateString(detail.Progress.StartedOnValue, detail.Progress.StartedOnPrecision),
@@ -375,7 +394,8 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 			OriginalLanguage: detail.Work.OriginalLanguage, FirstReleaseDate: detail.Work.FirstReleaseDate,
 			Description: detail.Work.Description,
 		},
-		Progress: progress, Creators: creators, Relations: relations, Events: events, Updates: updates,
+		Progress: progress, ExternalRefs: externalRefs, Creators: creators, Relations: relations,
+		Events: events, Updates: updates,
 	})
 }
 
@@ -470,6 +490,10 @@ func toMediaResponse(row media.Item) mediaResponse {
 }
 
 func toMediaChangeResponse(change media.Change) mediaChangeResponse {
+	rawFileID := ""
+	if change.RawFileID != nil {
+		rawFileID = ids.Encode(ids.RawFilePrefix, *change.RawFileID)
+	}
 	return mediaChangeResponse{
 		ID: ids.Encode(ids.MediaChangePrefix, change.ID), MediaID: ids.Encode(ids.MediaPrefix, change.MediaItemID),
 		Title: change.Title, NativeTitle: change.NativeTitle, CoverImageURL: change.CoverImageURL,
@@ -477,6 +501,7 @@ func toMediaChangeResponse(change media.Change) mediaChangeResponse {
 		ObservedAt: change.ObservedAt, EffectiveAt: change.EffectiveAt,
 		EffectiveOn:   partialDateString(change.EffectiveOnValue, change.EffectiveOnPrecision),
 		DatePrecision: change.EffectiveOnPrecision, ProviderRecordedAt: change.ProviderRecordedAt,
+		SourceEventID: change.SourceEventID, RawFileID: rawFileID,
 		Status: change.Status, Unit: change.Unit, Position: change.Position, Total: change.Total,
 		ProgressPercent: change.ProgressPercent, Rating: normalizedRating(change.Rating, change.RatingScale),
 		Note: change.Note, RepeatCount: change.RepeatCount,

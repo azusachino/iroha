@@ -283,6 +283,8 @@ const emptyDailyRow: DailyRow = {
 
 const emptyExpense: Expense = {
   id: "expense",
+  account_key: "default",
+  kind: "expense",
   occurred_on: "2026-01-01",
   currency: "JPY",
   currency_exponent: 0,

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
@@ -14,218 +13,52 @@ import (
 	"gorm.io/gorm"
 )
 
-func (s *Service) persistActivities(rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		if reprocess {
-			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
-				return err
-			}
-		}
-
-		if err := tx.Create(&snapshot).Error; err != nil {
-			return err
-		}
-
-		for _, activity := range parsed {
-			if activity.ExternalID == "" {
-				return fmt.Errorf("parsed activity missing external id")
-			}
-
-			// Activities without a content hash (currently: everything but
-			// Apple Health workouts) keep the original always-upsert
-			// behavior; they don't participate in apple_source_items
-			// change-detection.
-			if activity.ContentHash == "" {
-				activityID, err := s.upsertActivity(tx, rawFile, activity)
-				if err != nil {
-					return err
-				}
-				if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
-					return err
-				}
-				if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshot.ID); err != nil {
-					return err
-				}
-				continue
-			}
-
-			if err := s.persistAppleWorkout(tx, rawFile, activity, snapshot.ID); err != nil {
-				return err
-			}
-		}
-		for _, session := range parsedSleep {
-			if err := s.persistSleepSession(tx, rawFile, session, snapshot.ID); err != nil {
-				return err
-			}
-		}
-		for _, summary := range parsedDailySummaries {
-			if err := s.persistDailySummary(tx, rawFile, summary, snapshot.ID); err != nil {
-				return err
-			}
-		}
-		for _, metric := range parsedDailyMetrics {
-			if err := s.persistDailyMetric(tx, rawFile, metric, snapshot.ID); err != nil {
-				return err
-			}
-		}
-		if rawFile.SourceKind == coreimports.KindAppleHealthExport {
-			if err := reconcileCompleteAppleSnapshot(tx, snapshot.ID); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-// reconcileCompleteAppleSnapshot removes source items that disappeared from
-// the latest complete Apple export. Raw files and import snapshots remain as
-// immutable evidence; only the current canonical projection is reconciled.
-// Source items are deleted before their derived rows because their foreign
-// keys use ON DELETE SET NULL and would otherwise erase the IDs needed for
-// cleanup.
-func reconcileCompleteAppleSnapshot(tx *gorm.DB, snapshotID uuid.UUID) error {
-	var stale []models.AppleSourceItem
-	if err := tx.Where("last_seen_snapshot_id is distinct from ?", snapshotID).Find(&stale).Error; err != nil {
+func (s *Service) persistActivitiesTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.Activity, parsedSleep []observations.Sleep, parsedDailySummaries []observations.DailySummary, parsedDailyMetrics []observations.DailyMetric, snapshot models.ImportSnapshot, reprocess bool) error {
+	if err := tx.Create(&snapshot).Error; err != nil {
 		return err
 	}
-	if len(stale) == 0 {
-		return nil
-	}
 
-	activityIDs := make([]uuid.UUID, 0, len(stale))
-	sleepIDs := make([]uuid.UUID, 0, len(stale))
-	dailySummaryIDs := make([]uuid.UUID, 0, len(stale))
-	dailyMetricIDs := make([]uuid.UUID, 0, len(stale))
-	itemIDs := make([]uuid.UUID, 0, len(stale))
-	for _, item := range stale {
-		itemIDs = append(itemIDs, item.ID)
-		if item.ActivityID != nil {
-			activityIDs = append(activityIDs, *item.ActivityID)
+	for _, activity := range parsed {
+		if activity.ExternalID == "" {
+			return fmt.Errorf("parsed activity missing external id")
 		}
-		if item.SleepSessionID != nil {
-			sleepIDs = append(sleepIDs, *item.SleepSessionID)
-		}
-		if item.DailySummaryID != nil {
-			dailySummaryIDs = append(dailySummaryIDs, *item.DailySummaryID)
-		}
-		if item.DailyMetricID != nil {
-			dailyMetricIDs = append(dailyMetricIDs, *item.DailyMetricID)
-		}
-	}
 
-	if err := tx.Where("id IN ?", itemIDs).Delete(&models.AppleSourceItem{}).Error; err != nil {
-		return err
-	}
-	if len(activityIDs) > 0 {
-		if err := tx.Where("id IN ?", activityIDs).Delete(&models.Activity{}).Error; err != nil {
+		activityID, err := s.upsertActivity(tx, rawFile, activity)
+		if err != nil {
+			return err
+		}
+		if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
+			return err
+		}
+		if err := replaceLaps(tx, activityID, activity.Laps); err != nil {
+			return err
+		}
+		if err := replaceSamplings(tx, activityID, activity.Samplings); err != nil {
+			return err
+		}
+		if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshot.ID, reprocess); err != nil {
 			return err
 		}
 	}
-	if len(sleepIDs) > 0 {
-		if err := tx.Where("id IN ?", sleepIDs).Delete(&models.SleepSession{}).Error; err != nil {
+	for _, session := range parsedSleep {
+		if err := s.persistSleepSession(tx, rawFile, session, snapshot.ID, reprocess); err != nil {
 			return err
 		}
 	}
-	if len(dailySummaryIDs) > 0 {
-		if err := tx.Where("id IN ?", dailySummaryIDs).Delete(&models.DailySummary{}).Error; err != nil {
+	for _, summary := range parsedDailySummaries {
+		if err := s.persistDailySummary(tx, rawFile, summary, snapshot.ID, reprocess); err != nil {
 			return err
 		}
 	}
-	if len(dailyMetricIDs) > 0 {
-		if err := tx.Where("id IN ?", dailyMetricIDs).Delete(&models.DailyMetric{}).Error; err != nil {
+	for _, metric := range parsedDailyMetrics {
+		if err := s.persistDailyMetric(tx, rawFile, metric, snapshot.ID, reprocess); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// persistAppleWorkout applies per-workout change detection for a parsed
-// Apple Health workout activity (identified by having a non-empty
-// ContentHash): unchanged workouts skip both the activity upsert and the
-// route point rewrite entirely, only bumping the source item's
-// last_seen_snapshot_id so we know it was still present in this export.
-func (s *Service) persistAppleWorkout(tx *gorm.DB, rawFile models.RawFile, activity observations.Activity, snapshotID uuid.UUID) error {
-	var existing models.AppleSourceItem
-	res := tx.Limit(1).Find(&existing, "source_key = ?", activity.ExternalID)
-	if res.Error != nil {
-		return res.Error
-	}
-	found := res.RowsAffected > 0
-
-	var existingHash *string
-	if found {
-		existingHash = &existing.ContentHash
-	}
-
-	now := time.Now().UTC()
-
-	switch decideSourceItem(existingHash, activity.ContentHash) {
-	case sourceItemUnchanged:
-		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"last_seen_snapshot_id": snapshotID,
-			"updated_at":            now,
-		}).Error
-
-	case sourceItemChanged:
-		activityID, err := s.upsertActivity(tx, rawFile, activity)
-		if err != nil {
-			return err
-		}
-		if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
-			return err
-		}
-		if err := replaceLaps(tx, activityID, activity.Laps); err != nil {
-			return err
-		}
-		if err := replaceSamplings(tx, activityID, activity.Samplings); err != nil {
-			return err
-		}
-		if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshotID); err != nil {
-			return err
-		}
-		return tx.Model(&models.AppleSourceItem{}).Where("id = ?", existing.ID).Updates(map[string]any{
-			"content_hash":          activity.ContentHash,
-			"activity_id":           activityID,
-			"last_seen_snapshot_id": snapshotID,
-			"updated_at":            now,
-		}).Error
-
-	default: // sourceItemNew
-		activityID, err := s.upsertActivity(tx, rawFile, activity)
-		if err != nil {
-			return err
-		}
-		if err := replaceRoutePoints(tx, activityID, activity.RoutePoints); err != nil {
-			return err
-		}
-		if err := replaceLaps(tx, activityID, activity.Laps); err != nil {
-			return err
-		}
-		if err := replaceSamplings(tx, activityID, activity.Samplings); err != nil {
-			return err
-		}
-		if err := s.persistActivityObservation(tx, rawFile, activity, activityID, snapshotID); err != nil {
-			return err
-		}
-		itemID, err := ids.New()
-		if err != nil {
-			return err
-		}
-		item := models.AppleSourceItem{
-			ID:                 itemID,
-			SourceKey:          activity.ExternalID,
-			ItemType:           appleSourceItemTypeWorkout,
-			ContentHash:        activity.ContentHash,
-			ActivityID:         &activityID,
-			LastSeenSnapshotID: &snapshotID,
-			CreatedAt:          now,
-			UpdatedAt:          now,
-		}
-		return tx.Create(&item).Error
-	}
-}
-
-func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile, activity observations.Activity, activityID, snapshotID uuid.UUID) error {
+func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile, activity observations.Activity, activityID, snapshotID uuid.UUID, reprocess bool) error {
 	observationID, err := upsertSourceObservation(tx, rawFile, "activity", activity.Provider, activity.ExternalID, activity.ContentHash, snapshotID)
 	if err != nil {
 		return err
@@ -265,9 +98,6 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 	}).Error; err != nil {
 		return err
 	}
-	if err := tx.Model(&models.Activity{}).Where("id = ?", activityID).Update("selected_observation_id", observationID).Error; err != nil {
-		return err
-	}
 	if err := tx.Exec(`delete from tb_activity_observation_route_points where activity_observation_id = ?`, observationID).Error; err != nil {
 		return err
 	}
@@ -285,13 +115,27 @@ select id, ?, sampling_type, ts, value, unit from tb_activity_samplings where ac
 	if err := tx.Exec(`delete from tb_activity_observation_laps where activity_observation_id = ?`, observationID).Error; err != nil {
 		return err
 	}
-	return tx.Exec(`insert into tb_activity_observation_laps (id, activity_observation_id, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal)
-select id, ?, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal from tb_activity_laps where activity_id = ?`, observationID, activityID).Error
+	if err := tx.Exec(`insert into tb_activity_observation_laps (id, activity_observation_id, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal)
+select id, ?, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal from tb_activity_laps where activity_id = ?`, observationID, activityID).Error; err != nil {
+		return err
+	}
+	selected, err := selectImportedObservation(tx, "tb_activities", activityID, observationID, reprocess)
+	if err != nil {
+		return err
+	}
+	if !selected {
+		return restoreSelectedActivity(tx, activityID)
+	}
+	return nil
 }
 
 func upsertSourceObservation(tx *gorm.DB, rawFile models.RawFile, sourceKind, provider, sourceKey, contentHash string, snapshotID uuid.UUID) (uuid.UUID, error) {
+	sourceInstanceID, sourceReceiptID, err := ensureRawFileReceiptContext(tx, rawFile)
+	if err != nil {
+		return uuid.Nil, err
+	}
 	var existing models.SourceObservation
-	err := tx.Where("provider = ? and source_kind = ? and source_key = ?", provider, sourceKind, sourceKey).First(&existing).Error
+	err = tx.Where("source_instance_id = ? and source_kind = ? and source_key = ?", sourceInstanceID, sourceKind, sourceKey).First(&existing).Error
 	now := time.Now().UTC()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		id, idErr := ids.New()
@@ -299,15 +143,40 @@ func upsertSourceObservation(tx *gorm.DB, rawFile models.RawFile, sourceKind, pr
 			return uuid.Nil, idErr
 		}
 		first := snapshotID
-		row := models.SourceObservation{ID: id, Provider: provider, SourceKind: sourceKind, SourceKey: sourceKey, ContentHash: contentHash, RawFileID: rawFile.ID, FirstSeenSnapshotID: &first, LastSeenSnapshotID: &snapshotID, CreatedAt: now, UpdatedAt: now}
-		return id, tx.Create(&row).Error
+		row := models.SourceObservation{ID: id, SourceInstanceID: sourceInstanceID, Provider: provider, SourceKind: sourceKind, SourceKey: sourceKey, ContentHash: contentHash, RawFileID: rawFile.ID, FirstSeenSnapshotID: &first, LastSeenSnapshotID: &snapshotID, CreatedAt: now, UpdatedAt: now}
+		if err := tx.Create(&row).Error; err != nil {
+			return uuid.Nil, err
+		}
+		return id, recordObservationReceipt(tx, sourceInstanceID, id, sourceReceiptID, snapshotID, contentHash, now)
 	}
 	if err != nil {
 		return uuid.Nil, err
 	}
-	return existing.ID, tx.Model(&models.SourceObservation{}).Where("id = ?", existing.ID).Updates(map[string]any{
+	if err := tx.Model(&models.SourceObservation{}).Where("id = ?", existing.ID).Updates(map[string]any{
 		"content_hash": contentHash, "raw_file_id": rawFile.ID, "last_seen_snapshot_id": snapshotID, "updated_at": now,
-	}).Error
+	}).Error; err != nil {
+		return uuid.Nil, err
+	}
+	return existing.ID, recordObservationReceipt(tx, sourceInstanceID, existing.ID, sourceReceiptID, snapshotID, contentHash, now)
+}
+
+func ensureRawFileReceiptContext(tx *gorm.DB, rawFile models.RawFile) (uuid.UUID, uuid.UUID, error) {
+	var receipt models.SourceReceipt
+	result := tx.Where("raw_file_id = ?", rawFile.ID).Order("received_at desc, id desc").First(&receipt)
+	if result.Error == nil {
+		return receipt.SourceInstanceID, receipt.ID, nil
+	}
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return uuid.Nil, uuid.Nil, result.Error
+	}
+	return uuid.Nil, uuid.Nil, fmt.Errorf("raw file %s has no source receipt", rawFile.ID)
+}
+
+func recordObservationReceipt(tx *gorm.DB, sourceInstanceID, observationID, receiptID, snapshotID uuid.UUID, contentHash string, now time.Time) error {
+	return tx.Exec(`insert into tb_source_observation_receipts (source_instance_id, source_observation_id, source_receipt_id, import_snapshot_id, content_hash, created_at)
+values (?, ?, ?, ?, ?, ?)
+on conflict (source_receipt_id, source_observation_id, import_snapshot_id)
+do update set content_hash = excluded.content_hash`, sourceInstanceID, observationID, receiptID, snapshotID, contentHash, now).Error
 }
 
 func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed observations.Activity) (uuid.UUID, error) {
@@ -423,11 +292,7 @@ func replaceLaps(tx *gorm.DB, activityID uuid.UUID, laps []observations.Lap) err
 const samplingInsertBatchSize = 1000
 
 // replaceSamplings deletes any existing samplings for the activity and
-// bulk-inserts the newly parsed ones. Deliberately NOT called for the
-// sourceItemUnchanged branch of persistAppleWorkout (an unchanged workout
-// has unchanged samples, and re-writing thousands of samples per unchanged
-// workout would be wasted work over ~2M source records) and not called on
-// the non-Apple import path.
+// bulk-inserts the newly parsed ones.
 func replaceSamplings(tx *gorm.DB, activityID uuid.UUID, samplings []observations.Sampling) error {
 	if err := tx.Delete(&models.ActivitySampling{}, "activity_id = ?", activityID).Error; err != nil {
 		return err

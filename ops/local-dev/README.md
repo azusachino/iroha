@@ -18,6 +18,8 @@ The profile uses explicit local-development budgets: db `2 CPU / 2 GiB`, server 
 The private API (`/api/v1`) is unauthenticated by design: iroha is a single-user personal deployment, and the network boundary (private LAN/NAS, not exposed publicly) is the security boundary rather
 than an application-level credential. Set `IROHA_ALLOWED_ORIGINS` to the web origin(s) that should be allowed to call it; do not expose `iroha-server` directly to an untrusted network.
 
+The automatic Apple Health Shortcut receiver is disabled unless `IROHA_HEALTH_INTAKE_TOKEN` is set in the environment before starting the compose profile. The compose file passes that value to `iroha-server`; keep it in the deployment environment rather than in tracked files or request logs.
+
 The application profile is started by the same runner and shares the host `.iroha-data` directory between the server and worker. The host-process mode remains available for development when needed:
 
 ```bash
@@ -53,7 +55,7 @@ uv run python scripts/dev_stack.py logs
 uv run python scripts/dev_stack.py stop
 ```
 
-`make db-up` is the preferred dependency entrypoint because it uses the pinned `goose` migration CLI from the active mise toolchain. The direct `uv` command is useful for diagnosing the runner when
+`make db-up` is the preferred dependency entrypoint because it uses the pinned SQLx CLI from the active mise toolchain. The direct `uv` command is useful for diagnosing the runner when
 the mise environment is unavailable.
 
 ## Podman boundary

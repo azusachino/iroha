@@ -19,7 +19,7 @@ class DBScriptTest(unittest.TestCase):
         ):
             self.assertEqual(db.main(), 2)
 
-    def test_apply_invokes_goose_up_with_database_url(self) -> None:
+    def test_apply_invokes_sqlx_run_with_database_url(self) -> None:
         with (
             mock.patch.object(db.sys, "argv", ["db.py", "apply"]),
             mock.patch.dict(os.environ, {"DATABASE_URL": "postgres://example"}, clear=True),
@@ -29,12 +29,14 @@ class DBScriptTest(unittest.TestCase):
 
         call.assert_called_once_with(
             [
-                "goose",
-                "-dir",
+                "sqlx",
+                "migrate",
+                "run",
+                "--source",
                 db.MIGRATIONS_DIR,
-                "postgres",
+                "--no-dotenv",
+                "--database-url",
                 "postgres://example",
-                "up",
             ]
         )
 
@@ -46,8 +48,8 @@ class DBScriptTest(unittest.TestCase):
         ):
             self.assertEqual(db.main(), 0)
 
-        self.assertEqual(call.call_args.args[0][-1], "down")
-        self.assertEqual(call.call_args.args[0][-2], "postgres://iroha")
+        self.assertEqual(call.call_args.args[0][2], "revert")
+        self.assertEqual(call.call_args.args[0][-1], "postgres://iroha")
 
 
 if __name__ == "__main__":

@@ -15,13 +15,14 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
@@ -30,6 +31,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	"gorm.io/gorm"
 )
 
 // apiRateLimitPerMin is the per-peer request budget (per minute). The private
@@ -45,7 +47,7 @@ const (
 	// contract or identity scheme.
 	// Bump whenever a cached wire representation or range interpretation
 	// changes; old Valkey entries must never satisfy the new contract.
-	readCacheKeyVersion = "v12"
+	readCacheKeyVersion = "v13"
 	readCacheTTL        = 24 * time.Hour
 	readyzTimeout       = 2 * time.Second
 	statusReady         = "ready"
@@ -53,28 +55,29 @@ const (
 )
 
 type Dependencies struct {
-	Config                 config.Config
-	Logger                 *slog.Logger
-	ActivityService        *activities.Service
-	SleepService           *sleep.Service
-	DailyService           *daily.Service
-	ExpenseService         *expenses.Service
-	MediaService           *media.Service
-	MediaResolutionService *mediaresolution.Service
-	MetricRegistry         *metrics.Registry
-	MetricSeriesService    *metricseries.Service
-	BriefingRegistry       *briefing.Registry
-	ImportService          *imports.Service
-	RawFileService         *rawfiles.Service
-	Cache                  *cache.Client
-	GeocodeService         *geocode.Service
-	JobEnqueuer            imports.Enqueuer
-	JobsService            *jobs.Service
-	TaskService            *tasks.Service
-	ReadyCheck             func(context.Context) error
-	MaxUploadBytes         int64
-	AllowedOrigins         []string
-	Now                    func() time.Time
+	Config              config.Config
+	Logger              *slog.Logger
+	DB                  *gorm.DB
+	ActivityService     *activities.Service
+	SleepService        *sleep.Service
+	DailyService        *daily.Service
+	ExpenseService      *expenses.Service
+	MediaService        *media.Service
+	MetricRegistry      *metrics.Registry
+	MetricSeriesService *metricseries.Service
+	BriefingRegistry    *briefing.Registry
+	CoverageService     *coverage.Service
+	ImportService       *imports.Service
+	RawFileService      *rawfiles.Service
+	Cache               *cache.Client
+	GeocodeService      *geocode.Service
+	JobEnqueuer         imports.Enqueuer
+	JobsService         *jobs.Service
+	TaskService         *tasks.Service
+	ReadyCheck          func(context.Context) error
+	MaxUploadBytes      int64
+	AllowedOrigins      []string
+	Now                 func() time.Time
 }
 
 type Server struct {
@@ -82,6 +85,8 @@ type Server struct {
 	mux  chi.Router
 	now  func() time.Time
 }
+
+type readSnapshotContextKey struct{}
 
 func NewServer(deps Dependencies) http.Handler {
 	if deps.Config.Server.Timezone == "" {
@@ -132,6 +137,10 @@ func (s *Server) routes() {
 		r.Use(s.rejectFutureReadScope)
 		r.Use(s.readCache)
 		r.Get("/briefing", s.handleBriefing)
+		r.Get("/coverage", s.handleCoverage)
+		r.Get("/connections", s.handleListConnections)
+		r.Post("/intake/health", s.handleHealthIntake)
+		r.Post("/media/matching-decisions", s.handleRecordMatchingDecision)
 		r.Get("/metrics", s.handleListMetrics)
 		r.Get("/metrics/{metricId}", s.handleGetMetric)
 		r.Get("/metrics/{metricId}/series", s.handleMetricSeries)
@@ -174,6 +183,8 @@ func (s *Server) routes() {
 			r.Post("/", s.handleCreateExpense)
 			r.Get("/", s.handleListExpenses)
 			r.Get("/bounds", s.handleExpenseBounds)
+			r.Post("/statements/preview", s.handlePreviewExpenseStatement)
+			r.Post("/statements", s.handleImportExpenseStatement)
 			r.Get("/{expenseId}", s.handleGetExpense)
 			r.Put("/{expenseId}", s.handleReplaceExpense)
 			r.Delete("/{expenseId}", s.handleDeleteExpense)
@@ -188,8 +199,6 @@ func (s *Server) routes() {
 			r.Post("/events", s.handleCreateMediaEvent)
 			r.Get("/events", s.handleListMediaEvents)
 			r.Get("/changes", s.handleListMediaChanges)
-			r.Get("/resolution-tasks", s.handleListMediaResolutionTasks)
-			r.Patch("/resolution-tasks/{taskId}", s.handleUpdateMediaResolutionTask)
 			r.Get("/", s.handleListMedia)
 			r.Get("/{mediaId}", s.handleGetMedia)
 		})
@@ -244,23 +253,42 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 }
 
 // readCache caches successful JSON reads over the imported, single-user data.
-// The import pipeline advances each namespace generation after a successful
-// write, so a long TTL is only a safety net for data that is otherwise static.
+// Writers advance the primary-Postgres revision in the same transaction as
+// the canonical write. The revision vector is part of the cache identity;
+// backend generations remain a race-safety mechanism for in-flight loads.
 func (s *Server) readCache(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		namespace, ok := readCacheNamespace(r)
-		if !ok || s.deps.Cache == nil {
+		if !ok {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if s.deps.Cache.IsDegraded(namespace) {
+		requestContext, finishSnapshot, err := s.readSnapshot(r.Context(), namespace)
+		if err != nil {
 			w.Header().Set("X-Iroha-Cache", "BYPASS")
 			next.ServeHTTP(w, r)
 			return
 		}
+		defer finishSnapshot()
+		request := r.WithContext(requestContext)
+		if s.deps.Cache == nil {
+			next.ServeHTTP(w, request)
+			return
+		}
+		if s.deps.Cache.IsDegraded(namespace) {
+			w.Header().Set("X-Iroha-Cache", "BYPASS")
+			next.ServeHTTP(w, request)
+			return
+		}
 
-		key := s.readCacheKey(r)
-		body, generation, ok := cache.GetWithGeneration[[]byte](r.Context(), s.deps.Cache, namespace, key)
+		vector, err := s.readCacheRevisionVector(request.Context(), namespace)
+		if err != nil {
+			w.Header().Set("X-Iroha-Cache", "BYPASS")
+			next.ServeHTTP(w, request)
+			return
+		}
+		key := cache.KeyWithRevisionVector(s.readCacheKey(request), vector)
+		body, generation, ok := cache.GetWithGeneration[[]byte](request.Context(), s.deps.Cache, namespace, key)
 		if ok {
 			w.Header().Set("X-Iroha-Cache", "HIT")
 			w.Header().Set("Content-Type", "application/json")
@@ -271,12 +299,44 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 
 		w.Header().Set("X-Iroha-Cache", "MISS")
 		wrapped := &readCacheResponseWriter{ResponseWriter: w}
-		next.ServeHTTP(wrapped, r)
+		next.ServeHTTP(wrapped, request)
 		if wrapped.status != http.StatusOK || wrapped.body.Len() == 0 || !isJSONContentType(wrapped.Header().Get("Content-Type")) {
 			return
 		}
-		cache.SetAtGeneration(r.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, wrapped.body.Bytes())
+		cache.SetAtGeneration(request.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, wrapped.body.Bytes())
 	})
+}
+
+func (s *Server) readSnapshot(ctx context.Context, namespace string) (context.Context, func(), error) {
+	if namespace != cache.NamespaceReports || s.deps.DB == nil {
+		return ctx, func() {}, nil
+	}
+	tx := s.deps.DB.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return ctx, func() {}, tx.Error
+	}
+	if err := tx.Exec("set transaction isolation level repeatable read read only").Error; err != nil {
+		_ = tx.Rollback().Error
+		return ctx, func() {}, err
+	}
+	return context.WithValue(ctx, readSnapshotContextKey{}, tx), func() {
+		_ = tx.Rollback().Error
+	}, nil
+}
+
+func readSnapshotDB(ctx context.Context) *gorm.DB {
+	tx, _ := ctx.Value(readSnapshotContextKey{}).(*gorm.DB)
+	return tx
+}
+
+func (s *Server) readCacheRevisionVector(ctx context.Context, namespace string) (map[string]int64, error) {
+	if tx := readSnapshotDB(ctx); tx != nil {
+		return revisions.Read(tx.WithContext(ctx), namespace)
+	}
+	if s.deps.DB == nil {
+		return nil, nil
+	}
+	return revisions.Read(s.deps.DB.WithContext(ctx), namespace)
 }
 
 type readCacheResponseWriter struct {
@@ -313,6 +373,7 @@ func readCacheNamespace(r *http.Request) (string, bool) {
 	for prefix, namespace := range map[string]string{
 		"/api/v1/activities": cache.NamespaceActivities,
 		"/api/v1/briefing":   cache.NamespaceBriefing,
+		"/api/v1/coverage":   cache.NamespaceCoverage,
 		"/api/v1/daily":      cache.NamespaceDaily,
 		"/api/v1/media":      cache.NamespaceMedia,
 		"/api/v1/sleep":      cache.NamespaceSleep,

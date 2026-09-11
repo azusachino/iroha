@@ -34,6 +34,7 @@ import type {
   Expense,
   ExpenseCategory,
   ExpenseCurrency,
+  ExpenseKind,
   ExpenseInput,
   ExpenseItem,
   ExpenseSource,
@@ -47,6 +48,7 @@ import type {
   MonthlyReport,
   MonthlyReportSeries,
   MonthlyReportSeriesPoint,
+  ReportStatus,
   ReportSection,
   SleepReportData,
 } from "@iroha/shared/domain/report";
@@ -58,6 +60,12 @@ import type {
   SleepSegment,
   SleepSession,
 } from "@iroha/shared/domain/sleep";
+import type {
+  ConnectionAction,
+  ConnectionList,
+  MatchingDecision,
+  MatchingDecisionInput,
+} from "@iroha/shared/domain/connections";
 
 export type {
   Activity,
@@ -107,6 +115,7 @@ export type {
   Expense,
   ExpenseCategory,
   ExpenseCurrency,
+  ExpenseKind,
   ExpenseInput,
   ExpenseItem,
   ExpenseSource,
@@ -120,6 +129,7 @@ export type {
   MonthlyReport,
   MonthlyReportSeries,
   MonthlyReportSeriesPoint,
+  ReportStatus,
   ReportSection,
   SleepReportData,
 } from "@iroha/shared/domain/report";
@@ -131,6 +141,16 @@ export type {
   SleepSegment,
   SleepSession,
 } from "@iroha/shared/domain/sleep";
+export type {
+  Connection,
+  ConnectionAction,
+  ConnectionCoverage,
+  ConnectionImport,
+  ConnectionList,
+  ConnectionReceipt,
+  MatchingDecision,
+  MatchingDecisionInput,
+} from "@iroha/shared/domain/connections";
 
 // Types mirror the iroha-server read API JSON contract (snake_case).
 // Optional fields use `?` because the server omits them when absent.
@@ -155,16 +175,6 @@ export interface Task {
   completed_at?: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface MediaResolutionTask {
-  id: string;
-  task_type: "dedupe_candidate" | "progress_conflict";
-  status: "open" | "resolved" | "dismissed";
-  candidates: Record<string, unknown>;
-  resolution: Record<string, unknown>;
-  created_at: string;
-  resolved_at?: string;
 }
 
 export interface Job {
@@ -223,6 +233,12 @@ export interface BriefingSection<T = unknown> {
   key: string;
   schema: string;
   state: "ready" | "empty" | "unavailable";
+  status: {
+    availability: "supported" | "unsupported" | "disabled";
+    collection: "unknown" | "partial" | "covered" | "covered_empty";
+    operation: "fetching" | "importing" | "idle" | "failed";
+    freshness: "within_cadence" | "overdue" | "not_scheduled" | "unknown";
+  };
   data: T;
 }
 
@@ -326,6 +342,31 @@ export function getBriefing(
   setTimezone(query);
   return getJSON<BriefingResponse>(
     `/api/v1/briefing?${query.toString()}`,
+    fetchFn,
+  );
+}
+
+export function getConnections(
+  fetchFn: typeof fetch = fetch,
+): Promise<ConnectionList> {
+  return getJSON<ConnectionList>("/api/v1/connections", fetchFn);
+}
+
+export function executeConnectionAction(
+  action: ConnectionAction,
+  fetchFn: typeof fetch = fetch,
+): Promise<unknown> {
+  return mutateJSON(action.path, action.method, action.body, fetchFn);
+}
+
+export function recordMatchingDecision(
+  input: MatchingDecisionInput,
+  fetchFn: typeof fetch = fetch,
+): Promise<MatchingDecision> {
+  return mutateJSON<MatchingDecision>(
+    "/api/v1/media/matching-decisions",
+    "POST",
+    input,
     fetchFn,
   );
 }
@@ -500,6 +541,8 @@ export function listExpenses(
   if (params.date || params.from || params.to) setTimezone(query);
   if (params.currency) query.set("currency", params.currency);
   if (params.category) query.set("category", params.category);
+  if (params.account_key) query.set("account_key", params.account_key);
+  if (params.kind) query.set("kind", params.kind);
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";
@@ -566,33 +609,6 @@ export function deleteExpense(
   fetchFn: typeof fetch = fetch,
 ): Promise<void> {
   return deleteJSON(`/api/v1/expenses/${encodeURIComponent(id)}`, fetchFn);
-}
-
-export function listMediaResolutionTasks(
-  params: { status?: MediaResolutionTask["status"] } = {},
-  fetchFn: typeof fetch = fetch,
-): Promise<MediaResolutionTask[]> {
-  const query = new URLSearchParams();
-  if (params.status) query.set("status", params.status);
-  const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<MediaResolutionTask[]>(
-    `/api/v1/media/resolution-tasks${suffix}`,
-    fetchFn,
-  );
-}
-
-export function updateMediaResolutionTask(
-  id: string,
-  status: "resolved" | "dismissed",
-  resolution?: Record<string, unknown>,
-  fetchFn: typeof fetch = fetch,
-): Promise<MediaResolutionTask> {
-  return mutateJSON<MediaResolutionTask>(
-    `/api/v1/media/resolution-tasks/${encodeURIComponent(id)}`,
-    "PATCH",
-    { status, resolution },
-    fetchFn,
-  );
 }
 
 export function listJobs(

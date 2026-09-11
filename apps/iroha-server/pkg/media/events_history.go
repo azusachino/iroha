@@ -217,8 +217,9 @@ func (s *Service) Changes(filters ChangeListFilters) (ChangePage, error) {
 			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title,
 			state.source_kind, state.change_kind, state.time_basis, state.observed_at,
 			state.effective_at, state.effective_on_value, state.effective_on_precision,
-			state.provider_recorded_at, state.status, state.unit, state.position, state.total,
-			state.progress_percent, state.rating, state.rating_scale, state.note, state.repeat_count`).
+			state.provider_recorded_at, state.source_event_id, state.raw_file_id, state.status,
+			state.unit, state.position, state.total, state.progress_percent, state.rating,
+			state.rating_scale, state.note, state.repeat_count`).
 		Joins("JOIN tb_media_items AS item ON item.id = state.media_item_id")
 	if filters.MediaItemID != nil {
 		query = query.Where("state.media_item_id = ?", *filters.MediaItemID)
@@ -271,8 +272,9 @@ func (s *Service) DatedChanges(from, to time.Time, limit int) (ChangePage, error
 			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title,
 			state.source_kind, state.change_kind, state.time_basis, state.observed_at,
 			state.effective_at, state.effective_on_value, state.effective_on_precision,
-			state.provider_recorded_at, state.status, state.unit, state.position, state.total,
-			state.progress_percent, state.rating, state.rating_scale, state.note, state.repeat_count`).
+			state.provider_recorded_at, state.source_event_id, state.raw_file_id, state.status,
+			state.unit, state.position, state.total, state.progress_percent, state.rating,
+			state.rating_scale, state.note, state.repeat_count`).
 		Joins("JOIN tb_media_items AS item ON item.id = state.media_item_id").
 		Where(`(
 			(state.time_basis = 'source_date'

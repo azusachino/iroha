@@ -25,7 +25,7 @@ func (Adapter) Descriptor() provider.Descriptor {
 		DisplayName:    "Apple Health",
 		AdapterVersion: coreimports.DefaultParserVersion,
 		Domains:        []provider.Domain{provider.DomainHealth},
-		SourceKinds:    []string{coreimports.KindAppleHealthExport},
+		SourceKinds:    []string{coreimports.KindAppleHealthExport, coreimports.KindAppleHealthShortcut},
 		Capabilities: []provider.Capability{
 			provider.CapabilityHealthActivities,
 			provider.CapabilityHealthSleep,
@@ -36,6 +36,18 @@ func (Adapter) Descriptor() provider.Descriptor {
 }
 
 func (a Adapter) ImportAll(ctx context.Context, source provider.Source, options provider.ImportOptions) (provider.ImportBatch, error) {
+	if source.Kind == coreimports.KindAppleHealthShortcut {
+		path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-shortcut-*.json")
+		if err != nil {
+			return provider.ImportBatch{}, adaptError(source, "materialize_shortcut", err)
+		}
+		defer cleanup()
+		batch, err := parsers.ParseAppleHealthShortcut(path, source.SHA256)
+		if err != nil {
+			return provider.ImportBatch{}, adaptError(source, "parse_shortcut", err)
+		}
+		return batch, nil
+	}
 	path, cleanup, err := materialize.Source(ctx, source, ProviderID, "apple-health-*.zip")
 	if err != nil {
 		return provider.ImportBatch{}, err

@@ -8,9 +8,9 @@ The route and privacy features are geospatial at the core. Starting with PostGIS
 
 ## ORM and Migrations
 
-Use an ORM for application data access, but keep database migrations explicit.
+Use the existing ORM for application data access, but keep database migrations explicit and independent of ORM startup.
 
-Preferred ORM:
+Application data access:
 
 ```text
 GORM
@@ -63,10 +63,10 @@ drop table
 
 The names are conventional. User-facing scripts can call these `apply` and `rollback` if that reads better.
 
-Preferred tool:
+Migration tool:
 
 ```text
-Goose
+SQLx CLI
 ```
 
 Expected layout:
@@ -76,9 +76,12 @@ apps/
   iroha-server/
     db/
       migrations/
-        00001_enable_extensions.sql
-        00002_create_import_core.sql
-        00003_create_activity_core.sql
+        00001_enable_extensions.up.sql
+        00001_enable_extensions.down.sql
+        00002_create_import_core.up.sql
+        00002_create_import_core.down.sql
+        00003_create_activity_core.up.sql
+        00003_create_activity_core.down.sql
 ```
 
 The pinned mise environment provides the migration CLI. Repo scripts can wrap it for convenience, but the migrations themselves remain ordinary SQL files.
@@ -91,7 +94,8 @@ iroha-db migrate rollback
 iroha-db migrate status
 ```
 
-Those commands can be implemented later as `uv` scripts that call the mise-provided migration tool. Internally, Goose still uses the terms `up` and `down` inside migration files.
+The repository's `scripts/db.py` wrapper calls the mise-provided SQLx CLI. The migration directory is the schema source of truth; application code does not auto-migrate the database. v0.5 is a
+fresh-schema cut-over: deploy a new database, replay raw evidence, and do not attempt to migrate the legacy schema. Goose is not part of the database contract.
 
 First migration:
 

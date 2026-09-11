@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -38,6 +39,12 @@ import (
 // for a personal data snapshot, unlike the fixed daily-at-midnight-JST
 // CronJob this schedule replaces.
 const defaultPublicExportInterval = "24h"
+
+// Bridge datasets change more slowly than provider lists, but a weekly refresh
+// keeps recent anime mappings moving without requiring a manual action.
+const defaultMediaBridgeRefreshInterval = 7 * 24 * time.Hour
+
+const defaultMediaSyncInterval = 24 * time.Hour
 
 func main() {
 	once := flag.Bool("once", false, "process at most one due schedule and one queued job")
@@ -130,6 +137,18 @@ func main() {
 	jobs.Register(registry, jobs.KindMediaSyncAniList, mediaSyncHandler(syncRunner, "anilist"))
 	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
 	jobs.Register(registry, jobs.KindMediaBridgeRefresh, mediaBridgeRefreshHandler(db, mediaBridge))
+	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncAniList, os.Getenv(config.EnvAniListUsername) != "", os.Getenv(config.EnvAniListSyncInterval)); err != nil {
+		logger.Error("ensure AniList sync schedule", "error", err)
+		os.Exit(1)
+	}
+	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncBangumi, os.Getenv(config.EnvBangumiUsername) != "", os.Getenv(config.EnvBangumiSyncInterval)); err != nil {
+		logger.Error("ensure Bangumi sync schedule", "error", err)
+		os.Exit(1)
+	}
+	if err := ensureSchedule(db, jobs.KindMediaBridgeRefresh, jobs.ScheduleKindInterval, defaultMediaBridgeRefreshInterval.String()); err != nil {
+		logger.Error("ensure media bridge refresh schedule", "error", err)
+		os.Exit(1)
+	}
 
 	jobsService = jobs.NewService(db, logger, registry.Handlers())
 	geocodeService := geocode.NewService(db, nil, cacheClient)
@@ -260,9 +279,8 @@ func mediaSyncHandler(runner *imports.SyncRunner, connectorID string) func(conte
 }
 
 // mediaBridgeRefreshHandler re-fetches the Bangumi->MAL->AniList crosswalk
-// and reloads this worker's in-memory bridge immediately afterward, so a
-// manual trigger (the /to-go inbox's "Refresh media bridge" action) takes
-// effect on the very next media sync, not on some later poll or restart.
+// and reloads this worker's in-memory bridge immediately afterward. It is used
+// by both the weekly schedule and the manual control-room action.
 func mediaBridgeRefreshHandler(db *gorm.DB, bridge *imports.ReloadableMediaRefBridge) func(context.Context, struct{}) error {
 	return func(ctx context.Context, _ struct{}) error {
 		if err := imports.RefreshMediaRefBridge(ctx, db); err != nil {
@@ -310,4 +328,32 @@ func ensureSchedule(db *gorm.DB, kind, scheduleKind, scheduleExpr string) error 
 		return fmt.Errorf("create schedule for %s: %w", kind, err)
 	}
 	return nil
+}
+
+func ensureConfiguredMediaSchedule(db *gorm.DB, kind string, configured bool, requestedInterval string) error {
+	requestedInterval = strings.TrimSpace(requestedInterval)
+	if strings.EqualFold(requestedInterval, "off") || strings.EqualFold(requestedInterval, "disabled") {
+		configured = false
+	}
+	if !configured {
+		return db.Model(&models.JobSchedule{}).Where("kind = ?", kind).Update("enabled", false).Error
+	}
+	interval := defaultMediaSyncInterval
+	if requestedInterval != "" {
+		parsed, err := time.ParseDuration(requestedInterval)
+		if err != nil || parsed <= 0 {
+			return fmt.Errorf("invalid media sync interval %q", requestedInterval)
+		}
+		interval = parsed
+	}
+	if err := ensureSchedule(db, kind, jobs.ScheduleKindInterval, interval.String()); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	return db.Model(&models.JobSchedule{}).Where("kind = ?", kind).Updates(map[string]any{
+		"enabled":       true,
+		"schedule_expr": interval.String(),
+		"next_run_at":   gorm.Expr("coalesce(next_run_at, ?)", now),
+		"updated_at":    now,
+	}).Error
 }

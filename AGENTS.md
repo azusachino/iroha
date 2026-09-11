@@ -13,7 +13,7 @@ apps/iroha-runtime/   Shared runtime packages (cache, IDs, jobs, persistence mod
 apps/iroha-server/    Go service (cmd/iroha-server, pkg/{httpapi,activities,daily,sleep,config,rawfiles})
 apps/iroha-job/       Go background worker service
 apps/iroha-web/       Svelte 5 + Vite web app (bun)
-apps/iroha-server/db/migrations/   goose SQL migrations (00001_...)
+apps/iroha-server/db/migrations/   SQLx SQL migrations (00001_*.up/.down.sql)
 scripts/              uv-run Python dev scripts (dev_stack.py, real_import_smoke.py, db.py)
 docs/                 design docs
 ```
@@ -23,7 +23,7 @@ docs/                 design docs
 - **mise-first**: every tool is pinned in `.mise.toml` (`mise install`). `make` targets run through `mise exec --`, and CI (`ci.yml`, `public-site.yml`) resolves the same tool versions — see
   `docs/dev-runtime.md`.
 - **`make` is the task runner** — always reference `make <target>`. `make check` is the pre-commit gate; `make validate` is the pre-PR gate (both enforced by local hooks).
-- Migrations run through **goose** via `make db-up` / `make db-reset` (which call `scripts/dev_stack.py`). There is **no** GORM AutoMigrate — the SQL migration is the source of truth and the
+- Migrations run through **SQLx CLI** via `make db-up` / `make db-reset` (which call `scripts/dev_stack.py`). There is **no** GORM AutoMigrate — the SQL migration is the source of truth and the
   hand-written structs in `internal/models/models.go` must match it.
 
 ## Conventions
@@ -104,15 +104,14 @@ build and verify each affected consumer explicitly.
 
 ## Data & import model (important)
 
-- A full Apple Health export is a **complete snapshot**, reconciled — not appended.
-- Workout identity is a **stable source key** (`sourceName|normalized-device|type|start|end|duration`), **not** the zip hash. The HKDevice string carries a volatile `0x` pointer + creation date that
-  must be stripped before use in keys/hashes.
-- `tb_import_snapshots` (per export) + `tb_apple_source_items` (per source record, with `content_hash`) drive skip-unchanged / upsert-changed / insert-new reconciliation.
+- Raw files, source receipts, source observations and interpretation snapshots are the durable evidence chain. Canonical domain rows are projections of that evidence, not the replay authority.
+- A full Apple Health export is a **complete snapshot** for the categories it contains; bounded Health payloads are partial and must not delete older history. Workout identity is a stable source key
+  (`sourceName|normalized-device|type|start|end|duration`), **not** the zip hash. Strip the volatile `0x` pointer and creation date from HKDevice before using it in keys/hashes.
+- An exact replay at the same `parser_version` is idempotent and can skip re-parsing. A replay at a different parser version creates a new interpretation and replays retained evidence without purging
+  source observations, canonical identities, other-source facts, or user-authored decisions. Reprocessing must never create a human resolution inbox or require a destructive reset.
 - Routes are attached to their owning workout; selected `Record` streams become `tb_activity_samplings` via a second streaming pass (records precede workouts in `export.xml`, so window-association is
   a two-pass, binary-searched lookup — keep it streaming; do not buffer the ~900MB file).
-- **Reprocess**: a completed import at a _different_ `parser_version` purges everything derived from the raw file (`apple_source_items` → snapshots → activities-cascade, in that order) then
-  re-persists. Deleting source items **first** is load-bearing — otherwise their `content_hash` makes change detection skip re-creating workouts (silent data loss). `parser_version` is
-  `IROHA_PARSER_VERSION` (default `imports.DefaultParserVersion`); bump it when parser semantics change.
+- `parser_version` is `IROHA_PARSER_VERSION` (default `imports.DefaultParserVersion`); bump it when parser semantics change. Preserve the raw evidence so the new interpretation can be replayed.
 
 ## Verification
 

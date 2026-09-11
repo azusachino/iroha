@@ -20,21 +20,38 @@ func expensesDataValues(values []expenses.MetricValue) *ExpensesData {
 	}
 
 	type currencyTotal struct {
-		amount int64
-		count  int
+		gross, refunds         int64
+		purchases, refundCount int
 	}
 	currencies := map[string]currencyTotal{}
 	type categoryKey struct{ category, currency string }
 	categories := map[categoryKey]currencyTotal{}
 	for _, value := range values {
+		magnitude := value.MagnitudeMinor
+		if magnitude == 0 {
+			magnitude = value.AmountMinor
+			if magnitude < 0 {
+				magnitude = -magnitude
+			}
+		}
 		currency := currencies[value.Currency]
-		currency.amount += value.AmountMinor
-		currency.count++
+		if value.Kind == expenses.KindRefund || (value.Kind == "" && value.AmountMinor < 0) {
+			currency.refunds += magnitude
+			currency.refundCount++
+		} else {
+			currency.gross += magnitude
+			currency.purchases++
+		}
 		currencies[value.Currency] = currency
 		key := categoryKey{category: value.Category, currency: value.Currency}
 		category := categories[key]
-		category.amount += value.AmountMinor
-		category.count++
+		if value.Kind == expenses.KindRefund || (value.Kind == "" && value.AmountMinor < 0) {
+			category.refunds += magnitude
+			category.refundCount++
+		} else {
+			category.gross += magnitude
+			category.purchases++
+		}
 		categories[key] = category
 	}
 	currencyKeys := make([]string, 0, len(currencies))
@@ -45,7 +62,7 @@ func expensesDataValues(values []expenses.MetricValue) *ExpensesData {
 	totalsByCurrency := make([]ExpenseCurrencyTotal, 0, len(currencyKeys))
 	for _, currency := range currencyKeys {
 		total := currencies[currency]
-		totalsByCurrency = append(totalsByCurrency, ExpenseCurrencyTotal{Currency: currency, CurrencyExponent: expenses.SupportedCurrencies[currency], AmountMinor: total.amount, ExpenseCount: total.count})
+		totalsByCurrency = append(totalsByCurrency, ExpenseCurrencyTotal{Currency: currency, CurrencyExponent: expenses.SupportedCurrencies[currency], AmountMinor: total.gross - total.refunds, GrossAmountMinor: total.gross, RefundAmountMinor: total.refunds, NetAmountMinor: total.gross - total.refunds, ExpenseCount: total.purchases + total.refundCount, PurchaseCount: total.purchases, RefundCount: total.refundCount})
 	}
 	categoryKeys := make([]categoryKey, 0, len(categories))
 	for key := range categories {
@@ -60,7 +77,12 @@ func expensesDataValues(values []expenses.MetricValue) *ExpensesData {
 	byCategory := make([]ExpenseCategoryTotal, 0, len(categoryKeys))
 	for _, key := range categoryKeys {
 		total := categories[key]
-		byCategory = append(byCategory, ExpenseCategoryTotal{Category: key.category, Currency: key.currency, CurrencyExponent: expenses.SupportedCurrencies[key.currency], AmountMinor: total.amount, ExpenseCount: total.count})
+		byCategory = append(byCategory, ExpenseCategoryTotal{Category: key.category, Currency: key.currency, CurrencyExponent: expenses.SupportedCurrencies[key.currency], AmountMinor: total.gross - total.refunds, GrossAmountMinor: total.gross, RefundAmountMinor: total.refunds, NetAmountMinor: total.gross - total.refunds, ExpenseCount: total.purchases + total.refundCount, PurchaseCount: total.purchases, RefundCount: total.refundCount})
 	}
-	return &ExpensesData{ExpenseCount: len(values), TotalsByCurrency: totalsByCurrency, ByCategory: byCategory}
+	purchases, refunds := 0, 0
+	for _, total := range currencies {
+		purchases += total.purchases
+		refunds += total.refundCount
+	}
+	return &ExpensesData{ExpenseCount: len(values), PurchaseCount: purchases, RefundCount: refunds, TotalsByCurrency: totalsByCurrency, ByCategory: byCategory}
 }

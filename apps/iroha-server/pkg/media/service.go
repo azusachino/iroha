@@ -7,6 +7,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -79,7 +80,7 @@ func (s *Service) CreateEvent(input CreateEventInput) (Event, error) {
 			return nil
 		}
 		created = Event{ID: id, MediaItemID: row.MediaItemID, EventType: row.EventType, OccurredAt: row.EventAt, Unit: row.Unit, Position: row.Position, Total: row.Total, ProgressPercent: row.ProgressPercent, Rating: row.Rating, RatingScale: row.RatingScale}
-		return nil
+		return revisions.Bump(tx, revisions.NamespaceMedia, revisions.NamespaceMetrics, revisions.NamespaceReports)
 	})
 	return created, err
 }

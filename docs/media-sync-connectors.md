@@ -103,7 +103,7 @@ The `anilist`, `anilist_activity`, and `bangumi` source kinds are registered in 
 ## 4. Full-schema adoption
 
 Adopt the research doc's stable schema (`tb_media_works`, `tb_media_items`, `tb_media_titles`, `tb_media_relations`, `tb_media_external_refs`, `tb_media_creators`/`_creator_roles`,
-`tb_intake_payloads`, `tb_media_intake_jobs`, `tb_media_consumption_events`, `tb_media_progress`, `tb_media_lists`/`_list_items`, `tb_media_resolution_tasks`) as one migration. Notes for this
+`tb_intake_payloads`, `tb_media_intake_jobs`, `tb_media_consumption_events`, `tb_media_progress`, and `tb_media_lists`/`_list_items`) as one migration. Notes for this
 codebase:
 
 - **Reuse `tb_raw_files` for connector snapshots** initially rather than standing up `tb_intake_payloads` as a parallel intake path. A connector snapshot _is_ a content-addressed blob with a storage
@@ -176,8 +176,7 @@ Keep the emitted observation provider-neutral: both connectors map their native 
    routinely disagree on which event anchors a work's release date by several months, so an exact-year match misses real matches). The title comparison itself NFKC-folds both sides (collapsing
    fullwidth punctuation like `～`/`（）` to ASCII) and strips bracketed annotations (`(...)`, `《...》`) before comparing, since providers routinely render the same title with a trailing reading
    gloss kept on one side and dropped on the other, or the same in-title gloss in a different bracket style — a plain lowercase/whitespace-normalized string match missed these in production. Exactly
-   one candidate → **auto-attach** to it (`matched_by = title_year`, confidence 0.7) and log an already-resolved `tb_media_resolution_task` purely as an audit trail; no human action needed. Two or
-   more candidates → genuinely ambiguous, so this stays a human decision: create a fresh item as in step 4 and leave the task **open** for the resolution inbox instead of guessing.
+   one candidate → **auto-attach** to it (`matched_by = title_year`, confidence 0.7). Two or more candidates → keep a fresh source-owned item and preserve the ambiguity for agent-readable inspection; do not block the import or guess.
 4. No match → create new work + item + titles + ref, `matched_by = provider_id`.
 
 Cross-provider linking is what makes AniList + Bangumi complementary rather than duplicative: AniList supplies `idMal` and romaji/english titles; Bangumi supplies Chinese titles and its own subject
@@ -199,7 +198,7 @@ punctuation, inconsistent subtitle spacing) were accounted for.
 - **Rate limits and failures**: a connector error preserves the current cursor. HTTP 429 responses parse both delta-seconds and HTTP-date `Retry-After` values; the job queue honors that delay, with
   bounded exponential backoff as the fallback.
 - **User state is authoritative current state, not a mirror**: a connector sync must **not** erase locally added Telegram/web events. Imported list state becomes current progress plus provider state
-  history; conflicts (e.g. local "completed" vs remote "dropped") go to the inbox (`tb_media_resolution_tasks`), never a silent overwrite.
+  history; conflicts (e.g. local "completed" vs remote "dropped") are retained as source observations and resolved by a deterministic domain rule, never by an inbox or arrival-order overwrite.
 - **Rewatches/rereads**: AniList `repeat` and re-`completed` state are retained as counts/status/date facts. They become new events only when the source supplies an exact event or the user records
   one.
 - **Reprocess**: bump the media parser_version to re-derive canonical rows from the same snapshots after a mapping fix — no re-fetch, no lost evidence, identical to apple-health reprocess-from-raw.
@@ -216,9 +215,9 @@ punctuation, inconsistent subtitle spacing) were accounted for.
 `make media-bridge-build` (`scripts/build_media_bridge.py`) fetches BangumiExtLinker + Fribb (§7) and upserts `tb_media_ref_bridge` (migration `00012_media_ref_bridge.sql`) — one row per
 `(hop, source_id) -> target_id`, `hop` being `bangumi_to_mal` or `mal_to_anilist`, since `TwoHopMediaRefBridge.Lookup` (`apps/iroha-imports/media_resolution.go`) compares provider IDs as strings
 throughout. `iroha-job` loads both hops into an in-memory map once at startup via `LoadTwoHopMediaRefBridgeFromDB`; an empty or unpopulated table degrades the same way an unset bridge always has —
-that hop is simply skipped and unresolved items fall through to the title+year inbox (§7 step 3). This used to be two ConfigMap-mounted JSON files generated locally and committed to harus-k3s
+that hop is simply skipped and unresolved items fall through to the non-blocking title+year matching rule (§7 step 3). This used to be two ConfigMap-mounted JSON files generated locally and committed to harus-k3s
 (`IROHA_BANGUMI_BRIDGE_PATH` / `IROHA_MAL_ANILIST_BRIDGE_PATH`); moved into Postgres 2026-08-16 so a refresh is a normal DB write instead of a rebuild-and-redeploy cycle, and the table is queryable
-and incrementally upsertable rather than replaced whole. Re-run `make media-bridge-build` periodically (there is still no auto-refresh schedule): the anime tail in §11 is mostly recent seasonal anime
+and incrementally upsertable rather than replaced whole. The worker refreshes this crosswalk automatically once a week; `make media-bridge-build` remains the local/manual rebuild path. The anime tail in §11 is mostly recent seasonal anime
 the upstream datasets haven't mapped yet, so that tail shrinks the closer to "now" the table was last refreshed — but **rebuilding will not help manga coverage**, which is 0% regardless of freshness
 (§7). Don't read "bridge cache" as "the general cross-provider dedup mechanism"; for manga it isn't in the loop at all.
 
@@ -227,13 +226,12 @@ the upstream datasets haven't mapped yet, so that tail shrinks the closer to "no
 Ordered smallest → biggest to build momentum; each ends green on `make check`.
 
 1. **Shipped** — schema, media dispatch/persistence, connector contract, cursor state, AniList/Bangumi pagination, raw snapshot evidence, worker retry handling, private sync trigger, full ontology
-   (titles, external refs, work/item linkage, events, progress projections), the bridge cache build/deploy, the resolution-tasks API + `/to-go` inbox panel, and cross-provider dedup auto-attach (§7).
-2. **Next** — automate bridge dataset refresh (currently a manual `make media-bridge-build` + ConfigMap redeploy with no schedule); merge/apply tooling for the genuinely ambiguous (2+ candidate)
-   resolution tasks, which today still only record a human's decision without acting on it.
-3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and a richer web inbox UI beyond the `/to-go` confirm/dismiss panel.
+   (titles, external refs, work/item linkage, events, progress projections), the bridge cache build/deploy, and cross-provider dedup auto-attach (§7).
+2. **Shipped** — the worker refreshes the bridge dataset weekly while preserving the manual rebuild path; ambiguous identities stay source-owned, and an explicit agent decision can attach, keep them separate, or undo a prior attach. The decision is append-only and consumed before bridge/title matching, so replays and bridge refreshes preserve it. No routine human resolution inbox is created.
+3. **Later** — connector account storage (per-user credentials instead of deployment-wide env vars) and richer agent-readable inspection/reconciliation tooling.
 
 Deferred (explicitly out of this draft's connector scope): Telegram/web natural-language quick-add and `tb_intake_payloads`; Goodreads/WeRead/Apple Books/Kindle adapters; Letterboxd CSV; TMDb/Open
-Library enrichment; self-hosted (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/inbox/history).
+Library enrichment; self-hosted (Jellyfin/Komga/Audiobookshelf) connectors; the web media surfaces (quick-add/history).
 
 ## 11. Spike results (2026-07-13, verified on real accounts)
 
@@ -245,7 +243,7 @@ collections). See epic `iroha:media-connector-spike`.
 - **Ratings are sparse** (AniList score 6–11%, Bangumi rate 1%) — `score`/`rating` must be nullable and never required.
 - **AniList→MAL bridge is reliable**: `idMal` coverage 100% anime / 97% manga.
 - **Bangumi→AniList auto-bridge = ~66%** of anime (two-hop via BangumiExtLinker + Fribb). The **~34% tail is almost entirely 2024–2026 seasonal anime** the datasets haven't mapped yet — so title+year
-  candidate + `tb_media_resolution_tasks` inbox is **required for an active watcher's recent list**, not a nicety. Cache both datasets locally and refresh periodically.
+  matching must remain automatic and non-blocking, with ambiguous cases retained for agent-readable inspection. Cache both datasets locally and refresh periodically.
 - **Bangumi→AniList auto-bridge = 0% of manga** (measured 2026-08-06 against every Bangumi manga ID in a real production sync: none present in `bangumi_to_mal.json`). BangumiExtLinker doesn't
   cross-reference manga/light-novel subjects at all, so freshness doesn't help here the way it does for anime — title+date matching is the _only_ cross-provider dedup path for manga, not a fallback.
 - **Dedupe is load-bearing**: 63 of the 136 Bangumi anime are also in the AniList list (same `idMal`) — real cross-account collisions the `external_refs` ladder must merge onto one item.

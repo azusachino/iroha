@@ -32,8 +32,10 @@ func (p Point) MarshalJSON() ([]byte, error) {
 }
 
 type Coverage struct {
-	ExpectedPeriods int `json:"expected_periods"`
-	ObservedPeriods int `json:"observed_periods"`
+	ExpectedPeriods        int    `json:"expected_periods"`
+	ObservedPeriods        int    `json:"observed_periods"`
+	ObservationState       string `json:"observation_state"`
+	CollectionCompleteness string `json:"collection_completeness"`
 }
 
 type Source struct {

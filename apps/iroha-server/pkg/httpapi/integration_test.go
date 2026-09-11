@@ -26,11 +26,11 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
@@ -50,6 +50,13 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 	duplicateID := uploadRawFile(t, server, "copy.gpx", "gpx", "web", validGPX())
 	if duplicateID != rawID {
 		t.Fatalf("duplicate raw id = %q, want %q", duplicateID, rawID)
+	}
+	var receipts []models.SourceReceipt
+	if err := db.Order("received_at asc").Find(&receipts).Error; err != nil {
+		t.Fatalf("load source receipts: %v", err)
+	}
+	if len(receipts) != 2 || receipts[0].ID == receipts[1].ID || receipts[0].RawFileID != receipts[1].RawFileID {
+		t.Fatalf("source receipts = %#v, want two distinct receipts for one blob", receipts)
 	}
 
 	requestJSON(t, server, http.MethodGet, "/api/v1/raw-files/"+rawID, "", http.StatusOK, func(body map[string]any) {
@@ -120,6 +127,196 @@ func TestIntegrationRawFileImportAndActivityEndpoints(t *testing.T) {
 		}
 	})
 	requestJSON(t, server, http.MethodGet, "/api/v1/activities/summary?date=2099-12-31", "", http.StatusBadRequest, nil)
+}
+
+func TestIntegrationImportFailureRetriesAndRecovers(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	server := newIntegrationServer(t, db)
+	rawID := uploadRawFile(t, server, "retry.gpx", "gpx", "cli", "not valid gpx")
+
+	var importID string
+	requestJSON(t, server, http.MethodPost, "/api/v1/imports", `{"raw_file_id":"`+rawID+`","parser_kind":"gpx"}`, http.StatusAccepted, func(body map[string]any) {
+		importID = stringValue(t, body, "id")
+	})
+	waitForImportFailure(t, server, importID)
+
+	importUUID, err := ids.Decode(ids.ImportPrefix, importID)
+	if err != nil {
+		t.Fatalf("decode import id: %v", err)
+	}
+	var queueJob models.Job
+	if err := db.Where("kind = ? and payload_json ->> 'import_job_id' = ?", jobs.KindGPXImportParse, importUUID.String()).First(&queueJob).Error; err != nil {
+		t.Fatalf("load queue job: %v", err)
+	}
+	if queueJob.Status == jobs.StatusCompleted {
+		t.Fatalf("failed import queue job was completed: %#v", queueJob)
+	}
+	if queueJob.Status != jobs.StatusQueued || queueJob.ErrorMessage == nil {
+		t.Fatalf("failed import queue job = %#v, want queued with error", queueJob)
+	}
+
+	rawUUID, err := ids.Decode(ids.RawFilePrefix, rawID)
+	if err != nil {
+		t.Fatalf("decode raw id: %v", err)
+	}
+	var rawFile models.RawFile
+	if err := db.First(&rawFile, "id = ?", rawUUID).Error; err != nil {
+		t.Fatalf("load raw file: %v", err)
+	}
+	if err := os.WriteFile(rawFile.StoragePath, []byte(validGPX()), 0o600); err != nil {
+		t.Fatalf("replace raw evidence for retry: %v", err)
+	}
+	if err := db.Model(&models.Job{}).Where("id = ?", queueJob.ID).Updates(map[string]any{
+		"run_after": time.Now().UTC().Add(-time.Second),
+	}).Error; err != nil {
+		t.Fatalf("release retry: %v", err)
+	}
+
+	waitForImportRecovery(t, server, importID)
+	completed := requestJSON(t, server, http.MethodGet, "/api/v1/imports/"+importID, "", http.StatusOK, nil)
+	if _, ok := completed["error_message"]; ok {
+		t.Fatalf("successful retry retained error_message: %#v", completed)
+	}
+	if err := db.First(&queueJob, "id = ?", queueJob.ID).Error; err != nil {
+		t.Fatalf("reload retried queue job: %v", err)
+	}
+	if queueJob.Status != jobs.StatusCompleted || queueJob.Attempts != 2 {
+		t.Fatalf("retried queue job = %#v, want completed after two attempts", queueJob)
+	}
+	assertCanonicalImportedActivity(t, db, rawID, "Integration Run")
+}
+
+func TestIntegrationExpiredFinalJobRecoversWhenQueueEmpty(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	now := time.Now().UTC()
+	lockedAt := now.Add(-(jobs.DefaultLeaseTimeout + time.Minute))
+	lockedBy := "worker-a"
+	job := models.Job{
+		ID:          uuid.New(),
+		Kind:        jobs.KindGPXImportParse,
+		Status:      jobs.StatusRunning,
+		PayloadJSON: json.RawMessage(`{}`),
+		Attempts:    jobs.DefaultMaxAttempts,
+		MaxAttempts: jobs.DefaultMaxAttempts,
+		RunAfter:    now.Add(-time.Minute),
+		LockedBy:    &lockedBy,
+		LockedAt:    &lockedAt,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := db.Create(&job).Error; err != nil {
+		t.Fatalf("create expired job: %v", err)
+	}
+
+	service := jobs.NewService(db, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	if _, err := service.ClaimNext("worker-b"); !errors.Is(err, jobs.ErrNoJobAvailable) {
+		t.Fatalf("claim empty queue error = %v, want %v", err, jobs.ErrNoJobAvailable)
+	}
+
+	var recovered models.Job
+	if err := db.First(&recovered, "id = ?", job.ID).Error; err != nil {
+		t.Fatalf("reload expired job: %v", err)
+	}
+	if recovered.Status != jobs.StatusFailed {
+		t.Fatalf("expired final job status = %q, want failed", recovered.Status)
+	}
+	if recovered.LockedBy != nil || recovered.LockedAt != nil || recovered.FinishedAt == nil {
+		t.Fatalf("expired final job lease fields = locked_by %v locked_at %v finished_at %v", recovered.LockedBy, recovered.LockedAt, recovered.FinishedAt)
+	}
+	if recovered.ErrorMessage == nil || *recovered.ErrorMessage != "worker lease expired" {
+		t.Fatalf("expired final job error = %v, want worker lease expired", recovered.ErrorMessage)
+	}
+}
+
+func TestIntegrationStaleClaimCannotHeartbeatFinalizeOrPublish(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	now := time.Now().UTC()
+	job := models.Job{
+		ID:          uuid.New(),
+		Kind:        "protected_test",
+		Status:      jobs.StatusQueued,
+		PayloadJSON: json.RawMessage(`{}`),
+		MaxAttempts: 3,
+		RunAfter:    now.Add(-time.Minute),
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := db.Create(&job).Error; err != nil {
+		t.Fatalf("create fenced job: %v", err)
+	}
+
+	paused := make(chan struct{})
+	resume := make(chan struct{})
+	service := jobs.NewService(db, slog.New(slog.NewTextHandler(io.Discard, nil)), map[string]jobs.Handler{
+		"protected_test": func(ctx context.Context, _ models.Job) error {
+			close(paused)
+			<-resume
+			claim, ok := jobs.ClaimFromContext(ctx)
+			if !ok {
+				return errors.New("claim missing from handler context")
+			}
+			return jobs.ProtectedTransaction(ctx, db, claim, func(tx *gorm.DB) error {
+				return tx.Create(&models.Task{ID: uuid.New(), Title: "stale publication", Status: "open", Source: "fence-test", CreatedAt: now, UpdatedAt: now}).Error
+			})
+		},
+	})
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := service.ProcessNext(context.Background(), "worker-a")
+		result <- err
+	}()
+	<-paused
+
+	if err := db.Model(&models.Job{}).Where("id = ?", job.ID).Update("locked_at", now.Add(-(jobs.DefaultLeaseTimeout + time.Minute))).Error; err != nil {
+		t.Fatalf("expire worker-a lease: %v", err)
+	}
+	jobB, err := service.ClaimNext("worker-b")
+	if err != nil {
+		t.Fatalf("reclaim with worker-b: %v", err)
+	}
+	close(resume)
+	if err := <-result; !errors.Is(err, jobs.ErrClaimLost) {
+		t.Fatalf("stale worker result = %v, want claim lost", err)
+	}
+
+	claimA := jobs.ClaimFor(job, "worker-a")
+	if err := service.Heartbeat(claimA, now); !errors.Is(err, jobs.ErrClaimLost) {
+		t.Fatalf("stale heartbeat = %v, want claim lost", err)
+	}
+	if err := service.Complete(claimA); !errors.Is(err, jobs.ErrClaimLost) {
+		t.Fatalf("stale completion = %v, want claim lost", err)
+	}
+	if err := service.Fail(claimA, job, errors.New("stale failure")); !errors.Is(err, jobs.ErrClaimLost) {
+		t.Fatalf("stale failure transition = %v, want claim lost", err)
+	}
+
+	var taskCount int64
+	if err := db.Model(&models.Task{}).Count(&taskCount).Error; err != nil {
+		t.Fatalf("count protected tasks: %v", err)
+	}
+	if taskCount != 0 {
+		t.Fatalf("stale worker published %d protected tasks, want 0", taskCount)
+	}
+
+	claimB := jobs.ClaimFor(jobB, "worker-b")
+	if err := jobs.ProtectedTransaction(context.Background(), db, claimB, func(tx *gorm.DB) error {
+		return tx.Create(&models.Task{ID: uuid.New(), Title: "current publication", Status: "open", Source: "fence-test", CreatedAt: now, UpdatedAt: now}).Error
+	}); err != nil {
+		t.Fatalf("current worker publication: %v", err)
+	}
+	if err := service.Complete(claimB); err != nil {
+		t.Fatalf("current worker completion: %v", err)
+	}
 }
 
 func TestIntegrationSleepEndpoints(t *testing.T) {
@@ -390,10 +587,122 @@ func resetIntegrationDB(t *testing.T, db *gorm.DB) {
 		 tb_external_refs,
 		 tb_activities,
 		 tb_media_resolution_tasks,
-		 tb_import_jobs,
+		tb_import_jobs,
+		tb_source_receipts,
+		tb_source_instances,
 		tb_raw_files
 		cascade`).Error; err != nil {
 		t.Fatalf("reset integration db: %v", err)
+	}
+}
+
+func TestIntegrationConcurrentRawFileDedupKeepsReceipts(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	service, err := rawfiles.NewService(db, t.TempDir())
+	if err != nil {
+		t.Fatalf("create raw file service: %v", err)
+	}
+	content := []byte("same source bytes")
+	start := make(chan struct{})
+	type result struct {
+		raw       models.RawFile
+		duplicate bool
+		err       error
+	}
+	results := make(chan result, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			file, fileErr := os.CreateTemp(t.TempDir(), "upload-*")
+			if fileErr != nil {
+				results <- result{err: fileErr}
+				return
+			}
+			if _, fileErr = file.Write(content); fileErr == nil {
+				_, fileErr = file.Seek(0, io.SeekStart)
+			}
+			if fileErr != nil {
+				_ = file.Close()
+				results <- result{err: fileErr}
+				return
+			}
+			<-start
+			raw, duplicate, createErr := service.Create(rawfiles.CreateInput{
+				File:              file,
+				OriginalFilename:  "same.gpx",
+				ContentType:       "application/gpx+xml",
+				SourceKind:        "gpx",
+				UploadedVia:       "cli",
+				SourceInstanceKey: "watch-1",
+			})
+			_ = file.Close()
+			results <- result{raw: raw, duplicate: duplicate, err: createErr}
+		}()
+	}
+	close(start)
+	first, second := <-results, <-results
+	if first.err != nil || second.err != nil {
+		t.Fatalf("concurrent uploads: %v / %v", first.err, second.err)
+	}
+	if first.raw.ID != second.raw.ID || first.raw.ReceiptID == nil || second.raw.ReceiptID == nil || *first.raw.ReceiptID == *second.raw.ReceiptID {
+		t.Fatalf("concurrent upload results = %#v / %#v, want one blob and two receipts", first.raw, second.raw)
+	}
+	var rawCount, receiptCount, instanceCount int64
+	if err := db.Model(&models.RawFile{}).Count(&rawCount).Error; err != nil {
+		t.Fatalf("count raw files: %v", err)
+	}
+	if err := db.Model(&models.SourceReceipt{}).Count(&receiptCount).Error; err != nil {
+		t.Fatalf("count source receipts: %v", err)
+	}
+	if err := db.Model(&models.SourceInstance{}).Count(&instanceCount).Error; err != nil {
+		t.Fatalf("count source instances: %v", err)
+	}
+	if rawCount != 1 || receiptCount != 2 || instanceCount != 1 {
+		t.Fatalf("dedup counts = raw %d receipts %d instances %d, want 1/2/1", rawCount, receiptCount, instanceCount)
+	}
+}
+
+func TestIntegrationRawFileReceiptFailureRemovesBlob(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	service, err := rawfiles.NewService(db, t.TempDir())
+	if err != nil {
+		t.Fatalf("create raw file service: %v", err)
+	}
+	file, err := os.CreateTemp(t.TempDir(), "invalid-receipt-*")
+	if err != nil {
+		t.Fatalf("create input: %v", err)
+	}
+	if _, err := file.WriteString("receipt rollback bytes"); err != nil {
+		t.Fatalf("write input: %v", err)
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("rewind input: %v", err)
+	}
+	_, _, err = service.Create(rawfiles.CreateInput{
+		File:             file,
+		OriginalFilename: "broken.gpx",
+		SourceKind:       "gpx",
+		UploadedVia:      "cli",
+		IngestionMode:    "not-a-mode",
+	})
+	_ = file.Close()
+	if err == nil {
+		t.Fatal("invalid receipt mode succeeded")
+	}
+	var rawCount, receiptCount int64
+	if err := db.Model(&models.RawFile{}).Count(&rawCount).Error; err != nil {
+		t.Fatalf("count rolled-back raw files: %v", err)
+	}
+	if err := db.Model(&models.SourceReceipt{}).Count(&receiptCount).Error; err != nil {
+		t.Fatalf("count rolled-back receipts: %v", err)
+	}
+	if rawCount != 0 || receiptCount != 0 {
+		t.Fatalf("rollback counts = raw %d receipts %d, want 0/0", rawCount, receiptCount)
 	}
 }
 
@@ -421,7 +730,7 @@ func makeImportParseHandler(importService **imports.Service) jobs.Handler {
 			return err
 		}
 		if importService != nil && *importService != nil {
-			return (*importService).Process(id)
+			return (*importService).ProcessContext(ctx, id)
 		}
 		return fmt.Errorf("import service not set")
 	}
@@ -493,22 +802,23 @@ func newIntegrationServerWithCache(t *testing.T, db *gorm.DB, responseCache *cac
 	}()
 
 	return NewServer(Dependencies{
-		Config:                 config.Config{},
-		Now:                    func() time.Time { return time.Date(2099, time.December, 31, 12, 0, 0, 0, time.UTC) },
-		Logger:                 logger,
-		ActivityService:        activityService,
-		SleepService:           sleepService,
-		DailyService:           dailyService,
-		ExpenseService:         expenses.NewService(db),
-		MediaService:           mediaService,
-		MetricRegistry:         metricRegistry,
-		MetricSeriesService:    metricSeriesService,
-		BriefingRegistry:       briefingRegistry,
-		MediaResolutionService: mediaresolution.NewService(db),
-		ImportService:          importService,
-		RawFileService:         rawFileService,
-		Cache:                  responseCache,
-		GeocodeService:         geocodeService,
+		Config:              config.Config{},
+		Now:                 func() time.Time { return time.Date(2099, time.December, 31, 12, 0, 0, 0, time.UTC) },
+		Logger:              logger,
+		DB:                  db,
+		ActivityService:     activityService,
+		SleepService:        sleepService,
+		DailyService:        dailyService,
+		ExpenseService:      expenses.NewService(db),
+		MediaService:        mediaService,
+		MetricRegistry:      metricRegistry,
+		MetricSeriesService: metricSeriesService,
+		BriefingRegistry:    briefingRegistry,
+		CoverageService:     coverage.NewService(db),
+		ImportService:       importService,
+		RawFileService:      rawFileService,
+		Cache:               responseCache,
+		GeocodeService:      geocodeService,
 	})
 }
 
@@ -695,6 +1005,39 @@ func waitForImportStatus(t *testing.T, handler http.Handler, importID string, wa
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("import %s did not reach %s", importID, want)
+}
+
+func waitForImportFailure(t *testing.T, handler http.Handler, importID string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		response := requestJSON(t, handler, http.MethodGet, "/api/v1/imports/"+importID, "", http.StatusOK, nil)
+		if response["status"] == imports.StatusFailed {
+			if _, ok := response["error_message"].(string); !ok {
+				t.Fatalf("failed import has no error_message: %#v", response)
+			}
+			return
+		}
+		if response["status"] == imports.StatusCompleted {
+			t.Fatalf("invalid import completed: %#v", response)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("import %s did not reach failed", importID)
+}
+
+func waitForImportRecovery(t *testing.T, handler http.Handler, importID string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	var last map[string]any
+	for time.Now().Before(deadline) {
+		last = requestJSON(t, handler, http.MethodGet, "/api/v1/imports/"+importID, "", http.StatusOK, nil)
+		if last["status"] == imports.StatusCompleted {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("import %s did not recover: %#v", importID, last)
 }
 
 func firstActivityID(t *testing.T, handler http.Handler) string {

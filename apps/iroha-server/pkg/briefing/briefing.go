@@ -46,7 +46,18 @@ type Section struct {
 	Key    string       `json:"key"`
 	Schema string       `json:"schema"`
 	State  SectionState `json:"state"`
+	Status SourceStatus `json:"status"`
 	Data   any          `json:"data"`
+}
+
+// SourceStatus intentionally keeps transport, collection and freshness
+// independent. The briefing can report canonical content without claiming
+// that the source covered the whole requested day.
+type SourceStatus struct {
+	Availability string `json:"availability"`
+	Collection   string `json:"collection"`
+	Operation    string `json:"operation"`
+	Freshness    string `json:"freshness"`
 }
 
 type Response struct {
@@ -91,6 +102,7 @@ func (r *Registry) Build(ctx context.Context, day Day) Response {
 				Key:    contributor.Key(),
 				Schema: contributor.Schema(),
 				State:  StateUnavailable,
+				Status: SourceStatus{Availability: "supported", Collection: "unknown", Operation: "failed", Freshness: "unknown"},
 				Data:   map[string]string{},
 			})
 			continue
@@ -99,6 +111,18 @@ func (r *Registry) Build(ctx context.Context, day Day) Response {
 		section.Schema = contributor.Schema()
 		if section.State == "" {
 			section.State = StateReady
+		}
+		if section.Status.Availability == "" {
+			section.Status.Availability = "supported"
+		}
+		if section.Status.Collection == "" {
+			section.Status.Collection = "unknown"
+		}
+		if section.Status.Operation == "" {
+			section.Status.Operation = "idle"
+		}
+		if section.Status.Freshness == "" {
+			section.Status.Freshness = "unknown"
 		}
 		if section.Data == nil {
 			section.Data = map[string]any{}

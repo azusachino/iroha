@@ -18,12 +18,12 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
-	"github.com/azusachino/iroha/apps/iroha-server/pkg/mediaresolution"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/sleep"
@@ -52,8 +52,8 @@ func main() {
 		os.Exit(1)
 	}
 	// parser_version identifies the parser build; a completed import at a
-	// different version triggers a reprocess (purge + re-persist) rather than
-	// a duplicate append. Overridable via IROHA_PARSER_VERSION so it can be
+	// different version triggers a replay into a new interpretation snapshot
+	// rather than a duplicate append. Overridable via IROHA_PARSER_VERSION so it can be
 	// bumped without recompiling.
 	parserVersion := os.Getenv("IROHA_PARSER_VERSION")
 	if parserVersion == "" {
@@ -92,7 +92,6 @@ func main() {
 		metricseries.SleepServiceSource{Service: sleepService},
 		metricseries.MediaServiceSource{Service: mediaService},
 	)
-	mediaResolutionService := mediaresolution.NewService(db)
 	taskService := tasks.NewService(db)
 	briefingRegistry, err := httpapi.NewBriefingRegistry(dailyService, sleepService, activityService, mediaService)
 	if err != nil {
@@ -101,24 +100,25 @@ func main() {
 	}
 
 	server := httpapi.NewServer(httpapi.Dependencies{
-		Config:                 cfg,
-		Logger:                 logger,
-		ActivityService:        activityService,
-		SleepService:           sleepService,
-		DailyService:           dailyService,
-		ExpenseService:         expenseService,
-		MediaService:           mediaService,
-		MediaResolutionService: mediaResolutionService,
-		MetricRegistry:         metricRegistry,
-		MetricSeriesService:    metricSeriesService,
-		BriefingRegistry:       briefingRegistry,
-		ImportService:          importService,
-		RawFileService:         rawFileService,
-		Cache:                  cacheClient,
-		GeocodeService:         geocodeService,
-		JobEnqueuer:            enqueuer,
-		JobsService:            jobsService,
-		TaskService:            taskService,
+		Config:              cfg,
+		Logger:              logger,
+		DB:                  db,
+		ActivityService:     activityService,
+		SleepService:        sleepService,
+		DailyService:        dailyService,
+		ExpenseService:      expenseService,
+		MediaService:        mediaService,
+		MetricRegistry:      metricRegistry,
+		MetricSeriesService: metricSeriesService,
+		BriefingRegistry:    briefingRegistry,
+		CoverageService:     coverage.NewService(db),
+		ImportService:       importService,
+		RawFileService:      rawFileService,
+		Cache:               cacheClient,
+		GeocodeService:      geocodeService,
+		JobEnqueuer:         enqueuer,
+		JobsService:         jobsService,
+		TaskService:         taskService,
 		ReadyCheck: func(ctx context.Context) error {
 			sqlDB, err := db.DB()
 			if err != nil {

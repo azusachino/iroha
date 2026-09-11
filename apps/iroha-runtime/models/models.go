@@ -18,11 +18,56 @@ type RawFile struct {
 	UploadedVia      string
 	ObservedAt       *time.Time
 	CreatedAt        time.Time
+	ReceiptID        *uuid.UUID `gorm:"-"`
 }
 
 func (RawFile) TableName() string {
 	return "tb_raw_files"
 }
+
+type SourceInstance struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Provider    string
+	InstanceKey string
+	DisplayName string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (SourceInstance) TableName() string { return "tb_source_instances" }
+
+type SourceReceipt struct {
+	ID               uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceInstanceID uuid.UUID `gorm:"type:uuid"`
+	RawFileID        uuid.UUID `gorm:"type:uuid"`
+	SourceKind       string
+	IngestionMode    string
+	ScopeJSON        json.RawMessage `gorm:"column:scope_json;type:jsonb"`
+	OrderingBasis    string
+	ObservedAt       *time.Time
+	ReceivedAt       time.Time
+	CreatedAt        time.Time
+}
+
+func (SourceReceipt) TableName() string { return "tb_source_receipts" }
+
+type SourceCoverageAssertion struct {
+	ID               uuid.UUID  `gorm:"type:uuid;primaryKey"`
+	SourceInstanceID uuid.UUID  `gorm:"type:uuid"`
+	SourceReceiptID  *uuid.UUID `gorm:"type:uuid"`
+	ImportSnapshotID *uuid.UUID `gorm:"type:uuid"`
+	Category         string
+	ScopeJSON        json.RawMessage `gorm:"column:scope_json;type:jsonb"`
+	IntervalStart    time.Time
+	IntervalEnd      time.Time
+	Timezone         string
+	IngestionMode    string
+	Completeness     string
+	RecordedAt       time.Time
+	CreatedAt        time.Time
+}
+
+func (SourceCoverageAssertion) TableName() string { return "tb_source_coverage_assertions" }
 
 type ImportJob struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -30,6 +75,7 @@ type ImportJob struct {
 	Status        string
 	ParserKind    string
 	ParserVersion string
+	SyncRunID     *uuid.UUID `gorm:"type:uuid"`
 	ErrorMessage  *string
 	StartedAt     *time.Time
 	FinishedAt    *time.Time
@@ -69,6 +115,7 @@ func (Activity) TableName() string {
 
 type SourceObservation struct {
 	ID                  uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceInstanceID    uuid.UUID `gorm:"type:uuid"`
 	Provider            string
 	SourceKind          string
 	SourceKey           string
@@ -81,6 +128,17 @@ type SourceObservation struct {
 }
 
 func (SourceObservation) TableName() string { return "tb_source_observations" }
+
+type SourceObservationReceipt struct {
+	SourceInstanceID    uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceObservationID uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SourceReceiptID     uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ImportSnapshotID    uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ContentHash         string
+	CreatedAt           time.Time
+}
+
+func (SourceObservationReceipt) TableName() string { return "tb_source_observation_receipts" }
 
 type ActivityObservation struct {
 	ID               uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -547,6 +605,24 @@ type MediaResolutionTask struct {
 
 func (MediaResolutionTask) TableName() string { return "tb_media_resolution_tasks" }
 
+// MediaMatchingDecision is an append-only, agent-applied choice for one
+// provider identity. It is separate from the old resolution-task table: a
+// decision is consumed by imports and remains effective after replay or a
+// bridge refresh, without creating a human-facing inbox.
+type MediaMatchingDecision struct {
+	ID                 uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Provider           string
+	ExternalID         string
+	SourceItemID       uuid.UUID `gorm:"type:uuid"`
+	TargetItemID       uuid.UUID `gorm:"type:uuid"`
+	DecisionKind       string
+	PreviousMatchedBy  string
+	PreviousConfidence *float64
+	CreatedAt          time.Time
+}
+
+func (MediaMatchingDecision) TableName() string { return "tb_media_matching_decisions" }
+
 type MediaSyncState struct {
 	ID            uuid.UUID       `gorm:"type:uuid;primaryKey"`
 	ConnectorID   string          `gorm:"uniqueIndex"`
@@ -559,6 +635,19 @@ type MediaSyncState struct {
 }
 
 func (MediaSyncState) TableName() string { return "tb_media_sync_state" }
+
+type MediaSyncRun struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ConnectorID  string
+	Status       string
+	StartedAt    time.Time
+	FinishedAt   *time.Time
+	ErrorMessage *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (MediaSyncRun) TableName() string { return "tb_media_sync_runs" }
 
 type IntakePayload struct {
 	ID            uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -636,22 +725,59 @@ func (Task) TableName() string {
 }
 
 type Expense struct {
-	ID                uuid.UUID `gorm:"type:uuid;primaryKey"`
-	OccurredOn        time.Time `gorm:"type:date"`
-	Currency          string
-	AmountMinor       int64
-	Category          string
-	Merchant          string
-	Note              string
-	ItemsJSON         json.RawMessage `gorm:"column:items_json;type:jsonb"`
-	SourceKind        string
-	SourceRef         string
-	CreateFingerprint string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	DeletedAt         *time.Time
+	ID                     uuid.UUID `gorm:"type:uuid;primaryKey"`
+	OccurredOn             time.Time `gorm:"type:date"`
+	AccountKey             string    `gorm:"default:default"`
+	Kind                   string    `gorm:"default:expense"`
+	Currency               string
+	AmountMinor            int64
+	Category               string
+	Merchant               string
+	Note                   string
+	OriginalTransactionRef string
+	ItemsJSON              json.RawMessage `gorm:"column:items_json;type:jsonb"`
+	SourceKind             string
+	SourceRef              string
+	CreateFingerprint      string
+	RefundOfExpenseID      *uuid.UUID `gorm:"type:uuid"`
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+	DeletedAt              *time.Time
 }
 
 func (Expense) TableName() string {
 	return "tb_expenses"
 }
+
+type ExpenseStatement struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	AccountKey   string
+	SourceKind   string
+	StatementRef string
+	PeriodFrom   time.Time `gorm:"type:date"`
+	PeriodTo     time.Time `gorm:"type:date"`
+	Completeness string
+	Revision     int64
+	SHA256       string `gorm:"column:csv_sha256"`
+	RowCount     int
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (ExpenseStatement) TableName() string { return "tb_expense_statements" }
+
+type ExpenseStatementRow struct {
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
+	StatementID    uuid.UUID `gorm:"type:uuid"`
+	AccountKey     string
+	SourceKind     string
+	TransactionID  string
+	ExpenseID      uuid.UUID `gorm:"type:uuid"`
+	RowFingerprint string
+	OccurredOn     time.Time `gorm:"type:date"`
+	TombstonedAt   *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (ExpenseStatementRow) TableName() string { return "tb_expense_statement_rows" }

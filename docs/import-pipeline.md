@@ -140,6 +140,11 @@ Reprocessing must be idempotent:
 - same source identity updates the same activity
 - route points for an activity can be replaced transactionally
 - samplings can be replaced by activity and sampling type
+- a replay updates only the reprocessed source observation and creates a new
+  interpretation snapshot; it never deletes canonical objects supported by
+  another source
+- a replay preserves an existing selection from another source while keeping
+  the refreshed observation and provenance available to agent-readable reads
 - old import jobs remain as audit history
 
 ## Error Handling
@@ -158,7 +163,7 @@ Failures should keep the raw file and error message. Failed imports can be retri
 When introducing a new type of data to be parsed (for example, media/photo data or a new workout type):
 
 1. **Extend Parser Cases**: Implement the file format handler inside the `pkg/parsers` package.
-2. **Define SQL Tables**: Add appropriate goose SQL migrations under `apps/iroha-server/db/migrations/` to create the domain tables (e.g. `tb_activity_<domain>`).
+2. **Define SQL Tables**: Add paired SQLx migrations under `apps/iroha-server/db/migrations/` to create the domain tables (e.g. `tb_activity_<domain>.up.sql` and `.down.sql`).
 3. **Register Job Kind**: Define a job kind constant in `pkg/jobs/service.go` (e.g. `KindMediaIntakeParse`).
 4. **Register Job Handler**: Wire the job kind to its respective handler function inside `apps/iroha-job/main.go`.
 5. **Enqueue Job**: Map the parser kind or file type to the newly registered job kind and enqueue it inside the `imports.Service.Create` function (or a separate ingestion service).
@@ -170,8 +175,8 @@ All background import jobs are processed by the worker with `max_attempts = 3`. 
 1. **Atomic Ingestion**: The database operations inside `imports.Service.process()` run in a transaction. If a worker attempt dies midway, the database rolls back to keep state consistent.
 2. **Same-Version Skip**: The `dispositionSkip` rule compares the file's SHA256 and the parser version of prior completed imports. If the same parser has already completed the work, a retry attempt
    will instantly short-circuit and succeed.
-3. **Reprocess Purge Sequence**: If reprocessing is triggered, any previously persisted records derived from that raw file are purged first. Deleting source items _first_ is load-bearing so GORM
-   doesn't skip recreating activities due to cache hits or duplicate unique keys.
+3. **Reprocess Replay**: If reprocessing is triggered, the parser writes a new interpretation snapshot and updates the stable source observation in place. Canonical identity and other-source observations
+   remain intact; a selected observation from another source is not silently replaced.
 
 The Postgres queue also recovers jobs whose worker lease has expired. A worker crash therefore returns an abandoned `running` job to the queue (unless it has already consumed its final attempt),
 instead of leaving it permanently stuck.

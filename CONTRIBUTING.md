@@ -5,7 +5,7 @@ live in [AGENTS.md](AGENTS.md).
 
 ## Development environment
 
-Tooling is pinned by the checked-in `.mise.toml` — do not install Go, goose, bun, or Postgres separately.
+Tooling is pinned by the checked-in `.mise.toml` — do not install Go, SQLx CLI, Bun, or Postgres separately.
 
 ```sh
 mise install
@@ -41,7 +41,8 @@ House rules that go beyond the linter:
 
 - **Named constants, not magic literals.** Versions, defaults, status strings, table names, and env keys live in one named `const` as the single source of truth (e.g. `imports.StatusCompleted`,
   `imports.DefaultParserVersion`); reference the const, never re-inline the literal.
-- **Raw files are canonical.** Never mutate imported evidence; derive from it. Reprocessing a source replaces its derived rows, it does not append.
+- **Raw files are canonical.** Never mutate imported evidence; derive from it. Exact replays are idempotent; parser-version reprocessing retains source observations and user selections while writing a new
+  interpretation snapshot. It does not purge evidence or require a human resolution inbox.
 - **Config files** (YAML, TOML, JSON) use **2-space** indentation; Go uses tabs (gofumpt).
 - Prefer small, testable pure helpers for logic that would otherwise need a database to exercise.
 

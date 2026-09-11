@@ -257,6 +257,19 @@ Current plan: [Iroha v0.4.1 cache and aggregation plan](plans/2026-08-14-iroha-0
 Current evidence: [v0.4.1 release audit](audits/2026-08-15-v0.4.1-release.md), updated after live-testing follow-up fixes; the earlier
 [release-candidate audit](audits/2026-08-14-v0.4.1-cache-release-candidate.md) remains historical evidence.
 
+## Release 0.5: Fresh-schema cockpit cut-over
+
+Goal: replace the legacy-schema boundary with replayable raw evidence, reduce user interruption through agent-accessible defaults, and make the private cockpit honest about source coverage and
+operational state.
+
+Status: release candidate accepted locally as v0.5.0. The cut-over uses SQLx migrations 1–20 and a complete replay of the original Apple Health export. It does not migrate the legacy schema and does
+not use Goose.
+
+Current evidence: [v0.5 release audit](audits/2026-09-11-v0.5.0-release.md).
+
+The release includes replay-based reprocessing, automatic bounded Health intake, scheduled media syncs, agent-owned AniList/Bangumi conflict decisions, late expense/refund semantics, revision-backed
+consistent reads, coverage/evidence status, connection actions, and parity between the private cockpit, local CLI, and sanitized public exporter.
+
 ## Future Module: Reading and Watching Stats
 
 Goal: track personal media consumption without turning iroha into a social media clone.

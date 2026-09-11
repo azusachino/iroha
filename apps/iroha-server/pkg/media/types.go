@@ -14,6 +14,14 @@ type Service struct {
 	db *gorm.DB
 }
 
+// WithDB returns a read-only service view backed by db. Report assembly uses
+// this to bind all domain queries to one database snapshot.
+func (s *Service) WithDB(db *gorm.DB) *Service {
+	copy := *s
+	copy.db = db
+	return &copy
+}
+
 type ListFilters struct {
 	Status        string
 	MediaType     string
@@ -173,6 +181,7 @@ type EventDetail struct {
 
 type ProgressDetail struct {
 	Status               string     `gorm:"column:status"`
+	SourceKind           string     `gorm:"column:source_kind"`
 	Unit                 string     `gorm:"column:unit"`
 	Position             *float64   `gorm:"column:position"`
 	Total                *float64   `gorm:"column:total"`
@@ -186,13 +195,22 @@ type ProgressDetail struct {
 }
 
 type Detail struct {
-	Item      Item
-	Work      WorkDetail
-	Progress  *ProgressDetail
-	Creators  []CreatorDetail
-	Relations []RelationDetail
-	Events    []EventDetail
-	Updates   []Change
+	Item         Item
+	Work         WorkDetail
+	Progress     *ProgressDetail
+	ExternalRefs []ExternalRefDetail
+	Creators     []CreatorDetail
+	Relations    []RelationDetail
+	Events       []EventDetail
+	Updates      []Change
+}
+
+type ExternalRefDetail struct {
+	Provider    string
+	ExternalID  string
+	ExternalURL string
+	MatchedBy   string
+	Confidence  *float64
 }
 
 type Event struct {
@@ -261,6 +279,8 @@ type Change struct {
 	EffectiveOnValue     *time.Time
 	EffectiveOnPrecision string
 	ProviderRecordedAt   *time.Time
+	SourceEventID        string
+	RawFileID            *uuid.UUID
 	Status               string
 	Unit                 string
 	Position             *float64

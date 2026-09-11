@@ -66,18 +66,30 @@ export interface MediaReportData {
 
 export interface ExpensesReportData {
   expense_count: number;
+  purchase_count: number;
+  refund_count: number;
   totals_by_currency: {
     currency: ExpenseCurrency;
     currency_exponent: number;
     amount_minor: number;
+    gross_amount_minor: number;
+    refund_amount_minor: number;
+    net_amount_minor: number;
     expense_count: number;
+    purchase_count: number;
+    refund_count: number;
   }[];
   by_category: {
     category: ExpenseCategory;
     currency: ExpenseCurrency;
     currency_exponent: number;
     amount_minor: number;
+    gross_amount_minor: number;
+    refund_amount_minor: number;
+    net_amount_minor: number;
     expense_count: number;
+    purchase_count: number;
+    refund_count: number;
   }[];
 }
 
@@ -114,6 +126,7 @@ export interface MonthlyReport {
     timezone: string;
   };
   generated_at: string;
+  status: ReportStatus;
   sections: {
     movement: ReportSection<MovementReportData>;
     sleep: ReportSection<SleepReportData>;
@@ -123,9 +136,16 @@ export interface MonthlyReport {
   };
 }
 
+export interface ReportStatus {
+  calendar_completeness: "complete" | "partial";
+  observation_state: "empty" | "observed";
+  collection_completeness: "unknown" | "partial" | "covered" | "covered_empty";
+}
+
 export interface MonthlyReportSeriesPoint {
   month: string;
   completeness: "complete" | "partial";
+  collection_completeness: "unknown" | "partial" | "covered" | "covered_empty";
   movement: { distance_m: number } | null;
   sleep: { average_asleep_s: number } | null;
   daily_health: DailyHealthReportData | null;

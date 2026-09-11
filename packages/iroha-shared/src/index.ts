@@ -27,3 +27,4 @@ export * from "./theme/design-compositions";
 export * from "./domain/daily";
 export * from "./view-contracts/daily-view";
 export * from "./domain/public-activity";
+export * from "./domain/connections";

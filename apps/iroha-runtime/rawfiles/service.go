@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -21,17 +22,26 @@ import (
 
 var safeNamePattern = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
+const (
+	IngestionModeFullSnapshot       = "full_snapshot"
+	IngestionModeBoundedReplacement = "bounded_replacement"
+	IngestionModeIncremental        = "incremental"
+)
+
 type Service struct {
 	db      *gorm.DB
 	dataDir string
 }
 
 type CreateInput struct {
-	File             multipart.File
-	OriginalFilename string
-	ContentType      string
-	SourceKind       string
-	UploadedVia      string
+	File              multipart.File
+	OriginalFilename  string
+	ContentType       string
+	SourceKind        string
+	UploadedVia       string
+	SourceInstanceKey string
+	IngestionMode     string
+	ObservedAt        *time.Time
 }
 
 func NewService(db *gorm.DB, dataDir string) (*Service, error) {
@@ -84,6 +94,11 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 		return models.RawFile{}, false, err
 	}
 	if found {
+		receipt, receiptErr := s.recordReceipt(existing, input.SourceKind, input.UploadedVia, input.SourceInstanceKey, input.IngestionMode, input.ObservedAt, now)
+		if receiptErr != nil {
+			return models.RawFile{}, false, receiptErr
+		}
+		existing.ReceiptID = &receipt.ID
 		return existing, true, nil
 	}
 
@@ -108,8 +123,24 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 	}
 
 	if err := s.db.Create(&rawFile).Error; err != nil {
+		_ = os.Remove(storagePath)
+		if existing, found, findErr := s.findByHash(hash); findErr == nil && found {
+			receipt, receiptErr := s.recordReceipt(existing, input.SourceKind, input.UploadedVia, input.SourceInstanceKey, input.IngestionMode, input.ObservedAt, now)
+			if receiptErr != nil {
+				return models.RawFile{}, false, receiptErr
+			}
+			existing.ReceiptID = &receipt.ID
+			return existing, true, nil
+		}
 		return models.RawFile{}, false, err
 	}
+	receipt, err := s.recordReceipt(rawFile, input.SourceKind, input.UploadedVia, input.SourceInstanceKey, input.IngestionMode, input.ObservedAt, now)
+	if err != nil {
+		_ = s.db.Delete(&models.RawFile{}, "id = ?", rawFile.ID).Error
+		_ = os.Remove(storagePath)
+		return models.RawFile{}, false, err
+	}
+	rawFile.ReceiptID = &receipt.ID
 
 	return rawFile, false, nil
 }
@@ -135,6 +166,11 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 		return models.RawFile{}, err
 	}
 	if found {
+		receipt, receiptErr := s.recordReceipt(existing, snapshot.SourceKind, "connector", snapshot.SourceInstanceKey, snapshot.IngestionMode, timePtrOrNow(snapshot.ObservedAt, now), now)
+		if receiptErr != nil {
+			return models.RawFile{}, receiptErr
+		}
+		existing.ReceiptID = &receipt.ID
 		return existing, nil
 	}
 	id, err := ids.New()
@@ -162,9 +198,76 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 	}
 	if err := s.db.Create(&rawFile).Error; err != nil {
 		_ = os.Remove(storagePath)
+		if existing, found, findErr := s.findByHash(hash); findErr == nil && found {
+			receipt, receiptErr := s.recordReceipt(existing, snapshot.SourceKind, "connector", snapshot.SourceInstanceKey, snapshot.IngestionMode, timePtrOrNow(snapshot.ObservedAt, now), now)
+			if receiptErr != nil {
+				return models.RawFile{}, receiptErr
+			}
+			existing.ReceiptID = &receipt.ID
+			return existing, nil
+		}
 		return models.RawFile{}, err
 	}
+	receipt, err := s.recordReceipt(rawFile, snapshot.SourceKind, "connector", snapshot.SourceInstanceKey, snapshot.IngestionMode, rawFile.ObservedAt, now)
+	if err != nil {
+		_ = s.db.Delete(&models.RawFile{}, "id = ?", rawFile.ID).Error
+		_ = os.Remove(storagePath)
+		return models.RawFile{}, err
+	}
+	rawFile.ReceiptID = &receipt.ID
 	return rawFile, nil
+}
+
+func (s *Service) recordReceipt(rawFile models.RawFile, sourceKind, uploadedVia, instanceKey, ingestionMode string, observedAt *time.Time, receivedAt time.Time) (models.SourceReceipt, error) {
+	if sourceKind == "" {
+		sourceKind = rawFile.SourceKind
+	}
+	if instanceKey == "" {
+		instanceKey = uploadedVia
+	}
+	if instanceKey == "" {
+		instanceKey = "unknown"
+	}
+	if ingestionMode == "" {
+		ingestionMode = IngestionModeFullSnapshot
+	}
+	now := receivedAt.UTC()
+	instanceID, err := ids.New()
+	if err != nil {
+		return models.SourceReceipt{}, err
+	}
+	receiptID, err := ids.New()
+	if err != nil {
+		return models.SourceReceipt{}, err
+	}
+	receipt := models.SourceReceipt{
+		ID:               receiptID,
+		SourceInstanceID: instanceID,
+		RawFileID:        rawFile.ID,
+		SourceKind:       sourceKind,
+		IngestionMode:    ingestionMode,
+		ScopeJSON:        json.RawMessage(`{}`),
+		ObservedAt:       observedAt,
+		ReceivedAt:       now,
+		CreatedAt:        now,
+	}
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(`insert into tb_source_instances (id, provider, instance_key, display_name, created_at, updated_at)
+values (?, ?, ?, '', ?, ?)
+on conflict (provider, instance_key) do nothing`, instanceID, sourceKind, instanceKey, now, now).Error; err != nil {
+			return err
+		}
+		var instance models.SourceInstance
+		if err := tx.Where("provider = ? and instance_key = ?", sourceKind, instanceKey).First(&instance).Error; err != nil {
+			return err
+		}
+		receipt.SourceInstanceID = instance.ID
+		return tx.Create(&receipt).Error
+	})
+	if err != nil {
+		return models.SourceReceipt{}, err
+	}
+	return receipt, nil
 }
 
 func timePtrOrNow(value, fallback time.Time) *time.Time {

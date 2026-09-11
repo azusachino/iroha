@@ -89,6 +89,8 @@ describe("panel CSV export", () => {
         {
           id: "expense-1",
           occurred_on: "2026-08-14",
+          account_key: "default",
+          kind: "expense",
           currency: "JPY",
           currency_exponent: 0,
           amount_minor: 800,

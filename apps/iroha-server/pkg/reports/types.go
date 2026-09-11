@@ -17,6 +17,7 @@ type MonthlyReport struct {
 	Schema      string         `json:"schema"`
 	Period      ReportMonth    `json:"period"`
 	GeneratedAt time.Time      `json:"generated_at"`
+	Status      PeriodStatus   `json:"status"`
 	Sections    ReportSections `json:"sections"`
 }
 
@@ -33,13 +34,23 @@ type MonthlyReportSeries struct {
 }
 
 type MonthlyReportSeriesPoint struct {
-	Month        string                         `json:"month"`
-	Completeness string                         `json:"completeness"`
-	Movement     *MonthlyReportMovementTrend    `json:"movement"`
-	Sleep        *MonthlyReportSleepTrend       `json:"sleep"`
-	DailyHealth  *MonthlyReportDailyHealthTrend `json:"daily_health"`
-	Media        *MonthlyReportMediaTrend       `json:"media"`
-	Expenses     *MonthlyReportExpensesTrend    `json:"expenses"`
+	Month                  string                         `json:"month"`
+	Completeness           string                         `json:"completeness"` // calendar completeness retained for v1 clients
+	CollectionCompleteness string                         `json:"collection_completeness"`
+	Movement               *MonthlyReportMovementTrend    `json:"movement"`
+	Sleep                  *MonthlyReportSleepTrend       `json:"sleep"`
+	DailyHealth            *MonthlyReportDailyHealthTrend `json:"daily_health"`
+	Media                  *MonthlyReportMediaTrend       `json:"media"`
+	Expenses               *MonthlyReportExpensesTrend    `json:"expenses"`
+}
+
+// PeriodStatus keeps calendar closure separate from what the source actually
+// proved. Collection is unknown until a source-specific coverage assertion is
+// available; observation is derived only from canonical records in this read.
+type PeriodStatus struct {
+	CalendarCompleteness   string `json:"calendar_completeness"`
+	ObservationState       string `json:"observation_state"`
+	CollectionCompleteness string `json:"collection_completeness"`
 }
 
 type MonthlyReportMovementTrend struct {
@@ -114,6 +125,8 @@ type MediaData struct {
 
 type ExpensesData struct {
 	ExpenseCount     int                    `json:"expense_count"`
+	PurchaseCount    int                    `json:"purchase_count"`
+	RefundCount      int                    `json:"refund_count"`
 	TotalsByCurrency []ExpenseCurrencyTotal `json:"totals_by_currency"`
 	ByCategory       []ExpenseCategoryTotal `json:"by_category"`
 }
@@ -155,18 +168,28 @@ type MediaCompleted struct {
 }
 
 type ExpenseCurrencyTotal struct {
-	Currency         string `json:"currency"`
-	CurrencyExponent int    `json:"currency_exponent"`
-	AmountMinor      int64  `json:"amount_minor"`
-	ExpenseCount     int    `json:"expense_count"`
+	Currency          string `json:"currency"`
+	CurrencyExponent  int    `json:"currency_exponent"`
+	AmountMinor       int64  `json:"amount_minor"` // net amount; retained for clients using v1
+	GrossAmountMinor  int64  `json:"gross_amount_minor"`
+	RefundAmountMinor int64  `json:"refund_amount_minor"`
+	NetAmountMinor    int64  `json:"net_amount_minor"`
+	ExpenseCount      int    `json:"expense_count"` // retained for clients using v1
+	PurchaseCount     int    `json:"purchase_count"`
+	RefundCount       int    `json:"refund_count"`
 }
 
 type ExpenseCategoryTotal struct {
-	Category         string `json:"category"`
-	Currency         string `json:"currency"`
-	CurrencyExponent int    `json:"currency_exponent"`
-	AmountMinor      int64  `json:"amount_minor"`
-	ExpenseCount     int    `json:"expense_count"`
+	Category          string `json:"category"`
+	Currency          string `json:"currency"`
+	CurrencyExponent  int    `json:"currency_exponent"`
+	AmountMinor       int64  `json:"amount_minor"` // net amount; retained for clients using v1
+	GrossAmountMinor  int64  `json:"gross_amount_minor"`
+	RefundAmountMinor int64  `json:"refund_amount_minor"`
+	NetAmountMinor    int64  `json:"net_amount_minor"`
+	ExpenseCount      int    `json:"expense_count"` // retained for clients using v1
+	PurchaseCount     int    `json:"purchase_count"`
+	RefundCount       int    `json:"refund_count"`
 }
 
 func NewSection[T any](schema string, data *T) ReportSection[T] {

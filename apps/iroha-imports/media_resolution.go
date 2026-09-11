@@ -1,7 +1,6 @@
 package imports
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -19,14 +18,10 @@ import (
 )
 
 const (
-	mediaMatchProviderID    = "provider_id"
-	mediaMatchBridge        = "bridge_ref"
-	mediaMatchTitleYear     = "title_year"
-	mediaResolutionOpen     = "open"
-	mediaResolutionResolved = "resolved"
-	mediaResolutionDedupe   = "dedupe_candidate"
-	mediaResolutionConflict = "progress_conflict"
-
+	mediaMatchProviderID = "provider_id"
+	mediaMatchBridge     = "bridge_ref"
+	mediaMatchTitleYear  = "title_year"
+	mediaMatchDecision   = "matching_decision"
 	// titleYearToleranceDays widens the release-date match from "same
 	// calendar year" to a symmetric window: different providers frequently
 	// anchor a work's release date to different events (first chapter vs
@@ -47,8 +42,8 @@ type MediaRefBridge interface {
 }
 
 // StaticMediaRefBridge is populated by a cache refresh job or a test fixture.
-// It deliberately returns only exact mappings; fuzzy matching belongs in the
-// resolution inbox, never in this bridge.
+// It deliberately returns only exact mappings; fuzzy matching never belongs
+// in this bridge.
 type StaticMediaRefBridge map[string]observations.MediaExternalRef
 
 func (b StaticMediaRefBridge) Lookup(provider, externalID string) (observations.MediaExternalRef, bool) {
@@ -76,7 +71,8 @@ type mediaRefBridgeRow struct {
 // scripts/build_media_bridge.py populates that table instead of writing
 // JSON files now. An empty or missing table degrades the same way an unset
 // bridge always has: Lookup just returns not-found and resolution falls
-// through to the title+year inbox.
+// through to the title+year matching rule and may create a separate
+// source-owned item.
 func LoadTwoHopMediaRefBridgeFromDB(db *gorm.DB) (TwoHopMediaRefBridge, error) {
 	bridge := TwoHopMediaRefBridge{
 		BangumiToMAL: make(map[string]string),
@@ -185,6 +181,124 @@ type mediaResolution struct {
 	ItemID     uuid.UUID
 	MatchedBy  string
 	Confidence *float64
+	Explicit   bool
+	OwnsItem   bool
+}
+
+const (
+	MediaDecisionAttach       = "attach"
+	MediaDecisionKeepSeparate = "keep_separate"
+	MediaDecisionUndo         = "undo"
+)
+
+// MediaMatchingDecisionInput is the agent-facing write contract for an
+// explicit provider identity choice. TargetItemID is the source-owned item for
+// keep_separate and undo; attach points it at the selected canonical item.
+type MediaMatchingDecisionInput struct {
+	Provider     string
+	ExternalID   string
+	TargetItemID uuid.UUID
+	DecisionKind string
+}
+
+// RecordMediaMatchingDecision applies and records an explicit identity
+// choice. The provider ref is moved transactionally, so the next replay finds
+// the same item before consulting any bridge or title heuristic.
+func (s *Service) RecordMediaMatchingDecision(input MediaMatchingDecisionInput) (models.MediaMatchingDecision, error) {
+	var decision models.MediaMatchingDecision
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var ref models.MediaExternalRef
+		if err := tx.Where("provider = ? and external_id = ?", input.Provider, input.ExternalID).First(&ref).Error; err != nil {
+			return fmt.Errorf("provider ref %s/%s: %w", input.Provider, input.ExternalID, err)
+		}
+		if input.TargetItemID == uuid.Nil {
+			return errors.New("matching decision target item is required")
+		}
+		var target models.MediaItem
+		if err := tx.First(&target, "id = ?", input.TargetItemID).Error; err != nil {
+			return fmt.Errorf("matching decision target item: %w", err)
+		}
+		if input.DecisionKind != MediaDecisionAttach && input.DecisionKind != MediaDecisionKeepSeparate && input.DecisionKind != MediaDecisionUndo {
+			return fmt.Errorf("invalid matching decision kind %q", input.DecisionKind)
+		}
+
+		var previous models.MediaMatchingDecision
+		previousResult := tx.Where("provider = ? and external_id = ?", input.Provider, input.ExternalID).
+			Order("created_at desc, id desc").First(&previous)
+		if previousResult.Error != nil && !errors.Is(previousResult.Error, gorm.ErrRecordNotFound) {
+			return previousResult.Error
+		}
+		sourceItemID := ref.ScopeID
+		if previousResult.Error == nil {
+			sourceItemID = previous.SourceItemID
+		}
+		if sourceItemID == uuid.Nil {
+			return errors.New("matching decision source item is required")
+		}
+
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		decision = models.MediaMatchingDecision{
+			ID: id, Provider: input.Provider, ExternalID: input.ExternalID,
+			SourceItemID: sourceItemID, TargetItemID: input.TargetItemID,
+			DecisionKind: input.DecisionKind, PreviousMatchedBy: ref.MatchedBy,
+			PreviousConfidence: ref.Confidence, CreatedAt: time.Now().UTC(),
+		}
+		if err := tx.Create(&decision).Error; err != nil {
+			return err
+		}
+		updates := map[string]any{"scope_id": input.TargetItemID, "matched_by": mediaMatchDecision, "confidence": nil}
+		if input.DecisionKind == MediaDecisionUndo || input.DecisionKind == MediaDecisionKeepSeparate {
+			updates["scope_id"] = sourceItemID
+		}
+		return tx.Model(&models.MediaExternalRef{}).
+			Where("provider = ? and external_id = ?", input.Provider, input.ExternalID).
+			Updates(updates).Error
+	})
+	return decision, err
+}
+
+func latestMediaMatchingDecision(tx *gorm.DB, provider, externalID string) (*models.MediaMatchingDecision, error) {
+	var decision models.MediaMatchingDecision
+	result := tx.Where("provider = ? and external_id = ?", provider, externalID).
+		Order("created_at desc, id desc").First(&decision)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &decision, nil
+}
+
+// mediaProgressSourceWins keeps the current projection deterministic when
+// providers disagree. The losing observation remains in state history and can
+// be selected later without re-fetching the source.
+func mediaProgressSourceWins(incoming, existing string) bool {
+	if incoming == existing {
+		return true
+	}
+	incomingPriority := mediaProgressSourcePriority(incoming)
+	existingPriority := mediaProgressSourcePriority(existing)
+	if incomingPriority != existingPriority {
+		return incomingPriority > existingPriority
+	}
+	return incoming < existing
+}
+
+func mediaProgressSourcePriority(source string) int {
+	switch strings.ToLower(source) {
+	case "manual", "web", "telegram":
+		return 3
+	case "anilist":
+		return 2
+	case "bangumi":
+		return 1
+	default:
+		return 0
+	}
 }
 
 func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridge) (mediaResolution, error) {
@@ -193,6 +307,15 @@ func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBrid
 	// re-creating a duplicate item (and tripping the unique ref constraint)
 	// on every sync of the same entry.
 	refs := append([]observations.MediaExternalRef{{Provider: media.Provider, ExternalID: media.ExternalID}}, media.ExternalRefs...)
+	for _, ref := range refs {
+		decision, err := latestMediaMatchingDecision(tx, ref.Provider, ref.ExternalID)
+		if err != nil {
+			return mediaResolution{}, err
+		}
+		if decision != nil {
+			return mediaResolution{ItemID: decision.TargetItemID, MatchedBy: mediaMatchDecision, Explicit: true, OwnsItem: decision.SourceItemID == decision.TargetItemID}, nil
+		}
+	}
 	for _, ref := range refs {
 		matched, err := findExternalRef(tx, ref.Provider, ref.ExternalID)
 		if err != nil {
@@ -233,42 +356,26 @@ func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBrid
 		// different works could share a long, specific opening clause and
 		// diverge only in the subtitle, which is exactly the collision
 		// TestNormalizeMediaTitle_CanonicalKeyCollisionSafety guards against
-		// for bracketed content. So a prefix match only ever opens a task for
-		// a human; it never attaches automatically, regardless of how many
-		// candidates it finds.
+		// for bracketed content. So a prefix match never attaches
+		// automatically, regardless of how many candidates it finds. The
+		// caller creates a separate source-owned item without interruption.
 		prefixCandidates, err := titlePrefixCandidates(tx, media)
 		if err != nil {
 			return mediaResolution{}, err
 		}
-		if len(prefixCandidates) > 0 {
-			if err := createResolutionTask(tx, media, prefixCandidates, mediaResolutionOpen, json.RawMessage(`{}`)); err != nil {
-				return mediaResolution{}, err
-			}
-		}
+		_ = prefixCandidates
 	case 1:
 		// Unambiguous: exactly one existing item matches title, media type,
 		// and release date within tolerance. Attach to it instead of minting
-		// a duplicate; log an already-resolved task purely as an audit trail
-		// so this decision stays inspectable without requiring human review.
-		if err := createResolutionTask(tx, media, candidates, mediaResolutionResolved, autoMergedResolutionJSON()); err != nil {
-			return mediaResolution{}, err
-		}
+		// a duplicate.
 		confidence := mediaTitleYearConfidence
 		return mediaResolution{ItemID: candidates[0], MatchedBy: mediaMatchTitleYear, Confidence: &confidence}, nil
 	default:
 		// Ambiguous: more than one existing item matches. Auto-attaching
-		// could silently merge into the wrong one, so this stays a human
-		// decision -- leave the task open and let a fresh item get created,
-		// same as the no-candidate case.
-		if err := createResolutionTask(tx, media, candidates, mediaResolutionOpen, json.RawMessage(`{}`)); err != nil {
-			return mediaResolution{}, err
-		}
+		// could silently merge into the wrong one, so let a fresh source-owned
+		// item be created, same as the no-candidate case.
 	}
 	return mediaResolution{}, nil
-}
-
-func autoMergedResolutionJSON() json.RawMessage {
-	return json.RawMessage(`{"decision":"auto_merged","matched_by":"title_year"}`)
 }
 
 func findExternalRef(tx *gorm.DB, provider, externalID string) (*models.MediaExternalRef, error) {
@@ -366,10 +473,10 @@ func titleYearCandidates(tx *gorm.DB, media observations.Media) ([]uuid.UUID, er
 // titles are considered a prefix match. It is a hardcoded heuristic, not a
 // guarantee -- tuned against two real prod pairs (needed to accept a
 // 14-rune shared prefix, needed to reject a 7-rune one) and nothing more
-// rigorous than that. This mechanism only ever opens a review task, never
-// auto-attaches (see resolveMediaItem), so the cost of setting it too low is
-// bounded (a dismissible false-positive task) rather than unbounded (a bad
-// merge) -- but it is still just a tuned number, and titleSeasonMarkerSuffix
+// rigorous than that. This mechanism never auto-attaches (see
+// resolveMediaItem), so it cannot create a bad merge; a match remains a
+// separate source-owned item. It is still just a tuned number, and
+// titleSeasonMarkerSuffix
 // below exists precisely because the number alone was verified insufficient:
 // at this threshold "My Hero Academia" vs "My Hero Academia Season 2" also
 // passes the length check, and those are not duplicates.
@@ -484,32 +591,6 @@ func mediaTypeOrDefault(mediaType string) string {
 	return mediaType
 }
 
-func createResolutionTask(tx *gorm.DB, media observations.Media, candidates []uuid.UUID, status string, resolutionJSON json.RawMessage) error {
-	payload, err := json.Marshal(map[string]any{
-		"provider":     media.Provider,
-		"external_id":  media.ExternalID,
-		"title":        media.Title,
-		"release_date": releaseDate(media.ReleaseDate),
-		"candidates":   candidates,
-	})
-	if err != nil {
-		return err
-	}
-	id, err := ids.New()
-	if err != nil {
-		return err
-	}
-	task := models.MediaResolutionTask{
-		ID: id, TaskType: mediaResolutionDedupe, Status: status,
-		CandidatesJSON: payload, ResolutionJSON: resolutionJSON, CreatedAt: time.Now().UTC(),
-	}
-	if status != mediaResolutionOpen {
-		now := time.Now().UTC()
-		task.ResolvedAt = &now
-	}
-	return tx.Create(&task).Error
-}
-
 // parenAnnotationPattern and angleAnnotationPattern locate bracketed spans
 // that MIGHT be reading-gloss annotations. NFKC folds fullwidth parens to
 // ASCII "()" before either pattern runs, so parenAnnotationPattern only
@@ -555,13 +636,6 @@ func normalizeMediaTitle(title string) string {
 	folded := norm.NFKC.String(title)
 	stripped := stripKanaOnlyAnnotations(folded)
 	return strings.Join(strings.Fields(strings.ToLower(stripped)), "")
-}
-
-func releaseDate(value *time.Time) string {
-	if value == nil {
-		return ""
-	}
-	return value.UTC().Format("2006-01-02")
 }
 
 func errorsIsNotFound(err error) bool { return errors.Is(err, gorm.ErrRecordNotFound) }
@@ -618,48 +692,12 @@ func persistMediaMetadata(tx *gorm.DB, itemID uuid.UUID, media observations.Medi
 				return err
 			}
 			if existing.ScopeID != itemID {
-				return createExternalRefConflictTask(tx, itemID, ref, existing.ScopeID)
+				// A secondary provider ref can already belong to another item.
+				// Keep the incoming source evidence and skip only this ref so
+				// the rest of the provider snapshot still imports.
+				continue
 			}
 		}
 	}
 	return nil
-}
-
-func createProgressConflictTask(tx *gorm.DB, media observations.Media, itemID uuid.UUID, localStatus, remoteStatus string) error {
-	var open int64
-	if err := tx.Model(&models.MediaResolutionTask{}).
-		Where("task_type = ? and status = ? and candidates_json->>'media_item_id' = ?", mediaResolutionConflict, mediaResolutionOpen, itemID.String()).
-		Count(&open).Error; err != nil {
-		return err
-	}
-	if open > 0 {
-		return nil
-	}
-	payload, err := json.Marshal(map[string]any{
-		"provider": media.Provider, "external_id": media.ExternalID, "media_item_id": itemID,
-		"local_status": localStatus, "remote_status": remoteStatus,
-	})
-	if err != nil {
-		return err
-	}
-	id, err := ids.New()
-	if err != nil {
-		return err
-	}
-	return tx.Create(&models.MediaResolutionTask{ID: id, TaskType: mediaResolutionConflict, Status: mediaResolutionOpen, CandidatesJSON: payload, ResolutionJSON: json.RawMessage(`{}`), CreatedAt: time.Now().UTC()}).Error
-}
-
-func createExternalRefConflictTask(tx *gorm.DB, itemID uuid.UUID, ref observations.MediaExternalRef, existingItemID uuid.UUID) error {
-	payload, err := json.Marshal(map[string]any{
-		"provider": ref.Provider, "external_id": ref.ExternalID,
-		"incoming_item_id": itemID, "existing_item_id": existingItemID,
-	})
-	if err != nil {
-		return err
-	}
-	id, err := ids.New()
-	if err != nil {
-		return err
-	}
-	return tx.Create(&models.MediaResolutionTask{ID: id, TaskType: mediaResolutionConflict, Status: mediaResolutionOpen, CandidatesJSON: payload, ResolutionJSON: json.RawMessage(`{}`), CreatedAt: time.Now().UTC()}).Error
 }

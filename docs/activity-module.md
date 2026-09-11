@@ -58,7 +58,7 @@ tb_daily_summaries          -- the rings, one structured row per day
   stand_hours       double        -- appleStandHours
   stand_goal_hours  double
   source            text          -- primary source device for the day
-  first_raw_file_id uuid  fk -> tb_raw_files (for reprocess purge)
+  first_raw_file_id uuid  fk -> tb_raw_files (initial evidence provenance)
   created_at / updated_at
 
 tb_daily_metrics            -- open-ended daily scalars, one row per (day, metric)
@@ -85,7 +85,7 @@ Reuse the existing import machinery unchanged in spirit:
 - Extend `tb_apple_source_items.item_type` to `"daily_summary"` (rings) and `"daily_metric"` (one per day+metric).
 - Stable source key: the local `day` for a summary; `day|metric` for a metric (deterministic; survives re-exports; independent of zip hash).
 - `content_hash` over the day's rolled-up values so an unchanged day/metric skips re-persist and a changed one upserts — same skip/upsert/insert logic as workouts and sleep.
-- Reprocess purge extends to `tb_daily_summaries` and `tb_daily_metrics` in the load-bearing order (source items first, then the derived rows).
+- Reprocessing creates a new interpretation snapshot, updates the stable source observation, and re-resolves the selected projection without deleting facts supported by another source.
 
 ## Parser
 
@@ -113,7 +113,7 @@ Tracked as the `iroha:daily-activity` epic:
 
 1. Migration `00007_create_daily_activity.sql` + Go model.
 2. Parser: daily-activity pass + `ParsedDailySummary` + interval-union-with- priority helper (unit tested, DB-free; reuse sleep's union).
-3. Persist + reconcile: `item_type='daily_summary'`, reprocess purge extension.
+3. Persist + reconcile: `item_type='daily_summary'`, replay snapshots and source-owned selection.
 4. Read API: `/patterns`.
 5. Smoke assertions + cross-check vs `activity_explore.py`.
 

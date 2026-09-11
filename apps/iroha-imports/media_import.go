@@ -17,55 +17,40 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (s *Service) persistMedia(rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot, reprocess bool) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		if reprocess {
-			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
-				return err
-			}
-		}
-
-		if err := tx.Create(&snapshot).Error; err != nil {
+func (s *Service) persistMediaTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.Media, snapshot models.ImportSnapshot) error {
+	if err := tx.Create(&snapshot).Error; err != nil {
+		return err
+	}
+	for _, media := range parsed {
+		if err := persistMediaObservation(tx, rawFile, snapshot, media, s.mediaBridge); err != nil {
 			return err
 		}
-		for _, media := range parsed {
-			if err := persistMediaObservation(tx, rawFile, snapshot, media, s.mediaBridge); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return nil
 }
 
-func (s *Service) persistMediaHistory(rawFile models.RawFile, parsed []observations.MediaHistory, snapshot models.ImportSnapshot, reprocess bool) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		if reprocess {
-			if err := purgeDerivedForRawFile(tx, rawFile.ID); err != nil {
-				return err
-			}
-		}
-		if err := tx.Create(&snapshot).Error; err != nil {
+func (s *Service) persistMediaHistoryTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.MediaHistory, snapshot models.ImportSnapshot) error {
+	if err := tx.Create(&snapshot).Error; err != nil {
+		return err
+	}
+	for _, history := range parsed {
+		itemID, err := ensureMediaItem(tx, history.Media, s.mediaBridge)
+		if err != nil {
 			return err
 		}
-		for _, history := range parsed {
-			itemID, err := ensureMediaItem(tx, history.Media, s.mediaBridge)
-			if err != nil {
+		if err := persistMediaMetadata(tx, itemID, history.Media); err != nil {
+			return err
+		}
+		if err := persistMediaRelations(tx, itemID, history.Media); err != nil {
+			return err
+		}
+		for _, update := range history.Updates {
+			if err := persistMediaStateUpdate(tx, rawFile, snapshot, itemID, update); err != nil {
 				return err
-			}
-			if err := persistMediaMetadata(tx, itemID, history.Media); err != nil {
-				return err
-			}
-			if err := persistMediaRelations(tx, itemID, history.Media); err != nil {
-				return err
-			}
-			for _, update := range history.Updates {
-				if err := persistMediaStateUpdate(tx, rawFile, snapshot, itemID, update); err != nil {
-					return err
-				}
 			}
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func persistMediaStateUpdate(tx *gorm.DB, rawFile models.RawFile, snapshot models.ImportSnapshot, itemID uuid.UUID, update observations.MediaStateUpdate) error {
@@ -302,36 +287,55 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 		// after a parser fix) may overwrite the item's core fields. If the item
 		// was reached via a bridge/title match from a different provider, only
 		// fill empty fields so we don't clobber the owner's values each sync.
-		ownedItem := true
+		ownedItem := !resolution.Explicit || resolution.OwnsItem
 		lookupErr := tx.Where("scope_type = ? and scope_id = ? and provider = ? and external_id = ?", mediaScopeType, itemID, media.Provider, media.ExternalID).First(&externalRef).Error
 		if errors.Is(lookupErr, gorm.ErrRecordNotFound) {
 			ownedItem = false
-			refID, idErr := ids.New()
-			if idErr != nil {
-				return uuid.Nil, idErr
-			}
-			// INSERT ... ON CONFLICT DO NOTHING: (provider, external_id) is
-			// unique across all items, so a concurrent job may have already
-			// claimed this ref for a different item while we were resolving.
-			newRef := models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
-			result := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "provider"}, {Name: "external_id"}},
-				DoNothing: true,
-			}).Create(&newRef)
-			if result.Error != nil {
-				return uuid.Nil, result.Error
-			}
-			if result.RowsAffected == 0 {
-				var existing models.MediaExternalRef
-				if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&existing).Error; err != nil {
+			if resolution.Explicit {
+				// An explicit decision is stronger than the ref's current scope.
+				// Rebind it here so an older replay or a concurrent bridge refresh
+				// cannot undo the recorded choice.
+				if err := tx.Model(&models.MediaExternalRef{}).
+					Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).
+					Updates(map[string]any{"scope_id": itemID, "matched_by": mediaMatchDecision, "confidence": nil}).Error; err != nil {
 					return uuid.Nil, err
 				}
-				if existing.ScopeID != itemID {
-					return uuid.Nil, createExternalRefConflictTask(tx, itemID, observations.MediaExternalRef{Provider: media.Provider, ExternalID: media.ExternalID}, existing.ScopeID)
+				if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&externalRef).Error; err != nil {
+					return uuid.Nil, err
 				}
-				externalRef = existing
 			} else {
-				externalRef = newRef
+				refID, idErr := ids.New()
+				if idErr != nil {
+					return uuid.Nil, idErr
+				}
+				// INSERT ... ON CONFLICT DO NOTHING: (provider, external_id) is
+				// unique across all items, so a concurrent job may have already
+				// claimed this ref for a different item while we were resolving.
+				newRef := models.MediaExternalRef{ID: refID, ScopeType: mediaScopeType, ScopeID: itemID, Provider: media.Provider, ExternalID: media.ExternalID, MatchedBy: resolution.MatchedBy, Confidence: resolution.Confidence, CreatedAt: time.Now().UTC()}
+				result := tx.Clauses(clause.OnConflict{
+					Columns:   []clause.Column{{Name: "provider"}, {Name: "external_id"}},
+					DoNothing: true,
+				}).Create(&newRef)
+				if result.Error != nil {
+					return uuid.Nil, result.Error
+				}
+				if result.RowsAffected == 0 {
+					var existing models.MediaExternalRef
+					if err := tx.Where("provider = ? and external_id = ?", media.Provider, media.ExternalID).First(&existing).Error; err != nil {
+						return uuid.Nil, err
+					}
+					if existing.ScopeID != itemID {
+						// The provider ref is already owned elsewhere. Preserve the
+						// incoming raw observation, but do not block the import or
+						// create a blocking action for a secondary-ref disagreement.
+						externalRef = existing
+						resolution.ItemID = existing.ScopeID
+					} else {
+						externalRef = existing
+					}
+				} else {
+					externalRef = newRef
+				}
 			}
 		} else if lookupErr != nil {
 			return uuid.Nil, lookupErr
@@ -587,7 +591,7 @@ func latestEventUnchanged(tx *gorm.DB, itemID uuid.UUID, sourceKind string, even
 // upsertMediaProgress recomputes the current-progress projection, preferring
 // the adapter's rich ProgressState (unit/play_count/last_update/hidden) and
 // falling back to flat fields. A cross-source status disagreement is routed to
-// the inbox instead of silently overwriting.
+// the source history instead of silently overwriting.
 func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, media observations.Media) error {
 	progress := models.MediaProgress{
 		MediaItemID: itemID,
@@ -623,8 +627,11 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 	if result.Error != nil {
 		return result.Error
 	}
-	if existing.SourceKind != "" && existing.SourceKind != rawFile.SourceKind && existing.Status != progress.Status {
-		return createProgressConflictTask(tx, media, itemID, existing.Status, progress.Status)
+	if existing.SourceKind != "" && existing.SourceKind != rawFile.SourceKind && !mediaProgressSourceWins(rawFile.SourceKind, existing.SourceKind) {
+		return nil
+	}
+	if mediaProgressIsOlder(existing, progress) {
+		return nil
 	}
 	return tx.Model(&existing).Updates(map[string]any{
 		"status":                 progress.Status,
@@ -642,6 +649,16 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 		"source_kind":            progress.SourceKind,
 		"updated_at":             progress.UpdatedAt,
 	}).Error
+}
+
+func mediaProgressIsOlder(existing, incoming models.MediaProgress) bool {
+	if existing.SourceKind != incoming.SourceKind || existing.LastUpdateAt == nil {
+		return false
+	}
+	if incoming.LastUpdateAt == nil {
+		return true
+	}
+	return incoming.LastUpdateAt.Before(*existing.LastUpdateAt)
 }
 
 func floatPtrEqual(a, b *float64) bool {

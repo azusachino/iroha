@@ -8,19 +8,21 @@ import (
 )
 
 const (
-	RawFilePrefix             = "raw"
-	ImportPrefix              = "imp"
-	ActivityPrefix            = "act"
-	SleepPrefix               = "sleep"
-	SleepSegmentPrefix        = "sleepseg"
-	DailySummaryPrefix        = "daily"
-	MediaPrefix               = "media"
-	JobPrefix                 = "job"
-	TaskPrefix                = "task"
-	ExpensePrefix             = "exp"
-	MediaEventPrefix          = "medevt"
-	MediaChangePrefix         = "medchg"
-	MediaResolutionTaskPrefix = "medres"
+	RawFilePrefix        = "raw"
+	ReceiptPrefix        = "receipt"
+	SourceInstancePrefix = "src"
+	ImportPrefix         = "imp"
+	ActivityPrefix       = "act"
+	SleepPrefix          = "sleep"
+	SleepSegmentPrefix   = "sleepseg"
+	DailySummaryPrefix   = "daily"
+	MediaPrefix          = "media"
+	JobPrefix            = "job"
+	TaskPrefix           = "task"
+	ExpensePrefix        = "exp"
+	MediaEventPrefix     = "medevt"
+	MediaChangePrefix    = "medchg"
+	SyncRunPrefix        = "sync"
 )
 
 func New() (uuid.UUID, error) {

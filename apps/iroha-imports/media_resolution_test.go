@@ -66,3 +66,25 @@ func TestTwoHopMediaRefBridge(t *testing.T) {
 		t.Fatal("missing Bangumi mapping unexpectedly resolved")
 	}
 }
+
+func TestMediaProgressSourceWins(t *testing.T) {
+	cases := []struct {
+		name     string
+		incoming string
+		existing string
+		want     bool
+	}{
+		{name: "anilist beats bangumi", incoming: "anilist", existing: "bangumi", want: true},
+		{name: "bangumi does not replace anilist", incoming: "bangumi", existing: "anilist", want: false},
+		{name: "manual beats anilist", incoming: "manual", existing: "anilist", want: true},
+		{name: "same source refreshes", incoming: "bangumi", existing: "bangumi", want: true},
+		{name: "unknown tie is stable", incoming: "provider-b", existing: "provider-a", want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := mediaProgressSourceWins(tc.incoming, tc.existing); got != tc.want {
+				t.Fatalf("mediaProgressSourceWins(%q, %q) = %v, want %v", tc.incoming, tc.existing, got, tc.want)
+			}
+		})
+	}
+}
