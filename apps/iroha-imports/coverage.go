@@ -14,6 +14,11 @@ import (
 )
 
 const (
+	// coverageCompletenessUnknown is what a bounded source asserts when it
+	// cannot prove it read the whole window -- a locked phone or an
+	// ambiguous Health permission returns data without proving completeness.
+	// The intake parser accepts it, so the pipeline must too.
+	coverageCompletenessUnknown      = "unknown"
 	coverageCompletenessPartial      = "partial"
 	coverageCompletenessCovered      = "covered"
 	coverageCompletenessCoveredEmpty = "covered_empty"
@@ -73,7 +78,7 @@ func validateCoverageAssertion(assertion provider.CoverageAssertion) error {
 		return fmt.Errorf("invalid coverage ingestion mode %q", assertion.IngestionMode)
 	}
 	switch assertion.Completeness {
-	case coverageCompletenessPartial, coverageCompletenessCovered, coverageCompletenessCoveredEmpty:
+	case coverageCompletenessUnknown, coverageCompletenessPartial, coverageCompletenessCovered, coverageCompletenessCoveredEmpty:
 	default:
 		return fmt.Errorf("invalid coverage completeness %q", assertion.Completeness)
 	}

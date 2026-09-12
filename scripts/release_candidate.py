@@ -40,6 +40,12 @@ ROUTES = (
     ("reports?month=2026-08", 4, REPORT_EXPECTED_TEXT, 4),
     ("metrics?metric=health.steps&date=2026-08", 1, METRIC_EXPECTED_TEXT, 1),
 )
+# The first route of the matrix also pays for a cold `vite preview` compile,
+# and expenses paginates its 56-row fixture across two API calls. A flat wait
+# sized for a warm server raced that first load and failed the whole gate
+# before any check ran, so poll for the fixture data instead of guessing.
+ROUTE_SETTLE_POLL_MS = 400
+ROUTE_SETTLE_TIMEOUT_S = 20
 
 
 def free_port() -> int:
@@ -311,6 +317,39 @@ def assert_table_parity(session: str, theme: str, mode: str, route: str) -> None
         raise RuntimeError(f"table parity missing for {theme}/{mode}/{route}: {rows}")
 
 
+def settled_route_state(session: str, expected_text: str) -> dict:
+    """Read a route's rendered state once its fixture data has arrived.
+
+    Returns the last observed state on timeout rather than raising, so the
+    caller's assertions still report which specific expectation failed.
+    """
+    deadline = time.monotonic() + ROUTE_SETTLE_TIMEOUT_S
+    while True:
+        browser_command(session, "wait", str(ROUTE_SETTLE_POLL_MS))
+        result = browser_command(
+            session,
+            "eval",
+            "JSON.stringify({"
+            "language:document.documentElement.dataset.language,"
+            "theme:document.documentElement.dataset.theme,"
+            "charts:document.querySelectorAll('canvas').length,"
+            "url:location.pathname+location.search,"
+            "text:document.body.innerText,"
+            "panels:document.querySelectorAll('.metric-panel').length,"
+            "metadata:document.querySelectorAll('.metric-panel .metric-metadata').length,"
+            "csv:[...document.querySelectorAll('.metric-panel')]"
+            ".filter(p=>[...p.querySelectorAll('button')]"
+            ".some(b=>b.textContent.trim()==='CSV'&&!b.disabled)).length,"
+            "overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,"
+            "alerts:document.querySelectorAll('[role=alert]').length,"
+            f"focusContrast:{FOCUS_CONTRAST_EXPRESSION}"
+            "})",
+        )
+        state = json.loads(json.loads(result.stdout))
+        if expected_text in state["text"] or time.monotonic() >= deadline:
+            return state
+
+
 def browser_matrix(base_url: str, session: str) -> None:
     browser_command(session, "open", base_url)
     for theme in THEMES:
@@ -319,27 +358,7 @@ def browser_matrix(base_url: str, session: str) -> None:
             browser_command(session, "storage", "local", "set", "iroha-theme", mode)
             for route, minimum_charts, expected_text, minimum_panels in ROUTES:
                 browser_command(session, "open", f"{base_url}/{route}")
-                browser_command(session, "wait", "1200")
-                result = browser_command(
-                    session,
-                    "eval",
-                    "JSON.stringify({"
-                    "language:document.documentElement.dataset.language,"
-                    "theme:document.documentElement.dataset.theme,"
-                    "charts:document.querySelectorAll('canvas').length,"
-                    "url:location.pathname+location.search,"
-                    "text:document.body.innerText,"
-                    "panels:document.querySelectorAll('.metric-panel').length,"
-                    "metadata:document.querySelectorAll('.metric-panel .metric-metadata').length,"
-                    "csv:[...document.querySelectorAll('.metric-panel')]"
-                    ".filter(p=>[...p.querySelectorAll('button')]"
-                    ".some(b=>b.textContent.trim()==='CSV'&&!b.disabled)).length,"
-                    "overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,"
-                    "alerts:document.querySelectorAll('[role=alert]').length,"
-                    f"focusContrast:{FOCUS_CONTRAST_EXPRESSION}"
-                    "})",
-                )
-                state = json.loads(json.loads(result.stdout))
+                state = settled_route_state(session, expected_text)
                 if state["language"] != theme or state["theme"] != mode:
                     raise RuntimeError(f"visual mode mismatch for {theme}/{mode}/{route}: {state}")
                 if state["url"] != "/" + route:
