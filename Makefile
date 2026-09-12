@@ -7,7 +7,10 @@ WEB_DIR := apps/iroha-web
 JOB_DIR := apps/iroha-job
 PUBLIC_SITE_DIR := apps/iroha-public-site
 SHARED_DIR := packages/iroha-shared
-IMAGE_NS := azusachino.icu
+# Must match the image prefix harus-k3s pins in SERVICE_VERSIONS.yaml and its
+# manifests. imagePullPolicy is Never, so a mismatch here is not a pull failure
+# to debug later -- it is ErrImageNeverPull at apply time.
+IMAGE_NS := azusachino.com
 VERSION := $(shell tr -d '\n' < VERSION)
 TAG := v$(VERSION)
 OUT := ./dist/public-data
