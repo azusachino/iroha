@@ -11,6 +11,8 @@ Apple Health is ingested as a full export ZIP containing `export.xml` and route 
 The automatic path accepts the versioned `iroha.health.shortcut.v1` JSON envelope at `POST /api/v1/intake/health`. It is authenticated with the deployment-scoped `IROHA_HEALTH_INTAKE_TOKEN`, stores
 the unchanged payload as raw evidence, and queues a normal import job. Shortcut coverage is bounded and uses `bounded_replacement`: partial windows never imply that older records should be deleted.
 
+[Setting up the Apple Health Shortcut](../../apple-health-shortcut-setup.md) is the build recipe for a producer, including which envelope sections Shortcuts can actually fill.
+
 ## Implemented capabilities
 
 | Capability              | Status        | Notes                                                                                    |
