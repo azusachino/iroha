@@ -26,10 +26,10 @@ This setup replaces the experimental, unbuilt iOS Shortcuts path and manual full
 
 ## Security Model: Tailnet Perimeter & Configurable Auth
 
-Iroha is designed as a single-user personal data cockpit hosted on a private Tailscale network (`iroha.h.azusachino.com`).
+Iroha is designed as a single-user personal data cockpit hosted on a private Tailscale network (e.g. `iroha.your-tailnet.ts.net`) or local network.
 
 ### 1. Default: Network Perimeter Security (No Auth Header Required)
-Because `iroha.h.azusachino.com` is resolvable and accessible only by devices authenticated to Haru's tailnet:
+Because a tailnet domain like `iroha.your-tailnet.ts.net` is resolvable and accessible only by devices authenticated to your private network:
 - WireGuard encryption and tailnet node identity protect all communications in transit.
 - **No API token or `Authorization` header is required** in Health Auto Export by default when `IROHA_HEALTH_INTAKE_TOKEN` is unset.
 - This eliminates the security risk of storing long-lived plain-text bearer tokens in mobile app configurations.
@@ -71,7 +71,7 @@ Open the **Health Auto Export** app on iOS. You only need to configure two data 
 ### 3. Automation / Sync Settings
 Under **Automations** (or **REST API Export**):
 - **Export Type**: `REST API`
-- **URL**: `https://iroha.h.azusachino.com/api/v1/intake/health`
+- **URL**: `https://iroha.your-tailnet.ts.net/api/v1/intake/health`
 - **HTTP Method**: `POST`
 - **HTTP Headers**:
   - `Content-Type: application/json`
@@ -86,7 +86,7 @@ Under **Automations** (or **REST API Export**):
 You can verify that the endpoint is reachable and correctly processes Format v2 payloads using `curl`:
 
 ```bash
-curl -sS -X POST https://iroha.h.azusachino.com/api/v1/intake/health \
+curl -sS -X POST https://iroha.your-tailnet.ts.net/api/v1/intake/health \
   -H "Content-Type: application/json" \
   --data @apps/iroha-providers/parsers/testdata/health_auto_export.json
 ```

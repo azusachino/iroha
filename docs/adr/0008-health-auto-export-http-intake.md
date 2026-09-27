@@ -27,7 +27,7 @@ Prior approaches presented severe operational friction:
    - Enforce sparse metric parsing: unconfigured metrics in the client payload are safely omitted without failing the import.
 
 2. **Perimeter-Based Authentication with Configurable Token Fallback**:
-   - `iroha-server` runs on the private tailnet (`iroha.h.azusachino.com`).
+   - `iroha-server` runs on a private Tailnet or local network perimeter.
    - When `IROHA_HEALTH_INTAKE_TOKEN` is unset or empty, `POST /api/v1/intake/health` accepts unauthenticated requests from within the tailnet boundary, removing plain-text secret storage from mobile apps.
    - When `IROHA_HEALTH_INTAKE_TOKEN` is set, `Authorization: Bearer <token>` is strictly enforced.
 

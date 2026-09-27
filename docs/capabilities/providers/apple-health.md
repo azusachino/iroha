@@ -5,7 +5,7 @@ Status: full-export ingestion implemented end to end. Automated daily intake is 
 ## Evidence
 
 Apple Health is ingested via two tiers:
-1. **Continuous Daily Intake**: Automated background sync via Health Auto Export sending Format v2 JSON to `POST /api/v1/intake/health`. Requests are protected by the private Tailnet perimeter (`iroha.h.azusachino.com`) with configurable token authentication (`IROHA_HEALTH_INTAKE_TOKEN`). Payloads are ingested using `bounded_replacement` mode.
+1. **Continuous Daily Intake**: Automated background sync via Health Auto Export sending Format v2 JSON to `POST /api/v1/intake/health`. Requests are protected by the private Tailnet/LAN perimeter with configurable token authentication (`IROHA_HEALTH_INTAKE_TOKEN`). Payloads are ingested using `bounded_replacement` mode.
 2. **Historical Bulk Backfill**: Full export ZIP containing `export.xml` and route files uploaded via `POST /api/v1/raw-files` and `POST /api/v1/imports`. The export is treated as a complete snapshot and reconciled by stable provider source identity plus content hash.
 
 See [Setting up Health Auto Export HTTP Intake](../../health-auto-export-setup.md) for client configuration and export settings, and [ADR-0008](../../adr/0008-health-auto-export-http-intake.md) for the architecture decision.
