@@ -1500,7 +1500,7 @@ components:
         request_id: { type: string }
     SourceKind:
       type: string
-      enum: [apple_health_export, apple_health_shortcut, gpx, fit, tcx, strava_export]
+      enum: [apple_health_export, health_auto_export, gpx, fit, tcx, strava_export]
     UploadSource:
       type: string
       enum: [web, telegram, cli, ios_bridge]
@@ -1511,7 +1511,7 @@ components:
         raw_file_id: { type: string }
         parser_kind:
           type: string
-          enum: [apple_health_export, apple_health_shortcut, gpx, anilist, bangumi]
+          enum: [apple_health_export, health_auto_export, gpx, anilist, bangumi]
     HealthIntakeResponse:
       type: object
       required: [raw_file_id, import_id, status]

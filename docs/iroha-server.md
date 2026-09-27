@@ -32,7 +32,7 @@ Request fields:
 
 ```text
 file
-source_kind      apple_health_export | apple_health_shortcut | gpx | fit | tcx | strava_export
+source_kind      apple_health_export | health_auto_export | gpx | fit | tcx | strava_export
 uploaded_via     web | telegram | cli | ios_bridge
 ```
 
@@ -65,9 +65,7 @@ Reprocessing is modeled as another import job for the same raw file, not as muta
 POST /api/v1/intake/health
 ```
 
-Accepts automated health payloads up to 10 MiB (`healthIntakeMaxBytes`). The endpoint automatically detects the payload format:
-- **Health Auto Export Format v2 JSON (primary)**: Validates source metadata (`SourceInstanceKey`, defaulting to `"iphone-hae:primary"` or overridden by `X-Device-Id`), capture timestamp, and bounded date range before storing raw JSON and enqueuing a `health_auto_export` import job.
-- **`iroha.health.shortcut.v1` (legacy fallback)**: Validates source instance, capture time, bounded coverage, and supported completeness values before storing raw JSON and enqueuing an `apple_health_shortcut` import job.
+Accepts automated Health Auto Export Format v2 JSON payloads up to 10 MiB (`healthIntakeMaxBytes`). The endpoint validates source metadata (`SourceInstanceKey`, defaulting to `"iphone-hae:primary"` or overridden by `X-Device-Id`), capture timestamp, and bounded date range before storing raw JSON and enqueuing a `health_auto_export` import job.
 
 Authentication is configurable: requests over the private tailnet require no auth headers by default; if `IROHA_HEALTH_INTAKE_TOKEN` is configured on the server, `Authorization: Bearer <token>` is strictly enforced.
 
@@ -266,7 +264,7 @@ POST /api/v1/raw-files
 Content-Type: multipart/form-data
 
 file          the raw bytes (e.g. export.zip)
-source_kind   apple_health_export | apple_health_shortcut | gpx | fit | tcx | strava_export
+source_kind   apple_health_export | health_auto_export | gpx | fit | tcx | strava_export
 uploaded_via  telegram
 ```
 

@@ -153,7 +153,7 @@ func (s *Server) connection(instance models.SourceInstance) (connectionResponse,
 	if instance.Provider == "anilist" || instance.Provider == "bangumi" {
 		response.NextActions = append(response.NextActions, connectionAction{Kind: "sync", Method: http.MethodPost, Path: "/api/v1/media/sync/" + instance.Provider})
 	}
-	if instance.Provider == "apple_health_shortcut" || instance.Provider == "apple_health" {
+	if instance.Provider == "health_auto_export" || instance.Provider == "apple_health" {
 		response.NextActions = append(response.NextActions, connectionAction{Kind: "send_bounded_payload", Method: http.MethodPost, Path: "/api/v1/intake/health"})
 	}
 	return response, nil

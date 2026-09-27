@@ -38,8 +38,8 @@ Prior approaches presented severe operational friction:
    - **Continuous Daily Intake**: `POST /api/v1/intake/health` processes rolling 2–3 day HAE payloads with `bounded_replacement` semantics, leaving historical records untouched.
    - **Historical Bulk Backfill**: Retain `POST /api/v1/raw-files` and `POST /api/v1/imports` for full `apple_health_export` ZIP, FIT, TCX, and GPX archives with full snapshot reconciliation.
 
-5. **Graceful Shortcut Deprecation**:
-   - Retain the `apple_health_shortcut` parser in `POST /api/v1/intake/health` as a fallback to prevent breaking existing setups, but deprecate its documentation and mark it legacy.
+5. **Retirement and Removal of Apple Health Shortcut**:
+   - Completely remove the experimental `apple_health_shortcut` parser, tests, and setup docs. Because no on-device producer was ever successfully deployed (as noted in ADR-0007), removing this dead code eliminates dual-routing complexity and makes Health Auto Export the single, clean daily intake path.
 
 ## Consequences
 

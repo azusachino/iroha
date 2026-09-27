@@ -22,12 +22,11 @@ See [Setting up Health Auto Export HTTP Intake](../../health-auto-export-setup.m
 | Daily summaries                  | Implemented | ActivitySummary rings (full export)                                                              |
 | Daily metrics                    | Implemented | Steps, distance, resting HR, HRV, flights (from HAE and full export)                             |
 | Automated HAE intake             | Implemented | Sparse Format v2 JSON parser, 10MB body limit, Tailnet perimeter security, bounded replacement   |
-| Bounded Shortcut intake (legacy) | Deprecated  | Preserved as fallback receiver for `iroha.health.shortcut.v1` envelopes                          |
 
 ## Acceptance boundary
 
 - Full exports retain complete-snapshot reconciliation semantics.
-- HAE and Shortcut payloads retain raw evidence and create source coverage assertions in the same transaction as canonical observations.
+- HAE payloads retain raw evidence and create source coverage assertions in the same transaction as canonical observations.
 - Duplicate evidence is skipped at the import-job boundary; changed or late bounded windows create a new snapshot without deleting records outside the bounded evidence.
 - Coverage completeness is recorded evidence, not a replacement instruction. `bounded_replacement` updates observations in the bounded window without deleting records outside it.
 - `unknown` completeness is accepted end to end -- defensive default for background mobile sync.

@@ -40,7 +40,7 @@ func (s *Server) handleCreateImportJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if request.ParserKind != coreimports.KindAppleHealthExport &&
-		request.ParserKind != coreimports.KindAppleHealthShortcut &&
+		request.ParserKind != coreimports.KindHealthAutoExport &&
 		request.ParserKind != coreimports.KindGPX &&
 		request.ParserKind != coreimports.KindAniList &&
 		request.ParserKind != coreimports.KindBangumi {

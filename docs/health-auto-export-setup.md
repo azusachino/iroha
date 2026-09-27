@@ -105,6 +105,6 @@ The server stores the raw JSON in `tb_raw_files` with `ingestion_mode = bounded_
 
 ---
 
-## Legacy Shortcuts Deprecation
+## Retirement of iOS Shortcuts
 
-The previous iOS Shortcut receiver (`apple-health-shortcut.go` and `apple-health-shortcut-setup.md`) is deprecated. Existing Shortcuts sending `iroha.health.shortcut.v1` continue to be accepted as a legacy fallback, but all future development and automation should use Health Auto Export.
+The previous experimental iOS Shortcut receiver (`apple-health-shortcut.go` and `apple-health-shortcut-setup.md`) has been retired and removed. Because no on-device Shortcut producer could reliably build the envelope (as recorded in ADR-0007), removing this path eliminates dead code and leaves Health Auto Export as the sole, authoritative daily intake path.

@@ -25,7 +25,7 @@ func TestValidateCoverageAssertionCompleteness(t *testing.T) {
 		completeness string
 		wantErr      bool
 	}{
-		// Every value parsers.ParseAppleHealthShortcut accepts must survive
+		// Every value parsers.ParseHealthAutoExport accepts must survive
 		// the pipeline: the intake endpoint returns 202 before the import job
 		// runs, so a narrower set here means accepting evidence that can only
 		// fail later. "unknown" is the locked-phone/ambiguous-permission case.

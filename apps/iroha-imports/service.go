@@ -95,7 +95,7 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 
 	var jobKind string
 	switch input.ParserKind {
-	case coreimports.KindAppleHealthExport, coreimports.KindAppleHealthShortcut, coreimports.KindHealthAutoExport:
+	case coreimports.KindAppleHealthExport, coreimports.KindHealthAutoExport:
 		jobKind = jobs.KindAppleImportParse
 	case coreimports.KindGPX:
 		jobKind = jobs.KindGPXImportParse
