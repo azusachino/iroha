@@ -65,9 +65,13 @@ Reprocessing is modeled as another import job for the same raw file, not as muta
 POST /api/v1/intake/health
 ```
 
-The request body is the strict `iroha.health.shortcut.v1` envelope. The server validates its source instance, capture time, bounded coverage, and supported completeness values before storing the unchanged JSON and queueing `apple_health_shortcut` as a normal import. Configure `IROHA_HEALTH_INTAKE_TOKEN` and send `Authorization: Bearer <token>`; without that setting the endpoint returns `503`.
+Accepts automated health payloads up to 10 MiB (`healthIntakeMaxBytes`). The endpoint automatically detects the payload format:
+- **Health Auto Export Format v2 JSON (primary)**: Validates source metadata (`SourceInstanceKey`, defaulting to `"iphone-hae:primary"` or overridden by `X-Device-Id`), capture timestamp, and bounded date range before storing raw JSON and enqueuing a `health_auto_export` import job.
+- **`iroha.health.shortcut.v1` (legacy fallback)**: Validates source instance, capture time, bounded coverage, and supported completeness values before storing raw JSON and enqueuing an `apple_health_shortcut` import job.
 
-Shortcut intake uses bounded replacement, not complete-export reconciliation. A partial or empty window therefore adds evidence about that window without deleting older activities, sleep sessions, or daily facts outside it. The same payload is replay-safe because the raw-file hash is deduplicated and a same-version completed import is skipped.
+Authentication is configurable: requests over the private tailnet require no auth headers by default; if `IROHA_HEALTH_INTAKE_TOKEN` is configured on the server, `Authorization: Bearer <token>` is strictly enforced.
+
+Intake uses bounded replacement (`bounded_replacement`), not complete-export reconciliation. A rolling 2–3 day window adds or updates evidence for that window without deleting older activities, sleep sessions, or daily metrics outside it. Replaying the same payload is idempotent because the raw-file content hash is deduplicated.
 
 Import jobs are persisted jobs. `iroha-server` enqueues them into the durable Postgres-backed queue and the separate `iroha-job` process claims and executes them. The server and worker must share the
 configured raw-file data directory.
@@ -331,7 +335,7 @@ GET /api/v1/imports/{importId}
 
 ## Auth
 
-Most `/api/v1` endpoints are unauthenticated because iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security control. The automatic Apple Health intake is the exception: `POST /api/v1/intake/health` requires `Authorization: Bearer ...` from `IROHA_HEALTH_INTAKE_TOKEN` and is disabled when no token is configured. Do not expose `iroha-server` to an untrusted network.
+Most `/api/v1` endpoints are unauthenticated because iroha is a single-user personal deployment (private LAN/NAS/Tailnet); the network boundary is the security control. `POST /api/v1/intake/health` also benefits from this perimeter model: when `IROHA_HEALTH_INTAKE_TOKEN` is unset, it accepts unauthenticated intake from devices on the private tailnet. If defense-in-depth is desired, setting `IROHA_HEALTH_INTAKE_TOKEN` activates strict bearer token verification (`Authorization: Bearer <token>`). Do not expose `iroha-server` to an untrusted public network.
 
 Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTTP hardening](#http-hardening).
 

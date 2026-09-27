@@ -7,7 +7,21 @@ contract between minor versions.
 
 ## [Unreleased]
 
-## [0.5.0] — 2026-09-11
+## [0.5.1] — 2026-09-27
+
+### Added
+
+- Add native Health Auto Export (HAE) Format v2 JSON parser and provider adapter for continuous, automated daily health data intake (`KindHealthAutoExport = "health_auto_export"`).
+- Support sparse metric ingestion: unconfigured metrics are omitted safely; sleep durations in fractional hours are converted to integer seconds; non-empty metric units defensively default to conform to database check constraints.
+- Parse GPS route trackpoints and continuous heart rate samplings directly from HAE workout payloads into canonical activity observations.
+- Expand `POST /api/v1/intake/health` request body limit to 10 MiB to accommodate high-resolution GPS tracks and workout vital series.
+- Establish perimeter-based network security: `POST /api/v1/intake/health` accepts unauthenticated requests over the private Tailnet perimeter (`iroha.h.azusachino.com`), eliminating plain-text bearer tokens inside mobile apps while retaining configurable token authentication when `IROHA_HEALTH_INTAKE_TOKEN` is defined.
+- Add setup documentation ([`docs/health-auto-export-setup.md`](docs/health-auto-export-setup.md)) with detailed user stories, iOS/watchOS export settings, and troubleshooting instructions.
+- Add architecture decision record [ADR-0008](docs/adr/0008-health-auto-export-http-intake.md) documenting the two-tier ingestion model, tailnet perimeter security, and bounded replacement semantics.
+
+### Deprecated
+
+- Deprecate the experimental iOS Shortcuts receiver (`apple-health-shortcut.go` and `docs/apple-health-shortcut-setup.md`) in favor of native Health Auto Export background sync. The endpoint retains the parser as a legacy fallback.
 
 ### Added
 

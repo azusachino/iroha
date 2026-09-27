@@ -1,4 +1,9 @@
-# Setting up the Apple Health Shortcut
+# Setting up the Apple Health Shortcut (Deprecated)
+
+> [!WARNING]
+> **Deprecated**: The iOS Shortcuts intake path has been superseded by [Health Auto Export](health-auto-export-setup.md).
+> Health Auto Export provides native background sync, workout GPS routes, and sleep stages without requiring fragile on-device visual Shortcut scripts.
+> The server retains `apple_health_shortcut` parsing only as a backwards-compatible legacy fallback.
 
 How to build an iOS Shortcut that sends bounded Health data to `POST /api/v1/intake/health`.
 
