@@ -45,6 +45,20 @@ v0.5 is a fresh-schema cut-over. The release path replays the complete original 
 After a local k3s rollout, run `make smoke-k3s-cache` for a non-mutating deployment check. It verifies the k3s ConfigMap selects Valkey and that two identical monthly-report reads return the expected
 cache hit on the second request.
 
+## Data Ingestion
+
+Iroha supports a two-tier ingestion model for health, fitness, and location data:
+
+1. **Continuous Daily Intake (Health Auto Export)**:
+   - Configure [Health Auto Export](https://help.healthyapps.dev/en/health-auto-export/automations/) on iOS/watchOS to POST Format v2 JSON to `POST /api/v1/intake/health`.
+   - Syncs steps, sleep stages, resting vitals, and workouts with GPS routes and heart-rate series in the background.
+   - Protected by your private Tailnet perimeter (`iroha.h.azusachino.com`) with zero required API keys, or configurable bearer token authentication via `IROHA_HEALTH_INTAKE_TOKEN`.
+   - See [Setting up Health Auto Export HTTP Intake](docs/health-auto-export-setup.md).
+
+2. **Historical Bulk Backfill**:
+   - Upload full Apple Health `export.zip` archives, Garmin/Wahoo `fit` / `tcx` files, or `gpx` tracks via `POST /api/v1/raw-files` and `POST /api/v1/imports`.
+   - See [Import Pipeline](docs/import-pipeline.md).
+
 ## References
 
 - [API contract](docs/contracts/openapi.yaml)

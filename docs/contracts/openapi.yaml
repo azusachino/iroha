@@ -119,12 +119,16 @@ paths:
   /api/v1/intake/health:
     post:
       tags: [imports]
-      summary: Queue a bounded Apple Health Shortcut snapshot.
+      summary: Queue an automated Health Auto Export or legacy Shortcut snapshot.
       description: |
-        Accepts the versioned `iroha.health.shortcut.v1` envelope, stores the
-        raw payload as evidence, and queues its import. The endpoint is
-        disabled unless the deployment configures `IROHA_HEALTH_INTAKE_TOKEN`.
+        Accepts Health Auto Export Format v2 JSON (primary) or legacy
+        `iroha.health.shortcut.v1` envelopes up to 10 MiB, stores the raw payload
+        as evidence, and queues an import job with bounded replacement semantics.
+        Authentication is configurable: unauthenticated by default when protected
+        by the private Tailnet perimeter, or requires `healthIntakeBearer` when
+        `IROHA_HEALTH_INTAKE_TOKEN` is configured on the server.
       security:
+        - {}
         - healthIntakeBearer: []
       requestBody:
         required: true
@@ -132,15 +136,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [schema, source_instance_key, captured_at, coverage]
-              properties:
-                schema: { type: string, const: iroha.health.shortcut.v1 }
-                source_instance_key: { type: string }
-                captured_at: { type: string, format: date-time }
-                coverage:
-                  type: array
-                  minItems: 1
-                  items: { type: object }
+              description: Health Auto Export Format v2 JSON payload or legacy shortcut envelope.
       responses:
         "202":
           description: Raw payload stored and import queued.
@@ -152,8 +148,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
   /api/v1/metrics:
     get:
       tags: [metrics]
