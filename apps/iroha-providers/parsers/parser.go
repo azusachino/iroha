@@ -73,6 +73,7 @@ const (
 	KindGPX                 = coreimports.KindGPX
 	KindAppleHealthExport   = coreimports.KindAppleHealthExport
 	KindAppleHealthShortcut = coreimports.KindAppleHealthShortcut
+	KindHealthAutoExport    = coreimports.KindHealthAutoExport
 	KindAniList             = coreimports.KindAniList
 	KindAniListActivity     = coreimports.KindAniListActivity
 	KindBangumi             = coreimports.KindBangumi
@@ -81,7 +82,7 @@ const (
 // IsImplemented reports whether Parse has a working parser for kind.
 func IsImplemented(kind string) bool {
 	switch kind {
-	case KindGPX, KindAppleHealthExport, KindAppleHealthShortcut, KindAniList, KindAniListActivity, KindBangumi:
+	case KindGPX, KindAppleHealthExport, KindAppleHealthShortcut, KindHealthAutoExport, KindAniList, KindAniListActivity, KindBangumi:
 		return true
 	default:
 		return false
@@ -99,6 +100,12 @@ func Parse(input Input) ([]ActivityObservation, error) {
 		return ParseAppleHealthExport(input.StoragePath, input.RawFileSHA256)
 	case KindAppleHealthShortcut:
 		batch, err := ParseAppleHealthShortcut(input.StoragePath, input.RawFileSHA256)
+		if err != nil {
+			return nil, err
+		}
+		return batch.Activities, nil
+	case KindHealthAutoExport:
+		batch, err := ParseHealthAutoExport(input.StoragePath, input.RawFileSHA256)
 		if err != nil {
 			return nil, err
 		}

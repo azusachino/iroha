@@ -27,13 +27,14 @@ func TestValidBearerToken(t *testing.T) {
 	}
 }
 
-func TestHealthIntakeDisabledByDefault(t *testing.T) {
+func TestHealthIntakeEnabledWithoutTokenOnTailnet(t *testing.T) {
 	server := NewServer(Dependencies{Config: config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}}})
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/intake/health", strings.NewReader(`{}`))
+	// An invalid body should reach body processing (yielding 400) rather than 503
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/intake/health", strings.NewReader(`not-json`))
 	server.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusServiceUnavailable {
-		t.Fatalf("status = %d, want 503", recorder.Code)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 bad request", recorder.Code)
 	}
 }
 

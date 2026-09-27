@@ -5,6 +5,7 @@ const (
 	KindGPX                 = "gpx"
 	KindAppleHealthExport   = "apple_health_export"
 	KindAppleHealthShortcut = "apple_health_shortcut"
+	KindHealthAutoExport    = "health_auto_export"
 	KindAniList             = "anilist"
 	KindAniListActivity     = "anilist_activity"
 	KindBangumi             = "bangumi"

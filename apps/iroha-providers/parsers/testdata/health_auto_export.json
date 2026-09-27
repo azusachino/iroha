@@ -1,0 +1,123 @@
+{
+  "data": {
+    "metrics": [
+      {
+        "name": "step_count",
+        "units": "count",
+        "data": [
+          {
+            "date": "2026-09-20 08:01:00 +0900",
+            "qty": 112,
+            "source": "Apple Watch"
+          },
+          {
+            "date": "2026-09-20 08:02:00 +0900",
+            "qty": 131,
+            "source": "Apple Watch"
+          }
+        ]
+      },
+      {
+        "name": "resting_heart_rate",
+        "units": "count/min",
+        "data": [
+          {
+            "date": "2026-09-20 00:00:00 +0900",
+            "qty": 64,
+            "source": "Apple Watch"
+          }
+        ]
+      },
+      {
+        "name": "sleep_analysis",
+        "units": "hr",
+        "data": [
+          {
+            "date": "2026-09-20 00:00:00 +0900",
+            "sleepStart": "2026-09-19 23:48:00 +0900",
+            "sleepEnd": "2026-09-20 06:52:00 +0900",
+            "inBedStart": "2026-09-19 23:30:00 +0900",
+            "inBedEnd": "2026-09-20 07:01:00 +0900",
+            "core": 3.9,
+            "rem": 1.6,
+            "deep": 0.9,
+            "awake": 0.4,
+            "inBed": 7.5,
+            "asleep": 6.4,
+            "source": "Apple Watch"
+          },
+          {
+            "startDate": "2026-09-19 23:48:00 +0900",
+            "endDate": "2026-09-20 00:21:00 +0900",
+            "value": "Core",
+            "qty": 0.55,
+            "source": "Apple Watch"
+          },
+          {
+            "startDate": "2026-09-20 00:21:00 +0900",
+            "endDate": "2026-09-20 01:15:00 +0900",
+            "value": "Deep",
+            "qty": 0.9,
+            "source": "Apple Watch"
+          }
+        ]
+      }
+    ],
+    "workouts": [
+      {
+        "id": "7C1D3E0A-4B2F-4E8A-9D11-2A6B5C3F9E01",
+        "name": "Outdoor Run",
+        "start": "2026-09-20 07:00:00 +0900",
+        "end": "2026-09-20 07:31:12 +0900",
+        "duration": 1872,
+        "distance": {
+          "qty": 5.12,
+          "units": "km"
+        },
+        "activeEnergyBurned": {
+          "qty": 402.3,
+          "units": "kcal"
+        },
+        "heartRate": {
+          "min": { "qty": 98, "units": "count/min" },
+          "avg": { "qty": 145, "units": "count/min" },
+          "max": { "qty": 168, "units": "count/min" }
+        },
+        "heartRateData": [
+          {
+            "date": "2026-09-20 07:01:00 +0900",
+            "Min": 98,
+            "Avg": 121,
+            "Max": 139,
+            "units": "count/min",
+            "source": "Apple Watch"
+          },
+          {
+            "date": "2026-09-20 07:02:00 +0900",
+            "Min": 135,
+            "Avg": 146,
+            "Max": 152,
+            "units": "count/min",
+            "source": "Apple Watch"
+          }
+        ],
+        "route": [
+          {
+            "latitude": 35.6581,
+            "longitude": 139.7017,
+            "altitude": 38.2,
+            "speed": 3.4,
+            "timestamp": "2026-09-20 07:01:00 +0900"
+          },
+          {
+            "latitude": 35.6585,
+            "longitude": 139.7022,
+            "altitude": 38.5,
+            "speed": 3.5,
+            "timestamp": "2026-09-20 07:02:00 +0900"
+          }
+        ]
+      }
+    ]
+  }
+}

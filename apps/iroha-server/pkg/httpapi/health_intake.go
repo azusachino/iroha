@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	connector "github.com/azusachino/iroha/apps/iroha-core/connector/v1"
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
@@ -14,7 +15,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 )
 
-const healthIntakeMaxBytes int64 = 2 << 20
+const healthIntakeMaxBytes int64 = 10 << 20
 
 type healthIntakeResponse struct {
 	RawFileID string `json:"raw_file_id"`
@@ -24,14 +25,12 @@ type healthIntakeResponse struct {
 
 func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
 	token := s.deps.Config.Server.HealthIntakeToken
-	if token == "" {
-		writeContractError(w, http.StatusServiceUnavailable, "health_intake_disabled", "health intake is not configured")
-		return
-	}
-	if !validBearerToken(r.Header.Get("Authorization"), token) {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="iroha-health-intake"`)
-		writeContractError(w, http.StatusUnauthorized, "unauthorized", "valid bearer credentials are required")
-		return
+	if token != "" {
+		if !validBearerToken(r.Header.Get("Authorization"), token) {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="iroha-health-intake"`)
+			writeContractError(w, http.StatusUnauthorized, "unauthorized", "valid bearer credentials are required")
+			return
+		}
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, healthIntakeMaxBytes)
@@ -40,20 +39,40 @@ func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
 		writeContractError(w, http.StatusBadRequest, "invalid_body", "health intake body is too large or unreadable")
 		return
 	}
-	metadata, err := parsers.ValidateAppleHealthShortcut(body)
-	if err != nil {
-		writeContractError(w, http.StatusBadRequest, "invalid_health_payload", "invalid Apple Health Shortcut payload")
+
+	var (
+		sourceKind  string
+		filename    string
+		instanceKey string
+		capturedAt  time.Time
+	)
+
+	if haeMeta, err := parsers.ValidateHealthAutoExport(body); err == nil {
+		sourceKind = coreimports.KindHealthAutoExport
+		filename = "health-auto-export.json"
+		instanceKey = haeMeta.SourceInstanceKey
+		if deviceHeader := r.Header.Get("X-Device-Id"); deviceHeader != "" {
+			instanceKey = deviceHeader
+		}
+		capturedAt = haeMeta.CapturedAt
+	} else if shortcutMeta, err := parsers.ValidateAppleHealthShortcut(body); err == nil {
+		sourceKind = coreimports.KindAppleHealthShortcut
+		filename = "apple-health-shortcut.json"
+		instanceKey = shortcutMeta.SourceInstanceKey
+		capturedAt = shortcutMeta.CapturedAt
+	} else {
+		writeContractError(w, http.StatusBadRequest, "invalid_health_payload", "invalid health payload format")
 		return
 	}
 
 	rawFile, err := s.deps.RawFileService.StoreSnapshot(r.Context(), connector.Snapshot{
 		ContentType:       "application/json",
 		Body:              body,
-		SourceKind:        coreimports.KindAppleHealthShortcut,
-		Filename:          "apple-health-shortcut.json",
-		SourceInstanceKey: metadata.SourceInstanceKey,
+		SourceKind:        sourceKind,
+		Filename:          filename,
+		SourceInstanceKey: instanceKey,
 		IngestionMode:     rawfiles.IngestionModeBoundedReplacement,
-		ObservedAt:        metadata.CapturedAt,
+		ObservedAt:        capturedAt,
 	})
 	if err != nil {
 		s.deps.Logger.Error("store health intake snapshot", "error", err)
@@ -63,7 +82,7 @@ func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
 
 	job, err := s.deps.ImportService.Create(imports.CreateInput{
 		RawFileID:  ids.Encode(ids.RawFilePrefix, rawFile.ID),
-		ParserKind: coreimports.KindAppleHealthShortcut,
+		ParserKind: sourceKind,
 	})
 	if err != nil {
 		s.deps.Logger.Error("create health intake import", "error", err)
