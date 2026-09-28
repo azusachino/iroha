@@ -190,7 +190,6 @@
   .grapher-dashboard {
     display: grid;
     gap: 1rem;
-    font-family: var(--font-mono);
     min-width: 0;
   }
   .grapher-dashboard > * {
@@ -212,9 +211,9 @@
   h1 {
     max-width: 11ch;
     font-family: var(--font-sans);
-    font-size: clamp(3rem, 8vw, 7rem);
-    letter-spacing: -0.12em;
-    line-height: 0.82;
+    font-size: var(--grapher-utility-title-size);
+    letter-spacing: -0.05em;
+    line-height: 1;
   }
   h2 {
     font-family: var(--font-sans);
@@ -224,6 +223,7 @@
   .kicker {
     margin-bottom: 0.45rem;
     color: var(--accent);
+    font-family: var(--font-mono);
     font-size: 0.64rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -311,7 +311,8 @@
   .stat-grid strong {
     font-family: var(--font-sans);
     font-size: 1.35rem;
-    letter-spacing: -0.06em;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
   }
   .dashboard-grid {
     display: grid;

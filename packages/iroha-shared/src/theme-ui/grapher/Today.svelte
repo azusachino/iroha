@@ -57,11 +57,6 @@
         One imported day, rendered as comparable evidence rather than a score.
       </p>
     </div>
-    <div class="view-switch" aria-label="Available data views">
-      <span class="selected">Chart</span>
-      <span>Table</span>
-      <span>Notes</span>
-    </div>
   </header>
 
   <div class="provenance-line">
@@ -222,8 +217,8 @@
   }
   h1 {
     max-width: 15ch;
-    font-size: clamp(2.8rem, 7vw, 6.5rem);
-    line-height: 0.9;
+    font-size: var(--grapher-utility-title-size);
+    line-height: 1;
   }
   h2 {
     font-size: 1.25rem;
@@ -232,20 +227,6 @@
     max-width: 35rem;
     margin: 0.85rem 0 0;
     color: var(--text-muted);
-  }
-  .view-switch {
-    display: flex;
-    gap: 0.8rem;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-  }
-  .view-switch span {
-    padding-bottom: 0.35rem;
-    border-bottom: 1px solid transparent;
-  }
-  .view-switch .selected {
-    border-color: var(--accent);
-    color: var(--text);
   }
   .provenance-line {
     display: flex;
@@ -296,6 +277,7 @@
   }
   .plot-value {
     font-size: 1rem;
+    font-variant-numeric: tabular-nums;
     font-weight: 700;
   }
   .plot-value small,
@@ -335,8 +317,9 @@
     margin: 1.5rem 0;
     color: var(--accent);
     font-size: clamp(3rem, 8vw, 6rem);
-    letter-spacing: -0.1em;
-    line-height: 0.8;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.08em;
+    line-height: 0.9;
   }
   dl {
     display: grid;
