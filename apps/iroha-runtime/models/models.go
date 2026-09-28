@@ -798,9 +798,10 @@ func (IntakeCredential) TableName() string { return "tb_intake_credentials" }
 // User is the single owner's identity record. Credentials live in
 // UserPassword and Session, never here.
 type User struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Username  string
-	CreatedAt time.Time
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Username    string
+	DisplayName *string
+	CreatedAt   time.Time
 }
 
 func (User) TableName() string { return "tb_users" }

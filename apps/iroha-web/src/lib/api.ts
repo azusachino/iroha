@@ -1053,7 +1053,20 @@ export interface AuthSession {
   setup_required: boolean;
   authenticated: boolean;
   username?: string;
+  display_name?: string;
   csrf_token?: string;
+}
+
+export function updateAccount(
+  displayName: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ username: string; display_name: string }> {
+  return mutateJSON(
+    "/api/v1/account",
+    "PATCH",
+    { display_name: displayName },
+    fetchFn,
+  );
 }
 
 export function getAuthSession(

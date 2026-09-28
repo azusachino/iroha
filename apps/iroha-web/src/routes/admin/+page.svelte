@@ -1,12 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import {
-    CheckCircle2,
-    Database,
-    LogOut,
-    RefreshCw,
-    Server,
-  } from "@lucide/svelte";
+  import { CheckCircle2, Database, RefreshCw, Server } from "@lucide/svelte";
   import {
     getMetricCatalog,
     listJobs,
@@ -17,7 +11,6 @@
   import { formatDate } from "$lib/format";
   import { groupJobs } from "$lib/jobs";
   import { useTheme } from "$lib/themes/context.svelte";
-  import { auth, logout } from "$lib/auth.svelte";
   import IntakeTokens from "$lib/components/IntakeTokens.svelte";
 
   type HealthState = "checking" | "healthy" | "unavailable";
@@ -77,9 +70,6 @@
     <div class="head-actions">
       <button type="button" onclick={() => void load()} disabled={loading}>
         <RefreshCw size={15} /> Refresh
-      </button>
-      <button type="button" onclick={() => void logout()}>
-        <LogOut size={15} /> Log out {auth.username}
       </button>
     </div>
   </header>

@@ -5,6 +5,7 @@
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import NavigationMenu from "$lib/components/NavigationMenu.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
+  import UserMenu from "$lib/components/UserMenu.svelte";
   import { navigationGroups } from "$lib/navigation";
   import ThemeFrame from "$lib/themes/ThemeFrame.svelte";
   import ThemeProvider from "$lib/themes/ThemeProvider.svelte";
@@ -76,6 +77,7 @@
     <kbd>⌘K</kbd>
   </button>
   <ThemeToggle />
+  <UserMenu />
 {/snippet}
 
 <ThemeProvider>

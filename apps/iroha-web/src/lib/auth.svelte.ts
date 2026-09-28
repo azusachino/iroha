@@ -1,5 +1,6 @@
 import {
   getAuthSession,
+  updateAccount,
   login as loginRequest,
   logout as logoutRequest,
   setCsrfToken,
@@ -11,14 +12,20 @@ export type AuthStatus = "loading" | "setup" | "login" | "ready" | "error";
 
 // App-wide owner session state. The session cookie is HttpOnly, so the app
 // learns who is logged in only by asking the server.
-export const auth = $state<{ status: AuthStatus; username: string }>({
+export const auth = $state<{
+  status: AuthStatus;
+  username: string;
+  displayName: string;
+}>({
   status: "loading",
   username: "",
+  displayName: "",
 });
 
 function apply(session: AuthSession): void {
   setCsrfToken(session.csrf_token ?? "");
   auth.username = session.username ?? "";
+  auth.displayName = session.display_name ?? "";
   auth.status = session.authenticated
     ? "ready"
     : session.setup_required
@@ -55,4 +62,9 @@ export async function logout(): Promise<void> {
 export function sessionExpired(): void {
   setCsrfToken("");
   if (auth.status === "ready") auth.status = "login";
+}
+
+export async function setDisplayName(name: string): Promise<void> {
+  const account = await updateAccount(name);
+  auth.displayName = account.display_name ?? "";
 }

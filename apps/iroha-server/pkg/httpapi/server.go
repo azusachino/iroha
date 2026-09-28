@@ -175,6 +175,7 @@ func (s *Server) privateRoutes(r chi.Router) {
 	r.Use(s.rejectFutureReadScope)
 	r.Use(s.readCache)
 	r.Post("/auth/logout", s.handleAuthLogout)
+	r.Patch("/account", s.handleUpdateAccount)
 	r.Route("/admin/intake-credentials", func(r chi.Router) {
 		r.Get("/", s.handleListIntakeCredentials)
 		r.Post("/", s.handleIssueIntakeCredential)

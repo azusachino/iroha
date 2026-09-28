@@ -18,6 +18,7 @@ import (
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/argon2"
 	"gorm.io/gorm"
@@ -56,10 +57,11 @@ var (
 
 // Principal is the authenticated owner behind a request.
 type Principal struct {
-	UserID    string
-	Username  string
-	SessionID string
-	CSRFToken string
+	UserID      string
+	Username    string
+	DisplayName string
+	SessionID   string
+	CSRFToken   string
 }
 
 type Service struct {
@@ -242,11 +244,33 @@ func (s *Service) createSession(ctx context.Context, user models.User) (string, 
 
 func principal(user models.User, session models.Session) Principal {
 	return Principal{
-		UserID:    ids.Encode(ids.UserPrefix, user.ID),
-		Username:  user.Username,
-		SessionID: ids.Encode(ids.SessionPrefix, session.ID),
-		CSRFToken: session.CSRFToken,
+		UserID:      ids.Encode(ids.UserPrefix, user.ID),
+		Username:    user.Username,
+		DisplayName: displayName(user),
+		SessionID:   ids.Encode(ids.SessionPrefix, session.ID),
+		CSRFToken:   session.CSRFToken,
 	}
+}
+
+// SetDisplayName sets or clears (empty) the owner's display name.
+func (s *Service) SetDisplayName(ctx context.Context, userID uuid.UUID, name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if n := len([]rune(name)); n > 64 {
+		return "", fmt.Errorf("%w: display name must be at most 64 characters", ErrInvalidInput)
+	}
+	var value *string
+	if name != "" {
+		value = &name
+	}
+	err := s.db.WithContext(ctx).Model(&models.User{}).Where("id = ?", userID).Update("display_name", value).Error
+	return name, err
+}
+
+func displayName(user models.User) string {
+	if user.DisplayName != nil {
+		return *user.DisplayName
+	}
+	return ""
 }
 
 func checkPassword(password string) error {

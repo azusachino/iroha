@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -77,6 +79,26 @@ func TestOwnerAuthLifecycle(t *testing.T) {
 			t.Fatalf("login %v = %v, want ErrInvalidCredentials", bad, err)
 		}
 	}
+	uid, err := ids.Decode(ids.UserPrefix, who.UserID)
+	if err != nil {
+		t.Fatalf("decode user id: %v", err)
+	}
+	if _, err := service.SetDisplayName(ctx, uid, strings.Repeat("x", 65)); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("65-char display name = %v, want ErrInvalidInput", err)
+	}
+	if _, err := service.SetDisplayName(ctx, uid, "  Haru  "); err != nil {
+		t.Fatalf("set display name: %v", err)
+	}
+	if got, _ := service.Authenticate(ctx, setupToken); got.DisplayName != "Haru" {
+		t.Fatalf("display name = %q, want Haru", got.DisplayName)
+	}
+	if _, err := service.SetDisplayName(ctx, uid, ""); err != nil {
+		t.Fatalf("clear display name: %v", err)
+	}
+	if got, _ := service.Authenticate(ctx, setupToken); got.DisplayName != "" {
+		t.Fatalf("cleared display name = %q", got.DisplayName)
+	}
+
 	loginToken, _, err := service.Login(ctx, "owner", password)
 	if err != nil {
 		t.Fatalf("login: %v", err)

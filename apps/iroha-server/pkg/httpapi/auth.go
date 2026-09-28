@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/auth"
+	"github.com/google/uuid"
 )
 
 const (
@@ -25,6 +27,7 @@ type Authenticator interface {
 	Login(ctx context.Context, username, password string) (string, auth.Principal, error)
 	Authenticate(ctx context.Context, token string) (auth.Principal, error)
 	Logout(ctx context.Context, token string) error
+	SetDisplayName(ctx context.Context, userID uuid.UUID, name string) (string, error)
 }
 
 type principalKey struct{}
@@ -38,6 +41,7 @@ type authSessionResponse struct {
 	SetupRequired bool   `json:"setup_required"`
 	Authenticated bool   `json:"authenticated"`
 	Username      string `json:"username,omitempty"`
+	DisplayName   string `json:"display_name,omitempty"`
 	CSRFToken     string `json:"csrf_token,omitempty"`
 }
 
@@ -94,7 +98,7 @@ func (s *Server) handleAuthSession(w http.ResponseWriter, r *http.Request) {
 	}
 	response := authSessionResponse{SetupRequired: required}
 	if who, err := s.deps.Auth.Authenticate(r.Context(), sessionToken(r)); err == nil {
-		response = authSessionResponse{Authenticated: true, Username: who.Username, CSRFToken: who.CSRFToken}
+		response = authSessionResponse{Authenticated: true, Username: who.Username, DisplayName: who.DisplayName, CSRFToken: who.CSRFToken}
 	}
 	writeJSON(w, http.StatusOK, response)
 }
@@ -152,7 +156,7 @@ func (s *Server) handleCredentials(w http.ResponseWriter, r *http.Request, actio
 	}
 	s.deps.Logger.Info("owner session created", "session_id", who.SessionID)
 	http.SetCookie(w, sessionCookie(token, time.Now().Add(auth.SessionTTL)))
-	writeJSON(w, http.StatusOK, authSessionResponse{Authenticated: true, Username: who.Username, CSRFToken: who.CSRFToken})
+	writeJSON(w, http.StatusOK, authSessionResponse{Authenticated: true, Username: who.Username, DisplayName: who.DisplayName, CSRFToken: who.CSRFToken})
 }
 
 func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +167,34 @@ func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, sessionCookie("", time.Unix(0, 0)))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleUpdateAccount changes the owner's profile (currently the display
+// name; an empty value clears it).
+func (s *Server) handleUpdateAccount(w http.ResponseWriter, r *http.Request) {
+	who, _ := r.Context().Value(principalKey{}).(auth.Principal)
+	userID, err := ids.Decode(ids.UserPrefix, who.UserID)
+	if err != nil {
+		writeContractError(w, http.StatusUnauthorized, "unauthenticated", "login required")
+		return
+	}
+	var body struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, authBodyMaxBytes)).Decode(&body); err != nil {
+		writeContractError(w, http.StatusBadRequest, "invalid_body", "invalid JSON body")
+		return
+	}
+	name, err := s.deps.Auth.SetDisplayName(r.Context(), userID, body.DisplayName)
+	switch {
+	case errors.Is(err, auth.ErrInvalidInput):
+		writeContractError(w, http.StatusBadRequest, "invalid_display_name", err.Error())
+	case err != nil:
+		s.deps.Logger.Error("update account", "error", err)
+		writeContractError(w, http.StatusInternalServerError, "auth_failed", "failed to update account")
+	default:
+		writeJSON(w, http.StatusOK, map[string]string{"username": who.Username, "display_name": name})
+	}
 }
 
 func sessionToken(r *http.Request) string {

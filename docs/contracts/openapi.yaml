@@ -241,6 +241,36 @@ paths:
                 additionalProperties: true
         "429":
           description: Rate limited.
+  /api/v1/account:
+    patch:
+      tags: [auth]
+      summary: Update the owner's profile.
+      description: Sets the display name shown in the user menu; an empty value clears it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [display_name]
+              properties:
+                display_name: { type: string, maxLength: 64 }
+      responses:
+        "200":
+          description: Updated profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  username: { type: string }
+                  display_name: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/auth/session:
     get:
       tags: [auth]
@@ -1764,6 +1794,7 @@ components:
         setup_required: { type: boolean }
         authenticated: { type: boolean }
         username: { type: string }
+        display_name: { type: string }
         csrf_token: { type: string }
     Credentials:
       type: object

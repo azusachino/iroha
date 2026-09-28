@@ -26,6 +26,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"DELETE /api/v1/admin/intake-credentials/{credentialId}",
 		"GET /api/v1/admin/intake-credentials",
 		"GET /api/v1/auth/session",
+		"PATCH /api/v1/account",
 		"POST /api/v1/admin/intake-credentials",
 		"POST /api/v1/auth/login",
 		"POST /api/v1/auth/logout",
