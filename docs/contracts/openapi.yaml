@@ -6,11 +6,14 @@ info:
     Active-development contract for Iroha's private data cockpit.
     /api/v1 is still pre-1.0 and may evolve between minor releases. This
     document is the implementation target for release 0.4.1.
+security:
+  - ownerSession: []
 servers:
   - url: /
     description: Same-origin or reverse-proxy deployment
 tags:
   - name: system
+  - name: auth
   - name: coverage
   - name: imports
   - name: activities
@@ -150,6 +153,137 @@ paths:
           $ref: "#/components/responses/InternalServerError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/auth/session:
+    get:
+      tags: [auth]
+      summary: Read the setup and login state of the current browser.
+      description: Never cached. Returns the CSRF token for the current session when authenticated.
+      security: []
+      responses:
+        "200":
+          description: Setup and session state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/auth/setup:
+    post:
+      tags: [auth]
+      summary: Create the sole owner account and start a session.
+      description: |
+        Allowed only while no owner exists; afterwards it always answers 409.
+        Reachable only through the tailnet ingress (ADR-0008). Sets the
+        `iroha_session` cookie.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "200":
+          description: Owner created and session started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Log in with the owner's username and password.
+      description: Sets the `iroha_session` cookie on success.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "200":
+          description: Session started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the current session.
+      responses:
+        "204":
+          description: Session revoked and cookie cleared.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/admin/intake-credentials:
+    get:
+      tags: [auth]
+      summary: List HAE intake credentials (never tokens).
+      responses:
+        "200":
+          description: Credentials, newest first, including revoked ones.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/IntakeCredential"
+    post:
+      tags: [auth]
+      summary: Issue an HAE intake token for a device.
+      description: The token is returned once and never stored or shown again. Existing credentials stay active until revoked.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, pattern: "^[a-z0-9][a-z0-9-]*$" }
+      responses:
+        "201":
+          description: Credential issued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credential, token]
+                properties:
+                  credential:
+                    $ref: "#/components/schemas/IntakeCredential"
+                  token: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/admin/intake-credentials/{credentialId}:
+    delete:
+      tags: [auth]
+      summary: Revoke one HAE intake credential immediately.
+      parameters:
+        - name: credentialId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Credential revoked.
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/metrics:
     get:
       tags: [metrics]
@@ -1187,6 +1321,15 @@ paths:
                 $ref: "#/components/schemas/Error"
 components:
   securitySchemes:
+    ownerSession:
+      type: apiKey
+      in: cookie
+      name: iroha_session
+      description: |
+        Owner session cookie (HttpOnly, Secure, SameSite=Lax) set by setup or
+        login. Required on every /api/v1 route except auth/session, auth/setup,
+        auth/login, and intake/health. State-changing requests must also send
+        the session's CSRF token in the `X-CSRF-Token` header.
     healthIntakeBearer:
       type: http
       scheme: bearer
@@ -1340,6 +1483,12 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Missing or invalid CSRF token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     Conflict:
       description: Request conflicts with an existing resource identity.
       content:
@@ -1520,6 +1669,29 @@ components:
         parser_kind:
           type: string
           enum: [apple_health_export, health_auto_export, gpx, anilist, bangumi]
+    AuthSession:
+      type: object
+      required: [setup_required, authenticated]
+      properties:
+        setup_required: { type: boolean }
+        authenticated: { type: boolean }
+        username: { type: string }
+        csrf_token: { type: string }
+    Credentials:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, pattern: "^[a-z0-9][a-z0-9._-]{0,63}$" }
+        password: { type: string, minLength: 12, maxLength: 1024 }
+    IntakeCredential:
+      type: object
+      required: [id, name, created_at, last_used_at, revoked_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time }
+        revoked_at: { type: [string, "null"], format: date-time }
     HealthIntakeResponse:
       type: object
       required: [raw_file_id, import_id, status]

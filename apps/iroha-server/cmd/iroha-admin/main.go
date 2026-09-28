@@ -4,9 +4,11 @@
 //	iroha-admin intake-token issue [-name primary]
 //	iroha-admin intake-token list
 //	iroha-admin intake-token revoke <cred_id>
+//	iroha-admin password reset
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"flag"
@@ -14,12 +16,14 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/dbconnect"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/auth"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/intakecredential"
 	"gorm.io/gorm"
 )
@@ -28,6 +32,7 @@ const usage = `usage:
   iroha-admin intake-token issue [-name primary]   issue a token for a device; prints it once
   iroha-admin intake-token list                    list credentials (never tokens)
   iroha-admin intake-token revoke <cred_id>        revoke one credential immediately
+  iroha-admin password reset                       break-glass: read a new owner password from stdin, revoke all sessions
 `
 
 var errUsage = errors.New("invalid arguments")
@@ -44,7 +49,7 @@ func main() {
 }
 
 func run(args []string, stdout io.Writer) error {
-	if len(args) < 2 || args[0] != "intake-token" {
+	if len(args) < 2 || (args[0] != "intake-token" && args[0] != "password") {
 		return errUsage
 	}
 	cfg, err := config.Load("iroha.toml")
@@ -57,6 +62,13 @@ func run(args []string, stdout io.Writer) error {
 	}
 	credentials := intakecredential.NewService(db)
 	ctx := context.Background()
+
+	if args[0] == "password" {
+		if args[1] != "reset" || len(args) != 2 {
+			return errUsage
+		}
+		return resetPassword(ctx, auth.NewService(db), os.Stdin)
+	}
 
 	switch args[1] {
 	case "issue":
@@ -103,6 +115,22 @@ func run(args []string, stdout io.Writer) error {
 	default:
 		return errUsage
 	}
+	return nil
+}
+
+// resetPassword reads the new password from the first line of stdin, so it
+// never appears in shell history or the process list.
+func resetPassword(ctx context.Context, service *auth.Service, stdin io.Reader) error {
+	fmt.Fprintln(os.Stderr, "new owner password (one line on stdin):")
+	line, err := bufio.NewReader(stdin).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	username, err := service.ResetPassword(ctx, strings.TrimRight(line, "\r\n"))
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "password reset for %s; all sessions revoked\n", username)
 	return nil
 }
 

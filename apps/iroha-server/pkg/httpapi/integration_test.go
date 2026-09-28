@@ -802,6 +802,7 @@ func newIntegrationServerWithCache(t *testing.T, db *gorm.DB, responseCache *cac
 	}()
 
 	return NewServer(Dependencies{
+		Auth:                allowAllAuth{},
 		Config:              config.Config{},
 		Now:                 func() time.Time { return time.Date(2099, time.December, 31, 12, 0, 0, 0, time.UTC) },
 		Logger:              logger,
@@ -929,6 +930,7 @@ func uploadRawFile(t *testing.T, handler http.Handler, filename string, sourceKi
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/raw-files/", &body)
+	req.Header.Set(csrfHeaderName, testCSRFToken)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
@@ -949,6 +951,7 @@ func requestJSON(t *testing.T, handler http.Handler, method string, path string,
 		reader = strings.NewReader(body)
 	}
 	req := httptest.NewRequest(method, path, reader)
+	req.Header.Set(csrfHeaderName, testCSRFToken)
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}

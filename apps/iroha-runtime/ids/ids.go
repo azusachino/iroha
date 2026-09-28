@@ -24,6 +24,8 @@ const (
 	MediaChangePrefix      = "medchg"
 	SyncRunPrefix          = "sync"
 	IntakeCredentialPrefix = "cred"
+	UserPrefix             = "usr"
+	SessionPrefix          = "ses"
 )
 
 func New() (uuid.UUID, error) {

@@ -76,10 +76,14 @@ type Dependencies struct {
 	TaskService         *tasks.Service
 	// HealthIntakeCredentials verifies the HAE intake token; nil fails closed.
 	HealthIntakeCredentials HealthIntakeVerifier
-	ReadyCheck              func(context.Context) error
-	MaxUploadBytes          int64
-	AllowedOrigins          []string
-	Now                     func() time.Time
+	// IntakeCredentialAdmin issues and revokes HAE tokens from the admin page.
+	IntakeCredentialAdmin IntakeCredentialAdmin
+	// Auth authenticates the owner; nil fails closed on every private route.
+	Auth           Authenticator
+	ReadyCheck     func(context.Context) error
+	MaxUploadBytes int64
+	AllowedOrigins []string
+	Now            func() time.Time
 }
 
 type Server struct {
@@ -132,89 +136,105 @@ func (s *Server) routes() {
 	s.mux.Get("/healthz", s.handleHealthz)
 	s.mux.Get("/readyz", s.handleReadyz)
 	s.mux.Route("/api/v1", func(r chi.Router) {
-		// Private API: CORS limited to configured origins. Unauthenticated —
-		// see the rate-limit budget comment above for why.
+		// Private API: CORS limited to configured origins. Every route below
+		// requires an owner session (ADR-0008) except login/setup and the HAE
+		// intake endpoint, which authenticates with its own credential.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
 		r.Use(limitByIP(apiRateLimitPerMin))
-		r.Use(s.rejectFutureReadScope)
-		r.Use(s.readCache)
-		r.Get("/briefing", s.handleBriefing)
-		r.Get("/coverage", s.handleCoverage)
-		r.Get("/connections", s.handleListConnections)
+		r.Get("/auth/session", s.handleAuthSession)
+		r.Post("/auth/setup", s.handleAuthSetup)
+		r.Post("/auth/login", s.handleAuthLogin)
 		r.With(s.requireIntakeCredential).Post("/intake/health", s.handleHealthIntake)
-		r.Post("/media/matching-decisions", s.handleRecordMatchingDecision)
-		r.Get("/metrics", s.handleListMetrics)
-		r.Get("/metrics/{metricId}", s.handleGetMetric)
-		r.Get("/metrics/{metricId}/series", s.handleMetricSeries)
-		r.Route("/raw-files", func(r chi.Router) {
-			r.Post("/", s.handleCreateRawFile)
-			r.Get("/", s.handleListRawFiles)
-			r.Get("/{rawFileId}", s.handleGetRawFile)
-		})
-		r.Route("/imports", func(r chi.Router) {
-			r.Post("/", s.handleCreateImportJob)
-			r.Get("/", s.handleListImportJobs)
-			r.Get("/{importId}", s.handleGetImportJob)
-		})
-		r.Route("/activities", func(r chi.Router) {
-			r.Get("/", s.handleListActivities)
-			r.Get("/overview", s.handleActivityOverview)
-			r.Get("/summary", s.handleActivitySummary)
-			r.Get("/bounds", s.handleActivityBounds)
-			r.Get("/routes", s.handleActivityRoutes)
-			r.Get("/{activityId}", s.handleGetActivity)
-			r.Get("/{activityId}/route", s.handleGetActivityRoute)
-			r.Get("/{activityId}/samplings", s.handleGetActivitySamplings)
-			r.Get("/{activityId}/laps", s.handleGetActivityLaps)
-		})
-		r.Route("/sleep", func(r chi.Router) {
-			r.Get("/", s.handleListSleep)
-			r.Get("/overview", s.handleSleepOverview)
-			r.Get("/aggregates", s.handleSleepAggregates)
-			r.Get("/bounds", s.handleSleepBounds)
-			r.Get("/{sleepId}", s.handleGetSleep)
-			r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
-		})
-		r.Route("/daily", func(r chi.Router) {
-			r.Get("/dates", s.handleDailyDates)
-			r.Get("/bounds", s.handleDailyBounds)
-			r.Get("/", s.handleListDaily)
-			r.Get("/aggregates", s.handleDailyAggregates)
-		})
-		r.Route("/expenses", func(r chi.Router) {
-			r.Post("/", s.handleCreateExpense)
-			r.Get("/", s.handleListExpenses)
-			r.Get("/bounds", s.handleExpenseBounds)
-			r.Post("/statements/preview", s.handlePreviewExpenseStatement)
-			r.Post("/statements", s.handleImportExpenseStatement)
-			r.Get("/{expenseId}", s.handleGetExpense)
-			r.Put("/{expenseId}", s.handleReplaceExpense)
-			r.Delete("/{expenseId}", s.handleDeleteExpense)
-		})
-		r.Route("/reports", func(r chi.Router) {
-			r.Get("/monthly-series", s.handleMonthlyReportSeries)
-			r.Get("/monthly", s.handleMonthlyReport)
-		})
-		r.Route("/media", func(r chi.Router) {
-			r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
-			r.Get("/aggregates", s.handleMediaAggregates)
-			r.Post("/events", s.handleCreateMediaEvent)
-			r.Get("/events", s.handleListMediaEvents)
-			r.Get("/changes", s.handleListMediaChanges)
-			r.Get("/", s.handleListMedia)
-			r.Get("/{mediaId}", s.handleGetMedia)
-		})
-		r.Route("/tasks", func(r chi.Router) {
-			r.Get("/", s.handleListTasks)
-			r.Post("/", s.handleCreateTask)
-			r.Patch("/{taskId}", s.handleUpdateTask)
-		})
-		r.Route("/jobs", func(r chi.Router) {
-			r.Get("/", s.handleListJobs)
-			r.Get("/{jobId}", s.handleGetJob)
-		})
-		r.Post("/actions/{action}", s.handleAction)
+		r.Group(s.privateRoutes)
 	})
+}
+
+func (s *Server) privateRoutes(r chi.Router) {
+	r.Use(s.requireSession)
+	r.Use(s.requireCSRF)
+	r.Use(s.rejectFutureReadScope)
+	r.Use(s.readCache)
+	r.Post("/auth/logout", s.handleAuthLogout)
+	r.Route("/admin/intake-credentials", func(r chi.Router) {
+		r.Get("/", s.handleListIntakeCredentials)
+		r.Post("/", s.handleIssueIntakeCredential)
+		r.Delete("/{credentialId}", s.handleRevokeIntakeCredential)
+	})
+	r.Get("/briefing", s.handleBriefing)
+	r.Get("/coverage", s.handleCoverage)
+	r.Get("/connections", s.handleListConnections)
+	r.Post("/media/matching-decisions", s.handleRecordMatchingDecision)
+	r.Get("/metrics", s.handleListMetrics)
+	r.Get("/metrics/{metricId}", s.handleGetMetric)
+	r.Get("/metrics/{metricId}/series", s.handleMetricSeries)
+	r.Route("/raw-files", func(r chi.Router) {
+		r.Post("/", s.handleCreateRawFile)
+		r.Get("/", s.handleListRawFiles)
+		r.Get("/{rawFileId}", s.handleGetRawFile)
+	})
+	r.Route("/imports", func(r chi.Router) {
+		r.Post("/", s.handleCreateImportJob)
+		r.Get("/", s.handleListImportJobs)
+		r.Get("/{importId}", s.handleGetImportJob)
+	})
+	r.Route("/activities", func(r chi.Router) {
+		r.Get("/", s.handleListActivities)
+		r.Get("/overview", s.handleActivityOverview)
+		r.Get("/summary", s.handleActivitySummary)
+		r.Get("/bounds", s.handleActivityBounds)
+		r.Get("/routes", s.handleActivityRoutes)
+		r.Get("/{activityId}", s.handleGetActivity)
+		r.Get("/{activityId}/route", s.handleGetActivityRoute)
+		r.Get("/{activityId}/samplings", s.handleGetActivitySamplings)
+		r.Get("/{activityId}/laps", s.handleGetActivityLaps)
+	})
+	r.Route("/sleep", func(r chi.Router) {
+		r.Get("/", s.handleListSleep)
+		r.Get("/overview", s.handleSleepOverview)
+		r.Get("/aggregates", s.handleSleepAggregates)
+		r.Get("/bounds", s.handleSleepBounds)
+		r.Get("/{sleepId}", s.handleGetSleep)
+		r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
+	})
+	r.Route("/daily", func(r chi.Router) {
+		r.Get("/dates", s.handleDailyDates)
+		r.Get("/bounds", s.handleDailyBounds)
+		r.Get("/", s.handleListDaily)
+		r.Get("/aggregates", s.handleDailyAggregates)
+	})
+	r.Route("/expenses", func(r chi.Router) {
+		r.Post("/", s.handleCreateExpense)
+		r.Get("/", s.handleListExpenses)
+		r.Get("/bounds", s.handleExpenseBounds)
+		r.Post("/statements/preview", s.handlePreviewExpenseStatement)
+		r.Post("/statements", s.handleImportExpenseStatement)
+		r.Get("/{expenseId}", s.handleGetExpense)
+		r.Put("/{expenseId}", s.handleReplaceExpense)
+		r.Delete("/{expenseId}", s.handleDeleteExpense)
+	})
+	r.Route("/reports", func(r chi.Router) {
+		r.Get("/monthly-series", s.handleMonthlyReportSeries)
+		r.Get("/monthly", s.handleMonthlyReport)
+	})
+	r.Route("/media", func(r chi.Router) {
+		r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
+		r.Get("/aggregates", s.handleMediaAggregates)
+		r.Post("/events", s.handleCreateMediaEvent)
+		r.Get("/events", s.handleListMediaEvents)
+		r.Get("/changes", s.handleListMediaChanges)
+		r.Get("/", s.handleListMedia)
+		r.Get("/{mediaId}", s.handleGetMedia)
+	})
+	r.Route("/tasks", func(r chi.Router) {
+		r.Get("/", s.handleListTasks)
+		r.Post("/", s.handleCreateTask)
+		r.Patch("/{taskId}", s.handleUpdateTask)
+	})
+	r.Route("/jobs", func(r chi.Router) {
+		r.Get("/", s.handleListJobs)
+		r.Get("/{jobId}", s.handleGetJob)
+	})
+	r.Post("/actions/{action}", s.handleAction)
 }
 
 // limitByIP builds a per-peer rate limiter (per minute). It intentionally keys
