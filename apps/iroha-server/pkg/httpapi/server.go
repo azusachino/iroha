@@ -74,10 +74,12 @@ type Dependencies struct {
 	JobEnqueuer         imports.Enqueuer
 	JobsService         *jobs.Service
 	TaskService         *tasks.Service
-	ReadyCheck          func(context.Context) error
-	MaxUploadBytes      int64
-	AllowedOrigins      []string
-	Now                 func() time.Time
+	// HealthIntakeCredentials verifies the HAE intake token; nil fails closed.
+	HealthIntakeCredentials HealthIntakeVerifier
+	ReadyCheck              func(context.Context) error
+	MaxUploadBytes          int64
+	AllowedOrigins          []string
+	Now                     func() time.Time
 }
 
 type Server struct {
@@ -139,7 +141,7 @@ func (s *Server) routes() {
 		r.Get("/briefing", s.handleBriefing)
 		r.Get("/coverage", s.handleCoverage)
 		r.Get("/connections", s.handleListConnections)
-		r.Post("/intake/health", s.handleHealthIntake)
+		r.With(s.requireIntakeCredential).Post("/intake/health", s.handleHealthIntake)
 		r.Post("/media/matching-decisions", s.handleRecordMatchingDecision)
 		r.Get("/metrics", s.handleListMetrics)
 		r.Get("/metrics/{metricId}", s.handleGetMetric)

@@ -1,7 +1,8 @@
 package httpapi
 
 import (
-	"crypto/subtle"
+	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -11,10 +12,12 @@ import (
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/intakecredential"
 )
 
-const healthIntakeMaxBytes int64 = 2 << 20
+const healthIntakeMaxBytes int64 = 10 << 20
 
 type healthIntakeResponse struct {
 	RawFileID string `json:"raw_file_id"`
@@ -22,17 +25,42 @@ type healthIntakeResponse struct {
 	Status    string `json:"status"`
 }
 
+// HealthIntakeVerifier resolves a presented HAE intake token to its credential.
+type HealthIntakeVerifier interface {
+	Verify(ctx context.Context, token string) (models.IntakeCredential, error)
+}
+
+type intakeCredentialKey struct{}
+
+// requireIntakeCredential authenticates the request with an HAE intake
+// credential before the handler reads the body. It fails closed: no verifier
+// or no active credential yields 503, a missing or wrong token 401.
+func (s *Server) requireIntakeCredential(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var credential models.IntakeCredential
+		err := intakecredential.ErrNotProvisioned
+		if verifier := s.deps.HealthIntakeCredentials; verifier != nil {
+			credential, err = verifier.Verify(r.Context(), bearerToken(r.Header.Get("Authorization")))
+		}
+		switch {
+		case err == nil:
+			s.deps.Logger.Info("intake credential accepted", "credential_id", ids.Encode(ids.IntakeCredentialPrefix, credential.ID), "credential_name", credential.Name)
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), intakeCredentialKey{}, credential)))
+		case errors.Is(err, intakecredential.ErrNotProvisioned):
+			writeContractError(w, http.StatusServiceUnavailable, "intake_not_provisioned", "health intake credential is not provisioned")
+		case errors.Is(err, intakecredential.ErrInvalid):
+			s.deps.Logger.Warn("intake credential rejected", "remote_addr", r.RemoteAddr)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="iroha-health-intake"`)
+			writeContractError(w, http.StatusUnauthorized, "unauthorized", "valid bearer credentials are required")
+		default:
+			s.deps.Logger.Error("verify health intake credential", "error", err)
+			writeContractError(w, http.StatusInternalServerError, "intake_failed", "failed to verify health intake credential")
+		}
+	})
+}
+
 func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
-	token := s.deps.Config.Server.HealthIntakeToken
-	if token == "" {
-		writeContractError(w, http.StatusServiceUnavailable, "health_intake_disabled", "health intake is not configured")
-		return
-	}
-	if !validBearerToken(r.Header.Get("Authorization"), token) {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="iroha-health-intake"`)
-		writeContractError(w, http.StatusUnauthorized, "unauthorized", "valid bearer credentials are required")
-		return
-	}
+	credential, _ := r.Context().Value(intakeCredentialKey{}).(models.IntakeCredential)
 
 	r.Body = http.MaxBytesReader(w, r.Body, healthIntakeMaxBytes)
 	body, err := io.ReadAll(r.Body)
@@ -40,20 +68,21 @@ func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
 		writeContractError(w, http.StatusBadRequest, "invalid_body", "health intake body is too large or unreadable")
 		return
 	}
-	metadata, err := parsers.ValidateAppleHealthShortcut(body)
+
+	haeMeta, err := parsers.ValidateHealthAutoExport(body)
 	if err != nil {
-		writeContractError(w, http.StatusBadRequest, "invalid_health_payload", "invalid Apple Health Shortcut payload")
+		writeContractError(w, http.StatusBadRequest, "invalid_health_payload", "invalid health payload format")
 		return
 	}
 
 	rawFile, err := s.deps.RawFileService.StoreSnapshot(r.Context(), connector.Snapshot{
 		ContentType:       "application/json",
 		Body:              body,
-		SourceKind:        coreimports.KindAppleHealthShortcut,
-		Filename:          "apple-health-shortcut.json",
-		SourceInstanceKey: metadata.SourceInstanceKey,
+		SourceKind:        coreimports.KindHealthAutoExport,
+		Filename:          "health-auto-export.json",
+		SourceInstanceKey: parsers.HealthAutoExportInstance(credential.Name),
 		IngestionMode:     rawfiles.IngestionModeBoundedReplacement,
-		ObservedAt:        metadata.CapturedAt,
+		ObservedAt:        haeMeta.CapturedAt,
 	})
 	if err != nil {
 		s.deps.Logger.Error("store health intake snapshot", "error", err)
@@ -63,7 +92,7 @@ func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
 
 	job, err := s.deps.ImportService.Create(imports.CreateInput{
 		RawFileID:  ids.Encode(ids.RawFilePrefix, rawFile.ID),
-		ParserKind: coreimports.KindAppleHealthShortcut,
+		ParserKind: coreimports.KindHealthAutoExport,
 	})
 	if err != nil {
 		s.deps.Logger.Error("create health intake import", "error", err)
@@ -78,10 +107,12 @@ func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func validBearerToken(header, expected string) bool {
+// bearerToken extracts the token from an Authorization header, or "" when the
+// header is not a single-token Bearer credential.
+func bearerToken(header string) string {
 	scheme, token, ok := strings.Cut(strings.TrimSpace(header), " ")
-	if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" {
-		return false
+	if !ok || !strings.EqualFold(scheme, "Bearer") || strings.Contains(token, " ") {
+		return ""
 	}
-	return subtle.ConstantTimeCompare([]byte(token), []byte(expected)) == 1
+	return token
 }

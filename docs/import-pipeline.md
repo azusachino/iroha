@@ -4,11 +4,20 @@
 
 The import pipeline turns raw source files into canonical activities while preserving the original bytes forever.
 
-## Supported MVP Sources
+## Supported Sources
 
-### Apple Health Export Zip
+### Health Auto Export JSON (Automated Daily Intake)
 
-Primary iPhone import path for MVP v0.
+Continuous daily intake path for iOS/watchOS.
+
+- Ingested via `POST /api/v1/intake/health` using Format v2 JSON.
+- Uses `bounded_replacement` mode to update observations in the specified date range without purging older records.
+- Extracts daily metrics (`step_count`, `resting_heart_rate`, etc.), sleep night durations and stage segments (`sleep_analysis`), and workout activities with GPS trackpoints and heart-rate samplings.
+- See [Setting up Health Auto Export HTTP Intake](health-auto-export-setup.md).
+
+### Apple Health Export Zip (Historical Bulk Backfill)
+
+Authoritative one-time/historical backfill path.
 
 User flow:
 

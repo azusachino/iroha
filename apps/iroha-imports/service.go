@@ -53,6 +53,7 @@ type Service struct {
 	cacheClient   *cache.Client
 	providers     *provider.Registry
 	mediaBridge   MediaRefBridge
+	timezone      string
 }
 
 type CreateInput struct {
@@ -83,6 +84,13 @@ func NewServiceWithRegistryAndBridge(db *gorm.DB, logger *slog.Logger, parserVer
 	return &Service{db: db, logger: logger, parserVersion: parserVersion, enqueuer: enqueuer, cacheClient: cacheClient, providers: providers, mediaBridge: mediaBridge}
 }
 
+// WithTimezone sets the effective IANA timezone passed to providers for
+// calendar boundaries such as coverage windows.
+func (s *Service) WithTimezone(name string) *Service {
+	s.timezone = name
+	return s
+}
+
 func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 	rawFileID, err := ids.Decode(ids.RawFilePrefix, input.RawFileID)
 	if err != nil {
@@ -95,7 +103,7 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 
 	var jobKind string
 	switch input.ParserKind {
-	case coreimports.KindAppleHealthExport, coreimports.KindAppleHealthShortcut:
+	case coreimports.KindAppleHealthExport, coreimports.KindHealthAutoExport:
 		jobKind = jobs.KindAppleImportParse
 	case coreimports.KindGPX:
 		jobKind = jobs.KindGPXImportParse
@@ -230,7 +238,7 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 			return os.Open(rawFile.StoragePath)
 		},
 	}
-	options := provider.ImportOptions{}
+	options := provider.ImportOptions{Timezone: s.timezone}
 	var parsedMedia []observations.Media
 	var parsedMediaHistory []observations.MediaHistory
 	var parsed []observations.Activity

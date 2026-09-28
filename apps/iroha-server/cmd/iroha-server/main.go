@@ -23,6 +23,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/httpapi"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/intakecredential"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
@@ -72,7 +73,7 @@ func main() {
 
 	jobsService := jobs.NewService(db, logger, nil)
 	enqueuer := &jobEnqueuer{jobsService: jobsService}
-	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient)
+	importService := imports.NewService(db, logger, parserVersion, enqueuer, cacheClient).WithTimezone(cfg.Server.Timezone)
 	geocodeService := geocode.NewService(db, enqueuer, cacheClient)
 	activityService := activities.NewService(db)
 	sleepService := sleep.NewService(db)
@@ -100,25 +101,26 @@ func main() {
 	}
 
 	server := httpapi.NewServer(httpapi.Dependencies{
-		Config:              cfg,
-		Logger:              logger,
-		DB:                  db,
-		ActivityService:     activityService,
-		SleepService:        sleepService,
-		DailyService:        dailyService,
-		ExpenseService:      expenseService,
-		MediaService:        mediaService,
-		MetricRegistry:      metricRegistry,
-		MetricSeriesService: metricSeriesService,
-		BriefingRegistry:    briefingRegistry,
-		CoverageService:     coverage.NewService(db),
-		ImportService:       importService,
-		RawFileService:      rawFileService,
-		Cache:               cacheClient,
-		GeocodeService:      geocodeService,
-		JobEnqueuer:         enqueuer,
-		JobsService:         jobsService,
-		TaskService:         taskService,
+		Config:                  cfg,
+		Logger:                  logger,
+		DB:                      db,
+		ActivityService:         activityService,
+		SleepService:            sleepService,
+		DailyService:            dailyService,
+		ExpenseService:          expenseService,
+		MediaService:            mediaService,
+		MetricRegistry:          metricRegistry,
+		MetricSeriesService:     metricSeriesService,
+		BriefingRegistry:        briefingRegistry,
+		CoverageService:         coverage.NewService(db),
+		ImportService:           importService,
+		RawFileService:          rawFileService,
+		Cache:                   cacheClient,
+		GeocodeService:          geocodeService,
+		JobEnqueuer:             enqueuer,
+		JobsService:             jobsService,
+		TaskService:             taskService,
+		HealthIntakeCredentials: intakecredential.NewService(db),
 		ReadyCheck: func(ctx context.Context) error {
 			sqlDB, err := db.DB()
 			if err != nil {

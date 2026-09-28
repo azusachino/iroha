@@ -20,7 +20,6 @@ const (
 	EnvTimezone                    = "IROHA_TIMEZONE"
 	EnvPublicExportDir             = "IROHA_PUBLIC_EXPORT_DIR"
 	EnvPublicExportPrivacy         = "IROHA_PUBLIC_EXPORT_PRIVACY"
-	EnvHealthIntakeToken           = "IROHA_HEALTH_INTAKE_TOKEN"
 )
 
 // defaultAllowedOrigins lets the local web dev server reach the private API.
@@ -34,9 +33,8 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Addr              string `toml:"addr"`
-	Timezone          string `toml:"timezone"`
-	HealthIntakeToken string `toml:"health_intake_token"`
+	Addr     string `toml:"addr"`
+	Timezone string `toml:"timezone"`
 	// AllowedOrigins restricts CORS for the private /api/v1 routes. The public
 	// /public/v1 routes always allow all origins (sanitized data).
 	AllowedOrigins []string `toml:"allowed_origins"`
@@ -97,9 +95,6 @@ func Default() Config {
 func applyEnv(cfg *Config) {
 	if value := os.Getenv("IROHA_SERVER_ADDR"); value != "" {
 		cfg.Server.Addr = value
-	}
-	if value := os.Getenv(EnvHealthIntakeToken); value != "" {
-		cfg.Server.HealthIntakeToken = value
 	}
 	if value := os.Getenv(EnvTimezone); value != "" {
 		cfg.Server.Timezone = value

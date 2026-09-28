@@ -3,7 +3,6 @@
 package imports
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -22,31 +21,39 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestIntegrationAppleHealthShortcutReplayAndPartialWindow(t *testing.T) {
+func TestIntegrationHealthAutoExportReplayAndBoundedReplacement(t *testing.T) {
 	db := openImportsIntegrationDB(t)
-	fixturePath := filepath.Join("..", "iroha-providers", "parsers", "testdata", "apple_health_shortcut.json")
+	fixturePath := filepath.Join("..", "iroha-providers", "parsers", "testdata", "health_auto_export.json")
 	body, err := os.ReadFile(fixturePath)
 	if err != nil {
-		t.Fatalf("read shortcut fixture: %v", err)
+		t.Fatalf("read hae fixture: %v", err)
 	}
+
 	partialBody := []byte(`{
-  "schema": "iroha.health.shortcut.v1",
-  "source_instance_key": "iphone-health:primary",
-  "captured_at": "2026-09-11T23:30:00+09:00",
-  "coverage": [{"category":"activities","scope":{"workout_types":["running"]},"from":"2026-09-04T00:00:00+09:00","to":"2026-09-11T00:00:00+09:00","timezone":"Asia/Tokyo","completeness":"partial"}],
-  "activities": [],
-  "sleep": [],
-  "daily_summaries": [],
-  "daily_metrics": []
+  "data": {
+    "metrics": [
+      {
+        "name": "step_count",
+        "units": "count",
+        "data": [
+          {
+            "date": "2026-09-21 09:00:00 +0900",
+            "qty": 500,
+            "source": "Apple Watch"
+          }
+        ]
+      }
+    ],
+    "workouts": []
+  }
 }`)
 
 	instanceID := uuid.New()
 	now := time.Now().UTC()
-	sourceKey := "iphone-health:primary:" + instanceID.String()
-	body = bytes.Replace(body, []byte("iphone-health:primary"), []byte(sourceKey), 1)
-	partialBody = bytes.Replace(partialBody, []byte("iphone-health:primary"), []byte(sourceKey), 1)
+	sourceKey := "iphone-hae:primary:" + instanceID.String()
+
 	queueIDs := make([]uuid.UUID, 0, 3)
-	if err := db.Create(&models.SourceInstance{ID: instanceID, Provider: "apple_health", InstanceKey: sourceKey, CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+	if err := db.Create(&models.SourceInstance{ID: instanceID, Provider: "health_auto_export", InstanceKey: sourceKey, CreatedAt: now, UpdatedAt: now}).Error; err != nil {
 		t.Fatalf("create source instance: %v", err)
 	}
 	cleanup := make([]uuid.UUID, 0, 2)
@@ -73,10 +80,10 @@ func TestIntegrationAppleHealthShortcutReplayAndPartialWindow(t *testing.T) {
 	})
 
 	service := NewServiceWithRegistry(db, nil, DefaultParserVersion, nil, nil, mustProviderRegistry(t))
-	firstRawID, firstImportID, firstQueueID := createShortcutEvidence(t, db, body, instanceID, now)
+	firstRawID, firstImportID, firstQueueID := createHaeEvidence(t, db, body, instanceID, now)
 	cleanup = append(cleanup, firstRawID)
 	queueIDs = append(queueIDs, firstQueueID)
-	processShortcutJob(t, service, db, firstImportID, firstQueueID)
+	processHaeJob(t, service, db, firstImportID, firstQueueID)
 
 	var observationCount int64
 	if err := db.Model(&models.SourceObservation{}).Where("source_instance_id = ? and source_kind = ?", instanceID, "activity").Count(&observationCount).Error; err != nil {
@@ -85,39 +92,41 @@ func TestIntegrationAppleHealthShortcutReplayAndPartialWindow(t *testing.T) {
 	if observationCount != 1 {
 		t.Fatalf("activity observations after first import = %d, want 1", observationCount)
 	}
+
 	var coverageCount int64
 	if err := db.Model(&models.SourceCoverageAssertion{}).Where("source_instance_id = ?", instanceID).Count(&coverageCount).Error; err != nil {
 		t.Fatalf("count first coverage: %v", err)
 	}
-	if coverageCount != 3 {
-		t.Fatalf("coverage assertions after first import = %d, want 3", coverageCount)
+	if coverageCount != 1 {
+		t.Fatalf("coverage assertions after first import = %d, want 1", coverageCount)
 	}
 
-	duplicateImportID, duplicateQueueID := createImportReplay(t, db, firstRawID, coreimports.KindAppleHealthShortcut, now.Add(time.Minute))
+	duplicateImportID, duplicateQueueID := createImportReplay(t, db, firstRawID, coreimports.KindHealthAutoExport, now.Add(time.Minute))
 	queueIDs = append(queueIDs, duplicateQueueID)
-	processShortcutJob(t, service, db, duplicateImportID, duplicateQueueID)
+	processHaeJob(t, service, db, duplicateImportID, duplicateQueueID)
 	if err := db.Model(&models.SourceCoverageAssertion{}).Where("source_instance_id = ?", instanceID).Count(&coverageCount).Error; err != nil {
 		t.Fatalf("count duplicate coverage: %v", err)
 	}
-	if coverageCount != 3 {
-		t.Fatalf("coverage assertions after duplicate replay = %d, want 3", coverageCount)
+	if coverageCount != 1 {
+		t.Fatalf("coverage assertions after duplicate replay = %d, want 1", coverageCount)
 	}
 
-	partialRawID, partialImportID, partialQueueID := createShortcutEvidence(t, db, partialBody, instanceID, now.Add(2*time.Minute))
+	partialRawID, partialImportID, partialQueueID := createHaeEvidence(t, db, partialBody, instanceID, now.Add(2*time.Minute))
 	cleanup = append(cleanup, partialRawID)
 	queueIDs = append(queueIDs, partialQueueID)
-	processShortcutJob(t, service, db, partialImportID, partialQueueID)
+	processHaeJob(t, service, db, partialImportID, partialQueueID)
 	if err := db.Model(&models.SourceObservation{}).Where("source_instance_id = ? and source_kind = ?", instanceID, "activity").Count(&observationCount).Error; err != nil {
 		t.Fatalf("count partial observation: %v", err)
 	}
+	// Bounded replacement: older activity observation remains preserved!
 	if observationCount != 1 {
 		t.Fatalf("activity observations after partial import = %d, want 1", observationCount)
 	}
 	if err := db.Model(&models.SourceCoverageAssertion{}).Where("source_instance_id = ?", instanceID).Count(&coverageCount).Error; err != nil {
 		t.Fatalf("count partial coverage: %v", err)
 	}
-	if coverageCount != 4 {
-		t.Fatalf("coverage assertions after partial import = %d, want 4", coverageCount)
+	if coverageCount != 2 {
+		t.Fatalf("coverage assertions after partial import = %d, want 2", coverageCount)
 	}
 }
 
@@ -130,22 +139,22 @@ func mustProviderRegistry(t *testing.T) *provider.Registry {
 	return registry
 }
 
-func createShortcutEvidence(t *testing.T, db *gorm.DB, body []byte, instanceID uuid.UUID, observedAt time.Time) (uuid.UUID, uuid.UUID, uuid.UUID) {
+func createHaeEvidence(t *testing.T, db *gorm.DB, body []byte, instanceID uuid.UUID, observedAt time.Time) (uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	rawID := uuid.New()
 	hash := sha256.Sum256(body)
-	storagePath := filepath.Join(t.TempDir(), "shortcut.json")
+	storagePath := filepath.Join(t.TempDir(), "health-auto-export.json")
 	if err := os.WriteFile(storagePath, body, 0o600); err != nil {
-		t.Fatalf("write shortcut body: %v", err)
+		t.Fatalf("write hae body: %v", err)
 	}
-	if err := db.Create(&models.RawFile{ID: rawID, SHA256: hex.EncodeToString(hash[:]), OriginalFilename: "apple-health-shortcut.json", ContentType: "application/json", SizeBytes: int64(len(body)), StoragePath: storagePath, SourceKind: coreimports.KindAppleHealthShortcut, UploadedVia: "connector", ObservedAt: &observedAt, CreatedAt: observedAt}).Error; err != nil {
+	if err := db.Create(&models.RawFile{ID: rawID, SHA256: hex.EncodeToString(hash[:]), OriginalFilename: "health-auto-export.json", ContentType: "application/json", SizeBytes: int64(len(body)), StoragePath: storagePath, SourceKind: coreimports.KindHealthAutoExport, UploadedVia: "connector", ObservedAt: &observedAt, CreatedAt: observedAt}).Error; err != nil {
 		t.Fatalf("create raw file: %v", err)
 	}
 	receiptID := uuid.New()
-	if err := db.Create(&models.SourceReceipt{ID: receiptID, SourceInstanceID: instanceID, RawFileID: rawID, SourceKind: coreimports.KindAppleHealthShortcut, IngestionMode: rawfiles.IngestionModeBoundedReplacement, ScopeJSON: []byte(`{}`), ObservedAt: &observedAt, ReceivedAt: observedAt, CreatedAt: observedAt}).Error; err != nil {
+	if err := db.Create(&models.SourceReceipt{ID: receiptID, SourceInstanceID: instanceID, RawFileID: rawID, SourceKind: coreimports.KindHealthAutoExport, IngestionMode: rawfiles.IngestionModeBoundedReplacement, ScopeJSON: []byte(`{}`), ObservedAt: &observedAt, ReceivedAt: observedAt, CreatedAt: observedAt}).Error; err != nil {
 		t.Fatalf("create source receipt: %v", err)
 	}
-	importID, queueID := createImportReplay(t, db, rawID, coreimports.KindAppleHealthShortcut, observedAt)
+	importID, queueID := createImportReplay(t, db, rawID, coreimports.KindHealthAutoExport, observedAt)
 	return rawID, importID, queueID
 }
 
@@ -156,18 +165,18 @@ func createImportReplay(t *testing.T, db *gorm.DB, rawID uuid.UUID, parserKind s
 	if err := db.Create(&models.ImportJob{ID: importID, RawFileID: rawID, Status: StatusQueued, ParserKind: parserKind, ParserVersion: DefaultParserVersion, CreatedAt: createdAt}).Error; err != nil {
 		t.Fatalf("create import job: %v", err)
 	}
-	worker := "shortcut-integration"
+	worker := "hae-integration"
 	if err := db.Create(&models.Job{ID: queueID, Kind: jobs.KindAppleImportParse, Status: jobs.StatusRunning, PayloadJSON: []byte(`{}`), Attempts: 1, MaxAttempts: 3, RunAfter: createdAt, LockedBy: &worker, LockedAt: &createdAt, CreatedAt: createdAt, UpdatedAt: createdAt}).Error; err != nil {
 		t.Fatalf("create queue job: %v", err)
 	}
 	return importID, queueID
 }
 
-func processShortcutJob(t *testing.T, service *Service, db *gorm.DB, importID, queueID uuid.UUID) {
+func processHaeJob(t *testing.T, service *Service, db *gorm.DB, importID, queueID uuid.UUID) {
 	t.Helper()
-	ctx := jobs.WithClaim(context.Background(), jobs.Claim{JobID: queueID, WorkerID: "shortcut-integration", Attempt: 1})
+	ctx := jobs.WithClaim(context.Background(), jobs.Claim{JobID: queueID, WorkerID: "hae-integration", Attempt: 1})
 	if err := service.ProcessContext(ctx, importID); err != nil {
-		t.Fatalf("process shortcut import: %v", err)
+		t.Fatalf("process hae import: %v", err)
 	}
 	var job models.ImportJob
 	if err := db.First(&job, "id = ?", importID).Error; err != nil {

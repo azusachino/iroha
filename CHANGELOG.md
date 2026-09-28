@@ -5,25 +5,44 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
-## [Unreleased]
-
-## [0.5.0] — 2026-09-11
+## [0.5.0] — 2026-09-27
 
 ### Added
 
+- Add native Health Auto Export (HAE) Format v2 JSON parser and provider adapter for continuous, automated daily health data intake (`KindHealthAutoExport = "health_auto_export"`).
+- Support sparse metric ingestion: unconfigured metrics are omitted safely; sleep durations in fractional hours are converted to integer seconds; non-empty metric units defensively default to conform
+  to database check constraints.
+- Parse GPS route trackpoints and continuous heart rate samplings directly from HAE workout payloads into canonical activity observations.
+- Expand `POST /api/v1/intake/health` request body limit to 10 MiB to accommodate high-resolution GPS tracks and workout vital series.
+- Add setup documentation ([`docs/health-auto-export-setup.md`](docs/health-auto-export-setup.md)) with detailed user stories, iOS/watchOS export settings, and troubleshooting instructions.
+- Add architecture decision record [ADR-0008](docs/adr/0008-health-auto-export-http-intake.md) documenting the two-tier ingestion model, the required intake credential, and bounded replacement
+  semantics.
 - Replace the legacy schema boundary with a fresh SQLx-managed schema through migration 00020. This is a cut-over release: raw evidence is replayed into the new schema; no legacy-schema migration or
   Goose adoption is provided.
 - Replay the complete 2026-09-08 Apple Health export without destructive purges, preserving source receipts, interpretation history, canonical activities, daily health, and sleep projections.
-- Add automatic Apple Health shortcut intake with bounded evidence coverage, scheduled AniList/Bangumi sync runs, agent-applied matching decisions, and source-aware cockpit attention.
+- Add scheduled AniList/Bangumi sync runs, agent-applied matching decisions, and source-aware cockpit attention.
 - Add expense accounts, linked and unlinked refunds, revision-backed consistent reads, report evidence status, connection actions, restored agent CLI parity, and an honest sanitized public exporter
   boundary.
+
+### Changed
+
+- Require a dedicated intake credential on every `POST /api/v1/intake/health` request (ADR-0008). Each device gets its own revocable credential; only a SHA-256 verifier of the `iroha_hae_`-prefixed
+  token is stored (migration 00021). Intake fails closed with `503` until `iroha-admin intake-token issue` issues one, and the credential name sets the source instance.
+- Label Health Auto Export coverage in the effective timezone (`IROHA_TIMEZONE`) and widen it to whole device-local days. Previously every HAE import failed on a server running in UTC.
+- Accept only Health Auto Export Format v2: intake rejects workouts without an `id` or with an offset-less start time, and imports fail loudly on malformed timestamps or unsummarized sleep instead of
+  silently dropping data.
+- Fix HAE distance conversion (only the first point of a miles metric was converted), convert metres, and convert workout energy reported in kJ.
+- Rewrite the Health Auto Export setup guide and add a reference page for HAE settings and payloads.
+
+### Removed
+
+- Remove the dead iOS Shortcuts receiver (`apple_health_shortcut.go`, test fixture, and setup documentation) in favor of native Health Auto Export background sync.
 
 ### Verification
 
 - `make release-candidate` passed against an isolated PostGIS database: migrations 1–20, all Go integration packages, seeded API/performance checks, production web build, readiness, and the 6-theme ×
   light/dark × 3-route browser matrix.
-- The complete Apple Health replay produced 502 activities, 9,474 daily metrics, 1,392 sleep sessions, and 12,471 source observations; exact replay was idempotent, and migration 00020 rollback/reapply
-  preserved the evidence.
+- `make check` and `make test-integration` pass cleanly with full coverage of the new Health Auto Export bounded replacement ingestion.
 
 ## [0.4.5] — 2026-08-28
 
@@ -434,6 +453,7 @@ sanitized-public read surfaces on top.
 - Geocode retry storms now back off instead of hammering Nominatim on rate-limit responses.
 - Local stack startup sequencing (dependencies before app containers, migrations before server).
 
+[0.5.0]: https://github.com/azusachino/iroha/compare/v0.4.5...v0.5.0
 [0.3.0]: https://github.com/azusachino/iroha/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/azusachino/iroha/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/azusachino/iroha/compare/v0.1.1...v0.1.4

@@ -32,7 +32,7 @@ Request fields:
 
 ```text
 file
-source_kind      apple_health_export | apple_health_shortcut | gpx | fit | tcx | strava_export
+source_kind      apple_health_export | health_auto_export | gpx | fit | tcx | strava_export
 uploaded_via     web | telegram | cli | ios_bridge
 ```
 
@@ -65,14 +65,23 @@ Reprocessing is modeled as another import job for the same raw file, not as muta
 POST /api/v1/intake/health
 ```
 
-The request body is the strict `iroha.health.shortcut.v1` envelope. The server validates its source instance, capture time, bounded coverage, and supported completeness values before storing the unchanged JSON and queueing `apple_health_shortcut` as a normal import. Configure `IROHA_HEALTH_INTAKE_TOKEN` and send `Authorization: Bearer <token>`; without that setting the endpoint returns `503`.
+Accepts automated Health Auto Export Format v2 JSON payloads up to 10 MiB (`healthIntakeMaxBytes`). The endpoint validates the payload and capture timestamp; the source instance is
+`iphone-hae:<credential name>`, taken from the authenticated credential, and bounded date range before storing raw JSON and enqueuing a `health_auto_export` import job.
 
-Shortcut intake uses bounded replacement, not complete-export reconciliation. A partial or empty window therefore adds evidence about that window without deleting older activities, sleep sessions, or daily facts outside it. The same payload is replay-safe because the raw-file hash is deduplicated and a same-version completed import is skipped.
+Every request must carry the intake credential as `Authorization: Bearer <token>`, regardless of network origin. The `requireIntakeCredential` middleware checks it before the handler reads the body.
+Each device has its own credential in `tb_intake_credentials`; only a SHA-256 verifier of the `iroha_hae_`-prefixed token is stored, with `last_used_at` and `revoked_at`. Until an active credential
+exists the endpoint fails closed with `503 intake_not_provisioned`; a missing, wrong, or revoked token gets `401`. Manage credentials with the operator-only
+`iroha-admin intake-token issue [-name <device>]`, `list`, and `revoke <cred_id>`; `issue` prints the token once, and older credentials stay active until revoked.
+
+Intake uses bounded replacement (`bounded_replacement`), not complete-export reconciliation. Each payload's window (HAE sends the previous 7 days of daily metrics and the default range of workouts)
+adds or updates evidence for that window without deleting older activities, sleep sessions, or daily metrics outside it. Replaying the same payload is idempotent because the raw-file content hash is
+deduplicated.
 
 Import jobs are persisted jobs. `iroha-server` enqueues them into the durable Postgres-backed queue and the separate `iroha-job` process claims and executes them. The server and worker must share the
 configured raw-file data directory.
 
-Connector-created imports also expose `sync_run_id`. A media fetch run is marked successful when its raw evidence and child import jobs are durably recorded; child parsing remains a separate outcome and can be retried from retained evidence.
+Connector-created imports also expose `sync_run_id`. A media fetch run is marked successful when its raw evidence and child import jobs are durably recorded; child parsing remains a separate outcome
+and can be retried from retained evidence.
 
 Current behavior:
 
@@ -94,20 +103,16 @@ GET  /api/v1/connections
 POST /api/v1/media/matching-decisions
 ```
 
-`GET /api/v1/connections` is the operational summary for an agent or shell
-client. Each source instance reports its latest receipt, latest import,
-evidence-backed coverage, and an explicit `next_actions` list. A failed import
-returns a replayable `retry_import` action; configured media providers expose a
-`sync` action; Apple Health sources expose the bounded intake action. The
-summary intentionally reports `unknown` when credentials, cadence, or
-collection coverage are not evidenced. It is not a human resolution inbox.
+`GET /api/v1/connections` is the operational summary for an agent or shell client. Each source instance reports its latest receipt, latest import, evidence-backed coverage, and an explicit
+`next_actions` list. A failed import returns a replayable `retry_import` action; configured media providers expose a `sync` action; Apple Health sources expose the bounded intake action. The summary
+intentionally reports `unknown` when credentials, cadence, or collection coverage are not evidenced. It is not a human resolution inbox.
 
-Provider conflicts are resolved through the transactional matching-decision
-endpoint. `attach`, `keep_separate`, and `undo` decisions become durable
-lineage used by later replays, so an agent can resolve a conflict without
-editing the database or waiting for manual intervention.
+Provider conflicts are resolved through the transactional matching-decision endpoint. `attach`, `keep_separate`, and `undo` decisions become durable lineage used by later replays, so an agent can
+resolve a conflict without editing the database or waiting for manual intervention.
 
-Read contracts keep status dimensions separate. Briefing sections expose `availability`, `collection`, `operation`, and `freshness`; metric series expose observation coverage separately from `collection_completeness`; monthly reports expose calendar closure, canonical observation state, and collection completeness. A closed calendar period is not evidence that the source covered it, so collection remains `unknown` until a source-scoped assertion is available.
+Read contracts keep status dimensions separate. Briefing sections expose `availability`, `collection`, `operation`, and `freshness`; metric series expose observation coverage separately from
+`collection_completeness`; monthly reports expose calendar closure, canonical observation state, and collection completeness. A closed calendar period is not evidence that the source covered it, so
+collection remains `unknown` until a source-scoped assertion is available.
 
 ### Normalized expense statements
 
@@ -135,9 +140,12 @@ Both endpoints accept a JSON body with `manifest` and `csv`:
 }
 ```
 
-The required columns are `transaction_id`, `occurred_on`, `currency`, `amount_minor`, `kind`, `category`, and `merchant`. `note` and `original_transaction_ref` are optional. Amounts are positive minor units; `kind` is `expense` or `refund`, and transfers are rejected. A refund may omit its original transaction reference.
+The required columns are `transaction_id`, `occurred_on`, `currency`, `amount_minor`, `kind`, `category`, and `merchant`. `note` and `original_transaction_ref` are optional. Amounts are positive minor
+units; `kind` is `expense` or `refund`, and transfers are rejected. A refund may omit its original transaction reference.
 
-The preview validates every row and writes nothing. Import identity is `(account_key, source_kind, transaction_id)`; an exact revision and CSV hash replay is idempotent, while a changed revision updates only that statement lineage. `partial` statements never delete omitted rows. `complete` statements tombstone omitted rows only inside the declared account/source/period scope. Manual expenses outside that lineage are not deleted or overwritten. Statement revisions and row tombstones remain in the fresh SQLx schema for audit and replay.
+The preview validates every row and writes nothing. Import identity is `(account_key, source_kind, transaction_id)`; an exact revision and CSV hash replay is idempotent, while a changed revision
+updates only that statement lineage. `partial` statements never delete omitted rows. `complete` statements tombstone omitted rows only inside the declared account/source/period scope. Manual expenses
+outside that lineage are not deleted or overwritten. Statement revisions and row tombstones remain in the fresh SQLx schema for audit and replay.
 
 Response shape:
 
@@ -220,8 +228,7 @@ client
 
 The large-file flow is deferred until direct multipart upload becomes painful.
 
-The local client exposes the same agent-facing recovery and resolution
-contracts without requiring database access:
+The local client exposes the same agent-facing recovery and resolution contracts without requiring database access:
 
 ```text
 uv run python scripts/iroha_cli.py connection list
@@ -229,12 +236,9 @@ uv run python scripts/iroha_cli.py connection action /api/v1/imports --input ret
 uv run python scripts/iroha_cli.py media-write decide bangumi <external-id> <media-id> attach
 ```
 
-The `connection action` path must come from the server's `next_actions` response
-and is restricted to `/api/v1/`. Public publishing remains a separate sanitized
-projection: `make export-public` or `make public-site-build` uses
-`iroha-export-public`, never the private API response cache or expense/report
-records. The export validator and atomic directory swap preserve the previous
-public snapshot if generation fails.
+The `connection action` path must come from the server's `next_actions` response and is restricted to `/api/v1/`. Public publishing remains a separate sanitized projection: `make export-public` or
+`make public-site-build` uses `iroha-export-public`, never the private API response cache or expense/report records. The export validator and atomic directory swap preserve the previous public
+snapshot if generation fails.
 
 ## External Telegram Bot Boundary
 
@@ -262,7 +266,7 @@ POST /api/v1/raw-files
 Content-Type: multipart/form-data
 
 file          the raw bytes (e.g. export.zip)
-source_kind   apple_health_export | apple_health_shortcut | gpx | fit | tcx | strava_export
+source_kind   apple_health_export | health_auto_export | gpx | fit | tcx | strava_export
 uploaded_via  telegram
 ```
 
@@ -331,7 +335,9 @@ GET /api/v1/imports/{importId}
 
 ## Auth
 
-Most `/api/v1` endpoints are unauthenticated because iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security control. The automatic Apple Health intake is the exception: `POST /api/v1/intake/health` requires `Authorization: Bearer ...` from `IROHA_HEALTH_INTAKE_TOKEN` and is disabled when no token is configured. Do not expose `iroha-server` to an untrusted network.
+Most `/api/v1` endpoints are unauthenticated because iroha is a single-user personal deployment (private LAN/NAS/Tailnet); the network boundary is the security control. `POST /api/v1/intake/health` is
+the exception: it always requires its dedicated intake credential (see [health intake](#automatic-apple-health-intake)), because tailnet membership is not identity (ADR-0008). Do not expose
+`iroha-server` to an untrusted public network.
 
 Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTTP hardening](#http-hardening).
 
@@ -346,9 +352,9 @@ Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTT
 
 Use TOML config with environment variable overrides.
 
-Set `IROHA_HEALTH_INTAKE_TOKEN` to enable the bounded Apple Health Shortcut receiver. Keep the token in the deployment secret environment, not in tracked TOML or request logs.
-
-When `IROHA_ANILIST_USERNAME` or `IROHA_BANGUMI_USERNAME` is configured, `iroha-job` creates one enabled daily sync schedule for that provider. Override the cadence with `IROHA_ANILIST_SYNC_INTERVAL` or `IROHA_BANGUMI_SYNC_INTERVAL` (Go duration such as `12h`); set either to `off` to disable its default schedule. The schedules are independent: neither provider silently wins a media conflict; explicit matching decisions remain authoritative. Concurrent runs for one connector are rejected, while the other connector remains independent.
+When `IROHA_ANILIST_USERNAME` or `IROHA_BANGUMI_USERNAME` is configured, `iroha-job` creates one enabled daily sync schedule for that provider. Override the cadence with `IROHA_ANILIST_SYNC_INTERVAL`
+or `IROHA_BANGUMI_SYNC_INTERVAL` (Go duration such as `12h`); set either to `off` to disable its default schedule. The schedules are independent: neither provider silently wins a media conflict;
+explicit matching decisions remain authoritative. Concurrent runs for one connector are rejected, while the other connector remains independent.
 
 Default lookup:
 
