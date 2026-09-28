@@ -14,6 +14,7 @@ servers:
 tags:
   - name: system
   - name: auth
+  - name: public
   - name: coverage
   - name: imports
   - name: activities
@@ -153,6 +154,93 @@ paths:
           $ref: "#/components/responses/InternalServerError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /public/v1/summary:
+    get:
+      tags: [public]
+      summary: Public activity summary.
+      description: "Anonymous and sanitized (ADR-0008). Cached for up to 24 hours and rebuilt when activity data changes; responses send Cache-Control public, max-age=86400."
+      security: []
+      responses:
+        "200":
+          description: Public projection.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "429":
+          description: Rate limited.
+  /public/v1/activities:
+    get:
+      tags: [public]
+      summary: All public activities.
+      description: "Anonymous and sanitized (ADR-0008). Cached for up to 24 hours and rebuilt when activity data changes; responses send Cache-Control public, max-age=86400."
+      security: []
+      responses:
+        "200":
+          description: Public projection.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "429":
+          description: Rate limited.
+  /public/v1/activities/{activityId}:
+    get:
+      tags: [public]
+      summary: Public detail of one activity (route, samplings, laps).
+      description: "Anonymous and sanitized (ADR-0008). Cached for up to 24 hours and rebuilt when activity data changes; responses send Cache-Control public, max-age=86400."
+      security: []
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Public projection.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          description: Rate limited.
+  /public/v1/routes:
+    get:
+      tags: [public]
+      summary: Public route lines as GeoJSON.
+      description: "Anonymous and sanitized (ADR-0008). Cached for up to 24 hours and rebuilt when activity data changes; responses send Cache-Control public, max-age=86400."
+      security: []
+      responses:
+        "200":
+          description: Public projection.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "429":
+          description: Rate limited.
+  /public/v1/meta:
+    get:
+      tags: [public]
+      summary: When the public projection was built.
+      description: "Anonymous and sanitized (ADR-0008). Cached for up to 24 hours and rebuilt when activity data changes; responses send Cache-Control public, max-age=86400."
+      security: []
+      responses:
+        "200":
+          description: Public projection.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "429":
+          description: Rate limited.
   /api/v1/auth/session:
     get:
       tags: [auth]

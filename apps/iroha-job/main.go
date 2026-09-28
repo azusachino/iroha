@@ -165,6 +165,12 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
+		// The public site reads /public/v1 from the server; without an export
+		// directory the static snapshot schedule must not keep firing.
+		if err := db.Model(&models.JobSchedule{}).Where("kind = ?", jobs.KindProjectionRefresh).Update("enabled", false).Error; err != nil {
+			logger.Error("disable public export schedule", "error", err)
+			os.Exit(1)
+		}
 		logger.Info("IROHA_PUBLIC_EXPORT_DIR not set; projection_refresh job kind disabled")
 	}
 

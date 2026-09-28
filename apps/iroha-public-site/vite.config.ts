@@ -6,6 +6,9 @@ import { defineConfig } from "vite";
 const sharedPath = new URL("../../packages/iroha-shared/src", import.meta.url)
   .pathname;
 
+// iroha-server that `vite dev` and `vite preview` forward /public/v1 to.
+const apiTarget = process.env.IROHA_DEV_API_TARGET ?? "http://127.0.0.1:8080";
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -19,6 +22,10 @@ export default defineConfig({
   },
   server: {
     allowedHosts: ["harus-macmini", "harus-mini", ".ts.net"],
+    proxy: { "/public": apiTarget },
+  },
+  preview: {
+    proxy: { "/public": apiTarget },
   },
   plugins: [
     tailwindcss(),
@@ -29,11 +36,9 @@ export default defineConfig({
       },
       // Self-hosted at the root (no GitHub Pages project-page subpath to
       // account for) -- default base path.
-      // Every page is known and fetchable at build time (this is a single,
-      // fully static snapshot) -- prerender the whole site instead of
-      // shipping a client-rendered shell.
-      prerender: { entries: ["*"] },
-      adapter: adapter({ fallback: undefined }),
+      // The main page loads live data in the browser from /public/v1, so
+      // the build is a client-rendered shell with an SPA fallback.
+      adapter: adapter({ fallback: "index.html" }),
     }),
   ],
 });

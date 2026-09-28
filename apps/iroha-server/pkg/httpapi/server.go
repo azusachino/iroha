@@ -97,6 +97,7 @@ type Server struct {
 	now            func() time.Time
 	trustedProxies []netip.Prefix
 	intakeQuota    *intakeQuota
+	publicCache    *publicSnapshotCache
 }
 
 type readSnapshotContextKey struct{}
@@ -126,6 +127,7 @@ func NewServer(deps Dependencies) http.Handler {
 		deps.Logger.Warn("ignoring invalid trusted proxy CIDR", "value", value)
 	}
 	server.intakeQuota = newIntakeQuota(server.now)
+	server.publicCache = &publicSnapshotCache{}
 	if server.deps.BriefingRegistry == nil {
 		server.deps.BriefingRegistry, _ = briefing.NewRegistry()
 	}
@@ -148,6 +150,7 @@ func (s *Server) routes() {
 
 	s.mux.Get("/healthz", s.handleHealthz)
 	s.mux.Get("/readyz", s.handleReadyz)
+	s.mux.Route("/public/v1", s.publicRoutes)
 	s.mux.Route("/api/v1", func(r chi.Router) {
 		// Private API: CORS limited to configured origins. Every route below
 		// requires an owner session (ADR-0008) except login/setup and the HAE
