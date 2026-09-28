@@ -131,9 +131,9 @@ These can only be answered from a real device and are the acceptance test for th
 - Does a failed upload advance "Since Last Sync"?
 - Are the unverified metric names above spelled as HAE sends them?
 - When HAE and a full `export.zip` both report the same day's metric or night's sleep, the canonical value is whichever was imported **last**, not a deliberate source precedence. The two sources
-  deduplicate iPhone and Watch samples differently, so the values can differ.
+  deduplicate iPhone and Watch samples differently, so the values can differ. Tracked in [#69](https://github.com/azusachino/iroha/issues/69).
 - The same workout arriving from both HAE and a full `export.zip` is stored twice, because the two paths derive different workout identities. Whether to merge them is deferred until the HAE
-  configuration has been tried.
+  configuration has been tried. Tracked in [#70](https://github.com/azusachino/iroha/issues/70).
 
 ## Sources
 
