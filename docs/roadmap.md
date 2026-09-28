@@ -160,31 +160,13 @@ Full Apple Health export zips may exceed normal Telegram Bot API file limits, so
 
 Goal: separate private canonical data from public output. See [Public-site publishing workflow](public-site-publishing.md) for the operational pipeline, review loop, and rollback path (issue #41).
 
-Status: shipped, self-hosted. Sanitized activity projections are implemented, and `apps/iroha-server/pkg/publicexport` builds the public activity/summary/route/detail projection. The default export
-includes complete route traces and rich detail for every exported activity. The explicit `--privacy` mode omits all route traces while retaining activity metrics, samples, and laps. The original
-design served this from a `/public/v1` HTTP surface living in the same process as the private API; that surface has been removed (it was never actually exposed to the internet — an open-CORS route and
-a second rate-limit budget serving a page nobody could reach). A second design (a k3s CronJob that git-committed the export and pushed it to trigger a GitHub Pages deploy) shipped, then was retired in
-favor of building and serving the site entirely on the deployment cluster:
+Status: live at [iroha.azusachino.com](https://iroha.azusachino.com/), self-hosted on the deployment cluster. `apps/iroha-public-site` is a static client shell; its Caddy proxy exposes only `/public/v1/*` from `iroha-server`. The server validates and serves the sanitized projection, caches it for up to 24 hours, and rebuilds it when the activity revision changes. The public site does not expose private `/api/v1` routes, and the live pipeline has no export or builder job. `iroha-export-public` remains available for local/manual snapshot inspection. See [public-site publishing](public-site-publishing.md) for current behavior.
 
-```text
-apps/iroha-job (projection_refresh job kind, interval-scheduled)
-  -> writes the sanitized JSON/GeoJSON snapshot straight to a volume, from inside the private network
-  -> a separate builder job clones this repo's public app code (no credential needed — the repo is public),
-     reads the snapshot from that volume read-only, builds apps/iroha-public-site, and serves it
-```
+Earlier designs used the private app's `/public/v1` route, a GitHub Pages snapshot, and a cluster export/builder job. Those delivery paths are retired. The `publicexport` implementation remains the validation and projection boundary used by the active public API and the standalone CLI.
 
-No self-hosted GitHub Actions runner, and no GitHub Actions at all, is used anywhere in this design — the whole pipeline, data and build alike, runs on infrastructure this repo doesn't own or trust
-with credentials. The former git-push design (`ops/scripts/export-public-cron.sh`, a fine-grained `IROHA_EXPORT_GITHUB_PAT`, and `.github/workflows/public-site.yml`) is gone; nothing in this repo
-holds a repo-write credential anymore. The standalone `iroha-export-public` CLI (`apps/iroha-server/cmd/iroha-export-public`, reachable via `make export-public`) still exists for local/manual runs and
-shares its implementation (`apps/iroha-server/pkg/publicexport.Export`) with the scheduled job kind.
+Original snapshot-based exit criterion (historical):
 
-Exit criteria:
-
-- Every exported activity has a sanitized rich-detail record in the public snapshot, including route, samples, and laps when available. Route omission is an explicit opt-in export mode, not a
-  per-activity allowlist.
-
-Status: live at [iroha.azusachino.com](https://iroha.azusachino.com/), self-hosted on the deployment cluster. Since 0.5 the site reads the sanitized projection live from iroha-server's
-anonymous `/public/v1` API, cached for up to a day; there is no export or build job. See [public-site publishing](public-site-publishing.md).
+- Every exported activity had a sanitized rich-detail record in the public snapshot, including route, samples, and laps when available. Route omission was an explicit opt-in export mode, not a per-activity allowlist.
 
 ## Milestone 8: Durable Worker Backbone
 
@@ -207,8 +189,7 @@ Exit criteria:
 - A regular sync job can be scheduled and inspected.
 - A manual "sync now" or "request full dump" action creates an observable job.
 
-Status: shipped for imports, geocoding, the first AniList/Bangumi connector syncs, and projection refresh (`jobs.KindProjectionRefresh`, see Milestone 7 — the public-site export). The private API
-queues media sync jobs at `POST /api/v1/media/sync/{connectorId}`; remaining media work is ontology expansion and cross-provider resolution.
+Status: shipped for imports, geocoding, and AniList/Bangumi connector syncs. The optional `projection_refresh` schedule writes snapshots when `IROHA_PUBLIC_EXPORT_DIR` is configured; the active live public-site pipeline does not depend on it. The private API queues media sync jobs at `POST /api/v1/media/sync/{connectorId}`; remaining media work is ontology expansion and cross-provider resolution.
 
 ## Release 0.4: Expense Ledger
 

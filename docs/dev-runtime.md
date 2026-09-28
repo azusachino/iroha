@@ -118,31 +118,19 @@ Pitfalls to avoid:
 
 ### Public-site preview
 
-The public site is a static snapshot, so its local preview should use the checked-in files under `apps/iroha-public-site/static/data/` and never connect to the private API:
+The public site is a static client shell that reads the validated sanitized projection from the local `iroha-server` through `/public/v1`. Both preview targets proxy that namespace to `IROHA_DEV_API_TARGET`, which defaults to `http://127.0.0.1:8080`; they do not call private `/api/v1` routes. Start the local server with the dataset you intend to review, then run:
 
 ```bash
 # Fast iteration with Vite's development server.
 make public-site-dev
 
-# Production-like static build and preview.
+# Production-like build and preview.
 make public-site-preview
 ```
 
-To preview the latest snapshot published by the private exporter, sync the generated artifacts from `origin/main` before building. This is a data refresh, not a backend connection:
+See [public-site publishing](public-site-publishing.md) for the current deployed pipeline and privacy boundary.
 
-```bash
-git fetch origin main
-git restore --source=origin/main -- \
-  apps/iroha-public-site/static/data/summary.json \
-  apps/iroha-public-site/static/data/activities.json \
-  apps/iroha-public-site/static/data/routes.geojson \
-  apps/iroha-public-site/static/data/activity-details.json \
-  apps/iroha-public-site/static/data/meta.json
-make public-site-preview HOST=0.0.0.0 PORT=4175
-```
-
-The snapshot contains rich detail for every exported activity. Routes are present by default; an export run made with `--privacy` contains the metrics, samples, and laps but no route traces. Do not
-run the sync command over uncommitted personal snapshot changes.
+For manual inspection outside the site, `make export-public` writes a snapshot to disk. The default includes route traces; an export run made with `--privacy` omits traces while retaining metrics, samples, and laps. This CLI snapshot does not feed the local site preview.
 
 Both commands serve the site at `http://127.0.0.1:4173/` (the development server may choose a different port if 5173 is occupied). Leave `BASE_PATH` unset locally; GitHub Pages supplies `/iroha` in
 `public-site.yml`, and that workflow smoke-checks the deployed project-page path. To test a new export locally, replace the ignored working snapshot files temporarily, run the preview, then restore

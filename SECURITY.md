@@ -4,7 +4,7 @@
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, report them privately via [GitHub Security Advisories](https://github.com/azusachino/iroha/security/advisories/new), or by email to **azusa146@gmail.com**.
+Instead, report them privately via [GitHub Security Advisories](https://github.com/azusachino/iroha/security/advisories/new), or by email to [`azusa146@gmail.com`](mailto:azusa146@gmail.com).
 
 Please include:
 
@@ -16,6 +16,4 @@ You can expect an acknowledgement within a few days. Since iroha handles persona
 
 ## Scope
 
-iroha is currently a personal, self-hosted project with no application-level authentication on the private API (`/api/v1`) — the deployment's network boundary (private LAN/NAS, not exposed publicly)
-is the intended security control. Do not expose `iroha-server` to an untrusted network. `/public/v1` is the only surface designed for eventual public exposure; it serves sanitized, non-sensitive data
-only.
+Iroha handles sensitive personal health, activity, and financial data. Private `/api/v1` routes require an owner session; state-changing browser requests also require a CSRF token. Health Auto Export intake uses a separate per-device bearer credential and grants intake access only. Anonymous `/public/v1` routes serve the validated, sanitized public projection. The public site proxies that namespace, not the private API. Keep owner setup, login, and all other private routes behind the intended private ingress; expose only explicitly approved public reads and credentialed intake routes.

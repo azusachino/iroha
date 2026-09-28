@@ -7,8 +7,7 @@ Date: 2026-07-18
 This document records the frontend redesign baseline before implementation. It uses the existing Svelte source as evidence and separates confirmed gaps from items that still require browser-level
 verification.
 
-The route inventory in this file is historical. The former `/share` page and live `/public/v1` API were removed during the static public-site split; use
-[frontend-request-audit.md](frontend-request-audit.md) and the current route tree for release-candidate behavior.
+The route inventory in this file records the 2026-07-18 baseline. At that point `/share` and the earlier `/public/v1` route had been removed. Iroha later added a new anonymous `/public/v1` API for the separate static public-site client; the current pipeline is documented in [public-site publishing](public-site-publishing.md). Use [frontend-request-audit.md](frontend-request-audit.md) and the current route tree for release-candidate behavior.
 
 ## Scope and guardrails
 
@@ -23,7 +22,7 @@ The first implementation boundary is additive or in-place:
 - Do not delete or rename routes, API functions, design experiments, or imported data as part of this epic without a separate explicit decision.
 - Do not change backend contracts unless a frontend compatibility audit proves a specific contract defect.
 
-## Current route and data inventory
+## Historical route and data inventory (2026-07-18)
 
 | Surface        | Route                | Primary data/API consumer                       | Current role            | Intended role                |
 | -------------- | -------------------- | ----------------------------------------------- | ----------------------- | ---------------------------- |

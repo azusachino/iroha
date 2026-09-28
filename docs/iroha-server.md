@@ -182,9 +182,7 @@ this is a private route — the aggregates it builds never carried private field
 Gear, privacy-zone management, published-activity mutation, and activity mutation are roadmap items. They are not currently registered routes and are intentionally excluded from the active API
 contract.
 
-There is no separate public-facing HTTP surface for these sanitized projections (the previous `/public/v1` was removed — it was never actually exposed to the internet). The replacement is implemented
-as a standalone export built on `publicexport` that produces a static snapshot for a separate GitHub Pages site instead of a second live API — see
-[roadmap Milestone 7](roadmap.md#milestone-7-privacy-and-publishing).
+The active anonymous read surface is `/public/v1`, backed by the validated sanitized projection. The separate `iroha-public-site` image serves a static client shell and proxies only `/public/v1/*`; it does not expose private `/api/v1` routes. The `iroha-export-public` CLI remains available for local snapshot inspection. See [public-site publishing](public-site-publishing.md) for the current pipeline and [roadmap Milestone 7](roadmap.md#milestone-7-privacy-and-publishing) for its history.
 
 The following routes remain planned and are not part of the active contract:
 
@@ -374,8 +372,7 @@ kubectl -n harus-core exec -i deploy/iroha-server -- iroha-admin password reset
 credential gets 120 requests/hour and 512 MiB/day, which caps what a leaked token can write. The client is the socket peer, unless that peer is inside `IROHA_TRUSTED_PROXY_CIDRS` (comma-separated
 CIDRs); then the `Cf-Connecting-Ip` header set by Cloudflare is used instead. Only list proxies that strip or overwrite that header for everything they forward.
 
-**Public exposure.** Only `POST /api/v1/intake/health` may be public (ADR-0008 §3); the deployment routes nothing else on the public hostname. Setup and login stay on the tailnet. Passkeys are not
-implemented yet.
+**Public exposure.** The public site exposes only the anonymous sanitized `/public/v1/*` reads. A deployment may separately route `POST /api/v1/intake/health` when HAE needs public reachability; the route requires its dedicated credential from every network. Keep owner setup, login, and all other private `/api/v1` routes behind private ingress. Passkey login and account management are implemented when `IROHA_WEBAUTHN_RP_ID` and `IROHA_WEBAUTHN_ORIGINS` are configured; without them, the UI hides passkeys and passkey routes return `503 passkeys_disabled`.
 
 Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTTP hardening](#http-hardening).
 

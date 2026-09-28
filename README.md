@@ -8,17 +8,14 @@ _iro & hana_ — a personal data cockpit for keeping, understanding, and selecti
 
 ## Two surfaces
 
-The private cockpit stores the complete personal history and runs on a local machine or private k3s/LAN deployment. The public archive is a static snapshot of deliberately published data, built and
-served on the same deployment; it has no live API and no private credentials.
+The private cockpit stores personal history and runs on a local machine or private k3s/LAN deployment. The public archive is a separate static client that reads Iroha's validated, sanitized `/public/v1` projection. It has no private credentials and does not proxy the private `/api/v1` API.
 
 | Surface         | Location                                                | Contents                                                                                                   |
 | --------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Private cockpit | `iroha-server`, `iroha-job`, `iroha-web`                | Canonical Postgres/PostGIS data, routes, streams, sleep, media, expenses, monthly reports, tasks, and jobs |
-| Public archive  | [`iroha.azusachino.com`](https://iroha.azusachino.com/) | Public activity snapshot with rich detail for every exported activity                                      |
+| Public archive  | [`iroha.azusachino.com`](https://iroha.azusachino.com/) | Sanitized public activity projection with rich detail for available activities                             |
 
-The exporter runs entirely inside the private deployment — a scheduled job on `iroha-job` regenerates the sanitized snapshot, and a separate builder job clones this repo's public code, builds the
-static site, and serves it, all on the same cluster. Nothing is pushed to this repo. See [public-site publishing](docs/public-site-publishing.md) for the boundary and operator workflow. The archive
-was previously published via GitHub Pages at `azusachino.github.io/iroha`; that deployment is retired and the URL no longer updates.
+The public site is served from the deployment cluster; its Caddy proxy exposes only `/public/v1/*` from `iroha-server`. GitHub Pages at `azusachino.github.io/iroha` is retired and no longer updates. See [public-site publishing](docs/public-site-publishing.md) for the current pipeline, privacy boundary, and operator workflow.
 
 ## Quick start
 
@@ -37,8 +34,8 @@ lists source attention, and applies agent-owned connection or media-matching act
 `uv run python scripts/iroha_cli.py --help` for the exact commands.
 
 The v0.5 runtime cache is a shared, backend-neutral disposable read layer for the private cockpit. Canonical records remain in Postgres; Postgres is also the default cache backend, Valkey is supported
-for the k3s compatibility deployment, and `none` disables caching. There is no production process-memory cache and no scheduled aggregate table in this release. The public archive remains a separate
-static, sanitized projection and does not consume private cache responses.
+for the k3s compatibility deployment, and `none` disables caching. There is no production process-memory cache and no scheduled aggregate table in this release. The public site remains a separate
+static client; it reads the validated sanitized public API projection and does not use the private cache.
 
 v0.5 is a fresh-schema cut-over. The release path replays the complete original raw evidence set into SQLx migrations 1–20; it does not migrate the legacy schema and does not adopt Goose.
 
@@ -51,7 +48,7 @@ Iroha supports a two-tier ingestion model for health, fitness, and location data
 
 1. **Continuous Daily Intake (Health Auto Export)**:
    - Configure [Health Auto Export](https://help.healthyapps.dev/en/health-auto-export/automations/) on iOS/watchOS to POST Format v2 JSON to `POST /api/v1/intake/health`.
-   - Syncs steps, sleep stages, resting vitals, and workouts with GPS routes and heart-rate series in the background.
+   - Imports summarized daily metrics and sleep, plus workouts with optional GPS routes and heart-rate series. The HAE metric mapping is partial; see the [provider reference](docs/capabilities/providers/health-auto-export.md) for supported names and known gaps.
    - Every request carries a dedicated intake token (`Authorization: Bearer`), issued per device on the Admin page; intake is refused until one is issued.
    - See [Setting up Health Auto Export HTTP Intake](docs/health-auto-export-setup.md).
 
