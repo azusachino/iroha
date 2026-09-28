@@ -1,4 +1,4 @@
-# Root prettier scope: docs + config only (md/yaml/json). The web app runs its
+# Root prettier scope: docs/config YAML and JSON only. The web app runs its
 # OWN prettier (spaces + double quotes, prettier-plugin-svelte) via `make web-fmt`
 # with apps/iroha-web/.prettierrc; Go, SQL, and Python use their own toolchains.
 node_modules/

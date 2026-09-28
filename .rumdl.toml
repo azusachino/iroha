@@ -1,0 +1,3 @@
+[global]
+# Keep prose wrapping intentional; rumdl enforces Markdown structure and consistency.
+disable = ["MD013"]

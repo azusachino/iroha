@@ -25,7 +25,8 @@ MOBILE_DEFAULT_MOTION := normal,reduced
 .PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-public-site images
 
 PRETTIER := prettier
-DOCS_FILES := $(shell rg --files -g '*.md' -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
+MARKDOWN_FILES := $(shell rg --files -g '*.md' -g '!**/node_modules/**')
+DOC_CONFIG_FILES := $(shell rg --files -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -140,12 +141,14 @@ public-site-dev: ## Run the public-site dev server, bound to all interfaces
 public-site-preview: ## Build and serve the public site locally (honours BASE_PATH, production output)
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run preview -- --host $(or $(HOST),127.0.0.1) --port $(or $(PORT),4173)
 
-## --- Docs and config formatting (prettier; Go/web/SQL out of scope) ---
-fmt-docs: ## Format docs and config files (markdown wraps at 200)
-	$(TOOL_ENV) $(PRETTIER) --write $(DOCS_FILES)
+## --- Markdown (rumdl) and docs/config formatting (prettier) ---
+fmt-docs: ## Format all Markdown with rumdl; format docs/config YAML and JSON with Prettier
+	$(TOOL_ENV) rumdl fmt $(MARKDOWN_FILES)
+	$(TOOL_ENV) $(PRETTIER) --write $(DOC_CONFIG_FILES)
 
-fmt-docs-check: ## Fail if any doc/config file is unformatted
-	$(TOOL_ENV) $(PRETTIER) --check $(DOCS_FILES)
+fmt-docs-check: ## Check all Markdown with rumdl and docs/config YAML and JSON with Prettier
+	$(TOOL_ENV) rumdl check $(MARKDOWN_FILES)
+	$(TOOL_ENV) $(PRETTIER) --check $(DOC_CONFIG_FILES)
 
 ## --- Aggregate gates ---
 check: fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check motion-tokens-check web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + theme/responsive/motion boundaries + web checks
