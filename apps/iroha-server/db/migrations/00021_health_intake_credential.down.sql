@@ -1,1 +1,0 @@
-drop table tb_health_intake_credential;

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
+	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/intakecredential"
 )
 
@@ -17,14 +18,14 @@ type fakeIntakeVerifier struct {
 	err   error
 }
 
-func (f fakeIntakeVerifier) Verify(_ context.Context, token string) error {
+func (f fakeIntakeVerifier) Verify(_ context.Context, token string) (models.IntakeCredential, error) {
 	if f.err != nil {
-		return f.err
+		return models.IntakeCredential{}, f.err
 	}
 	if token != f.token {
-		return intakecredential.ErrInvalid
+		return models.IntakeCredential{}, intakecredential.ErrInvalid
 	}
-	return nil
+	return models.IntakeCredential{Name: "primary"}, nil
 }
 
 func TestBearerToken(t *testing.T) {

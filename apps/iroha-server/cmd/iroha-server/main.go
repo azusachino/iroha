@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -33,8 +32,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const rotateHealthIntakeTokenCommand = "rotate-health-intake-token"
-
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
@@ -48,19 +45,6 @@ func main() {
 	if err != nil {
 		logger.Error("open database", "error", err)
 		os.Exit(1)
-	}
-
-	intakeCredentials := intakecredential.NewService(db)
-	// Operator-only maintenance: issue a new HAE intake token, print it once,
-	// and exit. The previous token stops working immediately.
-	if len(os.Args) > 1 && os.Args[1] == rotateHealthIntakeTokenCommand {
-		token, err := intakeCredentials.Rotate(context.Background())
-		if err != nil {
-			logger.Error("rotate health intake token", "error", err)
-			os.Exit(1)
-		}
-		fmt.Println(token)
-		return
 	}
 
 	rawFileService, err := rawfiles.NewService(db, cfg.Storage.DataDir)
@@ -136,7 +120,7 @@ func main() {
 		JobEnqueuer:             enqueuer,
 		JobsService:             jobsService,
 		TaskService:             taskService,
-		HealthIntakeCredentials: intakeCredentials,
+		HealthIntakeCredentials: intakecredential.NewService(db),
 		ReadyCheck: func(ctx context.Context) error {
 			sqlDB, err := db.DB()
 			if err != nil {

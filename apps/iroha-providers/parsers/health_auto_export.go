@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	DefaultHealthAutoExportInstance = "iphone-hae:primary"
+	healthAutoExportInstancePrefix  = "iphone-hae:"
+	DefaultHealthAutoExportInstance = healthAutoExportInstancePrefix + "primary"
 	// haeTimeLayout is the only timestamp form Format v2 emits; it always
 	// carries the device's UTC offset.
 	haeTimeLayout = "2006-01-02 15:04:05 -0700"
@@ -126,6 +127,12 @@ func ValidateHealthAutoExport(body []byte) (HealthAutoExportMetadata, error) {
 		SourceInstanceKey: DefaultHealthAutoExportInstance,
 		CapturedAt:        time.Now().UTC(),
 	}, nil
+}
+
+// HealthAutoExportInstance is the source instance for uploads authenticated
+// by the named intake credential, so each device keeps its own provenance.
+func HealthAutoExportInstance(credentialName string) string {
+	return healthAutoExportInstancePrefix + credentialName
 }
 
 // ParseHealthAutoExport parses a Format v2 payload. loc is the effective

@@ -141,7 +141,7 @@ func (s *Server) routes() {
 		r.Get("/briefing", s.handleBriefing)
 		r.Get("/coverage", s.handleCoverage)
 		r.Get("/connections", s.handleListConnections)
-		r.Post("/intake/health", s.handleHealthIntake)
+		r.With(s.requireIntakeCredential).Post("/intake/health", s.handleHealthIntake)
 		r.Post("/media/matching-decisions", s.handleRecordMatchingDecision)
 		r.Get("/metrics", s.handleListMetrics)
 		r.Get("/metrics/{metricId}", s.handleGetMetric)

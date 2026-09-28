@@ -22,19 +22,19 @@ You need:
 Iroha refuses all intake (`503 intake_not_provisioned`) until a token exists. Issue one:
 
 ```bash
-iroha-server rotate-health-intake-token
+iroha-admin intake-token issue
 ```
 
 Local development equivalent, from the repository root:
 
 ```bash
-go -C apps/iroha-server run ./cmd/iroha-server rotate-health-intake-token
+go -C apps/iroha-server run ./cmd/iroha-admin intake-token issue
 ```
 
 The command prints the token **once** and exits. Iroha stores only its SHA-256 hash, so the token cannot be shown again. Copy it straight into HAE in step 3; do not save it in a note, a tracked file,
 or a chat.
 
-Running the command again issues a new token and **immediately invalidates the old one**. The phone keeps failing with `401` until you paste the new token into both automations.
+The token is named `primary` and uploads are recorded under source instance `iphone-hae:primary`. A second device needs its own token: `iroha-admin intake-token issue -name ipad`.
 
 ## Step 2: Prepare the iPhone
 
@@ -89,8 +89,7 @@ Add a second REST API automation:
 | Batch Requests                  | OFF (see troubleshooting if uploads time out)  |
 | Sync Cadence                    | every 1 hour                                   |
 
-Optional header on either automation: `X-Device-Id` = a stable name for this phone (default `iphone-hae:primary`). Set it only if more than one device uploads; changing it later splits the provenance
-history.
+The token identifies the device, so no device header is needed. Issuing the same device a token under a different name later splits its provenance history.
 
 ## Step 5: Test each automation
 
@@ -127,11 +126,12 @@ Before relying on the intake, confirm the facts HAE's documentation leaves open 
 
 ## Rotate the token
 
-1. Run `iroha-server rotate-health-intake-token` and copy the new token.
+1. Run `iroha-admin intake-token issue` (same `-name` as before) and copy the new token. The old token keeps working.
 2. Paste it into the `Authorization` header of **both** automations.
 3. Run each automation manually and confirm **202** in Activity Logs.
+4. Run `iroha-admin intake-token list` and `iroha-admin intake-token revoke <cred_id>` for the old credential.
 
-Uploads between steps 1 and 2 fail with `401` and are retried on the next run; "Previous 7 Days" re-sends the data you missed.
+If a token leaks, revoke it first; the phone then fails with `401` until step 2, and "Previous 7 Days" re-sends the missed data.
 
 ## Troubleshooting
 

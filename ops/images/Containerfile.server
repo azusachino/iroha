@@ -16,6 +16,7 @@ COPY apps/iroha-runtime ./apps/iroha-runtime
 COPY apps/iroha-server ./apps/iroha-server
 COPY apps/iroha-job ./apps/iroha-job
 RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-server ./cmd/iroha-server
+RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-admin ./cmd/iroha-admin
 RUN CGO_ENABLED=0 go -C apps/iroha-job build -mod=mod -o /out/iroha-job .
 
 FROM alpine:3.22 AS server
@@ -26,6 +27,7 @@ RUN apk add --no-cache ca-certificates tini tzdata \
   && addgroup -S iroha && adduser -S -G iroha -H -h /data iroha \
   && mkdir -p /data && chown iroha:iroha /data
 COPY --from=build /out/iroha-server /usr/local/bin/iroha-server
+COPY --from=build /out/iroha-admin /usr/local/bin/iroha-admin
 USER iroha
 EXPOSE 8080
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-server"]

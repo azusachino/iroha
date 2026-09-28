@@ -65,12 +65,13 @@ Reprocessing is modeled as another import job for the same raw file, not as muta
 POST /api/v1/intake/health
 ```
 
-Accepts automated Health Auto Export Format v2 JSON payloads up to 10 MiB (`healthIntakeMaxBytes`). The endpoint validates source metadata (`SourceInstanceKey`, defaulting to `"iphone-hae:primary"` or
-overridden by `X-Device-Id`), capture timestamp, and bounded date range before storing raw JSON and enqueuing a `health_auto_export` import job.
+Accepts automated Health Auto Export Format v2 JSON payloads up to 10 MiB (`healthIntakeMaxBytes`). The endpoint validates the payload and capture timestamp; the source instance is
+`iphone-hae:<credential name>`, taken from the authenticated credential, and bounded date range before storing raw JSON and enqueuing a `health_auto_export` import job.
 
-Every request must carry the intake credential as `Authorization: Bearer <token>`, regardless of network origin. Only a SHA-256 verifier is stored (`tb_health_intake_credential`). Until a credential
-is issued the endpoint fails closed with `503 intake_not_provisioned`; a missing or wrong token gets `401`. Issue or rotate the token with the operator-only maintenance command
-`iroha-server rotate-health-intake-token`, which prints the new token once and immediately invalidates the previous one.
+Every request must carry the intake credential as `Authorization: Bearer <token>`, regardless of network origin. The `requireIntakeCredential` middleware checks it before the handler reads the body.
+Each device has its own credential in `tb_intake_credentials`; only a SHA-256 verifier of the `iroha_hae_`-prefixed token is stored, with `last_used_at` and `revoked_at`. Until an active credential
+exists the endpoint fails closed with `503 intake_not_provisioned`; a missing, wrong, or revoked token gets `401`. Manage credentials with the operator-only
+`iroha-admin intake-token issue [-name <device>]`, `list`, and `revoke <cred_id>`; `issue` prints the token once, and older credentials stay active until revoked.
 
 Intake uses bounded replacement (`bounded_replacement`), not complete-export reconciliation. Each payload's window (HAE sends the previous 7 days of daily metrics and the default range of workouts)
 adds or updates evidence for that window without deleting older activities, sleep sessions, or daily metrics outside it. Replaying the same payload is idempotent because the raw-file content hash is

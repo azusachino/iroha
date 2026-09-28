@@ -18,8 +18,8 @@ The profile uses explicit local-development budgets: db `2 CPU / 2 GiB`, server 
 The private API (`/api/v1`) is unauthenticated by design: iroha is a single-user personal deployment, and the network boundary (private LAN/NAS, not exposed publicly) is the security boundary rather
 than an application-level credential. Set `IROHA_ALLOWED_ORIGINS` to the web origin(s) that should be allowed to call it; do not expose `iroha-server` directly to an untrusted network.
 
-Health Auto Export intake is refused with `503` until an intake token is issued. Issue one against the local database with `go -C apps/iroha-server run ./cmd/iroha-server rotate-health-intake-token`;
-see [the setup guide](../../docs/health-auto-export-setup.md).
+Health Auto Export intake is refused with `503` until an intake token is issued. Issue one against the local database with `go -C apps/iroha-server run ./cmd/iroha-admin intake-token issue`; see
+[the setup guide](../../docs/health-auto-export-setup.md).
 
 The application profile is started by the same runner and shares the host `.iroha-data` directory between the server and worker. The host-process mode remains available for development when needed:
 

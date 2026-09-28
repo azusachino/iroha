@@ -1190,7 +1190,7 @@ components:
     healthIntakeBearer:
       type: http
       scheme: bearer
-      description: Health Auto Export intake credential, issued and rotated with `iroha-server rotate-health-intake-token`. Authorizes intake only.
+      description: Health Auto Export intake credential, issued per device with `iroha-admin intake-token issue` and revoked with `iroha-admin intake-token revoke`. Authorizes intake only.
   parameters:
     RawFileId:
       name: rawFileId
