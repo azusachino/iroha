@@ -380,9 +380,9 @@
 
   h2 {
     max-width: 43rem;
-    font-size: clamp(2.8rem, 8vw, 6rem);
-    letter-spacing: -0.12em;
-    line-height: 0.84;
+    font-size: var(--grapher-utility-title-size);
+    letter-spacing: -0.05em;
+    line-height: 1;
   }
 
   .grapher-heading p:last-child {
