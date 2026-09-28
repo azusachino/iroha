@@ -1,13 +1,17 @@
 import adapter from "@sveltejs/adapter-static";
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
 const sharedPath = new URL("../../packages/iroha-shared/src", import.meta.url)
   .pathname;
 
 // iroha-server that `vite dev` and `vite preview` forward /api to.
-const apiTarget = process.env.IROHA_DEV_API_TARGET ?? "http://127.0.0.1:8080";
+// loadEnv reads the process environment without needing Node's type
+// definitions in this app.
+const apiTarget =
+  loadEnv("", ".", "IROHA_DEV_").IROHA_DEV_API_TARGET ??
+  "http://127.0.0.1:8080";
 
 export default defineConfig({
   resolve: {
