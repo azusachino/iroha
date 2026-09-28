@@ -4,6 +4,7 @@ import {
   UNAUTHENTICATED_EVENT,
   getMetricCatalog,
   issueIntakeCredential,
+  runSchedule,
   setCsrfToken,
 } from "./api";
 
@@ -37,6 +38,17 @@ describe("owner session plumbing", () => {
     await getMetricCatalog(get.fn);
     const getHeaders = get.calls[0].init.headers as Record<string, string>;
     expect(getHeaders["x-csrf-token"]).toBeUndefined();
+  });
+
+  it("treats a bodiless 202 as success", async () => {
+    const accepted = (async () =>
+      new Response(null, {
+        status: 202,
+        headers: { "content-length": "0" },
+      })) as unknown as typeof fetch;
+    await expect(
+      runSchedule("media_bridge_refresh", accepted),
+    ).resolves.toBeUndefined();
   });
 
   it("announces an expired session so the app can show login", async () => {

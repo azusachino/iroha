@@ -41,6 +41,10 @@ type ServerConfig struct {
 	// TrustedProxies lists the CIDRs of reverse proxies whose
 	// Cf-Connecting-Ip header is believed for rate limiting.
 	TrustedProxies []string `toml:"trusted_proxies"`
+	// WebAuthnRPID and WebAuthnOrigins enable passkeys: the site's host name
+	// and the exact origins browsers present (e.g. https://iroha.example).
+	WebAuthnRPID    string   `toml:"webauthn_rp_id"`
+	WebAuthnOrigins []string `toml:"webauthn_origins"`
 }
 
 type DatabaseConfig struct {
@@ -122,6 +126,12 @@ func applyEnv(cfg *Config) {
 			}
 		}
 		cfg.Server.AllowedOrigins = origins
+	}
+	if value := os.Getenv("IROHA_WEBAUTHN_RP_ID"); value != "" {
+		cfg.Server.WebAuthnRPID = value
+	}
+	if value := os.Getenv("IROHA_WEBAUTHN_ORIGINS"); value != "" {
+		cfg.Server.WebAuthnOrigins = splitList(value)
 	}
 	if value := os.Getenv("IROHA_TRUSTED_PROXY_CIDRS"); value != "" {
 		cfg.Server.TrustedProxies = splitList(value)

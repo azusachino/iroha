@@ -11,13 +11,18 @@ contract between minor versions.
 
 - Add the single-owner login from ADR-0008: a one-time setup screen, Argon2id password login, server-side sessions in an `HttpOnly` `Secure` `SameSite=Lax` cookie, and CSRF tokens on state-changing
   requests. Every private `/api/v1` route now requires the owner session.
+- Add passkeys (ADR-0008 item 6): username-less passkey sign-in, and add/rename/remove under Account settings → Security with a password re-confirmation. Enabled by `IROHA_WEBAUTHN_RP_ID` and
+  `IROHA_WEBAUTHN_ORIGINS` (migration 00024).
+- Replace the sign-in and setup screens with a Kite-style card, move log out into a header user menu on every page, and add a display name (migration 00023).
+- Rebuild Admin as tabs: System (versions, schema, storage, cache), Sources (per-source status and sync; replaces the Sources strip on Today and Overview), Jobs (pause/resume and run schedules now,
+  retry failed and cancel queued jobs), Imports (browser upload, history, reprocess), and Intake tokens.
 - Add HAE intake-token management to the Admin page, and the break-glass `iroha-admin password reset`.
 - Rate-limit login and setup (10/min) and HAE intake (30/min) per client, with per-credential intake quotas (120 requests/hour, 512 MiB/day). Behind a proxy in `IROHA_TRUSTED_PROXY_CIDRS`, the client
   is taken from `Cf-Connecting-Ip`.
 - Run the web image as a non-root user on port 8080, with the Caddy admin API off and security headers set.
-- Serve the public site's data live from an anonymous, rate-limited `/public/v1` API (summary, activities, routes, meta, and per-activity detail), cached up to 24 hours
-  and rebuilt when activities change. The public site is now a client shell in its own `iroha-public-site` image; the export and builder jobs are retired, and iroha-job
-  disables the `projection_refresh` schedule when no export directory is configured.
+- Serve the public site's data live from an anonymous, rate-limited `/public/v1` API (summary, activities, routes, meta, and per-activity detail), cached up to 24 hours and rebuilt when activities
+  change. The public site is now a client shell in its own `iroha-public-site` image; the export and builder jobs are retired, and iroha-job disables the `projection_refresh` schedule when no export
+  directory is configured.
 - Scripts that call the private API log in with `IROHA_USERNAME`/`IROHA_PASSWORD`; the release-candidate gate creates a throwaway owner.
 - Add native Health Auto Export (HAE) Format v2 JSON parser and provider adapter for continuous, automated daily health data intake (`KindHealthAutoExport = "health_auto_export"`).
 - Support sparse metric ingestion: unconfigured metrics are omitted safely; sleep durations in fractional hours are converted to integer seconds; non-empty metric units defensively default to conform
@@ -46,6 +51,8 @@ contract between minor versions.
 
 ### Removed
 
+- Remove five of the six design languages (atlas, field-journal, phenology, cadence, archive), their ambient backgrounds, the design compositions, the language picker, and both `/design` workbench
+  pages. Grapher is the only design language.
 - Remove the dead iOS Shortcuts receiver (`apple_health_shortcut.go`, test fixture, and setup documentation) in favor of native Health Auto Export background sync.
 
 ### Verification

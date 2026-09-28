@@ -95,47 +95,10 @@
     opacity: 0.45;
   }
 
-  .select-control[data-appearance="atlas"] select {
-    border-width: 2px;
-    border-radius: 2px;
-    background-image:
-      linear-gradient(
-        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
-        transparent 1px
-      );
-    background-size: 10px 10px;
-  }
-
   .select-control[data-appearance="grapher"] select {
     border-radius: 2px;
     border-bottom-width: 2px;
     font-variant-numeric: tabular-nums;
-  }
-
-  .select-control[data-appearance="field-journal"] select {
-    border-style: dashed;
-    box-shadow: 2px 2px 0 color-mix(in srgb, var(--accent-2) 20%, transparent);
-  }
-
-  .select-control[data-appearance="phenology"] select {
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 9%, var(--surface-2));
-  }
-
-  .select-control[data-appearance="cadence"] select {
-    border-inline-width: 2px;
-    box-shadow: inset 0 -2px 0
-      color-mix(in srgb, var(--accent) 35%, transparent);
-  }
-
-  .select-control[data-appearance="archive"] select {
-    border: 3px double var(--border);
-    border-radius: 0;
   }
 
   @media (max-width: 640px) {

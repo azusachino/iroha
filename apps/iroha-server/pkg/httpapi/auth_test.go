@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/auth"
+	"github.com/google/uuid"
 )
 
 // tokenAuth accepts only the session token "good" and the password "right".
@@ -35,6 +36,9 @@ func (tokenAuth) Authenticate(_ context.Context, token string) (auth.Principal, 
 	return auth.Principal{Username: "owner", CSRFToken: "csrf"}, nil
 }
 func (tokenAuth) Logout(context.Context, string) error { return nil }
+func (tokenAuth) SetDisplayName(_ context.Context, _ uuid.UUID, name string) (string, error) {
+	return name, nil
+}
 
 func serve(t *testing.T, deps Dependencies, method, path, body string, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()

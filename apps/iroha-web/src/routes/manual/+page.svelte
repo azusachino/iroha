@@ -111,16 +111,6 @@
         "Read-only operations view; repeated executions are summarized by kind.",
       period: "No period",
     },
-    {
-      name: "Design",
-      href: "/design",
-      question: "What does this data language make visible?",
-      chart:
-        "Registered theme specimens using the same canonical sample payload.",
-      detail:
-        "A working design surface, not a gallery detached from the application.",
-      period: "No period",
-    },
   ];
 
   const principles = [
@@ -324,7 +314,6 @@
       >Canonical dates use <code>yyyy-MM</code> for periods and
       <code>yyyy-MM-dd</code> for days.</span
     >
-    <a href="/design">Open the theme workshop <ArrowRight size={15} /></a>
   </footer>
 </section>
 
@@ -616,15 +605,6 @@
     border-top: 1px solid var(--border);
     color: var(--text-muted);
     font-size: 0.78rem;
-  }
-  .manual-footer a {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-height: var(--control-target-min);
-    color: var(--accent);
-    font-weight: 750;
-    text-decoration: none;
   }
   code {
     padding: 0.1rem 0.3rem;

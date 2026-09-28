@@ -1,65 +1,38 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import {
-    CheckCircle2,
-    Database,
-    LogOut,
-    RefreshCw,
-    Server,
-  } from "@lucide/svelte";
-  import {
-    getMetricCatalog,
-    listJobs,
-    type Job,
-    type MetricDefinition,
-  } from "$lib/api";
-  import { APP_VERSION } from "$lib/config";
-  import { formatDate } from "$lib/format";
-  import { groupJobs } from "$lib/jobs";
+  import { page } from "$app/state";
+  import { goto } from "$app/navigation";
+  import { Server } from "@lucide/svelte";
   import { useTheme } from "$lib/themes/context.svelte";
-  import { auth, logout } from "$lib/auth.svelte";
+  import AdminSystem from "$lib/components/admin/AdminSystem.svelte";
+  import AdminSources from "$lib/components/admin/AdminSources.svelte";
+  import AdminJobs from "$lib/components/admin/AdminJobs.svelte";
+  import AdminImports from "$lib/components/admin/AdminImports.svelte";
   import IntakeTokens from "$lib/components/IntakeTokens.svelte";
 
-  type HealthState = "checking" | "healthy" | "unavailable";
+  const TABS = [
+    { id: "system", label: "System" },
+    { id: "sources", label: "Sources" },
+    { id: "jobs", label: "Jobs" },
+    { id: "imports", label: "Imports" },
+    { id: "intake", label: "Intake tokens" },
+  ] as const;
+  type TabId = (typeof TABS)[number]["id"];
 
-  let health = $state<HealthState>("checking");
-  let metrics = $state<MetricDefinition[]>([]);
-  let jobs = $state<Job[]>([]);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
   const theme = useTheme();
-
-  const activeJobs = $derived(
-    jobs.filter((job) => job.status === "queued" || job.status === "running"),
+  const tab = $derived<TabId>(
+    (TABS.find((item) => item.id === page.url.searchParams.get("tab"))?.id ??
+      "system") as TabId,
   );
-  const failedJobs = $derived(jobs.filter((job) => job.status === "failed"));
-  const executionGroups = $derived(groupJobs(jobs));
 
-  async function load(): Promise<void> {
-    loading = true;
-    error = null;
-    health = "checking";
-    try {
-      const [catalog, recentJobs] = await Promise.all([
-        getMetricCatalog(),
-        listJobs({ limit: 30 }),
-      ]);
-      health = "healthy";
-      metrics = catalog.metrics;
-      jobs = recentJobs;
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-      health = "unavailable";
-      metrics = [];
-      jobs = [];
-    } finally {
-      loading = false;
-    }
+  function select(id: TabId) {
+    const url = new URL(page.url);
+    url.searchParams.set("tab", id);
+    void goto(`${url.pathname}${url.search}`, {
+      replaceState: true,
+      noScroll: true,
+      keepFocus: true,
+    });
   }
-
-  onMount(() => {
-    void load();
-  });
 </script>
 
 <svelte:head><title>Admin · iroha</title></svelte:head>
@@ -67,119 +40,44 @@
 <section class="admin-page" data-theme={theme.definition().identity.id}>
   <header class="page-head">
     <div>
-      <p class="eyebrow"><Server size={14} /> Operational status</p>
-      <h1>What needs attention?</h1>
+      <p class="eyebrow"><Server size={14} /> Operations</p>
+      <h1>Admin</h1>
       <p class="intro">
-        Server health, background jobs, and the metric catalog the cockpit reads
-        from.
+        System state, data sources, background jobs, imports, and intake tokens.
       </p>
-    </div>
-    <div class="head-actions">
-      <button type="button" onclick={() => void load()} disabled={loading}>
-        <RefreshCw size={15} /> Refresh
-      </button>
-      <button type="button" onclick={() => void logout()}>
-        <LogOut size={15} /> Log out {auth.username}
-      </button>
     </div>
   </header>
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
-
-  <section class="status-grid" aria-label="System status">
-    <article class="status-card">
-      <span><Server size={15} /> API health</span>
-      <strong
-        class:healthy={health === "healthy"}
-        class:bad={health === "unavailable"}
+  <div class="admin-tabs" role="tablist" aria-label="Admin sections">
+    {#each TABS as item (item.id)}
+      <button
+        type="button"
+        role="tab"
+        id={`admin-tab-${item.id}`}
+        aria-selected={tab === item.id}
+        aria-controls="admin-panel"
+        onclick={() => select(item.id)}>{item.label}</button
       >
-        {health === "checking"
-          ? "Checking"
-          : health === "healthy"
-            ? "Healthy"
-            : "Unavailable"}
-      </strong>
-      <small>API read path · iroha v{APP_VERSION}</small>
-    </article>
-    <article class="status-card">
-      <span><CheckCircle2 size={15} /> Needs attention</span>
-      <strong
-        class:healthy={!loading && failedJobs.length === 0}
-        class:bad={failedJobs.length > 0}
-      >
-        {loading ? "—" : failedJobs.length}
-      </strong>
-      <small
-        >failed job execution{failedJobs.length === 1 ? "" : "s"} in the recent ledger</small
-      >
-    </article>
-    <article class="status-card">
-      <span><Database size={15} /> Background work</span>
-      <strong>{loading ? "—" : activeJobs.length}</strong>
-      <small>queued or running jobs</small>
-    </article>
-  </section>
+    {/each}
+  </div>
 
-  <IntakeTokens />
-
-  <div class="admin-grid">
-    <section class="panel" aria-labelledby="domains-title">
-      <header>
-        <div>
-          <p class="eyebrow">Metric catalog</p>
-          <h2 id="domains-title">Metric definitions</h2>
-        </div>
-        <span>{metrics.length} total</span>
-      </header>
-      <p class="panel-note">
-        Definitions describe canonical and derived values; canonical records
-        remain owned by the Iroha APIs.
-      </p>
-      {#if metrics.length}
-        <ul class="metric-list">
-          {#each metrics as metric (metric.id)}
-            <li>
-              <span><b>{metric.domain}</b> {metric.label}</span>
-              <small>{metric.kind} · {metric.id} · {metric.unit}</small>
-            </li>
-          {/each}
-        </ul>
-      {:else if !loading}
-        <p class="muted">The metric catalog could not be loaded.</p>
-      {:else}
-        <p class="muted">Loading the metric catalog…</p>
-      {/if}
-    </section>
-
-    <section class="panel" aria-labelledby="jobs-title">
-      <header>
-        <div>
-          <p class="eyebrow">Execution ledger</p>
-          <h2 id="jobs-title">Recent jobs</h2>
-        </div>
-        <span>{executionGroups.length} kinds · {failedJobs.length} failed</span>
-      </header>
-      {#if executionGroups.length}
-        <ul class="job-list">
-          {#each executionGroups.slice(0, 12) as group (group.kind)}
-            <li>
-              <span class={`job-status ${group.latest.status}`}
-                ><CheckCircle2 size={14} /> {group.latest.status}</span
-              >
-              <strong>{group.kind.replaceAll("_", " ")}</strong>
-              <small
-                >{group.count} execution{group.count === 1 ? "" : "s"} · latest
-                {formatDate(group.latest.created_at)}</small
-              >
-            </li>
-          {/each}
-        </ul>
-      {:else if !loading}
-        <p class="muted">No background jobs are recorded.</p>
-      {:else}
-        <p class="muted">Loading the execution ledger…</p>
-      {/if}
-    </section>
+  <div
+    id="admin-panel"
+    role="tabpanel"
+    aria-labelledby={`admin-tab-${tab}`}
+    class="admin-panel"
+  >
+    {#if tab === "system"}
+      <AdminSystem />
+    {:else if tab === "sources"}
+      <AdminSources />
+    {:else if tab === "jobs"}
+      <AdminJobs />
+    {:else if tab === "imports"}
+      <AdminImports />
+    {:else}
+      <IntakeTokens />
+    {/if}
   </div>
 </section>
 
@@ -189,43 +87,19 @@
     gap: 1.25rem;
   }
 
-  .page-head,
-  .panel > header {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
   .page-head {
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
   }
 
   h1,
-  h2,
   p {
     margin: 0;
   }
 
-  .head-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
   h1 {
-    max-width: 16ch;
-    /* Matches the compact utility-title scale Motion/Night/Patterns/Library
-       already use (v0.4.4) instead of the full editorial hero size Today
-       and Overview keep -- Admin is a utility route, not an editorial one. */
     font-size: var(--grapher-utility-title-size);
     letter-spacing: -0.09em;
     line-height: 0.95;
-  }
-
-  h2 {
-    font-size: 1.25rem;
   }
 
   .eyebrow {
@@ -246,143 +120,173 @@
     line-height: 1.5;
   }
 
-  button {
-    display: inline-flex;
-    min-height: 2.4rem;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0 0.8rem;
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) - 4px);
-    background: var(--surface);
-    color: var(--text);
+  .admin-tabs {
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+
+  .admin-tabs button {
+    flex: none;
+    min-height: 2.6rem;
+    padding: 0 0.9rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--text-muted);
     font: inherit;
+    font-size: 0.9rem;
     cursor: pointer;
   }
 
-  button:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+  .admin-tabs button[aria-selected="true"] {
+    border-bottom-color: var(--accent);
+    color: var(--text);
+    font-weight: 650;
   }
 
-  button:disabled {
-    cursor: default;
-    opacity: 0.5;
+  .admin-tabs button:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
   }
 
-  .status-grid,
-  .admin-grid {
+  /* Shared admin building blocks, used by every tab component. */
+  .admin-panel :global(.admin-card) {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.85rem;
-  }
-
-  .admin-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .status-card,
-  .panel {
     min-width: 0;
+    align-content: start;
+    gap: 0.9rem;
     padding: 1rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface);
   }
 
-  .status-card {
-    display: grid;
-    gap: 0.45rem;
-  }
-
-  .status-card > span {
+  .admin-panel :global(.admin-card > header) {
     display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--text-muted);
-    font-size: 0.76rem;
-  }
-
-  .status-card strong {
-    font-size: 1.5rem;
-  }
-
-  .status-card strong.healthy {
-    color: var(--color-positive);
-  }
-
-  .status-card strong.bad,
-  .error {
-    color: var(--danger);
-  }
-
-  small,
-  .muted {
-    color: var(--text-muted);
-    font-size: 0.74rem;
-  }
-
-  .panel {
-    display: grid;
-    align-content: start;
+    align-items: end;
+    justify-content: space-between;
     gap: 1rem;
   }
 
-  .panel > header > span {
-    color: var(--text-muted);
-    font-size: 0.76rem;
+  .admin-panel :global(.admin-card h2) {
+    margin: 0;
+    font-size: 1.15rem;
   }
 
-  .metric-list,
-  .job-list {
+  .admin-panel :global(.admin-muted),
+  .admin-panel :global(.admin-card small) {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .admin-panel :global(.admin-list) {
     display: grid;
-    max-height: 32rem;
-    gap: 0.45rem;
     margin: 0;
     padding: 0;
-    overflow: auto;
     list-style: none;
   }
 
-  .metric-list li,
-  .job-list li {
-    display: grid;
-    gap: 0.2rem;
-    padding: 0.65rem 0;
+  .admin-panel :global(.admin-list > li) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding: 0.7rem 0;
     border-top: 1px solid var(--border);
   }
 
-  .metric-list b {
-    color: var(--accent);
-    text-transform: capitalize;
+  .admin-panel :global(.admin-list > li > div:first-child) {
+    display: grid;
+    min-width: 0;
+    gap: 0.15rem;
   }
 
-  .job-status {
+  .admin-panel :global(.admin-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .admin-panel :global(.admin-button) {
+    display: inline-flex;
+    min-height: 2.3rem;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 4px);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .admin-panel :global(.admin-button:hover) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .admin-panel :global(.admin-button.primary) {
+    border-color: var(--text);
+    background: var(--text);
+    color: var(--surface);
+    font-weight: 650;
+  }
+
+  .admin-panel :global(.admin-button:disabled) {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  .admin-panel :global(.admin-button:focus-visible) {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .admin-panel :global(.status) {
     display: inline-flex;
     width: fit-content;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.3rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text-muted) 12%, transparent);
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 650;
     text-transform: capitalize;
   }
 
-  .job-status.completed {
+  .admin-panel :global(.status.good) {
+    background: color-mix(in srgb, var(--color-positive) 14%, transparent);
     color: var(--color-positive);
   }
 
-  .job-status.failed {
+  .admin-panel :global(.status.bad) {
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
     color: var(--danger);
   }
 
-  @media (max-width: 768px) {
-    .page-head {
-      align-items: start;
-      flex-direction: column;
-    }
+  .admin-panel :global(.admin-error) {
+    margin: 0;
+    color: var(--danger);
+    font-size: 0.85rem;
+  }
 
-    .status-grid,
-    .admin-grid {
+  .admin-panel :global(.admin-grid) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  @media (max-width: 768px) {
+    .admin-panel :global(.admin-grid) {
       grid-template-columns: 1fr;
     }
   }

@@ -26,6 +26,7 @@ const (
 	IntakeCredentialPrefix = "cred"
 	UserPrefix             = "usr"
 	SessionPrefix          = "ses"
+	PasskeyPrefix          = "pk"
 )
 
 func New() (uuid.UUID, error) {

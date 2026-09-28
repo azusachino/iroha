@@ -84,7 +84,11 @@ type Dependencies struct {
 	// IntakeCredentialAdmin issues and revokes HAE tokens from the admin page.
 	IntakeCredentialAdmin IntakeCredentialAdmin
 	// Auth authenticates the owner; nil fails closed on every private route.
-	Auth           Authenticator
+	Auth Authenticator
+	// Passkeys is the WebAuthn surface; nil or unconfigured answers 503.
+	Passkeys PasskeyManager
+	// ParserVersion is reported on the admin system page.
+	ParserVersion  string
 	ReadyCheck     func(context.Context) error
 	MaxUploadBytes int64
 	AllowedOrigins []string
@@ -160,6 +164,8 @@ func (s *Server) routes() {
 		r.Get("/auth/session", s.handleAuthSession)
 		r.With(s.limitByClient(authRateLimitPerMin, time.Minute)).Post("/auth/setup", s.handleAuthSetup)
 		r.With(s.limitByClient(authRateLimitPerMin, time.Minute)).Post("/auth/login", s.handleAuthLogin)
+		r.With(s.limitByClient(authRateLimitPerMin, time.Minute)).Post("/auth/passkey/begin", s.handleBeginPasskeyLogin)
+		r.With(s.limitByClient(authRateLimitPerMin, time.Minute)).Post("/auth/passkey/finish", s.handleFinishPasskeyLogin)
 		r.With(
 			s.limitByClient(intakeRateLimitPerMin, time.Minute),
 			s.requireIntakeCredential,
@@ -175,6 +181,21 @@ func (s *Server) privateRoutes(r chi.Router) {
 	r.Use(s.rejectFutureReadScope)
 	r.Use(s.readCache)
 	r.Post("/auth/logout", s.handleAuthLogout)
+	r.Patch("/account", s.handleUpdateAccount)
+	r.With(s.limitByClient(authRateLimitPerMin, time.Minute)).Post("/account/reauth", s.handleReauth)
+	r.Route("/account/passkeys", func(r chi.Router) {
+		r.Get("/", s.handleListPasskeys)
+		r.Post("/register/begin", s.handleBeginPasskeyRegistration)
+		r.Post("/register/finish", s.handleFinishPasskeyRegistration)
+		r.Patch("/{passkeyId}", s.handleRenamePasskey)
+		r.Delete("/{passkeyId}", s.handleDeletePasskey)
+	})
+	r.Get("/admin/system", s.handleSystem)
+	r.Route("/admin/schedules", func(r chi.Router) {
+		r.Get("/", s.handleListSchedules)
+		r.Patch("/{kind}", s.handleUpdateSchedule)
+		r.Post("/{kind}/run", s.handleRunSchedule)
+	})
 	r.Route("/admin/intake-credentials", func(r chi.Router) {
 		r.Get("/", s.handleListIntakeCredentials)
 		r.Post("/", s.handleIssueIntakeCredential)
@@ -253,6 +274,8 @@ func (s *Server) privateRoutes(r chi.Router) {
 	r.Route("/jobs", func(r chi.Router) {
 		r.Get("/", s.handleListJobs)
 		r.Get("/{jobId}", s.handleGetJob)
+		r.Post("/{jobId}/retry", s.handleRetryJob)
+		r.Post("/{jobId}/cancel", s.handleCancelJob)
 	})
 	r.Post("/actions/{action}", s.handleAction)
 }

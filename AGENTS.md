@@ -36,7 +36,7 @@ docs/                 design docs
 
 ## Theme asset boundary (hard rule)
 
-Iroha's registered design languages and adopted design compositions are core product assets, not `iroha-web` implementation details. The source of truth for design identities, the registry,
+Iroha's registered design language (Grapher, the only one since 2026-09-28) is a core product asset, not `iroha-web` implementation details. The source of truth for design identities, the registry,
 theme-specific compositions, shared visual primitives, charts, controls, and theme-aware presentation components **must live under `packages/`** (currently `packages/iroha-shared/`, or a dedicated
 package when the boundary is split). They must not be created or maintained solely under `apps/iroha-web/src/` or `apps/iroha-public-site/src/`.
 

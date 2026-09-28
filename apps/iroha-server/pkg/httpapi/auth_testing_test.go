@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/auth"
+	"github.com/google/uuid"
 )
 
 const testCSRFToken = "test-csrf"
@@ -25,3 +26,6 @@ func (allowAllAuth) Authenticate(context.Context, string) (auth.Principal, error
 	return auth.Principal{Username: "owner", CSRFToken: testCSRFToken}, nil
 }
 func (allowAllAuth) Logout(context.Context, string) error { return nil }
+func (allowAllAuth) SetDisplayName(_ context.Context, _ uuid.UUID, name string) (string, error) {
+	return name, nil
+}

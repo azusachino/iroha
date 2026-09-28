@@ -7,14 +7,9 @@ import {
 } from "./registry";
 
 describe("Iroha theme registry", () => {
-  it("keeps the current production language identities explicit", () => {
+  it("ships grapher as the only design language", () => {
     expect(THEME_DEFINITIONS.map((theme) => theme.identity.id)).toEqual([
-      "atlas",
       "grapher",
-      "field-journal",
-      "phenology",
-      "cadence",
-      "archive",
     ]);
   });
 
@@ -76,80 +71,6 @@ describe("Iroha theme registry", () => {
     expect(getThemeDefinition("grapher").implementation).toBe("curated");
     expect(hasThemeRoute(getThemeDefinition("grapher"), "today")).toBe(true);
     expect(getThemeDefinition("grapher").components).toMatchObject({
-      today: expect.anything(),
-      daily: expect.anything(),
-      activities: expect.anything(),
-      sleep: expect.anything(),
-      media: expect.anything(),
-      dashboard: expect.anything(),
-      "activity-detail": expect.anything(),
-      "media-detail": expect.anything(),
-    });
-    expect(getThemeDefinition("atlas").implementation).toBe("curated");
-    expect(hasThemeRoute(getThemeDefinition("atlas"), "today")).toBe(true);
-    expect(hasThemeRoute(getThemeDefinition("atlas"), "daily")).toBe(true);
-    expect(getThemeDefinition("atlas").components).toMatchObject({
-      shell: expect.anything(),
-      today: expect.anything(),
-      daily: expect.anything(),
-      activities: expect.anything(),
-      sleep: expect.anything(),
-      media: expect.anything(),
-      dashboard: expect.anything(),
-      "activity-detail": expect.anything(),
-      "media-detail": expect.anything(),
-    });
-    expect(getThemeDefinition("field-journal").implementation).toBe("curated");
-    expect(hasThemeRoute(getThemeDefinition("field-journal"), "today")).toBe(
-      true,
-    );
-    expect(hasThemeRoute(getThemeDefinition("field-journal"), "daily")).toBe(
-      true,
-    );
-    expect(getThemeDefinition("field-journal").components).toMatchObject({
-      shell: expect.anything(),
-      today: expect.anything(),
-      daily: expect.anything(),
-      activities: expect.anything(),
-      sleep: expect.anything(),
-      media: expect.anything(),
-      dashboard: expect.anything(),
-      "activity-detail": expect.anything(),
-      "media-detail": expect.anything(),
-    });
-    expect(getThemeDefinition("phenology").implementation).toBe("curated");
-    expect(hasThemeRoute(getThemeDefinition("phenology"), "today")).toBe(true);
-    expect(hasThemeRoute(getThemeDefinition("phenology"), "daily")).toBe(true);
-    expect(getThemeDefinition("phenology").components).toMatchObject({
-      shell: expect.anything(),
-      today: expect.anything(),
-      daily: expect.anything(),
-      activities: expect.anything(),
-      sleep: expect.anything(),
-      media: expect.anything(),
-      dashboard: expect.anything(),
-      "activity-detail": expect.anything(),
-      "media-detail": expect.anything(),
-    });
-    expect(getThemeDefinition("cadence").implementation).toBe("curated");
-    expect(hasThemeRoute(getThemeDefinition("cadence"), "today")).toBe(true);
-    expect(hasThemeRoute(getThemeDefinition("cadence"), "daily")).toBe(true);
-    expect(getThemeDefinition("cadence").components).toMatchObject({
-      shell: expect.anything(),
-      today: expect.anything(),
-      daily: expect.anything(),
-      activities: expect.anything(),
-      sleep: expect.anything(),
-      media: expect.anything(),
-      dashboard: expect.anything(),
-      "activity-detail": expect.anything(),
-      "media-detail": expect.anything(),
-    });
-    expect(getThemeDefinition("archive").implementation).toBe("curated");
-    expect(hasThemeRoute(getThemeDefinition("archive"), "today")).toBe(true);
-    expect(hasThemeRoute(getThemeDefinition("archive"), "daily")).toBe(true);
-    expect(getThemeDefinition("archive").components).toMatchObject({
-      shell: expect.anything(),
       today: expect.anything(),
       daily: expect.anything(),
       activities: expect.anything(),

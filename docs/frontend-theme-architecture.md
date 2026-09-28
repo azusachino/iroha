@@ -2,6 +2,10 @@
 
 Status: implementation contract for registered design languages and adopted compositions
 
+**Amendment (2026-09-28): Grapher only.** The owner retired five of the six design languages (atlas, field-journal, phenology, cadence, archive), the per-language ambient backgrounds, the adopted
+design compositions, the design-language picker, and both `/design` workbench pages. Grapher is the single design language and will be tuned toward a Grafana-style dashboard look. The registry
+mechanism stays, so the history below describes the retired languages.
+
 ## Goal
 
 An Iroha design language is a complete visual and interaction language. Switching it may change the shell, navigation, page composition, typography, chart treatment, surface vocabulary, and motion. An

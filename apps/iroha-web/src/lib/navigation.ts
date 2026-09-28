@@ -112,13 +112,6 @@ export const navigationGroups: readonly NavigationGroup[] = [
         kind: "tool",
         hint: "How to read Iroha",
       },
-      {
-        id: "design",
-        label: "Design",
-        href: "/design",
-        kind: "tool",
-        hint: "Design language",
-      },
     ],
   },
 ] as const;

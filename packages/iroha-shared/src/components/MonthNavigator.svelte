@@ -232,41 +232,11 @@
     box-shadow: var(--tile-shadow);
   }
 
-  .month-navigator[data-appearance="atlas"] {
-    border-width: 2px;
-    background-image:
-      linear-gradient(color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px),
-      linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px);
-    background-size: 12px 12px;
-  }
-
   .month-navigator[data-appearance="grapher"] {
     border-radius: 2px;
     border-bottom: 3px solid var(--accent);
     box-shadow: none;
     font-variant-numeric: tabular-nums;
-  }
-
-  .month-navigator[data-appearance="field-journal"] {
-    border-style: dashed;
-    box-shadow: 3px 3px 0 color-mix(in srgb, var(--accent-2) 24%, transparent);
-  }
-
-  .month-navigator[data-appearance="phenology"] {
-    padding: 0.35rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 9%, var(--surface-2));
-  }
-
-  .month-navigator[data-appearance="cadence"] {
-    border-inline: 3px solid var(--accent-2);
-    box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--accent) 35%, transparent);
-  }
-
-  .month-navigator[data-appearance="archive"] {
-    border: 3px double var(--border);
-    border-radius: 0;
-    box-shadow: 2px 2px 0 color-mix(in srgb, var(--text-muted) 35%, transparent);
   }
 
   button {
