@@ -185,10 +185,10 @@ smoke-real-import: ## Upload/import a real local file through the HTTP API (FILE
 
 smoke-local: ## Run real import smoke against the Podman Compose server and worker
 	@test -n "$(FILE)" || (echo "FILE is required, e.g. make smoke-local FILE=.iroha-data/imports/export.zip" >&2; exit 2)
-	$(TOOL_ENV) uv run python scripts/real_import_smoke.py "$(FILE)" --assert --api-base "$(or $(API_BASE),http://127.0.0.1:8080)"
+	$(TOOL_ENV) uv run python scripts/real_import_smoke.py "$(FILE)" --assert --allow-owner-setup --api-base "$(or $(API_BASE),http://127.0.0.1:8080)"
 
 soak-local: ## Run non-mutating HTTP soak checks against the Podman Compose stack
-	$(TOOL_ENV) uv run python scripts/local_stack_soak.py $(SOAK_ARGS)
+	$(TOOL_ENV) uv run python scripts/local_stack_soak.py --allow-owner-setup $(SOAK_ARGS)
 
 smoke-k3s-cache: ## Verify the live k3s Valkey cache (API_BASE=..., MONTH=...)
 	@test "$$(kubectl -n harus-core get configmap iroha-config -o jsonpath='{.data.IROHA_CACHE_BACKEND}')" = "valkey" || (echo "harus-core/iroha-config must select valkey" >&2; exit 1)

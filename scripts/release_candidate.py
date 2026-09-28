@@ -4,6 +4,7 @@ import os
 import shutil
 import signal
 import socket
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+import iroha_auth
 from mobile_route_check import FOCUS_CONTRAST_EXPRESSION
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -350,7 +352,24 @@ def settled_route_state(session: str, expected_text: str) -> dict:
             return state
 
 
-def browser_matrix(base_url: str, session: str) -> None:
+def set_session_cookie(session: str, base_url: str, owner: iroha_auth.OwnerSession) -> None:
+    browser_command(
+        session,
+        "cookies",
+        "set",
+        iroha_auth.SESSION_COOKIE,
+        owner.token,
+        "--url",
+        base_url,
+        "--httpOnly",
+        "--secure",
+        "--sameSite",
+        "Lax",
+    )
+
+
+def browser_matrix(base_url: str, session: str, owner: iroha_auth.OwnerSession) -> None:
+    set_session_cookie(session, base_url, owner)
     browser_command(session, "open", base_url)
     for theme in THEMES:
         for mode in MODES:
@@ -429,7 +448,10 @@ def main() -> int:
             IROHA_TIMEZONE_ENV: "Asia/Tokyo",
             IROHA_ALLOWED_ORIGINS_ENV: web_url,
             IROHA_DATA_DIR_ENV: str(ROOT / ".iroha-data" / "release-candidate"),
-            PUBLIC_IROHA_API_BASE_ENV: server_url,
+            # Same-origin through the preview proxy, so the session cookie
+            # reaches the API without credentialed CORS.
+            PUBLIC_IROHA_API_BASE_ENV: "",
+            "IROHA_DEV_API_TARGET": server_url,
             PUBLIC_IROHA_TIMEZONE_ENV: "Asia/Tokyo",
         }
     )
@@ -597,6 +619,11 @@ def main() -> int:
         readiness = get_json(server_url + "/readyz")
         if readiness.get("status") != "ready":
             raise RuntimeError(f"database readiness contract failed: {readiness}")
+        # The isolated database has no owner: create a throwaway one.
+        owner = iroha_auth.login(
+            server_url, "rc-owner", secrets.token_urlsafe(24), allow_setup=True
+        )
+        iroha_auth.install_urllib(owner)
         assert_api_contract(server_url)
         performance_gate(server_url, container)
         print("+ start production web preview", flush=True)
@@ -621,7 +648,7 @@ def main() -> int:
         wait_url(web_url)
         if web_process.poll() is not None:
             raise RuntimeError(f"web preview exited with {web_process.returncode}")
-        browser_matrix(web_url, session)
+        browser_matrix(web_url, session, owner)
         print("release-candidate gate passed")
         return 0
     finally:

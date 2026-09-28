@@ -6,6 +6,9 @@ import { defineConfig } from "vite";
 const sharedPath = new URL("../../packages/iroha-shared/src", import.meta.url)
   .pathname;
 
+// iroha-server that `vite dev` and `vite preview` forward /api to.
+const apiTarget = process.env.IROHA_DEV_API_TARGET ?? "http://127.0.0.1:8080";
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -26,7 +29,14 @@ export default defineConfig({
     // ever talks to this dev origin — no CORS and no per-host API base. The
     // server stays bound to localhost; Vite forwards from the same machine.
     proxy: {
-      "/api": "http://127.0.0.1:8080",
+      "/api": apiTarget,
+    },
+  },
+  // The preview server proxies the same way, so browser checks stay
+  // same-origin and the HttpOnly session cookie reaches the API.
+  preview: {
+    proxy: {
+      "/api": apiTarget,
     },
   },
   plugins: [

@@ -12,6 +12,10 @@ contract between minor versions.
 - Add the single-owner login from ADR-0008: a one-time setup screen, Argon2id password login, server-side sessions in an `HttpOnly` `Secure` `SameSite=Lax` cookie, and CSRF tokens on state-changing
   requests. Every private `/api/v1` route now requires the owner session.
 - Add HAE intake-token management to the Admin page, and the break-glass `iroha-admin password reset`.
+- Rate-limit login and setup (10/min) and HAE intake (30/min) per client, with per-credential intake quotas (120 requests/hour, 512 MiB/day). Behind a proxy in `IROHA_TRUSTED_PROXY_CIDRS`, the client
+  is taken from `Cf-Connecting-Ip`.
+- Run the web image as a non-root user on port 8080, with the Caddy admin API off and security headers set.
+- Scripts that call the private API log in with `IROHA_USERNAME`/`IROHA_PASSWORD`; the release-candidate gate creates a throwaway owner.
 - Add native Health Auto Export (HAE) Format v2 JSON parser and provider adapter for continuous, automated daily health data intake (`KindHealthAutoExport = "health_auto_export"`).
 - Support sparse metric ingestion: unconfigured metrics are omitted safely; sleep durations in fractional hours are converted to integer seconds; non-empty metric units defensively default to conform
   to database check constraints.

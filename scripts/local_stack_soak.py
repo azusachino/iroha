@@ -5,6 +5,8 @@ import time
 from urllib.error import URLError
 from urllib.request import urlopen
 
+import iroha_auth
+
 
 def probe(url: str) -> None:
     with urlopen(url, timeout=5) as response:
@@ -17,7 +19,13 @@ def main() -> int:
     parser.add_argument("--api-base", default="http://127.0.0.1:8080")
     parser.add_argument("--duration-s", type=int, default=60)
     parser.add_argument("--interval-s", type=float, default=2)
+    parser.add_argument(
+        "--allow-owner-setup",
+        action="store_true",
+        help="create the owner from IROHA_USERNAME/PASSWORD if the local stack has none",
+    )
     args = parser.parse_args()
+    iroha_auth.install_urllib(iroha_auth.login(args.api_base, allow_setup=args.allow_owner_setup))
 
     urls = [f"{args.api_base}/healthz", f"{args.api_base}/api/v1/activities?limit=1"]
     deadline = time.monotonic() + args.duration_s

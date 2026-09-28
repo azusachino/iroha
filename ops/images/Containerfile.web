@@ -19,4 +19,8 @@ RUN rm -rf .svelte-kit build && bun run build
 FROM caddy:2-alpine
 COPY ops/images/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/apps/iroha-web/build /srv
-EXPOSE 80
+# Run unprivileged; /data and /config are Caddy's writable state directories.
+RUN addgroup -S iroha && adduser -S -G iroha -H iroha \
+  && chown -R iroha:iroha /data /config
+USER iroha
+EXPOSE 8080

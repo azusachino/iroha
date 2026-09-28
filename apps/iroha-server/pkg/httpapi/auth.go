@@ -142,7 +142,7 @@ func (s *Server) handleCredentials(w http.ResponseWriter, r *http.Request, actio
 		writeContractError(w, http.StatusConflict, "already_set_up", "the owner account already exists")
 		return
 	case errors.Is(err, auth.ErrInvalidCredentials):
-		s.deps.Logger.Warn("login rejected", "remote_addr", r.RemoteAddr)
+		s.deps.Logger.Warn("login rejected", "client_ip", s.clientIP(r))
 		writeContractError(w, http.StatusUnauthorized, "invalid_credentials", "invalid username or password")
 		return
 	default:

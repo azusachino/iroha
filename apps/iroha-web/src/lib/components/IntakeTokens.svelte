@@ -19,6 +19,15 @@
   let revokeTarget = $state<IntakeCredential | null>(null);
   let confirmOpen = $state(false);
 
+  // Device names become permanent provenance keys (iphone-hae:<name>), so
+  // they are normalized as typed rather than rejected on submit.
+  function normalizeDeviceName(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[\s_]+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+  }
+
   const active = $derived(credentials.filter((c) => !c.revoked_at));
 
   async function load() {
@@ -111,9 +120,20 @@
         autocapitalize="none"
         spellcheck="false"
         pattern="[a-z0-9][a-z0-9\-]*"
+        title="Lowercase letters, digits, and dashes, starting with a letter or digit"
+        aria-describedby="device-hint"
         required
-        bind:value={name}
+        value={name}
+        oninput={(event) => {
+          const input = event.currentTarget;
+          name = normalizeDeviceName(input.value);
+          input.value = name;
+        }}
       />
+      <small id="device-hint"
+        >Lowercase letters, digits, and dashes, like <code>harus-phone</code>.
+        Keep the same name when you rotate the token.</small
+      >
     </label>
     <button type="submit" disabled={busy}
       >{busy ? "Issuing…" : "Issue token"}</button

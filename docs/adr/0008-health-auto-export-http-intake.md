@@ -106,4 +106,5 @@ security settings. Iroha adopts that workflow's useful shape without adopting Ki
 - The user-facing CLI is retired. Domain workflows must move to the web app or be retired; future non-browser clients need an explicit design.
 - 0.5 implements the core of this decision: the HAE intake credential (stored verifier, fail-closed; one credential per device, so a rotation overlaps until the old one is revoked), owner setup,
   password login, server sessions with CSRF protection, token management on the admin page, and the break-glass `iroha-admin password reset` (item 12). The operator-only `iroha-admin intake-token`
-  command manages the same credentials from the server container. Passkeys, public ingress, and login rate limits remain unimplemented.
+  command manages the same credentials from the server container. Per-client limits for login, setup, and intake, per-credential intake quotas, and a public ingress that admits only
+  `POST /api/v1/intake/health` followed in the same release. Passkeys remain unimplemented.

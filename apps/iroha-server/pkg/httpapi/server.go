@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -30,16 +30,21 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/go-chi/httprate"
 	"gorm.io/gorm"
 )
 
-// apiRateLimitPerMin is the per-peer request budget (per minute). The private
-// API is unauthenticated by design: iroha is a single-user personal
-// deployment (NAS/private network), and access control is the network
-// boundary, not an application-level credential. The budget is lifted well
-// clear of normal browsing/history-wide sweeps accordingly.
+// apiRateLimitPerMin is the per-client request budget (per minute) for the
+// whole API. It stays well clear of normal browsing and history-wide sweeps;
+// the tighter limits below guard the routes an attacker can reach.
 const apiRateLimitPerMin = 6000
+
+const (
+	// authRateLimitPerMin bounds login and setup attempts per client.
+	authRateLimitPerMin = 10
+	// intakeRateLimitPerMin bounds intake requests per client, before the
+	// credential is checked.
+	intakeRateLimitPerMin = 30
+)
 
 const (
 	// Bump this when a cached JSON representation or key input changes. The
@@ -87,9 +92,11 @@ type Dependencies struct {
 }
 
 type Server struct {
-	deps Dependencies
-	mux  chi.Router
-	now  func() time.Time
+	deps           Dependencies
+	mux            chi.Router
+	now            func() time.Time
+	trustedProxies []netip.Prefix
+	intakeQuota    *intakeQuota
 }
 
 type readSnapshotContextKey struct{}
@@ -113,6 +120,12 @@ func NewServer(deps Dependencies) http.Handler {
 	if deps.Now != nil {
 		server.now = deps.Now
 	}
+	var invalid []string
+	server.trustedProxies, invalid = parseTrustedProxies(deps.Config.Server.TrustedProxies)
+	for _, value := range invalid {
+		deps.Logger.Warn("ignoring invalid trusted proxy CIDR", "value", value)
+	}
+	server.intakeQuota = newIntakeQuota(server.now)
 	if server.deps.BriefingRegistry == nil {
 		server.deps.BriefingRegistry, _ = briefing.NewRegistry()
 	}
@@ -140,11 +153,15 @@ func (s *Server) routes() {
 		// requires an owner session (ADR-0008) except login/setup and the HAE
 		// intake endpoint, which authenticates with its own credential.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
-		r.Use(limitByIP(apiRateLimitPerMin))
+		r.Use(s.limitByClient(apiRateLimitPerMin, time.Minute))
 		r.Get("/auth/session", s.handleAuthSession)
-		r.Post("/auth/setup", s.handleAuthSetup)
-		r.Post("/auth/login", s.handleAuthLogin)
-		r.With(s.requireIntakeCredential).Post("/intake/health", s.handleHealthIntake)
+		r.With(s.limitByClient(authRateLimitPerMin, time.Minute)).Post("/auth/setup", s.handleAuthSetup)
+		r.With(s.limitByClient(authRateLimitPerMin, time.Minute)).Post("/auth/login", s.handleAuthLogin)
+		r.With(
+			s.limitByClient(intakeRateLimitPerMin, time.Minute),
+			s.requireIntakeCredential,
+			s.limitPerIntakeCredential,
+		).Post("/intake/health", s.handleHealthIntake)
 		r.Group(s.privateRoutes)
 	})
 }
@@ -237,12 +254,6 @@ func (s *Server) privateRoutes(r chi.Router) {
 	r.Post("/actions/{action}", s.handleAction)
 }
 
-// limitByIP builds a per-peer rate limiter (per minute). It intentionally keys
-// off r.RemoteAddr instead of forwarded headers, which are not trusted here.
-func limitByIP(perMinute int) func(http.Handler) http.Handler {
-	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP, httprate.WithLimitHandler(rateLimitResponse))
-}
-
 func requestIDResponseHeader(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if requestID := middleware.GetReqID(r.Context()); requestID != "" {
@@ -256,19 +267,12 @@ func rateLimitResponse(w http.ResponseWriter, _ *http.Request) {
 	writeContractError(w, http.StatusTooManyRequests, "rate_limited", "rate limit exceeded")
 }
 
-func keyByRemoteIP(r *http.Request) (string, error) {
-	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return host, nil
-	}
-	return r.RemoteAddr, nil
-}
-
 // corsMiddleware builds a read-only CORS handler for the given origins.
 func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins: origins,
 		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete, http.MethodOptions},
-		AllowedHeaders: []string{"Accept", "Content-Type"},
+		AllowedHeaders: []string{"Accept", "Content-Type", csrfHeaderName},
 		ExposedHeaders: []string{"Retry-After", "X-Request-ID", "X-Iroha-Cache"},
 		MaxAge:         300,
 	})

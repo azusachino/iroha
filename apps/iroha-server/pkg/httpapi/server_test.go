@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -106,7 +107,7 @@ func TestAccessLogIncludesRequestMetadata(t *testing.T) {
 
 func TestRateLimitResponse(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
-	handler := limitByIP(1)(next)
+	handler := (&Server{}).limitByClient(1, time.Minute)(next)
 
 	first := httptest.NewRequest(http.MethodGet, "/api/v1/example", nil)
 	first.RemoteAddr = "192.0.2.10:1234"

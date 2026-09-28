@@ -13,7 +13,8 @@ Historical data does not come through this path. Backfill years of history once 
 You need:
 
 - Iroha running with database migrations applied through `00021_health_intake_credential`.
-- An HTTPS URL for Iroha that the iPhone can reach. Below it is written `https://<iroha-host>`.
+- An HTTPS URL for Iroha that the iPhone can reach. Below it is written `https://<iroha-host>`. A public intake hostname means the phone needs no VPN; the deployment must route only
+  `POST /api/v1/intake/health` there (see [public exposure](iroha-server.md#auth)).
 - A shell where you can run the `iroha-server` binary against Iroha's database (inside the server container, or on the host running it).
 - Health Auto Export installed on the iPhone, with a subscription that includes REST API automations.
 

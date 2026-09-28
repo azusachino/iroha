@@ -49,7 +49,7 @@ func (s *Server) requireIntakeCredential(next http.Handler) http.Handler {
 		case errors.Is(err, intakecredential.ErrNotProvisioned):
 			writeContractError(w, http.StatusServiceUnavailable, "intake_not_provisioned", "health intake credential is not provisioned")
 		case errors.Is(err, intakecredential.ErrInvalid):
-			s.deps.Logger.Warn("intake credential rejected", "remote_addr", r.RemoteAddr)
+			s.deps.Logger.Warn("intake credential rejected", "client_ip", s.clientIP(r))
 			w.Header().Set("WWW-Authenticate", `Bearer realm="iroha-health-intake"`)
 			writeContractError(w, http.StatusUnauthorized, "unauthorized", "valid bearer credentials are required")
 		default:
@@ -66,6 +66,12 @@ func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeContractError(w, http.StatusBadRequest, "invalid_body", "health intake body is too large or unreadable")
+		return
+	}
+
+	if !s.intakeQuota.take(credential.ID.String(), int64(len(body))) {
+		s.deps.Logger.Warn("intake daily byte quota exceeded", "credential_id", ids.Encode(ids.IntakeCredentialPrefix, credential.ID))
+		writeContractError(w, http.StatusTooManyRequests, "intake_quota_exceeded", "daily intake volume for this credential is exhausted")
 		return
 	}
 
