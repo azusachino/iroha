@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
@@ -42,7 +43,11 @@ func (a Adapter) ImportAll(ctx context.Context, source provider.Source, options 
 			return provider.ImportBatch{}, adaptError(source, "materialize_hae", err)
 		}
 		defer cleanup()
-		batch, err := parsers.ParseHealthAutoExport(path, source.SHA256)
+		loc, err := time.LoadLocation(options.Timezone)
+		if err != nil {
+			return provider.ImportBatch{}, adaptError(source, "load_timezone", err)
+		}
+		batch, err := parsers.ParseHealthAutoExport(path, source.SHA256, loc)
 		if err != nil {
 			return provider.ImportBatch{}, adaptError(source, "parse_hae", err)
 		}

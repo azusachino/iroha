@@ -16,6 +16,11 @@ import (
 
 const (
 	DefaultHealthAutoExportInstance = "iphone-hae:primary"
+	// haeTimeLayout is the only timestamp form Format v2 emits; it always
+	// carries the device's UTC offset.
+	haeTimeLayout = "2006-01-02 15:04:05 -0700"
+	// kilojoulesPerKilocalorie converts energy reported in kJ.
+	kilojoulesPerKilocalorie = 4.184
 )
 
 type HealthAutoExportMetadata struct {
@@ -85,19 +90,11 @@ func parseHaeTime(s string) (time.Time, error) {
 	if s == "" {
 		return time.Time{}, errors.New("empty timestamp")
 	}
-	layouts := []string{
-		"2006-01-02 15:04:05 -0700",
-		"2006-01-02 15:04:05 -07:00",
-		time.RFC3339,
-		"2006-01-02 15:04:05",
-		"2006-01-02",
+	t, err := time.Parse(haeTimeLayout, s)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("timestamp %q is not Format v2 (yyyy-MM-dd HH:mm:ss Z)", s)
 	}
-	for _, layout := range layouts {
-		if t, err := time.Parse(layout, s); err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("unsupported timestamp format: %q", s)
+	return t, nil
 }
 
 func ValidateHealthAutoExport(body []byte) (HealthAutoExportMetadata, error) {
@@ -110,6 +107,20 @@ func ValidateHealthAutoExport(body []byte) (HealthAutoExportMetadata, error) {
 	if export.Data.Metrics == nil && export.Data.Workouts == nil {
 		return HealthAutoExportMetadata{}, errors.New("health auto export payload must contain data.metrics or data.workouts")
 	}
+	for i, metric := range export.Data.Metrics {
+		if metric.Name == "" {
+			return HealthAutoExportMetadata{}, fmt.Errorf("data.metrics[%d] has no name", i)
+		}
+	}
+	// Format v2 always gives a workout an id; Version 1 does not.
+	for i, workout := range export.Data.Workouts {
+		if workout.ID == "" {
+			return HealthAutoExportMetadata{}, fmt.Errorf("data.workouts[%d] has no id; only Health Auto Export Format v2 is supported", i)
+		}
+		if _, err := parseHaeTime(workout.Start); err != nil {
+			return HealthAutoExportMetadata{}, fmt.Errorf("data.workouts[%d].start: %w", i, err)
+		}
+	}
 
 	return HealthAutoExportMetadata{
 		SourceInstanceKey: DefaultHealthAutoExportInstance,
@@ -117,7 +128,9 @@ func ValidateHealthAutoExport(body []byte) (HealthAutoExportMetadata, error) {
 	}, nil
 }
 
-func ParseHealthAutoExport(path, rawHash string) (provider.ImportBatch, error) {
+// ParseHealthAutoExport parses a Format v2 payload. loc is the effective
+// timezone that labels the coverage window; daily facts keep their device-local day.
+func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.ImportBatch, error) {
 	body, err := os.ReadFile(path)
 	if err != nil {
 		return provider.ImportBatch{}, err
@@ -144,21 +157,24 @@ func ParseHealthAutoExport(path, rawHash string) (provider.ImportBatch, error) {
 		hasObserved bool
 	)
 
+	// markObserved widens the window to the whole device-local day containing t,
+	// so a day summary stamped at its device midnight covers all 24 hours.
 	markObserved := func(t time.Time) {
 		if t.IsZero() {
 			return
 		}
+		dayStart, dayEnd := dayBounds(t)
 		if !hasObserved {
-			minObserved = t
-			maxObserved = t
+			minObserved = dayStart
+			maxObserved = dayEnd
 			hasObserved = true
 			return
 		}
-		if t.Before(minObserved) {
-			minObserved = t
+		if dayStart.Before(minObserved) {
+			minObserved = dayStart
 		}
-		if t.After(maxObserved) {
-			maxObserved = t
+		if dayEnd.After(maxObserved) {
+			maxObserved = dayEnd
 		}
 	}
 
@@ -199,9 +215,11 @@ func ParseHealthAutoExport(path, rawHash string) (provider.ImportBatch, error) {
 
 	// 3. Compute Bounded Coverage Assertion
 	if hasObserved {
-		loc := minObserved.Location()
-		fromDay := time.Date(minObserved.Year(), minObserved.Month(), minObserved.Day(), 0, 0, 0, 0, loc)
-		toDay := time.Date(maxObserved.Year(), maxObserved.Month(), maxObserved.Day()+1, 0, 0, 0, 0, loc)
+		fromDay, _ := dayBounds(minObserved.In(loc))
+		toDay := maxObserved.In(loc)
+		if start, end := dayBounds(toDay); !toDay.Equal(start) {
+			toDay = end
+		}
 
 		batch.Coverage = append(batch.Coverage, provider.CoverageAssertion{
 			Category:      "health",
@@ -215,6 +233,12 @@ func ParseHealthAutoExport(path, rawHash string) (provider.ImportBatch, error) {
 	}
 
 	return batch, nil
+}
+
+// dayBounds returns the calendar day containing t in t's own location.
+func dayBounds(t time.Time) (time.Time, time.Time) {
+	start := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	return start, start.AddDate(0, 0, 1)
 }
 
 func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time, error) {
@@ -244,11 +268,11 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 			valStr, _ := pt["value"].(string)
 			start, err := parseHaeTime(startStr)
 			if err != nil {
-				continue
+				return nil, minTime, maxTime, fmt.Errorf("sleep_analysis startDate: %w", err)
 			}
 			end, err := parseHaeTime(endStr)
 			if err != nil {
-				continue
+				return nil, minTime, maxTime, fmt.Errorf("sleep_analysis endDate: %w", err)
 			}
 			trackTime(start)
 			trackTime(end)
@@ -262,27 +286,16 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 			continue
 		}
 
-		// Night aggregate
+		// Night aggregate (Summarize Data ON)
 		startStr, _ := pt["sleepStart"].(string)
 		endStr, _ := pt["sleepEnd"].(string)
-		dateStr, _ := pt["date"].(string)
-
-		if startStr == "" && dateStr != "" {
-			startStr = dateStr
-		}
-		if startStr == "" {
-			continue
-		}
-
 		startedAt, err := parseHaeTime(startStr)
 		if err != nil {
-			continue
+			return nil, minTime, maxTime, fmt.Errorf("sleep_analysis sleepStart: %w", err)
 		}
-		endedAt := startedAt
-		if endStr != "" {
-			if e, err := parseHaeTime(endStr); err == nil {
-				endedAt = e
-			}
+		endedAt, err := parseHaeTime(endStr)
+		if err != nil {
+			return nil, minTime, maxTime, fmt.Errorf("sleep_analysis sleepEnd: %w", err)
 		}
 
 		trackTime(startedAt)
@@ -303,7 +316,7 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 
 		timeInBedS := int(math.Round(inBedH * 3600))
 		asleepS := int(math.Round(asleepH * 3600))
-		if timeInBedS == 0 && !endedAt.Equal(startedAt) {
+		if timeInBedS == 0 {
 			timeInBedS = int(endedAt.Sub(startedAt).Seconds())
 		}
 		if asleepS == 0 {
@@ -330,6 +343,11 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 			UnspecifiedS: 0,
 			Source:       KindHealthAutoExport,
 		})
+	}
+
+	// Summarize Data OFF sends only stage intervals, which cannot form a night.
+	if len(sessions) == 0 && len(segments) > 0 {
+		return nil, minTime, maxTime, errors.New("sleep_analysis has stage intervals but no nightly summary; enable Summarize Data in Health Auto Export")
 	}
 
 	// Attach segments to corresponding night session if inside [StartedAt, EndedAt]
@@ -363,6 +381,16 @@ func parseHaeDailyMetric(metric haeMetric) ([]observations.DailyMetric, time.Tim
 	if unit == "" {
 		unit = "count"
 	}
+	scale := 1.0
+	if canonicalMetric == DailyMetricDistanceKM {
+		switch strings.ToLower(unit) {
+		case "mi", "miles":
+			scale = 1.60934
+		case "m":
+			scale = 0.001
+		}
+		unit = "km"
+	}
 
 	trackTime := func(t time.Time) {
 		if t.IsZero() {
@@ -383,12 +411,9 @@ func parseHaeDailyMetric(metric haeMetric) ([]observations.DailyMetric, time.Tim
 
 	for _, pt := range metric.Data {
 		dateStr, _ := pt["date"].(string)
-		if dateStr == "" {
-			continue
-		}
 		t, err := parseHaeTime(dateStr)
 		if err != nil {
-			continue
+			return nil, minTime, maxTime, fmt.Errorf("metric %s: %w", metric.Name, err)
 		}
 		trackTime(t)
 
@@ -403,11 +428,7 @@ func parseHaeDailyMetric(metric haeMetric) ([]observations.DailyMetric, time.Tim
 			val, _ = getFloat(pt, "value")
 		}
 
-		// Unit conversion for distance (miles -> km)
-		if canonicalMetric == DailyMetricDistanceKM && (unit == "mi" || unit == "miles") {
-			val *= 1.60934
-			unit = "km"
-		}
+		val *= scale
 
 		if isCumulative {
 			dailyValues[dayKey] += val
@@ -473,6 +494,9 @@ func parseHaeWorkout(w haeWorkout, rawHash string) (observations.Activity, error
 	var caloriesKcal *float64
 	if w.ActiveEnergyBurned != nil {
 		c := w.ActiveEnergyBurned.Qty
+		if strings.EqualFold(w.ActiveEnergyBurned.Units, "kJ") {
+			c /= kilojoulesPerKilocalorie
+		}
 		caloriesKcal = &c
 	}
 

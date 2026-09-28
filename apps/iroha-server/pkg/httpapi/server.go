@@ -74,10 +74,12 @@ type Dependencies struct {
 	JobEnqueuer         imports.Enqueuer
 	JobsService         *jobs.Service
 	TaskService         *tasks.Service
-	ReadyCheck          func(context.Context) error
-	MaxUploadBytes      int64
-	AllowedOrigins      []string
-	Now                 func() time.Time
+	// HealthIntakeCredentials verifies the HAE intake token; nil fails closed.
+	HealthIntakeCredentials HealthIntakeVerifier
+	ReadyCheck              func(context.Context) error
+	MaxUploadBytes          int64
+	AllowedOrigins          []string
+	Now                     func() time.Time
 }
 
 type Server struct {

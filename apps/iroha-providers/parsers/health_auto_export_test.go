@@ -1,6 +1,8 @@
 package parsers
 
 import (
+	"math"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -8,7 +10,7 @@ import (
 
 func TestParseHealthAutoExportFixture(t *testing.T) {
 	path := filepath.Join("testdata", "health_auto_export.json")
-	batch, err := ParseHealthAutoExport(path, "hae-test-hash")
+	batch, err := ParseHealthAutoExport(path, "hae-test-hash", time.UTC)
 	if err != nil {
 		t.Fatalf("ParseHealthAutoExport() failed: %v", err)
 	}
@@ -113,5 +115,111 @@ func TestValidateHealthAutoExport(t *testing.T) {
 	invalid := []byte(`{"invalid": true}`)
 	if _, err := ValidateHealthAutoExport(invalid); err == nil {
 		t.Error("expected error for missing data object, got nil")
+	}
+}
+
+// Coverage must carry the effective IANA timezone and span whole device-local
+// days, whatever offset the device reported and whatever the server's TZ is.
+func TestParseHealthAutoExportCoverageUsesEffectiveTimezone(t *testing.T) {
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]struct {
+		date     string
+		from, to time.Time
+	}{
+		// Same offset as the effective zone: one JST day.
+		"tokyo": {"2026-09-20 00:00:00 +0900", time.Date(2026, 9, 20, 0, 0, 0, 0, tokyo), time.Date(2026, 9, 21, 0, 0, 0, 0, tokyo)},
+		// China device day 20th runs 01:00 JST 20th to 01:00 JST 21st.
+		"china": {"2026-09-20 00:00:00 +0800", time.Date(2026, 9, 20, 0, 0, 0, 0, tokyo), time.Date(2026, 9, 22, 0, 0, 0, 0, tokyo)},
+		// US device day 20th runs 16:00 JST 20th to 16:00 JST 21st.
+		"us-west": {"2026-09-20 00:00:00 -0700", time.Date(2026, 9, 20, 0, 0, 0, 0, tokyo), time.Date(2026, 9, 22, 0, 0, 0, 0, tokyo)},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "hae.json")
+			body := `{"data":{"metrics":[{"name":"step_count","units":"count","data":[{"date":"` + tc.date + `","qty":1000}]}]}}`
+			if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			batch, err := ParseHealthAutoExport(path, "hash", tokyo)
+			if err != nil {
+				t.Fatalf("ParseHealthAutoExport() failed: %v", err)
+			}
+			if len(batch.Coverage) != 1 {
+				t.Fatalf("got %d coverage assertions, want 1", len(batch.Coverage))
+			}
+			cov := batch.Coverage[0]
+			if cov.Timezone != "Asia/Tokyo" {
+				t.Errorf("Timezone = %q, want Asia/Tokyo", cov.Timezone)
+			}
+			if !cov.From.Equal(tc.from) || !cov.To.Equal(tc.to) {
+				t.Errorf("window = [%s, %s), want [%s, %s)", cov.From, cov.To, tc.from, tc.to)
+			}
+			if got := batch.Daily.Metrics[0].Day; !got.Equal(time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)) {
+				t.Errorf("metric Day = %s, want device-local 2026-09-20", got)
+			}
+		})
+	}
+}
+
+func writeHAE(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "hae.json")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestValidateHealthAutoExportRejectsNonV2(t *testing.T) {
+	for name, body := range map[string]string{
+		"v1 workout without id":  `{"data":{"workouts":[{"name":"Running","start":"2026-09-20 07:00:00 +0900"}]}}`,
+		"rfc3339 workout start":  `{"data":{"workouts":[{"id":"w1","name":"Running","start":"2026-09-20T07:00:00+09:00"}]}}`,
+		"offsetless start":       `{"data":{"workouts":[{"id":"w1","name":"Running","start":"2026-09-20 07:00:00"}]}}`,
+		"metric without name":    `{"data":{"metrics":[{"units":"count","data":[]}]}}`,
+		"neither metrics nor wo": `{"data":{}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := ValidateHealthAutoExport([]byte(body)); err == nil {
+				t.Fatal("non-v2 payload accepted")
+			}
+		})
+	}
+}
+
+func TestParseHealthAutoExportRejectsMalformedData(t *testing.T) {
+	for name, body := range map[string]string{
+		"metric date without offset": `{"data":{"metrics":[{"name":"step_count","units":"count","data":[{"date":"2026-09-20","qty":1}]}]}}`,
+		"sleep without sleepEnd":     `{"data":{"metrics":[{"name":"sleep_analysis","units":"hr","data":[{"sleepStart":"2026-09-19 23:00:00 +0900","totalSleep":7}]}]}}`,
+		"unsummarized sleep only":    `{"data":{"metrics":[{"name":"sleep_analysis","units":"hr","data":[{"startDate":"2026-09-19 23:00:00 +0900","endDate":"2026-09-20 00:00:00 +0900","value":"Core"}]}]}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := ParseHealthAutoExport(writeHAE(t, body), "hash", time.UTC); err == nil {
+				t.Fatal("malformed payload parsed without error")
+			}
+		})
+	}
+}
+
+func TestParseHealthAutoExportConvertsUnitsForEveryPoint(t *testing.T) {
+	body := `{"data":{"metrics":[{"name":"walking_running_distance","units":"mi","data":[
+		{"date":"2026-09-20 00:00:00 +0900","qty":1},
+		{"date":"2026-09-21 00:00:00 +0900","qty":2}]}],
+	"workouts":[{"id":"w1","name":"Outdoor Run","start":"2026-09-20 07:00:00 +0900","end":"2026-09-20 07:30:00 +0900","duration":1800,
+		"activeEnergyBurned":{"qty":418.4,"units":"kJ"}}]}}`
+	batch, err := ParseHealthAutoExport(writeHAE(t, body), "hash", time.UTC)
+	if err != nil {
+		t.Fatalf("ParseHealthAutoExport() failed: %v", err)
+	}
+	want := map[int]float64{20: 1.60934, 21: 3.21868}
+	for _, m := range batch.Daily.Metrics {
+		if m.Unit != "km" || math.Abs(m.Value-want[m.Day.Day()]) > 1e-9 {
+			t.Errorf("day %d = %v %s, want %v km", m.Day.Day(), m.Value, m.Unit, want[m.Day.Day()])
+		}
+	}
+	if kcal := batch.Activities[0].CaloriesKcal; kcal == nil || math.Abs(*kcal-100) > 1e-9 {
+		t.Errorf("CaloriesKcal = %v, want 100", kcal)
 	}
 }

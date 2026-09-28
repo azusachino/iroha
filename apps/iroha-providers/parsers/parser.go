@@ -98,7 +98,7 @@ func Parse(input Input) ([]ActivityObservation, error) {
 	case KindAppleHealthExport:
 		return ParseAppleHealthExport(input.StoragePath, input.RawFileSHA256)
 	case KindHealthAutoExport:
-		batch, err := ParseHealthAutoExport(input.StoragePath, input.RawFileSHA256)
+		batch, err := ParseHealthAutoExport(input.StoragePath, input.RawFileSHA256, time.UTC)
 		if err != nil {
 			return nil, err
 		}

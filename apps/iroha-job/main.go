@@ -100,7 +100,7 @@ func main() {
 		logger.Error("load media bridge", "error", err)
 		os.Exit(1)
 	}
-	importService := imports.NewServiceWithRegistryAndBridge(db, logger, parserVersion, enqueuer, cacheClient, providers, mediaBridge)
+	importService := imports.NewServiceWithRegistryAndBridge(db, logger, parserVersion, enqueuer, cacheClient, providers, mediaBridge).WithTimezone(cfg.Server.Timezone)
 	rawFileService, err := rawfiles.NewService(db, cfg.Storage.DataDir)
 	if err != nil {
 		logger.Error("create raw file service", "error", err)

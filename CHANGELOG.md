@@ -7,6 +7,16 @@ contract between minor versions.
 
 ## [Unreleased]
 
+### Changed
+
+- Require a dedicated intake credential on every `POST /api/v1/intake/health` request (ADR-0008). Only its SHA-256 verifier is stored (migration 00021); intake fails closed with `503` until
+  `iroha-server rotate-health-intake-token` issues a token. `IROHA_HEALTH_INTAKE_TOKEN` is removed.
+- Label Health Auto Export coverage in the effective timezone (`IROHA_TIMEZONE`) and widen it to whole device-local days. Previously every HAE import failed on a server running in UTC.
+- Accept only Health Auto Export Format v2: intake rejects workouts without an `id` or with an offset-less start time, and imports fail loudly on malformed timestamps or unsummarized
+  sleep instead of silently dropping data.
+- Fix HAE distance conversion (only the first point of a miles metric was converted), convert metres, and convert workout energy reported in kJ.
+- Rewrite the Health Auto Export setup guide and add a reference page for HAE settings and payloads.
+
 ## [0.5.0] — 2026-09-27
 
 ### Added

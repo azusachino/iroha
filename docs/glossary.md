@@ -84,3 +84,18 @@ wrong.
 
 The stable cross-domain response containing the resolved period, generated_at, section schemas, available/empty state, and domain-specific data. Caching the envelope preserves empty months and
 completeness metadata.
+
+## Device-local day
+
+The calendar day as the capturing device saw it, in the device's own offset at capture time. A daily health fact from Health Auto Export keeps its device-local day even when that differs from the
+effective timezone, for example while travelling in a UTC+8 region. It is a day-level fact, not a re-bucketed range of instants.
+
+## Coverage assertion
+
+A source's claim that it observed a category over a window of instants. The window's calendar boundaries are expressed in the effective timezone, independent of the device-local days inside it. An
+assertion records what was seen; it does not delete canonical records outside what the batch contained.
+
+## Intake credential
+
+The dedicated secret that authorizes Health Auto Export to write to the health intake endpoint and nothing else. It is required on every request regardless of network origin; tailnet membership is not
+identity. An unprovisioned credential rejects intake rather than allowing it.

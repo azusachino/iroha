@@ -781,3 +781,13 @@ type ExpenseStatementRow struct {
 }
 
 func (ExpenseStatementRow) TableName() string { return "tb_expense_statement_rows" }
+
+// HealthIntakeCredential is the verifier for the single Health Auto Export
+// intake token. The plaintext token is never stored.
+type HealthIntakeCredential struct {
+	Singleton   bool   `gorm:"primaryKey"`
+	TokenSHA256 string `gorm:"column:token_sha256"`
+	RotatedAt   time.Time
+}
+
+func (HealthIntakeCredential) TableName() string { return "tb_health_intake_credential" }

@@ -51,7 +51,12 @@ type Source struct {
 	Open             func(context.Context) (io.ReadCloser, error)
 }
 
-type ImportOptions struct{}
+// ImportOptions carries import-wide context that is not part of a source.
+type ImportOptions struct {
+	// Timezone is the effective IANA timezone for calendar boundaries such as
+	// coverage windows. Empty means UTC.
+	Timezone string
+}
 
 type Adapter interface {
 	Descriptor() Descriptor

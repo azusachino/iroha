@@ -1,7 +1,8 @@
 package httpapi
 
 import (
-	"crypto/subtle"
+	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/intakecredential"
 )
 
 const healthIntakeMaxBytes int64 = 10 << 20
@@ -22,14 +24,29 @@ type healthIntakeResponse struct {
 	Status    string `json:"status"`
 }
 
+// HealthIntakeVerifier checks the dedicated HAE intake credential.
+type HealthIntakeVerifier interface {
+	Verify(ctx context.Context, token string) error
+}
+
 func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
-	token := s.deps.Config.Server.HealthIntakeToken
-	if token != "" {
-		if !validBearerToken(r.Header.Get("Authorization"), token) {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="iroha-health-intake"`)
-			writeContractError(w, http.StatusUnauthorized, "unauthorized", "valid bearer credentials are required")
-			return
-		}
+	err := intakecredential.ErrNotProvisioned
+	if verifier := s.deps.HealthIntakeCredentials; verifier != nil {
+		err = verifier.Verify(r.Context(), bearerToken(r.Header.Get("Authorization")))
+	}
+	switch {
+	case err == nil:
+	case errors.Is(err, intakecredential.ErrNotProvisioned):
+		writeContractError(w, http.StatusServiceUnavailable, "intake_not_provisioned", "health intake credential is not provisioned")
+		return
+	case errors.Is(err, intakecredential.ErrInvalid):
+		w.Header().Set("WWW-Authenticate", `Bearer realm="iroha-health-intake"`)
+		writeContractError(w, http.StatusUnauthorized, "unauthorized", "valid bearer credentials are required")
+		return
+	default:
+		s.deps.Logger.Error("verify health intake credential", "error", err)
+		writeContractError(w, http.StatusInternalServerError, "intake_failed", "failed to verify health intake credential")
+		return
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, healthIntakeMaxBytes)
@@ -85,10 +102,12 @@ func (s *Server) handleHealthIntake(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func validBearerToken(header, expected string) bool {
+// bearerToken extracts the token from an Authorization header, or "" when the
+// header is not a single-token Bearer credential.
+func bearerToken(header string) string {
 	scheme, token, ok := strings.Cut(strings.TrimSpace(header), " ")
-	if !ok || !strings.EqualFold(scheme, "Bearer") || token == "" {
-		return false
+	if !ok || !strings.EqualFold(scheme, "Bearer") || strings.Contains(token, " ") {
+		return ""
 	}
-	return subtle.ConstantTimeCompare([]byte(token), []byte(expected)) == 1
+	return token
 }

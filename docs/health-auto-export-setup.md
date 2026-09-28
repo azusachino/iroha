@@ -1,110 +1,149 @@
-# Setting up Health Auto Export HTTP Intake
+# Setting up Health Auto Export HTTP intake
 
-How to configure [Health Auto Export](https://help.healthyapps.dev/en/health-auto-export/automations/) (HAE) on iOS/watchOS to deliver continuous, bounded health metrics, sleep sessions, and workout routes to `POST /api/v1/intake/health`.
+How to make an iPhone send daily health data and workouts to Iroha automatically, using [Health Auto Export](https://help.healthyapps.dev/en/health-auto-export/automations/) (HAE).
 
-This setup replaces the experimental, unbuilt iOS Shortcuts path and manual full-export ZIP friction with automated, native background ingestion.
+When you finish, the phone uploads the last 7 days of daily metrics and recent workouts to `POST /api/v1/intake/health` in the background. Every setting below is chosen for a reason explained in
+[the HAE reference](capabilities/providers/health-auto-export.md); change one only after reading why it is set that way.
 
----
+Historical data does not come through this path. Backfill years of history once with a full Apple Health `export.zip` through `POST /api/v1/raw-files` and `POST /api/v1/imports`; see
+[Apple Health](capabilities/providers/apple-health.md).
 
-## User Stories
+## Before you start
 
-- **As a daily health tracker**, I want my iPhone and Apple Watch to sync daily step counts, sleep stages, and resting vitals to Iroha automatically in the background, so my dashboard reflects current data without manual exports.
-- **As a runner or cyclist**, I want completed workouts—including GPS route trackpoints and continuous heart rate samplings—to land in Iroha immediately with full route map and lap visualization.
-- **As an operator of a personal data cockpit**, I want daily intake to run securely over my private Tailnet perimeter without storing plain-text bearer tokens inside third-party mobile apps, while still retaining the ability to enforce token authentication when desired.
-- **As a user with years of historical data**, I want a clear two-tier ingestion model: one-time historical backfill using full `export.zip` archives, and continuous rolling daily intake using lightweight JSON syncs.
+You need:
 
----
+- Iroha running with database migrations applied through `00021_health_intake_credential`.
+- An HTTPS URL for Iroha that the iPhone can reach. Below it is written `https://<iroha-host>`.
+- A shell where you can run the `iroha-server` binary against Iroha's database (inside the server container, or on the host running it).
+- Health Auto Export installed on the iPhone, with a subscription that includes REST API automations.
 
-## Two-Tier Ingestion Architecture
+## Step 1: Issue the intake token
 
-| Tier | Channel | Data Source & Format | Frequency | Ingestion Mode |
-| :--- | :--- | :--- | :--- | :--- |
-| **Tier 1: Daily Intake** | `POST /api/v1/intake/health` | Health Auto Export Format v2 JSON | Continuous background sync (rolling 2 days) | `bounded_replacement` (updates evidence for specified window without purging historical records) |
-| **Tier 2: Historical Bulk Backfill** | `POST /api/v1/raw-files` + `POST /api/v1/imports` | Apple Health `export.zip` (`export.xml` + GPX routes), FIT, TCX, GPX | On-demand / one-time | `full_snapshot` / archive reconciliation |
-
----
-
-## Security Model: Tailnet Perimeter & Configurable Auth
-
-Iroha is designed as a single-user personal data cockpit hosted on a private Tailscale network (e.g. `iroha.your-tailnet.ts.net`) or local network.
-
-### 1. Default: Network Perimeter Security (No Auth Header Required)
-Because a tailnet domain like `iroha.your-tailnet.ts.net` is resolvable and accessible only by devices authenticated to your private network:
-- WireGuard encryption and tailnet node identity protect all communications in transit.
-- **No API token or `Authorization` header is required** in Health Auto Export by default when `IROHA_HEALTH_INTAKE_TOKEN` is unset.
-- This eliminates the security risk of storing long-lived plain-text bearer tokens in mobile app configurations.
-
-### 2. Configurable Token Authentication (Optional Defense-in-Depth)
-If you wish to enforce token authentication even on the tailnet:
-- Set `IROHA_HEALTH_INTAKE_TOKEN=<secret>` in `iroha-server`'s environment or deployment secret.
-- When set, `POST /api/v1/intake/health` strictly enforces `Authorization: Bearer <secret>` (returning `401 Unauthorized` if omitted or invalid).
-- In Health Auto Export, add an `Authorization` header with `Bearer <secret>`.
-
----
-
-## Client Configuration (iOS / watchOS)
-
-Open the **Health Auto Export** app on iOS. You only need to configure two data types: **Health Metrics** and **Workouts**. Do **not** enable Symptoms, ECG, or Medications unless specifically needed.
-
-### 1. Health Metrics Export Settings
-- **Export Format**: `JSON`
-- **Export Version**: `Version 2` (Format v2)
-- **Summarize Data**: `ON`
-- **Group By**: `Day`
-- **Date Range**: `Rolling 2 Days` (or `3 Days` to ensure complete coverage across timezones)
-- **Selected Metrics**:
-  - `step_count` (Steps)
-  - `sleep_analysis` (In bed, asleep, core, deep, REM, awake durations and stages)
-  - *(Optional)* `resting_heart_rate`, `heart_rate_variability_sdnn`, `walking_running_distance`
-
-> [!NOTE]
-> Iroha's HAE parser is sparse: unconfigured metrics are omitted safely. The parser gracefully handles missing metrics and automatically converts fractional hours (e.g. sleep duration) into integer seconds.
-
-### 2. Workouts Export Settings
-- **Export Format**: `JSON`
-- **Export Version**: `Version 2`
-- **Include Route Data**: `ON` (exports GPS trackpoints with latitude, longitude, and elevation)
-- **Include Workout Metrics**: `ON` (exports heart rate series)
-- **Time Grouping (Workout Metrics)**: `Minutes` (1-minute intervals)
-- **Date Range**: `Rolling 2 Days`
-
-### 3. Automation / Sync Settings
-Under **Automations** (or **REST API Export**):
-- **Export Type**: `REST API`
-- **URL**: `https://iroha.your-tailnet.ts.net/api/v1/intake/health`
-- **HTTP Method**: `POST`
-- **HTTP Headers**:
-  - `Content-Type: application/json`
-  - *(Optional)* `X-Device-Id: iphone-hae:primary`
-  - *(Optional, only if `IROHA_HEALTH_INTAKE_TOKEN` is set on server)* `Authorization: Bearer <your-token>`
-- **Background Sync**: `Enabled` (allows iOS background refresh to upload new metrics automatically)
-
----
-
-## Verification & Probing
-
-You can verify that the endpoint is reachable and correctly processes Format v2 payloads using `curl`:
+Iroha refuses all intake (`503 intake_not_provisioned`) until a token exists. Issue one:
 
 ```bash
-curl -sS -X POST https://iroha.your-tailnet.ts.net/api/v1/intake/health \
+iroha-server rotate-health-intake-token
+```
+
+Local development equivalent, from the repository root:
+
+```bash
+go -C apps/iroha-server run ./cmd/iroha-server rotate-health-intake-token
+```
+
+The command prints the token **once** and exits. Iroha stores only its SHA-256 hash, so the token cannot be shown again. Copy it straight into HAE in step 3; do not save it in a note, a tracked file,
+or a chat.
+
+Running the command again issues a new token and **immediately invalidates the old one**. The phone keeps failing with `401` until you paste the new token into both automations.
+
+## Step 2: Prepare the iPhone
+
+1. **Settings → General → Background App Refresh**: on, and on for Health Auto Export.
+2. In Health Auto Export, grant Health read access for every metric you select in step 3 and for Workouts.
+3. Expect uploads only after the phone has been unlocked. iOS blocks Health data while locked, and Low Power Mode delays background work. Charging overnight while unlocked recently is the most
+   reliable time.
+
+## Step 3: Create the Health Metrics automation
+
+In Health Auto Export, open **Automations**, add a new automation, and choose **REST API**. Set every field exactly as listed:
+
+| Field           | Value                                                           |
+| --------------- | --------------------------------------------------------------- |
+| Automation Name | `iroha metrics`                                                 |
+| URL             | `https://<iroha-host>/api/v1/intake/health`                     |
+| Headers         | `Authorization` = `Bearer <token from step 1>`                  |
+| Data Type       | Health Metrics                                                  |
+| Health Metrics  | `Step Count`, `Sleep Analysis`, plus any optional metrics below |
+| Export Format   | JSON                                                            |
+| Export Version  | Version 2                                                       |
+| Summarize Data  | ON                                                              |
+| Time Grouping   | Day                                                             |
+| Date Range      | **Previous 7 Days**                                             |
+| Batch Requests  | OFF                                                             |
+| Sync Cadence    | every 1 hour (a request to iOS, not a guarantee)                |
+
+Optional metrics Iroha understands: Walking + Running Distance, Flights Climbed, Resting Heart Rate, Walking Heart Rate Average, Heart Rate Variability, VO2 Max, Body Mass (weight), Blood Oxygen
+Saturation, Respiratory Rate. Anything else is ignored.
+
+> [!WARNING] **Never use "Since Last Sync" for Health Metrics.** Iroha replaces each day's stored value with the one in the latest upload. "Since Last Sync" sends only the samples since the previous
+> run, so the day's total would be overwritten by a fragment. "Previous 7 Days" also repairs any days the phone missed.
+
+> [!WARNING] **Keep Summarize Data ON.** With Summarize OFF, HAE sends sleep as stage intervals without a nightly entry, and Iroha records **no sleep at all**.
+
+## Step 4: Create the Workouts automation
+
+Add a second REST API automation:
+
+| Field                           | Value                                          |
+| ------------------------------- | ---------------------------------------------- |
+| Automation Name                 | `iroha workouts`                               |
+| URL                             | `https://<iroha-host>/api/v1/intake/health`    |
+| Headers                         | `Authorization` = `Bearer <token from step 1>` |
+| Data Type                       | Workouts                                       |
+| Export Format                   | JSON                                           |
+| Export Version                  | Version 2                                      |
+| Include Route Data              | ON                                             |
+| Include Workout Metrics         | ON                                             |
+| Time Grouping (Workout Metrics) | Minutes                                        |
+| Date Range                      | Default                                        |
+| Batch Requests                  | OFF (see troubleshooting if uploads time out)  |
+| Sync Cadence                    | every 1 hour                                   |
+
+Optional header on either automation: `X-Device-Id` = a stable name for this phone (default `iphone-hae:primary`). Set it only if more than one device uploads; changing it later splits the provenance
+history.
+
+## Step 5: Test each automation
+
+1. In each automation, run a manual export (pick a date range that contains data) and wait for it to finish.
+2. Open the automation's **Activity Logs**. A successful run shows HTTP **202**.
+3. In Iroha, the daily steps, last night's sleep, and any recent workout appear once the background import job has run.
+
+You can also probe the server directly. This checks the URL and token, not the phone:
+
+```bash
+curl -sS -X POST https://<iroha-host>/api/v1/intake/health \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   --data @apps/iroha-providers/parsers/testdata/health_auto_export.json
 ```
 
-A healthy response returns `202 Accepted`:
+A healthy response is `202 Accepted`:
 
 ```json
-{
-  "raw_file_id": "raw_01jm8v7w...",
-  "import_id": "imp_01jm8v7x...",
-  "status": "queued"
-}
+{ "raw_file_id": "raw_…", "import_id": "imp_…", "status": "queued" }
 ```
 
-The server stores the raw JSON in `tb_raw_files` with `ingestion_mode = bounded_replacement` and queues an import job in `tb_import_jobs` under parser kind `health_auto_export`. Replaying the same payload is idempotent.
+The probe stores the test fixture as real evidence. Use it against a development instance, not production.
 
----
+## Verify with a real device
 
-## Retirement of iOS Shortcuts
+Before relying on the intake, confirm the facts HAE's documentation leaves open (tracked in [the HAE reference](capabilities/providers/health-auto-export.md#open-questions)):
 
-The previous experimental iOS Shortcut receiver (`apple-health-shortcut.go` and `apple-health-shortcut-setup.md`) has been retired and removed. Because no on-device Shortcut producer could reliably build the envelope (as recorded in ADR-0007), removing this path eliminates dead code and leaves Health Auto Export as the sole, authoritative daily intake path.
+1. Capture one real upload from each automation (for example with a request bin on your own network, or from Iroha's stored raw file).
+2. Send the same workout upload twice. Iroha must still show **one** activity. If it shows two, the workout `id` is not stable.
+3. Note the time and UTC offset in a summarized metric's `date`, and the size of a workout upload with a route.
+4. Check every optional metric you selected actually appears in Iroha. A missing one means HAE spells its name differently from Iroha's parser.
+5. Replace `apps/iroha-providers/parsers/testdata/health_auto_export.json` with a trimmed, anonymized real payload (move GPS points away from home, remove device names).
+
+## Rotate the token
+
+1. Run `iroha-server rotate-health-intake-token` and copy the new token.
+2. Paste it into the `Authorization` header of **both** automations.
+3. Run each automation manually and confirm **202** in Activity Logs.
+
+Uploads between steps 1 and 2 fail with `401` and are retried on the next run; "Previous 7 Days" re-sends the data you missed.
+
+## Troubleshooting
+
+| Activity Logs shows             | Cause                                                                                       | Fix                                                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `503 intake_not_provisioned`    | No token has been issued on this Iroha instance.                                            | Step 1.                                                                                                                     |
+| `401 unauthorized`              | Header missing, not `Bearer <token>`, or the token was rotated.                             | Re-check the header in both automations; rotate if the token is lost.                                                       |
+| `400 invalid_health_payload`    | Not Version 2 JSON (workout without `id`, timestamp without UTC offset) or CSV selected.    | Export Format JSON, Export Version 2.                                                                                       |
+| `400 invalid_body`              | Upload over 10 MiB.                                                                         | Workouts: turn Batch Requests ON. Metrics: remove metrics you do not need.                                                  |
+| Timeout / no request            | iOS stopped the background task (about 30 s), phone locked, or Low Power Mode.              | Unlock and charge the phone; for workouts, turn Batch Requests ON or keep grouping at Minutes.                              |
+| `202` but the import job failed | Summarize Data OFF ("enable Summarize Data"), or a malformed field; the job error names it. | Summarize Data ON; otherwise capture the upload and report the error.                                                       |
+| `202` but a metric missing      | HAE's metric name is not one Iroha recognizes.                                              | Check the name in the raw upload against [the metric mapping](capabilities/providers/health-auto-export.md#metric-mapping). |
+| Day totals too low              | Date Range is "Since Last Sync", or Batch Requests is ON for metrics.                       | Date Range "Previous 7 Days", Batch Requests OFF.                                                                           |
+
+HAE's own diagnostics: **Activity Logs** in each automation, and its [App Event Logs](https://help.healthyapps.dev/en/health-auto-export/troubleshooting/app-event-logs).

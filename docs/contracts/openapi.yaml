@@ -119,16 +119,14 @@ paths:
   /api/v1/intake/health:
     post:
       tags: [imports]
-      summary: Queue an automated Health Auto Export or legacy Shortcut snapshot.
+      summary: Queue an automated Health Auto Export snapshot.
       description: |
-        Accepts Health Auto Export Format v2 JSON (primary) or legacy
-        `iroha.health.shortcut.v1` envelopes up to 10 MiB, stores the raw payload
-        as evidence, and queues an import job with bounded replacement semantics.
-        Authentication is configurable: unauthenticated by default when protected
-        by the private Tailnet perimeter, or requires `healthIntakeBearer` when
-        `IROHA_HEALTH_INTAKE_TOKEN` is configured on the server.
+        Accepts Health Auto Export Format v2 JSON up to 10 MiB, stores the raw
+        payload as evidence, and queues an import job with bounded replacement
+        semantics. Every request requires the `healthIntakeBearer` credential,
+        regardless of network origin. The endpoint fails closed with 503 until a
+        credential has been issued.
       security:
-        - {}
         - healthIntakeBearer: []
       requestBody:
         required: true
@@ -136,7 +134,7 @@ paths:
           application/json:
             schema:
               type: object
-              description: Health Auto Export Format v2 JSON payload or legacy shortcut envelope.
+              description: Health Auto Export Format v2 JSON payload.
       responses:
         "202":
           description: Raw payload stored and import queued.
@@ -150,6 +148,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/v1/metrics:
     get:
       tags: [metrics]
@@ -1190,7 +1190,7 @@ components:
     healthIntakeBearer:
       type: http
       scheme: bearer
-      description: Deployment-scoped token for the local Apple Health Shortcut.
+      description: Health Auto Export intake credential, issued and rotated with `iroha-server rotate-health-intake-token`. Authorizes intake only.
   parameters:
     RawFileId:
       name: rawFileId
@@ -1441,12 +1441,19 @@ components:
     MetricCoverage:
       type: object
       additionalProperties: false
-      required: [expected_periods, observed_periods, observation_state, collection_completeness]
+      required:
+        [
+          expected_periods,
+          observed_periods,
+          observation_state,
+          collection_completeness,
+        ]
       properties:
         expected_periods: { type: integer, minimum: 0 }
         observed_periods: { type: integer, minimum: 0 }
         observation_state: { type: string, enum: [empty, partial, observed] }
-        collection_completeness: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        collection_completeness:
+          { type: string, enum: [unknown, partial, covered, covered_empty] }
     MetricSource:
       type: object
       additionalProperties: false
@@ -1500,7 +1507,8 @@ components:
         request_id: { type: string }
     SourceKind:
       type: string
-      enum: [apple_health_export, health_auto_export, gpx, fit, tcx, strava_export]
+      enum:
+        [apple_health_export, health_auto_export, gpx, fit, tcx, strava_export]
     UploadSource:
       type: string
       enum: [web, telegram, cli, ios_bridge]
@@ -1613,7 +1621,11 @@ components:
         occurred_on: { type: string, format: date }
         account_key: { type: string, default: default, maxLength: 100 }
         kind: { type: string, enum: [expense, refund], default: expense }
-        refund_of: { type: string, description: Encoded expense ID when this is a linked refund. }
+        refund_of:
+          {
+            type: string,
+            description: Encoded expense ID when this is a linked refund.,
+          }
         original_transaction_ref: { type: string, maxLength: 200 }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         amount_minor: { type: integer, format: int64, minimum: 1 }
@@ -1650,7 +1662,11 @@ components:
         occurred_on: { type: string, format: date }
         account_key: { type: string, default: default, maxLength: 100 }
         kind: { type: string, enum: [expense, refund], default: expense }
-        refund_of: { type: string, description: Encoded expense ID when this is a linked refund. }
+        refund_of:
+          {
+            type: string,
+            description: Encoded expense ID when this is a linked refund.,
+          }
         original_transaction_ref: { type: string, maxLength: 200 }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         amount_minor: { type: integer, format: int64, minimum: 1 }
@@ -1744,7 +1760,16 @@ components:
     ExpenseStatementManifest:
       type: object
       additionalProperties: false
-      required: [account_key, source_kind, statement_ref, period_from, period_to, completeness, revision]
+      required:
+        [
+          account_key,
+          source_kind,
+          statement_ref,
+          period_from,
+          period_to,
+          completeness,
+          revision,
+        ]
       properties:
         account_key: { type: string, default: default, maxLength: 100 }
         source_kind: { type: string, minLength: 1, maxLength: 50 }
@@ -1779,11 +1804,26 @@ components:
         valid: { type: boolean }
         errors:
           type: array
-          items: { $ref: "#/components/schemas/ExpenseStatementValidationError" }
+          items:
+            { $ref: "#/components/schemas/ExpenseStatementValidationError" }
     ExpenseStatement:
       type: object
       additionalProperties: false
-      required: [id, account_key, source_kind, statement_ref, period_from, period_to, completeness, revision, sha256, row_count, created_at, updated_at]
+      required:
+        [
+          id,
+          account_key,
+          source_kind,
+          statement_ref,
+          period_from,
+          period_to,
+          completeness,
+          revision,
+          sha256,
+          row_count,
+          created_at,
+          updated_at,
+        ]
       properties:
         id: { type: string, format: uuid }
         account_key: { type: string }
@@ -1860,11 +1900,21 @@ components:
       type: object
       additionalProperties: false
       required:
-        [month, completeness, collection_completeness, movement, sleep, daily_health, media, expenses]
+        [
+          month,
+          completeness,
+          collection_completeness,
+          movement,
+          sleep,
+          daily_health,
+          media,
+          expenses,
+        ]
       properties:
         month: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }
         completeness: { type: string, enum: [complete, partial] }
-        collection_completeness: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        collection_completeness:
+          { type: string, enum: [unknown, partial, covered, covered_empty] }
         movement:
           oneOf:
             - $ref: "#/components/schemas/MonthlyMovementTrend"
@@ -1933,11 +1983,13 @@ components:
     ReportStatus:
       type: object
       additionalProperties: false
-      required: [calendar_completeness, observation_state, collection_completeness]
+      required:
+        [calendar_completeness, observation_state, collection_completeness]
       properties:
         calendar_completeness: { type: string, enum: [complete, partial] }
         observation_state: { type: string, enum: [empty, observed] }
-        collection_completeness: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        collection_completeness:
+          { type: string, enum: [unknown, partial, covered, covered_empty] }
     MovementReportSection:
       type: object
       additionalProperties: false
@@ -2142,7 +2194,14 @@ components:
     ExpensesReportData:
       type: object
       additionalProperties: false
-      required: [expense_count, purchase_count, refund_count, totals_by_currency, by_category]
+      required:
+        [
+          expense_count,
+          purchase_count,
+          refund_count,
+          totals_by_currency,
+          by_category,
+        ]
       properties:
         expense_count: { type: integer }
         purchase_count: { type: integer }
@@ -2160,7 +2219,18 @@ components:
     ExpenseCurrencyTotal:
       type: object
       additionalProperties: false
-      required: [currency, currency_exponent, amount_minor, gross_amount_minor, refund_amount_minor, net_amount_minor, expense_count, purchase_count, refund_count]
+      required:
+        [
+          currency,
+          currency_exponent,
+          amount_minor,
+          gross_amount_minor,
+          refund_amount_minor,
+          net_amount_minor,
+          expense_count,
+          purchase_count,
+          refund_count,
+        ]
       properties:
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
         currency_exponent: { type: integer, enum: [0, 2] }
@@ -2175,7 +2245,18 @@ components:
       type: object
       additionalProperties: false
       required:
-        [category, currency, currency_exponent, amount_minor, gross_amount_minor, refund_amount_minor, net_amount_minor, expense_count, purchase_count, refund_count]
+        [
+          category,
+          currency,
+          currency_exponent,
+          amount_minor,
+          gross_amount_minor,
+          refund_amount_minor,
+          net_amount_minor,
+          expense_count,
+          purchase_count,
+          refund_count,
+        ]
       properties:
         category: { type: string }
         currency: { type: string, enum: [JPY, USD, EUR, GBP] }
@@ -2608,13 +2689,17 @@ components:
           { type: array, items: { $ref: "#/components/schemas/MediaChange" } }
     MediaDetail:
       type: object
-      required: [item, work, external_refs, creators, relations, events, updates]
+      required:
+        [item, work, external_refs, creators, relations, events, updates]
       properties:
         item: { $ref: "#/components/schemas/Media" }
         work: { $ref: "#/components/schemas/MediaWork" }
         progress: { $ref: "#/components/schemas/MediaProgress" }
         external_refs:
-          { type: array, items: { $ref: "#/components/schemas/MediaExternalRef" } }
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/MediaExternalRef" },
+          }
         creators:
           { type: array, items: { $ref: "#/components/schemas/MediaCreator" } }
         relations:
@@ -2866,7 +2951,10 @@ components:
         previous_date: { type: string, format: date }
         next_date: { type: string, format: date }
         sections:
-          { type: array, items: { $ref: "#/components/schemas/BriefingSection" } }
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/BriefingSection" },
+          }
     BriefingSection:
       type: object
       required: [key, schema, state, status, data]
@@ -2882,9 +2970,14 @@ components:
       required: [availability, collection, operation, freshness]
       properties:
         availability: { type: string, enum: [supported, unsupported, disabled] }
-        collection: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        collection:
+          { type: string, enum: [unknown, partial, covered, covered_empty] }
         operation: { type: string, enum: [fetching, importing, idle, failed] }
-        freshness: { type: string, enum: [within_cadence, overdue, not_scheduled, unknown] }
+        freshness:
+          {
+            type: string,
+            enum: [within_cadence, overdue, not_scheduled, unknown],
+          }
     ConnectionList:
       type: object
       additionalProperties: false
@@ -2896,16 +2989,35 @@ components:
     Connection:
       type: object
       additionalProperties: false
-      required: [id, provider, instance_key, display_name, availability, collection, operation, freshness, last_receipt, last_import, coverage, next_actions]
+      required:
+        [
+          id,
+          provider,
+          instance_key,
+          display_name,
+          availability,
+          collection,
+          operation,
+          freshness,
+          last_receipt,
+          last_import,
+          coverage,
+          next_actions,
+        ]
       properties:
         id: { type: string }
         provider: { type: string }
         instance_key: { type: string }
         display_name: { type: string }
         availability: { type: string, enum: [supported, unsupported, disabled] }
-        collection: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        collection:
+          { type: string, enum: [unknown, partial, covered, covered_empty] }
         operation: { type: string, enum: [importing, idle, failed] }
-        freshness: { type: string, enum: [within_cadence, overdue, not_scheduled, unknown] }
+        freshness:
+          {
+            type: string,
+            enum: [within_cadence, overdue, not_scheduled, unknown],
+          }
         last_receipt: { $ref: "#/components/schemas/ConnectionReceipt" }
         last_import: { $ref: "#/components/schemas/ConnectionImport" }
         coverage:
@@ -2924,7 +3036,7 @@ components:
         source_kind: { type: string }
         ingestion_mode: { type: string }
         received_at: { type: string, format: date-time }
-        observed_at: { type: [string, 'null'], format: date-time }
+        observed_at: { type: [string, "null"], format: date-time }
     ConnectionImport:
       type: object
       additionalProperties: false
@@ -2933,9 +3045,9 @@ components:
         id: { type: string }
         status: { type: string, enum: [queued, parsing, completed, failed] }
         parser_kind: { type: string }
-        error_message: { type: [string, 'null'] }
+        error_message: { type: [string, "null"] }
         created_at: { type: string, format: date-time }
-        finished_at: { type: [string, 'null'], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
     ConnectionCoverage:
       type: object
       additionalProperties: false
@@ -2944,7 +3056,8 @@ components:
         category: { type: string }
         from: { type: string, format: date-time }
         to: { type: string, format: date-time }
-        completeness: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        completeness:
+          { type: string, enum: [unknown, partial, covered, covered_empty] }
         recorded_at: { type: string, format: date-time }
     ConnectionAction:
       type: object
@@ -2967,7 +3080,8 @@ components:
     MatchingDecision:
       type: object
       additionalProperties: false
-      required: [id, provider, external_id, target_item_id, decision_kind, created_at]
+      required:
+        [id, provider, external_id, target_item_id, decision_kind, created_at]
       properties:
         id: { type: string, format: uuid }
         provider: { type: string }
@@ -2978,12 +3092,22 @@ components:
     SourceCoverage:
       type: object
       additionalProperties: false
-      required: [source_instance_id, category, requested, state, covered, gaps, assertions]
+      required:
+        [
+          source_instance_id,
+          category,
+          requested,
+          state,
+          covered,
+          gaps,
+          assertions,
+        ]
       properties:
         source_instance_id: { type: string, format: uuid }
         category: { type: string }
         requested: { $ref: "#/components/schemas/SourceCoverageInterval" }
-        state: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        state:
+          { type: string, enum: [unknown, partial, covered, covered_empty] }
         covered:
           type: array
           items: { $ref: "#/components/schemas/SourceCoverageInterval" }
@@ -3003,16 +3127,32 @@ components:
     SourceCoverageAssertion:
       type: object
       additionalProperties: false
-      required: [id, source_instance_id, category, scope, interval, timezone, ingestion_mode, completeness, recorded_at]
+      required:
+        [
+          id,
+          source_instance_id,
+          category,
+          scope,
+          interval,
+          timezone,
+          ingestion_mode,
+          completeness,
+          recorded_at,
+        ]
       properties:
         id: { type: string, format: uuid }
         source_instance_id: { type: string, format: uuid }
-        source_receipt_id: { type: [string, 'null'], format: uuid }
-        import_snapshot_id: { type: [string, 'null'], format: uuid }
+        source_receipt_id: { type: [string, "null"], format: uuid }
+        import_snapshot_id: { type: [string, "null"], format: uuid }
         category: { type: string }
         scope: { type: object, additionalProperties: true }
         interval: { $ref: "#/components/schemas/SourceCoverageInterval" }
         timezone: { type: string }
-        ingestion_mode: { type: string, enum: [full_snapshot, bounded_replacement, incremental] }
-        completeness: { type: string, enum: [unknown, partial, covered, covered_empty] }
+        ingestion_mode:
+          {
+            type: string,
+            enum: [full_snapshot, bounded_replacement, incremental],
+          }
+        completeness:
+          { type: string, enum: [unknown, partial, covered, covered_empty] }
         recorded_at: { type: string, format: date-time }

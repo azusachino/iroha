@@ -1,50 +1,106 @@
 package httpapi
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/intakecredential"
 )
 
-func TestValidBearerToken(t *testing.T) {
-	for name, header := range map[string]string{
-		"exact":       "Bearer secret",
-		"scheme-case": "bearer secret",
-	} {
-		t.Run(name, func(t *testing.T) {
-			if !validBearerToken(header, "secret") {
-				t.Fatal("valid bearer token rejected")
-			}
-		})
+type fakeIntakeVerifier struct {
+	token string
+	err   error
+}
+
+func (f fakeIntakeVerifier) Verify(_ context.Context, token string) error {
+	if f.err != nil {
+		return f.err
 	}
-	for _, header := range []string{"", "secret", "Bearer", "Bearer wrong", "Bearer secret extra"} {
-		if validBearerToken(header, "secret") {
-			t.Fatalf("invalid bearer token accepted: %q", header)
+	if token != f.token {
+		return intakecredential.ErrInvalid
+	}
+	return nil
+}
+
+func TestBearerToken(t *testing.T) {
+	for header, want := range map[string]string{
+		"Bearer secret":       "secret",
+		"bearer secret":       "secret",
+		"":                    "",
+		"secret":              "",
+		"Bearer":              "",
+		"Basic secret":        "",
+		"Bearer secret extra": "",
+	} {
+		if got := bearerToken(header); got != want {
+			t.Errorf("bearerToken(%q) = %q, want %q", header, got, want)
 		}
 	}
 }
 
-func TestHealthIntakeEnabledWithoutTokenOnTailnet(t *testing.T) {
-	server := NewServer(Dependencies{Config: config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}}})
+func postHealthIntake(t *testing.T, verifier HealthIntakeVerifier, authorization string) *httptest.ResponseRecorder {
+	t.Helper()
+	server := NewServer(Dependencies{
+		Config:                  config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}},
+		HealthIntakeCredentials: verifier,
+	})
 	recorder := httptest.NewRecorder()
-	// An invalid body should reach body processing (yielding 400) rather than 503
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/intake/health", strings.NewReader(`not-json`))
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/intake/health", strings.NewReader("not-json"))
+	if authorization != "" {
+		request.Header.Set("Authorization", authorization)
+	}
 	server.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400 bad request", recorder.Code)
+	return recorder
+}
+
+func TestHealthIntakeFailsClosedWithoutVerifier(t *testing.T) {
+	if code := postHealthIntake(t, nil, "Bearer anything").Code; code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503", code)
 	}
 }
 
-func TestHealthIntakeRejectsInvalidCredentialsBeforeBodyProcessing(t *testing.T) {
-	server := NewServer(Dependencies{Config: config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo", HealthIntakeToken: "secret"}}})
+func TestHealthIntakeFailsClosedWhenNotProvisioned(t *testing.T) {
+	verifier := fakeIntakeVerifier{err: intakecredential.ErrNotProvisioned}
+	if code := postHealthIntake(t, verifier, "Bearer anything").Code; code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503", code)
+	}
+}
+
+func TestHealthIntakeRejectsMissingOrWrongCredentialBeforeBodyProcessing(t *testing.T) {
+	verifier := fakeIntakeVerifier{token: "secret"}
+	for _, authorization := range []string{"", "Bearer wrong", "secret"} {
+		recorder := postHealthIntake(t, verifier, authorization)
+		if recorder.Code != http.StatusUnauthorized {
+			t.Fatalf("authorization %q: status = %d, want 401", authorization, recorder.Code)
+		}
+		if recorder.Header().Get("WWW-Authenticate") == "" {
+			t.Fatalf("authorization %q: missing WWW-Authenticate", authorization)
+		}
+	}
+}
+
+func TestHealthIntakeAcceptsValidCredential(t *testing.T) {
+	// A valid credential reaches body validation, so an invalid body yields 400.
+	if code := postHealthIntake(t, fakeIntakeVerifier{token: "secret"}, "Bearer secret").Code; code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", code)
+	}
+}
+
+func TestHealthIntakeVerifierFailureIsServerError(t *testing.T) {
+	server := NewServer(Dependencies{
+		Config:                  config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}},
+		HealthIntakeCredentials: fakeIntakeVerifier{err: errors.New("db down")},
+	})
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/intake/health", strings.NewReader("not-json"))
-	request.Header.Set("Authorization", "Bearer wrong")
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/intake/health", strings.NewReader("{}"))
+	request.Header.Set("Authorization", "Bearer secret")
 	server.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", recorder.Code)
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", recorder.Code)
 	}
 }
