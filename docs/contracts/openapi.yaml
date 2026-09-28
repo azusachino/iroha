@@ -271,6 +271,155 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/auth/passkey/begin:
+    post:
+      tags: [auth]
+      summary: Start a username-less passkey sign-in.
+      description: Returns WebAuthn request options (the `publicKey` member is suitable for `PublicKeyCredential.parseRequestOptionsFromJSON`) and sets a short-lived `iroha_webauthn` ceremony cookie. 10 requests/minute per client.
+      security: []
+      responses:
+        "200":
+          description: WebAuthn credential request options.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/auth/passkey/finish:
+    post:
+      tags: [auth]
+      summary: Finish a passkey sign-in and start a session.
+      description: Body is the browser's `PublicKeyCredential.toJSON()`. Verifies challenge, origin, RP ID, and signature server-side, then sets the `iroha_session` cookie.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Session started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/account/reauth:
+    post:
+      tags: [auth]
+      summary: Re-confirm the password for sensitive account changes.
+      description: Authorizes adding or removing a passkey for the next 5 minutes of this session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        "204":
+          description: Password confirmed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/account/passkeys:
+    get:
+      tags: [auth]
+      summary: List the owner's passkeys.
+      responses:
+        "200":
+          description: Passkeys, oldest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Passkey"
+  /api/v1/account/passkeys/register/begin:
+    post:
+      tags: [auth]
+      summary: Start adding a passkey.
+      description: Needs a password re-confirmation within the last 5 minutes (`403 reauth_required` otherwise). Returns WebAuthn creation options and sets the ceremony cookie.
+      responses:
+        "200":
+          description: WebAuthn credential creation options.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/account/passkeys/register/finish:
+    post:
+      tags: [auth]
+      summary: Finish adding a passkey.
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "201":
+          description: Passkey stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passkey"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/account/passkeys/{passkeyId}:
+    patch:
+      tags: [auth]
+      summary: Rename a passkey.
+      parameters:
+        - name: passkeyId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "204":
+          description: Renamed.
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [auth]
+      summary: Remove a passkey.
+      description: Needs a password re-confirmation within the last 5 minutes.
+      parameters:
+        - name: passkeyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Removed.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/auth/session:
     get:
       tags: [auth]
@@ -1795,6 +1944,7 @@ components:
         authenticated: { type: boolean }
         username: { type: string }
         display_name: { type: string }
+        passkeys_enabled: { type: boolean }
         csrf_token: { type: string }
     Credentials:
       type: object
@@ -1802,6 +1952,14 @@ components:
       properties:
         username: { type: string, pattern: "^[a-z0-9][a-z0-9._-]{0,63}$" }
         password: { type: string, minLength: 12, maxLength: 1024 }
+    Passkey:
+      type: object
+      required: [id, name, created_at, last_used_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time }
     IntakeCredential:
       type: object
       required: [id, name, created_at, last_used_at, revoked_at]

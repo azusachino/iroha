@@ -7,6 +7,7 @@ import {
   setupOwner,
   type AuthSession,
 } from "./api";
+import { signInWithPasskey } from "./passkey";
 
 export type AuthStatus = "loading" | "setup" | "login" | "ready" | "error";
 
@@ -16,16 +17,19 @@ export const auth = $state<{
   status: AuthStatus;
   username: string;
   displayName: string;
+  passkeysEnabled: boolean;
 }>({
   status: "loading",
   username: "",
   displayName: "",
+  passkeysEnabled: false,
 });
 
 function apply(session: AuthSession): void {
   setCsrfToken(session.csrf_token ?? "");
   auth.username = session.username ?? "";
   auth.displayName = session.display_name ?? "";
+  auth.passkeysEnabled = session.passkeys_enabled ?? auth.passkeysEnabled;
   auth.status = session.authenticated
     ? "ready"
     : session.setup_required
@@ -43,6 +47,10 @@ export async function loadSession(): Promise<void> {
 
 export async function login(username: string, password: string) {
   apply(await loginRequest(username, password));
+}
+
+export async function passkeyLogin() {
+  apply(await signInWithPasskey());
 }
 
 export async function setup(username: string, password: string) {

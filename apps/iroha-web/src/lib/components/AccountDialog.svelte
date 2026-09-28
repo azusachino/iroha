@@ -1,13 +1,10 @@
 <script lang="ts">
   import { X } from "@lucide/svelte";
-  import type { Snippet } from "svelte";
+  import PasskeySettings from "./PasskeySettings.svelte";
   import { ApiError } from "$lib/api";
   import { auth, setDisplayName } from "$lib/auth.svelte";
 
-  let {
-    open = $bindable(false),
-    security,
-  }: { open?: boolean; security?: Snippet } = $props();
+  let { open = $bindable(false) }: { open?: boolean } = $props();
 
   let dialog: HTMLDialogElement;
   let tab = $state<"profile" | "security">("profile");
@@ -108,11 +105,7 @@
     </form>
   {:else}
     <div class="panel">
-      {#if security}
-        {@render security()}
-      {:else}
-        <p class="muted">Sign-in methods will appear here.</p>
-      {/if}
+      <PasskeySettings />
     </div>
   {/if}
 </dialog>
@@ -195,8 +188,7 @@
     color: var(--text-muted);
   }
 
-  small,
-  .muted {
+  small {
     color: var(--text-muted);
     font-size: 0.78rem;
   }

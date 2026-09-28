@@ -42,7 +42,9 @@ type authSessionResponse struct {
 	Authenticated bool   `json:"authenticated"`
 	Username      string `json:"username,omitempty"`
 	DisplayName   string `json:"display_name,omitempty"`
-	CSRFToken     string `json:"csrf_token,omitempty"`
+	// PasskeysEnabled tells the sign-in screen whether to offer passkeys.
+	PasskeysEnabled bool   `json:"passkeys_enabled"`
+	CSRFToken       string `json:"csrf_token,omitempty"`
 }
 
 // requireSession admits only requests carrying a valid owner session cookie.
@@ -98,8 +100,9 @@ func (s *Server) handleAuthSession(w http.ResponseWriter, r *http.Request) {
 	}
 	response := authSessionResponse{SetupRequired: required}
 	if who, err := s.deps.Auth.Authenticate(r.Context(), sessionToken(r)); err == nil {
-		response = authSessionResponse{Authenticated: true, Username: who.Username, DisplayName: who.DisplayName, CSRFToken: who.CSRFToken}
+		response = s.signedInResponse(who)
 	}
+	response.PasskeysEnabled = s.passkeysEnabled()
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -156,7 +159,7 @@ func (s *Server) handleCredentials(w http.ResponseWriter, r *http.Request, actio
 	}
 	s.deps.Logger.Info("owner session created", "session_id", who.SessionID)
 	http.SetCookie(w, sessionCookie(token, time.Now().Add(auth.SessionTTL)))
-	writeJSON(w, http.StatusOK, authSessionResponse{Authenticated: true, Username: who.Username, DisplayName: who.DisplayName, CSRFToken: who.CSRFToken})
+	writeJSON(w, http.StatusOK, s.signedInResponse(who))
 }
 
 func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
@@ -194,6 +197,21 @@ func (s *Server) handleUpdateAccount(w http.ResponseWriter, r *http.Request) {
 		writeContractError(w, http.StatusInternalServerError, "auth_failed", "failed to update account")
 	default:
 		writeJSON(w, http.StatusOK, map[string]string{"username": who.Username, "display_name": name})
+	}
+}
+
+func (s *Server) passkeysEnabled() bool {
+	return s.deps.Passkeys != nil && s.deps.Passkeys.PasskeysEnabled()
+}
+
+// signedInResponse is the session state returned after any sign-in.
+func (s *Server) signedInResponse(who auth.Principal) authSessionResponse {
+	return authSessionResponse{
+		Authenticated:   true,
+		Username:        who.Username,
+		DisplayName:     who.DisplayName,
+		PasskeysEnabled: s.passkeysEnabled(),
+		CSRFToken:       who.CSRFToken,
 	}
 }
 

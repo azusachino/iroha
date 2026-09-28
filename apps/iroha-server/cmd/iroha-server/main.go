@@ -102,6 +102,14 @@ func main() {
 	}
 
 	intakeCredentials := intakecredential.NewService(db)
+	authService := auth.NewService(db)
+	if cfg.Server.WebAuthnRPID != "" {
+		if err := authService.ConfigurePasskeys(cfg.Server.WebAuthnRPID, cfg.Server.WebAuthnOrigins); err != nil {
+			logger.Error("configure passkeys", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("passkeys enabled", "rp_id", cfg.Server.WebAuthnRPID)
+	}
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:                  cfg,
 		Logger:                  logger,
@@ -124,7 +132,8 @@ func main() {
 		TaskService:             taskService,
 		HealthIntakeCredentials: intakeCredentials,
 		IntakeCredentialAdmin:   intakeCredentials,
-		Auth:                    auth.NewService(db),
+		Auth:                    authService,
+		Passkeys:                authService,
 		ReadyCheck: func(ctx context.Context) error {
 			sqlDB, err := db.DB()
 			if err != nil {

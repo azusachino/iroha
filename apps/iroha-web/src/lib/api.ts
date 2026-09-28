@@ -1054,6 +1054,7 @@ export interface AuthSession {
   authenticated: boolean;
   username?: string;
   display_name?: string;
+  passkeys_enabled?: boolean;
   csrf_token?: string;
 }
 
@@ -1143,4 +1144,94 @@ export function revokeIntakeCredential(
     `/api/v1/admin/intake-credentials/${encodeURIComponent(id)}`,
     fetchFn,
   );
+}
+
+export interface Passkey {
+  id: string;
+  name: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+// WebAuthn options as the server sends them; `publicKey` goes straight to
+// PublicKeyCredential.parse*OptionsFromJSON.
+export interface PasskeyOptions<T> {
+  publicKey: T;
+}
+
+export function reauthenticate(
+  password: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return mutateJSON("/api/v1/account/reauth", "POST", { password }, fetchFn);
+}
+
+export async function listPasskeys(
+  fetchFn: typeof fetch = fetch,
+): Promise<Passkey[]> {
+  const page = await getJSON<{ items: Passkey[] }>(
+    "/api/v1/account/passkeys",
+    fetchFn,
+  );
+  return page.items;
+}
+
+export function beginPasskeyRegistration(
+  fetchFn: typeof fetch = fetch,
+): Promise<PasskeyOptions<PublicKeyCredentialCreationOptionsJSON>> {
+  return mutateJSON(
+    "/api/v1/account/passkeys/register/begin",
+    "POST",
+    undefined,
+    fetchFn,
+  );
+}
+
+export function finishPasskeyRegistration(
+  name: string,
+  credential: unknown,
+  fetchFn: typeof fetch = fetch,
+): Promise<Passkey> {
+  return mutateJSON(
+    `/api/v1/account/passkeys/register/finish?name=${encodeURIComponent(name)}`,
+    "POST",
+    credential,
+    fetchFn,
+  );
+}
+
+export function renamePasskey(
+  id: string,
+  name: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return mutateJSON(
+    `/api/v1/account/passkeys/${encodeURIComponent(id)}`,
+    "PATCH",
+    { name },
+    fetchFn,
+  );
+}
+
+export function deletePasskey(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return deleteJSON(
+    `/api/v1/account/passkeys/${encodeURIComponent(id)}`,
+    fetchFn,
+  );
+}
+
+export function beginPasskeyLogin(
+  fetchFn: typeof fetch = fetch,
+): Promise<PasskeyOptions<PublicKeyCredentialRequestOptionsJSON>> {
+  return mutateJSON("/api/v1/auth/passkey/begin", "POST", undefined, fetchFn);
+}
+
+export function finishPasskeyLogin(
+  credential: unknown,
+  fetchFn: typeof fetch = fetch,
+): Promise<AuthSession> {
+  return mutateJSON("/api/v1/auth/passkey/finish", "POST", credential, fetchFn);
 }

@@ -798,10 +798,11 @@ func (IntakeCredential) TableName() string { return "tb_intake_credentials" }
 // User is the single owner's identity record. Credentials live in
 // UserPassword and Session, never here.
 type User struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Username    string
-	DisplayName *string
-	CreatedAt   time.Time
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Username       string
+	DisplayName    *string
+	WebauthnHandle []byte `gorm:"column:webauthn_handle"`
+	CreatedAt      time.Time
 }
 
 func (User) TableName() string { return "tb_users" }
@@ -816,14 +817,29 @@ func (UserPassword) TableName() string { return "tb_user_passwords" }
 
 // Session is a server-side login session, found by the SHA-256 of its cookie value.
 type Session struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
-	UserID      uuid.UUID `gorm:"type:uuid"`
-	TokenSHA256 string    `gorm:"column:token_sha256"`
-	CSRFToken   string    `gorm:"column:csrf_token"`
-	CreatedAt   time.Time
-	ExpiresAt   time.Time
-	LastSeenAt  time.Time
-	RevokedAt   *time.Time
+	ID                uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserID            uuid.UUID `gorm:"type:uuid"`
+	TokenSHA256       string    `gorm:"column:token_sha256"`
+	CSRFToken         string    `gorm:"column:csrf_token"`
+	CreatedAt         time.Time
+	ExpiresAt         time.Time
+	LastSeenAt        time.Time
+	RevokedAt         *time.Time
+	ReauthenticatedAt *time.Time
 }
 
 func (Session) TableName() string { return "tb_sessions" }
+
+// Passkey is one WebAuthn credential of the owner. Credential holds the
+// library's serialized public-key state (never a private key).
+type Passkey struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserID       uuid.UUID `gorm:"type:uuid"`
+	CredentialID []byte
+	Credential   []byte `gorm:"type:jsonb"`
+	Name         string
+	CreatedAt    time.Time
+	LastUsedAt   *time.Time
+}
+
+func (Passkey) TableName() string { return "tb_passkeys" }

@@ -11,6 +11,9 @@ contract between minor versions.
 
 - Add the single-owner login from ADR-0008: a one-time setup screen, Argon2id password login, server-side sessions in an `HttpOnly` `Secure` `SameSite=Lax` cookie, and CSRF tokens on state-changing
   requests. Every private `/api/v1` route now requires the owner session.
+- Add passkeys (ADR-0008 item 6): username-less passkey sign-in, and add/rename/remove under Account settings → Security with a password re-confirmation. Enabled by `IROHA_WEBAUTHN_RP_ID` and
+  `IROHA_WEBAUTHN_ORIGINS` (migration 00024).
+- Replace the sign-in and setup screens with a Kite-style card, move log out into a header user menu on every page, and add a display name (migration 00023).
 - Add HAE intake-token management to the Admin page, and the break-glass `iroha-admin password reset`.
 - Rate-limit login and setup (10/min) and HAE intake (30/min) per client, with per-credential intake quotas (120 requests/hour, 512 MiB/day). Behind a proxy in `IROHA_TRUSTED_PROXY_CIDRS`, the client
   is taken from `Cf-Connecting-Ip`.

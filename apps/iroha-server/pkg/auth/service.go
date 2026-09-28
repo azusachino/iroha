@@ -62,11 +62,15 @@ type Principal struct {
 	DisplayName string
 	SessionID   string
 	CSRFToken   string
+	// ReauthenticatedAt is when this session last re-confirmed the password.
+	ReauthenticatedAt *time.Time
 }
 
 type Service struct {
 	db  *gorm.DB
 	now func() time.Time
+	// passkeys is nil until ConfigurePasskeys succeeds.
+	passkeys *passkeyConfig
 }
 
 func NewService(db *gorm.DB) *Service {
@@ -249,6 +253,8 @@ func principal(user models.User, session models.Session) Principal {
 		DisplayName: displayName(user),
 		SessionID:   ids.Encode(ids.SessionPrefix, session.ID),
 		CSRFToken:   session.CSRFToken,
+
+		ReauthenticatedAt: session.ReauthenticatedAt,
 	}
 }
 

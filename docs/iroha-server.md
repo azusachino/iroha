@@ -350,6 +350,12 @@ logout, expiry, and password reset revoke sessions server-side. Passwords are st
 **CSRF.** State-changing requests must send the session's CSRF token in `X-CSRF-Token`; `GET /api/v1/auth/session` returns it to the web app, which keeps it in memory only. A missing or wrong token
 gets `403 csrf_failed`.
 
+**Passkeys.** Set `IROHA_WEBAUTHN_RP_ID` (the site's host name, e.g. `iroha.example.com`) and `IROHA_WEBAUTHN_ORIGINS` (comma-separated exact origins, e.g. `https://iroha.example.com`) to enable them;
+unset, passkey routes answer `503 passkeys_disabled` and the UI hides them. The owner adds, renames, and removes passkeys under **Account settings → Security**; adding or removing needs the password
+re-confirmed within the last 5 minutes (`POST /api/v1/account/reauth`). Sign-in is username-less (discoverable credentials, user verification required). Only public-key credential state is stored
+(`tb_passkeys`); ceremony challenges are single-use, in memory, bound to an `HttpOnly` `SameSite=Strict` cookie, and expire after 5 minutes. The library checks origin and RP ID against the configured
+values, never forwarded headers.
+
 **HAE tokens.** The owner issues and revokes intake tokens on the Admin page (`/api/v1/admin/intake-credentials`); the operator command `iroha-admin intake-token` does the same from the server
 container.
 

@@ -1,7 +1,14 @@
 <script lang="ts">
-  import { Eye, EyeOff } from "@lucide/svelte";
+  import { Eye, EyeOff, KeyRound } from "@lucide/svelte";
   import { ApiError } from "$lib/api";
-  import { auth, loadSession, login, setup } from "$lib/auth.svelte";
+  import {
+    auth,
+    loadSession,
+    login,
+    passkeyLogin,
+    setup,
+  } from "$lib/auth.svelte";
+  import { PasskeyCancelled, passkeysSupported } from "$lib/passkey";
 
   const isSetup = $derived(auth.status === "setup");
   let username = $state("");
@@ -10,6 +17,27 @@
   let showPassword = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
+
+  const offerPasskey = $derived(
+    !isSetup && auth.passkeysEnabled && passkeysSupported(),
+  );
+
+  async function usePasskey() {
+    error = null;
+    busy = true;
+    try {
+      await passkeyLogin();
+    } catch (cause) {
+      error =
+        cause instanceof PasskeyCancelled
+          ? null
+          : cause instanceof ApiError
+            ? cause.message
+            : "Couldn't sign in with a passkey. Try again or use your password.";
+    } finally {
+      busy = false;
+    }
+  }
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -139,6 +167,18 @@
               ? "Create account"
               : "Sign in"}
         </button>
+
+        {#if offerPasskey}
+          <div class="divider" aria-hidden="true"><span>or</span></div>
+          <button
+            type="button"
+            class="secondary"
+            disabled={busy}
+            onclick={() => void usePasskey()}
+          >
+            <KeyRound size={16} /> Sign in with a passkey
+          </button>
+        {/if}
       </form>
     {/if}
   </div>
@@ -258,6 +298,42 @@
   }
 
   .primary:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  .divider::before,
+  .divider::after {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    content: "";
+  }
+
+  .secondary {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 4px);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .secondary:disabled {
     cursor: default;
     opacity: 0.6;
   }
