@@ -5,7 +5,20 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
-## [Unreleased]
+## [0.5.0] — 2026-09-27
+
+### Added
+
+- Add native Health Auto Export (HAE) Format v2 JSON parser and provider adapter for continuous, automated daily health data intake (`KindHealthAutoExport = "health_auto_export"`).
+- Support sparse metric ingestion: unconfigured metrics are omitted safely; sleep durations in fractional hours are converted to integer seconds; non-empty metric units defensively default to conform to database check constraints.
+- Parse GPS route trackpoints and continuous heart rate samplings directly from HAE workout payloads into canonical activity observations.
+- Expand `POST /api/v1/intake/health` request body limit to 10 MiB to accommodate high-resolution GPS tracks and workout vital series.
+- Add setup documentation ([`docs/health-auto-export-setup.md`](docs/health-auto-export-setup.md)) with detailed user stories, iOS/watchOS export settings, and troubleshooting instructions.
+- Add architecture decision record [ADR-0008](docs/adr/0008-health-auto-export-http-intake.md) documenting the two-tier ingestion model, the required intake credential, and bounded replacement semantics.
+- Replace the legacy schema boundary with a fresh SQLx-managed schema through migration 00020. This is a cut-over release: raw evidence is replayed into the new schema; no legacy-schema migration or Goose adoption is provided.
+- Replay the complete 2026-09-08 Apple Health export without destructive purges, preserving source receipts, interpretation history, canonical activities, daily health, and sleep projections.
+- Add scheduled AniList/Bangumi sync runs, agent-applied matching decisions, and source-aware cockpit attention.
+- Add expense accounts, linked and unlinked refunds, revision-backed consistent reads, report evidence status, connection actions, restored agent CLI parity, and an honest sanitized public exporter boundary.
 
 ### Changed
 
@@ -16,22 +29,6 @@ contract between minor versions.
   sleep instead of silently dropping data.
 - Fix HAE distance conversion (only the first point of a miles metric was converted), convert metres, and convert workout energy reported in kJ.
 - Rewrite the Health Auto Export setup guide and add a reference page for HAE settings and payloads.
-
-## [0.5.0] — 2026-09-27
-
-### Added
-
-- Add native Health Auto Export (HAE) Format v2 JSON parser and provider adapter for continuous, automated daily health data intake (`KindHealthAutoExport = "health_auto_export"`).
-- Support sparse metric ingestion: unconfigured metrics are omitted safely; sleep durations in fractional hours are converted to integer seconds; non-empty metric units defensively default to conform to database check constraints.
-- Parse GPS route trackpoints and continuous heart rate samplings directly from HAE workout payloads into canonical activity observations.
-- Expand `POST /api/v1/intake/health` request body limit to 10 MiB to accommodate high-resolution GPS tracks and workout vital series.
-- Establish perimeter-based network security: `POST /api/v1/intake/health` accepts unauthenticated requests over a private Tailnet or LAN perimeter, eliminating plain-text bearer tokens inside mobile apps while retaining configurable token authentication when `IROHA_HEALTH_INTAKE_TOKEN` is defined.
-- Add setup documentation ([`docs/health-auto-export-setup.md`](docs/health-auto-export-setup.md)) with detailed user stories, iOS/watchOS export settings, and troubleshooting instructions.
-- Add architecture decision record [ADR-0008](docs/adr/0008-health-auto-export-http-intake.md) documenting the two-tier ingestion model, tailnet perimeter security, and bounded replacement semantics.
-- Replace the legacy schema boundary with a fresh SQLx-managed schema through migration 00020. This is a cut-over release: raw evidence is replayed into the new schema; no legacy-schema migration or Goose adoption is provided.
-- Replay the complete 2026-09-08 Apple Health export without destructive purges, preserving source receipts, interpretation history, canonical activities, daily health, and sleep projections.
-- Add scheduled AniList/Bangumi sync runs, agent-applied matching decisions, and source-aware cockpit attention.
-- Add expense accounts, linked and unlinked refunds, revision-backed consistent reads, report evidence status, connection actions, restored agent CLI parity, and an honest sanitized public exporter boundary.
 
 ### Removed
 
