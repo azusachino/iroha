@@ -104,6 +104,6 @@ security settings. Iroha adopts that workflow's useful shape without adopting Ki
 - User/profile records are separate from credentials and sessions. Iroha remains single-owner; multi-user administration, third-party identity providers, MFA, email recovery, and broad service/API
   keys are out of scope.
 - The user-facing CLI is retired. Domain workflows must move to the web app or be retired; future non-browser clients need an explicit design.
-- The HAE intake credential (stored verifier, fail-closed, rotation) is implemented ahead of the rest of the authentication feature. Until the admin page exists, the token is issued and rotated with
-  the operator-only `iroha-admin intake-token` command (issue, list, revoke; one credential per device, so a rotation overlaps until the old one is revoked), the same break-glass class as the password
-  reset in item 12. Login, sessions, passkeys, public ingress and rate limits remain unimplemented; this ADR alone does not change their runtime behavior.
+- 0.5 implements the core of this decision: the HAE intake credential (stored verifier, fail-closed; one credential per device, so a rotation overlaps until the old one is revoked), owner setup,
+  password login, server sessions with CSRF protection, token management on the admin page, and the break-glass `iroha-admin password reset` (item 12). The operator-only `iroha-admin intake-token`
+  command manages the same credentials from the server container. Passkeys, public ingress, and login rate limits remain unimplemented.

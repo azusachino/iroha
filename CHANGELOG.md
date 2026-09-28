@@ -9,6 +9,9 @@ contract between minor versions.
 
 ### Added
 
+- Add the single-owner login from ADR-0008: a one-time setup screen, Argon2id password login, server-side sessions in an `HttpOnly` `Secure` `SameSite=Lax` cookie, and CSRF tokens on state-changing
+  requests. Every private `/api/v1` route now requires the owner session.
+- Add HAE intake-token management to the Admin page, and the break-glass `iroha-admin password reset`.
 - Add native Health Auto Export (HAE) Format v2 JSON parser and provider adapter for continuous, automated daily health data intake (`KindHealthAutoExport = "health_auto_export"`).
 - Support sparse metric ingestion: unconfigured metrics are omitted safely; sleep durations in fractional hours are converted to integer seconds; non-empty metric units defensively default to conform
   to database check constraints.

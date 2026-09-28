@@ -178,6 +178,7 @@ func TestExpensePeriodReportIntegration(t *testing.T) {
 func requestStatus(t *testing.T, handler http.Handler, method, path string, wantStatus int) {
 	t.Helper()
 	req := httptest.NewRequest(method, path, nil)
+	req.Header.Set(csrfHeaderName, testCSRFToken)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	if rec.Code != wantStatus {

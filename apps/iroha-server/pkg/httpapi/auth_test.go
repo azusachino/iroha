@@ -20,12 +20,14 @@ func (a tokenAuth) Setup(_ context.Context, username, _ string) (string, auth.Pr
 	}
 	return "good", auth.Principal{Username: username, CSRFToken: "csrf"}, nil
 }
+
 func (tokenAuth) Login(_ context.Context, username, password string) (string, auth.Principal, error) {
 	if password != "right" {
 		return "", auth.Principal{}, auth.ErrInvalidCredentials
 	}
 	return "good", auth.Principal{Username: username, CSRFToken: "csrf"}, nil
 }
+
 func (tokenAuth) Authenticate(_ context.Context, token string) (auth.Principal, error) {
 	if token != "good" {
 		return auth.Principal{}, auth.ErrUnauthenticated

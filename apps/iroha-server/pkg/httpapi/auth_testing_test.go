@@ -16,9 +16,11 @@ func (allowAllAuth) SetupRequired(context.Context) (bool, error) { return false,
 func (allowAllAuth) Setup(context.Context, string, string) (string, auth.Principal, error) {
 	return "", auth.Principal{}, auth.ErrAlreadySetUp
 }
+
 func (allowAllAuth) Login(context.Context, string, string) (string, auth.Principal, error) {
 	return "", auth.Principal{}, auth.ErrInvalidCredentials
 }
+
 func (allowAllAuth) Authenticate(context.Context, string) (auth.Principal, error) {
 	return auth.Principal{Username: "owner", CSRFToken: testCSRFToken}, nil
 }

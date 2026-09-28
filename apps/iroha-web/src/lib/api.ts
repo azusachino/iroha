@@ -417,14 +417,35 @@ export function listDailyAggregates(
   );
 }
 
+// The owner session lives in an HttpOnly cookie; the CSRF token that must
+// accompany state-changing requests is kept in memory only (ADR-0008).
+let csrfToken = "";
+
+export function setCsrfToken(token: string): void {
+  csrfToken = token;
+}
+
+// Fired when the server reports the session is missing or expired, so the
+// app can show the login screen without every page handling 401s.
+export const UNAUTHENTICATED_EVENT = "iroha:unauthenticated";
+
 async function requestJSON<T>(
   path: string,
   init: RequestInit = {},
   fetchFn: typeof fetch = fetch,
 ): Promise<T> {
+  const method = (init.method ?? "GET").toUpperCase();
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  if (method !== "GET" && method !== "HEAD" && csrfToken) {
+    headers["x-csrf-token"] = csrfToken;
+  }
   const res = await fetchFn(`${API_BASE}${path}`, {
     ...init,
-    headers: { accept: "application/json", ...init.headers },
+    credentials: "same-origin",
+    headers,
   });
   if (!res.ok) {
     let body: unknown;
@@ -441,6 +462,13 @@ async function requestJSON<T>(
       typeof body.code === "string" &&
       typeof body.message === "string"
     ) {
+      if (
+        res.status === 401 &&
+        body.code === "unauthenticated" &&
+        typeof window !== "undefined"
+      ) {
+        window.dispatchEvent(new CustomEvent(UNAUTHENTICATED_EVENT));
+      }
       throw new ApiError(
         res.status,
         body.code,
@@ -1019,4 +1047,87 @@ export function getActivityRoutes(
   fetchFn: typeof fetch = fetch,
 ): Promise<RouteFeatureCollection> {
   return getJSON<RouteFeatureCollection>("/api/v1/activities/routes", fetchFn);
+}
+
+export interface AuthSession {
+  setup_required: boolean;
+  authenticated: boolean;
+  username?: string;
+  csrf_token?: string;
+}
+
+export function getAuthSession(
+  fetchFn: typeof fetch = fetch,
+): Promise<AuthSession> {
+  return getJSON<AuthSession>("/api/v1/auth/session", fetchFn);
+}
+
+export function setupOwner(
+  username: string,
+  password: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<AuthSession> {
+  return mutateJSON<AuthSession>(
+    "/api/v1/auth/setup",
+    "POST",
+    { username, password },
+    fetchFn,
+  );
+}
+
+export function login(
+  username: string,
+  password: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<AuthSession> {
+  return mutateJSON<AuthSession>(
+    "/api/v1/auth/login",
+    "POST",
+    { username, password },
+    fetchFn,
+  );
+}
+
+export function logout(fetchFn: typeof fetch = fetch): Promise<void> {
+  return mutateJSON<void>("/api/v1/auth/logout", "POST", undefined, fetchFn);
+}
+
+export interface IntakeCredential {
+  id: string;
+  name: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+export async function listIntakeCredentials(
+  fetchFn: typeof fetch = fetch,
+): Promise<IntakeCredential[]> {
+  const page = await getJSON<{ items: IntakeCredential[] }>(
+    "/api/v1/admin/intake-credentials",
+    fetchFn,
+  );
+  return page.items;
+}
+
+export function issueIntakeCredential(
+  name: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ credential: IntakeCredential; token: string }> {
+  return mutateJSON(
+    "/api/v1/admin/intake-credentials",
+    "POST",
+    { name },
+    fetchFn,
+  );
+}
+
+export function revokeIntakeCredential(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return deleteJSON(
+    `/api/v1/admin/intake-credentials/${encodeURIComponent(id)}`,
+    fetchFn,
+  );
 }

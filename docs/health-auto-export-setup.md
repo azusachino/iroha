@@ -19,22 +19,12 @@ You need:
 
 ## Step 1: Issue the intake token
 
-Iroha refuses all intake (`503 intake_not_provisioned`) until a token exists. Issue one:
+Iroha refuses all intake (`503 intake_not_provisioned`) until a token exists. Log in to Iroha, open **Admin**, and under **Intake tokens** keep the device name `primary` and choose **Issue token**.
+Without the web app, an operator can run `iroha-admin intake-token issue` in the server container instead.
 
-```bash
-iroha-admin intake-token issue
-```
+Iroha shows the token **once**. Iroha stores only its SHA-256 hash, so the token cannot be shown again. Copy it straight into HAE in step 3; do not save it in a note, a tracked file, or a chat.
 
-Local development equivalent, from the repository root:
-
-```bash
-go -C apps/iroha-server run ./cmd/iroha-admin intake-token issue
-```
-
-The command prints the token **once** and exits. Iroha stores only its SHA-256 hash, so the token cannot be shown again. Copy it straight into HAE in step 3; do not save it in a note, a tracked file,
-or a chat.
-
-The token is named `primary` and uploads are recorded under source instance `iphone-hae:primary`. A second device needs its own token: `iroha-admin intake-token issue -name ipad`.
+The token is named `primary` and uploads are recorded under source instance `iphone-hae:primary`. A second device needs its own token under its own name, such as `ipad`.
 
 ## Step 2: Prepare the iPhone
 
@@ -126,10 +116,10 @@ Before relying on the intake, confirm the facts HAE's documentation leaves open 
 
 ## Rotate the token
 
-1. Run `iroha-admin intake-token issue` (same `-name` as before) and copy the new token. The old token keeps working.
+1. On **Admin → Intake tokens**, issue a new token with the same device name and copy it. The old token keeps working.
 2. Paste it into the `Authorization` header of **both** automations.
 3. Run each automation manually and confirm **202** in Activity Logs.
-4. Run `iroha-admin intake-token list` and `iroha-admin intake-token revoke <cred_id>` for the old credential.
+4. Revoke the old token in the same list.
 
 If a token leaks, revoke it first; the phone then fails with `401` until step 2, and "Previous 7 Days" re-sends the missed data.
 
