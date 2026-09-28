@@ -368,7 +368,10 @@
 
 <header class="hero tile">
   <div class="hero-topline">
-    <p class="eyebrow">{site.name} {site.byline}</p>
+    <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
+      <img src={`${base}/favicon.svg`} alt="" width="28" height="28" />
+      <span class="eyebrow">{site.name} {site.byline}</span>
+    </a>
     <ThemeToggle />
   </div>
   <h1>The shape of the miles.</h1>
@@ -655,6 +658,27 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+  }
+  .brand {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.55rem;
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .brand img {
+    flex: none;
+    border-radius: 7px;
+  }
+  .brand:hover .eyebrow {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .brand:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
   }
   .hero-topline {
     display: flex;
