@@ -23,7 +23,6 @@ export * from "./view-contracts/sleep-view";
 export * from "./domain/report";
 export * from "./domain/expense";
 export * from "./view-contracts/expense-view";
-export * from "./theme/design-compositions";
 export * from "./domain/daily";
 export * from "./view-contracts/daily-view";
 export * from "./domain/public-activity";

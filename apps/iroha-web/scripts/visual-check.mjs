@@ -29,7 +29,7 @@ import { chromium } from "playwright";
 delete process.env.LD_LIBRARY_PATH;
 
 const base = process.env.BASE || "http://127.0.0.1:5173";
-const theme = process.env.THEME || "field-journal";
+const theme = process.env.THEME || "grapher";
 const routes = (process.env.ROUTES || "overview")
   .split(",")
   .map((r) => r.trim());

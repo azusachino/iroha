@@ -47,39 +47,6 @@
     background: var(--surface);
   }
 
-  .period-toolbar[data-appearance="atlas"] {
-    border-width: 2px;
-    background-image:
-      linear-gradient(
-        color-mix(in srgb, var(--accent) 7%, transparent) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--accent) 7%, transparent) 1px,
-        transparent 1px
-      );
-    background-size: 12px 12px;
-  }
-
-  .period-toolbar[data-appearance="field-journal"] {
-    border-style: dashed;
-  }
-
-  .period-toolbar[data-appearance="phenology"] {
-    border-radius: 1.2rem;
-  }
-
-  .period-toolbar[data-appearance="cadence"] {
-    border-inline-width: 3px;
-  }
-
-  .period-toolbar[data-appearance="archive"] {
-    border-width: 3px;
-    border-style: double;
-    border-radius: 0;
-  }
-
   .period-toolbar[data-appearance="grapher"] {
     border-radius: 2px;
     border-bottom-width: 3px;

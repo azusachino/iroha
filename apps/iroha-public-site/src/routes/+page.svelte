@@ -376,10 +376,9 @@
     A public field guide to the routes and rhythms made visible.
   </p>
   <div class="hero-meta" aria-label="Archive metadata">
-    <span>Public snapshot</span>
+    <span>Live</span>
     <span>Updated {formatDateOnly(meta.generated_at)}</span>
     <span>iroha v{site.version}</span>
-    <a href={`${base}/design`}>Design workbench ↗</a>
   </div>
 </header>
 

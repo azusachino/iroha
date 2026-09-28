@@ -5,11 +5,9 @@
   import CommandPalette from "$lib/components/CommandPalette.svelte";
   import NavigationMenu from "$lib/components/NavigationMenu.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
-  import DesignLanguagePicker from "$lib/components/DesignLanguagePicker.svelte";
   import { navigationGroups } from "$lib/navigation";
   import ThemeFrame from "$lib/themes/ThemeFrame.svelte";
   import ThemeProvider from "$lib/themes/ThemeProvider.svelte";
-  import AmbientBackground from "@iroha/shared/theme-ui/ambient/AmbientBackground.svelte";
   import AuthScreen from "$lib/components/AuthScreen.svelte";
   import { UNAUTHENTICATED_EVENT } from "$lib/api";
   import { auth, loadSession, sessionExpired } from "$lib/auth.svelte";
@@ -77,12 +75,10 @@
     <span>Command</span>
     <kbd>⌘K</kbd>
   </button>
-  <DesignLanguagePicker />
   <ThemeToggle />
 {/snippet}
 
 <ThemeProvider>
-  <AmbientBackground />
   {#if auth.status === "ready"}
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="app">

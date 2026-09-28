@@ -15,9 +15,9 @@ contract between minor versions.
 - Rate-limit login and setup (10/min) and HAE intake (30/min) per client, with per-credential intake quotas (120 requests/hour, 512 MiB/day). Behind a proxy in `IROHA_TRUSTED_PROXY_CIDRS`, the client
   is taken from `Cf-Connecting-Ip`.
 - Run the web image as a non-root user on port 8080, with the Caddy admin API off and security headers set.
-- Serve the public site's data live from an anonymous, rate-limited `/public/v1` API (summary, activities, routes, meta, and per-activity detail), cached up to 24 hours
-  and rebuilt when activities change. The public site is now a client shell in its own `iroha-public-site` image; the export and builder jobs are retired, and iroha-job
-  disables the `projection_refresh` schedule when no export directory is configured.
+- Serve the public site's data live from an anonymous, rate-limited `/public/v1` API (summary, activities, routes, meta, and per-activity detail), cached up to 24 hours and rebuilt when activities
+  change. The public site is now a client shell in its own `iroha-public-site` image; the export and builder jobs are retired, and iroha-job disables the `projection_refresh` schedule when no export
+  directory is configured.
 - Scripts that call the private API log in with `IROHA_USERNAME`/`IROHA_PASSWORD`; the release-candidate gate creates a throwaway owner.
 - Add native Health Auto Export (HAE) Format v2 JSON parser and provider adapter for continuous, automated daily health data intake (`KindHealthAutoExport = "health_auto_export"`).
 - Support sparse metric ingestion: unconfigured metrics are omitted safely; sleep durations in fractional hours are converted to integer seconds; non-empty metric units defensively default to conform
@@ -46,6 +46,8 @@ contract between minor versions.
 
 ### Removed
 
+- Remove five of the six design languages (atlas, field-journal, phenology, cadence, archive), their ambient backgrounds, the design compositions, the language picker, and both `/design` workbench
+  pages. Grapher is the only design language.
 - Remove the dead iOS Shortcuts receiver (`apple_health_shortcut.go`, test fixture, and setup documentation) in favor of native Health Auto Export background sync.
 
 ### Verification
