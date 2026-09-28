@@ -482,7 +482,10 @@ async function requestJSON<T>(
       `request failed: ${res.status} ${res.statusText} (${path})`,
     );
   }
-  if (res.status === 204) return undefined as T;
+  // 204 and bodiless 2xx responses (e.g. 202 Accepted) carry no JSON.
+  if (res.status === 204 || res.headers?.get?.("content-length") === "0") {
+    return undefined as T;
+  }
   return (await res.json()) as T;
 }
 
@@ -1234,4 +1237,164 @@ export function finishPasskeyLogin(
   fetchFn: typeof fetch = fetch,
 ): Promise<AuthSession> {
   return mutateJSON("/api/v1/auth/passkey/finish", "POST", credential, fetchFn);
+}
+
+export interface JobSchedule {
+  kind: string;
+  enabled: boolean;
+  schedule_kind: string;
+  schedule_expr: string;
+  next_run_at: string | null;
+  last_run_at: string | null;
+}
+
+export interface SystemInfo {
+  parser_version: string;
+  migration_version: number;
+  database_bytes: number;
+  raw_file_count: number;
+  raw_file_bytes: number;
+  cache_backend: string;
+  timezone: string;
+  passkeys_enabled: boolean;
+  server_time: string;
+}
+
+export interface RawFile {
+  id: string;
+  original_filename: string;
+  content_type: string;
+  size_bytes: number;
+  source_kind: string;
+  uploaded_via: string;
+  created_at: string;
+  duplicate?: boolean;
+}
+
+export interface ImportJob {
+  id: string;
+  raw_file_id: string;
+  status: "queued" | "parsing" | "completed" | "failed";
+  parser_kind: string;
+  parser_version: string;
+  error_message?: string;
+  started_at?: string;
+  finished_at?: string;
+  created_at: string;
+}
+
+// Source kinds the raw-file upload accepts, with the parser that reads each.
+export const UPLOAD_SOURCE_KINDS = [
+  { kind: "apple_health_export", label: "Apple Health export (.zip)" },
+  { kind: "gpx", label: "GPX track" },
+  { kind: "fit", label: "FIT activity" },
+  { kind: "tcx", label: "TCX activity" },
+  { kind: "strava_export", label: "Strava export (.zip)" },
+] as const;
+
+export function retryJob(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<Job> {
+  return mutateJSON(
+    `/api/v1/jobs/${encodeURIComponent(id)}/retry`,
+    "POST",
+    undefined,
+    fetchFn,
+  );
+}
+
+export function cancelJob(
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return mutateJSON(
+    `/api/v1/jobs/${encodeURIComponent(id)}/cancel`,
+    "POST",
+    undefined,
+    fetchFn,
+  );
+}
+
+export async function listSchedules(
+  fetchFn: typeof fetch = fetch,
+): Promise<JobSchedule[]> {
+  const page = await getJSON<{ items: JobSchedule[] }>(
+    "/api/v1/admin/schedules",
+    fetchFn,
+  );
+  return page.items;
+}
+
+export function setScheduleEnabled(
+  kind: string,
+  enabled: boolean,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return mutateJSON(
+    `/api/v1/admin/schedules/${encodeURIComponent(kind)}`,
+    "PATCH",
+    { enabled },
+    fetchFn,
+  );
+}
+
+export function runSchedule(
+  kind: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<void> {
+  return mutateJSON(
+    `/api/v1/admin/schedules/${encodeURIComponent(kind)}/run`,
+    "POST",
+    undefined,
+    fetchFn,
+  );
+}
+
+export function getSystemInfo(
+  fetchFn: typeof fetch = fetch,
+): Promise<SystemInfo> {
+  return getJSON<SystemInfo>("/api/v1/admin/system", fetchFn);
+}
+
+export function listRawFiles(
+  fetchFn: typeof fetch = fetch,
+): Promise<RawFile[]> {
+  return getJSON<RawFile[]>("/api/v1/raw-files", fetchFn);
+}
+
+export function listImportJobs(
+  fetchFn: typeof fetch = fetch,
+): Promise<ImportJob[]> {
+  return getJSON<ImportJob[]>("/api/v1/imports", fetchFn);
+}
+
+// Uploads a file as raw evidence; the browser sets the multipart boundary.
+export function uploadRawFile(
+  file: File,
+  sourceKind: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<RawFile> {
+  const body = new FormData();
+  body.set("file", file);
+  body.set("source_kind", sourceKind);
+  body.set("uploaded_via", "web");
+  return requestJSON<RawFile>(
+    "/api/v1/raw-files",
+    { method: "POST", body },
+    fetchFn,
+  );
+}
+
+export function createImportJob(
+  rawFileId: string,
+  parserKind: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<ImportJob> {
+  return mutateJSON(
+    "/api/v1/imports",
+    "POST",
+    { raw_file_id: rawFileId, parser_kind: parserKind },
+    fetchFn,
+  );
 }

@@ -134,6 +134,7 @@ func main() {
 		IntakeCredentialAdmin:   intakeCredentials,
 		Auth:                    authService,
 		Passkeys:                authService,
+		ParserVersion:           parserVersion,
 		ReadyCheck: func(ctx context.Context) error {
 			sqlDB, err := db.DB()
 			if err != nil {

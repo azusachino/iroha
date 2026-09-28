@@ -17,7 +17,6 @@
   import EmptyState from "@iroha/shared/theme-ui/components/EmptyState.svelte";
   import TodaySkeleton from "$lib/components/TodaySkeleton.svelte";
   import MediaUpdateList from "@iroha/shared/theme-ui/components/MediaUpdateList.svelte";
-  import ConnectionAttention from "$lib/components/ConnectionAttention.svelte";
   import { createTodayState } from "./today-state.svelte";
 
   const theme = useTheme();
@@ -117,8 +116,6 @@
       </section>
     {/if}
   </div>
-
-  <ConnectionAttention />
 
   {#if !t.briefing && t.loading}
     <TodaySkeleton label={`Loading ${t.dayLabel}…`} />

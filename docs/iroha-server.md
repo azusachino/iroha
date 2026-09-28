@@ -359,6 +359,11 @@ values, never forwarded headers.
 **HAE tokens.** The owner issues and revokes intake tokens on the Admin page (`/api/v1/admin/intake-credentials`); the operator command `iroha-admin intake-token` does the same from the server
 container.
 
+**Admin operations.** `GET /api/v1/admin/system` reports parser version, schema migration level, database and raw-file storage size, cache backend, and timezone. `GET /api/v1/admin/schedules`,
+`PATCH /api/v1/admin/schedules/{kind}` (`{"enabled": bool}`), and `POST /api/v1/admin/schedules/{kind}/run` list, pause or resume, and trigger recurring jobs; run-now makes the schedule due, and the
+worker enqueues it on its next poll. `POST /api/v1/jobs/{id}/retry` queues a fresh copy of a failed or canceled job (the original row stays as history), and `POST /api/v1/jobs/{id}/cancel` stops a
+queued job.
+
 **Password reset.** There is no in-app recovery. The operator-only break-glass reset reads a new password from stdin and revokes every session:
 
 ```bash

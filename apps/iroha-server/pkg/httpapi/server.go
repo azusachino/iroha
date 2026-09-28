@@ -86,7 +86,9 @@ type Dependencies struct {
 	// Auth authenticates the owner; nil fails closed on every private route.
 	Auth Authenticator
 	// Passkeys is the WebAuthn surface; nil or unconfigured answers 503.
-	Passkeys       PasskeyManager
+	Passkeys PasskeyManager
+	// ParserVersion is reported on the admin system page.
+	ParserVersion  string
 	ReadyCheck     func(context.Context) error
 	MaxUploadBytes int64
 	AllowedOrigins []string
@@ -188,6 +190,12 @@ func (s *Server) privateRoutes(r chi.Router) {
 		r.Patch("/{passkeyId}", s.handleRenamePasskey)
 		r.Delete("/{passkeyId}", s.handleDeletePasskey)
 	})
+	r.Get("/admin/system", s.handleSystem)
+	r.Route("/admin/schedules", func(r chi.Router) {
+		r.Get("/", s.handleListSchedules)
+		r.Patch("/{kind}", s.handleUpdateSchedule)
+		r.Post("/{kind}/run", s.handleRunSchedule)
+	})
 	r.Route("/admin/intake-credentials", func(r chi.Router) {
 		r.Get("/", s.handleListIntakeCredentials)
 		r.Post("/", s.handleIssueIntakeCredential)
@@ -266,6 +274,8 @@ func (s *Server) privateRoutes(r chi.Router) {
 	r.Route("/jobs", func(r chi.Router) {
 		r.Get("/", s.handleListJobs)
 		r.Get("/{jobId}", s.handleGetJob)
+		r.Post("/{jobId}/retry", s.handleRetryJob)
+		r.Post("/{jobId}/cancel", s.handleCancelJob)
 	})
 	r.Post("/actions/{action}", s.handleAction)
 }

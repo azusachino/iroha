@@ -15,6 +15,7 @@ tags:
   - name: system
   - name: auth
   - name: public
+  - name: admin
   - name: coverage
   - name: imports
   - name: activities
@@ -420,6 +421,126 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/admin/system:
+    get:
+      tags: [admin]
+      summary: Deployment facts for the admin page.
+      responses:
+        "200":
+          description: Parser version, migration level, database and raw-file storage size, cache backend, timezone.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parser_version: { type: string }
+                  migration_version: { type: integer }
+                  database_bytes: { type: integer }
+                  raw_file_count: { type: integer }
+                  raw_file_bytes: { type: integer }
+                  cache_backend: { type: string }
+                  timezone: { type: string }
+                  passkeys_enabled: { type: boolean }
+                  server_time: { type: string, format: date-time }
+  /api/v1/admin/schedules:
+    get:
+      tags: [admin]
+      summary: List recurring job schedules.
+      responses:
+        "200":
+          description: Schedules by kind.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind: { type: string }
+                        enabled: { type: boolean }
+                        schedule_kind: { type: string }
+                        schedule_expr: { type: string }
+                        next_run_at:
+                          { type: [string, "null"], format: date-time }
+                        last_run_at:
+                          { type: [string, "null"], format: date-time }
+  /api/v1/admin/schedules/{kind}:
+    patch:
+      tags: [admin]
+      summary: Pause or resume a schedule.
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "204":
+          description: Updated.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/admin/schedules/{kind}/run:
+    post:
+      tags: [admin]
+      summary: Make a schedule due now.
+      description: The worker's scheduler enqueues it on its next poll.
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "202":
+          description: Scheduled to run.
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/jobs/{jobId}/retry:
+    post:
+      tags: [admin]
+      summary: Re-enqueue a failed or canceled job as a new job.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: New job queued.
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/jobs/{jobId}/cancel:
+    post:
+      tags: [admin]
+      summary: Cancel a queued job.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Canceled.
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /api/v1/auth/session:
     get:
       tags: [auth]
