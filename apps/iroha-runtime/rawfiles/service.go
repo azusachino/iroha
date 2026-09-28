@@ -26,6 +26,9 @@ const (
 	IngestionModeFullSnapshot       = "full_snapshot"
 	IngestionModeBoundedReplacement = "bounded_replacement"
 	IngestionModeIncremental        = "incremental"
+
+	privateDirMode  = 0o700
+	privateFileMode = 0o600
 )
 
 type Service struct {
@@ -56,6 +59,9 @@ func NewService(db *gorm.DB, dataDir string) (*Service, error) {
 	if err := os.MkdirAll(absDataDir, 0o755); err != nil {
 		return nil, err
 	}
+	if err := ensurePrivateDir(filepath.Join(absDataDir, "raw-files")); err != nil {
+		return nil, err
+	}
 	return &Service{db: db, dataDir: absDataDir}, nil
 }
 
@@ -67,7 +73,7 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 	}
 
 	tempDir := filepath.Join(s.dataDir, "tmp")
-	if err := os.MkdirAll(tempDir, 0o755); err != nil {
+	if err := ensurePrivateDir(tempDir); err != nil {
 		return models.RawFile{}, false, err
 	}
 
@@ -103,10 +109,10 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 	}
 
 	storagePath := s.storagePath(now, id.String(), input.OriginalFilename)
-	if err := os.MkdirAll(filepath.Dir(storagePath), 0o755); err != nil {
+	if err := s.ensureStorageDir(filepath.Dir(storagePath)); err != nil {
 		return models.RawFile{}, false, err
 	}
-	if err := os.Rename(tempPath, storagePath); err != nil {
+	if err := storePrivateUpload(tempPath, storagePath); err != nil {
 		return models.RawFile{}, false, err
 	}
 
@@ -178,10 +184,10 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 		return models.RawFile{}, err
 	}
 	storagePath := s.storagePath(now, id.String(), snapshot.Filename)
-	if err := os.MkdirAll(filepath.Dir(storagePath), 0o755); err != nil {
+	if err := s.ensureStorageDir(filepath.Dir(storagePath)); err != nil {
 		return models.RawFile{}, err
 	}
-	if err := os.WriteFile(storagePath, snapshot.Body, 0o644); err != nil {
+	if err := writePrivateSnapshot(storagePath, snapshot.Body); err != nil {
 		return models.RawFile{}, err
 	}
 	rawFile := models.RawFile{
@@ -216,6 +222,43 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 	}
 	rawFile.ReceiptID = &receipt.ID
 	return rawFile, nil
+}
+
+func ensurePrivateDir(path string) error {
+	if err := os.MkdirAll(path, privateDirMode); err != nil {
+		return err
+	}
+	return os.Chmod(path, privateDirMode)
+}
+
+func (s *Service) ensureStorageDir(path string) error {
+	if err := ensurePrivateDir(filepath.Join(s.dataDir, "raw-files")); err != nil {
+		return err
+	}
+	return ensurePrivateDir(path)
+}
+
+func storePrivateUpload(source, destination string) error {
+	if err := os.Rename(source, destination); err != nil {
+		return err
+	}
+	if err := os.Chmod(destination, privateFileMode); err != nil {
+		_ = os.Remove(destination)
+		return err
+	}
+	return nil
+}
+
+func writePrivateSnapshot(path string, body []byte) error {
+	if err := os.WriteFile(path, body, privateFileMode); err != nil {
+		_ = os.Remove(path)
+		return err
+	}
+	if err := os.Chmod(path, privateFileMode); err != nil {
+		_ = os.Remove(path)
+		return err
+	}
+	return nil
 }
 
 func (s *Service) recordReceipt(rawFile models.RawFile, sourceKind, uploadedVia, instanceKey, ingestionMode string, observedAt *time.Time, receivedAt time.Time) (models.SourceReceipt, error) {
