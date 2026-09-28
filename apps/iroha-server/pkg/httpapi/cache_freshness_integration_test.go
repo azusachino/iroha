@@ -156,6 +156,7 @@ func requestCachedJSON(t *testing.T, handler http.Handler, method, path, body st
 		reader = strings.NewReader(body)
 	}
 	req := httptest.NewRequest(method, path, reader)
+	req.Header.Set(csrfHeaderName, testCSRFToken)
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}

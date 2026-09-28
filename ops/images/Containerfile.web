@@ -19,4 +19,12 @@ RUN rm -rf .svelte-kit build && bun run build
 FROM caddy:2-alpine
 COPY ops/images/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/apps/iroha-web/build /srv
-EXPOSE 80
+# Run unprivileged; /data and /config are Caddy's writable state directories.
+# Re-copy the binary to drop its cap_net_bind_service file capability: it is
+# unneeded on :8080, and the kernel refuses to exec a file-capability binary
+# once Kubernetes drops all capabilities with no privilege escalation.
+RUN addgroup -S iroha && adduser -S -G iroha -H iroha \
+  && chown -R iroha:iroha /data /config \
+  && cp /usr/bin/caddy /usr/bin/caddy.nocap && mv /usr/bin/caddy.nocap /usr/bin/caddy
+USER iroha
+EXPOSE 8080

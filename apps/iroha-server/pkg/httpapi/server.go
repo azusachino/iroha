@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
-	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -30,16 +30,21 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/go-chi/httprate"
 	"gorm.io/gorm"
 )
 
-// apiRateLimitPerMin is the per-peer request budget (per minute). The private
-// API is unauthenticated by design: iroha is a single-user personal
-// deployment (NAS/private network), and access control is the network
-// boundary, not an application-level credential. The budget is lifted well
-// clear of normal browsing/history-wide sweeps accordingly.
+// apiRateLimitPerMin is the per-client request budget (per minute) for the
+// whole API. It stays well clear of normal browsing and history-wide sweeps;
+// the tighter limits below guard the routes an attacker can reach.
 const apiRateLimitPerMin = 6000
+
+const (
+	// authRateLimitPerMin bounds login and setup attempts per client.
+	authRateLimitPerMin = 10
+	// intakeRateLimitPerMin bounds intake requests per client, before the
+	// credential is checked.
+	intakeRateLimitPerMin = 30
+)
 
 const (
 	// Bump this when a cached JSON representation or key input changes. The
@@ -76,16 +81,23 @@ type Dependencies struct {
 	TaskService         *tasks.Service
 	// HealthIntakeCredentials verifies the HAE intake token; nil fails closed.
 	HealthIntakeCredentials HealthIntakeVerifier
-	ReadyCheck              func(context.Context) error
-	MaxUploadBytes          int64
-	AllowedOrigins          []string
-	Now                     func() time.Time
+	// IntakeCredentialAdmin issues and revokes HAE tokens from the admin page.
+	IntakeCredentialAdmin IntakeCredentialAdmin
+	// Auth authenticates the owner; nil fails closed on every private route.
+	Auth           Authenticator
+	ReadyCheck     func(context.Context) error
+	MaxUploadBytes int64
+	AllowedOrigins []string
+	Now            func() time.Time
 }
 
 type Server struct {
-	deps Dependencies
-	mux  chi.Router
-	now  func() time.Time
+	deps           Dependencies
+	mux            chi.Router
+	now            func() time.Time
+	trustedProxies []netip.Prefix
+	intakeQuota    *intakeQuota
+	publicCache    *publicSnapshotCache
 }
 
 type readSnapshotContextKey struct{}
@@ -109,6 +121,13 @@ func NewServer(deps Dependencies) http.Handler {
 	if deps.Now != nil {
 		server.now = deps.Now
 	}
+	var invalid []string
+	server.trustedProxies, invalid = parseTrustedProxies(deps.Config.Server.TrustedProxies)
+	for _, value := range invalid {
+		deps.Logger.Warn("ignoring invalid trusted proxy CIDR", "value", value)
+	}
+	server.intakeQuota = newIntakeQuota(server.now)
+	server.publicCache = &publicSnapshotCache{}
 	if server.deps.BriefingRegistry == nil {
 		server.deps.BriefingRegistry, _ = briefing.NewRegistry()
 	}
@@ -131,96 +150,111 @@ func (s *Server) routes() {
 
 	s.mux.Get("/healthz", s.handleHealthz)
 	s.mux.Get("/readyz", s.handleReadyz)
+	s.mux.Route("/public/v1", s.publicRoutes)
 	s.mux.Route("/api/v1", func(r chi.Router) {
-		// Private API: CORS limited to configured origins. Unauthenticated —
-		// see the rate-limit budget comment above for why.
+		// Private API: CORS limited to configured origins. Every route below
+		// requires an owner session (ADR-0008) except login/setup and the HAE
+		// intake endpoint, which authenticates with its own credential.
 		r.Use(corsMiddleware(s.deps.AllowedOrigins))
-		r.Use(limitByIP(apiRateLimitPerMin))
-		r.Use(s.rejectFutureReadScope)
-		r.Use(s.readCache)
-		r.Get("/briefing", s.handleBriefing)
-		r.Get("/coverage", s.handleCoverage)
-		r.Get("/connections", s.handleListConnections)
-		r.With(s.requireIntakeCredential).Post("/intake/health", s.handleHealthIntake)
-		r.Post("/media/matching-decisions", s.handleRecordMatchingDecision)
-		r.Get("/metrics", s.handleListMetrics)
-		r.Get("/metrics/{metricId}", s.handleGetMetric)
-		r.Get("/metrics/{metricId}/series", s.handleMetricSeries)
-		r.Route("/raw-files", func(r chi.Router) {
-			r.Post("/", s.handleCreateRawFile)
-			r.Get("/", s.handleListRawFiles)
-			r.Get("/{rawFileId}", s.handleGetRawFile)
-		})
-		r.Route("/imports", func(r chi.Router) {
-			r.Post("/", s.handleCreateImportJob)
-			r.Get("/", s.handleListImportJobs)
-			r.Get("/{importId}", s.handleGetImportJob)
-		})
-		r.Route("/activities", func(r chi.Router) {
-			r.Get("/", s.handleListActivities)
-			r.Get("/overview", s.handleActivityOverview)
-			r.Get("/summary", s.handleActivitySummary)
-			r.Get("/bounds", s.handleActivityBounds)
-			r.Get("/routes", s.handleActivityRoutes)
-			r.Get("/{activityId}", s.handleGetActivity)
-			r.Get("/{activityId}/route", s.handleGetActivityRoute)
-			r.Get("/{activityId}/samplings", s.handleGetActivitySamplings)
-			r.Get("/{activityId}/laps", s.handleGetActivityLaps)
-		})
-		r.Route("/sleep", func(r chi.Router) {
-			r.Get("/", s.handleListSleep)
-			r.Get("/overview", s.handleSleepOverview)
-			r.Get("/aggregates", s.handleSleepAggregates)
-			r.Get("/bounds", s.handleSleepBounds)
-			r.Get("/{sleepId}", s.handleGetSleep)
-			r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
-		})
-		r.Route("/daily", func(r chi.Router) {
-			r.Get("/dates", s.handleDailyDates)
-			r.Get("/bounds", s.handleDailyBounds)
-			r.Get("/", s.handleListDaily)
-			r.Get("/aggregates", s.handleDailyAggregates)
-		})
-		r.Route("/expenses", func(r chi.Router) {
-			r.Post("/", s.handleCreateExpense)
-			r.Get("/", s.handleListExpenses)
-			r.Get("/bounds", s.handleExpenseBounds)
-			r.Post("/statements/preview", s.handlePreviewExpenseStatement)
-			r.Post("/statements", s.handleImportExpenseStatement)
-			r.Get("/{expenseId}", s.handleGetExpense)
-			r.Put("/{expenseId}", s.handleReplaceExpense)
-			r.Delete("/{expenseId}", s.handleDeleteExpense)
-		})
-		r.Route("/reports", func(r chi.Router) {
-			r.Get("/monthly-series", s.handleMonthlyReportSeries)
-			r.Get("/monthly", s.handleMonthlyReport)
-		})
-		r.Route("/media", func(r chi.Router) {
-			r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
-			r.Get("/aggregates", s.handleMediaAggregates)
-			r.Post("/events", s.handleCreateMediaEvent)
-			r.Get("/events", s.handleListMediaEvents)
-			r.Get("/changes", s.handleListMediaChanges)
-			r.Get("/", s.handleListMedia)
-			r.Get("/{mediaId}", s.handleGetMedia)
-		})
-		r.Route("/tasks", func(r chi.Router) {
-			r.Get("/", s.handleListTasks)
-			r.Post("/", s.handleCreateTask)
-			r.Patch("/{taskId}", s.handleUpdateTask)
-		})
-		r.Route("/jobs", func(r chi.Router) {
-			r.Get("/", s.handleListJobs)
-			r.Get("/{jobId}", s.handleGetJob)
-		})
-		r.Post("/actions/{action}", s.handleAction)
+		r.Use(s.limitByClient(apiRateLimitPerMin, time.Minute))
+		r.Get("/auth/session", s.handleAuthSession)
+		r.With(s.limitByClient(authRateLimitPerMin, time.Minute)).Post("/auth/setup", s.handleAuthSetup)
+		r.With(s.limitByClient(authRateLimitPerMin, time.Minute)).Post("/auth/login", s.handleAuthLogin)
+		r.With(
+			s.limitByClient(intakeRateLimitPerMin, time.Minute),
+			s.requireIntakeCredential,
+			s.limitPerIntakeCredential,
+		).Post("/intake/health", s.handleHealthIntake)
+		r.Group(s.privateRoutes)
 	})
 }
 
-// limitByIP builds a per-peer rate limiter (per minute). It intentionally keys
-// off r.RemoteAddr instead of forwarded headers, which are not trusted here.
-func limitByIP(perMinute int) func(http.Handler) http.Handler {
-	return httprate.LimitBy(perMinute, time.Minute, keyByRemoteIP, httprate.WithLimitHandler(rateLimitResponse))
+func (s *Server) privateRoutes(r chi.Router) {
+	r.Use(s.requireSession)
+	r.Use(s.requireCSRF)
+	r.Use(s.rejectFutureReadScope)
+	r.Use(s.readCache)
+	r.Post("/auth/logout", s.handleAuthLogout)
+	r.Route("/admin/intake-credentials", func(r chi.Router) {
+		r.Get("/", s.handleListIntakeCredentials)
+		r.Post("/", s.handleIssueIntakeCredential)
+		r.Delete("/{credentialId}", s.handleRevokeIntakeCredential)
+	})
+	r.Get("/briefing", s.handleBriefing)
+	r.Get("/coverage", s.handleCoverage)
+	r.Get("/connections", s.handleListConnections)
+	r.Post("/media/matching-decisions", s.handleRecordMatchingDecision)
+	r.Get("/metrics", s.handleListMetrics)
+	r.Get("/metrics/{metricId}", s.handleGetMetric)
+	r.Get("/metrics/{metricId}/series", s.handleMetricSeries)
+	r.Route("/raw-files", func(r chi.Router) {
+		r.Post("/", s.handleCreateRawFile)
+		r.Get("/", s.handleListRawFiles)
+		r.Get("/{rawFileId}", s.handleGetRawFile)
+	})
+	r.Route("/imports", func(r chi.Router) {
+		r.Post("/", s.handleCreateImportJob)
+		r.Get("/", s.handleListImportJobs)
+		r.Get("/{importId}", s.handleGetImportJob)
+	})
+	r.Route("/activities", func(r chi.Router) {
+		r.Get("/", s.handleListActivities)
+		r.Get("/overview", s.handleActivityOverview)
+		r.Get("/summary", s.handleActivitySummary)
+		r.Get("/bounds", s.handleActivityBounds)
+		r.Get("/routes", s.handleActivityRoutes)
+		r.Get("/{activityId}", s.handleGetActivity)
+		r.Get("/{activityId}/route", s.handleGetActivityRoute)
+		r.Get("/{activityId}/samplings", s.handleGetActivitySamplings)
+		r.Get("/{activityId}/laps", s.handleGetActivityLaps)
+	})
+	r.Route("/sleep", func(r chi.Router) {
+		r.Get("/", s.handleListSleep)
+		r.Get("/overview", s.handleSleepOverview)
+		r.Get("/aggregates", s.handleSleepAggregates)
+		r.Get("/bounds", s.handleSleepBounds)
+		r.Get("/{sleepId}", s.handleGetSleep)
+		r.Get("/{sleepId}/segments", s.handleGetSleepSegments)
+	})
+	r.Route("/daily", func(r chi.Router) {
+		r.Get("/dates", s.handleDailyDates)
+		r.Get("/bounds", s.handleDailyBounds)
+		r.Get("/", s.handleListDaily)
+		r.Get("/aggregates", s.handleDailyAggregates)
+	})
+	r.Route("/expenses", func(r chi.Router) {
+		r.Post("/", s.handleCreateExpense)
+		r.Get("/", s.handleListExpenses)
+		r.Get("/bounds", s.handleExpenseBounds)
+		r.Post("/statements/preview", s.handlePreviewExpenseStatement)
+		r.Post("/statements", s.handleImportExpenseStatement)
+		r.Get("/{expenseId}", s.handleGetExpense)
+		r.Put("/{expenseId}", s.handleReplaceExpense)
+		r.Delete("/{expenseId}", s.handleDeleteExpense)
+	})
+	r.Route("/reports", func(r chi.Router) {
+		r.Get("/monthly-series", s.handleMonthlyReportSeries)
+		r.Get("/monthly", s.handleMonthlyReport)
+	})
+	r.Route("/media", func(r chi.Router) {
+		r.Post("/sync/{connectorId}", s.handleEnqueueMediaSync)
+		r.Get("/aggregates", s.handleMediaAggregates)
+		r.Post("/events", s.handleCreateMediaEvent)
+		r.Get("/events", s.handleListMediaEvents)
+		r.Get("/changes", s.handleListMediaChanges)
+		r.Get("/", s.handleListMedia)
+		r.Get("/{mediaId}", s.handleGetMedia)
+	})
+	r.Route("/tasks", func(r chi.Router) {
+		r.Get("/", s.handleListTasks)
+		r.Post("/", s.handleCreateTask)
+		r.Patch("/{taskId}", s.handleUpdateTask)
+	})
+	r.Route("/jobs", func(r chi.Router) {
+		r.Get("/", s.handleListJobs)
+		r.Get("/{jobId}", s.handleGetJob)
+	})
+	r.Post("/actions/{action}", s.handleAction)
 }
 
 func requestIDResponseHeader(next http.Handler) http.Handler {
@@ -236,19 +270,12 @@ func rateLimitResponse(w http.ResponseWriter, _ *http.Request) {
 	writeContractError(w, http.StatusTooManyRequests, "rate_limited", "rate limit exceeded")
 }
 
-func keyByRemoteIP(r *http.Request) (string, error) {
-	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return host, nil
-	}
-	return r.RemoteAddr, nil
-}
-
 // corsMiddleware builds a read-only CORS handler for the given origins.
 func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins: origins,
 		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete, http.MethodOptions},
-		AllowedHeaders: []string{"Accept", "Content-Type"},
+		AllowedHeaders: []string{"Accept", "Content-Type", csrfHeaderName},
 		ExposedHeaders: []string{"Retry-After", "X-Request-ID", "X-Iroha-Cache"},
 		MaxAge:         300,
 	})

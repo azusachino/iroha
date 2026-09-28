@@ -38,6 +38,9 @@ type ServerConfig struct {
 	// AllowedOrigins restricts CORS for the private /api/v1 routes. The public
 	// /public/v1 routes always allow all origins (sanitized data).
 	AllowedOrigins []string `toml:"allowed_origins"`
+	// TrustedProxies lists the CIDRs of reverse proxies whose
+	// Cf-Connecting-Ip header is believed for rate limiting.
+	TrustedProxies []string `toml:"trusted_proxies"`
 }
 
 type DatabaseConfig struct {
@@ -120,4 +123,17 @@ func applyEnv(cfg *Config) {
 		}
 		cfg.Server.AllowedOrigins = origins
 	}
+	if value := os.Getenv("IROHA_TRUSTED_PROXY_CIDRS"); value != "" {
+		cfg.Server.TrustedProxies = splitList(value)
+	}
+}
+
+func splitList(value string) []string {
+	items := make([]string, 0)
+	for _, item := range strings.Split(value, ",") {
+		if trimmed := strings.TrimSpace(item); trimmed != "" {
+			items = append(items, trimmed)
+		}
+	}
+	return items
 }

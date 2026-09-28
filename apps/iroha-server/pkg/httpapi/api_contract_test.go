@@ -23,6 +23,13 @@ func TestActiveRouteInventory(t *testing.T) {
 	got := activeRoutes(t, server.mux)
 
 	want := []string{
+		"DELETE /api/v1/admin/intake-credentials/{credentialId}",
+		"GET /api/v1/admin/intake-credentials",
+		"GET /api/v1/auth/session",
+		"POST /api/v1/admin/intake-credentials",
+		"POST /api/v1/auth/login",
+		"POST /api/v1/auth/logout",
+		"POST /api/v1/auth/setup",
 		"GET /api/v1/activities",
 		"GET /api/v1/activities/bounds",
 		"GET /api/v1/activities/overview",
@@ -66,6 +73,11 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /api/v1/sleep/{sleepId}/segments",
 		"GET /api/v1/tasks",
 		"GET /healthz",
+		"GET /public/v1/activities",
+		"GET /public/v1/activities/{activityId}",
+		"GET /public/v1/meta",
+		"GET /public/v1/routes",
+		"GET /public/v1/summary",
 		"GET /readyz",
 		"PATCH /api/v1/tasks/{taskId}",
 		"POST /api/v1/actions/{action}",

@@ -10,9 +10,20 @@
   import ThemeFrame from "$lib/themes/ThemeFrame.svelte";
   import ThemeProvider from "$lib/themes/ThemeProvider.svelte";
   import AmbientBackground from "@iroha/shared/theme-ui/ambient/AmbientBackground.svelte";
+  import AuthScreen from "$lib/components/AuthScreen.svelte";
+  import { UNAUTHENTICATED_EVENT } from "$lib/api";
+  import { auth, loadSession, sessionExpired } from "$lib/auth.svelte";
+  import { onMount } from "svelte";
   import "./app.css";
 
   let { children } = $props();
+
+  onMount(() => {
+    void loadSession();
+    window.addEventListener(UNAUTHENTICATED_EVENT, sessionExpired);
+    return () =>
+      window.removeEventListener(UNAUTHENTICATED_EVENT, sessionExpired);
+  });
 
   function isActive(href: string) {
     return href === "/"
@@ -72,13 +83,17 @@
 
 <ThemeProvider>
   <AmbientBackground />
-  <a class="skip-link" href="#main-content">Skip to main content</a>
-  <div class="app">
-    <CommandPalette />
-    <ThemeFrame {brand} {nav} {actions}>
-      {@render children()}
-    </ThemeFrame>
-  </div>
+  {#if auth.status === "ready"}
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="app">
+      <CommandPalette />
+      <ThemeFrame {brand} {nav} {actions}>
+        {@render children()}
+      </ThemeFrame>
+    </div>
+  {:else}
+    <AuthScreen />
+  {/if}
 </ThemeProvider>
 
 <style>

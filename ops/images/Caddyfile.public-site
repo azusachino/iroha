@@ -1,0 +1,28 @@
+{
+	# No admin API: the config is static.
+	admin off
+}
+
+# Unprivileged port: the container runs as a non-root user.
+:8080 {
+	root * /srv
+	encode gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
+		-Server
+	}
+
+	# Only the anonymous public API is proxied; the private /api/v1 is not
+	# reachable through this site.
+	handle /public/v1/* {
+		reverse_proxy {$IROHA_SERVER_UPSTREAM}
+	}
+
+	handle {
+		try_files {path} {path}.html /index.html
+		file_server
+	}
+}

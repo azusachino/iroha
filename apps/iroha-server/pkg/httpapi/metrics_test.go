@@ -23,7 +23,7 @@ func (f fakeMetricDailySource) MetricValues(context.Context, string, time.Time, 
 
 func TestHandleListMetricsReturnsCatalog(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	NewServer(Dependencies{}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/metrics", nil))
+	NewServer(Dependencies{Auth: allowAllAuth{}}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/metrics", nil))
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
@@ -45,7 +45,7 @@ func TestHandleListMetricsReturnsCatalog(t *testing.T) {
 
 func TestHandleGetMetricReturnsDefinition(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	NewServer(Dependencies{}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/metrics/expenses.amount_minor", nil))
+	NewServer(Dependencies{Auth: allowAllAuth{}}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/metrics/expenses.amount_minor", nil))
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
@@ -64,7 +64,7 @@ func TestHandleGetMetricReturnsDefinition(t *testing.T) {
 
 func TestHandleGetMetricReturnsNotFound(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	NewServer(Dependencies{}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/metrics/missing.metric", nil))
+	NewServer(Dependencies{Auth: allowAllAuth{}}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/metrics/missing.metric", nil))
 
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
@@ -80,7 +80,7 @@ func TestHandleMetricSeriesReturnsServerAggregatedSeries(t *testing.T) {
 		{Day: time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC), Value: 1000, Source: "watch"},
 	}}, nil, nil, nil, nil)
 	recorder := httptest.NewRecorder()
-	NewServer(Dependencies{MetricSeriesService: seriesService}).ServeHTTP(recorder, httptest.NewRequest(
+	NewServer(Dependencies{Auth: allowAllAuth{}, MetricSeriesService: seriesService}).ServeHTTP(recorder, httptest.NewRequest(
 		http.MethodGet,
 		"/api/v1/metrics/health.steps/series?from=2026-01-01&to=2026-03-01&grain=month&timezone=UTC",
 		nil,
@@ -99,7 +99,7 @@ func TestHandleMetricSeriesReturnsServerAggregatedSeries(t *testing.T) {
 
 func TestHandleMetricSeriesRejectsInvalidTimezone(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	NewServer(Dependencies{MetricSeriesService: metricseries.NewService(nil, nil, nil, nil, nil, nil)}).ServeHTTP(recorder, httptest.NewRequest(
+	NewServer(Dependencies{Auth: allowAllAuth{}, MetricSeriesService: metricseries.NewService(nil, nil, nil, nil, nil, nil)}).ServeHTTP(recorder, httptest.NewRequest(
 		http.MethodGet,
 		"/api/v1/metrics/health.steps/series?from=2026-01-01&to=2026-02-01&grain=month&timezone=Not%2FATimezone",
 		nil,
@@ -116,7 +116,7 @@ func TestHandleMetricSeriesDefaultsToConfiguredTimezone(t *testing.T) {
 	}
 	seriesService := metricseries.NewService(registry, fakeMetricDailySource{}, nil, nil, nil, nil)
 	recorder := httptest.NewRecorder()
-	NewServer(Dependencies{MetricSeriesService: seriesService}).ServeHTTP(recorder, httptest.NewRequest(
+	NewServer(Dependencies{Auth: allowAllAuth{}, MetricSeriesService: seriesService}).ServeHTTP(recorder, httptest.NewRequest(
 		http.MethodGet,
 		"/api/v1/metrics/health.steps/series?from=2026-01-01&to=2026-02-01&grain=month",
 		nil,

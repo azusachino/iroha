@@ -257,7 +257,7 @@ Normal Telegram Bot API file downloads may be too small for full Apple Health ex
 
 ### Upload Contract
 
-The private API is unauthenticated (see [Auth](#auth)); the bot only needs network access to `iroha-server`.
+The private API requires an owner session (see [Auth](#auth)). A non-browser client has no supported way to obtain one; ADR-0008 requires a separately approved design for it.
 
 Step 1 — push the raw file as multipart form data:
 
@@ -335,9 +335,36 @@ GET /api/v1/imports/{importId}
 
 ## Auth
 
-Most `/api/v1` endpoints are unauthenticated because iroha is a single-user personal deployment (private LAN/NAS/Tailnet); the network boundary is the security control. `POST /api/v1/intake/health` is
-the exception: it always requires its dedicated intake credential (see [health intake](#automatic-apple-health-intake)), because tailnet membership is not identity (ADR-0008). Do not expose
-`iroha-server` to an untrusted public network.
+Iroha has one owner account (ADR-0008); tailnet membership is not identity. Every `/api/v1` route requires an owner session except:
+
+- `GET /api/v1/auth/session`, `POST /api/v1/auth/setup`, and `POST /api/v1/auth/login`;
+- `POST /api/v1/intake/health`, which requires its own intake credential (see [health intake](#automatic-apple-health-intake));
+- `/healthz` and `/readyz`, which sit outside `/api/v1`.
+
+**Setup.** On a database with no owner, the web app shows a one-time setup screen that creates the owner and logs in. The single-owner unique index on `tb_users` makes any later
+`POST /api/v1/auth/setup` return `409`. Setup must stay reachable only through the tailnet ingress.
+
+**Sessions.** Setup and login set the `iroha_session` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`, 30-day absolute expiry). The server stores only the SHA-256 of the cookie value (`tb_sessions`), so
+logout, expiry, and password reset revoke sessions server-side. Passwords are stored as Argon2id hashes (`tb_user_passwords`). Setup and login accept only `application/json`.
+
+**CSRF.** State-changing requests must send the session's CSRF token in `X-CSRF-Token`; `GET /api/v1/auth/session` returns it to the web app, which keeps it in memory only. A missing or wrong token
+gets `403 csrf_failed`.
+
+**HAE tokens.** The owner issues and revokes intake tokens on the Admin page (`/api/v1/admin/intake-credentials`); the operator command `iroha-admin intake-token` does the same from the server
+container.
+
+**Password reset.** There is no in-app recovery. The operator-only break-glass reset reads a new password from stdin and revokes every session:
+
+```bash
+kubectl -n harus-core exec -i deploy/iroha-server -- iroha-admin password reset
+```
+
+**Rate limits.** Limits are per client: 6000 requests/minute across `/api/v1`, 10/minute for login and setup, and 30/minute for HAE intake before the credential is checked. After it, each intake
+credential gets 120 requests/hour and 512 MiB/day, which caps what a leaked token can write. The client is the socket peer, unless that peer is inside `IROHA_TRUSTED_PROXY_CIDRS` (comma-separated
+CIDRs); then the `Cf-Connecting-Ip` header set by Cloudflare is used instead. Only list proxies that strip or overwrite that header for everything they forward.
+
+**Public exposure.** Only `POST /api/v1/intake/health` may be public (ADR-0008 §3); the deployment routes nothing else on the public hostname. Setup and login stay on the tailnet. Passkeys are not
+implemented yet.
 
 Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTTP hardening](#http-hardening).
 

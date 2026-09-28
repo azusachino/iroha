@@ -1,34 +1,29 @@
 import type {
   Activity,
-  ActivityDetail,
   Meta,
   RouteFeatureCollection,
   Summary,
 } from "$lib/types";
 import type { PageLoad } from "./$types";
 
-// This whole site is one known page over one known snapshot -- prerender it
-// into static HTML at build time rather than shipping a client-rendered
-// shell that fetches on mount. `fetch` here resolves against SvelteKit's
-// own static-file server during prerendering, so this reads straight from
-// static/data/ without any live backend.
-export const prerender = true;
+// The site reads the live, sanitized projection from iroha-server's
+// anonymous /public/v1 API in the browser (ADR-0008). The server caches it
+// for up to a day and rebuilds when activities change, so there is no build
+// job and no data baked into the HTML.
+export const ssr = false;
+export const prerender = false;
 
 export const load: PageLoad = async ({ fetch }) => {
-  const [summaryRes, activitiesRes, routesRes, detailsRes, metaRes] =
-    await Promise.all([
-      fetch("data/summary.json"),
-      fetch("data/activities.json"),
-      fetch("data/routes.geojson"),
-      fetch("data/activity-details.json"),
-      fetch("data/meta.json"),
-    ]);
-
-  const summary: Summary = await summaryRes.json();
-  const activities: Activity[] = await activitiesRes.json();
-  const routes: RouteFeatureCollection = await routesRes.json();
-  const details: Record<string, ActivityDetail> = await detailsRes.json();
-  const meta: Meta = await metaRes.json();
-
-  return { summary, activities, routes, details, meta };
+  const get = async <T>(path: string): Promise<T> => {
+    const res = await fetch(`/public/v1/${path}`);
+    if (!res.ok) throw new Error(`public ${path}: HTTP ${res.status}`);
+    return (await res.json()) as T;
+  };
+  const [summary, activities, routes, meta] = await Promise.all([
+    get<Summary>("summary"),
+    get<Activity[]>("activities"),
+    get<RouteFeatureCollection>("routes"),
+    get<Meta>("meta"),
+  ]);
+  return { summary, activities, routes, meta };
 };

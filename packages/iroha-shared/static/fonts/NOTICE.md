@@ -1,9 +1,7 @@
 # Font licenses
 
-Self-hosted Latin-subset `.woff2` files, fetched from Google Fonts
-(`fonts.googleapis.com`/`fonts.gstatic.com`) and served locally so the app
-makes no runtime request to a third-party font host. Unmodified except for
-Google's own subsetting.
+Self-hosted Latin-subset `.woff2` files, fetched from Google Fonts (`fonts.googleapis.com`/`fonts.gstatic.com`) and served locally so the app makes no runtime request to a third-party font host.
+Unmodified except for Google's own subsetting.
 
 | Family        | Weight(s)          | License                   |
 | ------------- | ------------------ | ------------------------- |
@@ -14,5 +12,4 @@ Google's own subsetting.
 | Crimson Pro   | 400–700 (variable) | SIL Open Font License 1.1 |
 | Outfit        | 400–700 (variable) | SIL Open Font License 1.1 |
 
-Full license texts: [SIL Open Font License 1.1](https://openfontlicense.org/) and
-[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Full license texts: [SIL Open Font License 1.1](https://openfontlicense.org/) and [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).

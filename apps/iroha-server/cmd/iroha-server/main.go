@@ -18,6 +18,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/auth"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
@@ -100,6 +101,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	intakeCredentials := intakecredential.NewService(db)
 	server := httpapi.NewServer(httpapi.Dependencies{
 		Config:                  cfg,
 		Logger:                  logger,
@@ -120,7 +122,9 @@ func main() {
 		JobEnqueuer:             enqueuer,
 		JobsService:             jobsService,
 		TaskService:             taskService,
-		HealthIntakeCredentials: intakecredential.NewService(db),
+		HealthIntakeCredentials: intakeCredentials,
+		IntakeCredentialAdmin:   intakeCredentials,
+		Auth:                    auth.NewService(db),
 		ReadyCheck: func(ctx context.Context) error {
 			sqlDB, err := db.DB()
 			if err != nil {

@@ -26,7 +26,10 @@
   } from "$lib/format";
   import { site } from "$lib/site";
   import { sportColor } from "@iroha/shared/domain/sport";
-  import type { Activity } from "$lib/types";
+  import type {
+    Activity,
+    ActivityDetail as ActivityDetailData,
+  } from "$lib/types";
   import ApprovedActivityDetail from "$lib/components/ApprovedActivityDetail.svelte";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
   import ActivityDetail from "$lib/components/ActivityDetail.svelte";
@@ -40,7 +43,6 @@
   let { data }: PageProps = $props();
   const activities = $derived(data.activities);
   const routes = $derived(data.routes);
-  const details = $derived(data.details);
   const meta = $derived(data.meta);
 
   const MONTH_LABELS = [
@@ -73,9 +75,26 @@
   const selectedActivity = $derived(
     activities.find((activity) => activity.id === selectedActivityId),
   );
-  const selectedActivityDetail = $derived(
-    selectedActivityId ? details[selectedActivityId] : undefined,
-  );
+  // Details are fetched per activity on selection instead of shipping every
+  // activity's route and samplings up front.
+  let selectedActivityDetail = $state<ActivityDetailData | undefined>();
+  $effect(() => {
+    const id = selectedActivityId;
+    selectedActivityDetail = undefined;
+    if (!id) return;
+    let cancelled = false;
+    void fetch(`/public/v1/activities/${encodeURIComponent(id)}`)
+      .then((res) =>
+        res.ok ? (res.json() as Promise<ActivityDetailData>) : undefined,
+      )
+      .then((detail) => {
+        if (!cancelled) selectedActivityDetail = detail;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
 
   $effect(() => {
     const activityId = new URLSearchParams(

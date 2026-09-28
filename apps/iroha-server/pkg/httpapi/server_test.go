@@ -10,13 +10,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 func TestHealthzIsProcessLiveness(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	NewServer(Dependencies{}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	NewServer(Dependencies{Auth: allowAllAuth{}}).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
 	}
@@ -24,14 +25,14 @@ func TestHealthzIsProcessLiveness(t *testing.T) {
 
 func TestReadyzRequiresAndChecksDatabase(t *testing.T) {
 	withoutCheck := httptest.NewRecorder()
-	NewServer(Dependencies{}).ServeHTTP(withoutCheck, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	NewServer(Dependencies{Auth: allowAllAuth{}}).ServeHTTP(withoutCheck, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 	if withoutCheck.Code != http.StatusServiceUnavailable {
 		t.Fatalf("without check status = %d, want %d", withoutCheck.Code, http.StatusServiceUnavailable)
 	}
 
 	called := false
 	hasDeadline := false
-	server := NewServer(Dependencies{ReadyCheck: func(ctx context.Context) error {
+	server := NewServer(Dependencies{Auth: allowAllAuth{}, ReadyCheck: func(ctx context.Context) error {
 		called = true
 		_, hasDeadline = ctx.Deadline()
 		return nil
@@ -51,7 +52,7 @@ func TestReadyzRequiresAndChecksDatabase(t *testing.T) {
 }
 
 func TestReadyzReportsDatabaseFailure(t *testing.T) {
-	server := NewServer(Dependencies{ReadyCheck: func(context.Context) error {
+	server := NewServer(Dependencies{Auth: allowAllAuth{}, ReadyCheck: func(context.Context) error {
 		return errors.New("database unavailable")
 	}})
 	recorder := httptest.NewRecorder()
@@ -106,7 +107,7 @@ func TestAccessLogIncludesRequestMetadata(t *testing.T) {
 
 func TestRateLimitResponse(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
-	handler := limitByIP(1)(next)
+	handler := (&Server{}).limitByClient(1, time.Minute)(next)
 
 	first := httptest.NewRequest(http.MethodGet, "/api/v1/example", nil)
 	first.RemoteAddr = "192.0.2.10:1234"

@@ -52,7 +52,7 @@ Iroha supports a two-tier ingestion model for health, fitness, and location data
 1. **Continuous Daily Intake (Health Auto Export)**:
    - Configure [Health Auto Export](https://help.healthyapps.dev/en/health-auto-export/automations/) on iOS/watchOS to POST Format v2 JSON to `POST /api/v1/intake/health`.
    - Syncs steps, sleep stages, resting vitals, and workouts with GPS routes and heart-rate series in the background.
-   - Every request carries a dedicated intake token (`Authorization: Bearer`), issued per device with `iroha-admin intake-token issue`; intake is refused until one is issued.
+   - Every request carries a dedicated intake token (`Authorization: Bearer`), issued per device on the Admin page; intake is refused until one is issued.
    - See [Setting up Health Auto Export HTTP Intake](docs/health-auto-export-setup.md).
 
 2. **Historical Bulk Backfill**:

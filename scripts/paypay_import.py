@@ -23,7 +23,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from iroha_cli import CLIError, IrohaClient, TransportError
+from iroha_cli import CLIError, IrohaClient, TransportError, logged_in_client
 
 SOURCE_KIND = "paypay_csv"
 
@@ -233,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
         print("dry run -- nothing was sent")
         return 0
 
-    client = IrohaClient(args.api_base)
+    client = logged_in_client(args.api_base)
     created, already_imported, failed = import_drafts(client, all_drafts)
     print(f"created={created} already_imported={already_imported} failed={failed}")
     return 1 if failed else 0

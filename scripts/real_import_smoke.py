@@ -37,6 +37,8 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+import iroha_auth
+
 DEFAULT_DSN = "postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable"
 
 
@@ -65,7 +67,13 @@ def main() -> int:
         ),
     )
     parser.add_argument("--dsn", default=os.environ.get("IROHA_DATABASE_URL", DEFAULT_DSN))
+    parser.add_argument(
+        "--allow-owner-setup",
+        action="store_true",
+        help="create the owner from IROHA_USERNAME/PASSWORD if the local stack has none",
+    )
     args = parser.parse_args()
+    iroha_auth.install_urllib(iroha_auth.login(args.api_base, allow_setup=args.allow_owner_setup))
 
     if args.do_assert and args.do_assert_reprocess:
         parser.error("--assert and --assert-reprocess are mutually exclusive")

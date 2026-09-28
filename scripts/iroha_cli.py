@@ -16,6 +16,8 @@ from urllib.parse import urlencode
 
 import requests
 
+import iroha_auth
+
 DEFAULT_API_BASE = "http://127.0.0.1:8080"
 DEFAULT_TIMEOUT_S = 30
 API_BASE_ENV = "IROHA_API_BASE"
@@ -42,6 +44,16 @@ class APIError(CLIError):
 
 class TransportError(CLIError):
     """A failure before an API response was received."""
+
+
+def logged_in_client(api_base: str | None = None) -> "IrohaClient":
+    """Return a client carrying the owner session from IROHA_USERNAME/PASSWORD."""
+    base = (api_base or api_base_from_environment()).rstrip("/")
+    try:
+        session = iroha_auth.login(base)
+    except (RuntimeError, OSError) as error:
+        raise CLIError(f"cannot log in to Iroha: {error}") from error
+    return IrohaClient(base, session=iroha_auth.requests_session(session))
 
 
 def api_base_from_environment() -> str:
@@ -661,7 +673,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    client = IrohaClient(args.api_base)
+    client = logged_in_client(args.api_base)
     if args.resource == "import" and args.import_action == "file":
         return run_import_command(args, client)
     if args.resource in {"activity", "sleep", "daily", "media"}:

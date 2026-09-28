@@ -8,6 +8,8 @@ from urllib.parse import urlencode
 
 import requests
 
+import iroha_auth
+
 DEFAULT_API_BASE = "https://iroha.h.azusachino.com"
 DEFAULT_MONTH = "2099-01"
 REPORT_PATH = "/api/v1/reports/monthly"
@@ -80,8 +82,9 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        verify_cache(args.api_base, args.month, args.timezone, args.timeout_s)
-    except (requests.RequestException, RuntimeError) as error:
+        session = iroha_auth.requests_session(iroha_auth.login(args.api_base))
+        verify_cache(args.api_base, args.month, args.timezone, args.timeout_s, session)
+    except (requests.RequestException, RuntimeError, OSError) as error:
         print(f"k3s cache smoke failed: {error}")
         return 1
     return 0

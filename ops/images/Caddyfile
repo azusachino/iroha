@@ -1,13 +1,26 @@
-:80 {
-  root * /srv
-  encode gzip
+{
+	# No admin API: the config is static, so nothing needs to change it live.
+	admin off
+}
 
-  handle /api/* {
-    reverse_proxy {$IROHA_SERVER_UPSTREAM}
-  }
+# Unprivileged port: the container runs as a non-root user.
+:8080 {
+	root * /srv
+	encode gzip
 
-  handle {
-    try_files {path} /index.html
-    file_server
-  }
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy {$IROHA_SERVER_UPSTREAM}
+	}
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
 }

@@ -794,3 +794,35 @@ type IntakeCredential struct {
 }
 
 func (IntakeCredential) TableName() string { return "tb_intake_credentials" }
+
+// User is the single owner's identity record. Credentials live in
+// UserPassword and Session, never here.
+type User struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
+	Username  string
+	CreatedAt time.Time
+}
+
+func (User) TableName() string { return "tb_users" }
+
+type UserPassword struct {
+	UserID       uuid.UUID `gorm:"type:uuid;primaryKey"`
+	PasswordHash string
+	UpdatedAt    time.Time
+}
+
+func (UserPassword) TableName() string { return "tb_user_passwords" }
+
+// Session is a server-side login session, found by the SHA-256 of its cookie value.
+type Session struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserID      uuid.UUID `gorm:"type:uuid"`
+	TokenSHA256 string    `gorm:"column:token_sha256"`
+	CSRFToken   string    `gorm:"column:csrf_token"`
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+	LastSeenAt  time.Time
+	RevokedAt   *time.Time
+}
+
+func (Session) TableName() string { return "tb_sessions" }

@@ -328,6 +328,10 @@ def main() -> int:
     modes = parse_values("MODES", MODES)
     motions = parse_values("MOTION", MOTION_MODES)
     viewports = parse_viewports()
+    owner = iroha_auth.login(
+        api_base, allow_setup=os.environ.get("IROHA_ALLOW_OWNER_SETUP") == "1"
+    )
+    iroha_auth.install_urllib(owner)
     activity_id = first_id(api_base, "/api/v1/activities?limit=1", "activity")
     sleep_id = first_id(api_base, "/api/v1/sleep?limit=1", "sleep")
     media_id = first_id(api_base, "/api/v1/media?limit=1", "library")
@@ -336,7 +340,21 @@ def main() -> int:
     for motion in motions:
         session = f"iroha-mobile-{os.getpid()}-{motion}"
         try:
-            launch_browser(session, motion == "reduced", "open", base_url)
+            launch_browser(session, motion == "reduced", "open", "about:blank")
+            browser_command(
+                session,
+                "cookies",
+                "set",
+                iroha_auth.SESSION_COOKIE,
+                owner.token,
+                "--url",
+                base_url,
+                "--httpOnly",
+                "--secure",
+                "--sameSite",
+                "Lax",
+            )
+            browser_command(session, "open", base_url)
             for viewport in viewports:
                 browser_command(session, "set", "viewport", str(viewport[0]), str(viewport[1]))
                 for theme in themes:
