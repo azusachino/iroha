@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { IROHA_TIMEZONE } from "$lib/config";
+  import { todayInTimezone } from "@iroha/shared/format/date";
   import {
     getActivityRoutes,
     getActivityOverview,
@@ -17,7 +19,7 @@
   import DomainTile from "$lib/components/DomainTile.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
-  import Heatmap from "$lib/components/Heatmap.svelte";
+  import ActivityHeatmap from "@iroha/shared/theme-ui/components/ActivityHeatmap.svelte";
   import RouteFootprint from "$lib/components/RouteFootprint.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
@@ -60,6 +62,7 @@
   const mediaAggregates = $derived(mediaResource.data ?? null);
 
   const theme = useTheme();
+  const heatmapEndDay = todayInTimezone(new Date(), IROHA_TIMEZONE);
 
   const recentActivities = $derived(activities.slice(0, RECENT_ACTIVITY_LIMIT));
 
@@ -68,7 +71,6 @@
     averageEfficiency: sleepOverview?.average_efficiency ?? 0,
     nightCount: sleepOverview?.main_sleep_count ?? 0,
   });
-  const heatmapDates = $derived(activeDays.map((day) => day.day));
   const streak = $derived(currentStreak);
   const activityCount = $derived(summary?.totals.activity_count ?? 0);
   const archiveRecordCount = $derived(
@@ -173,18 +175,19 @@
         route="dashboard"
         props={{
           summary,
+          activeDays,
+          heatmapEndDay,
           activities,
           routes,
           streak: streakValue,
           loading: overviewResource.loading,
           error: overviewResource.error,
-          routesLoading: routesResource.loading,
-          routesError: routesResource.error,
           sleepSummary,
           sleepLoading: sleepResource.loading,
+          sleepError: sleepResource.error,
           mediaAggregates,
           mediaLoading: mediaResource.loading,
-          onLoadRoutes: () => void loadRoutes(),
+          mediaError: mediaResource.error,
           onRetry: () => void reloadDashboard(),
           onOpenActivity: (id: string) => void goto(`/motion/${id}`),
           onOpenSport: (sport: string) =>
@@ -265,7 +268,11 @@
           <p>Activity history could not be loaded.</p>
         </section>
       {:else}
-        <Heatmap dates={heatmapDates} title="Activity history" />
+        <ActivityHeatmap
+          days={activeDays}
+          endDay={heatmapEndDay}
+          title="Activity history"
+        />
       {/if}
 
       <section class="recent-tile tile">
@@ -426,7 +433,7 @@
     gap: 1rem;
   }
 
-  .bento-grid :global(.heatmap) {
+  .bento-grid :global(.activity-heatmap) {
     grid-column: 1 / -1;
   }
 
