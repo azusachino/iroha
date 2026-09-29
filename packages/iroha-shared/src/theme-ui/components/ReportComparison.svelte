@@ -18,6 +18,27 @@
     ) => string;
     theme: DesignLanguage;
   } = $props();
+  // One hue per trend chart, drawn from tokens that do not follow a theme's
+  // accent, so twelve stacked charts are told apart at a glance instead of
+  // all wearing the accent color. Slots go to charts in display order.
+  const TREND_COLOR_VARS = [
+    "--sport-run",
+    "--sport-other",
+    "--sport-walk",
+    "--mark-violet",
+    "--mark-magenta",
+    "--mark-amber",
+    "--mark-teal",
+    "--sport-swim",
+    "--accent-2",
+    "--sport-hike",
+    "--ring-exercise",
+    "--accent",
+  ];
+  function trendColor(slot: number): string {
+    return `var(${TREND_COLOR_VARS[slot % TREND_COLOR_VARS.length]})`;
+  }
+
   const points = $derived(series?.reports ?? []);
   const categories = $derived(
     points.map((point) => formatCanonicalMonth(point.month)),
@@ -56,17 +77,20 @@
   function healthValuesFor(metric: string): (number | null)[] {
     return points.map(
       (point) =>
-        point.daily_health?.metric_averages.find((item) => item.metric === metric)
-          ?.value ?? null,
+        point.daily_health?.metric_averages.find(
+          (item) => item.metric === metric,
+        )?.value ?? null,
     );
   }
 
   function healthUnitFor(metric: string): string {
     return (
       points
-        .map((point) =>
-          point.daily_health?.metric_averages.find((item) => item.metric === metric)
-            ?.unit,
+        .map(
+          (point) =>
+            point.daily_health?.metric_averages.find(
+              (item) => item.metric === metric,
+            )?.unit,
         )
         .find((unit) => unit != null) ?? ""
     );
@@ -144,9 +168,9 @@
       <p class="eyebrow">Canonical comparison · twelve months</p>
       <h2 id="report-comparison-title">Twelve-month trends</h2>
       <p class="description">
-        Monthly points are aggregated by the server. Calendar closure and
-        source coverage are separate; months with no canonical records stay
-        out of the plot.
+        Monthly points are aggregated by the server. Calendar closure and source
+        coverage are separate; months with no canonical records stay out of the
+        plot.
       </p>
     </div>
     {#if series}<span class="period-range"
@@ -157,8 +181,8 @@
 
   {#if calendarOpenMonths.length}
     <p class="coverage-note">
-      Calendar still open: {calendarOpenMonths.join(", ")}. No annualization
-      is applied.
+      Calendar still open: {calendarOpenMonths.join(", ")}. No annualization is
+      applied.
     </p>
   {/if}
 
@@ -182,6 +206,7 @@
           primary={{
             name: "Distance",
             values: movementValues,
+            color: trendColor(0),
             formatter: (value) => number(value) + " km",
           }}
           primaryType="line"
@@ -198,6 +223,7 @@
           primary={{
             name: "Average asleep",
             values: sleepValues,
+            color: trendColor(1),
             formatter: (value) => number(value) + " h",
           }}
           primaryType="line"
@@ -207,25 +233,30 @@
           {trendDelta(sleepValues, (value) => number(value) + " h")}
         </p>
       </article>
-      {#each healthMetrics as metric (metric)}
+      {#each healthMetrics as metric, index (metric)}
         {@const values = healthValuesFor(metric)}
         {@const unit = healthUnitFor(metric)}
         <article>
           <header>
-            <span>Daily health</span><strong>{healthMetricLabel(metric)}</strong>
+            <span>Daily health</span><strong>{healthMetricLabel(metric)}</strong
+            >
           </header>
           <BarChart
             {categories}
             primary={{
               name: healthMetricLabel(metric),
               values,
+              color: trendColor(2 + index),
               formatter: (value) => formatMetricValue(value, unit) + " " + unit,
             }}
             primaryType="line"
             height={210}
           />
           <p class="delta">
-            {trendDelta(values, (value) => formatMetricValue(value, unit) + " " + unit)}
+            {trendDelta(
+              values,
+              (value) => formatMetricValue(value, unit) + " " + unit,
+            )}
           </p>
         </article>
       {/each}
@@ -235,11 +266,15 @@
         </header>
         <BarChart
           {categories}
-          primary={{ name: "Events", values: mediaValues }}
+          primary={{
+            name: "Events",
+            values: mediaValues,
+            color: trendColor(2 + healthMetrics.length),
+          }}
           secondary={{
             name: "Completed",
             values: mediaCompletedValues,
-            color: "var(--accent-2)",
+            color: trendColor(3 + healthMetrics.length),
           }}
           primaryType="line"
           height={210}
@@ -248,7 +283,7 @@
           {trendDelta(mediaValues, (value) => number(value) + " events")}
         </p>
       </article>
-      {#each expenseCurrencies as currency (currency)}
+      {#each expenseCurrencies as currency, index (currency)}
         {@const values = expenseValues(currency)}
         {@const exponent = expenseExponent(currency)}
         <article>
@@ -260,6 +295,7 @@
             primary={{
               name: currency,
               values,
+              color: trendColor(4 + healthMetrics.length + index),
               formatter: (value) => formatMoney(value, currency, exponent),
             }}
             primaryType="line"
