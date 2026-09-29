@@ -11,6 +11,7 @@ import (
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -114,9 +115,15 @@ func (s *SyncRunner) recordSyncCoverage(rawFile models.RawFile, sourceKind strin
 		timezone = "UTC"
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		return insertCoverageAssertion(tx, rawFile, provider.CoverageAssertion{
+		if err := insertCoverageAssertion(tx, rawFile, provider.CoverageAssertion{
 			Category: category, From: from, To: to, Timezone: timezone,
 			IngestionMode: mode, Completeness: completeness,
-		}, nil)
+		}, nil); err != nil {
+			return err
+		}
+		// Import jobs finish independently of the run, possibly before this
+		// assertion exists, so their revision bump cannot be relied on to
+		// invalidate cached coverage reads.
+		return revisions.Bump(tx, revisions.NamespaceCoverage, revisions.NamespaceBriefing, revisions.NamespaceMetrics, revisions.NamespaceReports)
 	})
 }

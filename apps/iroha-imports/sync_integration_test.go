@@ -17,6 +17,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -36,8 +37,15 @@ func TestIntegrationSyncRunLinksImportsAndRejectsOverlap(t *testing.T) {
 	store := &syncTestSnapshotStore{db: db, dir: t.TempDir()}
 	runner := NewSyncRunner(db, connectorRegistry, store, importService)
 
+	before, err := revisions.Read(db, revisions.NamespaceCoverage)
+	if err != nil {
+		t.Fatalf("read coverage revision: %v", err)
+	}
 	if err := runner.Run(context.Background(), "sync-test", connector.Credentials{}); err != nil {
 		t.Fatalf("run sync: %v", err)
+	}
+	if after, err := revisions.Read(db, revisions.NamespaceCoverage); err != nil || after[revisions.NamespaceCoverage] <= before[revisions.NamespaceCoverage] {
+		t.Fatalf("coverage revision after sync = %v (err %v), want greater than %v", after, err, before)
 	}
 	var run models.MediaSyncRun
 	if err := db.Where("connector_id = ?", "sync-test").First(&run).Error; err != nil {

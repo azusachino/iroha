@@ -15,6 +15,12 @@
 		-Server
 	}
 
+	# Hashed build output never changes under its name; everything else,
+	# including index.html and API responses that set no policy, is revalidated.
+	header ?Cache-Control "no-cache"
+	@immutable path /_app/immutable/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
 	handle /api/* {
 		reverse_proxy {$IROHA_SERVER_UPSTREAM}
 	}
