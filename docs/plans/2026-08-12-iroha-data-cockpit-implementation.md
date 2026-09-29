@@ -27,7 +27,7 @@ Iroha becomes a personal data cockpit that can grow by adding metrics without:
 
 Target data path:
 
-```
+```text
 raw evidence / direct API input
         -> provider observations or canonical domain record
         -> domain-owned deterministic adapter
@@ -37,7 +37,7 @@ raw evidence / direct API input
 
 Target navigation path:
 
-```
+```text
 global shell: Today | Overview | Domains | Analyze | More | Search
         -> domain-local navigation
         -> metric shelf and chart-local views
@@ -68,7 +68,7 @@ names, provider payloads, or theme CSS.
 
 Expense writes remain:
 
-```
+```text
 local agent or CLI -> POST /api/v1/expenses -> tb_expenses
 ```
 
@@ -78,7 +78,7 @@ Telegram is not part of this sequence. It neither owns expense storage nor becom
 
 Routes load stable view models. Shared primitives handle behavior. Theme components decide composition:
 
-```
+```text
 +page.svelte controller
   -> API client / URL state / loading state
   -> page view model

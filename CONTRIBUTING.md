@@ -50,7 +50,7 @@ House rules that go beyond the linter:
 
 [Conventional Commits](https://www.conventionalcommits.org), no emojis:
 
-```
+```text
 feat:     a new capability
 fix:      a bug fix
 chore:    tooling / housekeeping

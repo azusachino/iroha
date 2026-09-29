@@ -2,7 +2,7 @@
 
 > **Media semantics amendment (2026-08-15):** report media sections now consume the provider-backed contracts in [ADR-0005](../adr/0005-media-provider-time-semantics.md). Exact sessions, dated
 > provider updates, and day-level source facts are separate; the older nullable `event_at` wording below is historical and is superseded.
-
+>
 > Status: implementation complete for the v0.4 release candidate. This plan covers the monthly report across Iroha's existing personal data domains and its release evidence.
 
 ## Goal

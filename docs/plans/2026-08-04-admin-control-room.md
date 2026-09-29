@@ -2,7 +2,7 @@
 
 > Status: historical plan completed across the v0.1.3 control-room work and the v0.1.4 request-audit follow-up. The current release evidence lives in
 > [frontend-request-audit.md](../frontend-request-audit.md), the OpenAPI contract, and the release notes; the task sequence below is retained as an implementation record.
-
+>
 > **For Claude:** Use `${SUPERPOWERS_SKILLS_ROOT}/skills/collaboration/executing-plans/SKILL.md` to implement this plan task-by-task.
 
 **Goal:** Deliver a private control room for personal daily tasks and allowlisted Iroha job actions, make it discoverable from the front page, and ship a visible `v0.1.3` release marker without
@@ -15,7 +15,7 @@ media syncs rather than arbitrary job kinds. The front page reads due tasks from
 
 ---
 
-### Task 1: Add the personal task model and service
+## Task 1: Add the personal task model and service
 
 **Files:**
 
