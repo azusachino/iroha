@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { ActivityActiveDay } from "../../domain/activity";
   import { buildActivityHeatmap } from "./activity-heatmap";
 
@@ -17,6 +18,22 @@
 
   const model = $derived(buildActivityHeatmap(days, endDay));
   const firstDay = $derived(model.weeks.flat().find((cell) => cell.date)?.date);
+  let heatmapGrid: HTMLDivElement;
+  let hasHorizontalOverflow = $state(false);
+
+  function focusHeatmapGrid() {
+    heatmapGrid?.focus({ preventScroll: true });
+  }
+
+  onMount(() => {
+    const updateOverflow = () => {
+      hasHorizontalOverflow = heatmapGrid.scrollWidth > heatmapGrid.clientWidth + 1;
+    };
+    const observer = new ResizeObserver(updateOverflow);
+    observer.observe(heatmapGrid);
+    updateOverflow();
+    return () => observer.disconnect();
+  });
 </script>
 
 <section class="activity-heatmap" aria-labelledby="activity-heatmap-title">
@@ -39,10 +56,22 @@
     </div>
   </header>
 
+  {#if hasHorizontalOverflow}
+    <button
+      class="scroll-hint"
+      type="button"
+      aria-controls="activity-heatmap-grid"
+      onclick={focusHeatmapGrid}
+    >
+      Focus the heatmap to scroll through all 365 days.
+    </button>
+  {/if}
   <div
+    id="activity-heatmap-grid"
+    bind:this={heatmapGrid}
     class="heatmap-grid"
     role="img"
-    tabindex="0"
+    tabindex="-1"
     aria-label={`${title}, last 365 days ending ${endDay}: ${model.activeDayCount} active days and ${model.totalActivityCount} activity records. Scroll horizontally to explore every day.`}
   >
     <div class="weekday-labels" aria-hidden="true">
@@ -67,7 +96,6 @@
       {/each}
     </div>
   </div>
-  <p class="scroll-hint">Scroll horizontally to explore all 365 days.</p>
 </section>
 
 <style>
@@ -115,10 +143,25 @@
   }
 
   .scroll-hint {
-    display: none;
-    margin: 0.45rem 0 0;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin: 0 0 0.35rem;
+    padding: 0 0.25rem;
+    border: 0;
+    background: transparent;
     color: var(--text-muted);
+    font: inherit;
     font-size: 0.7rem;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+  }
+
+  .scroll-hint:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
   }
 
   .heatmap-grid {
@@ -147,6 +190,8 @@
 
   .weeks {
     display: flex;
+    flex: 1 1 auto;
+    justify-content: space-between;
     gap: 0.2rem;
   }
 
@@ -191,10 +236,6 @@
   }
 
   @media (max-width: 640px) {
-    .scroll-hint {
-      display: block;
-    }
-
     .activity-heatmap {
       padding: 1rem;
     }

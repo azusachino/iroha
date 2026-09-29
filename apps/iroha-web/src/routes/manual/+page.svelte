@@ -1,7 +1,6 @@
 <script lang="ts">
   import { ArrowRight, BookOpen } from "@lucide/svelte";
   import { PAGE_PERIOD_DEFAULTS } from "@iroha/shared/format/period";
-  import { THEME_DEFINITIONS } from "$lib/themes/registry";
   import { useTheme } from "$lib/themes/context.svelte";
 
   type PageGuide = {
@@ -268,47 +267,6 @@
     </div>
   </section>
 
-  <section class="manual-section themes" aria-labelledby="themes-title">
-    <header class="section-heading">
-      <div>
-        <p class="eyebrow">Theme registry</p>
-        <h2 id="themes-title">Six ways to see the same truth.</h2>
-      </div>
-      <p>
-        The Design page changes this same selection and renders the real
-        registered theme components.
-      </p>
-    </header>
-    <div class="theme-grid">
-      {#each THEME_DEFINITIONS as definition}
-        <button
-          type="button"
-          style={"--theme-color:" + definition.identity.swatch}
-          class:active={theme.language() === definition.identity.id}
-          class={`theme-card ${definition.identity.id}`}
-          onclick={() => theme.select(definition.identity.id)}
-        >
-          <span class="theme-swatch" aria-hidden="true"
-            >{definition.identity.mark}</span
-          >
-          <span class="theme-card-copy">
-            <strong>{definition.identity.label}</strong>
-            <small>{definition.identity.hint}</small>
-            <p>{definition.identity.description}</p>
-            <span class="theme-lens"
-              ><b>Expenses</b>
-              {definition.identity.lenses.expenses.lead}</span
-            >
-            <span class="theme-lens"
-              ><b>Reports</b>
-              {definition.identity.lenses.reports.lead}</span
-            >
-          </span>
-        </button>
-      {/each}
-    </div>
-  </section>
-
   <footer class="manual-footer">
     <span
       >Canonical dates use <code>yyyy-MM</code> for periods and
@@ -403,8 +361,7 @@
 
   .principle-grid,
   .page-grid,
-  .contract-grid,
-  .theme-grid {
+  .contract-grid {
     display: grid;
     gap: 0.8rem;
   }
@@ -416,7 +373,6 @@
   .principle-card,
   .page-card,
   .contract-grid article,
-  .theme-card,
   .reading-flow article {
     border: 1px solid var(--border);
     border-radius: 0.85rem;
@@ -437,8 +393,7 @@
   .principle-card p,
   .page-card p,
   .contract-grid p,
-  .reading-flow p,
-  .theme-card p {
+  .reading-flow p {
     margin: 0;
     color: var(--text-muted);
     font-size: 0.84rem;
@@ -542,63 +497,6 @@
     font-size: 0.95rem;
   }
 
-  .theme-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .theme-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.8rem;
-    padding: 1rem;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .theme-card:hover,
-  .theme-card.active {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
-  }
-  .theme-swatch {
-    display: grid;
-    flex: 0 0 auto;
-    width: 2.25rem;
-    height: 2.25rem;
-    place-items: center;
-    border-radius: 0.65rem;
-    background: var(--theme-color, var(--accent));
-    box-shadow: inset 0 0 0 5px color-mix(in srgb, white 15%, transparent);
-    color: var(--brand-ink, white);
-    font-family: var(--font-serif, var(--font-mono, monospace));
-    font-size: 1.1rem;
-    font-weight: 700;
-  }
-  .theme-card-copy {
-    display: grid;
-    gap: 0.25rem;
-  }
-  .theme-card-copy strong {
-    font-size: 0.95rem;
-  }
-  .theme-card-copy small {
-    color: var(--accent);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-  }
-  .theme-card-copy p {
-    margin-top: 0.25rem;
-  }
-  .theme-lens {
-    display: block;
-    margin-top: 0.35rem;
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    line-height: 1.4;
-  }
-  .theme-lens b {
-    margin-right: 0.25rem;
-    color: var(--text);
-  }
   .manual-footer {
     align-items: center;
     padding: 1rem 0 0;
@@ -619,8 +517,7 @@
     .contract-grid {
       grid-template-columns: repeat(2, 1fr);
     }
-    .page-grid,
-    .theme-grid {
+    .page-grid {
       grid-template-columns: repeat(2, 1fr);
     }
     .reading-flow {
@@ -644,7 +541,6 @@
     .principle-grid,
     .page-grid,
     .contract-grid,
-    .theme-grid,
     .reading-flow {
       grid-template-columns: 1fr;
     }

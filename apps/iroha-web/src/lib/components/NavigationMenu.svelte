@@ -14,6 +14,7 @@
   let menu: HTMLDetailsElement;
   let summary: HTMLElement;
   let popoverStyle = $state("");
+  let openTimer: ReturnType<typeof setTimeout> | undefined;
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
   function updatePopoverPosition() {
@@ -38,12 +39,20 @@
   }
 
   function closeMenu() {
+    cancelOpen();
     if (closeTimer) {
       clearTimeout(closeTimer);
       closeTimer = undefined;
     }
     if (menu) menu.open = false;
     popoverStyle = "";
+  }
+
+  function cancelOpen() {
+    if (openTimer) {
+      clearTimeout(openTimer);
+      openTimer = undefined;
+    }
   }
 
   function cancelClose() {
@@ -54,6 +63,7 @@
   }
 
   function handleToggle() {
+    cancelOpen();
     if (!menu?.open) {
       popoverStyle = "";
       return;
@@ -76,11 +86,16 @@
   function openOnPointer(event: PointerEvent) {
     if (!isHoverPointer(event)) return;
     cancelClose();
-    menu.open = true;
+    if (menu.open || openTimer) return;
+    openTimer = setTimeout(() => {
+      openTimer = undefined;
+      menu.open = true;
+    }, 180);
   }
 
   function closeOnPointer(event: PointerEvent) {
     if (!isHoverPointer(event)) return;
+    cancelOpen();
     cancelClose();
     closeTimer = setTimeout(() => {
       closeTimer = undefined;
@@ -112,6 +127,7 @@
     window.addEventListener("resize", updatePopoverPosition);
     window.addEventListener("scroll", updatePopoverPosition, true);
     return () => {
+      cancelOpen();
       cancelClose();
       window.removeEventListener("iroha:navigation-open", closeOtherMenus);
       document.removeEventListener("pointerdown", closeOnOutsidePointer);

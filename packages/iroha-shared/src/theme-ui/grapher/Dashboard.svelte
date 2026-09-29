@@ -36,6 +36,11 @@
   }: DashboardThemeProps = $props();
 
   let period = $state<Period>(12);
+  let recentMovementScroll = $state<HTMLDivElement>();
+
+  function focusRecentMovementTable() {
+    recentMovementScroll?.focus({ preventScroll: true });
+  }
 
   const monthly = $derived(
     buildMonthlyDistanceSeries(
@@ -56,10 +61,6 @@
     return { difference: current.distance_m - previous.distance_m, previous };
   });
 
-  function sportShare(activityCount: number): number {
-    const total = summary?.totals.activity_count ?? 0;
-    return total > 0 ? Math.min(100, (activityCount / total) * 100) : 0;
-  }
 </script>
 
 <section
@@ -178,7 +179,7 @@
         title="Activity through the year"
       />
 
-      <section class="panel chart-panel" aria-labelledby="distance-trend-title">
+      <section class="panel tile chart-panel" aria-labelledby="distance-trend-title">
         <header class="panel-header">
           <div>
             <p class="kicker">Movement / distance</p>
@@ -238,7 +239,7 @@
       </section>
 
       <section
-        class="panel sport-panel"
+        class="panel tile sport-panel"
         aria-labelledby="sport-breakdown-title"
       >
         <header class="panel-header">
@@ -264,11 +265,6 @@
                   <span class="sport-count">
                     {sport.activity_count.toLocaleString()}
                   </span>
-                  <span
-                    class="sport-bar"
-                    style={`--activity-share: ${sportShare(sport.activity_count)}%`}
-                    aria-hidden="true"
-                  ></span>
                 </button>
               </li>
             {/each}
@@ -282,7 +278,7 @@
       </section>
 
       <section
-        class="panel table-panel"
+        class="panel tile table-panel"
         aria-labelledby="recent-movement-title"
       >
         <header class="panel-header">
@@ -293,10 +289,20 @@
           <a href="/motion">Browse archive <span aria-hidden="true">→</span></a>
         </header>
         {#if activities.length}
+          <button
+            class="table-scroll-hint"
+            type="button"
+            aria-controls="recent-movement-table-scroll"
+            onclick={focusRecentMovementTable}
+          >
+            Focus the recent movement table.
+          </button>
           <div
+            id="recent-movement-table-scroll"
+            bind:this={recentMovementScroll}
             class="table-wrap"
             role="region"
-            tabindex="0"
+            tabindex="-1"
             aria-label="Recent movement table; scroll horizontally to view all columns"
           >
             <table>
@@ -335,16 +341,13 @@
               </tbody>
             </table>
           </div>
-          <p class="table-scroll-hint">
-            Scroll horizontally to view all columns.
-          </p>
         {:else}
           <p class="empty-note">No movement records to show yet.</p>
         {/if}
       </section>
 
       <section
-        class="panel route-panel"
+        class="panel tile route-panel"
         aria-labelledby="route-footprint-title"
       >
         <header class="panel-header">
@@ -527,10 +530,6 @@
   .panel {
     min-width: 0;
     padding: 1.15rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--tile-surface);
-    box-shadow: var(--tile-shadow);
   }
 
   .chart-panel {
@@ -663,33 +662,31 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .sport-bar {
-    grid-column: 1 / -1;
-    display: block;
-    height: 0.28rem;
-    overflow: hidden;
-    border-radius: 999px;
-    background: var(--surface-2);
-  }
-
-  .sport-bar::after {
-    display: block;
-    width: var(--activity-share);
-    height: 100%;
-    border-radius: inherit;
-    background: var(--accent);
-    content: "";
-  }
 
   .table-wrap {
     overflow-x: auto;
   }
 
   .table-scroll-hint {
-    display: none;
-    margin: 0.45rem 0 0;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin: 0 0 0.35rem;
+    padding: 0 0.25rem;
+    border: 0;
+    background: transparent;
     color: var(--text-muted);
+    font: inherit;
     font-size: 0.7rem;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+  }
+
+  .table-scroll-hint:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
   }
 
   table {
@@ -796,10 +793,6 @@
   }
 
   @media (max-width: 640px) {
-    .table-scroll-hint {
-      display: block;
-    }
-
     .stat-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0.5rem;
