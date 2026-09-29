@@ -56,7 +56,17 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 		_ = s.failSyncRun(run.ID, err)
 		return s.failSyncState(state, err, nil)
 	}
+	runStart := time.Now().UTC()
+	windowStart := runStart
+	if windowed, ok := item.(connector.CoverageWindowProvider); ok {
+		windowStart = windowed.CoverageWindowStart(cursor, runStart)
+	}
+	var lastRawFile *models.RawFile
 	fail := func(cause error) error {
+		if lastRawFile != nil {
+			// The run stored some pages but did not finish; say so.
+			_ = s.recordSyncCoverage(*lastRawFile, item.Descriptor().SourceKind, windowStart, runStart, coverageCompletenessPartial)
+		}
 		if runErr := s.failSyncRun(run.ID, cause); runErr != nil {
 			return runErr
 		}
@@ -85,6 +95,7 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 		if err != nil {
 			return fail(err)
 		}
+		lastRawFile = &rawFile
 		if _, err := s.imports.Create(CreateInput{
 			RawFileID:  ids.Encode(ids.RawFilePrefix, rawFile.ID),
 			ParserKind: snapshot.SourceKind,
@@ -104,6 +115,10 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 				nextCursor = resumable.ResumeCursor()
 			}
 			if err := s.updateSyncState(state, mediaSyncStatusCompleted, nil, nextCursor, true); err != nil {
+				_ = s.failSyncRun(run.ID, err)
+				return err
+			}
+			if err := s.recordSyncCoverage(rawFile, snapshot.SourceKind, windowStart, runStart, coverageCompletenessCovered); err != nil {
 				_ = s.failSyncRun(run.ID, err)
 				return err
 			}

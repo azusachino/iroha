@@ -103,7 +103,11 @@
             <strong>{connection.display_name || connection.provider}</strong>
             <span class={`status ${state.tone}`}>{state.text}</span>
             <small>
-              {connection.collection.replaceAll("_", " ")} coverage
+              {#if connection.coverage.length}
+                {connection.collection.replaceAll("_", " ")} coverage
+              {:else}
+                no coverage recorded
+              {/if}
               {#if connection.last_receipt}
                 · last received {formatDate(
                   connection.last_receipt.received_at,

@@ -61,6 +61,12 @@ func TestIntegrationSyncRunLinksImportsAndRejectsOverlap(t *testing.T) {
 		t.Fatalf("sync state = %#v, want completed with fetched timestamp", state)
 	}
 
+	var covered int64
+	if err := db.Raw(`select count(*) from tb_source_coverage_assertions a join tb_source_receipts r on r.id = a.source_receipt_id
+where r.raw_file_id in (select raw_file_id from tb_import_jobs where sync_run_id = ?) and a.category = 'media_list' and a.completeness = 'covered' and a.ingestion_mode = 'full_snapshot'`, run.ID).Scan(&covered).Error; err != nil || covered != 1 {
+		t.Fatalf("covered media_list assertions = %d (err %v), want 1", covered, err)
+	}
+
 	active, err := runner.beginSyncRun("sync-test")
 	if err != nil {
 		t.Fatalf("begin active overlap run: %v", err)
@@ -96,7 +102,17 @@ func (s *syncTestSnapshotStore) StoreSnapshot(_ context.Context, snapshot connec
 		return models.RawFile{}, err
 	}
 	rawFile := models.RawFile{ID: id, SHA256: id.String(), OriginalFilename: snapshot.Filename, ContentType: snapshot.ContentType, SizeBytes: int64(len(snapshot.Body)), StoragePath: path, SourceKind: snapshot.SourceKind, UploadedVia: "connector", CreatedAt: time.Now().UTC()}
-	return rawFile, s.db.Create(&rawFile).Error
+	if err := s.db.Create(&rawFile).Error; err != nil {
+		return models.RawFile{}, err
+	}
+	instanceID, receiptID := uuid.New(), uuid.New()
+	now := time.Now().UTC()
+	if err := s.db.Exec(`insert into tb_source_instances (id, provider, instance_key, display_name, created_at, updated_at) values (?, ?, ?, '', ?, ?) on conflict (provider, instance_key) do nothing`, instanceID, snapshot.SourceKind, "sync-test", now, now).Error; err != nil {
+		return models.RawFile{}, err
+	}
+	err = s.db.Exec(`insert into tb_source_receipts (id, source_instance_id, raw_file_id, source_kind, ingestion_mode, scope_json, received_at, created_at)
+select ?, id, ?, ?, 'full_snapshot', '{}', ?, ? from tb_source_instances where provider = ? and instance_key = 'sync-test'`, receiptID, id, snapshot.SourceKind, now, now, snapshot.SourceKind).Error
+	return rawFile, err
 }
 
 type syncTestEnqueuer struct {

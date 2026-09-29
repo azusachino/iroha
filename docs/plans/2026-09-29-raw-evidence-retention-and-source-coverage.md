@@ -29,13 +29,16 @@ Trade-off: purged imports can no longer be replayed. The docs' "replay raw evide
 
 Goal: each source states what it knows, or honestly stays `unknown`.
 
-| Source | Assertion |
-|---|---|
-| `apple_health_export` | one `full_snapshot` / `covered` per category, over the export's date range |
-| `anilist` | `full_snapshot` / `covered` for the list category at fetch time |
-| `anilist_activity` | `bounded_replacement` / `covered` for the lookback window (`IROHA_ANILIST_ACTIVITY_LOOKBACK_DAYS`, default 365); `covered_empty` if the window returned nothing |
-| `bangumi` | `full_snapshot` / `covered` once the cursor is exhausted; `partial` if a sync stops mid-way |
-| `health_auto_export` | unchanged; `unknown` stays valid |
+| Source | Category | Assertion |
+|---|---|---|
+| `apple_health_export` | `health` | `full_snapshot` / `covered` over the calendar days the export contains |
+| `anilist` | `media_list` | `full_snapshot` / `covered` over the sync run once the cursor is exhausted |
+| `anilist_activity` | `media_activity` | `incremental` / `covered` over the window the run fetched (the connector reports the window start) |
+| `bangumi` | `media_list` | `full_snapshot` / `covered` over the sync run once the cursor is exhausted |
+| any connector | as above | `partial` when a run stored pages but failed |
+| `health_auto_export` | `health` | unchanged; `unknown` stays valid |
+
+Existing imports are not backfilled. Connector sources fill in on their next daily sync; the already-imported Apple exports stay without coverage.
 
 - Providers return `provider.CoverageAssertion` in the import batch; `persistCoverageTx` already stores it. No schema change.
 - Parsers must only assert `covered` when they can prove completeness (for connectors, the cursor was exhausted). Otherwise they emit `partial` or nothing.

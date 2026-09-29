@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
 )
 
@@ -72,4 +74,26 @@ func writeMinimalExport(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return file.Name()
+}
+
+func TestFullExportCoverage(t *testing.T) {
+	loc := time.FixedZone("JST", 9*3600)
+	if got := fullExportCoverage(provider.ImportBatch{}, loc); got != nil {
+		t.Fatalf("empty batch asserted coverage: %+v", got)
+	}
+	batch := provider.ImportBatch{Daily: provider.DailyObservations{Metrics: []observations.DailyMetric{
+		{Day: time.Date(2026, 9, 3, 0, 0, 0, 0, loc)},
+		{Day: time.Date(2026, 9, 1, 0, 0, 0, 0, loc)},
+	}}}
+	got := fullExportCoverage(batch, loc)
+	if len(got) != 1 {
+		t.Fatalf("got %d assertions", len(got))
+	}
+	a := got[0]
+	if a.Completeness != "covered" || a.IngestionMode != "full_snapshot" || a.Category != "health" {
+		t.Fatalf("unexpected assertion %+v", a)
+	}
+	if !a.From.Equal(time.Date(2026, 9, 1, 0, 0, 0, 0, loc)) || !a.To.Equal(time.Date(2026, 9, 4, 0, 0, 0, 0, loc)) {
+		t.Fatalf("window = %v..%v", a.From, a.To)
+	}
 }
