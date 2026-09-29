@@ -27,7 +27,7 @@ make dev-up
 make check
 ```
 
-Use [`docs/dev-runtime.md`](docs/dev-runtime.md) for local development and [`docs/roadmap.md`](docs/roadmap.md) for planned work.
+Use [`docs/dev-runtime.md`](docs/dev-runtime.md) for local development, [`ops/k8s/README.md`](ops/k8s/README.md) for Kubernetes deployment, and [`docs/roadmap.md`](docs/roadmap.md) for planned work.
 
 The v0.5 local client is `scripts/iroha_cli.py`. It uploads files into the canonical import pipeline, reads activities, sleep, daily health, media, metrics, and monthly reports, manages expenses,
 lists source attention, and applies agent-owned connection or media-matching actions. JSON is preserved by default; receipt OCR remains an external local-agent concern. Run

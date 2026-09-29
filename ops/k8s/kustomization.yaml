@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: iroha
+resources:
+  - namespace.yaml
+  - config.yaml
+  - valkey.yaml
+  - app.yaml
+images:
+  - name: iroha-server
+    newName: azusachino.com/iroha-server
+    newTag: v0.5.1
+  - name: iroha-job
+    newName: azusachino.com/iroha-job
+    newTag: v0.5.1
+  - name: iroha-db-migrate
+    newName: azusachino.com/iroha-db-migrate
+    newTag: v0.5.1
+  - name: iroha-web
+    newName: azusachino.com/iroha-web
+    newTag: v0.5.1
+  - name: iroha-public-site
+    newName: azusachino.com/iroha-public-site
+    newTag: v0.5.1

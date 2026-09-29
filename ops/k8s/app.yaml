@@ -1,0 +1,390 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: iroha-db-migrate
+  labels:
+    app.kubernetes.io/component: db-migrate
+    app.kubernetes.io/part-of: iroha
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: db-migrate
+        app.kubernetes.io/part-of: iroha
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      containers:
+        - name: migrate
+          image: iroha-db-migrate
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: iroha-secrets
+                  key: POSTGRES_PASSWORD
+            - name: IROHA_DATABASE_URL
+              value: postgres://iroha:$(POSTGRES_PASSWORD)@iroha-postgis:5432/iroha?sslmode=disable
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iroha-server
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/part-of: iroha
+spec:
+  selector:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/part-of: iroha
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iroha-server
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/part-of: iroha
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: server
+      app.kubernetes.io/part-of: iroha
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: server
+        app.kubernetes.io/part-of: iroha
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: server
+          image: iroha-server
+          envFrom:
+            - configMapRef:
+                name: iroha-config
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: iroha-secrets
+                  key: POSTGRES_PASSWORD
+            - name: IROHA_DATABASE_URL
+              value: postgres://iroha:$(POSTGRES_PASSWORD)@iroha-postgis:5432/iroha?sslmode=disable
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: iroha-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 4Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iroha-job
+  labels:
+    app.kubernetes.io/component: job
+    app.kubernetes.io/part-of: iroha
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: job
+      app.kubernetes.io/part-of: iroha
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: job
+        app.kubernetes.io/part-of: iroha
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: job
+          image: iroha-job
+          envFrom:
+            - configMapRef:
+                name: iroha-config
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: iroha-secrets
+                  key: POSTGRES_PASSWORD
+            - name: IROHA_DATABASE_URL
+              value: postgres://iroha:$(POSTGRES_PASSWORD)@iroha-postgis:5432/iroha?sslmode=disable
+            - name: IROHA_ANILIST_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: iroha-secrets
+                  key: IROHA_ANILIST_TOKEN
+                  optional: true
+            - name: IROHA_BANGUMI_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: iroha-secrets
+                  key: IROHA_BANGUMI_TOKEN
+                  optional: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            exec:
+              command: [sh, -c, pgrep -f iroha-job]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: iroha-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iroha-web
+  labels:
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: iroha
+spec:
+  selector:
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: iroha
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iroha-web
+  labels:
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: iroha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: web
+      app.kubernetes.io/part-of: iroha
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: iroha
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: iroha-web
+          env:
+            - name: IROHA_SERVER_UPSTREAM
+              value: iroha-server:80
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: caddy-data
+              mountPath: /data
+            - name: caddy-config
+              mountPath: /config
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: caddy-data
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: caddy-config
+          emptyDir:
+            sizeLimit: 16Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iroha-public-site
+  labels:
+    app.kubernetes.io/component: public-site
+    app.kubernetes.io/part-of: iroha
+spec:
+  selector:
+    app.kubernetes.io/component: public-site
+    app.kubernetes.io/part-of: iroha
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iroha-public-site
+  labels:
+    app.kubernetes.io/component: public-site
+    app.kubernetes.io/part-of: iroha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: public-site
+      app.kubernetes.io/part-of: iroha
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: public-site
+        app.kubernetes.io/part-of: iroha
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: public-site
+          image: iroha-public-site
+          env:
+            - name: IROHA_SERVER_UPSTREAM
+              value: iroha-server:80
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: caddy-data
+              mountPath: /data
+            - name: caddy-config
+              mountPath: /config
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: caddy-data
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: caddy-config
+          emptyDir:
+            sizeLimit: 16Mi
