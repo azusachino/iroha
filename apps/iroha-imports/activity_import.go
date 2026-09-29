@@ -64,7 +64,7 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 		return err
 	}
 	// Child measurements live once, on the canonical activity. A second
-	// observation would need the first one's copy materialised before it takes
+	// observation would need the first one's copy materialized before it takes
 	// over, which is not built yet, so refuse instead of losing data.
 	var others int64
 	if err := tx.Model(&models.ActivityObservation{}).Where("activity_id = ? and id <> ?", activityID, observationID).Count(&others).Error; err != nil {
