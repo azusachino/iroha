@@ -627,6 +627,7 @@
                     )}
                   {:else}
                     {formatPace(activity.avg_pace_s_per_km)}
+                    {#if activity.avg_hr}· {formatHr(activity.avg_hr)}{/if}
                   {/if}
                 </td>
               </tr>
