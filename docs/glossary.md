@@ -99,3 +99,15 @@ assertion records what was seen; it does not delete canonical records outside wh
 
 The dedicated secret that authorizes Health Auto Export to write to the health intake endpoint and nothing else. It is required on every request regardless of network origin; tailnet membership is not
 identity. An unprovisioned credential rejects intake rather than allowing it.
+
+## Raw file
+
+The stored bytes of one imported or fetched payload, kept only as a short replay and debugging aid. It is deleted after the retention window; the receipts, snapshots and observations derived from it persist.
+
+## Purged raw file
+
+A raw file whose bytes have been deleted. Its metadata row remains so duplicate uploads are still recognised, but the import can no longer be reprocessed from it.
+
+## Selected observation
+
+The provider observation whose values the canonical activity or sleep session currently shows. Child measurements (route points, samplings, laps, sleep segments) are stored once, on the canonical record, for the selected observation.

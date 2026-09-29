@@ -18,6 +18,7 @@ type RawFile struct {
 	UploadedVia      string
 	ObservedAt       *time.Time
 	CreatedAt        time.Time
+	PurgedAt         *time.Time
 	ReceiptID        *uuid.UUID `gorm:"-"`
 }
 

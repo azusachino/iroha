@@ -209,6 +209,14 @@ func (s *Service) ProcessContext(ctx context.Context, jobID uuid.UUID) error {
 		return err
 	}
 	priorSameVersion := priorFound && prior.ParserVersion == job.ParserVersion
+	if rawFile.PurgedAt != nil {
+		// The bytes are gone: a completed import stays as it was parsed, and
+		// anything else cannot be replayed.
+		if priorFound {
+			return s.reuseCompletedImport(ctx, jobID, prior, rawFile.SourceKind)
+		}
+		return s.fail(ctx, jobID, errors.New("raw file purged; re-import from the original"))
+	}
 	disposition := decideImportDisposition(priorSameVersion, priorFound)
 
 	switch disposition {

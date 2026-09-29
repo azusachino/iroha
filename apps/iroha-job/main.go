@@ -137,6 +137,11 @@ func main() {
 	jobs.Register(registry, jobs.KindMediaSyncAniList, mediaSyncHandler(syncRunner, "anilist"))
 	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
 	jobs.Register(registry, jobs.KindMediaBridgeRefresh, mediaBridgeRefreshHandler(db, mediaBridge))
+	retention := rawFileRetention(logger, os.Getenv(config.EnvRawRetentionDays))
+	jobs.Register(registry, jobs.KindRawFilePurge, rawFilePurgeHandler(logger, rawFileService, retention))
+	if err := ensureConfiguredRawFilePurgeSchedule(db, retention > 0); err != nil {
+		logger.Error("ensure raw file purge schedule", "error", err)
+	}
 	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncAniList, os.Getenv(config.EnvAniListUsername) != "", os.Getenv(config.EnvAniListSyncInterval)); err != nil {
 		logger.Error("ensure AniList sync schedule", "error", err)
 		os.Exit(1)
@@ -282,6 +287,36 @@ func mediaSyncHandler(runner *imports.SyncRunner, connectorID string) func(conte
 		}
 		return nil
 	}
+}
+
+// rawFileRetention parses IROHA_RAW_RETENTION_DAYS. Zero disables purging; an
+// unset or invalid value keeps the default.
+func rawFileRetention(logger *slog.Logger, value string) time.Duration {
+	if value == "" {
+		return rawfiles.DefaultRetention
+	}
+	days, err := strconv.Atoi(value)
+	if err != nil || days < 0 {
+		logger.Warn("invalid raw retention days; using default", "value", value)
+		return rawfiles.DefaultRetention
+	}
+	return time.Duration(days) * 24 * time.Hour
+}
+
+func rawFilePurgeHandler(logger *slog.Logger, service *rawfiles.Service, retention time.Duration) func(context.Context, struct{}) error {
+	return func(ctx context.Context, _ struct{}) error {
+		failedRetention := max(retention, rawfiles.DefaultFailedRetention)
+		purged, err := service.Purge(ctx, retention, failedRetention)
+		logger.Info("purged raw files", "count", purged)
+		return err
+	}
+}
+
+func ensureConfiguredRawFilePurgeSchedule(db *gorm.DB, enabled bool) error {
+	if err := ensureSchedule(db, jobs.KindRawFilePurge, jobs.ScheduleKindInterval, "24h"); err != nil {
+		return err
+	}
+	return db.Model(&models.JobSchedule{}).Where("kind = ?", jobs.KindRawFilePurge).Update("enabled", enabled).Error
 }
 
 // mediaBridgeRefreshHandler re-fetches the Bangumi->MAL->AniList crosswalk

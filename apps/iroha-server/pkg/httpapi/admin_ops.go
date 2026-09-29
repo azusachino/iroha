@@ -26,6 +26,7 @@ type systemResponse struct {
 	DatabaseBytes    int64     `json:"database_bytes"`
 	RawFileCount     int64     `json:"raw_file_count"`
 	RawFileBytes     int64     `json:"raw_file_bytes"`
+	RawFilePurged    int64     `json:"raw_file_purged_count"`
 	CacheBackend     string    `json:"cache_backend"`
 	Timezone         string    `json:"timezone"`
 	PasskeysEnabled  bool      `json:"passkeys_enabled"`
@@ -152,20 +153,21 @@ func (s *Server) handleSystem(w http.ResponseWriter, r *http.Request) {
 		ServerTime:      s.now().UTC(),
 	}
 	var raw struct {
-		Count int64
-		Bytes int64
+		Count  int64
+		Bytes  int64
+		Purged int64
 	}
 	queries := []error{
 		db.Raw("select coalesce(max(version), 0) from _sqlx_migrations where success").Scan(&out.MigrationVersion).Error,
 		db.Raw("select pg_database_size(current_database())").Scan(&out.DatabaseBytes).Error,
-		db.Raw("select count(*) as count, coalesce(sum(size_bytes), 0) as bytes from tb_raw_files").Scan(&raw).Error,
+		db.Raw("select count(*) filter (where purged_at is null) as count, coalesce(sum(size_bytes) filter (where purged_at is null), 0) as bytes, count(*) filter (where purged_at is not null) as purged from tb_raw_files").Scan(&raw).Error,
 	}
 	if err := errors.Join(queries...); err != nil {
 		s.deps.Logger.Error("read system state", "error", err)
 		writeContractError(w, http.StatusInternalServerError, "system_unavailable", "failed to read system state")
 		return
 	}
-	out.RawFileCount, out.RawFileBytes = raw.Count, raw.Bytes
+	out.RawFileCount, out.RawFileBytes, out.RawFilePurged = raw.Count, raw.Bytes, raw.Purged
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, out)
 }

@@ -18,6 +18,7 @@ const (
 	EnvBangumiToken                = "IROHA_BANGUMI_TOKEN"
 	EnvBangumiSyncInterval         = "IROHA_BANGUMI_SYNC_INTERVAL"
 	EnvTimezone                    = "IROHA_TIMEZONE"
+	EnvRawRetentionDays            = "IROHA_RAW_RETENTION_DAYS"
 	EnvPublicExportDir             = "IROHA_PUBLIC_EXPORT_DIR"
 	EnvPublicExportPrivacy         = "IROHA_PUBLIC_EXPORT_PRIVACY"
 )
