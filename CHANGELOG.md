@@ -11,6 +11,7 @@ contract between minor versions.
 
 - Compute average pace for Health Auto Export workouts from duration and distance, as the Apple Health importer does. Bump the import parser version so re-importing an HAE file replays retained evidence; at an unchanged version the import is skipped as already completed.
 - Show average heart rate next to pace on the Motion list and the public site's activity table for distance sports; runs previously showed only pace, so HAE runs displayed neither.
+- Redirect unknown paths on the public site to `/` instead of serving the app shell with a client-side 404.
 
 ### Changed
 

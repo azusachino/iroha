@@ -21,8 +21,15 @@
 		reverse_proxy {$IROHA_SERVER_UPSTREAM}
 	}
 
+	# The site is a single page at /; send any other missing path there.
 	handle {
-		try_files {path} {path}.html /index.html
+		@missing {
+			not path /
+			not file {
+				try_files {path} {path}.html
+			}
+		}
+		redir @missing / 302
 		file_server
 	}
 }
