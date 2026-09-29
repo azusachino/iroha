@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	"encoding/json"
 	"math"
 	"os"
 	"path/filepath"
@@ -221,5 +222,47 @@ func TestParseHealthAutoExportConvertsUnitsForEveryPoint(t *testing.T) {
 	}
 	if kcal := batch.Activities[0].CaloriesKcal; kcal == nil || math.Abs(*kcal-100) > 1e-9 {
 		t.Errorf("CaloriesKcal = %v, want 100", kcal)
+	}
+}
+
+func TestParseHealthAutoExportReportsUnsupportedMetrics(t *testing.T) {
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"data":{"metrics":[
+{"name":"step_count","units":"count","data":[{"date":"2026-09-20 00:00:00 +0900","qty":1000}]},
+{"name":"apple_stand_hour","units":"count","data":[{"date":"2026-09-20 00:00:00 +0900","qty":9},{"date":"2026-09-21 00:00:00 +0900","qty":8}]},
+{"name":"time_in_daylight","units":"min","data":[{"date":"2026-09-20 00:00:00 +0900","qty":30}]}]}}`
+	batch, err := ParseHealthAutoExport(writeHAE(t, body), "hash", tokyo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(batch.Daily.Metrics) != 1 {
+		t.Fatalf("got %d metrics, want only the supported step count", len(batch.Daily.Metrics))
+	}
+	cov := batch.Coverage[0]
+	if cov.Completeness != "partial" {
+		t.Errorf("Completeness = %q, want partial", cov.Completeness)
+	}
+	var scope struct {
+		Unsupported map[string]int `json:"unsupported_metrics"`
+	}
+	if err := json.Unmarshal(cov.ScopeJSON, &scope); err != nil {
+		t.Fatal(err)
+	}
+	if scope.Unsupported["apple_stand_hour"] != 2 || scope.Unsupported["time_in_daylight"] != 1 || len(scope.Unsupported) != 2 {
+		t.Errorf("unsupported = %v", scope.Unsupported)
+	}
+}
+
+func TestParseHealthAutoExportReportsWhenEveryMetricIsUnsupported(t *testing.T) {
+	body := `{"data":{"metrics":[{"name":"apple_stand_hour","units":"count","data":[{"date":"2026-09-20 00:00:00 +0900","qty":9}]}]}}`
+	batch, err := ParseHealthAutoExport(writeHAE(t, body), "hash", time.UTC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(batch.Coverage) != 1 || batch.Coverage[0].Completeness != "partial" {
+		t.Fatalf("coverage = %+v", batch.Coverage)
 	}
 }

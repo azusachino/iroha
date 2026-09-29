@@ -112,7 +112,7 @@ Before relying on the intake, confirm the facts HAE's documentation leaves open 
 1. Capture one real upload from each automation (for example with a request bin on your own network, or from Iroha's stored raw file).
 2. Send the same workout upload twice. Iroha must still show **one** activity. If it shows two, the workout `id` is not stable.
 3. Note the time and UTC offset in a summarized metric's `date`, and the size of a workout upload with a route.
-4. Check every optional metric you selected actually appears in Iroha. A missing one means HAE spells its name differently from Iroha's parser.
+4. Check every optional metric you selected actually appears in Iroha. A missing one means HAE spells its name differently from Iroha's parser; the upload's coverage scope lists it under `unsupported_metrics`.
 5. Replace `apps/iroha-providers/parsers/testdata/health_auto_export.json` with a trimmed, anonymized real payload (move GPS points away from home, remove device names).
 
 ## Rotate the token

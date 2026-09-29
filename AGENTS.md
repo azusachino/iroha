@@ -107,6 +107,9 @@ build and verify each affected consumer explicitly.
 ## Data & import model (important)
 
 - Raw files, source receipts, source observations and interpretation snapshots are the durable evidence chain. Canonical domain rows are projections of that evidence, not the replay authority.
+  Raw file _bytes_ are the exception: a daily `raw_file_purge` job deletes them 7 days after upload (30 for failed imports; `IROHA_RAW_RETENTION_DAYS=0` disables it) and sets
+  `tb_raw_files.purged_at`. The row, sha256 and receipts stay. A purged completed import is reused as parsed rather than replayed, so a parser-version bump cannot reinterpret it; re-uploading
+  identical bytes restores the file.
 - A full Apple Health export is a **complete snapshot** for the categories it contains; bounded Health payloads are partial and must not delete older history. Workout identity is a stable source key
   (`sourceName|normalized-device|type|start|end|duration`), **not** the zip hash. Strip the volatile `0x` pointer and creation date from HKDevice before using it in keys/hashes.
 - An exact replay at the same `parser_version` is idempotent and can skip re-parsing. A replay at a different parser version creates a new interpretation and replays retained evidence without purging
@@ -117,7 +120,9 @@ build and verify each affected consumer explicitly.
 
 ## Verification
 
-- Unit tests: `make test`. DB-backed: `make test-integration`.
+- Unit tests: `make test`. DB-backed: `make test-integration`, which recreates a disposable `iroha_test` database on the dev server and runs every module's `integration`-tagged tests against it. Those tests
+  truncate tables and delete the owner, so `apps/iroha-runtime/testdb` refuses any database not named `iroha_test*` (or declared throwaway with `IROHA_TEST_DB_DISPOSABLE=1`). Open test databases through
+  `testdb.DSN(t)`, never `os.Getenv("DATABASE_URL")`.
 - Real end-to-end: run both the server (`make run`) and the background worker (`make run-job`) with a shared `IROHA_DATA_DIR` environment variable, then run `make smoke-real-import FILE=...`;
   `real_import_smoke.py` also has `--assert` (delta / no-dup checks) and `--assert-reprocess` modes.
 - Never run `make db-reset` casually — it wipes locally imported data.

@@ -3,6 +3,7 @@
   import PasskeySettings from "./PasskeySettings.svelte";
   import { ApiError } from "$lib/api";
   import { auth, setDisplayName } from "$lib/auth.svelte";
+  import { nextTabId } from "$lib/tab-keys";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -22,6 +23,23 @@
       dialog.close();
     }
   });
+
+  const TABS = [
+    { id: "profile", label: "Profile" },
+    { id: "security", label: "Security" },
+  ] as const;
+
+  function onTabKeydown(event: KeyboardEvent) {
+    const next = nextTabId(
+      TABS.map((item) => item.id),
+      tab,
+      event.key,
+    );
+    if (!next) return;
+    event.preventDefault();
+    tab = next;
+    document.getElementById(`account-tab-${next}`)?.focus();
+  }
 
   async function saveProfile(event: SubmitEvent) {
     event.preventDefault();
@@ -61,53 +79,59 @@
   </header>
 
   <div class="tabs" role="tablist" aria-label="Account settings sections">
-    <button
-      type="button"
-      role="tab"
-      aria-selected={tab === "profile"}
-      onclick={() => (tab = "profile")}>Profile</button
-    >
-    <button
-      type="button"
-      role="tab"
-      aria-selected={tab === "security"}
-      onclick={() => (tab = "security")}>Security</button
-    >
+    {#each TABS as item (item.id)}
+      <button
+        type="button"
+        role="tab"
+        id={`account-tab-${item.id}`}
+        aria-selected={tab === item.id}
+        aria-controls="account-panel"
+        tabindex={tab === item.id ? 0 : -1}
+        onkeydown={onTabKeydown}
+        onclick={() => (tab = item.id)}>{item.label}</button
+      >
+    {/each}
   </div>
 
-  {#if tab === "profile"}
-    <form class="panel" onsubmit={saveProfile}>
-      <label>
-        Username
-        <input value={auth.username} disabled />
-      </label>
-      <label>
-        Display name
-        <input
-          name="display-name"
-          maxlength="64"
-          placeholder={auth.username}
-          bind:value={displayName}
-        />
-      </label>
-      <small
-        >Shown in the menu instead of your username. Leave empty to use the
-        username.</small
-      >
-      {#if message}
-        <p class:error={!message.ok} role={message.ok ? "status" : "alert"}>
-          {message.text}
-        </p>
-      {/if}
-      <button type="submit" class="primary" disabled={saving}
-        >{saving ? "Saving…" : "Save"}</button
-      >
-    </form>
-  {:else}
-    <div class="panel">
-      <PasskeySettings />
-    </div>
-  {/if}
+  <div
+    id="account-panel"
+    role="tabpanel"
+    aria-labelledby={`account-tab-${tab}`}
+  >
+    {#if tab === "profile"}
+      <form class="panel" onsubmit={saveProfile}>
+        <label>
+          Username
+          <input value={auth.username} disabled />
+        </label>
+        <label>
+          Display name
+          <input
+            name="display-name"
+            maxlength="64"
+            placeholder={auth.username}
+            bind:value={displayName}
+          />
+        </label>
+        <small
+          >Shown in the menu instead of your username. Leave empty to use the
+          username.</small
+        >
+        {#if message}
+          <p class:error={!message.ok} role={message.ok ? "status" : "alert"}>
+            {message.text}
+          </p>
+        {/if}
+        <button type="submit" class="primary" disabled={saving}
+          >{saving ? "Saving…" : "Save"}</button
+        >
+      </form>
+    {:else}
+      <div class="panel">
+        <PasskeySettings />
+      </div>
+    {/if}
+  </div>
 </dialog>
 
 <style>

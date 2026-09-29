@@ -22,8 +22,11 @@ TASKS = {
     "fmt-check": ["golangci-lint", "fmt", "--diff", "./..."],
     "vet": ["go", "vet", "./..."],
     "lint": ["golangci-lint", "run", "./..."],
-    "test": ["go", "test", "./..."],
+    # "test" and "coverage" run through run_coverage (tests plus the floor).
+    "test": [],
     "build": ["go", "build", "./..."],
+    # Needs DATABASE_URL naming a disposable database; see apps/iroha-runtime/testdb.
+    "test-integration": ["go", "test", "-p", "1", "-tags=integration", "./..."],
     "coverage": [],
 }
 

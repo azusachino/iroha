@@ -5,23 +5,20 @@ package auth
 import (
 	"context"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/testdb"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func openIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		dsn = "postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable"
-	}
+	dsn := testdb.DSN(t)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open integration db: %v", err)

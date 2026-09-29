@@ -4,7 +4,6 @@ package imports
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-providers/bangumi"
 	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/testdb"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -702,10 +702,7 @@ func float64Ptr(value float64) *float64 { return &value }
 
 func openImportsIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		dsn = "postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable"
-	}
+	dsn := testdb.DSN(t)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open integration db: %v", err)

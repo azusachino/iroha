@@ -521,6 +521,8 @@ def main() -> int:
                 "--",
                 "env",
                 f"{DATABASE_URL_ENV}={database_url}",
+                # The container is created for this run and discarded after it.
+                "IROHA_TEST_DB_DISPOSABLE=1",
                 "go",
                 "-C",
                 str(SERVER_DIR),

@@ -305,6 +305,10 @@ func rawFileRetention(logger *slog.Logger, value string) time.Duration {
 
 func rawFilePurgeHandler(logger *slog.Logger, service *rawfiles.Service, retention time.Duration) func(context.Context, struct{}) error {
 	return func(ctx context.Context, _ struct{}) error {
+		if retention <= 0 {
+			// Purging is disabled; a manual run must not treat 0 as "everything".
+			return nil
+		}
 		failedRetention := max(retention, rawfiles.DefaultFailedRetention)
 		purged, err := service.Purge(ctx, retention, failedRetention)
 		logger.Info("purged raw files", "count", purged)

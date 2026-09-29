@@ -48,6 +48,15 @@ contract between minor versions.
   silently dropping data.
 - Fix HAE distance conversion (only the first point of a miles metric was converted), convert metres, and convert workout energy reported in kJ.
 - Rewrite the Health Auto Export setup guide and add a reference page for HAE settings and payloads.
+- Delete raw file bytes after a retention window: a daily `raw_file_purge` job removes them 7 days after upload (30 for failed imports) and sets `tb_raw_files.purged_at` (migration 00025); the row and
+  its sha256 stay. `IROHA_RAW_RETENTION_DAYS=0` disables it. Re-uploading identical bytes restores a purged file.
+- Report Health Auto Export metrics Iroha does not map: the upload's `health` coverage becomes `partial` and lists them, with data-point counts, under `scope.unsupported_metrics`.
+- Isolate DB-backed Go tests: they refuse any database not named `iroha_test*` (or declared throwaway), and `make test-integration` recreates `iroha_test` and runs every module's integration tests.
+
+### Fixed
+
+- Admin and Account-settings tabs now follow the WAI-ARIA tabs keyboard pattern (arrow, Home and End keys, roving tabindex).
+- A manual run of `raw_file_purge` with `IROHA_RAW_RETENTION_DAYS=0` no longer purges every completed import.
 
 ### Removed
 

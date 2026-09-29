@@ -25,6 +25,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
+	"github.com/azusachino/iroha/apps/iroha-runtime/testdb"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
@@ -560,10 +561,7 @@ func TestIntegrationMonthlyReportEndpoint(t *testing.T) {
 
 func openIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		dsn = "postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable"
-	}
+	dsn := testdb.DSN(t)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open integration db: %v", err)

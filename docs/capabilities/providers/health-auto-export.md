@@ -96,7 +96,8 @@ and is stored correctly.
 
 ## Metric mapping
 
-Metric names that Iroha does not recognize are **silently ignored**. The names below are Iroha's parser keys; only `step_count`, `walking_running_distance`, and `resting_heart_rate` appear in HAE's
+Metric names that Iroha does not recognize are **not stored** (the raw upload is kept while retention allows). They are no longer silent: the upload's `health` coverage assertion becomes `partial`
+and its scope lists `unsupported_metrics` as `{ "<hae name>": <data points> }`, so the Sources page and the coverage API show what was dropped. The names below are Iroha's parser keys; only `step_count`, `walking_running_distance`, and `resting_heart_rate` appear in HAE's
 documentation. The others are unverified until a real payload confirms the exact spelling.
 
 | HAE metric name               | Iroha metric       | Daily reduction |
