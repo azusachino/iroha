@@ -67,6 +67,43 @@ class DevStackScriptTest(unittest.TestCase):
 
         self.assertEqual(captured_env["DATABASE_URL"], dev_stack.DATABASE_URL)
 
+    def test_recreate_test_db_drops_creates_then_migrates_the_test_database(self) -> None:
+        calls: list[tuple[list[str], dict[str, str] | None]] = []
+
+        def fake_run(cmd: list[str], env: dict[str, str] | None = None) -> int:
+            calls.append((cmd, env))
+            return 0
+
+        with (
+            mock.patch.object(dev_stack, "run", side_effect=fake_run),
+            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+        ):
+            self.assertEqual(dev_stack.recreate_test_db(), 0)
+
+        statements = [cmd[cmd.index("-c") + 1] for cmd, _ in calls[:2]]
+        self.assertEqual(
+            statements,
+            [
+                f"drop database if exists {dev_stack.TEST_DB_NAME} with (force)",
+                f"create database {dev_stack.TEST_DB_NAME} owner {dev_stack.DB_USER}",
+            ],
+        )
+        # Neither statement may connect to, or target, the dev database itself.
+        for cmd, _ in calls[:2]:
+            self.assertNotIn(f"drop database if exists {dev_stack.DB_NAME} ", " ".join(cmd) + " ")
+        migrate_cmd, migrate_env = calls[2]
+        self.assertEqual(migrate_cmd, [dev_stack.sys.executable, "scripts/db.py", "apply"])
+        self.assertEqual((migrate_env or {})["DATABASE_URL"], dev_stack.TEST_DATABASE_URL)
+        self.assertIn(f"/{dev_stack.TEST_DB_NAME}?", dev_stack.TEST_DATABASE_URL)
+
+    def test_recreate_test_db_stops_when_a_statement_fails(self) -> None:
+        with (
+            mock.patch.object(dev_stack, "run", return_value=1) as run,
+            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+        ):
+            self.assertEqual(dev_stack.recreate_test_db(), 1)
+        self.assertEqual(run.call_count, 1)
+
     def test_wait_for_db_returns_success_after_ready_probe(self) -> None:
         result = mock.Mock(returncode=0, stdout="ready\n")
         with (

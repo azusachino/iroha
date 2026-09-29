@@ -16,10 +16,18 @@ DATABASE_URL = os.environ.get(
 )
 DB_USER = os.environ.get("IROHA_DB_USER", "iroha")
 DB_NAME = os.environ.get("IROHA_DB_NAME", "iroha")
+DB_PASSWORD = os.environ.get("IROHA_DB_PASSWORD", "iroha_dev")
+# DB-backed Go tests wipe tables, so they get their own database on the dev
+# server. The name prefix is what apps/iroha-runtime/testdb accepts.
+TEST_DB_NAME = "iroha_test"
+TEST_DATABASE_URL = os.environ.get(
+    "IROHA_TEST_DATABASE_URL",
+    f"postgres://{DB_USER}:{DB_PASSWORD}@127.0.0.1:5432/{TEST_DB_NAME}?sslmode=disable",
+)
 
 
 def usage() -> int:
-    print("usage: uv run python scripts/dev_stack.py {start|deps|stop|status|logs|reset|wait}", file=sys.stderr)
+    print("usage: uv run python scripts/dev_stack.py {start|deps|stop|status|logs|reset|wait|test-db}", file=sys.stderr)
     return 2
 
 
@@ -116,6 +124,20 @@ def migrate() -> int:
     return run([sys.executable, "scripts/db.py", "apply"], env=env)
 
 
+def recreate_test_db() -> int:
+    """Drop and recreate the disposable integration database, then migrate it."""
+    base = podman_cmd() + ["exec", "-T", "db", "env", f"PGPASSWORD={DB_PASSWORD}", "psql", "-h", "127.0.0.1", "-U", DB_USER, "-d", DB_NAME, "-v", "ON_ERROR_STOP=1"]
+    for statement in (
+        f"drop database if exists {TEST_DB_NAME} with (force)",
+        f"create database {TEST_DB_NAME} owner {DB_USER}",
+    ):
+        if run(base + ["-c", statement]) != 0:
+            return 1
+    env = os.environ.copy()
+    env["DATABASE_URL"] = TEST_DATABASE_URL
+    return run([sys.executable, "scripts/db.py", "apply"], env=env)
+
+
 def start_database() -> None:
     check_call(podman_cmd() + ["up", "-d", "db"])
     if wait_for_db() != 0:
@@ -131,7 +153,7 @@ def main() -> int:
         return usage()
 
     action = sys.argv[1]
-    if action not in {"start", "deps", "stop", "status", "logs", "reset", "wait"}:
+    if action not in {"start", "deps", "stop", "status", "logs", "reset", "wait", "test-db"}:
         return usage()
 
     if action == "wait":
@@ -145,6 +167,10 @@ def main() -> int:
         if action == "start":
             return start_app()
         return 0
+
+    if action == "test-db":
+        start_database()
+        return recreate_test_db()
 
     if action == "stop":
         return run(podman_cmd() + ["down"])

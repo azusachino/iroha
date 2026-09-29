@@ -120,7 +120,9 @@ build and verify each affected consumer explicitly.
 
 ## Verification
 
-- Unit tests: `make test`. DB-backed: `make test-integration`.
+- Unit tests: `make test`. DB-backed: `make test-integration`, which recreates a disposable `iroha_test` database on the dev server and runs every module's `integration`-tagged tests against it. Those tests
+  truncate tables and delete the owner, so `apps/iroha-runtime/testdb` refuses any database not named `iroha_test*` (or declared throwaway with `IROHA_TEST_DB_DISPOSABLE=1`). Open test databases through
+  `testdb.DSN(t)`, never `os.Getenv("DATABASE_URL")`.
 - Real end-to-end: run both the server (`make run`) and the background worker (`make run-job`) with a shared `IROHA_DATA_DIR` environment variable, then run `make smoke-real-import FILE=...`;
   `real_import_smoke.py` also has `--assert` (delta / no-dup checks) and `--assert-reprocess` modes.
 - Never run `make db-reset` casually — it wipes locally imported data.
