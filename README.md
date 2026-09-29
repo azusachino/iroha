@@ -37,7 +37,7 @@ The v0.5 runtime cache is a shared, backend-neutral disposable read layer for th
 for the k3s compatibility deployment, and `none` disables caching. There is no production process-memory cache and no scheduled aggregate table in this release. The public site remains a separate
 static client; it reads the validated sanitized public API projection and does not use the private cache.
 
-v0.5 is a fresh-schema cut-over. The release path replays the complete original raw evidence set into SQLx migrations 1–20; it does not migrate the legacy schema and does not adopt Goose.
+v0.5 is a fresh-schema cut-over. The release path replays the complete original raw evidence set into SQLx migrations 1–25; it does not migrate the legacy schema and does not adopt Goose.
 
 After a local k3s rollout, run `make smoke-k3s-cache` for a non-mutating deployment check. It verifies the k3s ConfigMap selects Valkey and that two identical monthly-report reads return the expected
 cache hit on the second request.
