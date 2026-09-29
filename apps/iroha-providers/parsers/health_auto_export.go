@@ -162,6 +162,10 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 		minObserved time.Time
 		maxObserved time.Time
 		hasObserved bool
+		// unsupported counts the data points of metrics Iroha does not map, by
+		// HAE name, so the import says what it dropped instead of implying
+		// full health coverage.
+		unsupported = map[string]int{}
 	)
 
 	// markObserved widens the window to the whole device-local day containing t,
@@ -198,6 +202,19 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 			continue
 		}
 
+		if canonical, _, _ := mapHaeMetricName(metric.Name); canonical == "" {
+			unsupported[metric.Name] += len(metric.Data)
+			// Best effort: the days still count as observed so the drop is
+			// reported even when nothing else in the upload is supported.
+			for _, pt := range metric.Data {
+				if date, _ := pt["date"].(string); date != "" {
+					if t, err := parseHaeTime(date); err == nil {
+						markObserved(t)
+					}
+				}
+			}
+			continue
+		}
 		dailyMetrics, metricMin, metricMax, err := parseHaeDailyMetric(metric)
 		if err != nil {
 			return provider.ImportBatch{}, err
@@ -228,14 +245,22 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 			toDay = end
 		}
 
+		scope, completeness := json.RawMessage(`{}`), "unknown"
+		if len(unsupported) > 0 {
+			encoded, err := json.Marshal(map[string]any{"unsupported_metrics": unsupported})
+			if err != nil {
+				return provider.ImportBatch{}, fmt.Errorf("encode unsupported metrics: %w", err)
+			}
+			scope, completeness = encoded, "partial"
+		}
 		batch.Coverage = append(batch.Coverage, provider.CoverageAssertion{
 			Category:      "health",
-			ScopeJSON:     json.RawMessage(`{}`),
+			ScopeJSON:     scope,
 			From:          fromDay,
 			To:            toDay,
 			Timezone:      loc.String(),
 			IngestionMode: "bounded_replacement",
-			Completeness:  "unknown",
+			Completeness:  completeness,
 		})
 	}
 
