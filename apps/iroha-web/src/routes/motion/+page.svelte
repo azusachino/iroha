@@ -598,6 +598,9 @@
                       activity.duration_s ?? activity.moving_time_s,
                     )}</span
                   >
+                  {#if activity.avg_hr}<span
+                      >Avg HR: {formatHr(activity.avg_hr)}</span
+                    >{/if}
                 </div>
               {/if}
             </a>

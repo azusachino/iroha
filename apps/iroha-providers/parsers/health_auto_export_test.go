@@ -77,6 +77,9 @@ func TestParseHealthAutoExportFixture(t *testing.T) {
 	if act.DistanceM == nil || *act.DistanceM != 5120 {
 		t.Errorf("distanceM = %v, want 5120", act.DistanceM)
 	}
+	if act.AvgPaceSPerKM == nil || math.Abs(*act.AvgPaceSPerKM-1872.0/5.12) > 0.001 {
+		t.Errorf("avgPace = %v, want ~365.6", act.AvgPaceSPerKM)
+	}
 	if act.DurationS == nil || *act.DurationS != 1872 {
 		t.Errorf("durationS = %v, want 1872", act.DurationS)
 	}

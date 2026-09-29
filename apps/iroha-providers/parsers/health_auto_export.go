@@ -580,6 +580,12 @@ func parseHaeWorkout(w haeWorkout, rawHash string) (observations.Activity, error
 		})
 	}
 
+	var avgPace *float64
+	if distanceM != nil && *distanceM > 0 && durationS > 0 {
+		pace := float64(durationS) / (*distanceM / 1000.0)
+		avgPace = &pace
+	}
+
 	return observations.Activity{
 		Provider:         "apple_health",
 		ExternalID:       w.ID,
@@ -590,6 +596,7 @@ func parseHaeWorkout(w haeWorkout, rawHash string) (observations.Activity, error
 		EndedAt:          endedAt,
 		DistanceM:        distanceM,
 		DurationS:        &durationS,
+		AvgPaceSPerKM:    avgPace,
 		AvgHR:            avgHR,
 		MaxHR:            maxHR,
 		CaloriesKcal:     caloriesKcal,
