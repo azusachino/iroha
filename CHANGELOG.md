@@ -5,17 +5,11 @@ All notable changes to this project are documented in this file.
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project does not yet follow strict semantic versioning guarantees — pre-1.0 releases may change the API
 contract between minor versions.
 
-## [0.5.2] — 2026-09-29
-
-### Fixed
-
-- Bump the import parser version so re-importing a Health Auto Export file replays retained evidence and backfills pace. At the old version the import was skipped as already completed, so the 0.5.1 pace fix never reached existing workouts.
-
 ## [0.5.1] — 2026-09-29
 
 ### Fixed
 
-- Compute average pace for Health Auto Export workouts from duration and distance, as the Apple Health importer does. Replaying retained HAE raw files backfills existing runs.
+- Compute average pace for Health Auto Export workouts from duration and distance, as the Apple Health importer does. Bump the import parser version so re-importing an HAE file replays retained evidence; at an unchanged version the import is skipped as already completed.
 - Show average heart rate next to pace on the Motion list and the public site's activity table for distance sports; runs previously showed only pace, so HAE runs displayed neither.
 
 ### Changed
@@ -495,7 +489,6 @@ sanitized-public read surfaces on top.
 - Geocode retry storms now back off instead of hammering Nominatim on rate-limit responses.
 - Local stack startup sequencing (dependencies before app containers, migrations before server).
 
-[0.5.2]: https://github.com/azusachino/iroha/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/azusachino/iroha/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/azusachino/iroha/compare/v0.4.5...v0.5.0
 [0.3.0]: https://github.com/azusachino/iroha/compare/v0.2.0...v0.3.0
