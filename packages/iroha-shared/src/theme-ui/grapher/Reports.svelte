@@ -13,7 +13,9 @@
   import { formatMetricValue } from "../../format/format";
   import { healthMetricLabel } from "../../domain/health-metric-labels";
   import { healthPanelRows } from "../../domain/health-panel-rows";
-  import { sportLabel } from "../../domain/sport";
+  import { sportColor, sportColorVar, sportLabel } from "../../domain/sport";
+  import { categoryColor, categoryColorVar } from "../../domain/category-color";
+  import { sleepStageColor } from "../../domain/sleep-stages";
   import { sportIcon } from "../../domain/sport-icons";
   import { expenseCategoryLabel } from "../../view-contracts/expense-view";
   import { expenseCategoryIcon } from "../../domain/expense-icons";
@@ -78,16 +80,25 @@
   );
   const periodDays = $derived(reportPeriodDays(report));
   const healthRows = $derived<PanelRow[]>(
-    healthPanelRows(health?.metric_averages ?? [], periodDays, { colored: false }),
+    healthPanelRows(health?.metric_averages ?? [], periodDays, {
+      colored: false,
+    }),
   );
   const movementRows = $derived<PanelRow[]>(
     (movement?.by_sport ?? []).map((item) => ({
       label: sportLabel(item.sport),
       icon: sportIcon(item.sport),
+      colorVar: sportColorVar(item.sport),
       value: item.distance_m / 1000,
       display: number(item.distance_m / 1000) + " km",
     })),
   );
+  // Sleep stage labels are display strings; the palette is keyed by source stage.
+  function stageColor(label: string): string {
+    return sleepStageColor(
+      label === "Unspecified" ? "asleep_unspecified" : label.toLowerCase(),
+    );
+  }
   const sleepRows = $derived<PanelRow[]>(
     sleepStages.map(([stage, seconds]) => ({
       label: stage,
@@ -99,6 +110,7 @@
     categoryTotals.map((item) => ({
       label: expenseCategoryLabel[item.category],
       icon: expenseCategoryIcon(item.category),
+      colorVar: categoryColorVar(item.category),
       value: item.amount_minor,
       display: formatMoney(item.amount_minor, primaryCurrency, primaryExponent),
     })),
@@ -222,6 +234,9 @@
               name: primaryCurrency,
               values: expenseRows.map((row) => row.value),
               color: "var(--accent-2)",
+              colors: categoryTotals.map((item) =>
+                categoryColor(item.category),
+              ),
               formatter: (value) =>
                 formatMoney(value, primaryCurrency, primaryExponent),
             }}
@@ -258,6 +273,9 @@
               name: "Distance",
               values: movementRows.map((row) => row.value),
               color: "var(--accent)",
+              colors: (movement?.by_sport ?? []).map((item) =>
+                sportColor(item.sport),
+              ),
               formatter: (value) => number(value) + " km",
             }}
             orientation="horizontal"
@@ -288,6 +306,7 @@
               name: "Hours",
               values: sleepStages.map(([, seconds]) => seconds / 3600),
               color: "var(--accent-2)",
+              colors: sleepStages.map(([stage]) => stageColor(stage)),
               formatter: (value) => number(value) + "h",
             }}
             categorical
@@ -325,14 +344,13 @@
             primary={{
               name: "Events",
               values: media.by_kind.map((item) => item.event_count),
-              color: "var(--accent)",
+              color: "var(--mark-violet)",
             }}
             secondary={{
               name: "Completed",
               values: media.by_kind.map((item) => item.completed_count),
-              color: "var(--accent-2)",
+              color: "var(--mark-teal)",
             }}
-            categorical
             height={220}
           />
         </MetricPanel>
