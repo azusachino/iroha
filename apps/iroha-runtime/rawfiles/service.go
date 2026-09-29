@@ -100,6 +100,11 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 		return models.RawFile{}, false, err
 	}
 	if found {
+		if existing.PurgedAt != nil {
+			if err := s.restore(&existing, func(path string) error { return storePrivateUpload(tempPath, path) }); err != nil {
+				return models.RawFile{}, false, err
+			}
+		}
 		receipt, receiptErr := s.recordReceipt(existing, input.SourceKind, input.UploadedVia, input.SourceInstanceKey, input.IngestionMode, input.ObservedAt, now)
 		if receiptErr != nil {
 			return models.RawFile{}, false, receiptErr
@@ -172,6 +177,11 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 		return models.RawFile{}, err
 	}
 	if found {
+		if existing.PurgedAt != nil {
+			if err := s.restore(&existing, func(path string) error { return writePrivateSnapshot(path, snapshot.Body) }); err != nil {
+				return models.RawFile{}, err
+			}
+		}
 		receipt, receiptErr := s.recordReceipt(existing, snapshot.SourceKind, "connector", snapshot.SourceInstanceKey, snapshot.IngestionMode, timePtrOrNow(snapshot.ObservedAt, now), now)
 		if receiptErr != nil {
 			return models.RawFile{}, receiptErr
@@ -222,6 +232,24 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 	}
 	rawFile.ReceiptID = &receipt.ID
 	return rawFile, nil
+}
+
+// restore brings a purged raw file back when identical bytes arrive again: the
+// row is kept by sha256, so without this a purged import could never be
+// retried. write stores the bytes at the row's original path.
+func (s *Service) restore(rawFile *models.RawFile, write func(path string) error) error {
+	if err := s.ensureStorageDir(filepath.Dir(rawFile.StoragePath)); err != nil {
+		return err
+	}
+	if err := write(rawFile.StoragePath); err != nil {
+		return err
+	}
+	if err := s.db.Model(&models.RawFile{}).Where("id = ?", rawFile.ID).Update("purged_at", nil).Error; err != nil {
+		_ = os.Remove(rawFile.StoragePath)
+		return err
+	}
+	rawFile.PurgedAt = nil
+	return nil
 }
 
 func ensurePrivateDir(path string) error {
