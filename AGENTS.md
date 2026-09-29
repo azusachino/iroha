@@ -2,13 +2,15 @@
 
 Project conventions and orientation for contributors and coding agents working in this repo. Read this before making changes. User-facing contribution flow is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
+Read [CONSTRAINTS.md](CONSTRAINTS.md) before writing code. Do not weaken it to make a change pass.
+
 ## What this is
 
 A personal data cockpit. Raw exports are canonical evidence; they are normalized into a durable Postgres/PostGIS store and exposed through a private API/web app. First module: running & fitness.
 
 ## Layout
 
-```
+```text
 apps/iroha-runtime/   Shared runtime packages (cache, IDs, jobs, persistence models)
 apps/iroha-server/    Go service (cmd/iroha-server, pkg/{httpapi,activities,daily,sleep,config,rawfiles})
 apps/iroha-job/       Go background worker service

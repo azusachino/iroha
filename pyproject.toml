@@ -8,3 +8,12 @@ dependencies = [
   "psycopg[binary]>=3.3.4",
   "requests>=2.34.2",
 ]
+
+[dependency-groups]
+dev = [
+  "coverage>=7.16.1",
+]
+
+[tool.coverage.report]
+precision = 2
+fail_under = 36.66
