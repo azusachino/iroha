@@ -12,6 +12,8 @@ import urllib.parse
 from datetime import date
 from pathlib import Path
 
+import iroha_auth
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MOBILE_VIEWPORTS = ((320, 844), (375, 844), (390, 844), (414, 896))

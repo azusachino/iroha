@@ -5,6 +5,9 @@ import mobile_route_check
 
 
 class MobileRouteInventoryTest(unittest.TestCase):
+    def test_owner_auth_helper_is_available(self):
+        self.assertTrue(callable(mobile_route_check.iroha_auth.login))
+
     def test_inventory_covers_canonical_alias_and_detail_routes(self):
         routes = mobile_route_check.route_inventory("activity-1", "sleep-1", "media-1")
         paths = [route for route, _ in routes]
