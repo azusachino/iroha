@@ -31,8 +31,6 @@
     route: RoutePoint[];
     samplings: SamplingPoint[];
     laps: Lap[];
-    selectedRouteIndex: number | null;
-    onSelectRoute: (index: number | null) => void;
     children?: Snippet;
   } = $props();
 
