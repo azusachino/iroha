@@ -179,6 +179,10 @@ Motion should explain state changes, not decorate every surface.
 design compositions, the design-language picker, and both `/design` workbench pages. Grapher is the single design language and will be tuned toward a Grafana-style dashboard look. The registry
 mechanism stays, so the history below describes the retired languages.
 
+**Amendment (2026-09-29): Max tracker direction.** The owner selected the article's most-complete tracker iteration; its four examples are effort levels, not four named visual styles. Use its richer density and
+activity heat chart as structural references, not as a copied interface. Grapher's overview should become a responsive, time-range-aware panel grid backed only by existing Iroha data. Preserve provenance,
+loading, error, empty, privacy, and responsive/accessibility contracts. Do not invent goals, scores, or insights.
+
 **Amendment (2026-08-28): per-language ambient backgrounds.** Five of the six registered design languages (all but Grapher, which stays undecorated) mount a low-opacity, near-imperceptible WebGL scene
 (`packages/iroha-shared/src/theme-ui/ambient/`) at the root layout, behind every route rather than limited to Today/design-archive as the rule above states literally. This is a deliberate, scoped
 exception, not a lapse: every data tile paints an opaque `--tile-surface`, so the scene is only ever visible through chrome and empty space and never behind real data; `prefers-reduced-motion` is a
