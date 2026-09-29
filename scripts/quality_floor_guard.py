@@ -80,7 +80,7 @@ def parse_diff(diff: str) -> tuple[list[Change], list[Change], set[str]]:
 
 
 def is_test(path: str) -> bool:
-    return bool(re.search(r"(?:\.test\.|\.spec\.|_test\.|test_)", path))
+    return bool(re.search(r"(?:\.test\.|\.spec\.|_test\.|(?:^|/)test_)", path))
 
 
 def rule_key(text: str) -> str | None:

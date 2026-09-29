@@ -22,7 +22,8 @@ TASKS = {
     "fmt-check": ["golangci-lint", "fmt", "--diff", "./..."],
     "vet": ["go", "vet", "./..."],
     "lint": ["golangci-lint", "run", "./..."],
-    "test": ["go", "test", "./..."],
+    # "test" and "coverage" run through run_coverage (tests plus the floor).
+    "test": [],
     "build": ["go", "build", "./..."],
     "coverage": [],
 }
