@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { chartSignature } from "./chart-signature";
   import { LineChart } from "echarts/charts";
   import {
     AxisPointerComponent,
@@ -113,9 +114,11 @@
     };
   });
 
+  let lastSignature: string | undefined;
   $effect(() => {
-    labels;
-    charts;
+    const next = chartSignature(labels, charts);
+    if (next === lastSignature) return;
+    lastSignature = next;
     render();
   });
 </script>
@@ -142,7 +145,11 @@
           <tr>
             <th scope="row">{label}</th>
             {#each charts as item}
-              <td>{item.values[index] == null ? "No observation" : `${item.values[index]}${item.unit ? ` ${item.unit}` : ""}`}</td>
+              <td
+                >{item.values[index] == null
+                  ? "No observation"
+                  : `${item.values[index]}${item.unit ? ` ${item.unit}` : ""}`}</td
+              >
             {/each}
           </tr>
         {/each}

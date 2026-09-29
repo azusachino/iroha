@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { chartSignature } from "./chart-signature";
   import { init, use } from "echarts/core";
   import { PieChart } from "echarts/charts";
   import { LegendComponent, TooltipComponent } from "echarts/components";
@@ -105,9 +106,11 @@
     };
   });
 
+  let lastSignature: string | undefined;
   $effect(() => {
-    stages;
-    selectedStage;
+    const next = chartSignature(stages, selectedStage);
+    if (next === lastSignature) return;
+    lastSignature = next;
     render();
   });
 </script>
@@ -127,7 +130,10 @@
     </thead>
     <tbody>
       {#each stages as stage}
-        <tr><th scope="row">{stage.name}</th><td>{formatMinutes(stage.value)}</td></tr>
+        <tr
+          ><th scope="row">{stage.name}</th><td>{formatMinutes(stage.value)}</td
+          ></tr
+        >
       {/each}
     </tbody>
   </table>

@@ -6,6 +6,7 @@
   // This gives every theme the same real interactivity; per-theme color and
   // orientation keep some of each theme's own identity.
   import { onMount } from "svelte";
+  import { chartSignature } from "./chart-signature";
   import { BarChart as EchartsBarChart, LineChart } from "echarts/charts";
   import {
     GridComponent,
@@ -266,14 +267,19 @@
     };
   });
 
+  let lastSignature: string | undefined;
   $effect(() => {
-    categories;
-    primary;
-    secondary;
-    orientation;
-    primaryType;
-    categorical;
-    activeIndex;
+    const next = chartSignature(
+      categories,
+      primary,
+      secondary,
+      orientation,
+      primaryType,
+      categorical,
+      activeIndex,
+    );
+    if (next === lastSignature) return;
+    lastSignature = next;
     render();
   });
 </script>
