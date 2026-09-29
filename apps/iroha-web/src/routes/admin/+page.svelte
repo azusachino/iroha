@@ -8,6 +8,7 @@
   import AdminJobs from "$lib/components/admin/AdminJobs.svelte";
   import AdminImports from "$lib/components/admin/AdminImports.svelte";
   import IntakeTokens from "$lib/components/IntakeTokens.svelte";
+  import { nextTabId } from "$lib/tab-keys";
 
   const TABS = [
     { id: "system", label: "System" },
@@ -23,6 +24,18 @@
     (TABS.find((item) => item.id === page.url.searchParams.get("tab"))?.id ??
       "system") as TabId,
   );
+
+  function onTabKeydown(event: KeyboardEvent) {
+    const next = nextTabId(
+      TABS.map((item) => item.id),
+      tab,
+      event.key,
+    );
+    if (!next) return;
+    event.preventDefault();
+    select(next);
+    document.getElementById(`admin-tab-${next}`)?.focus();
+  }
 
   function select(id: TabId) {
     const url = new URL(page.url);
@@ -56,6 +69,8 @@
         id={`admin-tab-${item.id}`}
         aria-selected={tab === item.id}
         aria-controls="admin-panel"
+        tabindex={tab === item.id ? 0 : -1}
+        onkeydown={onTabKeydown}
         onclick={() => select(item.id)}>{item.label}</button
       >
     {/each}
