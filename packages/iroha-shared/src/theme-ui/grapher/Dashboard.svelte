@@ -244,7 +244,7 @@
   .readout strong {
     font-family: var(--font-sans);
     font-size: 3rem;
-    letter-spacing: -0.1em;
+    letter-spacing: -0.04em;
   }
   .readout span,
   .panel-header > span,

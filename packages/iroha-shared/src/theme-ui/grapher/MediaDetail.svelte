@@ -37,8 +37,10 @@
     />{/if}
   <section class="chart-panel">
     <header>
-      <p class="kicker">Continuity</p>
-      <h2>Progress through the record</h2>
+      <div>
+        <p class="kicker">Continuity</p>
+        <h2>Progress through the record</h2>
+      </div>
       {#if hasKnownTotal}
         <strong>{Math.round(progress)}%</strong>
       {:else}
@@ -59,8 +61,10 @@
   </section>
   {#if progressEvents.length}<section class="chart-panel">
       <header>
-        <p class="kicker">Comparison over events</p>
-        <h2>Progress history</h2>
+        <div>
+          <p class="kicker">Comparison over events</p>
+          <h2>Progress history</h2>
+        </div>
       </header>
       <BarChart
         categories={progressEvents.map(
@@ -146,7 +150,7 @@
     max-width: 32ch;
     font-family: var(--font-sans);
     font-size: clamp(1.8rem, 3.2vw, 3.2rem);
-    letter-spacing: -0.06em;
+    letter-spacing: -0.05em;
     line-height: 0.95;
   }
   h2 {
@@ -175,10 +179,13 @@
     font-size: 0.7rem;
   }
   .rating {
+    display: flex;
+    align-items: baseline;
+    gap: 0.2em;
     color: var(--accent);
     font-family: var(--font-sans);
     font-size: 3.5rem;
-    letter-spacing: -0.1em;
+    letter-spacing: -0.04em;
     white-space: nowrap;
   }
   .rating small {
@@ -209,6 +216,9 @@
     gap: 1rem;
     align-items: end;
     margin-bottom: 0.7rem;
+  }
+  .chart-panel header > div {
+    min-width: 0;
   }
   .chart-panel header > strong {
     color: var(--accent);
@@ -266,6 +276,13 @@
     .detail-header,
     .record-grid {
       display: grid;
+    }
+    .record-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .chart-panel header {
+      flex-wrap: wrap;
+      align-items: flex-start;
     }
     li {
       grid-template-columns: 5.5rem minmax(0, 1fr) auto;

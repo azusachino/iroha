@@ -51,7 +51,9 @@
         Compare completion, score, and kind before opening the exact shelf rows.
       </p>
     </div>
-    <strong>{aggregates.totals.item_count}<small> titles</small></strong>
+    <strong class="media-count">
+      <span>{aggregates.totals.item_count}</span><small> titles</small>
+    </strong>
   </header>
   <nav class="tabs" aria-label="Media family">
     {#each families as option (option.value)}<button
@@ -186,11 +188,10 @@
     margin: 0;
   }
   h1 {
-    max-width: 12ch;
     font-family: var(--font-sans);
     font-size: var(--grapher-utility-title-size);
-    letter-spacing: -0.12em;
-    line-height: 0.82;
+    letter-spacing: -0.05em;
+    line-height: 1;
   }
   h2 {
     font-family: var(--font-sans);
@@ -220,10 +221,13 @@
     line-height: 1.55;
   }
   .media-header > strong {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35em;
     color: var(--accent);
     font-family: var(--font-sans);
     font-size: 3.5rem;
-    letter-spacing: -0.1em;
+    letter-spacing: -0.04em;
     white-space: nowrap;
   }
   .media-header small {

@@ -163,15 +163,6 @@
 </svelte:head>
 
 <section class="dashboard-shell">
-  <ArchiveTotals
-    activityCount={overviewResource.loading || overviewResource.error
-      ? null
-      : activityCount}
-    nightCount={sleepResource.loading ? null : sleepSessionCount}
-    mediaCount={mediaResource.loading || !mediaAggregates
-      ? null
-      : mediaAggregates.totals.item_count}
-  />
   {#if hasThemeRoute(theme.definition(), "dashboard")}
     <LoadingBoundary
       resource={overviewResource}
@@ -389,6 +380,15 @@
       </section>
     </div>
   {/if}
+  <ArchiveTotals
+    activityCount={overviewResource.loading || overviewResource.error
+      ? null
+      : activityCount}
+    nightCount={sleepResource.loading ? null : sleepSessionCount}
+    mediaCount={mediaResource.loading || !mediaAggregates
+      ? null
+      : mediaAggregates.totals.item_count}
+  />
 </section>
 
 <style>

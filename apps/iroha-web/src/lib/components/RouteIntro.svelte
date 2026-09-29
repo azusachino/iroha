@@ -52,7 +52,7 @@
     margin: 0;
     color: var(--text);
     font-size: clamp(2.25rem, 6vw, 4rem);
-    letter-spacing: -0.07em;
+    letter-spacing: -0.05em;
     line-height: 0.98;
   }
 

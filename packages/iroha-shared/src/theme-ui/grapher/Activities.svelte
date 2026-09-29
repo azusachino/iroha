@@ -177,8 +177,8 @@
   h1 {
     margin: 0;
     font-size: var(--grapher-utility-title-size);
-    letter-spacing: -0.1em;
-    line-height: 0.88;
+    letter-spacing: -0.05em;
+    line-height: 1;
   }
   .page-intro p:last-child {
     margin: 1rem 0 0;

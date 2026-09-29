@@ -185,8 +185,9 @@ def accessibility_failures(state: dict, viewport: tuple[int, int]) -> list[str]:
         failures.append("expected exactly one main landmark")
     if state["footerInMain"]:
         failures.append("theme footer is inside the main landmark")
-    if state["h1Count"] != 1 or state["firstHeading"] != "H1":
-        failures.append("H1 is not the single first heading")
+    heading_summary = state["headingSummary"]
+    if heading_summary["h1Count"] != 1 or heading_summary["firstHeading"] != "H1":
+        failures.append("H1 is not the single first exposed heading")
     if viewport[0] <= 640 and state["focusOrderMismatch"]:
         failures.append("compact focus order differs from visual order")
     if state["smallTargetCount"]:
@@ -231,9 +232,12 @@ def assert_route(
         "overflow:nav.scrollWidth>nav.clientWidth+1,"
         "clipped:items.some(el=>{const box=el.getBoundingClientRect();return box.left<rect.left-1||box.right>rect.right+1}),"
         "count:items.length};})(),"
-        "headings:document.querySelectorAll('h1,h2').length,"
-        "h1Count:document.querySelectorAll('h1').length,"
-        "firstHeading:document.querySelector('h1,h2,h3,h4,h5,h6')?.tagName??null,"
+        "headingSummary:(()=>{const headings=[...document.querySelectorAll('h1,h2,h3,h4,h5,h6')]"
+        ".filter(h=>{const s=getComputedStyle(h);return !h.closest("
+        "'dialog:not([open]),[hidden],[aria-hidden=\"true\"],[inert]')&&"
+        "s.display!=='none'&&s.visibility!=='hidden';});return {"
+        "h1Count:headings.filter(h=>h.tagName==='H1').length,"
+        "firstHeading:headings[0]?.tagName??null};})(),"
         "skipLink:(()=>{const link=document.querySelector('a.skip-link[href^=\\\"#\\\"]');"
         "const target=link&&document.querySelector(link.getAttribute('href'));return {"
         "exists:Boolean(link),targetExists:Boolean(target)};})(),"
