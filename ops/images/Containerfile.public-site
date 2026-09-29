@@ -1,6 +1,6 @@
 # Public site: a static client shell that reads the live, sanitized
 # projection from iroha-server's anonymous /public/v1 API (ADR-0008).
-FROM oven/bun:1.4.0 AS build
+FROM oven/bun:1.4.2 AS build
 
 WORKDIR /app
 COPY packages/iroha-shared ./packages/iroha-shared

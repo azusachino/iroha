@@ -12,6 +12,10 @@ contract between minor versions.
 - Compute average pace for Health Auto Export workouts from duration and distance, as the Apple Health importer does. Replaying retained HAE raw files backfills existing runs.
 - Show average heart rate next to pace on the Motion list and the public site's activity table for distance sports; runs previously showed only pace, so HAE runs displayed neither.
 
+### Changed
+
+- Bump pgx to 5.11.0, vite to 8.3.1, bun to 1.4.2 (mise and images), golangci-lint to 2.14.0, rumdl to 0.2.77, and psycopg to 3.3.6.
+
 ## [0.5.0] — 2026-09-27
 
 ### Added
