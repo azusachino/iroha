@@ -438,6 +438,7 @@ paths:
                   database_bytes: { type: integer }
                   raw_file_count: { type: integer }
                   raw_file_bytes: { type: integer }
+                  raw_file_purged_count: { type: integer }
                   cache_backend: { type: string }
                   timezone: { type: string }
                   passkeys_enabled: { type: boolean }

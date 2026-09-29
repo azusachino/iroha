@@ -210,6 +210,11 @@
     }
   }
 
+  :global(:root[data-theme="light"]) .palette {
+    background: var(--surface);
+    backdrop-filter: none;
+  }
+
   header {
     display: flex;
     align-items: center;
@@ -237,12 +242,16 @@
   .command-list {
     min-height: 0;
     overflow-y: auto;
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 0.3rem;
     overscroll-behavior: contain;
   }
 
   button {
+    /* Rows keep their content height; a grid list squeezed them to min-height
+       and left the label/hint spilling out of the selection box. */
+    flex: 0 0 auto;
     width: 100%;
     min-height: 3.4rem;
     padding: 0.7rem 0.8rem;

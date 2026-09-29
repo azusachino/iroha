@@ -31,8 +31,6 @@
     route: RoutePoint[];
     samplings: SamplingPoint[];
     laps: Lap[];
-    selectedRouteIndex: number | null;
-    onSelectRoute: (index: number | null) => void;
     children?: Snippet;
   } = $props();
 
@@ -140,9 +138,9 @@
   h1 {
     max-width: 16ch;
     font-family: var(--font-sans);
-    font-size: clamp(2.8rem, 8vw, 7rem);
-    letter-spacing: -0.12em;
-    line-height: 0.82;
+    font-size: var(--grapher-utility-title-size);
+    letter-spacing: -0.05em;
+    line-height: 1;
   }
   h2 {
     font-family: var(--font-sans);

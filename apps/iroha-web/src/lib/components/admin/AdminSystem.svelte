@@ -66,9 +66,10 @@
         <dd>migration {system.migration_version}</dd>
         <dt>Database</dt>
         <dd>{formatBytes(system.database_bytes)}</dd>
-        <dt>Raw evidence</dt>
+        <dt>Raw files</dt>
         <dd>
-          {system.raw_file_count} files · {formatBytes(system.raw_file_bytes)}
+          {system.raw_file_count} files · {formatBytes(system.raw_file_bytes)} · {system.raw_file_purged_count}
+          purged
         </dd>
         <dt>Cache</dt>
         <dd>{system.cache_backend}</dd>

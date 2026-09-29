@@ -135,6 +135,15 @@ func (c ActivityConnector) Fetch(ctx context.Context, credentials connector.Cred
 	}, next, nil
 }
 
+// CoverageWindowStart is the earliest activity time a run started from cursor
+// asks AniList for.
+func (c ActivityConnector) CoverageWindowStart(cursor *connector.Cursor, now time.Time) time.Time {
+	if cursor != nil && cursor.CreatedAfter > 0 {
+		return time.Unix(cursor.CreatedAfter, 0).UTC()
+	}
+	return now.Add(-c.lookback())
+}
+
 func (ActivityConnector) ResumeCursor() *connector.Cursor {
 	return &connector.Cursor{
 		Token:        "resume",

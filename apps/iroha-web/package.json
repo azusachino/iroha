@@ -12,7 +12,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"test": "vitest run"
+		"test": "vitest run --coverage"
 	},
 	"overrides": {
 		"cookie": "0.7.0",
@@ -25,9 +25,10 @@
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "4.3.3",
+		"@vitest/coverage-v8": "4.1.11",
+		"playwright": "^1.63.0",
 		"prettier": "^3.9.9",
 		"prettier-plugin-svelte": "^4.1.1",
-		"playwright": "^1.63.0",
 		"svelte": "^5.57.1",
 		"svelte-check": "^4.7.6",
 		"tailwindcss": "4.3.3",

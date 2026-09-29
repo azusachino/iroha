@@ -14,6 +14,7 @@
   let menu: HTMLDetailsElement;
   let summary: HTMLElement;
   let popoverStyle = $state("");
+  let openTimer: ReturnType<typeof setTimeout> | undefined;
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
   function updatePopoverPosition() {
@@ -37,13 +38,29 @@
     popoverStyle = `--navigation-popover-top:${top}px;--navigation-popover-left:${left}px;`;
   }
 
+  // In the side rail the sub-menu is expanded inline, not floated. There it
+  // behaves like an accordion: it opens and closes only on click and stays
+  // open across navigation, instead of following the pointer.
+  function isInline(): boolean {
+    const popover = menu?.querySelector<HTMLElement>(".navigation-popover");
+    return !!popover && getComputedStyle(popover).position === "static";
+  }
+
   function closeMenu() {
+    cancelOpen();
     if (closeTimer) {
       clearTimeout(closeTimer);
       closeTimer = undefined;
     }
     if (menu) menu.open = false;
     popoverStyle = "";
+  }
+
+  function cancelOpen() {
+    if (openTimer) {
+      clearTimeout(openTimer);
+      openTimer = undefined;
+    }
   }
 
   function cancelClose() {
@@ -54,6 +71,7 @@
   }
 
   function handleToggle() {
+    cancelOpen();
     if (!menu?.open) {
       popoverStyle = "";
       return;
@@ -74,13 +92,18 @@
   }
 
   function openOnPointer(event: PointerEvent) {
-    if (!isHoverPointer(event)) return;
+    if (isInline() || !isHoverPointer(event)) return;
     cancelClose();
-    menu.open = true;
+    if (menu.open || openTimer) return;
+    openTimer = setTimeout(() => {
+      openTimer = undefined;
+      menu.open = true;
+    }, 180);
   }
 
   function closeOnPointer(event: PointerEvent) {
-    if (!isHoverPointer(event)) return;
+    if (isInline() || !isHoverPointer(event)) return;
+    cancelOpen();
     cancelClose();
     closeTimer = setTimeout(() => {
       closeTimer = undefined;
@@ -89,19 +112,20 @@
   }
 
   function closeAfterNavigation() {
-    closeMenu();
+    if (!isInline()) closeMenu();
   }
 
   onMount(() => {
     const closeOtherMenus = (event: Event) => {
       const opened = (event as CustomEvent<HTMLDetailsElement>).detail;
-      if (opened !== menu) closeMenu();
+      if (opened !== menu && !isInline()) closeMenu();
     };
     const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (menu?.open && !menu.contains(event.target as Node)) closeMenu();
+      if (menu?.open && !isInline() && !menu.contains(event.target as Node))
+        closeMenu();
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && menu?.open) {
+      if (event.key === "Escape" && menu?.open && !isInline()) {
         closeMenu();
         menu.querySelector("summary")?.focus();
       }
@@ -112,6 +136,7 @@
     window.addEventListener("resize", updatePopoverPosition);
     window.addEventListener("scroll", updatePopoverPosition, true);
     return () => {
+      cancelOpen();
       cancelClose();
       window.removeEventListener("iroha:navigation-open", closeOtherMenus);
       document.removeEventListener("pointerdown", closeOnOutsidePointer);

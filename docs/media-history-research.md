@@ -4,7 +4,7 @@
 > superseded. The current provider-backed contract is [ADR-0005](adr/0005-media-provider-time-semantics.md) and the implementation plan is
 > [Media provider canonical-history redesign](plans/2026-08-15-media-provider-canonical-history.md). In particular, current list snapshots are state/projection input; only exact evidence becomes a
 > consumption event.
-
+>
 > **Implementation boundary:** for v0.4.1, `tb_media_progress` is the current provider-state projection, `tb_media_state_history` is the deduplicated provider observation timeline, and
 > `tb_media_consumption_events` contains only exact events with a non-null `event_at`. The old illustrative schema and workflows below remain research context; the migration and API contract in
 > [the implementation plan](plans/2026-08-15-media-provider-canonical-history.md) are authoritative.

@@ -444,9 +444,6 @@
               route,
               samplings,
               laps: displayLaps,
-              selectedRouteIndex,
-              onSelectRoute: (index: number | null) =>
-                (selectedRouteIndex = index),
             }}
           >
             {#snippet children()}

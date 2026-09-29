@@ -14,6 +14,7 @@ IMAGE_NS := azusachino.com
 VERSION := $(shell tr -d '\n' < VERSION)
 TAG := v$(VERSION)
 OUT := ./dist/public-data
+QUALITY_BASE ?= origin/main
 PRIVACY ?= 0
 IROHA_TIMEZONE ?= Asia/Tokyo
 PUBLIC_IROHA_TIMEZONE ?= $(IROHA_TIMEZONE)
@@ -22,7 +23,7 @@ MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-public-site images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test quality-floor-check theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-public-site images
 
 PRETTIER := prettier
 MARKDOWN_FILES := $(shell rg --files -g '*.md' -g '!**/node_modules/**')
@@ -56,8 +57,12 @@ contract-check: ## Verify the registered HTTP route inventory and OpenAPI contra
 test-integration: db-up ## Run DB-backed Go integration tests
 	$(TOOL_ENV) env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable go -C $(SERVER_DIR) test -p 1 -tags=integration ./...
 
-scripts-test: ## Run Python script unit tests
-	$(TOOL_ENV) uv run python -m unittest discover -s scripts -p '*_test.py'
+scripts-test: ## Run Python script unit tests and report coverage
+	$(TOOL_ENV) uv run coverage run --branch --source=scripts --omit='*_test.py' -m unittest discover -s scripts -p '*_test.py'
+	$(TOOL_ENV) uv run coverage report -m
+
+quality-floor-check: ## Block changes that weaken CONSTRAINTS.md or the quality floor
+	$(TOOL_ENV) uv run python scripts/quality_floor_guard.py --base "$(QUALITY_BASE)"
 
 theme-boundary-check: ## Fail if theme assets escape the shared package boundary
 	$(TOOL_ENV) uv run python scripts/check_theme_boundary.py
@@ -103,11 +108,14 @@ web-fmt-check: ## Fail if any web file is unformatted
 web-check: ## Type-check the web app (svelte-check)
 	cd $(WEB_DIR) && $(TOOL_ENV) bun run check
 
-web-test: ## Run unit tests for the web app (vitest)
+web-test: ## Run web unit tests and report coverage (Vitest V8)
 	cd $(WEB_DIR) && $(TOOL_ENV) bun run test
 
 web-build: ## Production build of the web app
 	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) $(TOOL_ENV) bun run build
+
+web-bundle-report: web-build ## Report total emitted JavaScript and CSS raw/gzip sizes
+	$(TOOL_ENV) uv run python scripts/web_bundle_report.py $(WEB_DIR)/build
 
 web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
 	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) $(TOOL_ENV) bun run dev --host 0.0.0.0
@@ -151,8 +159,8 @@ fmt-docs-check: ## Check all Markdown with rumdl and docs/config YAML and JSON w
 	$(TOOL_ENV) $(PRETTIER) --check $(DOC_CONFIG_FILES)
 
 ## --- Aggregate gates ---
-check: fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check motion-tokens-check web-fmt-check web-check web-test ## Pre-commit gate: fmt-check + vet + lint + test + contract route check + script tests + theme/responsive/motion boundaries + web checks
-validate: check build web-build public-site-fmt-check public-site-check public-site-build ## Pre-PR gate: check + full server, private web, and public-site builds
+check: quality-floor-check fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check motion-tokens-check web-fmt-check web-check web-test ## Pre-commit gate: quality floor + fmt-check + vet + lint + test + contract route check + script tests + theme/responsive/motion boundaries + web checks
+validate: check build web-bundle-report public-site-fmt-check public-site-check public-site-build ## Pre-PR gate: check + full server, private web, and public-site builds
 
 release-candidate: ## Isolated DB integration + seeded production runtime/browser gate
 	$(TOOL_ENV) uv run python scripts/release_candidate.py

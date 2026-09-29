@@ -2,9 +2,9 @@
 
 Status: archived reference, 2026-07-18
 
-Source: [`apps/iroha-web/src/routes/design/+page.svelte`](../../apps/iroha-web/src/routes/design/+page.svelte)
+Source: [`apps/iroha-web/src/routes/design/+page.svelte`](https://github.com/azusachino/iroha/blob/dbf17b55c391765efbf5f40c90172e234690edf6/apps/iroha-web/src/routes/design/%2Bpage.svelte)
 
-Preview route: `/design`
+Preview route: `/design` (retired; see the source snapshot above)
 
 The lab contains seven data-backed treatments: Editorial, Command Center, Chronicle, Cover Page, Personal OS, Field Journal, and Quiet. It exists to compare hierarchy and density against the same
 Today data, not to become a second product shell.

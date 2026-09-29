@@ -37,6 +37,7 @@ const (
 	KindPublicSummaryRefresh  = "public_summary_refresh"
 	KindParserReprocess       = "parser_reprocess"
 	KindGeocodeRefresh        = "geocode_refresh"
+	KindRawFilePurge          = "raw_file_purge"
 
 	ScheduleKindInterval = "interval"
 	ScheduleKindManual   = "manual"

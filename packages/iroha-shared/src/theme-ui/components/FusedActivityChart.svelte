@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { chartSignature } from "./chart-signature";
   import { LineChart } from "echarts/charts";
   import { GridComponent, TooltipComponent } from "echarts/components";
   import { init, use } from "echarts/core";
@@ -183,13 +184,18 @@
     };
   });
 
+  let lastSignature: string | undefined;
   $effect(() => {
-    xValues;
-    xLabel;
-    pace;
-    heartRate;
-    elevation;
-    paceLabel;
+    const next = chartSignature(
+      xValues,
+      xLabel,
+      pace,
+      heartRate,
+      elevation,
+      paceLabel,
+    );
+    if (next === lastSignature) return;
+    lastSignature = next;
     render();
   });
 </script>
@@ -217,9 +223,21 @@
         {#each xValues as x, index}
           <tr>
             <th scope="row">{formatXAxis(x)}</th>
-            <td>{pace[index] == null ? "No observation" : formatPace(pace[index]!)}</td>
-            <td>{heartRate[index] == null ? "No observation" : `${heartRate[index]!.toFixed(0)} bpm`}</td>
-            <td>{elevation[index] == null ? "No observation" : `${elevation[index]!.toFixed(0)} m`}</td>
+            <td
+              >{pace[index] == null
+                ? "No observation"
+                : formatPace(pace[index]!)}</td
+            >
+            <td
+              >{heartRate[index] == null
+                ? "No observation"
+                : `${heartRate[index]!.toFixed(0)} bpm`}</td
+            >
+            <td
+              >{elevation[index] == null
+                ? "No observation"
+                : `${elevation[index]!.toFixed(0)} m`}</td
+            >
           </tr>
         {/each}
       </tbody>

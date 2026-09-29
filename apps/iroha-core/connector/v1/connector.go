@@ -50,3 +50,10 @@ type Connector interface {
 type ResumeCursorProvider interface {
 	ResumeCursor() *Cursor
 }
+
+// CoverageWindowProvider lets a bounded connector report where the window it
+// fetches begins, given the cursor a run starts from. Connectors that fetch a
+// whole current state do not implement it.
+type CoverageWindowProvider interface {
+	CoverageWindowStart(cursor *Cursor, now time.Time) time.Time
+}

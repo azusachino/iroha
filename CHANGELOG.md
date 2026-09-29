@@ -129,7 +129,6 @@ contract between minor versions.
 - Self-host the Latin subset of each theme's display typeface (Space Mono, IBM Plex Mono, Roboto Slab, Lora, Crimson Pro, Outfit; both `iroha-web` and the public-site design workbench) instead of
   naming a system font and hoping it's installed, with no third-party font request at runtime. Insert the self-hosted fallback into Field Journal's and Phenology's `--font-serif` stacks (before the
   final generic `serif`) so they no longer converge on the same generic serif when their preferred system fonts aren't present, and add one to the shared base `--font-sans`.
-
 - Rename the `sound-map` design language to `cadence`. Its identity copy already described "cadence, intensity, and flow" without ever mentioning anything spatial — the built design (rack-style mixing
   console, level meters, channel strips) is a rhythm/audio language, not a cartographic one, so "Sound Map" over-promised a "map" half it never delivered. `Cadence` is the word its own lens copy
   already used. The design itself, its route implementation, and every color/token are unchanged; only the id (`DesignLanguage`, `theme-ui/cadence/`, `data-language="cadence"`) and label
@@ -398,7 +397,7 @@ contract between minor versions.
   rate-limit budget, and six themed frontend variants serving a page nobody could reach. A separate static site, deployable to GitHub Pages and kept fresh by a k3s CronJob (not a self-hosted GitHub
   Actions runner — see [roadmap Milestone 7](docs/roadmap.md#milestone-7-privacy-and-publishing)), takes over that role instead.
 
-### Added
+### API and publishing
 
 - `GET /api/v1/activities/summary` and `GET /api/v1/activities/routes` — private equivalents of the removed public endpoints. The dashboard and activities pages depended on the public routes directly
   for their own totals/routes-map widgets, not only the removed share page.

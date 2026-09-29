@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { chartSignature } from "./chart-signature";
   import { BarChart } from "echarts/charts";
   import { GridComponent, TooltipComponent } from "echarts/components";
   import { init, use } from "echarts/core";
@@ -115,8 +116,11 @@
     };
   });
 
+  let lastSignature: string | undefined;
   $effect(() => {
-    segments;
+    const next = chartSignature(segments);
+    if (next === lastSignature) return;
+    lastSignature = next;
     render();
   });
 </script>

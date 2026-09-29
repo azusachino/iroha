@@ -7,6 +7,10 @@ RUN bun install --frozen-lockfile
 WORKDIR /app
 COPY apps/iroha-web ./apps/iroha-web
 COPY packages/iroha-shared ./packages/iroha-shared
+# The shared package imports its own dependencies (echarts, maplibre); Node
+# resolution from /app/packages/iroha-shared never reaches apps/iroha-web.
+WORKDIR /app/packages/iroha-shared
+RUN bun install --frozen-lockfile
 WORKDIR /app/apps/iroha-web
 ARG PUBLIC_IROHA_API_BASE=
 ENV PUBLIC_IROHA_API_BASE=$PUBLIC_IROHA_API_BASE

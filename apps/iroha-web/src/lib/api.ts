@@ -1254,6 +1254,7 @@ export interface SystemInfo {
   database_bytes: number;
   raw_file_count: number;
   raw_file_bytes: number;
+  raw_file_purged_count: number;
   cache_backend: string;
   timezone: string;
   passkeys_enabled: boolean;

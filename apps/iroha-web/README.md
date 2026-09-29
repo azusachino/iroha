@@ -44,7 +44,7 @@ bun install
 bun run dev
 ```
 
-Open the printed URL (default http://localhost:5173). A running `iroha-server`
+Open the printed URL (default <http://localhost:5173>). A running `iroha-server`
 is needed to see data, but not to build.
 
 ## Build and check

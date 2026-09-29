@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { chartSignature } from "../theme-ui/components/chart-signature";
   import { LineChart } from "echarts/charts";
   import {
     GridComponent,
@@ -208,11 +209,11 @@
     };
   });
 
+  let lastSignature: string | undefined;
   $effect(() => {
-    byMonth;
-    year;
-    current;
-    prior;
+    const next = chartSignature(byMonth, year, current, prior);
+    if (next === lastSignature) return;
+    lastSignature = next;
     render();
   });
 </script>
@@ -257,8 +258,16 @@
           {#each MONTHS as month, index}
             <tr>
               <th scope="row">{month}</th>
-              <td>{current?.cumulative[index] == null ? "No observation" : formatDistance(current.cumulative[index]!)}</td>
-              {#if prior}<td>{prior.cumulative[index] == null ? "No observation" : formatDistance(prior.cumulative[index]!)}</td>{/if}
+              <td
+                >{current?.cumulative[index] == null
+                  ? "No observation"
+                  : formatDistance(current.cumulative[index]!)}</td
+              >
+              {#if prior}<td
+                  >{prior.cumulative[index] == null
+                    ? "No observation"
+                    : formatDistance(prior.cumulative[index]!)}</td
+                >{/if}
             </tr>
           {/each}
         </tbody>

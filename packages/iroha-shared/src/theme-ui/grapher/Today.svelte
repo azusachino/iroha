@@ -1,6 +1,12 @@
 <script lang="ts">
   import type { TodayThemeProps } from "../../view-contracts/today-view";
-  import { formatDistance, formatDuration, formatPace } from "../../format/format";
+  import {
+    formatDistance,
+    formatDuration,
+    formatHr,
+    formatPace,
+  } from "../../format/format";
+  import { sportColor, sportLabel } from "../../domain/sport";
   import { mediaEventVerb } from "../../domain/media";
   import AnimatedNumber from "../../components/AnimatedNumber.svelte";
   import MediaUpdateList from "../components/MediaUpdateList.svelte";
@@ -57,11 +63,6 @@
         One imported day, rendered as comparable evidence rather than a score.
       </p>
     </div>
-    <div class="view-switch" aria-label="Available data views">
-      <span class="selected">Chart</span>
-      <span>Table</span>
-      <span>Notes</span>
-    </div>
   </header>
 
   <div class="provenance-line">
@@ -101,6 +102,63 @@
     </div>
   </section>
 
+  <section
+    class="plot-panel activity-panel"
+    aria-labelledby="activity-record-title"
+  >
+    <div class="panel-heading">
+      <div>
+        <p class="grapher-kicker">Activity record</p>
+        <h2 id="activity-record-title">Sessions</h2>
+      </div>
+      <span class="panel-note"
+        >{acts.length} {acts.length === 1 ? "session" : "sessions"}</span
+      >
+    </div>
+    {#if acts.length}
+      <ul class="sessions">
+        {#each acts as activity (activity.id)}
+          <li style={`--sport: ${sportColor(activity.sport_type)}`}>
+            <button
+              type="button"
+              class="session"
+              onclick={() => onOpenActivity(activity.id)}
+            >
+              <span class="session-title">
+                <strong
+                  >{activity.title || sportLabel(activity.sport_type)}</strong
+                >
+                <small>{sportLabel(activity.sport_type)}</small>
+              </span>
+              <span class="session-stat">
+                <strong>{formatDistance(activity.distance_m)}</strong>
+                <small>distance</small>
+              </span>
+              <span class="session-stat">
+                <strong
+                  >{formatDuration(
+                    activity.duration_s ?? activity.moving_time_s,
+                  )}</strong
+                >
+                <small>duration</small>
+              </span>
+              <span class="session-stat">
+                <strong>{formatPace(activity.avg_pace_s_per_km)}</strong>
+                <small>pace</small>
+              </span>
+              <span class="session-stat">
+                <strong>{formatHr(activity.avg_hr)}</strong>
+                <small>avg HR</small>
+              </span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="muted">No activity sessions recorded for this day.</p>
+    {/if}
+  </section>
+
   <div class="data-grid">
     <section class="data-panel" aria-labelledby="recovery-title">
       <p class="grapher-kicker">Recovery indicator</p>
@@ -124,65 +182,38 @@
       {/if}
     </section>
 
-    <section class="data-panel" aria-labelledby="activity-record-title">
-      <p class="grapher-kicker">Activity record</p>
-      <h2 id="activity-record-title">Sessions</h2>
-      {#if acts.length}
+    <section class="data-panel" aria-labelledby="media-record-title">
+      <p class="grapher-kicker">Media record</p>
+      <h2 id="media-record-title">Library changes fixed to this day</h2>
+      {#if mediaEvents.length}
         <table>
-          <thead><tr><th>Type</th><th>Distance</th><th>Duration</th></tr></thead
-          >
+          <thead><tr><th>Title</th><th>Evidence</th><th>At</th></tr></thead>
           <tbody>
-            {#each acts.slice(0, 5) as activity}
+            {#each mediaEvents as event (event.id)}
               <tr>
-                <td>{activity.title || activity.sport_type}</td>
-                <td>{formatDistance(activity.distance_m)}</td>
-                <td
-                  >{formatDuration(
-                    activity.duration_s ?? activity.moving_time_s,
-                  )}{#if activity.avg_pace_s_per_km}<small>
-                      · {formatPace(activity.avg_pace_s_per_km)}</small
-                    >{/if}</td
-                >
+                <td>
+                  <button
+                    class="media-link"
+                    type="button"
+                    onclick={() => onOpenMedia(event.media_id)}
+                    >{event.native_title || event.title}</button
+                  >
+                </td>
+                <td>{mediaEventVerb(event)}</td>
+                <td>{event.occurred_at.slice(0, 10)}</td>
               </tr>
             {/each}
           </tbody>
         </table>
       {:else}
-        <p class="muted">No activity sessions recorded for this day.</p>
+        <p class="muted">No exact media sessions recorded for this day.</p>
+      {/if}
+      {#if mediaUpdates.length}
+        <h3 class="media-updates-heading">Dated provider updates</h3>
+        <MediaUpdateList updates={mediaUpdates} {onOpenMedia} />
       {/if}
     </section>
   </div>
-
-  <section class="data-panel" aria-labelledby="media-record-title">
-    <p class="grapher-kicker">Media record</p>
-    <h2 id="media-record-title">Library changes fixed to this day</h2>
-    {#if mediaEvents.length}
-      <table>
-        <thead><tr><th>Title</th><th>Evidence</th><th>At</th></tr></thead>
-        <tbody>
-          {#each mediaEvents as event (event.id)}
-            <tr>
-              <td>
-                <button
-                  class="media-link"
-                  type="button"
-                  onclick={() => onOpenMedia(event.media_id)}
-                >{event.native_title || event.title}</button>
-              </td>
-              <td>{mediaEventVerb(event)}</td>
-              <td>{event.occurred_at.slice(0, 10)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {:else}
-      <p class="muted">No exact media sessions recorded for this day.</p>
-    {/if}
-    {#if mediaUpdates.length}
-      <h3 class="media-updates-heading">Dated provider updates</h3>
-      <MediaUpdateList updates={mediaUpdates} {onOpenMedia} />
-    {/if}
-  </section>
 
   <footer class="source-note">
     This view is a presentation of imported facts. It does not calculate a
@@ -222,8 +253,8 @@
   }
   h1 {
     max-width: 15ch;
-    font-size: clamp(2.8rem, 7vw, 6.5rem);
-    line-height: 0.9;
+    font-size: var(--grapher-utility-title-size);
+    line-height: 1;
   }
   h2 {
     font-size: 1.25rem;
@@ -232,20 +263,6 @@
     max-width: 35rem;
     margin: 0.85rem 0 0;
     color: var(--text-muted);
-  }
-  .view-switch {
-    display: flex;
-    gap: 0.8rem;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-  }
-  .view-switch span {
-    padding-bottom: 0.35rem;
-    border-bottom: 1px solid transparent;
-  }
-  .view-switch .selected {
-    border-color: var(--accent);
-    color: var(--text);
   }
   .provenance-line {
     display: flex;
@@ -296,10 +313,10 @@
   }
   .plot-value {
     font-size: 1rem;
+    font-variant-numeric: tabular-nums;
     font-weight: 700;
   }
-  .plot-value small,
-  table small {
+  .plot-value small {
     color: var(--text-muted);
     font-size: 0.7em;
     font-weight: 400;
@@ -325,6 +342,58 @@
     padding-top: 0.6rem;
     font-size: 0.74rem;
   }
+  .activity-panel {
+    border-top: 3px solid var(--text);
+  }
+  .sessions {
+    display: grid;
+    gap: 0.5rem;
+    margin: 1.2rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .session {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr));
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border);
+    border-left: 6px solid var(--sport);
+    background: var(--surface-2, var(--surface));
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .session:hover,
+  .session:focus-visible {
+    border-color: var(--sport);
+  }
+  .session-title,
+  .session-stat {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .session-title strong {
+    overflow: hidden;
+    font-size: 1.05rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .session-stat strong {
+    font-size: 1.35rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+  }
+  .session small {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
   .data-grid {
     display: grid;
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
@@ -335,8 +404,9 @@
     margin: 1.5rem 0;
     color: var(--accent);
     font-size: clamp(3rem, 8vw, 6rem);
-    letter-spacing: -0.1em;
-    line-height: 0.8;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.08em;
+    line-height: 0.9;
   }
   dl {
     display: grid;
@@ -414,6 +484,12 @@
     }
     .data-grid {
       grid-template-columns: 1fr;
+    }
+    .session {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .session-title {
+      grid-column: 1 / -1;
     }
     .plot {
       gap: 0.75rem;

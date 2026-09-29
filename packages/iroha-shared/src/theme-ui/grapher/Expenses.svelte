@@ -91,9 +91,9 @@
   }
   h2 {
     max-width: 38rem;
-    font-size: clamp(2rem, 6vw, 5rem);
-    letter-spacing: -0.1em;
-    line-height: 0.88;
+    font-size: var(--grapher-utility-title-size);
+    letter-spacing: -0.05em;
+    line-height: 1;
   }
   header p:last-child {
     margin-top: 0.8rem;

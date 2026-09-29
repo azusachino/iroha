@@ -1,15 +1,8 @@
 #!/usr/bin/env bun
-// Screenshot themed routes with Playwright instead of agent-browser.
-//
-// agent-browser (this workstation's documented default web tool) cannot
-// launch any Chrome build on this machine -- its own bundled binary, and
-// the system google-chrome, both crash with the same
-// GLIBC_ABI_GNU2_TLS/GLIBC_ABI_DT_X86_64_PLT mismatch against a
-// Nix-provided alsa-lib pulled in globally, independent of LD_LIBRARY_PATH.
-// See docs/runbooks/pitfalls/ in harus-workstation for the full trail.
-// Playwright's own downloaded Chrome-for-Testing build does not hit this,
-// so it's the working choice here -- not a default, a deliberate pick
-// after agent-browser was verified broken in this sandbox.
+// Screenshot themed routes with the project's Playwright visual-check path.
+// This remains useful for reproducible route screenshots and canvas diagnostics;
+// it does not imply agent-browser is currently unavailable. The workstation
+// pitfall records the historical, machine-specific Chrome launch failure.
 //
 // Usage: BASE=http://127.0.0.1:5173 THEME=atlas ROUTES=overview,expenses \
 //   bun run scripts/visual-check.mjs
@@ -23,9 +16,8 @@
 
 import { chromium } from "playwright";
 
-// Must be cleared before Chromium launches (inherited by the spawned
-// process); a Nix profile's alsa-lib on this machine's LD_LIBRARY_PATH is
-// what triggers the crash above.
+// Keep the historical workaround: clear the inherited Nix library path before
+// launching Playwright Chromium, as the older launch failure was environment-related.
 delete process.env.LD_LIBRARY_PATH;
 
 const base = process.env.BASE || "http://127.0.0.1:5173";

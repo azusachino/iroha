@@ -17,6 +17,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -36,8 +37,15 @@ func TestIntegrationSyncRunLinksImportsAndRejectsOverlap(t *testing.T) {
 	store := &syncTestSnapshotStore{db: db, dir: t.TempDir()}
 	runner := NewSyncRunner(db, connectorRegistry, store, importService)
 
+	before, err := revisions.Read(db, revisions.NamespaceCoverage)
+	if err != nil {
+		t.Fatalf("read coverage revision: %v", err)
+	}
 	if err := runner.Run(context.Background(), "sync-test", connector.Credentials{}); err != nil {
 		t.Fatalf("run sync: %v", err)
+	}
+	if after, err := revisions.Read(db, revisions.NamespaceCoverage); err != nil || after[revisions.NamespaceCoverage] <= before[revisions.NamespaceCoverage] {
+		t.Fatalf("coverage revision after sync = %v (err %v), want greater than %v", after, err, before)
 	}
 	var run models.MediaSyncRun
 	if err := db.Where("connector_id = ?", "sync-test").First(&run).Error; err != nil {
@@ -59,6 +67,12 @@ func TestIntegrationSyncRunLinksImportsAndRejectsOverlap(t *testing.T) {
 	}
 	if state.Status != mediaSyncStatusCompleted || state.LastFetchedAt == nil {
 		t.Fatalf("sync state = %#v, want completed with fetched timestamp", state)
+	}
+
+	var covered int64
+	if err := db.Raw(`select count(*) from tb_source_coverage_assertions a join tb_source_receipts r on r.id = a.source_receipt_id
+where r.raw_file_id in (select raw_file_id from tb_import_jobs where sync_run_id = ?) and a.category = 'media_list' and a.completeness = 'covered' and a.ingestion_mode = 'full_snapshot'`, run.ID).Scan(&covered).Error; err != nil || covered != 1 {
+		t.Fatalf("covered media_list assertions = %d (err %v), want 1", covered, err)
 	}
 
 	active, err := runner.beginSyncRun("sync-test")
@@ -96,7 +110,17 @@ func (s *syncTestSnapshotStore) StoreSnapshot(_ context.Context, snapshot connec
 		return models.RawFile{}, err
 	}
 	rawFile := models.RawFile{ID: id, SHA256: id.String(), OriginalFilename: snapshot.Filename, ContentType: snapshot.ContentType, SizeBytes: int64(len(snapshot.Body)), StoragePath: path, SourceKind: snapshot.SourceKind, UploadedVia: "connector", CreatedAt: time.Now().UTC()}
-	return rawFile, s.db.Create(&rawFile).Error
+	if err := s.db.Create(&rawFile).Error; err != nil {
+		return models.RawFile{}, err
+	}
+	instanceID, receiptID := uuid.New(), uuid.New()
+	now := time.Now().UTC()
+	if err := s.db.Exec(`insert into tb_source_instances (id, provider, instance_key, display_name, created_at, updated_at) values (?, ?, ?, '', ?, ?) on conflict (provider, instance_key) do nothing`, instanceID, snapshot.SourceKind, "sync-test", now, now).Error; err != nil {
+		return models.RawFile{}, err
+	}
+	err = s.db.Exec(`insert into tb_source_receipts (id, source_instance_id, raw_file_id, source_kind, ingestion_mode, scope_json, received_at, created_at)
+select ?, id, ?, ?, 'full_snapshot', '{}', ?, ? from tb_source_instances where provider = ? and instance_key = 'sync-test'`, receiptID, id, snapshot.SourceKind, now, now, snapshot.SourceKind).Error
+	return rawFile, err
 }
 
 type syncTestEnqueuer struct {
