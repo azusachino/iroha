@@ -26,7 +26,7 @@ Documentation only. The application contract comes from:
 - `docs/health-auto-export-setup.md` for HAE payload/export details;
 - the actual server, web, migration, ingress, and deployment code at implementation time.
 
-Cluster procedures and values belong to `harus-k3s`; link to its current operator documentation rather than copying commands, image tags, DNS names, secret values, or manifest details into this guide.
+Iroha owns portable Kubernetes manifests and their deployment instructions under `ops/k8s/`. Cluster-specific ingress, secret management, storage classes, image distribution, and operations remain with the operator's infrastructure repository.
 
 ## Commands
 
@@ -41,14 +41,13 @@ make check
 
 - Add `docs/first-deployment.md` for the first-owner application journey.
 - Link from `README.md` and, where useful, from the existing HAE setup guide.
-- Keep deployment manifests, ingress rules, cluster commands, and live deployment status in `harus-k3s`.
+- Keep portable Kubernetes manifests and generic deployment steps in Iroha; environment-specific ingress, secret materialization, cluster commands, and live deployment status remain with the operator's infrastructure repository.
 
 ## First-Run Workflow Contract
 
 The guide must explain these steps in order:
 
-1. **Choose the deployment path:** direct the operator to the Iroha deployment entry point in `harus-k3s`; state prerequisites at a high level and link to the authoritative environment-specific
-   instructions.
+1. **Choose the deployment path:** direct the operator to Iroha's `ops/k8s/README.md` for its portable Kubernetes baseline, and to their infrastructure repository for environment-specific instructions.
 2. **Deploy privately first:** make the app reachable on the tailnet for setup; do not enable public exposure before ingress protections and application auth are in place.
 3. **Create the owner account:** visit a tailnet-only, one-time setup path; create the sole administrator with username/password. Creation must be atomic and unavailable once an account exists. There
    is no public registration.
