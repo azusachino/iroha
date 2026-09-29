@@ -63,6 +63,16 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 	if err != nil {
 		return err
 	}
+	// Child measurements live once, on the canonical activity. A second
+	// observation would need the first one's copy materialised before it takes
+	// over, which is not built yet, so refuse instead of losing data.
+	var others int64
+	if err := tx.Model(&models.ActivityObservation{}).Where("activity_id = ? and id <> ?", activityID, observationID).Count(&others).Error; err != nil {
+		return err
+	}
+	if others > 0 {
+		return fmt.Errorf("activity %s already has an observation from another source; multi-source activities are not supported yet", activityID)
+	}
 	now := time.Now().UTC()
 	row := models.ActivityObservation{
 		ID:               observationID,
@@ -96,27 +106,6 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 		"max_hr": activity.MaxHR, "avg_pace_s_per_km": activity.AvgPaceSPerKM, "calories_kcal": activity.CaloriesKcal,
 		"updated_at": now,
 	}).Error; err != nil {
-		return err
-	}
-	if err := tx.Exec(`delete from tb_activity_observation_route_points where activity_observation_id = ?`, observationID).Error; err != nil {
-		return err
-	}
-	if err := tx.Exec(`insert into tb_activity_observation_route_points (activity_observation_id, seq, ts, lat, lon, elevation_m, distance_m, speed_mps, heart_rate, geom)
-select ?, seq, ts, lat, lon, elevation_m, distance_m, speed_mps, heart_rate, geom from tb_activity_route_points where activity_id = ?`, observationID, activityID).Error; err != nil {
-		return err
-	}
-	if err := tx.Exec(`delete from tb_activity_observation_samplings where activity_observation_id = ?`, observationID).Error; err != nil {
-		return err
-	}
-	if err := tx.Exec(`insert into tb_activity_observation_samplings (id, activity_observation_id, sampling_type, ts, value, unit)
-select id, ?, sampling_type, ts, value, unit from tb_activity_samplings where activity_id = ?`, observationID, activityID).Error; err != nil {
-		return err
-	}
-	if err := tx.Exec(`delete from tb_activity_observation_laps where activity_observation_id = ?`, observationID).Error; err != nil {
-		return err
-	}
-	if err := tx.Exec(`insert into tb_activity_observation_laps (id, activity_observation_id, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal)
-select id, ?, lap_no, start_ts, end_ts, distance_m, duration_s, avg_hr, avg_pace_s_per_km, calories_kcal from tb_activity_laps where activity_id = ?`, observationID, activityID).Error; err != nil {
 		return err
 	}
 	selected, err := selectImportedObservation(tx, "tb_activities", activityID, observationID, reprocess)

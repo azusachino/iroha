@@ -157,6 +157,14 @@ func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, s
 	if err != nil {
 		return err
 	}
+	// Segments live once, on the canonical session; see persistActivityObservation.
+	var others int64
+	if err := tx.Model(&models.SleepObservation{}).Where("sleep_session_id = ? and id <> ?", sessionID, observationID).Count(&others).Error; err != nil {
+		return err
+	}
+	if others > 0 {
+		return fmt.Errorf("sleep session %s already has an observation from another source; multi-source sleep is not supported yet", sessionID)
+	}
 	now := time.Now().UTC()
 	row := models.SleepObservation{ID: observationID, SleepSessionID: sessionID, WakeDate: session.WakeDate, StartedAt: session.StartedAt, EndedAt: session.EndedAt, TimeInBedS: session.TimeInBedS, AsleepS: session.AsleepS, Efficiency: session.Efficiency, IsMainSleep: session.IsMainSleep, CoreS: session.CoreS, DeepS: session.DeepS, RemS: session.RemS, AwakeS: session.AwakeS, UnspecifiedS: session.UnspecifiedS, Source: session.Source, MatchStatus: "canonical", CreatedAt: now, UpdatedAt: now}
 	var existing models.SleepObservation
@@ -176,13 +184,6 @@ func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, s
 	}
 	if err := tx.Exec(`insert into tb_sleep_session_observations (sleep_session_id, sleep_observation_id, is_preferred)
 values (?, ?, true) on conflict (sleep_session_id, sleep_observation_id) do update set is_preferred = excluded.is_preferred`, sessionID, observationID).Error; err != nil {
-		return err
-	}
-	if err := tx.Exec(`delete from tb_sleep_observation_segments where sleep_observation_id = ?`, observationID).Error; err != nil {
-		return err
-	}
-	if err := tx.Exec(`insert into tb_sleep_observation_segments (id, sleep_observation_id, stage, started_at, ended_at, seq)
-select id, ?, stage, started_at, ended_at, seq from tb_sleep_segments where session_id = ?`, observationID, sessionID).Error; err != nil {
 		return err
 	}
 	selected, err := selectImportedObservation(tx, "tb_sleep_sessions", sessionID, observationID, reprocess)

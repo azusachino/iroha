@@ -52,7 +52,7 @@ Decision: store child rows once, on the selected observation's canonical tables,
 
 - Stop the `insert ... select` copies for route points, samplings and laps (and the sleep segment equivalent) when the observation is the selected one.
 - Observation read paths fall back to the canonical rows when the observation is selected and has no rows of its own.
-- Backfill migration: delete observation child rows whose observation is the selected one for its activity or sleep session, then `vacuum full` the four tables. Expected saving: about 460 MB of route points, about 60 MB of samplings, about 15 MB of sleep segments.
+- Backfill: `ops/sql/2026-09-29-trim-observation-copies.sql` truncates the four child tables (route points, samplings, laps, sleep segments), which reclaims the space immediately without `vacuum full`. It refuses to run if any activity or sleep session has more than one observation. Expected saving: about 460 MB of route points, about 60 MB of samplings, about 15 MB of sleep segments.
 - Reprocess after a parser-version bump still rewrites the canonical rows; there is no second copy to keep in step.
 
 Risk: when a second provider arrives for the same activity and becomes the selected one, the previously selected observation needs its rows materialized first. Do that in the selection switch, in one transaction, and test it.
@@ -82,3 +82,5 @@ Risk: when a second provider arrives for the same activity and becomes the selec
 ## Open questions
 
 None. A grep of `apps/` (excluding tests and migrations) shows only the two import files touch the observation child tables, so nothing reads them and the copies can go. The read-path fallback in Design 3 is only needed once a second provider exists.
+
+Run the backfill on the live database by hand after a `pg_dump` of `iroha_v05`; it is not part of the migration run.
