@@ -32,7 +32,7 @@ contract between minor versions.
 - Add setup documentation ([`docs/health-auto-export-setup.md`](docs/health-auto-export-setup.md)) with detailed user stories, iOS/watchOS export settings, and troubleshooting instructions.
 - Add architecture decision record [ADR-0008](docs/adr/0008-health-auto-export-http-intake.md) documenting the two-tier ingestion model, the required intake credential, and bounded replacement
   semantics.
-- Replace the legacy schema boundary with a fresh SQLx-managed schema through migration 00020. This is a cut-over release: raw evidence is replayed into the new schema; no legacy-schema migration or
+- Replace the legacy schema boundary with a fresh SQLx-managed schema through migration 00025. This is a cut-over release: raw evidence is replayed into the new schema; no legacy-schema migration or
   Goose adoption is provided.
 - Replay the complete 2026-09-08 Apple Health export without destructive purges, preserving source receipts, interpretation history, canonical activities, daily health, and sleep projections.
 - Add scheduled AniList/Bangumi sync runs, agent-applied matching decisions, and source-aware cockpit attention.

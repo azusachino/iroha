@@ -242,7 +242,7 @@ Current evidence: [v0.4.1 release audit](audits/2026-08-15-v0.4.1-release.md), u
 Goal: replace the legacy-schema boundary with replayable raw evidence, reduce user interruption through agent-accessible defaults, and make the private cockpit honest about source coverage and
 operational state.
 
-Status: release candidate accepted locally as v0.5.0. The cut-over uses SQLx migrations 1–20 and a complete replay of the original Apple Health export. It does not migrate the legacy schema and does
+Status: v0.5.0 release candidate; final audit in [the v0.5.0 release audit](audits/2026-09-11-v0.5.0-release.md). The cut-over uses SQLx migrations 1–25 and a complete replay of the original Apple Health export. It does not migrate the legacy schema and does
 not use Goose.
 
 Current evidence: [v0.5 release audit](audits/2026-09-11-v0.5.0-release.md).
