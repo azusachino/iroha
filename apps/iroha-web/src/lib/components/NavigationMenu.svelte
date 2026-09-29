@@ -38,6 +38,14 @@
     popoverStyle = `--navigation-popover-top:${top}px;--navigation-popover-left:${left}px;`;
   }
 
+  // In the side rail the sub-menu is expanded inline, not floated. There it
+  // behaves like an accordion: it opens and closes only on click and stays
+  // open across navigation, instead of following the pointer.
+  function isInline(): boolean {
+    const popover = menu?.querySelector<HTMLElement>(".navigation-popover");
+    return !!popover && getComputedStyle(popover).position === "static";
+  }
+
   function closeMenu() {
     cancelOpen();
     if (closeTimer) {
@@ -84,7 +92,7 @@
   }
 
   function openOnPointer(event: PointerEvent) {
-    if (!isHoverPointer(event)) return;
+    if (isInline() || !isHoverPointer(event)) return;
     cancelClose();
     if (menu.open || openTimer) return;
     openTimer = setTimeout(() => {
@@ -94,7 +102,7 @@
   }
 
   function closeOnPointer(event: PointerEvent) {
-    if (!isHoverPointer(event)) return;
+    if (isInline() || !isHoverPointer(event)) return;
     cancelOpen();
     cancelClose();
     closeTimer = setTimeout(() => {
@@ -104,19 +112,20 @@
   }
 
   function closeAfterNavigation() {
-    closeMenu();
+    if (!isInline()) closeMenu();
   }
 
   onMount(() => {
     const closeOtherMenus = (event: Event) => {
       const opened = (event as CustomEvent<HTMLDetailsElement>).detail;
-      if (opened !== menu) closeMenu();
+      if (opened !== menu && !isInline()) closeMenu();
     };
     const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (menu?.open && !menu.contains(event.target as Node)) closeMenu();
+      if (menu?.open && !isInline() && !menu.contains(event.target as Node))
+        closeMenu();
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && menu?.open) {
+      if (event.key === "Escape" && menu?.open && !isInline()) {
         closeMenu();
         menu.querySelector("summary")?.focus();
       }

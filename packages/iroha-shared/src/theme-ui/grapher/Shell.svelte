@@ -167,6 +167,21 @@
     min-height: 2.75rem;
   }
 
+  .grapher-header :global(.appbar-actions .user-menu) {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .grapher-header :global(.appbar-actions .user-menu > summary) {
+    width: 100%;
+  }
+
+  .grapher-header :global(.appbar-actions .user-menu .user-name) {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
+
   .grapher-content {
     grid-column: 2;
     grid-row: 1;
@@ -187,6 +202,27 @@
     border-top: 1px solid var(--border);
     color: var(--text-muted);
     font-size: 0.7rem;
+  }
+
+  /* The account control sits at the bottom of the rail, so its menu opens
+     upward across the full row. Opening down ran past the viewport, and a
+     menu wider than the rail made the rail scroll sideways. */
+  @media (min-width: 1025px) {
+    .grapher-header :global(.appbar-actions) {
+      position: relative;
+    }
+
+    .grapher-header :global(.appbar-actions .user-menu) {
+      position: static;
+    }
+
+    .grapher-header :global(.appbar-actions .user-menu .user-popover) {
+      top: auto;
+      right: 0;
+      bottom: calc(100% + 0.4rem);
+      left: 0;
+      min-width: 0;
+    }
   }
 
   @media (max-width: 1024px) {
@@ -265,6 +301,19 @@
     .grapher-header :global(.command-trigger) {
       width: auto;
       min-height: 2.25rem;
+    }
+
+    .grapher-header :global(.appbar-actions .user-menu) {
+      flex: 0 0 auto;
+    }
+
+    .grapher-header :global(.appbar-actions .user-menu > summary) {
+      width: auto;
+    }
+
+    .grapher-header :global(.appbar-actions .user-menu .user-name) {
+      flex: 0 1 auto;
+      max-width: 9rem;
     }
 
     .grapher-content {
