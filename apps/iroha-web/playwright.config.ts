@@ -1,13 +1,13 @@
 // Headless Chromium verification, cloned from the playwright-verify skill.
 // Set the values marked EDIT. When a project script has already started the
 // app, it exports E2E_BASE_URL and this config starts no server of its own.
-import { defineConfig, devices } from "@playwright/test"
+import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 5183 // off 5173, which a person's `vite dev` uses
-const COMMAND = `bun run dev --port ${PORT} --strictPort` // /api calls are faked per spec with page.route; no Go backend
-const external = process.env.E2E_BASE_URL
-const CI = !!process.env.CI
-const chrome = devices["Desktop Chrome"]
+const PORT = 5183; // off 5173, which a person's `vite dev` uses
+const COMMAND = `bun run dev --port ${PORT} --strictPort`; // /api calls are faked per spec with page.route; no Go backend
+const external = process.env.E2E_BASE_URL;
+const CI = !!process.env.CI;
+const chrome = devices["Desktop Chrome"];
 
 export default defineConfig({
   testDir: "./e2e",
@@ -35,5 +35,10 @@ export default defineConfig({
   // No reuse: a port already in use fails the run instead of testing a server someone else is using.
   webServer: external
     ? undefined
-    : { command: COMMAND, url: `http://127.0.0.1:${PORT}`, reuseExistingServer: false, timeout: 60_000 },
-})
+    : {
+        command: COMMAND,
+        url: `http://127.0.0.1:${PORT}`,
+        reuseExistingServer: false,
+        timeout: 60_000,
+      },
+});

@@ -83,6 +83,18 @@ pipeline.
 
 The private frontend lives alongside the server at `apps/iroha-web` (SvelteKit, built with `bun`); see `apps/iroha-web/README.md`.
 
+### Frontend Browser Checks
+
+`make e2e` runs the Playwright specs in `apps/iroha-web/e2e/` in headless Chromium. The config starts its own Vite server on `127.0.0.1:5183`, so a dev server on 5173 can keep running, and each spec fakes the `/api` calls it needs with `page.route` (`e2e/session.ts` fakes the session every route asks for), so no Go backend or database is involved. svelte-check types the specs against `src/lib/api.ts`.
+
+```bash
+make e2e-install              # once: the Chromium build this Playwright version needs
+make e2e                      # the checks; ARGS='-g "sign in"' filters by name
+make e2e-probe ROUTE=/path    # before writing a spec: ARIA snapshot, errors, failed requests, screenshot
+```
+
+A failing check leaves its screenshot, error context and trace under `apps/iroha-web/test-results/`; open a trace with `bunx playwright show-trace <trace.zip>`. `make web-visual-check` stays the tool for themed screenshots.
+
 ### Frontend Browser Smoke
 
 Use `agent-browser` for browser screenshots and harness checks. It owns its Chromium session outside the web dependency tree; no frontend browser package is required.

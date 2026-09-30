@@ -4,27 +4,40 @@
 // snapshot, whose roles and names become getByRole locators. It also saves a
 // full-page screenshot as probe.png in its test-results folder, and asserts
 // nothing. Run it with `make e2e-probe ROUTE=/path`.
-import { expect, test } from "@playwright/test"
+import { expect, test } from "@playwright/test";
 
 test("probe", async ({ page }, testInfo) => {
-  const errors: string[] = []
+  const errors: string[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
-  })
-  page.on("pageerror", (error) => errors.push(error.message))
+    if (message.type() === "error") errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
   // Which requests the page depends on and could not get: the /api calls a spec must fake.
-  const failed: string[] = []
+  const failed: string[] = [];
   page.on("response", (response) => {
-    if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`)
-  })
-  page.on("requestfailed", (request) => failed.push(`failed ${request.url()}`))
+    if (response.status() >= 400)
+      failed.push(`${response.status()} ${response.url()}`);
+  });
+  page.on("requestfailed", (request) => failed.push(`failed ${request.url()}`));
 
-  await page.goto(process.env.PROBE_ROUTE || "/")
+  await page.goto(process.env.PROBE_ROUTE || "/");
   // A client-rendered page paints after the load event: wait for visible text
   // (innerText, so inline scripts do not count) rather than for the network.
-  await expect(page.locator("body")).toHaveText(/\S/, { useInnerText: true, timeout: 15_000 })
-  await page.screenshot({ path: testInfo.outputPath("probe.png"), fullPage: true })
+  await expect(page.locator("body")).toHaveText(/\S/, {
+    useInnerText: true,
+    timeout: 15_000,
+  });
+  await page.screenshot({
+    path: testInfo.outputPath("probe.png"),
+    fullPage: true,
+  });
 
-  console.log(JSON.stringify({ title: await page.title(), url: page.url(), errors, failed }, null, 2))
-  console.log(await page.locator("body").ariaSnapshot())
-})
+  console.log(
+    JSON.stringify(
+      { title: await page.title(), url: page.url(), errors, failed },
+      null,
+      2,
+    ),
+  );
+  console.log(await page.locator("body").ariaSnapshot());
+});
