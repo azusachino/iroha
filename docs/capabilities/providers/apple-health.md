@@ -24,8 +24,8 @@ the architecture decision.
 | Sampling streams     | Implemented | Heart rate samplings and time series from HAE workouts and export records                      |
 | Laps                 | Implemented | WorkoutEvent lap/segment boundaries                                                            |
 | Sleep                | Implemented | SleepAnalysis sessionization, durations, and stage segments                                    |
-| Daily summaries      | Implemented | ActivitySummary rings (full export)                                                            |
-| Daily metrics        | Implemented | Steps, distance, resting HR, HRV, flights (from HAE and full export)                           |
+| Daily summaries      | Implemented | ActivitySummary rings (full export); Move/Exercise/Stand (HAE when all three metrics are selected) |
+| Daily metrics        | Implemented | Steps, distance, resting/walking HR, HRV, flights, VO2 max, body mass, SpO2, respiratory rate (HAE and full export) |
 | Automated HAE intake | Implemented | Sparse Format v2 JSON parser, 10MB body limit, Tailnet perimeter security, bounded replacement |
 
 ## Acceptance boundary
@@ -34,5 +34,7 @@ the architecture decision.
 - HAE payloads retain raw evidence and create source coverage assertions in the same transaction as canonical observations.
 - Duplicate evidence is skipped at the import-job boundary; changed or late bounded windows create a new snapshot without deleting records outside the bounded evidence.
 - Coverage completeness is recorded evidence, not a replacement instruction. `bounded_replacement` updates observations in the bounded window without deleting records outside it.
-- `unknown` completeness is accepted end to end -- defensive default for background mobile sync.
+- `unknown` completeness is accepted end to end -- defensive default for background mobile sync. HAE remains `unknown` when no unsupported metric is seen and `partial` when the upload contains unmapped metric names; neither asserts complete Health-category coverage.
+- A full Apple Health export asserts `covered` only over the calendar days represented by dated observations; an export with no dated records asserts no coverage.
+- Media current-state lists assert `covered`/`full_snapshot` only after pagination completes; activity feeds assert `covered`/`incremental` over their fetched window. A failed sync with a stored page records `partial` coverage.
 - Production setup uses Health Auto Export's REST API automation; see [the HAE reference](health-auto-export.md) and [the setup guide](../../health-auto-export-setup.md).

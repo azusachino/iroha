@@ -106,6 +106,52 @@ func TestParseHealthAutoExportFixture(t *testing.T) {
 	}
 }
 
+func TestParseHealthAutoExportMapsMoveExerciseAndStandSummaries(t *testing.T) {
+	body := `{"data":{"metrics":[
+		{"name":"active_energy","units":"kJ","data":[
+			{"date":"2026-09-20 00:00:00 +0900","qty":418.4},
+			{"date":"2026-09-20 12:00:00 +0900","qty":418.4},
+			{"date":"2026-09-21 00:00:00 +0900","qty":500}]},
+		{"name":"apple_exercise_time","units":"min","data":[
+			{"date":"2026-09-20 00:00:00 +0900","qty":30},
+			{"date":"2026-09-20 12:00:00 +0900","qty":15}]},
+		{"name":"apple_stand_hour","units":"count","data":[
+			{"date":"2026-09-20 00:00:00 +0900","qty":9}]}
+	]}}`
+	batch, err := ParseHealthAutoExport(writeHAE(t, body), "hash", time.UTC)
+	if err != nil {
+		t.Fatalf("ParseHealthAutoExport() failed: %v", err)
+	}
+	if len(batch.Daily.Summaries) != 1 {
+		t.Fatalf("got %d daily summaries, want one merged day", len(batch.Daily.Summaries))
+	}
+	summary := batch.Daily.Summaries[0]
+	if !summary.Day.Equal(time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("Day = %s, want device-local 2026-09-20", summary.Day)
+	}
+	if math.Abs(summary.MoveKcal-200) > 1e-9 || summary.ExerciseMin != 45 || summary.StandHours != 9 {
+		t.Errorf("summary = move %.2f kcal, exercise %.2f min, stand %.2f h; want 200, 45, 9", summary.MoveKcal, summary.ExerciseMin, summary.StandHours)
+	}
+	if summary.Source != KindHealthAutoExport {
+		t.Errorf("Source = %q, want %q", summary.Source, KindHealthAutoExport)
+	}
+}
+
+func TestParseHealthAutoExportMapsDocumentedBloodOxygenName(t *testing.T) {
+	body := `{"data":{"metrics":[{"name":"blood_oxygen_saturation","units":"percent","data":[{"date":"2026-09-20 00:00:00 +0900","qty":98.5}]}]}}`
+	batch, err := ParseHealthAutoExport(writeHAE(t, body), "hash", time.UTC)
+	if err != nil {
+		t.Fatalf("ParseHealthAutoExport() failed: %v", err)
+	}
+	if len(batch.Daily.Metrics) != 1 {
+		t.Fatalf("got %d daily metrics, want one blood oxygen metric", len(batch.Daily.Metrics))
+	}
+	metric := batch.Daily.Metrics[0]
+	if metric.Metric != DailyMetricSpO2Avg || metric.Value != 98.5 || metric.Unit != "percent" {
+		t.Errorf("metric = %+v, want %s 98.5 percent", metric, DailyMetricSpO2Avg)
+	}
+}
+
 func TestValidateHealthAutoExport(t *testing.T) {
 	valid := []byte(`{"data":{"metrics":[{"name":"step_count","data":[]}]}}`)
 	meta, err := ValidateHealthAutoExport(valid)
@@ -244,23 +290,30 @@ func TestParseHealthAutoExportReportsUnsupportedMetrics(t *testing.T) {
 	if len(batch.Daily.Metrics) != 1 {
 		t.Fatalf("got %d metrics, want only the supported step count", len(batch.Daily.Metrics))
 	}
+	if len(batch.Daily.Summaries) != 0 {
+		t.Fatalf("got %d daily summaries, want none without all three ring metrics", len(batch.Daily.Summaries))
+	}
 	cov := batch.Coverage[0]
 	if cov.Completeness != "partial" {
 		t.Errorf("Completeness = %q, want partial", cov.Completeness)
 	}
 	var scope struct {
+		Observed    map[string]int `json:"observed_metrics"`
 		Unsupported map[string]int `json:"unsupported_metrics"`
 	}
 	if err := json.Unmarshal(cov.ScopeJSON, &scope); err != nil {
 		t.Fatal(err)
 	}
-	if scope.Unsupported["apple_stand_hour"] != 2 || scope.Unsupported["time_in_daylight"] != 1 || len(scope.Unsupported) != 2 {
+	if scope.Unsupported["time_in_daylight"] != 1 || len(scope.Unsupported) != 1 {
 		t.Errorf("unsupported = %v", scope.Unsupported)
+	}
+	if scope.Observed["apple_stand_hour"] != 2 || scope.Observed["time_in_daylight"] != 1 || len(scope.Observed) != 3 {
+		t.Errorf("observed = %v", scope.Observed)
 	}
 }
 
 func TestParseHealthAutoExportReportsWhenEveryMetricIsUnsupported(t *testing.T) {
-	body := `{"data":{"metrics":[{"name":"apple_stand_hour","units":"count","data":[{"date":"2026-09-20 00:00:00 +0900","qty":9}]}]}}`
+	body := `{"data":{"metrics":[{"name":"time_in_daylight","units":"min","data":[{"date":"2026-09-20 00:00:00 +0900","qty":30}]}]}}`
 	batch, err := ParseHealthAutoExport(writeHAE(t, body), "hash", time.UTC)
 	if err != nil {
 		t.Fatal(err)
