@@ -57,6 +57,13 @@ export default defineConfig({
       // iroha-server read API at runtime. adapter-static with an SPA
       // fallback avoids any prerender/SSR dependency on a live backend.
       adapter: adapter({ fallback: "index.html" }),
+      // Playwright only transpiles, so svelte-check types the e2e specs and
+      // their fixtures against src/lib/api.ts.
+      typescript: {
+        config: (config) => {
+          config.include.push("../e2e/**/*.ts", "../playwright.config.ts");
+        },
+      },
     }),
   ],
 });
