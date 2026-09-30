@@ -35,6 +35,13 @@ func dailySummaryContentHash(summary observations.DailySummary) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// hasDailySummaryGoals reports whether a source sent ring goals. Health Auto
+// Export sends ring values only, so its summaries keep the day's existing goals
+// instead of zeroing them.
+func hasDailySummaryGoals(summary observations.DailySummary) bool {
+	return summary.MoveGoalKcal > 0 || summary.ExerciseGoalMin > 0 || summary.StandGoalHours > 0
+}
+
 func dailyMetricSourceKey(metric observations.DailyMetric) string {
 	return strings.Join([]string{metric.Day.Format("2006-01-02"), metric.Metric}, "|")
 }
@@ -77,15 +84,17 @@ func (s *Service) persistDailySummary(tx *gorm.DB, rawFile models.RawFile, summa
 func upsertDailySummary(tx *gorm.DB, rawFile models.RawFile, summaryID uuid.UUID, parsed observations.DailySummary) error {
 	now := time.Now().UTC()
 	updates := map[string]any{
-		"day":               parsed.Day,
-		"move_kcal":         parsed.MoveKcal,
-		"move_goal_kcal":    parsed.MoveGoalKcal,
-		"exercise_min":      parsed.ExerciseMin,
-		"exercise_goal_min": parsed.ExerciseGoalMin,
-		"stand_hours":       parsed.StandHours,
-		"stand_goal_hours":  parsed.StandGoalHours,
-		"source":            parsed.Source,
-		"updated_at":        now,
+		"day":          parsed.Day,
+		"move_kcal":    parsed.MoveKcal,
+		"exercise_min": parsed.ExerciseMin,
+		"stand_hours":  parsed.StandHours,
+		"source":       parsed.Source,
+		"updated_at":   now,
+	}
+	if hasDailySummaryGoals(parsed) {
+		updates["move_goal_kcal"] = parsed.MoveGoalKcal
+		updates["exercise_goal_min"] = parsed.ExerciseGoalMin
+		updates["stand_goal_hours"] = parsed.StandGoalHours
 	}
 	var existing models.DailySummary
 	if err := tx.First(&existing, "id = ?", summaryID).Error; err == nil {

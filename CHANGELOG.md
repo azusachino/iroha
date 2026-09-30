@@ -9,7 +9,8 @@ contract between minor versions.
 
 ### Added
 
-- Parse HAE Active Energy, Exercise Time, and Stand Hours into the existing daily ring summary only when all three have points for that day; map the documented Blood Oxygen metric name to SpO2.
+- Parse HAE Active Energy, Exercise Time, and Stand Hours into the existing daily ring summary only when all three have points for that day, reporting other days' points as unsupported; map the documented Blood Oxygen metric name to SpO2.
+- Keep a day's ring goals when an HAE summary, which has no goals, replaces or is restored over a full export's summary for that day.
 - Include observed HAE metric names and point counts in coverage scope alongside unsupported metrics, so bounded imports show what was actually sent without claiming complete Health coverage.
 
 ### Changed

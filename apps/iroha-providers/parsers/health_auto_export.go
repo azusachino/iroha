@@ -164,11 +164,11 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 		maxObserved time.Time
 		hasObserved bool
 		// observed records the payload's metric inventory; unsupported records
-		// the subset Iroha does not map, so coverage never hides what was sent.
-		observedMetrics   = map[string]int{}
-		unsupported       = map[string]int{}
-		dailySummaries    = map[string]observations.DailySummary{}
-		dailySummaryKinds = map[string]map[string]bool{}
+		// the points Iroha drops, so coverage never hides what was sent.
+		observedMetrics    = map[string]int{}
+		unsupported        = map[string]int{}
+		dailySummaries     = map[string]observations.DailySummary{}
+		dailySummaryPoints = map[string]map[string]int{}
 	)
 
 	// markObserved widens the window to the whole device-local day containing t,
@@ -225,12 +225,12 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 					return provider.ImportBatch{}, fmt.Errorf("metric %s: %w", metric.Name, err)
 				}
 				dayKey := t.Format("2006-01-02")
-				kinds := dailySummaryKinds[dayKey]
-				if kinds == nil {
-					kinds = map[string]bool{}
+				points := dailySummaryPoints[dayKey]
+				if points == nil {
+					points = map[string]int{}
+					dailySummaryPoints[dayKey] = points
 				}
-				kinds[summaryKind] = true
-				dailySummaryKinds[dayKey] = kinds
+				points[metric.Name]++
 				summary, ok := dailySummaries[dayKey]
 				if !ok {
 					summary = observations.DailySummary{
@@ -287,6 +287,25 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 		}
 	}
 
+	// DailySummary has no per-field presence markers. Emit a day only when all
+	// three ring metrics have a point, rather than writing zero for a missing
+	// one, and report the dropped points as unsupported.
+	days := make([]string, 0, len(dailySummaries))
+	for day := range dailySummaries {
+		days = append(days, day)
+	}
+	sort.Strings(days)
+	for _, day := range days {
+		points := dailySummaryPoints[day]
+		if points["active_energy"] == 0 || points["apple_exercise_time"] == 0 || points["apple_stand_hour"] == 0 {
+			for name, n := range points {
+				unsupported[name] += n
+			}
+			continue
+		}
+		batch.Daily.Summaries = append(batch.Daily.Summaries, dailySummaries[day])
+	}
+
 	// 3. Compute Bounded Coverage Assertion
 	if hasObserved {
 		fromDay, _ := dayBounds(minObserved.In(loc))
@@ -316,21 +335,6 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 			IngestionMode: "bounded_replacement",
 			Completeness:  completeness,
 		})
-	}
-
-	// DailySummary has no per-field presence markers. Emit a day only when all
-	// three ring metrics have a point, rather than writing zero for a missing one.
-	days := make([]string, 0, len(dailySummaries))
-	for day := range dailySummaries {
-		days = append(days, day)
-	}
-	sort.Strings(days)
-	for _, day := range days {
-		kinds := dailySummaryKinds[day]
-		if !kinds["move"] || !kinds["exercise"] || !kinds["stand"] {
-			continue
-		}
-		batch.Daily.Summaries = append(batch.Daily.Summaries, dailySummaries[day])
 	}
 
 	return batch, nil

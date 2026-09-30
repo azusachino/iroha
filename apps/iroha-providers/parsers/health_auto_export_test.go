@@ -135,6 +135,20 @@ func TestParseHealthAutoExportMapsMoveExerciseAndStandSummaries(t *testing.T) {
 	if summary.Source != KindHealthAutoExport {
 		t.Errorf("Source = %q, want %q", summary.Source, KindHealthAutoExport)
 	}
+	// 2026-09-21 has only Active Energy, so its point is dropped and reported.
+	cov := batch.Coverage[0]
+	if cov.Completeness != "partial" {
+		t.Errorf("Completeness = %q, want partial for the dropped incomplete day", cov.Completeness)
+	}
+	var scope struct {
+		Unsupported map[string]int `json:"unsupported_metrics"`
+	}
+	if err := json.Unmarshal(cov.ScopeJSON, &scope); err != nil {
+		t.Fatal(err)
+	}
+	if scope.Unsupported["active_energy"] != 1 || len(scope.Unsupported) != 1 {
+		t.Errorf("unsupported = %v, want the incomplete day's one active_energy point", scope.Unsupported)
+	}
 }
 
 func TestParseHealthAutoExportMapsDocumentedBloodOxygenName(t *testing.T) {
@@ -304,7 +318,7 @@ func TestParseHealthAutoExportReportsUnsupportedMetrics(t *testing.T) {
 	if err := json.Unmarshal(cov.ScopeJSON, &scope); err != nil {
 		t.Fatal(err)
 	}
-	if scope.Unsupported["time_in_daylight"] != 1 || len(scope.Unsupported) != 1 {
+	if scope.Unsupported["apple_stand_hour"] != 2 || scope.Unsupported["time_in_daylight"] != 1 || len(scope.Unsupported) != 2 {
 		t.Errorf("unsupported = %v", scope.Unsupported)
 	}
 	if scope.Observed["apple_stand_hour"] != 2 || scope.Observed["time_in_daylight"] != 1 || len(scope.Observed) != 3 {

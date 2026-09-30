@@ -148,6 +148,13 @@ func TestIntegrationHealthAutoExportReplayAndBoundedReplacement(t *testing.T) {
 		t.Fatalf("coverage assertions after duplicate replay = %d, want 1", coverageCount)
 	}
 
+	// A full Apple Health export already wrote this day's rings with goals.
+	ringDay := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	summaryID := uuid.New()
+	if err := db.Create(&models.DailySummary{ID: summaryID, Day: ringDay, MoveKcal: 350, MoveGoalKcal: 500, ExerciseMin: 20, ExerciseGoalMin: 30, StandHours: 9, StandGoalHours: 12, Source: "apple_health_export", FirstRawFileID: firstRawID, CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("seed export daily summary: %v", err)
+	}
+
 	partialRawID, partialImportID, partialQueueID := createHaeEvidence(t, db, partialBody, instanceID, now.Add(2*time.Minute))
 	cleanup = append(cleanup, partialRawID)
 	queueIDs = append(queueIDs, partialQueueID)
@@ -165,13 +172,25 @@ func TestIntegrationHealthAutoExportReplayAndBoundedReplacement(t *testing.T) {
 	if coverageCount != 2 {
 		t.Fatalf("coverage assertions after partial import = %d, want 2", coverageCount)
 	}
-	var importedSummary models.DailySummary
-	if err := db.Where("first_raw_file_id = ?", partialRawID).First(&importedSummary).Error; err != nil {
-		t.Fatalf("load imported HAE daily summary: %v", err)
+	assertRing := func(stage string) {
+		t.Helper()
+		var got models.DailySummary
+		if err := db.First(&got, "id = ?", summaryID).Error; err != nil {
+			t.Fatalf("%s: load daily summary: %v", stage, err)
+		}
+		if got.MoveKcal != 400 || got.ExerciseMin != 30 || got.StandHours != 10 {
+			t.Errorf("%s: summary = move %.0f, exercise %.0f, stand %.0f; want HAE's 400, 30, 10", stage, got.MoveKcal, got.ExerciseMin, got.StandHours)
+		}
+		if got.MoveGoalKcal != 500 || got.ExerciseGoalMin != 30 || got.StandGoalHours != 12 {
+			t.Errorf("%s: goals = %.0f, %.0f, %.0f; want the export's 500, 30, 12", stage, got.MoveGoalKcal, got.ExerciseGoalMin, got.StandGoalHours)
+		}
 	}
-	if importedSummary.MoveKcal != 400 || importedSummary.ExerciseMin != 30 || importedSummary.StandHours != 10 {
-		t.Errorf("imported summary = move %.0f, exercise %.0f, stand %.0f; want 400, 30, 10", importedSummary.MoveKcal, importedSummary.ExerciseMin, importedSummary.StandHours)
+	assertRing("after HAE import")
+	// Reprocessing restores the canonical row from its selected HAE observation.
+	if err := restoreSelectedDailySummary(db, summaryID); err != nil {
+		t.Fatalf("restore selected daily summary: %v", err)
 	}
+	assertRing("after restore")
 	var partialCoverage models.SourceCoverageAssertion
 	if err := db.Where("source_instance_id = ?", instanceID).Order("recorded_at desc").First(&partialCoverage).Error; err != nil {
 		t.Fatalf("load partial HAE coverage: %v", err)
