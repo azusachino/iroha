@@ -17,6 +17,11 @@ contract between minor versions.
 
 - Bump the import parser version so reprocessing retained evidence uses the expanded HAE mappings.
 
+### Fixed
+
+- The local dev stack's server and job no longer crash on `chmod /data/raw-files: operation not permitted` under rootless Podman: they map the host user to the image's `iroha` user, so the bind-mounted `.iroha-data` stays owned by the host user and the raw-file modes can be tightened.
+- At startup the server and job now make everything already under `raw-files` private (directories 0700, files 0600), not just `raw-files` itself; evidence written before the permission hardening kept 0755/0644. Symlinks are skipped.
+
 ## [0.5.1] — 2026-09-29
 
 ### Fixed

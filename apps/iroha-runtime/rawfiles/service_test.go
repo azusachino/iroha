@@ -13,10 +13,23 @@ func TestNewServiceRestrictsExistingRawFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Evidence written before the permission hardening kept its old modes.
+	legacyDir := filepath.Join(rawFilesDir, "2026", "08", "id")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacyFile := filepath.Join(legacyDir, "export.zip")
+	if err := os.WriteFile(legacyFile, []byte("evidence"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	if _, err := NewService(nil, root); err != nil {
 		t.Fatal(err)
 	}
 	assertMode(t, rawFilesDir, privateDirMode)
+	assertMode(t, filepath.Join(rawFilesDir, "2026"), privateDirMode)
+	assertMode(t, legacyDir, privateDirMode)
+	assertMode(t, legacyFile, privateFileMode)
 }
 
 func TestStorePrivateUploadPermissions(t *testing.T) {
@@ -89,4 +102,24 @@ func assertMode(t *testing.T, path string, want os.FileMode) {
 	if got := info.Mode().Perm(); got != want {
 		t.Errorf("%s mode = %04o, want %04o", path, got, want)
 	}
+}
+
+func TestNewServiceLeavesSymlinkTargetsOutsideRawFiles(t *testing.T) {
+	root := t.TempDir()
+	rawFilesDir := filepath.Join(root, "raw-files")
+	if err := os.MkdirAll(rawFilesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(root, "outside.txt")
+	if err := os.WriteFile(outside, []byte("not evidence"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(rawFilesDir, "link")); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := NewService(nil, root); err != nil {
+		t.Fatal(err)
+	}
+	assertMode(t, outside, 0o644)
 }

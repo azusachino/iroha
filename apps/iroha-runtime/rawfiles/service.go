@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -59,7 +60,7 @@ func NewService(db *gorm.DB, dataDir string) (*Service, error) {
 	if err := os.MkdirAll(absDataDir, 0o755); err != nil {
 		return nil, err
 	}
-	if err := ensurePrivateDir(filepath.Join(absDataDir, "raw-files")); err != nil {
+	if err := restrictRawFiles(filepath.Join(absDataDir, "raw-files")); err != nil {
 		return nil, err
 	}
 	return &Service{db: db, dataDir: absDataDir}, nil
@@ -250,6 +251,35 @@ func (s *Service) restore(rawFile *models.RawFile, write func(path string) error
 	}
 	rawFile.PurgedAt = nil
 	return nil
+}
+
+// restrictRawFiles makes raw-files and everything already under it private.
+// Evidence written before the permission hardening kept 0755/0644 modes.
+// Symlinks are skipped, so a link cannot redirect a chmod outside the tree.
+func restrictRawFiles(root string) error {
+	if err := ensurePrivateDir(root); err != nil {
+		return err
+	}
+	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+		mode := fs.FileMode(privateFileMode)
+		if d.IsDir() {
+			mode = privateDirMode
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode().Perm() == mode {
+			return nil
+		}
+		return os.Chmod(path, mode)
+	})
 }
 
 func ensurePrivateDir(path string) error {
