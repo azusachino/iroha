@@ -1,10 +1,12 @@
-import { defineConfig, mergeConfig } from "vitest/config";
+import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
 import viteConfig from "./vite.config.ts";
 
 export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
+      // e2e/ holds Playwright specs, run by `make e2e`, not by vitest.
+      exclude: [...configDefaults.exclude, "e2e/**"],
       coverage: {
         provider: "v8",
         include: [

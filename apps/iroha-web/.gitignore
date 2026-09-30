@@ -25,3 +25,7 @@ vite.config.ts.timestamp-*
 
 # Playwright visual-check screenshots (scripts/visual-check.mjs)
 /.visual-check
+
+# Playwright output from `make e2e` and `make e2e-probe` (playwright-verify).
+/test-results
+/playwright-report
