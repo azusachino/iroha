@@ -1,7 +1,7 @@
 package imports
 
 const (
-	DefaultParserVersion  = "apple-health-2026-09-observations-v3"
+	DefaultParserVersion  = "health-2026-10-observations-v4"
 	KindGPX               = "gpx"
 	KindAppleHealthExport = "apple_health_export"
 	KindHealthAutoExport  = "health_auto_export"

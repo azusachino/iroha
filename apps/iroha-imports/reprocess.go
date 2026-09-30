@@ -45,13 +45,17 @@ from tb_sleep_observations o
 where s.id = ? and o.id = s.selected_observation_id`, sessionID).Error
 }
 
+// restoreSelectedDailySummary keeps the day's goals when the selected
+// observation has none, as upsertDailySummary does (see hasDailySummaryGoals).
 func restoreSelectedDailySummary(tx *gorm.DB, summaryID uuid.UUID) error {
 	return tx.Exec(`update tb_daily_summaries d
-set day = o.day, move_kcal = o.move_kcal, move_goal_kcal = o.move_goal_kcal,
-    exercise_min = o.exercise_min, exercise_goal_min = o.exercise_goal_min,
-    stand_hours = o.stand_hours, stand_goal_hours = o.stand_goal_hours,
-    source = o.source, updated_at = now()
+set day = o.day, move_kcal = o.move_kcal, exercise_min = o.exercise_min,
+    stand_hours = o.stand_hours, source = o.source, updated_at = now(),
+    move_goal_kcal = case when g.has_goals then o.move_goal_kcal else d.move_goal_kcal end,
+    exercise_goal_min = case when g.has_goals then o.exercise_goal_min else d.exercise_goal_min end,
+    stand_goal_hours = case when g.has_goals then o.stand_goal_hours else d.stand_goal_hours end
 from tb_daily_summary_observations o
+cross join lateral (select o.move_goal_kcal > 0 or o.exercise_goal_min > 0 or o.stand_goal_hours > 0 as has_goals) g
 where d.id = ? and o.id = d.selected_observation_id`, summaryID).Error
 }
 

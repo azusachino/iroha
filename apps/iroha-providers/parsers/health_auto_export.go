@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -162,10 +163,12 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 		minObserved time.Time
 		maxObserved time.Time
 		hasObserved bool
-		// unsupported counts the data points of metrics Iroha does not map, by
-		// HAE name, so the import says what it dropped instead of implying
-		// full health coverage.
-		unsupported = map[string]int{}
+		// observed records the payload's metric inventory; unsupported records
+		// the points Iroha drops, so coverage never hides what was sent.
+		observedMetrics    = map[string]int{}
+		unsupported        = map[string]int{}
+		dailySummaries     = map[string]observations.DailySummary{}
+		dailySummaryPoints = map[string]map[string]int{}
 	)
 
 	// markObserved widens the window to the whole device-local day containing t,
@@ -191,6 +194,7 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 
 	// 1. Process Metrics
 	for _, metric := range export.Data.Metrics {
+		observedMetrics[metric.Name] += len(metric.Data)
 		if metric.Name == "sleep_analysis" {
 			sleepSessions, sleepMin, sleepMax, err := parseHaeSleep(metric)
 			if err != nil {
@@ -199,6 +203,52 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 			batch.Sleep = append(batch.Sleep, sleepSessions...)
 			markObserved(sleepMin)
 			markObserved(sleepMax)
+			continue
+		}
+
+		if summaryKind := mapHaeSummaryMetricName(metric.Name); summaryKind != "" {
+			for i, point := range metric.Data {
+				date, _ := point["date"].(string)
+				t, err := parseHaeTime(date)
+				if err != nil {
+					return provider.ImportBatch{}, fmt.Errorf("metric %s[%d]: %w", metric.Name, i, err)
+				}
+				value, ok := getFloat(point, "qty")
+				if !ok {
+					value, ok = getFloat(point, "value")
+				}
+				if !ok {
+					value = 0
+				}
+				value, err = normalizeHaeSummaryValue(metric.Name, metric.Units, value)
+				if err != nil {
+					return provider.ImportBatch{}, fmt.Errorf("metric %s: %w", metric.Name, err)
+				}
+				dayKey := t.Format("2006-01-02")
+				points := dailySummaryPoints[dayKey]
+				if points == nil {
+					points = map[string]int{}
+					dailySummaryPoints[dayKey] = points
+				}
+				points[metric.Name]++
+				summary, ok := dailySummaries[dayKey]
+				if !ok {
+					summary = observations.DailySummary{
+						Day:    time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC),
+						Source: KindHealthAutoExport,
+					}
+				}
+				switch summaryKind {
+				case "move":
+					summary.MoveKcal += value
+				case "exercise":
+					summary.ExerciseMin += value
+				case "stand":
+					summary.StandHours += value
+				}
+				dailySummaries[dayKey] = summary
+				markObserved(t)
+			}
 			continue
 		}
 
@@ -237,6 +287,25 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 		}
 	}
 
+	// DailySummary has no per-field presence markers. Emit a day only when all
+	// three ring metrics have a point, rather than writing zero for a missing
+	// one, and report the dropped points as unsupported.
+	days := make([]string, 0, len(dailySummaries))
+	for day := range dailySummaries {
+		days = append(days, day)
+	}
+	sort.Strings(days)
+	for _, day := range days {
+		points := dailySummaryPoints[day]
+		if points["active_energy"] == 0 || points["apple_exercise_time"] == 0 || points["apple_stand_hour"] == 0 {
+			for name, n := range points {
+				unsupported[name] += n
+			}
+			continue
+		}
+		batch.Daily.Summaries = append(batch.Daily.Summaries, dailySummaries[day])
+	}
+
 	// 3. Compute Bounded Coverage Assertion
 	if hasObserved {
 		fromDay, _ := dayBounds(minObserved.In(loc))
@@ -245,17 +314,21 @@ func ParseHealthAutoExport(path, rawHash string, loc *time.Location) (provider.I
 			toDay = end
 		}
 
-		scope, completeness := json.RawMessage(`{}`), "unknown"
+		completeness := "unknown"
 		if len(unsupported) > 0 {
-			encoded, err := json.Marshal(map[string]any{"unsupported_metrics": unsupported})
-			if err != nil {
-				return provider.ImportBatch{}, fmt.Errorf("encode unsupported metrics: %w", err)
-			}
-			scope, completeness = encoded, "partial"
+			completeness = "partial"
+		}
+		scopeValues := map[string]any{"observed_metrics": observedMetrics}
+		if len(unsupported) > 0 {
+			scopeValues["unsupported_metrics"] = unsupported
+		}
+		encodedScope, err := json.Marshal(scopeValues)
+		if err != nil {
+			return provider.ImportBatch{}, fmt.Errorf("encode Health Auto Export metric inventory: %w", err)
 		}
 		batch.Coverage = append(batch.Coverage, provider.CoverageAssertion{
 			Category:      "health",
-			ScopeJSON:     scope,
+			ScopeJSON:     encodedScope,
 			From:          fromDay,
 			To:            toDay,
 			Timezone:      loc.String(),
@@ -607,6 +680,51 @@ func parseHaeWorkout(w haeWorkout, rawHash string) (observations.Activity, error
 	}, nil
 }
 
+func mapHaeSummaryMetricName(name string) string {
+	switch name {
+	case "active_energy":
+		return "move"
+	case "apple_exercise_time":
+		return "exercise"
+	case "apple_stand_hour":
+		return "stand"
+	default:
+		return ""
+	}
+}
+
+func normalizeHaeSummaryValue(name, units string, value float64) (float64, error) {
+	switch name {
+	case "active_energy":
+		switch strings.ToLower(units) {
+		case "", "kcal":
+			return value, nil
+		case "kj":
+			return value / kilojoulesPerKilocalorie, nil
+		default:
+			return 0, fmt.Errorf("unsupported energy unit %q", units)
+		}
+	case "apple_exercise_time":
+		switch strings.ToLower(units) {
+		case "", "min", "minute", "minutes":
+			return value, nil
+		case "s", "sec", "second", "seconds":
+			return value / 60, nil
+		default:
+			return 0, fmt.Errorf("unsupported exercise-time unit %q", units)
+		}
+	case "apple_stand_hour":
+		switch strings.ToLower(units) {
+		case "", "count", "h", "hr", "hour", "hours":
+			return value, nil
+		default:
+			return 0, fmt.Errorf("unsupported stand-hour unit %q", units)
+		}
+	default:
+		return 0, fmt.Errorf("unsupported summary metric %q", name)
+	}
+}
+
 func mapHaeMetricName(name string) (metric string, defaultUnit string, isCumulative bool) {
 	switch name {
 	case "step_count", "steps":
@@ -625,7 +743,7 @@ func mapHaeMetricName(name string) (metric string, defaultUnit string, isCumulat
 		return DailyMetricVO2Max, "ml/kg_min", false
 	case "body_mass":
 		return DailyMetricBodyMassKG, "kg", false
-	case "oxygen_saturation":
+	case "oxygen_saturation", "blood_oxygen_saturation":
 		return DailyMetricSpO2Avg, "percent", false
 	case "respiratory_rate":
 		return DailyMetricRespiratoryRate, "count/min", false

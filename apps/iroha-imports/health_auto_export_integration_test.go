@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,6 +43,26 @@ func TestIntegrationHealthAutoExportReplayAndBoundedReplacement(t *testing.T) {
             "source": "Apple Watch"
           }
         ]
+      },
+      {
+        "name": "active_energy",
+        "units": "kcal",
+        "data": [{"date": "2026-09-21 00:00:00 +0900", "qty": 400}]
+      },
+      {
+        "name": "apple_exercise_time",
+        "units": "min",
+        "data": [{"date": "2026-09-21 00:00:00 +0900", "qty": 30}]
+      },
+      {
+        "name": "apple_stand_hour",
+        "units": "count",
+        "data": [{"date": "2026-09-21 00:00:00 +0900", "qty": 10}]
+      },
+      {
+        "name": "time_in_daylight",
+        "units": "min",
+        "data": [{"date": "2026-09-21 00:00:00 +0900", "qty": 20}]
       }
     ],
     "workouts": []
@@ -100,6 +121,22 @@ func TestIntegrationHealthAutoExportReplayAndBoundedReplacement(t *testing.T) {
 	if coverageCount != 1 {
 		t.Fatalf("coverage assertions after first import = %d, want 1", coverageCount)
 	}
+	var firstCoverage models.SourceCoverageAssertion
+	if err := db.Where("source_receipt_id in (?)", db.Model(&models.SourceReceipt{}).Select("id").Where("raw_file_id = ?", firstRawID)).First(&firstCoverage).Error; err != nil {
+		t.Fatalf("load first HAE coverage: %v", err)
+	}
+	if firstCoverage.Completeness != "unknown" {
+		t.Fatalf("coverage completeness = %q, want unknown for a bounded supported payload", firstCoverage.Completeness)
+	}
+	var firstScope struct {
+		Observed map[string]int `json:"observed_metrics"`
+	}
+	if err := json.Unmarshal(firstCoverage.ScopeJSON, &firstScope); err != nil {
+		t.Fatalf("decode first coverage scope: %v", err)
+	}
+	if firstScope.Observed["step_count"] != 2 || firstScope.Observed["sleep_analysis"] != 3 {
+		t.Errorf("observed metric inventory = %v", firstScope.Observed)
+	}
 
 	duplicateImportID, duplicateQueueID := createImportReplay(t, db, firstRawID, coreimports.KindHealthAutoExport, now.Add(time.Minute))
 	queueIDs = append(queueIDs, duplicateQueueID)
@@ -109,6 +146,13 @@ func TestIntegrationHealthAutoExportReplayAndBoundedReplacement(t *testing.T) {
 	}
 	if coverageCount != 1 {
 		t.Fatalf("coverage assertions after duplicate replay = %d, want 1", coverageCount)
+	}
+
+	// A full Apple Health export already wrote this day's rings with goals.
+	ringDay := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	summaryID := uuid.New()
+	if err := db.Create(&models.DailySummary{ID: summaryID, Day: ringDay, MoveKcal: 350, MoveGoalKcal: 500, ExerciseMin: 20, ExerciseGoalMin: 30, StandHours: 9, StandGoalHours: 12, Source: "apple_health_export", FirstRawFileID: firstRawID, CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("seed export daily summary: %v", err)
 	}
 
 	partialRawID, partialImportID, partialQueueID := createHaeEvidence(t, db, partialBody, instanceID, now.Add(2*time.Minute))
@@ -127,6 +171,42 @@ func TestIntegrationHealthAutoExportReplayAndBoundedReplacement(t *testing.T) {
 	}
 	if coverageCount != 2 {
 		t.Fatalf("coverage assertions after partial import = %d, want 2", coverageCount)
+	}
+	assertRing := func(stage string) {
+		t.Helper()
+		var got models.DailySummary
+		if err := db.First(&got, "id = ?", summaryID).Error; err != nil {
+			t.Fatalf("%s: load daily summary: %v", stage, err)
+		}
+		if got.MoveKcal != 400 || got.ExerciseMin != 30 || got.StandHours != 10 {
+			t.Errorf("%s: summary = move %.0f, exercise %.0f, stand %.0f; want HAE's 400, 30, 10", stage, got.MoveKcal, got.ExerciseMin, got.StandHours)
+		}
+		if got.MoveGoalKcal != 500 || got.ExerciseGoalMin != 30 || got.StandGoalHours != 12 {
+			t.Errorf("%s: goals = %.0f, %.0f, %.0f; want the export's 500, 30, 12", stage, got.MoveGoalKcal, got.ExerciseGoalMin, got.StandGoalHours)
+		}
+	}
+	assertRing("after HAE import")
+	// Reprocessing restores the canonical row from its selected HAE observation.
+	if err := restoreSelectedDailySummary(db, summaryID); err != nil {
+		t.Fatalf("restore selected daily summary: %v", err)
+	}
+	assertRing("after restore")
+	var partialCoverage models.SourceCoverageAssertion
+	if err := db.Where("source_instance_id = ?", instanceID).Order("recorded_at desc").First(&partialCoverage).Error; err != nil {
+		t.Fatalf("load partial HAE coverage: %v", err)
+	}
+	if partialCoverage.Completeness != "partial" {
+		t.Fatalf("coverage completeness = %q, want partial", partialCoverage.Completeness)
+	}
+	var scope struct {
+		Observed    map[string]int `json:"observed_metrics"`
+		Unsupported map[string]int `json:"unsupported_metrics"`
+	}
+	if err := json.Unmarshal(partialCoverage.ScopeJSON, &scope); err != nil {
+		t.Fatalf("decode coverage scope: %v", err)
+	}
+	if scope.Observed["active_energy"] != 1 || scope.Unsupported["time_in_daylight"] != 1 {
+		t.Errorf("coverage scope observed=%v unsupported=%v", scope.Observed, scope.Unsupported)
 	}
 }
 

@@ -1,6 +1,6 @@
 # Health Auto Export reference
 
-Status: daily intake implemented; not yet verified against a real device payload.
+Status: the daily intake was verified on the iPhone on 2026-09-28. The parser keeps its supported metric scope explicit; each HAE coverage assertion now records the names and point counts actually sent.
 
 What [Health Auto Export](https://help.healthyapps.dev/en/health-auto-export/automations/) (HAE) is, what it sends, and how each of its settings affects Iroha's data. This page is the reference; the
 step-by-step configuration is [the setup guide](../../health-auto-export-setup.md). Decisions are in [ADR-0008](../../adr/0008-health-auto-export-http-intake.md).
@@ -96,9 +96,9 @@ and is stored correctly.
 
 ## Metric mapping
 
-Metric names that Iroha does not recognize are **not stored** (the raw upload is kept while retention allows). They are no longer silent: the upload's `health` coverage assertion becomes `partial`
-and its scope lists `unsupported_metrics` as `{ "<hae name>": <data points> }`, so the Sources page and the coverage API show what was dropped. The names below are Iroha's parser keys; only `step_count`, `walking_running_distance`, and `resting_heart_rate` appear in HAE's
-documentation. The others are unverified until a real payload confirms the exact spelling.
+Metric names that Iroha does not recognize are **not stored** (the raw upload is kept while retention allows). The upload's `health` coverage scope records `observed_metrics` as `{ "<hae name>": <data points> }` and the unmapped subset as `unsupported_metrics` with the same shape. Any unsupported metric makes completeness `partial`; otherwise it remains `unknown`, because a bounded HAE upload does not prove complete Health coverage. Neither state claims that every Health category was collected.
+
+The parser deliberately supports metrics with destinations in Iroha's existing daily model. Other names remain visible in `unsupported_metrics` rather than being guessed into a superficially similar field. Since `DailySummary` cannot represent a missing ring field, HAE Move/Exercise/Stand values are emitted only for days with a point for all three metrics; otherwise no summary is written for that day and its points are counted in `unsupported_metrics`. HAE sends no ring goals, so an HAE summary keeps the goals a full export already recorded for that day, both on import and when reprocessing restores it; a day only HAE covers has no goals, and the web hides its ring.
 
 | HAE metric name               | Iroha metric       | Daily reduction |
 | ----------------------------- | ------------------ | --------------- |
@@ -110,8 +110,12 @@ documentation. The others are unverified until a real payload confirms the exact
 | `heart_rate_variability_sdnn` | HRV (SDNN)         | average         |
 | `vo2_max`                     | VO2 max            | average         |
 | `body_mass`                   | body mass          | average         |
-| `oxygen_saturation`           | SpO2               | average         |
+| `blood_oxygen_saturation`     | SpO2               | average         |
+| `oxygen_saturation`           | SpO2 (alias)       | average         |
 | `respiratory_rate`            | respiratory rate   | average         |
+| `active_energy`               | Move (kcal)        | sum; kJ converted to kcal |
+| `apple_exercise_time`         | Exercise (minutes) | sum; seconds converted to minutes |
+| `apple_stand_hour`            | Stand (hours)      | sum             |
 | `sleep_analysis`              | sleep session      | per night       |
 
 ## Days and time zones
@@ -124,17 +128,10 @@ See [the glossary](../../glossary.md) for _device-local day_, _coverage assertio
 
 ## Open questions
 
-These can only be answered from a real device and are the acceptance test for the intake (see [the setup guide](../../health-auto-export-setup.md#verify-with-a-real-device)):
+The owner verified the deployed HAE workflow on an iPhone on 2026-09-28 and accepted the existing source-precedence and workout-identity behavior; issues [#69](https://github.com/azusachino/iroha/issues/69) and [#70](https://github.com/azusachino/iroha/issues/70) are closed as not planned. The exact 34-name device inventory was not retained in the repository, so each subsequent upload records its observed names and counts in coverage instead of treating an undocumented inventory as complete.
 
-- Is a workout's `id` stable across uploads? If not, every re-send creates a duplicate activity.
-- Which time of day and UTC offset does a summarized day's `date` carry?
-- How large is a real workout upload with route data?
-- Does a failed upload advance "Since Last Sync"?
-- Are the unverified metric names above spelled as HAE sends them?
-- When HAE and a full `export.zip` both report the same day's metric or night's sleep, the canonical value is whichever was imported **last**, not a deliberate source precedence. The two sources
-  deduplicate iPhone and Watch samples differently, so the values can differ. Tracked in [#69](https://github.com/azusachino/iroha/issues/69).
-- The same workout arriving from both HAE and a full `export.zip` is stored twice, because the two paths derive different workout identities. Whether to merge them is deferred until the HAE
-  configuration has been tried. Tracked in [#70](https://github.com/azusachino/iroha/issues/70).
+- Does a failed upload advance "Since Last Sync"? The setup guide avoids this uncertainty by using **Previous 7 Days** for Health Metrics.
+- How large is a real workout upload with route data? Keep Batch Requests OFF for metrics; enable it for workouts only if needed.
 
 ## Sources
 
@@ -142,6 +139,7 @@ These can only be answered from a real device and are the acceptance test for th
 - [HAE REST API automation](https://help.healthyapps.dev/en/health-auto-export/automations/rest-api)
 - [HAE JSON export format](https://help.healthyapps.dev/en/health-auto-export/export-format/)
 - [HAE health metrics format](https://help.healthyapps.dev/en/health-auto-export/export-format/health-metrics/)
+- [HAE supported data and metric names](https://help.healthyapps.dev/en/health-auto-export/getting-started/supported-data/)
 - [HAE workouts format](https://help.healthyapps.dev/en/health-auto-export/export-format/workouts/)
 - [Third-party observation of sleep fields](https://github.com/gbram895/Training-Dashboard/pull/22)
 

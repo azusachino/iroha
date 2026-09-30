@@ -54,7 +54,7 @@ In Health Auto Export, open **Automations**, add a new automation, and choose **
 | Sync Cadence    | every 1 hour (a request to iOS, not a guarantee)                |
 
 Optional metrics Iroha understands: Walking + Running Distance, Flights Climbed, Resting Heart Rate, Walking Heart Rate Average, Heart Rate Variability, VO2 Max, Body Mass (weight), Blood Oxygen
-Saturation, Respiratory Rate. Anything else is ignored.
+Saturation, Respiratory Rate, Active Energy, Exercise Time, and Stand Hours. Select Active Energy, Exercise Time, and Stand Hours together if you want the daily Move/Exercise/Stand summary; a day missing one of them is reported in `unsupported_metrics`. HAE sends no ring goals, so the rings show only on days a full Apple Health export also covers. Other metrics stay out of normalized observations and are listed in the upload's `unsupported_metrics` coverage scope; check that scope before assuming the Health import is complete.
 
 > [!WARNING] **Never use "Since Last Sync" for Health Metrics.** Iroha replaces each day's stored value with the one in the latest upload. "Since Last Sync" sends only the samples since the previous
 > run, so the day's total would be overwritten by a fragment. "Previous 7 Days" also repairs any days the phone missed.
