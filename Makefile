@@ -23,7 +23,7 @@ MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test quality-floor-check theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-public-site images
+.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test quality-floor-check theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate e2e-audit dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-public-site images
 
 PRETTIER := prettier
 MARKDOWN_FILES := $(shell rg --files -g '*.md' -g '!**/node_modules/**')
@@ -170,6 +170,9 @@ validate: check build web-bundle-report public-site-fmt-check public-site-check 
 
 release-candidate: ## Isolated DB integration + seeded production runtime/browser gate
 	$(TOOL_ENV) uv run python scripts/release_candidate.py
+
+e2e-audit: ## Accessibility/viewport/state audit of every route against a seeded throwaway stack (ARGS='-g today')
+	$(TOOL_ENV) uv run python scripts/e2e_audit.py $(ARGS)
 
 ## --- Dev stack (Podman Compose via uv scripts) ---
 dev-up: ## Start the complete local stack and apply migrations

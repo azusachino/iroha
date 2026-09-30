@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import json
 import os
+import secrets
 import shutil
 import signal
 import socket
-import secrets
 import subprocess
 import sys
 import tempfile
@@ -13,6 +13,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 import iroha_auth
@@ -56,8 +59,8 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def require_commands() -> None:
-    missing = [name for name in ("podman", "agent-browser", "mise") if shutil.which(name) is None]
+def require_commands(*names: str) -> None:
+    missing = [name for name in names if shutil.which(name) is None]
     if missing:
         raise RuntimeError("missing required commands: " + ", ".join(missing))
 
@@ -430,11 +433,50 @@ def terminate(process: subprocess.Popen[bytes] | None) -> None:
         process.wait()
 
 
-def main() -> int:
-    require_commands()
+def apply_sql(container: str, path: Path, label: str) -> None:
+    with path.open("rb") as statements:
+        print(f"+ {label}", flush=True)
+        subprocess.run(
+            [
+                "podman",
+                "exec",
+                "-i",
+                "--env",
+                "PGPASSWORD=iroha_dev",
+                container,
+                "psql",
+                "-h",
+                "127.0.0.1",
+                "-v",
+                "ON_ERROR_STOP=1",
+                "-U",
+                "iroha",
+                "-d",
+                "iroha",
+            ],
+            cwd=ROOT,
+            stdin=statements,
+            check=True,
+        )
+
+
+@dataclass(frozen=True)
+class Stack:
+    server_url: str
+    web_url: str
+    container: str
+    owner: iroha_auth.OwnerSession
+
+
+@contextmanager
+def isolated_stack(*, integration_tests: bool) -> Iterator[Stack]:
+    """Run a throwaway seeded database, production server and web preview.
+
+    Nothing touches the developer's database: the container, data directory
+    and owner account exist only for this run and are removed afterwards.
+    """
     suffix = uuid.uuid4().hex[:10]
     container = f"iroha-rc-{suffix}"
-    session = f"iroha-rc-{suffix}"
     db_port, server_port, web_port = free_port(), free_port(), free_port()
     database_url = f"postgres://iroha:iroha_dev@127.0.0.1:{db_port}/iroha?sslmode=disable"
     server_url = f"http://127.0.0.1:{server_port}"
@@ -514,97 +556,29 @@ def main() -> int:
             raise RuntimeError("isolated database did not become ready")
 
         run([sys.executable, "scripts/db.py", "apply"], env=env)
-        run(
-            [
-                "mise",
-                "exec",
-                "--",
-                "env",
-                f"{DATABASE_URL_ENV}={database_url}",
-                # The container is created for this run and discarded after it.
-                "IROHA_TEST_DB_DISPOSABLE=1",
-                "go",
-                "-C",
-                str(SERVER_DIR),
-                "test",
-                "-p",
-                "1",
-                "-tags=integration",
-                "./...",
-            ]
-        )
-        with RESET_FILE.open("rb") as reset:
-            print("+ reset isolated database after integration tests", flush=True)
-            subprocess.run(
+        if integration_tests:
+            run(
                 [
-                    "podman",
+                    "mise",
                     "exec",
-                    "-i",
-                    "--env",
-                    "PGPASSWORD=iroha_dev",
-                    container,
-                    "psql",
-                    "-h",
-                    "127.0.0.1",
-                    "-v",
-                    "ON_ERROR_STOP=1",
-                    "-U",
-                    "iroha",
-                    "-d",
-                    "iroha",
-                ],
-                cwd=ROOT,
-                stdin=reset,
-                check=True,
+                    "--",
+                    "env",
+                    f"{DATABASE_URL_ENV}={database_url}",
+                    # The container is created for this run and discarded after it.
+                    "IROHA_TEST_DB_DISPOSABLE=1",
+                    "go",
+                    "-C",
+                    str(SERVER_DIR),
+                    "test",
+                    "-p",
+                    "1",
+                    "-tags=integration",
+                    "./...",
+                ]
             )
-        with SEED_FILE.open("rb") as seed:
-            print("+ seed isolated release-candidate database", flush=True)
-            subprocess.run(
-                [
-                    "podman",
-                    "exec",
-                    "-i",
-                    "--env",
-                    "PGPASSWORD=iroha_dev",
-                    container,
-                    "psql",
-                    "-h",
-                    "127.0.0.1",
-                    "-v",
-                    "ON_ERROR_STOP=1",
-                    "-U",
-                    "iroha",
-                    "-d",
-                    "iroha",
-                ],
-                cwd=ROOT,
-                stdin=seed,
-                check=True,
-            )
-        with PERFORMANCE_SEED_FILE.open("rb") as performance_seed:
-            print("+ seed isolated performance database", flush=True)
-            subprocess.run(
-                [
-                    "podman",
-                    "exec",
-                    "-i",
-                    "--env",
-                    "PGPASSWORD=iroha_dev",
-                    container,
-                    "psql",
-                    "-h",
-                    "127.0.0.1",
-                    "-v",
-                    "ON_ERROR_STOP=1",
-                    "-U",
-                    "iroha",
-                    "-d",
-                    "iroha",
-                ],
-                cwd=ROOT,
-                stdin=performance_seed,
-                check=True,
-            )
+            apply_sql(container, RESET_FILE, "reset isolated database after integration tests")
+        apply_sql(container, SEED_FILE, "seed isolated release-candidate database")
+        apply_sql(container, PERFORMANCE_SEED_FILE, "seed isolated performance database")
         run(["make", "web-build"], env=env)
 
         print("+ start production server", flush=True)
@@ -626,8 +600,6 @@ def main() -> int:
             server_url, "rc-owner", secrets.token_urlsafe(24), allow_setup=True
         )
         iroha_auth.install_urllib(owner)
-        assert_api_contract(server_url)
-        performance_gate(server_url, container)
         print("+ start production web preview", flush=True)
         web_process = subprocess.Popen(
             [
@@ -650,16 +622,8 @@ def main() -> int:
         wait_url(web_url)
         if web_process.poll() is not None:
             raise RuntimeError(f"web preview exited with {web_process.returncode}")
-        browser_matrix(web_url, session, owner)
-        print("release-candidate gate passed")
-        return 0
+        yield Stack(server_url=server_url, web_url=web_url, container=container, owner=owner)
     finally:
-        subprocess.run(
-            ["agent-browser", "--session", session, "close"],
-            cwd=ROOT,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
         terminate(web_process)
         terminate(server_process)
         subprocess.run(
@@ -669,6 +633,25 @@ def main() -> int:
             stderr=subprocess.DEVNULL,
         )
         data_dir.cleanup()
+
+
+def main() -> int:
+    require_commands("podman", "agent-browser", "mise")
+    session = f"iroha-rc-{uuid.uuid4().hex[:10]}"
+    try:
+        with isolated_stack(integration_tests=True) as stack:
+            assert_api_contract(stack.server_url)
+            performance_gate(stack.server_url, stack.container)
+            browser_matrix(stack.web_url, session, stack.owner)
+        print("release-candidate gate passed")
+        return 0
+    finally:
+        subprocess.run(
+            ["agent-browser", "--session", session, "close"],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
 
 if __name__ == "__main__":

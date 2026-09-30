@@ -27,10 +27,16 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  // `make e2e` runs the checks; `make e2e-probe` runs only the probe.
+  // `make e2e` runs the checks; `make e2e-probe` runs only the probe;
+  // `make e2e-audit` runs the audit against a seeded stack it starts itself.
   projects: [
-    { name: "chromium", use: chrome, testIgnore: /probe\.spec\.ts$/ },
+    {
+      name: "chromium",
+      use: chrome,
+      testIgnore: [/probe\.spec\.ts$/, /audit\//],
+    },
     { name: "probe", use: chrome, testMatch: /probe\.spec\.ts$/ },
+    { name: "audit", use: chrome, testMatch: /audit\/.*\.spec\.ts$/ },
   ],
   // No reuse: a port already in use fails the run instead of testing a server someone else is using.
   webServer: external

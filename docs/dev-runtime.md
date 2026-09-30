@@ -93,6 +93,8 @@ make e2e                      # the checks; ARGS='-g "sign in"' filters by name
 make e2e-probe ROUTE=/path    # before writing a spec: ARIA snapshot, errors, failed requests, screenshot
 ```
 
+`make e2e-audit` audits every navigation route instead, against real data: it starts `release_candidate.py`'s throwaway seeded stack (an isolated PostGIS container, the production server and a web preview; never the dev database), signs in a throwaway owner, and runs the `audit` project. Each route is checked at 320, 390, 768 and 1280 px and at 200% zoom, populated, and at 390 and 1280 px also loading, failing and empty, with axe (WCAG 2.2 AA), a horizontal-overflow check and a keyboard walk. Findings are soft assertions, so one run reports the whole matrix; `apps/iroha-web/test-results/audit.json` holds every cell's annotations, axe result and screenshot. It needs a running Podman machine.
+
 A failing check leaves its screenshot, error context and trace under `apps/iroha-web/test-results/`; open a trace with `bunx playwright show-trace <trace.zip>`. `make web-visual-check` stays the tool for themed screenshots.
 
 ### Frontend Browser Smoke
