@@ -20,11 +20,13 @@ RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-admin ./c
 RUN CGO_ENABLED=0 go -C apps/iroha-job build -mod=mod -o /out/iroha-job .
 
 FROM alpine:3.22 AS server
+# iroha is 100:101 in every stage: k8s runs it with runAsUser/runAsGroup 100/101
+# and the dev compose maps the host user to it, so the IDs must not drift.
 # ca-certificates is required for outbound HTTPS (e.g. Nominatim geocoding);
 # tzdata is required for explicit IANA report timezones in the Alpine runtime.
 # tini is PID 1 so signals reach the Go process and no zombies accumulate.
 RUN apk add --no-cache ca-certificates tini tzdata \
-  && addgroup -S iroha && adduser -S -G iroha -H -h /data iroha \
+  && addgroup -S -g 101 iroha && adduser -S -u 100 -G iroha -H -h /data iroha \
   && mkdir -p /data && chown iroha:iroha /data
 COPY --from=build /out/iroha-server /usr/local/bin/iroha-server
 COPY --from=build /out/iroha-admin /usr/local/bin/iroha-admin
@@ -36,7 +38,7 @@ FROM alpine:3.22 AS job
 # ca-certificates is required for outbound HTTPS (AniList/Bangumi media sync);
 # tzdata keeps worker-side calendar/time handling consistent with the server.
 RUN apk add --no-cache ca-certificates tini tzdata \
-  && addgroup -S iroha && adduser -S -G iroha -H -h /data iroha \
+  && addgroup -S -g 101 iroha && adduser -S -u 100 -G iroha -H -h /data iroha \
   && mkdir -p /data && chown iroha:iroha /data
 COPY --from=build /out/iroha-job /usr/local/bin/iroha-job
 USER iroha
@@ -51,7 +53,7 @@ RUN apk add --no-cache musl-dev \
 # scripts/db.py, and defaults to the "up" action.
 FROM alpine:3.22 AS db-migrate
 RUN apk add --no-cache ca-certificates tini \
-  && addgroup -S iroha && adduser -S -G iroha iroha
+  && addgroup -S -g 101 iroha && adduser -S -u 100 -G iroha iroha
 COPY --from=sqlx /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 COPY apps/iroha-server/db/migrations /migrations
 COPY ops/images/db-migrate-entrypoint.sh /usr/local/bin/db-migrate-entrypoint.sh
