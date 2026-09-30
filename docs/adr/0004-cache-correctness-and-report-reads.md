@@ -52,7 +52,11 @@ The complete HTTP response is cached, including empty-month information and the 
 are also successful canonical GET reads and are cached under `read_expenses`; expense create, replace, and delete remain uncached mutations and invalidate `read_expenses`, `read_metrics`, and
 `read_reports`.
 
-The report cache is lazy. v0.4.1 does not prewarm yesterday, the current month, or the current year. Prewarming and request coalescing remain measurement-driven follow-ups.
+The report cache is lazy. v0.4.1 does not prewarm yesterday, the current month, or the current year. Prewarming remains a measurement-driven follow-up.
+
+The HTTP cache now coalesces successful JSON loads through the runtime `GetOrLoad` helper ([iroha#83](https://github.com/azusachino/iroha/issues/83)). A miss, expiry, or undecodable cache entry triggers a synchronous canonical read; there is no stale serving or background refresh. Matching namespace, revision-keyed request, and backend generation share one in-flight loader per cache Client/process, not across replicas. Waiters can cancel without canceling the owner. The owner uses its request context; if its response fails or is not cacheable, surviving waiters run their own handler rather than replay its request-specific error headers. Panic cleanup releases the flight while leaving HTTP recovery to the existing middleware. Disabled caching and degraded namespaces bypass coalescing.
+
+Only successful, nonempty JSON bodies populate the cache. A generation change separates new loads from older flights and rejects older population. `X-Iroha-Cache: MISS` includes a successful waiter that initially missed; it does not imply that every such request executed a canonical query. Single-flight does not remove each request's revision lookup or the report snapshot transaction.
 
 ### 3. Preserve the freshness contract
 

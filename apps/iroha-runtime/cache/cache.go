@@ -229,7 +229,8 @@ func (c *Client) Close() error {
 }
 
 // GetOrLoad implements cache-aside lookup. Cache misses, decode failures, and
-// backend errors call loader; only loader's own error is returned.
+// backend errors call loader. Matching namespace/generation/key loads share a
+// flight within this Client; canceled waiters return without canceling its owner.
 func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl time.Duration, loader func() (T, error)) (T, error) {
 	value, generation, ok := GetWithGeneration[T](ctx, c, namespace, key)
 	if ok {
@@ -239,7 +240,7 @@ func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl
 		return loader()
 	}
 
-	flightKey := namespace + "\x00" + key + "\x00" + reflect.TypeOf((*T)(nil)).Elem().String()
+	flightKey := namespace + "\x00" + key + "\x00" + strconv.FormatInt(generation, 10) + "\x00" + reflect.TypeOf((*T)(nil)).Elem().String()
 	c.flightMu.Lock()
 	if flight, ok := c.flights[flightKey]; ok {
 		c.flightMu.Unlock()
@@ -256,20 +257,29 @@ func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl
 			return zero, ctx.Err()
 		}
 	}
-	flight := &cacheFlight{done: make(chan struct{})}
+	flight := &cacheFlight{done: make(chan struct{}), err: errors.New("cache loader did not complete")}
 	c.flights[flightKey] = flight
 	c.flightMu.Unlock()
+	// Release waiters even when the loader panics; the owner still propagates
+	// its panic to the HTTP recovery middleware.
+	defer func() {
+		c.flightMu.Lock()
+		delete(c.flights, flightKey)
+		close(flight.done)
+		c.flightMu.Unlock()
+	}()
 
+	// Another flight may have populated the cache between our miss and lock.
+	if cached, _, found := GetWithGeneration[T](ctx, c, namespace, key); found {
+		flight.value, flight.err = cached, nil
+		return cached, nil
+	}
 	value, err := loader()
 	if err == nil {
 		SetAtGeneration(ctx, c, namespace, key, generation, ttl, value)
 	}
-	c.flightMu.Lock()
 	flight.value = value
 	flight.err = err
-	delete(c.flights, flightKey)
-	close(flight.done)
-	c.flightMu.Unlock()
 	if err != nil {
 		var zero T
 		return zero, err

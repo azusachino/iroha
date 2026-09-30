@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -105,6 +106,8 @@ type Server struct {
 }
 
 type readSnapshotContextKey struct{}
+
+var errReadCacheUncacheable = errors.New("read response is not cacheable")
 
 func NewServer(deps Dependencies) http.Handler {
 	if deps.Config.Server.Timezone == "" {
@@ -340,7 +343,7 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 			return
 		}
 		key := cache.KeyWithRevisionVector(s.readCacheKey(request), vector)
-		body, generation, ok := cache.GetWithGeneration[[]byte](request.Context(), s.deps.Cache, namespace, key)
+		body, _, ok := cache.GetWithGeneration[[]byte](request.Context(), s.deps.Cache, namespace, key)
 		if ok {
 			w.Header().Set("X-Iroha-Cache", "HIT")
 			w.Header().Set("Content-Type", "application/json")
@@ -350,12 +353,30 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 		}
 
 		w.Header().Set("X-Iroha-Cache", "MISS")
-		wrapped := &readCacheResponseWriter{ResponseWriter: w}
-		next.ServeHTTP(wrapped, request)
-		if wrapped.status != http.StatusOK || wrapped.body.Len() == 0 || !isJSONContentType(wrapped.Header().Get("Content-Type")) {
+		loaded := false
+		body, err = cache.GetOrLoad(request.Context(), s.deps.Cache, namespace, key, readCacheTTL, func() ([]byte, error) {
+			loaded = true
+			wrapped := &readCacheResponseWriter{ResponseWriter: w}
+			next.ServeHTTP(wrapped, request)
+			if wrapped.status != http.StatusOK || wrapped.body.Len() == 0 || !isJSONContentType(wrapped.Header().Get("Content-Type")) {
+				return nil, errReadCacheUncacheable
+			}
+			return wrapped.body.Bytes(), nil
+		})
+		if loaded || request.Context().Err() != nil {
+			// The owner already wrote its response. A canceled waiter must not
+			// start another read or interfere with the owner's work.
 			return
 		}
-		cache.SetAtGeneration(request.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, wrapped.body.Bytes())
+		if err != nil {
+			// Fail-open with this request's own response headers/error context;
+			// unsuccessful and non-JSON responses are never shared or cached.
+			next.ServeHTTP(w, request)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
 	})
 }
 
