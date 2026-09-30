@@ -2,6 +2,10 @@ name: iroha-dev
 
 services:
   server:
+    # Rootless Podman maps the host user to container root, so the bind-mounted
+    # .iroha-data is not owned by the image's iroha user (100:101) and startup
+    # fails to tighten raw-file modes. Map the host user to iroha instead.
+    userns_mode: keep-id:uid=100,gid=101
     cpus: 1
     mem_limit: 512m
     build:
@@ -22,6 +26,10 @@ services:
       - ../../.iroha-data:/data
 
   job:
+    # Rootless Podman maps the host user to container root, so the bind-mounted
+    # .iroha-data is not owned by the image's iroha user (100:101) and startup
+    # fails to tighten raw-file modes. Map the host user to iroha instead.
+    userns_mode: keep-id:uid=100,gid=101
     cpus: 1
     mem_limit: 1g
     build:
