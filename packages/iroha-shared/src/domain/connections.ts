@@ -53,6 +53,8 @@ export interface Connection {
   collection: ConnectionCollection;
   operation: ConnectionOperation;
   freshness: ConnectionFreshness;
+  expected_interval_s?: number;
+  next_expected_at?: string;
   last_receipt?: ConnectionReceipt;
   last_import?: ConnectionImport;
   coverage: ConnectionCoverage[];

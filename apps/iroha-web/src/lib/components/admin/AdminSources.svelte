@@ -8,15 +8,21 @@
     type ConnectionAction,
   } from "$lib/api";
   import { formatDate } from "$lib/format";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
 
-  let connections = $state<Connection[]>([]);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
+  const refreshIntervalMs = 60_000;
+  const resource = createAsyncResource<Connection[]>();
+  const connections = $derived(resource.data ?? []);
+  const loading = $derived(resource.loading);
+  let actionError = $state<string | null>(null);
+  const error = $derived(actionError ?? resource.error);
   let running = $state<string | null>(null);
 
-  const failed = $derived(
-    connections.filter((connection) => connection.operation === "failed")
-      .length,
+  const attention = $derived(
+    connections.filter(
+      (connection) =>
+        connection.operation === "failed" || connection.freshness === "overdue",
+    ).length,
   );
 
   function status(connection: Connection): { text: string; tone: string } {
@@ -28,7 +34,11 @@
       return { text: "Importing", tone: "" };
     if (connection.freshness === "overdue")
       return { text: "Overdue", tone: "bad" };
-    return { text: "Healthy", tone: "good" };
+    if (connection.freshness === "within_cadence")
+      return { text: "Within cadence", tone: "good" };
+    if (connection.freshness === "not_scheduled")
+      return { text: "Not scheduled", tone: "" };
+    return { text: "Freshness unknown", tone: "" };
   }
 
   function actionLabel(action: ConnectionAction): string {
@@ -44,25 +54,18 @@
   }
 
   async function load() {
-    loading = true;
-    error = null;
-    try {
-      connections = (await getConnections()).connections;
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-    } finally {
-      loading = false;
-    }
+    actionError = null;
+    await resource.run(async () => (await getConnections()).connections);
   }
 
   async function run(connection: Connection, action: ConnectionAction) {
     running = connection.id;
-    error = null;
+    actionError = null;
     try {
       await executeConnectionAction(action);
-      connections = (await getConnections()).connections;
+      await load();
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
+      actionError = cause instanceof Error ? cause.message : String(cause);
     } finally {
       running = null;
     }
@@ -70,6 +73,8 @@
 
   onMount(() => {
     void load();
+    const timer = window.setInterval(() => void load(), refreshIntervalMs);
+    return () => window.clearInterval(timer);
   });
 </script>
 
@@ -77,11 +82,11 @@
   <header>
     <div>
       <h2 id="sources-title">Sources</h2>
-      <small
+      <small role="status"
         >{connections.length} source{connections.length === 1 ? "" : "s"} ·
-        {failed
-          ? `${failed} need${failed === 1 ? "s" : ""} attention`
-          : "all healthy"}</small
+        {attention
+          ? `${attention} need${attention === 1 ? "s" : ""} attention`
+          : "no overdue or failed sources"}</small
       >
     </div>
     <button
@@ -112,6 +117,15 @@
                 · last received {formatDate(
                   connection.last_receipt.received_at,
                 )}
+              {/if}
+              {#if !connection.last_receipt}
+                · never received
+              {/if}
+              {#if connection.freshness === "overdue"}
+                · delivery overdue
+              {/if}
+              {#if connection.next_expected_at}
+                · next expected {formatDate(connection.next_expected_at)}
               {/if}
               {#if connection.last_import}
                 · last import {connection.last_import.status}
