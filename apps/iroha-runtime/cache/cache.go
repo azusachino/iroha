@@ -169,10 +169,17 @@ type CleanupResult struct {
 type Client struct {
 	store                Store
 	flightMu             sync.Mutex
-	flights              map[string]*cacheFlight
+	flights              map[flightKey]*cacheFlight
 	degradedMu           sync.RWMutex
 	degraded             map[string]bool
 	invalidationFailures atomic.Uint64
+}
+
+type flightKey struct {
+	namespace  string
+	key        string
+	generation int64
+	typeID     reflect.Type
 }
 
 type cacheFlight struct {
@@ -199,7 +206,7 @@ func New(url string) *Client {
 
 // NewWithStore builds a Client around any Store implementation.
 func NewWithStore(store Store) *Client {
-	return &Client{store: store, flights: make(map[string]*cacheFlight), degraded: make(map[string]bool)}
+	return &Client{store: store, flights: make(map[flightKey]*cacheFlight), degraded: make(map[string]bool)}
 }
 
 // NewBackend selects a configured cache backend. Cache data is disposable, so
@@ -246,9 +253,14 @@ func GetOrLoadAtGeneration[T any](ctx context.Context, c *Client, namespace, key
 		return loader()
 	}
 
-	flightKey := namespace + "\x00" + key + "\x00" + strconv.FormatInt(generation, 10) + "\x00" + reflect.TypeOf((*T)(nil)).Elem().String()
+	fk := flightKey{
+		namespace:  namespace,
+		key:        key,
+		generation: generation,
+		typeID:     reflect.TypeOf((*T)(nil)).Elem(),
+	}
 	c.flightMu.Lock()
-	if flight, ok := c.flights[flightKey]; ok {
+	if flight, ok := c.flights[fk]; ok {
 		c.flightMu.Unlock()
 		select {
 		case <-flight.done:
@@ -264,13 +276,13 @@ func GetOrLoadAtGeneration[T any](ctx context.Context, c *Client, namespace, key
 		}
 	}
 	flight := &cacheFlight{done: make(chan struct{}), err: errors.New("cache loader did not complete")}
-	c.flights[flightKey] = flight
+	c.flights[fk] = flight
 	c.flightMu.Unlock()
 	// Release waiters even when the loader panics; the owner still propagates
 	// its panic to the HTTP recovery middleware.
 	defer func() {
 		c.flightMu.Lock()
-		delete(c.flights, flightKey)
+		delete(c.flights, fk)
 		close(flight.done)
 		c.flightMu.Unlock()
 	}()

@@ -1,14 +1,10 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/netip"
-	"net/url"
-	"strings"
 	"time"
 
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
@@ -16,7 +12,6 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
-	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/coverage"
@@ -48,16 +43,9 @@ const (
 )
 
 const (
-	// Bump this when a cached JSON representation or key input changes. The
-	// cache is shared across rollouts, so a new server must not reuse an older
-	// contract or identity scheme.
-	// Bump whenever a cached wire representation or range interpretation
-	// changes; old Valkey entries must never satisfy the new contract.
-	readCacheKeyVersion = "v13"
-	readCacheTTL        = 24 * time.Hour
-	readyzTimeout       = 2 * time.Second
-	statusReady         = "ready"
-	statusNotReady      = "not_ready"
+	readyzTimeout  = 2 * time.Second
+	statusReady    = "ready"
+	statusNotReady = "not_ready"
 )
 
 type Dependencies struct {
@@ -104,10 +92,6 @@ type Server struct {
 	intakeQuota    *intakeQuota
 	publicCache    *publicSnapshotCache
 }
-
-type readSnapshotContextKey struct{}
-
-var errReadCacheUncacheable = errors.New("read response is not cacheable")
 
 func NewServer(deps Dependencies) http.Handler {
 	if deps.Config.Server.Timezone == "" {
@@ -305,210 +289,6 @@ func corsMiddleware(origins []string) func(http.Handler) http.Handler {
 		ExposedHeaders: []string{"Retry-After", "X-Request-ID", "X-Iroha-Cache"},
 		MaxAge:         300,
 	})
-}
-
-// readCache caches successful JSON reads over the imported, single-user data.
-// Writers advance the primary-Postgres revision in the same transaction as
-// the canonical write. The revision vector is part of the cache identity;
-// backend generations remain a race-safety mechanism for in-flight loads.
-func (s *Server) readCache(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		namespace, ok := readCacheNamespace(r)
-		if !ok {
-			next.ServeHTTP(w, r)
-			return
-		}
-		requestContext, finishSnapshot, err := s.readSnapshot(r.Context(), namespace)
-		if err != nil {
-			w.Header().Set("X-Iroha-Cache", "BYPASS")
-			next.ServeHTTP(w, r)
-			return
-		}
-		defer finishSnapshot()
-		request := r.WithContext(requestContext)
-		if s.deps.Cache == nil {
-			next.ServeHTTP(w, request)
-			return
-		}
-		if s.deps.Cache.IsDegraded(namespace) {
-			w.Header().Set("X-Iroha-Cache", "BYPASS")
-			next.ServeHTTP(w, request)
-			return
-		}
-
-		vector, err := s.readCacheRevisionVector(request.Context(), namespace)
-		if err != nil {
-			w.Header().Set("X-Iroha-Cache", "BYPASS")
-			next.ServeHTTP(w, request)
-			return
-		}
-		key := cache.KeyWithRevisionVector(s.readCacheKey(request), vector)
-		body, generation, ok := cache.GetWithGeneration[[]byte](request.Context(), s.deps.Cache, namespace, key)
-		if ok {
-			w.Header().Set("X-Iroha-Cache", "HIT")
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(body)
-			return
-		}
-
-		w.Header().Set("X-Iroha-Cache", "MISS")
-		loaded := false
-		body, err = cache.GetOrLoadAtGeneration(request.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, func() ([]byte, error) {
-			loaded = true
-			wrapped := &readCacheResponseWriter{ResponseWriter: w}
-			next.ServeHTTP(wrapped, request)
-			if wrapped.status != http.StatusOK || wrapped.body.Len() == 0 || !isJSONContentType(wrapped.Header().Get("Content-Type")) {
-				return nil, errReadCacheUncacheable
-			}
-			return wrapped.body.Bytes(), nil
-		})
-		if loaded || request.Context().Err() != nil {
-			// The owner already wrote its response. A canceled waiter must not
-			// start another read or interfere with the owner's work.
-			return
-		}
-		if err != nil {
-			// Fail-open with this request's own response headers/error context;
-			// unsuccessful and non-JSON responses are never shared or cached.
-			next.ServeHTTP(w, request)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(body)
-	})
-}
-
-func (s *Server) readSnapshot(ctx context.Context, namespace string) (context.Context, func(), error) {
-	if namespace != cache.NamespaceReports || s.deps.DB == nil {
-		return ctx, func() {}, nil
-	}
-	tx := s.deps.DB.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		return ctx, func() {}, tx.Error
-	}
-	if err := tx.Exec("set transaction isolation level repeatable read read only").Error; err != nil {
-		_ = tx.Rollback().Error
-		return ctx, func() {}, err
-	}
-	return context.WithValue(ctx, readSnapshotContextKey{}, tx), func() {
-		_ = tx.WithContext(context.Background()).Rollback().Error
-	}, nil
-}
-
-func readSnapshotDB(ctx context.Context) *gorm.DB {
-	tx, _ := ctx.Value(readSnapshotContextKey{}).(*gorm.DB)
-	return tx
-}
-
-func (s *Server) readCacheRevisionVector(ctx context.Context, namespace string) (map[string]int64, error) {
-	if tx := readSnapshotDB(ctx); tx != nil {
-		return revisions.Read(tx.WithContext(ctx), namespace)
-	}
-	if s.deps.DB == nil {
-		return nil, nil
-	}
-	return revisions.Read(s.deps.DB.WithContext(ctx), namespace)
-}
-
-type readCacheResponseWriter struct {
-	http.ResponseWriter
-	body   bytes.Buffer
-	status int
-}
-
-func (w *readCacheResponseWriter) WriteHeader(status int) {
-	if w.status != 0 {
-		return
-	}
-	w.status = status
-	w.ResponseWriter.WriteHeader(status)
-}
-
-func (w *readCacheResponseWriter) Write(body []byte) (int, error) {
-	if w.status == 0 {
-		w.WriteHeader(http.StatusOK)
-	}
-	if w.status == http.StatusOK {
-		_, _ = w.body.Write(body)
-	}
-	return w.ResponseWriter.Write(body)
-}
-
-func readCacheNamespace(r *http.Request) (string, bool) {
-	if r.Method != http.MethodGet {
-		return "", false
-	}
-	if r.URL.Path == "/api/v1/media/sync" || strings.HasPrefix(r.URL.Path, "/api/v1/media/sync/") {
-		return "", false
-	}
-	for prefix, namespace := range map[string]string{
-		"/api/v1/activities": cache.NamespaceActivities,
-		"/api/v1/briefing":   cache.NamespaceBriefing,
-		"/api/v1/coverage":   cache.NamespaceCoverage,
-		"/api/v1/daily":      cache.NamespaceDaily,
-		"/api/v1/media":      cache.NamespaceMedia,
-		"/api/v1/sleep":      cache.NamespaceSleep,
-		"/api/v1/metrics":    cache.NamespaceMetrics,
-		"/api/v1/reports":    cache.NamespaceReports,
-		"/api/v1/expenses":   cache.NamespaceExpenses,
-	} {
-		if r.URL.Path == prefix || strings.HasPrefix(r.URL.Path, prefix+"/") {
-			return namespace, true
-		}
-	}
-	return "", false
-}
-
-func (s *Server) readCacheKey(r *http.Request) string {
-	key := readCacheKeyVersion + " " + r.Method + " " + r.URL.Path
-	queryValues := s.canonicalScopeQuery(r)
-	effectiveTimezone := queryValues.Get("timezone")
-	queryValues.Del("timezone")
-	if query := queryValues.Encode(); query != "" {
-		key += "?" + query
-	}
-	if effectiveTimezone == "" {
-		effectiveTimezone = s.deps.Config.Server.Timezone
-	}
-	if effectiveTimezone != "" {
-		key += "|effective_timezone=" + url.QueryEscape(effectiveTimezone)
-	}
-	return key
-}
-
-func (s *Server) canonicalScopeQuery(r *http.Request) url.Values {
-	query := cloneValues(r.URL.Query())
-	if location, err := scopeLocation(query, s.deps.Config.Server.Timezone); err == nil {
-		query.Set("timezone", location.String())
-	}
-	input, active, err := readScopeInput(query, s.deps.Config.Server.Timezone)
-	if err != nil || !active {
-		return query
-	}
-	scope, err := ResolveReadScope(input, s.clockNow())
-	if err != nil {
-		return query
-	}
-	for _, name := range []string{"date", "scope", "month", "year", "end", "from", "to"} {
-		query.Del(name)
-	}
-	switch scope.Kind {
-	case ScopeLifetime:
-		query.Set("scope", string(ScopeLifetime))
-	case ScopeRange:
-		query.Set("from", scope.Calendar.From.Format(calendarDateLayout))
-		query.Set("to", scope.Calendar.ToExclusive.Format(calendarDateLayout))
-	default:
-		query.Set("date", canonicalScopeDate(scope))
-	}
-	query.Set("_scope", canonicalScopeVersion)
-	return query
-}
-
-func isJSONContentType(value string) bool {
-	return strings.HasPrefix(strings.ToLower(value), "application/json")
 }
 
 func (s *Server) accessLog(next http.Handler) http.Handler {
