@@ -21,7 +21,7 @@
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "4.3.3",
-		"@tanstack/table-core": "^8.21.3",
+		"@tanstack/table-core": "^9.2.4",
 		"@types/node": "^24.19.0",
 		"prettier": "^3.9.9",
 		"prettier-plugin-svelte": "^4.1.1",
