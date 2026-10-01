@@ -1,6 +1,6 @@
 # Iroha v0.4 Expense Ledger Plan v4
 
-> Status: implementation complete for the v0.4 release candidate. This document records the decisions, frontend boundary, and release evidence for Iroha v0.4.
+> Status: shipped in v0.4.0; historical implementation plan. See the [release notes](../../CHANGELOG.md#040--2026-08-14) and [v0.4 audit](../audits/2026-08-13-v0.4-full-system-audit.md). This document records the decisions, frontend boundary, and release evidence for Iroha v0.4.
 
 ## Current architecture
 

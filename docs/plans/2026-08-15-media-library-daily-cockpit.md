@@ -1,6 +1,6 @@
 # Media library and daily cockpit correction
 
-Status: implementation complete; live rollout and browser verification pending
+Status: shipped in v0.4.1; historical implementation plan. See the [release notes](../../CHANGELOG.md#041--2026-08-15) and [release audit](../audits/2026-08-15-v0.4.1-release.md). This status does not independently establish current deployment health.
 
 This plan follows the live library repro, the supplied Claude review, and the fresh GPT Sol-low review. It is the implementation handoff for `iroha:media-library-daily-cockpit`.
 
