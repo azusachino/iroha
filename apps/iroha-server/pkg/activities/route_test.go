@@ -197,3 +197,21 @@ func TestMaskPrivateZones_SplitsAcrossZone(t *testing.T) {
 		}
 	}
 }
+
+func TestRoundCoordinate(t *testing.T) {
+	cases := []struct {
+		in   float64
+		want float64
+	}{
+		{139.712345678, 139.71235},
+		{35.123454321, 35.12345},
+		{0.0, 0.0},
+		{-122.4194155, -122.41942},
+	}
+	for _, tc := range cases {
+		got := RoundCoordinate(tc.in)
+		if got != tc.want {
+			t.Errorf("RoundCoordinate(%f) = %f, want %f", tc.in, got, tc.want)
+		}
+	}
+}

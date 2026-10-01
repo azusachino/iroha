@@ -12,7 +12,12 @@ import (
 
 const (
 	defaultPageLimit = 50
-	routeTrimMeters  = 200
+
+	// RouteTrimMeters is how much distance is trimmed from the start and end
+	// of each route before it is exposed publicly, preventing observers from
+	// pinpointing exact home/work addresses.
+	RouteTrimMeters = 200
+	routeTrimMeters = RouteTrimMeters
 
 	// routeMinPoints is the minimum number of points a trimmed route must
 	// retain to be worth emitting; shorter remainders are dropped entirely.
