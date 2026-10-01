@@ -354,6 +354,8 @@ re-confirmed within the last 5 minutes (`POST /api/v1/account/reauth`). Sign-in 
 (`tb_passkeys`); ceremony challenges are single-use, in memory, bound to an `HttpOnly` `SameSite=Strict` cookie, and expire after 5 minutes. The library checks origin and RP ID against the configured
 values, never forwarded headers.
 
+**Private exports.** `iroha-admin export ndjson <domain>` streams canonical domain records; `iroha-admin export gpx <act_id>` streams an untrimmed activity route. These operator-only outputs contain private data, not the sanitized public projection. See [the export contract](contracts/admin-exports.md) for domains, format, exclusions and safe file handling.
+
 **HAE tokens.** The owner issues and revokes intake tokens on the Admin page (`/api/v1/admin/intake-credentials`); the operator command `iroha-admin intake-token` does the same from the server
 container.
 

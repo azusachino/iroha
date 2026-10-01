@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation complete for the v0.4 release candidate; Gate A is approved and Gate C remains the owner release checkpoint. This plan is derived from the OWID/Iroha research, the registered-language
+Shipped in v0.4.0; historical implementation plan. See the [release notes](../../CHANGELOG.md#040--2026-08-14). Gate A and Gate C below describe the original release checkpoints, not pending work. This plan is derived from the OWID/Iroha research, the registered-language
 orientation decision, the adopted-composition boundary, and the Iroha v0.4 worktree.
 
 Research commits already landed:

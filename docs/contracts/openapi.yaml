@@ -3589,6 +3589,14 @@ components:
             type: string,
             enum: [within_cadence, overdue, not_scheduled, unknown],
           }
+        expected_interval_s:
+          type: number
+          exclusiveMinimum: 0
+          description: Expected delivery interval; active Health Auto Export credentials use 86400 seconds, connectors use their enabled interval schedule.
+        next_expected_at:
+          type: string
+          format: date-time
+          description: Last receipt time (or source creation before first receipt) plus expected interval. Freshness is overdue at this instant; this is delivery freshness, not collection completeness.
         last_receipt: { $ref: "#/components/schemas/ConnectionReceipt" }
         last_import: { $ref: "#/components/schemas/ConnectionImport" }
         coverage:

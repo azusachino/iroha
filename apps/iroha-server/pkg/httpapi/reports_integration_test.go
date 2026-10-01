@@ -37,7 +37,7 @@ func TestIntegrationMonthlyReportUsesOneRepeatableReadSnapshot(t *testing.T) {
 		MediaService:    media.NewService(db),
 	}}
 
-	snapshotContext, finish, err := server.readSnapshot(context.Background(), cache.NamespaceReports)
+	snapshotContext, finish, err := server.readCacheInterceptor().Snapshot(context.Background(), cache.NamespaceReports)
 	if err != nil {
 		t.Fatalf("begin report snapshot: %v", err)
 	}

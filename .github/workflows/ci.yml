@@ -17,21 +17,45 @@ jobs:
   check:
     name: make check
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: iroha
+          POSTGRES_PASSWORD: iroha_dev
+          POSTGRES_DB: iroha_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U iroha -d iroha_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
       - uses: jdx/mise-action@v4
         with:
           install: true
           cache: true
-
-      - name: Install web dependencies
-        run: make web-install
-
-      - name: Run repository checks
-        run: make check
+      - name: Validate and build
+        run: make validate
         env:
-          QUALITY_BASE: origin/${{ github.base_ref || github.ref_name }}
+          # Compare pushes with their prior SHA, not their own HEAD.
+          QUALITY_BASE: ${{ github.event.pull_request.base.sha || github.event.before != '0000000000000000000000000000000000000000' && github.event.before || format('origin/{0}', github.event.repository.default_branch) }}
+      - name: Integration tests
+        run: make test-integration-ci
+        env:
+          DATABASE_URL: postgres://iroha:iroha_dev@127.0.0.1:5432/iroha_test?sslmode=disable
+      - name: Browser tests
+        run: make e2e-install E2E_INSTALL_FLAGS=--with-deps && make e2e
+      - name: Public serving response test
+        run: |
+          mkdir -p "$RUNNER_TEMP/public-site/_app/immutable"
+          printf 'shell' > "$RUNNER_TEMP/public-site/index.html"
+          printf 'asset' > "$RUNNER_TEMP/public-site/_app/immutable/test.js"
+          docker run -d --name public-site-check -p 127.0.0.1:18080:8080 \
+            -e IROHA_SERVER_UPSTREAM=127.0.0.1:1 \
+            -v "$PWD/ops/images/Caddyfile.public-site:/etc/caddy/Caddyfile:ro" \
+            -v "$RUNNER_TEMP/public-site:/srv:ro" caddy:2-alpine
+          trap 'docker rm -f public-site-check' EXIT
+          make public-site-response-check BASE=http://127.0.0.1:18080

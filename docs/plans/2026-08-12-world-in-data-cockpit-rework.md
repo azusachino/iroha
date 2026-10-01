@@ -1,6 +1,6 @@
 # Iroha data cockpit rework plan
 
-Status: draft for review. Based on [`2026-08-12-owid-data-cockpit-research.md`](../research/2026-08-12-owid-data-cockpit-research.md).
+Status: historical design draft; delivery is recorded in the [v0.4 implementation plan](2026-08-12-iroha-data-cockpit-implementation.md). This draft is not a new implementation queue. Based on [`2026-08-12-owid-data-cockpit-research.md`](../research/2026-08-12-owid-data-cockpit-research.md).
 
 This plan is architecture work for the next milestone. It does not authorize a big-bang database rewrite, deployment, or expansion of the Telegram/agent workflow.
 

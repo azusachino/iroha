@@ -112,7 +112,13 @@ func TestIntegrationCacheFreshnessAfterGeocodeRefresh(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("create activity: %v", err)
 	}
-	for seq, point := range []struct{ lat, lon float64 }{{35.681236, 139.767125}, {35.682000, 139.768000}} {
+	// Keep an interior segment after the shared route endpoint privacy trim.
+	for seq, point := range []struct{ lat, lon float64 }{
+		{35.678236, 139.767125},
+		{35.681236, 139.767125},
+		{35.682000, 139.768000},
+		{35.685000, 139.768000},
+	} {
 		if err := db.Exec(`insert into tb_activity_route_points (activity_id, seq, lat, lon, geom)
 			values (?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)`, activityID, seq, point.lat, point.lon, point.lon, point.lat).Error; err != nil {
 			t.Fatalf("create route point %d: %v", seq, err)
@@ -196,6 +202,9 @@ func assertMetricMinor(t *testing.T, response map[string]any, want *int64) {
 func assertRouteCity(t *testing.T, response map[string]any, want string) {
 	t.Helper()
 	features := response["features"].([]any)
+	if len(features) != 1 {
+		t.Fatalf("route features = %d, want one retained route", len(features))
+	}
 	properties := features[0].(map[string]any)["properties"].(map[string]any)
 	if properties["city"] != want {
 		t.Fatalf("route properties = %#v, want city %q", properties, want)

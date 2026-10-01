@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directories:
+      - /apps/iroha-core
+      - /apps/iroha-imports
+      - /apps/iroha-job
+      - /apps/iroha-providers
+      - /apps/iroha-runtime
+      - /apps/iroha-server
+    schedule:
+      interval: weekly
+  - package-ecosystem: bun
+    directories:
+      - /apps/iroha-web
+      - /apps/iroha-public-site
+      - /packages/iroha-shared
+    schedule:
+      interval: weekly
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
