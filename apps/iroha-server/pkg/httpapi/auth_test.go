@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/auth"
 	"github.com/google/uuid"
 )
@@ -127,6 +128,30 @@ func TestSetupOnlyWhileNoOwnerExists(t *testing.T) {
 	}
 	if code := serve(t, Dependencies{Auth: tokenAuth{}}, http.MethodPost, "/api/v1/auth/setup", body, json).Code; code != http.StatusOK {
 		t.Fatalf("first setup = %d, want 200", code)
+	}
+}
+
+func TestSetupGatedBySetupTokenWhenConfigured(t *testing.T) {
+	json := map[string]string{"Content-Type": "application/json"}
+	body := `{"username":"owner","password":"long enough password"}`
+	var cfg config.Config
+	cfg.Server.SetupToken = "secret-setup-token"
+
+	// Missing setup token should be rejected with 403 Forbidden
+	if code := serve(t, Dependencies{Config: cfg, Auth: tokenAuth{}}, http.MethodPost, "/api/v1/auth/setup", body, json).Code; code != http.StatusForbidden {
+		t.Fatalf("setup without token = %d, want 403", code)
+	}
+
+	// Invalid setup token should be rejected with 403 Forbidden
+	withBadHeader := map[string]string{"Content-Type": "application/json", "X-Setup-Token": "wrong-token"}
+	if code := serve(t, Dependencies{Config: cfg, Auth: tokenAuth{}}, http.MethodPost, "/api/v1/auth/setup", body, withBadHeader).Code; code != http.StatusForbidden {
+		t.Fatalf("setup with bad token = %d, want 403", code)
+	}
+
+	// Valid setup token should succeed
+	withGoodHeader := map[string]string{"Content-Type": "application/json", "X-Setup-Token": "secret-setup-token"}
+	if code := serve(t, Dependencies{Config: cfg, Auth: tokenAuth{}}, http.MethodPost, "/api/v1/auth/setup", body, withGoodHeader).Code; code != http.StatusOK {
+		t.Fatalf("setup with good token = %d, want 200", code)
 	}
 }
 

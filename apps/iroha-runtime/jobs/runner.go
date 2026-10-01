@@ -4,8 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+)
+
+const (
+	minClaimBackoff = 100 * time.Millisecond
+	maxClaimBackoff = 15 * time.Second
 )
 
 // RunConfig configures the worker pool driven by Run.
@@ -45,6 +53,7 @@ func (s *Service) Run(ctx context.Context, cfg RunConfig) {
 }
 
 func (s *Service) workerLoop(ctx context.Context, workerID string, pollInterval time.Duration) {
+	backoff := minClaimBackoff
 	for {
 		if ctx.Err() != nil {
 			return
@@ -52,13 +61,28 @@ func (s *Service) workerLoop(ctx context.Context, workerID string, pollInterval 
 		job, err := s.ProcessNext(ctx, workerID)
 		switch {
 		case errors.Is(err, ErrNoJobAvailable):
+			backoff = minClaimBackoff
 			if !sleepCtx(ctx, pollInterval) {
 				return
 			}
 		case err != nil:
-			// Fail already recorded the outcome; move straight to the next job.
-			s.logger.Error("process job", "worker", workerID, "job_id", job.ID.String(), "kind", job.Kind, "error", err)
+			if job.ID == uuid.Nil {
+				jitter := time.Duration(rand.Int63n(int64(backoff/2) + 1))
+				sleepDur := backoff + jitter
+				s.logger.Error("claim job failed, backing off", "worker", workerID, "backoff", sleepDur, "error", err)
+				if !sleepCtx(ctx, sleepDur) {
+					return
+				}
+				if backoff < maxClaimBackoff {
+					backoff = min(backoff*2, maxClaimBackoff)
+				}
+			} else {
+				backoff = minClaimBackoff
+				// Fail already recorded the outcome; move straight to the next job.
+				s.logger.Error("process job", "worker", workerID, "job_id", job.ID.String(), "kind", job.Kind, "error", err)
+			}
 		default:
+			backoff = minClaimBackoff
 			s.logger.Info("processed job", "worker", workerID, "job_id", job.ID.String(), "kind", job.Kind)
 		}
 	}

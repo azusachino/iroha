@@ -800,24 +800,25 @@ func newIntegrationServerWithCache(t *testing.T, db *gorm.DB, responseCache *cac
 	}()
 
 	return NewServer(Dependencies{
-		Auth:                allowAllAuth{},
-		Config:              config.Config{},
-		Now:                 func() time.Time { return time.Date(2099, time.December, 31, 12, 0, 0, 0, time.UTC) },
-		Logger:              logger,
-		DB:                  db,
-		ActivityService:     activityService,
-		SleepService:        sleepService,
-		DailyService:        dailyService,
-		ExpenseService:      expenses.NewService(db),
-		MediaService:        mediaService,
-		MetricRegistry:      metricRegistry,
-		MetricSeriesService: metricSeriesService,
-		BriefingRegistry:    briefingRegistry,
-		CoverageService:     coverage.NewService(db),
-		ImportService:       importService,
-		RawFileService:      rawFileService,
-		Cache:               responseCache,
-		GeocodeService:      geocodeService,
+		Auth:                    allowAllAuth{},
+		Config:                  config.Config{},
+		Now:                     func() time.Time { return time.Date(2099, time.December, 31, 12, 0, 0, 0, time.UTC) },
+		Logger:                  logger,
+		DB:                      db,
+		ActivityService:         activityService,
+		SleepService:            sleepService,
+		DailyService:            dailyService,
+		ExpenseService:          expenses.NewService(db),
+		MediaService:            mediaService,
+		MetricRegistry:          metricRegistry,
+		MetricSeriesService:     metricSeriesService,
+		BriefingRegistry:        briefingRegistry,
+		CoverageService:         coverage.NewService(db),
+		ImportService:           importService,
+		RawFileService:          rawFileService,
+		HealthIntakeCredentials: fakeIntakeVerifier{token: "test-hae-token"},
+		Cache:                   responseCache,
+		GeocodeService:          geocodeService,
 	})
 }
 
@@ -1078,4 +1079,52 @@ func validGPX() string {
     </trkseg>
   </trk>
 </gpx>`
+}
+
+func TestIntegrationHealthIntakeEndpoint(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	server := newIntegrationServer(t, db)
+
+	payload := `{"data":{"metrics":[{"name":"step_count","units":"count","data":[{"date":"2026-09-20 00:00:00 +0900","qty":1000}]}]}}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/intake/health", strings.NewReader(payload))
+	request.Header.Set("Authorization", "Bearer test-hae-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202; body = %s", recorder.Code, recorder.Body.String())
+	}
+
+	var response healthIntakeResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if !strings.HasPrefix(response.RawFileID, "raw_") {
+		t.Errorf("raw_file_id = %q, want raw_ prefix", response.RawFileID)
+	}
+	if !strings.HasPrefix(response.ImportID, "imp_") {
+		t.Errorf("import_id = %q, want imp_ prefix", response.ImportID)
+	}
+	if response.Status != "queued" {
+		t.Errorf("status = %q, want queued", response.Status)
+	}
+
+	var rawCount int64
+	if err := db.Model(&models.RawFile{}).Count(&rawCount).Error; err != nil || rawCount != 1 {
+		t.Errorf("tb_raw_files count = %d (err: %v), want 1", rawCount, err)
+	}
+
+	var receiptCount int64
+	if err := db.Model(&models.SourceReceipt{}).Count(&receiptCount).Error; err != nil || receiptCount != 1 {
+		t.Errorf("tb_source_receipts count = %d (err: %v), want 1", receiptCount, err)
+	}
+
+	var jobCount int64
+	if err := db.Model(&models.ImportJob{}).Count(&jobCount).Error; err != nil || jobCount != 1 {
+		t.Errorf("tb_import_jobs count = %d (err: %v), want 1", jobCount, err)
+	}
 }

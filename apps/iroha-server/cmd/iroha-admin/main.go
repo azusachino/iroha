@@ -32,6 +32,7 @@ const usage = `usage:
   iroha-admin intake-token issue [-name primary]   issue a token for a device; prints it once
   iroha-admin intake-token list                    list credentials (never tokens)
   iroha-admin intake-token revoke <cred_id>        revoke one credential immediately
+  iroha-admin owner setup [-username owner]        create initial owner account (reads password from stdin)
   iroha-admin password reset                       break-glass: read a new owner password from stdin, revoke all sessions
 `
 
@@ -49,7 +50,7 @@ func main() {
 }
 
 func run(args []string, stdout io.Writer) error {
-	if len(args) < 2 || (args[0] != "intake-token" && args[0] != "password") {
+	if len(args) < 2 || (args[0] != "intake-token" && args[0] != "password" && args[0] != "owner") {
 		return errUsage
 	}
 	cfg, err := config.Load("iroha.toml")
@@ -62,6 +63,18 @@ func run(args []string, stdout io.Writer) error {
 	}
 	credentials := intakecredential.NewService(db)
 	ctx := context.Background()
+
+	if args[0] == "owner" {
+		if args[1] != "setup" {
+			return errUsage
+		}
+		flags := flag.NewFlagSet("setup", flag.ContinueOnError)
+		username := flags.String("username", "owner", "owner username")
+		if err := flags.Parse(args[2:]); err != nil {
+			return err
+		}
+		return setupOwner(ctx, auth.NewService(db), *username, os.Stdin)
+	}
 
 	if args[0] == "password" {
 		if args[1] != "reset" || len(args) != 2 {
@@ -131,6 +144,23 @@ func resetPassword(ctx context.Context, service *auth.Service, stdin io.Reader) 
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "password reset for %s; all sessions revoked\n", username)
+	return nil
+}
+
+// setupOwner reads the initial owner password from stdin and creates the owner account.
+func setupOwner(ctx context.Context, service *auth.Service, username string, stdin io.Reader) error {
+	fmt.Fprintf(os.Stderr, "initial password for owner %q (one line on stdin):\n", username)
+	line, err := bufio.NewReader(stdin).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	password := strings.TrimRight(line, "\r\n")
+	token, principal, err := service.Setup(ctx, username, password)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "owner %q created successfully (user_id=%s)\n", principal.Username, principal.UserID)
+	_ = token
 	return nil
 }
 

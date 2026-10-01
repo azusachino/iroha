@@ -5,6 +5,7 @@
 The Iroha read cache is implemented as an edge HTTP middleware/interceptor (`ReadCacheInterceptor` in `apps/iroha-server/pkg/httpapi/read_cache.go`) wrapping `/api/v1` read routes, rather than at the database repository or service layer.
 
 ### Design Benefits
+
 1. **Wire-Ready Byte Caching (Zero Serialization Overhead)**:
    - On a cache hit, the server writes pre-marshaled JSON `[]byte` directly to the `http.ResponseWriter`.
    - Domain structs, ORM models, and JSON serialization are completely bypassed, eliminating heap allocations and GC overhead on high-frequency reads.
@@ -40,6 +41,7 @@ The Iroha read cache is implemented as an edge HTTP middleware/interceptor (`Rea
 ### Lifecycle 1: Creation & Cold Miss (Single-Flight Coalescing)
 
 When a request arrives and misses in the cache:
+
 1. Key identity is formed: `Version + Method + Path + CanonicalQuery + EffectiveTimezone + RevisionVector`.
 2. A fast-path cache probe checks Valkey/Postgres at the current generation.
 3. On miss, `GetOrLoadAtGeneration` registers a `flightKey` struct `{namespace, key, generation, typeID}`.

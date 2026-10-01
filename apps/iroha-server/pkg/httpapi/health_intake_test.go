@@ -2,15 +2,22 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	imports "github.com/azusachino/iroha/apps/iroha-imports"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/intakecredential"
+	"github.com/google/uuid"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 type fakeIntakeVerifier struct {
@@ -103,5 +110,83 @@ func TestHealthIntakeVerifierFailureIsServerError(t *testing.T) {
 	server.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", recorder.Code)
+	}
+}
+
+type fakeTestEnqueuer struct{}
+
+func (f *fakeTestEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error) {
+	return models.Job{ID: uuid.New()}, nil
+}
+
+func TestHealthIntakeAcceptsValidHealthAutoExportPayload(t *testing.T) {
+	dbName := "file:" + uuid.NewString() + "?mode=memory&cache=shared"
+	db, err := gorm.Open(sqlite.Open(dbName), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&models.RawFile{}, &models.SourceReceipt{}, &models.ImportJob{}, &models.SourceInstance{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_source_instances_provider_key ON tb_source_instances(provider, instance_key)").Error; err != nil {
+		t.Fatalf("create index: %v", err)
+	}
+
+	tempDir := t.TempDir()
+	rawFileService, err := rawfiles.NewService(db, tempDir)
+	if err != nil {
+		t.Fatalf("new rawfiles service: %v", err)
+	}
+
+	importService := imports.NewService(db, slog.Default(), "test", &fakeTestEnqueuer{}, nil)
+
+	server := NewServer(Dependencies{
+		Logger:                  slog.Default(),
+		Config:                  config.Config{Server: config.ServerConfig{Timezone: "Asia/Tokyo"}},
+		HealthIntakeCredentials: fakeIntakeVerifier{token: "valid-hae-token"},
+		RawFileService:          rawFileService,
+		ImportService:           importService,
+	})
+
+	body := `{"data":{"metrics":[{"name":"step_count","units":"count","data":[{"date":"2026-09-20 00:00:00 +0900","qty":1000}]}]}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/intake/health", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer valid-hae-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp healthIntakeResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+
+	if !strings.HasPrefix(resp.RawFileID, "raw_") {
+		t.Errorf("raw_file_id = %q, want raw_ prefix", resp.RawFileID)
+	}
+	if !strings.HasPrefix(resp.ImportID, "imp_") {
+		t.Errorf("import_id = %q, want imp_ prefix", resp.ImportID)
+	}
+	if resp.Status != "queued" {
+		t.Errorf("status = %q, want queued", resp.Status)
+	}
+
+	var rawCount int64
+	if err := db.Model(&models.RawFile{}).Count(&rawCount).Error; err != nil || rawCount != 1 {
+		t.Errorf("tb_raw_files count = %d (err: %v), want 1", rawCount, err)
+	}
+
+	var receiptCount int64
+	if err := db.Model(&models.SourceReceipt{}).Count(&receiptCount).Error; err != nil || receiptCount != 1 {
+		t.Errorf("tb_source_receipts count = %d (err: %v), want 1", receiptCount, err)
+	}
+
+	var jobCount int64
+	if err := db.Model(&models.ImportJob{}).Count(&jobCount).Error; err != nil || jobCount != 1 {
+		t.Errorf("tb_import_jobs count = %d (err: %v), want 1", jobCount, err)
 	}
 }
