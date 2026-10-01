@@ -73,17 +73,22 @@ func TestGetOrLoad_LoaderError_Propagates(t *testing.T) {
 }
 
 type fakeStore struct {
+	mu          sync.Mutex
 	values      map[string][]byte
 	namespace   string
 	invalidated string
 }
 
 func (s *fakeStore) Get(_ context.Context, namespace, key string) ([]byte, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	value, ok := s.values[namespace+":"+key]
 	return value, ok, nil
 }
 
 func (s *fakeStore) Set(_ context.Context, namespace, key string, value []byte, _ time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.values == nil {
 		s.values = make(map[string][]byte)
 	}
@@ -93,6 +98,8 @@ func (s *fakeStore) Set(_ context.Context, namespace, key string, value []byte, 
 }
 
 func (s *fakeStore) InvalidateNamespace(_ context.Context, namespace string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.invalidated = namespace
 	return nil
 }
@@ -150,6 +157,8 @@ type generationFakeStore struct {
 }
 
 func (s *generationFakeStore) GetWithGeneration(_ context.Context, namespace, key string) ([]byte, int64, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.generation == 0 {
 		s.generation = 1
 	}
@@ -158,6 +167,8 @@ func (s *generationFakeStore) GetWithGeneration(_ context.Context, namespace, ke
 }
 
 func (s *generationFakeStore) SetAtGeneration(_ context.Context, namespace, key string, generation int64, value []byte, _ time.Duration) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.generation == 0 {
 		s.generation = 1
 	}
@@ -172,6 +183,8 @@ func (s *generationFakeStore) SetAtGeneration(_ context.Context, namespace, key 
 }
 
 func (s *generationFakeStore) InvalidateNamespace(_ context.Context, namespace string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.generation++
 	s.invalidated = namespace
 	return nil

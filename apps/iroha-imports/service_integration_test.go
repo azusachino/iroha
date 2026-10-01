@@ -3,7 +3,10 @@
 package imports
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,6 +14,8 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-providers/anilist"
 	"github.com/azusachino/iroha/apps/iroha-providers/bangumi"
 	"github.com/azusachino/iroha/apps/iroha-providers/parsers"
+	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
+	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-runtime/testdb"
 	"github.com/google/uuid"
@@ -713,4 +718,111 @@ func openImportsIntegrationDB(t *testing.T) *gorm.DB {
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	return db
+}
+
+type fakeInvalidateStore struct {
+	invalidations atomic.Int32
+}
+
+func (s *fakeInvalidateStore) Get(_ context.Context, _, _ string) ([]byte, bool, error) {
+	return nil, false, nil
+}
+
+func (s *fakeInvalidateStore) Set(_ context.Context, _, _ string, _ []byte, _ time.Duration) error {
+	return nil
+}
+
+func (s *fakeInvalidateStore) InvalidateNamespace(_ context.Context, _ string) error {
+	s.invalidations.Add(1)
+	return nil
+}
+
+func (s *fakeInvalidateStore) Close() error { return nil }
+
+func TestIntegrationReuseCompletedImportDoesNotFlushCache(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	store := &fakeInvalidateStore{}
+	cacheClient := cache.NewWithStore(store)
+	service := NewService(db, slog.Default(), DefaultParserVersion, nil, cacheClient)
+
+	now := time.Now().UTC()
+	rawFileID := uuid.New()
+	priorJobID := uuid.New()
+	newJobID := uuid.New()
+
+	rawFile := models.RawFile{
+		ID:               rawFileID,
+		SHA256:           "dedup-cache-test-" + rawFileID.String(),
+		OriginalFilename: "dedup.zip",
+		StoragePath:      "/tmp/dedup.zip",
+		SourceKind:       parsers.KindAppleHealthExport,
+		UploadedVia:      "integration",
+		CreatedAt:        now,
+	}
+	if err := db.Create(&rawFile).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	priorJob := models.ImportJob{
+		ID:            priorJobID,
+		RawFileID:     rawFileID,
+		Status:        StatusCompleted,
+		ParserKind:    parsers.KindAppleHealthExport,
+		ParserVersion: DefaultParserVersion,
+		CreatedAt:     now,
+	}
+	if err := db.Create(&priorJob).Error; err != nil {
+		t.Fatalf("create prior job: %v", err)
+	}
+	newJob := models.ImportJob{
+		ID:            newJobID,
+		RawFileID:     rawFileID,
+		Status:        StatusParsing,
+		ParserKind:    parsers.KindAppleHealthExport,
+		ParserVersion: DefaultParserVersion,
+		CreatedAt:     now,
+	}
+	if err := db.Create(&newJob).Error; err != nil {
+		t.Fatalf("create new job: %v", err)
+	}
+
+	queueJobID := uuid.New()
+	worker := "integration-worker"
+	if err := db.Create(&models.Job{
+		ID:          queueJobID,
+		Kind:        jobs.KindAppleImportParse,
+		Status:      jobs.StatusRunning,
+		PayloadJSON: []byte(`{}`),
+		Attempts:    1,
+		MaxAttempts: 3,
+		RunAfter:    now,
+		LockedBy:    &worker,
+		LockedAt:    &now,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}).Error; err != nil {
+		t.Fatalf("create queue job: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = db.Exec("delete from tb_jobs where id = ?", queueJobID).Error
+		_ = db.Exec("delete from tb_import_jobs where id in (?, ?)", priorJobID, newJobID).Error
+		_ = db.Exec("delete from tb_raw_files where id = ?", rawFileID).Error
+	})
+
+	ctx := jobs.WithClaim(context.Background(), jobs.Claim{JobID: queueJobID, WorkerID: worker, Attempt: 1})
+	if err := service.reuseCompletedImport(ctx, newJobID, priorJob, rawFile.SourceKind); err != nil {
+		t.Fatalf("reuseCompletedImport failed: %v", err)
+	}
+
+	var finished models.ImportJob
+	if err := db.First(&finished, "id = ?", newJobID).Error; err != nil {
+		t.Fatalf("find finished job: %v", err)
+	}
+	if finished.Status != StatusCompleted {
+		t.Fatalf("finished status = %q, want %q", finished.Status, StatusCompleted)
+	}
+
+	if count := store.invalidations.Load(); count != 0 {
+		t.Fatalf("store invalidations = %d, want 0 on reused import", count)
+	}
 }

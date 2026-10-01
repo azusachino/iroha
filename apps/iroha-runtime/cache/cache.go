@@ -169,10 +169,17 @@ type CleanupResult struct {
 type Client struct {
 	store                Store
 	flightMu             sync.Mutex
-	flights              map[string]*cacheFlight
+	flights              map[flightKey]*cacheFlight
 	degradedMu           sync.RWMutex
 	degraded             map[string]bool
 	invalidationFailures atomic.Uint64
+}
+
+type flightKey struct {
+	namespace  string
+	key        string
+	generation int64
+	typeID     reflect.Type
 }
 
 type cacheFlight struct {
@@ -199,7 +206,7 @@ func New(url string) *Client {
 
 // NewWithStore builds a Client around any Store implementation.
 func NewWithStore(store Store) *Client {
-	return &Client{store: store, flights: make(map[string]*cacheFlight), degraded: make(map[string]bool)}
+	return &Client{store: store, flights: make(map[flightKey]*cacheFlight), degraded: make(map[string]bool)}
 }
 
 // NewBackend selects a configured cache backend. Cache data is disposable, so
@@ -229,19 +236,31 @@ func (c *Client) Close() error {
 }
 
 // GetOrLoad implements cache-aside lookup. Cache misses, decode failures, and
-// backend errors call loader; only loader's own error is returned.
+// backend errors call loader. Matching namespace/generation/key loads share a
+// flight within this Client; canceled waiters return without canceling its owner.
 func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl time.Duration, loader func() (T, error)) (T, error) {
 	value, generation, ok := GetWithGeneration[T](ctx, c, namespace, key)
 	if ok {
 		return value, nil
 	}
+	return GetOrLoadAtGeneration(ctx, c, namespace, key, generation, ttl, loader)
+}
+
+// GetOrLoadAtGeneration implements single-flight loading for an observed miss at a known generation.
+// It bypasses repeating the initial GetWithGeneration lookup while retaining the post-flight recheck.
+func GetOrLoadAtGeneration[T any](ctx context.Context, c *Client, namespace, key string, generation int64, ttl time.Duration, loader func() (T, error)) (T, error) {
 	if c == nil || c.store == nil {
 		return loader()
 	}
 
-	flightKey := namespace + "\x00" + key + "\x00" + reflect.TypeOf((*T)(nil)).Elem().String()
+	fk := flightKey{
+		namespace:  namespace,
+		key:        key,
+		generation: generation,
+		typeID:     reflect.TypeOf((*T)(nil)).Elem(),
+	}
 	c.flightMu.Lock()
-	if flight, ok := c.flights[flightKey]; ok {
+	if flight, ok := c.flights[fk]; ok {
 		c.flightMu.Unlock()
 		select {
 		case <-flight.done:
@@ -256,20 +275,31 @@ func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl
 			return zero, ctx.Err()
 		}
 	}
-	flight := &cacheFlight{done: make(chan struct{})}
-	c.flights[flightKey] = flight
+	flight := &cacheFlight{done: make(chan struct{}), err: errors.New("cache loader did not complete")}
+	c.flights[fk] = flight
 	c.flightMu.Unlock()
+	// Release waiters even when the loader panics; the owner still propagates
+	// its panic to the HTTP recovery middleware.
+	defer func() {
+		c.flightMu.Lock()
+		delete(c.flights, fk)
+		close(flight.done)
+		c.flightMu.Unlock()
+	}()
 
+	// Another flight may have populated the cache between our miss and lock.
+	if cached, _, found := GetWithGeneration[T](ctx, c, namespace, key); found {
+		flight.value, flight.err = cached, nil
+		return cached, nil
+	}
 	value, err := loader()
 	if err == nil {
-		SetAtGeneration(ctx, c, namespace, key, generation, ttl, value)
+		setCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		SetAtGeneration(setCtx, c, namespace, key, generation, ttl, value)
 	}
-	c.flightMu.Lock()
 	flight.value = value
 	flight.err = err
-	delete(c.flights, flightKey)
-	close(flight.done)
-	c.flightMu.Unlock()
 	if err != nil {
 		var zero T
 		return zero, err
