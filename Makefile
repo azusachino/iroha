@@ -23,7 +23,7 @@ MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: help fmt fmt-check vet lint test contract-check test-integration scripts-test quality-floor-check theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-public-site images
+.PHONY: test-integration-ci public-site-response-check help fmt fmt-check vet lint test contract-check test-integration scripts-test quality-floor-check theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-public-site images
 
 PRETTIER := prettier
 MARKDOWN_FILES := $(shell rg --files -g '*.md' -g '!**/node_modules/**')
@@ -57,6 +57,11 @@ contract-check: ## Verify the registered HTTP route inventory and OpenAPI contra
 test-integration: ## Run DB-backed Go integration tests against a disposable iroha_test database
 	$(TOOL_ENV) uv run python scripts/dev_stack.py test-db
 	$(TOOL_ENV) env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha_test?sslmode=disable uv run python scripts/go_tasks.py test-integration
+
+# CI provides an already-created disposable PostGIS service; never start/reset dev DBs.
+test-integration-ci: ## Migrate and test the disposable CI PostGIS service
+	$(TOOL_ENV) uv run python scripts/db.py apply-test
+	$(TOOL_ENV) uv run python scripts/go_tasks.py test-integration
 
 scripts-test: ## Run Python script unit tests and report coverage
 	$(TOOL_ENV) uv run coverage run --branch --source=scripts --omit='*_test.py' -m unittest discover -s scripts -p '*_test.py'
@@ -138,7 +143,12 @@ web-mobile-check: ## Audit every private route at compact mobile widths (BASE=..
 
 ## --- Public static site (apps/iroha-public-site, bun) ---
 public-site-install: shared-install ## Install public-site and shared frontend dependencies
-	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun install
+	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun install --frozen-lockfile
+
+public-site-fmt-check public-site-check public-site-build: public-site-install
+
+public-site-response-check: ## Check an isolated Caddy fixture (BASE=http://127.0.0.1:port)
+	$(TOOL_ENV) uv run python scripts/public_site_response_check.py "$(BASE)"
 
 public-site-fmt-check: ## Fail if any public-site file is unformatted
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run format:check

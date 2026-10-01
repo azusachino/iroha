@@ -29,6 +29,16 @@ flowchart LR
 - **Limits.** 120 requests/minute per client; GET only; any origin may read.
 - **Isolation.** The site's Caddy proxies only `/public/v1/*`. The private `/api/v1` is not reachable through it.
 
+## Public-host response policy
+
+Content-hashed `/_app/immutable/*` assets carry `public, max-age=31536000, immutable`; HTML and API responses do not inherit that policy. Public JSON edge caching is unchanged and is not established by this configuration.
+
+The tunnel terminates HTTPS. Caddy sends host-only HSTS (`max-age=31536000`), without `includeSubDomains` or `preload`. Permissions-Policy denies camera, microphone, geolocation, payment and USB: the site displays imported routes and does not need browser location access.
+
+`make public-site-response-check BASE=http://127.0.0.1:18080` checks the isolated shell/asset fixture used in CI, including private-path isolation and public-proxy failure responses. It refuses non-local URLs. This is not deployed edge verification.
+
+To roll back HSTS, serve `Strict-Transport-Security: max-age=0` over working HTTPS and verify that response at the edge before reverting the image. Removing the header alone does not clear clients' remembered policy. Host-only scope avoids changing sibling hosts; HTTPS must remain available during rollback. Immutable assets must keep content-addressed filenames; deploy a new hash rather than overwriting an existing asset.
+
 ## Rollback
 
 | Symptom                               | Action                                                                                                                                                        |

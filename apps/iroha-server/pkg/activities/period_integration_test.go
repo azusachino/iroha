@@ -50,7 +50,7 @@ func TestPeriodReportUsesRequestedHalfOpenWindowAndSportOrder(t *testing.T) {
 	if result.Totals.ActivityCount != 2 || result.Totals.DistanceM != 3500 || result.Totals.DistanceKnownCount != 2 || result.Totals.DurationS != 900 {
 		t.Fatalf("period totals = %+v", result.Totals)
 	}
-	if len(result.BySport) != 2 || result.BySport[0].Sport != "bike" || result.BySport[1].Sport != "run" {
+	if len(result.BySport) != 2 || result.BySport[0].Sport != "ride" || result.BySport[1].Sport != "run" {
 		t.Fatalf("sport totals = %+v", result.BySport)
 	}
 }

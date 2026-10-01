@@ -3,17 +3,32 @@
 	admin off
 }
 
+(public_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		# TLS terminates at the tunnel edge. Host-only; no preload/subdomains.
+		Strict-Transport-Security "max-age=31536000"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
+		-Server
+	}
+}
+
 # Unprivileged port: the container runs as a non-root user.
 :8080 {
 	root * /srv
 	encode gzip
+	import public_headers
 
-	header {
-		X-Content-Type-Options nosniff
-		Referrer-Policy strict-origin-when-cross-origin
-		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
-		-Server
+	handle_errors {
+		import public_headers
+		respond "{err.status_text}" {err.status_code}
 	}
+
+	# Content-hashed build assets only, never HTML or API responses.
+	@immutable path /_app/immutable/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
 
 	# Only the anonymous public API is proxied; the private /api/v1 is not
 	# reachable through this site.

@@ -40,6 +40,25 @@ class DBScriptTest(unittest.TestCase):
             ]
         )
 
+    def test_apply_test_refuses_non_test_database(self) -> None:
+        for database in ["iroha", "", "prod?label=iroha_test"]:
+            with (
+                mock.patch.object(db.sys, "argv", ["db.py", "apply-test"]),
+                mock.patch.dict(os.environ, {"DATABASE_URL": "postgres://localhost/" + database}, clear=True),
+                mock.patch.object(db.subprocess, "call") as call,
+            ):
+                self.assertEqual(db.main(), 2)
+                call.assert_not_called()
+
+    def test_apply_test_migrates_disposable_database(self) -> None:
+        with (
+            mock.patch.object(db.sys, "argv", ["db.py", "apply-test"]),
+            mock.patch.dict(os.environ, {"DATABASE_URL": "postgres://localhost/iroha_test"}, clear=True),
+            mock.patch.object(db.subprocess, "call", return_value=0) as call,
+        ):
+            self.assertEqual(db.main(), 0)
+            self.assertEqual(call.call_args.args[0][2], "run")
+
     def test_rollback_accepts_iroha_database_url(self) -> None:
         with (
             mock.patch.object(db.sys, "argv", ["db.py", "rollback"]),
