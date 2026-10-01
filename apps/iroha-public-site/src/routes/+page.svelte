@@ -21,6 +21,8 @@
     formatDistance,
     formatDuration,
     formatHr,
+    formatHumanDuration,
+    formatMetricValue,
     formatPace,
     formatSport,
   } from "$lib/format";
@@ -405,16 +407,16 @@
       />
       <StatTile
         label="Activities"
-        value={selectedYearTotals.activity_count.toLocaleString()}
+        value={formatMetricValue(selectedYearTotals.activity_count, "count")}
       />
       <StatTile
         label="Running count"
-        value={selectedYearRunningCount.toLocaleString()}
+        value={formatMetricValue(selectedYearRunningCount, "count")}
         sub={selectedYear ? `runs in ${selectedYear}` : undefined}
       />
       <StatTile
         label="Total time"
-        value={formatDuration(
+        value={formatHumanDuration(
           selectedYearTotals.moving_time_s || selectedYearTotals.duration_s,
         )}
       />

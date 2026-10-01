@@ -12,14 +12,21 @@ export function formatCanonicalMonth(period?: string): string {
     : period;
 }
 
-export function formatDistance(meters?: number): string {
-  if (meters == null) return DASH;
+export function formatDistance(
+  meters?: number | null,
+  locale = "en-US",
+): string {
+  if (meters == null || !Number.isFinite(meters) || meters < 0) return DASH;
   if (meters < 1000) return `${Math.round(meters)} m`;
-  return `${(meters / 1000).toFixed(2)} km`;
+  return `${new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(meters / 1000)} km`;
 }
 
-export function formatDuration(seconds?: number): string {
-  if (seconds == null) return DASH;
+// Clock notation remains for exact tables; summaries use formatHumanDuration.
+export function formatDuration(seconds?: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return DASH;
   const rounded = Math.round(seconds);
   const hours = Math.floor(rounded / 3600);
   const minutes = Math.floor((rounded % 3600) / 60);
@@ -29,7 +36,18 @@ export function formatDuration(seconds?: number): string {
   return `${minutes}:${pad(remainder)}`;
 }
 
-export function formatPace(secondsPerKm?: number): string {
+// Summary precision is whole minutes, except for durations under one minute.
+export function formatHumanDuration(seconds?: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return DASH;
+  const rounded = Math.round(seconds);
+  if (rounded < 60) return `${rounded} s`;
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  if (hours > 0) return `${hours} h ${String(minutes).padStart(2, "0")} min`;
+  return `${minutes} min`;
+}
+
+export function formatPace(secondsPerKm?: number | null): string {
   if (
     secondsPerKm == null ||
     !Number.isFinite(secondsPerKm) ||
@@ -37,8 +55,9 @@ export function formatPace(secondsPerKm?: number): string {
   ) {
     return DASH;
   }
-  const minutes = Math.floor(secondsPerKm / 60);
-  const seconds = Math.round(secondsPerKm % 60);
+  const rounded = Math.round(secondsPerKm);
+  const minutes = Math.floor(rounded / 60);
+  const seconds = rounded % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")} /km`;
 }
 
@@ -62,23 +81,24 @@ export function formatSwimmingPace(
   return `${minutes}:${String(seconds).padStart(2, "0")} /100m`;
 }
 
-export function formatElevation(meters?: number): string {
-  if (meters == null) return DASH;
+export function formatElevation(meters?: number | null): string {
+  if (meters == null || !Number.isFinite(meters)) return DASH;
   return `${Math.round(meters)} m`;
 }
 
-export function formatHr(bpm?: number): string {
-  if (bpm == null) return DASH;
+export function formatHr(bpm?: number | null): string {
+  if (bpm == null || !Number.isFinite(bpm)) return DASH;
   return `${Math.round(bpm)} bpm`;
 }
 
 export function formatMetricValue(
   value?: number | null,
   unit?: string | null,
+  locale = "en-US",
 ): string {
   if (value == null || !Number.isFinite(value)) return DASH;
   const maximumFractionDigits = unit?.trim().toLowerCase() === "count" ? 0 : 1;
-  return value.toLocaleString(undefined, { maximumFractionDigits });
+  return new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value);
 }
 
 export function formatDate(iso?: string, timezone?: string): string {

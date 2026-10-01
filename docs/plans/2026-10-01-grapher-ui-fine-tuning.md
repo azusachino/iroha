@@ -1,6 +1,6 @@
-# Grapher UI fine-tuning: replacement Phase 1 proposal
+# Grapher UI fine-tuning: replacement Phase 1
 
-Status: draft for owner approval; no UI implementation authorized by this document.
+Status: owner approved P1-D1–D6 and P1-A1–A9 on 2026-10-01 after PR #89 merged; implementation in small slices.
 
 Issue: [iroha #85](https://github.com/azusachino/iroha/issues/85). The original plan named there was absent from this checkout. The owner requested a replacement proposal. These criteria and decisions are new; they do not reconstruct or claim approval of the original A1–A9/D1–D6. Later phases remain outside this slice.
 
@@ -17,7 +17,7 @@ The owner reports the prior cockpit accessibility audit complete. Its referenced
 - Shared typography/themes live in `packages/iroha-shared/src/theme/{fonts,themes}.css`; shared chart compositions live in `theme-ui/components/`. Existing `components/{MetricPanel,StatTile,MetricTable}.svelte` are the reuse points.
 - Keep the registered Grapher identity and shared-package ownership in `AGENTS.md`. Apps own data/timezone adapters, async state and callbacks, not visual primitives or canonical palette/type definitions.
 
-## Proposed decisions (approval required)
+## Approved decisions
 
 | ID | Proposal | Trade-off |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ The owner reports the prior cockpit accessibility audit complete. Its referenced
 | P1-A8 | Pilot loading/error/empty/refetch states retain truthful missing-data labels and keyboard access. Supported month/year/lifetime changes update data and labels, not just the selector. Reduced-motion keeps state feedback without added loops. | Playwright deferred-response and scope/motion fixtures. |
 | P1-A9 | `make validate`, disposable integration and `make e2e` pass without checker suppressions, deleted assertions or lowered floors; independent review checks these criteria and shared import direction. | Recorded exact-commit gate/review evidence. |
 
-## Delivery steps after approval
+## Delivery steps
 
 1. Capture the owner-approved decisions and audit handoff; add failing formatter/tick/palette boundary fixtures before changing behavior.
 2. Consolidate shared formatter helpers and pilot adapters; verify quantity versus pace/table callers. Commit after focused tests.
