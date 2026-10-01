@@ -16,14 +16,22 @@ export async function inspectPilotCharts() {
         name?: string;
         data?: unknown[];
         showSymbol?: boolean;
+        showAllSymbol?: boolean | "auto";
+        connectNulls?: boolean;
       }[] = option.series ?? [];
       return [
         {
           label: el.getAttribute("aria-label"),
-          series: series.map((series) => ({
+          series: series.map((series, seriesIndex) => ({
             name: series.name,
             data: series.data,
             showSymbol: series.showSymbol,
+            showAllSymbol: series.showAllSymbol,
+            connectNulls: series.connectNulls,
+            color: chart.getVisual({ seriesIndex }, "color"),
+            symbolSizes: series.data?.map((_, dataIndex) =>
+              chart.getVisual({ seriesIndex, dataIndex }, "symbolSize"),
+            ),
           })),
           animation: option.animation,
           animationDuration: option.animationDuration,

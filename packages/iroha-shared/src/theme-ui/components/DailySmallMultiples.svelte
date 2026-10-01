@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { chartSignature } from "./chart-signature";
+  import { resolveColor } from "./chart-color";
   import { LineChart } from "echarts/charts";
   import {
     AxisPointerComponent,
@@ -37,6 +38,10 @@
     const text = styles.getPropertyValue("--text").trim();
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
+    const resolvedCharts = charts.map((item) => ({
+      ...item,
+      color: resolveColor(item.color, styles, text),
+    }));
     const count = Math.max(charts.length, 1);
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -77,7 +82,7 @@
         axisTick: { show: false },
         splitLine: { show: false },
       })),
-      yAxis: charts.map((item, index) => ({
+      yAxis: resolvedCharts.map((item, index) => ({
         type: "value",
         gridIndex: index,
         name: item.unit ? `${item.label} (${item.unit})` : item.label,
@@ -86,12 +91,20 @@
         axisLine: { show: true, lineStyle: { color: item.color } },
         splitLine: { lineStyle: { color: border, opacity: 0.35 } },
       })),
-      series: charts.map((item, index) => ({
+      series: resolvedCharts.map((item, index) => ({
         name: item.label,
         type: "line",
         xAxisIndex: index,
         yAxisIndex: index,
-        showSymbol: false,
+        // Sparse series need markers; fully connected curves keep their native hover feedback.
+        showSymbol: item.values.some(
+          (value, pointIndex) =>
+            Number.isFinite(value) &&
+            !Number.isFinite(item.values[pointIndex - 1]) &&
+            !Number.isFinite(item.values[pointIndex + 1]),
+        ),
+        showAllSymbol: true,
+        connectNulls: false,
         smooth: 0.18,
         lineStyle: { color: item.color, width: 2 },
         itemStyle: { color: item.color },
