@@ -8,6 +8,8 @@ export {
   formatDuration,
   formatElevation,
   formatHr,
+  formatHumanDuration,
+  formatMetricValue,
   formatPace,
   formatSport,
   formatSwimmingPace,

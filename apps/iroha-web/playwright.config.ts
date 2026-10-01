@@ -1,11 +1,14 @@
-// Headless Chromium verification, cloned from the playwright-verify skill.
-// Set the values marked EDIT. When a project script has already started the
-// app, it exports E2E_BASE_URL and this config starts no server of its own.
+// Headless Chromium checks for both consumers of the shared UI.
+// E2E_BASE_URL / E2E_PUBLIC_BASE_URL opt into independently managed servers.
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 5183; // off 5173, which a person's `vite dev` uses
 const COMMAND = `bun run dev --host 127.0.0.1 --port ${PORT} --strictPort`; // /api calls are faked per spec with page.route; no Go backend
 const external = process.env.E2E_BASE_URL;
+const PUBLIC_PORT = 5184;
+const publicExternal = process.env.E2E_PUBLIC_BASE_URL;
+export const PUBLIC_BASE_URL =
+  publicExternal ?? `http://127.0.0.1:${PUBLIC_PORT}`;
 const CI = !!process.env.CI;
 const chrome = devices["Desktop Chrome"];
 
@@ -33,12 +36,27 @@ export default defineConfig({
     { name: "probe", use: chrome, testMatch: /probe\.spec\.ts$/ },
   ],
   // No reuse: a port already in use fails the run instead of testing a server someone else is using.
-  webServer: external
-    ? undefined
-    : {
-        command: COMMAND,
-        url: `http://127.0.0.1:${PORT}`,
-        reuseExistingServer: false,
-        timeout: 60_000,
-      },
+  webServer: [
+    ...(external
+      ? []
+      : [
+          {
+            command: COMMAND,
+            url: `http://127.0.0.1:${PORT}`,
+            reuseExistingServer: false,
+            timeout: 60_000,
+          },
+        ]),
+    ...(publicExternal
+      ? []
+      : [
+          {
+            command: `bun run dev --host 127.0.0.1 --port ${PUBLIC_PORT} --strictPort`,
+            cwd: "../iroha-public-site",
+            url: PUBLIC_BASE_URL,
+            reuseExistingServer: false,
+            timeout: 60_000,
+          },
+        ]),
+  ],
 });

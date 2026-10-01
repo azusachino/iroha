@@ -6,6 +6,8 @@
     formatDate,
     formatDistance,
     formatDuration,
+    formatHumanDuration,
+    formatMetricValue,
   } from "../../format/format";
   import { formatMonth } from "../../format/month";
   import { buildMonthlyDistanceSeries } from "./monthly-distance";
@@ -60,7 +62,6 @@
     const previous = monthly[monthly.length - 2];
     return { difference: current.distance_m - previous.distance_m, previous };
   });
-
 </script>
 
 <section
@@ -111,7 +112,9 @@
       <div class="stat-card">
         <dt>Activity records</dt>
         <dd>
-          <strong>{summary.totals.activity_count.toLocaleString()}</strong>
+          <strong
+            >{formatMetricValue(summary.totals.activity_count, "count")}</strong
+          >
           <small>Imported movement sessions</small>
         </dd>
       </div>
@@ -119,7 +122,7 @@
         <dt>Total movement time</dt>
         <dd>
           <strong>
-            {formatDuration(
+            {formatHumanDuration(
               summary.totals.moving_time_s || summary.totals.duration_s,
             )}
           </strong>
@@ -132,7 +135,7 @@
           <strong>
             {sleepLoading || sleepError || sleepSummary.nightCount === 0
               ? "—"
-              : formatDuration(sleepSummary.averageAsleepS)}
+              : formatHumanDuration(sleepSummary.averageAsleepS)}
           </strong>
           <small>
             {#if sleepLoading}
@@ -154,7 +157,10 @@
           <strong>
             {mediaLoading || mediaError
               ? "—"
-              : (mediaAggregates?.totals.item_count ?? 0).toLocaleString()}
+              : formatMetricValue(
+                  mediaAggregates?.totals.item_count ?? 0,
+                  "count",
+                )}
           </strong>
           <small>
             {#if mediaLoading}
@@ -179,7 +185,10 @@
         title="Activity through the year"
       />
 
-      <section class="panel tile chart-panel" aria-labelledby="distance-trend-title">
+      <section
+        class="panel tile chart-panel"
+        aria-labelledby="distance-trend-title"
+      >
         <header class="panel-header">
           <div>
             <p class="kicker">Movement / distance</p>
@@ -263,7 +272,7 @@
                     >{sport.key.replaceAll("_", " ")}</span
                   >
                   <span class="sport-count">
-                    {sport.activity_count.toLocaleString()}
+                    {formatMetricValue(sport.activity_count, "count")}
                   </span>
                 </button>
               </li>
@@ -661,7 +670,6 @@
     font-size: 0.72rem;
     font-variant-numeric: tabular-nums;
   }
-
 
   .table-wrap {
     overflow-x: auto;

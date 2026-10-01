@@ -127,9 +127,10 @@ web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
 	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) $(TOOL_ENV) bun run dev --host 0.0.0.0
 
 # Browser checks from the playwright-verify skill: `make e2e`, `make e2e-probe
-# ROUTE=/path`, `make e2e-install`. Local only; each spec fakes /api with page.route.
+# ROUTE=/path`, `make e2e-install`. Specs fake API calls with synthetic data.
 E2E_DIR := $(WEB_DIR)
 include e2e.mk
+e2e e2e-probe: web-install public-site-install
 
 web-visual-install: ## One-time: install Playwright's Chromium build for visual checks
 	cd $(WEB_DIR) && $(TOOL_ENV) bunx playwright install chromium
