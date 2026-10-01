@@ -448,11 +448,7 @@ func (s *Service) reuseCompletedImport(ctx context.Context, jobID uuid.UUID, exi
 		}
 		return nil
 	}
-	err := jobs.ProtectedTransaction(ctx, s.db, claim, update)
-	if err == nil {
-		s.flushCache()
-	}
-	return err
+	return jobs.ProtectedTransaction(ctx, s.db, claim, update)
 }
 
 func (s *Service) flushCache() {
