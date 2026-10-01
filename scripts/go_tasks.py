@@ -26,7 +26,7 @@ TASKS = {
     "test": [],
     "build": ["go", "build", "./..."],
     # Needs DATABASE_URL naming a disposable database; see apps/iroha-runtime/testdb.
-    "test-integration": ["go", "test", "-p", "1", "-tags=integration", "./..."],
+    "test-integration": ["go", "test", "-count=1", "-p", "1", "-tags=integration", "./..."],
     "coverage": [],
 }
 

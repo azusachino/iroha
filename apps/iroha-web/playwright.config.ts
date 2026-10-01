@@ -4,7 +4,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 5183; // off 5173, which a person's `vite dev` uses
-const COMMAND = `bun run dev --port ${PORT} --strictPort`; // /api calls are faked per spec with page.route; no Go backend
+const COMMAND = `bun run dev --host 127.0.0.1 --port ${PORT} --strictPort`; // /api calls are faked per spec with page.route; no Go backend
 const external = process.env.E2E_BASE_URL;
 const CI = !!process.env.CI;
 const chrome = devices["Desktop Chrome"];

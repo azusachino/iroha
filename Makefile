@@ -26,8 +26,8 @@ MOBILE_DEFAULT_MOTION := normal,reduced
 .PHONY: test-integration-ci public-site-response-check help fmt fmt-check vet lint test contract-check test-integration scripts-test quality-floor-check theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-public-site images
 
 PRETTIER := prettier
-MARKDOWN_FILES := $(shell rg --files -g '*.md' -g '!**/node_modules/**')
-DOC_CONFIG_FILES := $(shell rg --files -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
+MARKDOWN_FILES = $(shell rg --files -g '*.md' -g '!**/node_modules/**')
+DOC_CONFIG_FILES = $(shell rg --files -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \

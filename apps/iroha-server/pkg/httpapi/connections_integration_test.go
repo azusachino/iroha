@@ -62,6 +62,11 @@ func TestIntegrationConnectionsFreshnessPolicy(t *testing.T) {
 		t.Fatalf("revoked source: %+v, %v", response, err)
 	}
 	source.Provider = "anilist"
+	// Earlier workspace tests can leave a disabled schedule for this kind.
+	// This fixture needs its own cadence, not whichever UUID sorts first.
+	if err := db.Where("kind = ?", jobs.KindMediaSyncAniList).Delete(&models.JobSchedule{}).Error; err != nil {
+		t.Fatal(err)
+	}
 	schedule := models.JobSchedule{ID: uuid.New(), Kind: jobs.KindMediaSyncAniList, Enabled: true, ScheduleKind: jobs.ScheduleKindInterval, ScheduleExpr: "48h", PayloadJSON: json.RawMessage(`{}`), CreatedAt: now, UpdatedAt: now}
 	if err := db.Create(&schedule).Error; err != nil {
 		t.Fatal(err)
