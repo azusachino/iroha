@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"gorm.io/gorm"
 )
@@ -94,7 +95,12 @@ func (s *Service) SummaryInTimezone(year, sport, timezone string) (Summary, erro
 			db = db.Where("to_char(started_at AT TIME ZONE ?, 'YYYY') = ?", zone, year)
 		}
 		if sport != "" {
-			db = db.Where("sport_type = ?", sport)
+			aliases := observations.SportAliases(sport)
+			if len(aliases) == 1 {
+				db = db.Where("sport_type = ?", aliases[0])
+			} else {
+				db = db.Where("sport_type IN ?", aliases)
+			}
 		}
 		return db
 	}
@@ -106,7 +112,12 @@ func (s *Service) SummaryInTimezone(year, sport, timezone string) (Summary, erro
 
 	byYearScope := base()
 	if sport != "" {
-		byYearScope = byYearScope.Where("sport_type = ?", sport)
+		aliases := observations.SportAliases(sport)
+		if len(aliases) == 1 {
+			byYearScope = byYearScope.Where("sport_type = ?", aliases[0])
+		} else {
+			byYearScope = byYearScope.Where("sport_type IN ?", aliases)
+		}
 	}
 	var byYear []SummaryBucket
 	if err := byYearScope.
@@ -189,7 +200,8 @@ func (s *Service) SummaryInTimezone(year, sport, timezone string) (Summary, erro
 		yearKey := localStartedAt.Format("2006")
 		monthKey := localStartedAt.Format("2006-01")
 		inYear := year == "" || yearKey == year
-		inSport := sport == "" || activity.SportType == sport
+		sportNormalized := observations.NormalizeSport(activity.SportType)
+		inSport := sport == "" || sportNormalized == observations.NormalizeSport(sport)
 		if inSport {
 			if i, ok := byYearIndex[yearKey]; ok {
 				byYear[i].DistanceM += *activity.DistanceM
@@ -205,10 +217,14 @@ func (s *Service) SummaryInTimezone(year, sport, timezone string) (Summary, erro
 			}
 		}
 		if inYear {
-			if i, ok := bySportIndex[activity.SportType]; ok {
-				bySport[i].DistanceM += *activity.DistanceM
-				bySport[i].DistanceKnownCount++
-				bySport[i].DistanceUnknownCount--
+			idx, ok := bySportIndex[activity.SportType]
+			if !ok {
+				idx, ok = bySportIndex[sportNormalized]
+			}
+			if ok {
+				bySport[idx].DistanceM += *activity.DistanceM
+				bySport[idx].DistanceKnownCount++
+				bySport[idx].DistanceUnknownCount--
 			}
 		}
 		if inYear && inSport {
@@ -225,7 +241,8 @@ func (s *Service) SummaryInTimezone(year, sport, timezone string) (Summary, erro
 		yearKey := localStartedAt.Format("2006")
 		monthKey := localStartedAt.Format("2006-01")
 		inYear := year == "" || yearKey == year
-		inSport := sport == "" || activity.SportType == sport
+		sportNormalized := observations.NormalizeSport(activity.SportType)
+		inSport := sport == "" || sportNormalized == observations.NormalizeSport(sport)
 		if inSport {
 			if i, ok := byYearIndex[yearKey]; ok {
 				byYear[i].ElevationGainM += *activity.ElevationGainM
@@ -237,8 +254,12 @@ func (s *Service) SummaryInTimezone(year, sport, timezone string) (Summary, erro
 			}
 		}
 		if inYear {
-			if i, ok := bySportIndex[activity.SportType]; ok {
-				bySport[i].ElevationGainM += *activity.ElevationGainM
+			idx, ok := bySportIndex[activity.SportType]
+			if !ok {
+				idx, ok = bySportIndex[sportNormalized]
+			}
+			if ok {
+				bySport[idx].ElevationGainM += *activity.ElevationGainM
 			}
 		}
 		if inYear && inSport {
@@ -396,10 +417,11 @@ func (s *Service) PeriodReport(filters PeriodFilters) (PeriodReport, error) {
 		if activity.DurationS != nil {
 			result.Totals.DurationS += *activity.DurationS
 		}
-		total := bySport[activity.SportType]
+		sportType := observations.NormalizeSport(activity.SportType)
+		total := bySport[sportType]
 		if total == nil {
-			total = &PeriodSportTotal{Sport: activity.SportType}
-			bySport[activity.SportType] = total
+			total = &PeriodSportTotal{Sport: sportType}
+			bySport[sportType] = total
 			result.BySport = append(result.BySport, *total)
 		}
 		total.ActivityCount++

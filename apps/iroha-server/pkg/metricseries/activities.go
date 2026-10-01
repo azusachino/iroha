@@ -1,9 +1,9 @@
 package metricseries
 
 import (
-	"strings"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 )
 
@@ -30,17 +30,16 @@ func (s ActivityServiceSource) ActivityValues(from, to time.Time, timezone strin
 }
 
 func metricSport(value string) string {
-	normalized := strings.ToLower(value)
-	switch normalized {
-	case "hike", "hiking":
+	switch observations.NormalizeSport(value) {
+	case "hike":
 		return "hike"
-	case "ride", "cycling", "bike":
+	case "ride":
 		return "ride"
-	case "run", "running":
+	case "run":
 		return "run"
-	case "swim", "swimming":
+	case "swim":
 		return "swim"
-	case "walk", "walking":
+	case "walk":
 		return "walk"
 	default:
 		return "other"

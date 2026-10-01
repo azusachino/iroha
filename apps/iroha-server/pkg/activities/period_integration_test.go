@@ -55,6 +55,50 @@ func TestPeriodReportUsesRequestedHalfOpenWindowAndSportOrder(t *testing.T) {
 	}
 }
 
+func TestPeriodReportCanonicalizesSportAliases(t *testing.T) {
+	db := openActivitiesIntegrationDB(t)
+	rawID := uuid.New()
+	createdAt := time.Now().UTC()
+	if err := db.Create(&models.RawFile{
+		ID: rawID, SHA256: "activities-period-aliases-" + rawID.String(), OriginalFilename: "period.gpx",
+		StoragePath: "/tmp/period.gpx", SourceKind: "gpx", UploadedVia: "test", CreatedAt: createdAt,
+	}).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	t.Cleanup(func() { db.Exec("delete from tb_raw_files where id = ?", rawID) })
+
+	tokyo := time.FixedZone("+09", 9*60*60)
+	inside := time.Date(2026, time.February, 1, 0, 0, 0, 0, tokyo)
+	upper := time.Date(2026, time.March, 1, 0, 0, 0, 0, tokyo)
+	distanceRun := 2500.0
+	runDuration := 600
+	rows := []models.Activity{
+		{ID: uuid.New(), SportType: "run", StartedAt: inside, DistanceM: &distanceRun, DurationS: &runDuration, SourceKind: "gpx", FirstRawFileID: rawID, CreatedAt: createdAt, UpdatedAt: createdAt},
+		{ID: uuid.New(), SportType: "running", StartedAt: inside.Add(2 * time.Hour), DistanceM: &distanceRun, DurationS: &runDuration, SourceKind: "gpx", FirstRawFileID: rawID, CreatedAt: createdAt, UpdatedAt: createdAt},
+		{ID: uuid.New(), SportType: "FitnessGaming", StartedAt: inside.Add(4 * time.Hour), DurationS: &runDuration, SourceKind: "gpx", FirstRawFileID: rawID, CreatedAt: createdAt, UpdatedAt: createdAt},
+	}
+	for _, row := range rows {
+		if err := db.Create(&row).Error; err != nil {
+			t.Fatalf("create activity: %v", err)
+		}
+		t.Cleanup(func() { db.Exec("delete from tb_activities where id = ?", row.ID) })
+	}
+
+	result, err := NewService(db).PeriodReport(PeriodFilters{From: inside, To: upper, Timezone: "Asia/Tokyo"})
+	if err != nil {
+		t.Fatalf("period report: %v", err)
+	}
+	if len(result.BySport) != 2 {
+		t.Fatalf("expected 2 sports (fitness_gaming, run), got %d: %+v", len(result.BySport), result.BySport)
+	}
+	if result.BySport[0].Sport != "fitness_gaming" || result.BySport[1].Sport != "run" {
+		t.Fatalf("unexpected sports: %+v", result.BySport)
+	}
+	if result.BySport[1].ActivityCount != 2 || result.BySport[1].DistanceM != 5000 {
+		t.Fatalf("run not combined: %+v", result.BySport[1])
+	}
+}
+
 func TestSummaryUsesRequestedTimezoneAndKeepsFacetsUsefulForFilters(t *testing.T) {
 	db := openActivitiesIntegrationDB(t)
 	rawID := uuid.New()

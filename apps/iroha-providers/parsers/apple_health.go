@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
 )
 
 type appleWorkout struct {
@@ -1256,16 +1258,5 @@ func parseDistanceMeters(value string, unit string) *float64 {
 }
 
 func normalizeAppleSport(value string) string {
-	switch value {
-	case "HKWorkoutActivityTypeRunning":
-		return "run"
-	case "HKWorkoutActivityTypeWalking":
-		return "walk"
-	case "HKWorkoutActivityTypeCycling":
-		return "ride"
-	case "HKWorkoutActivityTypeHiking":
-		return "hike"
-	default:
-		return strings.TrimPrefix(value, "HKWorkoutActivityType")
-	}
+	return observations.NormalizeSport(value)
 }
