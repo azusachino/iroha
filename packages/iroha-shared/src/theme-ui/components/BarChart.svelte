@@ -7,6 +7,7 @@
   // orientation keep some of each theme's own identity.
   import { onMount } from "svelte";
   import { chartSignature } from "./chart-signature";
+  import { resolveColor } from "./chart-color";
   import { BarChart as EchartsBarChart, LineChart } from "echarts/charts";
   import {
     GridComponent,
@@ -70,16 +71,6 @@
     const value = series.values[index];
     if (value == null || !Number.isFinite(value)) return "No observation";
     return (series.formatter || defaultFormatter)(value);
-  }
-
-  function resolveColor(
-    value: string | undefined,
-    styles: CSSStyleDeclaration,
-    fallback: string,
-  ): string {
-    if (!value) return fallback;
-    const match = value.match(/^var\((--[\w-]+)\)$/);
-    return match ? styles.getPropertyValue(match[1]).trim() || fallback : value;
   }
 
   function render() {

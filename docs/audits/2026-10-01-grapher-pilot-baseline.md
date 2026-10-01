@@ -55,6 +55,8 @@ These are normal-sized text, requiring 4.5:1. Correct the owning semantic tokens
 
 ### MEDIUM — one observed Metrics point has no visible mark
 
+Resolved by the isolated-point follow-up below; retained here as baseline evidence.
+
 The Steps fixture has a finite value of 12,345 and coverage 1/1. Its line chart shows axes but no point. The loaded option and `packages/iroha-shared/src/theme-ui/components/DailySmallMultiples.svelte` both have `showSymbol: false`; one point cannot draw a connecting line. Exact values remain available through the trend data/table controls, but the visual does not distinguish this observation from an empty plot. Include a one-point case in the chart/tick slice.
 
 ### MEDIUM — narrow expense composition tick labels overlap
@@ -89,3 +91,13 @@ The baseline was committed separately as `1576fa3`. The blocking `chart-scope.sp
 `YearProgressChart` now replaces its complete option with `notMerge: true`, matching the existing shared `MediaBarChart` pattern. This component rebuilds the whole scope option; retaining prior models also retained removed years and legend-selection state. No new chart, visual primitive or initialization/disposal workaround was introduced. The animation settings and missing-value data are unchanged.
 
 Verification: focused regressions 2/2; `make validate` passed; `CI=1 make e2e` 14/14; pilot probes 35/35, retained separately in `fixed-report.json`. The original `report.json` remains baseline evidence. Other findings and the earlier initialization exception remain unresolved; this is not Phase 1 completion.
+
+## Follow-up: isolated metric observations
+
+After PR #99 merged, the shared `DailySmallMultiples` chart enables native markers when a series contains a finite observation without a finite neighbor. Fully connected series keep their unmarked appearance and native hover feedback. Mixed sparse series mark their finite observations; nulls remain gaps and observed zero remains a measurement. `showAllSymbol` prevents category-label thinning from hiding the isolated marker, while `connectNulls: false` is explicit. No chart-type replacement or palette identity change is involved.
+
+A zero-sized-symbol approach was not retained: ECharts' default hover scaler divides by symbol size. The native per-series visibility flag avoids that invalid emphasis geometry and keeps its normal symbol sizing.
+
+Screenshot review also exposed unresolved CSS `var(--accent)` paint passed directly to the canvas renderer. The existing `BarChart` simple-token resolver was moved unchanged into shared `chart-color.ts` and reused for small-multiple marks and axis names. Computed colors now reach the renderer; no per-route color map was added. This resolver supports the same simple-token/literal cases as before, not a new general CSS parser.
+
+Blocking browser tests cover one point, observed zero, separated points, mixed sparse/connected points and fully connected points in both modes, using ECharts' public `getOption`/`getVisual` APIs plus exact-table assertions. Marker sizes and resolved paint are checked separately: a symbol-size flag alone did not catch the faint-marker problem. Focused tests failed before each behavior correction; ten focused cases and all 24 blocking browser tests now pass. `make validate` passes, including color-helper unit tests and both consumer builds. Full palette/contrast/state/zoom acceptance and the original initialization exception remain outside this slice.
