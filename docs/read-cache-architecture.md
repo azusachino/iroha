@@ -64,7 +64,7 @@ sequenceDiagram
     Note over SF: Leader acquires flightKey lock
     C2->>I: GET /api/v1/activities/overview
     I->>SF: GetOrLoadAtGeneration(flightKey)
-    Note over SF: Client 2 joins existing flight; waits on channel
+    Note over SF: Client 2 joins existing flight and waits on channel
     I->>S: next.ServeHTTP(wrappedResponseWriter)
     S-->>I: 200 OK + JSON Body
     I->>V: SetConditional(namespace, generation, key, body, 24h)
