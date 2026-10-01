@@ -36,6 +36,8 @@ The fixture model includes two distinct activity years (2025: 8km; 2026: 12.5km)
 
 ### HIGH — a public year change retains a future-year series
 
+Resolved by the follow-up below; retained here as baseline evidence.
+
 On the public landing, select 2025 after the initial 2026 render. The chart label and activity table switch to 2025, but the loaded `YearProgressChart` option still contains both the 2025 (8,000m) and 2026 (12,500m) series. Repeating the switches reproduces the stale series. Selecting 2025 has no 2024 prior series in this fixture, so 2026 must not remain as its comparison.
 
 Evidence: `chart-lifecycle.json` attachment, inspected through the already-loaded ECharts module's public `getInstanceByDom`/`getOption` APIs. `packages/iroha-shared/src/components/YearProgressChart.svelte` updates with ordinary option merging. Add a blocking series-removal regression before changing its update policy. This is a reproduced data/scope defect; it is **not** a root-cause explanation for the earlier intermittent initialization exception.
@@ -78,4 +80,12 @@ The populated public route lacks a main landmark. Table sort controls measure ab
 - `CI=1 make e2e`: 12/12 blocking browser regressions passed.
 - No backend changes, database mutation, deployment or release. Disposable PostGIS integration was not rerun for this audit-only slice.
 
-Keep issue #85 and Grapher Phase 1 open. First add a failing regression for stale year-series removal and address chart correctness; then proceed with the approved tick/palette/type slices. Retain page-error assertions and stack diagnostics: the earlier CI `__ec_inner_*` initialization exception has not reproduced here and is still unresolved. Complete deferred-state, native-zoom, chart-mark/focus contrast and equivalent-scope checks before claiming P1-A1–A9 acceptance.
+Keep issue #85 and Grapher Phase 1 open. The stale-series follow-up below addresses the first chart-correctness finding; proceed next with the remaining findings and approved tick/palette/type slices. Retain page-error assertions and stack diagnostics: the earlier CI `__ec_inner_*` initialization exception has not reproduced here and is still unresolved. Complete deferred-state, native-zoom, chart-mark/focus contrast and equivalent-scope checks before claiming P1-A1–A9 acceptance.
+
+## Follow-up: stale year-series removal
+
+The baseline was committed separately as `1576fa3`. The blocking `chart-scope.spec.ts` regression first failed in both modes: choosing 2025 left a 2026 series with 12,500m in the plot. It observes the rendered chart through the same loaded ECharts public API, not merely the already-correct label/table.
+
+`YearProgressChart` now replaces its complete option with `notMerge: true`, matching the existing shared `MediaBarChart` pattern. This component rebuilds the whole scope option; retaining prior models also retained removed years and legend-selection state. No new chart, visual primitive or initialization/disposal workaround was introduced. The animation settings and missing-value data are unchanged.
+
+Verification: focused regressions 2/2; `make validate` passed; `CI=1 make e2e` 14/14; pilot probes 35/35, retained separately in `fixed-report.json`. The original `report.json` remains baseline evidence. Other findings and the earlier initialization exception remain unresolved; this is not Phase 1 completion.

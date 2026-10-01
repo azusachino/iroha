@@ -98,6 +98,7 @@
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    // This scope owns the full option; merging retains removed years and legend state.
     chart.setOption({
       animation: !reducedMotion,
       animationDuration: reducedMotion ? 0 : 800,
@@ -194,7 +195,7 @@
             ]
           : []),
       ],
-    });
+    }, { notMerge: true });
   }
 
   onMount(() => {

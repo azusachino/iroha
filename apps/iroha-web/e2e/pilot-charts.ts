@@ -12,20 +12,19 @@ export async function inspectPilotCharts() {
       const chart = core.getInstanceByDom(el);
       if (!chart) return [];
       const option = chart.getOption();
+      const series: {
+        name?: string;
+        data?: unknown[];
+        showSymbol?: boolean;
+      }[] = option.series ?? [];
       return [
         {
           label: el.getAttribute("aria-label"),
-          series: (option.series ?? []).map(
-            (series: {
-              name?: string;
-              data?: unknown[];
-              showSymbol?: boolean;
-            }) => ({
-              name: series.name,
-              data: series.data,
-              showSymbol: series.showSymbol,
-            }),
-          ),
+          series: series.map((series) => ({
+            name: series.name,
+            data: series.data,
+            showSymbol: series.showSymbol,
+          })),
           animation: option.animation,
           animationDuration: option.animationDuration,
           xAxis: (option.xAxis ?? []).map(
