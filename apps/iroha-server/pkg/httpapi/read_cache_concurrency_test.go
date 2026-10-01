@@ -212,3 +212,206 @@ func TestReadCacheDoesNotCacheUnsuccessfulOrNonJSONResponses(t *testing.T) {
 		})
 	}
 }
+
+type countingReadCacheTestStore struct {
+	generationReadCacheTestStore
+	lookups atomic.Int32
+}
+
+func (s *countingReadCacheTestStore) GetWithGeneration(ctx context.Context, namespace, key string) ([]byte, int64, bool, error) {
+	s.lookups.Add(1)
+	return s.generationReadCacheTestStore.GetWithGeneration(ctx, namespace, key)
+}
+
+func TestReadCacheAvoidsRedundantLookupsOnConcurrentMiss(t *testing.T) {
+	store := &countingReadCacheTestStore{}
+	server := &Server{deps: Dependencies{Cache: cache.NewWithStore(store)}}
+	started, release := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+
+	handler := server.readCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-release
+		writeJSON(w, http.StatusOK, map[string]string{"result": "ok"})
+	}))
+
+	first, second := httptest.NewRecorder(), httptest.NewRecorder()
+	firstDone, secondDone := make(chan struct{}), make(chan struct{})
+
+	go func() {
+		handler.ServeHTTP(first, httptest.NewRequest(http.MethodGet, "/api/v1/daily", nil))
+		close(firstDone)
+	}()
+	awaitCacheSignal(t, started)
+
+	ctx := &cacheWaitingContext{Context: context.Background(), waiting: make(chan struct{})}
+	go func() {
+		handler.ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/api/v1/daily", nil).WithContext(ctx))
+		close(secondDone)
+	}()
+	awaitCacheSignal(t, ctx.waiting)
+
+	releaseOnce.Do(func() { close(release) })
+	awaitCacheSignal(t, firstDone)
+	awaitCacheSignal(t, secondDone)
+
+	// In the redundant-lookup implementation (calling GetOrLoad without generation reuse),
+	// request 1 does: server.go (1) + GetOrLoad (1) + post-flight recheck (1) = 3 lookups.
+	// request 2 does: server.go (1) + GetOrLoad (1) = 2 lookups. Total was 5 lookups.
+	// In the fixed implementation (GetOrLoadAtGeneration), request 1 does: server.go (1) + recheck (1) = 2.
+	// request 2 does: server.go (1) + 0 in GetOrLoadAtGeneration = 1. Total is 3 lookups.
+	if lookups := store.lookups.Load(); lookups != 3 {
+		t.Fatalf("cache lookups = %d, want exactly 3 (redundant initial lookups would cause 5)", lookups)
+	}
+}
+
+func TestReadCacheIndependentKeysAndRevisionsProceedConcurrently(t *testing.T) {
+	server := &Server{deps: Dependencies{Cache: cache.NewWithStore(&generationReadCacheTestStore{})}}
+	dailyStarted, expensesStarted := make(chan struct{}), make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+
+	var dailyCalls, expensesCalls atomic.Int32
+	dailyHandler := server.readCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		dailyCalls.Add(1)
+		close(dailyStarted)
+		<-release
+		writeJSON(w, http.StatusOK, map[string]string{"type": "daily"})
+	}))
+	expensesHandler := server.readCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		expensesCalls.Add(1)
+		close(expensesStarted)
+		<-release
+		writeJSON(w, http.StatusOK, map[string]string{"type": "expenses"})
+	}))
+
+	dailyDone, expensesDone := make(chan struct{}), make(chan struct{})
+	go func() {
+		dailyHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/daily", nil))
+		close(dailyDone)
+	}()
+	go func() {
+		expensesHandler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/expenses", nil))
+		close(expensesDone)
+	}()
+
+	awaitCacheSignal(t, dailyStarted)
+	awaitCacheSignal(t, expensesStarted)
+
+	releaseOnce.Do(func() { close(release) })
+	awaitCacheSignal(t, dailyDone)
+	awaitCacheSignal(t, expensesDone)
+
+	if dailyCalls.Load() != 1 || expensesCalls.Load() != 1 {
+		t.Fatalf("calls = daily:%d expenses:%d, want 1 each", dailyCalls.Load(), expensesCalls.Load())
+	}
+}
+
+func TestReadCacheConcurrentFailedResponsesRetainOwnContext(t *testing.T) {
+	server := &Server{deps: Dependencies{Cache: cache.NewWithStore(&generationReadCacheTestStore{})}}
+	leaderStarted, release := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+
+	var calls atomic.Int32
+	handler := server.readCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		call := calls.Add(1)
+		if call == 1 {
+			w.Header().Set("X-Failed-Role", "leader")
+			close(leaderStarted)
+			<-release
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"leader failed"}`))
+			return
+		}
+		w.Header().Set("X-Failed-Role", "waiter")
+		writeJSON(w, http.StatusOK, map[string]string{"role": "waiter-recovered"})
+	}))
+
+	leaderRec, waiterRec := httptest.NewRecorder(), httptest.NewRecorder()
+	leaderDone, waiterDone := make(chan struct{}), make(chan struct{})
+
+	go func() {
+		handler.ServeHTTP(leaderRec, httptest.NewRequest(http.MethodGet, "/api/v1/daily", nil))
+		close(leaderDone)
+	}()
+	awaitCacheSignal(t, leaderStarted)
+
+	ctx := &cacheWaitingContext{Context: context.Background(), waiting: make(chan struct{})}
+	go func() {
+		handler.ServeHTTP(waiterRec, httptest.NewRequest(http.MethodGet, "/api/v1/daily", nil).WithContext(ctx))
+		close(waiterDone)
+	}()
+	awaitCacheSignal(t, ctx.waiting)
+
+	releaseOnce.Do(func() { close(release) })
+	awaitCacheSignal(t, leaderDone)
+	awaitCacheSignal(t, waiterDone)
+
+	if leaderRec.Code != http.StatusBadRequest || leaderRec.Header().Get("X-Failed-Role") != "leader" {
+		t.Fatalf("leader = code %d role %s", leaderRec.Code, leaderRec.Header().Get("X-Failed-Role"))
+	}
+	if waiterRec.Code != http.StatusOK || waiterRec.Header().Get("X-Failed-Role") != "waiter" {
+		t.Fatalf("waiter did not retain own context: code %d role %s body %s", waiterRec.Code, waiterRec.Header().Get("X-Failed-Role"), waiterRec.Body.String())
+	}
+	cachedRec := httptest.NewRecorder()
+	handler.ServeHTTP(cachedRec, httptest.NewRequest(http.MethodGet, "/api/v1/daily", nil))
+	if calls.Load() != 3 {
+		t.Fatalf("handler calls = %d, want 3 (failed response must not be cached)", calls.Load())
+	}
+}
+
+func TestReadCacheLeaderPanicReleasesJoinedWaitersAndFailsOpen(t *testing.T) {
+	server := &Server{deps: Dependencies{Cache: cache.NewWithStore(&generationReadCacheTestStore{})}}
+	leaderStarted, release := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+
+	var calls atomic.Int32
+	handler := server.readCache(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		call := calls.Add(1)
+		if call == 1 {
+			close(leaderStarted)
+			<-release
+			panic("simulated handler panic")
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"recovered": "ok"})
+	}))
+
+	leaderDone, waiterDone := make(chan struct{}), make(chan struct{})
+	leaderRec, waiterRec := httptest.NewRecorder(), httptest.NewRecorder()
+
+	ctx := &cacheWaitingContext{Context: context.Background(), waiting: make(chan struct{})}
+
+	go func() {
+		defer close(leaderDone)
+		defer func() {
+			_ = recover()
+		}()
+		handler.ServeHTTP(leaderRec, httptest.NewRequest(http.MethodGet, "/api/v1/daily", nil))
+	}()
+
+	awaitCacheSignal(t, leaderStarted)
+
+	go func() {
+		handler.ServeHTTP(waiterRec, httptest.NewRequest(http.MethodGet, "/api/v1/daily", nil).WithContext(ctx))
+		close(waiterDone)
+	}()
+	awaitCacheSignal(t, ctx.waiting)
+
+	releaseOnce.Do(func() { close(release) })
+	awaitCacheSignal(t, leaderDone)
+	awaitCacheSignal(t, waiterDone)
+
+	if waiterRec.Code != http.StatusOK {
+		t.Fatalf("waiter code = %d, want 200 (fail-open)", waiterRec.Code)
+	}
+
+	retryRec := httptest.NewRecorder()
+	handler.ServeHTTP(retryRec, httptest.NewRequest(http.MethodGet, "/api/v1/daily", nil))
+	if retryRec.Code != http.StatusOK {
+		t.Fatalf("retry code = %d, want 200", retryRec.Code)
+	}
+}

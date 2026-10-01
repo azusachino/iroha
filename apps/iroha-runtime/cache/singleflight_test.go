@@ -62,18 +62,73 @@ func TestGetOrLoadRechecksCacheAfterDelayedMiss(t *testing.T) {
 	}
 }
 
-func TestGetOrLoadPanicReleasesFlightAndAllowsRetry(t *testing.T) {
+type flightWaitingContext struct {
+	context.Context
+	once    sync.Once
+	waiting chan struct{}
+}
+
+func (c *flightWaitingContext) Done() <-chan struct{} {
+	c.once.Do(func() { close(c.waiting) })
+	return c.Context.Done()
+}
+
+func TestGetOrLoadPanicReleasesJoinedWaitersAndAllowsRetry(t *testing.T) {
 	client := NewWithStore(&fakeStore{})
-	func() {
+	started := make(chan struct{})
+	waiterContext := &flightWaitingContext{Context: context.Background(), waiting: make(chan struct{})}
+	waiterDone := make(chan struct{})
+	var waiterErr error
+	var waiterVal string
+
+	leaderDone := make(chan struct{})
+	go func() {
+		defer close(leaderDone)
 		defer func() {
 			if recovered := recover(); recovered != "loader panic" {
-				t.Fatalf("recovered = %v, want loader panic", recovered)
+				t.Errorf("recovered = %v, want loader panic", recovered)
 			}
 		}()
 		_, _ = GetOrLoad(context.Background(), client, "test", "key", time.Minute, func() (string, error) {
+			close(started)
+			select {
+			case <-waiterContext.waiting:
+			case <-time.After(time.Second):
+				t.Error("waiter did not join flight before timeout")
+			}
 			panic("loader panic")
 		})
 	}()
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("leader did not start")
+	}
+
+	go func() {
+		defer close(waiterDone)
+		waiterVal, waiterErr = GetOrLoad(waiterContext, client, "test", "key", time.Minute, func() (string, error) {
+			return "waiter should not run loader", nil
+		})
+	}()
+
+	select {
+	case <-leaderDone:
+	case <-time.After(time.Second):
+		t.Fatal("leader did not finish panic cleanup")
+	}
+
+	select {
+	case <-waiterDone:
+	case <-time.After(time.Second):
+		t.Fatal("joined waiter did not unblock after loader panic")
+	}
+
+	if waiterErr == nil || waiterErr.Error() != "cache loader did not complete" {
+		t.Fatalf("waiter error = %v, want 'cache loader did not complete' (val=%q)", waiterErr, waiterVal)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	value, err := GetOrLoad(ctx, client, "test", "key", time.Minute, func() (string, error) {
@@ -81,5 +136,18 @@ func TestGetOrLoadPanicReleasesFlightAndAllowsRetry(t *testing.T) {
 	})
 	if err != nil || value != "recovered" {
 		t.Fatalf("retry = %q/%v, want recovered/nil", value, err)
+	}
+}
+
+func TestGetOrLoadAtGenerationBypassesInitialLookup(t *testing.T) {
+	store := &generationFakeStore{}
+	client := NewWithStore(store)
+	calls := 0
+	val, err := GetOrLoadAtGeneration(context.Background(), client, "test", "key", 1, time.Minute, func() (string, error) {
+		calls++
+		return "val", nil
+	})
+	if err != nil || val != "val" || calls != 1 {
+		t.Fatalf("val=%q err=%v calls=%d", val, err, calls)
 	}
 }

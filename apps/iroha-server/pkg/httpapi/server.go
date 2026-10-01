@@ -343,7 +343,7 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 			return
 		}
 		key := cache.KeyWithRevisionVector(s.readCacheKey(request), vector)
-		body, _, ok := cache.GetWithGeneration[[]byte](request.Context(), s.deps.Cache, namespace, key)
+		body, generation, ok := cache.GetWithGeneration[[]byte](request.Context(), s.deps.Cache, namespace, key)
 		if ok {
 			w.Header().Set("X-Iroha-Cache", "HIT")
 			w.Header().Set("Content-Type", "application/json")
@@ -354,7 +354,7 @@ func (s *Server) readCache(next http.Handler) http.Handler {
 
 		w.Header().Set("X-Iroha-Cache", "MISS")
 		loaded := false
-		body, err = cache.GetOrLoad(request.Context(), s.deps.Cache, namespace, key, readCacheTTL, func() ([]byte, error) {
+		body, err = cache.GetOrLoadAtGeneration(request.Context(), s.deps.Cache, namespace, key, generation, readCacheTTL, func() ([]byte, error) {
 			loaded = true
 			wrapped := &readCacheResponseWriter{ResponseWriter: w}
 			next.ServeHTTP(wrapped, request)
@@ -393,7 +393,7 @@ func (s *Server) readSnapshot(ctx context.Context, namespace string) (context.Co
 		return ctx, func() {}, err
 	}
 	return context.WithValue(ctx, readSnapshotContextKey{}, tx), func() {
-		_ = tx.Rollback().Error
+		_ = tx.WithContext(context.Background()).Rollback().Error
 	}, nil
 }
 

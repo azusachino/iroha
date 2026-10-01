@@ -236,6 +236,12 @@ func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl
 	if ok {
 		return value, nil
 	}
+	return GetOrLoadAtGeneration(ctx, c, namespace, key, generation, ttl, loader)
+}
+
+// GetOrLoadAtGeneration implements single-flight loading for an observed miss at a known generation.
+// It bypasses repeating the initial GetWithGeneration lookup while retaining the post-flight recheck.
+func GetOrLoadAtGeneration[T any](ctx context.Context, c *Client, namespace, key string, generation int64, ttl time.Duration, loader func() (T, error)) (T, error) {
 	if c == nil || c.store == nil {
 		return loader()
 	}
@@ -276,7 +282,9 @@ func GetOrLoad[T any](ctx context.Context, c *Client, namespace, key string, ttl
 	}
 	value, err := loader()
 	if err == nil {
-		SetAtGeneration(ctx, c, namespace, key, generation, ttl, value)
+		setCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		SetAtGeneration(setCtx, c, namespace, key, generation, ttl, value)
 	}
 	flight.value = value
 	flight.err = err

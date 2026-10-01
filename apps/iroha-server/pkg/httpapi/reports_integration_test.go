@@ -4,7 +4,10 @@ package httpapi
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -241,5 +244,119 @@ func TestIntegrationMonthlyReportSeriesCarriesHealthMetricAverages(t *testing.T)
 	}
 	if averages[0].(map[string]any)["metric"] != "resting_hr" || averages[0].(map[string]any)["unit"] != "bpm" {
 		t.Fatalf("metric average = %#v", averages[0])
+	}
+}
+
+type reportCancellationHookStore struct {
+	generationReadCacheTestStore
+	lookups     atomic.Int32
+	flightReady chan struct{}
+}
+
+func (s *reportCancellationHookStore) GetWithGeneration(ctx context.Context, namespace, key string) ([]byte, int64, bool, error) {
+	val, gen, found, err := s.generationReadCacheTestStore.GetWithGeneration(ctx, namespace, key)
+	if s.lookups.Add(1) == 2 && s.flightReady != nil {
+		close(s.flightReady)
+	}
+	return val, gen, found, err
+}
+
+func TestIntegrationReportConcurrentMissCancellationAndTransactionCleanup(t *testing.T) {
+	db := openIntegrationDB(t)
+	resetIntegrationDB(t, db)
+	t.Cleanup(func() { resetIntegrationDB(t, db) })
+
+	store := &reportCancellationHookStore{flightReady: make(chan struct{})}
+	responseCache := cache.NewWithStore(store)
+	server := NewServer(Dependencies{
+		Auth:            allowAllAuth{},
+		Now:             func() time.Time { return time.Date(2099, time.December, 31, 12, 0, 0, 0, time.UTC) },
+		DB:              db,
+		Cache:           responseCache,
+		ActivityService: activities.NewService(db),
+		SleepService:    sleep.NewService(db),
+		DailyService:    daily.NewService(db),
+		ExpenseService:  expenses.NewService(db),
+		MediaService:    media.NewService(db),
+	})
+
+	now := time.Now().UTC()
+	rawID := uuid.New()
+	if err := db.Create(&models.RawFile{
+		ID: rawID, SHA256: "report-cleanup-" + rawID.String(), OriginalFilename: "cleanup-test.xml",
+		StoragePath: "/tmp/cleanup-test.xml", SourceKind: "test", UploadedVia: "test", CreatedAt: now,
+	}).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	day := time.Date(2099, time.May, 1, 0, 0, 0, 0, time.UTC)
+	metric := models.DailyMetric{ID: uuid.New(), Day: day, Metric: "resting_hr", Value: 60, Unit: "bpm", Source: "test", FirstRawFileID: rawID, CreatedAt: now, UpdatedAt: now}
+	if err := db.Create(&metric).Error; err != nil {
+		t.Fatalf("create daily metric: %v", err)
+	}
+
+	ownerCtx, cancelOwner := context.WithCancel(context.Background())
+	defer cancelOwner()
+
+	ownerRec := httptest.NewRecorder()
+	ownerDone := make(chan struct{})
+	go func() {
+		defer close(ownerDone)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?month=2099-05&timezone=UTC", nil).WithContext(ownerCtx)
+		server.ServeHTTP(ownerRec, req)
+	}()
+
+	select {
+	case <-store.flightReady:
+	case <-time.After(2 * time.Second):
+		t.Fatal("owner did not acquire single-flight before timeout")
+	}
+
+	waiterWaitingCtx := &cacheWaitingContext{Context: context.Background(), waiting: make(chan struct{})}
+	waiterRec := httptest.NewRecorder()
+	waiterDone := make(chan struct{})
+
+	go func() {
+		defer close(waiterDone)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/reports/monthly?month=2099-05&timezone=UTC", nil).WithContext(waiterWaitingCtx)
+		server.ServeHTTP(waiterRec, req)
+	}()
+
+	select {
+	case <-waiterWaitingCtx.waiting:
+	case <-time.After(2 * time.Second):
+		t.Fatal("waiter did not join single-flight before timeout")
+	}
+
+	cancelOwner()
+
+	select {
+	case <-ownerDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("owner request did not finish after cancellation")
+	}
+
+	select {
+	case <-waiterDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("waiter did not complete after owner cancellation")
+	}
+
+	if waiterRec.Code != http.StatusOK {
+		t.Fatalf("waiter response code = %d, want 200; body = %s", waiterRec.Code, waiterRec.Body.String())
+	}
+
+	var idleSessions []struct {
+		PID   int32
+		State string
+		Query string
+	}
+	if err := db.Raw("SELECT pid, state, query FROM pg_stat_activity WHERE datname = current_database() AND state = 'idle in transaction'").Scan(&idleSessions).Error; err != nil {
+		t.Fatalf("query pg_stat_activity: %v", err)
+	}
+	if len(idleSessions) != 0 {
+		for _, s := range idleSessions {
+			t.Logf("idle in tx session: pid=%d state=%s query=%q", s.PID, s.State, s.Query)
+		}
+		t.Fatalf("found %d connections still idle in transaction after cancellation", len(idleSessions))
 	}
 }
