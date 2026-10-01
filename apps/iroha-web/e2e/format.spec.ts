@@ -84,7 +84,9 @@ for (const host of ["private", "public"] as const) {
     }) => {
       await page.emulateMedia({ colorScheme: mode });
       const errors: string[] = [];
-      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("pageerror", (error) =>
+        errors.push(error.stack ?? error.message),
+      );
       const privateRequests: string[] = [];
       if (host === "private") {
         await mockPrivate(page);
