@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -11,7 +12,12 @@ import (
 
 const (
 	defaultPageLimit = 50
-	routeTrimMeters  = 200
+
+	// RouteTrimMeters is how much distance is trimmed from the start and end
+	// of each route before it is exposed publicly, preventing observers from
+	// pinpointing exact home/work addresses.
+	RouteTrimMeters = 200
+	routeTrimMeters = RouteTrimMeters
 
 	// routeMinPoints is the minimum number of points a trimmed route must
 	// retain to be worth emitting; shorter remainders are dropped entirely.
@@ -73,7 +79,12 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 
 	query := s.db.Model(&models.Activity{})
 	if filters.SportType != "" {
-		query = query.Where("sport_type = ?", filters.SportType)
+		aliases := observations.SportAliases(filters.SportType)
+		if len(aliases) == 1 {
+			query = query.Where("sport_type = ?", aliases[0])
+		} else {
+			query = query.Where("sport_type IN ?", aliases)
+		}
 	}
 	if filters.StartedFrom != nil {
 		query = query.Where("started_at >= ?", *filters.StartedFrom)

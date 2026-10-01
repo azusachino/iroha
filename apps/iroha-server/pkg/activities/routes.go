@@ -50,8 +50,9 @@ type routePointRow struct {
 }
 
 // RouteLines returns all activities' routes as decimated polylines for the
-// public map. The public projection intentionally preserves the complete
-// track; decimation only keeps the static snapshot reasonably sized.
+// public map, privacy-trimmed (dropping the first/last routeTrimMeters so a
+// viewer cannot pinpoint exact start/end locations) and coordinate-rounded
+// to 5 decimal places (~1.1m precision).
 func (s *Service) RouteLines() ([]RouteLine, error) {
 	var rows []routePointRow
 	err := s.db.Table("tb_activity_route_points AS p").
@@ -93,14 +94,20 @@ func (s *Service) RouteLines() ([]RouteLine, error) {
 
 	lines := make([]RouteLine, 0, len(tracks))
 	for _, t := range tracks {
-		if len(t.coords) < routeMinPoints {
+		trimmed := trimRouteEnds(t.coords)
+		if len(trimmed) < routeMinPoints {
 			continue
+		}
+		decimated := decimatePoints(trimmed)
+		for i := range decimated {
+			decimated[i][0] = RoundCoordinate(decimated[i][0])
+			decimated[i][1] = RoundCoordinate(decimated[i][1])
 		}
 		lines = append(lines, RouteLine{
 			ActivityID: t.activityID,
 			SportType:  t.sport,
 			Year:       t.year,
-			Points:     decimatePoints(t.coords),
+			Points:     decimated,
 		})
 	}
 	return lines, nil
@@ -169,6 +176,19 @@ func trimRouteEnds(coords [][2]float64) [][2]float64 {
 		}
 	}
 	return trimmed
+}
+
+// RoundCoordinate rounds a latitude or longitude float to 5 decimal places
+// (~1.1 meter precision), eliminating micro-precision tracking while keeping
+// mapping fidelity.
+func RoundCoordinate(v float64) float64 {
+	return math.Round(v*1e5) / 1e5
+}
+
+// HaversineMeters returns the great-circle distance between two [lon, lat]
+// points in meters.
+func HaversineMeters(a, b [2]float64) float64 {
+	return haversineMeters(a, b)
 }
 
 // haversineMeters returns the great-circle distance between two [lon, lat]

@@ -22,6 +22,7 @@ func (s *Service) persistActivitiesTx(tx *gorm.DB, rawFile models.RawFile, parse
 		if activity.ExternalID == "" {
 			return fmt.Errorf("parsed activity missing external id")
 		}
+		activity.SportType = observations.NormalizeSport(activity.SportType)
 
 		activityID, err := s.upsertActivity(tx, rawFile, activity)
 		if err != nil {
@@ -179,7 +180,7 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed obs
 	now := time.Now().UTC()
 	if found {
 		updates := map[string]any{
-			"sport_type":         parsed.SportType,
+			"sport_type":         observations.NormalizeSport(parsed.SportType),
 			"title":              parsed.Title,
 			"started_at":         parsed.StartedAt,
 			"ended_at":           parsed.EndedAt,
@@ -206,7 +207,7 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed obs
 
 	activity := models.Activity{
 		ID:               activityID,
-		SportType:        parsed.SportType,
+		SportType:        observations.NormalizeSport(parsed.SportType),
 		Title:            parsed.Title,
 		StartedAt:        parsed.StartedAt,
 		EndedAt:          parsed.EndedAt,

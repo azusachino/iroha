@@ -53,6 +53,44 @@ func TestDecimateActivityDetailRouteKeepsEndpoints(t *testing.T) {
 	}
 }
 
+func TestToActivityDetailRoute_TrimmingAndRounding(t *testing.T) {
+	// Construct a 1 km track (~100 points, ~10m apart) with high precision coordinates
+	const metersPerDegLat = 111000.0
+	points := make([]models.ActivityRoutePoint, 100)
+	for i := range points {
+		points[i] = models.ActivityRoutePoint{
+			Seq: i,
+			Lon: 139.712345678,
+			Lat: 35.000000001 + float64(i)*10.0/metersPerDegLat,
+		}
+	}
+
+	got := toActivityDetailRoute(points, true)
+	if len(got) == 0 {
+		t.Fatal("expected non-empty trimmed route")
+	}
+
+	// Coordinates should be rounded to 5 decimal places
+	if got[0].Lon != 139.71235 {
+		t.Errorf("got lon = %f, want 139.71235", got[0].Lon)
+	}
+
+	// Endpoints must have been trimmed by ~200m
+	if got[0].Seq < 15 {
+		t.Errorf("start point seq = %d, expected >= 15 after 200m trim", got[0].Seq)
+	}
+	if got[len(got)-1].Seq > 85 {
+		t.Errorf("end point seq = %d, expected <= 85 after 200m trim", got[len(got)-1].Seq)
+	}
+
+	// Short track under 400m should be dropped
+	shortPoints := points[:30] // ~300m
+	gotShort := toActivityDetailRoute(shortPoints, true)
+	if len(gotShort) != 0 {
+		t.Errorf("expected short route to be dropped, got %d points", len(gotShort))
+	}
+}
+
 func TestValidateActivityDetails_AcceptsAnyPublicActivityID(t *testing.T) {
 	id := "act_0198f8f0-0000-7000-8000-000000000000"
 	if err := ValidateActivityDetails(map[string]ActivityDetail{

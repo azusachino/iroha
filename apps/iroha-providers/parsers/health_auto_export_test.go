@@ -71,8 +71,8 @@ func TestParseHealthAutoExportFixture(t *testing.T) {
 	if act.ExternalID != "7C1D3E0A-4B2F-4E8A-9D11-2A6B5C3F9E01" {
 		t.Errorf("externalID = %q, want 7C1D3E0A-4B2F-4E8A-9D11-2A6B5C3F9E01", act.ExternalID)
 	}
-	if act.SportType != "running" {
-		t.Errorf("sportType = %q, want running", act.SportType)
+	if act.SportType != "run" {
+		t.Errorf("sportType = %q, want run", act.SportType)
 	}
 	if act.DistanceM == nil || *act.DistanceM != 5120 {
 		t.Errorf("distanceM = %v, want 5120", act.DistanceM)

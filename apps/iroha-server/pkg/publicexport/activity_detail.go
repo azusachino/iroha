@@ -113,15 +113,44 @@ func toActivityDetailRoute(points []models.ActivityRoutePoint, includeRoutes boo
 		out = append(out, ActivityDetailRoutePoint{
 			Seq:        point.Seq,
 			Ts:         point.Ts,
-			Lat:        point.Lat,
-			Lon:        point.Lon,
+			Lat:        activities.RoundCoordinate(point.Lat),
+			Lon:        activities.RoundCoordinate(point.Lon),
 			ElevationM: point.ElevationM,
 			DistanceM:  point.DistanceM,
 			SpeedMPS:   point.SpeedMPS,
 			HeartRate:  point.HeartRate,
 		})
 	}
-	return decimateActivityDetailRoute(out)
+	trimmed := trimActivityDetailRoute(out)
+	if len(trimmed) == 0 {
+		return []ActivityDetailRoutePoint{}
+	}
+	return decimateActivityDetailRoute(trimmed)
+}
+
+func trimActivityDetailRoute(points []ActivityDetailRoutePoint) []ActivityDetailRoutePoint {
+	if len(points) < 2 {
+		return points
+	}
+	cumulative := make([]float64, len(points))
+	for i := 1; i < len(points); i++ {
+		cumulative[i] = cumulative[i-1] + activities.HaversineMeters(
+			[2]float64{points[i-1].Lon, points[i-1].Lat},
+			[2]float64{points[i].Lon, points[i].Lat},
+		)
+	}
+	total := cumulative[len(cumulative)-1]
+	if total <= 2*activities.RouteTrimMeters {
+		return nil
+	}
+	hi := total - activities.RouteTrimMeters
+	trimmed := make([]ActivityDetailRoutePoint, 0, len(points))
+	for i, p := range points {
+		if cumulative[i] >= activities.RouteTrimMeters && cumulative[i] <= hi {
+			trimmed = append(trimmed, p)
+		}
+	}
+	return trimmed
 }
 
 // decimateActivityDetailRoute keeps charts useful without duplicating every

@@ -1,0 +1,1 @@
+-- Reversible canonical sport alias migration is a no-op as canonical names are a valid subset of sport names.

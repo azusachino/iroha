@@ -770,25 +770,7 @@ func normalizeHaeSleepStage(val string) string {
 }
 
 func normalizeHaeSport(name string) string {
-	n := strings.ToLower(name)
-	switch {
-	case strings.Contains(n, "run"):
-		return "running"
-	case strings.Contains(n, "walk"), strings.Contains(n, "hike"):
-		return "walking"
-	case strings.Contains(n, "cycle"), strings.Contains(n, "bike"):
-		return "cycling"
-	case strings.Contains(n, "swim"):
-		return "swimming"
-	default:
-		slug := strings.ReplaceAll(n, " ", "_")
-		return strings.Map(func(r rune) rune {
-			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' {
-				return r
-			}
-			return -1
-		}, slug)
-	}
+	return observations.NormalizeSport(name)
 }
 
 func getFloat(m map[string]any, key string) (float64, bool) {

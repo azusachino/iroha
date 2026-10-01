@@ -75,6 +75,12 @@ func (l *slogGormLogger) Error(ctx context.Context, msg string, args ...interfac
 	l.logger.ErrorContext(ctx, msg, "args", args)
 }
 
+// ParamsFilter implements gorm.ParamsFilter to suppress inlining bound parameters
+// into logged SQL statements, preventing sensitive user data from appearing in logs.
+func (l *slogGormLogger) ParamsFilter(ctx context.Context, sql string, params ...interface{}) (string, []interface{}) {
+	return sql, nil
+}
+
 func (l *slogGormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
 	elapsed := time.Since(begin)
 

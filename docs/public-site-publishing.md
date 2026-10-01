@@ -23,7 +23,7 @@ flowchart LR
   an activity is opened.
 - **Validation gate.** `publicexport.Validate` and `ValidateActivityDetails` run before anything is served. A failure returns `500 public_unavailable`; unsanitized data is never served. The gate
   catches a raw (non-`act_`) ID, a negative metric, an `ended_at` before `started_at`, or an out-of-range coordinate: the shapes a change that bypassed the sanitizer would produce.
-- **Route traces are public** by the owner's decision (2026-09-28), the same way running_page publishes them.
+- **Route traces are public with privacy protections.** By owner decision (2026-09-28), public routes and details apply endpoint privacy trimming (the first and last 200m are dropped to prevent pinpointing home/work locations; tracks under 400m are omitted) and coordinate rounding to 5 decimal places (~1.1m precision) to remove micro-precision tracking.
 - **Caching.** The server keeps the snapshot for up to 24 hours, keyed on the activity revision, so a new or changed activity is visible on the next request and anonymous traffic cannot force a
   rebuild. Responses send `Cache-Control: public, max-age=86400`, so a browser that already loaded the site may show data up to a day old.
 - **Limits.** 120 requests/minute per client; GET only; any origin may read.

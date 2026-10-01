@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -16,6 +18,8 @@ const (
 	mediaBridgeUserAgent = "iroha/0.1 (+https://github.com/azusachino/iroha)"
 	bangumiExtLinkerURL  = "https://rhilip.github.io/BangumiExtLinker/data/anime_map.json"
 	fribbAnimeListsURL   = "https://raw.githubusercontent.com/Fribb/anime-lists/master/anime-list-mini.json"
+	mediaBridgeTimeout   = 60 * time.Second
+	maxMediaBridgeBytes  = 32 << 20 // 32 MiB response cap
 )
 
 type bangumiMapRecord struct {
@@ -35,7 +39,7 @@ type fribbMapRecord struct {
 // path (triggered from the /to-go control room) so a refresh runs on the worker
 // that's already deployed instead of a separate scheduled job.
 func RefreshMediaRefBridge(ctx context.Context, db *gorm.DB) error {
-	client := &http.Client{}
+	client := &http.Client{Timeout: mediaBridgeTimeout}
 
 	bangumiRecords, err := fetchJSON[[]bangumiMapRecord](ctx, client, bangumiExtLinkerURL)
 	if err != nil {
@@ -87,7 +91,7 @@ func fetchJSON[T any](ctx context.Context, client *http.Client, url string) (T, 
 	}
 
 	var value T
-	if err := json.NewDecoder(resp.Body).Decode(&value); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxMediaBridgeBytes)).Decode(&value); err != nil {
 		return zero, err
 	}
 	return value, nil
