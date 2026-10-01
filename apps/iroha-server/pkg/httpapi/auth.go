@@ -33,8 +33,9 @@ type Authenticator interface {
 type principalKey struct{}
 
 type credentialsRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	SetupToken string `json:"setup_token,omitempty"`
 }
 
 type authSessionResponse struct {
@@ -107,9 +108,19 @@ func (s *Server) handleAuthSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAuthSetup(w http.ResponseWriter, r *http.Request) {
-	if s.authConfigured(w) {
-		s.handleCredentials(w, r, s.deps.Auth.Setup)
+	if !s.authConfigured(w) {
+		return
 	}
+	if expected := s.deps.Config.Server.SetupToken; expected != "" {
+		headerToken := r.Header.Get("X-Setup-Token")
+		queryToken := r.URL.Query().Get("setup_token")
+		if subtle.ConstantTimeCompare([]byte(headerToken), []byte(expected)) != 1 &&
+			subtle.ConstantTimeCompare([]byte(queryToken), []byte(expected)) != 1 {
+			writeContractError(w, http.StatusForbidden, "invalid_setup_token", "first-owner setup requires a valid setup token; or run `iroha-admin owner setup`")
+			return
+		}
+	}
+	s.handleCredentials(w, r, s.deps.Auth.Setup)
 }
 
 func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {

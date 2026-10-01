@@ -66,7 +66,6 @@ Risk: when a second provider arrives for the same activity and becomes the selec
 - The admin label "Raw evidence" becomes "Raw files", showing live bytes against the total count. New glossary terms: Raw file, Purged raw file, Selected observation.
 - Apple Health export asserts `covered` per category present in the file.
 - The admin page distinguishes "no coverage recorded" from an asserted `unknown`.
-
 - AniList and Bangumi write one assertion per completed sync (`covered` when the cursor is exhausted, `partial` otherwise), never one per page.
 - AniList activity asserts the window the run actually fetched, not the whole lookback.
 - The second-provider materialization is deferred. An import that would replace a selected observation from a different provider fails loudly until it is built.

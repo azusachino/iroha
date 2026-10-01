@@ -21,6 +21,7 @@ const (
 	EnvRawRetentionDays            = "IROHA_RAW_RETENTION_DAYS"
 	EnvPublicExportDir             = "IROHA_PUBLIC_EXPORT_DIR"
 	EnvPublicExportPrivacy         = "IROHA_PUBLIC_EXPORT_PRIVACY"
+	EnvSetupToken                  = "IROHA_SETUP_TOKEN"
 )
 
 // defaultAllowedOrigins lets the local web dev server reach the private API.
@@ -46,6 +47,9 @@ type ServerConfig struct {
 	// and the exact origins browsers present (e.g. https://iroha.example).
 	WebAuthnRPID    string   `toml:"webauthn_rp_id"`
 	WebAuthnOrigins []string `toml:"webauthn_origins"`
+	// SetupToken, if non-empty, gates first-owner creation via POST /api/v1/auth/setup.
+	// Initial setup can always be performed locally via `iroha-admin owner setup`.
+	SetupToken string `toml:"setup_token"`
 }
 
 type DatabaseConfig struct {
@@ -136,6 +140,9 @@ func applyEnv(cfg *Config) {
 	}
 	if value := os.Getenv("IROHA_TRUSTED_PROXY_CIDRS"); value != "" {
 		cfg.Server.TrustedProxies = splitList(value)
+	}
+	if value := os.Getenv(EnvSetupToken); value != "" {
+		cfg.Server.SetupToken = value
 	}
 }
 

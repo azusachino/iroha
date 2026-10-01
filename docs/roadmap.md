@@ -141,7 +141,7 @@ The personal Telegram bot is an external client. Iroha only owns the server-side
 
 Tasks:
 
-- Add bearer-token auth for upload clients.
+- Add session or token auth for upload clients.
 - Document the upload flow for external clients.
 - Support `uploaded_via=telegram` on `tb_raw_files`.
 - Return stable JSON from raw-file creation and import creation.

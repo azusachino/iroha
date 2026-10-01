@@ -20,7 +20,7 @@ Gate A covers only the existing data domains and shared HTTP behavior. The owner
 - the OpenAPI document, representative fixtures, and registered Chi routes remain in parity;
 - the cache namespace is versioned for the repaired contract; successful private GET reads, including direct expense records, use the shared cache module, while canonical mutations invalidate their
   dependent namespaces;
-- `/api/v1` remains unauthenticated but private-network-only, and the sanitized public export remains a separate projection.
+- `/api/v1` uses single-owner authentication while remaining private-network-only, and the sanitized public export remains a separate projection.
 
 Gate A does not approve the expense data model, monthly report response, CLI workflow, cockpit UX, Telegram, Suzuran, OCR, or scheduled report delivery. Those remain later implementation decisions.
 
@@ -70,8 +70,7 @@ projections.
 
 ### 5. Authentication
 
-`/api/v1` and `/healthz` are intentionally unauthenticated (see `api-v1-decisions.md#authentication`). The public site is a static export, not an HTTP API. There is no token/scope behavior to verify;
-tests instead confirm no credential material (tokens, secrets) appears in logs or error bodies, since none should ever be sent.
+`/api/v1` routes require an authenticated `iroha_session` cookie (except `/healthz`, `/api/v1/auth/login`, `/api/v1/auth/setup`, and `/api/v1/intake/health`). Mutating routes require a valid `X-CSRF-Token` header. Automated health intake requires a dedicated bearer token (`iroha_hae_...`). Tests verify that unauthenticated requests to protected endpoints return `401 Unauthorized`, invalid CSRF tokens return `403 Forbidden`, and no credential material (tokens, passwords, session secrets) appears in logs or error bodies.
 
 ### 6. Rate-limit behavior
 

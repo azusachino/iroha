@@ -2,7 +2,7 @@
 
 ## Goal
 
-The import pipeline turns raw source files into canonical activities while preserving the original bytes forever.
+The import pipeline turns raw source files into canonical activities and health records. The user retains source data on their primary devices/iCloud, while Iroha retains canonical observations, metrics, and receipts. Raw file bytes are retained for 7 days for initial processing and verification, after which raw file blobs are purged via `iroha-admin purge raw-files --days 7`, preserving `tb_raw_files` metadata, content hashes, and receipt history for deduplication and provenance.
 
 ## Supported Sources
 
@@ -70,7 +70,7 @@ Strava is a legacy import adapter only. Strava IDs may be stored as external ref
 
 Telegram is an optional inbox. The personal bot is an external upload client only: it forwards files to iroha-server and does not parse them.
 
-The bot uploads with `uploaded_via=telegram`, sending a bearer token when auth is enabled, then creates an import job and polls its status. All parsing and dedupe stay inside iroha-server. See the
+The bot uploads with `uploaded_via=telegram`, authenticating via session cookie or dedicated intake token, then creates an import job and polls its status. All parsing and dedupe stay inside iroha-server. See the
 External Upload Client Contract in `iroha-server.md` for the exact request and response shapes.
 
 ## Real Apple Health Export Findings

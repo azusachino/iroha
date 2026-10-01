@@ -80,12 +80,12 @@ matrix for each route.
 
 ## Authentication
 
-`/api/v1` and `/healthz` are unauthenticated. iroha is a single-user personal deployment (private LAN/NAS); the network boundary is the security control, not an application-level credential. A prior
-revision of this contract carried JWT bearer authentication on `/api/v1`, but the only clients are the operator's own private-network web viewer and personal automation (e.g. a Telegram bot) — neither
-obtains credentials through a login flow, so the token was always a self-issued static secret standing in for network-level access control. It added an extra secret-provisioning step without changing
-who could reach the API. The static export site is the only surface designed for public exposure, and it only ever serves sanitized data.
+`/healthz` is unauthenticated. `/api/v1` uses single-owner authentication:
 
-A future multi-user or public-write deployment would need a real login/session flow rather than reintroducing a static bearer token.
+- **First-owner setup**: Initialized via CLI (`iroha-admin owner setup [-username owner]`) reading password from stdin, or via `POST /api/v1/auth/setup` (optionally gated with `IROHA_SETUP_TOKEN` via `X-Setup-Token` header).
+- **Interactive sessions**: Authenticates via Argon2id password or WebAuthn passkey (`POST /api/v1/auth/login` or passkey ceremony), establishing a hardened `iroha_session` cookie and returning a CSRF token for mutating requests (`POST`, `PUT`, `DELETE`).
+- **Scoped intake credentials**: Automated mobile intake (such as Health Auto Export) uses a dedicated bearer token (`iroha_hae_...`) provisioned via intake credential commands and accepted only at `POST /api/v1/intake/health`, preventing intake clients from accessing general API endpoints.
+- **Public surface**: The static export site is the only surface designed for public exposure, and it only ever serves sanitized data.
 
 ## Rate limiting
 
