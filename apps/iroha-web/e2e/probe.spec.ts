@@ -5,6 +5,8 @@
 // full-page screenshot as probe.png in its test-results folder, and asserts
 // nothing. Run it with `make e2e-probe ROUTE=/path`.
 import { expect, test } from "@playwright/test";
+import { installPilotFixtures, type Pilot } from "./pilot-fixtures";
+import { PUBLIC_BASE_URL } from "../playwright.config";
 
 test("probe", async ({ page }, testInfo) => {
   const errors: string[] = [];
@@ -20,7 +22,11 @@ test("probe", async ({ page }, testInfo) => {
   });
   page.on("requestfailed", (request) => failed.push(`failed ${request.url()}`));
 
-  await page.goto(process.env.PROBE_ROUTE || "/");
+  const pilot = process.env.PILOT_PROBE as Pilot | undefined;
+  if (pilot) await installPilotFixtures(page, pilot);
+  await page.goto(
+    pilot === "public" ? PUBLIC_BASE_URL : process.env.PROBE_ROUTE || "/",
+  );
   // A client-rendered page paints after the load event: wait for visible text
   // (innerText, so inline scripts do not count) rather than for the network.
   await expect(page.locator("body")).toHaveText(/\S/, {

@@ -8,7 +8,7 @@ Issue: [iroha #85](https://github.com/azusachino/iroha/issues/85). The original 
 
 Give the private cockpit and public site one shared set of number/unit formatting, Grapher typography/spacing and data-color definitions. Reuse the existing components and CSS; do not introduce a second design system, chart library, font dependency or global refactor.
 
-The owner reports the prior cockpit accessibility audit complete. Its referenced `docs/audits/2026-09-30-v0.6-cockpit-quality.md` is still absent locally. Obtain the final matrix before changing overlapping typography/chart surfaces; do not overwrite another agent's audit or treat the earlier run's failures as current findings.
+The owner reports the prior cockpit accessibility audit complete. Its referenced `docs/audits/2026-09-30-v0.6-cockpit-quality.md` is still absent locally. After PR #98 merged, the owner authorized a fresh bounded pilot baseline instead of waiting for that missing handoff. See [the separate pilot record](../audits/2026-10-01-grapher-pilot-baseline.md) for its findings and unverified areas. Capture that baseline before overlapping typography/chart changes; do not overwrite another agent's audit or treat the earlier run's failures as current findings. This authorization does not make the absent full cockpit matrix complete.
 
 ## Source baseline
 
