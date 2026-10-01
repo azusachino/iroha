@@ -32,7 +32,12 @@ export default defineConfig({
   },
   // `make e2e` runs the checks; `make e2e-probe` runs only the probe.
   projects: [
-    { name: "chromium", use: chrome, testIgnore: /probe\.spec\.ts$/ },
+    {
+      name: "chromium",
+      use: chrome,
+      testIgnore: /(?:probe|pilot-audit)\.spec\.ts$/,
+    },
+    { name: "pilot-audit", use: chrome, testMatch: /pilot-audit\.spec\.ts$/ },
     { name: "probe", use: chrome, testMatch: /probe\.spec\.ts$/ },
   ],
   // No reuse: a port already in use fails the run instead of testing a server someone else is using.

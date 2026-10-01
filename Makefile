@@ -130,7 +130,11 @@ web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
 # ROUTE=/path`, `make e2e-install`. Specs fake API calls with synthetic data.
 E2E_DIR := $(WEB_DIR)
 include e2e.mk
-e2e e2e-probe: web-install public-site-install
+e2e e2e-probe e2e-pilot-audit: web-install public-site-install
+
+.PHONY: e2e-pilot-audit
+e2e-pilot-audit: ## Record the bounded Grapher pilot baseline (report-only; no production APIs)
+	cd $(WEB_DIR) && PLAYWRIGHT_JSON_OUTPUT_FILE="$(or $(OUT),$(CURDIR)/dist/grapher-pilot-audit.json)" $(TOOL_ENV) bunx playwright test --project=pilot-audit --workers=1 --retries=0 --reporter=list,json $(ARGS)
 
 web-visual-install: ## One-time: install Playwright's Chromium build for visual checks
 	cd $(WEB_DIR) && $(TOOL_ENV) bunx playwright install chromium
