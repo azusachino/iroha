@@ -16,13 +16,16 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
 	"github.com/azusachino/iroha/apps/iroha-runtime/dbconnect"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/adminexport"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/auth"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/intakecredential"
 	"gorm.io/gorm"
@@ -34,6 +37,8 @@ const usage = `usage:
   iroha-admin intake-token revoke <cred_id>        revoke one credential immediately
   iroha-admin owner setup [-username owner]        create initial owner account (reads password from stdin)
   iroha-admin password reset                       break-glass: read a new owner password from stdin, revoke all sessions
+  iroha-admin export ndjson <domain>                stream private canonical records (activities, sleep, daily, media, expenses, tasks)
+  iroha-admin export gpx <act_id>                    stream a private, untrimmed activity route
 `
 
 var errUsage = errors.New("invalid arguments")
@@ -50,8 +55,21 @@ func main() {
 }
 
 func run(args []string, stdout io.Writer) error {
-	if len(args) < 2 || (args[0] != "intake-token" && args[0] != "password" && args[0] != "owner") {
+	if len(args) < 2 || (args[0] != "intake-token" && args[0] != "password" && args[0] != "owner" && args[0] != "export") {
 		return errUsage
+	}
+	if args[0] == "export" {
+		if len(args) != 3 || (args[1] != "ndjson" && args[1] != "gpx") {
+			return errUsage
+		}
+		if args[1] == "ndjson" && !adminexport.ValidDomain(args[2]) {
+			return errUsage
+		}
+		if args[1] == "gpx" {
+			if _, err := ids.Decode(ids.ActivityPrefix, args[2]); err != nil {
+				return errUsage
+			}
+		}
 	}
 	cfg, err := config.Load("iroha.toml")
 	if err != nil {
@@ -62,7 +80,15 @@ func run(args []string, stdout io.Writer) error {
 		return fmt.Errorf("open database: %w", err)
 	}
 	credentials := intakecredential.NewService(db)
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if args[0] == "export" {
+		if args[1] == "ndjson" {
+			return adminexport.NDJSON(ctx, db, args[2], stdout)
+		}
+		return adminexport.GPX(ctx, db, args[2], stdout)
+	}
 
 	if args[0] == "owner" {
 		if args[1] != "setup" {
