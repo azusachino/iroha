@@ -58,7 +58,7 @@ type connectionResponse struct {
 	Collection        string               `json:"collection"`
 	Operation         string               `json:"operation"`
 	Freshness         string               `json:"freshness"`
-	ExpectedIntervalS *int64               `json:"expected_interval_s,omitempty"`
+	ExpectedIntervalS *float64             `json:"expected_interval_s,omitempty"`
 	NextExpectedAt    *time.Time           `json:"next_expected_at,omitempty"`
 	LastReceipt       *connectionReceipt   `json:"last_receipt"`
 	LastImport        *connectionImport    `json:"last_import"`
@@ -170,7 +170,7 @@ func (s *Server) connection(ctx context.Context, instance models.SourceInstance)
 		return connectionResponse{}, err
 	}
 	if interval > 0 {
-		seconds := int64(interval / time.Second)
+		seconds := interval.Seconds()
 		response.ExpectedIntervalS = &seconds
 		lastDelivery := instance.CreatedAt
 		if response.LastReceipt != nil {

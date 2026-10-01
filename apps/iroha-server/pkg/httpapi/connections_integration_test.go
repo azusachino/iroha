@@ -68,8 +68,17 @@ func TestIntegrationConnectionsFreshnessPolicy(t *testing.T) {
 	}
 	t.Cleanup(func() { db.Delete(&schedule) })
 	response, err = server.connection(context.Background(), source)
-	if err != nil || response.Freshness != "within_cadence" || *response.ExpectedIntervalS != int64((48*time.Hour)/time.Second) {
+	if err != nil || response.Freshness != "within_cadence" || *response.ExpectedIntervalS != (48*time.Hour).Seconds() {
 		t.Fatalf("connector interval: %+v, %v", response, err)
+	}
+	for _, interval := range []time.Duration{500 * time.Millisecond, 1500 * time.Millisecond} {
+		if err := db.Model(&schedule).Update("schedule_expr", interval.String()).Error; err != nil {
+			t.Fatal(err)
+		}
+		response, err = server.connection(context.Background(), source)
+		if err != nil || response.ExpectedIntervalS == nil || *response.ExpectedIntervalS != interval.Seconds() || response.NextExpectedAt == nil || !response.NextExpectedAt.Equal(now.Add(interval)) {
+			t.Fatalf("fractional cadence %s: %+v, %v", interval, response, err)
+		}
 	}
 	if err := db.Model(&schedule).Update("enabled", false).Error; err != nil {
 		t.Fatal(err)

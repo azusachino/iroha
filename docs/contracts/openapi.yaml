@@ -3590,8 +3590,8 @@ components:
             enum: [within_cadence, overdue, not_scheduled, unknown],
           }
         expected_interval_s:
-          type: integer
-          minimum: 1
+          type: number
+          exclusiveMinimum: 0
           description: Expected delivery interval; active Health Auto Export credentials use 86400 seconds, connectors use their enabled interval schedule.
         next_expected_at:
           type: string

@@ -5,7 +5,7 @@
 For each registered source:
 
 - `last_receipt.received_at` is the last delivery time, not the newest measurement time or a proof of successful interpretation.
-- `expected_interval_s` and `next_expected_at` appear only when an active delivery policy exists. The deadline is last receipt plus interval; before the first receipt, it is source creation plus interval.
+- `expected_interval_s` and `next_expected_at` appear only when an active delivery policy exists. Interval seconds are a positive number, preserving fractional and subsecond worker intervals. The deadline is last receipt plus interval; before the first receipt, it is source creation plus interval.
 - `freshness` becomes `overdue` at the deadline, even with no receipt. Before the first deadline it is `unknown`; a received source before its deadline is `within_cadence`.
 - Active Health Auto Export credentials use a 24-hour delivery expectation. Revoked credentials stop that expectation unless another active credential with the same device name remains.
 - AniList, AniList activity and Bangumi use their worker's enabled interval schedule, including custom intervals. Disabled/absent schedules and manual sources are `not_scheduled`; an uninterpretable enabled schedule is `unknown`.

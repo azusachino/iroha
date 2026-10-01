@@ -7,14 +7,20 @@ import urllib.parse
 import urllib.request
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def check(base: str) -> None:
     url = urllib.parse.urlsplit(base)
     if url.scheme != "http" or url.hostname not in {"127.0.0.1", "localhost"}:
         raise ValueError("BASE must be an isolated localhost HTTP fixture")
 
+    opener = urllib.request.build_opener(NoRedirect())
     for attempt in range(30):
         try:
-            with urllib.request.urlopen(base + "/", timeout=2):
+            with opener.open(base + "/", timeout=2):
                 break
         except (urllib.error.URLError, TimeoutError):
             if attempt == 29:
@@ -24,11 +30,12 @@ def check(base: str) -> None:
     for path, status, body in [
         ("/", 200, b"shell"),
         ("/_app/immutable/test.js", 200, b"asset"),
-        ("/api/v1/auth/session", 200, b"shell"),
+        ("/api/v1/auth/session", 302, None),
+        ("/_app/immutable/missing.js", 302, None),
         ("/public/v1/meta", 502, None),
     ]:
         try:
-            response = urllib.request.urlopen(base + path, timeout=2)
+            response = opener.open(base + path, timeout=2)
         except urllib.error.HTTPError as error:
             response = error
         with response:
@@ -42,8 +49,10 @@ def check(base: str) -> None:
             ), path
             assert headers["X-Content-Type-Options"] == "nosniff", path
             assert headers["Content-Security-Policy"], path
+            if status == 302:
+                assert headers["Location"] == "/", (path, headers["Location"])
             cache = headers.get("Cache-Control", "")
-            if path.startswith("/_app/immutable/"):
+            if path == "/_app/immutable/test.js":
                 assert cache == "public, max-age=31536000, immutable", cache
             else:
                 assert "immutable" not in cache, (path, cache)
