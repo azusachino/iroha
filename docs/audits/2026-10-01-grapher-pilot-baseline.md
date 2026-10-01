@@ -61,6 +61,8 @@ The Steps fixture has a finite value of 12,345 and coverage 1/1. Its line chart 
 
 ### MEDIUM — narrow expense composition tick labels overlap
 
+Resolved for the bounded JPY/USD fixtures by the narrow-axis follow-up below; retained here as baseline evidence.
+
 The 320px light Expenses capture shows full JPY tick labels crowded together on the category composition chart. The record detail remains readable. Apply the approved bounded tick/unit formatting to the shared chart; retain exact currency values in its table and tooltip.
 
 ### MEDIUM — public monthly chart does not disable entrance animation for reduced motion
@@ -101,3 +103,11 @@ A zero-sized-symbol approach was not retained: ECharts' default hover scaler div
 Screenshot review also exposed unresolved CSS `var(--accent)` paint passed directly to the canvas renderer. The existing `BarChart` simple-token resolver was moved unchanged into shared `chart-color.ts` and reused for small-multiple marks and axis names. Computed colors now reach the renderer; no per-route color map was added. This resolver supports the same simple-token/literal cases as before, not a new general CSS parser.
 
 Blocking browser tests cover one point, observed zero, separated points, mixed sparse/connected points and fully connected points in both modes, using ECharts' public `getOption`/`getVisual` APIs plus exact-table assertions. Marker sizes and resolved paint are checked separately: a symbol-size flag alone did not catch the faint-marker problem. Focused tests failed before each behavior correction; ten focused cases and all 24 blocking browser tests now pass. `make validate` passes, including color-helper unit tests and both consumer builds. Full palette/contrast/state/zoom acceptance and the original initialization exception remain outside this slice.
+
+## Follow-up: narrow expense value-axis labels
+
+After PR #100 merged, shared `BarChart` value axes enable ECharts' native `axisLabel.hideOverlap`. Horizontal charts also reserve the existing 32px bottom gutter already used by vertical charts; the previous 12px gutter clipped the value labels. The engine chooses which labels to show; the formatter, values, currency exponents, tooltip and exact tables are unchanged. No compact-number formatter, currency conversion or custom tick algorithm was added.
+
+Eight blocking browser cases cover JPY/USD in light/dark at 320/1280px. Before the fix they fail on the missing overlap policy and 12px gutter; after it they pass and retain exact `¥12,345`/`$1,234.56` table cells. Automated checks inspect the actual chart's public option contract, not canvas text geometry. Human review of all four 320px composition captures confirms separated, unclipped labels and readable exact bar-end values. This is bounded visual evidence, not a complete 1/2/5 tick/precision/range/negative/extreme-value matrix or P1-D2 unit-once implementation.
+
+`make validate` and both consumer builds pass, all 32 blocking browser tests pass, and all 35 report-only pilot probes complete. Remaining contrast/palette/type/state/native-zoom work, live-theme debt and the original initialization exception stay open.
