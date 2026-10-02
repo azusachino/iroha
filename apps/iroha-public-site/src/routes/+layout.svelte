@@ -11,9 +11,9 @@
 </svelte:head>
 
 <div class="shell">
-  <div class="content">
+  <main class="content">
     {@render children()}
-  </div>
+  </main>
   <footer class="footer">
     <span>{site.name} {site.byline} · v{site.version}</span>
     <span>

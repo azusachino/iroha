@@ -150,10 +150,14 @@ web-mobile-check: ## Audit every private route at compact mobile widths (BASE=..
 public-site-install: shared-install ## Install public-site and shared frontend dependencies
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun install --frozen-lockfile
 
-public-site-fmt-check public-site-check public-site-build: public-site-install
+.PHONY: public-site-fmt
+public-site-fmt public-site-fmt-check public-site-check public-site-build: public-site-install
 
 public-site-response-check: ## Check an isolated Caddy fixture (BASE=http://127.0.0.1:port)
 	$(TOOL_ENV) uv run python scripts/public_site_response_check.py "$(BASE)"
+
+public-site-fmt: ## Format the public site with its existing Prettier script
+	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run format
 
 public-site-fmt-check: ## Fail if any public-site file is unformatted
 	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun run format:check

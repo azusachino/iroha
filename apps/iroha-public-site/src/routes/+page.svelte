@@ -35,7 +35,7 @@
   import ApprovedActivityDetail from "$lib/components/ApprovedActivityDetail.svelte";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
   import ActivityDetail from "$lib/components/ActivityDetail.svelte";
-  import MonthlyBarChart from "$lib/components/MonthlyBarChart.svelte";
+  import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";

@@ -5,7 +5,7 @@
   import { init, use } from "echarts/core";
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
-  import { formatDistance } from "$lib/format";
+  import { formatDistance } from "../format/format";
 
   use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -34,7 +34,8 @@
     const distance = metric === "distance_m";
 
     chart.setOption({
-      animationDuration: 550,
+      animation: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      animationDuration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 550,
       animationEasing: "cubicOut",
       grid: { top: 12, right: 12, bottom: 30, left: 48 },
       tooltip: {
@@ -102,8 +103,17 @@
     render();
     const resize = new ResizeObserver(() => chart?.resize());
     resize.observe(chartContainer);
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mode = window.matchMedia("(prefers-color-scheme: dark)");
+    motion.addEventListener("change", render);
+    mode.addEventListener("change", render);
+    const theme = new MutationObserver(render);
+    theme.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-language"] });
     return () => {
       resize.disconnect();
+      motion.removeEventListener("change", render);
+      mode.removeEventListener("change", render);
+      theme.disconnect();
       chart?.dispose();
     };
   });
