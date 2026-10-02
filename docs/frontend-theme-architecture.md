@@ -98,9 +98,9 @@ Use this placement test when adding or changing an import:
    instead of importing app `$lib` code.
 3. Does it mix both? Keep a thin app adapter and move the canonical behavior/presentation behind package-owned props rather than copying the component between apps.
 
-Current placement is not always the intended boundary. The public page still consumes app-local presentation such as `MonthlyBarChart`; that is migration debt under the theme asset rule, not a reason
-for new charts to live in `$lib/components`. Detail/map components also need their adapter and presentation responsibilities checked before extraction. This clarification does not migrate those files
-or change public/private data exposure.
+Current placement does not always match the target boundary. The public page now imports both `MonthlyBarChart` and `YearProgressChart` from `@iroha/shared`; route-detail and map components remain under the app's
+`src/lib/components/`, where adapter and presentation responsibilities still need assessment. The theme-asset rule is not a reason for new visuals to live in `$lib/components`. This clarification neither
+migrates those files nor changes public/private data exposure.
 
 ### Shared primitives
 
