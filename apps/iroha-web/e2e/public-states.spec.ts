@@ -71,8 +71,20 @@ for (const mode of ["light", "dark"] as const) {
     await page.keyboard.press("Tab");
     const retry = page.getByRole("button", { name: "Try again", exact: true });
     await expect(retry).toBeFocused();
+    let failedRetryResponses = 0;
+    page.on("response", (response) => {
+      if (response.url().includes("/public/v1/") && response.status() === 503)
+        failedRetryResponses++;
+    });
+    await page.keyboard.press("Enter");
+    await expect.poll(() => failedRetryResponses).toBeGreaterThan(0);
+    await expect(page.getByRole("alert")).toContainText(
+      "Public activity data is temporarily unavailable.",
+    );
+    await expect(retry).toBeVisible();
     await page.unrouteAll({ behavior: "wait" });
     const recovered = await installPilotFixtures(page, "public");
+    await retry.focus();
     await page.keyboard.press("Enter");
     await expect(
       page.getByRole("heading", { name: "Activities", exact: true }),

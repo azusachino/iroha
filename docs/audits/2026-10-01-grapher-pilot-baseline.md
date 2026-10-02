@@ -1,5 +1,11 @@
 # Grapher pilot baseline — 2026-10-01
 
+## PR #103: private first-load and public repeated-retry coverage
+
+Six additional light/dark browser cases hold Overview/Expenses first-load responses until the loading status and absent record controls are verified, then return two failures and recover using keyboard activation of the existing Retry overview/Refresh actions. Expenses also retains its prior canonical record and keyboard access through a held month change, then replaces it with the September record and removes the August record. The existing public compact error tests now execute another failed retry before restoring sanitized data; recovery still rejects private requests. These checks passed without application changes.
+
+This does not close P1-A8: public deferred first-load feedback and Overview quiet refetch still need separate verification, as do stale scope-label semantics in Expenses. Keyboard activation here explicitly focuses the recovery control and uses Enter; it is not proof of a complete Tab traversal. No independent final review is claimed.
+
 ## PR #103: Metrics async-state increment
 
 Metrics previously removed its chart during every series refetch and rendered failures without a retry action. Four light/dark browser cases reproduced the absent quiet-update status and missing catalog retry before implementation. The route now uses its existing AsyncResource objects through LoadingBoundary, keeping loaded observations keyboard-accessible while a subsequent request is pending. The shared RetryNotice retries the catalog or series that failed. Retained observations use the returned metric definition, dimensions and period, rather than relabeling old data with the pending selector; the observed window is explicit and CSV filenames retain the response's ending month.
