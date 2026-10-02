@@ -1,6 +1,6 @@
 # Grapher UI fine-tuning: replacement Phase 1
 
-Status: owner approved P1-D1–D6 and P1-A1–A9 on 2026-10-01 after PR #89 merged; implementation in small slices.
+Status: owner approved P1-D1–D6 and P1-A1–A9 on 2026-10-01 after PR #89 merged. After PR #101 merged, the owner requested one combined PR for all remaining Phase 1 work and acceptance evidence. Use small verified commits internally; Phase 1 remains incomplete.
 
 Issue: [iroha #85](https://github.com/azusachino/iroha/issues/85). The original plan named there was absent from this checkout. The owner requested a replacement proposal. These criteria and decisions are new; they do not reconstruct or claim approval of the original A1–A9/D1–D6. Later phases remain outside this slice.
 

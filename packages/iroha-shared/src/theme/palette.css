@@ -1,0 +1,73 @@
+/* Canonical domain identity colors. Dark marks and light marks also support
+   text use; labels remain required, not a color-vision conformance claim. */
+:root {
+  --accent: #39c5bb;
+  --danger: #ff6b6b;
+  --accent-2: #ff5c8a;
+  --mark-teal: #14a89b;
+  --mark-magenta: #e66c9d;
+  --mark-amber: #daa548;
+  --mark-violet: #a294ed;
+  --ring-move: #f07c78;
+  --ring-exercise: #e7b65a;
+  --ring-stand: #6da9ff;
+  --sport-run: #4f92e8;
+  --sport-walk: #42b48b;
+  --sport-hike: #84b45b;
+  --sport-ride: #c99766;
+  --sport-swim: #a294ed;
+  --sport-other: #b4a89c;
+  --category-groceries: #a2bc65;
+  --category-shopping: #f07c78;
+  --category-utilities: #7eaac5;
+  --category-health: #e66c9d;
+  --category-subscriptions: #39c5bb;
+}
+:root[data-theme="light"] {
+  --accent: #08736c;
+  --danger: #b83232;
+  --accent-2: #b84256;
+  --mark-teal: #08736c;
+  --mark-magenta: #a62f67;
+  --mark-amber: #8b6000;
+  --mark-violet: #6453a9;
+  --ring-move: #b84256;
+  --ring-exercise: #8b6000;
+  --ring-stand: #2b67be;
+  --sport-run: #245ca7;
+  --sport-walk: #126b4b;
+  --sport-hike: #456b20;
+  --sport-ride: #80532d;
+  --sport-swim: #6453a9;
+  --sport-other: #665a50;
+  --category-groceries: #5e7425;
+  --category-shopping: #b84256;
+  --category-utilities: #3f6b8a;
+  --category-health: #a62f67;
+  --category-subscriptions: #08736c;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --accent: #08736c;
+    --danger: #b83232;
+    --accent-2: #b84256;
+    --mark-teal: #08736c;
+    --mark-magenta: #a62f67;
+    --mark-amber: #8b6000;
+    --mark-violet: #6453a9;
+    --ring-move: #b84256;
+    --ring-exercise: #8b6000;
+    --ring-stand: #2b67be;
+    --sport-run: #245ca7;
+    --sport-walk: #126b4b;
+    --sport-hike: #456b20;
+    --sport-ride: #80532d;
+    --sport-swim: #6453a9;
+    --sport-other: #665a50;
+    --category-groceries: #5e7425;
+    --category-shopping: #b84256;
+    --category-utilities: #3f6b8a;
+    --category-health: #a62f67;
+    --category-subscriptions: #08736c;
+  }
+}

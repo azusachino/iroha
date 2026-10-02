@@ -92,9 +92,6 @@ html:root[data-language="grapher"] {
   --grapher-utility-title-size: clamp(2.25rem, 4.5vw, 4rem);
   --accent: #6da9ff;
   --accent-2: #f07c78;
-  --ring-move: #f07c78;
-  --ring-exercise: #e7b65a;
-  --ring-stand: #6da9ff;
   --radius: 12px;
   --tile-surface: color-mix(in srgb, var(--surface) 97%, var(--accent) 3%);
   --tile-shadow:
@@ -106,8 +103,6 @@ html:root[data-language="grapher"][data-theme="light"] {
   --theme-swatch: #2b67be;
   --accent: #2b67be;
   --accent-2: #b84256;
-  --ring-move: #b84256;
-  --ring-stand: #2b67be;
   --tile-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--accent) 12%, var(--border)),
     0 8px 20px rgb(25 45 80 / 0.08);

@@ -81,15 +81,6 @@
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const accent = styles.getPropertyValue("--accent").trim() || "#5c8dff";
     const primaryColor = resolveColor(primary.color, styles, accent);
-    const categoricalColors = [
-      accent,
-      styles.getPropertyValue("--accent-2").trim(),
-      styles.getPropertyValue("--ring-exercise").trim(),
-      styles.getPropertyValue("--ring-move").trim(),
-      styles.getPropertyValue("--ring-stand").trim(),
-      styles.getPropertyValue("--mark-amber").trim(),
-      styles.getPropertyValue("--sport-swim").trim(),
-    ].filter(Boolean);
     const primaryFormat = primary.formatter || defaultFormatter;
     const secondaryFormat = secondary?.formatter || defaultFormatter;
     const categoryAxis = {
@@ -180,7 +171,7 @@
                   ? resolveColor(
                       categoryColor(categories[index]),
                       styles,
-                      categoricalColors[index % categoricalColors.length],
+                      muted,
                     )
                   : primaryColor,
               opacity: activeIndex == null || activeIndex === index ? 1 : 0.45,

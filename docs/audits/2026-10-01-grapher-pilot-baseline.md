@@ -111,3 +111,13 @@ After PR #100 merged, shared `BarChart` value axes enable ECharts' native `axisL
 Eight blocking browser cases cover JPY/USD in light/dark at 320/1280px. Before the fix they fail on the missing overlap policy and 12px gutter; after it they pass and retain exact `¥12,345`/`$1,234.56` table cells. Automated checks inspect the actual chart's public option contract, not canvas text geometry. Human review of all four 320px composition captures confirms separated, unclipped labels and readable exact bar-end values. This is bounded visual evidence, not a complete 1/2/5 tick/precision/range/negative/extreme-value matrix or P1-D2 unit-once implementation.
 
 `make validate` and both consumer builds pass, all 32 blocking browser tests pass, and all 35 report-only pilot probes complete. Remaining contrast/palette/type/state/native-zoom work, live-theme debt and the original initialization exception stay open.
+
+## Combined Phase 1 branch: palette increment
+
+After PR #101 merged, the owner requested one PR for all remaining Phase 1 work. The palette increment is an internal commit, not a new slice PR or full Phase 1 acceptance.
+
+Both hosts import `packages/iroha-shared/src/theme/palette.css`. Domain mark/sport/ring colors have one shared owner instead of app-local declarations. Light mode uses darker same-family marks; sport `other` is a neutral fallback with existing explicit labels. Expense groceries, shopping, utilities, health and subscriptions use dedicated identity tokens so food/housing and shopping/health no longer collide. The existing food/transport token contracts remain. Unknown categories use labeled neutral chart/table data rather than rank-based colors; health data no longer borrows a host's interactive accent. Data/currency/timezone and public projections are unchanged.
+
+The new browser fixtures compare all 11 category and six canonical sport colors on both hosts in light/dark, check pairwise distinctness within each domain, and check explicit preference overrides the OS. They measure 204 opaque rendered CSS-token text pairs across canvas/surface/raised-surface backgrounds at >=4.5:1; these are controlled color probes, not canvas mark geometry, gradients, hover/focus or a color-vision audit. The original light Delete failure was reproduced at 4.151:1 before changing the destructive text token. Actual Delete and public selected-year/footer text now pass their measured thresholds.
+
+Unit fixtures retain previous assertions and add reorder stability, known identity uniqueness and neutral unknown-category/health fallbacks. Full canvas/focus/legend, equivalent-data scope, native zoom and deferred-state evidence remains pending. No independent review has been performed on this increment.

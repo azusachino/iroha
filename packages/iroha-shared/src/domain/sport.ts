@@ -1,6 +1,6 @@
 import { formatSport } from "../format/format";
 
-// The canonical key behind --sport-<key> in apps/iroha-web/src/routes/app.css.
+// The canonical key behind --sport-<key> in shared theme/palette.css.
 // sportColor/sportColorVar both resolve through this so a new caller (e.g.
 // domain/sport-icons.ts) matches sport_type strings the same way the
 // existing badge coloring already does, instead of a second guess at it.

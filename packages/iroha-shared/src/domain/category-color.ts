@@ -1,24 +1,23 @@
 const EXPENSE_CATEGORY_COLOR_VARS: Record<string, string> = {
   food: "--mark-amber",
-  groceries: "--ring-exercise",
+  groceries: "--category-groceries",
   transport: "--sport-swim",
-  shopping: "--accent-2",
+  shopping: "--category-shopping",
   housing: "--sport-ride",
-  utilities: "--ring-stand",
-  health: "--ring-move",
+  utilities: "--category-utilities",
+  health: "--category-health",
   entertainment: "--sport-run",
-  subscriptions: "--accent",
+  subscriptions: "--category-subscriptions",
   work: "--sport-walk",
   other: "--text-muted",
 };
 
 export function categoryColor(category: string): string | undefined {
-  const colorVar = EXPENSE_CATEGORY_COLOR_VARS[category];
-  return colorVar ? `var(${colorVar})` : undefined;
+  return `var(${categoryColorVar(category)})`;
 }
 
 // Bare custom-property name (no var() wrapper), for consumers like
 // PanelRow.colorVar that resolve it themselves.
 export function categoryColorVar(category: string): string | undefined {
-  return EXPENSE_CATEGORY_COLOR_VARS[category];
+  return EXPENSE_CATEGORY_COLOR_VARS[category] ?? "--text-muted";
 }
