@@ -53,10 +53,26 @@ for (const mode of ["light", "dark"] as const) {
               : undefined;
             return {
               hideOverlap: chart?.xAxis[0]?.hideOverlap,
+              unit: chart?.xAxis[0]?.name,
               bottom: chart?.grid[0]?.bottom,
             };
           })
-          .toEqual({ hideOverlap: true, bottom: 32 });
+          .toEqual({ hideOverlap: true, unit: scenario.currency, bottom: 32 });
+        const snapshot = await page.evaluate(inspectPilotCharts);
+        expect(snapshot.verified).toBe(true);
+        const axis = snapshot.verified
+          ? snapshot.charts.find((chart) =>
+              chart.xAxis.some((axis) => axis.type === "value"),
+            )?.xAxis[0]
+          : undefined;
+        expect(axis?.min).toBe(0);
+        expect(axis?.max).toBeGreaterThanOrEqual(
+          scenario.currency === "JPY" ? 12345 : 123456,
+        );
+        expect(axis?.tickLabels.length).toBeGreaterThan(1);
+        expect(new Set(axis?.tickLabels).size).toBe(axis?.tickLabels.length);
+        for (const label of axis?.tickLabels ?? [])
+          expect(label).toMatch(/^[\d,.-]+$/);
         await info.attach("composition.png", {
           body: await composition.screenshot(),
           contentType: "image/png",

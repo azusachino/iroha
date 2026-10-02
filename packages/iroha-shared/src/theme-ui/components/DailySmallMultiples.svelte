@@ -2,6 +2,9 @@
   import { onMount } from "svelte";
   import { chartSignature } from "./chart-signature";
   import { resolveColor } from "./chart-color";
+  import { axisRange, formatAxisTick } from "../../format/axis";
+  import { chartFontSize } from "../../theme/chart-typography";
+  import { observeChartPresentation } from "../../theme/chart-presentation";
   import { LineChart } from "echarts/charts";
   import {
     AxisPointerComponent,
@@ -31,27 +34,30 @@
     $props();
   let container: HTMLDivElement;
   let chart: ECharts | undefined;
+  let columns = $state(1);
 
   function render() {
     if (!chart) return;
     const styles = getComputedStyle(container);
     const text = styles.getPropertyValue("--text").trim();
+    const fontSize = chartFontSize(styles);
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const resolvedCharts = charts.map((item) => ({
       ...item,
       color: resolveColor(item.color, styles, text),
+      range: axisRange(item.values, item.unit === "count" ? 1 : 0),
     }));
     const count = Math.max(charts.length, 1);
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
-    const columns = count > 2 ? 2 : count;
+    columns = container.clientWidth < 640 ? 1 : Math.min(count, 2);
     const rows = Math.ceil(count / columns);
     const grid = charts.map((_, index) => ({
-      left: `${(index % columns) * (100 / columns) + 5}%`,
+      left: (index % columns) * (container.clientWidth / columns) + 64,
       top: `${Math.floor(index / columns) * (100 / rows) + 8}%`,
-      width: `${100 / columns - 10}%`,
+      width: Math.max(1, container.clientWidth / columns - 80),
       height: `${100 / rows - 18}%`,
     }));
     chart.clear();
@@ -65,7 +71,7 @@
         axisPointer: { type: "cross" },
         backgroundColor: styles.getPropertyValue("--surface-2").trim(),
         borderColor: border,
-        textStyle: { color: text, fontSize: 11 },
+        textStyle: { color: text, fontSize },
       },
       xAxis: charts.map((_, index) => ({
         type: "category",
@@ -75,7 +81,7 @@
         axisLabel: {
           show: index >= charts.length - columns,
           color: muted,
-          fontSize: 9,
+          fontSize,
           interval: Math.max(0, Math.floor(labels.length / 4) - 1),
         },
         axisLine: { lineStyle: { color: border } },
@@ -85,9 +91,10 @@
       yAxis: resolvedCharts.map((item, index) => ({
         type: "value",
         gridIndex: index,
+        ...item.range,
         name: item.unit ? `${item.label} (${item.unit})` : item.label,
-        nameTextStyle: { color: item.color, fontSize: 10, fontWeight: 650 },
-        axisLabel: { color: muted, fontSize: 9 },
+        nameTextStyle: { color: item.color, fontSize, fontWeight: 650 },
+        axisLabel: { color: muted, fontSize, formatter: (value: number) => formatAxisTick(value, item.range.interval) },
         axisLine: { show: true, lineStyle: { color: item.color } },
         splitLine: { lineStyle: { color: border, opacity: 0.35 } },
       })),
@@ -119,9 +126,11 @@
   onMount(() => {
     chart = init(container, undefined, { renderer: "canvas" });
     render();
-    const resize = new ResizeObserver(() => chart?.resize());
+    const resize = new ResizeObserver(() => { render(); chart?.resize(); });
     resize.observe(container);
+    const stopPresentation = observeChartPresentation(render);
     return () => {
+      stopPresentation();
       resize.disconnect();
       chart?.dispose();
     };
@@ -139,6 +148,7 @@
 <div
   class="small-multiples"
   bind:this={container}
+  style:height={`${Math.max(300, Math.ceil(charts.length / columns) * 160)}px`}
   role="img"
   aria-label="Daily trends with synchronized crosshair. Exact values are available in the trend data table."
 ></div>

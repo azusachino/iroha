@@ -233,6 +233,7 @@
               name: "Distance",
               values: monthly.map((bucket) => bucket.distance_m / 1000),
               color: "var(--accent)",
+              axis: { unit: "km" },
               formatter: (value) => formatDistance(value * 1000),
             }}
             primaryType="line"

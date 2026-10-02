@@ -25,8 +25,8 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 0.6rem;
-    padding: 1rem;
+    gap: var(--space-3);
+    padding: var(--space-4);
     border: 1px solid var(--border);
     border-radius: var(--radius, 14px);
     background:
@@ -49,7 +49,7 @@
 
   .stat-label {
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -57,8 +57,9 @@
 
   .stat-value {
     color: var(--text);
-    font-size: clamp(1.2rem, 13cqi, 1.9rem);
+    font-size: var(--type-title);
     font-weight: 800;
+    font-variant-numeric: tabular-nums;
     line-height: 1.05;
     letter-spacing: -0.01em;
     white-space: nowrap;
@@ -66,7 +67,7 @@
 
   .stat-sub {
     color: var(--text-muted);
-    font-size: 0.84rem;
+    font-size: var(--type-label);
     line-height: 1.35;
   }
 </style>

@@ -324,19 +324,19 @@
     margin: 0;
   }
   h1 {
-    font-size: clamp(2.7rem, 7vw, 5.8rem);
+    font-size: var(--type-display);
     letter-spacing: -0.09em;
     line-height: 0.9;
   }
   h2 {
-    font-size: 1.5rem;
+    font-size: var(--type-title);
   }
   .eyebrow {
     display: flex;
     align-items: center;
     gap: 0.35rem;
     color: var(--accent);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 750;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -355,7 +355,7 @@
     display: grid;
     gap: 0.3rem;
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
   }
   select {

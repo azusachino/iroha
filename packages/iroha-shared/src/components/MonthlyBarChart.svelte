@@ -6,6 +6,9 @@
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
   import { formatDistance } from "../format/format";
+  import { axisRange, formatAxisTick } from "../format/axis";
+  import { chartFontSize } from "../theme/chart-typography";
+  import { observeChartPresentation } from "../theme/chart-presentation";
 
   use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -28,22 +31,24 @@
     if (!chart || !chartContainer) return;
     const styles = getComputedStyle(chartContainer);
     const text = styles.getPropertyValue("--text").trim();
+    const fontSize = chartFontSize(styles);
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const accent = styles.getPropertyValue("--accent").trim() || "#39c5bb";
     const distance = metric === "distance_m";
+    const range = axisRange(points.map((point) => point.value), distance ? 0 : 1);
 
     chart.setOption({
       animation: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       animationDuration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 550,
       animationEasing: "cubicOut",
-      grid: { top: 12, right: 12, bottom: 30, left: 48 },
+      grid: { top: 32, right: 12, bottom: 30, left: 48 },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
         backgroundColor: styles.getPropertyValue("--surface-2").trim(),
         borderColor: border,
-        textStyle: { color: text, fontSize: 11 },
+        textStyle: { color: text, fontSize },
         formatter: (
           params: Array<{
             axisValue?: string;
@@ -62,20 +67,20 @@
       xAxis: {
         type: "category",
         data: points.map((point) => point.label),
-        axisLabel: { color: muted, fontSize: 10 },
+        axisLabel: { color: muted, fontSize },
         axisLine: { lineStyle: { color: border } },
         axisTick: { lineStyle: { color: border } },
       },
       yAxis: {
         type: "value",
-        min: 0,
+        ...range,
+        name: distance ? "km" : "activities",
+        nameTextStyle: { color: muted },
         axisLabel: {
           color: muted,
-          fontSize: 10,
+          fontSize,
           formatter: (value: number) =>
-            distance
-              ? `${Math.round(value / 1000)} km`
-              : value.toLocaleString(),
+            formatAxisTick(value, range.interval, distance ? 0.001 : 1),
         },
         axisLine: { lineStyle: { color: border } },
         splitLine: { lineStyle: { color: border, opacity: 0.6 } },
@@ -103,17 +108,10 @@
     render();
     const resize = new ResizeObserver(() => chart?.resize());
     resize.observe(chartContainer);
-    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const mode = window.matchMedia("(prefers-color-scheme: dark)");
-    motion.addEventListener("change", render);
-    mode.addEventListener("change", render);
-    const theme = new MutationObserver(render);
-    theme.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-language"] });
+    const stopPresentation = observeChartPresentation(render);
     return () => {
       resize.disconnect();
-      motion.removeEventListener("change", render);
-      mode.removeEventListener("change", render);
-      theme.disconnect();
+      stopPresentation();
       chart?.dispose();
     };
   });

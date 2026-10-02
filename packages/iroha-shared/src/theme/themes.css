@@ -10,6 +10,18 @@
 :root {
   --surface-1: var(--surface);
   --control-target-min: 1.5rem;
+  --type-caption: 0.75rem;
+  --type-label: 0.875rem;
+  --type-body: 1rem;
+  --type-title-small: 1.25rem;
+  --type-title: 1.5rem;
+  --type-display: 2rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
   /* Base sans stack for every language that doesn't declare its own
      --font-sans (currently only Atlas does). Reuses Atlas's already-chosen
      value rather than introducing a second default. */
@@ -89,7 +101,7 @@
 
 html:root[data-language="grapher"] {
   --theme-swatch: #6da9ff;
-  --grapher-utility-title-size: clamp(2.25rem, 4.5vw, 4rem);
+  --grapher-utility-title-size: var(--type-display);
   --accent: #6da9ff;
   --accent-2: #f07c78;
   --radius: 12px;

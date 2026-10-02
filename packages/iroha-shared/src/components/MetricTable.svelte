@@ -64,9 +64,9 @@
 
 <style>
   .metric-table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; color: var(--text, #1b2430); font-size: 0.78rem; }
-  th, td { padding: 0.55rem 0.65rem; border-bottom: 1px solid var(--border, #d6dbe3); text-align: left; }
-  thead th { color: var(--text-muted, #778090); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; color: var(--text, #1b2430); font-size: var(--type-label); }
+  th, td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border, #d6dbe3); text-align: left; }
+  thead th { color: var(--text-muted, #778090); font-size: var(--type-caption); letter-spacing: 0.06em; text-transform: uppercase; }
   tbody th { font-weight: 650; }
   td.danger { color: var(--danger, #c0392b); font-weight: 650; }
   :global(.row-icon) { margin-right: 0.35rem; color: var(--text-muted, #778090); vertical-align: -0.15em; }

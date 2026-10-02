@@ -77,7 +77,7 @@
 <style>
   .metric-panel {
     display: grid;
-    gap: 0.6rem;
+    gap: var(--space-3);
     min-width: 0;
   }
   .metric-panel-body {
@@ -88,21 +88,21 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem 1rem;
+    gap: var(--space-2) var(--space-4);
   }
   .metric-panel-actions {
     display: flex;
-    gap: 0.3rem;
+    gap: var(--space-1);
   }
   button {
     min-height: 1.9rem;
-    padding: 0.25rem 0.6rem;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--border, #d6dbe3);
     border-radius: calc(var(--radius, 8px) - 4px);
     background: var(--surface-2, transparent);
     color: var(--text-muted, #778090);
     font: inherit;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     cursor: pointer;

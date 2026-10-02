@@ -1,5 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { axisRange, formatAxisTick } from "../format/axis";
+  import { chartFontSize } from "../theme/chart-typography";
+  import { observeChartPresentation } from "../theme/chart-presentation";
   import { chartSignature } from "../theme-ui/components/chart-signature";
   import { LineChart } from "echarts/charts";
   import {
@@ -92,12 +95,14 @@
     if (!chart || !chartContainer) return;
     const styles = getComputedStyle(chartContainer);
     const text = styles.getPropertyValue("--text").trim();
+    const fontSize = chartFontSize(styles);
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const accent = styles.getPropertyValue("--sport-run").trim() || "#4f8cff";
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    const range = axisRange([...(current?.cumulative ?? []), ...(prior?.cumulative ?? [])]);
     // This scope owns the full option; merging retains removed years and legend state.
     chart.setOption({
       animation: !reducedMotion,
@@ -111,10 +116,10 @@
         right: 0,
         itemWidth: 12,
         itemHeight: 3,
-        textStyle: { color: muted, fontSize: 11 },
+        textStyle: { color: muted, fontSize },
         data: [year, ...(prior ? [String(Number(year) - 1)] : [])],
       },
-      grid: { top: prior ? 34 : 12, right: 16, bottom: 30, left: 44 },
+      grid: { top: prior ? 34 : 32, right: 16, bottom: 30, left: 44 },
       tooltip: {
         trigger: "axis",
         axisPointer: {
@@ -123,7 +128,7 @@
         },
         backgroundColor: styles.getPropertyValue("--surface-2").trim(),
         borderColor: border,
-        textStyle: { color: text, fontSize: 11 },
+        textStyle: { color: text, fontSize },
         formatter: (
           params: Array<{
             axisValue?: string;
@@ -147,17 +152,19 @@
         type: "category",
         data: MONTHS,
         boundaryGap: false,
-        axisLabel: { color: muted, fontSize: 10 },
+        axisLabel: { color: muted, fontSize },
         axisLine: { lineStyle: { color: border } },
         axisTick: { lineStyle: { color: border } },
       },
       yAxis: {
         type: "value",
-        min: 0,
+        ...range,
+        name: "km",
+        nameTextStyle: { color: muted },
         axisLabel: {
           color: muted,
-          fontSize: 10,
-          formatter: (value: number) => `${Math.round(value / 1000)} km`,
+          fontSize,
+          formatter: (value: number) => formatAxisTick(value, range.interval, 0.001),
         },
         axisLine: { lineStyle: { color: border } },
         splitLine: { lineStyle: { color: border, opacity: 0.6 } },
@@ -204,7 +211,9 @@
     render();
     const resize = new ResizeObserver(() => chart?.resize());
     resize.observe(chartContainer);
+    const stopPresentation = observeChartPresentation(render);
     return () => {
+      stopPresentation();
       resize.disconnect();
       chart?.dispose();
     };
