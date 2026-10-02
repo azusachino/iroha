@@ -5,6 +5,7 @@
   // truthfulness chrome so it cannot drift per theme.
   import type { Snippet } from "svelte";
   import MetricMetadata from "./MetricMetadata.svelte";
+  import PanelFrame from "./PanelFrame.svelte";
   import MetricTable from "./MetricTable.svelte";
   import { panelCsv, type PanelCoverage, type PanelRow } from "./metric-panel";
 
@@ -18,6 +19,8 @@
     rowHeader = "Period",
     rows,
     period,
+    framed = false,
+    heading,
     children,
   }: {
     metricId: string;
@@ -29,6 +32,8 @@
     rowHeader?: string;
     rows: PanelRow[];
     period?: string;
+    framed?: boolean;
+    heading?: Snippet;
     children: Snippet;
   } = $props();
 
@@ -46,7 +51,9 @@
   }
 </script>
 
+{#snippet content()}
 <div class="metric-panel" aria-label={label} data-metric={metricId}>
+  {#if heading}{@render heading()}{/if}
   <div class="metric-panel-body">
     {#if view === "chart"}
       {@render children()}
@@ -73,6 +80,13 @@
     </div>
   </div>
 </div>
+{/snippet}
+
+{#if framed}
+  <PanelFrame {label}>{@render content()}</PanelFrame>
+{:else}
+  {@render content()}
+{/if}
 
 <style>
   .metric-panel {

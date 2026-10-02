@@ -1,6 +1,6 @@
 # Grapher Phase 2: chrome proposal
 
-Status: **owner-approved implementation in progress in PR #108**. After reviewing the proposal, the owner requested “wire in the implementation for this PR”, authorizing P2-D1–D5/P2-A1–A8, the four-pilot boundary, 8rem desktop target and shared-frame refinement. Keep implementation and acceptance in that same PR; no deployment/release is authorized.
+Status: **owner-approved implementation in progress in PR #108**. After reviewing the proposal, the owner explicitly requested implementation in the same PR, authorizing P2-D1–D5/P2-A1–A8, the four-pilot boundary, 8rem desktop target and shared-frame refinement. Keep implementation and acceptance in that same PR; no deployment/release is authorized.
 
 ## Outcome and provenance
 
@@ -10,15 +10,15 @@ Make the route title, time context, summary and evidence read in one predictable
 
 Baseline: main `bafd38ceee464d0f05b2c6b978457723441c7c4f`, after merged #103 and #106; #102 and #105 are closed. Keep the [Phase 1 acceptance](../audits/2026-10-01-grapher-pilot-baseline.md) and [verification follow-up](../audits/2026-10-02-grapher-verification-gaps.md) as bounded evidence, including their limits.
 
-## Recommended scope
+## Approved scope
 
 Start with the same four pilots: private Overview, Expenses, Metrics and the public landing dashboard. Prove the shared chrome there before proposing a route-by-route rollout. Completing this pilot does **not** mean every route has completed Phase 2.
 
 One cohesive route-chrome capability uses these existing owners:
 
-| Responsibility | Current owner / proposed change |
+| Responsibility | Owner / implementation |
 | --- | --- |
-| Route heading and time context | Shared Grapher compositions and canonical `PeriodToolbar`/`PeriodSelector` in the shared package; web `$lib/components` wrappers adapt theme/context to those primitives. Compose one shared header from them. |
+| Route heading and time context | Shared `RouteHeader` composes the current canonical `PeriodSelector` and public year navigation. Web `$lib/components` selector wrappers retain their theme/context adaptation; app adapters own state and callbacks. |
 | Panel appearance | `MetricPanel` currently wraps metric rows, provenance, chart/table view and CSV, not a generic bordered panel. Share presentation without erasing that contract. |
 | Summary tiles | `StatTile` exists; the Overview fallback already uses it. Migrate the active shared Grapher `Dashboard.svelte`'s bespoke `.stat-card` composition while preserving links, missing states and per-tile context. |
 | Async state, selectors and navigation | App adapters retain ownership; do not move requests or `$app` callbacks into shared visual code. |
@@ -27,9 +27,9 @@ One cohesive route-chrome capability uses these existing owners:
 
 | ID | Recommendation | Trade-off / alternative |
 | --- | --- | --- |
-| P2-D1 | Compact **route** headers, not the shell rail. One visible h1, one header/time-context region, no duplicate promotional route heading. Use existing type/spacing roles; keep required labels fully readable. | Removes repeated chrome without a navigation redesign. Proposed populated-fixture budget: header including time controls <=8rem high at 1280px/16px root; narrow/zoomed layouts may wrap and have no fixed height cap. |
+| P2-D1 | Compact **route** headers, not the shell rail. One visible h1, one header/time-context region, no duplicate promotional route heading. Use existing type/spacing roles; keep required labels fully readable. | Removes repeated chrome without a navigation redesign. Approved populated-fixture budget: header including time controls <=8rem high at 1280px/16px root; narrow/zoomed layouts may wrap and have no fixed height cap. |
 | P2-D2 | One route-level period-control group in the header where supported. Overview has a read-only mixed-window context, not a new selector. Keep public year buttons rather than forcing its static projection through the private month selector. | Consistent location does not mean identical scope capabilities or a new global filter. Filters such as currency, sport and city retain their existing meaning. |
-| P2-D3 | Extract one small shared **presentation frame**, consumed by `MetricPanel` and non-metric panels. Keep MetricPanel's required metric identity/rows/provenance/CSV contract intact. | A deliberate refinement of #85's “MetricPanel as the single panel frame”: do not fabricate metric rows for a map or ledger. Alternative: make MetricPanel a generic optional-metadata component; not recommended because it weakens the truthfulness contract. Owner must approve this refinement. |
+| P2-D3 | Extract one small shared **presentation frame**, consumed by `MetricPanel` and non-metric panels. Keep MetricPanel's required metric identity/rows/provenance/CSV contract intact. | A deliberate refinement of #85's “MetricPanel as the single panel frame”: do not fabricate metric rows for a map or ledger. Alternative: make MetricPanel a generic optional-metadata component; not recommended because it weakens the truthfulness contract. Owner approved this refinement with the implementation request. |
 | P2-D4 | Use shared StatTile presentation for pilot quantity summaries, with visible period/window context and an optional existing-action slot where needed. Derive retained-data context from the loaded payload, not the pending selector. | Overview needs recent-sleep and library links and independent missing states; a migration that silently drops them is not acceptable. Do not create another stat-card style. |
 | P2-D5 | DOM and visual order agree: route heading/context -> filters/actions -> summaries -> plots -> exact records/detail -> supplemental context. A route may omit absent groups. | Geography counts as a plot, not a new domain. Keep within-route reading order explicit; avoid CSS `order` rearrangements that disagree with Tab/screen-reader order. |
 
@@ -76,7 +76,7 @@ Browser claims remain bounded Chromium synthetic evidence, not a recovered full 
 4. Migrate pilot summaries and reading order; cover mixed windows, action links and stale-versus-pending context. Keep changes small and independently testable.
 5. Run full acceptance and independent review; record explicit nonpilot debt. Propose the remaining route rollout separately, not as an implied consequence of pilot approval.
 
-This is an approval-level sequence, not a dispatched implementation task graph. Record approved work in Asobi and its owning issue/PR before implementation.
+Execution is tracked in Asobi `iroha:grapher-phase2-implementation` and acceptance issue #107, with all changes in PR #108. See the [implementation acceptance record](../audits/2026-10-03-grapher-phase2-implementation.md).
 
 ## Commands and boundaries
 

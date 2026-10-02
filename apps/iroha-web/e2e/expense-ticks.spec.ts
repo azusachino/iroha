@@ -35,11 +35,9 @@ for (const mode of ["light", "dark"] as const) {
         await expect(
           page.getByRole("heading", { name: scenario.merchant, exact: true }),
         ).toBeVisible();
-        const composition = page.getByRole("article").filter({
-          has: page.getByRole("group", {
-            name: "Spend by category view",
-            exact: true,
-          }),
+        const composition = page.getByRole("region", {
+          name: "Spend by category",
+          exact: true,
         });
         await expect(composition).toBeVisible();
         await expect

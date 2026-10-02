@@ -124,9 +124,8 @@ for (const host of ["private", "public"] as const) {
         await expect(grid).toContainText("45 min");
         await expect(
           grid
-            .locator(".stat-card")
-            .filter({ hasText: "Library items" })
-            .locator("strong"),
+            .getByRole("region", { name: "Library items", exact: true })
+            .getByText("0", { exact: true }),
         ).toHaveText("0");
       } else {
         await expect(page.getByText("1:00 /km", { exact: true })).toBeVisible();

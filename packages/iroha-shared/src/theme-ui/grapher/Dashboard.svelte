@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { DashboardThemeProps } from "../../view-contracts/dashboard-view";
   import ActivityHeatmap from "../components/ActivityHeatmap.svelte";
+  import RouteHeader from "../../components/RouteHeader.svelte";
+  import PanelFrame from "../../components/PanelFrame.svelte";
+  import StatTile from "../../components/StatTile.svelte";
   import BarChart from "../components/BarChart.svelte";
   import {
     formatDate,
@@ -67,25 +70,13 @@
 <section
   class="grapher-dashboard"
   data-theme={theme}
-  aria-labelledby="grapher-dashboard-title"
+  aria-label="Overview"
 >
-  <header class="dashboard-header">
-    <div>
-      <p class="kicker">Overview / living archive</p>
-      <h1 id="grapher-dashboard-title">Your history, in perspective.</h1>
-      <p>
-        Movement, rest, routes and the things you collect, organized around the
-        records behind them.
-      </p>
-    </div>
-    <div class="streak-readout">
-      <span>Current activity streak</span>
-      <strong>{streak}</strong>
-      <a href="/motion"
-        >Open movement archive <span aria-hidden="true">→</span></a
-      >
-    </div>
-  </header>
+  <RouteHeader title="Overview" context="Mixed windows · movement and library: all time · sleep and activity: recent records">
+    {#snippet actions()}
+      <a class="archive-link" href="/motion">Open movement archive <span aria-hidden="true">→</span></a>
+    {/snippet}
+  </RouteHeader>
 
   {#if loading && !summary}
     <p class="status" role="status">Loading your long view…</p>
@@ -101,94 +92,31 @@
       <p class="updating" role="status">Updating overview…</p>
     {/if}
 
-    <dl class="stat-grid">
-      <div class="stat-card distance-card">
-        <dt>Distance · all time</dt>
-        <dd>
-          <strong>{formatDistance(summary.totals.distance_m)}</strong>
-          <small>Across recorded movement</small>
-        </dd>
-      </div>
-      <div class="stat-card">
-        <dt>Activity records</dt>
-        <dd>
-          <strong
-            >{formatMetricValue(summary.totals.activity_count, "count")}</strong
-          >
-          <small>Imported movement sessions</small>
-        </dd>
-      </div>
-      <div class="stat-card">
-        <dt>Total movement time</dt>
-        <dd>
-          <strong>
-            {formatHumanDuration(
-              summary.totals.moving_time_s || summary.totals.duration_s,
-            )}
-          </strong>
-          <small>Recorded duration</small>
-        </dd>
-      </div>
-      <div class="stat-card">
-        <dt>Main sleep · recent</dt>
-        <dd>
-          <strong>
-            {sleepLoading || sleepError || sleepSummary.nightCount === 0
-              ? "—"
-              : formatHumanDuration(sleepSummary.averageAsleepS)}
-          </strong>
-          <small>
-            {#if sleepLoading}
-              Loading recent nights
-            {:else if sleepError}
-              Could not load sleep data
-            {:else if sleepSummary.nightCount}
-              Average across {sleepSummary.nightCount} main nights
-            {:else}
-              No main sleep records in this window
-            {/if}
-          </small>
-          <a href="/night">Explore sleep <span aria-hidden="true">→</span></a>
-        </dd>
-      </div>
-      <div class="stat-card">
-        <dt>Library items</dt>
-        <dd>
-          <strong>
-            {mediaLoading || mediaError
-              ? "—"
-              : formatMetricValue(
-                  mediaAggregates?.totals.item_count ?? 0,
-                  "count",
-                )}
-          </strong>
-          <small>
-            {#if mediaLoading}
-              Loading the library
-            {:else if mediaError}
-              Could not load library data
-            {:else}
-              Collected and tracked items
-            {/if}
-          </small>
-          <a href="/library"
-            >Explore library <span aria-hidden="true">→</span></a
-          >
-        </dd>
-      </div>
-    </dl>
+    <div class="stat-grid">
+      <StatTile label="Distance · all time" context="All time"
+        value={summary.totals.distance_unknown_count > 0 && summary.totals.distance_known_count === 0 ? "—" : formatDistance(summary.totals.distance_m)}
+        sub={summary.totals.distance_unknown_count > 0 ? `Known distance for ${summary.totals.distance_known_count} of ${summary.totals.activity_count} activities; ${summary.totals.distance_unknown_count} unavailable` : "Across recorded movement"} />
+      <StatTile label="Activity records" value={formatMetricValue(summary.totals.activity_count, "count")} context="All time" sub="Imported movement sessions" />
+      <StatTile label="Total movement time" value={formatHumanDuration(summary.totals.moving_time_s || summary.totals.duration_s)} context="All time" sub="Recorded duration" />
+      <StatTile label="Main sleep · recent" context="Recent records (limit 30)"
+        value={sleepLoading || sleepError || sleepSummary.nightCount === 0 ? "—" : formatHumanDuration(sleepSummary.averageAsleepS)}
+        sub={sleepLoading ? "Loading recent nights" : sleepError ? "Could not load sleep data" : sleepSummary.nightCount ? `Average across ${sleepSummary.nightCount} main nights` : "No main sleep records in this window"}>
+        <a href="/night">Explore sleep <span aria-hidden="true">→</span></a>
+      </StatTile>
+      <StatTile label="Library items" context="All time"
+        value={mediaLoading || mediaError ? "—" : formatMetricValue(mediaAggregates?.totals.item_count ?? 0, "count")}
+        sub={mediaLoading ? "Loading the library" : mediaError ? "Could not load library data" : "Collected and tracked items"}>
+        <a href="/library">Explore library <span aria-hidden="true">→</span></a>
+      </StatTile>
+      <StatTile label="Current activity streak" value={streak} context="Consecutive days ending today" />
+    </div>
 
     <div class="dashboard-grid">
-      <ActivityHeatmap
-        days={activeDays}
-        endDay={heatmapEndDay}
-        title="Activity through the year"
-      />
+      <div class="heatmap-panel"><PanelFrame label="Activity calendar">
+        <ActivityHeatmap days={activeDays} endDay={heatmapEndDay} title="Activity through the year" embedded />
+      </PanelFrame></div>
 
-      <section
-        class="panel tile chart-panel"
-        aria-labelledby="distance-trend-title"
-      >
+      <div class="chart-panel"><PanelFrame label="Monthly distance">
         <header class="panel-header">
           <div>
             <p class="kicker">Movement / distance</p>
@@ -246,12 +174,9 @@
         {:else}
           <p class="empty-note">No canonical movement periods yet.</p>
         {/if}
-      </section>
+      </PanelFrame></div>
 
-      <section
-        class="panel tile sport-panel"
-        aria-labelledby="sport-breakdown-title"
-      >
+      <div class="sport-panel"><PanelFrame label="By activity">
         <header class="panel-header">
           <div>
             <p class="kicker">Movement / composition</p>
@@ -285,15 +210,20 @@
         {:else}
           <p class="empty-note">No activity categories to compare yet.</p>
         {/if}
-      </section>
+      </PanelFrame></div>
 
-      <section
-        class="panel tile table-panel"
-        aria-labelledby="recent-movement-title"
-      >
+      <div class="route-panel"><PanelFrame label="Route footprint">
+        <header class="panel-header">
+          <div><p class="kicker">Geography / privacy-trimmed</p><h2 id="route-footprint-title">Route footprint</h2></div>
+          <span>{routes?.features.length ?? "—"} traces</span>
+        </header>
+        {@render children?.()}
+      </PanelFrame></div>
+
+      <div class="table-panel"><PanelFrame label="Recent movement">
         <header class="panel-header">
           <div>
-            <p class="kicker">Latest records</p>
+            <p class="kicker">Latest records · up to 5</p>
             <h2 id="recent-movement-title">Recent movement</h2>
           </div>
           <a href="/motion">Browse archive <span aria-hidden="true">→</span></a>
@@ -354,21 +284,8 @@
         {:else}
           <p class="empty-note">No movement records to show yet.</p>
         {/if}
-      </section>
+      </PanelFrame></div>
 
-      <section
-        class="panel tile route-panel"
-        aria-labelledby="route-footprint-title"
-      >
-        <header class="panel-header">
-          <div>
-            <p class="kicker">Geography / privacy-trimmed</p>
-            <h2 id="route-footprint-title">Route footprint</h2>
-          </div>
-          <span>{routes?.features.length ?? "—"} traces</span>
-        </header>
-        {@render children?.()}
-      </section>
     </div>
   {/if}
 
@@ -389,27 +306,9 @@
     min-width: 0;
   }
 
-  h1,
   h2,
   p {
     margin: 0;
-  }
-
-  .dashboard-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.34fr);
-    align-items: end;
-    gap: 2rem;
-    padding: 0.75rem 0 1.4rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  h1 {
-    max-width: 18ch;
-    font-family: var(--font-sans);
-    font-size: var(--grapher-utility-title-size);
-    letter-spacing: -0.055em;
-    line-height: 0.98;
   }
 
   h2 {
@@ -427,42 +326,8 @@
     text-transform: uppercase;
   }
 
-  .dashboard-header > div:first-child > p:last-child {
-    max-width: 46rem;
-    margin-top: 0.9rem;
-    color: var(--text-muted);
-    font-family: var(--font-sans);
-    line-height: 1.55;
-  }
-
-  .streak-readout {
-    display: grid;
-    gap: 0.45rem;
-    padding: 0.75rem 1rem;
-    border-left: 3px solid var(--accent);
-    background: color-mix(in srgb, var(--accent) 7%, var(--surface));
-  }
-
-  .streak-readout > span,
-  .stat-card dt {
-    color: var(--text-muted);
-    font-size: var(--type-caption);
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .streak-readout strong {
-    color: var(--accent);
-    font-size: var(--type-display);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.05em;
-    line-height: 1;
-  }
-
-  .streak-readout a,
-  .panel-header > a,
-  .stat-card a {
+  .archive-link,
+  .panel-header > a {
     display: inline-flex;
     align-items: center;
     gap: 0.2rem;
@@ -475,51 +340,9 @@
 
   .stat-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 0.75rem;
     margin: 0;
-  }
-
-  .stat-card {
-    display: grid;
-    align-content: start;
-    gap: 0.4rem;
-    min-width: 0;
-    padding: 0.9rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--tile-surface);
-    box-shadow: var(--tile-shadow);
-  }
-
-  .distance-card {
-    border-top: 3px solid var(--accent);
-  }
-
-  .stat-card dd {
-    display: grid;
-    gap: 0.4rem;
-    min-width: 0;
-    margin: 0;
-  }
-
-  .stat-card strong {
-    overflow-wrap: anywhere;
-    font-size: clamp(var(--type-body), 1.55vw, var(--type-title));
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.04em;
-    line-height: 1.1;
-  }
-
-  .stat-card small {
-    min-height: 2.2em;
-    color: var(--text-muted);
-    font-size: var(--type-caption);
-    line-height: 1.4;
-  }
-
-  .stat-card a {
-    margin-top: 0.2rem;
   }
 
   .dashboard-grid {
@@ -533,18 +356,12 @@
     min-width: 0;
   }
 
-  .dashboard-grid :global(.activity-heatmap) {
+  .heatmap-panel {
     grid-column: 1 / -1;
-  }
-
-  .panel {
-    min-width: 0;
-    padding: 1.15rem;
   }
 
   .chart-panel {
     grid-column: span 8;
-    border-top: 3px solid var(--accent);
   }
 
   .sport-panel {
@@ -784,15 +601,6 @@
   }
 
   @media (max-width: 768px) {
-    .dashboard-header {
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
-
-    .streak-readout {
-      max-width: 20rem;
-    }
-
     .chart-panel,
     .sport-panel,
     .table-panel,
@@ -807,20 +615,8 @@
       gap: 0.5rem;
     }
 
-    .stat-card {
-      padding: 0.75rem;
-    }
-
-    .stat-card strong {
-      font-size: var(--type-body);
-    }
-
     .dashboard-grid {
       gap: 0.75rem;
-    }
-
-    .panel {
-      padding: 0.9rem;
     }
 
     .panel-header {

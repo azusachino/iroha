@@ -38,6 +38,8 @@
   import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
+  import RouteHeader from "@iroha/shared/components/RouteHeader.svelte";
+  import PanelFrame from "@iroha/shared/components/PanelFrame.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import YearProgressChart from "@iroha/shared/components/YearProgressChart.svelte";
   import type { PageProps } from "./$types";
@@ -210,6 +212,9 @@
       return `Distance unavailable for ${distance_unknown_count} ${distance_unknown_count === 1 ? "activity" : "activities"}`;
     return `Known distance for ${distance_known_count} of ${selectedYearTotals.activity_count} activities; ${distance_unknown_count} unavailable`;
   });
+  const summaryContext = $derived(
+    `${selectedYear || "No records"} · ${sportFilter ? formatSport(sportFilter) : "All sports"}`,
+  );
   const distanceValue = $derived(
     selectedYearTotals.distance_unknown_count > 0 &&
       selectedYearTotals.distance_known_count === 0
@@ -393,24 +398,59 @@
   <title>{site.name} {site.byline} · public archive</title>
 </svelte:head>
 
-<header class="hero tile">
-  <div class="hero-topline">
-    <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
-      <img src={`${base}/favicon.svg`} alt="" width="28" height="28" />
-      <span class="eyebrow">{site.name} {site.byline}</span>
-    </a>
-    <ThemeToggle />
-  </div>
-  <h1>The shape of the miles.</h1>
-  <p class="hero-summary">
-    A public field guide to the routes and rhythms made visible.
-  </p>
-  <div class="hero-meta" aria-label="Archive metadata">
-    <span>Live</span>
-    <span>Updated {formatDateOnly(meta.generated_at)}</span>
-    <span>iroha v{site.version}</span>
-  </div>
-</header>
+{#if selectedActivity}
+  <header class="hero tile">
+    <div class="hero-topline">
+      <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
+        <img src={`${base}/favicon.svg`} alt="" width="28" height="28" />
+        <span class="eyebrow">{site.name} {site.byline}</span>
+      </a>
+      <ThemeToggle />
+    </div>
+    <h1>The shape of the miles.</h1>
+    <p class="hero-summary">
+      A public field guide to the routes and rhythms made visible.
+    </p>
+    <div class="hero-meta" aria-label="Archive metadata">
+      <span>Live</span>
+      <span>Updated {formatDateOnly(meta.generated_at)}</span>
+      <span>iroha v{site.version}</span>
+    </div>
+  </header>
+{:else}
+  <RouteHeader
+    title="Public archive"
+    context={`Observed year: ${selectedYear || "No records"} · ${sportFilter ? formatSport(sportFilter) : "All sports"}`}
+  >
+    {#if years.length > 0}
+      <nav class="year-tabs" aria-label="Select year">
+        {#each years as year (year)}
+          <button
+            type="button"
+            class:active={selectedYear === year}
+            onclick={() => selectYear(year)}>{year}</button
+          >
+        {/each}
+      </nav>
+    {/if}
+    {#snippet actions()}
+      <div class="public-actions">
+        <div class="hero-topline">
+          <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
+            <img src={`${base}/favicon.svg`} alt="" width="28" height="28" />
+            <span class="eyebrow">{site.name} {site.byline}</span>
+          </a>
+          <ThemeToggle />
+        </div>
+        <div class="hero-meta" aria-label="Archive metadata">
+          <span>Live</span><span
+            >Updated {formatDateOnly(meta.generated_at)}</span
+          ><span>iroha v{site.version}</span>
+        </div>
+      </div>
+    {/snippet}
+  </RouteHeader>
+{/if}
 
 {#if selectedActivity && selectedActivityDetail}
   <ApprovedActivityDetail
@@ -426,18 +466,28 @@
 {:else}
   <div class="dashboard">
     <div class="stat-grid">
-      <StatTile label="Distance" value={distanceValue} sub={distanceSub} />
+      <StatTile
+        label="Distance"
+        value={distanceValue}
+        sub={distanceSub}
+        context={summaryContext}
+      />
       <StatTile
         label="Activities"
+        context={summaryContext}
         value={formatMetricValue(selectedYearTotals.activity_count, "count")}
       />
       <StatTile
         label="Running count"
         value={formatMetricValue(selectedYearRunningCount, "count")}
+        context={selectedYear
+          ? `${selectedYear} · All running records`
+          : "No records"}
         sub={selectedYear ? `runs in ${selectedYear}` : undefined}
       />
       <StatTile
         label="Total time"
+        context={summaryContext}
         value={formatHumanDuration(
           selectedYearTotals.moving_time_s || selectedYearTotals.duration_s,
         )}
@@ -445,68 +495,64 @@
     </div>
 
     {#if years.length > 0}
-      <nav class="year-tabs" aria-label="Select year">
-        {#each years as year (year)}
-          <button
-            type="button"
-            class:active={selectedYear === year}
-            onclick={() => selectYear(year)}
-          >
-            {year}
-          </button>
-        {/each}
-      </nav>
-
       {#if selectedYear}
         <div class="analytics-grid">
-          <YearProgressChart
-            byMonth={monthlyAll}
-            year={selectedYear}
-            sportName={sportFilter ? formatSport(sportFilter) : undefined}
-          />
-          <MonthlyBarChart
-            points={monthSlots.map((slot) => ({
-              label: slot.label,
-              value: slot.bucket?.[monthMetric] ?? 0,
-            }))}
-            metric={monthMetric}
-            year={selectedYear}
-          />
+          <PanelFrame label="Cumulative distance">
+            <YearProgressChart
+              embedded
+              byMonth={monthlyAll}
+              year={selectedYear}
+              sportName={sportFilter ? formatSport(sportFilter) : undefined}
+            />
+          </PanelFrame>
+          <PanelFrame label="Monthly observations">
+            <MonthlyBarChart
+              embedded
+              points={monthSlots.map((slot) => ({
+                label: slot.label,
+                value: slot.bucket?.[monthMetric] ?? 0,
+              }))}
+              metric={monthMetric}
+              year={selectedYear}
+            />
+          </PanelFrame>
         </div>
       {/if}
     {/if}
 
     {#if sportBuckets.length > 0}
-      <section class="tile by-sport">
-        <div class="section-kicker">
-          {selectedYear} by sport
-        </div>
-        {#each sportBuckets as sport (sport.key)}
-          <button
-            type="button"
-            class="sport-row"
-            class:active={sportFilter === sport.key}
-            onclick={() => toggleSport(sport.key)}
-          >
-            <SportBadge sport={sport.key} />
-            <span class="bar">
-              <i
-                style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
-              ></i>
-            </span>
-            <span class="count">{sport.activity_count}×</span>
-          </button>
-        {/each}
-        {#if sportFilter}
-          <button
-            type="button"
-            class="clear-filter"
-            onclick={() => toggleSport(sportFilter!)}
-          >
-            Clear sport filter ({formatSport(sportFilter)})
-          </button>
-        {/if}
-      </section>
+      <PanelFrame label="Activities by sport"
+        ><section class="by-sport">
+          <div class="section-kicker">
+            {selectedYear} by sport
+          </div>
+          {#each sportBuckets as sport (sport.key)}
+            <button
+              type="button"
+              class="sport-row"
+              class:active={sportFilter === sport.key}
+              onclick={() => toggleSport(sport.key)}
+            >
+              <SportBadge sport={sport.key} />
+              <span class="bar">
+                <i
+                  style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
+                ></i>
+              </span>
+              <span class="count">{sport.activity_count}×</span>
+            </button>
+          {/each}
+          {#if sportFilter}
+            <button
+              type="button"
+              class="clear-filter"
+              onclick={() => toggleSport(sportFilter!)}
+            >
+              Clear sport filter ({formatSport(sportFilter)})
+            </button>
+          {/if}
+        </section></PanelFrame
+      >
     {/if}
 
     <section class="section-heading">
@@ -520,63 +566,76 @@
       <p class="muted">No routes recorded yet.</p>
     {:else}
       <div class="routes-grid">
-        <div class="map-wrap tile">
-          <RoutesMap
-            data={{ type: "FeatureCollection", features: mappedRoutes }}
-          />
-        </div>
-        <div class="cities tile">
-          <div class="cities-head">
-            <h3>
-              {sportFilter
-                ? `${formatSport(sportFilter)} cities`
-                : "Cities visited"}
-            </h3>
-            {#if cityFilter}
-              <button
-                type="button"
-                class="clear-filter"
-                onclick={() => (cityFilter = null)}
-              >
-                Show all
-              </button>
-            {/if}
-          </div>
-          {#if cityGroups.length === 0}
-            <p class="muted small">No route coordinates for this selection.</p>
-          {:else}
-            <div class="city-grid">
-              {#each cityGroups as group (group.city)}
-                {@const intensity = group.runCount / maxRunCount}
+        <PanelFrame label="Route map"
+          ><div class="map-wrap">
+            <RoutesMap
+              data={{ type: "FeatureCollection", features: mappedRoutes }}
+            />
+          </div></PanelFrame
+        >
+        <PanelFrame label="Geography selection"
+          ><div class="cities">
+            <p class="muted small">
+              {selectedYear} · {sportFilter
+                ? formatSport(sportFilter)
+                : "All sports"} · {cityFilter
+                ? cityLabel(cityFilter)
+                : "All cities"} (geography only)
+            </p>
+            <div class="cities-head">
+              <h3>
+                {sportFilter
+                  ? `${formatSport(sportFilter)} cities`
+                  : "Cities visited"}
+              </h3>
+              {#if cityFilter}
                 <button
                   type="button"
-                  class="city-card"
-                  class:selected={cityFilter === group.city}
-                  style={`--intensity: ${intensity}`}
-                  onclick={() => toggleCity(group.city)}
+                  class="clear-filter"
+                  onclick={() => (cityFilter = null)}
                 >
-                  <div class="city-name">
-                    {cityLabel(group.city, group.status)}
-                  </div>
-                  <div class="city-sports">
-                    {Array.from(group.sports)
-                      .map((s) => formatSport(s))
-                      .join(", ")}
-                  </div>
-                  <div class="city-count">
-                    {group.runCount}
-                    {group.runCount === 1 ? "run" : "runs"}
-                    {#if group.count > group.runCount}
-                      <span class="muted small"
-                        >(+{group.count - group.runCount} other)</span
-                      >
-                    {/if}
-                  </div>
+                  Show all
                 </button>
-              {/each}
+              {/if}
             </div>
-          {/if}
-        </div>
+            {#if cityGroups.length === 0}
+              <p class="muted small">
+                No route coordinates for this selection.
+              </p>
+            {:else}
+              <div class="city-grid">
+                {#each cityGroups as group (group.city)}
+                  {@const intensity = group.runCount / maxRunCount}
+                  <button
+                    type="button"
+                    class="city-card"
+                    class:selected={cityFilter === group.city}
+                    style={`--intensity: ${intensity}`}
+                    onclick={() => toggleCity(group.city)}
+                  >
+                    <div class="city-name">
+                      {cityLabel(group.city, group.status)}
+                    </div>
+                    <div class="city-sports">
+                      {Array.from(group.sports)
+                        .map((s) => formatSport(s))
+                        .join(", ")}
+                    </div>
+                    <div class="city-count">
+                      {group.runCount}
+                      {group.runCount === 1 ? "run" : "runs"}
+                      {#if group.count > group.runCount}
+                        <span class="muted small"
+                          >(+{group.count - group.runCount} other)</span
+                        >
+                      {/if}
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div></PanelFrame
+        >
       </div>
     {/if}
 
@@ -587,86 +646,88 @@
     {#if filteredActivities.length === 0}
       <p class="muted">No activities for this selection.</p>
     {:else}
-      <div class="table-wrap tile">
-        <table>
-          <thead>
-            {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-              <tr>
-                {#each headerGroup.headers as header (header.id)}
-                  <th>
-                    <button
-                      type="button"
-                      class="sort-header"
-                      onclick={header.column.getToggleSortingHandler()}
-                    >
-                      {String(header.column.columnDef.header)}
-                      {#if header.column.getIsSorted() === "asc"}▲{:else if header.column.getIsSorted() === "desc"}▼{/if}
-                    </button>
-                  </th>
-                {/each}
-              </tr>
-            {/each}
-          </thead>
-          <tbody>
-            {#each visibleActivities as activity (activity.id)}
-              <tr>
-                <td class="nowrap">
-                  <a class="activity-link" href={activityHref(activity.id)}>
-                    {formatDate(activity.started_at, activity.timezone)}
-                  </a>
-                </td>
-                <td>
-                  <div class="activity-cell">
-                    <SportBadge sport={activity.sport_type} />
-                    {#if hasMeaningfulActivityTitle(activity)}
-                      <span class="activity-title">{activity.title}</span>
+      <PanelFrame label="Activity records"
+        ><div class="table-wrap">
+          <table>
+            <thead>
+              {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+                <tr>
+                  {#each headerGroup.headers as header (header.id)}
+                    <th>
+                      <button
+                        type="button"
+                        class="sort-header"
+                        onclick={header.column.getToggleSortingHandler()}
+                      >
+                        {String(header.column.columnDef.header)}
+                        {#if header.column.getIsSorted() === "asc"}▲{:else if header.column.getIsSorted() === "desc"}▼{/if}
+                      </button>
+                    </th>
+                  {/each}
+                </tr>
+              {/each}
+            </thead>
+            <tbody>
+              {#each visibleActivities as activity (activity.id)}
+                <tr>
+                  <td class="nowrap">
+                    <a class="activity-link" href={activityHref(activity.id)}>
+                      {formatDate(activity.started_at, activity.timezone)}
+                    </a>
+                  </td>
+                  <td>
+                    <div class="activity-cell">
+                      <SportBadge sport={activity.sport_type} />
+                      {#if hasMeaningfulActivityTitle(activity)}
+                        <span class="activity-title">{activity.title}</span>
+                      {/if}
+                    </div>
+                  </td>
+                  <td>
+                    {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                      {formatDuration(
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}
+                    {:else}
+                      {formatDistance(activity.distance_m)}
                     {/if}
-                  </div>
-                </td>
-                <td>
-                  {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                    {formatDuration(
-                      activity.duration_s ?? activity.moving_time_s,
-                    )}
-                  {:else}
-                    {formatDistance(activity.distance_m)}
-                  {/if}
-                </td>
-                <td>
-                  {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                    {#if activity.avg_hr}Avg HR: {formatHr(
-                        activity.avg_hr,
-                      )}{:else if activity.max_hr}Max HR: {formatHr(
-                        activity.max_hr,
-                      )}{:else}—{/if}
-                  {:else if isCycling(activity.sport_type)}
-                    {formatCyclingSpeed(
-                      activity.distance_m,
-                      activity.duration_s ?? activity.moving_time_s,
-                    )}
-                  {:else if isSwimming(activity.sport_type)}
-                    {formatSwimmingPace(
-                      activity.distance_m,
-                      activity.duration_s ?? activity.moving_time_s,
-                    )}
-                  {:else}
-                    {formatPace(activity.avg_pace_s_per_km)}
-                    {#if activity.avg_hr}· {formatHr(activity.avg_hr)}{/if}
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-        {#if hasMoreActivities}
-          <div class="load-more">
-            <button type="button" onclick={loadMore}>Load more</button>
-            <span class="muted small">
-              Showing {visibleActivities.length} of {sortedActivities.length}
-            </span>
-          </div>
-        {/if}
-      </div>
+                  </td>
+                  <td>
+                    {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                      {#if activity.avg_hr}Avg HR: {formatHr(
+                          activity.avg_hr,
+                        )}{:else if activity.max_hr}Max HR: {formatHr(
+                          activity.max_hr,
+                        )}{:else}—{/if}
+                    {:else if isCycling(activity.sport_type)}
+                      {formatCyclingSpeed(
+                        activity.distance_m,
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}
+                    {:else if isSwimming(activity.sport_type)}
+                      {formatSwimmingPace(
+                        activity.distance_m,
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}
+                    {:else}
+                      {formatPace(activity.avg_pace_s_per_km)}
+                      {#if activity.avg_hr}· {formatHr(activity.avg_hr)}{/if}
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          {#if hasMoreActivities}
+            <div class="load-more">
+              <button type="button" onclick={loadMore}>Load more</button>
+              <span class="muted small">
+                Showing {visibleActivities.length} of {sortedActivities.length}
+              </span>
+            </div>
+          {/if}
+        </div></PanelFrame
+      >
     {/if}
   </div>
 {/if}
@@ -752,11 +813,22 @@
     gap: 0.75rem;
     margin-bottom: 1.25rem;
   }
+  .public-actions {
+    max-width: 23rem;
+  }
+  .public-actions .hero-meta {
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  .public-actions .hero-meta span + span {
+    padding-left: 0;
+    border-left: 0;
+  }
   .year-tabs {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
   }
   .year-tabs button {
     padding: 0.4rem 0.85rem;
@@ -780,8 +852,7 @@
     gap: 1rem;
   }
   .by-sport {
-    margin-bottom: 1rem;
-    padding: 1rem;
+    min-width: 0;
   }
   .section-kicker {
     margin-bottom: 0.65rem;
@@ -853,7 +924,7 @@
     padding: 0.5rem;
   }
   .cities {
-    padding: 1rem;
+    min-width: 0;
     max-height: 24rem;
     overflow-y: auto;
   }

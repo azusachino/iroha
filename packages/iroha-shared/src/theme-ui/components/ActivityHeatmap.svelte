@@ -10,10 +10,12 @@
     days,
     endDay,
     title = "Activity history",
+    embedded = false,
   }: {
     days: ActivityActiveDay[];
     endDay: string;
     title?: string;
+    embedded?: boolean;
   } = $props();
 
   const model = $derived(buildActivityHeatmap(days, endDay));
@@ -36,7 +38,7 @@
   });
 </script>
 
-<section class="activity-heatmap" aria-labelledby="activity-heatmap-title">
+<section class="activity-heatmap" class:embedded aria-labelledby="activity-heatmap-title">
   <header class="heatmap-header">
     <div>
       <p class="kicker">Movement / daily density</p>
@@ -109,6 +111,13 @@
     box-shadow: var(--tile-shadow);
   }
 
+  .activity-heatmap.embedded {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
   .heatmap-header {
     display: flex;
     align-items: flex-start;

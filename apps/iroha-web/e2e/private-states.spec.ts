@@ -93,10 +93,14 @@ for (const mode of ["light", "dark"] as const) {
         page.getByRole("heading", { name: "Synthetic cafe", exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText("Expense series · 2026-08", { exact: true }),
+        page
+          .getByRole("region", { name: "Expenses header", exact: true })
+          .getByText("Observed period: 2026-08", { exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText("Expense series · 2026-09", { exact: true }),
+        page
+          .getByRole("region", { name: "Expenses header", exact: true })
+          .getByText("Observed period: 2026-09", { exact: true }),
       ).toHaveCount(0);
       const record = page.getByRole("button", { name: /Synthetic cafe/ });
       await record.focus();
@@ -108,7 +112,9 @@ for (const mode of ["light", "dark"] as const) {
       page.getByRole("heading", { name: "Synthetic shop", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("Expense series · 2026-09", { exact: true }),
+      page
+        .getByRole("region", { name: "Expenses header", exact: true })
+        .getByText("Observed period: 2026-09", { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: /Synthetic cafe/ }),

@@ -32,7 +32,7 @@
   h1 { margin: 0; font-size: var(--type-title); line-height: 1.25; overflow-wrap: anywhere; }
   p { margin: var(--space-1) 0 0; font-size: var(--type-caption); color: var(--text-muted); overflow-wrap: anywhere; }
   .route-controls { flex: 3 1 24rem; min-width: 0; }
-  .route-actions { flex: 0 0 auto; }
+  .route-actions { flex: 0 1 auto; min-width: 0; max-width: 100%; }
   @media (max-width: 1024px) {
     .route-copy { flex-basis: 100%; }
   }

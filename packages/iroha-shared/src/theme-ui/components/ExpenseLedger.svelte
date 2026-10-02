@@ -16,8 +16,12 @@
     onSelect,
     onRemove,
     formatMoney,
+    embedded = false,
+    period,
   }: {
     expenses: Expense[];
+    embedded?: boolean;
+    period?: string;
     selected: Expense | null;
     selectedId: string;
     detailLoading: boolean;
@@ -53,6 +57,7 @@
 
 <section
   class="canonical-ledger"
+  class:embedded
   aria-labelledby="canonical-expense-records-title"
 >
   <header class="ledger-heading">
@@ -61,7 +66,7 @@
       <h2 id="canonical-expense-records-title">Expense records</h2>
     </div>
     <p class="ledger-description">
-      Aggregations above explain the month; this surface preserves every record.
+      Aggregations above explain {period ?? "the month"}; this surface preserves every record.
     </p>
   </header>
 
@@ -264,6 +269,12 @@
     border-top: 3px solid var(--accent);
     border-radius: var(--radius);
     background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+  }
+  .canonical-ledger.embedded {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
   .ledger-heading {
     display: flex;

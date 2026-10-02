@@ -30,12 +30,12 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
         currentPilot === "public"
           ? [
               [".eyebrow", "--type-caption"],
-              [".hero-summary", "--type-body"],
+              [".route-copy p", "--type-caption"],
               [".section-heading h2", "--type-title"],
             ]
           : currentPilot === "overview"
             ? [
-                [".kicker", "--type-caption"],
+                [".route-copy p", "--type-caption"],
                 [".chart-data", "--type-label"],
               ]
             : currentPilot === "expenses"
@@ -55,7 +55,7 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
               : [
                   [".chart-data", "--type-label"],
                   [".metric-metadata", "--type-caption"],
-                  [".period-copy span", "--type-caption"],
+                  [".route-copy p", "--type-caption"],
                   [".select-label", "--type-caption"],
                   [".select-control select", "--type-label"],
                 ];
