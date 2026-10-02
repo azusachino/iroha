@@ -18,9 +18,9 @@ One cohesive route-chrome capability uses these existing owners:
 
 | Responsibility | Current owner / proposed change |
 | --- | --- |
-| Route heading and time context | Shared Grapher compositions plus `PeriodToolbar`/`PeriodSelector`; compose one shared header from the existing primitives. |
+| Route heading and time context | Shared Grapher compositions and canonical `PeriodToolbar`/`PeriodSelector` in the shared package; web `$lib/components` wrappers adapt theme/context to those primitives. Compose one shared header from them. |
 | Panel appearance | `MetricPanel` currently wraps metric rows, provenance, chart/table view and CSV, not a generic bordered panel. Share presentation without erasing that contract. |
-| Summary tiles | `StatTile` exists; migrate Overview's bespoke `.stat-card` composition while preserving links, missing states and per-tile context. |
+| Summary tiles | `StatTile` exists; the Overview fallback already uses it. Migrate the active shared Grapher `Dashboard.svelte`'s bespoke `.stat-card` composition while preserving links, missing states and per-tile context. |
 | Async state, selectors and navigation | App adapters retain ownership; do not move requests or `$app` callbacks into shared visual code. |
 
 ### Proposed decisions for owner approval
