@@ -12,6 +12,24 @@ export async function inspectPilotCharts() {
       const chart = core.getInstanceByDom(el);
       if (!chart) return [];
       const option = chart.getOption();
+      const axes = (
+        values: {
+          type?: string;
+          name?: string;
+          data?: unknown[];
+          min?: number;
+          max?: number;
+          axisLabel?: { hideOverlap?: boolean };
+        }[],
+      ) =>
+        values.map((axis) => ({
+          type: axis.type,
+          name: axis.name,
+          data: axis.data,
+          min: axis.min,
+          max: axis.max,
+          hideOverlap: axis.axisLabel?.hideOverlap,
+        }));
       const series: {
         name?: string;
         data?: unknown[];
@@ -35,19 +53,11 @@ export async function inspectPilotCharts() {
           })),
           animation: option.animation,
           animationDuration: option.animationDuration,
-          xAxis: (option.xAxis ?? []).map(
-            (axis: { name?: string; data?: unknown[] }) => ({
-              name: axis.name,
-              data: axis.data,
-            }),
+          grid: (option.grid ?? []).map(
+            (grid: { bottom?: number | string }) => ({ bottom: grid.bottom }),
           ),
-          yAxis: (option.yAxis ?? []).map(
-            (axis: { name?: string; min?: number; max?: number }) => ({
-              name: axis.name,
-              min: axis.min,
-              max: axis.max,
-            }),
-          ),
+          xAxis: axes(option.xAxis ?? []),
+          yAxis: axes(option.yAxis ?? []),
         },
       ];
     },
