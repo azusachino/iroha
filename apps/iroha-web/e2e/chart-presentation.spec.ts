@@ -47,8 +47,18 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
                   [".detail-list dt", "--type-caption"],
                   [".detail-panel h3", "--type-title-small"],
                   [".expenses-shell h1", "--type-display"],
+                  [".period-copy span", "--type-caption"],
+                  [".period-copy strong", "--type-label"],
+                  [".select-label", "--type-caption"],
+                  [".select-control select", "--type-label"],
                 ]
-              : [[".chart-data", "--type-label"]];
+              : [
+                  [".chart-data", "--type-label"],
+                  [".metric-metadata", "--type-caption"],
+                  [".period-copy span", "--type-caption"],
+                  [".select-label", "--type-caption"],
+                  [".select-control select", "--type-label"],
+                ];
       return checks.map(([selector, token]) => {
         const element = document.querySelector(selector);
         if (!element) throw new Error(`Missing typography probe: ${selector}`);

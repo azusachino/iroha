@@ -56,7 +56,7 @@
     border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
     border-radius: 50%;
     color: var(--accent);
-    font-size: 2rem;
+    font-size: var(--type-display);
     line-height: 1;
   }
 
@@ -65,9 +65,9 @@
   }
 
   .empty-eyebrow {
-    margin: 0 0 0.45rem;
+    margin: 0 0 var(--space-2);
     color: var(--accent);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 750;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -75,13 +75,13 @@
 
   h2 {
     margin: 0;
-    font-size: clamp(1.35rem, 3vw, 2.2rem);
+    font-size: clamp(var(--type-title-small), 3vw, var(--type-display));
     letter-spacing: -0.06em;
   }
 
   .empty-copy > p:not(.empty-eyebrow) {
     max-width: 42rem;
-    margin: 0.6rem 0 0;
+    margin: var(--space-3) 0 0;
     color: var(--text-muted);
     line-height: 1.55;
   }
@@ -91,13 +91,13 @@
     display: inline-flex;
     align-items: center;
     min-height: var(--control-target-min);
-    margin-top: 1rem;
+    margin-top: var(--space-4);
     padding: 0;
     border: 0;
     background: transparent;
     color: var(--accent);
     font: inherit;
-    font-size: 0.82rem;
+    font-size: var(--type-label);
     font-weight: 650;
     cursor: pointer;
   }

@@ -40,8 +40,8 @@
     min-height: 5.25rem;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    padding: 0.85rem 1rem;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface);
@@ -55,19 +55,19 @@
   .period-copy {
     display: grid;
     min-width: 0;
-    gap: 0.2rem;
+    gap: var(--space-1);
   }
 
   .period-copy span {
     color: var(--accent);
-    font-size: 0.66rem;
+    font-size: var(--type-caption);
     font-weight: 750;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
   .period-copy strong {
-    font-size: 0.9rem;
+    font-size: var(--type-label);
   }
 
   .period-slot {
