@@ -19,7 +19,12 @@ export async function inspectPilotCharts() {
           data?: unknown[];
           min?: number;
           max?: number;
-          axisLabel?: { hideOverlap?: boolean };
+          interval?: number;
+          axisLabel?: {
+            hideOverlap?: boolean;
+            fontSize?: number;
+            formatter?: (value: number) => string;
+          };
         }[],
       ) =>
         values.map((axis) => ({
@@ -28,7 +33,29 @@ export async function inspectPilotCharts() {
           data: axis.data,
           min: axis.min,
           max: axis.max,
+          interval: axis.interval,
+          tickLabels:
+            Number.isFinite(axis.min) &&
+            Number.isFinite(axis.max) &&
+            Number.isFinite(axis.interval) &&
+            axis.interval! > 0
+              ? Array.from(
+                  {
+                    length: Math.min(
+                      100,
+                      Math.round((axis.max! - axis.min!) / axis.interval!) + 1,
+                    ),
+                  },
+                  (_, index) => {
+                    const value = axis.min! + index * axis.interval!;
+                    return typeof axis.axisLabel?.formatter === "function"
+                      ? axis.axisLabel.formatter(value)
+                      : String(value);
+                  },
+                )
+              : [],
           hideOverlap: axis.axisLabel?.hideOverlap,
+          fontSize: axis.axisLabel?.fontSize,
         }));
       const series: {
         name?: string;

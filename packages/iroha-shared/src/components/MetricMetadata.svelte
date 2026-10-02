@@ -30,14 +30,14 @@
   .metric-metadata {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.45rem 1rem;
+    gap: var(--space-2) var(--space-4);
     margin: 0;
     color: var(--text-muted, #778090);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
   }
 
-  .metric-metadata div { display: inline-flex; gap: 0.35rem; }
+  .metric-metadata div { display: inline-flex; gap: var(--space-1); }
   .metric-metadata dt { font-weight: 700; }
-  .metric-metadata dd { margin: 0; }
+  .metric-metadata dd { margin: 0; font-variant-numeric: tabular-nums; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 </style>

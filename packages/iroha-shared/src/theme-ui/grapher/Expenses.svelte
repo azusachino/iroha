@@ -36,6 +36,7 @@
           name: primaryCurrency,
           values: dailyTotals.map(([, amount]) => amount),
           color: "var(--accent)",
+          axis: { unit: primaryCurrency, scale: 10 ** -primaryExponent, minimumInterval: 1 },
           formatter: (value) =>
             formatMoney(value, primaryCurrency, primaryExponent),
         }}
@@ -55,6 +56,7 @@
           name: primaryCurrency,
           values: categoryTotals.map((item) => item.amount),
           color: "var(--accent-2)",
+          axis: { unit: primaryCurrency, scale: 10 ** -primaryExponent, minimumInterval: 1 },
           formatter: (value) =>
             formatMoney(value, primaryCurrency, primaryExponent),
         }}
@@ -78,7 +80,7 @@
 <style>
   .grapher-expenses {
     display: grid;
-    gap: 1rem;
+    gap: var(--space-4);
     font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
     min-width: 0;
   }
@@ -96,27 +98,27 @@
     line-height: 1;
   }
   header p:last-child {
-    margin-top: 0.8rem;
+    margin-top: var(--space-3);
     color: var(--text-muted);
     font-family: var(--font-sans);
   }
   .kicker {
     color: var(--accent);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
   .chart-panel {
     min-width: 0;
     border-top: 3px solid var(--text);
-    padding: 1rem 0;
+    padding: var(--space-4) 0;
   }
   .panel-title {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--space-2);
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: var(--type-caption);
   }
   .panel-title strong {
     color: var(--text);

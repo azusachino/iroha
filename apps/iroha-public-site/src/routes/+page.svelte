@@ -35,7 +35,7 @@
   import ApprovedActivityDetail from "$lib/components/ApprovedActivityDetail.svelte";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
   import ActivityDetail from "$lib/components/ActivityDetail.svelte";
-  import MonthlyBarChart from "$lib/components/MonthlyBarChart.svelte";
+  import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
@@ -183,15 +183,39 @@
   const selectedYearTotals = $derived.by(() => {
     const scoped = filterByYearAndSport(activities, selectedYear, sportFilter);
     return scoped.reduce(
-      (acc, a) => ({
+      (acc, activity) => ({
         activity_count: acc.activity_count + 1,
-        distance_m: acc.distance_m + (a.distance_m ?? 0),
-        duration_s: acc.duration_s + (a.duration_s ?? 0),
-        moving_time_s: acc.moving_time_s + (a.moving_time_s ?? 0),
+        distance_m: acc.distance_m + (activity.distance_m ?? 0),
+        distance_known_count:
+          acc.distance_known_count + (activity.distance_m == null ? 0 : 1),
+        distance_unknown_count:
+          acc.distance_unknown_count + (activity.distance_m == null ? 1 : 0),
+        duration_s: acc.duration_s + (activity.duration_s ?? 0),
+        moving_time_s: acc.moving_time_s + (activity.moving_time_s ?? 0),
       }),
-      { activity_count: 0, distance_m: 0, duration_s: 0, moving_time_s: 0 },
+      {
+        activity_count: 0,
+        distance_m: 0,
+        distance_known_count: 0,
+        distance_unknown_count: 0,
+        duration_s: 0,
+        moving_time_s: 0,
+      },
     );
   });
+  const distanceSub = $derived.by(() => {
+    const { distance_known_count, distance_unknown_count } = selectedYearTotals;
+    if (distance_unknown_count === 0) return undefined;
+    if (distance_known_count === 0)
+      return `Distance unavailable for ${distance_unknown_count} ${distance_unknown_count === 1 ? "activity" : "activities"}`;
+    return `Known distance for ${distance_known_count} of ${selectedYearTotals.activity_count} activities; ${distance_unknown_count} unavailable`;
+  });
+  const distanceValue = $derived(
+    selectedYearTotals.distance_unknown_count > 0 &&
+      selectedYearTotals.distance_known_count === 0
+      ? "—"
+      : formatDistance(selectedYearTotals.distance_m),
+  );
   const selectedYearRunningCount = $derived(
     activities.filter(
       (activity) =>
@@ -214,9 +238,10 @@
   });
 
   const monthMetric = $derived(
-    monthSlots.reduce((sum, m) => sum + (m.bucket?.distance_m ?? 0), 0) > 0
-      ? "distance_m"
-      : "activity_count",
+    monthSlots.some((slot) => (slot.bucket?.distance_unknown_count ?? 0) > 0) ||
+      !monthSlots.some((slot) => (slot.bucket?.distance_known_count ?? 0) > 0)
+      ? "activity_count"
+      : "distance_m",
   );
 
   const sportBuckets = $derived.by(() => {
@@ -401,10 +426,7 @@
 {:else}
   <div class="dashboard">
     <div class="stat-grid">
-      <StatTile
-        label="Distance"
-        value={formatDistance(selectedYearTotals.distance_m)}
-      />
+      <StatTile label="Distance" value={distanceValue} sub={distanceSub} />
       <StatTile
         label="Activities"
         value={formatMetricValue(selectedYearTotals.activity_count, "count")}
@@ -657,7 +679,7 @@
   .eyebrow {
     margin: 0;
     color: var(--accent);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -692,14 +714,14 @@
   }
   .hero h1 {
     margin: 0;
-    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-size: clamp(var(--type-title), 5vw, var(--type-display));
     letter-spacing: -0.03em;
   }
   .hero-summary {
     max-width: 34rem;
     margin: 0.7rem 0 1.15rem;
     color: var(--text-muted);
-    font-size: 1.05rem;
+    font-size: var(--type-body);
     line-height: 1.5;
   }
   .hero-meta {
@@ -707,7 +729,7 @@
     flex-wrap: wrap;
     gap: 0.45rem 1rem;
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
@@ -722,7 +744,7 @@
     }
   }
   .small {
-    font-size: 0.78rem;
+    font-size: var(--type-label);
   }
   .stat-grid {
     display: grid;
@@ -764,7 +786,7 @@
   .section-kicker {
     margin-bottom: 0.65rem;
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -795,7 +817,7 @@
     min-width: 3rem;
     text-align: right;
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-label);
   }
   .sport-row.active .count {
     color: var(--accent);
@@ -805,7 +827,7 @@
     border: none;
     background: none;
     color: var(--accent);
-    font-size: 0.78rem;
+    font-size: var(--type-label);
     cursor: pointer;
     text-decoration: underline;
   }
@@ -818,7 +840,7 @@
   }
   .section-heading h2 {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: var(--type-title);
     letter-spacing: -0.02em;
   }
   .routes-grid {
@@ -844,7 +866,7 @@
   }
   .cities-head h3 {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: var(--type-label);
   }
   .city-grid {
     display: grid;
@@ -868,12 +890,12 @@
   }
   .city-name {
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: var(--type-label);
   }
   .city-sports,
   .city-count {
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     margin-top: 0.2rem;
   }
   .table-wrap {
@@ -883,7 +905,7 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85rem;
+    font-size: var(--type-label);
   }
   th,
   td {

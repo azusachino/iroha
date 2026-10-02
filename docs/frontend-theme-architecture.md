@@ -79,6 +79,29 @@ consumer writes `transition: opacity var(--motion-quick-state)` rather than a lo
 `src/lib/api.ts` remains the API boundary. Theme-independent adapters may turn DTOs into display view models, but they must preserve IDs, nullability, units, pagination, UTC dates, and public/private
 projection boundaries.
 
+### `$lib` versus `@iroha/shared` in the public site
+
+These import prefixes describe ownership, not whether something is a component or how many callers it currently has:
+
+- `$lib` resolves to `apps/iroha-public-site/src/lib/`. The public app owns its public-data adapters, site configuration, route/URL state, and host interactions. For example, `site` and `aggregate`
+  serve the public archive, while `ThemeToggle` owns the public site's persisted light/dark preference and document metadata.
+- `@iroha/shared` resolves to `packages/iroha-shared/src/`. The package owns canonical frontend types, display rules, domain helpers, visual primitives, and registered design assets. For example,
+  `sportColor`, `SportBadge`, `StatTile`, and `YearProgressChart` are package-owned imports in the public site's `src/routes/+page.svelte`.
+
+The page's `$lib/format` and `$lib/types` imports are compatibility adapters, not separate implementations: `format.ts` re-exports the shared formatters, and `types.ts` re-exports shared public-activity
+contracts with public-site aliases such as `Activity`. The canonical definitions still live in the package. Do not implement a second formatter or DTO in those files.
+
+Use this placement test when adding or changing an import:
+
+1. Does it fetch/select public data, know the site's configuration, persist host preferences, or handle route/navigation state? Keep that adapter in the app.
+2. Does it define canonical data/display behavior, a visual primitive, or a design composition? Put it in the package, even if the first consumer is only one app; accept typed inputs and callbacks
+   instead of importing app `$lib` code.
+3. Does it mix both? Keep a thin app adapter and move the canonical behavior/presentation behind package-owned props rather than copying the component between apps.
+
+Current placement does not always match the target boundary. The public page now imports both `MonthlyBarChart` and `YearProgressChart` from `@iroha/shared`; route-detail and map components remain under the app's
+`src/lib/components/`, where adapter and presentation responsibilities still need assessment. The theme-asset rule is not a reason for new visuals to live in `$lib/components`. This clarification neither
+migrates those files nor changes public/private data exposure.
+
 ### Shared primitives
 
 `packages/iroha-shared/src/theme-ui/components/` contains behaviorally reusable theme primitives:

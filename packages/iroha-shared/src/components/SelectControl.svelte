@@ -55,7 +55,7 @@
   .select-control {
     display: grid;
     min-width: 9rem;
-    gap: 0.3rem;
+    gap: var(--space-1);
   }
 
   .select-label {
@@ -63,7 +63,7 @@
     align-items: center;
     min-height: 0.85rem;
     color: var(--text-muted);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.08em;
     line-height: 1;
@@ -73,7 +73,7 @@
   .select-marker {
     width: 0.55rem;
     height: 0.55rem;
-    margin-right: 0.35rem;
+    margin-right: var(--space-1);
     border-radius: 50%;
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface-2) 85%, transparent);
   }
@@ -81,13 +81,13 @@
   select {
     width: 100%;
     min-height: 2rem;
-    padding: 0.35rem 0.55rem;
+    padding: var(--space-1) var(--space-2);
     border: 1px solid var(--border);
     border-radius: 7px;
     background: var(--surface-2);
     color: var(--text);
     font: inherit;
-    font-size: 0.76rem;
+    font-size: var(--type-label);
   }
 
   select:disabled {

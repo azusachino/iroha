@@ -70,6 +70,7 @@
   ];
 
   const expensesResource = createAsyncResource<{
+    month: string;
     expenses: Expense[];
     dailySeries: MetricSeriesResponse | null;
     categorySeries: MetricSeriesResponse[];
@@ -233,6 +234,7 @@
           }),
         ]);
         return {
+          month: selectedMonth,
           expenses: monthExpenses,
           dailySeries: daily,
           categorySeries: [categoriesForCurrency],
@@ -451,7 +453,7 @@
   });
 
   const themeProps = $derived<ExpenseThemeProps>({
-    month,
+    month: expensesResource.data?.month ?? month,
     primaryCurrency,
     primaryExponent,
     currencyTotals,
@@ -558,16 +560,16 @@
     margin: 0;
   }
   h1 {
-    font-size: clamp(2.7rem, 7vw, 5.8rem);
+    font-size: var(--type-display);
     letter-spacing: -0.09em;
     line-height: 0.9;
   }
   h2 {
-    font-size: 1.45rem;
+    font-size: var(--type-title);
     letter-spacing: -0.04em;
   }
   h3 {
-    font-size: 0.9rem;
+    font-size: var(--type-label);
   }
   .page-head,
   .panel-head {
@@ -586,7 +588,7 @@
     align-items: center;
     gap: 0.4rem;
     color: var(--accent);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 750;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -645,7 +647,7 @@
   }
   .visual-head > span {
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: var(--type-caption);
     font-weight: 700;
   }
   .expense-toolbar-controls {
@@ -707,7 +709,7 @@
   }
   .count {
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: var(--type-caption);
   }
   .expense-list {
     display: grid;
@@ -762,7 +764,7 @@
   }
   dt {
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-caption);
   }
   dd {
     min-width: 0;
@@ -770,7 +772,7 @@
   }
   .mono {
     font-family: var(--font-mono, monospace);
-    font-size: 0.8rem;
+    font-size: var(--type-caption);
   }
   .item-detail {
     display: grid;
@@ -788,11 +790,11 @@
     justify-content: space-between;
     gap: 1rem;
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: var(--type-label);
   }
   .timestamps {
     margin-top: 1.2rem;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
   }
   .empty-detail {
     display: grid;

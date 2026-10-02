@@ -12,9 +12,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--space-4);
     border: 1px solid color-mix(in srgb, var(--sport-run) 45%, var(--border));
-    padding: 1rem;
+    padding: var(--space-4);
     color: var(--sport-run);
   }
 
@@ -27,11 +27,11 @@
     flex: 0 0 auto;
     border: 1px solid currentColor;
     border-radius: var(--radius);
-    padding: 0.45rem 0.75rem;
+    padding: var(--space-2) var(--space-3);
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 0.75rem;
+    font-size: var(--type-caption);
     cursor: pointer;
   }
 

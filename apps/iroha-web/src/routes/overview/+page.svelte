@@ -453,17 +453,17 @@
 
   .tile-heading h2,
   .domains-heading h2 {
-    font-size: 1rem;
+    font-size: var(--type-body);
   }
 
   .tile-heading p,
   .domains-heading p {
     color: var(--text-muted);
-    font-size: 0.84rem;
+    font-size: var(--type-label);
   }
 
   .tile-heading a {
-    font-size: 0.84rem;
+    font-size: var(--type-label);
     white-space: nowrap;
   }
 
@@ -502,7 +502,7 @@
   .recent-metrics,
   .recent-date {
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-caption);
   }
 
   /* Span the full width under the title so the distance · duration · pace

@@ -259,7 +259,7 @@
   .canonical-ledger {
     display: grid;
     gap: 1rem;
-    padding: 1.15rem;
+    padding: var(--space-4);
     border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
     border-top: 3px solid var(--accent);
     border-radius: var(--radius);
@@ -272,15 +272,15 @@
     align-items: end;
   }
   .ledger-heading h2 {
-    margin: 0.25rem 0 0;
-    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    margin: var(--space-1) 0 0;
+    font-size: clamp(var(--type-title), 3vw, var(--type-display));
     letter-spacing: -0.06em;
   }
   .ledger-description {
     max-width: 22rem;
     margin: 0;
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-label);
     line-height: 1.5;
     text-align: right;
   }
@@ -305,7 +305,7 @@
   .ledger-actions {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: var(--space-3);
   }
   h2,
   h3,
@@ -317,15 +317,15 @@
   h2,
   h3,
   h4 {
-    font-size: 1.35rem;
+    font-size: var(--type-title-small);
     letter-spacing: -0.04em;
   }
   h4 {
-    font-size: 0.9rem;
+    font-size: var(--type-label);
   }
   .eyebrow {
     color: var(--accent);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 750;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -335,13 +335,13 @@
   .empty,
   .timestamps {
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-caption);
   }
   .expense-list,
   .item-detail ul {
     display: grid;
-    gap: 0.35rem;
-    padding: 1rem 0 0;
+    gap: var(--space-1);
+    padding: var(--space-4) 0 0;
     list-style: none;
   }
   .expense-row {
@@ -349,7 +349,7 @@
     justify-content: space-between;
     gap: 1rem;
     width: 100%;
-    padding: 0.8rem;
+    padding: var(--space-3);
     border: 1px solid transparent;
     background: transparent;
     color: var(--text);
@@ -368,7 +368,7 @@
   .expense-row strong {
     display: flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: var(--space-2);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -384,10 +384,11 @@
   }
   .expense-row small {
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
   }
   .expense-row b {
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
   .export,
   .show-more {
@@ -397,16 +398,16 @@
     background: var(--surface-2);
     color: var(--text-muted);
     font: inherit;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     cursor: pointer;
   }
   .export {
-    padding: 0.25rem 0.55rem;
+    padding: var(--space-1) var(--space-2);
   }
   .show-more {
     width: 100%;
-    margin-top: 0.65rem;
-    padding: 0.45rem;
+    margin-top: var(--space-3);
+    padding: var(--space-2);
   }
   .export:hover,
   .show-more:hover {
@@ -416,9 +417,9 @@
   .danger {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: var(--space-1);
     border: 1px solid var(--danger);
-    padding: 0.45rem 0.6rem;
+    padding: var(--space-2) var(--space-3);
     background: transparent;
     color: var(--danger);
     cursor: pointer;
@@ -429,7 +430,7 @@
   }
   .detail-list {
     display: grid;
-    gap: 0.7rem;
+    gap: var(--space-3);
     padding-top: 1.25rem;
   }
   .detail-list div,
@@ -438,24 +439,25 @@
     justify-content: space-between;
     gap: 1rem;
     border-bottom: 1px solid var(--border);
-    padding-bottom: 0.55rem;
+    padding-bottom: var(--space-2);
   }
   dt {
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
   }
   dd {
+    font-variant-numeric: tabular-nums;
     margin: 0;
     text-align: right;
     overflow-wrap: anywhere;
   }
   .mono {
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
   }
   .item-detail {
     display: grid;
-    gap: 0.65rem;
+    gap: var(--space-3);
     padding-top: 1.25rem;
   }
   .item-detail ul {
@@ -467,8 +469,8 @@
   .empty-detail {
     display: grid;
     justify-items: center;
-    gap: 0.7rem;
-    padding: 4rem 1rem;
+    gap: var(--space-3);
+    padding: calc(var(--space-8) * 2) var(--space-4);
     color: var(--text-muted);
     text-align: center;
   }

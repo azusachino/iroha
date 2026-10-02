@@ -1,5 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { axisRange, formatAxisTick } from "../format/axis";
+  import { chartFontSize } from "../theme/chart-typography";
+  import { observeChartPresentation } from "../theme/chart-presentation";
   import { chartSignature } from "../theme-ui/components/chart-signature";
   import { LineChart } from "echarts/charts";
   import {
@@ -47,6 +50,7 @@
     year: string;
     cumulative: (number | null)[];
     lastIdx: number;
+    unknownFrom?: number;
   }
 
   let chartContainer = $state<HTMLDivElement>();
@@ -56,11 +60,14 @@
     const monthly = new Array(12).fill(0);
     let seen = false;
     let lastIdx = -1;
+    let unknownFrom: number | undefined;
     for (const bucket of byMonth) {
       if (!bucket.key.startsWith(`${y}-`)) continue;
       const idx = Number(bucket.key.slice(5, 7)) - 1;
       if (idx < 0 || idx > 11) continue;
       monthly[idx] = bucket.distance_m;
+      if (bucket.distance_unknown_count > 0)
+        unknownFrom = Math.min(unknownFrom ?? idx, idx);
       seen = true;
       if (idx > lastIdx) lastIdx = idx;
     }
@@ -69,10 +76,16 @@
     return {
       year: y,
       cumulative: monthly.map((value, index) => {
+        if (
+          index > lastIdx ||
+          (unknownFrom !== undefined && index >= unknownFrom)
+        )
+          return null;
         running += value;
-        return index <= lastIdx ? running : null;
+        return running;
       }),
       lastIdx,
+      unknownFrom,
     };
   }
 
@@ -92,12 +105,14 @@
     if (!chart || !chartContainer) return;
     const styles = getComputedStyle(chartContainer);
     const text = styles.getPropertyValue("--text").trim();
+    const fontSize = chartFontSize(styles);
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const accent = styles.getPropertyValue("--sport-run").trim() || "#4f8cff";
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    const range = axisRange([...(current?.cumulative ?? []), ...(prior?.cumulative ?? [])]);
     // This scope owns the full option; merging retains removed years and legend state.
     chart.setOption({
       animation: !reducedMotion,
@@ -111,10 +126,10 @@
         right: 0,
         itemWidth: 12,
         itemHeight: 3,
-        textStyle: { color: muted, fontSize: 11 },
+        textStyle: { color: muted, fontSize },
         data: [year, ...(prior ? [String(Number(year) - 1)] : [])],
       },
-      grid: { top: prior ? 34 : 12, right: 16, bottom: 30, left: 44 },
+      grid: { top: prior ? 34 : 32, right: 16, bottom: 30, left: 44 },
       tooltip: {
         trigger: "axis",
         axisPointer: {
@@ -123,7 +138,7 @@
         },
         backgroundColor: styles.getPropertyValue("--surface-2").trim(),
         borderColor: border,
-        textStyle: { color: text, fontSize: 11 },
+        textStyle: { color: text, fontSize },
         formatter: (
           params: Array<{
             axisValue?: string;
@@ -147,17 +162,19 @@
         type: "category",
         data: MONTHS,
         boundaryGap: false,
-        axisLabel: { color: muted, fontSize: 10 },
+        axisLabel: { color: muted, fontSize },
         axisLine: { lineStyle: { color: border } },
         axisTick: { lineStyle: { color: border } },
       },
       yAxis: {
         type: "value",
-        min: 0,
+        ...range,
+        name: "km",
+        nameTextStyle: { color: muted, fontSize },
         axisLabel: {
           color: muted,
-          fontSize: 10,
-          formatter: (value: number) => `${Math.round(value / 1000)} km`,
+          fontSize,
+          formatter: (value: number) => formatAxisTick(value, range.interval, 0.001),
         },
         axisLine: { lineStyle: { color: border } },
         splitLine: { lineStyle: { color: border, opacity: 0.6 } },
@@ -204,7 +221,9 @@
     render();
     const resize = new ResizeObserver(() => chart?.resize());
     resize.observe(chartContainer);
+    const stopPresentation = observeChartPresentation(render);
     return () => {
+      stopPresentation();
       resize.disconnect();
       chart?.dispose();
     };
@@ -244,6 +263,12 @@
       role="img"
       aria-label={`Cumulative distance for ${year}`}
     ></div>
+    {#if current.unknownFrom !== undefined}
+      <p class="muted">
+        Cumulative distance is unavailable from {MONTHS[current.unknownFrom]} because
+        one or more activity distances are unknown.
+      </p>
+    {/if}
     <details class="chart-data">
       <summary>View cumulative distance data</summary>
       <table>
@@ -260,14 +285,20 @@
             <tr>
               <th scope="row">{month}</th>
               <td
-                >{current?.cumulative[index] == null
-                  ? "No observation"
-                  : formatDistance(current.cumulative[index]!)}</td
+                >{current?.unknownFrom !== undefined &&
+                index >= current.unknownFrom
+                  ? "Distance unknown"
+                  : current?.cumulative[index] == null
+                    ? "No observation"
+                    : formatDistance(current.cumulative[index]!)}</td
               >
               {#if prior}<td
-                  >{prior.cumulative[index] == null
-                    ? "No observation"
-                    : formatDistance(prior.cumulative[index]!)}</td
+                  >{prior.unknownFrom !== undefined &&
+                  index >= prior.unknownFrom
+                    ? "Distance unknown"
+                    : prior.cumulative[index] == null
+                      ? "No observation"
+                      : formatDistance(prior.cumulative[index]!)}</td
                 >{/if}
             </tr>
           {/each}
@@ -279,24 +310,25 @@
 
 <style>
   .year-progress {
-    padding: 1rem;
+    min-width: 0;
+    padding: var(--space-4);
   }
   .header {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
+    gap: var(--space-4);
+    margin-bottom: var(--space-2);
   }
   .title {
-    font-size: 0.8rem;
+    font-size: var(--type-label);
     color: var(--text-muted);
   }
   .delta {
     display: inline-flex;
     align-items: baseline;
-    gap: 0.35rem;
-    font-size: 0.9rem;
+    gap: var(--space-1);
+    font-size: var(--type-label);
     font-weight: 700;
   }
   .delta.ahead {
@@ -306,17 +338,17 @@
     color: var(--sport-other);
   }
   .delta .arrow {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
   }
   .delta-sub {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 500;
     color: var(--text-muted);
   }
   .chart-data {
-    margin-top: 0.5rem;
+    margin-top: var(--space-2);
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-label);
   }
   .chart-data summary {
     width: fit-content;
@@ -324,13 +356,13 @@
   }
   table {
     width: 100%;
-    margin-top: 0.5rem;
+    margin-top: var(--space-2);
     border-collapse: collapse;
     color: var(--text);
   }
   th,
   td {
-    padding: 0.35rem 0.5rem;
+    padding: var(--space-2);
     border-bottom: 1px solid var(--border);
     text-align: right;
   }
@@ -350,7 +382,7 @@
     .header {
       align-items: flex-start;
       flex-direction: column;
-      gap: 0.35rem;
+      gap: var(--space-1);
     }
     .chart {
       height: 230px;

@@ -18,6 +18,9 @@
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
   import { categoryColor } from "../../domain/category-color";
+  import { axisRange, formatAxisTick } from "../../format/axis";
+  import { chartFontSize } from "../../theme/chart-typography";
+  import { observeChartPresentation } from "../../theme/chart-presentation";
 
   use([
     EchartsBarChart,
@@ -34,6 +37,7 @@
     color?: string;
     colors?: (string | undefined)[];
     formatter?: (value: number) => string;
+    axis?: { unit: string; scale?: number; minimumInterval?: number };
   }
 
   let {
@@ -77,35 +81,31 @@
     if (!chart) return;
     const styles = getComputedStyle(container);
     const text = styles.getPropertyValue("--text").trim();
+    const fontSize = chartFontSize(styles);
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const accent = styles.getPropertyValue("--accent").trim() || "#5c8dff";
     const primaryColor = resolveColor(primary.color, styles, accent);
-    const categoricalColors = [
-      accent,
-      styles.getPropertyValue("--accent-2").trim(),
-      styles.getPropertyValue("--ring-exercise").trim(),
-      styles.getPropertyValue("--ring-move").trim(),
-      styles.getPropertyValue("--ring-stand").trim(),
-      styles.getPropertyValue("--mark-amber").trim(),
-      styles.getPropertyValue("--sport-swim").trim(),
-    ].filter(Boolean);
     const primaryFormat = primary.formatter || defaultFormatter;
     const secondaryFormat = secondary?.formatter || defaultFormatter;
     const categoryAxis = {
       type: "category" as const,
       data: categories,
-      axisLabel: { color: muted, fontSize: 10 },
+      axisLabel: { color: muted, fontSize },
       axisLine: { lineStyle: { color: border } },
       axisTick: { show: false },
     };
+    const range = axisRange(primary.values, primary.axis?.minimumInterval);
     const valueAxis = {
       type: "value" as const,
+      ...(primary.axis ? { ...range, name: primary.axis.unit, nameTextStyle: { color: muted } } : {}),
       axisLabel: {
         color: muted,
-        fontSize: 10,
+        fontSize,
         hideOverlap: true,
-        formatter: (value: number) => primaryFormat(value),
+        formatter: (value: number) => primary.axis
+          ? formatAxisTick(value, range.interval, primary.axis.scale)
+          : primaryFormat(value),
       },
       axisLine: { lineStyle: { color: border } },
       splitLine: { lineStyle: { color: border, opacity: 0.5 } },
@@ -125,21 +125,21 @@
             // bar end (e.g. a JPY total like "¥244,053") -- 24px only fit
             // 2-3 characters and clipped every value with a thousands group.
             { top: 12, right: 64, bottom: 32, left: 90 }
-          : { top: 12, right: secondary ? 44 : 16, bottom: 32, left: 48 },
+          : { top: primary.axis ? 32 : 12, right: secondary ? 44 : 16, bottom: 32, left: 48 },
       legend: {
         show: !!secondary,
         top: 0,
         right: 0,
         itemWidth: 10,
         itemHeight: 3,
-        textStyle: { color: muted, fontSize: 11 },
+        textStyle: { color: muted, fontSize },
       },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "shadow" },
         backgroundColor: styles.getPropertyValue("--surface-2").trim(),
         borderColor: border,
-        textStyle: { color: text, fontSize: 11 },
+        textStyle: { color: text, fontSize },
         formatter: (
           params: Array<{
             axisValue: string;
@@ -172,7 +172,7 @@
           name: primary.name,
           type: primaryType,
           data: primary.values.map((value, index) => ({
-            value,
+            value: value != null && Number.isFinite(value) ? value : null,
             itemStyle: {
               color: primary.colors?.[index]
                 ? resolveColor(primary.colors[index], styles, primaryColor)
@@ -180,7 +180,7 @@
                   ? resolveColor(
                       categoryColor(categories[index]),
                       styles,
-                      categoricalColors[index % categoricalColors.length],
+                      muted,
                     )
                   : primaryColor,
               opacity: activeIndex == null || activeIndex === index ? 1 : 0.45,
@@ -204,7 +204,7 @@
                   show: true,
                   position: "right" as const,
                   color: text,
-                  fontSize: 10,
+                  fontSize,
                   formatter: (params: { value: number | null }) =>
                     params.value == null ? "—" : primaryFormat(params.value),
                 }
@@ -253,7 +253,9 @@
     }
     const resize = new ResizeObserver(() => chart?.resize());
     resize.observe(container);
+    const stopPresentation = observeChartPresentation(render);
     return () => {
+      stopPresentation();
       resize.disconnect();
       chart?.dispose();
     };
@@ -319,7 +321,7 @@
   .chart-data {
     margin-top: 0.5rem;
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-label);
   }
 
   .chart-data summary {

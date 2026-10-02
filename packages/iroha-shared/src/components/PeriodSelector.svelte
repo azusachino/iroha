@@ -141,11 +141,11 @@
     min-width: 0;
     flex-wrap: wrap;
     align-items: end;
-    gap: 0.75rem;
+    gap: var(--space-3);
   }
 
   .period-controls.panel {
-    padding: 0.65rem 0.8rem;
+    padding: var(--space-3);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--tile-surface);
@@ -163,7 +163,7 @@
     .period-controls {
       flex-direction: column;
       align-items: stretch;
-      gap: 0.55rem;
+      gap: var(--space-2);
       width: 100%;
     }
   }

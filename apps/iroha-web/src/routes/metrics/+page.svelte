@@ -17,6 +17,8 @@
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import MetricStateNotice from "./MetricStateNotice.svelte";
+  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import MetricPanel from "@iroha/shared/components/MetricPanel.svelte";
   import { seriesPanelRows } from "@iroha/shared/components/metric-panel";
@@ -64,7 +66,6 @@
   );
   let dimensions = $state<Record<string, string>>({});
   const series = $derived(seriesResource.data);
-  const loading = $derived(catalogResource.loading || seriesResource.loading);
   const error = $derived(catalogResource.error ?? seriesResource.error);
   // The real cross-domain data range (fetched once, independent of the
   // current selection) -- not a hardcoded 2015 guess, and not every month.
@@ -95,15 +96,8 @@
     missingRequiredMetricDimensions(definition, dimensions),
   );
   const hasValues = $derived(metricSeriesHasValues(series));
-  const dimensionSummary = $derived(
-    (definition?.dimensions ?? [])
-      .map((dimension) =>
-        dimensions[dimension.id]
-          ? `${dimension.label}: ${dimensions[dimension.id]}`
-          : null,
-      )
-      .filter(Boolean)
-      .join(" · "),
+  const renderedDefinition = $derived(
+    catalog.find((metric) => metric.id === series?.metric_id) ?? null,
   );
   const panelRows = $derived(
     seriesPanelRows(series?.series ?? [], (value) =>
@@ -121,7 +115,11 @@
     })) ?? [],
   );
 
-  onMount(async () => {
+  onMount(() => {
+    void loadMetrics();
+  });
+
+  async function loadMetrics() {
     const nextCatalog = await catalogResource.run(
       async () => (await getMetricCatalog()).metrics,
     );
@@ -135,7 +133,7 @@
     syncUrl();
     await loadSeries();
     void loadBounds();
-  });
+  }
 
   function resetDimensions(nextDefinition = definition) {
     dimensions = nextDefinition
@@ -259,48 +257,77 @@
       {/each}
     </div>
 
-    {#if missingDimensions.length}
-      <div class="panel">
-        <MetricStateNotice
-          kind="required"
-          labels={missingDimensions.map((item) => item.label)}
-        />
-      </div>
-    {:else if loading}<p class="status" role="status">Loading metric series…</p>
-    {:else if error}<p class="error" role="alert">{error}</p>
-    {:else if series && definition && !hasValues}
-      <div class="panel">
-        <MetricStateNotice
-          kind="empty"
-          metricLabel={definition.label}
-          {month}
-          {dimensionSummary}
-        />
-      </div>
-    {:else if series && definition}
-      <section class="chart panel">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">{definition.domain}</p>
-            <h2>{definition.label}</h2>
-            <p>{definition.description}</p>
-          </div>
-        </div>
-        <MetricPanel
-          metricId={series.metric_id}
-          label={definition.label}
-          unit={series.unit}
-          method={series.series[0]?.source.method ??
-            definition.aggregation_version}
-          coverage={series.series[0]?.coverage}
-          sourceKinds={series.series[0]?.source.source_kinds ?? []}
-          rows={panelRows}
-          period={month}
-        >
-          <DailySmallMultiples {labels} {charts} />
-        </MetricPanel>
-      </section>
+    {#if error}
+      <RetryNotice
+        message={error}
+        onRetry={() => {
+          if (catalogResource.error) void loadMetrics();
+          else void loadSeries();
+        }}
+      />
     {/if}
+    <LoadingBoundary
+      resource={catalogResource}
+      label="Loading metrics…"
+      preserveLayout
+    >
+      {#if missingDimensions.length}
+        <div class="panel">
+          <MetricStateNotice
+            kind="required"
+            labels={missingDimensions.map((item) => item.label)}
+          />
+        </div>
+      {:else if definition}
+        <LoadingBoundary
+          resource={seriesResource}
+          label="Loading metric series…"
+          preserveLayout
+        >
+          {#if series && renderedDefinition && !hasValues}
+            <div class="panel">
+              <MetricStateNotice
+                kind="empty"
+                metricLabel={renderedDefinition.label}
+                month={shiftMonth(series.period.to.slice(0, 7), -1)}
+                dimensionSummary={Object.entries(
+                  series.series[0]?.dimensions ?? {},
+                )
+                  .map(([key, value]) => `${key}: ${value}`)
+                  .join(" · ")}
+              />
+            </div>
+          {:else if series && renderedDefinition}
+            <section class="chart panel">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">{renderedDefinition.domain}</p>
+                  <h2>{renderedDefinition.label}</h2>
+                  <p>{renderedDefinition.description}</p>
+                  <p>
+                    Observed window: {series.period.from}–{series.period.to}
+                    (end exclusive)
+                  </p>
+                </div>
+              </div>
+              <MetricPanel
+                metricId={series.metric_id}
+                label={renderedDefinition.label}
+                unit={series.unit}
+                method={series.series[0]?.source.method ??
+                  renderedDefinition.aggregation_version}
+                coverage={series.series[0]?.coverage}
+                sourceKinds={series.series[0]?.source.source_kinds ?? []}
+                rows={panelRows}
+                period={shiftMonth(series.period.to.slice(0, 7), -1)}
+              >
+                <DailySmallMultiples {labels} {charts} />
+              </MetricPanel>
+            </section>
+          {/if}
+        </LoadingBoundary>
+      {/if}
+    </LoadingBoundary>
   </ThemeRouteRenderer>
 </section>
 
@@ -324,19 +351,19 @@
     margin: 0;
   }
   h1 {
-    font-size: clamp(2.7rem, 7vw, 5.8rem);
+    font-size: var(--type-display);
     letter-spacing: -0.09em;
     line-height: 0.9;
   }
   h2 {
-    font-size: 1.5rem;
+    font-size: var(--type-title);
   }
   .eyebrow {
     display: flex;
     align-items: center;
     gap: 0.35rem;
     color: var(--accent);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 750;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -355,7 +382,7 @@
     display: grid;
     gap: 0.3rem;
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
   }
   select {
@@ -371,11 +398,7 @@
     display: grid;
     gap: 1rem;
   }
-  .section-head p:last-child,
-  .status {
+  .section-head p:last-child {
     color: var(--text-muted);
-  }
-  .error {
-    color: var(--danger);
   }
 </style>

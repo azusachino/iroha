@@ -233,6 +233,7 @@
               name: "Distance",
               values: monthly.map((bucket) => bucket.distance_m / 1000),
               color: "var(--accent)",
+              axis: { unit: "km" },
               formatter: (value) => formatDistance(value * 1000),
             }}
             primaryType="line"
@@ -413,7 +414,7 @@
 
   h2 {
     font-family: var(--font-sans);
-    font-size: 1.14rem;
+    font-size: var(--type-title-small);
     letter-spacing: -0.04em;
   }
 
@@ -421,7 +422,7 @@
     margin-bottom: 0.45rem;
     color: var(--accent);
     font-family: var(--font-mono);
-    font-size: 0.64rem;
+    font-size: var(--type-caption);
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
@@ -445,7 +446,7 @@
   .streak-readout > span,
   .stat-card dt {
     color: var(--text-muted);
-    font-size: 0.64rem;
+    font-size: var(--type-caption);
     font-weight: 650;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -453,7 +454,7 @@
 
   .streak-readout strong {
     color: var(--accent);
-    font-size: 2.4rem;
+    font-size: var(--type-display);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.05em;
     line-height: 1;
@@ -468,7 +469,7 @@
     width: fit-content;
     min-height: 24px;
     padding: 0 0.15rem;
-    font-size: 0.74rem;
+    font-size: var(--type-label);
     font-weight: 650;
   }
 
@@ -504,7 +505,7 @@
 
   .stat-card strong {
     overflow-wrap: anywhere;
-    font-size: clamp(1.05rem, 1.55vw, 1.5rem);
+    font-size: clamp(var(--type-body), 1.55vw, var(--type-title));
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.04em;
     line-height: 1.1;
@@ -513,7 +514,7 @@
   .stat-card small {
     min-height: 2.2em;
     color: var(--text-muted);
-    font-size: 0.69rem;
+    font-size: var(--type-caption);
     line-height: 1.4;
   }
 
@@ -571,7 +572,7 @@
   .empty-note,
   footer {
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
   }
 
   .panel-caption {
@@ -586,7 +587,7 @@
 
   .comparison {
     color: var(--accent);
-    font-size: 0.74rem;
+    font-size: var(--type-label);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
@@ -594,7 +595,7 @@
   .comparison small {
     display: block;
     color: var(--text-muted);
-    font-size: 0.64rem;
+    font-size: var(--type-caption);
     text-align: right;
   }
 
@@ -615,7 +616,7 @@
     border-radius: 999px;
     background: transparent;
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     cursor: pointer;
   }
@@ -658,7 +659,7 @@
 
   .sport-name {
     overflow: hidden;
-    font-size: 0.8rem;
+    font-size: var(--type-label);
     font-weight: 650;
     text-overflow: ellipsis;
     text-transform: capitalize;
@@ -667,7 +668,7 @@
 
   .sport-count {
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-variant-numeric: tabular-nums;
   }
 
@@ -685,7 +686,7 @@
     background: transparent;
     color: var(--text-muted);
     font: inherit;
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     text-align: left;
     text-decoration: underline;
     text-underline-offset: 0.15em;
@@ -701,7 +702,7 @@
     width: 100%;
     min-width: 34rem;
     border-collapse: collapse;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
   }
 
   th,
@@ -714,7 +715,7 @@
 
   th {
     color: var(--text-muted);
-    font-size: 0.62rem;
+    font-size: var(--type-caption);
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -758,7 +759,7 @@
     background: var(--surface-2);
     color: var(--text);
     font: inherit;
-    font-size: 0.75rem;
+    font-size: var(--type-caption);
     cursor: pointer;
   }
 
@@ -768,7 +769,7 @@
 
   .updating {
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
   }
 
   footer {
@@ -811,7 +812,7 @@
     }
 
     .stat-card strong {
-      font-size: 1.05rem;
+      font-size: var(--type-body);
     }
 
     .dashboard-grid {
