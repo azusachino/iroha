@@ -299,6 +299,31 @@ tb_media_collections
 
 This should wait until running import, activity read API, and the first private UI prove the core product loop.
 
+## Future Design Study: Apple Liquid Glass
+
+Status: proposed learning and practice; not an adopted design language or a scheduled release. Grapher remains the sole production design language.
+
+Goal: learn Apple's material, layering, and interaction principles and test whether a restrained web interpretation helps the public archive. This is not a request to blur every card or copy native
+Apple APIs into Svelte.
+
+Study and practice:
+
+- Read Apple's [Materials guidance](https://developer.apple.com/design/human-interface-guidelines/materials) and watch [Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/).
+  Study navigation/control layers, adaptive contrast, motion, and why glass should not compete with content or stack on other glass.
+- Build one isolated, fixture-backed public-archive prototype: a floating navigation/filter control over activity or map content. Compare it with the existing solid Grapher treatment; keep chart,
+  table, and metric surfaces readable and stable.
+- Keep reusable material tokens and visual primitives in `packages/iroha-shared/`; the public app supplies sanitized data and route callbacks. Follow the
+  [public-site `$lib`/shared ownership test](frontend-theme-architecture.md#lib-versus-irohashared-in-the-public-site), not today's mixed component placement.
+- Treat CSS translucency/backdrop blur as a web approximation, not native Liquid Glass parity. Provide a solid fallback when effects are unsupported or transparency is reduced; respect reduced motion
+  and test contrast, keyboard focus, light/dark appearance, mobile widths, and scrolling/rendering cost.
+
+Exit criteria for the study:
+
+- Record side-by-side prototype evidence and what improves or harms hierarchy, legibility, accessibility, and performance with the same fixture data.
+- Verify the prototype at 320, 414, 768, and desktop widths, including solid/reduced-effect states; do not hide content or weaken existing accessibility/performance constraints to make the material fit.
+- Record an adopt/adapt/reject recommendation. Production use or a new registered design language requires an explicit adoption decision and the normal shared-theme gates; completing the study does
+  not replace Grapher or restore the retired design picker/workbench.
+
 ## Deferred
 
 - Native iOS HealthKit sync app.
