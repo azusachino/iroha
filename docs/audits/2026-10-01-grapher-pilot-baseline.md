@@ -1,5 +1,13 @@
 # Grapher pilot baseline — 2026-10-01
 
+## PR #103: Metrics async-state increment
+
+Metrics previously removed its chart during every series refetch and rendered failures without a retry action. Four light/dark browser cases reproduced the absent quiet-update status and missing catalog retry before implementation. The route now uses its existing AsyncResource objects through LoadingBoundary, keeping loaded observations keyboard-accessible while a subsequent request is pending. The shared RetryNotice retries the catalog or series that failed. Retained observations use the returned metric definition, dimensions and period, rather than relabeling old data with the pending selector; the observed window is explicit and CSV filenames retain the response's ending month.
+
+Eight blocking light/dark tests cover deferred initial catalog load, deferred rolling-window refetch, two consecutive catalog failures followed by keyboard recovery at 320px, and two consecutive series failures with prior observations retained. The deferred-refetch assertions distinguish the old returned window from the newly selected window and verify the updated response after release. These use synthetic route interception and controlled promise release, not sleeps or a live endpoint.
+
+Verification: focused 8/8; full `CI=1 make e2e` 59/59; `make validate` including both consumer builds; disposable `make test-integration`; report-only pilot 35/35, all pass. Integration ran before the final presentation-only observed-window label adjustment. No new dependency, registry configuration, suppressed checks or shared import-direction changes. This is a Metrics slice, not complete P1-A8 acceptance: Overview/Expenses/public deferred and repeated-recovery matrices, full focus/reachability and independent final review remain outstanding.
+
 Status: bounded baseline, with outstanding findings. Not Phase 1 acceptance or a full cockpit audit.
 
 The owner authorized a fresh pilot check after [PR #98](https://github.com/azusachino/iroha/pull/98) merged. The application baseline is `1bd768185c942525f4f568de435cf13fc6b4046a`. This slice adds fixtures, diagnostics and this record; it changes no application UI. The missing `2026-09-30-v0.6-cockpit-quality.md` remains missing. This document does not replace or reconstruct that agent's audit.
