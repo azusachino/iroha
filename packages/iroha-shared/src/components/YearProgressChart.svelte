@@ -50,6 +50,7 @@
     year: string;
     cumulative: (number | null)[];
     lastIdx: number;
+    unknownFrom?: number;
   }
 
   let chartContainer = $state<HTMLDivElement>();
@@ -59,11 +60,14 @@
     const monthly = new Array(12).fill(0);
     let seen = false;
     let lastIdx = -1;
+    let unknownFrom: number | undefined;
     for (const bucket of byMonth) {
       if (!bucket.key.startsWith(`${y}-`)) continue;
       const idx = Number(bucket.key.slice(5, 7)) - 1;
       if (idx < 0 || idx > 11) continue;
       monthly[idx] = bucket.distance_m;
+      if (bucket.distance_unknown_count > 0)
+        unknownFrom = Math.min(unknownFrom ?? idx, idx);
       seen = true;
       if (idx > lastIdx) lastIdx = idx;
     }
@@ -72,10 +76,16 @@
     return {
       year: y,
       cumulative: monthly.map((value, index) => {
+        if (
+          index > lastIdx ||
+          (unknownFrom !== undefined && index >= unknownFrom)
+        )
+          return null;
         running += value;
-        return index <= lastIdx ? running : null;
+        return running;
       }),
       lastIdx,
+      unknownFrom,
     };
   }
 
@@ -253,6 +263,12 @@
       role="img"
       aria-label={`Cumulative distance for ${year}`}
     ></div>
+    {#if current.unknownFrom !== undefined}
+      <p class="muted">
+        Cumulative distance is unavailable from {MONTHS[current.unknownFrom]} because
+        one or more activity distances are unknown.
+      </p>
+    {/if}
     <details class="chart-data">
       <summary>View cumulative distance data</summary>
       <table>
@@ -269,14 +285,20 @@
             <tr>
               <th scope="row">{month}</th>
               <td
-                >{current?.cumulative[index] == null
-                  ? "No observation"
-                  : formatDistance(current.cumulative[index]!)}</td
+                >{current?.unknownFrom !== undefined &&
+                index >= current.unknownFrom
+                  ? "Distance unknown"
+                  : current?.cumulative[index] == null
+                    ? "No observation"
+                    : formatDistance(current.cumulative[index]!)}</td
               >
               {#if prior}<td
-                  >{prior.cumulative[index] == null
-                    ? "No observation"
-                    : formatDistance(prior.cumulative[index]!)}</td
+                  >{prior.unknownFrom !== undefined &&
+                  index >= prior.unknownFrom
+                    ? "Distance unknown"
+                    : prior.cumulative[index] == null
+                      ? "No observation"
+                      : formatDistance(prior.cumulative[index]!)}</td
                 >{/if}
             </tr>
           {/each}

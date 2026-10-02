@@ -183,15 +183,39 @@
   const selectedYearTotals = $derived.by(() => {
     const scoped = filterByYearAndSport(activities, selectedYear, sportFilter);
     return scoped.reduce(
-      (acc, a) => ({
+      (acc, activity) => ({
         activity_count: acc.activity_count + 1,
-        distance_m: acc.distance_m + (a.distance_m ?? 0),
-        duration_s: acc.duration_s + (a.duration_s ?? 0),
-        moving_time_s: acc.moving_time_s + (a.moving_time_s ?? 0),
+        distance_m: acc.distance_m + (activity.distance_m ?? 0),
+        distance_known_count:
+          acc.distance_known_count + (activity.distance_m == null ? 0 : 1),
+        distance_unknown_count:
+          acc.distance_unknown_count + (activity.distance_m == null ? 1 : 0),
+        duration_s: acc.duration_s + (activity.duration_s ?? 0),
+        moving_time_s: acc.moving_time_s + (activity.moving_time_s ?? 0),
       }),
-      { activity_count: 0, distance_m: 0, duration_s: 0, moving_time_s: 0 },
+      {
+        activity_count: 0,
+        distance_m: 0,
+        distance_known_count: 0,
+        distance_unknown_count: 0,
+        duration_s: 0,
+        moving_time_s: 0,
+      },
     );
   });
+  const distanceSub = $derived.by(() => {
+    const { distance_known_count, distance_unknown_count } = selectedYearTotals;
+    if (distance_unknown_count === 0) return undefined;
+    if (distance_known_count === 0)
+      return `Distance unavailable for ${distance_unknown_count} ${distance_unknown_count === 1 ? "activity" : "activities"}`;
+    return `Known distance for ${distance_known_count} of ${selectedYearTotals.activity_count} activities; ${distance_unknown_count} unavailable`;
+  });
+  const distanceValue = $derived(
+    selectedYearTotals.distance_unknown_count > 0 &&
+      selectedYearTotals.distance_known_count === 0
+      ? "—"
+      : formatDistance(selectedYearTotals.distance_m),
+  );
   const selectedYearRunningCount = $derived(
     activities.filter(
       (activity) =>
@@ -214,9 +238,10 @@
   });
 
   const monthMetric = $derived(
-    monthSlots.reduce((sum, m) => sum + (m.bucket?.distance_m ?? 0), 0) > 0
-      ? "distance_m"
-      : "activity_count",
+    monthSlots.some((slot) => (slot.bucket?.distance_unknown_count ?? 0) > 0) ||
+      !monthSlots.some((slot) => (slot.bucket?.distance_known_count ?? 0) > 0)
+      ? "activity_count"
+      : "distance_m",
   );
 
   const sportBuckets = $derived.by(() => {
@@ -401,10 +426,7 @@
 {:else}
   <div class="dashboard">
     <div class="stat-grid">
-      <StatTile
-        label="Distance"
-        value={formatDistance(selectedYearTotals.distance_m)}
-      />
+      <StatTile label="Distance" value={distanceValue} sub={distanceSub} />
       <StatTile
         label="Activities"
         value={formatMetricValue(selectedYearTotals.activity_count, "count")}
