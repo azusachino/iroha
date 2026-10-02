@@ -109,6 +109,78 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
           body: JSON.stringify({ pilot, mode, zoom, before, measured }),
           contentType: "application/json",
         });
+        const targets = await page.evaluate(() => {
+          const elements = Array.from(
+            document.querySelectorAll<HTMLElement>(
+              "a[href],button,input,select,textarea,summary,[tabindex]",
+            ),
+          ).filter(
+            (el) =>
+              el.tabIndex >= 0 &&
+              !el.matches(":disabled") &&
+              !el.closest("[inert],[aria-hidden='true']") &&
+              (!el.closest("details:not([open])") ||
+                el.closest("details:not([open])")?.querySelector("summary") ===
+                  el) &&
+              el.getClientRects().length &&
+              getComputedStyle(el).visibility !== "hidden",
+          );
+          elements.forEach(
+            (el, index) => (el.dataset.zoomFocus = String(index)),
+          );
+          return elements.map((_, index) => String(index));
+        });
+        const visited = new Set<string>();
+        const stops = [];
+        for (let index = 0; index < targets.length + 3; index++) {
+          await page.keyboard.press("Tab");
+          const stop = await page.evaluate(() => {
+            const el = document.activeElement as HTMLElement;
+            const rect = el.getBoundingClientRect();
+            const style = getComputedStyle(el);
+            return {
+              id: el.dataset.zoomFocus,
+              name:
+                el.getAttribute("aria-label") ||
+                el.textContent?.trim().slice(0, 80),
+              left: rect.left,
+              right: rect.right,
+              top: rect.top,
+              bottom: rect.bottom,
+              width: innerWidth,
+              height: innerHeight,
+              hidden: Boolean(el.closest("[inert],[aria-hidden='true']")),
+              outline: style.outlineStyle,
+              outlineWidth: parseFloat(style.outlineWidth),
+            };
+          });
+          if (stop.id === undefined) continue;
+          if (visited.has(stop.id)) break;
+          visited.add(stop.id);
+          stops.push(stop);
+          expect(stop.hidden, stop.name).toBe(false);
+          expect(stop.left, stop.name).toBeGreaterThanOrEqual(-1);
+          expect(stop.right, stop.name).toBeLessThanOrEqual(stop.width + 1);
+          expect(stop.bottom, stop.name).toBeGreaterThan(0);
+          expect(stop.top, stop.name).toBeLessThan(stop.height);
+          expect(stop.outline, stop.name).not.toBe("none");
+          expect(stop.outlineWidth, stop.name).toBeGreaterThanOrEqual(2);
+        }
+        await info.attach("native-zoom-keyboard.json", {
+          body: JSON.stringify({ targets, visited: [...visited], stops }),
+          contentType: "application/json",
+        });
+        const missing = await page.evaluate(
+          (seen) =>
+            Array.from(
+              document.querySelectorAll<HTMLElement>("[data-zoom-focus]"),
+            )
+              .filter((el) => !seen.includes(el.dataset.zoomFocus!))
+              .map((el) => ({ id: el.dataset.zoomFocus, html: el.outerHTML })),
+          [...visited],
+        );
+        expect(missing).toEqual([]);
+        expect([...visited].sort()).toEqual(targets.sort());
         // A full-page screenshot with viewport:null temporarily resizes the
         // browser, changing the native zoom layout under measurement.
         const cdp = await context.newCDPSession(page);

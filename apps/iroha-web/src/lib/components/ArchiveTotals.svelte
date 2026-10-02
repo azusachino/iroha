@@ -84,7 +84,6 @@
   a:hover,
   a:focus-visible {
     border-color: var(--accent);
-    outline: none;
   }
   strong {
     color: var(--text);

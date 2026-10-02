@@ -4,6 +4,41 @@ import { installPilotFixtures } from "./pilot-fixtures";
 import { inspectPilotCharts } from "./pilot-charts";
 
 for (const mode of ["light", "dark"] as const) {
+  test(`public ${mode} shows truthful feedback while initial data is deferred`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
+    const fixture = await installPilotFixtures(page, "public");
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/public/v1/**", async (route) => {
+      await gate;
+      await route.fallback();
+    });
+    try {
+      await page.goto(PUBLIC_BASE_URL);
+      await expect(page.getByRole("status")).toContainText(
+        "Loading public activity data…",
+      );
+      await expect(
+        page.getByRole("heading", { name: "Activities", exact: true }),
+      ).toHaveCount(0);
+    } finally {
+      release();
+    }
+    await expect(
+      page.getByRole("heading", { name: "Activities", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Loading public activity data…", { exact: true }),
+    ).toHaveCount(0);
+    expect(fixture.unknown).toEqual([]);
+    expect(fixture.requests.filter((path) => path.startsWith("/api/"))).toEqual(
+      [],
+    );
+  });
   test(`public ${mode} monthly chart honors reduced motion`, async ({
     page,
   }) => {

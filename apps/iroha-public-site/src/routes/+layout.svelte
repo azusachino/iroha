@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { base } from "$app/paths";
+  import { onMount } from "svelte";
   import "./app.css";
   import { site } from "$lib/site";
 
   let { children } = $props();
+
+  // Remove bootstrap feedback only when the success or error shell mounts.
+  onMount(() => document.getElementById("public-bootstrap-status")?.remove());
 </script>
 
 <svelte:head>

@@ -70,6 +70,7 @@
   ];
 
   const expensesResource = createAsyncResource<{
+    month: string;
     expenses: Expense[];
     dailySeries: MetricSeriesResponse | null;
     categorySeries: MetricSeriesResponse[];
@@ -233,6 +234,7 @@
           }),
         ]);
         return {
+          month: selectedMonth,
           expenses: monthExpenses,
           dailySeries: daily,
           categorySeries: [categoriesForCurrency],
@@ -451,7 +453,7 @@
   });
 
   const themeProps = $derived<ExpenseThemeProps>({
-    month,
+    month: expensesResource.data?.month ?? month,
     primaryCurrency,
     primaryExponent,
     currencyTotals,

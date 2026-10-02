@@ -1,5 +1,15 @@
 # Grapher pilot baseline — 2026-10-01
 
+## PR #103: remaining first-load and scope-label fixes
+
+New light/dark regressions reproduced a blank public first load while sanitized requests were held and an Expenses header labeling retained August observations as September during a held scope change. Expenses now stores the requested scope with its successful AsyncResource payload and passes that loaded scope to the shared composition. Public `app.html` supplies a plain live bootstrap status for the client-only route; the layout removes it on mount of either the success or error shell. SvelteKit still owns PageLoad and error recovery; no hand-rolled request/resource lifecycle or public data policy changes were added. Twelve focused private/public state tests pass after the fixes.
+
+Overview has no routine period/refetch action after a successful load: its reload callback is exposed only in the error state. Its initial failure/recovery behavior is covered, but this record does not invent a successful-load refresh affordance or claim an exercised quiet refetch there. Public year/sport selection uses already-loaded projection data rather than refetching it. Quiet network refetch applies to the exercised Expenses/ Metrics selectors.
+
+## PR #103: native-zoom keyboard cycle
+
+The eight native Chromium zoom cases now enumerate reachable controls in the populated closed-disclosure state and traverse a complete Tab cycle at 200% / 320 CSS pixels, checking every expected target was visited, focus is neither inert nor hidden, the focused target is within the viewport, and an outline is present. All eight pass. The first run exposed ArchiveTotals suppressing the shared focus outline; removing its local `outline: none` restores the existing canonical focus treatment. Closed details descendants are explicitly excluded from enumeration because Chromium can report their rectangles despite suppressing tab navigation. This is not a popup/dialog/open-disclosure keyboard matrix or a measured focus/canvas contrast result.
+
 ## PR #103: private first-load and public repeated-retry coverage
 
 Six additional light/dark browser cases hold Overview/Expenses first-load responses until the loading status and absent record controls are verified, then return two failures and recover using keyboard activation of the existing Retry overview/Refresh actions. Expenses also retains its prior canonical record and keyboard access through a held month change, then replaces it with the September record and removes the August record. The existing public compact error tests now execute another failed retry before restoring sanitized data; recovery still rejects private requests. These checks passed without application changes.
