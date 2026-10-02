@@ -54,6 +54,33 @@ for (const mode of ["light", "dark"] as const) {
   });
 }
 
+test("public mixed distance coverage labels known-only totals", async ({
+  page,
+}) => {
+  const fixture = await installPilotFixtures(
+    page,
+    "public",
+    "partial-distance",
+  );
+  await page.goto(PUBLIC_BASE_URL);
+  const distance = page.locator(".stat-grid .stat-tile").first();
+  await expect(distance).toContainText("12.50 km");
+  await expect(distance).toContainText(
+    "Known distance for 1 of 2 activities; 1 unavailable",
+  );
+  await expect(
+    page.getByRole("img", { name: "Monthly activity count for 2026" }),
+  ).toBeVisible();
+  await page.getByText("View cumulative distance data").click();
+  await expect(
+    page.getByRole("cell", { name: "Distance unknown" }).first(),
+  ).toBeVisible();
+  expect(fixture.unknown).toEqual([]);
+  expect(
+    fixture.requests.filter((request) => request.startsWith("/api/")),
+  ).toEqual([]);
+});
+
 test("public unknown distances remain missing instead of becoming zero", async ({
   page,
 }) => {

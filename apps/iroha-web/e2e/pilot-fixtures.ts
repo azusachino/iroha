@@ -8,7 +8,8 @@ import type { PublicActivity } from "@iroha/shared/domain/public-activity";
 import { fakeSession } from "./session";
 
 export type Pilot = "overview" | "expenses" | "metrics" | "public";
-export type Scenario = "populated" | "empty" | "error" | "missing-distance";
+export type Scenario =
+  "populated" | "empty" | "error" | "missing-distance" | "partial-distance";
 const instant = "2026-08-14T12:00:00Z";
 const activities: PublicActivity[] = [2025, 2026].map((year) => ({
   id: `synthetic-${year}`,
@@ -237,16 +238,49 @@ export async function installPilotFixtures(
 ) {
   const requests: string[] = [];
   const unknown: string[] = [];
+  const distanceMissing =
+    scenario === "missing-distance" || scenario === "partial-distance";
   const records =
     scenario === "empty"
       ? []
-      : scenario === "missing-distance"
+      : distanceMissing
         ? activities.map((activity) => {
             if (activity.id !== "synthetic-2026") return activity;
             const { distance_m: _distance, ...withoutDistance } = activity;
             return withoutDistance;
           })
         : activities;
+  if (scenario === "partial-distance")
+    records.push({ ...activities[1], id: "synthetic-known-2026" });
+  const partialBuckets = missingDistanceSummary.by_month.map((bucket) =>
+    bucket.key.startsWith("2026-")
+      ? {
+          ...bucket,
+          activity_count: 2,
+          distance_m: 12500,
+          distance_known_count: 1,
+          duration_s: 7440,
+        }
+      : bucket,
+  );
+  const partialTotals = {
+    ...summary.totals,
+    activity_count: 3,
+    distance_unknown_count: 1,
+    duration_s: 9840,
+  };
+  const distanceSummary =
+    scenario === "partial-distance"
+      ? {
+          totals: partialTotals,
+          by_month: partialBuckets,
+          by_year: partialBuckets.map((bucket) => ({
+            ...bucket,
+            key: bucket.key.slice(0, 4),
+          })),
+          by_sport: [{ key: "run", ...partialTotals }],
+        }
+      : missingDistanceSummary;
   const rows = scenario === "empty" ? [] : expenses;
   await page.route("**/public/v1/**", (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -260,8 +294,8 @@ export async function installPilotFixtures(
       summary:
         scenario === "empty"
           ? emptySummary
-          : scenario === "missing-distance"
-            ? missingDistanceSummary
+          : distanceMissing
+            ? distanceSummary
             : summary,
       activities: records,
       routes,

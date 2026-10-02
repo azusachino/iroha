@@ -1,5 +1,13 @@
 # Grapher pilot baseline — 2026-10-01
 
+## PR #103: rendered contrast and equivalent synthetic quantities
+
+The native-zoom keyboard cycle now measures each focused outline color against its adjacent ancestor surfaces at >=3:1. A separate 24-case light/dark × 320/768/1280 matrix checks rendered text at 4.5:1 (large text 3:1) and ECharts public `getVisual` mark colors at >=3:1. Solid surfaces and the existing constant-hue linear/radial gradient overlays are composited; gradient stop combinations conservatively bound the possible adjacent paints. Images, colored-to-colored gradient interpolation and non-unit ancestor opacity are unsupported and fail rather than being silently accepted. Existing fixture surfaces all pass, as do the eight zoom cases. This measures resolved primary line/bar/point paint, not decorative area-fill alpha, native canvas glyph geometry, color-vision conformance, or popup/dialog focus states.
+
+Two separate-host light/dark fixtures compare the same 2026 synthetic running record: private and public distance both show `12.50 km`; private exact duration is `1:02:00` and public year-summary duration is `1 h 02 min`. The public distance-sport table intentionally shows pace `1:00 /km`, not a second duration cell. Public requests remain anonymous and the owner name is absent. The existing both-host canonical palette checks cover colors separately. A mixed-distance fixture now verifies `12.50 km` is explicitly a known-only subtotal for 1 of 2 selected-year activities; the monthly plot switches to counts and cumulative disclosure marks distance unknown. This complements, rather than replaces, the all-unknown fixture.
+
+Latest verification: `make validate` passes with zero Svelte check errors/warnings and both consumer builds; full `CI=1 make e2e` passes 94/94, disposable `make test-integration` passes, and report-only pilot completes 35/35. Independent acceptance review is still required; these are implementer-run checks, not that review.
+
 ## PR #103: remaining first-load and scope-label fixes
 
 New light/dark regressions reproduced a blank public first load while sanitized requests were held and an Expenses header labeling retained August observations as September during a held scope change. Expenses now stores the requested scope with its successful AsyncResource payload and passes that loaded scope to the shared composition. Public `app.html` supplies a plain live bootstrap status for the client-only route; the layout removes it on mount of either the success or error shell. SvelteKit still owns PageLoad and error recovery; no hand-rolled request/resource lifecycle or public data policy changes were added. Twelve focused private/public state tests pass after the fixes.

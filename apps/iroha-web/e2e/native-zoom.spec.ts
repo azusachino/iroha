@@ -2,6 +2,7 @@ import { chromium, expect, test } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { PUBLIC_BASE_URL } from "../playwright.config";
 import { installPilotFixtures } from "./pilot-fixtures";
+import { measureRenderedContrast } from "./rendered-contrast";
 
 // Chrome's own tab zoom, not CSS zoom or CDP compositor/pinch scaling.
 for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
@@ -165,6 +166,12 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
           expect(stop.top, stop.name).toBeLessThan(stop.height);
           expect(stop.outline, stop.name).not.toBe("none");
           expect(stop.outlineWidth, stop.name).toBeGreaterThanOrEqual(2);
+          const paint = await page.evaluate(measureRenderedContrast, false);
+          expect(
+            paint.focus?.ratio,
+            JSON.stringify({ name: stop.name, focus: paint.focus }),
+          ).not.toBeNull();
+          expect(paint.focus!.ratio!, stop.name).toBeGreaterThanOrEqual(3);
         }
         await info.attach("native-zoom-keyboard.json", {
           body: JSON.stringify({ targets, visited: [...visited], stops }),
@@ -179,6 +186,30 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
               .map((el) => ({ id: el.dataset.zoomFocus, html: el.outerHTML })),
           [...visited],
         );
+        const paint = await page.evaluate(measureRenderedContrast, true);
+        expect(paint.textPairs.length).toBeGreaterThan(0);
+        for (const pair of paint.textPairs) {
+          expect(pair.ratio, `${pair.text}: ${pair.color}`).not.toBeNull();
+          expect(
+            pair.ratio!,
+            `${pair.text}: ${pair.color}`,
+          ).toBeGreaterThanOrEqual(pair.required);
+        }
+        expect(paint.marks.length).toBeGreaterThan(0);
+        for (const mark of paint.marks) {
+          expect(
+            mark.ratio,
+            `${mark.chart}: ${mark.series} ${mark.color}`,
+          ).not.toBeNull();
+          expect(
+            mark.ratio!,
+            `${mark.chart}: ${mark.series} ${mark.color}`,
+          ).toBeGreaterThanOrEqual(3);
+        }
+        await info.attach("rendered-contrast.json", {
+          body: JSON.stringify(paint),
+          contentType: "application/json",
+        });
         expect(missing).toEqual([]);
         expect([...visited].sort()).toEqual(targets.sort());
         // A full-page screenshot with viewport:null temporarily resizes the

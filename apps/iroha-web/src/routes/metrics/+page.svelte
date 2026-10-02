@@ -398,11 +398,7 @@
     display: grid;
     gap: 1rem;
   }
-  .section-head p:last-child,
-  .status {
+  .section-head p:last-child {
     color: var(--text-muted);
-  }
-  .error {
-    color: var(--danger);
   }
 </style>
