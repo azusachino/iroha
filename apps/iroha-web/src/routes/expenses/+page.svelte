@@ -481,7 +481,11 @@
     title="Expenses"
     context={expensesResource.data
       ? `Observed period: ${expensesResource.data.month}`
-      : "Loading ledger period…"}
+      : expensesResource.error
+        ? "Ledger period unavailable"
+        : expensesResource.loading
+          ? "Loading ledger period…"
+          : "No ledger period loaded"}
   >
     {#snippet actions()}
       <button

@@ -1,6 +1,6 @@
 # Grapher Phase 2 implementation acceptance
 
-Status: implementation present; fresh independent acceptance pending. Owner explicitly requested implementation in the existing [PR #108](https://github.com/azusachino/iroha/pull/108), approving the [four-pilot decisions and criteria](../plans/2026-10-02-grapher-phase2-chrome.md). [Issue #107](https://github.com/azusachino/iroha/issues/107) carries acceptance, not a deployment/release request.
+Status: independently accepted locally; PR remains draft while remote browser CI is blocked. Owner explicitly requested implementation in the existing [PR #108](https://github.com/azusachino/iroha/pull/108), approving the [four-pilot decisions and criteria](../plans/2026-10-02-grapher-phase2-chrome.md). [Issue #107](https://github.com/azusachino/iroha/issues/107) carries acceptance, not a deployment/release request.
 
 ## Scope and ownership
 
@@ -31,7 +31,7 @@ Run from `vendor/iroha`:
 | Command | Result |
 | --- | --- |
 | `make validate` | Exit 0; unchanged quality floor, type/unit/build/bundle and document checks. |
-| `make e2e CI=1` | Exit 0; final 185/185, including summary geometry/order cases. |
+| `make e2e CI=1` | Exit 0; 185/185 at the main implementation, then 186/186 after the initial-error header regression. |
 | `make test-integration` | Exit 0; owning disposable test-database lifecycle. |
 | `make e2e ARGS='e2e/chrome-summary.spec.ts'` | Exit 0; 5/5. |
 | `make e2e-pilot-audit OUT=…/pilot.json` | Exit 0; 35/35 report-only collection cases. |
@@ -40,8 +40,23 @@ An earlier combined gate invocation hit its 20-minute harness deadline after 151
 
 Several development failures were concrete feedback, not conformance: initial header exceeded 8rem; unshrunk header actions overflowed narrow public layout; implicit frame grid tracks pushed range controls outside native zoom bounds; old locator/type probes needed migration to the new actual roles. Floors and assertions were retained. Fixture expected values/methods were corrected against their source, not against production guesses.
 
-## Acceptance boundary
+## Independent acceptance and remaining CI gate
 
-P2-A1–A7 have lead source/runtime evidence in the regressions above; P2-A8 remains pending fresh independent review and its exact-head gates. Do not mark PR ready based on this lead record alone. Promote the independent criterion verdicts and exact reviewed revision into this document and PR before completion.
+Fresh verifier `iroha-p2-verifier`, task-created pane `wV:p44`, session `fa79fa91-d19d-45fa-93f4-8331510fb79b`, reviewed exact code `f5dfcf124b4ace285b1aeb2d3c40547a388d1711`. Actual model access: `claude-sonnet-5-5`; startup `--effort medium`. It independently ran `make validate`, `make e2e CI=1` (185/185) and `make test-integration`, all exit 0, plus bounded journey probes. No tracked/index mutations.
+
+| Criterion | Independent verdict / evidence |
+| --- | --- |
+| P2-A1 | Met: four compact populated headers, no overlap/overflow at 320/768/1280 in both modes; bounded mounted-long-title stress cases wrap. |
+| P2-A2 | Met: existing month/year/rolling/public-year behavior and reset-city journeys; no lifetime or new Overview route selector. Existing Overview 6M/12M/24M is chart-local, not route-level. |
+| P2-A3 | Met: canonical frame imports, no nested visible frames, unchanged nonpilot defaults; exact expense/metric table/CSV filenames, raw values and units; no map/ledger metric fabrication. |
+| P2-A4 | Met: additional nonzero sleep/library, independent failure and unknown/partial-distance probes, preserved links, deferred currency/month identity and geography-only scope. Extra probes are bounded scratch evidence, not retained source regressions. |
+| P2-A5 | Met: full open-disclosure/native-zoom checks and supplementary Tab-order probes; geography precedes records in DOM/layout. |
+| P2-A6 | Met: full contrast/motion/tabular suites and unchanged floors; compact-header role change replaces display with title, not an assertion deletion. |
+| P2-A7 | Met: equivalence/palette/privacy checks, no public private/unknown requests, no dependencies/CI/Make/constraint changes. |
+| P2-A8 | Met locally: exact-source owning gates and fresh independent review. Remote CI below remains a separate readiness blocker. |
+
+Reviewer found no blocking source findings. Its initial Expenses error header said “Loading ledger period…” after failure; corrected to unavailable/not-loaded states, preserving observed scope whenever retained data exists, with a source regression. Other notes are retained rather than silently changing scope: narrow six-column Overview tiles can be tall and add named landmarks; generic public frame accessible names and verbatim ledger-period wording; existing cross-currency minor-unit sorting; public record-table horizontal clipping not baseline-compared; nonzero sleep/library and public geography/order probes lack equivalent retained source fixture depth. These are follow-up considerations, not broader rollout or blanket conformance.
+
+CI37045770918 at exact `f5dfcf1` failed 16 public browser cases and reported one retry-only pass, while validate/build and integration passed. Public serving response step did not run. Evidence is retained; the recurring public chart/bootstrap failures are not diagnosed, fixed or classified as flaky. No CI rerun was authorized or performed. The initial-error header correction is unrelated to those public failures. Keep PR #108 draft until final-source CI succeeds or the owner explicitly directs a blocked handoff.
 
 The [Phase 1](2026-10-01-grapher-pilot-baseline.md) and [renderer follow-up](2026-10-02-grapher-verification-gaps.md) limits remain: Chromium synthetic journeys, not screen-reader/Firefox/Safari/color-vision/production conformance; resolved canvas text foreground, not antialiasing, glyph clipping/arbitrary overpainting or parent-group opacity. Private detail overrides retain their prior collector-bypass limit. No original missing cockpit audit was reconstructed. Prior chart-initialization and proposal CI attempt-1 public failures remain unroot-caused; successful retries did not establish a fix.

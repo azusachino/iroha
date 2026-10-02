@@ -2,6 +2,23 @@ import { expect, test } from "@playwright/test";
 import { installPilotFixtures } from "./pilot-fixtures";
 import { PUBLIC_BASE_URL } from "../playwright.config";
 
+test("Expenses failed initial load does not claim its ledger period is still loading", async ({
+  page,
+}) => {
+  await installPilotFixtures(page, "expenses", "error");
+  await page.goto("/expenses?date=2026-08");
+  const header = page.getByRole("region", {
+    name: "Expenses header",
+    exact: true,
+  });
+  await expect(
+    header.getByText("Ledger period unavailable", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    header.getByText("Loading ledger period…", { exact: true }),
+  ).toHaveCount(0);
+});
+
 for (const pilot of ["overview", "metrics", "public"] as const) {
   test(`${pilot} has one compact route header and its actual time controls`, async ({
     page,
