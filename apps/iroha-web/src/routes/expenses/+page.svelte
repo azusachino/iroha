@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
-  import { RefreshCw, WalletCards } from "@lucide/svelte";
+  import { RefreshCw } from "@lucide/svelte";
   import {
     ApiError,
     deleteExpense,
@@ -15,7 +15,7 @@
     type MetricSeriesResponse,
   } from "$lib/api";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import RouteHeader from "@iroha/shared/components/RouteHeader.svelte";
   import FilterSelect from "$lib/components/FilterSelect.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
@@ -476,24 +476,21 @@
 </svelte:head>
 
 <section class="expenses-shell">
-  <header class="page-head">
-    <div>
-      <p class="eyebrow"><WalletCards size={14} /> Canonical ledger</p>
-      <h1>Expenses</h1>
-      <p class="intro">
-        Read server-computed spending series first; open canonical records only
-        when you need the source detail.
-      </p>
-    </div>
-    <button
-      class="refresh"
-      type="button"
-      onclick={() => void loadExpenses()}
-      disabled={expensesResource.loading}
-      ><RefreshCw size={15} /> Refresh</button
-    >
-  </header>
-  <PeriodToolbar title="Monthly ledger scope" ariaLabel="Expense period">
+  <RouteHeader
+    title="Expenses"
+    context={expensesResource.data
+      ? `Observed period: ${expensesResource.data.month}`
+      : "Loading ledger period…"}
+  >
+    {#snippet actions()}
+      <button
+        class="refresh"
+        type="button"
+        onclick={() => void loadExpenses()}
+        disabled={expensesResource.loading}
+        ><RefreshCw size={15} /> Refresh</button
+      >
+    {/snippet}
     <div class="expense-toolbar-controls">
       <PeriodSelector
         year={periodYear}
@@ -522,7 +519,7 @@
         />
       </div>
     </div>
-  </PeriodToolbar>
+  </RouteHeader>
   {#if expensesResource.error || deleteError}
     <p class="error" role="alert">{expensesResource.error || deleteError}</p>
   {/if}

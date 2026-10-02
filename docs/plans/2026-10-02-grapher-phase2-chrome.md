@@ -1,6 +1,6 @@
 # Grapher Phase 2: chrome proposal
 
-Status: **proposed; owner approval required before implementation**. The request authorizes this proposal, not the UI changes below.
+Status: **owner-approved implementation in progress in PR #108**. After reviewing the proposal, the owner requested “wire in the implementation for this PR”, authorizing P2-D1–D5/P2-A1–A8, the four-pilot boundary, 8rem desktop target and shared-frame refinement. Keep implementation and acceptance in that same PR; no deployment/release is authorized.
 
 ## Outcome and provenance
 
@@ -23,7 +23,7 @@ One cohesive route-chrome capability uses these existing owners:
 | Summary tiles | `StatTile` exists; the Overview fallback already uses it. Migrate the active shared Grapher `Dashboard.svelte`'s bespoke `.stat-card` composition while preserving links, missing states and per-tile context. |
 | Async state, selectors and navigation | App adapters retain ownership; do not move requests or `$app` callbacks into shared visual code. |
 
-### Proposed decisions for owner approval
+### Approved decisions
 
 | ID | Recommendation | Trade-off / alternative |
 | --- | --- | --- |
@@ -53,7 +53,7 @@ The public landing also renders selected-activity details. This proposal does no
 - Default behavior of shared primitives must remain compatible with other consumers. Inventory those consumers and run the full existing suite even though the visual migration is pilot-only.
 - Keep the existing fonts, tokens, chart library, async resources and calendar-scope model. No new dependency or framework. This proposal specifies behavior, not an approved component API signature.
 
-## Proposed acceptance
+## Acceptance
 
 | ID | Falsifiable pilot criterion | Evidence |
 | --- | --- | --- |
@@ -68,7 +68,7 @@ The public landing also renders selected-activity details. This proposal does no
 
 Browser claims remain bounded Chromium synthetic evidence, not a recovered full cockpit audit or blanket screen-reader/color-vision/production conformance.
 
-## Suggested delivery after approval
+## Delivery
 
 1. Inventory pilot headers, controls, panels, summaries and other consumers of the shared primitives. Capture the canonical/header-long-title/empty/error baselines and finalize the approved compact-height target.
 2. Land one header/time-context slice, using the existing state handlers and actual supported scope inventory. Add a regression before moving controls; verify Expenses first, then the other pilots.
@@ -98,8 +98,6 @@ Always preserve source evidence, missing-data semantics, retained-data truthfuln
 
 Out of scope: shell rail/navigation regrouping, chart-type replacement or smoothing changes, coverage/import annotations, synchronized crosshairs, sleep-window/heatmap redesign, transitions/tweening/clock, new domains, Liquid Glass adoption and universal nonpilot rollout. Source freshness already shipped; do not duplicate it here.
 
-## Approval requested
+## Approval and completion boundary
 
-Approve or amend **P2-D1–D5**, **P2-A1–A8**, the four-pilot boundary and the explicit D3 panel-frame refinement. In particular: is pilot-first the right delivery boundary, is the proposed header-height target useful, and may non-metric panels share the frame without impersonating metrics?
-
-Merging this documentation records a proposal. It does not approve these decisions or start Phase 2 implementation.
+The explicit owner implementation request supplies the approval previously pending in #107. Implementation must satisfy P2-D1–D5/P2-A1–A8, including the four-pilot boundary and D3 refinement; a proposal review does not substitute for runtime acceptance. Keep PR #108 draft until full gates and fresh independent implementation verification pass. Broader rollout, privacy/scope changes, Liquid Glass, deployment and release still require separate approval.
