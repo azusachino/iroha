@@ -53,7 +53,7 @@ Fresh verifier `iroha-p2-verifier`, task-created pane `wV:p44`, session `fa79fa9
 | P2-A5 | Met: full open-disclosure/native-zoom checks and supplementary Tab-order probes; geography precedes records in DOM/layout. |
 | P2-A6 | Met: full contrast/motion/tabular suites and unchanged floors; compact-header role change replaces display with title, not an assertion deletion. |
 | P2-A7 | Met: equivalence/palette/privacy checks, no public private/unknown requests, no dependencies/CI/Make/constraint changes. |
-| P2-A8 | Met locally: exact-source owning gates and fresh independent review. Remote CI below remains a separate readiness blocker. |
+| P2-A8 | Met: exact-code owning gates, fresh independent review and final-code CI passed. The historical f5dfcf1 failure remains unresolved. |
 
 Exact-code recheck at `314e29308db508f90c9bea7a2a09b1f0ebbe1c82` independently passed validate, all 186 browser cases and integration (exit 0), with clean tracked/index state. The reviewer acknowledged the correction and audit accuracy. An additional failed-refresh probe kept observed 2026-08 scope, four spending tiles and its record when HTTP 503 was injected. No loaded scope was replaced by failure text.
 
