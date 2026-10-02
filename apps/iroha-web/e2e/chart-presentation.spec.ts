@@ -25,6 +25,32 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
     const read = () => page.evaluate(inspectPilotCharts);
     const original = await read();
     expect(original.verified).toBe(true);
+    const typeRoles = await page.evaluate((currentPilot) => {
+      const checks =
+        currentPilot === "public"
+          ? [
+              [".eyebrow", "--type-caption"],
+              [".hero-summary", "--type-body"],
+              [".section-heading h2", "--type-title"],
+            ]
+          : currentPilot === "overview"
+            ? [
+                [".kicker", "--type-caption"],
+                [".chart-data", "--type-label"],
+              ]
+            : [[".chart-data", "--type-label"]];
+      return checks.map(([selector, token]) => {
+        const element = document.querySelector(selector);
+        if (!element) throw new Error(`Missing typography probe: ${selector}`);
+        const probe = document.createElement("span");
+        probe.style.fontSize = `var(${token})`;
+        document.body.append(probe);
+        const expected = getComputedStyle(probe).fontSize;
+        probe.remove();
+        return getComputedStyle(element).fontSize === expected;
+      });
+    }, pilot);
+    expect(typeRoles.every(Boolean)).toBe(true);
     const values = (
       snapshot: Awaited<ReturnType<typeof inspectPilotCharts>>,
     ) =>

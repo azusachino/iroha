@@ -657,7 +657,7 @@
   .eyebrow {
     margin: 0;
     color: var(--accent);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -692,14 +692,14 @@
   }
   .hero h1 {
     margin: 0;
-    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-size: clamp(var(--type-title), 5vw, var(--type-display));
     letter-spacing: -0.03em;
   }
   .hero-summary {
     max-width: 34rem;
     margin: 0.7rem 0 1.15rem;
     color: var(--text-muted);
-    font-size: 1.05rem;
+    font-size: var(--type-body);
     line-height: 1.5;
   }
   .hero-meta {
@@ -707,7 +707,7 @@
     flex-wrap: wrap;
     gap: 0.45rem 1rem;
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
@@ -722,7 +722,7 @@
     }
   }
   .small {
-    font-size: 0.78rem;
+    font-size: var(--type-label);
   }
   .stat-grid {
     display: grid;
@@ -764,7 +764,7 @@
   .section-kicker {
     margin-bottom: 0.65rem;
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -795,7 +795,7 @@
     min-width: 3rem;
     text-align: right;
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-label);
   }
   .sport-row.active .count {
     color: var(--accent);
@@ -805,7 +805,7 @@
     border: none;
     background: none;
     color: var(--accent);
-    font-size: 0.78rem;
+    font-size: var(--type-label);
     cursor: pointer;
     text-decoration: underline;
   }
@@ -818,7 +818,7 @@
   }
   .section-heading h2 {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: var(--type-title);
     letter-spacing: -0.02em;
   }
   .routes-grid {
@@ -844,7 +844,7 @@
   }
   .cities-head h3 {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: var(--type-label);
   }
   .city-grid {
     display: grid;
@@ -868,12 +868,12 @@
   }
   .city-name {
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: var(--type-label);
   }
   .city-sports,
   .city-count {
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     margin-top: 0.2rem;
   }
   .table-wrap {
@@ -883,7 +883,7 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85rem;
+    font-size: var(--type-label);
   }
   th,
   td {

@@ -190,7 +190,7 @@
   .chart-data {
     margin-top: 0.5rem;
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-label);
   }
   .chart-data summary {
     width: fit-content;
