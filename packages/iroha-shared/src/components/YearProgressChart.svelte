@@ -160,7 +160,7 @@
         type: "value",
         ...range,
         name: "km",
-        nameTextStyle: { color: muted },
+        nameTextStyle: { color: muted, fontSize },
         axisLabel: {
           color: muted,
           fontSize,
@@ -288,7 +288,8 @@
 
 <style>
   .year-progress {
-    padding: 1rem;
+    min-width: 0;
+    padding: var(--space-4);
   }
   .header {
     display: flex;
@@ -298,14 +299,14 @@
     margin-bottom: 0.5rem;
   }
   .title {
-    font-size: 0.8rem;
+    font-size: var(--type-label);
     color: var(--text-muted);
   }
   .delta {
     display: inline-flex;
     align-items: baseline;
     gap: 0.35rem;
-    font-size: 0.9rem;
+    font-size: var(--type-label);
     font-weight: 700;
   }
   .delta.ahead {
@@ -315,17 +316,17 @@
     color: var(--sport-other);
   }
   .delta .arrow {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
   }
   .delta-sub {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 500;
     color: var(--text-muted);
   }
   .chart-data {
     margin-top: 0.5rem;
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-label);
   }
   .chart-data summary {
     width: fit-content;
@@ -339,7 +340,7 @@
   }
   th,
   td {
-    padding: 0.35rem 0.5rem;
+    padding: var(--space-2);
     border-bottom: 1px solid var(--border);
     text-align: right;
   }

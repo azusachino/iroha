@@ -75,7 +75,7 @@
         type: "value",
         ...range,
         name: distance ? "km" : "activities",
-        nameTextStyle: { color: muted },
+        nameTextStyle: { color: muted, fontSize },
         axisLabel: {
           color: muted,
           fontSize,
@@ -139,13 +139,13 @@
 <style>
   .month-chart {
     min-width: 0;
-    padding: 1rem;
+    padding: var(--space-4);
   }
 
   .month-chart-head {
     margin-bottom: 0.25rem;
     color: var(--text-muted);
-    font-size: 0.82rem;
+    font-size: var(--type-label);
   }
 
   .chart {
