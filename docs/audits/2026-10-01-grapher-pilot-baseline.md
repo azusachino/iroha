@@ -1,5 +1,26 @@
 # Grapher pilot baseline — 2026-10-01
 
+## Final bounded Phase 1 acceptance — PR #103
+
+Code revision: `b471075dc43ca9b5129e281798aaf6164595233d` on `feat/grapher-phase1-completion`. The entries below are a chronological evidence trail; their earlier incomplete/pending statuses are superseded by this closeout, not retroactively rewritten.
+
+Independent verifier: task-created Herdr `iroha-p1-verifier`, pane `wV:p30`, session `701e2aac-ddff-40fd-8ba6-24b857c27c88`, model `claude-sonnet-5-5`, launch argv `--effort medium`. It began with fresh task context, reviewed the complete PR, found the initial P1-A4 gaps, and rechecked both correction increments. Final verdict: **ready**, P1-A1–A9 met within the recorded pilot scope, with nonblocking P1-A6/P1-A7 measurement limits below.
+
+| Criterion | Independent result / evidence |
+| --- | --- |
+| P1-A1–A2 | Met: shared formatters, non-finite/zero/grouping and duration/pace boundary tests plus consumer render assertions. |
+| P1-A3 | Met: finite monotonic unit-once axis fixtures and chart browser assertions; gaps remain gaps. |
+| P1-A4 | Met: canonical type/spacing ownership, mounted-control probes, eight native 200% zoom keyboard cycles, public and ledger numeric-change layout tests. |
+| P1-A5 | Met: shared identity/palette fixtures and both-host computed colors. |
+| P1-A6 | Met with measurement limit: DOM text, resolved primary chart marks and focus pass the matrix; canvas-rendered axis-text contrast is not directly measured. |
+| P1-A7 | Met with partial-comparison caveat: equivalent distance and deliberately different exact-table/summary duration forms; same-form private pace/human-duration comparisons are not directly asserted. Public privacy suite and no-private-endpoint fixtures pass. |
+| P1-A8 | Met: deferred loading, repeated retry, truthful retained scopes, refetch, empty/motion and supported scope fixtures. |
+| P1-A9 | Met: independent `make validate && make e2e CI=1 && make test-integration` chain exit 0 at the exact code revision, 102/102 browser cases; shared import direction clean, no new suppressions/skips or lowered floors. |
+
+Implementer additionally ran those three owning gates, and the report-only pilot collected 35/35. Exact-code GitHub CI [36985462467](https://github.com/azusachino/iroha/actions/runs/36985462467) completed **success** with matching `headSha` `b471075dc43ca9b5129e281798aaf6164595233d`.
+
+Limits retained: Chromium/synthetic pilot evidence, not full cockpit, screen-reader, Firefox/Safari, color-vision or production transfer conformance. Native keyboard matrix covers populated closed-disclosure state, not open popups/dialogs. Canvas axis-text contrast remains a measurement gap rather than a claimed pixel-level pass. Report-only bundle growth remains reviewed, not an invented blocking budget. Unmounted `MonthNavigator` typography is explicit nonpilot legacy debt. Missing original cockpit audit and the earlier unroot-caused chart initialization exception are not reconstructed or claimed fixed. No deployment, release, merge, privacy-policy change or runtime repair is inferred from acceptance. Final evidence is also carried in [PR #103](https://github.com/azusachino/iroha/pull/103); owner merge remains the next action.
+
 ## PR #103: independent acceptance findings and correction
 
 A fresh task-created Herdr peer, `iroha-p1-verifier` (`wV:p30`, Claude Sonnet 5.5, launch effort `medium`), reviewed the complete main-to-`a45ce0952a420a454f772784d7cacc63c09fa42d` diff. Its first report found P1-A4 unmet: ExpenseLedger and pilot route styles still had local font sizes, and the dynamic tabular-figure layout claim lacked a direct test. It independently ran `make validate` and plain `make e2e` (94/94); CI-prefixed invocation was permission-denied. Disposable integration reported all packages successful, but that reviewer did not separately capture its exit status. Its initial self-report of “low” effort was withdrawn as an unsupported guess; the launch argv explicitly selected medium. This is a findings pass, not final acceptance.
