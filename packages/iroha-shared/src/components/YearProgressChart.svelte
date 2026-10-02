@@ -317,8 +317,8 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
+    gap: var(--space-4);
+    margin-bottom: var(--space-2);
   }
   .title {
     font-size: var(--type-label);
@@ -327,7 +327,7 @@
   .delta {
     display: inline-flex;
     align-items: baseline;
-    gap: 0.35rem;
+    gap: var(--space-1);
     font-size: var(--type-label);
     font-weight: 700;
   }
@@ -346,7 +346,7 @@
     color: var(--text-muted);
   }
   .chart-data {
-    margin-top: 0.5rem;
+    margin-top: var(--space-2);
     color: var(--text-muted);
     font-size: var(--type-label);
   }
@@ -356,7 +356,7 @@
   }
   table {
     width: 100%;
-    margin-top: 0.5rem;
+    margin-top: var(--space-2);
     border-collapse: collapse;
     color: var(--text);
   }
@@ -382,7 +382,7 @@
     .header {
       align-items: flex-start;
       flex-direction: column;
-      gap: 0.35rem;
+      gap: var(--space-1);
     }
     .chart {
       height: 230px;

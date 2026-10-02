@@ -143,7 +143,7 @@
   }
 
   .month-chart-head {
-    margin-bottom: 0.25rem;
+    margin-bottom: var(--space-1);
     color: var(--text-muted);
     font-size: var(--type-label);
   }

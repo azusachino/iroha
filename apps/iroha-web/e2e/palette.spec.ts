@@ -3,6 +3,7 @@ import { categoryColor } from "@iroha/shared/domain/category-color";
 import { sportColor } from "@iroha/shared/domain/sport";
 import { installPilotFixtures } from "./pilot-fixtures";
 import { measurePilotPage } from "./pilot-measurements";
+import { PUBLIC_BASE_URL } from "../playwright.config";
 
 const categories = [
   "food",
@@ -18,7 +19,7 @@ const categories = [
   "other",
 ];
 const sports = ["run", "walk", "hike", "ride", "swim", "other"];
-const publicBase = process.env.E2E_PUBLIC_BASE_URL ?? "http://127.0.0.1:5184";
+const publicBase = PUBLIC_BASE_URL;
 for (const mode of ["light", "dark"] as const) {
   test(`Shared palette ${mode} has distinct readable identities on both hosts`, async ({
     page,
