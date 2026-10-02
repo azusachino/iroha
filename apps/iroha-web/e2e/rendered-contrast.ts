@@ -135,6 +135,12 @@ export async function measureRenderedContrast(includeText = false) {
     color: unknown;
     ratio: number | null;
   }[] = [];
+  const canvasText: {
+    chart: string | null;
+    text: string;
+    color: unknown;
+    ratio: number | null;
+  }[] = [];
   if (entry) {
     const core = await import(entry.name);
     for (const el of document.querySelectorAll('[role="img"]')) {
@@ -142,6 +148,21 @@ export async function measureRenderedContrast(includeText = false) {
       if (!chart) continue;
       const option = chart.getOption();
       const background = backgroundAt(el);
+      // Inspect the renderer's resolved text spans, not option defaults or a
+      // second ECharts instance. Pilot labels are outside marks; this measures
+      // foreground paint against the chart surface, not antialiased glyph pixels.
+      for (const span of chart.getZr().storage.getDisplayList()) {
+        if (span.type !== "tspan" || !span.style.text?.trim()) continue;
+        canvasText.push({
+          chart: el.getAttribute("aria-label"),
+          text: span.style.text,
+          color: span.style.fill,
+          ratio:
+            span.style.opacity === 1
+              ? contrast(span.style.fill, background)
+              : null,
+        });
+      }
       for (const [seriesIndex, series] of (option.series ?? []).entries()) {
         for (const [dataIndex, datum] of (series.data ?? []).entries()) {
           const value =
@@ -187,5 +208,5 @@ export async function measureRenderedContrast(includeText = false) {
       required,
     });
   }
-  return { focus, marks, textPairs };
+  return { focus, marks, textPairs, canvasText };
 }

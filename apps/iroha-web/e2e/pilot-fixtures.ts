@@ -9,7 +9,12 @@ import { fakeSession } from "./session";
 
 export type Pilot = "overview" | "expenses" | "metrics" | "public";
 export type Scenario =
-  "populated" | "empty" | "error" | "missing-distance" | "partial-distance";
+  | "populated"
+  | "empty"
+  | "error"
+  | "missing-distance"
+  | "partial-distance"
+  | "single-year";
 const instant = "2026-08-14T12:00:00Z";
 const activities: PublicActivity[] = [2025, 2026].map((year) => ({
   id: `synthetic-${year}`,
@@ -240,16 +245,29 @@ export async function installPilotFixtures(
   const unknown: string[] = [];
   const distanceMissing =
     scenario === "missing-distance" || scenario === "partial-distance";
+  const { key: _year, ...singleYearTotals } = summary.by_year[1];
+  const fixtureSummary =
+    scenario === "single-year"
+      ? {
+          ...summary,
+          totals: { ...summary.totals, ...singleYearTotals },
+          by_year: [summary.by_year[1]],
+          by_month: [summary.by_month[1]],
+          by_sport: [{ ...summary.by_sport[0], ...singleYearTotals }],
+        }
+      : summary;
   const records =
     scenario === "empty"
       ? []
-      : distanceMissing
-        ? activities.map((activity) => {
-            if (activity.id !== "synthetic-2026") return activity;
-            const { distance_m: _distance, ...withoutDistance } = activity;
-            return withoutDistance;
-          })
-        : activities;
+      : scenario === "single-year"
+        ? activities.filter((activity) => activity.id === "synthetic-2026")
+        : distanceMissing
+          ? activities.map((activity) => {
+              if (activity.id !== "synthetic-2026") return activity;
+              const { distance_m: _distance, ...withoutDistance } = activity;
+              return withoutDistance;
+            })
+          : activities;
   if (scenario === "partial-distance")
     records.push({ ...activities[1], id: "synthetic-known-2026" });
   const partialBuckets = missingDistanceSummary.by_month.map((bucket) =>
@@ -296,7 +314,7 @@ export async function installPilotFixtures(
           ? emptySummary
           : distanceMissing
             ? distanceSummary
-            : summary,
+            : fixtureSummary,
       activities: records,
       routes,
       meta: { generated_at: instant, activity_count: records.length },
@@ -343,7 +361,7 @@ export async function installPilotFixtures(
         next_cursor: null,
       },
       "/api/v1/activities/overview": {
-        summary: scenario === "empty" ? emptySummary : summary,
+        summary: scenario === "empty" ? emptySummary : fixtureSummary,
         recent: records.map((a) => ({
           ...a,
           source_kind: "synthetic",
@@ -390,5 +408,5 @@ export async function installPilotFixtures(
       username: "synthetic-owner",
       display_name: "Synthetic owner",
     });
-  return { requests, unknown };
+  return { requests, unknown, activities: records };
 }
