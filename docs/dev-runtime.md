@@ -81,6 +81,31 @@ the lead's source-mutation measurement was not independently reproduced. These
 are local iteration times, not CI or production performance claims. Tests retain
 the other input-boundary, failure, force-fresh and tool-mismatch regressions.
 
+## CI execution
+
+The `make check` GitHub status aggregates mandatory validation/build/integration
+and two parallel browser-shard jobs. It succeeds only when both job results are
+`success`; skipped, cancelled or failed dependencies block it. The PostGIS and
+public-serving checks remain in the validation job. Each browser runner installs
+frozen frontend dependencies and Chromium, then runs
+`make e2e ARGS='--shard=1/2'` or `--shard=2/2`. All Chromium tests still run;
+one worker, retries and fail-on-flaky behavior are unchanged. Sharding is by file,
+so balancing can vary as the suite grows.
+
+CI restores native Go build/module caches keyed by OS/architecture, tool pins,
+workspace/module manifests and revision, with a dependency-scoped fallback.
+Go validates its own content keys; validation commands always execute regardless
+of a cache hit. CI does not consume the incremental local result cache.
+Parallel jobs target wall time, not a reduction in total billed runner minutes.
+
+Baseline for #114: PR #113's successful CI run `37101989926` took 12m54s;
+validation/build 3m29s, integration 24s and browser installation/tests 8m21s
+(200 tests using one worker, 7.9m test execution). Post-change savings must be
+measured from exact-head CI, not inferred from local runs.
+
+References: [Playwright sharding](https://playwright.dev/docs/test-sharding) and
+[GitHub dependency caching](https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows).
+
 ## `uv`
 
 Use `uv` for repo scripts, smoke checks, fixtures, import experiments, and one-off operational helpers.
