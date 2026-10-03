@@ -26,9 +26,7 @@
     Activity,
     ActivityDetail as ActivityDetailData,
   } from "$lib/types";
-  import ApprovedActivityDetail from "$lib/components/ApprovedActivityDetail.svelte";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
-  import ActivityDetail from "$lib/components/ActivityDetail.svelte";
   import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
@@ -446,17 +444,39 @@
   </RouteHeader>
 {/if}
 
-{#if selectedActivity && selectedActivityDetail}
-  <ApprovedActivityDetail
-    detail={selectedActivityDetail}
-    backHref={page.url.pathname}
-  />
-{:else if selectedActivity}
-  <ActivityDetail
-    activity={selectedActivity}
-    {routes}
-    backHref={page.url.pathname}
-  />
+{#snippet selectedRecord(activity: Activity)}
+  <a href={page.url.pathname}>← Back to archive</a>
+  <h2>{activity.title || formatSport(activity.sport_type)}</h2>
+  <p>
+    Distance: {formatDistance(activity.distance_m)} · Duration:
+    {formatDuration(activity.duration_s)}
+  </p>
+{/snippet}
+
+{#if selectedActivity}
+  {#await import("$lib/components/ActivityDetailView.svelte")}
+    <section class="tile" aria-busy="true">
+      {@render selectedRecord(selectedActivity)}
+      <p role="status">Loading activity details…</p>
+    </section>
+  {:then { default: DetailView }}
+    <DetailView
+      activity={selectedActivity}
+      detail={selectedActivityDetail}
+      {routes}
+      backHref={page.url.pathname}
+    />
+  {:catch}
+    <section class="tile" aria-busy="false">
+      {@render selectedRecord(selectedActivity)}
+      <p role="alert">
+        Activity detail view unavailable. Record summary remains.
+      </p>
+      <button type="button" onclick={() => window.location.reload()}
+        >Reload page</button
+      >
+    </section>
+  {/await}
 {:else}
   <div class="dashboard">
     <div class="stat-grid">

@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { installPilotFixtures } from "./pilot-fixtures";
 
@@ -23,6 +24,28 @@ const routes = {
     },
   ],
 };
+const manifestUrl = new URL(
+  "../.svelte-kit/output/client/.vite/manifest.json",
+  import.meta.url,
+);
+const manifest = existsSync(manifestUrl)
+  ? JSON.parse(readFileSync(manifestUrl, "utf8"))
+  : {};
+const productionMapFiles = Object.entries(manifest)
+  .filter(
+    ([key, entry]) =>
+      key.endsWith("src/lib/maplibre.ts") ||
+      (entry as { name?: string }).name === "maplibre",
+  )
+  .map(([, entry]) => (entry as { file: string }).file);
+function isMapLibrary(url: string) {
+  const path = new URL(url).pathname;
+  return (
+    /\/src\/lib\/maplibre\.ts$/.test(path) ||
+    productionMapFiles.some((file) => path.endsWith(`/${file}`))
+  );
+}
+
 function isWorker(url: string) {
   const parsed = new URL(url);
   return (
@@ -73,6 +96,99 @@ test("private single raster tile failure is partial and leaves the route map usa
   ).toContainText("Berlin");
   expect(fixture.unknown).toEqual([]);
 });
+
+test("private no-route overview does not request the map engine", async ({
+  page,
+}) => {
+  const fixture = await installPilotFixtures(page, "overview");
+  if (process.env.E2E_BASE_URL) expect(productionMapFiles).toHaveLength(1);
+  const engines: string[] = [];
+  page.on("request", (request) => {
+    if (isMapLibrary(request.url())) engines.push(request.url());
+  });
+  await page.goto("/overview");
+  await expect(
+    page.getByText("No routes recorded yet.", { exact: true }),
+  ).toBeVisible();
+  expect(engines).toEqual([]);
+  expect(fixture.unknown).toEqual([]);
+});
+
+for (const failLibrary of [false, true]) {
+  test(`private deferred map library ${failLibrary ? "failure recovers by reload" : "keeps route summaries available"}`, async ({
+    page,
+  }) => {
+    const fixture = await installPilotFixtures(page, "overview");
+    await page.route("**/api/v1/activities/routes*", (route) =>
+      route.fulfill({ json: routes }),
+    );
+    await page.route("**/tile.openstreetmap.org/**", (route) =>
+      route.fulfill({
+        contentType: "image/png",
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=",
+          "base64",
+        ),
+      }),
+    );
+    const exceptions: string[] = [];
+    page.on("pageerror", (error) => exceptions.push(error.message));
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let fail = failLibrary;
+    await page.route("**/*", async (route) => {
+      if (!isMapLibrary(route.request().url())) return route.fallback();
+      await gate;
+      return fail
+        ? route.fulfill({
+            status: 503,
+            contentType: "text/javascript",
+            body: "",
+          })
+        : route.continue();
+    });
+    try {
+      await page.goto("/overview");
+      await expect(
+        page.getByText("Loading interactive map…", { exact: true }),
+      ).toBeVisible();
+      await expect(page.locator(".map")).toHaveAttribute("aria-busy", "true");
+      const chartRange = page
+        .getByRole("group", { name: "Distance chart range", exact: true })
+        .getByRole("button")
+        .first();
+      await chartRange.click();
+      await expect(chartRange).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByRole("img").first()).toBeVisible();
+      await page.getByText("View route summaries", { exact: true }).click();
+      await expect(
+        page.getByRole("table", {
+          name: "Recorded route summaries",
+          exact: true,
+        }),
+      ).toContainText("Berlin");
+    } finally {
+      release();
+    }
+    if (failLibrary) {
+      await expect(page.getByRole("alert")).toContainText(
+        "Interactive map unavailable.",
+      );
+      await expect(page.locator(".map")).toHaveAttribute("aria-busy", "false");
+      fail = false;
+      await page
+        .getByRole("button", { name: "Reload page", exact: true })
+        .focus();
+      await page.keyboard.press("Enter");
+    }
+    await expect(page.locator(".maplibregl-canvas")).toHaveCount(1);
+    await expect(page.locator(".map")).toHaveAttribute("aria-busy", "false");
+    expect(exceptions).toEqual([]);
+    expect(fixture.unknown).toEqual([]);
+  });
+}
 
 for (const failWorker of [false, true]) {
   test(`private map worker ${failWorker ? "failure is visible" : "loads the GeoJSON source"}`, async ({
