@@ -214,3 +214,28 @@ test("public detail deep link loads its map and back navigation destroys the old
   await expect(page.locator(".map")).toHaveAttribute("aria-busy", "false");
   await page.getByRole("button", { name: "2026", exact: true }).focus();
 });
+
+test("public worker failure is visible and leaves route summaries usable", async ({
+  page,
+}) => {
+  await installMapFixtures(page);
+  await page.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    const worker =
+      url.pathname.includes("maplibre-gl-worker") &&
+      (url.searchParams.has("worker_file") ||
+        url.pathname.includes("/workers/"));
+    return worker
+      ? route.fulfill({ status: 404, contentType: "text/javascript", body: "" })
+      : route.fallback();
+  });
+  await page.goto(PUBLIC_BASE_URL);
+  await expect(page.getByRole("alert")).toContainText(
+    "Interactive map unavailable. Route summaries remain below.",
+  );
+  await expect(page.locator(".map")).toHaveAttribute("aria-busy", "false");
+  await page.getByText("View route summaries", { exact: true }).click();
+  await expect(
+    page.getByRole("table", { name: "Recorded route summaries", exact: true }),
+  ).toContainText("Berlin");
+});

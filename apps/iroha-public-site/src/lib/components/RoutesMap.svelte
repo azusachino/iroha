@@ -108,6 +108,9 @@
         new maplibregl.NavigationControl({ showCompass: false }),
         "top-right",
       );
+      map.on("error", () => {
+        libraryError = true;
+      });
       map.on("load", () => {
         loaded = true;
       });
@@ -158,7 +161,7 @@
     class="map"
     bind:this={container}
     role="region"
-    aria-busy={!routesReady}
+    aria-busy={!libraryError && !routesReady}
     aria-label={mapLabel}
     aria-describedby="public-routes-map-help"
   ></div>

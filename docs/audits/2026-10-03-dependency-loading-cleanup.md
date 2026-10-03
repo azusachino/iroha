@@ -2,7 +2,7 @@
 
 Owner-approved scope: remove unused/unnecessary dependencies, incorporate coverage PR #91, and investigate heavy sparsely-used dependencies with packaging/loading UX priority. No deployment, release, Node/TypeScript major upgrade, quality-floor changes or live-data probes.
 
-Baseline: main `6612293c6f70f3b6d76c4506406fde328eb1ece7`. Branch: `chore/dependency-cleanup-table`. Workstation tier 1; independent verification pending.
+Baseline: main `6612293c6f70f3b6d76c4506406fde328eb1ece7`. Branch: `chore/dependency-cleanup-table`. Workstation tier 1; initial independent verification complete, findings recheck pending.
 
 ## Decisions and acceptance
 
@@ -10,7 +10,7 @@ Baseline: main `6612293c6f70f3b6d76c4506406fde328eb1ece7`. Branch: `chore/depend
 - A2: Owner explicitly chose removing TanStack rather than upgrading to stable 9.2.4. Preserve header labels, initial descending date order, first-row-type toggle defaults, Shift state, leading-key-only row ordering, year/sport filters, progressive rows and detail links. Correct stale header arrows and expose the actual leading sort with `aria-sort`.
 - A3: Incorporate coverage 7.16.2. Owner explicitly approved this version before the seven-day age window elapsed; preserve general `P7D` lock metadata and leave no lasting package exemption. Coverage floors stay unchanged. `uv lock --check` must pass.
 - A4: Defer the public map engine until a map mounts. No-route public landing must not request it. Delayed or failed library loading must leave charts, activity records and route summaries usable, with explicit loading/error feedback.
-- A5: Package MapLibre's worker explicitly for both hosts. A canvas alone is insufficient: the public map's `aria-busy` clears only when its GeoJSON source reports loaded. Verify actual worker/source loading, deep links, back navigation and successful recovery after an explicit page reload.
+- A5: Package MapLibre's worker explicitly for both hosts. A canvas alone is insufficient: public and private overview maps remain busy until their GeoJSON source reports loaded or a terminal map error is displayed. Verify actual worker/source loading, explicit failure feedback with usable route summaries, deep links, back navigation and successful recovery after an explicit page reload. Private motion-detail playback is not a new runtime acceptance claim.
 - A6: Preserve sanitized public-only requests, existing map styling/attribution/controls, shared chart runtime deduplication and existing test assertions/thresholds. No replacement map/chart dependency is introduced.
 - A7: Run owning validation, full browser suite, integration, production-focused browser checks, and fresh independent verification. Report actual bundle changes and limitations, not speculative transfer/latency gains.
 
@@ -43,15 +43,16 @@ Sources: [Vite worker URL imports](https://vite.dev/guide/features.html#import-w
 
 ## Emitted packaging measurements
 
-Same pinned tools, local production builds. Raw bytes and gzip of each emitted file with `mtime=0`; static route graph follows Vite manifest `imports`, excluding `dynamicImports`. These are artifact costs, not measured network transfer, cache behavior, FCP/LCP or production latency.
+Same pinned tools, local production builds. The table records lead captures at the initial implementation; filenames/compression can drift slightly between builds and review fixes. Raw bytes and gzip of each emitted file with `mtime=0`; static route graph follows Vite manifest `imports`, excluding `dynamicImports` and non-JavaScript files. These are artifact costs, not measured network transfer, cache behavior, FCP/LCP or production latency. The independent verifier did not rebuild the baseline; the percentage comparison is lead evidence, not independently reproduced. Its graph walk included additional files and is not the same measurement definition.
 
 | Measurement | Baseline raw / gzip bytes | Updated raw / gzip bytes |
 | --- | --- | --- |
 | Public landing static JS graph | 1,745,375 / 511,521 | 676,541 / 228,740 |
 | Public aggregate emitted JS | 1,752,670 / 515,281 | 2,255,462 / 657,213 |
 | Private aggregate emitted JS | 2,107,711 / 647,187 | 2,617,525 / 791,393 |
+| Private aggregate emitted CSS | 292,510 / 56,198 | 292,510 / 56,198 |
 
-The public static landing graph falls about 61% raw / 55% gzip. Aggregate output grows because the previously missing functional worker is now emitted (509,702 raw / 144,167 gzip per host), plus chunk separation overhead. Worker bytes are fetched when a map is initialized, not on no-route public landing. Private aggregate values exceed the existing report-only bundle baselines; this is visible, not a lowered threshold or a claim of an aggregate reduction. Private overview still statically imports its map engine; deferring that import is a follow-up opportunity.
+The public static landing graph falls about 61% raw / 55% gzip. Aggregate output grows because the previously missing functional worker is now emitted (509,702 raw / 144,167 gzip per host), plus chunk separation overhead. Worker bytes are fetched when a map is initialized, not on no-route public landing. Private aggregate JS and CSS values exceed the existing report-only bundle baselines; this is visible, not a lowered threshold or a claim of an aggregate reduction. CSS was already over its 280,729 / 54,193 baseline in the captured pre-change artifacts and did not grow in this comparison. Private overview still statically imports its map engine; deferring that import is a follow-up opportunity.
 
 Before map changes, native table replacement alone saved 46,071 raw / 11,767 gzip bytes in public aggregate JS. Unused Three.js/uPlot removal did not reduce private emitted JS; minor hash/compression variation is not a meaningful saving.
 
@@ -67,8 +68,10 @@ Before map changes, native table replacement alone saved 46,071 raw / 11,767 gzi
 - Initial cleanup: `make check` exit 0; native sorting browser checks 2/2.
 - Deferred-map and sorting checks: 6/6 against dev servers and 6/6 against both production preview servers. Both production preview process groups were task-owned, terminated, and ports verified unbound.
 - Public type check/build passes after correcting the lazy module's TypeScript namespace to its host adapter.
-- Full final validation/browser/integration and independent verdict: pending; no DONE/ready claim yet.
+- Fresh independent verifier `iroha-dep-verifier`, Sonnet 5.5 / medium, session `dd591960-5ed0-482a-bb4d-668b717d3d00`, reviewed clean `1e1e5651139406868fadbf8c5b64f9a88c988907`. Validation, integration, full browser 195/195 and production-focused 6/6 passed. The terminal restart interrupted report retrieval; the same verifier session resumed without a model or protocol fallback.
+- Initial review found missing private-worker runtime evidence, CSS overage disclosure, measurement limits, and busy-without-error feedback on worker failure. Private overview now has a retained worker/source-ready regression; both overview and public maps display terminal map errors and clear busy while keeping route summaries accessible. CSS and measurement limits are disclosed above.
+- Findings recheck and new-revision gates pending; no DONE/ready claim yet.
 
-Retained specs: `public-table-sorting.spec.ts`, `public-map-loading.spec.ts`. Baseline, failed probes, build logs and advisor transcript remain in workstation scratch `.tmp/iroha-dependency-cleanup/`; final accepted evidence must be promoted to the owning PR.
+Retained specs: `public-table-sorting.spec.ts`, `public-map-loading.spec.ts`, `private-map-worker.spec.ts`. Baseline, failed probes, build logs and advisor transcript remain in workstation scratch `.tmp/iroha-dependency-cleanup/`; final accepted evidence must be promoted to the owning PR.
 
 Replacement PR will supersede #91, #92, #94 and #97 only once merged. Bot PRs, TS7 PRs and Node-types PRs remain untouched in this slice.
