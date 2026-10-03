@@ -43,7 +43,8 @@
     byMonth,
     year,
     sportName,
-  }: { byMonth: ActivitySummaryBucket[]; year: string; sportName?: string } =
+    embedded = false,
+  }: { byMonth: ActivitySummaryBucket[]; year: string; sportName?: string; embedded?: boolean } =
     $props();
 
   interface YearSeries {
@@ -238,7 +239,7 @@
   });
 </script>
 
-<div class="year-progress tile">
+<div class="year-progress" class:tile={!embedded} class:embedded>
   <div class="header">
     <div class="title">
       Cumulative {sportName ? `${sportName.toLowerCase()} ` : ""}distance — {year}
@@ -313,6 +314,7 @@
     min-width: 0;
     padding: var(--space-4);
   }
+  .year-progress.embedded { padding: 0; }
   .header {
     display: flex;
     align-items: baseline;

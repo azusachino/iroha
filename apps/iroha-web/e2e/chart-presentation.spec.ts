@@ -30,12 +30,12 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
         currentPilot === "public"
           ? [
               [".eyebrow", "--type-caption"],
-              [".hero-summary", "--type-body"],
+              [".route-copy p", "--type-caption"],
               [".section-heading h2", "--type-title"],
             ]
           : currentPilot === "overview"
             ? [
-                [".kicker", "--type-caption"],
+                [".route-copy p", "--type-caption"],
                 [".chart-data", "--type-label"],
               ]
             : currentPilot === "expenses"
@@ -46,16 +46,16 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
                   [".expense-row small", "--type-caption"],
                   [".detail-list dt", "--type-caption"],
                   [".detail-panel h3", "--type-title-small"],
-                  [".expenses-shell h1", "--type-display"],
-                  [".period-copy span", "--type-caption"],
-                  [".period-copy strong", "--type-label"],
+                  [".expenses-shell h1", "--type-title"],
+                  [".route-copy p", "--type-caption"],
+                  [".route-copy h1", "--type-title"],
                   [".select-label", "--type-caption"],
                   [".select-control select", "--type-label"],
                 ]
               : [
                   [".chart-data", "--type-label"],
                   [".metric-metadata", "--type-caption"],
-                  [".period-copy span", "--type-caption"],
+                  [".route-copy p", "--type-caption"],
                   [".select-label", "--type-caption"],
                   [".select-control select", "--type-label"],
                 ];

@@ -3,11 +3,17 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { PUBLIC_BASE_URL } from "../playwright.config";
 import { installPilotFixtures } from "./pilot-fixtures";
 import { measureRenderedContrast } from "./rendered-contrast";
+import { openNavigationByKeyboard } from "./pilot-keyboard";
 
 // Chrome's own tab zoom, not CSS zoom or CDP compositor/pinch scaling.
 for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
-  for (const mode of ["light", "dark"] as const) {
-    test(`${pilot} ${mode} native 200 percent zoom reflows to 320 CSS pixels`, async ({
+  const cases = (["light", "dark"] as const).flatMap((mode) =>
+    (pilot === "public" ? [null] : ["Domains", "Analyze", "More"]).map(
+      (navigation) => ({ mode, navigation }),
+    ),
+  );
+  for (const { mode, navigation } of cases) {
+    test(`${pilot} ${mode} native 200 percent zoom reflows to 320 CSS pixels with ${navigation ?? "public"} navigation`, async ({
       baseURL,
     }, info) => {
       const extension = info.outputPath("zoom-extension");
@@ -43,7 +49,10 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
       );
       try {
         const page = await context.newPage();
-        await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
+        await page.emulateMedia({
+          colorScheme: mode,
+          reducedMotion: "reduce",
+        });
         const fixture = await installPilotFixtures(page, pilot);
         const errors: string[] = [];
         page.on("pageerror", (error) =>
@@ -110,6 +119,7 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
           body: JSON.stringify({ pilot, mode, zoom, before, measured }),
           contentType: "application/json",
         });
+        if (navigation) await openNavigationByKeyboard(page, navigation);
         const targets = await page.evaluate(() => {
           const elements = Array.from(
             document.querySelectorAll<HTMLElement>(
@@ -183,7 +193,10 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
               document.querySelectorAll<HTMLElement>("[data-zoom-focus]"),
             )
               .filter((el) => !seen.includes(el.dataset.zoomFocus!))
-              .map((el) => ({ id: el.dataset.zoomFocus, html: el.outerHTML })),
+              .map((el) => ({
+                id: el.dataset.zoomFocus,
+                html: el.outerHTML,
+              })),
           [...visited],
         );
         const paint = await page.evaluate(measureRenderedContrast, true);

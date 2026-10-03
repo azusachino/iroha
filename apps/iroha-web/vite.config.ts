@@ -15,6 +15,8 @@ const apiTarget =
 
 export default defineConfig({
   resolve: {
+    // Shared and host imports must use one ECharts/zrender state registry.
+    dedupe: ["echarts", "zrender"],
     alias: {
       "@iroha/shared": sharedPath,
     },

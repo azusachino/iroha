@@ -48,7 +48,7 @@ for (const pilot of pilots) {
         if (pilot === "overview")
           await expect(
             page.getByRole("heading", {
-              name: "Your history, in perspective.",
+              name: "Overview",
             }),
           ).toBeVisible();
         if (pilot === "public")

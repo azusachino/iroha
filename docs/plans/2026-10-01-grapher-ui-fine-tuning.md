@@ -52,4 +52,6 @@ The owner reports the prior cockpit accessibility audit complete. Its referenced
 
 ## Out of scope
 
+Next proposal: [Phase 2 route chrome](2026-10-02-grapher-phase2-chrome.md), based on #85's chrome workstream. It is not approved for implementation; its pilot boundary and panel-frame interpretation require owner review.
+
 Later issue phases: header/time-bar redesign, universal panel adoption, chart-type replacement, coverage/import annotations, crosshair synchronization, sleep-window/heatmap redesign, view transitions/tweening/clock, and navigation/copy overhaul. Source freshness shipped separately and must not be duplicated here. Existing font licenses and assets remain unchanged. Approval of Phase 1 does not approve Phases 2–5.

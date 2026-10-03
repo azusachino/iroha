@@ -107,7 +107,8 @@
     cancelClose();
     closeTimer = setTimeout(() => {
       closeTimer = undefined;
-      closeMenu();
+      // Pointer departure must not hide a link being reached by keyboard.
+      if (!menu?.contains(document.activeElement)) closeMenu();
     }, 180);
   }
 
@@ -265,7 +266,7 @@
   a:hover,
   a.active {
     background: color-mix(in srgb, var(--accent) 12%, transparent);
-    color: var(--color-focus);
+    color: var(--text);
   }
   small {
     min-width: 0;

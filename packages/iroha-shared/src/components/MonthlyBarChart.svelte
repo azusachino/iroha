@@ -18,10 +18,12 @@
     points,
     metric,
     year,
+    embedded = false,
   }: {
     points: { label: string; value: number }[];
     metric: Metric;
     year: string;
+    embedded?: boolean;
   } = $props();
 
   let chartContainer = $state<HTMLDivElement>();
@@ -124,7 +126,7 @@
   });
 </script>
 
-<section class="month-chart tile">
+<section class="month-chart" class:tile={!embedded} class:embedded>
   <div class="month-chart-head">
     Monthly {metric === "distance_m" ? "distance" : "activities"} — {year}
   </div>
@@ -142,6 +144,7 @@
     padding: var(--space-4);
   }
 
+  .month-chart.embedded { padding: 0; }
   .month-chart-head {
     margin-bottom: var(--space-1);
     color: var(--text-muted);

@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
-  import { RefreshCw, WalletCards } from "@lucide/svelte";
+  import { RefreshCw } from "@lucide/svelte";
   import {
     ApiError,
     deleteExpense,
@@ -15,7 +15,7 @@
     type MetricSeriesResponse,
   } from "$lib/api";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import RouteHeader from "@iroha/shared/components/RouteHeader.svelte";
   import FilterSelect from "$lib/components/FilterSelect.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
@@ -71,6 +71,7 @@
 
   const expensesResource = createAsyncResource<{
     month: string;
+    primaryCurrency: ExpenseCurrency;
     expenses: Expense[];
     dailySeries: MetricSeriesResponse | null;
     categorySeries: MetricSeriesResponse[];
@@ -168,6 +169,8 @@
   });
 
   async function loadExpenses(selectedMonth = month) {
+    const currency = filterCurrency;
+    const category = filterCategory;
     const result = await expensesResource.run(async () => {
       try {
         const scope = parseCalendarScope(selectedMonth)!;
@@ -180,18 +183,16 @@
         const totalsGrain = scope.kind === "year" ? "year" : "month";
         const expensesRequest = listAllExpenses({
           date: selectedMonth,
-          currency: (filterCurrency || undefined) as
-            ExpenseCurrency | undefined,
-          category: (filterCategory || undefined) as
-            ExpenseCategory | undefined,
+          currency: (currency || undefined) as ExpenseCurrency | undefined,
+          category: (category || undefined) as ExpenseCategory | undefined,
         });
-        const chartCurrencies = filterCurrency
-          ? [filterCurrency as ExpenseCurrency]
+        const chartCurrencies = currency
+          ? [currency as ExpenseCurrency]
           : currencies;
         const selectedCategory = categories.includes(
-          filterCategory as ExpenseCategory,
+          category as ExpenseCategory,
         )
-          ? [filterCategory as ExpenseCategory]
+          ? [category as ExpenseCategory]
           : [];
         const [monthExpenses, [currenciesForMonth, countsForCurrency]] =
           await Promise.all([
@@ -211,13 +212,15 @@
               }),
             ]),
           ]);
-        const chartCurrency = (filterCurrency ||
+        const chartCurrency = (currency ||
           currenciesForMonth.series.find(
-            (_, index) => seriesPointValue(currenciesForMonth, index) != null,
+            (_, index) =>
+              (seriesPointValue(currenciesForMonth, index) ?? 0) !== 0,
           )?.dimensions.currency ||
+          currenciesForMonth.series[0]?.dimensions.currency ||
           "JPY") as ExpenseCurrency;
-        const chartCategories: ExpenseCategory[] = filterCategory
-          ? [filterCategory as ExpenseCategory]
+        const chartCategories: ExpenseCategory[] = category
+          ? [category as ExpenseCategory]
           : categories;
         const [daily, categoriesForCurrency] = await Promise.all([
           getMetricSeries("expenses.amount_minor", {
@@ -235,6 +238,7 @@
         ]);
         return {
           month: selectedMonth,
+          primaryCurrency: chartCurrency,
           expenses: monthExpenses,
           dailySeries: daily,
           categorySeries: [categoriesForCurrency],
@@ -395,10 +399,7 @@
       .sort((a, b) => b.amountMinor - a.amountMinor),
   );
   const primaryCurrency = $derived(
-    (filterCurrency ||
-      currencyTotals.find((item) => item.amountMinor !== 0)?.currency ||
-      currencyTotals[0]?.currency ||
-      "JPY") as ExpenseCurrency,
+    expensesResource.data?.primaryCurrency ?? "JPY",
   );
   const primaryExponent = $derived(
     expenses.find((item) => item.currency === primaryCurrency)
@@ -476,24 +477,25 @@
 </svelte:head>
 
 <section class="expenses-shell">
-  <header class="page-head">
-    <div>
-      <p class="eyebrow"><WalletCards size={14} /> Canonical ledger</p>
-      <h1>Expenses</h1>
-      <p class="intro">
-        Read server-computed spending series first; open canonical records only
-        when you need the source detail.
-      </p>
-    </div>
-    <button
-      class="refresh"
-      type="button"
-      onclick={() => void loadExpenses()}
-      disabled={expensesResource.loading}
-      ><RefreshCw size={15} /> Refresh</button
-    >
-  </header>
-  <PeriodToolbar title="Monthly ledger scope" ariaLabel="Expense period">
+  <RouteHeader
+    title="Expenses"
+    context={expensesResource.data
+      ? `Observed period: ${expensesResource.data.month}`
+      : expensesResource.error
+        ? "Ledger period unavailable"
+        : expensesResource.loading
+          ? "Loading ledger period…"
+          : "No ledger period loaded"}
+  >
+    {#snippet actions()}
+      <button
+        class="refresh"
+        type="button"
+        onclick={() => void loadExpenses()}
+        disabled={expensesResource.loading}
+        ><RefreshCw size={15} /> Refresh</button
+      >
+    {/snippet}
     <div class="expense-toolbar-controls">
       <PeriodSelector
         year={periodYear}
@@ -522,7 +524,7 @@
         />
       </div>
     </div>
-  </PeriodToolbar>
+  </RouteHeader>
   {#if expensesResource.error || deleteError}
     <p class="error" role="alert">{expensesResource.error || deleteError}</p>
   {/if}

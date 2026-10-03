@@ -11,6 +11,8 @@ const apiTarget = process.env.IROHA_DEV_API_TARGET ?? "http://127.0.0.1:8080";
 
 export default defineConfig({
   resolve: {
+    // Shared and host imports must use one ECharts/zrender state registry.
+    dedupe: ["echarts", "zrender"],
     alias: {
       "@iroha/shared": sharedPath,
     },
