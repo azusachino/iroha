@@ -15,6 +15,7 @@
   let libraryError = $state(false);
   let loaded = $state(false);
   let routesReady = $state(false);
+  let tileError = $state(false);
   const osmMaxZoom = 19;
   const pointCount = $derived(
     data.features.reduce(
@@ -108,7 +109,11 @@
         new maplibregl.NavigationControl({ showCompass: false }),
         "top-right",
       );
-      map.on("error", () => {
+      map.on("error", (event) => {
+        if ("sourceId" in event && event.sourceId === "osm") {
+          tileError = true;
+          return;
+        }
         libraryError = true;
       });
       map.on("load", () => {
@@ -156,6 +161,10 @@
         >Reload page</button
       >
     </div>
+  {:else if tileError}
+    <p role="status">
+      Basemap tile loading failed. Route data remains available.
+    </p>
   {/if}
   <div
     class="map"

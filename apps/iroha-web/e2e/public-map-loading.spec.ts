@@ -215,6 +215,41 @@ test("public detail deep link loads its map and back navigation destroys the old
   await page.getByRole("button", { name: "2026", exact: true }).focus();
 });
 
+test("public single raster tile failure is partial and leaves the route map usable", async ({
+  page,
+}) => {
+  await installMapFixtures(page);
+  let failedTiles = 0;
+  let loadedTiles = 0;
+  await page.route("**/tile.openstreetmap.org/**", async (route) => {
+    if (failedTiles === 0) {
+      failedTiles++;
+      return route.fulfill({ status: 503, body: "tile unavailable" });
+    }
+    loadedTiles++;
+    return route.fulfill({
+      contentType: "image/png",
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/fteaysAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
+  });
+  await page.goto(PUBLIC_BASE_URL);
+  await expect.poll(() => loadedTiles).toBeGreaterThan(0);
+  expect(failedTiles).toBe(1);
+  await expect(page.getByRole("status")).toContainText(
+    "Basemap tile loading failed. Route data remains available.",
+  );
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.locator(".maplibregl-canvas")).toHaveCount(1);
+  await expect(page.locator(".map")).toHaveAttribute("aria-busy", "false");
+  await page.getByText("View route summaries", { exact: true }).click();
+  await expect(
+    page.getByRole("table", { name: "Recorded route summaries", exact: true }),
+  ).toContainText("Berlin");
+});
+
 test("public worker failure is visible and leaves route summaries usable", async ({
   page,
 }) => {
