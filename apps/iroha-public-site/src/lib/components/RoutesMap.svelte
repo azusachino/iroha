@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import * as maplibregl from "maplibre-gl";
+  import type * as MapLibre from "maplibre-gl";
   import "maplibre-gl/dist/maplibre-gl.css";
   import type { FeatureCollection } from "geojson";
   import type { RouteFeatureCollection } from "$lib/types";
@@ -8,8 +8,13 @@
   let { data }: { data: RouteFeatureCollection } = $props();
 
   let container: HTMLDivElement;
-  let map: maplibregl.Map | null = null;
+  let map: MapLibre.Map | null = null;
+  let maplibregl: typeof import("$lib/maplibre") | undefined;
+  let mounted = false;
+  let loadingLibrary = $state(true);
+  let libraryError = $state(false);
   let loaded = $state(false);
+  let routesReady = $state(false);
   const osmMaxZoom = 19;
   const pointCount = $derived(
     data.features.reduce(
@@ -22,7 +27,7 @@
   );
 
   // Key-free raster style backed by OpenStreetMap tiles (no API token needed).
-  const style: maplibregl.StyleSpecification = {
+  const style: MapLibre.StyleSpecification = {
     version: 8,
     sources: {
       osm: {
@@ -40,10 +45,11 @@
   // on first load and again whenever `data` changes (e.g. a year filter), so
   // the map stays in sync with the surrounding page.
   function render(fc: RouteFeatureCollection) {
-    if (!map || !loaded) return;
+    if (!maplibregl || !map || !loaded) return;
+    routesReady = false;
     const coords = fc.features.flatMap((f) => f.geometry.coordinates);
 
-    const src = map.getSource("routes") as maplibregl.GeoJSONSource | undefined;
+    const src = map.getSource("routes") as MapLibre.GeoJSONSource | undefined;
     if (src) {
       src.setData(fc as unknown as FeatureCollection);
     } else {
@@ -84,24 +90,46 @@
     });
   }
 
-  onMount(() => {
-    map = new maplibregl.Map({
-      container,
-      style,
-      center: [0, 0],
-      zoom: 1,
-      maxZoom: osmMaxZoom,
-      attributionControl: { compact: true },
-    });
-    map.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
-      "top-right",
-    );
-    map.on("load", () => {
-      loaded = true;
-    });
+  async function loadMapLibrary() {
+    loadingLibrary = true;
+    libraryError = false;
+    try {
+      maplibregl = await import("$lib/maplibre");
+      if (!mounted) return;
+      map = new maplibregl.Map({
+        container,
+        style,
+        center: [0, 0],
+        zoom: 1,
+        maxZoom: osmMaxZoom,
+        attributionControl: { compact: true },
+      });
+      map.addControl(
+        new maplibregl.NavigationControl({ showCompass: false }),
+        "top-right",
+      );
+      map.on("load", () => {
+        loaded = true;
+      });
+      map.on("sourcedata", (event) => {
+        if (event.sourceId === "routes" && event.isSourceLoaded)
+          routesReady = true;
+      });
+    } catch {
+      if (!mounted) return;
+      map?.remove();
+      map = null;
+      libraryError = true;
+    } finally {
+      if (mounted) loadingLibrary = false;
+    }
+  }
 
+  onMount(() => {
+    mounted = true;
+    void loadMapLibrary();
     return () => {
+      mounted = false;
       map?.remove();
       map = null;
       loaded = false;
@@ -116,10 +144,21 @@
 </script>
 
 <section class="map-shell" aria-label={mapLabel}>
+  {#if loadingLibrary}
+    <p role="status">Loading interactive map…</p>
+  {:else if libraryError}
+    <div role="alert">
+      <p>Interactive map unavailable. Route summaries remain below.</p>
+      <button type="button" onclick={() => window.location.reload()}
+        >Reload page</button
+      >
+    </div>
+  {/if}
   <div
     class="map"
     bind:this={container}
     role="region"
+    aria-busy={!routesReady}
     aria-label={mapLabel}
     aria-describedby="public-routes-map-help"
   ></div>

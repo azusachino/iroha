@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import * as maplibregl from "maplibre-gl";
+  import * as maplibregl from "$lib/maplibre";
   import "maplibre-gl/dist/maplibre-gl.css";
   import type { FeatureCollection } from "geojson";
   import type { RouteFeatureCollection } from "$lib/api";
