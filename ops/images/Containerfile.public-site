@@ -1,13 +1,13 @@
 # Public site: a static client shell that reads the live, sanitized
 # projection from iroha-server's anonymous /public/v1 API (ADR-0008).
-FROM oven/bun:1.4.2 AS build
+FROM oven/bun:latest AS build
 
 WORKDIR /app
-COPY packages/iroha-shared ./packages/iroha-shared
-RUN cd packages/iroha-shared && bun install --frozen-lockfile
-COPY apps/iroha-public-site/package.json apps/iroha-public-site/bun.lock ./apps/iroha-public-site/
-RUN cd apps/iroha-public-site && bun install --frozen-lockfile
+COPY package.json bun.lock ./
+COPY apps/iroha-web ./apps/iroha-web
 COPY apps/iroha-public-site ./apps/iroha-public-site
+COPY packages/iroha-shared ./packages/iroha-shared
+RUN bun install --frozen-lockfile
 COPY VERSION ./VERSION
 WORKDIR /app/apps/iroha-public-site
 # Never bake a local data snapshot into the image; data comes from the API.

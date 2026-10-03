@@ -10,7 +10,12 @@ import dev_stack
 
 
 GO_ROOTS = (dev_stack.ROOT / "apps",)
-WEB_ROOT = dev_stack.ROOT / "apps" / "iroha-web"
+WEB_ROOTS = tuple(dev_stack.ROOT / path for path in (
+    "apps/iroha-web", "apps/iroha-public-site", "packages/iroha-shared",
+))
+WORKSPACE_FILES = tuple(dev_stack.ROOT / path for path in (
+    "package.json", "bun.lock",
+))
 
 
 def snapshot() -> dict[Path, int]:
@@ -20,9 +25,11 @@ def snapshot() -> dict[Path, int]:
         for path in root.rglob("*.go")
         if "/iroha-web/" not in str(path)
     ]
-    paths.extend(WEB_ROOT.rglob("*.svelte"))
-    paths.extend(WEB_ROOT.rglob("*.ts"))
-    paths.extend(WEB_ROOT.rglob("*.css"))
+    for root in WEB_ROOTS:
+        for pattern in ("*.svelte", "*.ts", "*.css", "package.json"):
+            paths.extend(path for path in root.rglob(pattern)
+                         if not {"node_modules", ".svelte-kit", "build"}.intersection(path.parts))
+    paths.extend(WORKSPACE_FILES)
     paths.extend([dev_stack.COMPOSE_FILE, dev_stack.APP_COMPOSE_FILE])
     return {path: path.stat().st_mtime_ns for path in paths if path.is_file()}
 
@@ -33,9 +40,11 @@ def changed_services(before: dict[Path, int], after: dict[Path, int]) -> list[st
     if not changed:
         return []
     services = set()
-    if any(path == dev_stack.COMPOSE_FILE or "apps/iroha-web" not in str(path) for path in changed):
+    frontend = {path for path in changed if path in WORKSPACE_FILES
+                or any(path.is_relative_to(root) for root in WEB_ROOTS)}
+    if changed - frontend:
         services.update(("server", "job"))
-    if any(path == dev_stack.APP_COMPOSE_FILE or "apps/iroha-web" in str(path) for path in changed):
+    if frontend or dev_stack.APP_COMPOSE_FILE in changed:
         services.add("web")
     return sorted(services)
 

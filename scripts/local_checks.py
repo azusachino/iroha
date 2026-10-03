@@ -24,6 +24,7 @@ GROUPS = {
 TOOLS = {
     "go": (["go", "version"], r"go version go(\d+\.\d+\.\d+)"),
     "uv": (["uv", "--version"], r"uv (\d+\.\d+\.\d+)"),
+    "node": (["node", "--version"], r"^v(\d+\.\d+\.\d+)"),
     "bun": (["bun", "--version"], r"^(\d+\.\d+\.\d+)"),
     "golangci-lint": (["golangci-lint", "--version"], r"version (\d+\.\d+\.\d+)"),
 }
@@ -46,20 +47,29 @@ def environment_key(environment: dict[str, str]) -> str:
 
 
 def verify_tools(root: Path) -> dict[str, str]:
-    pins = tomllib.loads((root / ".mise.toml").read_text())["tools"]
+    tools = tomllib.loads((root / ".mise.toml").read_text())["tools"]
     identities = {}
     for name, (command, pattern) in TOOLS.items():
         executable = shutil.which(command[0])
         if not executable:
-            raise RuntimeError(f"{name} missing: run make local-check (pinned mise environment)")
+            raise RuntimeError(f"{name} missing: run make local-check (mise environment)")
+        if name not in tools:
+            raise RuntimeError(f"{name} is not managed in .mise.toml")
+        selected = subprocess.check_output(
+            ["mise", "which", command[0]], cwd=root, text=True,
+        ).strip()
+        if Path(executable).resolve() != Path(selected).resolve():
+            raise RuntimeError(f"{name} is not the mise-selected executable; use make local-check")
         output = subprocess.check_output(command, text=True)
         match = re.search(pattern, output)
-        pin = pins[name].removeprefix("v")
-        if not match or not (match[1] == pin or match[1].startswith(pin + ".")):
-            raise RuntimeError(f"{name} does not match pin {pin}; use make local-check")
+        if not match:
+            raise RuntimeError(f"{name} version is unrecognizable; use make local-check")
+        selector = tools[name].removeprefix("v")
+        if selector not in {"latest", "lts"} and not (match[1] == selector or match[1].startswith(selector + ".")):
+            raise RuntimeError(f"{name} does not match pin {selector}; use make local-check")
         identities[name] = f"{Path(executable).resolve()}:{match[1]}"
-    # These host executables are not pinned by mise, but changes invalidate hits.
-    for name in ("node", "make"):
+    # Host executable changes invalidate hits too.
+    for name in ("make",):
         executable = shutil.which(name)
         identities[name] = (
             f"{Path(executable).resolve()}:{subprocess.check_output([name, '--version'], text=True)}"
@@ -173,7 +183,7 @@ def main() -> int:
         identity["environment"] = environment_key(dict(os.environ))
         environment = child_environment(dict(os.environ))
         # Restore dependencies even on hits; no install-result cache is invented.
-        subprocess.run(["make", "TOOL_ENV=", "web-install", "public-site-install"], cwd=ROOT, env=environment, check=True)
+        subprocess.run(["make", "TOOL_ENV=", "frontend-install"], cwd=ROOT, env=environment, check=True)
         # This diff-sensitive guard must always run, including on all-cache-hit runs.
         subprocess.run(["make", "TOOL_ENV=", "quality-floor-check"], cwd=ROOT, env=environment, check=True)
         for group in args.groups:

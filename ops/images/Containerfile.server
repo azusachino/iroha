@@ -1,4 +1,4 @@
-FROM golang:1.27-bookworm AS build
+FROM golang:bookworm AS build
 
 WORKDIR /src
 COPY apps/iroha-core/go.mod ./apps/iroha-core/
@@ -44,9 +44,9 @@ COPY --from=build /out/iroha-job /usr/local/bin/iroha-job
 USER iroha
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-job"]
 
-FROM rust:1.94-alpine AS sqlx
+FROM rust:alpine AS sqlx
 RUN apk add --no-cache musl-dev \
-  && cargo install sqlx-cli --version 0.9.0 --no-default-features --features postgres --locked
+  && cargo install sqlx-cli --no-default-features --features postgres --locked
 
 # Standalone migration runner image: run as a k8s Job/initContainer ahead of
 # the server rollout. Reads DATABASE_URL or IROHA_DATABASE_URL, same as

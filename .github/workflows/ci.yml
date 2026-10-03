@@ -40,6 +40,7 @@ jobs:
       - name: Locate native Go caches
         id: go-cache
         run: |
+          echo "version=$(mise exec -- go env GOVERSION)" >> "$GITHUB_OUTPUT"
           echo "build=$(mise exec -- go env GOCACHE)" >> "$GITHUB_OUTPUT"
           echo "modules=$(mise exec -- go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v6
@@ -47,9 +48,9 @@ jobs:
           path: |
             ${{ steps.go-cache.outputs.build }}
             ${{ steps.go-cache.outputs.modules }}
-          key: ${{ runner.os }}-${{ runner.arch }}-go-${{ hashFiles('.mise.toml', 'go.work*', '**/go.mod', '**/go.sum') }}-${{ github.sha }}
+          key: ${{ runner.os }}-${{ runner.arch }}-go-${{ steps.go-cache.outputs.version }}-${{ hashFiles('.mise.toml', 'go.work*', '**/go.mod', '**/go.sum') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-go-${{ hashFiles('.mise.toml', 'go.work*', '**/go.mod', '**/go.sum') }}-
+            ${{ runner.os }}-${{ runner.arch }}-go-${{ steps.go-cache.outputs.version }}-${{ hashFiles('.mise.toml', 'go.work*', '**/go.mod', '**/go.sum') }}-
       - name: Validate and build
         run: make validate
         env:
@@ -84,9 +85,9 @@ jobs:
         with:
           install: true
           cache: true
-      # Fresh runners need frontend dependencies before bunx can resolve the
-      # pinned Playwright version; this job deliberately has no Go build or DB.
-      - run: make web-install public-site-install
+      # Resolve the workspace-lock-owned Playwright CLI locally, without bunx downloads.
+      # This job deliberately has no Go build or DB.
+      - run: make frontend-install
       - name: Install Chromium and system dependencies
         run: make e2e-install E2E_INSTALL_FLAGS=--with-deps
       - name: Browser tests

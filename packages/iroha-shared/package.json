@@ -2,6 +2,9 @@
   "name": "@iroha/shared",
   "private": true,
   "type": "module",
+  "peerDependencies": {
+    "svelte": "^5.57.1"
+  },
   "dependencies": {
     "@lucide/svelte": "^1.48.0",
     "echarts": "^6.1.0"

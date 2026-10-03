@@ -25,7 +25,7 @@ MOBILE_DEFAULT_MOTION := normal,reduced
 .DEFAULT_GOAL := help
 .PHONY: test-integration-ci public-site-response-check help fmt fmt-check vet lint test contract-check test-integration scripts-test quality-floor-check theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-dev web-visual-install web-visual-check web-mobile-check public-site-install public-site-fmt-check public-site-check public-site-build public-site-dev public-site-preview fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web image-public-site images
 
-PRETTIER := prettier
+PRETTIER := bun run prettier
 MARKDOWN_FILES = $(shell rg --files -g '*.md' -g '!**/node_modules/**')
 DOC_CONFIG_FILES = $(shell rg --files -g '*.yaml' -g '*.yml' -g '*.json' -g '!apps/iroha-web/**' -g '!apps/iroha-public-site/**' -g '!node_modules/**')
 
@@ -94,12 +94,12 @@ export-public: db-up ## Export public data (PRIVACY=1 omits every route trace)
 media-bridge-build: db-up ## Refresh the Bangumi->MAL->AniList bridge in tb_media_ref_bridge
 	$(TOOL_ENV) env DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable uv run python scripts/build_media_bridge.py
 
-## --- Web frontend (apps/iroha-web, bun) ---
-shared-install: ## Install shared frontend-package dependencies
-	cd $(SHARED_DIR) && $(TOOL_ENV) bun install --frozen-lockfile
+## --- Frontend workspace (Bun, Node LTS for compatible tooling) ---
+.PHONY: frontend-install
+frontend-install: ## Install the complete frontend workspace from its frozen lockfile
+	$(TOOL_ENV) bun install --frozen-lockfile
 
-web-install: shared-install ## Install web and shared frontend dependencies
-	cd $(WEB_DIR) && $(TOOL_ENV) bun install --frozen-lockfile
+shared-install web-install public-site-install: frontend-install
 
 # Checks need the project-local formatter/plugins, type checker and test runner.
 # Make shares this prerequisite across the three checks, including parallel runs.
@@ -114,10 +114,11 @@ web-fmt-check: ## Fail if any web file is unformatted
 web-check: ## Type-check the web app (svelte-check)
 	cd $(WEB_DIR) && $(TOOL_ENV) bun run check
 
-web-test: ## Run web unit tests and report coverage (Vitest V8)
+web-test: ## Run web unit tests, report coverage and verify both source inventories
 	cd $(WEB_DIR) && $(TOOL_ENV) bun run test
+	$(TOOL_ENV) uv run python scripts/check_web_coverage.py
 
-web-build: ## Production build of the web app
+web-build: web-install ## Production build of the web app
 	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) $(TOOL_ENV) bun run build
 
 web-bundle-report: web-build ## Report total emitted JavaScript and CSS raw/gzip sizes
@@ -134,10 +135,10 @@ e2e e2e-probe e2e-pilot-audit: web-install public-site-install
 
 .PHONY: e2e-pilot-audit
 e2e-pilot-audit: ## Record the bounded Grapher pilot baseline (report-only; no production APIs)
-	cd $(WEB_DIR) && PLAYWRIGHT_JSON_OUTPUT_FILE="$(or $(OUT),$(CURDIR)/dist/grapher-pilot-audit.json)" $(TOOL_ENV) bunx playwright test --project=pilot-audit --workers=1 --retries=0 --reporter=list,json $(ARGS)
+	cd $(WEB_DIR) && PLAYWRIGHT_JSON_OUTPUT_FILE="$(or $(OUT),$(CURDIR)/dist/grapher-pilot-audit.json)" $(TOOL_ENV) bun run playwright test --project=pilot-audit --workers=1 --retries=0 --reporter=list,json $(ARGS)
 
 web-visual-install: ## One-time: install Playwright's Chromium build for visual checks
-	cd $(WEB_DIR) && $(TOOL_ENV) bunx playwright install chromium
+	cd $(WEB_DIR) && $(TOOL_ENV) bun run playwright install chromium
 
 web-visual-check: ## Screenshot a themed route with Playwright (THEME=field-journal, ROUTE=overview, BASE=..., CANVAS_SELECTOR=...)
 	cd $(WEB_DIR) && BASE="$(or $(BASE),http://127.0.0.1:5173)" THEME="$(or $(THEME),field-journal)" ROUTES="$(or $(ROUTE),overview)" OUT="$(or $(OUT),.visual-check)" CANVAS_SELECTOR="$(CANVAS_SELECTOR)" $(TOOL_ENV) bun run scripts/visual-check.mjs
@@ -146,9 +147,7 @@ web-mobile-check: ## Audit every private route at compact mobile widths (BASE=..
 	@command -v agent-browser >/dev/null || (echo "agent-browser is required; install it before running this target" >&2; exit 1)
 	BASE="$(or $(BASE),http://127.0.0.1:4173)" API_BASE="$(or $(API_BASE),$(or $(BASE),http://127.0.0.1:4173))" THEMES="$(or $(THEMES),$(MOBILE_DEFAULT_THEMES))" MODES="$(or $(MODES),$(MOBILE_DEFAULT_MODES))" MOTION="$(or $(MOTION),$(MOBILE_DEFAULT_MOTION))" VIEWPORTS="$(VIEWPORTS)" OUT="$(or $(OUT),dist/mobile-route-audit.json)" $(TOOL_ENV) uv run python scripts/mobile_route_check.py
 
-## --- Public static site (apps/iroha-public-site, bun) ---
-public-site-install: shared-install ## Install public-site and shared frontend dependencies
-	cd $(PUBLIC_SITE_DIR) && $(TOOL_ENV) bun install --frozen-lockfile
+## --- Public static site (apps/iroha-public-site) ---
 
 .PHONY: public-site-fmt
 public-site-fmt public-site-fmt-check public-site-check public-site-build: public-site-install
@@ -168,13 +167,14 @@ public-site-check: ## Type-check the public site (svelte-check)
 public-site-build: ## Production build of the public site (data is read live from /public/v1)
 	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build
 
-public-site-dev: ## Run the public-site dev server, bound to all interfaces
-	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run dev -- --host 0.0.0.0 --port $(or $(PORT),5174)
+public-site-dev: public-site-install ## Run the public-site dev server, bound to all interfaces
+	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run dev --host 0.0.0.0 --port $(or $(PORT),5174)
 
-public-site-preview: ## Build and serve the public site locally (honours BASE_PATH, production output)
-	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run preview -- --host $(or $(HOST),127.0.0.1) --port $(or $(PORT),4173)
+public-site-preview: public-site-install ## Build and serve the public site locally (honours BASE_PATH, production output)
+	cd $(PUBLIC_SITE_DIR) && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run build && VITE_IROHA_VERSION=$(VERSION) $(TOOL_ENV) bun run preview --host $(or $(HOST),127.0.0.1) --port $(or $(PORT),4173)
 
 ## --- Markdown (rumdl) and docs/config formatting (prettier) ---
+fmt-docs fmt-docs-check: frontend-install
 fmt-docs: ## Format all Markdown with rumdl; format docs/config YAML and JSON with Prettier
 	$(TOOL_ENV) rumdl fmt $(MARKDOWN_FILES)
 	$(TOOL_ENV) $(PRETTIER) --write $(DOC_CONFIG_FILES)

@@ -2,9 +2,10 @@
 # a host prerequisite for the local backend stack.
 
 [tools]
-go = "1.27"
-uv = "0.12"
-bun = "1.4.2"
-rumdl = "0.2.77"
-golangci-lint = "v2.14.0"
-"cargo:sqlx-cli" = "0.9.0"
+go = "latest"
+uv = "latest"
+node = "lts"
+bun = "latest"
+rumdl = "latest"
+golangci-lint = "latest"
+"cargo:sqlx-cli" = "latest"

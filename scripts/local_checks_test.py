@@ -80,7 +80,7 @@ class LocalChecksTest(unittest.TestCase):
             root = Path(directory)
             (root / ".mise.toml").write_text('[tools]\ngo = "1.27"\n')
             with patch.object(checks.shutil, "which", return_value="/bin/go"), \
-                 patch.object(checks.subprocess, "check_output", return_value="go version go1.26.7 darwin/arm64"):
+                 patch.object(checks.subprocess, "check_output", side_effect=["/bin/go", "go version go1.26.7 darwin/arm64"]):
                 with self.assertRaisesRegex(RuntimeError, "does not match pin"):
                     checks.verify_tools(root)
             with patch.object(checks.shutil, "which", return_value=None):
@@ -88,19 +88,65 @@ class LocalChecksTest(unittest.TestCase):
                     checks.verify_tools(root)
 
     def test_matching_tools_allow_direct_execution(self):
+        # Retain the original version-verification regression with its tool map.
+        tools = {name: checks.TOOLS[name] for name in ("go", "uv", "golangci-lint")}
+        tools["bun"] = (["bun", "--version"], r"^(\d+\.\d+\.\d+)")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / ".mise.toml").write_text(
                 '[tools]\ngo="1.27"\nuv="0.12"\nbun="1.4.2"\ngolangci-lint="v2.14.0"\n'
             )
-            with patch.object(checks.shutil, "which", return_value="/bin/tool"), \
+            with patch.object(checks, "TOOLS", tools), \
+                 patch.object(checks.shutil, "which", return_value="/bin/tool"), \
                  patch.object(checks.subprocess, "check_output", side_effect=[
-                     "go version go1.27.0 darwin/arm64", "uv 0.12.10", "1.4.2", "version 2.14.0", "node version", "make version",
+                     "/bin/tool", "go version go1.27.0 darwin/arm64", "/bin/tool", "uv 0.12.10",
+                     "/bin/tool", "version 2.14.0", "/bin/tool", "1.4.2", "make version",
                  ]):
                 identities = checks.verify_tools(root)
                 self.assertIn(":1.27.0", identities["go"])
                 self.assertIn(":1.4.2", identities["bun"])
                 self.assertIn("make version", identities["make"])
+
+    def test_unmanaged_executable_and_missing_tool_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".mise.toml").write_text('[tools]\ngo = "latest"\n')
+            with patch.object(checks.shutil, "which", return_value="/bin/go"), \
+                 patch.object(checks.subprocess, "check_output", return_value="/mise/go"):
+                with self.assertRaisesRegex(RuntimeError, "not the mise-selected"):
+                    checks.verify_tools(root)
+            with patch.object(checks.shutil, "which", return_value=None):
+                with self.assertRaisesRegex(RuntimeError, "missing"):
+                    checks.verify_tools(root)
+
+    def test_matching_tools_allow_floating_selectors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".mise.toml").write_text(
+                '[tools]\ngo="latest"\nuv="latest"\nnode="lts"\nbun="latest"\ngolangci-lint="latest"\n'
+            )
+            with patch.object(checks.shutil, "which", return_value="/bin/tool"), \
+                 patch.object(checks.subprocess, "check_output", side_effect=[
+                     "/bin/tool", "go version go1.27.0 darwin/arm64",
+                     "/bin/tool", "uv 0.12.10",
+                     "/bin/tool", "v24.21.0",
+                     "/bin/tool", "1.4.2",
+                     "/bin/tool", "version 2.14.0", "make version",
+                 ]):
+                identities = checks.verify_tools(root)
+                self.assertIn(":1.27.0", identities["go"])
+                self.assertIn(":24.21.0", identities["node"])
+                self.assertIn(":1.4.2", identities["bun"])
+                self.assertIn("make version", identities["make"])
+
+    def test_unrecognizable_version_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".mise.toml").write_text('[tools]\ngo="latest"\n')
+            with patch.object(checks.shutil, "which", return_value="/bin/go"), \
+                 patch.object(checks.subprocess, "check_output", side_effect=["/bin/go", "unknown"]):
+                with self.assertRaisesRegex(RuntimeError, "unrecognizable"):
+                    checks.verify_tools(root)
 
     def test_ignored_dotenv_changes_invalidate_frontend(self):
         with tempfile.TemporaryDirectory() as directory:

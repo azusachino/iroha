@@ -16,8 +16,9 @@ Use the checked-in `.mise.toml` to install the project tools:
 mise install
 ```
 
-The config pins Go, Python, uv, SQLx CLI, golangci-lint, Bun, and the other project tools selected in `.mise.toml`. Podman and its machine remain host prerequisites because they are the container
-runtime, not project tools. Database readiness is checked with `pg_isready` inside the PostGIS container, so a separate host PostgreSQL installation is not required.
+Project tools follow LTS where available, otherwise latest stable: Node uses `lts`; Go, uv, Bun, SQLx CLI, rumdl and golangci-lint use `latest` in `.mise.toml`. uv selects stable Python3 through
+`.python-version`, subject to `pyproject.toml`'s minimum. Application dependencies remain lockfile-controlled. Podman and its machine remain host prerequisites. Database readiness uses `pg_isready`
+inside PostGIS; no separate host PostgreSQL installation is required.
 
 Make automatically uses `mise exec --`, so the normal workflow stays unchanged:
 
@@ -29,7 +30,7 @@ make dev-up
 make db-down
 ```
 
-CI (`ci.yml`, `public-site.yml`) provisions the same `.mise.toml` tools with `jdx/mise-action`, so local and CI resolve identical versions.
+CI provisions the same `.mise.toml` selection policy with `jdx/mise-action`. Floating selectors can resolve differently across installation dates; record actual versions when comparing results.
 
 Podman and `podman-compose` remain macOS host prerequisites rather than project-managed tools. The uv-managed runner detects missing tools and reports a clear prerequisite error.
 
@@ -67,11 +68,12 @@ integrity verification: after manually modifying ignored dependencies/build stat
 use `--force`. It does not cache browser, integration, builds or live checks and
 does not restore coverage/build outputs from earlier runs.
 
-The normal target enters mise once, verifies Go/uv/Bun/golangci-lint against the
-project pins, then invokes child Make targets directly with `TOOL_ENV=`. If your
-shell already has the pinned tools, `make local-check TOOL_ENV=` avoids even that
-bootstrap; mismatched/missing tools fail with a clear instruction to use the normal
-target. This override is for `local-check`, not a global change to tool policy.
+The normal target enters mise once, verifies that Go/uv/Node/Bun/golangci-lint
+are the executables selected by mise for this checkout, then invokes child Make
+targets directly with `TOOL_ENV=`. Keys include actual resolved paths and versions,
+not the `latest`/`lts` strings. If your shell already has those selected tools,
+`make local-check TOOL_ENV=` avoids even that bootstrap; mismatched/missing tools
+fail closed. This override is for `local-check`, not a global tool-policy change.
 
 Lead macOS measurements during #112 implementation: cold local checks 43.38s,
 unchanged repeat 1.47s (five hits), and an added private-web source comment 25.13s
@@ -92,7 +94,7 @@ frozen frontend dependencies and Chromium, then runs
 one worker, retries and fail-on-flaky behavior are unchanged. Sharding is by file,
 so balancing can vary as the suite grows.
 
-CI restores native Go build/module caches keyed by OS/architecture, tool pins,
+CI restores native Go build/module caches keyed by OS/architecture, resolved Go version, tool configuration,
 workspace/module manifests and revision, with a dependency-scoped fallback.
 Go validates its own content keys; validation commands always execute regardless
 of a cache hit. CI does not consume the incremental local result cache.
@@ -154,7 +156,12 @@ The repo currently uses independent Go modules for `iroha-core`, `iroha-provider
 directives. The dependency direction is one-way: provider contracts sit in core, runtime infrastructure is shared by imports and both executables, and the server/job modules consume the import
 pipeline.
 
-The private frontend lives alongside the server at `apps/iroha-web` (SvelteKit, built with `bun`); see `apps/iroha-web/README.md`.
+The private frontend lives alongside the server at `apps/iroha-web` (SvelteKit on Node LTS). It, `apps/iroha-public-site` and `packages/iroha-shared` share one native Bun workspace and root `bun.lock`.
+`make frontend-install` performs one frozen workspace install; the older install target names are aliases. Both hosts declare `@iroha/shared` as `workspace:*`. The root Svelte dependency supplies
+one runtime for repository-scoped tests and shared peers. Bun installs and launches existing tooling; Vite/Vitest/Playwright remain. Vitest V8 coverage uses Node, not forced Bun execution. Source aliases remain for SvelteKit's shared TS/Svelte/CSS imports, not to repair runtime resolution. See [ADR0009](adr/0009-native-frontend-workspace.md).
+
+`make web-test` measures all private app/shared TS and Svelte sources, including never-imported files, and then checks the report against a filesystem inventory. The historical app-scoped report
+omitted all101 shared files; `allowExternal` alone still omitted17. Neither numeric floors nor old baseline records are lowered by repairing that denominator.
 
 ### Frontend Browser Checks
 
@@ -166,7 +173,7 @@ make e2e                      # the checks; ARGS='-g "sign in"' filters by name
 make e2e-probe ROUTE=/path    # before writing a spec: ARIA snapshot, errors, failed requests, screenshot
 ```
 
-A failing check leaves its screenshot, error context and trace under `apps/iroha-web/test-results/`; open a trace with `bunx playwright show-trace <trace.zip>`. `make web-visual-check` stays the tool for themed screenshots.
+A failing check leaves its screenshot, error context and trace under `apps/iroha-web/test-results/`; open a trace from the web directory with `mise exec -- bun run playwright show-trace <trace.zip>`. `make web-visual-check` stays the tool for themed screenshots.
 
 ### Frontend Browser Smoke
 
@@ -335,7 +342,7 @@ apps/iroha-server/db/migrations/
 Preferred CLI:
 
 ```text
-SQLx CLI 0.9
+SQLx CLI (latest stable)
 ```
 
 The CLI comes from mise for both local development and CI. A `uv` script wraps common operations:

@@ -8,10 +8,10 @@ E2E_INSTALL_FLAGS ?=
 .PHONY: e2e e2e-probe e2e-install
 
 e2e: ## Verify the web UI in headless Chromium (ARGS='-g "name"' to filter)
-	cd $(E2E_DIR) && $(TOOL_ENV) bunx playwright test --project=chromium $(ARGS)
+	cd $(E2E_DIR) && $(TOOL_ENV) bun run playwright test --project=chromium $(ARGS)
 
 e2e-probe: ## Screenshot one route before a spec exists (ROUTE=/path)
-	cd $(E2E_DIR) && PROBE_ROUTE=$(ROUTE) $(TOOL_ENV) bunx playwright test --project=probe
+	cd $(E2E_DIR) && PROBE_ROUTE=$(ROUTE) $(TOOL_ENV) bun run playwright test --project=probe
 
 e2e-install: ## Install the Chromium build this Playwright version needs
-	cd $(E2E_DIR) && $(TOOL_ENV) bunx playwright install $(E2E_INSTALL_FLAGS) chromium
+	cd $(E2E_DIR) && $(TOOL_ENV) bun run playwright install $(E2E_INSTALL_FLAGS) chromium
