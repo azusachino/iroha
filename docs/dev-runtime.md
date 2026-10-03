@@ -33,6 +33,54 @@ CI (`ci.yml`, `public-site.yml`) provisions the same `.mise.toml` tools with `jd
 
 Podman and `podman-compose` remain macOS host prerequisites rather than project-managed tools. The uv-managed runner detects missing tools and reports a clear prerequisite error.
 
+## Incremental local checks
+
+Use `make local-check` while iterating. It caches successful check groups under
+ignored `.cache/local-checks/`, printing `RUN` or `HIT` for each group.
+`make local-check ARGS='--force'` runs every group fresh; `ARGS='--groups web'`
+selects a group explicitly. Neither command is PR/release acceptance evidence:
+`make check`, `make validate`, browser, integration and CI gates remain unchanged
+and never consume this cache. The runner refuses CI use.
+
+| Group | Inputs and checks |
+| --- | --- |
+| Go workspace | All Go apps and `go.work*`; formatting, vet, lint, tests with aggregate coverage, HTTP contract tests. All six dependent modules invalidate together. Native Go build/test caches remain enabled; no per-package cache is added. |
+| Scripts | Python coverage/tests. Changes under `scripts/` conservatively invalidate every group because runners/checkers define their behavior. |
+| Contracts | Both frontend apps and shared packages; theme placement, responsive and motion contracts. |
+| Web | Private frontend and shared packages; formatting, type checks and Vitest. Public-site edits also invalidate this group because private type checks include both-host browser fixtures. |
+| Public | Public frontend and shared packages; formatting and type checks. |
+
+Unknown paths, root configuration, locks outside module trees and docs invalidate
+all groups. Keys use sorted file names and content hashes, including nonignored
+untracked files and deletions, and checkout-contained symlink targets (including
+shared fonts). Ignored `.env*` files at the root and app/package roots participate
+as well. Symlinks outside the checkout or cycles fail closed. Tool versions,
+resolved tool paths, Python/platform, commands and environment also participate.
+Terminal/agent-session metadata is excluded from the environment key; outer Make
+control flags and local-check selectors are stripped from child commands and keys.
+Environment values and dotenv bytes are hashed, not stored. A failed/interrupted run removes prior success;
+inputs changing during a run prevent publication. Corrupt records are misses.
+
+Frozen frontend dependency installation and the diff-sensitive quality-floor guard
+always run, even on hits. This is a local source-input cache, not dependency
+integrity verification: after manually modifying ignored dependencies/build state,
+use `--force`. It does not cache browser, integration, builds or live checks and
+does not restore coverage/build outputs from earlier runs.
+
+The normal target enters mise once, verifies Go/uv/Bun/golangci-lint against the
+project pins, then invokes child Make targets directly with `TOOL_ENV=`. If your
+shell already has the pinned tools, `make local-check TOOL_ENV=` avoids even that
+bootstrap; mismatched/missing tools fail with a clear instruction to use the normal
+target. This override is for `local-check`, not a global change to tool policy.
+
+Lead macOS measurements during #112 implementation: cold local checks 43.38s,
+unchanged repeat 1.47s (five hits), and an added private-web source comment 25.13s
+(only Web/Contracts ran; Go/Scripts/Public hit). Independent initial review measured
+fresh local checks 40.27s, repeat hits about 1.22s and full `make validate` 55.4s;
+the lead's source-mutation measurement was not independently reproduced. These
+are local iteration times, not CI or production performance claims. Tests retain
+the other input-boundary, failure, force-fresh and tool-mismatch regressions.
+
 ## `uv`
 
 Use `uv` for repo scripts, smoke checks, fixtures, import experiments, and one-off operational helpers.

@@ -184,6 +184,10 @@ fmt-docs-check: ## Check all Markdown with rumdl and docs/config YAML and JSON w
 	$(TOOL_ENV) $(PRETTIER) --check $(DOC_CONFIG_FILES)
 
 ## --- Aggregate gates ---
+.PHONY: local-check
+local-check: ## Reuse unchanged local module checks (ARGS='--force' for a fresh run)
+	$(TOOL_ENV) uv run python scripts/local_checks.py $(ARGS)
+
 check: quality-floor-check fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check motion-tokens-check web-fmt-check web-check web-test ## Pre-commit gate: quality floor + fmt-check + vet + lint + test + contract route check + script tests + theme/responsive/motion boundaries + web checks
 validate: check build web-bundle-report public-site-fmt-check public-site-check public-site-build ## Pre-PR gate: check + full server, private web, and public-site builds
 
