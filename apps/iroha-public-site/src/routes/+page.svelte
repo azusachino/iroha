@@ -4,17 +4,11 @@
   import { page } from "$app/state";
   import { onMount, untrack } from "svelte";
   import {
-    getCoreRowModel,
-    type ColumnDef,
-    type SortingState,
-  } from "@tanstack/table-core";
-  import {
     cityGroupsForRoutes,
     filterByYearAndSport,
     monthlyBuckets,
     yearsFromActivities,
   } from "$lib/aggregate";
-  import { createSvelteTable } from "$lib/table.svelte";
   import {
     formatDate,
     formatDateOnly,
@@ -321,40 +315,40 @@
     filterByYearAndSport(activities, selectedYear, sportFilter),
   );
 
-  let sorting = $state<SortingState>([{ id: "started_at", desc: true }]);
+  type SortKey =
+    "started_at" | "sport_type" | "distance_m" | "avg_pace_s_per_km";
+  let sorting = $state<{ id: SortKey; desc: boolean }[]>([
+    { id: "started_at", desc: true },
+  ]);
   const batchSize = 50;
   let visibleCount = $state(batchSize);
-
-  const columns: ColumnDef<Activity>[] = [
-    { accessorKey: "started_at", id: "started_at", header: "Date" },
-    { accessorKey: "sport_type", id: "sport_type", header: "Activity" },
-    {
-      accessorKey: "distance_m",
-      id: "distance_m",
-      header: "Distance / Duration",
-    },
-    {
-      accessorKey: "avg_pace_s_per_km",
-      id: "avg_pace_s_per_km",
-      header: "Pace / HR",
-    },
+  const columns: { id: SortKey; header: string }[] = [
+    { id: "started_at", header: "Date" },
+    { id: "sport_type", header: "Activity" },
+    { id: "distance_m", header: "Distance / Duration" },
+    { id: "avg_pace_s_per_km", header: "Pace / HR" },
   ];
 
-  const table = createSvelteTable({
-    get data() {
-      return filteredActivities;
-    },
-    columns,
-    state: {
-      get sorting() {
-        return sorting;
-      },
-    },
-    onSortingChange: (updater) => {
-      sorting = typeof updater === "function" ? updater(sorting) : updater;
-    },
-    getCoreRowModel: getCoreRowModel(),
-  });
+  // Preserve the former TanStack v8 toggle defaults, including Shift state.
+  // The existing row ordering below deliberately uses only the leading key.
+  function toggleSort(id: SortKey, event: MouseEvent) {
+    const current = sorting.find((sort) => sort.id === id);
+    const firstDesc = typeof filteredActivities[0]?.[id] !== "string";
+    const remove = current && current.desc !== firstDesc;
+    const next = {
+      id,
+      desc: remove ? false : current ? !current.desc : firstDesc,
+    };
+    if (event.shiftKey && sorting.length) {
+      sorting = remove
+        ? sorting.filter((sort) => sort.id !== id)
+        : current
+          ? sorting.map((sort) => (sort.id === id ? next : sort))
+          : [...sorting, next];
+    } else {
+      sorting = remove && sorting.at(-1)?.id === id ? [] : [next];
+    }
+  }
 
   const sortedActivities = $derived.by(() => {
     const rows = [...filteredActivities];
@@ -650,22 +644,29 @@
         ><div class="table-wrap">
           <table>
             <thead>
-              {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-                <tr>
-                  {#each headerGroup.headers as header (header.id)}
-                    <th>
-                      <button
-                        type="button"
-                        class="sort-header"
-                        onclick={header.column.getToggleSortingHandler()}
-                      >
-                        {String(header.column.columnDef.header)}
-                        {#if header.column.getIsSorted() === "asc"}▲{:else if header.column.getIsSorted() === "desc"}▼{/if}
-                      </button>
-                    </th>
-                  {/each}
-                </tr>
-              {/each}
+              <tr>
+                {#each columns as column (column.id)}
+                  {@const activeSort = sorting.find(
+                    (sort) => sort.id === column.id,
+                  )}
+                  <th
+                    aria-sort={sorting[0]?.id === column.id
+                      ? sorting[0].desc
+                        ? "descending"
+                        : "ascending"
+                      : "none"}
+                  >
+                    <button
+                      type="button"
+                      class="sort-header"
+                      onclick={(event) => toggleSort(column.id, event)}
+                    >
+                      {column.header}
+                      {#if activeSort}{activeSort.desc ? "▼" : "▲"}{/if}
+                    </button>
+                  </th>
+                {/each}
+              </tr>
             </thead>
             <tbody>
               {#each visibleActivities as activity (activity.id)}
