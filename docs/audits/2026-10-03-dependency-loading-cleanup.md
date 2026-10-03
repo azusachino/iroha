@@ -52,7 +52,7 @@ Same pinned tools, local production builds. The table records lead captures at t
 | Private aggregate emitted JS | 2,107,711 / 647,187 | 2,617,525 / 791,393 |
 | Private aggregate emitted CSS | 292,510 / 56,198 | 292,510 / 56,198 |
 
-The public static landing graph falls about 61% raw / 55% gzip. Aggregate output grows because the previously missing functional worker is now emitted (509,702 raw / 144,167 gzip per host), plus chunk separation overhead. Worker bytes are fetched when a map is initialized, not on no-route public landing. Private aggregate JS and CSS values exceed the existing report-only bundle baselines; this is visible, not a lowered threshold or a claim of an aggregate reduction. CSS was already over its 280,729 / 54,193 baseline in the captured pre-change artifacts and did not grow in this comparison. Private overview still statically imports its map engine; deferring that import is a follow-up opportunity.
+The public static landing graph falls about 61% raw / 55% gzip. Aggregate output grows because the previously missing functional worker is now emitted (509,702 raw / 144,167 gzip per host), plus chunk separation overhead. Worker bytes are fetched when a map is initialized, not on no-route public landing. Private aggregate JS and CSS values exceed the existing report-only bundle baselines; this is visible, not a lowered threshold or a claim of an aggregate reduction. CSS was already over its 280,729 / 54,193 baseline in the captured pre-change artifacts and did not grow in this comparison. At this baseline, private overview still statically imported its map engine; PR #115's follow-up below addresses that loading cost.
 
 Before map changes, native table replacement alone saved 46,071 raw / 11,767 gzip bytes in public aggregate JS. Unused Three.js/uPlot removal did not reduce private emitted JS; minor hash/compression variation is not a meaningful saving.
 
@@ -77,3 +77,48 @@ Before map changes, native table replacement alone saved 46,071 raw / 11,767 gzi
 Retained specs: `public-table-sorting.spec.ts`, `public-map-loading.spec.ts`, `private-map-worker.spec.ts`. Baseline, failed probes, build logs and advisor transcript remain in workstation scratch `.tmp/iroha-dependency-cleanup/`; the accepted report is promoted to the owning PR above.
 
 Replacement PR will supersede #91, #92, #94 and #97 only once merged. Bot PRs, TS7 PRs and Node-types PRs remain untouched in this slice.
+
+## PR #115: bounded loading follow-up
+
+The owner requested this work in the same PR as CI optimization. Private overview
+now imports the existing map adapter only when a route map mounts, following the
+public host's established lifecycle. Its loading/library/worker failure paths keep
+route summaries accessible; source-ready and partial-tile feedback remain distinct.
+No engine or worker packaging change is included.
+
+Public landing defers its approved-rich/summary activity-detail adapter behind a
+native Svelte await/import block. The selected title, distance/duration and Back
+link remain available while its module is pending or failed; failure offers an
+explicit keyboard-operable page reload. Closing the detail cancels the rendering
+branch, so late imports cannot bring it back. The API projection and existing
+per-record fetch/fallback behavior are unchanged. This does not claim new API
+failure UX or lazy chart loading across every route.
+
+Lead artifact captures use the same pinned tools: the unchanged `11fd490` outputs
+from its prior validation versus the follow-up build. The graph starts at private
+overview node 19 or public landing node 2 and recursively follows manifest static
+`imports`, excluding dynamic imports and non-JavaScript assets. Gzip is per file
+with `mtime=0`; layout/bootstrap, CSS, dynamic worker and network timing are outside
+this definition. Compression uses gzip level 9; rebuild filenames/compressor
+variation can shift captures by a few gzip bytes. No aggregate-output or FCP/LCP
+saving is inferred.
+
+| Static route JS graph | Before raw / gzip bytes | After raw / gzip bytes |
+| --- | --- | --- |
+| Private overview | 1,822,531 / 543,029 | 788,299 / 268,569 |
+| Public landing | 676,768 / 228,820 | 660,891 / 225,428 |
+
+Private static gzip cost falls about 51%; public detail deferral saves 3,392 gzip
+bytes (about 1.5%). These lead captures do not prove baseline reproduction by an
+independent agent; the final owning PR records acceptance and measurement limits.
+Retained browser specs cover no-engine/detail requests on no-route landing,
+deferred and failed imports, reload recovery, detail deep links/record clicks,
+back navigation during a pending import, approved detail and summary fallback,
+and unchanged worker/GeoJSON-ready/partial-tile contracts.
+
+Old #79/#85 task reconciliation is recorded in [issue #116](https://github.com/azusachino/iroha/issues/116).
+Closed parent issues do not prove every child accepted. The absent full cockpit
+audit, shared-coverage proof, backup/restore sequencing, release provenance and
+public snapshot/ETag evidence remain explicit follow-ups. Existing task owners
+are preserved; no historical failure is asserted to remain a current defect.
+No live operation, re-baseline, edge policy or release is authorized by this PR.
