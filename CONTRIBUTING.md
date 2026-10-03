@@ -5,14 +5,14 @@ live in [AGENTS.md](AGENTS.md).
 
 ## Development environment
 
-Tooling is pinned by the checked-in `.mise.toml` — do not install Go, SQLx CLI, Bun, or Postgres separately.
+The checked-in `.mise.toml` selects Node LTS and latest stable project tools. Use it for Go, SQLx CLI, Node and Bun; Postgres runs in Podman.
 
 ```sh
 mise install
 ```
 
 `make` targets run through `mise exec --`, so the normal workflow is just `make <target>` after `mise install`. CI (`ci.yml`, `public-site.yml`) provisions the same `.mise.toml` tools via
-`jdx/mise-action`, so local and CI resolve identical versions. See `docs/dev-runtime.md` for the runtime contract.
+`jdx/mise-action`. Floating selectors share a policy, not necessarily identical installation-date versions. Application dependencies use frozen lockfiles. See `docs/dev-runtime.md` for the runtime contract.
 
 `uv` manages the Python used only by dev scripts.
 

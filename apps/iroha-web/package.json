@@ -14,18 +14,13 @@
 		"format:check": "prettier --check .",
 		"test": "vitest run --coverage"
 	},
-	"overrides": {
-		"cookie": "0.7.0",
-		"nanoid": "3.3.18",
-		"postcss": "8.5.26",
-		"vite": "8.2.2"
-	},
 	"devDependencies": {
 		"@playwright/test": "^1.63.0",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "4.3.3",
+		"@types/geojson": "7946.0.16",
 		"@types/node": "^24",
 		"@vitest/coverage-v8": "4.1.11",
 		"playwright": "^1.63.0",
@@ -35,12 +30,14 @@
 		"svelte-check": "^4.7.6",
 		"tailwindcss": "4.3.3",
 		"typescript": "^6.0.3",
-		"vite": "^8.3.1",
+		"vite": "8.2.2",
 		"vitest": "^4.1.11"
 	},
 	"dependencies": {
+		"@iroha/shared": "workspace:*",
 		"@lucide/svelte": "^1.48.0",
 		"echarts": "^6.1.0",
-		"maplibre-gl": "^6.11.2"
+		"maplibre-gl": "^6.11.2",
+		"zrender": "6.1.0"
 	}
 }

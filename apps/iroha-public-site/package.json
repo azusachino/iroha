@@ -13,14 +13,12 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check ."
 	},
-	"overrides": {
-		"cookie": "0.7.0"
-	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "4.3.3",
+		"@types/geojson": "7946.0.16",
 		"@types/node": "^24.19.0",
 		"prettier": "^3.9.9",
 		"prettier-plugin-svelte": "^4.1.1",
@@ -31,7 +29,9 @@
 		"vite": "^8.3.1"
 	},
 	"dependencies": {
+		"@iroha/shared": "workspace:*",
 		"echarts": "^6.1.0",
-		"maplibre-gl": "^6.11.2"
+		"maplibre-gl": "^6.11.2",
+		"zrender": "6.1.0"
 	}
 }

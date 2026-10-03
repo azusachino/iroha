@@ -15,10 +15,7 @@ updates:
     schedule:
       interval: weekly
   - package-ecosystem: bun
-    directories:
-      - /apps/iroha-web
-      - /apps/iroha-public-site
-      - /packages/iroha-shared
+    directory: /
     schedule:
       interval: weekly
   - package-ecosystem: uv

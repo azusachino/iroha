@@ -15,8 +15,11 @@ allowlisted media sync jobs.
 - MapLibre GL for the route map (key-free OpenStreetMap raster tiles)
 - Modular ECharts for shared charts
 
-Node/bun tooling is pinned via `.mise.toml` at the repo root. Use `bun`, not
-npm/pnpm/yarn.
+Stable Bun and Node LTS come from `.mise.toml` at the repo root. Both frontend
+hosts and shared UI use one native Bun workspace and frozen root lockfile.
+Bun manages packages and scripts; Vite, Vitest and Playwright remain unchanged.
+Vitest's V8 coverage runs on Node, not Bun's JavaScriptCore.
+Use the root Make targets rather than installing each package independently.
 
 ## Configuration
 
@@ -39,9 +42,10 @@ cp .env.example .env
 ## Develop
 
 ```bash
-bun install
+# From the repository root:
+make frontend-install
 # optional: export PUBLIC_IROHA_API_BASE=http://127.0.0.1:8080
-bun run dev
+make web-dev
 ```
 
 Open the printed URL (default <http://localhost:5173>). A running `iroha-server`
@@ -50,7 +54,11 @@ is needed to see data, but not to build.
 ## Build and check
 
 ```bash
-bun run build   # production build into ./build
-bun run check   # svelte-check type checking
-bun run preview # serve the production build locally
+# From the repository root:
+make web-build  # production build into apps/iroha-web/build
+make web-check  # svelte-check type checking
+make web-test   # app/shared tests, full source coverage inventory
+
+# From this app directory after building:
+mise exec -- bun run preview
 ```

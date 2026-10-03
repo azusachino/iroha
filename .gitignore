@@ -204,7 +204,7 @@ iroha.toml
 .local/
 .cursorignore
 .cursorindexingignore
-packages/iroha-shared/node_modules/
+node_modules/
 
 # Marimo
 marimo/_static/
