@@ -1,0 +1,1302 @@
+{
+  "baseline": "e06fcad6ee004993a76d2998f3a95d0bc6945872",
+  "date": "2026-10-03",
+  "engine": "Playwright 1.63.0 Chromium",
+  "tools": {
+    "node": "24.21.0",
+    "bun": "1.4.2"
+  },
+  "collectionNotConformance": true,
+  "pilotStats": {
+    "startTime": "2026-10-03T11:23:36.627Z",
+    "duration": 67284.556,
+    "expected": 35,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "supplementaryStats": {
+    "startTime": "2026-10-03T11:39:32.674Z",
+    "duration": 20278.344,
+    "expected": 14,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "overviewReadingOrder": {
+    "headings": {
+      "Activity through the year": {
+        "x": 33,
+        "y": 1179.390625,
+        "width": 254,
+        "height": 26.875
+      },
+      "Monthly distance": {
+        "x": 33,
+        "y": 1529.625,
+        "width": 235.71875,
+        "height": 30
+      },
+      "Recent movement": {
+        "x": 33,
+        "y": 2574.6875,
+        "width": 207.953125,
+        "height": 30
+      }
+    },
+    "errors": []
+  },
+  "pilots": [
+    {
+      "title": "overview light 320",
+      "status": "passed",
+      "pilot": "overview",
+      "mode": "light",
+      "width": 320,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - region \"Overview\":\n    - region \"Overview header\":\n      - heading \"Overview\" [level=1]\n      - paragraph: \"Mixed windows \u00b7 movement and library: all time \u00b7 sleep and activity: recent records\"\n      - link \"Open movement archive\":\n        - /url: /motion\n    - region \"Distance \u00b7 all time\": Distance \u00b7 all time 20.50 km All time Across recorded movement\n    - region \"Activity records\": Activity records 2 All time Imported movement sessions\n    - region \"Total movement time\": Total movement time 1 h 42 min All time Recorded duration\n    - region \"Main sleep \u00b7 recent\":\n      - text: Main sleep \u00b7 recent \u2014 Recent records (limit 30) No main sleep records in this window\n      - link \"Explore sleep\":\n        - /url: /night\n    - region \"Library items\":\n      - text: Library items 0 All time Collected and tracked items\n      - link \"Explore library\":\n        - /url: /library\n    - region \"Current activity streak\": Current activity streak 0 days Consecutive days ending today\n    - region \"Activity calendar\":\n      - region \"Activity through the year\":\n        - paragraph: Movement / daily density\n        - heading \"Activity through the year\" [level=2]\n        - paragraph: 1 active days \u00b7 1 activity records \u00b7 2025-10-04 to 2026-10-03\n        - text: Less More\n        - button \"Focus the heatmap to scroll through all 365 days.\"\n        - 'img \"Activity through the year, last 365 days ending 2026-10-03: 1 active days and 1 activity records. Scroll horizontally to explore every day.\"'\n    - region \"Monthly distance\":\n      - paragraph: Movement / distance\n      - heading \"Monthly distance\" [level=2]\n      - paragraph: Each point represents one calendar month.\n      - text: \u2192 0 m vs September 2026\n      - group \"Distance chart range\":\n        - 'button \"6M: Last 6 months\"': 6M\n        - 'button \"12M: Last 12 months\" [pressed]': 12M\n        - 'button \"24M: Last 24 months\"': 24M\n      - img \"Distance chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - paragraph: 2025-11\u20132026-10 \u00b7 Months without recorded distance show 0 km; the current month is partial.\n    - region \"By activity\":\n      - paragraph: Movement / composition\n      - heading \"By activity\" [level=2]\n      - link \"All records\":\n        - /url: /motion\n      - list:\n        - listitem:\n          - 'button \"run: 2 activity records\"': run 2\n      - paragraph: Select a category to filter the movement archive.\n    - region \"Route footprint\":\n      - paragraph: Geography / privacy-trimmed\n      - heading \"Route footprint\" [level=2]\n      - text: 0 traces\n      - paragraph: No routes recorded yet.\n    - region \"Recent movement\":\n      - paragraph: Latest records \u00b7 up to 5\n      - heading \"Recent movement\" [level=2]\n      - link \"Browse archive\":\n        - /url: /motion\n      - button \"Focus the recent movement table.\"\n      - region \"Recent movement table; scroll horizontally to view all columns\":\n        - table \"Recent movement records with distance and duration\":\n          - caption: Recent movement records with distance and duration\n          - rowgroup:\n            - row \"Date Activity Distance Duration\":\n              - columnheader \"Date\"\n              - columnheader \"Activity\"\n              - columnheader \"Distance\"\n              - columnheader \"Duration\"\n          - rowgroup:\n            - row \"2025-08-14 12:00:00 Synthetic run 2025 8.00 km 40:00\":\n              - cell \"2025-08-14 12:00:00\"\n              - cell \"Synthetic run 2025\":\n                - button \"Synthetic run 2025\"\n              - cell \"8.00 km\"\n              - cell \"40:00\"\n            - row \"2026-08-14 12:00:00 Synthetic run 2026 12.50 km 1:02:00\":\n              - cell \"2026-08-14 12:00:00\"\n              - cell \"Synthetic run 2026\":\n                - button \"Synthetic run 2026\"\n              - cell \"12.50 km\"\n              - cell \"1:02:00\"\n    - text: \"Source: canonical activity summary \u00b7 every chart keeps its period and unit visible.\"\n  - status: Loading overview\u2026\n  - region \"Across the archive\":\n    - paragraph: Across the archive\n    - paragraph: Every record has a place.\n    - text: All imported records, not only movement.\n    - link \"2 Activity sessions\":\n      - /url: /motion\n      - strong: \"2\"\n      - text: Activity sessions\n    - link \"0 Night sessions\":\n      - /url: /night\n      - strong: \"0\"\n      - text: Night sessions\n    - link \"0 Media items\":\n      - /url: /library\n      - strong: \"0\"\n      - text: Media items\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 25,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "overview light 768",
+      "status": "passed",
+      "pilot": "overview",
+      "mode": "light",
+      "width": 768,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Overview\":\n    - region \"Overview header\":\n      - heading \"Overview\" [level=1]\n      - paragraph: \"Mixed windows \u00b7 movement and library: all time \u00b7 sleep and activity: recent records\"\n      - link \"Open movement archive\":\n        - /url: /motion\n    - region \"Distance \u00b7 all time\": Distance \u00b7 all time 20.50 km All time Across recorded movement\n    - region \"Activity records\": Activity records 2 All time Imported movement sessions\n    - region \"Total movement time\": Total movement time 1 h 42 min All time Recorded duration\n    - region \"Main sleep \u00b7 recent\":\n      - text: Main sleep \u00b7 recent \u2014 Recent records (limit 30) No main sleep records in this window\n      - link \"Explore sleep\":\n        - /url: /night\n    - region \"Library items\":\n      - text: Library items 0 All time Collected and tracked items\n      - link \"Explore library\":\n        - /url: /library\n    - region \"Current activity streak\": Current activity streak 0 days Consecutive days ending today\n    - region \"Activity calendar\":\n      - region \"Activity through the year\":\n        - paragraph: Movement / daily density\n        - heading \"Activity through the year\" [level=2]\n        - paragraph: 1 active days \u00b7 1 activity records \u00b7 2025-10-04 to 2026-10-03\n        - text: Less More\n        - button \"Focus the heatmap to scroll through all 365 days.\"\n        - 'img \"Activity through the year, last 365 days ending 2026-10-03: 1 active days and 1 activity records. Scroll horizontally to explore every day.\"'\n    - region \"Monthly distance\":\n      - paragraph: Movement / distance\n      - heading \"Monthly distance\" [level=2]\n      - paragraph: Each point represents one calendar month.\n      - text: \u2192 0 m vs September 2026\n      - group \"Distance chart range\":\n        - 'button \"6M: Last 6 months\"': 6M\n        - 'button \"12M: Last 12 months\" [pressed]': 12M\n        - 'button \"24M: Last 24 months\"': 24M\n      - img \"Distance chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - paragraph: 2025-11\u20132026-10 \u00b7 Months without recorded distance show 0 km; the current month is partial.\n    - region \"By activity\":\n      - paragraph: Movement / composition\n      - heading \"By activity\" [level=2]\n      - link \"All records\":\n        - /url: /motion\n      - list:\n        - listitem:\n          - 'button \"run: 2 activity records\"': run 2\n      - paragraph: Select a category to filter the movement archive.\n    - region \"Route footprint\":\n      - paragraph: Geography / privacy-trimmed\n      - heading \"Route footprint\" [level=2]\n      - text: 0 traces\n      - paragraph: No routes recorded yet.\n    - region \"Recent movement\":\n      - paragraph: Latest records \u00b7 up to 5\n      - heading \"Recent movement\" [level=2]\n      - link \"Browse archive\":\n        - /url: /motion\n      - button \"Focus the recent movement table.\"\n      - region \"Recent movement table; scroll horizontally to view all columns\":\n        - table \"Recent movement records with distance and duration\":\n          - caption: Recent movement records with distance and duration\n          - rowgroup:\n            - row \"Date Activity Distance Duration\":\n              - columnheader \"Date\"\n              - columnheader \"Activity\"\n              - columnheader \"Distance\"\n              - columnheader \"Duration\"\n          - rowgroup:\n            - row \"2025-08-14 12:00:00 Synthetic run 2025 8.00 km 40:00\":\n              - cell \"2025-08-14 12:00:00\"\n              - cell \"Synthetic run 2025\":\n                - button \"Synthetic run 2025\"\n              - cell \"8.00 km\"\n              - cell \"40:00\"\n            - row \"2026-08-14 12:00:00 Synthetic run 2026 12.50 km 1:02:00\":\n              - cell \"2026-08-14 12:00:00\"\n              - cell \"Synthetic run 2026\":\n                - button \"Synthetic run 2026\"\n              - cell \"12.50 km\"\n              - cell \"1:02:00\"\n    - text: \"Source: canonical activity summary \u00b7 every chart keeps its period and unit visible.\"\n  - region \"Across the archive\":\n    - paragraph: Across the archive\n    - paragraph: Every record has a place.\n    - text: All imported records, not only movement.\n    - link \"2 Activity sessions\":\n      - /url: /motion\n      - strong: \"2\"\n      - text: Activity sessions\n    - link \"0 Night sessions\":\n      - /url: /night\n      - strong: \"0\"\n      - text: Night sessions\n    - link \"0 Media items\":\n      - /url: /library\n      - strong: \"0\"\n      - text: Media items\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "mainCount": 1,
+        "unmeasuredText": 25,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "overview light 1280",
+      "status": "passed",
+      "pilot": "overview",
+      "mode": "light",
+      "width": 1280,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Overview\":\n    - region \"Overview header\":\n      - heading \"Overview\" [level=1]\n      - paragraph: \"Mixed windows \u00b7 movement and library: all time \u00b7 sleep and activity: recent records\"\n      - link \"Open movement archive\":\n        - /url: /motion\n    - region \"Distance \u00b7 all time\": Distance \u00b7 all time 20.50 km All time Across recorded movement\n    - region \"Activity records\": Activity records 2 All time Imported movement sessions\n    - region \"Total movement time\": Total movement time 1 h 42 min All time Recorded duration\n    - region \"Main sleep \u00b7 recent\":\n      - text: Main sleep \u00b7 recent \u2014 Recent records (limit 30) No main sleep records in this window\n      - link \"Explore sleep\":\n        - /url: /night\n    - region \"Library items\":\n      - text: Library items 0 All time Collected and tracked items\n      - link \"Explore library\":\n        - /url: /library\n    - region \"Current activity streak\": Current activity streak 0 days Consecutive days ending today\n    - region \"Activity calendar\":\n      - region \"Activity through the year\":\n        - paragraph: Movement / daily density\n        - heading \"Activity through the year\" [level=2]\n        - paragraph: 1 active days \u00b7 1 activity records \u00b7 2025-10-04 to 2026-10-03\n        - text: Less More\n        - 'img \"Activity through the year, last 365 days ending 2026-10-03: 1 active days and 1 activity records. Scroll horizontally to explore every day.\"'\n    - region \"Monthly distance\":\n      - paragraph: Movement / distance\n      - heading \"Monthly distance\" [level=2]\n      - paragraph: Each point represents one calendar month.\n      - text: \u2192 0 m vs September 2026\n      - group \"Distance chart range\":\n        - 'button \"6M: Last 6 months\"': 6M\n        - 'button \"12M: Last 12 months\" [pressed]': 12M\n        - 'button \"24M: Last 24 months\"': 24M\n      - img \"Distance chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - paragraph: 2025-11\u20132026-10 \u00b7 Months without recorded distance show 0 km; the current month is partial.\n    - region \"By activity\":\n      - paragraph: Movement / composition\n      - heading \"By activity\" [level=2]\n      - link \"All records\":\n        - /url: /motion\n      - list:\n        - listitem:\n          - 'button \"run: 2 activity records\"': run 2\n      - paragraph: Select a category to filter the movement archive.\n    - region \"Route footprint\":\n      - paragraph: Geography / privacy-trimmed\n      - heading \"Route footprint\" [level=2]\n      - text: 0 traces\n      - paragraph: No routes recorded yet.\n    - region \"Recent movement\":\n      - paragraph: Latest records \u00b7 up to 5\n      - heading \"Recent movement\" [level=2]\n      - link \"Browse archive\":\n        - /url: /motion\n      - button \"Focus the recent movement table.\"\n      - region \"Recent movement table; scroll horizontally to view all columns\":\n        - table \"Recent movement records with distance and duration\":\n          - caption: Recent movement records with distance and duration\n          - rowgroup:\n            - row \"Date Activity Distance Duration\":\n              - columnheader \"Date\"\n              - columnheader \"Activity\"\n              - columnheader \"Distance\"\n              - columnheader \"Duration\"\n          - rowgroup:\n            - row \"2025-08-14 12:00:00 Synthetic run 2025 8.00 km 40:00\":\n              - cell \"2025-08-14 12:00:00\"\n              - cell \"Synthetic run 2025\":\n                - button \"Synthetic run 2025\"\n              - cell \"8.00 km\"\n              - cell \"40:00\"\n            - row \"2026-08-14 12:00:00 Synthetic run 2026 12.50 km 1:02:00\":\n              - cell \"2026-08-14 12:00:00\"\n              - cell \"Synthetic run 2026\":\n                - button \"Synthetic run 2026\"\n              - cell \"12.50 km\"\n              - cell \"1:02:00\"\n    - text: \"Source: canonical activity summary \u00b7 every chart keeps its period and unit visible.\"\n  - region \"Across the archive\":\n    - paragraph: Across the archive\n    - paragraph: Every record has a place.\n    - text: All imported records, not only movement.\n    - link \"2 Activity sessions\":\n      - /url: /motion\n      - strong: \"2\"\n      - text: Activity sessions\n    - link \"0 Night sessions\":\n      - /url: /night\n      - strong: \"0\"\n      - text: Night sessions\n    - link \"0 Media items\":\n      - /url: /library\n      - strong: \"0\"\n      - text: Media items\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyWidth": 1280,
+        "mainCount": 1,
+        "unmeasuredText": 25,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "overview dark 320",
+      "status": "passed",
+      "pilot": "overview",
+      "mode": "dark",
+      "width": 320,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to light theme\"\n  - group\n- main:\n  - region \"Overview\":\n    - region \"Overview header\":\n      - heading \"Overview\" [level=1]\n      - paragraph: \"Mixed windows \u00b7 movement and library: all time \u00b7 sleep and activity: recent records\"\n      - link \"Open movement archive\":\n        - /url: /motion\n    - region \"Distance \u00b7 all time\": Distance \u00b7 all time 20.50 km All time Across recorded movement\n    - region \"Activity records\": Activity records 2 All time Imported movement sessions\n    - region \"Total movement time\": Total movement time 1 h 42 min All time Recorded duration\n    - region \"Main sleep \u00b7 recent\":\n      - text: Main sleep \u00b7 recent \u2014 Recent records (limit 30) No main sleep records in this window\n      - link \"Explore sleep\":\n        - /url: /night\n    - region \"Library items\":\n      - text: Library items 0 All time Collected and tracked items\n      - link \"Explore library\":\n        - /url: /library\n    - region \"Current activity streak\": Current activity streak 0 days Consecutive days ending today\n    - region \"Activity calendar\":\n      - region \"Activity through the year\":\n        - paragraph: Movement / daily density\n        - heading \"Activity through the year\" [level=2]\n        - paragraph: 1 active days \u00b7 1 activity records \u00b7 2025-10-04 to 2026-10-03\n        - text: Less More\n        - button \"Focus the heatmap to scroll through all 365 days.\"\n        - 'img \"Activity through the year, last 365 days ending 2026-10-03: 1 active days and 1 activity records. Scroll horizontally to explore every day.\"'\n    - region \"Monthly distance\":\n      - paragraph: Movement / distance\n      - heading \"Monthly distance\" [level=2]\n      - paragraph: Each point represents one calendar month.\n      - text: \u2192 0 m vs September 2026\n      - group \"Distance chart range\":\n        - 'button \"6M: Last 6 months\"': 6M\n        - 'button \"12M: Last 12 months\" [pressed]': 12M\n        - 'button \"24M: Last 24 months\"': 24M\n      - img \"Distance chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - paragraph: 2025-11\u20132026-10 \u00b7 Months without recorded distance show 0 km; the current month is partial.\n    - region \"By activity\":\n      - paragraph: Movement / composition\n      - heading \"By activity\" [level=2]\n      - link \"All records\":\n        - /url: /motion\n      - list:\n        - listitem:\n          - 'button \"run: 2 activity records\"': run 2\n      - paragraph: Select a category to filter the movement archive.\n    - region \"Route footprint\":\n      - paragraph: Geography / privacy-trimmed\n      - heading \"Route footprint\" [level=2]\n      - text: 0 traces\n      - paragraph: No routes recorded yet.\n    - region \"Recent movement\":\n      - paragraph: Latest records \u00b7 up to 5\n      - heading \"Recent movement\" [level=2]\n      - link \"Browse archive\":\n        - /url: /motion\n      - button \"Focus the recent movement table.\"\n      - region \"Recent movement table; scroll horizontally to view all columns\":\n        - table \"Recent movement records with distance and duration\":\n          - caption: Recent movement records with distance and duration\n          - rowgroup:\n            - row \"Date Activity Distance Duration\":\n              - columnheader \"Date\"\n              - columnheader \"Activity\"\n              - columnheader \"Distance\"\n              - columnheader \"Duration\"\n          - rowgroup:\n            - row \"2025-08-14 12:00:00 Synthetic run 2025 8.00 km 40:00\":\n              - cell \"2025-08-14 12:00:00\"\n              - cell \"Synthetic run 2025\":\n                - button \"Synthetic run 2025\"\n              - cell \"8.00 km\"\n              - cell \"40:00\"\n            - row \"2026-08-14 12:00:00 Synthetic run 2026 12.50 km 1:02:00\":\n              - cell \"2026-08-14 12:00:00\"\n              - cell \"Synthetic run 2026\":\n                - button \"Synthetic run 2026\"\n              - cell \"12.50 km\"\n              - cell \"1:02:00\"\n    - text: \"Source: canonical activity summary \u00b7 every chart keeps its period and unit visible.\"\n  - region \"Across the archive\":\n    - paragraph: Across the archive\n    - paragraph: Every record has a place.\n    - text: All imported records, not only movement.\n    - link \"2 Activity sessions\":\n      - /url: /motion\n      - strong: \"2\"\n      - text: Activity sessions\n    - link \"0 Night sessions\":\n      - /url: /night\n      - strong: \"0\"\n      - text: Night sessions\n    - link \"0 Media items\":\n      - /url: /library\n      - strong: \"0\"\n      - text: Media items\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 25,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "overview dark 768",
+      "status": "passed",
+      "pilot": "overview",
+      "mode": "dark",
+      "width": 768,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to light theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Overview\":\n    - region \"Overview header\":\n      - heading \"Overview\" [level=1]\n      - paragraph: \"Mixed windows \u00b7 movement and library: all time \u00b7 sleep and activity: recent records\"\n      - link \"Open movement archive\":\n        - /url: /motion\n    - region \"Distance \u00b7 all time\": Distance \u00b7 all time 20.50 km All time Across recorded movement\n    - region \"Activity records\": Activity records 2 All time Imported movement sessions\n    - region \"Total movement time\": Total movement time 1 h 42 min All time Recorded duration\n    - region \"Main sleep \u00b7 recent\":\n      - text: Main sleep \u00b7 recent \u2014 Recent records (limit 30) No main sleep records in this window\n      - link \"Explore sleep\":\n        - /url: /night\n    - region \"Library items\":\n      - text: Library items 0 All time Collected and tracked items\n      - link \"Explore library\":\n        - /url: /library\n    - region \"Current activity streak\": Current activity streak 0 days Consecutive days ending today\n    - region \"Activity calendar\":\n      - region \"Activity through the year\":\n        - paragraph: Movement / daily density\n        - heading \"Activity through the year\" [level=2]\n        - paragraph: 1 active days \u00b7 1 activity records \u00b7 2025-10-04 to 2026-10-03\n        - text: Less More\n        - button \"Focus the heatmap to scroll through all 365 days.\"\n        - 'img \"Activity through the year, last 365 days ending 2026-10-03: 1 active days and 1 activity records. Scroll horizontally to explore every day.\"'\n    - region \"Monthly distance\":\n      - paragraph: Movement / distance\n      - heading \"Monthly distance\" [level=2]\n      - paragraph: Each point represents one calendar month.\n      - text: \u2192 0 m vs September 2026\n      - group \"Distance chart range\":\n        - 'button \"6M: Last 6 months\"': 6M\n        - 'button \"12M: Last 12 months\" [pressed]': 12M\n        - 'button \"24M: Last 24 months\"': 24M\n      - img \"Distance chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - paragraph: 2025-11\u20132026-10 \u00b7 Months without recorded distance show 0 km; the current month is partial.\n    - region \"By activity\":\n      - paragraph: Movement / composition\n      - heading \"By activity\" [level=2]\n      - link \"All records\":\n        - /url: /motion\n      - list:\n        - listitem:\n          - 'button \"run: 2 activity records\"': run 2\n      - paragraph: Select a category to filter the movement archive.\n    - region \"Route footprint\":\n      - paragraph: Geography / privacy-trimmed\n      - heading \"Route footprint\" [level=2]\n      - text: 0 traces\n      - paragraph: No routes recorded yet.\n    - region \"Recent movement\":\n      - paragraph: Latest records \u00b7 up to 5\n      - heading \"Recent movement\" [level=2]\n      - link \"Browse archive\":\n        - /url: /motion\n      - button \"Focus the recent movement table.\"\n      - region \"Recent movement table; scroll horizontally to view all columns\":\n        - table \"Recent movement records with distance and duration\":\n          - caption: Recent movement records with distance and duration\n          - rowgroup:\n            - row \"Date Activity Distance Duration\":\n              - columnheader \"Date\"\n              - columnheader \"Activity\"\n              - columnheader \"Distance\"\n              - columnheader \"Duration\"\n          - rowgroup:\n            - row \"2025-08-14 12:00:00 Synthetic run 2025 8.00 km 40:00\":\n              - cell \"2025-08-14 12:00:00\"\n              - cell \"Synthetic run 2025\":\n                - button \"Synthetic run 2025\"\n              - cell \"8.00 km\"\n              - cell \"40:00\"\n            - row \"2026-08-14 12:00:00 Synthetic run 2026 12.50 km 1:02:00\":\n              - cell \"2026-08-14 12:00:00\"\n              - cell \"Synthetic run 2026\":\n                - button \"Synthetic run 2026\"\n              - cell \"12.50 km\"\n              - cell \"1:02:00\"\n    - text: \"Source: canonical activity summary \u00b7 every chart keeps its period and unit visible.\"\n  - region \"Across the archive\":\n    - paragraph: Across the archive\n    - paragraph: Every record has a place.\n    - text: All imported records, not only movement.\n    - link \"2 Activity sessions\":\n      - /url: /motion\n      - strong: \"2\"\n      - text: Activity sessions\n    - link \"0 Night sessions\":\n      - /url: /night\n      - strong: \"0\"\n      - text: Night sessions\n    - link \"0 Media items\":\n      - /url: /library\n      - strong: \"0\"\n      - text: Media items\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "mainCount": 1,
+        "unmeasuredText": 25,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "overview dark 1280",
+      "status": "passed",
+      "pilot": "overview",
+      "mode": "dark",
+      "width": 1280,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to light theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Overview\":\n    - region \"Overview header\":\n      - heading \"Overview\" [level=1]\n      - paragraph: \"Mixed windows \u00b7 movement and library: all time \u00b7 sleep and activity: recent records\"\n      - link \"Open movement archive\":\n        - /url: /motion\n    - region \"Distance \u00b7 all time\": Distance \u00b7 all time 20.50 km All time Across recorded movement\n    - region \"Activity records\": Activity records 2 All time Imported movement sessions\n    - region \"Total movement time\": Total movement time 1 h 42 min All time Recorded duration\n    - region \"Main sleep \u00b7 recent\":\n      - text: Main sleep \u00b7 recent \u2014 Recent records (limit 30) No main sleep records in this window\n      - link \"Explore sleep\":\n        - /url: /night\n    - region \"Library items\":\n      - text: Library items 0 All time Collected and tracked items\n      - link \"Explore library\":\n        - /url: /library\n    - region \"Current activity streak\": Current activity streak 0 days Consecutive days ending today\n    - region \"Activity calendar\":\n      - region \"Activity through the year\":\n        - paragraph: Movement / daily density\n        - heading \"Activity through the year\" [level=2]\n        - paragraph: 1 active days \u00b7 1 activity records \u00b7 2025-10-04 to 2026-10-03\n        - text: Less More\n        - 'img \"Activity through the year, last 365 days ending 2026-10-03: 1 active days and 1 activity records. Scroll horizontally to explore every day.\"'\n    - region \"Monthly distance\":\n      - paragraph: Movement / distance\n      - heading \"Monthly distance\" [level=2]\n      - paragraph: Each point represents one calendar month.\n      - text: \u2192 0 m vs September 2026\n      - group \"Distance chart range\":\n        - 'button \"6M: Last 6 months\"': 6M\n        - 'button \"12M: Last 12 months\" [pressed]': 12M\n        - 'button \"24M: Last 24 months\"': 24M\n      - img \"Distance chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - paragraph: 2025-11\u20132026-10 \u00b7 Months without recorded distance show 0 km; the current month is partial.\n    - region \"By activity\":\n      - paragraph: Movement / composition\n      - heading \"By activity\" [level=2]\n      - link \"All records\":\n        - /url: /motion\n      - list:\n        - listitem:\n          - 'button \"run: 2 activity records\"': run 2\n      - paragraph: Select a category to filter the movement archive.\n    - region \"Route footprint\":\n      - paragraph: Geography / privacy-trimmed\n      - heading \"Route footprint\" [level=2]\n      - text: 0 traces\n      - paragraph: No routes recorded yet.\n    - region \"Recent movement\":\n      - paragraph: Latest records \u00b7 up to 5\n      - heading \"Recent movement\" [level=2]\n      - link \"Browse archive\":\n        - /url: /motion\n      - button \"Focus the recent movement table.\"\n      - region \"Recent movement table; scroll horizontally to view all columns\":\n        - table \"Recent movement records with distance and duration\":\n          - caption: Recent movement records with distance and duration\n          - rowgroup:\n            - row \"Date Activity Distance Duration\":\n              - columnheader \"Date\"\n              - columnheader \"Activity\"\n              - columnheader \"Distance\"\n              - columnheader \"Duration\"\n          - rowgroup:\n            - row \"2025-08-14 12:00:00 Synthetic run 2025 8.00 km 40:00\":\n              - cell \"2025-08-14 12:00:00\"\n              - cell \"Synthetic run 2025\":\n                - button \"Synthetic run 2025\"\n              - cell \"8.00 km\"\n              - cell \"40:00\"\n            - row \"2026-08-14 12:00:00 Synthetic run 2026 12.50 km 1:02:00\":\n              - cell \"2026-08-14 12:00:00\"\n              - cell \"Synthetic run 2026\":\n                - button \"Synthetic run 2026\"\n              - cell \"12.50 km\"\n              - cell \"1:02:00\"\n    - text: \"Source: canonical activity summary \u00b7 every chart keeps its period and unit visible.\"\n  - region \"Across the archive\":\n    - paragraph: Across the archive\n    - paragraph: Every record has a place.\n    - text: All imported records, not only movement.\n    - link \"2 Activity sessions\":\n      - /url: /motion\n      - strong: \"2\"\n      - text: Activity sessions\n    - link \"0 Night sessions\":\n      - /url: /night\n      - strong: \"0\"\n      - text: Night sessions\n    - link \"0 Media items\":\n      - /url: /library\n      - strong: \"0\"\n      - text: Media items\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyWidth": 1280,
+        "mainCount": 1,
+        "unmeasuredText": 25,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "expenses light 320",
+      "status": "passed",
+      "pilot": "expenses",
+      "mode": "light",
+      "width": 320,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - region \"Expenses header\":\n    - heading \"Expenses\" [level=1]\n    - paragraph: \"Observed period: 2026-08\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"All months\"\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Currency\n    - combobox \"Currency\":\n      - option \"All currencies\" [selected]\n      - option \"JPY\"\n      - option \"USD\"\n      - option \"EUR\"\n      - option \"GBP\"\n    - text: Category\n    - combobox \"Category\":\n      - option \"All categories\" [selected]\n      - option \"Food\"\n      - option \"Groceries\"\n      - option \"Transport\"\n      - option \"Shopping\"\n      - option \"Housing\"\n      - option \"Utilities\"\n      - option \"Health\"\n      - option \"Entertainment\"\n      - option \"Subscriptions\"\n      - option \"Work\"\n      - option \"Other\"\n    - button \"Refresh\"\n  - region \"Expense evidence\":\n    - region \"Spending \u00b7 JPY\": \"Spending \u00b7 JPY \u00a512,345 Observed period: 2026-08 1 record\"\n    - region \"Spending \u00b7 USD\": \"Spending \u00b7 USD $0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 EUR\": \"Spending \u00b7 EUR \u20ac0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 GBP\": \"Spending \u00b7 GBP \u00a30.00 Observed period: 2026-08 0 records\"\n    - region \"Daily spend\":\n      - heading \"Daily spend \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Coverage\n      - definition: 1/1 periods\n      - term: Sources\n      - definition: synthetic\n      - group \"Daily spend view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Spend by category\":\n      - heading \"Spend by category \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Sources\n      - definition: synthetic\n      - group \"Spend by category view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Canonical ledger\":\n      - region \"Expense records\":\n        - paragraph: Canonical records \u00b7 exact data\n        - heading \"Expense records\" [level=2]\n        - paragraph: Aggregations above explain 2026-08; this surface preserves every record.\n        - region \"Browse entries\":\n          - paragraph: Record index\n          - heading \"Browse entries\" [level=3]\n          - text: 1 of 1 shown\n          - button \"Export CSV\"\n          - list:\n            - listitem:\n              - button \"Synthetic cafe 2026-08-14 \u00b7 Food \u00a512,345\":\n                - strong: Synthetic cafe\n                - text: 2026-08-14 \u00b7 Food \u00a512,345\n        - region \"Synthetic cafe\":\n          - paragraph: Selected record\n          - heading \"Synthetic cafe\" [level=3]\n          - button \"Delete\"\n          - term: Amount\n          - definition: \u00a512,345\n          - term: Raw amount\n          - definition: 12345 minor JPY\n          - term: Date\n          - definition: 2026-08-14\n          - term: Category\n          - definition: Food\n          - term: Note\n          - definition: Synthetic fixture only\n          - term: Source\n          - definition: manual \u00b7 synthetic\n          - term: Record ID\n          - definition: synthetic-jpy\n          - paragraph: Created 2026-08-14 21:00:00 \u00b7 Updated 2026-08-14 21:00:00\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 16,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "expenses light 768",
+      "status": "passed",
+      "pilot": "expenses",
+      "mode": "light",
+      "width": 768,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Expenses header\":\n    - heading \"Expenses\" [level=1]\n    - paragraph: \"Observed period: 2026-08\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"All months\"\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Currency\n    - combobox \"Currency\":\n      - option \"All currencies\" [selected]\n      - option \"JPY\"\n      - option \"USD\"\n      - option \"EUR\"\n      - option \"GBP\"\n    - text: Category\n    - combobox \"Category\":\n      - option \"All categories\" [selected]\n      - option \"Food\"\n      - option \"Groceries\"\n      - option \"Transport\"\n      - option \"Shopping\"\n      - option \"Housing\"\n      - option \"Utilities\"\n      - option \"Health\"\n      - option \"Entertainment\"\n      - option \"Subscriptions\"\n      - option \"Work\"\n      - option \"Other\"\n    - button \"Refresh\"\n  - region \"Expense evidence\":\n    - region \"Spending \u00b7 JPY\": \"Spending \u00b7 JPY \u00a512,345 Observed period: 2026-08 1 record\"\n    - region \"Spending \u00b7 USD\": \"Spending \u00b7 USD $0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 EUR\": \"Spending \u00b7 EUR \u20ac0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 GBP\": \"Spending \u00b7 GBP \u00a30.00 Observed period: 2026-08 0 records\"\n    - region \"Daily spend\":\n      - heading \"Daily spend \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Coverage\n      - definition: 1/1 periods\n      - term: Sources\n      - definition: synthetic\n      - group \"Daily spend view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Spend by category\":\n      - heading \"Spend by category \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Sources\n      - definition: synthetic\n      - group \"Spend by category view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Canonical ledger\":\n      - region \"Expense records\":\n        - paragraph: Canonical records \u00b7 exact data\n        - heading \"Expense records\" [level=2]\n        - paragraph: Aggregations above explain 2026-08; this surface preserves every record.\n        - region \"Browse entries\":\n          - paragraph: Record index\n          - heading \"Browse entries\" [level=3]\n          - text: 1 of 1 shown\n          - button \"Export CSV\"\n          - list:\n            - listitem:\n              - button \"Synthetic cafe 2026-08-14 \u00b7 Food \u00a512,345\":\n                - strong: Synthetic cafe\n                - text: 2026-08-14 \u00b7 Food \u00a512,345\n        - region \"Synthetic cafe\":\n          - paragraph: Selected record\n          - heading \"Synthetic cafe\" [level=3]\n          - button \"Delete\"\n          - term: Amount\n          - definition: \u00a512,345\n          - term: Raw amount\n          - definition: 12345 minor JPY\n          - term: Date\n          - definition: 2026-08-14\n          - term: Category\n          - definition: Food\n          - term: Note\n          - definition: Synthetic fixture only\n          - term: Source\n          - definition: manual \u00b7 synthetic\n          - term: Record ID\n          - definition: synthetic-jpy\n          - paragraph: Created 2026-08-14 21:00:00 \u00b7 Updated 2026-08-14 21:00:00\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "mainCount": 1,
+        "unmeasuredText": 16,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "expenses light 1280",
+      "status": "passed",
+      "pilot": "expenses",
+      "mode": "light",
+      "width": 1280,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Expenses header\":\n    - heading \"Expenses\" [level=1]\n    - paragraph: \"Observed period: 2026-08\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"All months\"\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Currency\n    - combobox \"Currency\":\n      - option \"All currencies\" [selected]\n      - option \"JPY\"\n      - option \"USD\"\n      - option \"EUR\"\n      - option \"GBP\"\n    - text: Category\n    - combobox \"Category\":\n      - option \"All categories\" [selected]\n      - option \"Food\"\n      - option \"Groceries\"\n      - option \"Transport\"\n      - option \"Shopping\"\n      - option \"Housing\"\n      - option \"Utilities\"\n      - option \"Health\"\n      - option \"Entertainment\"\n      - option \"Subscriptions\"\n      - option \"Work\"\n      - option \"Other\"\n    - button \"Refresh\"\n  - region \"Expense evidence\":\n    - region \"Spending \u00b7 JPY\": \"Spending \u00b7 JPY \u00a512,345 Observed period: 2026-08 1 record\"\n    - region \"Spending \u00b7 USD\": \"Spending \u00b7 USD $0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 EUR\": \"Spending \u00b7 EUR \u20ac0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 GBP\": \"Spending \u00b7 GBP \u00a30.00 Observed period: 2026-08 0 records\"\n    - region \"Daily spend\":\n      - heading \"Daily spend \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Coverage\n      - definition: 1/1 periods\n      - term: Sources\n      - definition: synthetic\n      - group \"Daily spend view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Spend by category\":\n      - heading \"Spend by category \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Sources\n      - definition: synthetic\n      - group \"Spend by category view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Canonical ledger\":\n      - region \"Expense records\":\n        - paragraph: Canonical records \u00b7 exact data\n        - heading \"Expense records\" [level=2]\n        - paragraph: Aggregations above explain 2026-08; this surface preserves every record.\n        - region \"Browse entries\":\n          - paragraph: Record index\n          - heading \"Browse entries\" [level=3]\n          - text: 1 of 1 shown\n          - button \"Export CSV\"\n          - list:\n            - listitem:\n              - button \"Synthetic cafe 2026-08-14 \u00b7 Food \u00a512,345\":\n                - strong: Synthetic cafe\n                - text: 2026-08-14 \u00b7 Food \u00a512,345\n        - region \"Synthetic cafe\":\n          - paragraph: Selected record\n          - heading \"Synthetic cafe\" [level=3]\n          - button \"Delete\"\n          - term: Amount\n          - definition: \u00a512,345\n          - term: Raw amount\n          - definition: 12345 minor JPY\n          - term: Date\n          - definition: 2026-08-14\n          - term: Category\n          - definition: Food\n          - term: Note\n          - definition: Synthetic fixture only\n          - term: Source\n          - definition: manual \u00b7 synthetic\n          - term: Record ID\n          - definition: synthetic-jpy\n          - paragraph: Created 2026-08-14 21:00:00 \u00b7 Updated 2026-08-14 21:00:00\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyWidth": 1280,
+        "mainCount": 1,
+        "unmeasuredText": 16,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "expenses dark 320",
+      "status": "passed",
+      "pilot": "expenses",
+      "mode": "dark",
+      "width": 320,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to light theme\"\n  - group\n- main:\n  - region \"Expenses header\":\n    - heading \"Expenses\" [level=1]\n    - paragraph: \"Observed period: 2026-08\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"All months\"\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Currency\n    - combobox \"Currency\":\n      - option \"All currencies\" [selected]\n      - option \"JPY\"\n      - option \"USD\"\n      - option \"EUR\"\n      - option \"GBP\"\n    - text: Category\n    - combobox \"Category\":\n      - option \"All categories\" [selected]\n      - option \"Food\"\n      - option \"Groceries\"\n      - option \"Transport\"\n      - option \"Shopping\"\n      - option \"Housing\"\n      - option \"Utilities\"\n      - option \"Health\"\n      - option \"Entertainment\"\n      - option \"Subscriptions\"\n      - option \"Work\"\n      - option \"Other\"\n    - button \"Refresh\"\n  - region \"Expense evidence\":\n    - region \"Spending \u00b7 JPY\": \"Spending \u00b7 JPY \u00a512,345 Observed period: 2026-08 1 record\"\n    - region \"Spending \u00b7 USD\": \"Spending \u00b7 USD $0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 EUR\": \"Spending \u00b7 EUR \u20ac0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 GBP\": \"Spending \u00b7 GBP \u00a30.00 Observed period: 2026-08 0 records\"\n    - region \"Daily spend\":\n      - heading \"Daily spend \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Coverage\n      - definition: 1/1 periods\n      - term: Sources\n      - definition: synthetic\n      - group \"Daily spend view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Spend by category\":\n      - heading \"Spend by category \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Sources\n      - definition: synthetic\n      - group \"Spend by category view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Canonical ledger\":\n      - region \"Expense records\":\n        - paragraph: Canonical records \u00b7 exact data\n        - heading \"Expense records\" [level=2]\n        - paragraph: Aggregations above explain 2026-08; this surface preserves every record.\n        - region \"Browse entries\":\n          - paragraph: Record index\n          - heading \"Browse entries\" [level=3]\n          - text: 1 of 1 shown\n          - button \"Export CSV\"\n          - list:\n            - listitem:\n              - button \"Synthetic cafe 2026-08-14 \u00b7 Food \u00a512,345\":\n                - strong: Synthetic cafe\n                - text: 2026-08-14 \u00b7 Food \u00a512,345\n        - region \"Synthetic cafe\":\n          - paragraph: Selected record\n          - heading \"Synthetic cafe\" [level=3]\n          - button \"Delete\"\n          - term: Amount\n          - definition: \u00a512,345\n          - term: Raw amount\n          - definition: 12345 minor JPY\n          - term: Date\n          - definition: 2026-08-14\n          - term: Category\n          - definition: Food\n          - term: Note\n          - definition: Synthetic fixture only\n          - term: Source\n          - definition: manual \u00b7 synthetic\n          - term: Record ID\n          - definition: synthetic-jpy\n          - paragraph: Created 2026-08-14 21:00:00 \u00b7 Updated 2026-08-14 21:00:00\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 16,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "expenses dark 768",
+      "status": "passed",
+      "pilot": "expenses",
+      "mode": "dark",
+      "width": 768,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to light theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Expenses header\":\n    - heading \"Expenses\" [level=1]\n    - paragraph: \"Observed period: 2026-08\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"All months\"\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Currency\n    - combobox \"Currency\":\n      - option \"All currencies\" [selected]\n      - option \"JPY\"\n      - option \"USD\"\n      - option \"EUR\"\n      - option \"GBP\"\n    - text: Category\n    - combobox \"Category\":\n      - option \"All categories\" [selected]\n      - option \"Food\"\n      - option \"Groceries\"\n      - option \"Transport\"\n      - option \"Shopping\"\n      - option \"Housing\"\n      - option \"Utilities\"\n      - option \"Health\"\n      - option \"Entertainment\"\n      - option \"Subscriptions\"\n      - option \"Work\"\n      - option \"Other\"\n    - button \"Refresh\"\n  - region \"Expense evidence\":\n    - region \"Spending \u00b7 JPY\": \"Spending \u00b7 JPY \u00a512,345 Observed period: 2026-08 1 record\"\n    - region \"Spending \u00b7 USD\": \"Spending \u00b7 USD $0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 EUR\": \"Spending \u00b7 EUR \u20ac0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 GBP\": \"Spending \u00b7 GBP \u00a30.00 Observed period: 2026-08 0 records\"\n    - region \"Daily spend\":\n      - heading \"Daily spend \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Coverage\n      - definition: 1/1 periods\n      - term: Sources\n      - definition: synthetic\n      - group \"Daily spend view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Spend by category\":\n      - heading \"Spend by category \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Sources\n      - definition: synthetic\n      - group \"Spend by category view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Canonical ledger\":\n      - region \"Expense records\":\n        - paragraph: Canonical records \u00b7 exact data\n        - heading \"Expense records\" [level=2]\n        - paragraph: Aggregations above explain 2026-08; this surface preserves every record.\n        - region \"Browse entries\":\n          - paragraph: Record index\n          - heading \"Browse entries\" [level=3]\n          - text: 1 of 1 shown\n          - button \"Export CSV\"\n          - list:\n            - listitem:\n              - button \"Synthetic cafe 2026-08-14 \u00b7 Food \u00a512,345\":\n                - strong: Synthetic cafe\n                - text: 2026-08-14 \u00b7 Food \u00a512,345\n        - region \"Synthetic cafe\":\n          - paragraph: Selected record\n          - heading \"Synthetic cafe\" [level=3]\n          - button \"Delete\"\n          - term: Amount\n          - definition: \u00a512,345\n          - term: Raw amount\n          - definition: 12345 minor JPY\n          - term: Date\n          - definition: 2026-08-14\n          - term: Category\n          - definition: Food\n          - term: Note\n          - definition: Synthetic fixture only\n          - term: Source\n          - definition: manual \u00b7 synthetic\n          - term: Record ID\n          - definition: synthetic-jpy\n          - paragraph: Created 2026-08-14 21:00:00 \u00b7 Updated 2026-08-14 21:00:00\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "mainCount": 1,
+        "unmeasuredText": 16,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "expenses dark 1280",
+      "status": "passed",
+      "pilot": "expenses",
+      "mode": "dark",
+      "width": 1280,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to light theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Expenses header\":\n    - heading \"Expenses\" [level=1]\n    - paragraph: \"Observed period: 2026-08\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"All months\"\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Currency\n    - combobox \"Currency\":\n      - option \"All currencies\" [selected]\n      - option \"JPY\"\n      - option \"USD\"\n      - option \"EUR\"\n      - option \"GBP\"\n    - text: Category\n    - combobox \"Category\":\n      - option \"All categories\" [selected]\n      - option \"Food\"\n      - option \"Groceries\"\n      - option \"Transport\"\n      - option \"Shopping\"\n      - option \"Housing\"\n      - option \"Utilities\"\n      - option \"Health\"\n      - option \"Entertainment\"\n      - option \"Subscriptions\"\n      - option \"Work\"\n      - option \"Other\"\n    - button \"Refresh\"\n  - region \"Expense evidence\":\n    - region \"Spending \u00b7 JPY\": \"Spending \u00b7 JPY \u00a512,345 Observed period: 2026-08 1 record\"\n    - region \"Spending \u00b7 USD\": \"Spending \u00b7 USD $0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 EUR\": \"Spending \u00b7 EUR \u20ac0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 GBP\": \"Spending \u00b7 GBP \u00a30.00 Observed period: 2026-08 0 records\"\n    - region \"Daily spend\":\n      - heading \"Daily spend \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Coverage\n      - definition: 1/1 periods\n      - term: Sources\n      - definition: synthetic\n      - group \"Daily spend view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Spend by category\":\n      - heading \"Spend by category \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Sources\n      - definition: synthetic\n      - group \"Spend by category view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Canonical ledger\":\n      - region \"Expense records\":\n        - paragraph: Canonical records \u00b7 exact data\n        - heading \"Expense records\" [level=2]\n        - paragraph: Aggregations above explain 2026-08; this surface preserves every record.\n        - region \"Browse entries\":\n          - paragraph: Record index\n          - heading \"Browse entries\" [level=3]\n          - text: 1 of 1 shown\n          - button \"Export CSV\"\n          - list:\n            - listitem:\n              - button \"Synthetic cafe 2026-08-14 \u00b7 Food \u00a512,345\":\n                - strong: Synthetic cafe\n                - text: 2026-08-14 \u00b7 Food \u00a512,345\n        - region \"Synthetic cafe\":\n          - paragraph: Selected record\n          - heading \"Synthetic cafe\" [level=3]\n          - button \"Delete\"\n          - term: Amount\n          - definition: \u00a512,345\n          - term: Raw amount\n          - definition: 12345 minor JPY\n          - term: Date\n          - definition: 2026-08-14\n          - term: Category\n          - definition: Food\n          - term: Note\n          - definition: Synthetic fixture only\n          - term: Source\n          - definition: manual \u00b7 synthetic\n          - term: Record ID\n          - definition: synthetic-jpy\n          - paragraph: Created 2026-08-14 21:00:00 \u00b7 Updated 2026-08-14 21:00:00\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyWidth": 1280,
+        "mainCount": 1,
+        "unmeasuredText": 16,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "metrics light 320",
+      "status": "passed",
+      "pilot": "metrics",
+      "mode": "light",
+      "width": 320,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - region \"Metrics header\":\n    - heading \"Metrics\" [level=1]\n    - paragraph: \"Observed window: 2025-09-01\u20132026-09-01 (end exclusive)\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Metric\n    - combobox \"Metric\":\n      - option \"daily \u00b7 Steps\" [selected]\n  - region \"Steps\":\n    - paragraph: daily\n    - heading \"Steps\" [level=2]\n    - paragraph: Synthetic daily steps\n    - img \"Daily trends with synchronized crosshair. Exact values are available in the trend data table.\"\n    - group: View trend data\n    - term: Unit\n    - definition: count\n    - term: Method\n    - definition: synthetic.v1\n    - term: Coverage\n    - definition: 1/1 periods\n    - term: Sources\n    - definition: synthetic\n    - group \"Steps view\":\n      - button \"Chart\" [pressed]\n      - button \"Table\"\n      - button \"CSV\"\n  - status: Loading metric series\u2026\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.\n- text: Metrics \u00b7 iroha",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 1,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "metrics light 768",
+      "status": "passed",
+      "pilot": "metrics",
+      "mode": "light",
+      "width": 768,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Metrics header\":\n    - heading \"Metrics\" [level=1]\n    - paragraph: \"Observed window: 2025-09-01\u20132026-09-01 (end exclusive)\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Metric\n    - combobox \"Metric\":\n      - option \"daily \u00b7 Steps\" [selected]\n  - region \"Steps\":\n    - paragraph: daily\n    - heading \"Steps\" [level=2]\n    - paragraph: Synthetic daily steps\n    - img \"Daily trends with synchronized crosshair. Exact values are available in the trend data table.\"\n    - group: View trend data\n    - term: Unit\n    - definition: count\n    - term: Method\n    - definition: synthetic.v1\n    - term: Coverage\n    - definition: 1/1 periods\n    - term: Sources\n    - definition: synthetic\n    - group \"Steps view\":\n      - button \"Chart\" [pressed]\n      - button \"Table\"\n      - button \"CSV\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.\n- text: Metrics \u00b7 iroha",
+      "measurement": {
+        "viewportWidth": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "mainCount": 1,
+        "unmeasuredText": 1,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "metrics light 1280",
+      "status": "passed",
+      "pilot": "metrics",
+      "mode": "light",
+      "width": 1280,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Metrics header\":\n    - heading \"Metrics\" [level=1]\n    - paragraph: \"Observed window: 2025-09-01\u20132026-09-01 (end exclusive)\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Metric\n    - combobox \"Metric\":\n      - option \"daily \u00b7 Steps\" [selected]\n  - region \"Steps\":\n    - paragraph: daily\n    - heading \"Steps\" [level=2]\n    - paragraph: Synthetic daily steps\n    - img \"Daily trends with synchronized crosshair. Exact values are available in the trend data table.\"\n    - group: View trend data\n    - term: Unit\n    - definition: count\n    - term: Method\n    - definition: synthetic.v1\n    - term: Coverage\n    - definition: 1/1 periods\n    - term: Sources\n    - definition: synthetic\n    - group \"Steps view\":\n      - button \"Chart\" [pressed]\n      - button \"Table\"\n      - button \"CSV\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.\n- text: Metrics \u00b7 iroha",
+      "measurement": {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyWidth": 1280,
+        "mainCount": 1,
+        "unmeasuredText": 1,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "metrics dark 320",
+      "status": "passed",
+      "pilot": "metrics",
+      "mode": "dark",
+      "width": 320,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to light theme\"\n  - group\n- main:\n  - region \"Metrics header\":\n    - heading \"Metrics\" [level=1]\n    - paragraph: \"Observed window: 2025-09-01\u20132026-09-01 (end exclusive)\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Metric\n    - combobox \"Metric\":\n      - option \"daily \u00b7 Steps\" [selected]\n  - region \"Steps\":\n    - paragraph: daily\n    - heading \"Steps\" [level=2]\n    - paragraph: Synthetic daily steps\n    - img \"Daily trends with synchronized crosshair. Exact values are available in the trend data table.\"\n    - group: View trend data\n    - term: Unit\n    - definition: count\n    - term: Method\n    - definition: synthetic.v1\n    - term: Coverage\n    - definition: 1/1 periods\n    - term: Sources\n    - definition: synthetic\n    - group \"Steps view\":\n      - button \"Chart\" [pressed]\n      - button \"Table\"\n      - button \"CSV\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.\n- text: Metrics \u00b7 iroha",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 1,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "metrics dark 768",
+      "status": "passed",
+      "pilot": "metrics",
+      "mode": "dark",
+      "width": 768,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to light theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Metrics header\":\n    - heading \"Metrics\" [level=1]\n    - paragraph: \"Observed window: 2025-09-01\u20132026-09-01 (end exclusive)\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Metric\n    - combobox \"Metric\":\n      - option \"daily \u00b7 Steps\" [selected]\n  - region \"Steps\":\n    - paragraph: daily\n    - heading \"Steps\" [level=2]\n    - paragraph: Synthetic daily steps\n    - img \"Daily trends with synchronized crosshair. Exact values are available in the trend data table.\"\n    - group: View trend data\n    - term: Unit\n    - definition: count\n    - term: Method\n    - definition: synthetic.v1\n    - term: Coverage\n    - definition: 1/1 periods\n    - term: Sources\n    - definition: synthetic\n    - group \"Steps view\":\n      - button \"Chart\" [pressed]\n      - button \"Table\"\n      - button \"CSV\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.\n- text: Metrics \u00b7 iroha",
+      "measurement": {
+        "viewportWidth": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "mainCount": 1,
+        "unmeasuredText": 1,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "metrics dark 1280",
+      "status": "passed",
+      "pilot": "metrics",
+      "mode": "dark",
+      "width": 1280,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to light theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Metrics header\":\n    - heading \"Metrics\" [level=1]\n    - paragraph: \"Observed window: 2025-09-01\u20132026-09-01 (end exclusive)\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Metric\n    - combobox \"Metric\":\n      - option \"daily \u00b7 Steps\" [selected]\n  - region \"Steps\":\n    - paragraph: daily\n    - heading \"Steps\" [level=2]\n    - paragraph: Synthetic daily steps\n    - img \"Daily trends with synchronized crosshair. Exact values are available in the trend data table.\"\n    - group: View trend data\n    - term: Unit\n    - definition: count\n    - term: Method\n    - definition: synthetic.v1\n    - term: Coverage\n    - definition: 1/1 periods\n    - term: Sources\n    - definition: synthetic\n    - group \"Steps view\":\n      - button \"Chart\" [pressed]\n      - button \"Table\"\n      - button \"CSV\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.\n- text: Metrics \u00b7 iroha",
+      "measurement": {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyWidth": 1280,
+        "mainCount": 1,
+        "unmeasuredText": 1,
+        "clippedControls": [],
+        "smallControls": []
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "public light 320",
+      "status": "passed",
+      "pilot": "public",
+      "mode": "light",
+      "width": 320,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- main:\n  - region \"Public archive header\":\n    - heading \"Public archive\" [level=1]\n    - paragraph: \"Observed year: 2026 \u00b7 All sports\"\n    - navigation \"Select year\":\n      - button \"2026\"\n      - button \"2025\"\n    - link \"harus tracks home\":\n      - /url: /\n      - text: harus tracks by iroha\n    - group \"Color theme\":\n      - button \"Light\" [pressed]\n      - button \"Dark\"\n    - text: Live Updated 2026-08-14 iroha vdev\n  - region \"Distance\": Distance 12.50 km 2026 \u00b7 All sports\n  - region \"Activities\": Activities 1 2026 \u00b7 All sports\n  - region \"Running count\": Running count 1 2026 \u00b7 All running records runs in 2026\n  - region \"Total time\": Total time 1 h 02 min 2026 \u00b7 All sports\n  - region \"Cumulative distance\":\n    - text: Cumulative distance \u2014 2026 \u25b2 4.50 km ahead of 2025 at Aug\n    - img \"Cumulative distance for 2026\"\n    - group: View cumulative distance data\n  - region \"Monthly observations\":\n    - text: Monthly distance \u2014 2026\n    - img \"Monthly distance for 2026\"\n  - region \"Activities by sport\":\n    - text: 2026 by sport\n    - button \"Run 1\u00d7\"\n  - heading \"Routes & cities\" [level=2]\n  - paragraph: No routes recorded yet.\n  - heading \"Activities\" [level=2]\n  - region \"Activity records\":\n    - table:\n      - rowgroup:\n        - row \"Date \u25bc Activity Distance / Duration Pace / HR\":\n          - columnheader \"Date \u25bc\":\n            - button \"Date \u25bc\"\n          - columnheader \"Activity\":\n            - button \"Activity\"\n          - columnheader \"Distance / Duration\":\n            - button \"Distance / Duration\"\n          - columnheader \"Pace / HR\":\n            - button \"Pace / HR\"\n      - rowgroup:\n        - row \"2026-08-14 12:00:00 Run Synthetic run 2026 12.50 km 1:00 /km\":\n          - cell \"2026-08-14 12:00:00\":\n            - link \"2026-08-14 12:00:00\":\n              - /url: /?activity=synthetic-2026\n          - cell \"Run Synthetic run 2026\"\n          - cell \"12.50 km\"\n          - cell \"1:00 /km\"\n- contentinfo:\n  - text: harus tracks by iroha \u00b7 vdev Public projection of sanitized activity records \u00b7 private daily, sleep, and media details stay out of this view.\n  - link \"View source on GitHub\":\n    - /url: https://github.com/azusachino/iroha",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 13,
+        "clippedControls": [
+          {
+            "tag": "BUTTON",
+            "name": "Distance / Duration",
+            "width": 59.359375,
+            "height": 63,
+            "x": 377.515625,
+            "right": 436.875,
+            "clipped": true,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Pace / HR",
+            "width": 31.625,
+            "height": 42,
+            "x": 460.875,
+            "right": 492.5,
+            "clipped": true,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          }
+        ],
+        "smallControls": [
+          {
+            "tag": "BUTTON",
+            "name": "Date \u25bc",
+            "width": 49.421875,
+            "height": 21,
+            "x": 53,
+            "right": 102.421875,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Activity",
+            "width": 51.828125,
+            "height": 21,
+            "x": 225.546875,
+            "right": 277.375,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "A",
+            "name": "View source on GitHub",
+            "width": 142.09375,
+            "height": 19,
+            "x": 88.953125,
+            "right": 231.046875,
+            "clipped": false,
+            "fontSize": "13.6px",
+            "outline": "rgb(8, 115, 108) none 3px",
+            "disabled": false
+          }
+        ]
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "public light 768",
+      "status": "passed",
+      "pilot": "public",
+      "mode": "light",
+      "width": 768,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- main:\n  - region \"Public archive header\":\n    - heading \"Public archive\" [level=1]\n    - paragraph: \"Observed year: 2026 \u00b7 All sports\"\n    - navigation \"Select year\":\n      - button \"2026\"\n      - button \"2025\"\n    - link \"harus tracks home\":\n      - /url: /\n      - text: harus tracks by iroha\n    - group \"Color theme\":\n      - button \"Light\" [pressed]\n      - button \"Dark\"\n    - text: Live Updated 2026-08-14 iroha vdev\n  - region \"Distance\": Distance 12.50 km 2026 \u00b7 All sports\n  - region \"Activities\": Activities 1 2026 \u00b7 All sports\n  - region \"Running count\": Running count 1 2026 \u00b7 All running records runs in 2026\n  - region \"Total time\": Total time 1 h 02 min 2026 \u00b7 All sports\n  - region \"Cumulative distance\":\n    - text: Cumulative distance \u2014 2026 \u25b2 4.50 km ahead of 2025 at Aug\n    - img \"Cumulative distance for 2026\"\n    - group: View cumulative distance data\n  - region \"Monthly observations\":\n    - text: Monthly distance \u2014 2026\n    - img \"Monthly distance for 2026\"\n  - region \"Activities by sport\":\n    - text: 2026 by sport\n    - button \"Run 1\u00d7\"\n  - heading \"Routes & cities\" [level=2]\n  - paragraph: No routes recorded yet.\n  - heading \"Activities\" [level=2]\n  - region \"Activity records\":\n    - table:\n      - rowgroup:\n        - row \"Date \u25bc Activity Distance / Duration Pace / HR\":\n          - columnheader \"Date \u25bc\":\n            - button \"Date \u25bc\"\n          - columnheader \"Activity\":\n            - button \"Activity\"\n          - columnheader \"Distance / Duration\":\n            - button \"Distance / Duration\"\n          - columnheader \"Pace / HR\":\n            - button \"Pace / HR\"\n      - rowgroup:\n        - row \"2026-08-14 12:00:00 Run Synthetic run 2026 12.50 km 1:00 /km\":\n          - cell \"2026-08-14 12:00:00\":\n            - link \"2026-08-14 12:00:00\":\n              - /url: /?activity=synthetic-2026\n          - cell \"Run Synthetic run 2026\"\n          - cell \"12.50 km\"\n          - cell \"1:00 /km\"\n- contentinfo:\n  - text: harus tracks by iroha \u00b7 vdev Public projection of sanitized activity records \u00b7 private daily, sleep, and media details stay out of this view.\n  - link \"View source on GitHub\":\n    - /url: https://github.com/azusachino/iroha",
+      "measurement": {
+        "viewportWidth": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "mainCount": 1,
+        "unmeasuredText": 13,
+        "clippedControls": [],
+        "smallControls": [
+          {
+            "tag": "BUTTON",
+            "name": "Date \u25bc",
+            "width": 49.421875,
+            "height": 21,
+            "x": 53,
+            "right": 102.421875,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Activity",
+            "width": 51.828125,
+            "height": 21,
+            "x": 240.765625,
+            "right": 292.59375,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Distance / Duration",
+            "width": 130.90625,
+            "height": 21,
+            "x": 474.21875,
+            "right": 605.125,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Pace / HR",
+            "width": 64.40625,
+            "height": 21,
+            "x": 642.78125,
+            "right": 707.1875,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "A",
+            "name": "View source on GitHub",
+            "width": 142.09375,
+            "height": 19,
+            "x": 362.359375,
+            "right": 504.453125,
+            "clipped": false,
+            "fontSize": "13.6px",
+            "outline": "rgb(8, 115, 108) none 3px",
+            "disabled": false
+          }
+        ]
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "public light 1280",
+      "status": "passed",
+      "pilot": "public",
+      "mode": "light",
+      "width": 1280,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- main:\n  - region \"Public archive header\":\n    - heading \"Public archive\" [level=1]\n    - paragraph: \"Observed year: 2026 \u00b7 All sports\"\n    - navigation \"Select year\":\n      - button \"2026\"\n      - button \"2025\"\n    - link \"harus tracks home\":\n      - /url: /\n      - text: harus tracks by iroha\n    - group \"Color theme\":\n      - button \"Light\" [pressed]\n      - button \"Dark\"\n    - text: Live Updated 2026-08-14 iroha vdev\n  - region \"Distance\": Distance 12.50 km 2026 \u00b7 All sports\n  - region \"Activities\": Activities 1 2026 \u00b7 All sports\n  - region \"Running count\": Running count 1 2026 \u00b7 All running records runs in 2026\n  - region \"Total time\": Total time 1 h 02 min 2026 \u00b7 All sports\n  - region \"Cumulative distance\":\n    - text: Cumulative distance \u2014 2026 \u25b2 4.50 km ahead of 2025 at Aug\n    - img \"Cumulative distance for 2026\"\n    - group: View cumulative distance data\n  - region \"Monthly observations\":\n    - text: Monthly distance \u2014 2026\n    - img \"Monthly distance for 2026\"\n  - region \"Activities by sport\":\n    - text: 2026 by sport\n    - button \"Run 1\u00d7\"\n  - heading \"Routes & cities\" [level=2]\n  - paragraph: No routes recorded yet.\n  - heading \"Activities\" [level=2]\n  - region \"Activity records\":\n    - table:\n      - rowgroup:\n        - row \"Date \u25bc Activity Distance / Duration Pace / HR\":\n          - columnheader \"Date \u25bc\":\n            - button \"Date \u25bc\"\n          - columnheader \"Activity\":\n            - button \"Activity\"\n          - columnheader \"Distance / Duration\":\n            - button \"Distance / Duration\"\n          - columnheader \"Pace / HR\":\n            - button \"Pace / HR\"\n      - rowgroup:\n        - row \"2026-08-14 12:00:00 Run Synthetic run 2026 12.50 km 1:00 /km\":\n          - cell \"2026-08-14 12:00:00\":\n            - link \"2026-08-14 12:00:00\":\n              - /url: /?activity=synthetic-2026\n          - cell \"Run Synthetic run 2026\"\n          - cell \"12.50 km\"\n          - cell \"1:00 /km\"\n- contentinfo:\n  - text: harus tracks by iroha \u00b7 vdev Public projection of sanitized activity records \u00b7 private daily, sleep, and media details stay out of this view.\n  - link \"View source on GitHub\":\n    - /url: https://github.com/azusachino/iroha",
+      "measurement": {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyWidth": 1280,
+        "mainCount": 1,
+        "unmeasuredText": 13,
+        "clippedControls": [],
+        "smallControls": [
+          {
+            "tag": "BUTTON",
+            "name": "Date \u25bc",
+            "width": 49.421875,
+            "height": 21,
+            "x": 93,
+            "right": 142.421875,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Activity",
+            "width": 51.828125,
+            "height": 21,
+            "x": 399,
+            "right": 450.828125,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Distance / Duration",
+            "width": 130.90625,
+            "height": 21,
+            "x": 779.46875,
+            "right": 910.375,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Pace / HR",
+            "width": 64.40625,
+            "height": 21,
+            "x": 1054.1875,
+            "right": 1118.59375,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "A",
+            "name": "View source on GitHub",
+            "width": 142.09375,
+            "height": 19,
+            "x": 977.953125,
+            "right": 1120.046875,
+            "clipped": false,
+            "fontSize": "13.6px",
+            "outline": "rgb(8, 115, 108) none 3px",
+            "disabled": false
+          }
+        ]
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "public dark 320",
+      "status": "passed",
+      "pilot": "public",
+      "mode": "dark",
+      "width": 320,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- main:\n  - region \"Public archive header\":\n    - heading \"Public archive\" [level=1]\n    - paragraph: \"Observed year: 2026 \u00b7 All sports\"\n    - navigation \"Select year\":\n      - button \"2026\"\n      - button \"2025\"\n    - link \"harus tracks home\":\n      - /url: /\n      - text: harus tracks by iroha\n    - group \"Color theme\":\n      - button \"Light\"\n      - button \"Dark\" [pressed]\n    - text: Live Updated 2026-08-14 iroha vdev\n  - region \"Distance\": Distance 12.50 km 2026 \u00b7 All sports\n  - region \"Activities\": Activities 1 2026 \u00b7 All sports\n  - region \"Running count\": Running count 1 2026 \u00b7 All running records runs in 2026\n  - region \"Total time\": Total time 1 h 02 min 2026 \u00b7 All sports\n  - region \"Cumulative distance\":\n    - text: Cumulative distance \u2014 2026 \u25b2 4.50 km ahead of 2025 at Aug\n    - img \"Cumulative distance for 2026\"\n    - group: View cumulative distance data\n  - region \"Monthly observations\":\n    - text: Monthly distance \u2014 2026\n    - img \"Monthly distance for 2026\"\n  - region \"Activities by sport\":\n    - text: 2026 by sport\n    - button \"Run 1\u00d7\"\n  - heading \"Routes & cities\" [level=2]\n  - paragraph: No routes recorded yet.\n  - heading \"Activities\" [level=2]\n  - region \"Activity records\":\n    - table:\n      - rowgroup:\n        - row \"Date \u25bc Activity Distance / Duration Pace / HR\":\n          - columnheader \"Date \u25bc\":\n            - button \"Date \u25bc\"\n          - columnheader \"Activity\":\n            - button \"Activity\"\n          - columnheader \"Distance / Duration\":\n            - button \"Distance / Duration\"\n          - columnheader \"Pace / HR\":\n            - button \"Pace / HR\"\n      - rowgroup:\n        - row \"2026-08-14 12:00:00 Run Synthetic run 2026 12.50 km 1:00 /km\":\n          - cell \"2026-08-14 12:00:00\":\n            - link \"2026-08-14 12:00:00\":\n              - /url: /?activity=synthetic-2026\n          - cell \"Run Synthetic run 2026\"\n          - cell \"12.50 km\"\n          - cell \"1:00 /km\"\n- contentinfo:\n  - text: harus tracks by iroha \u00b7 vdev Public projection of sanitized activity records \u00b7 private daily, sleep, and media details stay out of this view.\n  - link \"View source on GitHub\":\n    - /url: https://github.com/azusachino/iroha",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 13,
+        "clippedControls": [
+          {
+            "tag": "BUTTON",
+            "name": "Distance / Duration",
+            "width": 59.359375,
+            "height": 63,
+            "x": 377.515625,
+            "right": 436.875,
+            "clipped": true,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Pace / HR",
+            "width": 31.625,
+            "height": 42,
+            "x": 460.875,
+            "right": 492.5,
+            "clipped": true,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          }
+        ],
+        "smallControls": [
+          {
+            "tag": "BUTTON",
+            "name": "Date \u25bc",
+            "width": 49.421875,
+            "height": 21,
+            "x": 53,
+            "right": 102.421875,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Activity",
+            "width": 51.828125,
+            "height": 21,
+            "x": 225.546875,
+            "right": 277.375,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "A",
+            "name": "View source on GitHub",
+            "width": 142.09375,
+            "height": 19,
+            "x": 88.953125,
+            "right": 231.046875,
+            "clipped": false,
+            "fontSize": "13.6px",
+            "outline": "rgb(57, 197, 187) none 3px",
+            "disabled": false
+          }
+        ]
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "public dark 768",
+      "status": "passed",
+      "pilot": "public",
+      "mode": "dark",
+      "width": 768,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- main:\n  - region \"Public archive header\":\n    - heading \"Public archive\" [level=1]\n    - paragraph: \"Observed year: 2026 \u00b7 All sports\"\n    - navigation \"Select year\":\n      - button \"2026\"\n      - button \"2025\"\n    - link \"harus tracks home\":\n      - /url: /\n      - text: harus tracks by iroha\n    - group \"Color theme\":\n      - button \"Light\"\n      - button \"Dark\" [pressed]\n    - text: Live Updated 2026-08-14 iroha vdev\n  - region \"Distance\": Distance 12.50 km 2026 \u00b7 All sports\n  - region \"Activities\": Activities 1 2026 \u00b7 All sports\n  - region \"Running count\": Running count 1 2026 \u00b7 All running records runs in 2026\n  - region \"Total time\": Total time 1 h 02 min 2026 \u00b7 All sports\n  - region \"Cumulative distance\":\n    - text: Cumulative distance \u2014 2026 \u25b2 4.50 km ahead of 2025 at Aug\n    - img \"Cumulative distance for 2026\"\n    - group: View cumulative distance data\n  - region \"Monthly observations\":\n    - text: Monthly distance \u2014 2026\n    - img \"Monthly distance for 2026\"\n  - region \"Activities by sport\":\n    - text: 2026 by sport\n    - button \"Run 1\u00d7\"\n  - heading \"Routes & cities\" [level=2]\n  - paragraph: No routes recorded yet.\n  - heading \"Activities\" [level=2]\n  - region \"Activity records\":\n    - table:\n      - rowgroup:\n        - row \"Date \u25bc Activity Distance / Duration Pace / HR\":\n          - columnheader \"Date \u25bc\":\n            - button \"Date \u25bc\"\n          - columnheader \"Activity\":\n            - button \"Activity\"\n          - columnheader \"Distance / Duration\":\n            - button \"Distance / Duration\"\n          - columnheader \"Pace / HR\":\n            - button \"Pace / HR\"\n      - rowgroup:\n        - row \"2026-08-14 12:00:00 Run Synthetic run 2026 12.50 km 1:00 /km\":\n          - cell \"2026-08-14 12:00:00\":\n            - link \"2026-08-14 12:00:00\":\n              - /url: /?activity=synthetic-2026\n          - cell \"Run Synthetic run 2026\"\n          - cell \"12.50 km\"\n          - cell \"1:00 /km\"\n- contentinfo:\n  - text: harus tracks by iroha \u00b7 vdev Public projection of sanitized activity records \u00b7 private daily, sleep, and media details stay out of this view.\n  - link \"View source on GitHub\":\n    - /url: https://github.com/azusachino/iroha",
+      "measurement": {
+        "viewportWidth": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "mainCount": 1,
+        "unmeasuredText": 13,
+        "clippedControls": [],
+        "smallControls": [
+          {
+            "tag": "BUTTON",
+            "name": "Date \u25bc",
+            "width": 49.421875,
+            "height": 21,
+            "x": 53,
+            "right": 102.421875,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Activity",
+            "width": 51.828125,
+            "height": 21,
+            "x": 240.765625,
+            "right": 292.59375,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Distance / Duration",
+            "width": 130.90625,
+            "height": 21,
+            "x": 474.21875,
+            "right": 605.125,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Pace / HR",
+            "width": 64.40625,
+            "height": 21,
+            "x": 642.78125,
+            "right": 707.1875,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "A",
+            "name": "View source on GitHub",
+            "width": 142.09375,
+            "height": 19,
+            "x": 362.359375,
+            "right": 504.453125,
+            "clipped": false,
+            "fontSize": "13.6px",
+            "outline": "rgb(57, 197, 187) none 3px",
+            "disabled": false
+          }
+        ]
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "public dark 1280",
+      "status": "passed",
+      "pilot": "public",
+      "mode": "dark",
+      "width": 1280,
+      "errors": [],
+      "unknownRequests": [],
+      "aria": "- main:\n  - region \"Public archive header\":\n    - heading \"Public archive\" [level=1]\n    - paragraph: \"Observed year: 2026 \u00b7 All sports\"\n    - navigation \"Select year\":\n      - button \"2026\"\n      - button \"2025\"\n    - link \"harus tracks home\":\n      - /url: /\n      - text: harus tracks by iroha\n    - group \"Color theme\":\n      - button \"Light\"\n      - button \"Dark\" [pressed]\n    - text: Live Updated 2026-08-14 iroha vdev\n  - region \"Distance\": Distance 12.50 km 2026 \u00b7 All sports\n  - region \"Activities\": Activities 1 2026 \u00b7 All sports\n  - region \"Running count\": Running count 1 2026 \u00b7 All running records runs in 2026\n  - region \"Total time\": Total time 1 h 02 min 2026 \u00b7 All sports\n  - region \"Cumulative distance\":\n    - text: Cumulative distance \u2014 2026 \u25b2 4.50 km ahead of 2025 at Aug\n    - img \"Cumulative distance for 2026\"\n    - group: View cumulative distance data\n  - region \"Monthly observations\":\n    - text: Monthly distance \u2014 2026\n    - img \"Monthly distance for 2026\"\n  - region \"Activities by sport\":\n    - text: 2026 by sport\n    - button \"Run 1\u00d7\"\n  - heading \"Routes & cities\" [level=2]\n  - paragraph: No routes recorded yet.\n  - heading \"Activities\" [level=2]\n  - region \"Activity records\":\n    - table:\n      - rowgroup:\n        - row \"Date \u25bc Activity Distance / Duration Pace / HR\":\n          - columnheader \"Date \u25bc\":\n            - button \"Date \u25bc\"\n          - columnheader \"Activity\":\n            - button \"Activity\"\n          - columnheader \"Distance / Duration\":\n            - button \"Distance / Duration\"\n          - columnheader \"Pace / HR\":\n            - button \"Pace / HR\"\n      - rowgroup:\n        - row \"2026-08-14 12:00:00 Run Synthetic run 2026 12.50 km 1:00 /km\":\n          - cell \"2026-08-14 12:00:00\":\n            - link \"2026-08-14 12:00:00\":\n              - /url: /?activity=synthetic-2026\n          - cell \"Run Synthetic run 2026\"\n          - cell \"12.50 km\"\n          - cell \"1:00 /km\"\n- contentinfo:\n  - text: harus tracks by iroha \u00b7 vdev Public projection of sanitized activity records \u00b7 private daily, sleep, and media details stay out of this view.\n  - link \"View source on GitHub\":\n    - /url: https://github.com/azusachino/iroha",
+      "measurement": {
+        "viewportWidth": 1280,
+        "scrollWidth": 1280,
+        "bodyWidth": 1280,
+        "mainCount": 1,
+        "unmeasuredText": 13,
+        "clippedControls": [],
+        "smallControls": [
+          {
+            "tag": "BUTTON",
+            "name": "Date \u25bc",
+            "width": 49.421875,
+            "height": 21,
+            "x": 93,
+            "right": 142.421875,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Activity",
+            "width": 51.828125,
+            "height": 21,
+            "x": 399,
+            "right": 450.828125,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Distance / Duration",
+            "width": 130.90625,
+            "height": 21,
+            "x": 779.46875,
+            "right": 910.375,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Pace / HR",
+            "width": 64.40625,
+            "height": 21,
+            "x": 1054.1875,
+            "right": 1118.59375,
+            "clipped": false,
+            "fontSize": "14px",
+            "outline": "rgb(154, 163, 178) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "A",
+            "name": "View source on GitHub",
+            "width": 142.09375,
+            "height": 19,
+            "x": 977.953125,
+            "right": 1120.046875,
+            "clipped": false,
+            "fontSize": "13.6px",
+            "outline": "rgb(57, 197, 187) none 3px",
+            "disabled": false
+          }
+        ]
+      },
+      "domContrastCandidates": []
+    },
+    {
+      "title": "overview empty",
+      "status": "passed",
+      "pilot": "overview",
+      "scenario": "empty",
+      "errors": [],
+      "requests": [
+        "/api/v1/activities/overview?recent=5&timezone=Asia%2FTokyo",
+        "/api/v1/activities/routes",
+        "/api/v1/sleep/overview?recent=30",
+        "/api/v1/media/aggregates"
+      ],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Overview\":\n    - region \"Overview header\":\n      - heading \"Overview\" [level=1]\n      - paragraph: \"Mixed windows \u00b7 movement and library: all time \u00b7 sleep and activity: recent records\"\n      - link \"Open movement archive\":\n        - /url: /motion\n    - region \"Distance \u00b7 all time\": Distance \u00b7 all time 0 m All time Across recorded movement\n    - region \"Activity records\": Activity records 0 All time Imported movement sessions\n    - region \"Total movement time\": Total movement time 0 s All time Recorded duration\n    - region \"Main sleep \u00b7 recent\":\n      - text: Main sleep \u00b7 recent \u2014 Recent records (limit 30) No main sleep records in this window\n      - link \"Explore sleep\":\n        - /url: /night\n    - region \"Library items\":\n      - text: Library items 0 All time Collected and tracked items\n      - link \"Explore library\":\n        - /url: /library\n    - region \"Current activity streak\": Current activity streak 0 days Consecutive days ending today\n    - region \"Activity calendar\":\n      - region \"Activity through the year\":\n        - paragraph: Movement / daily density\n        - heading \"Activity through the year\" [level=2]\n        - paragraph: 0 active days \u00b7 0 activity records \u00b7 2025-10-04 to 2026-10-03\n        - text: Less More\n        - 'img \"Activity through the year, last 365 days ending 2026-10-03: 0 active days and 0 activity records. Scroll horizontally to explore every day.\"'\n    - region \"Monthly distance\":\n      - paragraph: Movement / distance\n      - heading \"Monthly distance\" [level=2]\n      - paragraph: Each point represents one calendar month.\n      - group \"Distance chart range\":\n        - 'button \"6M: Last 6 months\"': 6M\n        - 'button \"12M: Last 12 months\" [pressed]': 12M\n        - 'button \"24M: Last 24 months\"': 24M\n      - paragraph: No canonical movement periods yet.\n    - region \"By activity\":\n      - paragraph: Movement / composition\n      - heading \"By activity\" [level=2]\n      - link \"All records\":\n        - /url: /motion\n      - paragraph: No activity categories to compare yet.\n    - region \"Route footprint\":\n      - paragraph: Geography / privacy-trimmed\n      - heading \"Route footprint\" [level=2]\n      - text: 0 traces\n      - paragraph: No routes recorded yet.\n    - region \"Recent movement\":\n      - paragraph: Latest records \u00b7 up to 5\n      - heading \"Recent movement\" [level=2]\n      - link \"Browse archive\":\n        - /url: /motion\n      - paragraph: No movement records to show yet.\n    - text: \"Source: canonical activity summary \u00b7 every chart keeps its period and unit visible.\"\n  - region \"Across the archive\":\n    - paragraph: Across the archive\n    - paragraph: Every record has a place.\n    - text: All imported records, not only movement.\n    - link \"0 Activity sessions\":\n      - /url: /motion\n      - strong: \"0\"\n      - text: Activity sessions\n    - link \"0 Night sessions\":\n      - /url: /night\n      - strong: \"0\"\n      - text: Night sessions\n    - link \"0 Media items\":\n      - /url: /library\n      - strong: \"0\"\n      - text: Media items\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence."
+    },
+    {
+      "title": "overview error",
+      "status": "passed",
+      "pilot": "overview",
+      "scenario": "error",
+      "errors": [],
+      "requests": [
+        "/api/v1/activities/overview?recent=5&timezone=Asia%2FTokyo",
+        "/api/v1/activities/routes",
+        "/api/v1/sleep/overview?recent=30",
+        "/api/v1/media/aggregates"
+      ],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Overview\":\n    - region \"Overview header\":\n      - heading \"Overview\" [level=1]\n      - paragraph: \"Mixed windows \u00b7 movement and library: all time \u00b7 sleep and activity: recent records\"\n      - link \"Open movement archive\":\n        - /url: /motion\n    - alert:\n      - paragraph: \"request failed: 503 Service Unavailable (/api/v1/activities/overview?recent=5&timezone=Asia%2FTokyo)\"\n      - button \"Retry overview\"\n    - text: \"Source: canonical activity summary \u00b7 every chart keeps its period and unit visible.\"\n  - region \"Across the archive\":\n    - paragraph: Across the archive\n    - paragraph: Every record has a place.\n    - text: All imported records, not only movement.\n    - link \"\u2014 Activity sessions\":\n      - /url: /motion\n      - strong: \u2014\n      - text: Activity sessions\n    - link \"\u2014 Night sessions\":\n      - /url: /night\n      - strong: \u2014\n      - text: Night sessions\n    - link \"\u2014 Media items\":\n      - /url: /library\n      - strong: \u2014\n      - text: Media items\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence."
+    },
+    {
+      "title": "expenses empty",
+      "status": "passed",
+      "pilot": "expenses",
+      "scenario": "empty",
+      "errors": [],
+      "requests": [
+        "/api/v1/expenses?date=2026-08&timezone=Asia%2FTokyo&limit=100",
+        "/api/v1/metrics/expenses.amount_minor/series?from=2026-08-01&to=2026-09-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=currency%3AUSD&dimension=currency%3AEUR&dimension=currency%3AGBP",
+        "/api/v1/metrics/expenses.count/series?from=2026-08-01&to=2026-09-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=currency%3AUSD&dimension=currency%3AEUR&dimension=currency%3AGBP",
+        "/api/v1/expenses/bounds?timezone=Asia%2FTokyo",
+        "/api/v1/metrics/expenses.amount_minor/series?from=2026-08-01&to=2026-09-01&grain=day&timezone=Asia%2FTokyo&dimension=currency%3AJPY",
+        "/api/v1/metrics/expenses.amount_minor/series?from=2026-08-01&to=2026-09-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=category%3Afood&dimension=category%3Agroceries&dimension=category%3Atransport&dimension=category%3Ashopping&dimension=category%3Ahousing&dimension=category%3Autilities&dimension=category%3Ahealth&dimension=category%3Aentertainment&dimension=category%3Asubscriptions&dimension=category%3Awork&dimension=category%3Aother"
+      ],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Expenses header\":\n    - heading \"Expenses\" [level=1]\n    - paragraph: \"Observed period: 2026-08\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"All months\"\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Currency\n    - combobox \"Currency\":\n      - option \"All currencies\" [selected]\n      - option \"JPY\"\n      - option \"USD\"\n      - option \"EUR\"\n      - option \"GBP\"\n    - text: Category\n    - combobox \"Category\":\n      - option \"All categories\" [selected]\n      - option \"Food\"\n      - option \"Groceries\"\n      - option \"Transport\"\n      - option \"Shopping\"\n      - option \"Housing\"\n      - option \"Utilities\"\n      - option \"Health\"\n      - option \"Entertainment\"\n      - option \"Subscriptions\"\n      - option \"Work\"\n      - option \"Other\"\n    - button \"Refresh\"\n  - region \"Expense evidence\":\n    - region \"Spending \u00b7 JPY\": \"Spending \u00b7 JPY \u00a50 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 USD\": \"Spending \u00b7 USD $0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 EUR\": \"Spending \u00b7 EUR \u20ac0.00 Observed period: 2026-08 0 records\"\n    - region \"Spending \u00b7 GBP\": \"Spending \u00b7 GBP \u00a30.00 Observed period: 2026-08 0 records\"\n    - region \"Daily spend\":\n      - heading \"Daily spend \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Coverage\n      - definition: 0/1 periods\n      - term: Sources\n      - definition: synthetic\n      - group \"Daily spend view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\"\n    - region \"Spend by category\":\n      - heading \"Spend by category \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: synthetic.v1\n      - term: Sources\n      - definition: synthetic\n      - group \"Spend by category view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\" [disabled]\n    - region \"Canonical ledger\":\n      - region \"Expense records\":\n        - paragraph: Canonical records \u00b7 exact data\n        - heading \"Expense records\" [level=2]\n        - paragraph: Aggregations above explain 2026-08; this surface preserves every record.\n        - region \"Browse entries\":\n          - paragraph: Record index\n          - heading \"Browse entries\" [level=3]\n          - text: 0 of 0 shown\n          - button \"Export CSV\"\n          - paragraph: No canonical expenses match these filters.\n        - region:\n          - paragraph: Select an expense to inspect its canonical fields.\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence."
+    },
+    {
+      "title": "expenses error",
+      "status": "passed",
+      "pilot": "expenses",
+      "scenario": "error",
+      "errors": [],
+      "requests": [
+        "/api/v1/expenses?date=2026-08&timezone=Asia%2FTokyo&limit=100",
+        "/api/v1/metrics/expenses.amount_minor/series?from=2026-08-01&to=2026-09-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=currency%3AUSD&dimension=currency%3AEUR&dimension=currency%3AGBP",
+        "/api/v1/metrics/expenses.count/series?from=2026-08-01&to=2026-09-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=currency%3AUSD&dimension=currency%3AEUR&dimension=currency%3AGBP",
+        "/api/v1/expenses/bounds?timezone=Asia%2FTokyo"
+      ],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Expenses header\":\n    - heading \"Expenses\" [level=1]\n    - paragraph: Ledger period unavailable\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"All months\"\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Currency\n    - combobox \"Currency\":\n      - option \"All currencies\" [selected]\n      - option \"JPY\"\n      - option \"USD\"\n      - option \"EUR\"\n      - option \"GBP\"\n    - text: Category\n    - combobox \"Category\":\n      - option \"All categories\" [selected]\n      - option \"Food\"\n      - option \"Groceries\"\n      - option \"Transport\"\n      - option \"Shopping\"\n      - option \"Housing\"\n      - option \"Utilities\"\n      - option \"Health\"\n      - option \"Entertainment\"\n      - option \"Subscriptions\"\n      - option \"Work\"\n      - option \"Other\"\n    - button \"Refresh\"\n  - alert: \"request failed: 503 Service Unavailable (/api/v1/expenses?date=2026-08&timezone=Asia%2FTokyo&limit=100)\"\n  - region \"Expense evidence\":\n    - region \"Daily spend\":\n      - heading \"Daily spend \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: expenses.sum_active.v1\n      - group \"Daily spend view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\" [disabled]\n    - region \"Spend by category\":\n      - heading \"Spend by category \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: expenses.sum_active.v1\n      - group \"Spend by category view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\" [disabled]\n    - region \"Canonical ledger\":\n      - region \"Expense records\":\n        - paragraph: Canonical records \u00b7 exact data\n        - heading \"Expense records\" [level=2]\n        - paragraph: Aggregations above explain 2026-08; this surface preserves every record.\n        - region \"Browse entries\":\n          - paragraph: Record index\n          - heading \"Browse entries\" [level=3]\n          - text: 0 of 0 shown\n          - button \"Export CSV\"\n          - paragraph: No canonical expenses match these filters.\n        - region:\n          - paragraph: Select an expense to inspect its canonical fields.\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence."
+    },
+    {
+      "title": "metrics empty",
+      "status": "passed",
+      "pilot": "metrics",
+      "scenario": "empty",
+      "errors": [],
+      "requests": [
+        "/api/v1/metrics",
+        "/api/v1/metrics/daily.steps/series?from=2025-09-01&to=2026-09-01&grain=month&timezone=Asia%2FTokyo",
+        "/api/v1/daily/bounds?timezone=Asia%2FTokyo"
+      ],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Metrics header\":\n    - heading \"Metrics\" [level=1]\n    - paragraph: \"Observed window: 2025-09-01\u20132026-09-01 (end exclusive)\"\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Metric\n    - combobox \"Metric\":\n      - option \"daily \u00b7 Steps\" [selected]\n  - region \"Metric observations\":\n    - status:\n      - paragraph: No observations\n      - heading \"No steps values in this window.\" [level=2]\n      - paragraph: The 12-month window ending 2026-08 has no recorded values. The explicit selection remains unchanged.\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.\n- text: Metrics \u00b7 iroha"
+    },
+    {
+      "title": "metrics error",
+      "status": "passed",
+      "pilot": "metrics",
+      "scenario": "error",
+      "errors": [],
+      "requests": ["/api/v1/metrics"],
+      "unknownRequests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - paragraph: Private workspace\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group: Synthetic owner\n- main:\n  - region \"Metrics header\":\n    - heading \"Metrics\" [level=1]\n    - paragraph: Select a metric and its required dimensions\n    - text: Year\n    - combobox \"Filter by year\"\n    - text: Month\n    - combobox \"Filter by month\"\n    - text: Metric\n    - combobox \"Metric\"\n  - alert:\n    - paragraph: \"request failed: 503 Service Unavailable (/api/v1/metrics)\"\n    - button \"Try again\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence."
+    },
+    {
+      "title": "public empty",
+      "status": "passed",
+      "pilot": "public",
+      "scenario": "empty",
+      "errors": [],
+      "requests": [],
+      "unknownRequests": [],
+      "aria": "- status: Loading public activity data\u2026"
+    },
+    {
+      "title": "public error",
+      "status": "passed",
+      "pilot": "public",
+      "scenario": "error",
+      "errors": [],
+      "requests": [],
+      "unknownRequests": [],
+      "aria": "- status: Loading public activity data\u2026"
+    },
+    {
+      "title": "scope controls exercise real request changes",
+      "status": "passed"
+    },
+    {
+      "title": "Metrics changes its rolling window, not a fabricated lifetime scope",
+      "status": "passed"
+    },
+    {
+      "title": "public year changes keep prior-year chart lifecycle observable",
+      "status": "passed"
+    }
+  ],
+  "supplementary": [
+    {
+      "route": "/",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [
+        "/api/v1/briefing?date=2026-10-03&timezone=Asia%2FTokyo",
+        "/api/v1/tasks?status=open&due=2026-10-03&limit=5",
+        "/api/v1/daily/dates?timezone=Asia%2FTokyo"
+      ],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - heading \"Today, 2026-10-03\" [level=1]\n  - button \"Previous day\": \u2039\n  - button \"2026-10-03 pick a day \u00b7 \u2190 \u2192 to move\"\n  - button \"Next day\" [disabled]: \u203a\n  - alert: \"Could not load data: request failed: 503 Service Unavailable (/api/v1/briefing?date=2026-10-03&timezone=Asia%2FTokyo)\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 1,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/patterns",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [
+        "/api/v1/daily/aggregates?granularity=month&date=2026&timezone=Asia%2FTokyo",
+        "/api/v1/daily?limit=1",
+        "/api/v1/daily/bounds?timezone=Asia%2FTokyo"
+      ],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - alert: \"Could not load daily data: request failed: 503 Service Unavailable (/api/v1/daily/aggregates?granularity=month&date=2026&timezone=Asia%2FTokyo)\"\n  - region \"How does the pattern move?\":\n    - paragraph: Patterns / time series\n    - heading \"How does the pattern move?\" [level=1]\n    - paragraph: Choose a time scale, compare the signals, and inspect the underlying periods.\n    - region \"Daily period\":\n      - text: Period\n      - strong: Daily pattern scope\n      - text: Year\n      - combobox \"Filter by year\":\n        - option \"2026\" [selected]\n        - option \"2025\"\n      - text: Month\n      - combobox \"Filter by month\":\n        - option \"All months\" [selected]\n        - option \"2026-09\"\n        - option \"2026-08\"\n        - option \"2026-07\"\n        - option \"2026-06\"\n        - option \"2026-05\"\n        - option \"2026-04\"\n        - option \"2026-03\"\n        - option \"2026-02\"\n        - option \"2026-01\"\n    - text: Aggregation\n    - button \"day\"\n    - button \"month\"\n    - button \"year\"\n    - text: 0 periods\n    - region \"Steps over time\":\n      - paragraph: Primary series\n      - heading \"Steps over time\" [level=2]\n      - img \"Steps chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - paragraph: Use a bar or the period table to zoom in.\n    - region \"Compare signals\":\n      - paragraph: Underlying periods\n      - heading \"Compare signals\" [level=2]\n      - text: \u2014 means no source value\n      - table:\n        - rowgroup:\n          - row \"Period Steps Distance Resting HR HRV Move\":\n            - columnheader \"Period\"\n            - columnheader \"Steps\"\n            - columnheader \"Distance\"\n            - columnheader \"Resting HR\"\n            - columnheader \"HRV\"\n            - columnheader \"Move\"\n        - rowgroup\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 444,
+        "mainCount": 1,
+        "unmeasuredText": 0,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/motion",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [
+        "/api/v1/activities?date=2026&limit=24&timezone=Asia%2FTokyo",
+        "/api/v1/activities/summary?date=2026&timezone=Asia%2FTokyo",
+        "/api/v1/activities/bounds?timezone=Asia%2FTokyo"
+      ],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - region \"The movement record.\":\n    - paragraph: Activity data / public-style table\n    - heading \"The movement record.\" [level=1]\n    - paragraph: Filter the imported sessions, then compare the same fields row by row.\n    - region \"Motion period\":\n      - text: Period\n      - strong: Motion archive scope\n      - text: Year\n      - combobox \"Filter by year\":\n        - option \"Lifetime\"\n        - option \"2026\" [selected]\n        - option \"2025\"\n      - text: Month\n      - combobox \"Filter by month\":\n        - option \"All months\" [selected]\n        - option \"2026-09\"\n        - option \"2026-08\"\n        - option \"2026-07\"\n        - option \"2026-06\"\n        - option \"2026-05\"\n        - option \"2026-04\"\n        - option \"2026-03\"\n        - option \"2026-02\"\n        - option \"2026-01\"\n    - text: Sport\n    - combobox \"Sport\":\n      - option \"All sports\" [selected]\n    - region \"Movement over time\":\n      - paragraph: Canonical movement series\n      - heading \"Movement over time\" [level=2]\n      - paragraph: Server-aggregated distance, grouped by period \u00b7 2026. Missing periods remain empty.\n      - paragraph: No movement series is available for this scope.\n    - text: Sessions\n    - strong: \"0\"\n    - text: Distance\n    - strong: 0 m\n    - text: Moving time\n    - strong: 0:00\n    - paragraph: \"Could not load activity data: request failed: 503 Service Unavailable (/api/v1/activities?date=2026&limit=24&timezone=Asia%2FTokyo)\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.\n- text: Motion \u00b7 iroha",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 368,
+        "mainCount": 1,
+        "unmeasuredText": 1,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/motion/synthetic",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [
+        "/api/v1/activities/synthetic",
+        "/api/v1/activities/synthetic/route",
+        "/api/v1/activities/synthetic/samplings?type=heart_rate",
+        "/api/v1/activities/synthetic/laps"
+      ],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - paragraph: \"Failed to load activity: request failed: 503 Service Unavailable (/api/v1/activities/synthetic)\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 0,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/night",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [
+        "/api/v1/sleep/aggregates?granularity=year&timezone=Asia%2FTokyo",
+        "/api/v1/sleep/aggregates?granularity=month&timezone=Asia%2FTokyo",
+        "/api/v1/sleep/aggregates?granularity=lifetime&timezone=Asia%2FTokyo",
+        "/api/v1/sleep/bounds?timezone=Asia%2FTokyo",
+        "/api/v1/sleep?date=2026&limit=31&timezone=Asia%2FTokyo"
+      ],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - alert: \"Sleep could not be loaded: request failed: 503 Service Unavailable (/api/v1/sleep?date=2026&limit=31&timezone=Asia%2FTokyo)\"\n  - region \"How did the night unfold?\":\n    - paragraph: Night data / recovery series\n    - heading \"How did the night unfold?\" [level=1]\n    - paragraph: Compare recorded nights as a time series, then inspect one session without turning it into a score.\n    - region \"Sleep period\":\n      - text: Period\n      - strong: Sleep history scope\n      - text: Year\n      - combobox \"Filter by year\":\n        - option \"Lifetime\"\n      - text: Month\n      - combobox \"Filter by month\":\n        - option \"All months\" [selected]\n    - region \"Sleep totals for 2026\":\n      - paragraph: Canonical sleep totals\n      - heading \"2026\" [level=2]\n      - text: Rollup owned by Iroha Total sessions\n      - strong: \u2014\n      - text: Main sleep\n      - strong: \u2014\n      - text: Naps\n      - strong: \u2014\n      - text: Wake dates\n      - strong: \u2014\n      - text: Main sleep Nap\n    - text: Recorded sessions\n    - strong: \"0\"\n    - text: Average asleep\n    - strong: 0:00\n    - text: Average efficiency\n    - strong: 0%\n    - region \"Asleep time by night\":\n      - paragraph: Observed sessions\n      - heading \"Asleep time by night\" [level=2]\n      - text: Newest first\n      - img \"Asleep chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n    - region \"Night by night\":\n      - paragraph: Session records\n      - heading \"Night by night\" [level=2]\n      - text: Imported values\n      - table:\n        - rowgroup:\n          - row \"Date Asleep In bed Efficiency Type\":\n            - columnheader \"Date\"\n            - columnheader \"Asleep\"\n            - columnheader \"In bed\"\n            - columnheader \"Efficiency\"\n            - columnheader \"Type\"\n        - rowgroup\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 368,
+        "mainCount": 1,
+        "unmeasuredText": 0,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/night/synthetic",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [
+        "/api/v1/sleep/synthetic",
+        "/api/v1/sleep/synthetic/segments"
+      ],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - paragraph: Night / detail\n  - heading \"Night detail\" [level=1]\n  - paragraph: A close look at this recorded sleep session, its stage architecture, and every observed interval.\n  - link \"Back to Night\":\n    - /url: /night\n  - paragraph: \"Night could not be loaded: request failed: 503 Service Unavailable (/api/v1/sleep/synthetic)\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 0,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/library",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": ["/api/v1/media/aggregates", "/api/v1/media?limit=100"],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - paragraph: \"Failed to load media: request failed: 503 Service Unavailable (/api/v1/media/aggregates)\"\n  - region \"The attention record.\":\n    - paragraph: Library / distributions\n    - heading \"The attention record.\" [level=1]\n    - paragraph: Compare completion, score, and kind before opening the exact shelf rows.\n    - strong: 0 titles\n    - navigation \"Media family\":\n      - button \"All\"\n      - button \"Anime\"\n      - button \"Manga & light novels\"\n      - button \"Books\"\n      - button \"Games\"\n    - text: Status\n    - combobox \"Status\":\n      - option \"All statuses\" [selected]\n      - option \"In progress\"\n      - option \"Completed\"\n      - option \"Planned\"\n      - option \"Abandoned\"\n    - text: Completed year\n    - combobox \"Completed year\":\n      - option \"Lifetime\" [selected]\n    - article:\n      - paragraph: Time\n      - heading \"Completions by year\" [level=2]\n      - paragraph: No completion records.\n    - article:\n      - paragraph: Score\n      - heading \"Score distribution\" [level=2]\n      - paragraph: No ratings recorded.\n    - article:\n      - paragraph: Composition\n      - heading \"By kind\" [level=2]\n      - paragraph: No kind breakdown.\n    - text: Completed\n    - strong: \"0\"\n    - text: This year\n    - strong: \"0\"\n    - text: Average score\n    - strong: \u2014\n    - text: In progress\n    - strong: \"0\"\n    - paragraph: Exact records\n    - heading \"0 visible titles\" [level=2]\n    - text: Chart values stay above the rows.\n    - paragraph: No titles match this selection.\n    - text: \"0 completion periods \u00b7 0 score buckets \u00b7 source: imported provider records\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 0,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/library/synthetic",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": ["/api/v1/media/synthetic"],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - paragraph:\n    - link \"\u2190 Back to Library\":\n      - /url: /library\n  - paragraph: \"Failed to load item: request failed: 503 Service Unavailable (/api/v1/media/synthetic)\"\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 0,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/reports?date=2026-08",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [
+        "/api/v1/reports/monthly-series?date=2026-08&months=12&timezone=Asia%2FTokyo",
+        "/api/v1/daily/bounds?timezone=Asia%2FTokyo"
+      ],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - paragraph: Monthly cockpit\n  - heading \"Reports\" [level=1]\n  - paragraph: A server-generated monthly view across canonical Iroha domains. Charts use the metric-series contract; details retain the report envelope and provenance.\n  - button \"Refresh\"\n  - region \"Report period\":\n    - text: Period\n    - strong: Monthly cross-domain report\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n  - alert: \"request failed: 503 Service Unavailable (/api/v1/reports/monthly-series?date=2026-08&months=12&timezone=Asia%2FTokyo)\"\n  - region \"Twelve-month trends\":\n    - paragraph: Canonical comparison \u00b7 twelve months\n    - heading \"Twelve-month trends\" [level=2]\n    - paragraph: Monthly points are aggregated by the server. Calendar closure and source coverage are separate; months with no canonical records stay out of the plot.\n    - paragraph: No canonical records are available in this trend window.\n  - region \"Compare the canonical signals.\":\n    - paragraph: Monthly comparison / 2026-08\n    - heading \"Compare the canonical signals.\" [level=2]\n    - paragraph: Every chart exposes its unit, coverage, table parity, and source method.\n    - text: 2026-08-01 \u2192 2026-09-01 Canonical coverage calendar \u00b7 partial observations \u00b7 empty collection \u00b7 unknown movement \u00b7 No records sleep \u00b7 No records health \u00b7 No records media \u00b7 No records expenses \u00b7 No records\n    - article \"Observation coverage\":\n      - paragraph: Daily health\n      - heading \"Observation coverage\" [level=3]\n      - text: No records\n      - paragraph: No canonical daily-health observations.\n    - article \"Category comparison\":\n      - paragraph: Expenses\n      - heading \"Category comparison\" [level=3]\n      - text: No records\n      - paragraph: No canonical expenses in JPY.\n    - article \"Distance by sport\":\n      - paragraph: Movement\n      - heading \"Distance by sport\" [level=3]\n      - text: No records\n      - paragraph: No canonical movement records.\n    - article \"Stage composition\":\n      - paragraph: Sleep\n      - heading \"Stage composition\" [level=3]\n      - text: No records\n      - paragraph: No canonical sleep records.\n    - article \"Events and completions\":\n      - paragraph: Media\n      - heading \"Events and completions\" [level=3]\n      - text: No records\n      - paragraph: No canonical media events.\n    - region \"The comparison remains auditable.\":\n      - paragraph: Exact evidence\n      - heading \"The comparison remains auditable.\" [level=3]\n      - text: 0 rows\n      - region \"Exact evidence\":\n        - list\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 329,
+        "mainCount": 1,
+        "unmeasuredText": 0,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/manual",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - paragraph: Iroha manual\n  - heading \"How to read your world.\" [level=1]\n  - paragraph: Iroha is a personal data cockpit. It keeps the canonical record in one place, then gives each question a visual language, a period, and a path back to exact evidence.\n  - region \"Iroha principles\":\n    - article:\n      - text: \"01\"\n      - heading \"Canonical first\" [level=2]\n      - paragraph: Every source is normalized into Iroha records with canonical dates, units, and provenance.\n    - article:\n      - text: \"02\"\n      - heading \"Chart first\" [level=2]\n      - paragraph: A visual answers the page question before the exact ledger and export details.\n    - article:\n      - text: \"03\"\n      - heading \"Evidence below\" [level=2]\n      - paragraph: Rows, intervals, source brands, and raw references remain available for verification.\n    - article:\n      - text: \"04\"\n      - heading \"Gaps are data\" [level=2]\n      - paragraph: Unknown, unavailable, and zero are different states and are rendered differently.\n  - region \"One record, four views.\":\n    - paragraph: The reading order\n    - heading \"One record, four views.\" [level=2]\n    - paragraph: The same canonical data may be collected from Apple Health, Garmin, a file import, or an API call. The source changes; the cockpit contract does not.\n    - article:\n      - text: \"01\"\n      - strong: Source\n      - paragraph: Imported evidence and its original provider.\n    - article:\n      - text: \"02\"\n      - strong: Record\n      - paragraph: Canonical date, units, category, and provenance.\n    - article:\n      - text: \"03\"\n      - strong: Chart\n      - paragraph: Aggregation and comparison answer the page question.\n    - article:\n      - text: \"04\"\n      - strong: Evidence\n      - paragraph: Click the line, date, or row for the exact detail.\n  - region \"Every page has one job.\":\n    - paragraph: Page map\n    - heading \"Every page has one job.\" [level=2]\n    - paragraph: Use the chart to orient yourself, then open the record when you need to verify it.\n    - link \"Today What did today contain? Daily signal, rings, and a chronological cross-domain read. A date-level cockpit linking movement, night, health, and media. Default scope Current day\":\n      - /url: /\n      - text: Today\n      - heading \"What did today contain?\" [level=3]\n      - paragraph: Daily signal, rings, and a chronological cross-domain read.\n      - paragraph: A date-level cockpit linking movement, night, health, and media.\n      - text: Default scope Current day\n    - link \"Overview What is the latest shape of my data? Cross-domain headline cards and the latest meaningful records. A doorway into domains, not a second data store or a scorecard. Default scope Latest available day\":\n      - /url: /overview\n      - text: Overview\n      - heading \"What is the latest shape of my data?\" [level=3]\n      - paragraph: Cross-domain headline cards and the latest meaningful records.\n      - paragraph: A doorway into domains, not a second data store or a scorecard.\n      - text: Default scope Latest available day\n    - link \"Motion How did I move, and how is it changing? Activity totals, trend comparison, and an ECharts metric view. Rows open on click to route, laps, source, and exact activity facts. Default scope current year \u00b7 all months\":\n      - /url: /motion\n      - text: Motion\n      - heading \"How did I move, and how is it changing?\" [level=3]\n      - paragraph: Activity totals, trend comparison, and an ECharts metric view.\n      - paragraph: Rows open on click to route, laps, source, and exact activity facts.\n      - text: Default scope current year \u00b7 all months\n    - link \"Night How did the night unfold? Sleep architecture, monthly comparison, and stage composition. Click any row or date to inspect every canonical sleep-stage interval. Default scope current year \u00b7 all months\":\n      - /url: /night\n      - text: Night\n      - heading \"How did the night unfold?\" [level=3]\n      - paragraph: Sleep architecture, monthly comparison, and stage composition.\n      - paragraph: Click any row or date to inspect every canonical sleep-stage interval.\n      - text: Default scope current year \u00b7 all months\n    - link \"Library What have I collected and returned to? Collection coverage, progress, and history across media types. A lifetime catalogue with item-level history and provenance. Default scope lifetime\":\n      - /url: /library\n      - text: Library\n      - heading \"What have I collected and returned to?\" [level=3]\n      - paragraph: Collection coverage, progress, and history across media types.\n      - paragraph: A lifetime catalogue with item-level history and provenance.\n      - text: Default scope lifetime\n    - link \"Expenses Where did the month go? Category color, daily flow, currency totals, and monthly comparison. The canonical expense ledger is read-only here; mutations use the API. Default scope current year \u00b7 current month\":\n      - /url: /expenses\n      - text: Expenses\n      - heading \"Where did the month go?\" [level=3]\n      - paragraph: Category color, daily flow, currency totals, and monthly comparison.\n      - paragraph: The canonical expense ledger is read-only here; mutations use the API.\n      - text: Default scope current year \u00b7 current month\n    - link \"Patterns What repeats across my days? Small multiples, rings, and daily/monthly/yearly aggregation. Missing observations stay missing; a gap is not silently turned into zero. Default scope current year \u00b7 all months\":\n      - /url: /patterns\n      - text: Patterns\n      - heading \"What repeats across my days?\" [level=3]\n      - paragraph: Small multiples, rings, and daily/monthly/yearly aggregation.\n      - paragraph: Missing observations stay missing; a gap is not silently turned into zero.\n      - text: Default scope current year \u00b7 all months\n    - 'link \"Reports What changed this month? Comparison first: trend, incline/decline, and domain charts. The exact rows and provenance sit below the visual summary. Default scope current year \u00b7 current month\"':\n      - /url: /reports\n      - text: Reports\n      - heading \"What changed this month?\" [level=3]\n      - paragraph: \"Comparison first: trend, incline/decline, and domain charts.\"\n      - paragraph: The exact rows and provenance sit below the visual summary.\n      - text: Default scope current year \u00b7 current month\n    - link \"Metrics How do I inspect one metric precisely? Metric series, comparison, annotations, and exportable values. A catalog explorer for canonical and derived metrics with units intact. Default scope current year \u00b7 current month\":\n      - /url: /metrics\n      - text: Metrics\n      - heading \"How do I inspect one metric precisely?\" [level=3]\n      - paragraph: Metric series, comparison, annotations, and exportable values.\n      - paragraph: A catalog explorer for canonical and derived metrics with units intact.\n      - text: Default scope current year \u00b7 current month\n    - link \"To-go What needs attention next? Tasks and background work, separate from domain evidence. Operational convenience; it does not own personal domain records. Default scope No period\":\n      - /url: /to-go\n      - text: To-go\n      - heading \"What needs attention next?\" [level=3]\n      - paragraph: Tasks and background work, separate from domain evidence.\n      - paragraph: Operational convenience; it does not own personal domain records.\n      - text: Default scope No period\n    - link \"Admin Is the cockpit healthy and what is it doing? Health, metric catalog, and grouped execution kinds. Read-only operations view; repeated executions are summarized by kind. Default scope No period\":\n      - /url: /admin\n      - text: Admin\n      - heading \"Is the cockpit healthy and what is it doing?\" [level=3]\n      - paragraph: Health, metric catalog, and grouped execution kinds.\n      - paragraph: Read-only operations view; repeated executions are summarized by kind.\n      - text: Default scope No period\n  - region \"The cockpit should feel predictable.\":\n    - paragraph: Interaction contract\n    - heading \"The cockpit should feel predictable.\" [level=2]\n    - article:\n      - strong: Click the visual row\n      - paragraph: Lines, dates, bars, and ledger rows open their detail. A separate \u201cdetail\u201d button is unnecessary chrome.\n    - article:\n      - strong: Use \u2190 \u2192\n      - paragraph: Move to the previous or next canonical day or month without reopening the picker.\n    - article:\n      - strong: Read the URL\n      - paragraph: Period and filter state are canonical query parameters, so refresh and sharing preserve the view.\n    - article:\n      - strong: Trust the badge\n      - paragraph: Provider brands are mapped from source identifiers; the raw source remains available as provenance.\n  - text: Canonical dates use\n  - code: yyyy-MM\n  - text: for periods and\n  - code: yyyy-MM-dd\n  - text: for days.\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 0,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/to-go",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [
+        "/api/v1/tasks?limit=100",
+        "/api/v1/jobs?kind=media_sync_anilist%2Cmedia_sync_bangumi%2Cmedia_bridge_refresh&limit=30"
+      ],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - paragraph: Personal control room\n  - heading \"What should happen next?\" [level=1]\n  - paragraph: Keep today\u2019s small intentions close, and start background work without leaving the cockpit.\n  - text: iroha vdev\n  - alert: \"request failed: 503 Service Unavailable (/api/v1/tasks?limit=100)\"\n  - region \"To-go list\":\n    - paragraph: Today\n    - heading \"To-go list\" [level=2]\n    - text: 0 open\n    - textbox \"New task\":\n      - /placeholder: Add a small task\u2026\n    - textbox \"Task due date\": 2026-10-03\n    - spinbutton \"Task priority\": \"0\"\n    - button \"Add\" [disabled]\n    - textbox \"Task notes\":\n      - /placeholder: Context or next step (optional)\u2026\n    - paragraph: Nothing pressing. Add one thing worth carrying.\n  - region \"Start background work\":\n    - paragraph: Actions\n    - heading \"Start background work\" [level=2]\n    - paragraph: These use the durable worker queue and can be safely followed below.\n    - button \"AniList Refresh anime and manga\":\n      - strong: AniList\n      - text: Refresh anime and manga\n    - button \"Bangumi Refresh the Chinese catalog\":\n      - strong: Bangumi\n      - text: Refresh the Chinese catalog\n    - button \"Media bridge Re-fetch the Bangumi/AniList crosswalk\":\n      - strong: Media bridge\n      - text: Re-fetch the Bangumi/AniList crosswalk\n  - region \"Recent syncs\":\n    - paragraph: System work\n    - heading \"Recent syncs\" [level=2]\n    - button \"Refresh jobs\"\n    - paragraph: Only the actions above are shown here. Their importer jobs stay out of this personal control room.\n    - paragraph: No jobs have run yet.\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 1,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/admin",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": ["/api/v1/admin/system", "/api/v1/metrics"],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - paragraph: Operations\n  - heading \"Admin\" [level=1]\n  - paragraph: System state, data sources, background jobs, imports, and intake tokens.\n  - tablist \"Admin sections\":\n    - tab \"System\" [selected]\n    - tab \"Sources\"\n    - tab \"Jobs\"\n    - tab \"Imports\"\n    - tab \"Intake tokens\"\n  - tabpanel \"System\":\n    - region \"System\":\n      - heading \"System\" [level=2]\n      - text: What this deployment is running.\n      - button \"Refresh\"\n      - alert: \"API unavailable: request failed: 503 Service Unavailable (/api/v1/admin/system)\"\n    - region \"Metric catalog\":\n      - heading \"Metric catalog\" [level=2]\n      - text: Canonical and derived values the cockpit reads. 0 total\n      - paragraph: The metric catalog could not be loaded.\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 0,
+        "clippedControls": [
+          {
+            "tag": "BUTTON",
+            "name": "Imports",
+            "width": 79.15625,
+            "height": 41.59375,
+            "x": 248.390625,
+            "right": 327.546875,
+            "clipped": true,
+            "fontSize": "14.4px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          },
+          {
+            "tag": "BUTTON",
+            "name": "Intake tokens",
+            "width": 115.515625,
+            "height": 41.59375,
+            "x": 331.546875,
+            "right": 447.0625,
+            "clipped": true,
+            "fontSize": "14.4px",
+            "outline": "rgb(91, 100, 114) none 3px",
+            "disabled": false
+          }
+        ],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    },
+    {
+      "route": "/expenses?date=2026-08",
+      "scenario": "first-failure",
+      "errors": [],
+      "requests": [
+        "/api/v1/expenses?date=2026-08&timezone=Asia%2FTokyo&limit=100",
+        "/api/v1/metrics/expenses.amount_minor/series?from=2026-08-01&to=2026-09-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=currency%3AUSD&dimension=currency%3AEUR&dimension=currency%3AGBP",
+        "/api/v1/metrics/expenses.count/series?from=2026-08-01&to=2026-09-01&grain=month&timezone=Asia%2FTokyo&dimension=currency%3AJPY&dimension=currency%3AUSD&dimension=currency%3AEUR&dimension=currency%3AGBP",
+        "/api/v1/expenses/bounds?timezone=Asia%2FTokyo"
+      ],
+      "aria": "- link \"Skip to main content\":\n  - /url: \"#main-content\"\n- banner:\n  - link \"iroha \u2014 sound and flower\":\n    - /url: /\n    - text: iroha vdev\n  - navigation \"Primary navigation\":\n    - link \"Today\":\n      - /url: /\n    - link \"Overview\":\n      - /url: /overview\n    - group: Domains\n    - group: Analyze\n    - group: More\n  - button \"Open command palette\": Command \u2318K\n  - button \"Switch to dark theme\"\n  - group\n- main:\n  - region \"Expenses header\":\n    - heading \"Expenses\" [level=1]\n    - paragraph: Ledger period unavailable\n    - text: Year\n    - combobox \"Filter by year\":\n      - option \"2026\" [selected]\n      - option \"2025\"\n    - text: Month\n    - combobox \"Filter by month\":\n      - option \"All months\"\n      - option \"2026-09\"\n      - option \"2026-08\" [selected]\n      - option \"2026-07\"\n      - option \"2026-06\"\n      - option \"2026-05\"\n      - option \"2026-04\"\n      - option \"2026-03\"\n      - option \"2026-02\"\n      - option \"2026-01\"\n    - text: Currency\n    - combobox \"Currency\":\n      - option \"All currencies\" [selected]\n      - option \"JPY\"\n      - option \"USD\"\n      - option \"EUR\"\n      - option \"GBP\"\n    - text: Category\n    - combobox \"Category\":\n      - option \"All categories\" [selected]\n      - option \"Food\"\n      - option \"Groceries\"\n      - option \"Transport\"\n      - option \"Shopping\"\n      - option \"Housing\"\n      - option \"Utilities\"\n      - option \"Health\"\n      - option \"Entertainment\"\n      - option \"Subscriptions\"\n      - option \"Work\"\n      - option \"Other\"\n    - button \"Refresh\"\n  - alert: \"request failed: 503 Service Unavailable (/api/v1/expenses?date=2026-08&timezone=Asia%2FTokyo&limit=100)\"\n  - region \"Expense evidence\":\n    - region \"Daily spend\":\n      - heading \"Daily spend \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: expenses.sum_active.v1\n      - group \"Daily spend view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\" [disabled]\n    - region \"Spend by category\":\n      - heading \"Spend by category \u00b7 JPY\" [level=2]\n      - img \"JPY chart. Exact values are available in the chart data table.\"\n      - group: View chart data\n      - term: Unit\n      - definition: JPY minor\n      - term: Method\n      - definition: expenses.sum_active.v1\n      - group \"Spend by category view\":\n        - button \"Chart\" [pressed]\n        - button \"Table\"\n        - button \"CSV\" [disabled]\n    - region \"Canonical ledger\":\n      - region \"Expense records\":\n        - paragraph: Canonical records \u00b7 exact data\n        - heading \"Expense records\" [level=2]\n        - paragraph: Aggregations above explain 2026-08; this surface preserves every record.\n        - region \"Browse entries\":\n          - paragraph: Record index\n          - heading \"Browse entries\" [level=3]\n          - text: 0 of 0 shown\n          - button \"Export CSV\"\n          - paragraph: No canonical expenses match these filters.\n        - region:\n          - paragraph: Select an expense to inspect its canonical fields.\n- contentinfo: iroha / personal data archive Every value remains traceable to imported evidence.",
+      "measurement": {
+        "viewportWidth": 320,
+        "scrollWidth": 320,
+        "bodyWidth": 320,
+        "mainCount": 1,
+        "unmeasuredText": 2,
+        "clippedControls": [],
+        "domContrastCandidates": []
+      },
+      "status": "passed"
+    }
+  ]
+}
