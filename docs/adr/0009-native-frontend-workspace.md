@@ -17,6 +17,9 @@ errors. A repository-scoped test root measured every shared source, but isolated
 The owner approved a native workspace, initially considering pnpm, then explicitly chose to retain Bun. All project tools should follow LTS where available, otherwise stable releases, rather than exact
 version pins. The package layout caused the measured failure; replacing the manager was unnecessary.
 
+PR118's first CI run failed before tests: the bare Python3 request selected Ubuntu's installed3.12.3, incompatible with the existing project minimum3.14. Local machines already had compatible
+interpreters, so local checks missed that selection failure.
+
 ## Decision
 
 - Use one native Bun workspace and root `bun.lock` for both frontend hosts and shared UI. Install once with a frozen lockfile. Each host declares the shared package with `workspace:*`.
@@ -24,7 +27,7 @@ version pins. The package layout caused the measured failure; replacing the mana
   the established Vitest V8 coverage requires Node's V8 engine, not Bun's JavaScriptCore. Do not force those tests through `bun --bun`.
 - Make shared Svelte usage a peer dependency. The root supplies Svelte for repository-scoped tests; all consumers must resolve the same physical runtime. Preserve the shared ECharts registry contract.
 - Retain the repository-scoped coverage root so never-imported shared TS/Svelte files are transformed. Remove the custom Svelte resolver; require a complete filesystem-to-report inventory after tests.
-- Use Node `lts` and other mise tools `latest`. uv selects stable Python3, subject to the project minimum. Container build tools follow equivalent LTS/stable tags. Application dependencies remain locked;
+- Use Node `lts` and other mise tools `latest`. uv selects stable Python through a `>=3.14` request that enforces the existing project minimum without an exact pin. Container build tools follow equivalent LTS/stable tags. Application dependencies remain locked;
   runtime service images and Go language/dependency requirements are not tool selectors and are unchanged.
 - Validate local-check executables against mise's selection. Keys contain actual paths and versions, not floating selector strings. CI's native Go cache also includes the resolved Go version.
 - Keep coverage floors, browser retries/assertions and deployment/privacy boundaries unchanged. This does not authorize publication, rollout or live migrations.

@@ -17,7 +17,7 @@ mise install
 ```
 
 Project tools follow LTS where available, otherwise latest stable: Node uses `lts`; Go, uv, Bun, SQLx CLI, rumdl and golangci-lint use `latest` in `.mise.toml`. uv selects stable Python3 through
-`.python-version`, subject to `pyproject.toml`'s minimum. Application dependencies remain lockfile-controlled. Podman and its machine remain host prerequisites. Database readiness uses `pg_isready`
+`.python-version`'s `>=3.14` request, matching `pyproject.toml`'s minimum. A bare `3` can select an incompatible older system Python before project setup. Application dependencies remain lockfile-controlled. Podman and its machine remain host prerequisites. Database readiness uses `pg_isready`
 inside PostGIS; no separate host PostgreSQL installation is required.
 
 Make automatically uses `mise exec --`, so the normal workflow stays unchanged:
