@@ -13,7 +13,7 @@ allowlisted media sync jobs.
 
 - SvelteKit (TypeScript), client-rendered SPA (`adapter-static`, SSR disabled)
 - MapLibre GL for the route map (key-free OpenStreetMap raster tiles)
-- uPlot for the line charts
+- Modular ECharts for shared charts
 
 Node/bun tooling is pinned via `.mise.toml` at the repo root. Use `bun`, not
 npm/pnpm/yarn.

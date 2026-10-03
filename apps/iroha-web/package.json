@@ -41,8 +41,6 @@
 	"dependencies": {
 		"@lucide/svelte": "^1.48.0",
 		"echarts": "^6.1.0",
-		"maplibre-gl": "^6.11.2",
-		"three": "^0.185.1",
-		"uplot": "^1.6.32"
+		"maplibre-gl": "^6.11.2"
 	}
 }

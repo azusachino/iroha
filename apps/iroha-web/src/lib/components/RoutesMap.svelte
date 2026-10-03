@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import * as maplibregl from "maplibre-gl";
+  import * as maplibregl from "$lib/maplibre";
   import "maplibre-gl/dist/maplibre-gl.css";
   import type { FeatureCollection } from "geojson";
   import type { RouteFeatureCollection } from "$lib/api";
@@ -10,6 +10,8 @@
   let container: HTMLDivElement;
   let map: maplibregl.Map | null = null;
   let loaded = $state(false);
+  let routesReady = $state(false);
+  let mapError = $state(false);
   const osmMaxZoom = 19;
   const pointCount = $derived(
     data.features.reduce(
@@ -42,6 +44,7 @@
   // filter), so the map stays in sync with the surrounding page.
   function render(fc: RouteFeatureCollection) {
     if (!map || !loaded) return;
+    routesReady = false;
     const coords = fc.features.flatMap((f) => f.geometry.coordinates);
 
     const src = map.getSource("routes") as maplibregl.GeoJSONSource | undefined;
@@ -98,8 +101,15 @@
       new maplibregl.NavigationControl({ showCompass: false }),
       "top-right",
     );
+    map.on("error", () => {
+      mapError = true;
+    });
     map.on("load", () => {
       loaded = true;
+    });
+    map.on("sourcedata", (event) => {
+      if (event.sourceId === "routes" && event.isSourceLoaded)
+        routesReady = true;
     });
 
     return () => {
@@ -117,10 +127,19 @@
 </script>
 
 <section class="map-shell" aria-label={mapLabel}>
+  {#if mapError}
+    <div role="alert">
+      <p>Interactive map unavailable. Route summaries remain below.</p>
+      <button type="button" onclick={() => window.location.reload()}
+        >Reload page</button
+      >
+    </div>
+  {/if}
   <div
     class="map"
     bind:this={container}
     role="region"
+    aria-busy={!mapError && !routesReady}
     aria-label={mapLabel}
     aria-describedby="routes-map-help"
   ></div>
