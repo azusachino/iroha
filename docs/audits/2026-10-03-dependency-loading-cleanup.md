@@ -2,7 +2,7 @@
 
 Owner-approved scope: remove unused/unnecessary dependencies, incorporate coverage PR #91, and investigate heavy sparsely-used dependencies with packaging/loading UX priority. No deployment, release, Node/TypeScript major upgrade, quality-floor changes or live-data probes.
 
-Baseline: main `6612293c6f70f3b6d76c4506406fde328eb1ece7`. Branch: `chore/dependency-cleanup-table`. Workstation tier 1; initial independent verification complete, findings recheck pending.
+Baseline: main `6612293c6f70f3b6d76c4506406fde328eb1ece7`. Branch: `chore/dependency-cleanup-table`. Workstation tier 1; A1–A7 independently accepted at runtime/test revision `567940ab3868a7dc43f0ef38bdd6b02e18600d52`. [PR #109](https://github.com/azusachino/iroha/pull/109) owns delivered review; CI status remains in the PR.
 
 ## Decisions and acceptance
 
@@ -70,8 +70,10 @@ Before map changes, native table replacement alone saved 46,071 raw / 11,767 gzi
 - Public type check/build passes after correcting the lazy module's TypeScript namespace to its host adapter.
 - Fresh independent verifier `iroha-dep-verifier`, Sonnet 5.5 / medium, session `dd591960-5ed0-482a-bb4d-668b717d3d00`, reviewed clean `1e1e5651139406868fadbf8c5b64f9a88c988907`. Validation, integration, full browser 195/195 and production-focused 6/6 passed. The terminal restart interrupted report retrieval; the same verifier session resumed without a model or protocol fallback.
 - Initial review found missing private-worker runtime evidence, CSS overage disclosure, measurement limits, and busy-without-error feedback on worker failure. Private overview now has a retained worker/source-ready regression; both overview and public maps display terminal map errors and clear busy while keeping route summaries accessible. CSS and measurement limits are disclosed above.
-- Findings recheck and new-revision gates pending; no DONE/ready claim yet.
+- Same independent verifier's exact-head recheck at `567940ab3868a7dc43f0ef38bdd6b02e18600d52` accepted A1–A7: `make validate` exit 0 (Vitest 221/221), full `CI=1 make e2e` exit 0 (198/198), both-host production-focused browser exit 0 (9/9), and disposable-DB integration exit 0 (35 `ok`, no failures). Source/index remained clean and task-owned previews were stopped with ports unbound.
+- [Promoted report](https://github.com/azusachino/iroha/pull/109#issuecomment-5964933027). Worker/runtime, error feedback, CSS disclosure and measurement-definition findings are resolved within acceptance. Independent final private JS capture was 2,618,039 raw / 791,636 gzip; exact capture drift does not change the report-only overage or static-graph caveat.
+- Non-blocking source-derived concern: a single tile failure may trigger the generic terminal “map unavailable” message. This isolated case was not reproduced during review; [issue #110](https://github.com/azusachino/iroha/issues/110) owns its reproduction and precise feedback acceptance. Private motion-detail playback, baseline rebuild and Go transitive audit remain outside this verification claim.
 
-Retained specs: `public-table-sorting.spec.ts`, `public-map-loading.spec.ts`, `private-map-worker.spec.ts`. Baseline, failed probes, build logs and advisor transcript remain in workstation scratch `.tmp/iroha-dependency-cleanup/`; final accepted evidence must be promoted to the owning PR.
+Retained specs: `public-table-sorting.spec.ts`, `public-map-loading.spec.ts`, `private-map-worker.spec.ts`. Baseline, failed probes, build logs and advisor transcript remain in workstation scratch `.tmp/iroha-dependency-cleanup/`; the accepted report is promoted to the owning PR above.
 
 Replacement PR will supersede #91, #92, #94 and #97 only once merged. Bot PRs, TS7 PRs and Node-types PRs remain untouched in this slice.
