@@ -26,7 +26,6 @@
   } from "../../domain/report";
 
   let {
-    month,
     report,
     primaryCurrency,
     primaryExponent,
@@ -35,6 +34,7 @@
     theme,
   }: ReportThemeProps & { theme: DesignLanguage } = $props();
 
+  const month = $derived(report.period.month);
   const movement = $derived(
     reportSectionData<
       ReportThemeProps["report"]["sections"]["movement"]["data"]

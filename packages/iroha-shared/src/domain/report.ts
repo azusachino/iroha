@@ -195,13 +195,16 @@ export function reportPeriodDays(report: MonthlyReport): number {
 // coverage denominators is what read as an oddly-scaled bar chart. This is
 // the one place that ratio is computed so every theme's health-coverage
 // chart/table agrees.
-export function coveragePercent(observedDays: number, periodDays: number): number {
+export function coveragePercent(
+  observedDays: number,
+  periodDays: number,
+): number {
   if (periodDays <= 0) return 0;
   return Math.round((observedDays / periodDays) * 100);
 }
 
 export type ReportThemeProps = {
-  month: string;
+  // Presentation scope comes from this observed envelope, not pending selection.
   report: MonthlyReport;
   primaryCurrency: string;
   primaryExponent: number;
