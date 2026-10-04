@@ -8,7 +8,7 @@
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
-  import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
@@ -16,61 +16,102 @@
 
   const theme = useTheme();
   const t = createNightState();
+  let root = $state<HTMLElement>();
+  let summaryPanel = $state<HTMLElement>();
 </script>
 
 <svelte:head>
   <title>Night · iroha</title>
 </svelte:head>
 
-<section class="sleep-shell">
+<section class="sleep-shell" bind:this={root}>
   {#if hasThemeRoute(theme.definition(), "sleep")}
-    <LoadingBoundary
-      resource={[t.sessionsResource, t.aggregatesResource]}
-      preserveLayout
-      label="Loading sleep data…"
+    <ThemeRouteRenderer
+      route="sleep"
+      props={{
+        sessions: t.sessions,
+        selected: t.selected,
+        sessionsLoading: t.sessionsResource.loading,
+        sessionsReady: t.sessionsResource.ready,
+        sessionsError: t.sessionsResource.error,
+        recordsScope: t.recordsScope,
+        onRetrySessions: () => t.loadSessions(),
+        averageAsleep: t.averageAsleep,
+        averageEfficiency: t.averageEfficiency,
+        sleepSummary: t.sleepSummary,
+        rollupBuckets: t.rollupBuckets,
+        rollupGranularity: t.rollupGranularity,
+        rollupScope: t.sleepScope,
+        onOpenDetail: (session: SleepSession) =>
+          void goto(`/night/${session.id}`),
+      }}
     >
-      {#if t.sessionsResource.error}
-        <p class="error" role="alert">
-          Sleep could not be loaded: {t.sessionsResource.error}
-        </p>
-      {/if}
-      <ThemeRouteRenderer
-        route="sleep"
-        props={{
-          sessions: t.sessions,
-          selected: t.selected,
-          averageAsleep: t.averageAsleep,
-          averageEfficiency: t.averageEfficiency,
-          sleepSummary: t.sleepSummary,
-          rollupBuckets: t.rollupBuckets,
-          rollupGranularity: t.rollupGranularity,
-          rollupScope: t.sleepScope,
-          onOpenDetail: (session: SleepSession) =>
-            void goto(`/night/${session.id}`),
-        }}
-      >
-        {#snippet children()}
-          <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
-            <PeriodSelector
-              years={t.periodYears}
-              months={t.periodMonths}
-              year={t.selectedYear}
-              month={t.selectedMonth}
-              bounds={t.bounds}
-              monthDisabled={!t.selectedYear}
-              surface="inline"
-              onYear={t.changeYear}
-              onMonth={t.changeMonth}
-            />
-          </PeriodToolbar>
+      {#snippet children()}
+        <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
+          <PeriodSelector
+            years={t.periodYears}
+            months={t.periodMonths}
+            year={t.selectedYear}
+            month={t.selectedMonth}
+            bounds={t.bounds}
+            monthDisabled={!t.selectedYear}
+            surface="inline"
+            onYear={t.changeYear}
+            onMonth={t.changeMonth}
+          />
+        </PeriodToolbar>
+        {#if t.boundsResource.error}
+          <RetryNotice
+            message={`Could not load the sleep date range: ${t.boundsResource.error}. Your selected period is unchanged.`}
+            retryLabel="Retry sleep date range"
+            onRetry={t.loadBounds}
+            focusTarget={root?.querySelector<HTMLElement>(
+              '[aria-label="Filter by year"]',
+            ) ?? undefined}
+          />
+        {:else if t.boundsResource.loading}<p role="status">
+            Loading the sleep date range…
+          </p>{/if}
+        <section
+          aria-label="Sleep totals read state"
+          tabindex="-1"
+          bind:this={summaryPanel}
+        >
+          {#each [{ key: "year", label: "yearly", resource: t.yearResource }, { key: "month", label: "monthly", resource: t.monthResource }, { key: "lifetime", label: "lifetime", resource: t.lifetimeResource }] as read}
+            {#if read.resource.error}
+              <RetryNotice
+                message={`Could not load ${read.label} sleep totals: ${read.resource.error}`}
+                retryLabel={`Retry ${read.label} sleep totals`}
+                onRetry={() =>
+                  t.loadAggregates(read.key as "year" | "month" | "lifetime")}
+                focusTarget={summaryPanel}
+              />
+            {/if}
+          {/each}
+          {#if t.aggregatesResource.loading}<p role="status">
+              {t.aggregatesResource.ready
+                ? "Updating sleep totals…"
+                : "Loading sleep totals…"}
+            </p>{/if}
+          {#if t.sleepSummary}<p>Observed totals: {t.sleepScope}</p>{/if}
           <SleepScopeSummary
             summary={t.sleepSummary}
             scope={t.sleepScope}
             theme={theme.language()}
           />
-        {/snippet}
-      </ThemeRouteRenderer>
-    </LoadingBoundary>
+          {#if t.availableSummary}
+            <p>
+              Available totals for another scope: {t.availableSummary.scope}
+            </p>
+            <SleepScopeSummary
+              summary={t.availableSummary.summary}
+              scope={t.availableSummary.scope}
+              theme={theme.language()}
+            />
+          {/if}
+        </section>
+      {/snippet}
+    </ThemeRouteRenderer>
     {#if t.hasMore}
       <div
         bind:this={t.loadMoreSentinel}

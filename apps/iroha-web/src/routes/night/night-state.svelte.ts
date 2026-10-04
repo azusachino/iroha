@@ -7,6 +7,7 @@ import {
   listSleepAggregates,
   type SleepAggregateBucket,
   type SleepSession,
+  type Page,
 } from "$lib/api";
 import { formatDateOnly, formatMonth } from "$lib/format";
 import { currentYear, yearOptionsInRange } from "@iroha/shared/format/month";
@@ -43,60 +44,75 @@ export function createNightState() {
         ? ""
         : currentYear(new Date(), IROHA_TIMEZONE);
 
-  const sessionsResource = createAsyncResource<SleepSession[]>();
-  const aggregatesResource = createAsyncResource<{
-    years: SleepAggregateBucket[];
-    months: SleepAggregateBucket[];
-    lifetime: SleepAggregateBucket | null;
-    bounds: DateBounds;
+  let selectedYear = $state(initialYear);
+  let selectedMonth = $state(initialMonth);
+  const sessionsResource = createAsyncResource<{
+    date?: string;
+    value: Page<SleepSession>;
   }>();
-  const sessions = $derived(sessionsResource.data ?? []);
+  const yearResource = createAsyncResource<SleepAggregateBucket[]>();
+  const monthResource = createAsyncResource<SleepAggregateBucket[]>();
+  const lifetimeResource = createAsyncResource<SleepAggregateBucket[]>();
+  const boundsResource = createAsyncResource<DateBounds>();
+  const aggregatesResource = $derived(
+    selectedMonth
+      ? monthResource
+      : selectedYear
+        ? yearResource
+        : lifetimeResource,
+  );
+  const sessions = $derived(sessionsResource.data?.value.items ?? []);
   let selected = $state<SleepSession | null>(null);
-  let loadingMore = $state(false);
-  let cursor = $state<string | null>(null);
-  let hasMore = $state(false);
+  let pendingPage = $state<typeof sessionsResource.data>(null);
+  const loadingMore = $derived(
+    pendingPage != null &&
+      pendingPage === sessionsResource.data &&
+      pendingPage.date === selectedScope().date,
+  );
+  const hasMore = $derived(
+    (sessionsResource.data?.value.has_more ?? false) &&
+      !sessionsResource.loading &&
+      sessionsResource.data?.date === selectedScope().date,
+  );
   let loadMoreSentinel = $state<HTMLDivElement>();
   let nightListContainer = $state<HTMLDivElement>();
-  const yearBuckets = $derived(aggregatesResource.data?.years ?? []);
-  const monthBuckets = $derived(aggregatesResource.data?.months ?? []);
-  const lifetimeBucket = $derived(aggregatesResource.data?.lifetime ?? null);
+  const yearBuckets = $derived(yearResource.data ?? []);
+  const monthBuckets = $derived(monthResource.data ?? []);
+  const lifetimeBucket = $derived(lifetimeResource.data?.[0] ?? null);
   // The real data range (fetched once, independent of the current
   // selection) -- drives the picker option lists and arrow-key clamping.
   // yearBuckets/monthBuckets above stay chart data; this is navigation only.
-  const bounds = $derived(aggregatesResource.data?.bounds ?? {});
-  let selectedYear = $state(initialYear);
-  let selectedMonth = $state(initialMonth);
+  const bounds = $derived(boundsResource.data ?? {});
   let selectedStage = $state("Core");
   let hoveredStage = $state<string | null>(null);
 
   const loadedMainSleep = $derived(
     sessions.filter((session) => session.is_main_sleep),
   );
-  const loadedAverageAsleep = $derived(
-    loadedMainSleep.length
-      ? loadedMainSleep.reduce(
-          (total, session) => total + session.asleep_s,
-          0,
-        ) / loadedMainSleep.length
-      : 0,
-  );
-  const loadedAverageEfficiency = $derived(
-    loadedMainSleep.length
-      ? loadedMainSleep.reduce(
-          (total, session) => total + session.efficiency,
-          0,
-        ) / loadedMainSleep.length
-      : 0,
-  );
   const monthlyBuckets = $derived(monthBuckets.slice().reverse());
   const yearlyBuckets = $derived(yearBuckets.slice().reverse());
-  const periodYears = $derived(yearOptionsInRange(bounds));
+  const periodYears = $derived(
+    bounds.min
+      ? yearOptionsInRange(bounds)
+      : selectedYear
+        ? [selectedYear]
+        : [],
+  );
   // Full "YYYY-MM" period values (this page's own month convention), not
   // month.ts's bare 1-12 -- built directly from bounds rather than reusing
   // monthOptionsInRange, which returns the other convention. Newest first,
   // matching yearOptionsInRange's and monthOptionsInRange's own convention.
   const periodMonths = $derived.by(() => {
-    if (!selectedYear || !bounds.min || !bounds.max) return [];
+    if (!selectedYear) return [];
+    if (!bounds.min || !bounds.max)
+      return selectedMonth
+        ? [
+            {
+              value: selectedMonth,
+              label: formatPeriod(selectedMonth, "month"),
+            },
+          ]
+        : [];
     const minYear = bounds.min.slice(0, 4);
     const maxYear = bounds.max.slice(0, 4);
     if (selectedYear < minYear || selectedYear > maxYear) return [];
@@ -140,22 +156,31 @@ export function createNightState() {
         : null,
   );
   const isPeriodFiltered = $derived(selectedYear !== "");
+  // These reads cover ALL history, so a successful inventory can project a
+  // new selected period immediately. Missing buckets are zero only on success.
   const sleepSummary = $derived.by<SleepAggregateBucket | null>(() => {
-    if (selectedMonth !== "") {
-      return (
-        monthBuckets.find(
-          (bucket) => bucket.period.slice(0, 7) === selectedMonth,
-        ) ?? null
-      );
+    if (aggregatesResource.data == null) return null;
+    const bucket = selectedMonth
+      ? monthBuckets.find((bucket) => bucket.period === selectedMonth)
+      : selectedYear
+        ? yearBuckets.find((bucket) => bucket.period === selectedYear)
+        : lifetimeBucket;
+    return bucket ?? emptyBucket(selectedMonth || selectedYear || "lifetime");
+  });
+  const availableSummary = $derived.by(() => {
+    if (sleepSummary) return null;
+    if (selectedYear && yearResource.data) {
+      const year =
+        yearResource.data.find((bucket) => bucket.period === selectedYear) ??
+        emptyBucket(selectedYear);
+      return { scope: selectedYear, summary: year };
     }
-    if (selectedYear !== "") {
-      return (
-        yearBuckets.find(
-          (bucket) => bucket.period.slice(0, 4) === selectedYear,
-        ) ?? null
-      );
-    }
-    return lifetimeBucket;
+    if (lifetimeResource.data)
+      return {
+        scope: "Lifetime",
+        summary: lifetimeBucket ?? emptyBucket("lifetime"),
+      };
+    return null;
   });
   const sleepScope = $derived(selectedMonth || selectedYear || "Lifetime");
   const rollupGranularity = $derived<"month" | "year">(
@@ -171,10 +196,14 @@ export function createNightState() {
     return yearBuckets;
   });
   const averageAsleep = $derived(
-    sleepSummary?.average_asleep_s ?? loadedAverageAsleep,
+    sleepSummary && sleepSummary.main_sleep_count > 0
+      ? sleepSummary.average_asleep_s
+      : null,
   );
   const averageEfficiency = $derived(
-    sleepSummary?.average_efficiency ?? loadedAverageEfficiency,
+    sleepSummary && sleepSummary.main_sleep_count > 0
+      ? sleepSummary.average_efficiency
+      : null,
   );
   const heroEyebrow = $derived.by(() => {
     if (!isPeriodFiltered) {
@@ -250,41 +279,39 @@ export function createNightState() {
   }
 
   async function loadSessions(append = false) {
+    const scope = selectedScope();
     if (append) {
-      if (!hasMore || !cursor || loadingMore) return;
-      loadingMore = true;
+      const previous = sessionsResource.data;
+      if (!hasMore || !previous?.value.next_cursor || loadingMore) return;
+      pendingPage = previous;
       try {
-        const page = await listSleep({
+        const next = await listSleep({
           limit: PAGE_SIZE,
-          cursor: cursor ?? undefined,
-          ...selectedScope(),
+          cursor: previous.value.next_cursor,
+          ...scope,
         });
-        sessionsResource.mutate((current) => [
-          ...(current ?? []),
-          ...page.items,
-        ]);
-        cursor = page.next_cursor;
-        hasMore = page.has_more;
+        if (
+          sessionsResource.data !== previous ||
+          selectedScope().date !== scope.date ||
+          sessionsResource.loading
+        )
+          return;
+        sessionsResource.mutate(() => ({
+          date: scope.date,
+          value: { ...next, items: [...previous.value.items, ...next.items] },
+        }));
       } catch {
-        // Load-more failures are retry-safe -- keep the rows already
-        // showing rather than replacing a working view with an error.
+        // Pagination failure feedback is a separately owned plan slice.
       } finally {
-        loadingMore = false;
+        if (pendingPage === previous) pendingPage = null;
       }
       return;
     }
-    cursor = null;
-    hasMore = false;
-    const items = await sessionsResource.run(async () => {
-      const page = await listSleep({ limit: PAGE_SIZE, ...selectedScope() });
-      cursor = page.next_cursor;
-      hasMore = page.has_more;
-      return page.items;
-    });
-    if (items) {
-      if (items[0]) selectSession(items[0]);
-      else selected = null;
-    }
+    const result = await sessionsResource.run(async () => ({
+      date: scope.date,
+      value: await listSleep({ limit: PAGE_SIZE, ...scope }),
+    }));
+    if (result) selected = result.value.items[0] ?? null;
   }
 
   function changeYear(value: string) {
@@ -314,42 +341,62 @@ export function createNightState() {
     return () => observer.disconnect();
   });
 
-  async function loadAggregates() {
-    const result = await aggregatesResource.run(async () => {
-      const [years, months, lifetime, nextBounds] = await Promise.all([
-        listSleepAggregates("year"),
-        listSleepAggregates("month"),
-        listSleepAggregates("lifetime"),
-        getSleepBounds().catch(() => ({}) as DateBounds),
-      ]);
-      return {
-        years: years.buckets,
-        months: months.buckets,
-        lifetime: lifetime.buckets[0] ?? null,
-        bounds: nextBounds,
-      };
-    });
-    if (!result) return;
-    const validYears = new Set(yearOptionsInRange(result.bounds));
-    if (selectedMonth) selectedYear = selectedMonth.slice(0, 4);
-    if (selectedYear && !validYears.has(selectedYear)) selectedYear = "";
-    if (
-      selectedMonth &&
-      !periodMonths.some((option) => option.value === selectedMonth)
-    ) {
-      selectedMonth = "";
-    }
-    syncPeriodUrl();
+  async function loadAggregates(granularity: "year" | "month" | "lifetime") {
+    const resource =
+      granularity === "year"
+        ? yearResource
+        : granularity === "month"
+          ? monthResource
+          : lifetimeResource;
+    await resource.run(
+      async () => (await listSleepAggregates(granularity)).buckets,
+    );
   }
 
-  onMount(async () => {
-    await loadAggregates();
+  async function loadBounds() {
+    const result = await boundsResource.run(getSleepBounds);
+    if (!result) return;
+    const before = selectedScope().date;
+    const validYears = new Set(yearOptionsInRange(result));
+    if (validYears.size && selectedYear && !validYears.has(selectedYear)) {
+      selectedYear = "";
+      selectedMonth = "";
+    } else if (
+      result.min &&
+      selectedMonth &&
+      !periodMonths.some((option) => option.value === selectedMonth)
+    )
+      selectedMonth = "";
+    syncPeriodUrl();
+    if (before !== selectedScope().date) void loadSessions(false);
+  }
+
+  onMount(() => {
+    void loadBounds();
+    for (const granularity of ["year", "month", "lifetime"] as const)
+      void loadAggregates(granularity);
     void loadSessions(false);
   });
 
   return {
     sessionsResource,
-    aggregatesResource,
+    yearResource,
+    monthResource,
+    lifetimeResource,
+    boundsResource,
+    get aggregatesResource() {
+      return aggregatesResource;
+    },
+    get availableSummary() {
+      return availableSummary;
+    },
+    get recordsScope() {
+      return sessionsResource.data
+        ? sessionsResource.data.date || "Lifetime"
+        : "";
+    },
+    loadAggregates,
+    loadBounds,
     get sessions() {
       return sessions;
     },
@@ -457,6 +504,24 @@ export function createNightState() {
     selectSession,
     loadSessions,
     formatPeriod,
+  };
+}
+
+function emptyBucket(period: string): SleepAggregateBucket {
+  return {
+    period,
+    session_count: 0,
+    main_sleep_count: 0,
+    nap_count: 0,
+    observed_wake_dates: 0,
+    average_asleep_s: 0,
+    average_time_in_bed_s: 0,
+    average_efficiency: 0,
+    core_s: 0,
+    deep_s: 0,
+    rem_s: 0,
+    awake_s: 0,
+    unspecified_s: 0,
   };
 }
 

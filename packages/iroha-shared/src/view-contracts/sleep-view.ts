@@ -5,8 +5,13 @@ import type { SleepAggregateBucket, SleepSession } from "../domain/sleep";
 export type SleepThemeProps = {
   sessions: SleepSession[];
   selected: SleepSession | null;
-  averageAsleep: number;
-  averageEfficiency: number;
+  averageAsleep: number | null;
+  averageEfficiency: number | null;
+  sessionsLoading?: boolean;
+  sessionsReady?: boolean;
+  sessionsError?: string | null;
+  recordsScope?: string;
+  onRetrySessions?: () => Promise<void>;
   onOpenDetail: (session: SleepSession) => void;
   sleepSummary?: SleepAggregateBucket | null;
   rollupBuckets?: SleepAggregateBucket[];

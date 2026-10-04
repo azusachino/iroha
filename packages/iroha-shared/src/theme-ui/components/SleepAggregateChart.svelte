@@ -53,11 +53,11 @@
 
   <div class="chart-grid">
     <div>
-      <p class="chart-label">Average asleep</p>
+      <p class="chart-label">Average main sleep</p>
       <BarChart
         {categories}
         primary={{
-          name: "Average asleep",
+          name: "Average main sleep",
           values: averageAsleep,
           color: "var(--accent)",
           formatter: (value) => formatDuration(value),
@@ -95,7 +95,7 @@
           <th>Main sleep</th>
           <th>Naps</th>
           <th>Wake dates</th>
-          <th>Avg asleep</th>
+          <th>Avg main sleep</th>
         </tr>
       </thead>
       <tbody>
