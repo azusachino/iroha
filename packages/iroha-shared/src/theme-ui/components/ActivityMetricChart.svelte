@@ -2,6 +2,7 @@
   import type { DesignLanguage } from "../../theme/themes";
   import type { MetricSeriesResponse } from "../../components/metric-series";
   import BarChart from "./BarChart.svelte";
+  import RetryNotice from "./RetryNotice.svelte";
   import {
     formatCanonicalMonth,
     formatDistance,
@@ -14,6 +15,7 @@
     loading = false,
     error = null,
     scope = "",
+    onRetry,
     theme,
   }: {
     series?: MetricSeriesResponse | null;
@@ -21,9 +23,11 @@
     loading?: boolean;
     error?: string | null;
     scope?: string;
+    onRetry: () => Promise<void>;
     theme: DesignLanguage;
   } = $props();
 
+  let panel = $state<HTMLElement>();
   type Point = { period: string; value: number | null; observed_days: number };
 
   function pointsFor(item: MetricSeriesResponse["series"][number]): Point[] {
@@ -132,15 +136,21 @@
   class="activity-metric-chart"
   data-theme={theme}
   aria-labelledby="activity-trend-title"
+  tabindex="-1"
+  bind:this={panel}
 >
   <header class="chart-header">
     <div>
       <p class="eyebrow">Canonical movement series</p>
       <h2 id="activity-trend-title">Movement over time</h2>
       <p class="chart-description">
-        Server-aggregated distance, grouped by {series?.period.grain ??
-          "period"}
-        {scope ? ` · ${scope}` : ""}. Missing periods remain empty.
+        {#if series}
+          Server-aggregated distance, grouped by {series.period.grain}{scope
+            ? ` · ${scope}`
+            : ""}. Missing periods remain empty.
+        {:else}
+          Canonical distance and duration observations for this scope.
+        {/if}
       </p>
     </div>
     {#if series}
@@ -150,12 +160,25 @@
     {/if}
   </header>
 
+  {#if error}
+    <RetryNotice
+      message={`Could not load movement series: ${error}`}
+      {onRetry}
+      retryLabel="Retry movement series"
+      focusTarget={panel}
+    />
+  {/if}
+  {#if loading && series}<p class="chart-status" role="status">
+      Updating movement series…
+    </p>{/if}
   {#if loading && !series}
-    <p class="chart-status">Building the canonical movement series…</p>
-  {:else if error}
-    <p class="chart-status error">{error}</p>
+    <p class="chart-status" role="status">
+      Building the canonical movement series…
+    </p>
   {:else if !series || periods.length === 0}
-    <p class="chart-status">No movement series is available for this scope.</p>
+    {#if !error}<p class="chart-status">
+        No movement series is available for this scope.
+      </p>{/if}
   {:else}
     <div class="chart-grid">
       <div class="trend-charts">

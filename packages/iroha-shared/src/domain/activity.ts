@@ -21,7 +21,7 @@ export interface Activity {
 
 export interface ActivityDisplaySummary {
   activity_count: number;
-  distance_m: number;
+  distance_m: number | null;
   duration_s: number;
 }
 

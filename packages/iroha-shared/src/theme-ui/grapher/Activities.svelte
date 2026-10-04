@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ActivityThemeProps } from "../../view-contracts/activity-view";
   import ActivityMetricChart from "../components/ActivityMetricChart.svelte";
+  import RetryNotice from "../components/RetryNotice.svelte";
   import {
     formatDateOnly,
     formatDistance,
@@ -12,6 +13,18 @@
   let {
     activities,
     displaySummary,
+    summaryLoading,
+    summaryError,
+    summaryDistanceUnknownCount,
+    boundsError,
+    boundsLoading,
+    onRetryBounds,
+    summaryScope,
+    recordsScope,
+    recordsReady,
+    onRetrySummary,
+    onRetryRecords,
+    onRetrySeries,
     sportType,
     sportOptions,
     loading,
@@ -30,6 +43,10 @@
     theme,
   }: ActivityThemeProps = $props();
 
+  let root = $state<HTMLElement>();
+  let summaryPanel = $state<HTMLElement>();
+  let recordsPanel = $state<HTMLElement>();
+
   function openActivity(event: MouseEvent, id: string): void {
     if ((event.target as HTMLElement).closest("a, button")) return;
     onOpenDetail(id);
@@ -42,7 +59,12 @@
   }
 </script>
 
-<section class="grapher-activities" aria-labelledby="activity-data-title">
+<section
+  class="grapher-activities"
+  aria-labelledby="activity-data-title"
+  tabindex="-1"
+  bind:this={root}
+>
   <header class="page-intro">
     <p class="kicker">Activity data / public-style table</p>
     <h1 id="activity-data-title">The movement record.</h1>
@@ -52,6 +74,20 @@
   </header>
 
   {@render children?.()}
+  {#if boundsError}
+    <RetryNotice
+      message={`Could not load the available date range: ${boundsError}. Your selected period is unchanged.`}
+      onRetry={onRetryBounds}
+      retryLabel="Retry activity date range"
+      focusTarget={root?.querySelector<HTMLElement>(
+        '[aria-label="Filter by year"]',
+      ) ?? undefined}
+    />
+  {:else if boundsLoading}
+    <p class="muted" role="status">
+      Loading the available activity date range…
+    </p>
+  {/if}
 
   <div class="filters" aria-label="Activity filters">
     <label
@@ -73,83 +109,138 @@
     loading={activitySeriesLoading}
     error={activitySeriesError}
     scope={activitySeriesScope}
+    onRetry={onRetrySeries}
     {theme}
   />
 
-  <div class="summary-row" aria-label="Filtered activity summary">
-    <div>
-      <span>Sessions</span><strong
-        >{displaySummary.activity_count.toLocaleString()}</strong
-      >
-    </div>
-    <div>
-      <span>Distance</span><strong
-        >{formatDistance(displaySummary.distance_m)}</strong
-      >
-    </div>
-    <div>
-      <span>Moving time</span><strong
-        >{formatDuration(displaySummary.duration_s)}</strong
-      >
-    </div>
-  </div>
-
-  {#if loading && activities.length === 0}
-    <p class="muted">Loading activity data…</p>
-  {:else if error}
-    <p class="error">Could not load activity data: {error}</p>
-  {:else if activities.length === 0}
-    <p class="muted">No activity sessions match this selection.</p>
-  {:else}
-    <div class="table-frame">
-      <table>
-        <thead
-          ><tr
-            ><th>Date</th><th>Activity</th><th>Distance</th><th>Duration</th><th
-              >Pace</th
-            ></tr
-          ></thead
+  <section
+    class="read-state"
+    aria-label="Activity summary read state"
+    tabindex="-1"
+    bind:this={summaryPanel}
+  >
+    {#if summaryScope}<p class="muted">Observed summary: {summaryScope}</p>{/if}
+    {#if summaryError}
+      <RetryNotice
+        message={`Could not load activity summary: ${summaryError}`}
+        onRetry={onRetrySummary}
+        retryLabel="Retry activity summary"
+        focusTarget={summaryPanel}
+      />
+    {:else if summaryLoading}
+      <p class="muted" role="status">
+        {displaySummary
+          ? "Updating activity summary…"
+          : "Loading activity summary…"}
+      </p>
+    {/if}
+    <div
+      class="summary-row"
+      role="region"
+      aria-label="Filtered activity summary"
+    >
+      <div>
+        <span>Sessions</span><strong
+          >{displaySummary
+            ? displaySummary.activity_count.toLocaleString()
+            : "—"}</strong
         >
-        <tbody>
-          {#each activities as activity (activity.id)}
-            <tr
-              class="activity-row"
-              role="link"
-              tabindex="0"
-              onclick={(event) => openActivity(event, activity.id)}
-              onkeydown={(event) =>
-                openActivityFromKeyboard(event, activity.id)}
-            >
-              <td>{formatDateOnly(activity.started_at, activity.timezone)}</td>
-              <td
-                ><a href={`/motion/${activity.id}`}
-                  >{activity.title || sportLabel(activity.sport_type)}</a
-                ><small class="sport-small"
+      </div>
+      <div>
+        <span>Distance</span><strong
+          >{displaySummary
+            ? formatDistance(displaySummary.distance_m)
+            : "—"}</strong
+        >
+      </div>
+      <div>
+        <span>Moving time</span><strong
+          >{displaySummary
+            ? formatDuration(displaySummary.duration_s)
+            : "—"}</strong
+        >
+      </div>
+    </div>
+
+    {#if summaryDistanceUnknownCount > 0}
+      <p class="muted">
+        {summaryDistanceUnknownCount.toLocaleString()}
+        {summaryDistanceUnknownCount === 1 ? "session has" : "sessions have"} no observed
+        distance.
+      </p>
+    {/if}
+  </section>
+
+  <section
+    class="read-state"
+    aria-label="Activity records"
+    tabindex="-1"
+    bind:this={recordsPanel}
+  >
+    {#if recordsScope}<p class="muted">Observed records: {recordsScope}</p>{/if}
+    {#if error}
+      <RetryNotice
+        message={`Could not load activity data: ${error}`}
+        onRetry={onRetryRecords}
+        retryLabel="Retry activities"
+        focusTarget={recordsPanel}
+      />
+    {/if}
+    {#if loading && !recordsReady}
+      <p class="muted" role="status">Loading activity data…</p>
+    {:else if recordsReady && activities.length === 0}
+      <p class="muted">No activity sessions in this observed scope.</p>
+    {:else if activities.length}
+      <div class="table-frame">
+        <table>
+          <thead
+            ><tr
+              ><th>Date</th><th>Activity</th><th>Distance</th><th>Duration</th
+              ><th>Pace</th></tr
+            ></thead
+          >
+          <tbody>
+            {#each activities as activity (activity.id)}
+              <tr
+                class="activity-row"
+                role="link"
+                tabindex="0"
+                onclick={(event) => openActivity(event, activity.id)}
+                onkeydown={(event) =>
+                  openActivityFromKeyboard(event, activity.id)}
+              >
+                <td>{formatDateOnly(activity.started_at, activity.timezone)}</td
+                >
+                <td
+                  ><a href={`/motion/${activity.id}`}
+                    >{activity.title || sportLabel(activity.sport_type)}</a
+                  ><small class="sport-small"
                     >{#if sportIcon(activity.sport_type)}
                       {@const Icon = sportIcon(activity.sport_type)}
                       <Icon size={11} aria-hidden="true" />
                     {/if}{sportLabel(activity.sport_type)}</small
                   ></td
-              >
-              <td>{formatDistance(activity.distance_m)}</td>
-              <td
-                >{formatDuration(
-                  activity.duration_s ?? activity.moving_time_s,
-                )}</td
-              >
-              <td>{formatPace(activity.avg_pace_s_per_km)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-    {#if hasMore}<button
-        class="load-more"
-        onclick={onLoadMore}
-        disabled={loadingMore}
-        >{loadingMore ? "Loading…" : "Load more rows"}</button
-      >{/if}
-  {/if}
+                >
+                <td>{formatDistance(activity.distance_m)}</td>
+                <td
+                  >{formatDuration(
+                    activity.duration_s ?? activity.moving_time_s,
+                  )}</td
+                >
+                <td>{formatPace(activity.avg_pace_s_per_km)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      {#if hasMore}<button
+          class="load-more"
+          onclick={onLoadMore}
+          disabled={loadingMore}
+          >{loadingMore ? "Loading…" : "Load more rows"}</button
+        >{/if}
+    {/if}
+  </section>
 </section>
 
 <style>
@@ -158,7 +249,13 @@
     gap: 1rem;
     min-width: 0;
   }
-  .grapher-activities > * {
+  .grapher-activities > *,
+  .read-state > * {
+    min-width: 0;
+  }
+  .read-state {
+    display: grid;
+    gap: 1rem;
     min-width: 0;
   }
   .page-intro {
@@ -282,9 +379,6 @@
   }
   .muted {
     color: var(--text-muted);
-  }
-  .error {
-    color: var(--danger);
   }
   @media (max-width: 640px) {
     .summary-row strong {
