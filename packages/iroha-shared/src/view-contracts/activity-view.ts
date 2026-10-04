@@ -5,7 +5,19 @@ import type { DesignLanguage } from "../theme/themes";
 
 export type ActivityThemeProps = {
   activities: Activity[];
-  displaySummary: ActivityDisplaySummary;
+  displaySummary: ActivityDisplaySummary | null;
+  summaryLoading: boolean;
+  summaryError: string | null;
+  summaryDistanceUnknownCount: number;
+  boundsError: string | null;
+  boundsLoading: boolean;
+  onRetryBounds: () => Promise<void>;
+  summaryScope: string;
+  recordsScope: string;
+  recordsReady: boolean;
+  onRetrySummary: () => Promise<void>;
+  onRetryRecords: () => Promise<void>;
+  onRetrySeries: () => Promise<void>;
   sportType: string;
   sportOptions: string[];
   loading: boolean;

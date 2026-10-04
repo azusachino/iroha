@@ -11,6 +11,9 @@ export type AsyncResource<T> = {
   // filter change) must not make already-visible content disappear again.
   readonly ready: boolean;
   run(fetcher: () => Promise<T>): Promise<T | undefined>;
+  // Ignore pending completions while keeping observed data and readiness.
+  // This invalidates the response; it does not abort the network request.
+  invalidate(): void;
   // Update `data` directly without going through a fetch -- e.g. appending
   // a "load more" page to an already-loaded list.
   mutate(updater: (current: T | null) => T): void;
@@ -42,6 +45,12 @@ export function createAsyncResource<T>(): AsyncResource<T> {
     }
   }
 
+  function invalidate(): void {
+    requestId += 1;
+    loading = false;
+    error = null;
+  }
+
   function mutate(updater: (current: T | null) => T): void {
     data = updater(data);
   }
@@ -60,6 +69,7 @@ export function createAsyncResource<T>(): AsyncResource<T> {
       return ready;
     },
     run,
+    invalidate,
     mutate,
   };
 }

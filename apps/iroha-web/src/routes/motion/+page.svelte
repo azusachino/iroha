@@ -12,7 +12,9 @@
     type ActivitySummary,
     type ListActivitiesParams,
     type MetricSeriesResponse,
+    type Page as ActivityPage,
   } from "$lib/api";
+  import type { ActivitySummaryTotals } from "@iroha/shared/domain/activity";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import {
@@ -28,6 +30,7 @@
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import {
     currentYear,
+    MONTH_OPTIONS,
     monthBounds,
     monthOptionsInRange,
     yearOptionsInRange,
@@ -49,8 +52,8 @@
   import { hasThemeRoute } from "$lib/themes/registry";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
 
-  // Draft filter inputs (bound to the form); committed to `applied` on submit
-  // so "Load more" keeps paging the same query the user actually ran.
+  // Scoped reads follow the selection. `applied` snapshots the records query
+  // so "Load more" cannot append a page from a superseded selection.
   const initialSport = page.url.searchParams.get("sport") ?? "";
   const defaultScope = currentCalendarScope("year", new Date(), IROHA_TIMEZONE);
   const requestedScope = readCalendarScope(page.url.searchParams, {
@@ -70,51 +73,77 @@
   let selectedMonth = $state(initialMonth);
   let applied = $state<ListActivitiesParams>({});
 
-  const activitiesResource = createAsyncResource<Activity[]>();
-  const summaryResource = createAsyncResource<ActivitySummary>();
-  const seriesResource = createAsyncResource<{
-    distance: MetricSeriesResponse;
-    duration: MetricSeriesResponse;
-  }>();
+  type ScopedData<T> = { scope: ListActivitiesParams; value: T };
+  const activitiesResource =
+    createAsyncResource<ScopedData<ActivityPage<Activity>>>();
+  const summaryResource = createAsyncResource<ScopedData<ActivitySummary>>();
+  const seriesResource = createAsyncResource<
+    ScopedData<{
+      distance: MetricSeriesResponse | null;
+      duration: MetricSeriesResponse | null;
+    }>
+  >();
   let loadingMore = $state(false);
-  let cursor = $state<string | null>(null);
-  let hasMore = $state(false);
-  const activities = $derived(activitiesResource.data ?? []);
-  const summary = $derived(summaryResource.data);
-  const activitySeries = $derived(seriesResource.data?.distance ?? null);
+  const cursor = $derived(activitiesResource.data?.value.next_cursor ?? null);
+  const hasMore = $derived(activitiesResource.data?.value.has_more ?? false);
+  const canLoadMore = $derived(
+    hasMore &&
+      !activitiesResource.loading &&
+      matchesScope(activitiesResource.data, applied),
+  );
+  const activities = $derived(activitiesResource.data?.value.items ?? []);
+  const summary = $derived(summaryResource.data?.value ?? null);
+  const activitySeries = $derived(seriesResource.data?.value.distance ?? null);
   const activityDurationSeries = $derived(
-    seriesResource.data?.duration ?? null,
+    seriesResource.data?.value.duration ?? null,
   );
   const theme = useTheme();
   const sportOptions = $derived(
-    summary ? summary.by_sport.map((b) => b.key).sort() : [],
+    [
+      ...new Set(
+        [
+          sportType,
+          ...(summary?.by_sport.map((bucket) => bucket.key) ?? []),
+        ].filter(Boolean),
+      ),
+    ].sort(),
   );
 
   // The real data range (fetched once, independent of the current
   // selection) -- not "today". A scoped summary request failing (e.g. a
   // stale/tampered URL naming an out-of-range period) must never collapse
   // these option lists, so they never read from `summary`.
-  let bounds = $state<DateBounds>({});
-  const years = $derived(yearOptionsInRange(bounds));
-  const months = $derived(monthOptionsInRange(selectedYear, bounds));
+  const boundsResource = createAsyncResource<DateBounds>();
+  const bounds = $derived(boundsResource.data ?? {});
+  const years = $derived(
+    boundsResource.ready
+      ? yearOptionsInRange(bounds)
+      : selectedYear
+        ? [selectedYear]
+        : [],
+  );
+  const months = $derived(
+    boundsResource.ready
+      ? monthOptionsInRange(selectedYear, bounds)
+      : MONTH_OPTIONS.filter((option) => option.value === selectedMonth),
+  );
 
   async function loadBounds() {
-    try {
-      bounds = await getActivityBounds();
-    } catch {
-      bounds = {};
-    }
-    const validYears = new Set(yearOptionsInRange(bounds));
+    const loaded = await boundsResource.run(() => getActivityBounds());
+    if (!loaded) return;
+    const previous = buildParams();
+    const validYears = new Set(yearOptionsInRange(loaded));
     if (selectedYear && !validYears.has(selectedYear)) {
       selectedYear = "";
       selectedMonth = "";
     } else if (selectedMonth) {
       const validMonths = new Set(
-        monthOptionsInRange(selectedYear, bounds).map((option) => option.value),
+        monthOptionsInRange(selectedYear, loaded).map((option) => option.value),
       );
       if (!validMonths.has(selectedMonth)) selectedMonth = "";
     }
     syncUrl();
+    if (previous.date !== buildParams().date) void loadSummary();
   }
 
   function handleYearChange() {
@@ -127,6 +156,7 @@
 
   function handleMonthChange() {
     syncUrl();
+    void loadSummary();
   }
 
   function metricSport(value: string): string {
@@ -161,6 +191,7 @@
         grain: "month",
       };
     }
+    if (!matchesScope(summaryResource.data, buildParams())) return null;
     const months = (summary?.by_month ?? []).map((bucket) => bucket.key).sort();
     if (months.length === 0) return null;
     return {
@@ -172,18 +203,29 @@
 
   async function loadActivitySeries() {
     const window = chartWindow();
-    if (!window) return;
+    const scope = buildParams();
+    if (!window) {
+      if (matchesScope(summaryResource.data, scope)) {
+        await seriesResource.run(async () => ({
+          scope,
+          value: { distance: null, duration: null },
+        }));
+      } else {
+        seriesResource.invalidate();
+      }
+      return;
+    }
+    const params = {
+      ...window,
+      timezone: IROHA_TIMEZONE,
+      dimensions: sportType ? [`sport:${metricSport(sportType)}`] : [],
+    };
     await seriesResource.run(async () => {
-      const params = {
-        ...window,
-        timezone: IROHA_TIMEZONE,
-        dimensions: sportType ? [`sport:${metricSport(sportType)}`] : [],
-      };
       const [distance, duration] = await Promise.all([
         getMetricSeries("movement.distance_m", params),
         getMetricSeries("movement.duration_s", params),
       ]);
-      return { distance, duration };
+      return { scope, value: { distance, duration } };
     });
   }
 
@@ -211,20 +253,48 @@
     return params;
   }
 
+  function matchesScope(
+    snapshot: { scope: ListActivitiesParams } | null,
+    requested: ListActivitiesParams,
+  ): boolean {
+    return (
+      !!snapshot &&
+      snapshot.scope.date === requested.date &&
+      snapshot.scope.sport_type === requested.sport_type
+    );
+  }
+
+  function scopeLabel(params: ListActivitiesParams): string {
+    const period = params.date || "Lifetime";
+    return params.sport_type
+      ? `${period} · ${sportLabel(params.sport_type)}`
+      : period;
+  }
+
   // Fetch one page. `append` distinguishes a fresh query (replace) from
   // "Load more" (accumulate). Cursor + has_more drive the keyset walk.
   async function load(append: boolean) {
     if (append) {
-      if (!hasMore || !cursor || loadingMore) return;
+      const previous = activitiesResource.data;
+      if (
+        !previous ||
+        !hasMore ||
+        !cursor ||
+        loadingMore ||
+        activitiesResource.loading
+      )
+        return;
+      if (!matchesScope(previous, applied)) return;
       loadingMore = true;
       try {
         const page = await listActivities({ ...applied, cursor });
-        activitiesResource.mutate((current) => [
-          ...(current ?? []),
-          ...page.items,
-        ]);
-        cursor = page.next_cursor;
-        hasMore = page.has_more;
+        if (activitiesResource.loading || activitiesResource.data !== previous)
+          return;
+        if (!matchesScope(previous, applied)) return;
+        activitiesResource.mutate(() => ({
+          scope: previous.scope,
+          value: { ...page, items: [...previous.value.items, ...page.items] },
+        }));
       } catch {
         // Load-more failures are retry-safe -- keep the rows already
         // showing rather than replacing a working view with an error.
@@ -233,52 +303,66 @@
       }
       return;
     }
-    await activitiesResource.run(async () => {
-      const page = await listActivities(applied);
-      cursor = page.next_cursor;
-      hasMore = page.has_more;
-      return page.items;
-    });
+    const params = { ...applied };
+    const scope = params;
+    await activitiesResource.run(async () => ({
+      scope,
+      value: await listActivities(params),
+    }));
   }
 
   function clear() {
     sportType = "";
     selectedYear = "";
     selectedMonth = "";
-    applied = {};
-    cursor = null;
+    applied = buildParams();
     syncUrl();
     load(false);
     void loadSummary();
   }
 
   async function loadSummary() {
-    await summaryResource.run(() =>
-      getActivitySummary({
-        date: serializeCalendarScope(
-          scopeFromParts(selectedYear, selectedMonth),
-        ),
-        sport: sportType || null,
+    const params = buildParams();
+    const scope = params;
+    await summaryResource.run(async () => ({
+      scope,
+      value: await getActivitySummary({
+        date: params.date,
+        sport: params.sport_type || null,
         timezone: IROHA_TIMEZONE,
       }),
-    );
+    }));
   }
 
-  const displaySummary = $derived.by<ActivityDisplaySummary>(() => {
-    if (!summary) {
-      return { activity_count: 0, distance_m: 0, duration_s: 0 };
+  // The HTTP summary is year-wide even for a month date. Derive the bucket
+  // from the OBSERVED request, never the current (possibly pending) selection.
+  const summaryTotals = $derived.by<ActivitySummaryTotals | null>(() => {
+    if (!summary) return null;
+    const date = summaryResource.data?.scope.date;
+    if (date && /^\d{4}-\d{2}$/.test(date)) {
+      return (
+        summary.by_month.find((bucket) => bucket.key === date) ?? {
+          activity_count: 0,
+          distance_m: 0,
+          duration_s: 0,
+          distance_known_count: 0,
+          distance_unknown_count: 0,
+          elevation_gain_m: 0,
+        }
+      );
     }
+    return summary.totals;
+  });
 
-    const bucket = selectedMonth
-      ? summary.by_month.find(
-          (item) =>
-            item.key === `${selectedYear}-${selectedMonth.padStart(2, "0")}`,
-        )
-      : null;
-    const totals = bucket ?? summary.totals;
+  const displaySummary = $derived.by<ActivityDisplaySummary | null>(() => {
+    const totals = summaryTotals;
+    if (!totals) return null;
     return {
       activity_count: totals.activity_count,
-      distance_m: totals.distance_m,
+      distance_m:
+        totals.distance_unknown_count > 0 && totals.distance_known_count === 0
+          ? null
+          : totals.distance_m,
       duration_s: totals.moving_time_s || totals.duration_s,
     };
   });
@@ -293,7 +377,6 @@
 
     untrack(() => {
       applied = buildParams();
-      cursor = null;
       void load(false);
     });
   });
@@ -302,10 +385,10 @@
     const _s = sportType;
     const _y = selectedYear;
     const _m = selectedMonth;
-    const _summary = summary;
+    const _summary = selectedYear ? null : summaryResource.data;
 
     untrack(() => {
-      if (_summary) void loadActivitySeries();
+      void loadActivitySeries();
     });
   });
 
@@ -323,12 +406,7 @@
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (
-          entries[0].isIntersecting &&
-          hasMore &&
-          !activitiesResource.loading &&
-          !loadingMore
-        ) {
+        if (entries[0].isIntersecting && canLoadMore && !loadingMore) {
           void load(true);
         }
       },
@@ -388,7 +466,7 @@
 <section class="activities-shell">
   {#if hasThemeRoute(theme.definition(), "activities")}
     <LoadingBoundary
-      resource={[activitiesResource, summaryResource, seriesResource]}
+      resource={activitiesResource}
       preserveLayout
       label="Loading activities…"
     >
@@ -397,19 +475,49 @@
         props={{
           activities,
           displaySummary,
+          summaryLoading: summaryResource.loading,
+          summaryError: summaryResource.error,
+          summaryDistanceUnknownCount:
+            summaryTotals?.distance_unknown_count ?? 0,
+          boundsError: boundsResource.error,
+          boundsLoading: boundsResource.loading,
+          onRetryBounds: () => loadBounds(),
+          summaryScope: summaryResource.data
+            ? scopeLabel(summaryResource.data.scope)
+            : "",
+          recordsScope: activitiesResource.data
+            ? scopeLabel(activitiesResource.data.scope)
+            : "",
+          recordsReady: activitiesResource.ready,
+          onRetrySummary: () => loadSummary(),
+          onRetryRecords: () => load(false),
+          onRetrySeries: () => {
+            if (
+              !selectedYear &&
+              !matchesScope(summaryResource.data, buildParams())
+            )
+              return loadSummary();
+            return loadActivitySeries();
+          },
           sportType,
           sportOptions,
           loading: activitiesResource.loading,
           error: activitiesResource.error,
-          hasMore,
+          hasMore: canLoadMore,
           loadingMore,
           activitySeries,
           activityDurationSeries,
-          activitySeriesLoading: seriesResource.loading,
-          activitySeriesError: seriesResource.error,
-          activitySeriesScope: selectedMonth
-            ? `${selectedYear}-${selectedMonth.padStart(2, "0")}`
-            : selectedYear || "Lifetime",
+          activitySeriesLoading:
+            seriesResource.loading ||
+            (!selectedYear && summaryResource.loading),
+          activitySeriesError:
+            seriesResource.error ??
+            (!selectedYear && summaryResource.error
+              ? "Could not determine the movement series scope."
+              : null),
+          activitySeriesScope: seriesResource.data
+            ? scopeLabel(seriesResource.data.scope)
+            : "",
           onSportType: (value: string) => {
             sportType = value;
             syncUrl();
@@ -474,32 +582,28 @@
     <div class="stat-strip" aria-label="Activity summary">
       <StatTile
         label="Activities"
-        value={summaryResource.loading
-          ? "—"
-          : displaySummary.activity_count.toLocaleString()}
+        value={displaySummary
+          ? displaySummary.activity_count.toLocaleString()
+          : "—"}
         sub={sportType || selectedYear ? "Filtered count" : "Imported sessions"}
       />
       <StatTile
         label="Distance"
-        value={summaryResource.loading
-          ? "—"
-          : formatDistance(displaySummary.distance_m)}
+        value={displaySummary ? formatDistance(displaySummary.distance_m) : "—"}
         sub={sportType || selectedYear
           ? "Filtered distance"
           : "Across all activities"}
       />
       <StatTile
         label="Total time"
-        value={summaryResource.loading
-          ? "—"
-          : formatDuration(displaySummary.duration_s)}
+        value={displaySummary ? formatDuration(displaySummary.duration_s) : "—"}
         sub={sportType || selectedYear
           ? "Filtered duration"
           : "Recorded duration"}
       />
       <StatTile
         label="Sports"
-        value={summaryResource.loading ? "—" : trackedSports.toLocaleString()}
+        value={summary ? trackedSports.toLocaleString() : "—"}
         sub="Activity types tracked"
       />
     </div>
@@ -619,7 +723,7 @@
       {/if}
     {/if}
   {/if}
-  {#if hasMore}
+  {#if canLoadMore}
     <div
       bind:this={sentinel}
       class="motion-load-sentinel"

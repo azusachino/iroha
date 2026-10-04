@@ -1,10 +1,40 @@
 <script lang="ts">
-  let { message, onRetry }: { message: string; onRetry: () => void } = $props();
+  import { tick } from "svelte";
+  let {
+    message,
+    onRetry,
+    retryLabel = "Try again",
+    focusTarget,
+  }: {
+    message: string;
+    onRetry: () => void | Promise<void>;
+    retryLabel?: string;
+    focusTarget?: HTMLElement;
+  } = $props();
+
+  async function retry(event: MouseEvent): Promise<void> {
+    const origin = event.currentTarget as HTMLElement;
+    await onRetry();
+    await tick();
+    if (!focusTarget?.isConnected) return;
+    // Do not take focus back if the user moved to another control while waiting.
+    if (
+      document.activeElement !== document.body &&
+      document.activeElement !== origin
+    )
+      return;
+    const retryButton = [
+      ...focusTarget.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.dataset.retryLabel === retryLabel);
+    (retryButton ?? focusTarget).focus({ preventScroll: true });
+  }
 </script>
 
 <div class="retry-notice" role="alert">
   <p>{message}</p>
-  <button type="button" onclick={onRetry}>Try again</button>
+  <button type="button" data-retry-label={retryLabel} onclick={retry}
+    >{retryLabel}</button
+  >
 </div>
 
 <style>
