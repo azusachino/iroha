@@ -1,12 +1,18 @@
 <script lang="ts">
   import type { SleepThemeProps } from "../../view-contracts/sleep-view";
   import BarChart from "../components/BarChart.svelte";
+  import RetryNotice from "../components/RetryNotice.svelte";
   import SleepAggregateChart from "../components/SleepAggregateChart.svelte";
   import { formatDateOnly, formatDuration } from "../../format/format";
 
   let {
     sessions,
     selected,
+    sessionsLoading = false,
+    sessionsReady = false,
+    sessionsError = null,
+    recordsScope = "",
+    onRetrySessions,
     averageAsleep,
     averageEfficiency,
     onOpenDetail,
@@ -19,6 +25,7 @@
   }: SleepThemeProps = $props();
 
   const chartSessions = $derived([...sessions].reverse());
+  let recordsPanel = $state<HTMLElement>();
 </script>
 
 <section class="grapher-sleep" aria-labelledby="sleep-data-title">
@@ -33,19 +40,22 @@
 
   {@render children?.()}
 
-  <div class="summary-row" aria-label="Sleep summary">
+  <div class="summary-row" role="region" aria-label="Sleep summary">
     <div>
       <span>Recorded sessions</span><strong
-        >{sleepSummary?.session_count ?? sessions.length}</strong
+        >{sleepSummary?.session_count ?? "—"}</strong
       >
     </div>
     <div>
-      <span>Average asleep</span><strong>{formatDuration(averageAsleep)}</strong
+      <span>Average main sleep</span><strong
+        >{averageAsleep == null ? "—" : formatDuration(averageAsleep)}</strong
       >
     </div>
     <div>
       <span>Average efficiency</span><strong
-        >{Math.round(averageEfficiency * 100)}%</strong
+        >{averageEfficiency == null
+          ? "—"
+          : `${Math.round(averageEfficiency * 100)}%`}</strong
       >
     </div>
   </div>
@@ -57,13 +67,16 @@
       scope={rollupScope}
       {theme}
     />
-  {:else}<section class="sleep-series" aria-labelledby="sleep-series-title">
+  {:else if sessions.length}<section
+      class="sleep-series"
+      aria-labelledby="sleep-series-title"
+    >
       <div class="panel-heading">
         <div>
           <p class="kicker">Observed sessions</p>
           <h2 id="sleep-series-title">Asleep time by night</h2>
         </div>
-        <span>Newest first</span>
+        <span>Observed sessions: {recordsScope}</span>
       </div>
       <BarChart
         categories={chartSessions.map((session) =>
@@ -84,7 +97,26 @@
       />
     </section>{/if}
 
-  <section class="session-table" aria-labelledby="sleep-table-title">
+  <section
+    class="session-table"
+    aria-label="Sleep session read state"
+    tabindex="-1"
+    bind:this={recordsPanel}
+  >
+    {#if sessionsError && onRetrySessions}<RetryNotice
+        message={`Could not load sleep sessions: ${sessionsError}`}
+        retryLabel="Retry sleep sessions"
+        onRetry={onRetrySessions}
+        focusTarget={recordsPanel}
+      />{/if}
+    {#if sessionsLoading}<p role="status">
+        {sessionsReady ? "Updating sleep sessions…" : "Loading sleep sessions…"}
+      </p>{/if}
+    {#if recordsScope}<p>Observed sessions: {recordsScope}</p>{/if}
+    {#if sessionsReady && !sessionsLoading && !sessionsError && !sessions.length}<p
+      >
+        No sleep sessions in this observed scope.
+      </p>{/if}
     <div class="panel-heading">
       <div>
         <p class="kicker">Session records</p>
@@ -97,7 +129,7 @@
       >
     </div>
     <div class="table-scroll">
-      <table>
+      <table aria-label="Sleep session records">
         <thead
           ><tr
             ><th>Date</th><th>Asleep</th><th>In bed</th><th>Efficiency</th><th
