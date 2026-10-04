@@ -2,10 +2,21 @@
   import type { MediaThemeProps } from "../../domain/media";
   import MediaBarChart from "../components/MediaBarChart.svelte";
   import MediaAssetCard from "../components/MediaAssetCard.svelte";
+  import RetryNotice from "../components/RetryNotice.svelte";
 
   let {
     items,
     aggregates,
+    aggregatesLoading,
+    aggregatesReady,
+    aggregatesError,
+    aggregatesScope,
+    recordsLoading,
+    recordsReady,
+    recordsError,
+    recordsScope,
+    onRetryAggregates,
+    onRetryRecords,
     family,
     status,
     completedYear,
@@ -15,6 +26,7 @@
     scores,
     currentCompletedCount,
     activeCount,
+    activeScope,
     theme,
     onFamily,
     onStatus,
@@ -24,6 +36,8 @@
     loadingMore,
   }: MediaThemeProps = $props();
 
+  let totalsPanel = $state<HTMLElement>();
+  let recordsPanel = $state<HTMLElement>();
   let selectedYear = $state("");
   let yearSelect = $state<HTMLSelectElement>();
   $effect(() => {
@@ -52,7 +66,7 @@
       </p>
     </div>
     <strong class="media-count">
-      <span>{aggregates.totals.item_count}</span><small> titles</small>
+      <span>{aggregates?.totals.item_count ?? "—"}</span><small> titles</small>
     </strong>
   </header>
   <nav class="tabs" aria-label="Media family">
@@ -82,13 +96,31 @@
         onchange={(event) =>
           onYear((event.currentTarget as HTMLSelectElement).value)}
         ><option value="">Lifetime</option
-        >{#each yearOptions as option (option.year)}<option
-            value={option.year}>{option.year}</option
+        >{#each yearOptions as option (option.year)}<option value={option.year}
+            >{option.year}</option
           >{/each}</select
       ></label
     >
   </div>
 
+  <section
+    aria-label="Library totals read state"
+    tabindex="-1"
+    bind:this={totalsPanel}
+  >
+    {#if aggregatesError}<RetryNotice
+        message={`Could not load library totals: ${aggregatesError}`}
+        retryLabel="Retry library totals"
+        onRetry={onRetryAggregates}
+        focusTarget={totalsPanel}
+      />{/if}
+    {#if aggregatesLoading}<p role="status">
+        {aggregatesReady
+          ? "Updating library totals…"
+          : "Loading library totals…"}
+      </p>{/if}
+    {#if aggregatesScope}<p>Observed totals: {aggregatesScope}</p>{/if}
+  </section>
   <div class="chart-grid" aria-label="Library charts">
     <article class="chart-panel">
       <header>
@@ -99,7 +131,9 @@
           labels={completions.map((bucket) => bucket.year)}
           values={completions.map((bucket) => bucket.count)}
           color="--accent"
-        />{:else}<p class="empty">No completion records.</p>{/if}
+        />{:else if aggregatesReady}<p class="empty">
+          No completion records.
+        </p>{:else}<p class="empty">Completion history unavailable.</p>{/if}
     </article>
     <article class="chart-panel">
       <header>
@@ -110,7 +144,9 @@
           labels={scores.map((bucket) => bucket.score)}
           values={scores.map((bucket) => bucket.count)}
           color="--accent-2"
-        />{:else}<p class="empty">No ratings recorded.</p>{/if}
+        />{:else if aggregatesReady}<p class="empty">
+          No ratings recorded.
+        </p>{:else}<p class="empty">Ratings unavailable.</p>{/if}
     </article>
     <article class="chart-panel kind-panel">
       <header>
@@ -122,35 +158,59 @@
           values={typeFamilies.map((item) => item.count)}
           color="--mark-teal"
           horizontal
-        />{:else}<p class="empty">No kind breakdown.</p>{/if}
+        />{:else if aggregatesReady}<p class="empty">
+          No kind breakdown.
+        </p>{:else}<p class="empty">Kind breakdown unavailable.</p>{/if}
     </article>
   </div>
 
-  <div class="stats">
+  <div class="stats" role="region" aria-label="Library summary">
     <div>
-      <span>Completed</span><strong>{currentCompletedCount}</strong>
+      <span>Completed</span><strong>{currentCompletedCount ?? "—"}</strong>
     </div>
     <div>
       <span>This year</span><strong
-        >{aggregates.totals.this_year_completed}</strong
+        >{aggregates?.totals.this_year_completed ?? "—"}</strong
       >
     </div>
     <div>
       <span>Average score</span><strong
-        >{aggregates.totals.average_rating
+        >{aggregates && scores.length
           ? aggregates.totals.average_rating.toFixed(1)
           : "—"}</strong
       >
     </div>
     <div>
-      <span>In progress</span><strong>{activeCount}</strong>
+      <span>In progress</span><strong>{activeCount ?? "—"}</strong>
+      <small
+        >Counts across statuses · {activeScope
+          ? `Observed facet: ${activeScope}`
+          : "Facet unavailable"}</small
+      >
     </div>
   </div>
-  <section class="records">
+  <section
+    class="records"
+    aria-label="Library records read state"
+    tabindex="-1"
+    bind:this={recordsPanel}
+  >
+    {#if recordsError}<RetryNotice
+        message={`Could not load library records: ${recordsError}`}
+        retryLabel="Retry library records"
+        onRetry={onRetryRecords}
+        focusTarget={recordsPanel}
+      />{/if}
+    {#if recordsLoading}<p role="status">
+        {recordsReady
+          ? "Updating library records…"
+          : "Loading library records…"}
+      </p>{/if}
+    {#if recordsScope}<p>Observed records: {recordsScope}</p>{/if}
     <header>
       <div>
         <p class="kicker">Exact records</p>
-        <h2>{items.length} visible titles</h2>
+        <h2>{recordsReady ? items.length : "—"} visible titles</h2>
       </div>
       <span>Chart values stay above the rows.</span>
     </header>
@@ -158,7 +218,11 @@
         {#each items as item (item.id)}
           <MediaAssetCard {item} {theme} />
         {/each}
-      </div>{:else}<p class="empty">No titles match this selection.</p>{/if}
+      </div>{:else if recordsReady && !recordsLoading && !recordsError}<p
+        class="empty"
+      >
+        No titles match this selection.
+      </p>{/if}
   </section>
   {#if hasMore}<button
       class="load-more"
@@ -167,8 +231,9 @@
       onclick={onLoadMore}>{loadingMore ? "Loading…" : "Load more"}</button
     >{/if}
   <footer>
-    {completions.length} completion periods · {scores.length} score buckets · source:
-    imported provider records
+    {aggregatesReady ? completions.length : "—"} completion periods · {aggregatesReady
+      ? scores.length
+      : "—"} score buckets · source: imported provider records
   </footer>
 </section>
 

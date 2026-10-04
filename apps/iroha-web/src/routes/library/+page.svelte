@@ -19,45 +19,40 @@
 
 <section class="media-shell">
   {#if hasThemeRoute(theme.definition(), "media")}
-    <LoadingBoundary
-      resource={l.libraryResource}
-      preserveLayout
-      label="Loading media history…"
-    >
-      {#if l.libraryResource.error}
-        <p class="error" aria-live="assertive">
-          {#if l.aggregates}
-            Could not update media; showing the previous result: {l
-              .libraryResource.error}
-          {:else}
-            Failed to load media: {l.libraryResource.error}
-          {/if}
-        </p>
-      {/if}
-      <ThemeRouteRenderer
-        route="media"
-        props={{
-          items: l.items,
-          aggregates: l.aggregatesForView,
-          family: l.family,
-          status: l.status,
-          completedYear: l.completedYear,
-          yearOptions: l.yearOptions,
-          typeFamilies: l.typeFamilies,
-          completions: l.completions,
-          scores: l.scores,
-          currentCompletedCount:
-            l.aggregatesForView.totals.current_completed_count,
-          activeCount: l.activeCount,
-          onFamily: l.selectFamily,
-          onStatus: l.selectStatus,
-          onYear: l.selectYear,
-          onLoadMore: l.loadMore,
-          hasMore: l.hasMore,
-          loadingMore: l.loadingMore,
-        }}
-      />
-    </LoadingBoundary>
+    <ThemeRouteRenderer
+      route="media"
+      props={{
+        items: l.items,
+        aggregates: l.aggregatesForView,
+        aggregatesLoading: l.aggregatesResource.loading,
+        aggregatesReady: l.aggregatesResource.ready,
+        aggregatesError: l.aggregatesResource.error,
+        aggregatesScope: l.aggregatesScope,
+        recordsLoading: l.libraryResource.loading,
+        recordsReady: l.libraryResource.ready,
+        recordsError: l.libraryResource.error,
+        recordsScope: l.recordsScope,
+        onRetryAggregates: l.loadAggregates,
+        onRetryRecords: l.loadRecords,
+        family: l.family,
+        status: l.status,
+        completedYear: l.completedYear,
+        yearOptions: l.yearOptions,
+        typeFamilies: l.typeFamilies,
+        completions: l.completions,
+        scores: l.scores,
+        currentCompletedCount:
+          l.aggregatesForView?.totals.current_completed_count ?? null,
+        activeCount: l.activeCount,
+        activeScope: l.activeScope,
+        onFamily: l.selectFamily,
+        onStatus: l.selectStatus,
+        onYear: l.selectYear,
+        onLoadMore: l.loadMore,
+        hasMore: l.hasMore,
+        loadingMore: l.loadingMore,
+      }}
+    />
   {:else}
     <RouteIntro
       eyebrow="Library / things in orbit"
@@ -149,7 +144,7 @@
           />
           <StatTile
             label="In progress"
-            value={l.activeCount.toLocaleString()}
+            value={l.activeCount?.toLocaleString() ?? "—"}
             sub="Watching or reading"
           />
         </div>
@@ -214,7 +209,8 @@
                 <h2>Watching &amp; reading</h2>
               </div>
               <span class="muted"
-                >{l.activeCount} active{l.activeCount > 6
+                >{l.activeCount ?? "—"} active{l.activeCount != null &&
+                l.activeCount > 6
                   ? " · showing 6"
                   : ""}</span
               >

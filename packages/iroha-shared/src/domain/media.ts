@@ -196,7 +196,17 @@ export interface MediaDetailThemeProps {
 
 export interface MediaThemeProps {
   items: MediaRow[];
-  aggregates: MediaAggregates;
+  aggregates: MediaAggregates | null;
+  aggregatesLoading: boolean;
+  aggregatesReady: boolean;
+  aggregatesError: string | null;
+  aggregatesScope: string;
+  recordsLoading: boolean;
+  recordsReady: boolean;
+  recordsError: string | null;
+  recordsScope: string;
+  onRetryAggregates: () => Promise<void>;
+  onRetryRecords: () => Promise<void>;
   family: string;
   status: string;
   completedYear: string;
@@ -204,8 +214,9 @@ export interface MediaThemeProps {
   typeFamilies: { type: string; count: number }[];
   completions: MediaCompletionBucket[];
   scores: MediaScoreBucket[];
-  currentCompletedCount: number;
-  activeCount: number;
+  currentCompletedCount: number | null;
+  activeCount: number | null;
+  activeScope: string;
   theme: DesignLanguage;
   onFamily: (value: string) => void;
   onStatus: (value: string) => void;

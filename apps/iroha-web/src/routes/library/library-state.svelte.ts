@@ -9,44 +9,53 @@ import {
 import { progressPercent } from "$lib/format";
 import { mediaTypeFamily } from "$lib/media";
 import { createAsyncResource } from "$lib/asyncResource.svelte";
+import type { MediaPage } from "@iroha/shared/domain/media";
+
+type Filters = { family?: string; status?: string; completed_year?: number };
+type Scoped<T> = { scope: Filters; value: T };
+function matchesScope(a: Filters, b: Filters) {
+  return (
+    a.family === b.family &&
+    a.status === b.status &&
+    a.completed_year === b.completed_year
+  );
+}
+function scopeLabel(scope: Filters) {
+  return `${scope.family || "All kinds"} · ${scope.status || "All statuses"} · ${scope.completed_year || "Lifetime"}`;
+}
 
 // All state, derivations, and data loading for the Library route, kept out
 // of the .svelte file so the template isn't interleaved with ~240 lines of
 // business logic. `theme` (a Svelte context lookup) stays in the component.
 export function createLibraryState() {
-  const libraryResource = createAsyncResource<{
-    aggregates: MediaAggregates;
-    items: MediaRow[];
-    nextCursor: string | null;
-    hasMore: boolean;
-    statusCounts: Record<string, number>;
-    activeCount: number;
-  }>();
-  const aggregates = $derived(libraryResource.data?.aggregates ?? null);
-  const items = $derived(libraryResource.data?.items ?? []);
-  const hasMore = $derived(libraryResource.data?.hasMore ?? false);
-  const statusCounts = $derived(libraryResource.data?.statusCounts ?? {});
-  const activeCount = $derived(libraryResource.data?.activeCount ?? 0);
-  let loadingMore = $state(false);
+  const libraryResource = createAsyncResource<Scoped<MediaPage>>();
+  const aggregatesResource = createAsyncResource<Scoped<MediaAggregates>>();
+  const aggregates = $derived(aggregatesResource.data?.value ?? null);
+  const items = $derived(libraryResource.data?.value.items ?? []);
+  const hasMore = $derived(
+    (libraryResource.data?.value.has_more ?? false) &&
+      !libraryResource.loading &&
+      matchesScope(libraryResource.data!.scope, currentFilters()),
+  );
+  const statusCounts = $derived(
+    libraryResource.data?.value.status_counts ?? {},
+  );
+  const activeCount = $derived(
+    libraryResource.data?.value.active_count ?? null,
+  );
+  let pendingPage = $state<typeof libraryResource.data>(null);
+  const loadingMore = $derived(
+    pendingPage != null &&
+      pendingPage === libraryResource.data &&
+      matchesScope(pendingPage.scope, currentFilters()),
+  );
   let family = $state("");
   let status = $state("");
   let completedYear = $state("");
   let selectedYear = $state("");
   let yearSelect = $state<HTMLSelectElement>();
   let availableYears = $state<MediaCompletionBucket[]>([]);
-  const EMPTY_AGGREGATES: MediaAggregates = {
-    totals: {
-      item_count: 0,
-      completed_count: 0,
-      current_completed_count: 0,
-      this_year_completed: 0,
-      average_rating: 0,
-    },
-    completions_by_year: [],
-    score_distribution: [],
-    type_split: [],
-  };
-  const aggregatesForView = $derived(aggregates ?? EMPTY_AGGREGATES);
+  const aggregatesForView = $derived(aggregates);
 
   const FAMILIES = [
     { value: "", label: "All" },
@@ -134,25 +143,24 @@ export function createLibraryState() {
     };
   }
 
+  async function loadRecords() {
+    const scope = currentFilters();
+    await libraryResource.run(async () => ({
+      scope,
+      value: await listMedia({ limit: 100, ...scope }),
+    }));
+  }
+  async function loadAggregates() {
+    const scope = currentFilters();
+    const result = await aggregatesResource.run(async () => ({
+      scope,
+      value: await getMediaAggregates(scope),
+    }));
+    if (result && !scope.completed_year)
+      availableYears = result.value.completions_by_year;
+  }
   async function load() {
-    const filters = currentFilters();
-    const result = await libraryResource.run(async () => {
-      const [nextAggregates, page] = await Promise.all([
-        getMediaAggregates(filters),
-        listMedia({ limit: 100, ...filters }),
-      ]);
-      return {
-        aggregates: nextAggregates,
-        items: page.items,
-        nextCursor: page.next_cursor,
-        hasMore: page.has_more,
-        statusCounts: page.status_counts ?? {},
-        activeCount: page.active_count ?? 0,
-      };
-    });
-    if (result && !filters.completed_year) {
-      availableYears = result.aggregates.completions_by_year ?? [];
-    }
+    await Promise.all([loadRecords(), loadAggregates()]);
   }
 
   async function selectFamily(value: string) {
@@ -174,28 +182,34 @@ export function createLibraryState() {
   }
 
   async function loadMore() {
-    const cursor = libraryResource.data?.nextCursor;
-    if (!cursor || loadingMore) return;
-    loadingMore = true;
+    const previous = libraryResource.data;
+    if (!hasMore || !previous?.value.next_cursor || loadingMore) return;
+    pendingPage = previous;
     try {
       const page = await listMedia({
         limit: 100,
-        cursor,
-        ...currentFilters(),
+        cursor: previous.value.next_cursor,
+        ...previous.scope,
       });
-      libraryResource.mutate((current) => ({
-        aggregates: current?.aggregates ?? EMPTY_AGGREGATES,
-        statusCounts: current?.statusCounts ?? {},
-        activeCount: current?.activeCount ?? 0,
-        items: [...(current?.items ?? []), ...page.items],
-        nextCursor: page.next_cursor,
-        hasMore: page.has_more,
+      if (
+        libraryResource.data !== previous ||
+        libraryResource.loading ||
+        !matchesScope(previous.scope, currentFilters())
+      )
+        return;
+      libraryResource.mutate(() => ({
+        scope: previous.scope,
+        value: {
+          ...previous.value,
+          items: [...previous.value.items, ...page.items],
+          next_cursor: page.next_cursor,
+          has_more: page.has_more,
+        },
       }));
     } catch {
-      // Load-more failures are retry-safe -- keep the rows already showing
-      // rather than replacing a working view with an error.
+      // Visible pagination failure recovery remains a separate plan slice.
     } finally {
-      loadingMore = false;
+      if (pendingPage === previous) pendingPage = null;
     }
   }
 
@@ -237,6 +251,22 @@ export function createLibraryState() {
 
   return {
     libraryResource,
+    aggregatesResource,
+    loadRecords,
+    loadAggregates,
+    get activeScope() {
+      return libraryResource.data
+        ? scopeLabel({ ...libraryResource.data.scope, status: undefined })
+        : "";
+    },
+    get recordsScope() {
+      return libraryResource.data ? scopeLabel(libraryResource.data.scope) : "";
+    },
+    get aggregatesScope() {
+      return aggregatesResource.data
+        ? scopeLabel(aggregatesResource.data.scope)
+        : "";
+    },
     get aggregates() {
       return aggregates;
     },
