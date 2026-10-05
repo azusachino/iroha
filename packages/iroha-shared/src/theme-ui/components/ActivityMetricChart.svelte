@@ -1,4 +1,5 @@
 <script lang="ts">
+  let seriesScroll = $state<HTMLDivElement>();
   import type { DesignLanguage } from "../../theme/themes";
   import type { MetricSeriesResponse } from "../../components/metric-series";
   import BarChart from "./BarChart.svelte";
@@ -237,7 +238,21 @@
       {/if}
     </div>
 
-    <div class="series-table-wrap">
+    <button
+      class="scroll-hint"
+      type="button"
+      aria-controls="motion-series-scroll"
+      onclick={() => seriesScroll?.focus({ preventScroll: true })}
+      >Focus movement series to scroll all columns</button
+    >
+    <div
+      class="series-table-wrap"
+      id="motion-series-scroll"
+      role="region"
+      aria-label="Exact movement series scroll area"
+      tabindex="-1"
+      bind:this={seriesScroll}
+    >
       <table>
         <caption>Exact movement series</caption>
         <thead
@@ -383,6 +398,9 @@
     gap: 0.35rem;
   }
 
+  .scroll-hint {
+    min-height: 44px;
+  }
   .series-table-wrap {
     max-height: 15rem;
     overflow: auto;

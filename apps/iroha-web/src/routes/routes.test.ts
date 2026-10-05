@@ -76,6 +76,7 @@ describe("cockpit route layout", () => {
       "/expenses",
       "/patterns",
       "/reports",
+      "/metrics",
       "/to-go",
       "/admin",
       "/manual",

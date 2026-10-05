@@ -18,6 +18,7 @@
   const t = createNightState();
   let root = $state<HTMLElement>();
   let summaryPanel = $state<HTMLElement>();
+  let paginationPanel = $state<HTMLElement>();
 </script>
 
 <svelte:head>
@@ -112,18 +113,32 @@
         </section>
       {/snippet}
     </ThemeRouteRenderer>
-    {#if t.hasMore}
-      <div
-        bind:this={t.loadMoreSentinel}
-        class="theme-load-more"
-        aria-live="polite"
-      >
-        {#if t.loadingMore}<span>Loading more nights…</span>{:else}<button
-            type="button"
-            onclick={() => t.loadSessions(true)}>Load more nights</button
-          >{/if}
-      </div>
-    {/if}
+    <section
+      aria-label="Night pagination"
+      tabindex="-1"
+      bind:this={paginationPanel}
+    >
+      {#if t.loadMoreError}
+        <RetryNotice
+          message={`Could not load the next sleep page: ${t.loadMoreError}. Observed sessions and cursor are retained.`}
+          retryLabel="Retry more nights"
+          onRetry={() => t.loadSessions(true)}
+          focusTarget={paginationPanel}
+        />
+      {/if}
+      {#if t.hasMore}
+        <div
+          bind:this={t.loadMoreSentinel}
+          class="theme-load-more"
+          aria-live="polite"
+        >
+          {#if t.loadingMore}<span>Loading more nights…</span>{:else}<button
+              type="button"
+              onclick={() => t.loadSessions(true)}>Load more nights</button
+            >{/if}
+        </div>
+      {/if}
+    </section>
   {:else}
     <RouteIntro
       eyebrow="Night / recovery history"

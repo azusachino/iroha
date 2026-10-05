@@ -14,6 +14,7 @@
   let {
     dayLabel,
     day,
+    unavailableSections = [],
     dRow,
     mainNight,
     acts,
@@ -112,7 +113,9 @@
         <h2 id="activity-record-title">Sessions</h2>
       </div>
       <span class="panel-note"
-        >{acts.length} {acts.length === 1 ? "session" : "sessions"}</span
+        >{unavailableSections.includes("activities")
+          ? "Sessions unavailable"
+          : `${acts.length} ${acts.length === 1 ? "session" : "sessions"}`}</span
       >
     </div>
     {#if acts.length}
@@ -155,7 +158,11 @@
         {/each}
       </ul>
     {:else}
-      <p class="muted">No activity sessions recorded for this day.</p>
+      <p class="muted">
+        {unavailableSections.includes("activities")
+          ? "Activity sessions unavailable for this day."
+          : "No activity sessions recorded for this day."}
+      </p>
     {/if}
   </section>
 
@@ -178,7 +185,11 @@
           </div>
         </dl>
       {:else}
-        <p class="muted">No sleep session recorded for this day.</p>
+        <p class="muted">
+          {unavailableSections.includes("sleep")
+            ? "Sleep session unavailable for this day."
+            : "No sleep session recorded for this day."}
+        </p>
       {/if}
     </section>
 
@@ -206,7 +217,11 @@
           </tbody>
         </table>
       {:else}
-        <p class="muted">No exact media sessions recorded for this day.</p>
+        <p class="muted">
+          {unavailableSections.includes("media")
+            ? "Media sessions unavailable for this day."
+            : "No exact media sessions recorded for this day."}
+        </p>
       {/if}
       {#if mediaUpdates.length}
         <h3 class="media-updates-heading">Dated provider updates</h3>

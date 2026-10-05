@@ -5,6 +5,8 @@
   import PeriodDrill from "../components/PeriodDrill.svelte";
 
   let {
+    section = "all",
+    seriesAvailable = true,
     chrono,
     gran,
     onGran,
@@ -37,111 +39,126 @@
 <section
   class="grapher-daily"
   data-theme={theme}
-  aria-labelledby="daily-data-title"
+  aria-label={section === "controls"
+    ? "Pattern controls"
+    : section === "rings"
+      ? "Latest pattern rings"
+      : section === "series"
+        ? "Pattern evidence"
+        : "Daily patterns"}
 >
-  <header class="page-intro">
-    <p class="kicker">Patterns / time series</p>
-    <h1 id="daily-data-title">How does the pattern move?</h1>
-    <p>
-      Choose a time scale, compare the signals, and inspect the underlying
-      periods.
-    </p>
-  </header>
+  {#if section === "all" || section === "controls"}
+    <header class="page-intro">
+      <p class="kicker">Patterns / time series</p>
+      <h1 id="daily-data-title">How does the pattern move?</h1>
+      <p>
+        Choose a time scale, compare the signals, and inspect the underlying
+        periods.
+      </p>
+    </header>
 
-  {@render children?.()}
+    {@render children?.()}
 
-  <div class="controls">
-    <span class="kicker">Aggregation</span>
-    {#each ["day", "month", "year"] as option}
-      <button
-        class:active={gran === option}
-        onclick={() => onGran(option as "day" | "month" | "year")}
-        >{option}</button
-      >
-    {/each}
-    <span class="period-count">{chrono.length} periods</span>
-  </div>
-
-  {#if ringData.length}
-    <section class="rings-panel" aria-labelledby="grapher-rings-title">
-      <div class="panel-heading">
-        <div>
-          <p class="kicker">Latest reading</p>
-          <h2 id="grapher-rings-title">Move, exercise, stand.</h2>
-        </div>
-        {#if latestRingDay}<strong>{latestRingDay.day}</strong>{/if}
-      </div>
-      <RingGauge rings={ringData} />
-    </section>
+    <div class="controls">
+      <span class="kicker">Aggregation</span>
+      {#each ["day", "month", "year"] as option}
+        <button
+          class:active={gran === option}
+          aria-pressed={gran === option}
+          onclick={() => onGran(option as "day" | "month" | "year")}
+          >{option}</button
+        >
+      {/each}
+      {#if seriesAvailable}<span class="period-count"
+          >{chrono.length} periods</span
+        >{:else}<span class="period-count">Period series unavailable</span>{/if}
+    </div>
   {/if}
 
-  <section class="series-panel" aria-labelledby="steps-series-title">
-    <div class="panel-heading">
-      <div>
-        <p class="kicker">Primary series</p>
-        <h2 id="steps-series-title">Steps over time</h2>
-      </div>
-      {#if latest}<strong>{latest.label}</strong>{/if}
-    </div>
-    <BarChart
-      categories={chrono.map((item) => axisLabel(item.label))}
-      primary={{
-        name: "Steps",
-        values: chrono.map((item) => item.steps),
-        formatter: (value) => value.toLocaleString(),
-      }}
-      secondary={{
-        name: "Move closure",
-        values: chrono.map((item) => item.moveClosedPct),
-        formatter: (value) => `${value}%`,
-      }}
-      onBarClick={drillable ? onDrillIndex : undefined}
-    />
-    {#if drillable}
-      <p class="drill-hint">Use a bar or the period table to zoom in.</p>
+  {#if section === "all" || section === "rings"}
+    {#if ringData.length}
+      <section class="rings-panel" aria-labelledby="grapher-rings-title">
+        <div class="panel-heading">
+          <div>
+            <p class="kicker">Latest reading</p>
+            <h2 id="grapher-rings-title">Move, exercise, stand.</h2>
+          </div>
+          {#if latestRingDay}<strong>{latestRingDay.day}</strong>{/if}
+        </div>
+        <RingGauge rings={ringData} />
+      </section>
     {/if}
-  </section>
-
-  <section class="series-table" aria-labelledby="period-table-title">
-    <div class="panel-heading">
-      <div>
-        <p class="kicker">Underlying periods</p>
-        <h2 id="period-table-title">Compare signals</h2>
+  {/if}
+  {#if section === "all" || section === "series"}
+    <section class="series-panel" aria-labelledby="steps-series-title">
+      <div class="panel-heading">
+        <div>
+          <p class="kicker">Primary series</p>
+          <h2 id="steps-series-title">Steps over time</h2>
+        </div>
+        {#if latest}<strong>{latest.label}</strong>{/if}
       </div>
-      <span>— means no source value</span>
-    </div>
-    <div class="table-scroll">
-      <table>
-        <thead
-          ><tr
-            ><th>Period</th><th>Steps</th><th>Distance</th><th>Resting HR</th
-            ><th>HRV</th><th>Move</th></tr
-          ></thead
-        >
-        <tbody>
-          {#each [...chrono].reverse() as item}
-            <tr
-              ><td
-                >{#if drillable}<PeriodDrill
-                    label={item.label}
-                    period={item.period}
-                    value={item.steps}
-                    onDrill={onDrillPeriod}
-                  />{:else}{item.label}{/if}</td
-              ><td>{display(item.steps)}</td><td>{display(item.distance, 1)}</td
-              ><td>{display(item.resting_hr, 1)}</td><td
-                >{display(item.hrv_sdnn, 1)}</td
-              ><td
-                >{item.moveClosedPct == null
-                  ? "—"
-                  : `${Math.round(item.moveClosedPct)}%`}</td
-              ></tr
-            >
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  </section>
+      <BarChart
+        categories={chrono.map((item) => axisLabel(item.label))}
+        primary={{
+          name: "Steps",
+          values: chrono.map((item) => item.steps),
+          formatter: (value) => value.toLocaleString(),
+        }}
+        secondary={{
+          name: "Move closure",
+          values: chrono.map((item) => item.moveClosedPct),
+          formatter: (value) => `${value}%`,
+        }}
+        onBarClick={drillable ? onDrillIndex : undefined}
+      />
+      {#if drillable}
+        <p class="drill-hint">Use a bar or the period table to zoom in.</p>
+      {/if}
+    </section>
+
+    <section class="series-table" aria-labelledby="period-table-title">
+      <div class="panel-heading">
+        <div>
+          <p class="kicker">Underlying periods</p>
+          <h2 id="period-table-title">Compare signals</h2>
+        </div>
+        <span>— means no source value</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead
+            ><tr
+              ><th>Period</th><th>Steps</th><th>Distance</th><th>Resting HR</th
+              ><th>HRV</th><th>Move</th></tr
+            ></thead
+          >
+          <tbody>
+            {#each [...chrono].reverse() as item}
+              <tr
+                ><td
+                  >{#if drillable}<PeriodDrill
+                      label={item.label}
+                      period={item.period}
+                      value={item.steps}
+                      onDrill={onDrillPeriod}
+                    />{:else}{item.label}{/if}</td
+                ><td>{display(item.steps)}</td><td
+                  >{display(item.distance, 1)}</td
+                ><td>{display(item.resting_hr, 1)}</td><td
+                  >{display(item.hrv_sdnn, 1)}</td
+                ><td
+                  >{item.moveClosedPct == null
+                    ? "—"
+                    : `${Math.round(item.moveClosedPct)}%`}</td
+                ></tr
+              >
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {/if}
 </section>
 
 <style>

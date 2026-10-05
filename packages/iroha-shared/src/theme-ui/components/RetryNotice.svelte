@@ -12,9 +12,16 @@
     focusTarget?: HTMLElement;
   } = $props();
 
+  let retrying = $state(false);
   async function retry(event: MouseEvent): Promise<void> {
+    if (retrying) return;
     const origin = event.currentTarget as HTMLElement;
-    await onRetry();
+    retrying = true;
+    try {
+      await onRetry();
+    } finally {
+      retrying = false;
+    }
     await tick();
     if (!focusTarget?.isConnected) return;
     // Do not take focus back if the user moved to another control while waiting.
@@ -32,8 +39,11 @@
 
 <div class="retry-notice" role="alert">
   <p>{message}</p>
-  <button type="button" data-retry-label={retryLabel} onclick={retry}
-    >{retryLabel}</button
+  <button
+    type="button"
+    data-retry-label={retryLabel}
+    disabled={retrying}
+    onclick={retry}>{retryLabel}</button
   >
 </div>
 

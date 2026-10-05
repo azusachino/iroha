@@ -20,14 +20,14 @@ export type ExpensePanel = {
 
 export type ExpenseCurrencyTotal = {
   currency: ExpenseCurrency;
-  amountMinor: number;
+  amountMinor: number | null;
   exponent: number;
-  count: number;
+  count: number | null;
 };
 
 export type ExpenseCategoryTotal = {
   category: string;
-  amount: number;
+  amount: number | null;
 };
 
 export type ExpenseDailyTotal = [period: string, amountMinor: number | null];
@@ -43,6 +43,7 @@ export function expenseMetricDimensions(
 }
 
 export type ExpenseThemeProps = {
+  section?: "all" | "spending" | "ledger";
   month: string;
   primaryCurrency: ExpenseCurrency;
   primaryExponent: number;

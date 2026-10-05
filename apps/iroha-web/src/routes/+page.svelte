@@ -19,8 +19,12 @@
   import MediaUpdateList from "@iroha/shared/theme-ui/components/MediaUpdateList.svelte";
   import { createTodayState } from "./today-state.svelte";
 
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
   const theme = useTheme();
   const t = createTodayState();
+  let briefingPanel = $state<HTMLElement>();
+  let taskPanel = $state<HTMLElement>();
+  let calendarPanel = $state<HTMLElement>();
 </script>
 
 <svelte:head>
@@ -33,7 +37,19 @@
   {#if !t.briefing || !t.dayHasData}
     <h1 class="visually-hidden">Today, {t.dayLabel}</h1>
   {/if}
-  <div class="scrubber tile glow">
+  <div
+    class="scrubber tile glow"
+    role="region"
+    aria-label="Day calendar"
+    tabindex="-1"
+    bind:this={calendarPanel}
+  >
+    {#if t.calendarResource.error}<RetryNotice
+        message={`Day calendar unavailable: ${t.calendarResource.error}. Date selection remains available.`}
+        retryLabel="Retry day calendar"
+        onRetry={t.retryCalendar}
+        focusTarget={calendarPanel}
+      />{/if}
     <button class="nav" aria-label="Previous day" onclick={() => t.shift(-1)}
       >‹</button
     >
@@ -81,41 +97,74 @@
       </div>
     {/if}
 
-    {#if !t.taskError}
-      <section class="to-go-strip tile" aria-label="Daily to-go">
-        <div class="to-go-heading">
-          <span class="to-go-icon" aria-hidden="true"
-            ><ListTodo size={17} /></span
-          >
-          <div>
-            <p class="eyebrow">Daily to-go</p>
-            <p class="to-go-title">
-              {t.toGoTasks.length
-                ? `${t.toGoTasks.length} things to carry`
-                : "A clear next step"}
-            </p>
-          </div>
+    <section
+      class="to-go-strip tile"
+      aria-label="Daily to-go"
+      tabindex="-1"
+      bind:this={taskPanel}
+    >
+      {#if t.taskError}<RetryNotice
+          message={`Daily tasks unavailable: ${t.taskError}`}
+          retryLabel="Retry daily tasks"
+          onRetry={t.retryTasks}
+          focusTarget={taskPanel}
+        />{/if}
+      {#if t.finishError}<p role="alert">
+          Task completion failed: {t.finishError}
+        </p>{/if}
+      {#if t.taskResource.loading}<p role="status">Loading daily tasks…</p>{/if}
+      {#if t.taskResource.data}<p>
+          Observed tasks: {t.taskResource.data.date} · up to 5 open tasks
+        </p>{/if}
+      <div class="to-go-heading">
+        <span class="to-go-icon" aria-hidden="true"><ListTodo size={17} /></span
+        >
+        <div>
+          <p class="eyebrow">Daily to-go</p>
+          <p class="to-go-title">
+            {t.toGoTasks.length
+              ? `${t.toGoTasks.length} ${t.toGoTasks.length === 1 ? "thing" : "things"} to carry`
+              : t.taskResource.ready
+                ? "A clear next step"
+                : "Tasks unavailable"}
+          </p>
         </div>
-        <div class="to-go-items">
-          {#if t.toGoTasks.length}
-            {#each t.toGoTasks as task (task.id)}
-              <div class="to-go-task">
-                <button
-                  type="button"
-                  aria-label={`Complete ${task.title}`}
-                  onclick={() => t.finishTask(task)}><Check size={14} /></button
-                >
-                <span>{task.title}</span>
-              </div>
-            {/each}
-          {:else}
-            <span class="to-go-empty">No open tasks for this day.</span>
-          {/if}
-        </div>
-        <a class="to-go-link" href="/to-go">Open control room →</a>
-      </section>
-    {/if}
+      </div>
+      <div class="to-go-items">
+        {#if t.toGoTasks.length}
+          {#each t.toGoTasks as task (task.id)}
+            <div class="to-go-task">
+              <button
+                type="button"
+                aria-label={`Complete ${task.title}`}
+                disabled={t.finishingTaskId != null}
+                aria-busy={t.finishingTaskId === task.id}
+                onclick={() => t.finishTask(task)}><Check size={14} /></button
+              >
+              <span>{task.title}</span>
+            </div>
+          {/each}
+        {:else if t.taskResource.ready && !t.taskError && !t.taskResource.loading}
+          <span class="to-go-empty">No open tasks for this day.</span>
+        {/if}
+      </div>
+      <a class="to-go-link" href="/to-go">Open control room →</a>
+    </section>
   </div>
+  <section
+    aria-label="Daily briefing read state"
+    tabindex="-1"
+    bind:this={briefingPanel}
+  >
+    {#if t.error || t.unavailableSections.length}<RetryNotice
+        message={t.error
+          ? `Daily briefing unavailable: ${t.error}`
+          : `Unavailable briefing sections: ${t.unavailableSections.join(", ")}. Absence of records is not established for these sections.`}
+        retryLabel="Retry daily briefing"
+        onRetry={t.retryBriefing}
+        focusTarget={briefingPanel}
+      />{/if}
+  </section>
 
   {#if !t.briefing && t.loading}
     <TodaySkeleton label={`Loading ${t.dayLabel}…`} />
@@ -134,7 +183,12 @@
         </p>
       {/if}
       <div class="briefing-content">
-        {#if !t.dayHasData}
+        {#if !t.dayHasData && t.unavailableSections.length}
+          <p role="status">
+            Some sections for {t.dataDayLabel} are unavailable. Available sections
+            contain no records.
+          </p>
+        {:else if !t.dayHasData}
           <EmptyState
             eyebrow="Quiet day"
             title={`No records for ${t.dataDayLabel}.`}
@@ -153,6 +207,7 @@
             props={{
               dayLabel: t.dataDayLabel,
               day: t.dataDay,
+              unavailableSections: t.unavailableSections,
               dRow: t.dRow,
               mainNight: t.mainNight,
               acts: t.acts,
@@ -252,7 +307,11 @@
                   <span>{t.num(t.dRow?.flights, 0)} flights</span>
                 </div>
               {:else}
-                <p class="empty">No rings this day</p>
+                <p class="empty">
+                  {t.unavailableSections.includes("daily")
+                    ? "Rings unavailable for this day."
+                    : "No rings this day"}
+                </p>
               {/if}
             </a>
 
@@ -269,7 +328,11 @@
                   {/each}
                 </dl>
               {:else}
-                <p class="empty">No vitals this day</p>
+                <p class="empty">
+                  {t.unavailableSections.includes("daily")
+                    ? "Vitals unavailable for this day."
+                    : "No vitals this day"}
+                </p>
               {/if}
             </a>
 
@@ -290,7 +353,11 @@
                   >
                 </div>
               {:else}
-                <p class="empty">No sleep recorded</p>
+                <p class="empty">
+                  {t.unavailableSections.includes("sleep")
+                    ? "Sleep session unavailable for this day."
+                    : "No sleep recorded"}
+                </p>
               {/if}
             </a>
 
@@ -322,7 +389,11 @@
                   {/each}
                 </ul>
               {:else}
-                <p class="empty">No activities this day</p>
+                <p class="empty">
+                  {t.unavailableSections.includes("activities")
+                    ? "Activity sessions unavailable for this day."
+                    : "No activities this day"}
+                </p>
               {/if}
             </div>
 
@@ -366,7 +437,11 @@
                   {/each}
                 </ul>
               {:else}
-                <p class="empty">No exact media sessions this day</p>
+                <p class="empty">
+                  {t.unavailableSections.includes("media")
+                    ? "Media sessions unavailable for this day."
+                    : "No exact media sessions this day"}
+                </p>
               {/if}
             </div>
             {#if t.mediaUpdates.length}

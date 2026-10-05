@@ -15,6 +15,9 @@ RUN rm -rf .svelte-kit build static/data \
   && VITE_IROHA_VERSION="$(cat /app/VERSION)" bun run build
 
 FROM caddy:2-alpine AS public-site
+ARG SOURCE_REVISION
+RUN test -n "$SOURCE_REVISION"
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 COPY ops/images/Caddyfile.public-site /etc/caddy/Caddyfile
 COPY --from=build /app/apps/iroha-public-site/build /srv
 # Run unprivileged; /data and /config are Caddy's writable state directories.

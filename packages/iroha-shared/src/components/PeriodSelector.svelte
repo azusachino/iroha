@@ -79,7 +79,13 @@
   function shiftPeriod(delta: number) {
     const current = scopeFromParts(year, month);
     if (current.kind === "lifetime") return;
-    const shifted = shiftCalendarScope(current, delta, new Date(), timezone, bounds);
+    const shifted = shiftCalendarScope(
+      current,
+      delta,
+      new Date(),
+      timezone,
+      bounds,
+    );
     // A boundary clamp (nothing further to shift to) must be a no-op --
     // otherwise onYear/onMonth still fire with the unchanged value, and
     // every page's handler unconditionally reloads on that "change".
@@ -96,11 +102,19 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    if (
+      event.defaultPrevented ||
+      (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
+    )
+      return;
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
       return;
     const target = event.target as Element | null;
-    if (target?.matches("input, textarea, select, [contenteditable='true']"))
+    if (
+      target?.closest(
+        "input, textarea, select, button, a, [contenteditable], [role='dialog'], [role='slider'], [role='tab'], [role='listbox'], [role='combobox'], [role='menu'], [role='region'][tabindex]",
+      )
+    )
       return;
     event.preventDefault();
     shiftPeriod(event.key === "ArrowLeft" ? -1 : 1);
@@ -120,7 +134,7 @@
     label="Year"
     value={year}
     options={yearSelectOptions}
-    appearance={appearance}
+    {appearance}
     ariaLabel="Filter by year"
     onChange={onYear}
   />
@@ -128,7 +142,7 @@
     label="Month"
     value={month}
     options={monthSelectOptions}
-    appearance={appearance}
+    {appearance}
     ariaLabel="Filter by month"
     disabled={monthDisabled}
     onChange={onMonth}

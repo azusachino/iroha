@@ -7,6 +7,7 @@ import type { DesignLanguage } from "../theme/themes";
 export type TodayThemeProps = {
   dayLabel: string;
   day: string;
+  unavailableSections?: readonly string[];
   dRow: DailyRow | undefined;
   mainNight: SleepSession | undefined;
   acts: Activity[];

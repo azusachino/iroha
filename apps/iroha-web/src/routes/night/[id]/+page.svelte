@@ -17,13 +17,36 @@
   import SourceBadge from "@iroha/shared/components/SourceBadge.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
 
-  const detailResource = createAsyncResource<{
-    session: SleepSession;
-    segments: SleepSegment[];
-  }>();
-  const session = $derived(detailResource.data?.session ?? null);
-  const segments = $derived(detailResource.data?.segments ?? []);
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
+  import { untrack } from "svelte";
   const id = $derived(page.params.id ?? "");
+  const detailResource = createAsyncResource<{
+    id: string;
+    value: SleepSession;
+  }>();
+  const segmentsResource = createAsyncResource<{
+    id: string;
+    value: SleepSegment[];
+  }>();
+  const session = $derived(
+    detailResource.data?.id === id ? detailResource.data.value : null,
+  );
+  const stagesReady = $derived(segmentsResource.data?.id === id);
+  const segments = $derived(stagesReady ? segmentsResource.data!.value : []);
+  let sessionPanel = $state<HTMLElement>();
+  let stagesPanel = $state<HTMLElement>();
+  async function loadSession(selected = id) {
+    await detailResource.run(async () => ({
+      id: selected,
+      value: await getSleep(selected),
+    }));
+  }
+  async function loadStages(selected = id) {
+    await segmentsResource.run(async () => ({
+      id: selected,
+      value: await getSleepSegments(selected),
+    }));
+  }
 
   function segmentDuration(segment: SleepSegment): number {
     const seconds =
@@ -61,13 +84,11 @@
   });
 
   $effect(() => {
-    if (!id) return;
-    void detailResource.run(async () => {
-      const [loadedSession, loadedSegments] = await Promise.all([
-        getSleep(id),
-        getSleepSegments(id),
-      ]);
-      return { session: loadedSession, segments: loadedSegments };
+    const selected = id;
+    if (!selected) return;
+    untrack(() => {
+      void loadSession(selected);
+      void loadStages(selected);
     });
   });
 </script>
@@ -80,7 +101,18 @@
   >
 </svelte:head>
 
-<section class="sleep-detail-shell">
+<section
+  class="sleep-detail-shell"
+  aria-label="Sleep session read state"
+  tabindex="-1"
+  bind:this={sessionPanel}
+>
+  {#if detailResource.error}<RetryNotice
+      message={`Could not load sleep session: ${detailResource.error}`}
+      retryLabel="Retry sleep session"
+      onRetry={() => loadSession()}
+      focusTarget={sessionPanel}
+    />{/if}
   <RouteIntro
     eyebrow="Night / detail"
     title={session ? formatDateOnly(session.wake_date) : "Night detail"}
@@ -131,13 +163,29 @@
               </div>
             </article>
 
-            <article class="tile architecture-card">
+            <article
+              class="tile architecture-card"
+              aria-label="Sleep stages read state"
+              tabindex="-1"
+              bind:this={stagesPanel}
+            >
+              {#if segmentsResource.error}<RetryNotice
+                  message={`Could not load sleep stages: ${segmentsResource.error}`}
+                  retryLabel="Retry sleep stages"
+                  onRetry={() => loadStages()}
+                  focusTarget={stagesPanel}
+                />{/if}
+              {#if segmentsResource.loading}<p role="status">
+                  Loading sleep stages…
+                </p>{/if}
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Stage timeline</p>
                   <h2>Sleep architecture</h2>
                 </div>
-                <span class="section-note">{segments.length} segments</span>
+                <span class="section-note"
+                  >{stagesReady ? segments.length : "—"} segments</span
+                >
               </div>
               {#if segments.length > 0}
                 <p class="chart-note">
@@ -149,89 +197,90 @@
                   {segments}
                   sessionKind={session.is_main_sleep ? "main" : "nap"}
                 />
-              {:else}
+              {:else if stagesReady && !segmentsResource.loading && !segmentsResource.error}
                 <p class="muted">This session has no stage samples.</p>
               {/if}
             </article>
           </section>
 
-          <section
-            class="tile evidence-card"
-            aria-labelledby="stage-evidence-title"
-          >
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Stage evidence</p>
-                <h2 id="stage-evidence-title">Every recorded interval</h2>
+          {#if stagesReady}<section
+              class="tile evidence-card"
+              aria-labelledby="stage-evidence-title"
+            >
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Stage evidence</p>
+                  <h2 id="stage-evidence-title">Every recorded interval</h2>
+                </div>
+                <span class="section-note"
+                  >{stageRows.length} intervals · {formatDuration(
+                    observedSeconds,
+                  )} observed</span
+                >
               </div>
-              <span class="section-note"
-                >{stageRows.length} intervals · {formatDuration(
-                  observedSeconds,
-                )} observed</span
-              >
-            </div>
 
-            {#if stageTotals.length}
-              <div class="stage-summary" aria-label="Stage totals">
-                {#each stageTotals as item (item.stage)}
-                  <div>
-                    <span>{item.stage}</span>
-                    <strong>{formatDuration(item.duration)}</strong>
-                    <small>{Math.round(item.share)}% of observed stages</small>
-                  </div>
-                {/each}
-              </div>
-            {/if}
+              {#if stageTotals.length}
+                <div class="stage-summary" aria-label="Stage totals">
+                  {#each stageTotals as item (item.stage)}
+                    <div>
+                      <span>{item.stage}</span>
+                      <strong>{formatDuration(item.duration)}</strong>
+                      <small>{Math.round(item.share)}% of observed stages</small
+                      >
+                    </div>
+                  {/each}
+                </div>
+              {/if}
 
-            {#if stageRows.length}
-              <div class="segment-table">
-                <table>
-                  <caption
-                    >Canonical sleep stage intervals in source order</caption
-                  >
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Stage</th>
-                      <th>Started</th>
-                      <th>Ended</th>
-                      <th>Duration</th>
-                      <th>Share</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {#each stageRows as row (row.number)}
+              {#if stageRows.length}
+                <div class="segment-table">
+                  <table>
+                    <caption
+                      >Canonical sleep stage intervals in source order</caption
+                    >
+                    <thead>
                       <tr>
-                        <td>{row.number}</td>
-                        <td>
-                          <span
-                            class="stage-dot"
-                            style={`background: ${sleepStageColor(row.rawStage)}`}
-                          ></span>
-                          {row.stage}
-                        </td>
-                        <td>{formatDate(row.startedAt)}</td>
-                        <td>{formatDate(row.endedAt)}</td>
-                        <td>{formatDuration(row.duration)}</td>
-                        <td
-                          >{observedSeconds > 0
-                            ? `${Math.round((row.duration / observedSeconds) * 100)}%`
-                            : "—"}</td
-                        >
+                        <th>#</th>
+                        <th>Stage</th>
+                        <th>Started</th>
+                        <th>Ended</th>
+                        <th>Duration</th>
+                        <th>Share</th>
                       </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-              <p class="evidence-note">
-                Intervals are the canonical stage records returned by Iroha. The
-                stacked chart summarizes them; this table preserves their order
-                and exact canonical timestamps.
-              </p>
-            {:else}
-              <p class="muted">This session has no stage samples.</p>
-            {/if}
-          </section>
+                    </thead>
+                    <tbody>
+                      {#each stageRows as row (row.number)}
+                        <tr>
+                          <td>{row.number}</td>
+                          <td>
+                            <span
+                              class="stage-dot"
+                              style={`background: ${sleepStageColor(row.rawStage)}`}
+                            ></span>
+                            {row.stage}
+                          </td>
+                          <td>{formatDate(row.startedAt)}</td>
+                          <td>{formatDate(row.endedAt)}</td>
+                          <td>{formatDuration(row.duration)}</td>
+                          <td
+                            >{observedSeconds > 0
+                              ? `${Math.round((row.duration / observedSeconds) * 100)}%`
+                              : "—"}</td
+                          >
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+                <p class="evidence-note">
+                  Intervals are the canonical stage records returned by Iroha.
+                  The stacked chart summarizes them; this table preserves their
+                  order and exact canonical timestamps.
+                </p>
+              {:else}
+                <p class="muted">This session has no stage samples.</p>
+              {/if}
+            </section>{/if}
         {/if}
       {/snippet}
     </LoadingBoundary>

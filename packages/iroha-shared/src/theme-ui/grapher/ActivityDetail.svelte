@@ -24,6 +24,9 @@
     route,
     samplings,
     laps,
+    routeReady = true,
+    samplesReady = true,
+    lapsDerived = false,
     children,
   }: {
     activity: Activity;
@@ -31,6 +34,9 @@
     route: RoutePoint[];
     samplings: SamplingPoint[];
     laps: Lap[];
+    routeReady?: boolean;
+    samplesReady?: boolean;
+    lapsDerived?: boolean;
     children?: Snippet;
   } = $props();
 
@@ -78,7 +84,9 @@
   {@render children?.()}
   {#if laps.length}<section class="chart-panel">
       <header>
-        <p class="kicker">Measured intervals</p>
+        <p class="kicker">
+          {lapsDerived ? "Route-derived intervals" : "Measured intervals"}
+        </p>
         <h2>Lap chart</h2>
       </header>
       <LapChart {laps} {swimming} />
@@ -105,7 +113,7 @@
       <dl>
         <div>
           <dt>Samples</dt>
-          <dd>{samplings.length || "—"}</dd>
+          <dd>{samplesReady ? samplings.length : "—"}</dd>
         </div>
         <div>
           <dt>Moving time</dt>
@@ -117,7 +125,7 @@
         </div>
         <div>
           <dt>Route points</dt>
-          <dd>{route.length || "—"}</dd>
+          <dd>{routeReady ? route.length : "—"}</dd>
         </div>
       </dl>
     </div>

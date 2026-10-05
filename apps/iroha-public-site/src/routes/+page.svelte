@@ -57,6 +57,7 @@
   ];
 
   const years = $derived(yearsFromActivities(activities));
+  let recordsScroll = $state<HTMLDivElement>();
   let selectedYear = $state<string>(
     untrack(() => yearsFromActivities(data.activities)[0] ?? ""),
   );
@@ -660,9 +661,27 @@
     {#if filteredActivities.length === 0}
       <p class="muted">No activities for this selection.</p>
     {:else}
-      <PanelFrame label="Activity records"
-        ><div class="table-wrap">
-          <table>
+      <PanelFrame label="Activity records">
+        <p class="muted small">
+          All record columns are preserved. Swipe horizontally, or focus the
+          table region and use arrow keys, to reach later columns.
+        </p>
+        <button
+          class="scroll-hint"
+          type="button"
+          aria-controls="public-records-scroll"
+          onclick={() => recordsScroll?.focus({ preventScroll: true })}
+          >Focus public records to scroll all columns</button
+        >
+        <div
+          class="table-wrap"
+          id="public-records-scroll"
+          bind:this={recordsScroll}
+          role="region"
+          aria-label="Public activity records — horizontally scrollable"
+          tabindex="-1"
+        >
+          <table aria-label="Public activity records">
             <thead>
               <tr>
                 {#each columns as column (column.id)}
@@ -990,6 +1009,9 @@
     font-size: var(--type-caption);
     margin-top: 0.2rem;
   }
+  .scroll-hint {
+    min-height: 44px;
+  }
   .table-wrap {
     overflow-x: auto;
     padding: 0.25rem;
@@ -1006,6 +1028,8 @@
     text-align: left;
   }
   .sort-header {
+    min-height: 44px;
+    min-width: 44px;
     border: none;
     background: none;
     color: var(--text-muted);

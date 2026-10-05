@@ -12,6 +12,8 @@ services:
       context: ../..
       dockerfile: ops/images/Containerfile.server
       target: server
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:-unverified-development}
     environment:
       IROHA_SERVER_ADDR: 0.0.0.0:8080
       IROHA_TIMEZONE: ${IROHA_TIMEZONE:-Asia/Tokyo}
@@ -36,6 +38,8 @@ services:
       context: ../..
       dockerfile: ops/images/Containerfile.server
       target: job
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:-unverified-development}
     environment:
       IROHA_DATABASE_URL: postgres://iroha:iroha_dev@db:5432/iroha?sslmode=disable
       IROHA_DATA_DIR: /data
@@ -54,6 +58,7 @@ services:
       dockerfile: ops/images/Containerfile.web
       args:
         PUBLIC_IROHA_API_BASE: ""
+        SOURCE_REVISION: ${SOURCE_REVISION:-unverified-development}
         PUBLIC_IROHA_TIMEZONE: ${IROHA_TIMEZONE:-Asia/Tokyo}
     environment:
       IROHA_SERVER_UPSTREAM: server:8080

@@ -43,40 +43,68 @@
     return title;
   }
 
-  const detailResource = createAsyncResource<{
-    activity: Activity;
-    route: RoutePoint[];
-    samplings: SamplingPoint[];
-    laps: Lap[];
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
+  import { untrack } from "svelte";
+  const id = $derived(page.params.id ?? "");
+  const detailResource = createAsyncResource<{ id: string; value: Activity }>();
+  const routeResource = createAsyncResource<{
+    id: string;
+    value: RoutePoint[];
   }>();
-  const activity = $derived(detailResource.data?.activity ?? null);
-  const route = $derived(detailResource.data?.route ?? []);
-  const samplings = $derived(detailResource.data?.samplings ?? []);
-  const laps = $derived(detailResource.data?.laps ?? []);
+  const samplesResource = createAsyncResource<{
+    id: string;
+    value: SamplingPoint[];
+  }>();
+  const lapsResource = createAsyncResource<{ id: string; value: Lap[] }>();
+  const activity = $derived(
+    detailResource.data?.id === id ? detailResource.data.value : null,
+  );
+  const route = $derived(
+    routeResource.data?.id === id ? routeResource.data.value : [],
+  );
+  const samplings = $derived(
+    samplesResource.data?.id === id ? samplesResource.data.value : [],
+  );
+  const laps = $derived(
+    lapsResource.data?.id === id ? lapsResource.data.value : [],
+  );
+  let readPanel = $state<HTMLElement>();
+  async function loadActivity(selected = id) {
+    await detailResource.run(async () => ({
+      id: selected,
+      value: await getActivity(selected),
+    }));
+  }
+  async function loadRoute(selected = id) {
+    await routeResource.run(async () => ({
+      id: selected,
+      value: (await getActivityRoute(selected)) ?? [],
+    }));
+  }
+  async function loadSamples(selected = id) {
+    await samplesResource.run(async () => ({
+      id: selected,
+      value: (await getActivitySamplings(selected, ["heart_rate"])) ?? [],
+    }));
+  }
+  async function loadLaps(selected = id) {
+    await lapsResource.run(async () => ({
+      id: selected,
+      value: (await getActivityLaps(selected)) ?? [],
+    }));
+  }
   let selectedRouteIndex = $state<number | null>(null);
   const theme = useTheme();
-
-  const id = $derived(page.params.id ?? "");
 
   $effect(() => {
     const activityId = id;
     if (!activityId) return;
-    void detailResource.run(async () => {
-      const [a, r, s, l] = await Promise.all([
-        getActivity(activityId),
-        // Sub-resources are best-effort; an empty/failed one should not blank the page.
-        getActivityRoute(activityId)
-          .then((r) => r ?? [])
-          .catch(() => [] as RoutePoint[]),
-        // The charts only use heart_rate; skip the larger power/energy/speed streams.
-        getActivitySamplings(activityId, ["heart_rate"])
-          .then((s) => s ?? [])
-          .catch(() => [] as SamplingPoint[]),
-        getActivityLaps(activityId)
-          .then((l) => l ?? [])
-          .catch(() => [] as Lap[]),
-      ]);
-      return { activity: a, route: r, samplings: s, laps: l };
+    untrack(() => {
+      selectedRouteIndex = null;
+      void loadActivity(activityId);
+      void loadRoute(activityId);
+      void loadSamples(activityId);
+      void loadLaps(activityId);
     });
   });
 
@@ -431,6 +459,38 @@
   >
 </svelte:head>
 
+<section aria-label="Activity reads" tabindex="-1" bind:this={readPanel}>
+  <a href="/motion">← Back to Motion</a>
+  {#if detailResource.error}<RetryNotice
+      message={`Could not load activity: ${detailResource.error}`}
+      retryLabel="Retry activity"
+      onRetry={() => loadActivity()}
+      focusTarget={readPanel}
+    />{/if}
+  {#if routeResource.error}<RetryNotice
+      message={`Activity route unavailable: ${routeResource.error}`}
+      retryLabel="Retry activity route"
+      onRetry={() => loadRoute()}
+      focusTarget={readPanel}
+    />{/if}
+  {#if samplesResource.error}<RetryNotice
+      message={`Heart-rate samples unavailable: ${samplesResource.error}`}
+      retryLabel="Retry heart-rate samples"
+      onRetry={() => loadSamples()}
+      focusTarget={readPanel}
+    />{/if}
+  {#if lapsResource.error}<RetryNotice
+      message={`Activity laps unavailable: ${lapsResource.error}`}
+      retryLabel="Retry activity laps"
+      onRetry={() => loadLaps()}
+      focusTarget={readPanel}
+    />{/if}
+  {#if routeResource.loading || samplesResource.loading || lapsResource.loading}<p
+      role="status"
+    >
+      Loading activity streams…
+    </p>{/if}
+</section>
 {#if hasThemeRoute(theme.definition(), "activity-detail")}
   {#if activity || detailResource.loading}
     <LoadingBoundary resource={detailResource} label="Loading activity…">
@@ -444,6 +504,11 @@
               route,
               samplings,
               laps: displayLaps,
+              routeReady: routeResource.data?.id === id,
+              samplesReady: samplesResource.data?.id === id,
+              lapsDerived: displayLaps.some((lap) =>
+                lap.id.startsWith("derived-lap-"),
+              ),
             }}
           >
             {#snippet children()}

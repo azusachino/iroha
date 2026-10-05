@@ -29,6 +29,8 @@ export interface DailyPeriod {
 }
 
 export type DailyThemeProps = {
+  section?: "all" | "controls" | "rings" | "series";
+  seriesAvailable?: boolean;
   chrono: DailyPeriod[];
   gran: "day" | "month" | "year";
   onGran: (value: "day" | "month" | "year") => void;

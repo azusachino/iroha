@@ -137,10 +137,9 @@
 
   .admin-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.25rem;
-    overflow-x: auto;
     border-bottom: 1px solid var(--border);
-    scrollbar-width: none;
   }
 
   .admin-tabs button {

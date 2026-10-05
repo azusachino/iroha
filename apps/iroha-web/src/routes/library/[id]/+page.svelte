@@ -13,37 +13,35 @@
   import { useTheme } from "$lib/themes/context.svelte";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { hasThemeRoute } from "$lib/themes/registry";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
+  import { untrack } from "svelte";
 
   const HERO_TITLE_CLAMP = { minRem: 1.8, vw: 5, maxRem: 3.4 };
 
-  let detail = $state<MediaDetail | null>(null);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
+  const resource = createAsyncResource<{ id: string; value: MediaDetail }>();
+  const id = $derived(page.params.id ?? "");
+  const detail = $derived(
+    resource.data?.id === id ? resource.data.value : null,
+  );
+  const loading = $derived(resource.loading);
+  const error = $derived(resource.error);
+  let detailPanel = $state<HTMLElement>();
   const theme = useTheme();
 
   // Re-fetch whenever the route param changes. SvelteKit reuses this component
   // across /library/[id] navigations, so onMount would fire only once and
   // clicking a related title would change the URL without reloading the page.
   $effect(() => {
-    void load(page.params.id ?? "");
+    const selected = id;
+    untrack(() => void load(selected));
   });
 
   async function load(id: string) {
-    loading = true;
-    error = null;
-    detail = null;
-    if (!id) {
-      error = "Missing media id";
-      loading = false;
-      return;
-    }
-    try {
-      detail = await getMedia(id);
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-    } finally {
-      loading = false;
-    }
+    await resource.run(async () => {
+      if (!id) throw new Error("Missing media id");
+      return { id, value: await getMedia(id) };
+    });
   }
 
   // The work's own episode/chapter count, independent of this user's
@@ -104,9 +102,21 @@
   <title>{detail?.item.title ?? "Library"} · Library · iroha</title>
 </svelte:head>
 
-<section class="detail-shell">
+<section
+  class="detail-shell"
+  aria-label="Library item read state"
+  tabindex="-1"
+  bind:this={detailPanel}
+>
   <p><a class="back-link" href="/library">← Back to Library</a></p>
-  {#if hasThemeRoute(theme.definition(), "media-detail") && !loading && !error && detail}
+  {#if error}<RetryNotice
+      message={`Could not load library item: ${error}`}
+      retryLabel="Retry library item"
+      onRetry={() => load(id)}
+      focusTarget={detailPanel}
+    />{/if}
+  {#if loading && detail}<p role="status">Updating library item…</p>{/if}
+  {#if hasThemeRoute(theme.definition(), "media-detail") && detail}
     <ThemeRouteRenderer
       route="media-detail"
       props={{
@@ -117,8 +127,8 @@
     />
   {:else if loading}
     <p class="muted">Loading item…</p>
-  {:else if error}
-    <p class="error">Failed to load item: {error}</p>
+  {:else if error && !detail}
+    <p class="error">Item unavailable. The Library remains accessible.</p>
   {:else if detail}
     <section class="hero tile">
       {#if detail.item.cover_image_url}

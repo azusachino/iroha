@@ -12,11 +12,13 @@
   } from "$lib/api";
   import ReportComparison from "@iroha/shared/theme-ui/components/ReportComparison.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
   import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import { formatDate } from "$lib/format";
   import {
     currentMonth,
+    MONTH_OPTIONS,
     monthOptionsInRange,
     yearOptionsInRange,
   } from "@iroha/shared/format/month";
@@ -52,63 +54,37 @@
   const report = $derived(reportResource.data?.current_report ?? null);
   // The real cross-domain data range (fetched once, independent of the
   // current selection) -- not a hardcoded 2015 guess, and not every month.
-  let bounds = $state<DateBounds>({});
-  const periodYears = $derived(yearOptionsInRange(bounds));
+  const boundsResource = createAsyncResource<DateBounds>();
+  const bounds = $derived(boundsResource.data ?? {});
+  let periodControls = $state<HTMLElement>();
+  let observedPanel = $state<HTMLElement>();
   const periodYear = $derived(month.slice(0, 4));
   const periodMonth = $derived(String(Number(month.slice(5, 7))));
-  const periodMonths = $derived(monthOptionsInRange(periodYear, bounds));
+  // Reports has no lifetime fallback. Calendar choices remain usable without
+  // range evidence, but are explicitly not an inventory of observed records.
+  const periodYears = $derived(
+    bounds.min && bounds.max ? yearOptionsInRange(bounds) : [periodYear],
+  );
+  const periodMonths = $derived(
+    bounds.min && bounds.max
+      ? monthOptionsInRange(periodYear, bounds)
+      : [...MONTH_OPTIONS].reverse(),
+  );
   const theme = useTheme();
 
   async function loadBounds() {
-    try {
-      bounds = await getDailyBounds();
-    } catch {
-      bounds = {};
-    }
-    if (!bounds.min || !bounds.max) return;
-    if (month < bounds.min.slice(0, 7)) month = bounds.min.slice(0, 7);
-    else if (month > bounds.max.slice(0, 7)) month = bounds.max.slice(0, 7);
+    const result = await boundsResource.run(() => getDailyBounds());
+    if (!result?.min || !result.max) return;
+    if (month < result.min.slice(0, 7)) month = result.min.slice(0, 7);
+    else if (month > result.max.slice(0, 7)) month = result.max.slice(0, 7);
     else return;
     moveMonth(month);
   }
 
-  function loadingReportFor(value: string): MonthlyReport {
-    const [year, monthNumber] = value.split("-").map(Number);
-    const to = new Date(Date.UTC(year, monthNumber, 1))
-      .toISOString()
-      .slice(0, 10);
-    const emptySection = (schema: string) => ({
-      schema,
-      state: "empty" as const,
-      data: null,
-    });
-    return {
-      schema: "monthly-report.v1",
-      period: {
-        kind: "month",
-        month: value,
-        from: `${value}-01`,
-        to,
-        timezone: IROHA_TIMEZONE,
-      },
-      generated_at: "",
-      status: {
-        calendar_completeness: "partial",
-        observation_state: "empty",
-        collection_completeness: "unknown",
-      },
-      sections: {
-        movement: emptySection("loading"),
-        sleep: emptySection("loading"),
-        daily_health: emptySection("loading"),
-        media: emptySection("loading"),
-        expenses: emptySection("loading"),
-      },
-    };
-  }
-
   onMount(() => {
-    void loadReport(month);
+    // Reports cannot serve year/lifetime URLs. Normalize the chosen monthly
+    // fallback so even an incoming unsupported scope has an honest URL.
+    moveMonth(month);
     void loadBounds();
   });
 
@@ -177,7 +153,6 @@
   }
 
   const currentExpenseData = $derived(expenseData(report));
-  const reportForView = $derived(report ?? loadingReportFor(month));
   const primaryCurrency = $derived(
     currentExpenseData?.totals_by_currency[0]?.currency ?? "JPY",
   );
@@ -186,14 +161,17 @@
       (item) => item.currency === primaryCurrency,
     )?.currency_exponent ?? (primaryCurrency === "JPY" ? 0 : 2),
   );
-  const themeProps = $derived<ReportThemeProps>({
-    month,
-    report: reportForView,
-    primaryCurrency,
-    primaryExponent,
-    formatMoney,
-    formatDuration,
-  });
+  const themeProps = $derived<ReportThemeProps | null>(
+    report
+      ? {
+          report,
+          primaryCurrency,
+          primaryExponent,
+          formatMoney,
+          formatDuration,
+        }
+      : null,
+  );
 </script>
 
 <svelte:head><title>Reports · iroha</title></svelte:head>
@@ -216,40 +194,75 @@
       disabled={reportResource.loading}><RefreshCw size={15} /> Refresh</button
     >
   </header>
-  <PeriodToolbar title="Monthly cross-domain report" ariaLabel="Report period">
-    <PeriodSelector
-      year={periodYear}
-      month={periodMonth}
-      years={periodYears}
-      months={periodMonths}
-      {bounds}
-      showAllYears={false}
-      showAllMonths={false}
-      surface="inline"
-      onYear={selectPeriodYear}
-      onMonth={selectPeriodMonth}
-    />
-  </PeriodToolbar>
-  {#if reportResource.error}
-    <p class="error" role="alert">{reportResource.error}</p>
-  {/if}
-  <LoadingBoundary
-    resource={reportResource}
-    preserveLayout
-    label="Generating the monthly report…"
+  <p>Selected month: {month}</p>
+  <section
+    aria-label="Report period controls"
+    tabindex="-1"
+    bind:this={periodControls}
   >
-    {#snippet children()}
-      {#if report}
-        <p class="generated">
-          {report.period.from} → {report.period.to} · Generated {formatDate(
-            report.generated_at,
-          )}
-        </p>
-      {/if}
-      <ReportComparison {series} {formatMoney} theme={theme.language()} />
-      <ThemeRouteRenderer route="reports" props={themeProps} />
-    {/snippet}
-  </LoadingBoundary>
+    <PeriodToolbar
+      title="Monthly cross-domain report"
+      ariaLabel="Report period"
+    >
+      <PeriodSelector
+        year={periodYear}
+        month={periodMonth}
+        years={periodYears}
+        months={periodMonths}
+        {bounds}
+        showAllYears={false}
+        showAllMonths={false}
+        surface="inline"
+        onYear={selectPeriodYear}
+        onMonth={selectPeriodMonth}
+      />
+    </PeriodToolbar>
+    {#if !bounds.min || !bounds.max}<p>
+        Calendar months; record date range unavailable.
+      </p>{/if}
+    {#if boundsResource.error}<RetryNotice
+        message={`Could not load report date range: ${boundsResource.error}`}
+        retryLabel="Retry report date range"
+        onRetry={loadBounds}
+        focusTarget={periodControls}
+      />{/if}
+    {#if boundsResource.loading}<p role="status">
+        Loading report date range…
+      </p>{/if}
+  </section>
+  <section
+    aria-label="Observed monthly report"
+    tabindex="-1"
+    bind:this={observedPanel}
+  >
+    {#if reportResource.error}<RetryNotice
+        message={`Could not load monthly report: ${reportResource.error}`}
+        retryLabel="Retry monthly report"
+        onRetry={() => loadReport(month)}
+        focusTarget={observedPanel}
+      />{/if}
+    {#if !report && reportResource.error}<p>Monthly report unavailable.</p>{/if}
+    <LoadingBoundary
+      resource={reportResource}
+      preserveLayout
+      label="Generating the monthly report…"
+    >
+      {#snippet children()}
+        {#if report}
+          <p>Observed month: {report.period.month}</p>
+          <p class="generated">
+            {report.period.from} → {report.period.to} · Generated {formatDate(
+              report.generated_at,
+            )}
+          </p>
+        {/if}
+        {#if themeProps}
+          <ReportComparison {series} {formatMoney} theme={theme.language()} />
+          <ThemeRouteRenderer route="reports" props={themeProps} />
+        {/if}
+      {/snippet}
+    </LoadingBoundary>
+  </section>
 </section>
 
 <style>
@@ -293,9 +306,6 @@
   .generated {
     color: var(--text-muted);
     font-size: 0.78rem;
-  }
-  .error {
-    color: var(--danger);
   }
   button {
     min-height: 2.4rem;

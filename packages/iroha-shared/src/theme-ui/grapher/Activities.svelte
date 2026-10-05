@@ -10,6 +10,7 @@
   } from "../../format/format";
   import { sportLabel } from "../../domain/sport";
   import { sportIcon } from "../../domain/sport-icons";
+  let recordsScroll = $state<HTMLDivElement>();
   let {
     activities,
     displaySummary,
@@ -31,6 +32,7 @@
     error,
     hasMore,
     loadingMore,
+    loadMoreError = null,
     onSportType,
     onLoadMore,
     onOpenDetail,
@@ -191,8 +193,22 @@
     {:else if recordsReady && activities.length === 0}
       <p class="muted">No activity sessions in this observed scope.</p>
     {:else if activities.length}
-      <div class="table-frame">
-        <table>
+      <button
+        class="scroll-hint"
+        type="button"
+        aria-controls="motion-records-scroll"
+        onclick={() => recordsScroll?.focus({ preventScroll: true })}
+        >Focus activity records to scroll all columns</button
+      >
+      <div
+        class="table-frame"
+        id="motion-records-scroll"
+        role="region"
+        aria-label="Motion exact activity records"
+        tabindex="-1"
+        bind:this={recordsScroll}
+      >
+        <table aria-label="Motion exact activity records">
           <thead
             ><tr
               ><th>Date</th><th>Activity</th><th>Distance</th><th>Duration</th
@@ -233,6 +249,14 @@
           </tbody>
         </table>
       </div>
+      {#if loadMoreError}
+        <RetryNotice
+          message={`Could not load the next activity page: ${loadMoreError}. Observed rows and cursor are retained.`}
+          retryLabel="Retry more activities"
+          onRetry={onLoadMore}
+          focusTarget={recordsPanel}
+        />
+      {/if}
       {#if hasMore}<button
           class="load-more"
           onclick={onLoadMore}
@@ -323,6 +347,9 @@
   .summary-row strong {
     font-size: clamp(1.35rem, 3vw, 2.4rem);
     letter-spacing: -0.08em;
+  }
+  .scroll-hint {
+    min-height: 44px;
   }
   .table-frame {
     overflow-x: auto;
