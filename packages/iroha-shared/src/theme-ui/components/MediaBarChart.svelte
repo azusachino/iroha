@@ -16,6 +16,7 @@
     horizontal = false,
     height = "12rem",
     valueSuffix = "",
+    title,
   }: {
     labels: (string | number)[];
     values: number[];
@@ -23,6 +24,7 @@
     horizontal?: boolean;
     height?: string;
     valueSuffix?: string;
+    title?: string;
   } = $props();
 
   let container: HTMLDivElement;
@@ -56,7 +58,12 @@
 
     chart.setOption(
       {
-        animationDuration: 500,
+        animation: !window.matchMedia("(prefers-reduced-motion: reduce)")
+          .matches,
+        animationDuration: window.matchMedia("(prefers-reduced-motion: reduce)")
+          .matches
+          ? 0
+          : 500,
         animationEasing: "cubicOut",
         grid: { left: 2, right: 10, top: 12, bottom: 2, containLabel: true },
         tooltip: {
@@ -108,10 +115,45 @@
 <div
   class="media-bar-chart"
   bind:this={container}
+  role={title ? "img" : undefined}
+  aria-label={title}
   style={`height:${height}`}
 ></div>
+{#if title}<table aria-label={`${title} — exact counts`}>
+    <caption>{title} — exact counts</caption>
+    <thead
+      ><tr><th scope="col">Category</th><th scope="col">Count</th></tr></thead
+    >
+    <tbody
+      >{#each labels as label, index}<tr
+          ><th scope="row">{label}</th><td>{values[index]}</td></tr
+        >{/each}</tbody
+    >
+  </table>{/if}
 
 <style>
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--space-3);
+    font-size: var(--type-label);
+  }
+  caption {
+    text-align: left;
+    padding-block: 0.5rem;
+    color: var(--text-muted);
+  }
+  th,
+  td {
+    text-align: left;
+    padding: 0.5rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th:last-child,
+  td:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
   .media-bar-chart {
     width: 100%;
   }

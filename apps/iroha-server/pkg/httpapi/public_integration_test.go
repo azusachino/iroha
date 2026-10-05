@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -32,6 +33,18 @@ func TestIntegrationPublicProjectionIsAnonymousCachedAndFresh(t *testing.T) {
 		t.Fatalf("Cache-Control = %q", got)
 	}
 
+	emptyTag := empty.Header().Get("ETag")
+	if emptyTag == "" {
+		t.Fatal("empty projection needs a validator")
+	}
+	conditional := httptest.NewRequest(http.MethodGet, "/public/v1/activities", nil)
+	conditional.Header.Set("If-None-Match", emptyTag)
+	matched := httptest.NewRecorder()
+	server.ServeHTTP(matched, conditional)
+	if matched.Code != http.StatusNotModified || matched.Body.Len() != 0 || matched.Header().Get("ETag") != emptyTag {
+		t.Fatalf("matching empty projection: %d %v", matched.Code, matched.Header())
+	}
+
 	// Importing an activity bumps the activity revision, so the 24-hour
 	// snapshot is rebuilt immediately rather than served stale.
 	rawID := uploadRawFile(t, server, "run.gpx", "gpx", "cli", validGPX())
@@ -47,6 +60,18 @@ func TestIntegrationPublicProjectionIsAnonymousCachedAndFresh(t *testing.T) {
 		t.Fatalf("activities after import = %d %s (%v)", rec.Code, rec.Body.String(), err)
 	}
 	id, _ := list[0]["id"].(string)
+	changed := httptest.NewRecorder()
+	server.ServeHTTP(changed, conditional)
+	if changed.Code != http.StatusOK || changed.Header().Get("ETag") == emptyTag || !bytes.Equal(changed.Body.Bytes(), rec.Body.Bytes()) {
+		t.Fatalf("revision rebuild reused old validator: %d %v", changed.Code, changed.Header())
+	}
+	current := httptest.NewRequest(http.MethodGet, "/public/v1/activities", nil)
+	current.Header.Set("If-None-Match", changed.Header().Get("ETag"))
+	matched = httptest.NewRecorder()
+	server.ServeHTTP(matched, current)
+	if matched.Code != http.StatusNotModified || matched.Body.Len() != 0 {
+		t.Fatalf("new revision match: %d %s", matched.Code, matched.Body.String())
+	}
 
 	for _, path := range []string{"/public/v1/summary", "/public/v1/routes", "/public/v1/meta", "/public/v1/activities/" + id} {
 		if rec := publicGet(t, server, path); rec.Code != http.StatusOK {

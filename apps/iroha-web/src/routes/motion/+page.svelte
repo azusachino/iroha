@@ -83,7 +83,14 @@
       duration: MetricSeriesResponse | null;
     }>
   >();
-  let loadingMore = $state(false);
+  const pageResource = createAsyncResource<ActivityPage<Activity>>();
+  let pageFor = $state<ScopedData<ActivityPage<Activity>> | null>(null);
+  const loadingMore = $derived(
+    pageFor === activitiesResource.data && pageResource.loading,
+  );
+  const loadMoreError = $derived(
+    pageFor === activitiesResource.data ? pageResource.error : null,
+  );
   const cursor = $derived(activitiesResource.data?.value.next_cursor ?? null);
   const hasMore = $derived(activitiesResource.data?.value.has_more ?? false);
   const canLoadMore = $derived(
@@ -285,24 +292,29 @@
       )
         return;
       if (!matchesScope(previous, applied)) return;
-      loadingMore = true;
-      try {
-        const page = await listActivities({ ...applied, cursor });
-        if (activitiesResource.loading || activitiesResource.data !== previous)
-          return;
-        if (!matchesScope(previous, applied)) return;
-        activitiesResource.mutate(() => ({
-          scope: previous.scope,
-          value: { ...page, items: [...previous.value.items, ...page.items] },
-        }));
-      } catch {
-        // Load-more failures are retry-safe -- keep the rows already
-        // showing rather than replacing a working view with an error.
-      } finally {
-        loadingMore = false;
-      }
+      pageFor = previous;
+      const page = await pageResource.run(() =>
+        listActivities({
+          ...previous.scope,
+          cursor: previous.value.next_cursor!,
+        }),
+      );
+      if (
+        !page ||
+        activitiesResource.loading ||
+        activitiesResource.data !== previous ||
+        !matchesScope(previous, applied)
+      )
+        return;
+      activitiesResource.mutate(() => ({
+        scope: previous.scope,
+        value: { ...page, items: [...previous.value.items, ...page.items] },
+      }));
+      pageFor = activitiesResource.data;
       return;
     }
+    pageResource.invalidate();
+    pageFor = null;
     const params = { ...applied };
     const scope = params;
     await activitiesResource.run(async () => ({
@@ -406,7 +418,12 @@
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && canLoadMore && !loadingMore) {
+        if (
+          entries[0].isIntersecting &&
+          canLoadMore &&
+          !loadingMore &&
+          !loadMoreError
+        ) {
           void load(true);
         }
       },
@@ -505,6 +522,7 @@
           error: activitiesResource.error,
           hasMore: canLoadMore,
           loadingMore,
+          loadMoreError,
           activitySeries,
           activityDurationSeries,
           activitySeriesLoading:
@@ -523,7 +541,7 @@
             syncUrl();
             void loadSummary();
           },
-          onLoadMore: () => void load(true),
+          onLoadMore: () => load(true),
           onOpenDetail: (id: string) => void goto(`/motion/${id}`),
         }}
       >

@@ -66,7 +66,8 @@
       <h2 id="canonical-expense-records-title">Expense records</h2>
     </div>
     <p class="ledger-description">
-      Aggregations above explain {period ?? "the month"}; this surface preserves every record.
+      This surface preserves every canonical record for {period ??
+        "the selected period"}; spending evidence has its own observed scope.
     </p>
   </header>
 

@@ -28,7 +28,9 @@ function scopeLabel(scope: Filters) {
 // of the .svelte file so the template isn't interleaved with ~240 lines of
 // business logic. `theme` (a Svelte context lookup) stays in the component.
 export function createLibraryState() {
+  const PAGE_SIZE = 100;
   const libraryResource = createAsyncResource<Scoped<MediaPage>>();
+  const pageResource = createAsyncResource<MediaPage>();
   const aggregatesResource = createAsyncResource<Scoped<MediaAggregates>>();
   const aggregates = $derived(aggregatesResource.data?.value ?? null);
   const items = $derived(libraryResource.data?.value.items ?? []);
@@ -44,8 +46,12 @@ export function createLibraryState() {
     libraryResource.data?.value.active_count ?? null,
   );
   let pendingPage = $state<typeof libraryResource.data>(null);
+  const loadMoreError = $derived(
+    pendingPage === libraryResource.data ? pageResource.error : null,
+  );
   const loadingMore = $derived(
-    pendingPage != null &&
+    pageResource.loading &&
+      pendingPage != null &&
       pendingPage === libraryResource.data &&
       matchesScope(pendingPage.scope, currentFilters()),
   );
@@ -144,10 +150,12 @@ export function createLibraryState() {
   }
 
   async function loadRecords() {
+    pageResource.invalidate();
+    pendingPage = null;
     const scope = currentFilters();
     await libraryResource.run(async () => ({
       scope,
-      value: await listMedia({ limit: 100, ...scope }),
+      value: await listMedia({ limit: PAGE_SIZE, ...scope }),
     }));
   }
   async function loadAggregates() {
@@ -185,32 +193,30 @@ export function createLibraryState() {
     const previous = libraryResource.data;
     if (!hasMore || !previous?.value.next_cursor || loadingMore) return;
     pendingPage = previous;
-    try {
-      const page = await listMedia({
-        limit: 100,
-        cursor: previous.value.next_cursor,
+    const page = await pageResource.run(() =>
+      listMedia({
+        limit: PAGE_SIZE,
+        cursor: previous.value.next_cursor!,
         ...previous.scope,
-      });
-      if (
-        libraryResource.data !== previous ||
-        libraryResource.loading ||
-        !matchesScope(previous.scope, currentFilters())
-      )
-        return;
-      libraryResource.mutate(() => ({
-        scope: previous.scope,
-        value: {
-          ...previous.value,
-          items: [...previous.value.items, ...page.items],
-          next_cursor: page.next_cursor,
-          has_more: page.has_more,
-        },
-      }));
-    } catch {
-      // Visible pagination failure recovery remains a separate plan slice.
-    } finally {
-      if (pendingPage === previous) pendingPage = null;
-    }
+      }),
+    );
+    if (
+      !page ||
+      libraryResource.data !== previous ||
+      libraryResource.loading ||
+      !matchesScope(previous.scope, currentFilters())
+    )
+      return;
+    libraryResource.mutate(() => ({
+      scope: previous.scope,
+      value: {
+        ...previous.value,
+        items: [...previous.value.items, ...page.items],
+        next_cursor: page.next_cursor,
+        has_more: page.has_more,
+      },
+    }));
+    pendingPage = libraryResource.data;
   }
 
   function statusLabel(status: string): string {
@@ -284,6 +290,9 @@ export function createLibraryState() {
     },
     get loadingMore() {
       return loadingMore;
+    },
+    get loadMoreError() {
+      return loadMoreError;
     },
     get family() {
       return family;

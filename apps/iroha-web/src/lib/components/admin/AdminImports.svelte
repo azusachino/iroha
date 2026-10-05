@@ -177,8 +177,17 @@
 
   label {
     display: grid;
+    min-width: 0;
+    max-width: 100%;
     gap: 0.3rem;
     font-size: 0.85rem;
+  }
+
+  input[type="file"] {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   select,

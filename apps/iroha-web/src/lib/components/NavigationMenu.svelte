@@ -168,6 +168,7 @@
     {#each group.items as item}
       <a
         class:active={active(item.href)}
+        aria-current={active(item.href) ? "page" : undefined}
         href={item.href}
         onclick={closeAfterNavigation}
       >

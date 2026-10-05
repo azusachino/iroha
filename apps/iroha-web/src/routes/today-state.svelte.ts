@@ -17,6 +17,8 @@ import type { Ring } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
 import { todayInTimezone } from "@iroha/shared/format/date";
 import { IROHA_TIMEZONE } from "$lib/config";
 import { formatDateOnly } from "$lib/format";
+import { createAsyncResource } from "$lib/asyncResource.svelte";
+import { untrack } from "svelte";
 
 export function latestRecordedDay(
   days: Iterable<string>,
@@ -35,13 +37,17 @@ export function latestRecordedDay(
 // business logic. `theme` (a Svelte context lookup) stays in the component
 // itself -- it's a rendering-position concern, not Today-specific state.
 export function createTodayState() {
-  let briefing = $state<BriefingResponse | null>(null);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
-  let toGoTasks = $state<Task[]>([]);
-  let taskError = $state<string | null>(null);
-  let briefingRequestVersion = 0;
-  let taskRequestVersion = 0;
+  const briefingResource = createAsyncResource<BriefingResponse>();
+  const taskResource = createAsyncResource<{ date: string; items: Task[] }>();
+  const calendarResource = createAsyncResource<string[]>();
+  const briefing = $derived(briefingResource.data);
+  const loading = $derived(briefingResource.loading);
+  const error = $derived(briefingResource.error);
+  const toGoTasks = $derived(taskResource.data?.items ?? []);
+  const taskError = $derived(taskResource.error);
+  let finishError = $state<string | null>(null);
+  let finishingTaskId = $state<Task["id"] | null>(null);
+  const TASK_LIMIT = 5;
 
   const today = todayInTimezone(new Date(), IROHA_TIMEZONE);
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -60,7 +66,7 @@ export function createTodayState() {
 
   let day = $state<string>(dayFromUrl());
   let pickerOpen = $state(false);
-  let availableDays = $state<Set<string>>(new Set());
+  const availableDays = $derived(new Set(calendarResource.data ?? []));
   let urlSyncMounted = $state(false);
 
   type BriefingList<T> = { items: T[]; has_more: boolean };
@@ -171,9 +177,7 @@ export function createTodayState() {
         : Boolean(data.items?.length);
     }) ?? false,
   );
-  const daysSet = $derived(
-    availableDays.size > 0 ? availableDays : new Set([day]),
-  );
+  const daysSet = $derived(availableDays);
   const latestDay = $derived(latestRecordedDay(availableDays, today));
   const canJumpToLatestDay = $derived(
     !dayHasData && latestDay != null && latestDay !== dataDay,
@@ -208,13 +212,17 @@ export function createTodayState() {
   }
   // Arrow keys scrub days (ignored while typing in a field); Escape closes the picker.
   function onKey(e: KeyboardEvent) {
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey)
+      return;
+    if (e.key === "Escape" && pickerOpen) {
+      pickerOpen = false;
+      return;
+    }
     const t = e.target as HTMLElement | null;
     if (
-      t &&
-      (t.tagName === "INPUT" ||
-        t.tagName === "TEXTAREA" ||
-        t.tagName === "SELECT" ||
-        t.isContentEditable)
+      t?.closest(
+        'input, textarea, select, button, a, [contenteditable], [role="dialog"], [role="slider"], [role="tab"], [role="listbox"], [role="combobox"], [role="menu"]',
+      )
     )
       return;
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -231,32 +239,19 @@ export function createTodayState() {
   }
 
   async function loadBriefing(selectedDay: string) {
-    const requestVersion = ++briefingRequestVersion;
-    loading = true;
-    error = null;
-    try {
-      const next = await getBriefing(selectedDay);
-      if (requestVersion === briefingRequestVersion) briefing = next;
-    } catch (e) {
-      if (requestVersion === briefingRequestVersion) {
-        error = e instanceof Error ? e.message : String(e);
-      }
-    } finally {
-      if (requestVersion === briefingRequestVersion) loading = false;
-    }
+    await briefingResource.run(() => getBriefing(selectedDay));
   }
 
   async function loadAvailableDays() {
-    try {
-      availableDays = new Set(await getDailyDates());
-    } catch {
-      // The briefing remains useful even when the calendar index is unavailable.
-    }
+    await calendarResource.run(() => getDailyDates());
   }
 
   $effect(() => {
-    void loadBriefing(day);
-    void loadTasks(day);
+    const selected = day;
+    untrack(() => {
+      void loadBriefing(selected);
+      void loadTasks(selected);
+    });
   });
 
   // Keep ?date= in sync with the selected day -- replaceState rather than
@@ -284,33 +279,59 @@ export function createTodayState() {
   });
 
   async function loadTasks(selectedDay: string) {
-    const requestVersion = ++taskRequestVersion;
-    taskError = null;
-    try {
-      const next = await listTasks({
+    await taskResource.run(async () => ({
+      date: selectedDay,
+      items: await listTasks({
         status: "open",
         due: selectedDay,
-        limit: 5,
-      });
-      if (requestVersion === taskRequestVersion) toGoTasks = next;
-    } catch (cause) {
-      if (requestVersion === taskRequestVersion) {
-        taskError = cause instanceof Error ? cause.message : String(cause);
-      }
-    }
+        limit: TASK_LIMIT,
+      }),
+    }));
   }
 
   async function finishTask(task: Task) {
+    if (finishingTaskId != null) return;
+    finishingTaskId = task.id;
     try {
+      finishError = null;
       await updateTask(task.id, "completed");
-      toGoTasks = toGoTasks.filter((item) => item.id !== task.id);
+      const replacePendingRead = taskResource.loading;
+      if (replacePendingRead) taskResource.invalidate();
+      const current = taskResource.data;
+      if (current)
+        taskResource.mutate(() => ({
+          ...current,
+          items: current.items.filter((item) => item.id !== task.id),
+        }));
+      if (replacePendingRead) void loadTasks(day);
     } catch (cause) {
-      taskError = cause instanceof Error ? cause.message : String(cause);
+      finishError = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      finishingTaskId = null;
     }
   }
 
   return {
     today,
+    briefingResource,
+    taskResource,
+    calendarResource,
+    get finishError() {
+      return finishError;
+    },
+    get finishingTaskId() {
+      return finishingTaskId;
+    },
+    retryBriefing: () => loadBriefing(day),
+    retryTasks: () => loadTasks(day),
+    retryCalendar: loadAvailableDays,
+    get unavailableSections() {
+      return (
+        briefing?.sections
+          .filter((section) => section.state === "unavailable")
+          .map((section) => section.key) ?? []
+      );
+    },
     get briefing() {
       return briefing;
     },

@@ -63,9 +63,14 @@ export function createNightState() {
   );
   const sessions = $derived(sessionsResource.data?.value.items ?? []);
   let selected = $state<SleepSession | null>(null);
+  const pageResource = createAsyncResource<Page<SleepSession>>();
   let pendingPage = $state<typeof sessionsResource.data>(null);
+  const loadMoreError = $derived(
+    pendingPage === sessionsResource.data ? pageResource.error : null,
+  );
   const loadingMore = $derived(
-    pendingPage != null &&
+    pageResource.loading &&
+      pendingPage != null &&
       pendingPage === sessionsResource.data &&
       pendingPage.date === selectedScope().date,
   );
@@ -284,29 +289,29 @@ export function createNightState() {
       const previous = sessionsResource.data;
       if (!hasMore || !previous?.value.next_cursor || loadingMore) return;
       pendingPage = previous;
-      try {
-        const next = await listSleep({
+      const next = await pageResource.run(() =>
+        listSleep({
           limit: PAGE_SIZE,
-          cursor: previous.value.next_cursor,
+          cursor: previous.value.next_cursor!,
           ...scope,
-        });
-        if (
-          sessionsResource.data !== previous ||
-          selectedScope().date !== scope.date ||
-          sessionsResource.loading
-        )
-          return;
-        sessionsResource.mutate(() => ({
-          date: scope.date,
-          value: { ...next, items: [...previous.value.items, ...next.items] },
-        }));
-      } catch {
-        // Pagination failure feedback is a separately owned plan slice.
-      } finally {
-        if (pendingPage === previous) pendingPage = null;
-      }
+        }),
+      );
+      if (
+        !next ||
+        sessionsResource.data !== previous ||
+        selectedScope().date !== scope.date ||
+        sessionsResource.loading
+      )
+        return;
+      sessionsResource.mutate(() => ({
+        date: scope.date,
+        value: { ...next, items: [...previous.value.items, ...next.items] },
+      }));
+      pendingPage = sessionsResource.data;
       return;
     }
+    pageResource.invalidate();
+    pendingPage = null;
     const result = await sessionsResource.run(async () => ({
       date: scope.date,
       value: await listSleep({ limit: PAGE_SIZE, ...scope }),
@@ -329,10 +334,10 @@ export function createNightState() {
   }
 
   $effect(() => {
-    if (!loadMoreSentinel || !hasMore) return;
+    if (!loadMoreSentinel || !hasMore || loadMoreError) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting))
+        if (!loadMoreError && entries.some((entry) => entry.isIntersecting))
           void loadSessions(true);
       },
       { root: nightListContainer ?? null, rootMargin: "120px" },
@@ -405,6 +410,9 @@ export function createNightState() {
     },
     get loadingMore() {
       return loadingMore;
+    },
+    get loadMoreError() {
+      return loadMoreError;
     },
     get hasMore() {
       return hasMore;

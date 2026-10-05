@@ -51,6 +51,8 @@ export async function installMotionFixtures(page: Page) {
   const fixture = {
     missingDistance: false,
     paginated: false,
+    pageFailures: new Set<string>(),
+    pageHolds: new Map<string, Promise<void>>(),
     failures,
     requests,
     unknown,
@@ -88,8 +90,15 @@ export async function installMotionFixtures(page: Page) {
         json: { error: "Unknown synthetic endpoint" },
       });
     }
-    if (pageHold && url.searchParams.has("cursor")) await pageHold;
-    else if (hold) await hold;
+    const pageKey = url.searchParams.get("date") || "lifetime";
+    if (url.searchParams.has("cursor")) {
+      await (fixture.pageHolds.get(pageKey) ?? pageHold ?? hold);
+      if (fixture.pageFailures.has(pageKey))
+        return route.fulfill({
+          status: 503,
+          json: { error: "Synthetic cursor failure" },
+        });
+    } else if (hold) await hold;
     if (failures.has(dependency))
       return route.fulfill({
         status: 503,

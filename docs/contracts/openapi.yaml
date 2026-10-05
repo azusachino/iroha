@@ -159,8 +159,11 @@ paths:
     get:
       tags: [public]
       summary: Public activity summary.
-      description: "Anonymous and sanitized (ADR-0008). Cached for up to 24 hours and rebuilt when activity data changes; responses send Cache-Control public, max-age=86400."
+      description: "Sanitized snapshot with exact-byte ETag (ADR-0010); Cache-Control public, max-age=86400."
       security: []
+      parameters:
+        - $ref: "#/components/parameters/PublicIfMatch"
+        - $ref: "#/components/parameters/PublicIfNoneMatch"
       responses:
         "200":
           description: Public projection.
@@ -169,14 +172,21 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        "304":
+          $ref: "#/components/responses/PublicNotModified"
+        "412":
+          $ref: "#/components/responses/PublicPreconditionFailed"
         "429":
           description: Rate limited.
   /public/v1/activities:
     get:
       tags: [public]
       summary: All public activities.
-      description: "Anonymous and sanitized (ADR-0008). Cached for up to 24 hours and rebuilt when activity data changes; responses send Cache-Control public, max-age=86400."
+      description: "Sanitized snapshot with exact-byte ETag (ADR-0010); Cache-Control public, max-age=86400."
       security: []
+      parameters:
+        - $ref: "#/components/parameters/PublicIfMatch"
+        - $ref: "#/components/parameters/PublicIfNoneMatch"
       responses:
         "200":
           description: Public projection.
@@ -185,6 +195,10 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        "304":
+          $ref: "#/components/responses/PublicNotModified"
+        "412":
+          $ref: "#/components/responses/PublicPreconditionFailed"
         "429":
           description: Rate limited.
   /public/v1/activities/{activityId}:
@@ -214,8 +228,11 @@ paths:
     get:
       tags: [public]
       summary: Public route lines as GeoJSON.
-      description: "Anonymous and sanitized (ADR-0008). Cached for up to 24 hours and rebuilt when activity data changes; responses send Cache-Control public, max-age=86400."
+      description: "Sanitized snapshot with exact-byte ETag (ADR-0010); Cache-Control public, max-age=86400."
       security: []
+      parameters:
+        - $ref: "#/components/parameters/PublicIfMatch"
+        - $ref: "#/components/parameters/PublicIfNoneMatch"
       responses:
         "200":
           description: Public projection.
@@ -224,14 +241,21 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        "304":
+          $ref: "#/components/responses/PublicNotModified"
+        "412":
+          $ref: "#/components/responses/PublicPreconditionFailed"
         "429":
           description: Rate limited.
   /public/v1/meta:
     get:
       tags: [public]
       summary: When the public projection was built.
-      description: "Anonymous and sanitized (ADR-0008). Cached for up to 24 hours and rebuilt when activity data changes; responses send Cache-Control public, max-age=86400."
+      description: "Exact-byte ETag also changes on metadata generation-time changes (ADR-0010); Cache-Control public, max-age=86400."
       security: []
+      parameters:
+        - $ref: "#/components/parameters/PublicIfMatch"
+        - $ref: "#/components/parameters/PublicIfNoneMatch"
       responses:
         "200":
           description: Public projection.
@@ -240,6 +264,10 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        "304":
+          $ref: "#/components/responses/PublicNotModified"
+        "412":
+          $ref: "#/components/responses/PublicPreconditionFailed"
         "429":
           description: Rate limited.
   /api/v1/account:
@@ -1724,6 +1752,16 @@ components:
       scheme: bearer
       description: Health Auto Export intake credential, issued per device with `iroha-admin intake-token issue` and revoked with `iroha-admin intake-token revoke`. Authorizes intake only.
   parameters:
+    PublicIfMatch:
+      name: If-Match
+      in: header
+      description: Strong precondition, evaluated before If-None-Match.
+      schema: { type: string }
+    PublicIfNoneMatch:
+      name: If-None-Match
+      in: header
+      description: Weak comparison of ETag against a tag list or wildcard; matches return bodyless 304.
+      schema: { type: string }
     RawFileId:
       name: rawFileId
       in: path
@@ -1847,6 +1885,18 @@ components:
       in: query
       schema: { type: string, enum: [month, year, lifetime], default: month }
   responses:
+    PublicNotModified:
+      description: Matching current representation; no content.
+      headers:
+        ETag:
+          schema: { type: string }
+        Cache-Control:
+          schema: { type: string, example: "public, max-age=86400" }
+    PublicPreconditionFailed:
+      description: Empty If-Match failure; no snapshot content, ETag or representation Content-Type. Never shared-cache this response.
+      headers:
+        Cache-Control:
+          schema: { type: string, enum: [no-store] }
     BadRequest:
       description: Request could not be parsed or validated.
       content:

@@ -14,10 +14,24 @@
   import { hasThemeRoute } from "$lib/themes/registry";
   import { createPatternsState } from "./patterns-state.svelte";
   import FallbackPatternsTable from "./FallbackPatternsTable.svelte";
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
 
   type Gran = "day" | "month" | "year";
   const theme = useTheme();
   const t = createPatternsState();
+  const themeProps = $derived({
+    seriesAvailable: t.seriesAvailable,
+    chrono: t.chrono,
+    gran: t.gran,
+    onGran: (value: Gran) => void t.changeGranularity(value),
+    onDrillIndex: t.drillIntoIndex,
+    onDrillPeriod: t.drillIntoPeriod,
+    ringData: t.ringData,
+    latestRingDay: t.latestRingDay,
+  });
+  let seriesTarget = $state<HTMLElement>();
+  let latestTarget = $state<HTMLElement>();
+  let boundsTarget = $state<HTMLElement>();
 </script>
 
 <svelte:head>
@@ -26,29 +40,16 @@
 
 <section class="daily">
   {#if hasThemeRoute(theme.definition(), "daily")}
-    <LoadingBoundary
-      resource={t.activeResources}
-      preserveLayout
-      label="Loading time-series data…"
+    <ThemeRouteRenderer
+      route="daily"
+      props={{ ...themeProps, section: "controls" }}
     >
-      {#if t.error}
-        <p class="error status" role="alert">
-          Could not load daily data: {t.error}
-        </p>
-      {/if}
-      <ThemeRouteRenderer
-        route="daily"
-        props={{
-          chrono: t.chrono,
-          gran: t.gran,
-          onGran: (value: Gran) => void t.changeGranularity(value),
-          onDrillIndex: t.drillIntoIndex,
-          onDrillPeriod: t.drillIntoPeriod,
-          ringData: t.ringData,
-          latestRingDay: t.latestRingDay,
-        }}
-      >
-        {#snippet children()}
+      {#snippet children()}
+        <section
+          aria-label="Pattern scope selection"
+          tabindex="-1"
+          bind:this={boundsTarget}
+        >
           <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
             <PeriodSelector
               years={t.periodYears}
@@ -62,9 +63,72 @@
               onMonth={t.selectMonth}
             />
           </PeriodToolbar>
-        {/snippet}
-      </ThemeRouteRenderer>
-    </LoadingBoundary>
+          <p>Selected pattern scope: {t.periodLabel}</p>
+          {#if t.boundsResource.error}
+            <RetryNotice
+              message={`Pattern range unavailable. ${t.boundsResource.error}`}
+              retryLabel="Retry pattern range"
+              onRetry={t.loadBounds}
+              focusTarget={boundsTarget}
+            />
+            <p>Calendar choices are not an observed data inventory.</p>
+          {/if}
+        </section>
+      {/snippet}
+    </ThemeRouteRenderer>
+    <section
+      aria-label="Latest pattern reading"
+      tabindex="-1"
+      bind:this={latestTarget}
+    >
+      {#if t.latestDayResource.error}
+        <RetryNotice
+          message={`Latest reading unavailable. ${t.latestDayResource.error}`}
+          retryLabel="Retry latest reading"
+          onRetry={t.loadLatestDay}
+          focusTarget={latestTarget}
+        />
+      {/if}
+      <LoadingBoundary
+        resource={t.latestDayResource}
+        preserveLayout
+        label="Loading latest reading…"
+      >
+        {#if t.latestDayResource.ready}
+          <ThemeRouteRenderer
+            route="daily"
+            props={{ ...themeProps, section: "rings" }}
+          />
+        {/if}
+      </LoadingBoundary>
+    </section>
+    <section
+      aria-label="Pattern periods"
+      tabindex="-1"
+      bind:this={seriesTarget}
+    >
+      {#if t.seriesResource.error}
+        <RetryNotice
+          message={`Pattern periods unavailable. ${t.seriesResource.error}`}
+          retryLabel={t.seriesRetryLabel}
+          onRetry={t.retrySeries}
+          focusTarget={seriesTarget}
+        />
+      {/if}
+      <LoadingBoundary
+        resource={t.seriesResource}
+        preserveLayout
+        label="Loading time-series data…"
+      >
+        {#if t.seriesAvailable}
+          <p>Observed pattern scope: {t.observedScope}</p>
+          <ThemeRouteRenderer
+            route="daily"
+            props={{ ...themeProps, section: "series" }}
+          />
+        {/if}
+      </LoadingBoundary>
+    </section>
   {:else}
     <RouteIntro
       eyebrow="Patterns / personal history"

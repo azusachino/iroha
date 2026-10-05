@@ -20,6 +20,9 @@ RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-admin ./c
 RUN CGO_ENABLED=0 go -C apps/iroha-job build -mod=mod -o /out/iroha-job .
 
 FROM alpine:3.22 AS server
+ARG SOURCE_REVISION
+RUN test -n "$SOURCE_REVISION"
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 # iroha is 100:101 in every stage: k8s runs it with runAsUser/runAsGroup 100/101
 # and the dev compose maps the host user to it, so the IDs must not drift.
 # ca-certificates is required for outbound HTTPS (e.g. Nominatim geocoding);
@@ -35,6 +38,9 @@ EXPOSE 8080
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-server"]
 
 FROM alpine:3.22 AS job
+ARG SOURCE_REVISION
+RUN test -n "$SOURCE_REVISION"
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 # ca-certificates is required for outbound HTTPS (AniList/Bangumi media sync);
 # tzdata keeps worker-side calendar/time handling consistent with the server.
 RUN apk add --no-cache ca-certificates tini tzdata \
@@ -52,6 +58,9 @@ RUN apk add --no-cache musl-dev \
 # the server rollout. Reads DATABASE_URL or IROHA_DATABASE_URL, same as
 # scripts/db.py, and defaults to the "up" action.
 FROM alpine:3.22 AS db-migrate
+ARG SOURCE_REVISION
+RUN test -n "$SOURCE_REVISION"
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 RUN apk add --no-cache ca-certificates tini \
   && addgroup -S -g 101 iroha && adduser -S -u 100 -G iroha iroha
 COPY --from=sqlx /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx

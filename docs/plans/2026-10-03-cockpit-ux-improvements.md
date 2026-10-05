@@ -1,9 +1,12 @@
 # Cockpit UX improvement plan
 
-Date: 2026-10-03. Status: proposed; review/planning only is authorized. Baseline: main `e06fcad6ee004993a76d2998f3a95d0bc6945872`.
+Date: 2026-10-03. Updated: 2026-10-04. Status: owner-approved implementation. Original review baseline: main `e06fcad6ee004993a76d2998f3a95d0bc6945872`. Consolidated working baseline: Reports commit `2b2a52e231d420cd5f417c1d31b5e6a2258dbe15`.
 
-Evidence and finding IDs belong to the [cockpit UX review](../audits/2026-10-03-cockpit-ux-review.md). [Issue #116](https://github.com/azusachino/iroha/issues/116) retains the wider acceptance gaps. Live delivery
-of this review is tracked in Asobi `iroha:cockpit-ux-review`; implementation tasks are not claimed or started. Record an owner's selected slices in their own issue/Asobi epic before implementation.
+Evidence and finding IDs belong to the [cockpit UX review](../audits/2026-10-03-cockpit-ux-review.md). The owner approved the entire plan under [#121](https://github.com/azusachino/iroha/issues/121), then directed all remaining cockpit work and safe local [#116](https://github.com/azusachino/iroha/issues/116) acceptance into existing [PR #125](https://github.com/azusachino/iroha/pull/125), rather than new staged PRs. The thin implementation slices and verification checkpoints below still apply within that PR.
+
+On 2026-10-05 the owner directed pushing PR #125 for personal final review and consolidating all unfinished work in existing [#116](https://github.com/azusachino/iroha/issues/116). Local independent gates passed; the incomplete rendered matrix/scores, clean final image identity and submitted-head CI are review followups, not silently accepted exceptions. No merge-readiness claim is made.
+
+Live tasks remain in Asobi `iroha:cockpit-ux-implementation` and `iroha:remaining-acceptance`. Motion, Night and Library are merged; the Reports slice passed independent verification and exact-head CI before this scope expansion. Its evidence does not certify subsequent changes. GitHub #121 was closed by the owner before the plan finished; the remaining acceptance scope is recorded here and in PR #125, not inferred from that issue state. Historical audit ownership remains unchanged.
 
 ## Outcome and constraints
 
@@ -18,7 +21,7 @@ provenance, links, text size or hit areas. No shell replacement is needed for th
 
 ## Order and slice ownership
 
-Suggested PR batches are coherent outcomes, not permission for one large patch. Each route sub-slice below has its own focused test and can be independently reviewed. Use one writer per checkout; do not
+The following batches are coherent implementation checkpoints within PR #125, not permission for one large patch. Each route sub-slice below has its own focused test and can be independently reviewed. Use one writer per checkout; do not
 split host and shared-contract changes between concurrent writers. Do not mark a whole batch complete because its first route passed.
 
 | Batch / slice | Finding | Outcome and likely paths | Dependencies / scope |
@@ -79,7 +82,7 @@ not a screen-reader acceptance claim.
 1. Overview's first meaningful pattern panel is visible sooner than the measured y=1179 at 320×900, with no lost information or globally reduced font/control sizes. Establish the exact geometry target with
    the owner before implementation; compare equivalent sparse and dense fixtures.
 2. Public record columns/sort controls are discoverable and keyboard/touch reachable at compact widths. Internal overflow is intentional and named; there is no exact-data loss. Nonpilot body extents and
-   Admin tabs are checked separately: root `scrollWidth` passing is not enough to establish control/content reachability.
+   Admin tabs are checked separately: root `scrollWidth` passing is not enough to establish control/content reachability. The replacement audit found selected tabs off-screen on initial load at 320/375px and an Imports file input extending to x=338 at 320px. On 2026-10-05 the owner explicitly chose to fix both in PR #125 rather than defer them; preserve native upload behavior and keyboard tab navigation, with focused bounds/long-file-name regression checks.
 3. Metrics navigation follows the explicit owner choice and preserves command-palette discovery, URLs and scope behavior.
 
 Do not promise a global 8rem header or all-route shared-frame migration from these local slices. The earlier Phase 2 pilot criteria are context, not universal acceptance.
@@ -104,5 +107,40 @@ assertions. Score the design contract's six dimensions only once that route evid
 | Dense real histories differ from sparse synthetic data | Add bounded high-volume/long-label fixtures before judging density, chart legibility or pagination. Do not inspect live personal data without separate approval. |
 | Public overflow and Metrics discovery have multiple valid designs | Owner chooses compact-table treatment and Metrics role at the Batch 4 checkpoint. |
 
-Next owner checkpoint: accept or revise this prioritization, then select the first trustworthy-state slice. Approval of the audit/plan is not approval to redesign, deploy or close the remaining #116
-acceptance scopes.
+## Approved consolidation and design checkpoints
+
+The owner selected these criteria on 2026-10-04:
+
+- Finish every remaining #121 slice and safe local #116 verification in PR #125. Do not open additional Iroha implementation PRs for this work.
+- At 320×900, the first meaningful Overview pattern panel starts at `y < 900` in equivalent sparse and dense synthetic fixtures. Preserve information, scope/provenance, links, text/control sizes and hit areas; do not solve this by hiding content or globally shrinking type.
+- Add Metrics under Analyze, preserving command-palette access, existing URLs and scope behavior.
+- Approve an expanded replacement cockpit audit as explicitly new evidence. It does not reconstruct the missing historical artifact or change its original owner's claim/status.
+- Record explicit approved deferrals for live-only recovery, migration, release and edge-policy evidence. No live operation, version/tag publication, deployment, real-data access or public edge-policy change is authorized.
+
+## Local #116 acceptance and approved deferrals
+
+These requirements supplement the existing route slices; source exploration determines the smallest owning fixture/helper changes before implementation.
+
+| Item | Falsifiable local acceptance | Boundary / owner decision |
+| --- | --- | --- |
+| Shared coverage | Final report inventories actual app/shared sources and passes unchanged floors; link delivered PR #118 rather than redo its workspace migration. | Already delivered; fresh final provenance is required, not a reduced threshold. |
+| Missing full audit | Enumerate production routes/details and publish the expanded route/state/viewport matrix described above, with actual commands, bounded synthetic evidence, applicable omissions and six-dimension findings. | Owner explicitly approves this as replacement acceptance, not recovered history. Preserve historical ownership. |
+| Recoverability | Document actual owning boundaries and local source/fixture evidence separately from operational proof; every unresolved alerting, backup-before-migration and restore-drill claim is individually listed as an approved deferral. | Live failure alert delivery, real backup sequencing and isolated operational restore drills are deferred. No cluster changes or live exercise in this PR. |
+| Release hygiene | Establish reproducible local verification of clean immutable annotated-tag/source identity and OCI revision provenance using existing tools and throwaway synthetic Git/image fixtures; negative cases must fail. Record commands, reviewed source and what an actual image build establishes. | Real version bumps, published tags/releases/images and production provenance/rollout evidence are deferred. No weakening of release checks or thawed dependencies. |
+| Public serving | Isolated fixture proves one encoded snapshot representation, ETag identity and RFC-grounded conditional GET/304 behavior across matching and changed revisions. Source exploration found no existing ETag/304 implementation, so this is a new HTTP semantic requiring an owning ADR and independent contract review, not certification of an existing feature. Public/private disclosure and edge caching policy stay unchanged. | Live edge caching and disclosure/removal-policy changes remain deferred; an HTTP behavior correction must preserve existing published semantics and receive independent contract review. |
+
+Source exploration also found per-request snapshot encoding, no OCI revision labels or clean annotated-tag preflight, and a historical lightweight `v0.4.5` tag. These are recorded gaps, not delivered release acceptance. Do not mutate published historical tags; implement prospective local verification with synthetic negative fixtures and distinguish actual image-build evidence from mocked inspection.
+
+Use the existing #116 acceptance issue and PR #125 as the owning delivery record. Build release/public-serving fixtures only after tracing the actual transport/encoding/build paths; existing checks may already establish parts of this contract and should be reused explicitly. Do not manufacture evidence for deployed behavior from source inspection.
+
+## Consolidated delivery sequence
+
+1. Preserve the completed Reports slice, then implement Expenses, Patterns and To-go read/recovery parity one route at a time.
+2. Complete route/detail/pagination recovery, exact Library distributions, navigation state and context-safe Today shortcuts in independently testable slices.
+3. Apply the approved Overview geometry, public/compact reachability and Analyze/Metrics choices after trust and exact-data checkpoints.
+4. Complete safe local #116 fixtures and the explicit operational-deferral record; reuse verified shared coverage without changing floors.
+5. Run the expanded replacement audit and full owning gates on the combined source, obtain fresh independent Sonnet-class/medium acceptance against this plan, promote actual evidence and require CI on the latest submitted PR head.
+
+One lead writes the checkout. Herdr peers may perform bounded read-only exploration/review, never concurrent source/index mutations. All long gates run in the background with direct Herdr completion/blocker messages; use actual job completion rather than fixed long sleeps. Use scoped `make local-check` groups during iteration; cached or earlier-slice success is not final consolidated acceptance.
+
+No task is DONE because another route or a previous commit passed. PR #125 remains a normal review PR while CI runs, as requested by the owner; readiness is not gate acceptance. Merge/deployment remain owner actions.

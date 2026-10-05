@@ -42,6 +42,8 @@ export async function installNightFixtures(page: Page) {
     empty: false,
     napsOnly: false,
     paginated: false,
+    pageFailures: new Set<string>(),
+    pageHolds: new Map<string, Promise<void>>(),
     pageHold: null as Promise<void> | null,
   };
   await page.route("**/api/v1/**", async (route) => {
@@ -65,9 +67,17 @@ export async function installNightFixtures(page: Page) {
         json: { error: "Unknown synthetic endpoint" },
       });
     }
-    if (url.searchParams.has("cursor") && fixture.pageHold)
-      await fixture.pageHold;
-    else if (fixture.holds.has(read)) await fixture.holds.get(read);
+    if (url.searchParams.has("cursor")) {
+      const key = url.searchParams.get("date") || "lifetime";
+      await (fixture.pageHolds.get(key) ??
+        fixture.pageHold ??
+        fixture.holds.get(read));
+      if (fixture.pageFailures.has(key))
+        return route.fulfill({
+          status: 503,
+          json: { error: "Synthetic sleep cursor failure" },
+        });
+    } else if (fixture.holds.has(read)) await fixture.holds.get(read);
     if (fixture.failures.has(read))
       return route.fulfill({
         status: 503,

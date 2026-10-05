@@ -67,14 +67,15 @@
   });
 </script>
 
-<section
-  class="grapher-dashboard"
-  data-theme={theme}
-  aria-label="Overview"
->
-  <RouteHeader title="Overview" context="Mixed windows · movement and library: all time · sleep and activity: recent records">
+<section class="grapher-dashboard" data-theme={theme} aria-label="Overview">
+  <RouteHeader
+    title="Overview"
+    context="Mixed windows · movement and library: all time · sleep and activity: recent records"
+  >
     {#snippet actions()}
-      <a class="archive-link" href="/motion">Open movement archive <span aria-hidden="true">→</span></a>
+      <a class="archive-link" href="/motion"
+        >Open movement archive <span aria-hidden="true">→</span></a
+      >
     {/snippet}
   </RouteHeader>
 
@@ -92,200 +93,272 @@
       <p class="updating" role="status">Updating overview…</p>
     {/if}
 
+    <div class="heatmap-panel">
+      <PanelFrame label="Activity calendar">
+        <ActivityHeatmap
+          days={activeDays}
+          endDay={heatmapEndDay}
+          title="Activity through the year"
+          embedded
+        />
+      </PanelFrame>
+    </div>
     <div class="stat-grid">
-      <StatTile label="Distance · all time" context="All time"
-        value={summary.totals.distance_unknown_count > 0 && summary.totals.distance_known_count === 0 ? "—" : formatDistance(summary.totals.distance_m)}
-        sub={summary.totals.distance_unknown_count > 0 ? `Known distance for ${summary.totals.distance_known_count} of ${summary.totals.activity_count} activities; ${summary.totals.distance_unknown_count} unavailable` : "Across recorded movement"} />
-      <StatTile label="Activity records" value={formatMetricValue(summary.totals.activity_count, "count")} context="All time" sub="Imported movement sessions" />
-      <StatTile label="Total movement time" value={formatHumanDuration(summary.totals.moving_time_s || summary.totals.duration_s)} context="All time" sub="Recorded duration" />
-      <StatTile label="Main sleep · recent" context="Recent records (limit 30)"
-        value={sleepLoading || sleepError || sleepSummary.nightCount === 0 ? "—" : formatHumanDuration(sleepSummary.averageAsleepS)}
-        sub={sleepLoading ? "Loading recent nights" : sleepError ? "Could not load sleep data" : sleepSummary.nightCount ? `Average across ${sleepSummary.nightCount} main nights` : "No main sleep records in this window"}>
+      <StatTile
+        compact
+        label="Distance · all time"
+        context="All time"
+        value={summary.totals.distance_unknown_count > 0 &&
+        summary.totals.distance_known_count === 0
+          ? "—"
+          : formatDistance(summary.totals.distance_m)}
+        sub={summary.totals.distance_unknown_count > 0
+          ? `Known distance for ${summary.totals.distance_known_count} of ${summary.totals.activity_count} activities; ${summary.totals.distance_unknown_count} unavailable`
+          : "Across recorded movement"}
+      />
+      <StatTile
+        compact
+        label="Activity records"
+        value={formatMetricValue(summary.totals.activity_count, "count")}
+        context="All time"
+        sub="Imported movement sessions"
+      />
+      <StatTile
+        compact
+        label="Total movement time"
+        value={formatHumanDuration(
+          summary.totals.moving_time_s || summary.totals.duration_s,
+        )}
+        context="All time"
+        sub="Recorded duration"
+      />
+      <StatTile
+        compact
+        label="Main sleep · recent"
+        context="Recent records (limit 30)"
+        value={sleepLoading || sleepError || sleepSummary.nightCount === 0
+          ? "—"
+          : formatHumanDuration(sleepSummary.averageAsleepS)}
+        sub={sleepLoading
+          ? "Loading recent nights"
+          : sleepError
+            ? "Could not load sleep data"
+            : sleepSummary.nightCount
+              ? `Average across ${sleepSummary.nightCount} main nights`
+              : "No main sleep records in this window"}
+      >
         <a href="/night">Explore sleep <span aria-hidden="true">→</span></a>
       </StatTile>
-      <StatTile label="Library items" context="All time"
-        value={mediaLoading || mediaError ? "—" : formatMetricValue(mediaAggregates?.totals.item_count ?? 0, "count")}
-        sub={mediaLoading ? "Loading the library" : mediaError ? "Could not load library data" : "Collected and tracked items"}>
+      <StatTile
+        compact
+        label="Library items"
+        context="All time"
+        value={mediaLoading || mediaError
+          ? "—"
+          : formatMetricValue(mediaAggregates?.totals.item_count ?? 0, "count")}
+        sub={mediaLoading
+          ? "Loading the library"
+          : mediaError
+            ? "Could not load library data"
+            : "Collected and tracked items"}
+      >
         <a href="/library">Explore library <span aria-hidden="true">→</span></a>
       </StatTile>
-      <StatTile label="Current activity streak" value={streak} context="Consecutive days ending today" />
+      <StatTile
+        compact
+        label="Current activity streak"
+        value={streak}
+        context="Consecutive days ending today"
+      />
     </div>
 
     <div class="dashboard-grid">
-      <div class="heatmap-panel"><PanelFrame label="Activity calendar">
-        <ActivityHeatmap days={activeDays} endDay={heatmapEndDay} title="Activity through the year" embedded />
-      </PanelFrame></div>
-
-      <div class="chart-panel"><PanelFrame label="Monthly distance">
-        <header class="panel-header">
-          <div>
-            <p class="kicker">Movement / distance</p>
-            <h2 id="distance-trend-title">Monthly distance</h2>
-            <p class="panel-caption">
-              Each point represents one calendar month.
-            </p>
-          </div>
-          <div class="chart-tools">
-            {#if comparison}
-              <span class="comparison">
-                {comparison.difference > 0
-                  ? "▲"
-                  : comparison.difference < 0
-                    ? "▼"
-                    : "→"}
-                {formatDistance(Math.abs(comparison.difference))}
-                <small>vs {formatMonth(comparison.previous.key)}</small>
-              </span>
-            {/if}
-            <div
-              class="period-control"
-              role="group"
-              aria-label="Distance chart range"
-            >
-              {#each periods as months (months)}
-                <button
-                  type="button"
-                  aria-label={`${months}M: Last ${months} months`}
-                  aria-pressed={period === months}
-                  class:selected={period === months}
-                  onclick={() => (period = months)}>{months}M</button
-                >
-              {/each}
+      <div class="chart-panel">
+        <PanelFrame label="Monthly distance">
+          <header class="panel-header">
+            <div>
+              <p class="kicker">Movement / distance</p>
+              <h2 id="distance-trend-title">Monthly distance</h2>
+              <p class="panel-caption">
+                Each point represents one calendar month.
+              </p>
             </div>
-          </div>
-        </header>
-        {#if monthly.length}
-          <BarChart
-            categories={monthly.map((bucket) => formatMonth(bucket.key))}
-            primary={{
-              name: "Distance",
-              values: monthly.map((bucket) => bucket.distance_m / 1000),
-              color: "var(--accent)",
-              axis: { unit: "km" },
-              formatter: (value) => formatDistance(value * 1000),
-            }}
-            primaryType="line"
-            height={270}
-          />
-          <p class="chart-note">
-            {monthly[0].key}–{monthly[monthly.length - 1].key} · Months without recorded
-            distance show 0 km; the current month is partial.
-          </p>
-        {:else}
-          <p class="empty-note">No canonical movement periods yet.</p>
-        {/if}
-      </PanelFrame></div>
-
-      <div class="sport-panel"><PanelFrame label="By activity">
-        <header class="panel-header">
-          <div>
-            <p class="kicker">Movement / composition</p>
-            <h2 id="sport-breakdown-title">By activity</h2>
-          </div>
-          <a href="/motion">All records <span aria-hidden="true">→</span></a>
-        </header>
-        {#if sports.length}
-          <ul class="sport-list">
-            {#each sports as sport (sport.key)}
-              <li>
-                <button
-                  class="sport-row"
-                  type="button"
-                  aria-label={`${sport.key.replaceAll("_", " ")}: ${sport.activity_count} activity records`}
-                  onclick={() => onOpenSport(sport.key)}
-                >
-                  <span class="sport-name"
-                    >{sport.key.replaceAll("_", " ")}</span
+            <div class="chart-tools">
+              {#if comparison}
+                <span class="comparison">
+                  {comparison.difference > 0
+                    ? "▲"
+                    : comparison.difference < 0
+                      ? "▼"
+                      : "→"}
+                  {formatDistance(Math.abs(comparison.difference))}
+                  <small>vs {formatMonth(comparison.previous.key)}</small>
+                </span>
+              {/if}
+              <div
+                class="period-control"
+                role="group"
+                aria-label="Distance chart range"
+              >
+                {#each periods as months (months)}
+                  <button
+                    type="button"
+                    aria-label={`${months}M: Last ${months} months`}
+                    aria-pressed={period === months}
+                    class:selected={period === months}
+                    onclick={() => (period = months)}>{months}M</button
                   >
-                  <span class="sport-count">
-                    {formatMetricValue(sport.activity_count, "count")}
-                  </span>
-                </button>
-              </li>
-            {/each}
-          </ul>
-          <p class="chart-note">
-            Select a category to filter the movement archive.
-          </p>
-        {:else}
-          <p class="empty-note">No activity categories to compare yet.</p>
-        {/if}
-      </PanelFrame></div>
-
-      <div class="route-panel"><PanelFrame label="Route footprint">
-        <header class="panel-header">
-          <div><p class="kicker">Geography / privacy-trimmed</p><h2 id="route-footprint-title">Route footprint</h2></div>
-          <span>{routes?.features.length ?? "—"} traces</span>
-        </header>
-        {@render children?.()}
-      </PanelFrame></div>
-
-      <div class="table-panel"><PanelFrame label="Recent movement">
-        <header class="panel-header">
-          <div>
-            <p class="kicker">Latest records · up to 5</p>
-            <h2 id="recent-movement-title">Recent movement</h2>
-          </div>
-          <a href="/motion">Browse archive <span aria-hidden="true">→</span></a>
-        </header>
-        {#if activities.length}
-          <button
-            class="table-scroll-hint"
-            type="button"
-            aria-controls="recent-movement-table-scroll"
-            onclick={focusRecentMovementTable}
-          >
-            Focus the recent movement table.
-          </button>
-          <div
-            id="recent-movement-table-scroll"
-            bind:this={recentMovementScroll}
-            class="table-wrap"
-            role="region"
-            tabindex="-1"
-            aria-label="Recent movement table; scroll horizontally to view all columns"
-          >
-            <table>
-              <caption class="visually-hidden">
-                Recent movement records with distance and duration
-              </caption>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Activity</th>
-                  <th>Distance</th>
-                  <th>Duration</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each activities.slice(0, 8) as activity (activity.id)}
-                  <tr>
-                    <td>{formatDate(activity.started_at, activity.timezone)}</td
-                    >
-                    <td>
-                      <button
-                        class="activity-link"
-                        type="button"
-                        onclick={() => onOpenActivity(activity.id)}
-                        >{activity.title || activity.sport_type}</button
-                      >
-                    </td>
-                    <td>{formatDistance(activity.distance_m)}</td>
-                    <td>
-                      {formatDuration(
-                        activity.duration_s ?? activity.moving_time_s,
-                      )}
-                    </td>
-                  </tr>
                 {/each}
-              </tbody>
-            </table>
-          </div>
-        {:else}
-          <p class="empty-note">No movement records to show yet.</p>
-        {/if}
-      </PanelFrame></div>
+              </div>
+            </div>
+          </header>
+          {#if monthly.length}
+            <BarChart
+              categories={monthly.map((bucket) => formatMonth(bucket.key))}
+              primary={{
+                name: "Distance",
+                values: monthly.map((bucket) => bucket.distance_m / 1000),
+                color: "var(--accent)",
+                axis: { unit: "km" },
+                formatter: (value) => formatDistance(value * 1000),
+              }}
+              primaryType="line"
+              height={270}
+            />
+            <p class="chart-note">
+              {monthly[0].key}–{monthly[monthly.length - 1].key} · Months without
+              recorded distance show 0 km; the current month is partial.
+            </p>
+          {:else}
+            <p class="empty-note">No canonical movement periods yet.</p>
+          {/if}
+        </PanelFrame>
+      </div>
 
+      <div class="sport-panel">
+        <PanelFrame label="By activity">
+          <header class="panel-header">
+            <div>
+              <p class="kicker">Movement / composition</p>
+              <h2 id="sport-breakdown-title">By activity</h2>
+            </div>
+            <a href="/motion">All records <span aria-hidden="true">→</span></a>
+          </header>
+          {#if sports.length}
+            <ul class="sport-list">
+              {#each sports as sport (sport.key)}
+                <li>
+                  <button
+                    class="sport-row"
+                    type="button"
+                    aria-label={`${sport.key.replaceAll("_", " ")}: ${sport.activity_count} activity records`}
+                    onclick={() => onOpenSport(sport.key)}
+                  >
+                    <span class="sport-name"
+                      >{sport.key.replaceAll("_", " ")}</span
+                    >
+                    <span class="sport-count">
+                      {formatMetricValue(sport.activity_count, "count")}
+                    </span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+            <p class="chart-note">
+              Select a category to filter the movement archive.
+            </p>
+          {:else}
+            <p class="empty-note">No activity categories to compare yet.</p>
+          {/if}
+        </PanelFrame>
+      </div>
+
+      <div class="route-panel">
+        <PanelFrame label="Route footprint">
+          <header class="panel-header">
+            <div>
+              <p class="kicker">Geography / privacy-trimmed</p>
+              <h2 id="route-footprint-title">Route footprint</h2>
+            </div>
+            <span>{routes?.features.length ?? "—"} traces</span>
+          </header>
+          {@render children?.()}
+        </PanelFrame>
+      </div>
+
+      <div class="table-panel">
+        <PanelFrame label="Recent movement">
+          <header class="panel-header">
+            <div>
+              <p class="kicker">Latest records · up to 5</p>
+              <h2 id="recent-movement-title">Recent movement</h2>
+            </div>
+            <a href="/motion"
+              >Browse archive <span aria-hidden="true">→</span></a
+            >
+          </header>
+          {#if activities.length}
+            <button
+              class="table-scroll-hint"
+              type="button"
+              aria-controls="recent-movement-table-scroll"
+              onclick={focusRecentMovementTable}
+            >
+              Focus the recent movement table.
+            </button>
+            <div
+              id="recent-movement-table-scroll"
+              bind:this={recentMovementScroll}
+              class="table-wrap"
+              role="region"
+              tabindex="-1"
+              aria-label="Recent movement table; scroll horizontally to view all columns"
+            >
+              <table>
+                <caption class="visually-hidden">
+                  Recent movement records with distance and duration
+                </caption>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Activity</th>
+                    <th>Distance</th>
+                    <th>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each activities.slice(0, 8) as activity (activity.id)}
+                    <tr>
+                      <td
+                        >{formatDate(
+                          activity.started_at,
+                          activity.timezone,
+                        )}</td
+                      >
+                      <td>
+                        <button
+                          class="activity-link"
+                          type="button"
+                          onclick={() => onOpenActivity(activity.id)}
+                          >{activity.title || activity.sport_type}</button
+                        >
+                      </td>
+                      <td>{formatDistance(activity.distance_m)}</td>
+                      <td>
+                        {formatDuration(
+                          activity.duration_s ?? activity.moving_time_s,
+                        )}
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {:else}
+            <p class="empty-note">No movement records to show yet.</p>
+          {/if}
+        </PanelFrame>
+      </div>
     </div>
   {/if}
 

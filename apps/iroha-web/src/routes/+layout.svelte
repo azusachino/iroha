@@ -51,11 +51,17 @@
   <nav class="main-nav" aria-label="Primary navigation">
     <a
       class:active={isActive(navigationGroups[0].items[0].href)}
+      aria-current={isActive(navigationGroups[0].items[0].href)
+        ? "page"
+        : undefined}
       href={navigationGroups[0].items[0].href}
       ><HeartPulse size={14} />{navigationGroups[0].items[0].label}</a
     >
     <a
       class:active={isActive(navigationGroups[0].items[1].href)}
+      aria-current={isActive(navigationGroups[0].items[1].href)
+        ? "page"
+        : undefined}
       href={navigationGroups[0].items[1].href}
       ><LayoutDashboard size={14} />{navigationGroups[0].items[1].label}</a
     >

@@ -34,7 +34,9 @@ for (const mode of ["light", "dark"] as const) {
         await expect(
           page.getByRole("status").filter({
             hasText:
-              pilot === "overview" ? "Loading overview…" : "Loading expenses…",
+              pilot === "overview"
+                ? "Loading overview…"
+                : "Loading expense records…",
           }),
         ).toBeVisible();
         await expect(
@@ -87,7 +89,10 @@ for (const mode of ["light", "dark"] as const) {
         .getByRole("combobox", { name: "Filter by month" })
         .selectOption("9");
       await expect(
-        page.getByRole("status").filter({ hasText: "Updating…" }),
+        page
+          .getByRole("region", { name: "Expense records read", exact: true })
+          .getByRole("status")
+          .filter({ hasText: "Updating…" }),
       ).toBeVisible();
       await expect(
         page.getByRole("heading", { name: "Synthetic cafe", exact: true }),

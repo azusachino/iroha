@@ -23,6 +23,7 @@
     currentMonth,
     monthOptionsInRange,
     yearOptionsInRange,
+    MONTH_OPTIONS,
   } from "@iroha/shared/format/month";
   import {
     currentCalendarScope,
@@ -42,6 +43,7 @@
   import { categoryColor } from "@iroha/shared/domain/category-color";
   import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
 
   const currencies: ExpenseCurrency[] = ["JPY", "USD", "EUR", "GBP"];
   const categories: ExpenseCategory[] = [
@@ -71,20 +73,30 @@
 
   const expensesResource = createAsyncResource<{
     month: string;
-    primaryCurrency: ExpenseCurrency;
+    currency: string;
+    category: string;
     expenses: Expense[];
+  }>();
+  const spendingResource = createAsyncResource<{
+    month: string;
+    currency: string;
+    category: string;
+    primaryCurrency: ExpenseCurrency;
     dailySeries: MetricSeriesResponse | null;
     categorySeries: MetricSeriesResponse[];
     currencySeries: MetricSeriesResponse[];
     currencyCountSeries: MetricSeriesResponse[];
   }>();
   const expenses = $derived(expensesResource.data?.expenses ?? []);
-  const dailySeries = $derived(expensesResource.data?.dailySeries ?? null);
-  const categorySeries = $derived(expensesResource.data?.categorySeries ?? []);
-  const currencySeries = $derived(expensesResource.data?.currencySeries ?? []);
+  const dailySeries = $derived(spendingResource.data?.dailySeries ?? null);
+  const categorySeries = $derived(spendingResource.data?.categorySeries ?? []);
+  const currencySeries = $derived(spendingResource.data?.currencySeries ?? []);
   const currencyCountSeries = $derived(
-    expensesResource.data?.currencyCountSeries ?? [],
+    spendingResource.data?.currencyCountSeries ?? [],
   );
+  let recordsTarget = $state<HTMLElement>();
+  let spendingTarget = $state<HTMLElement>();
+  let boundsTarget = $state<HTMLElement>();
   let selected = $state<Expense | null>(null);
   let selectedId = $state("");
   let detailLoading = $state(false);
@@ -117,7 +129,7 @@
       ? (page.url.searchParams.get("currency") as ExpenseCurrency)
       : "",
   );
-  let filterCategory = $state(
+  let filterCategory = $state<ExpenseCategory | "">(
     categories.includes(
       page.url.searchParams.get("category") as ExpenseCategory,
     )
@@ -126,20 +138,32 @@
   );
   // The real data range (fetched once, independent of the current
   // selection) -- not a hardcoded 2015 guess, and not every calendar month.
-  let dateBounds = $state<DateBounds>({});
-  const periodYears = $derived(yearOptionsInRange(dateBounds));
+  const boundsResource = createAsyncResource<DateBounds>();
+  const dateBounds = $derived(boundsResource.data ?? {});
+  const periodYears = $derived(
+    yearOptionsInRange(dateBounds).length
+      ? yearOptionsInRange(dateBounds)
+      : [month.slice(0, 4)],
+  );
   const periodYear = $derived(month.slice(0, 4));
   const periodMonth = $derived(
     /^\d{4}-\d{2}$/.test(month) ? String(Number(month.slice(5, 7))) : "",
   );
-  const periodMonths = $derived(monthOptionsInRange(periodYear, dateBounds));
+  const periodMonths = $derived(
+    dateBounds.min && dateBounds.max
+      ? monthOptionsInRange(periodYear, dateBounds)
+      : [...MONTH_OPTIONS].reverse(),
+  );
 
   async function loadBounds() {
-    try {
-      dateBounds = await getExpenseBounds();
-    } catch {
-      dateBounds = {};
-    }
+    const result = await boundsResource.run(async () => {
+      try {
+        return await getExpenseBounds();
+      } catch (cause) {
+        throw new Error(formatError(cause));
+      }
+    });
+    if (!result) return;
     if (!dateBounds.min || !dateBounds.max) return;
     // Only clamp a specific month against the real data range -- a
     // deliberately wider "All months" (year) selection isn't stale state
@@ -164,14 +188,49 @@
   }
 
   onMount(() => {
+    syncUrl();
     void loadExpenses(month);
     void loadBounds();
   });
 
   async function loadExpenses(selectedMonth = month) {
+    await Promise.all([
+      loadRecords(selectedMonth),
+      loadSpending(selectedMonth),
+    ]);
+  }
+
+  async function loadRecords(selectedMonth = month) {
     const currency = filterCurrency;
     const category = filterCategory;
     const result = await expensesResource.run(async () => {
+      try {
+        return {
+          month: selectedMonth,
+          currency,
+          category,
+          expenses: await listAllExpenses({
+            date: selectedMonth,
+            currency: (currency || undefined) as ExpenseCurrency | undefined,
+            category: (category || undefined) as ExpenseCategory | undefined,
+          }),
+        };
+      } catch (cause) {
+        throw new Error(formatError(cause));
+      }
+    });
+    if (!result) return;
+    selected =
+      result.expenses.find((expense) => expense.id === selectedId) ??
+      result.expenses[0] ??
+      null;
+    selectedId = selected?.id ?? "";
+  }
+
+  async function loadSpending(selectedMonth = month) {
+    const currency = filterCurrency;
+    const category = filterCategory;
+    await spendingResource.run(async () => {
       try {
         const scope = parseCalendarScope(selectedMonth)!;
         const bounds = scopeBounds(scope)!;
@@ -181,11 +240,6 @@
         // year-grain one; using "month" for a whole year would return 12
         // points and silently read only the first month's total.
         const totalsGrain = scope.kind === "year" ? "year" : "month";
-        const expensesRequest = listAllExpenses({
-          date: selectedMonth,
-          currency: (currency || undefined) as ExpenseCurrency | undefined,
-          category: (category || undefined) as ExpenseCategory | undefined,
-        });
         const chartCurrencies = currency
           ? [currency as ExpenseCurrency]
           : currencies;
@@ -194,24 +248,20 @@
         )
           ? [category as ExpenseCategory]
           : [];
-        const [monthExpenses, [currenciesForMonth, countsForCurrency]] =
-          await Promise.all([
-            expensesRequest,
-            Promise.all([
-              getMetricSeries("expenses.amount_minor", {
-                from: bounds.from,
-                to: bounds.to,
-                grain: totalsGrain,
-                dimensions: metricDimensions(chartCurrencies, selectedCategory),
-              }),
-              getMetricSeries("expenses.count", {
-                from: bounds.from,
-                to: bounds.to,
-                grain: totalsGrain,
-                dimensions: metricDimensions(chartCurrencies, selectedCategory),
-              }),
-            ]),
-          ]);
+        const [currenciesForMonth, countsForCurrency] = await Promise.all([
+          getMetricSeries("expenses.amount_minor", {
+            from: bounds.from,
+            to: bounds.to,
+            grain: totalsGrain,
+            dimensions: metricDimensions(chartCurrencies, selectedCategory),
+          }),
+          getMetricSeries("expenses.count", {
+            from: bounds.from,
+            to: bounds.to,
+            grain: totalsGrain,
+            dimensions: metricDimensions(chartCurrencies, selectedCategory),
+          }),
+        ]);
         const chartCurrency = (currency ||
           currenciesForMonth.series.find(
             (_, index) =>
@@ -238,8 +288,9 @@
         ]);
         return {
           month: selectedMonth,
+          currency,
+          category,
           primaryCurrency: chartCurrency,
-          expenses: monthExpenses,
           dailySeries: daily,
           categorySeries: [categoriesForCurrency],
           currencySeries: [currenciesForMonth],
@@ -249,17 +300,6 @@
         throw new Error(formatError(cause));
       }
     });
-    if (!result) return;
-    if (!result.expenses.length) {
-      selected = null;
-      selectedId = "";
-    } else if (!result.expenses.some((expense) => expense.id === selectedId)) {
-      selected = result.expenses[0];
-      selectedId = result.expenses[0].id;
-    } else {
-      selected =
-        result.expenses.find((expense) => expense.id === selectedId) ?? null;
-    }
   }
 
   function selectMonth(value: string) {
@@ -386,20 +426,22 @@
             ) ?? -1;
           return {
             currency,
-            amountMinor: seriesPointValue(response, index) ?? 0,
+            amountMinor: seriesPointValue(response, index),
             exponent: currency === "JPY" ? 0 : 2,
             count:
               countIndex < 0
-                ? 0
-                : (numericSeriesPointValue(countResponse, countIndex) ?? 0),
+                ? null
+                : numericSeriesPointValue(countResponse, countIndex),
           };
         }),
       )
       .filter((item) => item.currency)
-      .sort((a, b) => b.amountMinor - a.amountMinor),
+      .sort(
+        (a, b) => (b.amountMinor ?? -Infinity) - (a.amountMinor ?? -Infinity),
+      ),
   );
   const primaryCurrency = $derived(
-    expensesResource.data?.primaryCurrency ?? "JPY",
+    spendingResource.data?.primaryCurrency ?? "JPY",
   );
   const primaryExponent = $derived(
     expenses.find((item) => item.currency === primaryCurrency)
@@ -410,11 +452,11 @@
       .flatMap((response) =>
         response.series.map((dimensionSeries, index) => ({
           category: dimensionSeries.dimensions.category ?? "",
-          amount: seriesPointValue(response, index) ?? 0,
+          amount: seriesPointValue(response, index),
         })),
       )
-      .filter((item) => item.category && item.amount > 0)
-      .sort((a, b) => b.amount - a.amount),
+      .filter((item) => item.category)
+      .sort((a, b) => (b.amount ?? -Infinity) - (a.amount ?? -Infinity)),
   );
   const dailyTotals = $derived(
     (dailySeries?.series[0]?.points ?? []).map(
@@ -449,7 +491,10 @@
     rows: categoryTotals.map((item) => ({
       label: item.category,
       value: item.amount,
-      display: formatMoney(item.amount, primaryCurrency, primaryExponent),
+      display:
+        item.amount == null
+          ? "—"
+          : formatMoney(item.amount, primaryCurrency, primaryExponent),
     })),
   });
 
@@ -477,66 +522,162 @@
 </svelte:head>
 
 <section class="expenses-shell">
-  <RouteHeader
-    title="Expenses"
-    context={expensesResource.data
-      ? `Observed period: ${expensesResource.data.month}`
-      : expensesResource.error
-        ? "Ledger period unavailable"
-        : expensesResource.loading
-          ? "Loading ledger period…"
-          : "No ledger period loaded"}
+  <section
+    aria-label="Expense period selection"
+    tabindex="-1"
+    bind:this={boundsTarget}
   >
-    {#snippet actions()}
-      <button
-        class="refresh"
-        type="button"
-        onclick={() => void loadExpenses()}
-        disabled={expensesResource.loading}
-        ><RefreshCw size={15} /> Refresh</button
-      >
-    {/snippet}
-    <div class="expense-toolbar-controls">
-      <PeriodSelector
-        year={periodYear}
-        month={periodMonth}
-        years={periodYears}
-        months={periodMonths}
-        bounds={dateBounds}
-        showAllYears={false}
-        surface="inline"
-        onYear={selectPeriodYear}
-        onMonth={selectPeriodMonth}
-      />
-      <div class="expense-dimensions" aria-label="Expense dimensions">
-        <FilterSelect
-          label="Currency"
-          value={filterCurrency}
-          options={[{ value: "", label: "All currencies" }, ...currencyOptions]}
-          onChange={selectCurrency}
+    <RouteHeader
+      title="Expenses"
+      context={expensesResource.data
+        ? `Observed period: ${expensesResource.data.month}`
+        : expensesResource.error
+          ? "Ledger period unavailable"
+          : expensesResource.loading
+            ? "Loading ledger period…"
+            : "No ledger period loaded"}
+    >
+      {#snippet actions()}
+        <button
+          class="refresh"
+          type="button"
+          onclick={() => void loadExpenses()}
+          disabled={expensesResource.loading}
+          ><RefreshCw size={15} /> Refresh</button
+        >
+      {/snippet}
+      <div class="expense-toolbar-controls">
+        <PeriodSelector
+          year={periodYear}
+          month={periodMonth}
+          years={periodYears}
+          months={periodMonths}
+          bounds={dateBounds}
+          showAllYears={false}
+          surface="inline"
+          onYear={selectPeriodYear}
+          onMonth={selectPeriodMonth}
         />
-        <FilterSelect
-          label="Category"
-          value={filterCategory}
-          options={categoryOptions}
-          markerColor={categoryColor(filterCategory || "other")}
-          onChange={selectCategory}
-        />
+        <div class="expense-dimensions" aria-label="Expense dimensions">
+          <FilterSelect
+            label="Currency"
+            value={filterCurrency}
+            options={[
+              { value: "", label: "All currencies" },
+              ...currencyOptions,
+            ]}
+            onChange={selectCurrency}
+          />
+          <FilterSelect
+            label="Category"
+            value={filterCategory}
+            options={categoryOptions}
+            markerColor={categoryColor(filterCategory || "other")}
+            onChange={selectCategory}
+          />
+        </div>
       </div>
-    </div>
-  </RouteHeader>
-  {#if expensesResource.error || deleteError}
-    <p class="error" role="alert">{expensesResource.error || deleteError}</p>
+    </RouteHeader>
+    <p>
+      Selected period: {month} · {filterCurrency || "All currencies"} · {filterCategory
+        ? expenseCategoryLabel[filterCategory]
+        : "All categories"}
+    </p>
+    {#if boundsResource.error}
+      <RetryNotice
+        message={`Expense range unavailable. ${boundsResource.error}`}
+        retryLabel="Retry expense range"
+        onRetry={loadBounds}
+        focusTarget={boundsTarget}
+      />
+      <p>
+        {dateBounds.min && dateBounds.max
+          ? "The last observed expense range remains available."
+          : "Period choices are calendar choices, not an observed data inventory."}
+      </p>
+    {/if}
+  </section>
+  {#if deleteError}
+    <p class="error" role="alert">Delete failed: {deleteError}</p>
   {/if}
-  <LoadingBoundary
-    resource={expensesResource}
-    preserveLayout
-    label="Loading expenses…"
+  <section
+    aria-label="Expense spending"
+    tabindex="-1"
+    bind:this={spendingTarget}
   >
-    {#snippet children()}
-      <ThemeRouteRenderer route="expenses" props={themeProps} />
-    {/snippet}
-  </LoadingBoundary>
+    {#if spendingResource.error}
+      <RetryNotice
+        message={`Expense spending unavailable. ${spendingResource.error}`}
+        retryLabel="Retry expense spending"
+        onRetry={() => loadSpending()}
+        focusTarget={spendingTarget}
+      />
+    {/if}
+    <LoadingBoundary
+      resource={spendingResource}
+      preserveLayout
+      label="Loading expense spending…"
+    >
+      {#snippet children()}
+        {#if spendingResource.data}
+          <p>
+            Observed spending period: {spendingResource.data.month} · {spendingResource
+              .data.currency || "All currencies"} · {spendingResource.data
+              .category
+              ? expenseCategoryLabel[
+                  spendingResource.data.category as ExpenseCategory
+                ]
+              : "All categories"}
+          </p>
+          <ThemeRouteRenderer
+            route="expenses"
+            props={{
+              ...themeProps,
+              month: spendingResource.data.month,
+              section: "spending",
+            }}
+          />
+        {/if}
+      {/snippet}
+    </LoadingBoundary>
+  </section>
+  <section
+    aria-label="Expense records read"
+    tabindex="-1"
+    bind:this={recordsTarget}
+  >
+    {#if expensesResource.error}
+      <RetryNotice
+        message={`Expense records unavailable. ${expensesResource.error}`}
+        retryLabel="Retry expense records"
+        onRetry={() => loadRecords()}
+        focusTarget={recordsTarget}
+      />
+    {/if}
+    <LoadingBoundary
+      resource={expensesResource}
+      preserveLayout
+      label="Loading expense records…"
+    >
+      {#snippet children()}
+        {#if expensesResource.data}
+          <p>
+            Observed ledger period: {expensesResource.data.month} · {expensesResource
+              .data.currency || "All currencies"} · {expensesResource.data
+              .category
+              ? expenseCategoryLabel[
+                  expensesResource.data.category as ExpenseCategory
+                ]
+              : "All categories"}
+          </p>
+          <ThemeRouteRenderer
+            route="expenses"
+            props={{ ...themeProps, section: "ledger" }}
+          />
+        {/if}
+      {/snippet}
+    </LoadingBoundary>
+  </section>
 </section>
 
 <ConfirmDialog

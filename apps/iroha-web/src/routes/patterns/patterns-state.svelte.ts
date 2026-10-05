@@ -55,13 +55,23 @@ interface Disp {
 // of the .svelte file so the template isn't interleaved with ~450 lines of
 // business logic. `theme` (a Svelte context lookup) stays in the component.
 export function createPatternsState() {
-  const monthlyResource = createAsyncResource<DailyAggregateBucket[]>();
-  const yearlyResource = createAsyncResource<DailyAggregateBucket[]>();
-  const daysResource = createAsyncResource<DailyRow[]>();
+  const monthlyResource = createAsyncResource<{
+    year: string;
+    buckets: DailyAggregateBucket[];
+  }>();
+  const yearlyResource = createAsyncResource<{
+    year: string;
+    buckets: DailyAggregateBucket[];
+  }>();
+  const daysResource = createAsyncResource<{
+    month: string;
+    rows: DailyRow[];
+  }>();
+  const boundsResource = createAsyncResource<DateBounds>();
   const latestDayResource = createAsyncResource<DailyRow | null>();
-  const monthly = $derived(monthlyResource.data ?? []);
-  const yearly = $derived(yearlyResource.data ?? []);
-  const dayRows = $derived(daysResource.data ?? []);
+  const monthly = $derived(monthlyResource.data?.buckets ?? []);
+  const yearly = $derived(yearlyResource.data?.buckets ?? []);
+  const dayRows = $derived(daysResource.data?.rows ?? []);
   const latestDay = $derived(latestDayResource.data ?? null);
   const error = $derived(
     monthlyResource.error ??
@@ -98,9 +108,21 @@ export function createPatternsState() {
   let selectedYear = $state(initialYear);
   let rangeFrom = $state<string | undefined>(undefined);
   let rangeTo = $state<string | undefined>(undefined);
-  let monthlyLoadedKey = "";
-  let yearlyLoadedKey = "";
-  let loadedDayMonth = "";
+  const seriesResource = $derived(
+    gran === "day"
+      ? daysResource
+      : gran === "year"
+        ? yearlyResource
+        : monthlyResource,
+  );
+  const seriesAvailable = $derived(seriesResource.ready);
+  const seriesRetryLabel = $derived(
+    gran === "day"
+      ? "Retry daily patterns"
+      : gran === "year"
+        ? "Retry yearly patterns"
+        : "Retry monthly patterns",
+  );
 
   // The real data range (fetched once, independent of the current
   // selection/granularity) -- drives which years/months are navigable, as
@@ -108,10 +130,20 @@ export function createPatternsState() {
   // That's what lets `scopedYear`/`scopedMonth` below equal the real
   // selection whenever it's genuinely within history, instead of silently
   // substituting whatever period happens to have data.
-  let dailyBounds = $state<DateBounds>({});
-  const availableYears = $derived(yearOptionsInRange(dailyBounds));
+  const dailyBounds = $derived(boundsResource.data ?? {});
+  const availableYears = $derived(
+    yearOptionsInRange(dailyBounds).length
+      ? yearOptionsInRange(dailyBounds)
+      : [selectedYear || currentYear(new Date(), IROHA_TIMEZONE)],
+  );
   const availableMonths = $derived.by(() => {
-    if (!dailyBounds.min || !dailyBounds.max) return [];
+    if (!dailyBounds.min || !dailyBounds.max) {
+      const year = selectedYear || currentYear(new Date(), IROHA_TIMEZONE);
+      return Array.from(
+        { length: 12 },
+        (_, index) => `${year}-${String(12 - index).padStart(2, "0")}`,
+      );
+    }
     const months: string[] = [];
     let year = Number(dailyBounds.max.slice(0, 4));
     let month = Number(dailyBounds.max.slice(5, 7));
@@ -127,9 +159,7 @@ export function createPatternsState() {
     }
     return months;
   });
-  const scopedYear = $derived(
-    availableYears.includes(selectedYear) ? selectedYear : "",
-  );
+  const scopedYear = $derived(selectedYear);
   const activeYear = $derived(scopedYear || availableYears[0] || "");
   const monthsInScope = $derived(
     availableMonths.filter((month) => month.startsWith(activeYear)),
@@ -144,9 +174,15 @@ export function createPatternsState() {
     })),
   );
   const scopedMonth = $derived(
-    monthsInScope.includes(selectedMonth) ? selectedMonth : "",
+    selectedMonth.startsWith(activeYear) ? selectedMonth : "",
   );
-  const activeMonth = $derived(scopedMonth || monthsInScope[0] || "");
+  const activeMonth = $derived(
+    scopedMonth ||
+      (dailyBounds.max
+        ? monthsInScope[0]
+        : `${activeYear}-${serializeCalendarScope(currentCalendarScope("month", new Date(), IROHA_TIMEZONE))!.slice(5, 7)}`) ||
+      "",
+  );
   const periodLabel = $derived(
     gran === "year"
       ? scopedYear || "Lifetime"
@@ -189,8 +225,7 @@ export function createPatternsState() {
   );
 
   function fmtPeriod(iso: string): string {
-    const d = new Date(iso);
-    if (gran === "year") return String(d.getUTCFullYear());
+    if (gran === "year") return iso.slice(0, 4);
     return formatCanonicalMonth(iso.slice(0, 7));
   }
   function dayToDisp(r: DailyRow): Disp {
@@ -245,7 +280,7 @@ export function createPatternsState() {
   const chrono = $derived.by<Disp[]>(() => {
     if (gran === "day") {
       return [...dayRows]
-        .filter((row) => !activeMonth || row.day.startsWith(activeMonth))
+        .filter((row) => row.day.startsWith(daysResource.data?.month ?? ""))
         .reverse()
         .map(dayToDisp);
     }
@@ -253,13 +288,23 @@ export function createPatternsState() {
       return monthly
         .filter(
           (bucket) =>
-            (!activeYear || bucket.period.startsWith(activeYear)) &&
-            (!scopedMonth || bucket.period.startsWith(scopedMonth)),
+            bucket.period.startsWith(
+              monthlyResource.data?.year || activeYear,
+            ) &&
+            (!(
+              scopedMonth &&
+              scopedMonth.startsWith(monthlyResource.data?.year || activeYear)
+            ) ||
+              bucket.period.startsWith(scopedMonth)),
         )
         .map(aggToDisp);
     }
     return yearly
-      .filter((bucket) => !scopedYear || bucket.period.startsWith(scopedYear))
+      .filter(
+        (bucket) =>
+          !yearlyResource.data?.year ||
+          bucket.period.startsWith(yearlyResource.data.year),
+      )
       .map(aggToDisp);
   });
   const table = $derived([...chrono].reverse());
@@ -303,23 +348,23 @@ export function createPatternsState() {
   }
 
   async function loadMonthly() {
-    const key = selectedYear || "lifetime";
-    if (monthlyLoadedKey === key) return;
-    const result = await monthlyResource.run(() =>
-      listDailyAggregates(
-        "month",
-        selectedYear ? { date: selectedYear } : {},
-      ).then((r) => r.buckets),
-    );
-    if (result) monthlyLoadedKey = key;
+    const year = selectedYear;
+    if (
+      monthlyResource.data?.year === year &&
+      !monthlyResource.loading &&
+      !monthlyResource.error
+    )
+      return;
+    await monthlyResource.run(async () => ({
+      year,
+      buckets: (await listDailyAggregates("month", year ? { date: year } : {}))
+        .buckets,
+    }));
   }
 
   async function loadBounds() {
-    try {
-      dailyBounds = await getDailyBounds();
-    } catch {
-      dailyBounds = {};
-    }
+    await boundsResource.run(getDailyBounds);
+    if (gran === "day" && !selectedMonth) await loadDays(activeMonth);
   }
 
   async function loadLatestDay() {
@@ -330,28 +375,38 @@ export function createPatternsState() {
   }
 
   async function loadYearly() {
-    const key = selectedYear || "lifetime";
-    if (yearlyLoadedKey === key) return;
-    const result = await yearlyResource.run(() =>
-      listDailyAggregates(
-        "year",
-        selectedYear ? { date: selectedYear } : {},
-      ).then((r) => r.buckets),
-    );
-    if (result) yearlyLoadedKey = key;
+    const year = selectedYear;
+    if (
+      yearlyResource.data?.year === year &&
+      !yearlyResource.loading &&
+      !yearlyResource.error
+    )
+      return;
+    await yearlyResource.run(async () => ({
+      year,
+      buckets: (await listDailyAggregates("year", year ? { date: year } : {}))
+        .buckets,
+    }));
   }
 
   async function loadDays(month: string) {
-    if (!month || loadedDayMonth === month || daysResource.loading) return;
+    if (
+      !month ||
+      (daysResource.data?.month === month &&
+        !daysResource.loading &&
+        !daysResource.error)
+    )
+      return;
     const bounds = scopeBounds(parseCalendarScope(month)!);
     if (!bounds) return;
-    rangeFrom = bounds.from;
-    rangeTo = bounds.to;
-    const result = await daysResource.run(async () => {
-      const r = await listDaily({ date: month, limit: 31 });
-      return r.items;
-    });
-    if (result) loadedDayMonth = month;
+    const result = await daysResource.run(async () => ({
+      month,
+      rows: (await listDaily({ date: month, limit: 31 })).items,
+    }));
+    if (result) {
+      rangeFrom = bounds.from;
+      rangeTo = bounds.to;
+    }
   }
 
   // A day/month/year tab always means "zoom all the way out to this level" --
@@ -366,8 +421,6 @@ export function createPatternsState() {
   function selectYear(value: string) {
     selectedYear = value;
     selectedMonth = "";
-    monthlyLoadedKey = "";
-    yearlyLoadedKey = "";
     void loadMonthly();
     if (gran === "year") void loadYearly();
     if (gran === "day") void loadDays(activeMonth);
@@ -378,8 +431,6 @@ export function createPatternsState() {
     selectedMonth = value;
     if (value && selectedYear !== value.slice(0, 4)) {
       selectedYear = value.slice(0, 4);
-      monthlyLoadedKey = "";
-      yearlyLoadedKey = "";
       void loadMonthly();
       if (gran === "year") void loadYearly();
     }
@@ -407,6 +458,7 @@ export function createPatternsState() {
       selectedYear = period;
       gran = "month";
     } else if (gran === "month") {
+      selectedYear = period.slice(0, 4);
       selectedMonth = period;
       gran = "day";
       void loadDays(period);
@@ -419,11 +471,30 @@ export function createPatternsState() {
     if (period) drillIntoPeriod(period);
   }
 
-  onMount(async () => {
-    await Promise.all([loadMonthly(), loadLatestDay(), loadBounds()]);
-    if (gran === "year") await loadYearly();
-    if (gran === "day") await loadDays(activeMonth);
+  onMount(() => {
+    syncUrl();
+    void loadMonthly();
+    void loadLatestDay();
+    void loadBounds();
+    if (gran === "year") void loadYearly();
+    if (gran === "day" && selectedMonth) void loadDays(selectedMonth);
   });
+
+  const observedScope = $derived(
+    gran === "day"
+      ? (daysResource.data?.month ?? "Unavailable")
+      : gran === "year"
+        ? yearlyResource.data?.year || "Lifetime"
+        : scopedMonth &&
+            scopedMonth.startsWith(monthlyResource.data?.year || activeYear)
+          ? scopedMonth
+          : `${monthlyResource.data?.year || activeYear} · all months`,
+  );
+  async function retrySeries() {
+    if (gran === "day") await loadDays(activeMonth);
+    else if (gran === "year") await loadYearly();
+    else await loadMonthly();
+  }
 
   // Only the resources the current granularity actually fetches -- yearly
   // and day-row resources are never run outside their own tab, so including
@@ -441,6 +512,27 @@ export function createPatternsState() {
     get gran() {
       return gran;
     },
+    get seriesResource() {
+      return seriesResource;
+    },
+    get latestDayResource() {
+      return latestDayResource;
+    },
+    get boundsResource() {
+      return boundsResource;
+    },
+    get seriesAvailable() {
+      return seriesAvailable;
+    },
+    get seriesRetryLabel() {
+      return seriesRetryLabel;
+    },
+    get observedScope() {
+      return observedScope;
+    },
+    retrySeries,
+    loadLatestDay,
+    loadBounds,
     get error() {
       return error;
     },

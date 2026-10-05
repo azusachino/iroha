@@ -64,6 +64,8 @@ export async function installLibraryFixtures(page: Page) {
     animeType: "anime_season",
     bookType: "book",
     paginated: false,
+    pageFailures: new Set<string>(),
+    pageHolds: new Map<string, Promise<void>>(),
     pageHold: null as Promise<void> | null,
   };
   await page.route("**/api/v1/**", async (route) => {
@@ -95,9 +97,17 @@ export async function installLibraryFixtures(page: Page) {
         status: 400,
         json: { error: "Invalid synthetic facet" },
       });
-    if (url.searchParams.has("cursor") && fixture.pageHold)
-      await fixture.pageHold;
-    else if (fixture.holds.has(read)) await fixture.holds.get(read);
+    if (url.searchParams.has("cursor")) {
+      const key = family || "all";
+      await (fixture.pageHolds.get(key) ??
+        fixture.pageHold ??
+        fixture.holds.get(read));
+      if (fixture.pageFailures.has(key))
+        return route.fulfill({
+          status: 503,
+          json: { error: "Synthetic library cursor failure" },
+        });
+    } else if (fixture.holds.has(read)) await fixture.holds.get(read);
     if (fixture.failures.has(read))
       return route.fulfill({
         status: 503,

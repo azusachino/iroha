@@ -117,12 +117,19 @@ test("Expenses retained summaries and plot units do not adopt a pending currency
     await deferred;
     await route.fallback();
   });
+  await page.route("**/api/v1/metrics/*/series?**", async (route) => {
+    await deferred;
+    await route.fallback();
+  });
   try {
     await page
       .getByRole("combobox", { name: "Currency", exact: true })
       .selectOption("USD");
     await expect(
-      page.getByRole("status").filter({ hasText: "Updating…" }),
+      page
+        .getByRole("region", { name: "Expense spending", exact: true })
+        .getByRole("status")
+        .filter({ hasText: "Updating…" }),
     ).toBeVisible();
     await expect(tile).toContainText("¥12,345");
     await expect(

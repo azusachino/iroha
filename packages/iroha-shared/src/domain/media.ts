@@ -221,9 +221,10 @@ export interface MediaThemeProps {
   onFamily: (value: string) => void;
   onStatus: (value: string) => void;
   onYear: (value: string) => void;
-  onLoadMore: () => void;
+  onLoadMore: () => void | Promise<void>;
   hasMore: boolean;
   loadingMore: boolean;
+  loadMoreError?: string | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {

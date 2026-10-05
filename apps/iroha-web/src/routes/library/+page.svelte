@@ -51,6 +51,7 @@
         onLoadMore: l.loadMore,
         hasMore: l.hasMore,
         loadingMore: l.loadingMore,
+        loadMoreError: l.loadMoreError,
       }}
     />
   {:else}

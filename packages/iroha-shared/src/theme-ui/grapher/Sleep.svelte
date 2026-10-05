@@ -1,4 +1,5 @@
 <script lang="ts">
+  let recordsScroll = $state<HTMLDivElement>();
   import type { SleepThemeProps } from "../../view-contracts/sleep-view";
   import BarChart from "../components/BarChart.svelte";
   import RetryNotice from "../components/RetryNotice.svelte";
@@ -128,7 +129,21 @@
           : "Imported values"}</span
       >
     </div>
-    <div class="table-scroll">
+    <button
+      class="scroll-hint"
+      type="button"
+      aria-controls="night-records-scroll"
+      onclick={() => recordsScroll?.focus({ preventScroll: true })}
+      >Focus sleep records to scroll all columns</button
+    >
+    <div
+      class="table-scroll"
+      id="night-records-scroll"
+      role="region"
+      aria-label="Night exact sleep records"
+      tabindex="-1"
+      bind:this={recordsScroll}
+    >
       <table aria-label="Sleep session records">
         <thead
           ><tr
@@ -251,6 +266,9 @@
   .panel-heading > span {
     color: var(--text-muted);
     font-size: 0.72rem;
+  }
+  .scroll-hint {
+    min-height: 44px;
   }
   .table-scroll {
     overflow-x: auto;

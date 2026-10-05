@@ -34,6 +34,7 @@
     onLoadMore,
     hasMore,
     loadingMore,
+    loadMoreError = null,
   }: MediaThemeProps = $props();
 
   let totalsPanel = $state<HTMLElement>();
@@ -72,6 +73,7 @@
   <nav class="tabs" aria-label="Media family">
     {#each families as option (option.value)}<button
         class:active={family === option.value}
+        aria-pressed={family === option.value}
         type="button"
         onclick={() => onFamily(option.value)}>{option.label}</button
       >{/each}
@@ -128,6 +130,7 @@
         <h2>Completions by year</h2>
       </header>
       {#if completions.length}<MediaBarChart
+          title="Completions by year"
           labels={completions.map((bucket) => bucket.year)}
           values={completions.map((bucket) => bucket.count)}
           color="--accent"
@@ -141,6 +144,7 @@
         <h2>Score distribution</h2>
       </header>
       {#if scores.length}<MediaBarChart
+          title="Score distribution"
           labels={scores.map((bucket) => bucket.score)}
           values={scores.map((bucket) => bucket.count)}
           color="--accent-2"
@@ -154,6 +158,7 @@
         <h2>By kind</h2>
       </header>
       {#if typeFamilies.length}<MediaBarChart
+          title="By kind"
           labels={typeFamilies.map((item) => item.type)}
           values={typeFamilies.map((item) => item.count)}
           color="--mark-teal"
@@ -223,13 +228,21 @@
       >
         No titles match this selection.
       </p>{/if}
+    {#if loadMoreError}
+      <RetryNotice
+        message={`Could not load the next library page: ${loadMoreError}. Observed titles and cursor are retained.`}
+        retryLabel="Retry more titles"
+        onRetry={onLoadMore}
+        focusTarget={recordsPanel}
+      />
+    {/if}
+    {#if hasMore}<button
+        class="load-more"
+        type="button"
+        disabled={loadingMore}
+        onclick={onLoadMore}>{loadingMore ? "Loading…" : "Load more"}</button
+      >{/if}
   </section>
-  {#if hasMore}<button
-      class="load-more"
-      type="button"
-      disabled={loadingMore}
-      onclick={onLoadMore}>{loadingMore ? "Loading…" : "Load more"}</button
-    >{/if}
   <footer>
     {aggregatesReady ? completions.length : "—"} completion periods · {aggregatesReady
       ? scores.length

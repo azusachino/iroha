@@ -16,6 +16,9 @@ ENV PUBLIC_IROHA_TIMEZONE=$PUBLIC_IROHA_TIMEZONE
 RUN rm -rf .svelte-kit build && bun run build
 
 FROM caddy:2-alpine
+ARG SOURCE_REVISION
+RUN test -n "$SOURCE_REVISION"
+LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 COPY ops/images/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/apps/iroha-web/build /srv
 # Run unprivileged; /data and /config are Caddy's writable state directories.

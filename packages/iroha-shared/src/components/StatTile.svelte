@@ -6,16 +6,23 @@
     sub,
     context,
     children,
+    compact = false,
   }: {
     label: string;
     value: string;
     sub?: string;
     context?: string;
     children?: Snippet;
+    compact?: boolean;
   } = $props();
 </script>
 
-<section class="stat-tile tile" class:has-context={!!context} aria-label={context ? label : undefined}>
+<section
+  class="stat-tile tile"
+  class:has-context={!!context}
+  class:compact
+  aria-label={context ? label : undefined}
+>
   <div class="stat-label">{label}</div>
   <div class="stat-value">{value}</div>
   {#if context}<div class="stat-context">{context}</div>{/if}
@@ -77,8 +84,24 @@
     white-space: normal;
     overflow-wrap: anywhere;
   }
-  .stat-context { color: var(--text-muted); font-size: var(--type-caption); line-height: 1.4; }
-  .stat-actions :global(a) { display: inline-flex; align-items: center; min-height: 24px; font-size: var(--type-label); font-weight: 650; }
+  .compact {
+    gap: var(--space-2);
+  }
+  .compact .stat-value {
+    min-height: 0;
+  }
+  .stat-context {
+    color: var(--text-muted);
+    font-size: var(--type-caption);
+    line-height: 1.4;
+  }
+  .stat-actions :global(a) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    font-size: var(--type-label);
+    font-weight: 650;
+  }
   .stat-sub {
     color: var(--text-muted);
     font-size: var(--type-label);

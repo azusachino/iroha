@@ -24,8 +24,9 @@ export type ActivityThemeProps = {
   error: string | null;
   hasMore: boolean;
   loadingMore: boolean;
+  loadMoreError?: string | null;
   onSportType: (value: string) => void;
-  onLoadMore: () => void;
+  onLoadMore: () => void | Promise<void>;
   onOpenDetail: (id: string) => void;
   activitySeries?: MetricSeriesResponse | null;
   activityDurationSeries?: MetricSeriesResponse | null;
