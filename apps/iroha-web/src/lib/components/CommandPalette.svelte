@@ -72,12 +72,12 @@
       }
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        selected = (selected + 1) % commands.length;
+        void selectCommand((selected + 1) % commands.length);
         return;
       }
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        selected = (selected - 1 + commands.length) % commands.length;
+        void selectCommand((selected - 1 + commands.length) % commands.length);
         return;
       }
       if (event.key === "Enter") {
@@ -93,6 +93,14 @@
       window.removeEventListener("keydown", onKeydown);
     };
   });
+
+  async function selectCommand(index: number) {
+    selected = index;
+    await tick();
+    listbox?.querySelector<HTMLElement>(`#command-${index}`)?.scrollIntoView({
+      block: "nearest",
+    });
+  }
 
   async function loadMetrics() {
     try {

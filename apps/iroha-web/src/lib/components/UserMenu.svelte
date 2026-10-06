@@ -160,7 +160,6 @@
   .user-popover button:focus-visible,
   .user-popover a:focus-visible {
     background: color-mix(in srgb, var(--accent) 10%, transparent);
-    outline: none;
   }
 
   .logout {
