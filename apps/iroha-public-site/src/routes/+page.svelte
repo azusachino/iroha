@@ -75,15 +75,24 @@
   // Details are fetched per activity on selection instead of shipping every
   // activity's route and samplings up front.
   let selectedActivityDetail = $state<ActivityDetailData | undefined>();
+  // Issue #116 review fix: list absence alone is not proof of not-found.
+  // The notice is only confirmed by an actual 404 detail response for the
+  // currently selected id; pending or failing reads keep the archive
+  // fallback without a not-found claim, and the state is reset per selection
+  // so a stale 404 can never carry into a new id.
+  let confirmedMissingActivityId = $state<string | null>(null);
   $effect(() => {
     const id = selectedActivityId;
     selectedActivityDetail = undefined;
+    confirmedMissingActivityId = null;
     if (!id) return;
     let cancelled = false;
     void fetch(`/public/v1/activities/${encodeURIComponent(id)}`)
-      .then((res) =>
-        res.ok ? (res.json() as Promise<ActivityDetailData>) : undefined,
-      )
+      .then((res) => {
+        if (cancelled) return undefined;
+        if (res.status === 404) confirmedMissingActivityId = id;
+        return res.ok ? (res.json() as Promise<ActivityDetailData>) : undefined;
+      })
       .then((detail) => {
         if (!cancelled) selectedActivityDetail = detail;
       })
@@ -479,6 +488,23 @@
     </section>
   {/await}
 {:else}
+  {#if selectedActivityId && !selectedActivity && confirmedMissingActivityId === selectedActivityId}
+    <!-- Issue #116: an unknown ?activity= link must be told apart from the
+         ordinary archive view. The notice renders only after the detail read
+         for this exact id confirmed a 404; a pending or failing read keeps
+         the plain archive fallback. -->
+    <section
+      class="tile notice-tile"
+      role="status"
+      aria-label="Activity not found"
+    >
+      <p>
+        This activity is not in the public archive. Showing the full archive
+        instead.
+      </p>
+      <a href={page.url.pathname}>View the full archive</a>
+    </section>
+  {/if}
   <div class="dashboard">
     <div class="stat-grid">
       <StatTile
@@ -773,6 +799,12 @@
 {/if}
 
 <style>
+  .notice-tile {
+    margin-bottom: 1.25rem;
+  }
+  .notice-tile a {
+    color: var(--accent);
+  }
   .hero {
     padding: 2rem;
     margin-bottom: 1.25rem;
