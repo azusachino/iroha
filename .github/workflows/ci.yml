@@ -14,8 +14,63 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      global: ${{ steps.filter.outputs.global }}
+      go: ${{ steps.filter.outputs.go }}
+      web: ${{ steps.filter.outputs.web }}
+      public: ${{ steps.filter.outputs.public }}
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            global: &global
+              - '.github/workflows/ci.yml'
+              - 'Makefile'
+              - '.mise.toml'
+              - 'scripts/**'
+              - 'VERSION'
+              - 'CONSTRAINTS.md'
+            go:
+              - *global
+              - 'apps/iroha-server/**'
+              - 'apps/iroha-job/**'
+              - 'go.work*'
+              - '**/go.mod'
+              - '**/go.sum'
+              - 'ops/**'
+            web:
+              - *global
+              - 'apps/iroha-web/**'
+              - 'packages/**'
+              - 'bun.lock'
+            public:
+              - *global
+              - 'apps/iroha-public-site/**'
+              - 'packages/**'
+              - 'bun.lock'
+              - 'ops/images/Caddyfile.public-site'
+            code:
+              - *global
+              - 'apps/**'
+              - 'packages/**'
+              - 'go.work*'
+              - '**/go.mod'
+              - '**/go.sum'
+              - 'bun.lock'
+              - 'ops/**'
+
   validate:
     name: Validate, build and integration
+    needs: [changes]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -39,11 +94,13 @@ jobs:
           cache: true
       - name: Locate native Go caches
         id: go-cache
+        if: github.event_name != 'pull_request' || needs.changes.outputs.code == 'true'
         run: |
           echo "version=$(mise exec -- go env GOVERSION)" >> "$GITHUB_OUTPUT"
           echo "build=$(mise exec -- go env GOCACHE)" >> "$GITHUB_OUTPUT"
           echo "modules=$(mise exec -- go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v6
+        if: github.event_name != 'pull_request' || needs.changes.outputs.code == 'true'
         with:
           path: |
             ${{ steps.go-cache.outputs.build }}
@@ -51,16 +108,24 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-go-${{ steps.go-cache.outputs.version }}-${{ hashFiles('.mise.toml', 'go.work*', '**/go.mod', '**/go.sum') }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-go-${{ steps.go-cache.outputs.version }}-${{ hashFiles('.mise.toml', 'go.work*', '**/go.mod', '**/go.sum') }}-
+      - name: Validate documentation
+        if: github.event_name == 'pull_request' && needs.changes.outputs.code != 'true'
+        run: |
+          make quality-floor-check
+          make fmt-docs-check
       - name: Validate and build
+        if: github.event_name != 'pull_request' || needs.changes.outputs.code == 'true'
         run: make validate
         env:
           # Compare pushes with their prior SHA, not their own HEAD.
           QUALITY_BASE: ${{ github.event.pull_request.base.sha || github.event.before != '0000000000000000000000000000000000000000' && github.event.before || format('origin/{0}', github.event.repository.default_branch) }}
       - name: Integration tests
+        if: github.event_name != 'pull_request' || needs.changes.outputs.global == 'true' || needs.changes.outputs.go == 'true'
         run: make test-integration-ci
         env:
           DATABASE_URL: postgres://iroha:iroha_dev@127.0.0.1:5432/iroha_test?sslmode=disable
       - name: Public serving response test
+        if: github.event_name != 'pull_request' || needs.changes.outputs.global == 'true' || needs.changes.outputs.public == 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/public-site/_app/immutable"
           printf 'shell' > "$RUNNER_TEMP/public-site/index.html"
@@ -74,6 +139,8 @@ jobs:
 
   browser:
     name: Browser tests (shard ${{ matrix.shard }}/2)
+    needs: [changes]
+    if: github.event_name != 'pull_request' || needs.changes.outputs.global == 'true' || needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -93,18 +160,44 @@ jobs:
       - name: Browser tests
         run: make e2e ARGS='--shard=${{ matrix.shard }}/2'
 
+  browser-public:
+    name: Browser tests (public site)
+    needs: [changes]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.global != 'true' && needs.changes.outputs.web != 'true' && needs.changes.outputs.public == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+        with:
+          install: true
+          cache: true
+      - run: make frontend-install
+      - name: Install Chromium and system dependencies
+        run: make e2e-install E2E_INSTALL_FLAGS=--with-deps
+      - name: Browser tests (public-only)
+        run: make e2e ARGS='e2e/public-*.spec.ts e2e/native-zoom.spec.ts'
+
   check:
     # Keep the existing required status. Never let skipped/cancelled jobs turn
     # the aggregate green; always() runs the check after any dependency result.
     name: make check
     if: ${{ always() }}
-    needs: [validate, browser]
+    needs: [changes, validate, browser, browser-public]
     runs-on: ubuntu-latest
     steps:
       - name: Require every gate
         env:
           VALIDATE_RESULT: ${{ needs.validate.result }}
           BROWSER_RESULT: ${{ needs.browser.result }}
+          BROWSER_PUBLIC_RESULT: ${{ needs['browser-public'].result }}
         run: |
-          test "$VALIDATE_RESULT" = success
-          test "$BROWSER_RESULT" = success
+          for res in "$VALIDATE_RESULT" "$BROWSER_RESULT" "$BROWSER_PUBLIC_RESULT"; do
+            if [[ "$res" != "success" && "$res" != "skipped" ]]; then
+              echo "Gate failed with state: $res"
+              exit 1
+            fi
+          done
+          if [[ "$VALIDATE_RESULT" != "success" ]]; then
+            echo "Validate did not succeed: $VALIDATE_RESULT"
+            exit 1
+          fi
