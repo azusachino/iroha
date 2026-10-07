@@ -9,16 +9,16 @@ resources:
 images:
   - name: iroha-server
     newName: azusachino.com/iroha-server
-    newTag: v0.5.1
+    newTag: v0.6.0-rc0
   - name: iroha-job
     newName: azusachino.com/iroha-job
-    newTag: v0.5.1
+    newTag: v0.6.0-rc0
   - name: iroha-db-migrate
     newName: azusachino.com/iroha-db-migrate
-    newTag: v0.5.1
+    newTag: v0.6.0-rc0
   - name: iroha-web
     newName: azusachino.com/iroha-web
-    newTag: v0.5.1
+    newTag: v0.6.0-rc0
   - name: iroha-public-site
     newName: azusachino.com/iroha-public-site
-    newTag: v0.5.1
+    newTag: v0.6.0-rc0
