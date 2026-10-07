@@ -20,7 +20,10 @@
   import { categoryColor } from "../../domain/category-color";
   import { axisRange, formatAxisTick } from "../../format/axis";
   import { chartFontSize } from "../../theme/chart-typography";
-  import { observeChartPresentation } from "../../theme/chart-presentation";
+  import {
+    attachChartInstance,
+    observeChartPresentation,
+  } from "../../theme/chart-presentation";
 
   use([
     EchartsBarChart,
@@ -242,6 +245,7 @@
 
   onMount(() => {
     chart = init(container, undefined, { renderer: "canvas" });
+    attachChartInstance(container, chart);
     render();
     if (onBarClick) {
       chart.on(
@@ -257,6 +261,7 @@
     return () => {
       stopPresentation();
       resize.disconnect();
+      attachChartInstance(container, undefined);
       chart?.dispose();
     };
   });

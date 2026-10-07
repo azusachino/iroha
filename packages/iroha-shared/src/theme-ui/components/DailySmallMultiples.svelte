@@ -4,7 +4,10 @@
   import { resolveColor } from "./chart-color";
   import { axisRange, formatAxisTick } from "../../format/axis";
   import { chartFontSize } from "../../theme/chart-typography";
-  import { observeChartPresentation } from "../../theme/chart-presentation";
+  import {
+    attachChartInstance,
+    observeChartPresentation,
+  } from "../../theme/chart-presentation";
   import { LineChart } from "echarts/charts";
   import {
     AxisPointerComponent,
@@ -125,6 +128,7 @@
 
   onMount(() => {
     chart = init(container, undefined, { renderer: "canvas" });
+    attachChartInstance(container, chart);
     render();
     const resize = new ResizeObserver(() => { render(); chart?.resize(); });
     resize.observe(container);
@@ -132,6 +136,7 @@
     return () => {
       stopPresentation();
       resize.disconnect();
+      attachChartInstance(container, undefined);
       chart?.dispose();
     };
   });

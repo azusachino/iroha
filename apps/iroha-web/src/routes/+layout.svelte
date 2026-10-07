@@ -13,6 +13,7 @@
   import { UNAUTHENTICATED_EVENT } from "$lib/api";
   import { auth, loadSession, sessionExpired } from "$lib/auth.svelte";
   import { onMount } from "svelte";
+  import "@iroha/shared/theme/chart-presentation";
   import "./app.css";
 
   let { children } = $props();
