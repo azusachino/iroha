@@ -29,8 +29,6 @@
     RouteFeatureCollection,
   } from "$lib/types";
   import ActivityHeatmap from "@iroha/shared/theme-ui/components/ActivityHeatmap.svelte";
-  import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
-  import YearProgressChart from "@iroha/shared/components/YearProgressChart.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import RouteHeader from "@iroha/shared/components/RouteHeader.svelte";
@@ -406,8 +404,14 @@
     if (remaining < 600) loadMore();
   }
 
-  onMount(() => {
-    data.routesPromise
+  let routesSectionEl = $state<HTMLElement>();
+  let routesRequested = false;
+
+  function ensureRoutesLoaded() {
+    if (routesRequested) return;
+    routesRequested = true;
+    data
+      .loadRoutes()
       .then((r) => {
         routes = r;
         routesLoading = false;
@@ -415,7 +419,35 @@
       .catch(() => {
         routesLoading = false;
       });
+  }
 
+  $effect(() => {
+    if (selectedActivityId) {
+      ensureRoutesLoaded();
+    }
+  });
+
+  $effect(() => {
+    const el = routesSectionEl;
+    if (!el || !browser) return;
+    if (typeof IntersectionObserver === "undefined") {
+      ensureRoutesLoaded();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          ensureRoutesLoaded();
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
+  onMount(() => {
     window.addEventListener("scroll", loadMoreNearBottom, { passive: true });
     return () => window.removeEventListener("scroll", loadMoreNearBottom);
   });
@@ -566,23 +598,27 @@
       {#if selectedYear}
         <div class="analytics-grid">
           <PanelFrame label="Cumulative distance">
-            <YearProgressChart
-              embedded
-              byMonth={monthlyAll}
-              year={selectedYear}
-              sportName={sportFilter ? formatSport(sportFilter) : undefined}
-            />
+            {#await import("@iroha/shared/components/YearProgressChart.svelte") then { default: YearProgressChart }}
+              <YearProgressChart
+                embedded
+                byMonth={monthlyAll}
+                year={selectedYear}
+                sportName={sportFilter ? formatSport(sportFilter) : undefined}
+              />
+            {/await}
           </PanelFrame>
           <PanelFrame label="Monthly observations">
-            <MonthlyBarChart
-              embedded
-              points={monthSlots.map((slot) => ({
-                label: slot.label,
-                value: slot.bucket?.[monthMetric] ?? 0,
-              }))}
-              metric={monthMetric}
-              year={selectedYear}
-            />
+            {#await import("@iroha/shared/components/MonthlyBarChart.svelte") then { default: MonthlyBarChart }}
+              <MonthlyBarChart
+                embedded
+                points={monthSlots.map((slot) => ({
+                  label: slot.label,
+                  value: slot.bucket?.[monthMetric] ?? 0,
+                }))}
+                metric={monthMetric}
+                year={selectedYear}
+              />
+            {/await}
           </PanelFrame>
         </div>
       {/if}
@@ -623,7 +659,7 @@
       >
     {/if}
 
-    <section class="section-heading">
+    <section class="section-heading" bind:this={routesSectionEl}>
       <h2>Routes &amp; cities</h2>
       {#if hasPendingLocations}
         <p class="muted small">Some locations are waiting for geocoding.</p>
