@@ -22,7 +22,7 @@
     formatSport,
   } from "$lib/format";
   import { site } from "$lib/site";
-  import { sportColor } from "@iroha/shared/domain/sport";
+  import { isDistanceSport, sportColor } from "@iroha/shared/domain/sport";
   import type {
     Activity,
     ActivityDetail as ActivityDetailData,
@@ -198,16 +198,21 @@
   const selectedYearTotals = $derived.by(() => {
     const scoped = filterByYearAndSport(activities, selectedYear, sportFilter);
     return scoped.reduce(
-      (acc, activity) => ({
-        activity_count: acc.activity_count + 1,
-        distance_m: acc.distance_m + (activity.distance_m ?? 0),
-        distance_known_count:
-          acc.distance_known_count + (activity.distance_m == null ? 0 : 1),
-        distance_unknown_count:
-          acc.distance_unknown_count + (activity.distance_m == null ? 1 : 0),
-        duration_s: acc.duration_s + (activity.duration_s ?? 0),
-        moving_time_s: acc.moving_time_s + (activity.moving_time_s ?? 0),
-      }),
+      (acc, activity) => {
+        const hasDistance = activity.distance_m != null;
+        const isUnknownDistance =
+          !hasDistance && isDistanceSport(activity.sport_type);
+        return {
+          activity_count: acc.activity_count + 1,
+          distance_m: acc.distance_m + (activity.distance_m ?? 0),
+          distance_known_count:
+            acc.distance_known_count + (hasDistance ? 1 : 0),
+          distance_unknown_count:
+            acc.distance_unknown_count + (isUnknownDistance ? 1 : 0),
+          duration_s: acc.duration_s + (activity.duration_s ?? 0),
+          moving_time_s: acc.moving_time_s + (activity.moving_time_s ?? 0),
+        };
+      },
       {
         activity_count: 0,
         distance_m: 0,
@@ -1086,7 +1091,37 @@
     margin-top: 0.2rem;
   }
   .scroll-hint {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .scroll-hint:focus,
+  .scroll-hint:focus-visible {
+    position: static;
+    width: auto;
+    height: auto;
     min-height: 44px;
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    background: var(--surface, #1e222b);
+    color: var(--text, #fff);
+    border: 1px solid var(--border, #333);
+    border-radius: 6px;
+    font-size: var(--type-label);
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-block;
+    outline: 2px solid var(--color-focus, var(--accent));
+    outline-offset: 2px;
   }
   .table-wrap {
     overflow-x: auto;

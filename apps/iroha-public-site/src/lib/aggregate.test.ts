@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeDaysFromActivities } from "./aggregate";
+import { activeDaysFromActivities, monthlyBuckets } from "./aggregate";
 import type { Activity } from "./types";
 
 function createMockActivity(id: string, started_at: string): Activity {
@@ -61,5 +61,81 @@ describe("activeDaysFromActivities", () => {
     const result = activeDaysFromActivities(activities);
 
     expect(result).toEqual([{ day: "2026-06-01", activity_count: 1 }]);
+  });
+});
+
+describe("monthlyBuckets", () => {
+  it("distinguishes known distance from missing distance on distance sports", () => {
+    const activities: Activity[] = [
+      {
+        id: "1",
+        started_at: "2026-01-10T08:00:00Z",
+        sport_type: "run",
+        title: "Run with distance",
+        timezone: "UTC",
+        distance_m: 5000,
+      },
+      {
+        id: "2",
+        started_at: "2026-01-15T08:00:00Z",
+        sport_type: "run",
+        title: "Run without distance",
+        timezone: "UTC",
+      },
+    ];
+
+    const buckets = monthlyBuckets(activities);
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]).toMatchObject({
+      key: "2026-01",
+      activity_count: 2,
+      distance_m: 5000,
+      distance_known_count: 1,
+      distance_unknown_count: 1,
+    });
+  });
+
+  it("does not count non-distance sports without distance as distance_unknown_count", () => {
+    const activities: Activity[] = [
+      {
+        id: "1",
+        started_at: "2026-01-10T08:00:00Z",
+        sport_type: "run",
+        title: "Morning Run",
+        timezone: "UTC",
+        distance_m: 10000,
+      },
+      {
+        id: "2",
+        started_at: "2026-01-12T18:00:00Z",
+        sport_type: "fitness_gaming",
+        title: "Ring Fit Adventure",
+        timezone: "UTC",
+      },
+      {
+        id: "3",
+        started_at: "2026-01-14T19:00:00Z",
+        sport_type: "CardioDance",
+        title: "Dance Workout",
+        timezone: "UTC",
+      },
+      {
+        id: "4",
+        started_at: "2026-01-16T07:00:00Z",
+        sport_type: "Yoga",
+        title: "Morning Yoga",
+        timezone: "UTC",
+      },
+    ];
+
+    const buckets = monthlyBuckets(activities);
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]).toMatchObject({
+      key: "2026-01",
+      activity_count: 4,
+      distance_m: 10000,
+      distance_known_count: 1,
+      distance_unknown_count: 0,
+    });
   });
 });
