@@ -29,6 +29,8 @@
     RouteFeatureCollection,
   } from "$lib/types";
   import ActivityHeatmap from "@iroha/shared/theme-ui/components/ActivityHeatmap.svelte";
+  import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
+  import YearProgressChart from "@iroha/shared/components/YearProgressChart.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import RouteHeader from "@iroha/shared/components/RouteHeader.svelte";
@@ -559,27 +561,23 @@
       {#if selectedYear}
         <div class="analytics-grid">
           <PanelFrame label="Cumulative distance">
-            {#await import("@iroha/shared/components/YearProgressChart.svelte") then { default: YearProgressChart }}
-              <YearProgressChart
-                embedded
-                byMonth={monthlyAll}
-                year={selectedYear}
-                sportName={sportFilter ? formatSport(sportFilter) : undefined}
-              />
-            {/await}
+            <YearProgressChart
+              embedded
+              byMonth={monthlyAll}
+              year={selectedYear}
+              sportName={sportFilter ? formatSport(sportFilter) : undefined}
+            />
           </PanelFrame>
           <PanelFrame label="Monthly observations">
-            {#await import("@iroha/shared/components/MonthlyBarChart.svelte") then { default: MonthlyBarChart }}
-              <MonthlyBarChart
-                embedded
-                points={monthSlots.map((slot) => ({
-                  label: slot.label,
-                  value: slot.bucket?.[monthMetric] ?? 0,
-                }))}
-                metric={monthMetric}
-                year={selectedYear}
-              />
-            {/await}
+            <MonthlyBarChart
+              embedded
+              points={monthSlots.map((slot) => ({
+                label: slot.label,
+                value: slot.bucket?.[monthMetric] ?? 0,
+              }))}
+              metric={monthMetric}
+              year={selectedYear}
+            />
           </PanelFrame>
         </div>
       {/if}
