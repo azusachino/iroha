@@ -48,7 +48,9 @@ export async function measureRenderedContrast(includeText = false) {
         images.push(style.backgroundImage.slice(start).trim());
         for (const image of images.reverse()) {
           if (image === "none") continue;
-          const stops = image.match(/rgba?\([^)]+\)/g);
+          const stops = image.match(
+            /(?:rgba?|hsla?|color|hwb|lab|lch|oklab|oklch)\([^)]+\)|transparent/g,
+          );
           if (!/^(linear|radial)-gradient\(/.test(image) || !stops) return null;
           const colors = stops.map(rgba);
           const solid = colors.filter((color) => color[3] > 0);
@@ -126,9 +128,47 @@ export async function measureRenderedContrast(includeText = false) {
         ),
       }
     : null;
+  let core: { getInstanceByDom: (el: Element) => any } | null =
+    (
+      window as unknown as {
+        __echarts_core__?: { getInstanceByDom: (el: Element) => any };
+      }
+    ).__echarts_core__ ??
+    ((
+      window as unknown as { __echarts_getInstanceByDom?: (el: Element) => any }
+    ).__echarts_getInstanceByDom
+      ? {
+          getInstanceByDom: (
+            window as unknown as {
+              __echarts_getInstanceByDom: (el: Element) => any;
+            }
+          ).__echarts_getInstanceByDom,
+        }
+      : null);
+
   const entry = performance
     .getEntriesByType("resource")
     .find((resource) => /\/echarts_core\.js(?:\?|$)/.test(resource.name));
+
+  if (!core && entry) {
+    core = await import(entry.name);
+  }
+
+  const getChart = (el: Element) => {
+    return (
+      (el as unknown as { __echarts_instance__?: any }).__echarts_instance__ ??
+      (el.querySelector("canvas") as unknown as { __echarts_instance__?: any })
+        ?.__echarts_instance__ ??
+      core?.getInstanceByDom(el) ??
+      (
+        window as unknown as {
+          __echarts_getInstanceByDom?: (node: Element) => any;
+        }
+      ).__echarts_getInstanceByDom?.(el) ??
+      null
+    );
+  };
+
   const marks: {
     chart: string | null;
     series: string;
@@ -141,41 +181,40 @@ export async function measureRenderedContrast(includeText = false) {
     color: unknown;
     ratio: number | null;
   }[] = [];
-  if (entry) {
-    const core = await import(entry.name);
-    for (const el of document.querySelectorAll('[role="img"]')) {
-      const chart = core.getInstanceByDom(el);
-      if (!chart) continue;
-      const option = chart.getOption();
-      const background = backgroundAt(el);
-      // Inspect the renderer's resolved text spans, not option defaults or a
-      // second ECharts instance. Pilot labels are outside marks; this measures
-      // foreground paint against the chart surface, not antialiased glyph pixels.
-      for (const span of chart.getZr().storage.getDisplayList()) {
-        if (span.type !== "tspan" || !span.style.text?.trim()) continue;
-        canvasText.push({
+  for (const el of document.querySelectorAll(
+    '[role="img"], [_echarts_instance_]',
+  )) {
+    const chart = getChart(el);
+    if (!chart) continue;
+    const option = chart.getOption();
+    const background = backgroundAt(el);
+    // Inspect the renderer's resolved text spans, not option defaults or a
+    // second ECharts instance. Pilot labels are outside marks; this measures
+    // foreground paint against the chart surface, not antialiased glyph pixels.
+    for (const span of chart.getZr().storage.getDisplayList()) {
+      if (span.type !== "tspan" || !span.style.text?.trim()) continue;
+      canvasText.push({
+        chart: el.getAttribute("aria-label"),
+        text: span.style.text,
+        color: span.style.fill,
+        ratio:
+          span.style.opacity === 1
+            ? contrast(span.style.fill, background)
+            : null,
+      });
+    }
+    for (const [seriesIndex, series] of (option.series ?? []).entries()) {
+      for (const [dataIndex, datum] of (series.data ?? []).entries()) {
+        const value =
+          typeof datum === "object" && datum !== null ? datum.value : datum;
+        if (!Number.isFinite(value)) continue;
+        const color = chart.getVisual({ seriesIndex, dataIndex }, "color");
+        marks.push({
           chart: el.getAttribute("aria-label"),
-          text: span.style.text,
-          color: span.style.fill,
-          ratio:
-            span.style.opacity === 1
-              ? contrast(span.style.fill, background)
-              : null,
+          series: series.name,
+          color,
+          ratio: contrast(color, background),
         });
-      }
-      for (const [seriesIndex, series] of (option.series ?? []).entries()) {
-        for (const [dataIndex, datum] of (series.data ?? []).entries()) {
-          const value =
-            typeof datum === "object" && datum !== null ? datum.value : datum;
-          if (!Number.isFinite(value)) continue;
-          const color = chart.getVisual({ seriesIndex, dataIndex }, "color");
-          marks.push({
-            chart: el.getAttribute("aria-label"),
-            series: series.name,
-            color,
-            ratio: contrast(color, background),
-          });
-        }
       }
     }
   }

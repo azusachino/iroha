@@ -1,5 +1,5 @@
 // Bounded DOM diagnostics, not an axe/WCAG conformance audit. Canvas marks,
-// gradients/images, ancestor opacity and native browser zoom need other evidence.
+// non-constant-hue images and native browser zoom need other evidence.
 export function measurePilotPage() {
   const visible = (el: Element) => {
     const s = getComputedStyle(el);
@@ -90,6 +90,69 @@ export function measurePilotPage() {
         disabled: el.hasAttribute("disabled"),
       };
     });
+  const backgroundAt = (element: Element) => {
+    let backgrounds = [[0, 0, 0, 0]];
+    for (let el: Element | null = element; el; el = el.parentElement) {
+      const style = getComputedStyle(el);
+      const opacity = Number(style.opacity);
+      if (Number.isNaN(opacity) || opacity <= 0) continue;
+      if (backgrounds.every((b) => b[3] === 1)) break;
+
+      let layers = [rgba(style.backgroundColor)];
+      if (style.backgroundImage !== "none") {
+        const images: string[] = [];
+        let depth = 0,
+          start = 0;
+        for (let index = 0; index < style.backgroundImage.length; index++) {
+          const char = style.backgroundImage[index];
+          if (char === "(") depth++;
+          if (char === ")") depth--;
+          if (char === "," && depth === 0) {
+            images.push(style.backgroundImage.slice(start, index).trim());
+            start = index + 1;
+          }
+        }
+        images.push(style.backgroundImage.slice(start).trim());
+        for (const image of images.reverse()) {
+          if (image === "none") continue;
+          const stops = image.match(
+            /(?:rgba?|hsla?|color|hwb|lab|lch|oklab|oklch)\([^)]+\)|transparent/g,
+          );
+          if (!/^(linear|radial)-gradient\(/.test(image) || !stops) return null;
+          const colors = stops.map(rgba);
+          const solid = colors.filter((c) => c[3] > 0);
+          if (
+            solid.some((c) =>
+              c.slice(0, 3).some((v, idx) => v !== solid[0][idx]),
+            )
+          )
+            return null;
+          layers = layers.flatMap((back) =>
+            colors.map((front) => over(front, back)),
+          );
+        }
+      }
+      if (opacity < 1) {
+        layers = layers.map((layer) => [
+          layer[0],
+          layer[1],
+          layer[2],
+          layer[3] * opacity,
+        ]);
+        backgrounds = backgrounds.map((bg) => [
+          bg[0],
+          bg[1],
+          bg[2],
+          bg[3] * opacity,
+        ]);
+      }
+      backgrounds = backgrounds.flatMap((front) =>
+        layers.map((back) => over(front, back)),
+      );
+    }
+    return backgrounds.every((b) => b[3] === 1) ? backgrounds : null;
+  };
+
   const textPairs: {
     text: string;
     ratio: number;
@@ -110,43 +173,48 @@ export function measurePilotPage() {
       el.closest("script,style,option,canvas")
     )
       continue;
-    let background = [0, 0, 0, 0];
-    let supported = true;
-    for (
-      let ancestor: Element | null = el;
-      ancestor;
-      ancestor = ancestor.parentElement
-    ) {
-      const style = getComputedStyle(ancestor);
-      if (
-        (background[3] < 1 && style.backgroundImage !== "none") ||
-        Number(style.opacity) !== 1
-      ) {
-        supported = false;
-        break;
-      }
-      if (background[3] < 1)
-        background = over(background, rgba(style.backgroundColor));
-    }
-    if (!supported || background[3] < 1) {
+
+    const backgrounds = backgroundAt(el);
+    if (!backgrounds || backgrounds.length === 0) {
       unmeasuredText++;
       continue;
     }
+
+    let effectiveOpacity = 1;
+    for (let anc: Element | null = el; anc; anc = anc.parentElement) {
+      const op = Number(getComputedStyle(anc).opacity);
+      if (!Number.isNaN(op)) effectiveOpacity *= op;
+    }
+
     const style = getComputedStyle(el);
-    const foreground = over(rgba(style.color), background);
-    const a = luminance(foreground),
-      b = luminance(background);
+    const textRgba = rgba(style.color);
+    textRgba[3] *= effectiveOpacity;
+
     const required =
       parseFloat(style.fontSize) >= 24 ||
       (parseFloat(style.fontSize) >= 18.5 && Number(style.fontWeight) >= 700)
         ? 3
         : 4.5;
+
+    const candidates = backgrounds.map((bg) => {
+      const foreground = over(textRgba, bg);
+      const a = luminance(foreground);
+      const b = luminance(bg);
+      const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      return { ratio, foreground, background: bg };
+    });
+
+    const worst = candidates.reduce(
+      (min, c) => (c.ratio < min.ratio ? c : min),
+      candidates[0],
+    );
+
     textPairs.push({
       text: text.slice(0, 100),
-      ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+      ratio: worst.ratio,
       required,
-      foreground,
-      background,
+      foreground: worst.foreground,
+      background: worst.background,
     });
   }
   return {
