@@ -4,6 +4,7 @@
   import { page } from "$app/state";
   import { onMount, untrack } from "svelte";
   import {
+    activeDaysFromActivities,
     cityGroupsForRoutes,
     filterByYearAndSport,
     monthlyBuckets,
@@ -25,21 +26,29 @@
   import type {
     Activity,
     ActivityDetail as ActivityDetailData,
+    RouteFeatureCollection,
   } from "$lib/types";
-  import RoutesMap from "$lib/components/RoutesMap.svelte";
-  import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
+  import ActivityHeatmap from "@iroha/shared/theme-ui/components/ActivityHeatmap.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import RouteHeader from "@iroha/shared/components/RouteHeader.svelte";
   import PanelFrame from "@iroha/shared/components/PanelFrame.svelte";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
-  import YearProgressChart from "@iroha/shared/components/YearProgressChart.svelte";
   import type { PageProps } from "./$types";
 
   let { data }: PageProps = $props();
   const activities = $derived(data.activities);
-  const routes = $derived(data.routes);
+  let routes = $state<RouteFeatureCollection>({
+    type: "FeatureCollection",
+    features: [],
+  });
+  let routesLoading = $state(true);
   const meta = $derived(data.meta);
+  const activeDays = $derived(activeDaysFromActivities(activities));
+  const latestDay = $derived(
+    activities[0]?.started_at.slice(0, 10) ??
+      new Date().toISOString().slice(0, 10),
+  );
 
   const MONTH_LABELS = [
     "Jan",
@@ -391,6 +400,15 @@
   }
 
   onMount(() => {
+    data.routesPromise
+      .then((r) => {
+        routes = r;
+        routesLoading = false;
+      })
+      .catch(() => {
+        routesLoading = false;
+      });
+
     window.addEventListener("scroll", loadMoreNearBottom, { passive: true });
     return () => window.removeEventListener("scroll", loadMoreNearBottom);
   });
@@ -535,27 +553,33 @@
       />
     </div>
 
+    <ActivityHeatmap days={activeDays} endDay={latestDay} embedded={false} />
+
     {#if years.length > 0}
       {#if selectedYear}
         <div class="analytics-grid">
           <PanelFrame label="Cumulative distance">
-            <YearProgressChart
-              embedded
-              byMonth={monthlyAll}
-              year={selectedYear}
-              sportName={sportFilter ? formatSport(sportFilter) : undefined}
-            />
+            {#await import("@iroha/shared/components/YearProgressChart.svelte") then { default: YearProgressChart }}
+              <YearProgressChart
+                embedded
+                byMonth={monthlyAll}
+                year={selectedYear}
+                sportName={sportFilter ? formatSport(sportFilter) : undefined}
+              />
+            {/await}
           </PanelFrame>
           <PanelFrame label="Monthly observations">
-            <MonthlyBarChart
-              embedded
-              points={monthSlots.map((slot) => ({
-                label: slot.label,
-                value: slot.bucket?.[monthMetric] ?? 0,
-              }))}
-              metric={monthMetric}
-              year={selectedYear}
-            />
+            {#await import("@iroha/shared/components/MonthlyBarChart.svelte") then { default: MonthlyBarChart }}
+              <MonthlyBarChart
+                embedded
+                points={monthSlots.map((slot) => ({
+                  label: slot.label,
+                  value: slot.bucket?.[monthMetric] ?? 0,
+                }))}
+                metric={monthMetric}
+                year={selectedYear}
+              />
+            {/await}
           </PanelFrame>
         </div>
       {/if}
@@ -603,15 +627,30 @@
       {/if}
     </section>
 
-    {#if filteredRoutes.length === 0}
+    {#if routesLoading}
+      <div class="routes-grid" aria-busy="true">
+        <PanelFrame label="Route map">
+          <div class="map-wrap map-loading">
+            <p class="muted" role="status">Loading routes map…</p>
+          </div>
+        </PanelFrame>
+        <PanelFrame label="Geography selection">
+          <div class="cities cities-loading">
+            <p class="muted" role="status">Loading geography data…</p>
+          </div>
+        </PanelFrame>
+      </div>
+    {:else if filteredRoutes.length === 0}
       <p class="muted">No routes recorded yet.</p>
     {:else}
       <div class="routes-grid">
         <PanelFrame label="Route map"
           ><div class="map-wrap">
-            <RoutesMap
-              data={{ type: "FeatureCollection", features: mappedRoutes }}
-            />
+            {#await import("$lib/components/RoutesMap.svelte") then { default: RoutesMap }}
+              <RoutesMap
+                data={{ type: "FeatureCollection", features: mappedRoutes }}
+              />
+            {/await}
           </div></PanelFrame
         >
         <PanelFrame label="Geography selection"
@@ -994,6 +1033,13 @@
   .map-wrap {
     min-height: 20rem;
     padding: 0.5rem;
+  }
+  .map-loading,
+  .cities-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 18rem;
   }
   .cities {
     min-width: 0;

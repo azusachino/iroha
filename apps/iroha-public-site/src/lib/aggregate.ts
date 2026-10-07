@@ -2,7 +2,22 @@
 // snapshot. There is no live backend to re-query per filter change (this is
 // a static export), and the dataset is personal-scale (hundreds to low
 // thousands of rows), so recomputing on every year/sport change is fine.
+import type { ActivityActiveDay } from "@iroha/shared/domain/activity";
 import type { Activity, RouteFeature, SummaryBucket } from "./types";
+
+export function activeDaysFromActivities(
+  activities: Activity[],
+): ActivityActiveDay[] {
+  const counts = new Map<string, number>();
+  for (const activity of activities) {
+    const day = activity.started_at.slice(0, 10);
+    if (!day) continue;
+    counts.set(day, (counts.get(day) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([day, activity_count]) => ({ day, activity_count }))
+    .sort((a, b) => a.day.localeCompare(b.day));
+}
 
 export function yearsFromActivities(activities: Activity[]): string[] {
   const years = new Set<string>();

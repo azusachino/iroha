@@ -21,11 +21,13 @@ export const load: PageLoad = async ({ fetch }) => {
       error(res.status, "Public activity data is temporarily unavailable.");
     return (await res.json()) as T;
   };
-  const [summary, activities, routes, meta] = await Promise.all([
+  // Fast critical path:
+  const [summary, activities, meta] = await Promise.all([
     get<Summary>("summary"),
     get<Activity[]>("activities"),
-    get<RouteFeatureCollection>("routes"),
     get<Meta>("meta"),
   ]);
-  return { summary, activities, routes, meta };
+  // Deferred HTTP/2 background stream for routes:
+  const routesPromise = get<RouteFeatureCollection>("routes");
+  return { summary, activities, meta, routesPromise };
 };
