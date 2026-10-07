@@ -480,6 +480,11 @@
     padding: 0.8rem 1rem;
     background: color-mix(in srgb, var(--surface) 92%, var(--accent));
   }
+  .to-go-strip :global(.retry-notice) {
+    grid-column: 1 / -1;
+    min-width: 0;
+    box-sizing: border-box;
+  }
   .to-go-heading {
     display: flex;
     align-items: center;
@@ -524,8 +529,8 @@
   .to-go-task button {
     display: grid;
     flex: 0 0 auto;
-    width: 1.35rem;
-    height: 1.35rem;
+    width: 24px;
+    height: 24px;
     place-items: center;
     border: 1px solid var(--border);
     border-radius: 50%;
@@ -774,10 +779,17 @@
   .scrubber {
     position: relative;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
     min-width: 0;
     padding: 0.85rem 1rem;
+  }
+  .scrubber > :global(.retry-notice) {
+    order: 1;
+    flex: 0 0 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
   .glow {
     border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
@@ -785,7 +797,7 @@
   }
   .scrub-center {
     flex: 1;
-    min-width: 0;
+    min-width: max-content;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -803,6 +815,7 @@
   .day-main {
     color: var(--accent);
     font-size: 1.1rem;
+    white-space: nowrap;
     font-weight: 700;
     text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 28%, transparent);
   }
@@ -828,6 +841,7 @@
     border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
   }
   .nav {
+    flex: 0 0 2.2rem;
     appearance: none;
     border: 1px solid var(--border);
     background: var(--surface);
@@ -1085,6 +1099,7 @@
 
   @media (max-width: 1024px) {
     .to-go-strip {
+      flex: 1 0 100%;
       grid-template-columns: 1fr auto;
     }
     .to-go-items {

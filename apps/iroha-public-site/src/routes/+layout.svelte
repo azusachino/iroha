@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import "@iroha/shared/theme/chart-presentation";
   import "./app.css";
   import { site } from "$lib/site";
 

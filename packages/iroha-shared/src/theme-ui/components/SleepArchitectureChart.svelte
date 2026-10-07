@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { attachChartInstance } from "../../theme/chart-presentation";
   import { chartSignature } from "./chart-signature";
   import { init, use } from "echarts/core";
   import { PieChart } from "echarts/charts";
@@ -94,6 +95,7 @@
 
   onMount(() => {
     chart = init(container, undefined, { renderer: "canvas" });
+    attachChartInstance(container, chart);
     chart.on("click", (params) => onStageSelect?.(String(params.name)));
     chart.on("mouseover", (params) => onStageHover?.(String(params.name)));
     chart.on("mouseout", () => onStageHover?.(null));
@@ -102,6 +104,7 @@
     resize.observe(container);
     return () => {
       resize.disconnect();
+      attachChartInstance(container, undefined);
       chart?.dispose();
     };
   });

@@ -18,6 +18,7 @@
     formatPace,
   } from "$lib/format";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
+  import { attachChartInstance } from "@iroha/shared/theme/chart-presentation";
   import FusedActivityChart from "@iroha/shared/theme-ui/components/FusedActivityChart.svelte";
   import type {
     ActivityDetail,
@@ -338,8 +339,14 @@
   }
 
   onMount(() => {
-    if (zoneChartContainer) zoneChart = init(zoneChartContainer);
-    if (lapsChartContainer) lapsChart = init(lapsChartContainer);
+    if (zoneChartContainer) {
+      zoneChart = init(zoneChartContainer);
+      attachChartInstance(zoneChartContainer, zoneChart);
+    }
+    if (lapsChartContainer) {
+      lapsChart = init(lapsChartContainer);
+      attachChartInstance(lapsChartContainer, lapsChart);
+    }
     renderZoneChart();
     renderLapsChart();
     const resize = new ResizeObserver(() => {
@@ -350,6 +357,10 @@
     if (lapsChartContainer) resize.observe(lapsChartContainer);
     return () => {
       resize.disconnect();
+      if (zoneChartContainer)
+        attachChartInstance(zoneChartContainer, undefined);
+      if (lapsChartContainer)
+        attachChartInstance(lapsChartContainer, undefined);
       zoneChart?.dispose();
       lapsChart?.dispose();
       zoneChart = null;

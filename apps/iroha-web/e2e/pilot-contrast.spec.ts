@@ -62,16 +62,52 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
           // Negative control: the option still declares its original color, but
           // the renderer paints an invisible axis title. The probe must notice.
           const damaged = await page.evaluate(async () => {
+            let core: { getInstanceByDom: (el: Element) => any } | null =
+              (
+                window as unknown as {
+                  __echarts_core__?: { getInstanceByDom: (el: Element) => any };
+                }
+              ).__echarts_core__ ??
+              ((
+                window as unknown as {
+                  __echarts_getInstanceByDom?: (el: Element) => any;
+                }
+              ).__echarts_getInstanceByDom
+                ? {
+                    getInstanceByDom: (
+                      window as unknown as {
+                        __echarts_getInstanceByDom: (el: Element) => any;
+                      }
+                    ).__echarts_getInstanceByDom,
+                  }
+                : null);
             const entry = performance
               .getEntriesByType("resource")
               .find((resource) =>
                 /\/echarts_core\.js(?:\?|$)/.test(resource.name),
-              )!;
-            const core = await import(entry.name);
+              );
+            if (!core && entry) {
+              core = await import(entry.name);
+            }
+            const getChart = (el: Element) =>
+              (el as unknown as { __echarts_instance__?: any })
+                .__echarts_instance__ ??
+              (
+                el.querySelector("canvas") as unknown as {
+                  __echarts_instance__?: any;
+                }
+              )?.__echarts_instance__ ??
+              core?.getInstanceByDom(el) ??
+              (
+                window as unknown as {
+                  __echarts_getInstanceByDom?: (node: Element) => any;
+                }
+              ).__echarts_getInstanceByDom?.(el) ??
+              null;
             const el = Array.from(
-              document.querySelectorAll('[role="img"]'),
-            ).find((el) => core.getInstanceByDom(el))!;
-            const chart = core.getInstanceByDom(el);
+              document.querySelectorAll('[role="img"], [_echarts_instance_]'),
+            ).find((el) => getChart(el))!;
+            const chart = getChart(el);
             const title = chart
               .getOption()
               .yAxis.find((axis: { name?: string }) => axis.name).name;
@@ -97,16 +133,54 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
             ).toBe(1);
           } finally {
             await page.evaluate(async (original) => {
+              let core: { getInstanceByDom: (el: Element) => any } | null =
+                (
+                  window as unknown as {
+                    __echarts_core__?: {
+                      getInstanceByDom: (el: Element) => any;
+                    };
+                  }
+                ).__echarts_core__ ??
+                ((
+                  window as unknown as {
+                    __echarts_getInstanceByDom?: (el: Element) => any;
+                  }
+                ).__echarts_getInstanceByDom
+                  ? {
+                      getInstanceByDom: (
+                        window as unknown as {
+                          __echarts_getInstanceByDom: (el: Element) => any;
+                        }
+                      ).__echarts_getInstanceByDom,
+                    }
+                  : null);
               const entry = performance
                 .getEntriesByType("resource")
                 .find((resource) =>
                   /\/echarts_core\.js(?:\?|$)/.test(resource.name),
-                )!;
-              const core = await import(entry.name);
+                );
+              if (!core && entry) {
+                core = await import(entry.name);
+              }
+              const getChart = (el: Element) =>
+                (el as unknown as { __echarts_instance__?: any })
+                  .__echarts_instance__ ??
+                (
+                  el.querySelector("canvas") as unknown as {
+                    __echarts_instance__?: any;
+                  }
+                )?.__echarts_instance__ ??
+                core?.getInstanceByDom(el) ??
+                (
+                  window as unknown as {
+                    __echarts_getInstanceByDom?: (node: Element) => any;
+                  }
+                ).__echarts_getInstanceByDom?.(el) ??
+                null;
               const el = Array.from(
-                document.querySelectorAll('[role="img"]'),
+                document.querySelectorAll('[role="img"], [_echarts_instance_]'),
               ).find((el) => el.getAttribute("aria-label") === original.chart)!;
-              const chart = core.getInstanceByDom(el);
+              const chart = getChart(el);
               const span = chart
                 .getZr()
                 .storage.getDisplayList()

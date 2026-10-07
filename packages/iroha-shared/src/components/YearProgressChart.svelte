@@ -2,7 +2,10 @@
   import { onMount } from "svelte";
   import { axisRange, formatAxisTick } from "../format/axis";
   import { chartFontSize } from "../theme/chart-typography";
-  import { observeChartPresentation } from "../theme/chart-presentation";
+  import {
+    attachChartInstance,
+    observeChartPresentation,
+  } from "../theme/chart-presentation";
   import { chartSignature } from "../theme-ui/components/chart-signature";
   import { LineChart } from "echarts/charts";
   import {
@@ -219,6 +222,7 @@
   onMount(() => {
     if (!chartContainer) return;
     chart = init(chartContainer, undefined, { renderer: "canvas" });
+    attachChartInstance(chartContainer, chart);
     render();
     const resize = new ResizeObserver(() => chart?.resize());
     resize.observe(chartContainer);
@@ -226,6 +230,7 @@
     return () => {
       stopPresentation();
       resize.disconnect();
+      attachChartInstance(chartContainer, undefined);
       chart?.dispose();
     };
   });

@@ -43,7 +43,7 @@ Task numbering below reflects these corrections; there is no separate "old" numb
 
 ## Inputs
 
-- the workstation research note [`ThreeUI and transitions.dev for Iroha and Felicia`](../../../../docs/runbooks/research/2026-08/2026-08-22-threeui-and-transitions-dev-for-iroha-felicia.md), specifically its
+- the workstation research note `ThreeUI and transitions.dev for Iroha and Felicia` (private note, not included in this public checkout), specifically its
   "actual Iroha seams" table and "bounded next-fix queue" — this plan executes that queue's Iroha half.
 - [`v0.4.4`'s own deferral](2026-08-24-iroha-0.4.4-ui-ux-quality.md): Decision 4 ("No D3 or Three.js dependency is expected") and Follow-up epic 1 ("Semantic motion: inventory
   `state change | owner | channels | timing | reduced-motion result | route`, classify public/private parity, then define only repeated semantic tokens and adopt one bounded vertical slice. Frequent

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { attachChartInstance } from "../../theme/chart-presentation";
   import { chartSignature } from "./chart-signature";
   import { BarChart } from "echarts/charts";
   import { GridComponent, TooltipComponent } from "echarts/components";
@@ -94,11 +95,13 @@
 
   onMount(() => {
     chart = init(container, undefined, { renderer: "canvas" });
+    attachChartInstance(container, chart);
     render();
     const resize = new ResizeObserver(() => chart?.resize());
     resize.observe(container);
     return () => {
       resize.disconnect();
+      attachChartInstance(container, undefined);
       chart?.dispose();
     };
   });

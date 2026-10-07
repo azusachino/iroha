@@ -30,6 +30,10 @@ for (const mode of ["light", "dark"] as const) {
       .poll(() => region.evaluate((node) => node.scrollLeft))
       .toBeGreaterThan(before);
     await expect(page).toHaveURL(/date=2026-08/);
+    await page.keyboard.press("End");
+    const endScroll = await region.evaluate((node) => node.scrollLeft);
+    expect(endScroll).toBeGreaterThan(before);
+    await expect(region.getByRole("table")).toBeVisible();
     await expect(region.getByRole("table").locator("thead th")).toHaveCount(5);
     expect(fixture.unknown).toEqual([]);
   });

@@ -8,14 +8,17 @@
     type IntakeCredential,
   } from "$lib/api";
   import { formatDate } from "$lib/format";
+  import { createAsyncResource } from "$lib/asyncResource.svelte";
+  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
 
-  let credentials = $state<IntakeCredential[]>([]);
+  const credentialsResource = createAsyncResource<IntakeCredential[]>();
   let name = $state("primary");
   let issued = $state<{ name: string; token: string } | null>(null);
   let copied = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
+
   let revokeTarget = $state<IntakeCredential | null>(null);
   let confirmOpen = $state(false);
 
@@ -28,14 +31,14 @@
       .replace(/[^a-z0-9-]/g, "");
   }
 
-  const active = $derived(credentials.filter((c) => !c.revoked_at));
+  const active = $derived(
+    (credentialsResource.data ?? []).filter(
+      (credential) => !credential.revoked_at,
+    ),
+  );
 
   async function load() {
-    try {
-      credentials = await listIntakeCredentials();
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-    }
+    await credentialsResource.run(() => listIntakeCredentials());
   }
 
   async function issue(event: SubmitEvent) {
@@ -87,7 +90,7 @@
       <p class="eyebrow"><KeyRound size={14} /> Health Auto Export</p>
       <h2 id="intake-title">Intake tokens</h2>
     </div>
-    <span>{active.length} active</span>
+    {#if credentialsResource.ready}<span>{active.length} active</span>{/if}
   </header>
   <p class="panel-note">
     Each device that uploads needs its own token, sent by Health Auto Export as
@@ -140,11 +143,23 @@
     >
   </form>
 
+  {#if credentialsResource.error}<RetryNotice
+      message={`Could not load intake tokens: ${credentialsResource.error}`}
+      retryLabel="Retry intake tokens"
+      onRetry={load}
+    />{/if}
   {#if error}<p class="error" role="alert">{error}</p>{/if}
 
-  {#if credentials.length}
+  {#if credentialsResource.loading}
+    <p class="muted" role="status">
+      {credentialsResource.ready
+        ? "Updating intake tokens…"
+        : "Loading intake tokens…"}
+    </p>
+  {/if}
+  {#if credentialsResource.ready && credentialsResource.data?.length}
     <ul class="credential-list">
-      {#each credentials as credential (credential.id)}
+      {#each credentialsResource.data ?? [] as credential (credential.id)}
         <li class:revoked={credential.revoked_at}>
           <div>
             <strong>{credential.name}</strong>
@@ -164,7 +179,7 @@
         </li>
       {/each}
     </ul>
-  {:else}
+  {:else if credentialsResource.ready}
     <p class="muted">No tokens yet. Intake is refused until you issue one.</p>
   {/if}
 </section>

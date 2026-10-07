@@ -8,7 +8,10 @@
   import { formatDistance } from "../format/format";
   import { axisRange, formatAxisTick } from "../format/axis";
   import { chartFontSize } from "../theme/chart-typography";
-  import { observeChartPresentation } from "../theme/chart-presentation";
+  import {
+    attachChartInstance,
+    observeChartPresentation,
+  } from "../theme/chart-presentation";
 
   use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -107,6 +110,7 @@
   onMount(() => {
     if (!chartContainer) return;
     chart = init(chartContainer, undefined, { renderer: "canvas" });
+    attachChartInstance(chartContainer, chart);
     render();
     const resize = new ResizeObserver(() => chart?.resize());
     resize.observe(chartContainer);
@@ -114,6 +118,7 @@
     return () => {
       resize.disconnect();
       stopPresentation();
+      attachChartInstance(chartContainer, undefined);
       chart?.dispose();
     };
   });
