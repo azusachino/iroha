@@ -629,12 +629,12 @@
       <div class="routes-grid" aria-busy="true">
         <PanelFrame label="Route map">
           <div class="map-wrap map-loading">
-            <p class="muted" role="status">Loading routes map…</p>
+            <p class="muted">Loading routes map…</p>
           </div>
         </PanelFrame>
         <PanelFrame label="Geography selection">
           <div class="cities cities-loading">
-            <p class="muted" role="status">Loading geography data…</p>
+            <p class="muted">Loading geography data…</p>
           </div>
         </PanelFrame>
       </div>
