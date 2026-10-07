@@ -357,8 +357,10 @@
     if (lapsChartContainer) resize.observe(lapsChartContainer);
     return () => {
       resize.disconnect();
-      if (zoneChartContainer) attachChartInstance(zoneChartContainer, undefined);
-      if (lapsChartContainer) attachChartInstance(lapsChartContainer, undefined);
+      if (zoneChartContainer)
+        attachChartInstance(zoneChartContainer, undefined);
+      if (lapsChartContainer)
+        attachChartInstance(lapsChartContainer, undefined);
       zoneChart?.dispose();
       lapsChart?.dispose();
       zoneChart = null;
