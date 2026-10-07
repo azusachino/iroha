@@ -168,8 +168,9 @@
     cursor: pointer;
   }
 
+  .scroll-hint:focus,
   .scroll-hint:focus-visible {
-    outline: 2px solid var(--color-focus);
+    outline: 2px solid var(--color-focus, var(--accent));
     outline-offset: 2px;
   }
 
