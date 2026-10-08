@@ -11,7 +11,7 @@
     },
     "apps/iroha-public-site": {
       "name": "iroha-public-site",
-      "version": "0.1.4",
+      "version": "0.6.0",
       "dependencies": {
         "@iroha/shared": "workspace:*",
         "echarts": "^6.1.0",
@@ -37,7 +37,7 @@
     },
     "apps/iroha-web": {
       "name": "iroha-web",
-      "version": "0.1.4",
+      "version": "0.6.0",
       "dependencies": {
         "@iroha/shared": "workspace:*",
         "@lucide/svelte": "^1.48.0",
@@ -67,6 +67,7 @@
     },
     "packages/iroha-shared": {
       "name": "@iroha/shared",
+      "version": "0.6.0",
       "dependencies": {
         "@lucide/svelte": "^1.48.0",
         "echarts": "^6.1.0",

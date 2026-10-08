@@ -1,6 +1,7 @@
 {
   "name": "@iroha/shared",
   "private": true,
+  "version": "0.6.0",
   "type": "module",
   "peerDependencies": {
     "svelte": "^5.57.1"
