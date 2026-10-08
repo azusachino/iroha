@@ -25,7 +25,7 @@ contract between minor versions.
   - Request rate limiting and credential quotas for intake endpoints.
 - **Operations & Tooling**:
   - Portable Kubernetes manifests (`ops/k8s`) with Kustomize support.
-  - Modernized dependencies: Vite 8.3.2, Vitest 5.0.3, Bun 1.4.2, `@types/node` 26, `dorny/paths-filter` 4, `jdx/mise-action` 5.
+  - Modernized dependencies: Vite 8.3.4, Svelte 5.57.2, Playwright 1.64.0, @lucide/svelte 1.53.0, MapLibre GL 6.13.0, Vitest 5.0.3, Bun 1.4.2, @types/node 26, dorny/paths-filter 4, jdx/mise-action 5, Go and Python ecosystem dependencies.
   - Change detection and path-based filtering in GitHub Actions CI workflows.
   - Local check caching and sharded Playwright E2E browser tests.
 
