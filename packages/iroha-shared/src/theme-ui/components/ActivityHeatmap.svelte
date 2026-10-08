@@ -219,19 +219,20 @@
   }
 
   .cell[data-level="1"] {
-    background: color-mix(in srgb, var(--accent) 25%, var(--surface-2));
+    background: color-mix(in srgb, var(--accent) 35%, var(--surface-2));
   }
 
   .cell[data-level="2"] {
-    background: color-mix(in srgb, var(--accent) 45%, var(--surface-2));
+    background: color-mix(in srgb, var(--accent) 58%, var(--surface-2));
   }
 
   .cell[data-level="3"] {
-    background: color-mix(in srgb, var(--accent) 68%, var(--surface-2));
+    background: color-mix(in srgb, var(--accent) 82%, var(--surface-2));
   }
 
   .cell[data-level="4"] {
     background: var(--accent);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
   }
 
   .legend {

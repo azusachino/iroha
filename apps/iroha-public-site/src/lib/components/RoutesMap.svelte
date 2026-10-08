@@ -5,7 +5,13 @@
   import type { FeatureCollection } from "geojson";
   import type { RouteFeatureCollection } from "$lib/types";
 
-  let { data }: { data: RouteFeatureCollection } = $props();
+  let {
+    data,
+    showTable = true,
+  }: {
+    data: RouteFeatureCollection;
+    showTable?: boolean;
+  } = $props();
 
   let container: HTMLDivElement;
   let map: MapLibre.Map | null = null;
@@ -178,34 +184,36 @@
     Use the map zoom and pan controls to inspect route density. A route summary
     table follows for keyboard and screen-reader access.
   </p>
-  <details class="map-data">
-    <summary>View route summaries</summary>
-    <div class="table-wrap">
-      <table>
-        <caption>Recorded route summaries</caption>
-        <thead>
-          <tr>
-            <th scope="col">Route</th>
-            <th scope="col">Sport</th>
-            <th scope="col">Year</th>
-            <th scope="col">Place</th>
-            <th scope="col">Coordinates</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each data.features as feature, index}
+  {#if showTable}
+    <details class="map-data">
+      <summary>View route summaries</summary>
+      <div class="table-wrap">
+        <table>
+          <caption>Recorded route summaries</caption>
+          <thead>
             <tr>
-              <th scope="row">Route {index + 1}</th>
-              <td>{feature.properties.sport_type}</td>
-              <td>{feature.properties.year}</td>
-              <td>{feature.properties.city ?? "—"}</td>
-              <td>{feature.geometry.coordinates.length}</td>
+              <th scope="col">Route</th>
+              <th scope="col">Sport</th>
+              <th scope="col">Year</th>
+              <th scope="col">Place</th>
+              <th scope="col">Coordinates</th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  </details>
+          </thead>
+          <tbody>
+            {#each data.features as feature, index}
+              <tr>
+                <th scope="row">Route {index + 1}</th>
+                <td>{feature.properties.sport_type}</td>
+                <td>{feature.properties.year}</td>
+                <td>{feature.properties.city ?? "—"}</td>
+                <td>{feature.geometry.coordinates.length}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {/if}
 </section>
 
 <style>

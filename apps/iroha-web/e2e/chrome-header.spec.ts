@@ -33,7 +33,7 @@ for (const pilot of ["overview", "metrics", "public"] as const) {
         ? "Overview"
         : pilot === "metrics"
           ? "Metrics"
-          : "Public archive";
+          : "harus tracks by iroha";
     const header = page.getByRole("region", {
       name: `${name} header`,
       exact: true,

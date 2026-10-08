@@ -438,7 +438,9 @@
         </div>
         <span>Full activity detail</span>
       </div>
-      <div class="map"><RoutesMap data={routeFeatures} /></div>
+      <div class="map">
+        <RoutesMap data={routeFeatures} showTable={false} />
+      </div>
     </section>
   {/if}
 
@@ -458,6 +460,7 @@
         heartRate={heartRateValues}
         elevation={elevationValues}
         {paceLabel}
+        showTable={false}
       />
     </section>
   {/if}
@@ -507,28 +510,6 @@
         bind:this={lapsChartContainer}
         aria-label="Split pace chart"
       ></div>
-      <div class="table-wrap">
-        <table>
-          <thead
-            ><tr
-              ><th>Split</th><th>Distance</th><th>Duration</th><th>Pace</th><th
-                >Avg HR</th
-              ></tr
-            ></thead
-          >
-          <tbody>
-            {#each displayLaps as lap (lap.id)}
-              <tr
-                ><td><strong>{lap.lap_no}</strong></td><td
-                  >{formatDistance(lap.distance_m)}</td
-                ><td>{formatDuration(lap.duration_s)}</td><td
-                  >{formatActivityPace(lap.avg_pace_s_per_km)}</td
-                ><td>{formatHr(lap.avg_hr)}</td></tr
-              >
-            {/each}
-          </tbody>
-        </table>
-      </div>
     </section>
   {/if}
 
@@ -660,33 +641,7 @@
   .laps-chart {
     width: 100%;
     min-height: 15rem;
-    margin-bottom: 1.2rem;
-  }
-  .table-wrap {
-    overflow-x: auto;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.8rem;
-  }
-  th,
-  td {
-    padding: 0.7rem 0.5rem;
-    border-bottom: 1px solid var(--border);
-    text-align: left;
-    white-space: nowrap;
-  }
-  th {
-    color: var(--text-muted);
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-  td:last-child,
-  th:last-child {
-    text-align: right;
+    margin-bottom: 0;
   }
   .detail-note {
     margin: 0;

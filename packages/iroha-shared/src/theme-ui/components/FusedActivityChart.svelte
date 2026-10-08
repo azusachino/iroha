@@ -18,6 +18,7 @@
     elevation,
     paceLabel = "Pace",
     onHover,
+    showTable = true,
   }: {
     xValues: number[];
     xLabel: string;
@@ -26,6 +27,7 @@
     elevation: (number | null)[];
     paceLabel?: string;
     onHover?: (index: number | null) => void;
+    showTable?: boolean;
   } = $props();
 
   let container: HTMLDivElement;
@@ -207,46 +209,50 @@
   class="chart"
   bind:this={container}
   role="img"
-  aria-label="Synchronized activity chart. Exact measurements are available in the activity data table."
+  aria-label={showTable
+    ? "Synchronized activity chart. Exact measurements are available in the activity data table."
+    : "Synchronized activity chart"}
 ></div>
-<details class="chart-data">
-  <summary>View activity data</summary>
-  <div class="table-wrap">
-    <table>
-      <caption>Synchronized activity measurements</caption>
-      <thead>
-        <tr>
-          <th scope="col">{xLabel}</th>
-          <th scope="col">{paceLabel}</th>
-          <th scope="col">Heart rate</th>
-          <th scope="col">Elevation</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each xValues as x, index}
+{#if showTable}
+  <details class="chart-data">
+    <summary>View activity data</summary>
+    <div class="table-wrap">
+      <table>
+        <caption>Synchronized activity measurements</caption>
+        <thead>
           <tr>
-            <th scope="row">{formatXAxis(x)}</th>
-            <td
-              >{pace[index] == null
-                ? "No observation"
-                : formatPace(pace[index]!)}</td
-            >
-            <td
-              >{heartRate[index] == null
-                ? "No observation"
-                : `${heartRate[index]!.toFixed(0)} bpm`}</td
-            >
-            <td
-              >{elevation[index] == null
-                ? "No observation"
-                : `${elevation[index]!.toFixed(0)} m`}</td
-            >
+            <th scope="col">{xLabel}</th>
+            <th scope="col">{paceLabel}</th>
+            <th scope="col">Heart rate</th>
+            <th scope="col">Elevation</th>
           </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
-</details>
+        </thead>
+        <tbody>
+          {#each xValues as x, index}
+            <tr>
+              <th scope="row">{formatXAxis(x)}</th>
+              <td
+                >{pace[index] == null
+                  ? "No observation"
+                  : formatPace(pace[index]!)}</td
+              >
+              <td
+                >{heartRate[index] == null
+                  ? "No observation"
+                  : `${heartRate[index]!.toFixed(0)} bpm`}</td
+              >
+              <td
+                >{elevation[index] == null
+                  ? "No observation"
+                  : `${elevation[index]!.toFixed(0)} m`}</td
+              >
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </details>
+{/if}
 
 <style>
   .chart {

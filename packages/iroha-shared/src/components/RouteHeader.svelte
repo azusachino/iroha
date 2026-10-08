@@ -1,9 +1,16 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
 
-  let { title, context, children, actions }: {
+  let {
+    title,
+    context,
+    titleSnippet,
+    children,
+    actions,
+  }: {
     title: string;
     context: string;
+    titleSnippet?: Snippet;
     children?: Snippet;
     actions?: Snippet;
   } = $props();
@@ -11,7 +18,11 @@
 
 <header class="route-header" role="region" aria-label="{title} header">
   <div class="route-copy">
-    <h1>{title}</h1>
+    {#if titleSnippet}
+      {@render titleSnippet()}
+    {:else}
+      <h1>{title}</h1>
+    {/if}
     <p>{context}</p>
   </div>
   {#if children}<div class="route-controls">{@render children()}</div>{/if}
