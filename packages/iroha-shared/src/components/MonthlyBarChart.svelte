@@ -43,6 +43,18 @@
     const distance = metric === "distance_m";
     const range = axisRange(points.map((point) => point.value), distance ? 0 : 1);
 
+    const maxValue = Math.max(0, ...points.map((point) => point.value));
+
+    function getEffortColor(val: number, max: number, fallback: string): string {
+      if (max <= 0 || val <= 0) return fallback;
+      const ratio = val / max;
+      if (ratio < 0.25) return "#06b6d4"; // Cyan: base / light effort
+      if (ratio < 0.5) return "#10b981";  // Emerald: steady aerobic
+      if (ratio < 0.75) return "#f59e0b"; // Amber: tempo / solid build
+      if (ratio < 0.9) return "#f97316";  // Orange: threshold / hard
+      return "#f43f5e";                   // Hot coral: peak / max effort
+    }
+
     chart.setOption({
       animation: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       animationDuration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 550,
@@ -93,7 +105,22 @@
       series: [
         {
           type: "bar",
-          data: points.map((point) => point.value),
+          color: accent,
+          data: points.map((point) => {
+            const barColor = distance
+              ? getEffortColor(point.value, maxValue, accent)
+              : accent;
+            return {
+              value: point.value,
+              itemStyle: {
+                color: barColor,
+                borderRadius: [5, 5, 0, 0],
+              },
+              emphasis: {
+                itemStyle: { color: barColor },
+              },
+            };
+          }),
           barMaxWidth: 28,
           itemStyle: {
             color: accent,

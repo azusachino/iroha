@@ -27,7 +27,13 @@ export const load: PageLoad = async ({ fetch }) => {
     get<Activity[]>("activities"),
     get<Meta>("meta"),
   ]);
-  // Deferred HTTP/2 background stream for routes:
-  const routesPromise = get<RouteFeatureCollection>("routes");
-  return { summary, activities, meta, routesPromise };
+  // Lazy loader for heavy route geometries, deferred until map section enters viewport:
+  let _routesPromise: Promise<RouteFeatureCollection> | null = null;
+  const loadRoutes = () => {
+    if (!_routesPromise) {
+      _routesPromise = get<RouteFeatureCollection>("routes");
+    }
+    return _routesPromise;
+  };
+  return { summary, activities, meta, loadRoutes };
 };

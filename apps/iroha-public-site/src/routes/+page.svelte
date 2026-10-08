@@ -22,7 +22,7 @@
     formatSport,
   } from "$lib/format";
   import { site } from "$lib/site";
-  import { sportColor } from "@iroha/shared/domain/sport";
+  import { isDistanceSport, sportColor } from "@iroha/shared/domain/sport";
   import type {
     Activity,
     ActivityDetail as ActivityDetailData,
@@ -198,16 +198,21 @@
   const selectedYearTotals = $derived.by(() => {
     const scoped = filterByYearAndSport(activities, selectedYear, sportFilter);
     return scoped.reduce(
-      (acc, activity) => ({
-        activity_count: acc.activity_count + 1,
-        distance_m: acc.distance_m + (activity.distance_m ?? 0),
-        distance_known_count:
-          acc.distance_known_count + (activity.distance_m == null ? 0 : 1),
-        distance_unknown_count:
-          acc.distance_unknown_count + (activity.distance_m == null ? 1 : 0),
-        duration_s: acc.duration_s + (activity.duration_s ?? 0),
-        moving_time_s: acc.moving_time_s + (activity.moving_time_s ?? 0),
-      }),
+      (acc, activity) => {
+        const hasDistance = activity.distance_m != null;
+        const isUnknownDistance =
+          !hasDistance && isDistanceSport(activity.sport_type);
+        return {
+          activity_count: acc.activity_count + 1,
+          distance_m: acc.distance_m + (activity.distance_m ?? 0),
+          distance_known_count:
+            acc.distance_known_count + (hasDistance ? 1 : 0),
+          distance_unknown_count:
+            acc.distance_unknown_count + (isUnknownDistance ? 1 : 0),
+          duration_s: acc.duration_s + (activity.duration_s ?? 0),
+          moving_time_s: acc.moving_time_s + (activity.moving_time_s ?? 0),
+        };
+      },
       {
         activity_count: 0,
         distance_m: 0,
@@ -401,8 +406,14 @@
     if (remaining < 600) loadMore();
   }
 
-  onMount(() => {
-    data.routesPromise
+  let routesSectionEl = $state<HTMLElement>();
+  let routesRequested = false;
+
+  function ensureRoutesLoaded() {
+    if (routesRequested) return;
+    routesRequested = true;
+    data
+      .loadRoutes()
       .then((r) => {
         routes = r;
         routesLoading = false;
@@ -410,22 +421,52 @@
       .catch(() => {
         routesLoading = false;
       });
+  }
 
+  $effect(() => {
+    if (selectedActivityId) {
+      ensureRoutesLoaded();
+    }
+  });
+
+  $effect(() => {
+    const el = routesSectionEl;
+    if (!el || !browser) return;
+    if (typeof IntersectionObserver === "undefined") {
+      ensureRoutesLoaded();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          ensureRoutesLoaded();
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
+  onMount(() => {
+    ensureRoutesLoaded();
     window.addEventListener("scroll", loadMoreNearBottom, { passive: true });
     return () => window.removeEventListener("scroll", loadMoreNearBottom);
   });
 </script>
 
 <svelte:head>
-  <title>{site.name} {site.byline} · public archive</title>
+  <title>{site.name} · public archive</title>
 </svelte:head>
 
 {#if selectedActivity}
   <header class="hero tile">
     <div class="hero-topline">
       <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
-        <img src={`${base}/favicon.svg`} alt="" width="28" height="28" />
-        <span class="eyebrow">{site.name} {site.byline}</span>
+        <img src={`${base}/favicon.svg`} alt="" width="22" height="22" />
+        <span class="brand-title">{site.name}</span>
+        <span class="eyebrow visually-hidden">{site.name}</span>
       </a>
       <ThemeToggle />
     </div>
@@ -441,9 +482,16 @@
   </header>
 {:else}
   <RouteHeader
-    title="Public archive"
+    title={site.name}
     context={`Observed year: ${selectedYear || "No records"} · ${sportFilter ? formatSport(sportFilter) : "All sports"}`}
   >
+    {#snippet titleSnippet()}
+      <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
+        <img src={`${base}/favicon.svg`} alt="" width="22" height="22" />
+        <h1 class="brand-title">{site.name}</h1>
+        <span class="eyebrow visually-hidden">{site.name}</span>
+      </a>
+    {/snippet}
     {#if years.length > 0}
       <nav class="year-tabs" aria-label="Select year">
         {#each years as year (year)}
@@ -457,13 +505,7 @@
     {/if}
     {#snippet actions()}
       <div class="public-actions">
-        <div class="hero-topline">
-          <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
-            <img src={`${base}/favicon.svg`} alt="" width="28" height="28" />
-            <span class="eyebrow">{site.name} {site.byline}</span>
-          </a>
-          <ThemeToggle />
-        </div>
+        <ThemeToggle />
         <div class="hero-meta" aria-label="Archive metadata">
           <span>Live</span><span
             >Updated {formatDateOnly(meta.generated_at)}</span
@@ -527,32 +569,39 @@
   {/if}
   <div class="dashboard">
     <div class="stat-grid">
-      <StatTile
-        label="Distance"
-        value={distanceValue}
-        sub={distanceSub}
-        context={summaryContext}
-      />
-      <StatTile
-        label="Activities"
-        context={summaryContext}
-        value={formatMetricValue(selectedYearTotals.activity_count, "count")}
-      />
-      <StatTile
-        label="Running count"
-        value={formatMetricValue(selectedYearRunningCount, "count")}
-        context={selectedYear
-          ? `${selectedYear} · All running records`
-          : "No records"}
-        sub={selectedYear ? `runs in ${selectedYear}` : undefined}
-      />
-      <StatTile
-        label="Total time"
-        context={summaryContext}
-        value={formatHumanDuration(
-          selectedYearTotals.moving_time_s || selectedYearTotals.duration_s,
-        )}
-      />
+      <div class="stat-tile-wrap" style="--accent: #00e5bf;">
+        <StatTile
+          label="Distance"
+          value={distanceValue}
+          sub={distanceSub}
+          context={summaryContext}
+        />
+      </div>
+      <div class="stat-tile-wrap" style="--accent: #f59e0b;">
+        <StatTile
+          label="Activities"
+          context={summaryContext}
+          value={formatMetricValue(selectedYearTotals.activity_count, "count")}
+        />
+      </div>
+      <div class="stat-tile-wrap" style="--accent: #38bdf8;">
+        <StatTile
+          label="Running count"
+          value={formatMetricValue(selectedYearRunningCount, "count")}
+          context={selectedYear
+            ? `${selectedYear} · All running records`
+            : "No records"}
+        />
+      </div>
+      <div class="stat-tile-wrap" style="--accent: #f43f5e;">
+        <StatTile
+          label="Total time"
+          context={summaryContext}
+          value={formatHumanDuration(
+            selectedYearTotals.moving_time_s || selectedYearTotals.duration_s,
+          )}
+        />
+      </div>
     </div>
 
     <ActivityHeatmap days={activeDays} endDay={latestDay} embedded={false} />
@@ -586,7 +635,7 @@
     {#if sportBuckets.length > 0}
       <PanelFrame label="Activities by sport"
         ><section class="by-sport">
-          <div class="section-kicker">
+          <div class="section-kicker eyebrow">
             {selectedYear} by sport
           </div>
           {#each sportBuckets as sport (sport.key)}
@@ -618,7 +667,7 @@
       >
     {/if}
 
-    <section class="section-heading">
+    <section class="section-heading" bind:this={routesSectionEl}>
       <h2>Routes &amp; cities</h2>
       {#if hasPendingLocations}
         <p class="muted small">Some locations are waiting for geocoding.</p>
@@ -843,33 +892,38 @@
     color: var(--accent);
   }
   .hero {
-    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+    padding: 2.25rem 1.75rem;
     margin-bottom: 1.25rem;
+    background:
+      radial-gradient(
+        ellipse 70% 60% at 85% 15%,
+        color-mix(in srgb, var(--accent) 14%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 50% 50% at 15% 85%,
+        color-mix(in srgb, #38bdf8 10%, transparent),
+        transparent 70%
+      ),
+      var(--tile-surface);
   }
-  .eyebrow {
-    margin: 0;
-    color: var(--accent);
-    font-size: var(--type-caption);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
+
   .brand {
     display: inline-flex;
-    min-height: 2.75rem;
     align-items: center;
-    gap: 0.55rem;
-    border-radius: 8px;
+    gap: 0.5rem;
+    border-radius: 6px;
     color: inherit;
     text-decoration: none;
   }
   .brand img {
     flex: none;
-    border-radius: 7px;
+    border-radius: 6px;
   }
-  .brand:hover .eyebrow {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+  .brand:hover .brand-title {
+    color: var(--accent);
   }
   .brand:focus-visible {
     outline: 2px solid var(--accent);
@@ -886,6 +940,11 @@
     margin: 0;
     font-size: clamp(var(--type-title), 5vw, var(--type-display));
     letter-spacing: -0.03em;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--text) 40%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
   .hero-summary {
     max-width: 34rem;
@@ -922,8 +981,37 @@
     gap: 0.75rem;
     margin-bottom: 1.25rem;
   }
+  .stat-tile-wrap {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .stat-tile-wrap :global(.stat-tile) {
+    height: 100%;
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .stat-tile-wrap :global(.stat-tile:hover) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px -3px
+      color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .brand-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    transition: color 0.15s ease;
+  }
   .public-actions {
-    max-width: 23rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
   }
   .public-actions .hero-meta {
     letter-spacing: normal;
@@ -933,23 +1021,57 @@
     padding-left: 0;
     border-left: 0;
   }
+  @media (max-width: 640px) {
+    .public-actions {
+      align-items: flex-start;
+    }
+  }
   .year-tabs {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.25rem 0;
     margin-bottom: 0;
   }
+  .year-tabs::-webkit-scrollbar {
+    display: none;
+  }
   .year-tabs button {
-    padding: 0.4rem 0.85rem;
+    flex-shrink: 0;
+    padding: 0.42rem 0.9rem;
     border: 1px solid var(--border);
     border-radius: 999px;
-    background: transparent;
+    background: var(--surface);
     color: var(--text-muted);
+    font-size: var(--type-label);
+    font-weight: 600;
     cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+  .year-tabs button:hover {
+    border-color: var(--text);
+    color: var(--text);
+  }
+  .year-tabs button:focus-visible,
+  .year-tabs button:focus {
+    outline: 2px solid var(--color-focus, var(--accent)) !important;
+    outline-offset: 3px !important;
   }
   .year-tabs button.active {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--tab-active-border);
+    background: var(--tab-active-bg);
+    color: var(--tab-active-text);
+    font-weight: 750;
+    box-shadow: var(--tab-active-shadow);
   }
   .dashboard {
     display: grid;
@@ -963,12 +1085,13 @@
   .by-sport {
     min-width: 0;
   }
+  .eyebrow,
   .section-kicker {
     margin-bottom: 0.65rem;
-    color: var(--text-muted);
+    color: var(--accent);
     font-size: var(--type-caption);
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-weight: 750;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
   .sport-row {
@@ -976,14 +1099,19 @@
     align-items: center;
     gap: 0.75rem;
     width: 100%;
-    padding: 0.4rem 0;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
     border: none;
     background: none;
     cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .sport-row:hover {
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
   }
   .sport-row .bar {
     flex: 1;
-    height: 0.5rem;
+    height: 0.6rem;
     overflow: hidden;
     border-radius: 999px;
     background: var(--surface-2);
@@ -992,6 +1120,7 @@
     display: block;
     height: 100%;
     border-radius: 999px;
+    box-shadow: 0 0 10px currentColor;
   }
   .sport-row .count {
     min-width: 3rem;
@@ -1001,6 +1130,7 @@
   }
   .sport-row.active .count {
     color: var(--accent);
+    font-weight: 700;
   }
   .clear-filter {
     margin-top: 0.4rem;
@@ -1086,7 +1216,37 @@
     margin-top: 0.2rem;
   }
   .scroll-hint {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .scroll-hint:focus,
+  .scroll-hint:focus-visible {
+    position: static;
+    width: auto;
+    height: auto;
     min-height: 44px;
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    background: var(--surface, #1e222b);
+    color: var(--text, #fff);
+    border: 1px solid var(--border, #333);
+    border-radius: 6px;
+    font-size: var(--type-label);
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-block;
+    outline: 2px solid var(--color-focus, var(--accent));
+    outline-offset: 2px;
   }
   .table-wrap {
     overflow-x: auto;
@@ -1102,6 +1262,12 @@
     padding: 0.6rem 0.75rem;
     border-bottom: 1px solid var(--border);
     text-align: left;
+  }
+  tbody tr {
+    transition: background 0.15s ease;
+  }
+  tbody tr:hover {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
   }
   .sort-header {
     min-height: 44px;
@@ -1122,7 +1288,8 @@
     gap: 0.5rem;
   }
   .activity-link {
-    font-weight: 650;
+    color: var(--accent);
+    font-weight: 700;
   }
   .activity-title {
     font-weight: 600;

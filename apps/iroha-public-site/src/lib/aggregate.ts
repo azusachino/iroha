@@ -3,6 +3,7 @@
 // a static export), and the dataset is personal-scale (hundreds to low
 // thousands of rows), so recomputing on every year/sport change is fine.
 import type { ActivityActiveDay } from "@iroha/shared/domain/activity";
+import { isDistanceSport } from "@iroha/shared/domain/sport";
 import type { Activity, RouteFeature, SummaryBucket } from "./types";
 
 export function activeDaysFromActivities(
@@ -49,10 +50,11 @@ export function monthlyBuckets(activities: Activity[]): SummaryBucket[] {
       byKey.set(key, bucket);
     }
     bucket.activity_count += 1;
-    if (activity.distance_m == null) bucket.distance_unknown_count += 1;
-    else {
+    if (activity.distance_m != null) {
       bucket.distance_known_count += 1;
       bucket.distance_m += activity.distance_m;
+    } else if (isDistanceSport(activity.sport_type)) {
+      bucket.distance_unknown_count += 1;
     }
     bucket.duration_s += activity.duration_s ?? 0;
     bucket.elevation_gain_m += activity.elevation_gain_m ?? 0;

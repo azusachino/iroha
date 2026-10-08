@@ -37,3 +37,7 @@ export function sportLabel(sport?: string | null): string {
 export function isSwimming(sport?: string | null): boolean {
   return sport?.toLowerCase().includes("swim") ?? false;
 }
+
+export function isDistanceSport(sport?: string | null): boolean {
+  return canonicalSport(sport) !== "other";
+}

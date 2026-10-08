@@ -84,7 +84,7 @@
         <h3>Activity trace</h3>
       </div>
       <div class="route-map tile">
-        <RoutesMap data={activityRoutes} />
+        <RoutesMap data={activityRoutes} showTable={false} />
       </div>
     </section>
   {/if}

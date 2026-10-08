@@ -210,7 +210,20 @@
                 smooth: 0.18,
                 lineStyle: { color: accent, width: 2.5 },
                 itemStyle: { color: accent },
-                areaStyle: { color: accent, opacity: 0.15 },
+                areaStyle: {
+                  color: {
+                    type: "linear",
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 1,
+                    colorStops: [
+                      { offset: 0, color: accent },
+                      { offset: 1, color: "transparent" },
+                    ],
+                  },
+                  opacity: 0.35,
+                },
                 emphasis: { focus: "series", lineStyle: { width: 3 } },
               },
             ]
