@@ -9,7 +9,7 @@
   --color-surface-2: #1e293b;
   --color-border: #233146;
   --color-text: #f1f5f9;
-  --color-text-muted: #94a3b8;
+  --color-text-muted: #9aa3b2;
   --color-accent: var(--accent);
 }
 
@@ -23,7 +23,7 @@
   --surface-1: #111827;
   --border: #233146;
   --text: #f1f5f9;
-  --text-muted: #94a3b8;
+  --text-muted: #9aa3b2;
   --color-focus: var(--accent);
   --tab-active-bg: var(--accent);
   --tab-active-text: #0b0f19;
@@ -32,9 +32,8 @@
     color-mix(in srgb, var(--accent) 45%, transparent);
   --tile-surface: linear-gradient(
       180deg,
-      rgb(0 210 180 / 0.045),
-      rgb(255 255 255 / 0.015) 30%,
-      rgb(0 0 0 / 0.15)
+      rgb(255 255 255 / 0.035),
+      rgb(255 255 255 / 0)
     )
     var(--surface);
   --tile-shadow:
@@ -116,9 +115,11 @@ a:hover {
 }
 
 a:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+a:focus,
+button:focus-visible,
+button:focus {
+  outline: 2px solid var(--color-focus, var(--accent)) !important;
+  outline-offset: 3px !important;
 }
 
 button {

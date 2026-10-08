@@ -466,6 +466,7 @@
       <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
         <img src={`${base}/favicon.svg`} alt="" width="22" height="22" />
         <span class="brand-title">{site.name}</span>
+        <span class="eyebrow visually-hidden">{site.name}</span>
       </a>
       <ThemeToggle />
     </div>
@@ -488,6 +489,7 @@
       <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
         <img src={`${base}/favicon.svg`} alt="" width="22" height="22" />
         <h1 class="brand-title">{site.name}</h1>
+        <span class="eyebrow visually-hidden">{site.name}</span>
       </a>
     {/snippet}
     {#if years.length > 0}
@@ -633,7 +635,7 @@
     {#if sportBuckets.length > 0}
       <PanelFrame label="Activities by sport"
         ><section class="by-sport">
-          <div class="section-kicker">
+          <div class="section-kicker eyebrow">
             {selectedYear} by sport
           </div>
           {#each sportBuckets as sport (sport.key)}
@@ -987,11 +989,6 @@
   .stat-tile-wrap :global(.stat-tile) {
     height: 100%;
     border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--accent) 9%, var(--surface)) 0%,
-      var(--surface) 100%
-    );
     transition:
       transform 0.15s ease,
       box-shadow 0.15s ease;
@@ -1000,11 +997,6 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 20px -3px
       color-mix(in srgb, var(--accent) 25%, transparent);
-  }
-  .stat-tile-wrap :global(.stat-label) {
-    color: var(--accent);
-    font-weight: 750;
-    letter-spacing: 0.09em;
   }
   .brand-title {
     margin: 0;
@@ -1060,11 +1052,19 @@
     font-size: var(--type-label);
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      color 0.15s ease;
   }
   .year-tabs button:hover {
     border-color: var(--text);
     color: var(--text);
+  }
+  .year-tabs button:focus-visible,
+  .year-tabs button:focus {
+    outline: 2px solid var(--color-focus, var(--accent)) !important;
+    outline-offset: 3px !important;
   }
   .year-tabs button.active {
     border-color: var(--tab-active-border);
@@ -1085,6 +1085,7 @@
   .by-sport {
     min-width: 0;
   }
+  .eyebrow,
   .section-kicker {
     margin-bottom: 0.65rem;
     color: var(--accent);
