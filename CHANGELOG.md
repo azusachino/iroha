@@ -9,18 +9,37 @@ contract between minor versions.
 
 ### Added
 
-- Parse HAE Active Energy, Exercise Time, and Stand Hours into the existing daily ring summary only when all three have points for that day, reporting other days' points as unsupported; map the documented Blood Oxygen metric name to SpO2.
-- Keep a day's ring goals when an HAE summary, which has no goals, replaces or is restored over a full export's summary for that day.
-- Include observed HAE metric names and point counts in coverage scope alongside unsupported metrics, so bounded imports show what was actually sent without claiming complete Health coverage.
+- **Frontend & Cockpit UI**:
+  - Upgrade SvelteKit to 3.0 (`@sveltejs/kit@^3.0.0` and `@sveltejs/adapter-static@^4.0.0`) across `apps/iroha-web` and `apps/iroha-public-site`, unlocking `cookie@2.0.1` and migrating to SvelteKit 3 API contracts.
+  - Grapher Foundations (Phase 1 & Phase 2): unified pilot chrome, typed roles, shared formatting, axis/chart presentation contracts, contrast checks, keyboard zoom (200%), motion controls, and palette parity.
+  - Private cockpit visual overhaul: obsidian surface tokens, elevated light theme, tactile card geometry, harmonized domain headers across Library, Expenses, Motion, and Night, and clean subtraction of legacy metrics route.
+  - Public archive overhaul: fast streaming static loading, `ActivityHeatmap`, code-split charts, deferred route map loading, streamlined "harus track" brand header, and responsive light/dark preview screenshots in the README.
+  - Trustworthy state preservation: preserve observed scope and evidence across failed reads and recovery for Motion, Night, Library, Reports, and Intake.
+  - Accessibility & Navigation: full keyboard focus visibility, command palette option traversal, and WCAG contrast conformance certified across a 172-cell structural test matrix.
+- **Ingestion & Data Model**:
+  - Expanded Health Auto Export (HAE) Format v2 JSON parser: parse Active Energy, Exercise Time, and Stand Hours into daily ring summaries when all three have points for that day, reporting other days truthfully as unsupported; map Blood Oxygen to SpO2.
+  - Retain daily ring goals when HAE summaries replace or overlay full Apple Health exports.
+  - Parse workout GPS routes and continuous heart rate samplings directly from HAE workout payloads into canonical activity observations.
+  - Streaming NDJSON domain exports and GPX activity exports on private routes.
+  - Source delivery deadlines and overdue warning indicators in Admin.
+  - Request rate limiting and credential quotas for intake endpoints.
+- **Operations & Tooling**:
+  - Portable Kubernetes manifests (`ops/k8s`) with Kustomize support.
+  - Modernized dependencies: Vite 8.3.4, Svelte 5.57.2, Playwright 1.64.0, @lucide/svelte 1.53.0, MapLibre GL 6.13.0, Vitest 5.0.3, Bun 1.4.2, @types/node 26, dorny/paths-filter 4, jdx/mise-action 5, Go and Python ecosystem dependencies.
+  - Change detection and path-based filtering in GitHub Actions CI workflows.
+  - Local check caching and sharded Playwright E2E browser tests.
 
 ### Changed
 
-- Bump the import parser version so reprocessing retained evidence uses the expanded HAE mappings.
+- Bump import parser version so reprocessing retained evidence uses the expanded HAE mappings.
+- Supersonic singleflight read caching and cache invalidation coalescing for revision-safe private responses.
 
 ### Fixed
 
-- The local dev stack's server and job no longer crash on `chmod /data/raw-files: operation not permitted` under rootless Podman: they map the host user to the image's `iroha` user, so the bind-mounted `.iroha-data` stays owned by the host user and the raw-file modes can be tightened.
-- At startup the server and job now make everything already under `raw-files` private (directories 0700, files 0600), not just `raw-files` itself; evidence written before the permission hardening kept 0755/0644. Symlinks are skipped.
+- Preserve privacy by enforcing coordinate rounding and endpoint privacy trimming on public routes, with sport alias canonicalization.
+- Suppress SQL bound parameter logging in server and job logs, and harden outbound HTTP clients.
+- Fix local dev stack permissions under rootless Podman by mapping the host user to the image's `iroha` user (100:101) and hardening raw evidence directory permissions (0700/0600).
+- Keep Intake token, Today layout, and domain read states truthful and resilient across failed retries and network errors.
 
 ## [0.5.1] — 2026-09-29
 

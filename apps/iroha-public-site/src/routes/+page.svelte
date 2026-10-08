@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { browser } from "$app/environment";
-  import { base } from "$app/paths";
+  import { browser } from "$app/env";
+  import { asset, resolve } from "$app/paths";
   import { page } from "$app/state";
   import { onMount, untrack } from "svelte";
   import {
@@ -121,7 +121,7 @@
   });
 
   function activityHref(id: string): string {
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     url.searchParams.set("activity", id);
     return `${url.pathname}${url.search}`;
   }
@@ -463,8 +463,8 @@
 {#if selectedActivity}
   <header class="hero tile">
     <div class="hero-topline">
-      <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
-        <img src={`${base}/favicon.svg`} alt="" width="22" height="22" />
+      <a class="brand" href={resolve("/")} aria-label={`${site.name} home`}>
+        <img src={asset("favicon.svg")} alt="" width="22" height="22" />
         <span class="brand-title">{site.name}</span>
         <span class="eyebrow visually-hidden">{site.name}</span>
       </a>
@@ -486,8 +486,8 @@
     context={`Observed year: ${selectedYear || "No records"} · ${sportFilter ? formatSport(sportFilter) : "All sports"}`}
   >
     {#snippet titleSnippet()}
-      <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
-        <img src={`${base}/favicon.svg`} alt="" width="22" height="22" />
+      <a class="brand" href={resolve("/")} aria-label={`${site.name} home`}>
+        <img src={asset("favicon.svg")} alt="" width="22" height="22" />
         <h1 class="brand-title">{site.name}</h1>
         <span class="eyebrow visually-hidden">{site.name}</span>
       </a>
