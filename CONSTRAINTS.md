@@ -53,3 +53,7 @@ Record an exception here only with a named owner, reason, and expiry. The floor 
 
 | ID | Rule | Scope | Reason | Owner | Expires |
 | --- | --- | --- | --- | --- | --- |
+| E1 | test-deleted | apps/iroha-web/src/routes/metrics/* | Cleanly subtract /metrics route | haru | 2026-11-08 |
+| E2 | test-deleted | apps/iroha-web/e2e/metric-* | Cleanly subtract /metrics route | haru | 2026-11-08 |
+| E3 | assertion-removed | apps/iroha-web/** | Cleanly subtract /metrics route | haru | 2026-11-08 |
+| E4 | assertion-removed | scripts/mobile_route_check_test.py | Cleanly subtract /metrics route | haru | 2026-11-08 |

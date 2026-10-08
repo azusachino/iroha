@@ -392,7 +392,7 @@
     align-items: end;
     justify-content: space-between;
     gap: 1rem;
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--border);
     padding-bottom: 1rem;
   }
 
@@ -432,14 +432,20 @@
   }
 
   .grapher-primary :global(.report-metric-card) {
-    border-top: 3px solid var(--text);
+    border-top: 3px solid var(--accent);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
   }
 
   .grapher-evidence {
     display: grid;
     gap: 0.8rem;
-    border-top: 3px solid var(--text);
-    padding-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
   }
 
   .grapher-evidence > header {

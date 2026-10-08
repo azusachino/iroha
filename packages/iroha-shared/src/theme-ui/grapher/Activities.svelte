@@ -67,12 +67,11 @@
   tabindex="-1"
   bind:this={root}
 >
-  <header class="page-intro">
-    <p class="kicker">Activity data / public-style table</p>
-    <h1 id="activity-data-title">The movement record.</h1>
-    <p>
-      Filter the imported sessions, then compare the same fields row by row.
-    </p>
+  <header class="domain-header" role="region" aria-label="Motion header">
+    <div class="header-copy">
+      <h1 id="activity-data-title">Motion</h1>
+      <p>Movement sessions and activity routes</p>
+    </div>
   </header>
 
   {@render children?.()}
@@ -282,27 +281,23 @@
     gap: 1rem;
     min-width: 0;
   }
-  .page-intro {
-    max-width: 48rem;
-    padding-bottom: 2rem;
-    border-bottom: 3px solid var(--text);
+  .domain-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
   }
-  .kicker {
-    margin: 0 0 0.45rem;
-    color: var(--accent);
-    font-size: 0.68rem;
-    font-weight: 750;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  h1 {
+  .header-copy h1 {
     margin: 0;
-    font-size: var(--grapher-utility-title-size);
-    letter-spacing: -0.05em;
-    line-height: 1;
+    font-size: var(--type-title);
+    line-height: 1.25;
   }
-  .page-intro p:last-child {
-    margin: 1rem 0 0;
+  .header-copy p {
+    margin: 0.25rem 0 0;
+    font-size: var(--type-caption);
     color: var(--text-muted);
   }
   .filters {
@@ -321,22 +316,25 @@
   }
   .filters select {
     min-width: 9rem;
-    border-radius: 0;
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
     font-size: 0.78rem;
   }
   .summary-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    border-block: 1px solid var(--border);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0.75rem 0;
   }
   .summary-row div {
     display: grid;
     gap: 0.4rem;
+    min-width: 0;
     padding: 1rem;
-    border-right: 1px solid var(--border);
-  }
-  .summary-row div:last-child {
-    border: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface);
+    box-shadow: var(--tile-shadow);
   }
   .summary-row span {
     color: var(--text-muted);
@@ -353,7 +351,16 @@
   }
   .table-frame {
     overflow-x: auto;
-    border-top: 2px solid var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
+  }
+  .activity-row {
+    transition: background-color var(--motion-micro);
+  }
+  .activity-row:hover {
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   }
   table {
     width: 100%;
@@ -399,7 +406,7 @@
   .load-more {
     padding: 0.7rem 1rem;
     border: 1px solid var(--border);
-    border-radius: 0;
+    border-radius: 999px;
     background: var(--surface);
     color: var(--text);
     cursor: pointer;

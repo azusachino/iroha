@@ -2,23 +2,23 @@ import { test, expect } from "@playwright/test";
 import { installPilotFixtures } from "./pilot-fixtures";
 import { PUBLIC_BASE_URL } from "../playwright.config";
 for (const mode of ["light", "dark"] as const) {
-  test(`Navigation ${mode} Metrics belongs to Analyze and announces current route`, async ({
+  test(`Navigation ${mode} Reports belongs to Analyze and announces current route`, async ({
     page,
   }) => {
-    await installPilotFixtures(page, "metrics");
+    await installPilotFixtures(page, "overview");
     await page.emulateMedia({ colorScheme: mode });
-    await page.goto("/metrics?date=2026-08");
+    await page.goto("/reports?date=2026-08");
     const nav = page.getByRole("navigation", {
       name: "Primary navigation",
       exact: true,
     });
     await nav.getByText("Analyze", { exact: true }).click();
-    const metrics = nav.getByRole("link", { name: /Metrics/ });
-    await expect(metrics).toBeVisible();
-    await expect(metrics).toHaveAttribute("aria-current", "page");
-    await expect(metrics).toHaveAttribute("href", "/metrics");
-    await metrics.focus();
-    await expect(metrics).toBeFocused();
+    const reports = nav.getByRole("link", { name: /Reports/ });
+    await expect(reports).toBeVisible();
+    await expect(reports).toHaveAttribute("aria-current", "page");
+    await expect(reports).toHaveAttribute("href", "/reports");
+    await reports.focus();
+    await expect(reports).toBeFocused();
   });
   test(`Public ${mode} compact exact columns and sort controls are keyboard reachable`, async ({
     page,

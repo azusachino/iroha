@@ -169,7 +169,7 @@
     justify-content: space-between;
     gap: 1rem;
     align-items: end;
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--border);
     padding-bottom: 1.5rem;
   }
   .detail-header p:last-child,

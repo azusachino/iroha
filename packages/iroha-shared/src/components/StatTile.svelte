@@ -50,6 +50,18 @@
         transparent 55%
       ),
       var(--tile-surface, var(--surface));
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .stat-tile:hover {
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+    transform: translateY(-1px);
+    box-shadow:
+      var(--tile-shadow),
+      0 8px 24px -4px color-mix(in srgb, var(--accent) 20%, transparent);
   }
 
   .stat-tile::before {

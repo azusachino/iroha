@@ -88,7 +88,7 @@
       aria-label="Bar comparison of move calories, exercise minutes, and steps"
     >
       {#each points as point}
-        <div class="plot-column">
+        <div class="plot-column" style={`--metric-accent: ${point.color}`}>
           <div class="plot-value">
             <AnimatedNumber value={point.value} /> <small>{point.unit}</small>
           </div>
@@ -251,7 +251,7 @@
     align-items: end;
     gap: 2rem;
     padding-bottom: 2rem;
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--border);
   }
   .grapher-kicker {
     margin: 0 0 0.45rem;
@@ -325,6 +325,15 @@
     gap: 0.5rem;
     min-width: 0;
     text-align: center;
+    transition: transform var(--motion-micro);
+  }
+
+  .plot-column:hover {
+    transform: translateY(-2px);
+  }
+
+  .plot-column:hover .plot-value {
+    color: var(--metric-accent);
   }
   .plot-value {
     font-size: 1rem;
@@ -376,15 +385,27 @@
     padding: 1rem 1.1rem;
     border: 1px solid var(--border);
     border-left: 6px solid var(--sport);
-    background: var(--surface-2, var(--surface));
+    border-radius: var(--radius);
+    background: var(--tile-surface, var(--surface-2, var(--surface)));
     color: inherit;
     font: inherit;
     text-align: left;
     cursor: pointer;
+    transition:
+      border-color var(--motion-micro),
+      box-shadow var(--motion-micro),
+      transform var(--motion-micro);
   }
   .session:hover,
   .session:focus-visible {
     border-color: var(--sport);
+    box-shadow:
+      var(--tile-shadow),
+      0 8px 24px -4px color-mix(in srgb, var(--sport) 20%, transparent);
+  }
+
+  .session:hover {
+    transform: translateY(-1px);
   }
   .session-title,
   .session-stat {

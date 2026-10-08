@@ -16,7 +16,7 @@
     formatPace,
     formatSwimmingPace,
   } from "../../format/format";
-  import { isSwimming, sportLabel } from "../../domain/sport";
+  import { isSwimming, sportColor, sportLabel } from "../../domain/sport";
 
   let {
     activity,
@@ -44,7 +44,11 @@
   const distance = $derived(activity.distance_m ?? derivedDistanceM);
 </script>
 
-<article class="grapher-detail" aria-labelledby="grapher-detail-title">
+<article
+  class="grapher-detail"
+  style={`--activity-accent: ${sportColor(activity.sport_type)}`}
+  aria-labelledby="grapher-detail-title"
+>
   <header class="detail-header">
     <div>
       <p class="kicker">Motion / record detail</p>
@@ -134,6 +138,7 @@
 
 <style>
   .grapher-detail {
+    --accent: var(--activity-accent);
     display: grid;
     gap: 1rem;
     font-family: var(--font-mono);
@@ -166,7 +171,7 @@
     justify-content: space-between;
     gap: 1rem;
     align-items: end;
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--border);
     padding-bottom: 1.5rem;
   }
   .detail-header p:last-child {
@@ -176,17 +181,17 @@
   .metrics {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    border-block: 1px solid var(--border);
+    gap: 0.65rem;
   }
   .metrics div {
     display: grid;
     gap: 0.35rem;
     min-width: 0;
     padding: 0.85rem;
-    border-right: 1px solid var(--border);
-  }
-  .metrics div:last-child {
-    border: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
   }
   .metrics span,
   dt {
@@ -202,7 +207,9 @@
   .chart-panel,
   .evidence-grid > div {
     border: 1px solid var(--border);
-    background: var(--surface);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
     padding: 1rem;
   }
   .chart-panel {

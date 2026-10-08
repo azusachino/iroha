@@ -84,15 +84,6 @@
       period: PAGE_PERIOD_DEFAULTS.reports,
     },
     {
-      name: "Metrics",
-      href: "/metrics",
-      question: "How do I inspect one metric precisely?",
-      chart: "Metric series, comparison, annotations, and exportable values.",
-      detail:
-        "A catalog explorer for canonical and derived metrics with units intact.",
-      period: PAGE_PERIOD_DEFAULTS.metrics,
-    },
-    {
       name: "To-go",
       href: "/to-go",
       question: "What needs attention next?",

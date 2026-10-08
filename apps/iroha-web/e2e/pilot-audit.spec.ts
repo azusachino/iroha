@@ -10,17 +10,15 @@ import { measurePilotPage } from "./pilot-measurements";
 import { inspectPilotCharts } from "./pilot-charts";
 import { PUBLIC_BASE_URL } from "../playwright.config";
 
-const pilots: Pilot[] = ["overview", "expenses", "metrics", "public"];
+const pilots: Pilot[] = ["overview", "expenses", "public"];
 const paths: Record<Pilot, string> = {
   overview: "/overview",
   expenses: "/expenses?date=2026-08",
-  metrics: "/metrics?date=2026-08",
   public: PUBLIC_BASE_URL,
 };
 const titles: Record<Pilot, string> = {
   overview: "Overview",
   expenses: "Expenses",
-  metrics: "Metrics",
   public: "harus",
 };
 
@@ -40,10 +38,6 @@ for (const pilot of pilots) {
         if (pilot === "expenses")
           await expect(
             page.getByRole("heading", { name: "Synthetic cafe", exact: true }),
-          ).toBeVisible();
-        if (pilot === "metrics")
-          await expect(
-            page.getByRole("heading", { name: "Steps", exact: true }),
           ).toBeVisible();
         if (pilot === "overview")
           await expect(
@@ -95,10 +89,6 @@ for (const pilot of pilots) {
         if (pilot === "expenses")
           await expect(
             page.getByRole("heading", { name: "Synthetic cafe", exact: true }),
-          ).toBeVisible();
-        if (pilot === "metrics")
-          await expect(
-            page.getByRole("group", { name: "Steps view", exact: true }),
           ).toBeVisible();
         if (pilot === "overview")
           await expect(
@@ -171,10 +161,6 @@ for (const pilot of pilots) {
         await expect(
           page.getByText(/No .*expenses|No records|No entries/i).first(),
         ).toBeVisible();
-      if (scenario === "empty" && pilot === "metrics")
-        await expect(
-          page.getByText(/No observations|No data/i).first(),
-        ).toBeVisible();
       const aria = await page.locator("body").ariaSnapshot();
       await info.attach("state.json", {
         body: JSON.stringify(
@@ -220,33 +206,6 @@ test("scope controls exercise real request changes", async ({ page }, info) => {
     page.getByRole("button", { name: /Synthetic cafe/ }),
   ).toHaveCount(0);
   await info.attach("expense-scope.json", {
-    body: JSON.stringify(fixture, null, 2),
-    contentType: "application/json",
-  });
-});
-
-test("Metrics changes its rolling window, not a fabricated lifetime scope", async ({
-  page,
-}, info) => {
-  const fixture = await installPilotFixtures(page, "metrics");
-  await page.goto(paths.metrics);
-  await expect(
-    page.getByRole("heading", { name: "Steps", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "Filter by month" })
-    .selectOption("9");
-  await expect(page).toHaveURL(/date=2026-09/);
-  await expect
-    .poll(() =>
-      fixture.requests.some(
-        (request) =>
-          request.includes("from=2025-10-01") &&
-          request.includes("to=2026-10-01"),
-      ),
-    )
-    .toBe(true);
-  await info.attach("metric-scope.json", {
     body: JSON.stringify(fixture, null, 2),
     contentType: "application/json",
   });

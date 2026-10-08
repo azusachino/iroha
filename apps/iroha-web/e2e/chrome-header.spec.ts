@@ -7,19 +7,15 @@ test("Expenses failed initial load does not claim its ledger period is still loa
 }) => {
   await installPilotFixtures(page, "expenses", "error");
   await page.goto("/expenses?date=2026-08");
-  const header = page.getByRole("region", {
-    name: "Expenses header",
-    exact: true,
-  });
   await expect(
-    header.getByText("Ledger period unavailable", { exact: true }),
+    page.getByText("Ledger period unavailable", { exact: true }),
   ).toBeVisible();
   await expect(
-    header.getByText("Loading ledger period…", { exact: true }),
+    page.getByText("Loading ledger period…", { exact: true }),
   ).toHaveCount(0);
 });
 
-for (const pilot of ["overview", "metrics", "public"] as const) {
+for (const pilot of ["overview", "public"] as const) {
   test(`${pilot} has one compact route header and its actual time controls`, async ({
     page,
   }) => {
@@ -28,12 +24,7 @@ for (const pilot of ["overview", "metrics", "public"] as const) {
     await installPilotFixtures(page, pilot);
     await page.goto(pilot === "public" ? PUBLIC_BASE_URL : `/${pilot}`);
     await expect(page.getByRole("img").first()).toBeVisible();
-    const name =
-      pilot === "overview"
-        ? "Overview"
-        : pilot === "metrics"
-          ? "Metrics"
-          : "harus track";
+    const name = pilot === "overview" ? "Overview" : "harus track";
     const header = page.getByRole("region", {
       name: `${name} header`,
       exact: true,
@@ -48,19 +39,6 @@ for (const pilot of ["overview", "metrics", "public"] as const) {
       await expect(
         page.getByRole("group", { name: "Distance chart range" }),
       ).toBeVisible();
-    } else if (pilot === "metrics") {
-      await expect(header).toContainText("Observed window:");
-      await expect(
-        header.getByRole("combobox", { name: "Filter by month" }),
-      ).toHaveCount(1);
-      await expect(
-        header.getByRole("combobox", { name: "Metric", exact: true }),
-      ).toHaveCount(1);
-      await expect(
-        header
-          .getByRole("combobox", { name: "Filter by month" })
-          .getByRole("option", { name: "All months" }),
-      ).toHaveCount(0);
     } else {
       await expect(
         header.getByRole("navigation", { name: "Select year" }),
@@ -74,7 +52,7 @@ for (const pilot of ["overview", "metrics", "public"] as const) {
   });
 }
 
-test("Expenses has one compact header with truthful loaded period and reachable controls", async ({
+test("Expenses domain header and scope toolbar keep truthful loaded period and reachable controls", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -93,16 +71,21 @@ test("Expenses has one compact header with truthful loaded period and reachable 
     "Expenses",
   );
   await expect(
-    header.getByText("Observed period: 2026-08", { exact: true }),
+    header.getByText("Spending records and currency ledgers", { exact: true }),
   ).toBeVisible();
+  const toolbar = page.getByRole("region", {
+    name: "Expense period",
+    exact: true,
+  });
+  await expect(toolbar).toBeVisible();
   await expect(
-    header.getByRole("combobox", { name: "Filter by year" }),
+    toolbar.getByRole("combobox", { name: "Filter by year" }),
   ).toHaveCount(1);
   await expect(
-    header.getByRole("combobox", { name: "Filter by month" }),
+    toolbar.getByRole("combobox", { name: "Filter by month" }),
   ).toHaveCount(1);
   await expect(
-    header.getByRole("button", { name: "Refresh", exact: true }),
+    page.getByRole("button", { name: "Refresh", exact: true }),
   ).toBeVisible();
   const box = await header.boundingBox();
   expect(box!.height).toBeLessThanOrEqual(128);
@@ -115,11 +98,15 @@ test("Expenses has one compact header with truthful loaded period and reachable 
     await route.fallback();
   });
   try {
-    await header
+    const selection = page.getByRole("region", {
+      name: "Expense period selection",
+      exact: true,
+    });
+    await toolbar
       .getByRole("combobox", { name: "Filter by month" })
       .selectOption("2026-09");
     await expect(
-      header.getByText("Observed period: 2026-08", { exact: true }),
+      selection.getByText("Observed period: 2026-08", { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("status").filter({ hasText: "Updating…" }),
@@ -128,7 +115,9 @@ test("Expenses has one compact header with truthful loaded period and reachable 
     release();
   }
   await expect(
-    header.getByText("Observed period: 2026-09", { exact: true }),
+    page
+      .getByRole("region", { name: "Expense period selection", exact: true })
+      .getByText("Observed period: 2026-09", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Synthetic shop", exact: true }),

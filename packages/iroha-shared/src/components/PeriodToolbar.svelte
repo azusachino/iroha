@@ -49,7 +49,6 @@
 
   .period-toolbar[data-appearance="grapher"] {
     border-radius: 2px;
-    border-bottom-width: 3px;
   }
 
   .period-copy {

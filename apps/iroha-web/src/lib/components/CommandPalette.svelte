@@ -1,19 +1,3 @@
-<script module lang="ts">
-  import { getMetricCatalog, type MetricCatalogResponse } from "$lib/api";
-
-  let metricCatalogPromise: Promise<MetricCatalogResponse> | null = null;
-
-  function loadMetricCatalog(): Promise<MetricCatalogResponse> {
-    if (!metricCatalogPromise) {
-      metricCatalogPromise = getMetricCatalog().catch((cause) => {
-        metricCatalogPromise = null;
-        throw cause;
-      });
-    }
-    return metricCatalogPromise;
-  }
-</script>
-
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
@@ -41,7 +25,6 @@
         : null;
     open = true;
     selected = 0;
-    void loadMetrics();
     await tick();
     listbox?.focus();
   }
@@ -100,22 +83,6 @@
     listbox?.querySelector<HTMLElement>(`#command-${index}`)?.scrollIntoView({
       block: "nearest",
     });
-  }
-
-  async function loadMetrics() {
-    try {
-      const catalog = await loadMetricCatalog();
-      commands = [
-        ...allNavigationItems(),
-        ...catalog.metrics.map((metric) => ({
-          label: metric.label,
-          href: `/metrics?metric=${encodeURIComponent(metric.id)}`,
-          hint: `${metric.domain} · ${metric.unit}`,
-        })),
-      ];
-    } catch {
-      // Navigation remains usable when metric discovery is unavailable.
-    }
   }
 
   async function activate(command: Command) {

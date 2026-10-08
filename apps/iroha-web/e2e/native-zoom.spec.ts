@@ -6,7 +6,7 @@ import { measureRenderedContrast } from "./rendered-contrast";
 import { openNavigationByKeyboard } from "./pilot-keyboard";
 
 // Chrome's own tab zoom, not CSS zoom or CDP compositor/pinch scaling.
-for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
+for (const pilot of ["overview", "expenses", "public"] as const) {
   const cases = (["light", "dark"] as const).flatMap((mode) =>
     (pilot === "public" ? [null] : ["Domains", "Analyze", "More"]).map(
       (navigation) => ({ mode, navigation }),

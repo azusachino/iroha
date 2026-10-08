@@ -13,7 +13,6 @@ export const THEME_ROUTES = [
   "media-detail",
   "expenses",
   "reports",
-  "metrics",
 ] as const;
 
 export type ThemeRoute = (typeof THEME_ROUTES)[number];
@@ -48,7 +47,7 @@ export const THEME_IDENTITIES = {
     hint: "trends and comparisons",
     description: "An evidence-first language for comparison and change.",
     mark: "↗",
-    swatch: "#6da9ff",
+    swatch: "#00d2b4",
     lenses: {
       expenses: {
         question: "How did spending move?",

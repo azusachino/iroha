@@ -7,7 +7,7 @@ import type {
 import type { PublicActivity } from "@iroha/shared/domain/public-activity";
 import { fakeSession } from "./session";
 
-export type Pilot = "overview" | "expenses" | "metrics" | "public";
+export type Pilot = "overview" | "expenses" | "public";
 export type Scenario =
   | "populated"
   | "empty"

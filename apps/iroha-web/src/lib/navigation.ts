@@ -85,13 +85,6 @@ export const navigationGroups: readonly NavigationGroup[] = [
         kind: "analysis",
         hint: "Monthly cross-domain report",
       },
-      {
-        id: "metrics",
-        label: "Metrics",
-        href: "/metrics",
-        kind: "analysis",
-        hint: "Exact metric series and dimensions",
-      },
     ],
   },
   {

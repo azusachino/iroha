@@ -12,7 +12,7 @@ import { installPilotFixtures } from "./pilot-fixtures";
 const modes = ["light", "dark"] as const;
 const motions = ["no-preference", "reduce"] as const;
 const compactWidths = [320, 390] as const;
-const commandCount = 13;
+const commandCount = 11;
 
 function observeBrowser(page: Page) {
   const consoleErrors: string[] = [];
@@ -237,22 +237,9 @@ async function exerciseKeyboardShell(
   await tabUntilFocused(page, opener);
   const beforeUrl = page.url();
   const beforeScroll = await page.evaluate(() => ({ x: scrollX, y: scrollY }));
-  const catalogResponsePromise = page.waitForResponse(
-    (response) => new URL(response.url()).pathname === "/api/v1/metrics",
-  );
   await page.keyboard.press("Enter");
   const listbox = page.getByRole("listbox", { name: "Navigation commands" });
   await expect(listbox).toBeFocused();
-  const catalogResponse = await catalogResponsePromise;
-  expect(catalogResponse.request().method()).toBe("GET");
-  expect(new URL(catalogResponse.url()).search).toBe("");
-  expect(catalogResponse.status()).toBe(200);
-  expect(catalogResponse.request().postData()).toBeNull();
-  const catalog = await catalogResponse.json();
-  expect(catalog).toMatchObject({
-    schema: "metric-catalog.v1",
-    metrics: [{ id: "daily.steps", label: "Steps" }],
-  });
   await expect(page.getByRole("option")).toHaveCount(commandCount);
   const options = page.getByRole("option");
   const selectedNames: string[] = [];
@@ -329,10 +316,6 @@ async function exerciseKeyboardShell(
   expect(browser.apiFailures).toEqual([]);
   expect(browser.consoleErrors).toEqual([]);
   expect(browser.pageErrors).toEqual([]);
-  const metricRequests = browser.apiRequests.filter(
-    (request) => request.path === "/api/v1/metrics",
-  );
-  expect(metricRequests).toEqual([{ method: "GET", path: "/api/v1/metrics" }]);
   await info.attach(`shared-shell-observations-${mode}.json`, {
     body: JSON.stringify(
       {

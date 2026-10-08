@@ -93,8 +93,7 @@ fully built, on both sides:
   the year's.
 - If a level genuinely doesn't apply, say so explicitly with `showAllYears={false}` / `showAllMonths={false}` — don't leave the option reachable and let the handler silently no-op. Reports is the
   legitimate case: `reportMonthScope` (`apps/iroha-server/pkg/httpapi/reports.go`) explicitly rejects any `ReadScope.Kind` other than `ScopeMonth` — there is no yearly or lifetime report, so
-  `showAllMonths={false}` there is the honest state of the feature, not a workaround. Metrics is the other legitimate case: its selector already anchors a rolling 12-month window
-  (`monthBounds(shiftMonth(month, -11))`) regardless of which month is picked, so "All months" has no separate meaning to add.
+  `showAllMonths={false}` there is the honest state of the feature, not a workaround.
 - A copy-pasted `selectPeriodMonth`/`selectPeriodYear` handler is not evidence the target route was designed the same way as its source — check what the route's own data-loading call can actually do
   with a year or lifetime bound before assuming the guard is load-bearing versus just inherited dead weight.
 
