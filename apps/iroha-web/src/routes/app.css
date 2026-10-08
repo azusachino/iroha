@@ -4,10 +4,10 @@
 @import "@iroha/shared/theme/themes.css";
 
 @theme {
-  --color-bg: #0f1115;
-  --color-surface: #171a21;
-  --color-surface-2: #1f242d;
-  --color-border: #2a2f3a;
+  --color-bg: #090d16;
+  --color-surface: #111827;
+  --color-surface-2: #1e293b;
+  --color-border: #233146;
   --color-text: #e6e8ec;
   --color-text-muted: #9aa3b2;
   --color-accent: var(--accent);
@@ -16,10 +16,10 @@
 
 :root {
   color-scheme: dark;
-  --bg: #0f1115;
-  --surface: #171a21;
-  --surface-2: #1f242d;
-  --border: #2a2f3a;
+  --bg: #090d16;
+  --surface: #111827;
+  --surface-2: #1e293b;
+  --border: #233146;
   --text: #e6e8ec;
   --text-muted: #9aa3b2;
 
@@ -44,7 +44,8 @@
       rgb(255 255 255 / 0)
     )
     var(--surface);
-  --tile-shadow: 0 16px 48px rgb(5 7 14 / 0.4);
+  --tile-shadow:
+    0 4px 20px -2px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.04);
   --radius: 14px;
   font-family: var(--font-sans);
   /* Liquid-glass material for floating chrome (app bar, popovers, command
@@ -66,18 +67,18 @@
    from the shared palette import. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --color-bg: #f5f7fa;
+  --color-bg: #f8fafc;
   --color-surface: #ffffff;
-  --color-surface-2: #eef1f6;
-  --color-border: #d9dee6;
-  --color-text: #1a1e26;
+  --color-surface-2: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
   --color-text-muted: #5b6472;
 
-  --bg: #f5f7fa;
+  --bg: #f8fafc;
   --surface: #ffffff;
-  --surface-2: #eef1f6;
-  --border: #d9dee6;
-  --text: #1a1e26;
+  --surface-2: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #0f172a;
   --text-muted: #5b6472;
   --color-canvas: var(--bg);
   --color-surface-raised: var(--surface-2);
