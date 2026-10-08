@@ -457,15 +457,15 @@
 </script>
 
 <svelte:head>
-  <title>{site.name} {site.byline} · public archive</title>
+  <title>{site.name} · public archive</title>
 </svelte:head>
 
 {#if selectedActivity}
   <header class="hero tile">
     <div class="hero-topline">
       <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
-        <img src={`${base}/favicon.svg`} alt="" width="28" height="28" />
-        <span class="eyebrow">{site.name} {site.byline}</span>
+        <img src={`${base}/favicon.svg`} alt="" width="22" height="22" />
+        <span class="brand-title">{site.name}</span>
       </a>
       <ThemeToggle />
     </div>
@@ -481,16 +481,13 @@
   </header>
 {:else}
   <RouteHeader
-    title={`${site.name} ${site.byline}`}
+    title={site.name}
     context={`Observed year: ${selectedYear || "No records"} · ${sportFilter ? formatSport(sportFilter) : "All sports"}`}
   >
     {#snippet titleSnippet()}
       <a class="brand" href={`${base}/`} aria-label={`${site.name} home`}>
-        <img src={`${base}/favicon.svg`} alt="" width="30" height="30" />
-        <h1 class="brand-heading">
-          <span class="brand-title">{site.name}</span>
-          <span class="brand-byline">{site.byline}</span>
-        </h1>
+        <img src={`${base}/favicon.svg`} alt="" width="22" height="22" />
+        <h1 class="brand-title">{site.name}</h1>
       </a>
     {/snippet}
     {#if years.length > 0}
@@ -910,30 +907,21 @@
       ),
       var(--tile-surface);
   }
-  .eyebrow {
-    margin: 0;
-    color: var(--accent);
-    font-size: var(--type-caption);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
+
   .brand {
     display: inline-flex;
-    min-height: 2.75rem;
     align-items: center;
-    gap: 0.55rem;
-    border-radius: 8px;
+    gap: 0.5rem;
+    border-radius: 6px;
     color: inherit;
     text-decoration: none;
   }
   .brand img {
     flex: none;
-    border-radius: 7px;
+    border-radius: 6px;
   }
-  .brand:hover .eyebrow {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+  .brand:hover .brand-title {
+    color: var(--accent);
   }
   .brand:focus-visible {
     outline: 2px solid var(--accent);
@@ -1018,26 +1006,14 @@
     font-weight: 750;
     letter-spacing: 0.09em;
   }
-  .brand-heading {
-    margin: 0;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.45rem;
-    font-size: var(--type-title);
-    line-height: 1.25;
-  }
   .brand-title {
-    font-weight: 800;
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 750;
     letter-spacing: -0.02em;
     color: var(--text);
-  }
-  .brand-byline {
-    color: var(--accent);
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    font-weight: 750;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    overflow-wrap: anywhere;
+    transition: color 0.15s ease;
   }
   .public-actions {
     display: flex;
