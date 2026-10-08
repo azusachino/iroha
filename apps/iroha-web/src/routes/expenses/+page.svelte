@@ -15,7 +15,7 @@
     type MetricSeriesResponse,
   } from "$lib/api";
   import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import RouteHeader from "@iroha/shared/components/RouteHeader.svelte";
+  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
   import FilterSelect from "$lib/components/FilterSelect.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
@@ -522,22 +522,55 @@
 </svelte:head>
 
 <section class="expenses-shell">
+  <header class="domain-header" role="region" aria-label="Expenses header">
+    <div class="header-copy">
+      <h1 id="expenses-title">Expenses</h1>
+      <p>Spending records and currency ledgers</p>
+    </div>
+  </header>
+
   <section
     aria-label="Expense period selection"
     tabindex="-1"
     bind:this={boundsTarget}
   >
-    <RouteHeader
-      title="Expenses"
-      context={expensesResource.data
-        ? `Observed period: ${expensesResource.data.month}`
-        : expensesResource.error
-          ? "Ledger period unavailable"
-          : expensesResource.loading
-            ? "Loading ledger period…"
-            : "No ledger period loaded"}
-    >
-      {#snippet actions()}
+    <PeriodToolbar title="Expense spending scope" ariaLabel="Expense period">
+      <PeriodSelector
+        year={periodYear}
+        month={periodMonth}
+        years={periodYears}
+        months={periodMonths}
+        bounds={dateBounds}
+        showAllYears={false}
+        surface="inline"
+        onYear={selectPeriodYear}
+        onMonth={selectPeriodMonth}
+      />
+    </PeriodToolbar>
+
+    {#if expensesResource.data}
+      <p class="muted">Observed period: {expensesResource.data.month}</p>
+    {:else if expensesResource.error}
+      <p class="error" role="alert">Ledger period unavailable</p>
+    {:else if expensesResource.loading}
+      <p class="muted" role="status">Loading ledger period…</p>
+    {/if}
+
+    <div class="expense-filters" aria-label="Expense filters">
+      <FilterSelect
+        label="Currency"
+        value={filterCurrency}
+        options={[{ value: "", label: "All currencies" }, ...currencyOptions]}
+        onChange={selectCurrency}
+      />
+      <FilterSelect
+        label="Category"
+        value={filterCategory}
+        options={categoryOptions}
+        markerColor={categoryColor(filterCategory || "other")}
+        onChange={selectCategory}
+      />
+      <div class="filter-actions">
         <button
           class="refresh"
           type="button"
@@ -545,39 +578,8 @@
           disabled={expensesResource.loading}
           ><RefreshCw size={15} /> Refresh</button
         >
-      {/snippet}
-      <div class="expense-toolbar-controls">
-        <PeriodSelector
-          year={periodYear}
-          month={periodMonth}
-          years={periodYears}
-          months={periodMonths}
-          bounds={dateBounds}
-          showAllYears={false}
-          surface="inline"
-          onYear={selectPeriodYear}
-          onMonth={selectPeriodMonth}
-        />
-        <div class="expense-dimensions" aria-label="Expense dimensions">
-          <FilterSelect
-            label="Currency"
-            value={filterCurrency}
-            options={[
-              { value: "", label: "All currencies" },
-              ...currencyOptions,
-            ]}
-            onChange={selectCurrency}
-          />
-          <FilterSelect
-            label="Category"
-            value={filterCategory}
-            options={categoryOptions}
-            markerColor={categoryColor(filterCategory || "other")}
-            onChange={selectCategory}
-          />
-        </div>
       </div>
-    </RouteHeader>
+    </div>
     <p>
       Selected period: {month} · {filterCurrency || "All currencies"} · {filterCategory
         ? expenseCategoryLabel[filterCategory]
@@ -793,23 +795,39 @@
     font-size: var(--type-caption);
     font-weight: 700;
   }
-  .expense-toolbar-controls {
+  .domain-header {
     display: flex;
     flex-wrap: wrap;
-    align-items: end;
-    justify-content: flex-end;
-    gap: 0.75rem 1rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
   }
-  .expense-dimensions {
+  .header-copy h1 {
+    margin: 0;
+    font-size: var(--type-title);
+    line-height: 1.25;
+    letter-spacing: normal;
+  }
+  .header-copy p {
+    margin: 0.25rem 0 0;
+    font-size: var(--type-caption);
+    color: var(--text-muted);
+  }
+  .expense-filters {
     display: flex;
     flex-wrap: wrap;
     align-items: end;
     gap: 0.75rem;
-    padding-left: 1rem;
-    border-left: 1px solid var(--border);
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
   }
-  .expense-dimensions :global(.select-control) {
+  .expense-filters :global(.select-control) {
     flex: 1 1 9rem;
+  }
+  .filter-actions {
+    margin-left: auto;
   }
   button {
     min-height: 2.4rem;

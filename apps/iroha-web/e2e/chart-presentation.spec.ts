@@ -47,8 +47,8 @@ for (const pilot of ["overview", "expenses", "public"] as const) {
                   [".detail-list dt", "--type-caption"],
                   [".detail-panel h3", "--type-title-small"],
                   [".expenses-shell h1", "--type-title"],
-                  [".route-copy p", "--type-caption"],
-                  [".route-copy h1", "--type-title"],
+                  [".header-copy p", "--type-caption"],
+                  [".header-copy h1", "--type-title"],
                   [".select-label", "--type-caption"],
                   [".select-control select", "--type-label"],
                 ]

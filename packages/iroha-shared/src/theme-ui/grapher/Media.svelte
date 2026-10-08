@@ -58,14 +58,11 @@
 </script>
 
 <section class="grapher-media" aria-labelledby="grapher-media-title">
-  <header class="domain-header media-header" role="region" aria-label="Library header">
+  <header class="domain-header" role="region" aria-label="Library header">
     <div class="header-copy">
       <h1 id="grapher-media-title">Library</h1>
       <p>Watch, reading, and game history</p>
     </div>
-    <strong class="media-count">
-      <span>{aggregates?.totals.item_count ?? "—"}</span><small> titles</small>
-    </strong>
   </header>
   <nav class="tabs" aria-label="Media family">
     {#each families as option (option.value)}<button
@@ -119,6 +116,11 @@
           : "Loading library totals…"}
       </p>{/if}
     {#if aggregatesScope}<p>Observed totals: {aggregatesScope}</p>{/if}
+    <p class="muted">
+      <strong class="media-count"
+        ><span>{aggregates?.totals.item_count ?? "—"}</span> titles</strong
+      >
+    </p>
   </section>
   <div class="chart-grid" aria-label="Library charts">
     <article class="chart-panel">
@@ -288,32 +290,19 @@
     gap: var(--space-3);
     padding-bottom: 1.25rem;
     border-bottom: 1px solid var(--border);
+    font-family: var(--font-sans);
   }
   .header-copy h1 {
     margin: 0;
+    font-family: var(--font-sans);
     font-size: var(--type-title);
     line-height: 1.25;
   }
   .header-copy p {
     margin: 0.25rem 0 0;
+    font-family: var(--font-sans);
     font-size: var(--type-caption);
     color: var(--text-muted);
-  }
-  .media-header > strong {
-    display: flex;
-    align-items: baseline;
-    gap: 0.35em;
-    color: var(--accent);
-    font-family: var(--font-sans);
-    font-size: 3.5rem;
-    letter-spacing: -0.04em;
-    white-space: nowrap;
-  }
-  .media-header small {
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0;
   }
   .tabs {
     display: flex;
@@ -424,9 +413,6 @@
     padding-top: 0.7rem;
   }
   @media (max-width: 768px) {
-    .media-header {
-      display: grid;
-    }
     .chart-grid,
     .record-grid {
       grid-template-columns: 1fr;
