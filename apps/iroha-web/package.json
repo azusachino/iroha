@@ -22,7 +22,7 @@
 		"@tailwindcss/vite": "4.3.3",
 		"@types/geojson": "7946.0.16",
 		"@types/node": "^24",
-		"@vitest/coverage-v8": "4.1.11",
+		"@vitest/coverage-v8": "5.0.3",
 		"playwright": "^1.63.0",
 		"prettier": "^3.9.9",
 		"prettier-plugin-svelte": "^4.1.1",
