@@ -321,22 +321,25 @@
   }
   .filters select {
     min-width: 9rem;
-    border-radius: 0;
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
     font-size: 0.78rem;
   }
   .summary-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    border-block: 1px solid var(--border);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0.75rem 0;
   }
   .summary-row div {
     display: grid;
     gap: 0.4rem;
+    min-width: 0;
     padding: 1rem;
-    border-right: 1px solid var(--border);
-  }
-  .summary-row div:last-child {
-    border: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface);
+    box-shadow: var(--tile-shadow);
   }
   .summary-row span {
     color: var(--text-muted);
@@ -353,7 +356,16 @@
   }
   .table-frame {
     overflow-x: auto;
-    border-top: 2px solid var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
+  }
+  .activity-row {
+    transition: background-color var(--motion-micro);
+  }
+  .activity-row:hover {
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   }
   table {
     width: 100%;
@@ -399,7 +411,7 @@
   .load-more {
     padding: 0.7rem 1rem;
     border: 1px solid var(--border);
-    border-radius: 0;
+    border-radius: 999px;
     background: var(--surface);
     color: var(--text);
     cursor: pointer;

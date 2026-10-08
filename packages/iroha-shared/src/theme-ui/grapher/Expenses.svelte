@@ -110,6 +110,7 @@
 
 <style>
   .grapher-expenses {
+    --accent: var(--mark-teal);
     display: grid;
     gap: var(--space-4);
     min-width: 0;

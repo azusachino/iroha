@@ -98,16 +98,35 @@
     display: none;
   }
 
+  .grapher-header :global(.main-nav > a),
+  .grapher-header :global(.navigation-menu > summary) {
+    transition:
+      background-color var(--motion-micro),
+      box-shadow var(--motion-micro),
+      color var(--motion-micro),
+      transform var(--motion-micro);
+  }
+
   .grapher-header :global(.main-nav > a:hover),
   .grapher-header :global(.navigation-menu > summary:hover) {
     background: var(--surface-2);
     color: var(--text);
   }
 
+  .grapher-header :global(.main-nav > a:active) {
+    transform: scale(0.98);
+  }
+
   .grapher-header :global(.main-nav > a.active),
   .grapher-header :global(.navigation-menu.active > summary) {
     background: color-mix(in srgb, var(--accent) 14%, var(--surface));
     color: var(--text);
+  }
+
+  .grapher-header :global(.main-nav > a.active) {
+    box-shadow:
+      inset 3px 0 0 var(--accent),
+      0 0 12px color-mix(in srgb, var(--accent) 15%, transparent);
   }
 
   .grapher-header :global(.main-nav > a.active svg) {
@@ -165,6 +184,29 @@
     justify-content: space-between;
     width: 100%;
     min-height: 2.75rem;
+    border-radius: var(--radius);
+    box-shadow: var(--tile-shadow);
+    transition:
+      border-color var(--motion-micro),
+      box-shadow var(--motion-micro),
+      transform var(--motion-micro);
+  }
+
+  .grapher-header :global(.command-trigger:hover),
+  .grapher-header :global(.appbar-actions .user-menu > summary:hover) {
+    box-shadow:
+      var(--tile-shadow),
+      0 8px 20px -6px rgb(0 0 0 / 0.3);
+    transform: translateY(-1px);
+  }
+
+  .grapher-header :global(.appbar-actions .user-menu > summary) {
+    border-radius: var(--radius);
+    box-shadow: var(--tile-shadow);
+    transition:
+      border-color var(--motion-micro),
+      box-shadow var(--motion-micro),
+      transform var(--motion-micro);
   }
 
   .grapher-header :global(.appbar-actions .user-menu) {
@@ -270,7 +312,7 @@
       width: auto;
       min-height: 2rem;
       padding: 0.42rem 0.62rem;
-      border-radius: 0;
+      border-radius: 999px;
       font-size: 0.76rem;
     }
 

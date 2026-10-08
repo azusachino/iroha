@@ -418,6 +418,30 @@
     margin: 0;
   }
 
+  .stat-grid > :global(.stat-tile:nth-child(1)) {
+    --accent: var(--sport-walk, #00e5bf);
+  }
+
+  .stat-grid > :global(.stat-tile:nth-child(2)) {
+    --accent: var(--mark-amber, #f59e0b);
+  }
+
+  .stat-grid > :global(.stat-tile:nth-child(3)) {
+    --accent: var(--sport-run, #38bdf8);
+  }
+
+  .stat-grid > :global(.stat-tile:nth-child(4)) {
+    --accent: var(--mark-violet, #818cf8);
+  }
+
+  .stat-grid > :global(.stat-tile:nth-child(5)) {
+    --accent: var(--category-subscriptions, #ff5c8a);
+  }
+
+  .stat-grid > :global(.stat-tile:nth-child(6)) {
+    --accent: var(--ring-move, #f07c78);
+  }
+
   .dashboard-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -509,6 +533,19 @@
     font-size: var(--type-caption);
     font-weight: 700;
     cursor: pointer;
+    transition:
+      background-color var(--motion-micro),
+      color var(--motion-micro),
+      transform var(--motion-micro);
+  }
+
+  .period-control button:hover {
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+    color: var(--text);
+  }
+
+  .period-control button:active {
+    transform: scale(0.96);
   }
 
   .period-control button.selected {
@@ -564,6 +601,17 @@
 
   .table-wrap {
     overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .table-wrap tbody tr {
+    transition: background-color var(--motion-micro);
+  }
+
+  .table-wrap tbody tr:hover {
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   }
 
   .table-scroll-hint {

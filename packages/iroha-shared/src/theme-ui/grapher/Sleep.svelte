@@ -190,6 +190,7 @@
 
 <style>
   .grapher-sleep {
+    --accent: var(--mark-violet);
     display: grid;
     gap: 1rem;
     min-width: 0;
@@ -230,17 +231,17 @@
   .summary-row {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    border-block: 1px solid var(--border);
+    gap: 0.75rem;
   }
   .summary-row div {
     display: grid;
     gap: 0.4rem;
     min-width: 0;
     padding: 1rem;
-    border-right: 1px solid var(--border);
-  }
-  .summary-row div:last-child {
-    border: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
   }
   .summary-row span {
     color: var(--text-muted);
@@ -256,7 +257,9 @@
   .session-table {
     padding: 1.25rem;
     border: 1px solid var(--border);
-    background: var(--surface);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
   }
   .panel-heading {
     display: flex;
@@ -303,7 +306,7 @@
   }
   tbody tr:hover,
   tbody tr.selected {
-    background: var(--surface-2);
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   }
   .selected-note {
     display: grid;

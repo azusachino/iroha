@@ -323,7 +323,7 @@
   }
   button {
     border: 1px solid var(--border);
-    border-radius: 0;
+    border-radius: 999px;
     padding: 0.45rem 0.7rem;
     background: transparent;
     color: var(--text-muted);
@@ -350,7 +350,7 @@
   }
   select {
     min-width: 9rem;
-    border-radius: 0;
+    border-radius: var(--radius, 14px);
     font: inherit;
     font-size: 0.75rem;
   }
@@ -362,7 +362,9 @@
   .chart-panel,
   .records {
     border: 1px solid var(--border);
-    background: var(--surface);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
     padding: 1rem;
   }
   .chart-panel {
@@ -376,17 +378,18 @@
   }
   .stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    border-block: 1px solid var(--border);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
   }
   .stats div {
     display: grid;
     gap: 0.35rem;
+    min-width: 0;
     padding: 0.8rem;
-    border-right: 1px solid var(--border);
-  }
-  .stats div:last-child {
-    border: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow);
   }
   .stats span,
   .records header > span,

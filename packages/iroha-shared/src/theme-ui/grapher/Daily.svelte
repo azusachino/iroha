@@ -211,19 +211,29 @@
     margin: 0 0.6rem 0 0;
   }
   .controls button {
-    padding: 0.4rem 0.65rem;
+    padding: 0.4rem 0.75rem;
     border: 1px solid var(--border);
-    border-radius: 0;
+    border-radius: 999px;
     background: var(--surface);
     color: var(--text-muted);
     font: inherit;
     font-size: 0.75rem;
     cursor: pointer;
+    transition:
+      background-color var(--motion-micro),
+      border-color var(--motion-micro),
+      color var(--motion-micro),
+      transform var(--motion-micro);
   }
   .controls button.active,
   .controls button:hover {
     border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
     color: var(--text);
+  }
+
+  .controls button:active {
+    transform: scale(0.96);
   }
   .period-count {
     margin-left: auto;

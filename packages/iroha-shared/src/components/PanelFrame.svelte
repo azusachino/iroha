@@ -14,9 +14,11 @@
     gap: var(--space-3);
     min-width: 0;
     padding: var(--space-4);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    box-shadow: var(--tile-shadow, none);
+    border: 1px solid color-mix(in srgb, var(--border) 88%, white 12%);
+    border-radius: var(--radius, 14px);
+    background: var(--tile-surface, var(--surface));
+    box-shadow:
+      var(--tile-shadow, none),
+      inset 0 1px 0 rgb(255 255 255 / 0.035);
   }
 </style>
