@@ -13,8 +13,6 @@
     "svelte": "5.57.1"
   },
   "overrides": {
-    "cookie": "0.7.0",
-    "postcss@8.5.26>nanoid": "3.3.18",
-    "vite@8.2.2>postcss": "8.5.26"
+    "postcss@8.5.26>nanoid": "3.3.18"
   }
 }

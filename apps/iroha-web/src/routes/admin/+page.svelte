@@ -38,12 +38,11 @@
   }
 
   function select(id: TabId) {
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     url.searchParams.set("tab", id);
     void goto(`${url.pathname}${url.search}`, {
-      replaceState: true,
-      noScroll: true,
-      keepFocus: true,
+      replace: true,
+      reset: false,
     });
   }
 </script>

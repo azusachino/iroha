@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { fade } from "svelte/transition";
-  import { browser } from "$app/environment";
+  import { browser } from "$app/env";
   import type { AsyncResource } from "$lib/asyncResource.svelte";
 
   // Takes the AsyncResource(s) a route is rendering directly, rather than

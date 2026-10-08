@@ -32,9 +32,12 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     sveltekit({
-      alias: { "@iroha/shared": sharedPath },
       compilerOptions: {
         runes: true,
+      },
+      alias: {
+        $lib: "src/lib",
+        "@iroha/shared": sharedPath,
       },
       // Self-hosted at the root (no GitHub Pages project-page subpath to
       // account for) -- default base path.
