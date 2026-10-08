@@ -64,6 +64,34 @@ class QualityFloorGuardTest(unittest.TestCase):
 """
         self.assertIn("new-exception", {rule for rule, _ in find_floor_violations(diff)})
 
+    def test_tracked_exception_exempts_matching_deleted_test(self):
+        diff = """--- a/check_test.py
++++ /dev/null
+@@
+-assert result == expected
+"""
+        constraints = "| E1 | test-deleted | check_test.py | Retire check | haru | 2099-01-01 |\n"
+        self.assertEqual(find_floor_violations(diff, constraints_content=constraints), [])
+
+    def test_tracked_exception_exempts_matching_removed_assertion(self):
+        diff = """--- a/apps/iroha-web/e2e/test.spec.ts
++++ b/apps/iroha-web/e2e/test.spec.ts
+@@
+-expect(value).toBe(true);
++console.log(value);
+"""
+        constraints = "| E1 | assertion-removed | apps/iroha-web/** | Retire feature | haru | 2099-01-01 |\n"
+        self.assertEqual(find_floor_violations(diff, constraints_content=constraints), [])
+
+    def test_expired_tracked_exception_does_not_exempt(self):
+        diff = """--- a/check_test.py
++++ /dev/null
+@@
+-assert result == expected
+"""
+        constraints = "| E1 | test-deleted | check_test.py | Expired | haru | 2020-01-01 |\n"
+        self.assertIn("test-deleted", {rule for rule, _ in find_floor_violations(diff, constraints_content=constraints)})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -392,7 +392,7 @@
     align-items: end;
     justify-content: space-between;
     gap: 1rem;
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--border);
     padding-bottom: 1rem;
   }
 

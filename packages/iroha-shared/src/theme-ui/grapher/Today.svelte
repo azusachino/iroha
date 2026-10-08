@@ -251,7 +251,7 @@
     align-items: end;
     gap: 2rem;
     padding-bottom: 2rem;
-    border-bottom: 3px solid var(--text);
+    border-bottom: 1px solid var(--border);
   }
   .grapher-kicker {
     margin: 0 0 0.45rem;

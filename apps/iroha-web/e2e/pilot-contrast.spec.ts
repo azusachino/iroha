@@ -4,7 +4,7 @@ import { installPilotFixtures } from "./pilot-fixtures";
 import { measureRenderedContrast } from "./rendered-contrast";
 import { inspectPilotCharts } from "./pilot-charts";
 
-for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
+for (const pilot of ["overview", "expenses", "public"] as const) {
   for (const mode of ["light", "dark"] as const) {
     for (const width of [320, 768, 1280]) {
       test(`${pilot} ${mode} ${width} rendered text and chart paint meet contrast`, async ({

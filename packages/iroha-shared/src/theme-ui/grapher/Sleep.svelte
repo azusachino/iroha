@@ -30,13 +30,11 @@
 </script>
 
 <section class="grapher-sleep" aria-labelledby="sleep-data-title">
-  <header class="page-intro">
-    <p class="kicker">Night data / recovery series</p>
-    <h1 id="sleep-data-title">How did the night unfold?</h1>
-    <p>
-      Compare recorded nights as a time series, then inspect one session without
-      turning it into a score.
-    </p>
+  <header class="domain-header" role="region" aria-label="Night header">
+    <div class="header-copy">
+      <h1 id="sleep-data-title">Night</h1>
+      <p>Recovery and sleep sessions</p>
+    </div>
   </header>
 
   {@render children?.()}
@@ -198,35 +196,27 @@
   .grapher-sleep > * {
     min-width: 0;
   }
-  .page-intro {
-    max-width: 50rem;
-    padding-bottom: 2rem;
-    border-bottom: 3px solid var(--text);
+  .domain-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
   }
-  .kicker {
-    margin: 0 0 0.45rem;
-    color: var(--accent);
-    font-size: 0.68rem;
-    font-weight: 750;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  h1,
-  h2 {
+  .header-copy h1 {
     margin: 0;
-    letter-spacing: -0.07em;
+    font-size: var(--type-title);
+    line-height: 1.25;
   }
-  h1 {
-    font-size: var(--grapher-utility-title-size);
-    line-height: 0.88;
+  .header-copy p {
+    margin: 0.25rem 0 0;
+    font-size: var(--type-caption);
+    color: var(--text-muted);
   }
   h2 {
     font-size: 1.25rem;
-  }
-  .page-intro p:last-child {
-    margin: 1rem 0 0;
-    color: var(--text-muted);
-    line-height: 1.55;
   }
   .summary-row {
     display: grid;

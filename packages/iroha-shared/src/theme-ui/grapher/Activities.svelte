@@ -67,12 +67,11 @@
   tabindex="-1"
   bind:this={root}
 >
-  <header class="page-intro">
-    <p class="kicker">Activity data / public-style table</p>
-    <h1 id="activity-data-title">The movement record.</h1>
-    <p>
-      Filter the imported sessions, then compare the same fields row by row.
-    </p>
+  <header class="domain-header" role="region" aria-label="Motion header">
+    <div class="header-copy">
+      <h1 id="activity-data-title">Motion</h1>
+      <p>Movement sessions and activity routes</p>
+    </div>
   </header>
 
   {@render children?.()}
@@ -282,27 +281,23 @@
     gap: 1rem;
     min-width: 0;
   }
-  .page-intro {
-    max-width: 48rem;
-    padding-bottom: 2rem;
-    border-bottom: 3px solid var(--text);
+  .domain-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
   }
-  .kicker {
-    margin: 0 0 0.45rem;
-    color: var(--accent);
-    font-size: 0.68rem;
-    font-weight: 750;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  h1 {
+  .header-copy h1 {
     margin: 0;
-    font-size: var(--grapher-utility-title-size);
-    letter-spacing: -0.05em;
-    line-height: 1;
+    font-size: var(--type-title);
+    line-height: 1.25;
   }
-  .page-intro p:last-child {
-    margin: 1rem 0 0;
+  .header-copy p {
+    margin: 0.25rem 0 0;
+    font-size: var(--type-caption);
     color: var(--text-muted);
   }
   .filters {

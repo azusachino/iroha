@@ -35,12 +35,6 @@ class MobileRouteInventoryTest(unittest.TestCase):
             f"/motion?date={mobile_route_check.date.today().year}",
         )
         self.assertEqual(
-            mobile_route_check.expected_route_url(
-                "/metrics?metric=health.steps&month=2026-08", "/metrics"
-            ),
-            "/metrics?metric=health.steps&date=2026-08",
-        )
-        self.assertEqual(
             mobile_route_check.expected_route_url("/expenses?month=2026-08", "/expenses"),
             "/expenses?month=2026-08",
         )
@@ -125,10 +119,6 @@ class MobileRouteInventoryTest(unittest.TestCase):
         self.assertEqual(
             mobile_route_check.report_route("/motion/private-activity-id"),
             "/motion/:id",
-        )
-        self.assertEqual(
-            mobile_route_check.report_route("/metrics?metric=health.steps"),
-            "/metrics?metric=health.steps",
         )
 
 

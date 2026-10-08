@@ -19,7 +19,7 @@ test("Expenses failed initial load does not claim its ledger period is still loa
   ).toHaveCount(0);
 });
 
-for (const pilot of ["overview", "metrics", "public"] as const) {
+for (const pilot of ["overview", "public"] as const) {
   test(`${pilot} has one compact route header and its actual time controls`, async ({
     page,
   }) => {
@@ -28,12 +28,7 @@ for (const pilot of ["overview", "metrics", "public"] as const) {
     await installPilotFixtures(page, pilot);
     await page.goto(pilot === "public" ? PUBLIC_BASE_URL : `/${pilot}`);
     await expect(page.getByRole("img").first()).toBeVisible();
-    const name =
-      pilot === "overview"
-        ? "Overview"
-        : pilot === "metrics"
-          ? "Metrics"
-          : "harus track";
+    const name = pilot === "overview" ? "Overview" : "harus track";
     const header = page.getByRole("region", {
       name: `${name} header`,
       exact: true,
@@ -48,19 +43,6 @@ for (const pilot of ["overview", "metrics", "public"] as const) {
       await expect(
         page.getByRole("group", { name: "Distance chart range" }),
       ).toBeVisible();
-    } else if (pilot === "metrics") {
-      await expect(header).toContainText("Observed window:");
-      await expect(
-        header.getByRole("combobox", { name: "Filter by month" }),
-      ).toHaveCount(1);
-      await expect(
-        header.getByRole("combobox", { name: "Metric", exact: true }),
-      ).toHaveCount(1);
-      await expect(
-        header
-          .getByRole("combobox", { name: "Filter by month" })
-          .getByRole("option", { name: "All months" }),
-      ).toHaveCount(0);
     } else {
       await expect(
         header.getByRole("navigation", { name: "Select year" }),

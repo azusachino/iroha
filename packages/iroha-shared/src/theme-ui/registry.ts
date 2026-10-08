@@ -17,7 +17,6 @@ import GrapherMedia from "./grapher/Media.svelte";
 import GrapherMediaDetail from "./grapher/MediaDetail.svelte";
 import GrapherExpenses from "./grapher/Expenses.svelte";
 import GrapherReports from "./grapher/Reports.svelte";
-import GrapherMetrics from "./grapher/Metrics.svelte";
 
 // Registry entries are intentionally heterogeneous. `never` erases their
 // props at the shared boundary; each host supplies the route-specific props.
@@ -39,7 +38,6 @@ const registry = defineThemeRegistry<ThemeComponent>({
       dashboard: GrapherDashboard,
       expenses: GrapherExpenses,
       reports: GrapherReports,
-      metrics: GrapherMetrics,
     },
   },
 });

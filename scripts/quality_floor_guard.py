@@ -7,6 +7,8 @@ import argparse
 import re
 import subprocess
 import sys
+import fnmatch
+from datetime import date
 from dataclasses import dataclass
 
 SUPPRESSIONS = re.compile(
@@ -107,11 +109,92 @@ def thresholds(text: str) -> list[tuple[float, str | None]]:
     return values
 
 
-def find_floor_violations(diff: str) -> list[tuple[str, str]]:
+@dataclass(frozen=True)
+class TrackedException:
+    id: str
+    rule: str
+    scope: str
+    reason: str
+    owner: str
+    expires: str
+
+
+def parse_exceptions(content: str) -> list[TrackedException]:
+    exceptions: list[TrackedException] = []
+    for line in content.splitlines():
+        match = re.match(
+            r"^\|\s*([WE]\d+)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|",
+            line.strip(),
+        )
+        if match:
+            id_, rule, scope, reason, owner, expires = (g.strip() for g in match.groups())
+            if id_ in ("ID", "---"):
+                continue
+            exceptions.append(
+                TrackedException(
+                    id=id_,
+                    rule=rule,
+                    scope=scope,
+                    reason=reason,
+                    owner=owner,
+                    expires=expires,
+                )
+            )
+    return exceptions
+
+
+def is_active_exception(exc: TrackedException, today: date | None = None) -> bool:
+    if today is None:
+        today = date.today()
+    if not exc.owner or exc.owner == "Owner" or not exc.reason:
+        return False
+    try:
+        expiry_date = date.fromisoformat(exc.expires)
+        return expiry_date >= today
+    except ValueError:
+        return False
+
+
+def path_matches_scope(path: str, scope: str) -> bool:
+    if path == scope:
+        return True
+    if fnmatch.fnmatch(path, scope):
+        return True
+    normalized = re.sub(r"\*\*+", "*", scope)
+    return fnmatch.fnmatch(path, normalized)
+
+
+def find_floor_violations(diff: str, constraints_content: str | None = None) -> list[tuple[str, str]]:
     added, removed, deleted = parse_diff(diff)
     violations: list[tuple[str, str]] = []
 
+    if constraints_content is None:
+        try:
+            with open("CONSTRAINTS.md", encoding="utf-8") as f:
+                constraints_content = f.read()
+        except OSError:
+            constraints_content = ""
+
+    exceptions = parse_exceptions(constraints_content) if constraints_content else []
+    diff_added_constraints = "\n".join(
+        c.text for c in added if c.path.endswith("CONSTRAINTS.md")
+    )
+    if diff_added_constraints:
+        for exc in parse_exceptions(diff_added_constraints):
+            if exc not in exceptions:
+                exceptions.append(exc)
+
+    active_exceptions = [e for e in exceptions if is_active_exception(e)]
+
+    def is_exempted(rule: str, path: str) -> bool:
+        for exc in active_exceptions:
+            if (exc.rule == "*" or exc.rule == rule) and path_matches_scope(path, exc.scope):
+                return True
+        return False
+
     def flag(rule: str, path: str) -> None:
+        if is_exempted(rule, path):
+            return
         finding = (rule, path)
         if finding not in violations:
             violations.append(finding)
@@ -124,7 +207,9 @@ def find_floor_violations(diff: str) -> list[tuple[str, str]]:
         if SKIPS.search(change.text):
             flag("test-made-easier", change.path)
         if change.path.endswith("CONSTRAINTS.md") and re.match(r"\|\s*(?:W|E)\d+\s*\|", change.text):
-            flag("new-exception", change.path)
+            row_exc = parse_exceptions(change.text)
+            if not row_exc or not is_active_exception(row_exc[0]):
+                flag("new-exception", change.path)
 
     for path in deleted:
         if is_test(path):

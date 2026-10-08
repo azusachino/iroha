@@ -3,7 +3,7 @@ import { PUBLIC_BASE_URL } from "../playwright.config";
 import { installPilotFixtures } from "./pilot-fixtures";
 import { openNavigationByKeyboard } from "./pilot-keyboard";
 
-for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
+for (const pilot of ["overview", "expenses", "public"] as const) {
   for (const mode of ["light", "dark"] as const) {
     for (const width of [320, 768, 1280]) {
       for (const navigation of pilot === "public"
@@ -29,9 +29,7 @@ for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
               ? "Overview"
               : pilot === "expenses"
                 ? "Expenses"
-                : pilot === "metrics"
-                  ? "Metrics"
-                  : "harus track";
+                : "harus track";
           const header = page.getByRole("region", {
             name: `${title} header`,
             exact: true,

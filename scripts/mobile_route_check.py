@@ -43,7 +43,6 @@ STATIC_ROUTES = (
     ("/expenses?month=2026-08", "/expenses"),
     ("/patterns?month=2026-08", "/patterns"),
     ("/reports?month=2026-08", "/reports"),
-    ("/metrics?metric=health.steps&month=2026-08", "/metrics"),
     ("/admin", "/admin"),
     ("/manual", "/manual"),
     ("/to-go", "/to-go"),
@@ -148,12 +147,6 @@ def expected_route_url(route: str, expected_path: str) -> str:
     if expected_path in ("/motion", "/night") and "?" not in route:
         return f"{expected_path}?date={date.today().year}"
     route_path, separator, query = route.partition("?")
-    if route_path == "/metrics":
-        params = [
-            ("date" if key in ("month", "year") else key, value)
-            for key, value in urllib.parse.parse_qsl(query, keep_blank_values=True)
-        ]
-        return expected_path + ("?" + urllib.parse.urlencode(params) if params else "")
     if route_path in ("/expenses", "/patterns", "/reports"):
         return expected_path + ("?" + route.partition("?")[2] if "?" in route else "")
     return expected_path

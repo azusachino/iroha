@@ -58,13 +58,10 @@
 </script>
 
 <section class="grapher-media" aria-labelledby="grapher-media-title">
-  <header class="media-header">
-    <div>
-      <p class="kicker">Library / distributions</p>
-      <h1 id="grapher-media-title">The attention record.</h1>
-      <p>
-        Compare completion, score, and kind before opening the exact shelf rows.
-      </p>
+  <header class="domain-header media-header" role="region" aria-label="Library header">
+    <div class="header-copy">
+      <h1 id="grapher-media-title">Library</h1>
+      <p>Watch, reading, and game history</p>
     </div>
     <strong class="media-count">
       <span>{aggregates?.totals.item_count ?? "—"}</span><small> titles</small>
@@ -283,20 +280,24 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
-  .media-header {
+  .domain-header {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     justify-content: space-between;
-    gap: 2rem;
-    align-items: end;
-    border-bottom: 3px solid var(--text);
-    padding-bottom: 1.5rem;
+    gap: var(--space-3);
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
   }
-  .media-header p:last-child {
-    max-width: 40rem;
-    margin-top: 1rem;
+  .header-copy h1 {
+    margin: 0;
+    font-size: var(--type-title);
+    line-height: 1.25;
+  }
+  .header-copy p {
+    margin: 0.25rem 0 0;
+    font-size: var(--type-caption);
     color: var(--text-muted);
-    font-family: var(--font-sans);
-    line-height: 1.55;
   }
   .media-header > strong {
     display: flex;

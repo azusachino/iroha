@@ -3,7 +3,7 @@ import { PUBLIC_BASE_URL } from "../playwright.config";
 import { installPilotFixtures } from "./pilot-fixtures";
 import { inspectPilotCharts } from "./pilot-charts";
 
-for (const pilot of ["overview", "expenses", "metrics", "public"] as const) {
+for (const pilot of ["overview", "expenses", "public"] as const) {
   test(`${pilot} plots retain data while live motion and mode preferences change`, async ({
     page,
   }) => {
