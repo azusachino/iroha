@@ -2,6 +2,8 @@
 
 Date: 2026-10-12. Parent: [#142](https://github.com/azusachino/iroha/issues/142).
 
+For the reopened issue's Hardcover/Kindle Unlimited handoff, read the later [usage and independent-source review](book-reading-hub-practices.md). It keeps the original evidence below intact while proposing source-independent ingestion and explicit writer ownership.
+
 ## Scope and evidence
 
 This is source-backed preparation, not implementation or deployment. The owner scoped it as a single-session, tier-0 task: research, a staged plan, and acceptance issues, without Asobi or an independent verifier. The initial coordination setup was withdrawn. A read-only source scout had already completed; its findings were checked against source below. No upstream tests, live authenticated requests, real-device tests, or deployment were performed.

@@ -6,7 +6,7 @@ Status: proposed; research and acceptance planning only. This document does not 
 
 ## Outcome and scope
 
-Keep personal reading history independently of its reader, then allow deliberate public sharing. BookOrbit owns files, locators and reader synchronization; Iroha owns sourced history, canonical identities and sharing decisions. WeRead can remain an independent parallel source. Hardcover is optional and should use BookOrbit's existing write integration rather than a second Iroha writer.
+Keep personal reading history independently of its reader, then allow deliberate public sharing. BookOrbit owns files, locators and reader synchronization; Iroha owns sourced history, canonical identities and sharing decisions. WeRead can remain an independent parallel source. Hardcover can optionally supply metadata and personal list/history evidence, including metadata-only Kindle books. For BookOrbit-managed target books/fields, prefer BookOrbit's existing Hardcover writer rather than a competing Iroha writer.
 
 The owner confirmed single-session, tier-0 preparation: research, plan and issues, with no Asobi or independent verifier. This plan and [the research](../integrations/bookorbit-research.md) are the content-owned paths. The owner additionally approved a blank-line-only formatting repair in `docs/plans/2026-10-08-cockpit-visual-overhaul.md` after the full documentation gate exposed 15 pre-existing errors. No application code or deployment is part of this task. Current evidence is source inspection, not runtime feasibility acceptance.
 
@@ -20,6 +20,14 @@ Follow the workstation-task playbook and Iroha's `AGENTS.md`, `CONSTRAINTS.md` a
 4. First slice stays private. Public sharing follows the current validated live `/public/v1` projection, **not the retired static builder/export pipeline in #142**. If the owner specifically wants static-only books data, record that architectural choice before implementation.
 5. Treat raw evidence retention as a real acceptance prerequisite. Default raw-byte purge prevents indefinite replay of unmodeled native fields. Do not silently disable global purge or promise replay from hashes.
 6. Keep source identity and edition matching conservative. Scope BookOrbit IDs by stable configured instance/account identity; don't auto-merge book editions/translations using Iroha's generic title/year fallback. Keep differing provider states; select projection precedence deliberately.
+
+## Reopened reading-hub handoff
+
+The [later usage and source-topology review](../integrations/book-reading-hub-practices.md) evaluates Hardcover and Kindle Unlimited against pinned primary sources. Its recommendation is independent evidence ingestion into Iroha, not mandatory WeRead → BookOrbit mediation. The [synthetic companion tests in PR #148](https://github.com/azusachino/iroha/pull/148) remain counterexamples to lossless ordinary BookOrbit writes; they do not rule out a limited mirror or independent source adapters.
+
+Proposed expansion: a private read-only Hardcover saved-snapshot contract, capable of representing a metadata-only Kindle book without an EPUB. Keep global catalogue/work IDs, edition/translation IDs and personal read records distinct; do not equate reported position with measured reading time. Amazon has official Kindle-related portability scopes, but eligible-account access and useful reading-history semantics remain unverified. KU loans are not assumed to be exportable permanent book files.
+
+This does not change #144–#146's existing acceptance criteria, authorize implementation or approve a universal two-way synchronizer. Decide the narrower Hardcover contract, retention, source precedence and per-target-field writer ownership before opening its implementation slice. Keep Iroha read-only initially, reuse existing media/import/job boundaries, and leave unsupported sessions/annotations/writeback for separate acceptance. Live BookOrbit deployment remains an owning-repository outcome, not proof of reader/restore acceptance.
 
 ## Dependency order and issue index
 
