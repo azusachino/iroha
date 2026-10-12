@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { fade } from "svelte/transition";
-  import { browser } from "$app/environment";
+  import { browser } from "$app/env";
   import { APP_VERSION } from "$lib/config";
   import { useTheme } from "$lib/themes/context.svelte";
 
