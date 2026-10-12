@@ -17,6 +17,8 @@ Git checkouts were obtained over SSH and their actual full revisions recorded. B
 
 ## Recommendation
 
+Follow-up: the owner proposed a WeRead → companion → BookOrbit → Iroha topology. [The isolated companion feasibility test](weread-bookorbit-companion-feasibility.md) found that BookOrbit 3.3.0's tested ordinary write APIs cannot preserve lossless, private WeRead history: source provenance is rejected, replay changes timestamps, stale percent writes replace local progress, and shared custom metadata is not per-reader evidence. Metadata/status mirroring for already-matched local books is possible, but replacing the direct WeRead source requires an explicit reduced-goal decision or a supported upstream source-import extension.
+
 Use a **version-pinned, authenticated application-API snapshot connector**, followed by Iroha's existing pure media parser and evidence pipeline. First import private book identity, current reading status, and reported progress. Keep the original source values and do not manufacture consumption events. Use bounded full scans until a reliable change feed exists.
 
 Two independent decisions precede implementation:

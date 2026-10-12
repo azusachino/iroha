@@ -1,0 +1,192 @@
+{
+  "synthetic_only": true,
+  "source_commit": "e767358443419253eeed782518d6fc4f675d69fd",
+  "checks": [
+    {
+      "name": "openapi_capture",
+      "passed": true,
+      "details": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "metadata_only_create_route_available",
+      "passed": false,
+      "details": {
+        "http_status": 404,
+        "response": {
+          "statusCode": 404,
+          "message": "Cannot POST /api/v1/books",
+          "path": "/api/v1/books",
+          "timestamp": "2026-10-12T01:14:17.007Z",
+          "requestId": "req-6"
+        }
+      }
+    },
+    {
+      "name": "matched_file_metadata_write",
+      "passed": true,
+      "details": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "status_write_with_source_date",
+      "passed": true,
+      "details": {
+        "http_status": 200,
+        "readStatus": {
+          "status": "reading",
+          "source": "manual",
+          "startedAt": "2024-01-02T00:00:00.000Z",
+          "finishedAt": null,
+          "updatedAt": "2026-10-12T01:14:29.223Z"
+        }
+      }
+    },
+    {
+      "name": "matched_file_progress_write",
+      "passed": true,
+      "details": {
+        "http_status": 201,
+        "percentage": 20
+      }
+    },
+    {
+      "name": "progress_native_provenance_supported",
+      "passed": false,
+      "details": {
+        "http_status": 400,
+        "response": {
+          "statusCode": 400,
+          "message": [
+            "property sourceProvider should not exist",
+            "property sourceRecordId should not exist",
+            "property sourceUpdatedAt should not exist"
+          ],
+          "path": "/api/v1/books/files/1/progress",
+          "timestamp": "2026-10-12T01:14:29.267Z",
+          "requestId": "req-r"
+        }
+      }
+    },
+    {
+      "name": "replay_preserves_progress_timestamp",
+      "passed": false,
+      "details": {
+        "before": "2026-10-12T01:14:29.245Z",
+        "after": "2026-10-12T01:14:29.377Z"
+      }
+    },
+    {
+      "name": "stale_companion_write_preserves_local_progress",
+      "passed": false,
+      "details": {
+        "local_percent": 70,
+        "late_incoming_percent": 10,
+        "result_percent": 10
+      }
+    },
+    {
+      "name": "unlocated_weread_annotation_supported",
+      "passed": false,
+      "details": {
+        "http_status": 400,
+        "response": {
+          "statusCode": 400,
+          "message": ["Provide exactly one of cfi or pdf"],
+          "path": "/api/v1/books/1/annotations",
+          "timestamp": "2026-10-12T01:14:29.433Z",
+          "requestId": "req-z"
+        }
+      }
+    },
+    {
+      "name": "generic_custom_metadata_roundtrip",
+      "passed": true,
+      "details": {
+        "http_status": 200,
+        "field_id": 1
+      }
+    },
+    {
+      "name": "custom_evidence_survives_unrelated_metadata_patch",
+      "passed": true,
+      "details": {}
+    },
+    {
+      "name": "custom_evidence_private_to_source_user",
+      "passed": false,
+      "details": {
+        "visible_to_second_library_viewer": true,
+        "viewer_readStatus": null
+      }
+    }
+  ],
+  "app_image": {
+    "id": "f840c217268c51d0bb522258ac8eb7085d70e7abc150bfbd7060595258c0bf1f",
+    "digests": [
+      "ghcr.io/bookorbit/bookorbit@sha256:4c2a1b957a3c8aeb9f59bb27a7d8efb18fa42c758afed3dcfc62620c5bcd1831",
+      "ghcr.io/bookorbit/bookorbit@sha256:7f92fca7d924c0c82f902ec87658ec96e367405b32da2f996ce35f8206e0b23f"
+    ],
+    "labels": null
+  },
+  "db_image": {
+    "id": "55141572004e92a39edfdc2d16e821c214b64ca4fba50c1f7e408a09a3d04aff",
+    "digests": [
+      "docker.io/pgvector/pgvector@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11",
+      "docker.io/pgvector/pgvector@sha256:ad249f9fb9572979643a47694e59b9a8cdcdf6abc6accebf49bb80ad5f20ff9b"
+    ],
+    "labels": null
+  },
+  "server_version": {
+    "version": "v3.3.0",
+    "updateAvailable": null,
+    "latestVersion": null,
+    "maxUploadSizeMb": 500,
+    "features": [
+      "annotation-stars",
+      "annotation-color-names",
+      "annotation-trash",
+      "book-journal",
+      "bookmark-edit",
+      "notebook-hub"
+    ]
+  },
+  "book_route_methods": {
+    "/api/v1/books": ["delete"],
+    "/api/v1/libraries/{id}/books": ["post"],
+    "/api/v1/authors/{id}/books": ["get"],
+    "/api/v1/collections/{id}/books": ["post", "delete", "get"],
+    "/api/v1/smart-scopes/{id}/books": ["get"],
+    "/api/v1/annotations/books": ["get"],
+    "/api/v1/notebook/books": ["get"],
+    "/api/v1/series/{seriesId}/books": ["get"],
+    "/api/v1/koreader/plugin/catalog/books": ["get"],
+    "/api/v1/hardcover/books": ["get"],
+    "/api/v1/storygraph/books": ["get"],
+    "/api/v1/maintenance/missing-resources/books": ["get"]
+  },
+  "completed": true,
+  "cleanup": [
+    {
+      "kind": "container",
+      "name": "bo-companion-spike-app",
+      "exit_code": 0
+    },
+    {
+      "kind": "container",
+      "name": "bo-companion-spike-db",
+      "exit_code": 0
+    },
+    {
+      "kind": "network",
+      "name": "bo-companion-spike-net",
+      "exit_code": 0
+    },
+    {
+      "kind": "disposable_storage",
+      "exit_code": 0
+    }
+  ]
+}
