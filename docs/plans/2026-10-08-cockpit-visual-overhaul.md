@@ -24,20 +24,24 @@ The goal of this overhaul is to transform the private cockpit from a drab, burea
 A visual and codebase audit of `apps/iroha-web` and `packages/iroha-shared` identified five primary architectural causes of the grey aesthetic:
 
 ### 2.1 Monochromatic & Low-Contrast Surface Architecture
+
 - **Dark Mode**: Uses a flat charcoal canvas (`--bg: #0f1115`), surface (`--surface: #171a21`), and elevated surface (`--surface-2: #1f242d`). Because the background is relatively bright dark-grey with near-zero chroma, components lack depth and contrast, resulting in a murky "grey haze" across the viewport.
 - **Light Mode**: Built on flat grayish-blue canvas (`--bg: #f5f7fa`) with chalky white cards (`--surface: #ffffff`) and flat grey borders (`--border: #d9dee6`). It reads as an unstyled administrative form or clinical audit tool rather than a modern personal cockpit.
 
 ### 2.2 Desaturated "Grapher" Token Hijack
+
 - In `packages/iroha-shared/src/theme/themes.css`, the default design language `[data-language="grapher"]` overrides brand colors with `--accent: #6da9ff` (pale faded denim blue) and `--accent-2: #f07c78` (faded coral). In light mode, it drops to `--accent: #2b67be` (dull navy) and `--accent-2: #b84256` (brick).
 - This global override strips away the radiant teal (`#39c5bb` / `#00e5bf`), vibrant magenta (`#ff5c8a`), and athletic amber/emerald accents, imposing a desaturated clinical veil across every view.
 
 ### 2.3 Brutalist "Wireframe" Geometry (Zero-Radius Syndrome)
+
 - In several core views, elements are styled with raw 0px borders:
   - `Daily.svelte`: `border-radius: 0;` on aggregation buttons.
   - `Activities.svelte`: `summary-row` is a rigid 3-column wireframe box carved up with 1px border lines; filter dropdowns have sharp 0-radius edges.
   - Tables in `Overview`, `Daily`, and `Activities`: Styled with harsh `border-top: 2px solid var(--text)` and thin 1px row separators without card padding, subtle zebra striping, or visual rhythm.
 
 ### 2.4 Complete Absence of Domain Chromatic Identity
+
 - Iroha unifies multiple distinct personal data domains: **Movement / Athletics**, **Sleep / Recovery**, **Health Metrics**, **Expenses**, and **Media**.
 - However, the private site renders nearly every domain identically:
   - `Overview`: 6 identical white/grey stat tiles with plain black/white numbers; no sport badges, no color-coded indicators.
@@ -47,6 +51,7 @@ A visual and codebase audit of `apps/iroha-web` and `packages/iroha-shared` iden
 - The established domain tokens (`--sport-run`, `--sport-ride`, `--ring-move`, `--ring-exercise`, `--ring-stand`, `--category-*`) exist in `palette.css` but are barely utilized on primary overview cards and tiles.
 
 ### 2.5 Flat Surfaces Devoid of Atmospheric Depth
+
 - There is virtually no ambient lighting, surface graduation, or rim lighting.
 - Card backgrounds use flat solid colors or faint linear gradients (`rgb(255 255 255 / 0.035)`), with faint, muddy box-shadows.
 - The left sidebar (`Shell.svelte`) is a flat 15rem block divided by a single vertical 1px line, with tiny monochrome text links.
@@ -58,19 +63,23 @@ A visual and codebase audit of `apps/iroha-web` and `packages/iroha-shared` iden
 We establish an **Athletic Cockpit & Elevated Studio** design system:
 
 ### 3.1 Dark Mode: The "Obsidian Cockpit"
+
 - **Canvas**: Deep midnight obsidian (`#080a10` to `#0a0d14`), delivering infinite contrast against colored data.
 - **Ambient Field**: Subtle, organic radial glow meshes reflecting the primary domain color (e.g., radiant teal for running, indigo for sleep, emerald for expenses).
 - **Surfaces**: Layered dark slate cards (`#111520` surface, `#171d2b` elevated) with a 1px top-rim highlight (`inset 0 1px 0 rgba(255, 255, 255, 0.08)`) and soft deep drop shadows (`0 16px 40px rgba(0, 0, 0, 0.45)`).
 - **Micro-Borders**: Fine, translucent boundaries (`rgba(255, 255, 255, 0.08)` dark) that gently highlight on hover (`rgba(57, 197, 187, 0.3)`).
 
 ### 3.2 Light Mode: The "Elevated Studio"
+
 - **Canvas**: Warm, luminous alabaster (`#f8fafc` / `#f1f5f9`).
 - **Surfaces**: Floating pure-white cards (`#ffffff`) with multi-tier soft shadows (`0 1px 3px rgba(0,0,0,0.04), 0 12px 32px rgba(15,23,42,0.06)`), banishing the dreary grey look.
 - **Typography**: Crisp high-contrast slate ink (`#0f172a` primary numbers, `#475569` labels).
 - **Accents**: Pure, saturated athletic hues (emerald teal `#0d9488`, electric cobalt `#2563eb`, vibrant amber `#d97706`).
 
 ### 3.3 Domain Chromatic Identity
+
 Each domain gains immediate visual recognition through color, iconography, and top-accent glow:
+
 - **Movement (Running/Walking/Cycling)**: Radiant Teal (`#00e5bf` / `#0d9488`), Sky Blue (`#38bdf8`), Electric Coral (`#ff5c8a`).
 - **Recovery & Sleep**: Midnight Indigo (`#818cf8`), Dream Violet (`#a78bfa`), Soft Cyan (`#22d3ee`).
 - **Health Metrics**: Pulse Rose (`#f43f5e`), Apple Rings (Move `#f07c78`, Exercise `#e7b65a`, Stand `#6da9ff`).
@@ -78,6 +87,7 @@ Each domain gains immediate visual recognition through color, iconography, and t
 - **Media & Library**: Sunset Rose (`#fb7185`), Warm Amber (`#fbbf24`).
 
 ### 3.4 Tactile Controls & Rounded Geometry
+
 - Retire all `border-radius: 0;` styling.
 - Standardize on cohesive outer radius (`--radius: 14px`) and inner pill radius (`999px`) for segmented controls.
 - Period selectors and filters adopt pill segmented controls (as proven in the public site), with solid dark/light active states and crisp typography.
@@ -97,6 +107,7 @@ flowchart TD
 ```
 
 ### Slice 1: Token Architecture & Atmospheric Foundation
+
 - **Files**:
   - `packages/iroha-shared/src/theme/palette.css`
   - `packages/iroha-shared/src/theme/themes.css`
@@ -108,6 +119,7 @@ flowchart TD
   - Define domain badge and tile gradient tokens (`--tile-surface-glow`, `--glow-movement`, `--glow-recovery`, `--glow-finance`).
 
 ### Slice 2: Shell, Navigation Rail & Core Primitives
+
 - **Files**:
   - `packages/iroha-shared/src/theme-ui/grapher/Shell.svelte`
   - `packages/iroha-shared/src/components/StatTile.svelte`
@@ -121,6 +133,7 @@ flowchart TD
   - Replace raw HTML button controls with rounded pill segmented controls.
 
 ### Slice 3: Today & Overview Cockpit Elevation
+
 - **Files**:
   - `packages/iroha-shared/src/theme-ui/grapher/Today.svelte`
   - `packages/iroha-shared/src/theme-ui/grapher/Dashboard.svelte`
@@ -136,6 +149,7 @@ flowchart TD
     - Polish session list items with domain sport accents, subtle hover lifts, and clean time stamps.
 
 ### Slice 4: Motion & Night Domain Visuals
+
 - **Files**:
   - `packages/iroha-shared/src/theme-ui/grapher/Activities.svelte`
   - `packages/iroha-shared/src/theme-ui/grapher/ActivityDetail.svelte`
@@ -151,6 +165,7 @@ flowchart TD
     - Aggregate sleep chart: gradient bar fills, clear main-sleep vs nap distinction, legible stage tags.
 
 ### Slice 5: Expenses, Metrics, Library & Verification Gate
+
 - **Files**:
   - `packages/iroha-shared/src/theme-ui/grapher/Expenses.svelte`
   - `packages/iroha-shared/src/theme-ui/grapher/Metrics.svelte`
