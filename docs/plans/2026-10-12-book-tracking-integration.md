@@ -23,6 +23,8 @@ Follow the workstation-task playbook and Iroha's `AGENTS.md`, `CONSTRAINTS.md` a
 
 ## Reopened reading-hub handoff
 
+The complete [Reading Hub Phase A proposal](reading-hub.md) now owns the six deliverables requested in [the new issue comment](https://github.com/azusachino/iroha/issues/142#issuecomment-6116906753): proposed [ADR 0011](../adr/0011-provider-neutral-reading-evidence.md), evidence-labelled capability matrix, actual table/contract mapping, synchronization state machines, two-source test-first vertical slice and explicit risks/prerequisites. It is awaiting the owner's final review; no production implementation or live-provider approval is implied. This earlier plan continues to own the BookOrbit-specific #143–#146 sequencing.
+
 The [later usage and source-topology review](../integrations/book-reading-hub-practices.md) evaluates Hardcover and Kindle Unlimited against pinned primary sources. Its recommendation is independent evidence ingestion into Iroha, not mandatory WeRead → BookOrbit mediation. The [synthetic companion tests in PR #148](https://github.com/azusachino/iroha/pull/148) remain counterexamples to lossless ordinary BookOrbit writes; they do not rule out a limited mirror or independent source adapters.
 
 Proposed expansion: a private read-only Hardcover saved-snapshot contract, capable of representing a metadata-only Kindle book without an EPUB. Keep global catalogue/work IDs, edition/translation IDs and personal read records distinct; do not equate reported position with measured reading time. Amazon has official Kindle-related portability scopes, but eligible-account access and useful reading-history semantics remain unverified. KU loans are not assumed to be exportable permanent book files.

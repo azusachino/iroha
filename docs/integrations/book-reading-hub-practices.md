@@ -2,6 +2,8 @@
 
 Date: 2026-10-12. Parent: [#142](https://github.com/azusachino/iroha/issues/142).
 
+The [complete Phase A package](../plans/reading-hub.md) and proposed [ADR 0011](../adr/0011-provider-neutral-reading-evidence.md) own the new issue comment's architecture, observation mapping, synchronization state machine and implementation roadmap. This note remains the usage/primary-source review, not a substitute for those six deliverables.
+
 Status: research and proposed sequencing, not an accepted architecture contract or authorization to implement. This reviews the reopened issue's ChatGPT handoff, including Hardcover and Kindle Unlimited. No authenticated Hardcover/Amazon requests, real account access, library imports or deployment changes were made for this research.
 
 ## Evidence boundary
@@ -67,7 +69,7 @@ The pinned [schema](https://github.com/hardcoverapp/hardcover-docs/blob/6ee717ec
 
 Preserve native nullable progress, edition/read IDs and reported date precision. A page/audio-position field is **position**, not time actively spent reading/listening. A read-history row is not a measured session. Repeated reads must survive as separate attempts instead of one overwritten start/finish pair. Handle GraphQL `errors` even when HTTP returns 200; incomplete/error captures cannot clear prior evidence.
 
-BookOrbit's [client](https://github.com/bookorbit/bookorbit/blob/e767358443419253eeed782518d6fc4f675d69fd/server/src/modules/hardcover/hardcover-client.service.ts) spaces requests by at least 1100 ms and allows three retries. Those are implementation constants, **not an authoritative Hardcover quota**. Verify provider limits and use bounded backoff/rate-limit handling in any future Iroha connector.
+BookOrbit's [client](https://github.com/bookorbit/bookorbit/blob/e767358443419253eeed782518d6fc4f675d69fd/server/src/modules/hardcover/hardcover-client.service.ts) spaces requests by at least 1100 ms and allows three retries. Those are implementation constants, **not an authoritative Hardcover quota**. The pinned API introduction separately documents daily/burst/per-minute limits and rate headers; the [Phase A capability section](../plans/reading-hub.md#3-provider-capabilities-and-directionality) records those published values. Verify actual account/token headers and use bounded backoff/rate-limit handling in any future Iroha connector.
 
 ### Kindle: correct the “no API” blanket claim
 

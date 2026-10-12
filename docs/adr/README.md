@@ -14,5 +14,6 @@ Statuses below are the decisions recorded in each ADR, not inferred approval fro
 | 0008 | [Health Auto Export for automated daily Health intake](0008-health-auto-export-http-intake.md)            | Accepted; authentication decision updated                    |
 | 0009 | [Native Bun workspace and stable project tools](0009-native-frontend-workspace.md)                        | Accepted by owner; supersedes unmerged pnpm proposal in #117 |
 | 0010 | [Encoded public snapshots and exact-byte validators](0010-public-snapshot-validators.md)                  | Proposed; PR #125 requires independent contract verification |
+| 0011 | [Provider-neutral reading evidence and controlled outbound synchronization](0011-provider-neutral-reading-evidence.md) | Proposed; awaiting owner's final Phase A review |
 
 Keep numbering stable. Extend or supersede a decision explicitly; do not silently promote proposed ADRs while updating this index.
