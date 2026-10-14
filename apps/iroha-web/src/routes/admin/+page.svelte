@@ -41,8 +41,7 @@
     const url = new URL(page.url.href);
     url.searchParams.set("tab", id);
     void goto(`${url.pathname}${url.search}`, {
-      replace: true,
-      reset: false,
+      replaceState: true,
     });
   }
 </script>
