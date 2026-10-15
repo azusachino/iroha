@@ -1,3 +1,7 @@
 [global]
 # Keep prose wrapping intentional; rumdl enforces Markdown structure and consistency.
 disable = ["MD013"]
+exclude = [".github/**"]
+
+[per-file-ignores]
+".github/PULL_REQUEST_TEMPLATE.md" = ["MD041"]
