@@ -21,6 +21,12 @@ Follow the workstation-task playbook and Iroha's `AGENTS.md`, `CONSTRAINTS.md` a
 5. Treat raw evidence retention as a real acceptance prerequisite. Default raw-byte purge prevents indefinite replay of unmodeled native fields. Do not silently disable global purge or promise replay from hashes.
 6. Keep source identity and edition matching conservative. Scope BookOrbit IDs by stable configured instance/account identity; don't auto-merge book editions/translations using Iroha's generic title/year fallback. Keep differing provider states; select projection precedence deliberately.
 
+## Companion-topology feasibility checkpoint
+
+The owner subsequently requested investigation of WeRead → sync companion → BookOrbit, with Iroha reading only BookOrbit. The [executed disposable spike](../integrations/weread-bookorbit-companion-feasibility.md) is **NO-GO for lossless history through unmodified BookOrbit 3.3.0's tested ordinary APIs**. Basic writes work for existing local-file books, but native source IDs/times, private evidence, safe stale-write handling, fileless creation and unlocated annotations remain blockers.
+
+Do not switch #144–#146 to a BookOrbit-only evidence topology merely because a companion can write percentages. Owner choice is still needed: retain independent source connectors, deliberately accept a limited, explicitly lossy mirror, or scope a supported BookOrbit external-source import extension. The latter is substantial upstream contract work, not this preparation task. Keep #143 open; no real WeRead account or reader/device/restore acceptance was completed by the synthetic probe.
+
 ## Reopened reading-hub handoff
 
 The complete [Reading Hub Phase A proposal](reading-hub.md) now owns the six deliverables requested in [the new issue comment](https://github.com/azusachino/iroha/issues/142#issuecomment-6116906753): proposed [ADR 0011](../adr/0011-provider-neutral-reading-evidence.md), evidence-labelled capability matrix, actual table/contract mapping, synchronization state machines, two-source test-first vertical slice and explicit risks/prerequisites. It is awaiting the owner's final review; no production implementation or live-provider approval is implied. This earlier plan continues to own the BookOrbit-specific #143–#146 sequencing.
