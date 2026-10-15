@@ -88,7 +88,7 @@ export function serializeCalendarScope(scope: CalendarScope): string | null {
 }
 
 export function readCalendarScope(
-  params: URLSearchParams,
+  params: { get(name: string): string | null },
   options: ScopeQueryOptions,
 ): CalendarScope {
   const scope = params.get("scope");

@@ -17,6 +17,10 @@ The private cockpit stores personal history and runs on a local machine or priva
 
 The public site is served from the deployment cluster; its Caddy proxy exposes only `/public/v1/*` from `iroha-server`. GitHub Pages at `azusachino.github.io/iroha` is retired and no longer updates. See [public-site publishing](docs/public-site-publishing.md) for the current pipeline, privacy boundary, and operator workflow.
 
+![Iroha public archive — dark theme](docs/assets/public-archive-dark.png)
+
+![Iroha public archive — light theme](docs/assets/public-archive-light.png)
+
 ## Quick start
 
 Requires [mise](https://mise.jdx.dev/) and Podman.

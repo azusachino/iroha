@@ -48,24 +48,21 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     sveltekit({
-      alias: { "@iroha/shared": sharedPath },
       compilerOptions: {
         // Force runes mode for the project, except for libraries. Can be removed in svelte 6.
         runes: ({ filename }) =>
           filename.split(/[/\\]/).includes("node_modules") ? undefined : true,
       },
 
+      alias: {
+        $lib: "src/lib",
+        "@iroha/shared": sharedPath,
+      },
+
       // Read-only private viewer: a client-rendered SPA that talks to the
       // iroha-server read API at runtime. adapter-static with an SPA
       // fallback avoids any prerender/SSR dependency on a live backend.
       adapter: adapter({ fallback: "index.html" }),
-      // Playwright only transpiles, so svelte-check types the e2e specs and
-      // their fixtures against src/lib/api.ts.
-      typescript: {
-        config: (config) => {
-          config.include.push("../e2e/**/*.ts", "../playwright.config.ts");
-        },
-      },
     }),
   ],
 });

@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "peerDependencies": {
-    "svelte": "^5.57.1"
+    "svelte": "^5.57.2"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.48.0",
+    "@lucide/svelte": "^1.53.0",
     "echarts": "^6.1.0"
   }
 }
