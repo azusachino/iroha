@@ -149,11 +149,17 @@ func TestIntegrationImportFailureRetriesAndRecovers(t *testing.T) {
 		t.Fatalf("decode import id: %v", err)
 	}
 	var queueJob models.Job
-	if err := db.Where("kind = ? and payload_json ->> 'import_job_id' = ?", jobs.KindGPXImportParse, importUUID.String()).First(&queueJob).Error; err != nil {
-		t.Fatalf("load queue job: %v", err)
-	}
-	if queueJob.Status == jobs.StatusCompleted {
-		t.Fatalf("failed import queue job was completed: %#v", queueJob)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if err := db.Where("kind = ? and payload_json ->> 'import_job_id' = ?", jobs.KindGPXImportParse, importUUID.String()).First(&queueJob).Error; err == nil {
+			if queueJob.Status == jobs.StatusQueued && queueJob.ErrorMessage != nil {
+				break
+			}
+			if queueJob.Status == jobs.StatusCompleted {
+				t.Fatalf("failed import queue job was completed: %#v", queueJob)
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 	if queueJob.Status != jobs.StatusQueued || queueJob.ErrorMessage == nil {
 		t.Fatalf("failed import queue job = %#v, want queued with error", queueJob)
