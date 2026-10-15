@@ -6,7 +6,7 @@
     "svelte": "^5.57.2"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.53.0",
+    "@lucide/svelte": "^1.55.0",
     "echarts": "^6.1.0"
   }
 }
