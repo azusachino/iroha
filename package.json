@@ -9,7 +9,7 @@
   ],
   "trustedDependencies": [],
   "devDependencies": {
-    "prettier": "3.9.9",
+    "prettier": "3.9.10",
     "svelte": "5.57.2"
   },
   "overrides": {
