@@ -33,7 +33,7 @@
 	"dependencies": {
 		"@iroha/shared": "workspace:*",
 		"echarts": "^6.1.0",
-		"maplibre-gl": "^6.14.0",
+		"maplibre-gl": "^6.15.0",
 		"zrender": "6.1.0"
 	}
 }
