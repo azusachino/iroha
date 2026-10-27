@@ -8,7 +8,7 @@ require (
 	github.com/azusachino/iroha/apps/iroha-providers v0.1.0
 	github.com/azusachino/iroha/apps/iroha-runtime v0.1.0
 	github.com/descope/virtualwebauthn v1.0.5
-	github.com/go-chi/chi/v5 v5.3.2
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/cors v1.2.2
 	github.com/go-chi/httprate v0.16.1
 	github.com/go-webauthn/webauthn v0.18.2
