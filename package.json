@@ -13,6 +13,7 @@
     "svelte": "5.57.2"
   },
   "overrides": {
-    "postcss@8.5.26>nanoid": "3.3.18"
+    "postcss@8.5.26>nanoid": "3.3.18",
+    "source-map-js": "1.2.2"
   }
 }
