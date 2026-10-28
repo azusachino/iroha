@@ -17,6 +17,9 @@ export default defineConfig({
       "@iroha/shared": sharedPath,
     },
   },
+  optimizeDeps: {
+    include: ["maplibre-gl"],
+  },
   build: {
     // MapLibre and ECharts are core to the public route/detail experience and
     // together produce one intentionally large vendor chunk.

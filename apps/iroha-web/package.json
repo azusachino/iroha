@@ -15,27 +15,27 @@
 		"test": "vitest run --coverage"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.64.0",
+		"@playwright/test": "^1.64.1",
 		"@sveltejs/adapter-static": "^4.0.0",
-		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/kit": "^3.1.0",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "4.3.3",
 		"@types/geojson": "7946.0.16",
 		"@types/node": "^26",
-		"@vitest/coverage-v8": "^5.0.3",
-		"playwright": "^1.64.0",
+		"@vitest/coverage-v8": "^5.0.5",
+		"playwright": "^1.64.1",
 		"prettier": "^3.9.10",
 		"prettier-plugin-svelte": "^4.1.1",
 		"svelte": "^5.57.2",
 		"svelte-check": "^4.7.7",
 		"tailwindcss": "4.3.3",
 		"typescript": "^6.0.3",
-		"vite": "8.3.4",
+		"vite": "8.3.5",
 		"vitest": "^5.0.5"
 	},
 	"dependencies": {
 		"@iroha/shared": "workspace:*",
-		"@lucide/svelte": "^1.55.0",
+		"@lucide/svelte": "^1.61.0",
 		"echarts": "^6.1.0",
 		"maplibre-gl": "^6.15.0",
 		"zrender": "6.1.0"
