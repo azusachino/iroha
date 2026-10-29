@@ -37,7 +37,7 @@
 		"@iroha/shared": "workspace:*",
 		"@lucide/svelte": "^1.61.0",
 		"echarts": "^6.1.0",
-		"maplibre-gl": "^6.15.0",
+		"maplibre-gl": "^6.16.0",
 		"zrender": "6.1.0"
 	}
 }
