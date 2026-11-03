@@ -10,8 +10,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A unique main-run group preserves pending main runs as well as running ones.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
@@ -154,6 +155,11 @@ jobs:
           cache: true
       # Resolve the workspace-lock-owned Playwright CLI locally, without bunx downloads.
       # This job deliberately has no Go build or DB.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       - run: make frontend-install
       - name: Install Chromium and system dependencies
         run: make e2e-install E2E_INSTALL_FLAGS=--with-deps
@@ -171,6 +177,11 @@ jobs:
         with:
           install: true
           cache: true
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       - run: make frontend-install
       - name: Install Chromium and system dependencies
         run: make e2e-install E2E_INSTALL_FLAGS=--with-deps
