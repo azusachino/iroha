@@ -492,37 +492,6 @@ export function createPatternsState() {
     if (period) drillIntoPeriod(period);
   }
 
-  // Re-read URL searchParams on popstate/navigation back
-  $effect(() => {
-    const requested = readCalendarScope(page.url.searchParams, {
-      fallback: defaultScope,
-      allowDay: false,
-    });
-    const urlGran = granFromUrl();
-    const urlYear =
-      requested.kind === "year" || requested.kind === "month"
-        ? String(requested.year)
-        : requested.kind === "lifetime"
-          ? ""
-          : currentYear(new Date(), IROHA_TIMEZONE);
-    const urlMonth =
-      requested.kind === "month"
-        ? (serializeCalendarScope(requested) as string)
-        : "";
-
-    if (
-      urlGran !== gran ||
-      urlYear !== selectedYear ||
-      urlMonth !== selectedMonth
-    ) {
-      gran = urlGran;
-      selectedYear = urlYear;
-      selectedMonth = urlMonth;
-      if (gran === "year") void loadYearly();
-      if (gran === "day" && selectedMonth) void loadDays(selectedMonth);
-    }
-  });
-
   onMount(() => {
     syncUrl();
     void loadMonthly();
@@ -530,6 +499,38 @@ export function createPatternsState() {
     void loadBounds();
     if (gran === "year") void loadYearly();
     if (gran === "day" && selectedMonth) void loadDays(selectedMonth);
+
+    const handlePopState = () => {
+      const requested = readCalendarScope(page.url.searchParams, {
+        fallback: defaultScope,
+        allowDay: false,
+      });
+      const urlGran = granFromUrl();
+      const urlYear =
+        requested.kind === "year" || requested.kind === "month"
+          ? String(requested.year)
+          : requested.kind === "lifetime"
+            ? ""
+            : currentYear(new Date(), IROHA_TIMEZONE);
+      const urlMonth =
+        requested.kind === "month"
+          ? (serializeCalendarScope(requested) as string)
+          : "";
+
+      if (
+        urlGran !== gran ||
+        urlYear !== selectedYear ||
+        urlMonth !== selectedMonth
+      ) {
+        gran = urlGran;
+        selectedYear = urlYear;
+        selectedMonth = urlMonth;
+        if (gran === "year") void loadYearly();
+        if (gran === "day" && selectedMonth) void loadDays(selectedMonth);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   });
 
   const observedScope = $derived(

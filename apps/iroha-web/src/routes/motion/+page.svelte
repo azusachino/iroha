@@ -392,35 +392,37 @@
 
   const trackedSports = $derived(summary?.by_sport.length ?? 0);
 
-  // Re-read URL searchParams on popstate/navigation back
-  $effect(() => {
-    const requested = readCalendarScope(page.url.searchParams, {
-      fallback: defaultScope,
-      allowDay: false,
-    });
-    const urlSport = page.url.searchParams.get("sport") ?? "";
-    const urlYear =
-      requested.kind === "year" || requested.kind === "month"
-        ? String(requested.year)
-        : requested.kind === "lifetime"
-          ? ""
-          : currentYear(new Date(), IROHA_TIMEZONE);
-    const urlMonth =
-      requested.kind === "month"
-        ? (serializeCalendarScope(requested) as string)
-        : "";
+  // Re-read URL searchParams on browser history popstate (e.g. Back button)
+  onMount(() => {
+    const handlePopState = () => {
+      const requested = readCalendarScope(page.url.searchParams, {
+        fallback: defaultScope,
+        allowDay: false,
+      });
+      const urlSport = page.url.searchParams.get("sport") ?? "";
+      const urlYear =
+        requested.kind === "year" || requested.kind === "month"
+          ? String(requested.year)
+          : requested.kind === "lifetime"
+            ? ""
+            : currentYear(new Date(), IROHA_TIMEZONE);
+      const urlMonth =
+        requested.kind === "month"
+          ? (serializeCalendarScope(requested) as string)
+          : "";
 
-    if (
-      urlSport !== sportType ||
-      urlYear !== selectedYear ||
-      urlMonth !== selectedMonth
-    ) {
-      untrack(() => {
+      if (
+        urlSport !== sportType ||
+        urlYear !== selectedYear ||
+        urlMonth !== selectedMonth
+      ) {
         sportType = urlSport;
         selectedYear = urlYear;
         selectedMonth = urlMonth;
-      });
-    }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   });
 
   // Reactive filtering effect: automatically re-runs query when filter states change.

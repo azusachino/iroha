@@ -399,28 +399,30 @@ export function createNightState() {
     void loadSessions(false);
   });
 
-  // Re-read URL searchParams whenever navigation occurs (e.g. popping back from /night/[id])
-  $effect(() => {
-    const scope = readCalendarScope(page.url.searchParams, {
-      fallback: defaultScope,
-      allowDay: false,
-    });
-    const urlYear =
-      scope.kind === "year" || scope.kind === "month"
-        ? String(scope.year)
-        : scope.kind === "lifetime"
-          ? ""
-          : currentYear(new Date(), IROHA_TIMEZONE);
-    const urlMonth =
-      scope.kind === "month" ? (serializeCalendarScope(scope) as string) : "";
+  // Re-read URL searchParams on browser history popstate (e.g. Back button)
+  onMount(() => {
+    const handlePopState = () => {
+      const scope = readCalendarScope(page.url.searchParams, {
+        fallback: defaultScope,
+        allowDay: false,
+      });
+      const urlYear =
+        scope.kind === "year" || scope.kind === "month"
+          ? String(scope.year)
+          : scope.kind === "lifetime"
+            ? ""
+            : currentYear(new Date(), IROHA_TIMEZONE);
+      const urlMonth =
+        scope.kind === "month" ? (serializeCalendarScope(scope) as string) : "";
 
-    if (urlYear !== selectedYear || urlMonth !== selectedMonth) {
-      untrack(() => {
+      if (urlYear !== selectedYear || urlMonth !== selectedMonth) {
         selectedYear = urlYear;
         selectedMonth = urlMonth;
         void loadSessions(false);
-      });
-    }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   });
 
   return {
