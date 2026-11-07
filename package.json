@@ -9,7 +9,7 @@
   "trustedDependencies": [],
   "devDependencies": {
     "prettier": "3.9.10",
-    "svelte": "5.57.2"
+    "svelte": "5.57.3"
   },
   "overrides": {
     "postcss@8.5.26>nanoid": "3.3.18",

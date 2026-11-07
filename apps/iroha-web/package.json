@@ -1,7 +1,7 @@
 {
 	"name": "iroha-web",
 	"private": true,
-	"version": "0.1.4",
+	"version": "0.6.0-rc1",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -16,8 +16,8 @@
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.64.1",
-		"@sveltejs/adapter-static": "^4.0.0",
-		"@sveltejs/kit": "^3.1.0",
+		"@sveltejs/adapter-static": "^4.0.1",
+		"@sveltejs/kit": "^3.1.1",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "4.3.3",
 		"@types/geojson": "7946.0.16",
@@ -26,7 +26,7 @@
 		"playwright": "^1.64.1",
 		"prettier": "^3.9.10",
 		"prettier-plugin-svelte": "^4.1.1",
-		"svelte": "^5.57.2",
+		"svelte": "^5.57.3",
 		"svelte-check": "^4.7.7",
 		"tailwindcss": "4.3.3",
 		"typescript": "^6.0.3",
@@ -35,7 +35,7 @@
 	},
 	"dependencies": {
 		"@iroha/shared": "workspace:*",
-		"@lucide/svelte": "^1.61.0",
+		"@lucide/svelte": "^1.66.0",
 		"echarts": "^6.1.0",
 		"maplibre-gl": "^6.16.0",
 		"zrender": "6.1.0"

@@ -39,6 +39,14 @@ func TestNormalizeSport(t *testing.T) {
 		{"HKWorkoutActivityTypeYoga", "yoga"},
 		{"Yoga", "yoga"},
 		{"TraditionalStrengthTraining", "traditional_strength_training"},
+		{"屋外 ラン", "run"},
+		{"屋外ラン", "run"},
+		{"屋内ラン", "run"},
+		{"屋外ウォーキング", "walk"},
+		{"屋外サイクリング", "ride"},
+		{"ハイキング", "hike"},
+		{"水泳", "swim"},
+		{"ヨガ", "yoga"},
 	}
 
 	for _, tt := range tests {
