@@ -9,7 +9,10 @@ export const API_BASE = (
   (import.meta.env.PUBLIC_IROHA_API_BASE as string | undefined) ?? ""
 ).replace(/\/$/, "");
 export const APP_VERSION =
-  (import.meta.env.PUBLIC_IROHA_VERSION as string | undefined) ?? "dev";
+  (typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : undefined) ??
+  (import.meta.env.PUBLIC_IROHA_VERSION as string | undefined) ??
+  (import.meta.env.VITE_IROHA_VERSION as string | undefined) ??
+  "dev";
 // The web build and iroha-server must use the same IANA timezone. The server
 // remains authoritative for API boundaries; this value keeps local URL state,
 // date controls, and instant formatting aligned before the first response.

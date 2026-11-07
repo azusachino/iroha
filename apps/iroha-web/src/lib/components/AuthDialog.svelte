@@ -229,6 +229,7 @@
 
 <style>
   .auth-dialog {
+    margin: auto;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface);
