@@ -106,6 +106,74 @@ func TestParseHealthAutoExportFixture(t *testing.T) {
 	}
 }
 
+func TestParseHealthAutoExportSleepEfficiencyUsesBedWindow(t *testing.T) {
+	// inBedStart 23:30 → inBedEnd 07:01 is the honest bed window (7h31m);
+	// the rounded inBed hours (7.5) match it here, but the session window
+	// must widen to it and the ratio must use the window span.
+	body := `{"data":{"metrics":[{"name":"sleep_analysis","units":"hr","data":[
+		{"sleepStart":"2026-09-19 23:48:00 +0900","sleepEnd":"2026-09-20 06:52:00 +0900",
+			"inBedStart":"2026-09-19 23:30:00 +0900","inBedEnd":"2026-09-20 07:01:00 +0900",
+			"inBed":7.5,"asleep":6.4,"core":3.9,"deep":0.9,"rem":1.6,"awake":0.4}]}]}}`
+	batch, err := ParseHealthAutoExport(writeHAE(t, body), "hash", time.UTC)
+	if err != nil {
+		t.Fatalf("ParseHealthAutoExport() failed: %v", err)
+	}
+	if len(batch.Sleep) != 1 {
+		t.Fatalf("got %d sleep sessions, want 1", len(batch.Sleep))
+	}
+	sleep := batch.Sleep[0]
+	wantStart := time.Date(2026, 9, 19, 23, 30, 0, 0, tokyoOffset())
+	if !sleep.StartedAt.Equal(wantStart) {
+		t.Errorf("StartedAt = %s, want bed window open %s", sleep.StartedAt, wantStart)
+	}
+	wantEnd := time.Date(2026, 9, 20, 7, 1, 0, 0, tokyoOffset())
+	if !sleep.EndedAt.Equal(wantEnd) {
+		t.Errorf("EndedAt = %s, want bed window close %s", sleep.EndedAt, wantEnd)
+	}
+	if sleep.TimeInBedS != int((7*time.Hour+31*time.Minute)/time.Second) {
+		t.Errorf("TimeInBedS = %d, want the 7h31m window", sleep.TimeInBedS)
+	}
+	// Asleep hours (6.4h exactly) over the exact window span (7h31m), not
+	// the rounded inBed hours.
+	wantEfficiency := (6.4 * 3600) / float64((7*time.Hour+31*time.Minute)/time.Second)
+	if math.Abs(sleep.Efficiency-wantEfficiency) > 1e-9 {
+		t.Errorf("Efficiency = %v, want %v", sleep.Efficiency, wantEfficiency)
+	}
+}
+
+func TestParseHealthAutoExportSleepEfficiencyFallsBackToSegments(t *testing.T) {
+	// Without inBedStart/inBedEnd the rounded inBed hours start at
+	// lights-out-asleep and would report ~100%. The stage segments span
+	// 23:30 → 07:00 with 30m of awake inside, so the honest ratio is
+	// 6.5h asleep over a 7.5h span.
+	body := `{"data":{"metrics":[{"name":"sleep_analysis","units":"hr","data":[
+		{"sleepStart":"2026-09-19 23:30:00 +0900","sleepEnd":"2026-09-20 07:00:00 +0900",
+			"inBed":7,"asleep":7,"core":4,"deep":1,"rem":1.5,"awake":0.5},
+		{"startDate":"2026-09-19 23:30:00 +0900","endDate":"2026-09-20 03:00:00 +0900","value":"Core"},
+		{"startDate":"2026-09-20 03:00:00 +0900","endDate":"2026-09-20 03:30:00 +0900","value":"Awake"},
+		{"startDate":"2026-09-20 03:30:00 +0900","endDate":"2026-09-20 07:00:00 +0900","value":"REM"}]}]}}`
+	batch, err := ParseHealthAutoExport(writeHAE(t, body), "hash", time.UTC)
+	if err != nil {
+		t.Fatalf("ParseHealthAutoExport() failed: %v", err)
+	}
+	if len(batch.Sleep) != 1 {
+		t.Fatalf("got %d sleep sessions, want 1", len(batch.Sleep))
+	}
+	sleep := batch.Sleep[0]
+	wantEfficiency := (3.5 + 3.5) / (7 + 0.5)
+	if math.Abs(sleep.Efficiency-wantEfficiency) > 1e-9 {
+		t.Errorf("Efficiency = %v, want segment-span %v", sleep.Efficiency, wantEfficiency)
+	}
+}
+
+func tokyoOffset() *time.Location {
+	loc, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		panic(err)
+	}
+	return loc
+}
+
 func TestParseHealthAutoExportMapsMoveExerciseAndStandSummaries(t *testing.T) {
 	body := `{"data":{"metrics":[
 		{"name":"active_energy","units":"kJ","data":[
