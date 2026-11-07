@@ -158,10 +158,10 @@
     if (measuredHeartRate.length === 0) return [];
     const maxHr = Math.max(...measuredHeartRate);
     return [
-      { label: "Easy", min: 0, max: 0.7, color: "#3ecf8e" },
-      { label: "Steady", min: 0.7, max: 0.8, color: "#f5c451" },
-      { label: "Tempo", min: 0.8, max: 0.9, color: "#ff9f43" },
-      { label: "Hard", min: 0.9, max: 2, color: "#ff6b6b" },
+      { label: "Easy", min: 0, max: 0.7, color: "#10b981" },
+      { label: "Steady", min: 0.7, max: 0.8, color: "#f59e0b" },
+      { label: "Tempo", min: 0.8, max: 0.9, color: "#fb923c" },
+      { label: "Hard", min: 0.9, max: 2, color: "#f43f5e" },
     ]
       .map((zone) => ({
         ...zone,
@@ -288,6 +288,9 @@
     const styles = getComputedStyle(lapsChartContainer);
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const muted = styles.getPropertyValue("--text-muted").trim() || "#68707a";
+    const paceColor =
+      styles.getPropertyValue("--chart-pace").trim() || "#10b981";
+    const gridColor = styles.getPropertyValue("--chart-grid").trim() || border;
     lapsChart.setOption({
       animation: false,
       grid: { left: 62, right: 72, top: 12, bottom: 38 },
@@ -302,7 +305,7 @@
           formatter: (value: number) => formatActivityPace(value),
         },
         axisLine: { lineStyle: { color: border } },
-        splitLine: { lineStyle: { color: border, opacity: 0.45 } },
+        splitLine: { lineStyle: { color: gridColor } },
       },
       yAxis: {
         type: "category",
@@ -324,11 +327,11 @@
           name: "Pace",
           type: "bar",
           barWidth: "55%",
-          itemStyle: { color: "#0b9d98", borderRadius: [0, 4, 4, 0] },
+          itemStyle: { color: paceColor, borderRadius: [0, 4, 4, 0] },
           label: {
             show: true,
             position: "right",
-            color: "#0b807c",
+            color: paceColor,
             formatter: (params: { value: number }) =>
               formatActivityPace(params.value),
           },

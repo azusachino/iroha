@@ -9,12 +9,12 @@ export interface SleepStageDefinition {
 export const SLEEP_STAGE_DEFINITIONS: Readonly<
   Record<string, SleepStageDefinition>
 > = {
-  core: { label: "Core", color: "#4ca6a8" },
-  deep: { label: "Deep", color: "#3d5fa8" },
-  rem: { label: "REM", color: "#8b6fd1" },
-  awake: { label: "Awake", color: "#ed9947" },
-  in_bed: { label: "In bed", color: "#8792a3" },
-  asleep_unspecified: { label: "Asleep (unspecified)", color: "#5c91c2" },
+  core: { label: "Core", color: "var(--sleep-core)" },
+  deep: { label: "Deep", color: "var(--sleep-deep)" },
+  rem: { label: "REM", color: "var(--sleep-rem)" },
+  awake: { label: "Awake", color: "var(--sleep-awake)" },
+  in_bed: { label: "In bed", color: "var(--sleep-in-bed)" },
+  asleep_unspecified: { label: "Asleep (unspecified)", color: "var(--sleep-unspecified)" },
 };
 
 export function sleepStageLabel(stage: string): string {

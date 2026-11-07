@@ -136,6 +136,7 @@
     font-weight: 650;
     color: var(--text);
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
   .goal {
     font-weight: 400;

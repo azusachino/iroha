@@ -40,6 +40,8 @@
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const surface = styles.getPropertyValue("--surface-2").trim();
+    const gridColor =
+      styles.getPropertyValue("--chart-grid").trim() || border;
     const paceColor =
       styles.getPropertyValue("--chart-pace").trim() || "#4f8cff";
     const heartRateColor =
@@ -87,7 +89,7 @@
           formatter: (value: number) => formatXAxis(value),
         },
         axisLine: { lineStyle: { color: border } },
-        splitLine: { lineStyle: { color: border, opacity: 0.55 } },
+        splitLine: { lineStyle: { color: gridColor } },
       },
       yAxis: [
         {
@@ -96,7 +98,7 @@
           inverse: true,
           axisLabel: { color: paceColor, fontSize: 10, formatter: formatPace },
           axisLine: { lineStyle: { color: paceColor } },
-          splitLine: { lineStyle: { color: border, opacity: 0.35 } },
+          splitLine: { lineStyle: { color: gridColor } },
         },
         {
           type: "value",
