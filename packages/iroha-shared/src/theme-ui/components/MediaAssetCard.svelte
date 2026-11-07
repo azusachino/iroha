@@ -37,7 +37,14 @@
     {#if item.cover_image_url}
       <img src={item.cover_image_url} alt="" loading="lazy" />
     {:else}
-      <span class="asset-placeholder" aria-hidden="true">{title.slice(0, 1)}</span>
+      <span class="asset-placeholder" aria-hidden="true"
+        >{title.slice(0, 1)}</span
+      >
+    {/if}
+    {#if item.status}
+      <span class={`status-pill status-${item.status}`}>
+        {item.status.replaceAll("_", " ")}
+      </span>
     {/if}
   </span>
 
@@ -50,7 +57,7 @@
     {mediaTypeLabel(item.media_type)}
   </span>
   <small class="asset-meta"
-    >{item.status || "unknown"} · {formatProgressCount(
+    >{formatProgressCount(
       item.position,
       item.total,
       item.unit,
@@ -88,6 +95,39 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .status-pill {
+    position: absolute;
+    bottom: 0.35rem;
+    left: 0.35rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: capitalize;
+    backdrop-filter: blur(4px);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .status-pill.status-completed {
+    color: var(--mark-teal);
+    border-color: color-mix(in srgb, var(--mark-teal) 40%, transparent);
+  }
+  .status-pill.status-in_progress {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .status-pill.status-paused {
+    color: var(--mark-amber);
+    border-color: color-mix(in srgb, var(--mark-amber) 40%, transparent);
+  }
+  .status-pill.status-abandoned {
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
   }
 
   .asset-placeholder {
@@ -132,11 +172,7 @@
   }
 
   .asset-progress,
-
   .asset-progress i,
-
-
-
   .media-asset-card[data-theme="atlas"] .asset-cover {
     border-radius: calc(var(--radius) * 0.5);
   }
@@ -198,7 +234,6 @@
   .media-asset-card[data-theme="archive"] .asset-meta {
     font-family: var(--font-mono);
   }
-
 
   .media-asset-card[data-theme="grapher"] {
     grid-template-columns: 5rem minmax(0, 1fr);

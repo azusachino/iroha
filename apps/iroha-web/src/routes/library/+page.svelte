@@ -296,6 +296,13 @@
                             >{item.rating.toFixed(1)}</span
                           >
                         {/if}
+                        {#if item.status}
+                          <span
+                            class={`status-pill ${l.statusTone(item.status)}`}
+                          >
+                            {l.statusLabel(item.status)}
+                          </span>
+                        {/if}
                       </div>
                       <h3 title={l.primaryTitle(item)}>
                         {l.primaryTitle(item)}
@@ -652,6 +659,41 @@
     font-size: 0.7rem;
     font-weight: 750;
     line-height: 1.4;
+  }
+  .status-pill {
+    position: absolute;
+    bottom: 0.35rem;
+    left: 0.35rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: capitalize;
+    backdrop-filter: blur(4px);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .status-pill.completed {
+    color: var(--mark-teal);
+    border-color: color-mix(in srgb, var(--mark-teal) 40%, transparent);
+  }
+  .status-pill.in_progress {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .status-pill.paused {
+    color: var(--mark-amber);
+    border-color: color-mix(in srgb, var(--mark-amber) 40%, transparent);
+  }
+  .status-pill.planned {
+    color: var(--text-muted);
+    border-color: var(--border);
+  }
+  .status-pill.abandoned {
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
   }
   .poster h3 {
     font-size: 0.75rem;

@@ -25,6 +25,11 @@ export function getTheme(): Theme {
 export function setTheme(theme: Theme): void {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = theme;
+  const favicon = document.querySelector<HTMLLinkElement>("#theme-favicon");
+  if (favicon) {
+    favicon.href =
+      theme === "light" ? "/favicon-light.svg?v=2" : "/favicon.svg?v=2";
+  }
   try {
     localStorage.setItem(STORAGE_KEY, theme);
   } catch {

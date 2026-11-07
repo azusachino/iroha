@@ -252,8 +252,8 @@
 <style>
   .grapher-media {
     display: grid;
-    gap: 1rem;
-    font-family: var(--font-mono);
+    gap: 1.25rem;
+    font-family: var(--font-sans);
     min-width: 0;
   }
   .grapher-media > * {
@@ -294,9 +294,11 @@
   }
   .header-copy h1 {
     margin: 0;
-    font-family: var(--font-sans);
-    font-size: var(--type-title);
-    line-height: 1.25;
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: var(--type-display);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
   .header-copy p {
     margin: 0.25rem 0 0;
