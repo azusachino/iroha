@@ -227,26 +227,19 @@ func (s *Service) persistDailyMetricObservation(tx *gorm.DB, rawFile models.RawF
 	}).Error; err != nil {
 		return err
 	}
-	// A later HAE upload must not overwrite a selected native observation.
-	// A different unit is not evidence that the native value is missing.
-	if rawFile.SourceKind == "health_auto_export" {
-		var native struct{ ID uuid.UUID }
-		err := tx.Raw(`select o.id from tb_daily_metrics d
-join tb_daily_metric_observations o on o.id = d.selected_observation_id
-join tb_source_observations so on so.id = o.id
-join tb_raw_files f on f.id = so.raw_file_id
-where d.id = ? and f.source_kind = 'apple_health_export'`, metricID).Scan(&native).Error
-		if err != nil {
-			return err
-		}
-		if native.ID != uuid.Nil {
-			if err := tx.Model(&models.DailyMetric{}).Where("id = ?", metricID).Update("selected_observation_id", native.ID).Error; err != nil {
-				return err
-			}
-			return restoreSelectedDailyMetric(tx, metricID)
-		}
+	// Evaluate the source priority ladder: do not allow a lower-priority source
+	// to overwrite a higher-priority observation.
+	baseImporter := NewBaseDomainImporter("tb_daily_metrics")
+	incomingKind := ParseSourceKind(rawFile.SourceKind)
+	shouldSelect, err := baseImporter.ShouldSelectIncoming(tx, metricID, incomingKind)
+	if err != nil {
+		return err
 	}
-	selected, err := selectImportedObservation(tx, "tb_daily_metrics", metricID, observationID, reprocess)
+	if !shouldSelect {
+		return restoreSelectedDailyMetric(tx, metricID)
+	}
+
+	selected, err := baseImporter.SelectObservation(tx, metricID, observationID, reprocess)
 	if err != nil {
 		return err
 	}

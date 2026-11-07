@@ -219,25 +219,19 @@ func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, s
 		return err
 	}
 
-	// Check if this session already has a native observation; if so, keep native preferred.
-	isPreferred := true
-	if rawFile.SourceKind == "health_auto_export" {
-		var nativeCount int64
-		err := tx.Raw(`select count(*) from tb_sleep_observations o
-join tb_source_observations so on so.id = o.id
-join tb_raw_files f on f.id = so.raw_file_id
-where o.sleep_session_id = ? and f.source_kind = 'apple_health_export'`, sessionID).Scan(&nativeCount).Error
-		if err == nil && nativeCount > 0 {
-			isPreferred = false
-		}
+	baseImporter := NewBaseDomainImporter("tb_sleep_sessions")
+	incomingKind := ParseSourceKind(rawFile.SourceKind)
+	shouldSelect, err := baseImporter.ShouldSelectIncoming(tx, sessionID, incomingKind)
+	if err != nil {
+		return err
 	}
 
 	if err := tx.Exec(`insert into tb_sleep_session_observations (sleep_session_id, sleep_observation_id, is_preferred)
-values (?, ?, ?) on conflict (sleep_session_id, sleep_observation_id) do update set is_preferred = excluded.is_preferred`, sessionID, observationID, isPreferred).Error; err != nil {
+values (?, ?, ?) on conflict (sleep_session_id, sleep_observation_id) do update set is_preferred = excluded.is_preferred`, sessionID, observationID, shouldSelect).Error; err != nil {
 		return err
 	}
-	if isPreferred {
-		selected, err := selectImportedObservation(tx, "tb_sleep_sessions", sessionID, observationID, reprocess)
+	if shouldSelect {
+		selected, err := baseImporter.SelectObservation(tx, sessionID, observationID, reprocess)
 		if err != nil {
 			return err
 		}

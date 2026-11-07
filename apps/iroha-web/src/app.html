@@ -17,13 +17,19 @@
       // Apply saved visual modes before first paint to avoid a flash.
       (function () {
         try {
-          var t = localStorage.getItem("iroha-theme");
-          if (t !== "light" && t !== "dark") {
-            t = window.matchMedia("(prefers-color-scheme: light)").matches
-              ? "light"
-              : "dark";
+          var pref = localStorage.getItem("iroha-theme");
+          var isSystemLight = window.matchMedia(
+            "(prefers-color-scheme: light)",
+          ).matches;
+          var t = "dark";
+          if (pref === "light" || pref === "dark") {
+            t = pref;
+          } else {
+            pref = "auto";
+            t = isSystemLight ? "light" : "dark";
           }
           document.documentElement.dataset.theme = t;
+          document.documentElement.dataset.themePreference = pref;
           document.getElementById("theme-favicon").href =
             t === "light" ? "/favicon-light.svg?v=2" : "/favicon.svg?v=2";
           // Grapher is the only design language; drop any stored choice
@@ -34,6 +40,7 @@
           } catch (e) {}
         } catch (e) {
           document.documentElement.dataset.theme = "dark";
+          document.documentElement.dataset.themePreference = "auto";
           document.documentElement.dataset.language = "grapher";
         }
       })();

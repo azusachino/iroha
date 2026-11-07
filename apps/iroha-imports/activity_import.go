@@ -102,20 +102,15 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 		return err
 	}
 
-	isPreferred := true
-	if rawFile.SourceKind == "health_auto_export" {
-		var nativeCount int64
-		err := tx.Raw(`select count(*) from tb_activity_observations o
-join tb_source_observations so on so.id = o.id
-join tb_raw_files f on f.id = so.raw_file_id
-where o.activity_id = ? and f.source_kind = 'apple_health_export'`, activityID).Scan(&nativeCount).Error
-		if err == nil && nativeCount > 0 {
-			isPreferred = false
-		}
+	baseImporter := NewBaseDomainImporter("tb_activities")
+	incomingKind := ParseSourceKind(rawFile.SourceKind)
+	shouldSelect, err := baseImporter.ShouldSelectIncoming(tx, activityID, incomingKind)
+	if err != nil {
+		return err
 	}
 
-	if isPreferred {
-		selected, err := selectImportedObservation(tx, "tb_activities", activityID, observationID, reprocess)
+	if shouldSelect {
+		selected, err := baseImporter.SelectObservation(tx, activityID, observationID, reprocess)
 		if err != nil {
 			return err
 		}
