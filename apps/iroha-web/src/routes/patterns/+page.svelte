@@ -1,8 +1,8 @@
 <script lang="ts">
   import RingGauge from "@iroha/shared/theme-ui/components/RingGauge.svelte";
   import DailySmallMultiples from "@iroha/shared/theme-ui/components/DailySmallMultiples.svelte";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import {
     formatDateOnly,
     formatMonth as formatCanonicalMonth,
@@ -50,7 +50,12 @@
           tabindex="-1"
           bind:this={boundsTarget}
         >
-          <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
+          <PeriodToolbar
+            title="Daily pattern scope"
+            ariaLabel="Daily period"
+            onRefresh={() => void t.hardRefresh()}
+            refreshing={t.seriesResource.loading || t.latestDayResource.loading}
+          >
             <PeriodSelector
               years={t.periodYears}
               months={t.periodMonths}
@@ -138,7 +143,12 @@
       actionLabel="Today"
     />
 
-    <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
+    <PeriodToolbar
+      title="Daily pattern scope"
+      ariaLabel="Daily period"
+      onRefresh={() => void t.hardRefresh()}
+      refreshing={t.seriesResource.loading || t.latestDayResource.loading}
+    >
       <PeriodSelector
         years={t.periodYears}
         months={t.periodMonths}

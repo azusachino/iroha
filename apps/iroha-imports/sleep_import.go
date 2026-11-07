@@ -61,6 +61,17 @@ func (s *Service) persistSleepSession(tx *gorm.DB, rawFile models.RawFile, sessi
 		return result.Error
 	}
 	if sessionID == uuid.Nil {
+		// Look for an existing sleep session with matching started_at and ended_at
+		// (e.g. across Health Auto Export and native Apple Health export).
+		var matchingSession models.SleepSession
+		matchRes := tx.Where("started_at = ? and ended_at = ?", session.StartedAt, session.EndedAt).First(&matchingSession)
+		if matchRes.Error == nil {
+			sessionID = matchingSession.ID
+		} else if !errors.Is(matchRes.Error, gorm.ErrRecordNotFound) {
+			return matchRes.Error
+		}
+	}
+	if sessionID == uuid.Nil {
 		sessionID, err = ids.New()
 		if err != nil {
 			return err
@@ -185,14 +196,8 @@ func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, s
 	if err != nil {
 		return err
 	}
-	// Segments live once, on the canonical session; see persistActivityObservation.
-	var others int64
-	if err := tx.Model(&models.SleepObservation{}).Where("sleep_session_id = ? and id <> ?", sessionID, observationID).Count(&others).Error; err != nil {
-		return err
-	}
-	if others > 0 {
-		return fmt.Errorf("sleep session %s already has an observation from another source; multi-source sleep is not supported yet", sessionID)
-	}
+	// Multi-source sleep observations attach to the canonical session.
+	// Prefer native Apple Health export over Health Auto Export when both are present.
 	now := time.Now().UTC()
 	row := models.SleepObservation{ID: observationID, SleepSessionID: sessionID, WakeDate: session.WakeDate, StartedAt: session.StartedAt, EndedAt: session.EndedAt, TimeInBedS: session.TimeInBedS, AsleepS: session.AsleepS, Efficiency: session.Efficiency, IsMainSleep: session.IsMainSleep, CoreS: session.CoreS, DeepS: session.DeepS, RemS: session.RemS, AwakeS: session.AwakeS, UnspecifiedS: session.UnspecifiedS, Source: session.Source, MatchStatus: "canonical", CreatedAt: now, UpdatedAt: now}
 	var existing models.SleepObservation
@@ -213,15 +218,33 @@ func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, s
 	if err := replaceSleepObservationSegments(tx, observationID, session.Segments); err != nil {
 		return err
 	}
+
+	// Check if this session already has a native observation; if so, keep native preferred.
+	isPreferred := true
+	if rawFile.SourceKind == "health_auto_export" {
+		var nativeCount int64
+		err := tx.Raw(`select count(*) from tb_sleep_observations o
+join tb_source_observations so on so.id = o.id
+join tb_raw_files f on f.id = so.raw_file_id
+where o.sleep_session_id = ? and f.source_kind = 'apple_health_export'`, sessionID).Scan(&nativeCount).Error
+		if err == nil && nativeCount > 0 {
+			isPreferred = false
+		}
+	}
+
 	if err := tx.Exec(`insert into tb_sleep_session_observations (sleep_session_id, sleep_observation_id, is_preferred)
-values (?, ?, true) on conflict (sleep_session_id, sleep_observation_id) do update set is_preferred = excluded.is_preferred`, sessionID, observationID).Error; err != nil {
+values (?, ?, ?) on conflict (sleep_session_id, sleep_observation_id) do update set is_preferred = excluded.is_preferred`, sessionID, observationID, isPreferred).Error; err != nil {
 		return err
 	}
-	selected, err := selectImportedObservation(tx, "tb_sleep_sessions", sessionID, observationID, reprocess)
-	if err != nil {
-		return err
-	}
-	if !selected {
+	if isPreferred {
+		selected, err := selectImportedObservation(tx, "tb_sleep_sessions", sessionID, observationID, reprocess)
+		if err != nil {
+			return err
+		}
+		if !selected {
+			return restoreSelectedSleep(tx, sessionID)
+		}
+	} else {
 		return restoreSelectedSleep(tx, sessionID)
 	}
 	return nil

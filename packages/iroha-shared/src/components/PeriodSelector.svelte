@@ -11,6 +11,7 @@
     type SelectControlOption,
   } from "./SelectControl.svelte";
   import type { DesignLanguage } from "../theme/themes";
+  import { useTheme } from "../theme-ui/context.svelte";
 
   export type PeriodOption = { value: string; label: string };
 
@@ -22,7 +23,7 @@
     monthDisabled = false,
     showAllYears = true,
     showAllMonths = true,
-    appearance = "grapher",
+    appearance,
     surface = "panel",
     timezone,
     bounds,
@@ -43,6 +44,13 @@
     onYear: (value: string) => void;
     onMonth: (value: string) => void;
   } = $props();
+
+  const theme = useTheme();
+  const effectiveAppearance = $derived(
+    appearance ??
+      theme?.definition().primitives.periodControl.appearance ??
+      "grapher",
+  );
 
   const yearOptions = $derived(
     years.map((option) =>
@@ -127,14 +135,14 @@
   class:panel={surface === "panel"}
   class:inline={surface === "inline"}
   class="period-controls"
-  data-appearance={appearance}
+  data-appearance={effectiveAppearance}
   aria-label="Period filters"
 >
   <SelectControl
     label="Year"
     value={year}
     options={yearSelectOptions}
-    {appearance}
+    appearance={effectiveAppearance}
     ariaLabel="Filter by year"
     onChange={onYear}
   />
@@ -142,7 +150,7 @@
     label="Month"
     value={month}
     options={monthSelectOptions}
-    {appearance}
+    appearance={effectiveAppearance}
     ariaLabel="Filter by month"
     disabled={monthDisabled}
     onChange={onMonth}

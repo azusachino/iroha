@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { browser } from "$app/env";
   import {
     getSleep,
     getSleepSegments,
@@ -91,6 +92,12 @@
       void loadStages(selected);
     });
   });
+  function goBack(e: MouseEvent) {
+    if (browser && window.history.length > 1) {
+      e.preventDefault();
+      window.history.back();
+    }
+  }
 </script>
 
 <svelte:head>
@@ -113,12 +120,13 @@
       onRetry={() => loadSession()}
       focusTarget={sessionPanel}
     />{/if}
+  <div class="detail-nav">
+    <a href="/night" onclick={goBack} class="back-link">← Back to Night</a>
+  </div>
   <RouteIntro
     eyebrow="Night / detail"
     title={session ? formatDateOnly(session.wake_date) : "Night detail"}
     description="A close look at this recorded sleep session, its stage architecture, and every observed interval."
-    actionHref="/night"
-    actionLabel="Back to Night"
   />
 
   {#if session || detailResource.loading}
@@ -292,6 +300,21 @@
 </section>
 
 <style>
+  .detail-nav {
+    margin-bottom: -0.5rem;
+  }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .back-link:hover {
+    color: var(--accent);
+  }
   .sleep-detail-shell {
     display: grid;
     gap: 1.25rem;

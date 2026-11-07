@@ -8,6 +8,7 @@
   import { hasThemeRoute } from "$lib/themes/registry";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { createLibraryState } from "./library-state.svelte";
+  import { RefreshCw } from "@lucide/svelte";
 
   const theme = useTheme();
   const l = createLibraryState();
@@ -34,6 +35,8 @@
         recordsScope: l.recordsScope,
         onRetryAggregates: l.loadAggregates,
         onRetryRecords: l.loadRecords,
+        onRefresh: l.hardRefresh,
+        refreshing: l.libraryResource.loading || l.aggregatesResource.loading,
         family: l.family,
         status: l.status,
         completedYear: l.completedYear,
@@ -106,6 +109,21 @@
           {/each}
         </select>
       </label>
+      <button
+        type="button"
+        class="library-refresh-btn"
+        aria-label="Refresh library"
+        onclick={() => void l.hardRefresh()}
+        disabled={l.libraryResource.loading || l.aggregatesResource.loading}
+      >
+        <RefreshCw
+          size={14}
+          class={l.libraryResource.loading || l.aggregatesResource.loading
+            ? "spin"
+            : ""}
+        />
+        <span>Refresh</span>
+      </button>
     </div>
 
     {#if !l.aggregates && l.libraryResource.loading}
@@ -420,6 +438,47 @@
   .filter-options select:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+  .library-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 2.15rem;
+    padding: 0 0.75rem;
+    align-self: flex-end;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 4px);
+    background: var(--surface-2, transparent);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      color 0.15s ease,
+      border-color 0.15s ease,
+      background 0.15s ease;
+  }
+  .library-refresh-btn:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+  }
+  .library-refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  :global(.library-refresh-btn .spin) {
+    animation: lib-spin 0.8s linear infinite;
+  }
+  @keyframes lib-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* Stats */

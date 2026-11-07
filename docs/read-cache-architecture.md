@@ -98,6 +98,8 @@ flowchart TD
   When Postgres data changes, the revision counter advances in `tb_read_revisions`. This instantly alters the cache key (`|revision:tb_activities=42`), so existing cache keys are ignored without requiring proactive backend deletion.
 - **Generation Invalidation**:
   Valkey namespace generations ensure that in-flight loads targeting an older generation cannot overwrite freshly invalidated data.
+- **Client Hard Refresh**:
+  Private session requests carrying `Cache-Control: no-cache` (e.g. from the UI's Refresh buttons) bypass reading from Valkey, re-execute the Postgres query, return `X-Iroha-Cache: RELOAD`, and automatically populate the cache store with fresh bytes at the current generation.
 
 ---
 

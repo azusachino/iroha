@@ -64,16 +64,8 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 	if err != nil {
 		return err
 	}
-	// Child measurements live once, on the canonical activity. A second
-	// observation would need the first one's copy materialized before it takes
-	// over, which is not built yet, so refuse instead of losing data.
-	var others int64
-	if err := tx.Model(&models.ActivityObservation{}).Where("activity_id = ? and id <> ?", activityID, observationID).Count(&others).Error; err != nil {
-		return err
-	}
-	if others > 0 {
-		return fmt.Errorf("activity %s already has an observation from another source; multi-source activities are not supported yet", activityID)
-	}
+	// Multi-source activity observations attach to the canonical activity.
+	// Prefer native Apple Health export over Health Auto Export when both are present.
 	now := time.Now().UTC()
 	row := models.ActivityObservation{
 		ID:               observationID,
@@ -109,11 +101,28 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 	}).Error; err != nil {
 		return err
 	}
-	selected, err := selectImportedObservation(tx, "tb_activities", activityID, observationID, reprocess)
-	if err != nil {
-		return err
+
+	isPreferred := true
+	if rawFile.SourceKind == "health_auto_export" {
+		var nativeCount int64
+		err := tx.Raw(`select count(*) from tb_activity_observations o
+join tb_source_observations so on so.id = o.id
+join tb_raw_files f on f.id = so.raw_file_id
+where o.activity_id = ? and f.source_kind = 'apple_health_export'`, activityID).Scan(&nativeCount).Error
+		if err == nil && nativeCount > 0 {
+			isPreferred = false
+		}
 	}
-	if !selected {
+
+	if isPreferred {
+		selected, err := selectImportedObservation(tx, "tb_activities", activityID, observationID, reprocess)
+		if err != nil {
+			return err
+		}
+		if !selected {
+			return restoreSelectedActivity(tx, activityID)
+		}
+	} else {
 		return restoreSelectedActivity(tx, activityID)
 	}
 	return nil
@@ -176,6 +185,17 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed obs
 		return uuid.Nil, res.Error
 	}
 	found := res.RowsAffected > 0
+
+	// If not found by exact external_id, check for an existing activity with the exact same started_at and sport_type
+	// (e.g. across Health Auto Export and native Apple Health export).
+	if !found {
+		var matching models.Activity
+		matchRes := tx.Limit(1).Find(&matching, "started_at = ? and sport_type = ?", parsed.StartedAt, observations.NormalizeSport(parsed.SportType))
+		if matchRes.Error == nil && matchRes.RowsAffected > 0 {
+			externalRef.ActivityID = matching.ID
+			found = true
+		}
+	}
 
 	now := time.Now().UTC()
 	if found {

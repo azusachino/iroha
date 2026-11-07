@@ -7,6 +7,7 @@
   import { LegendComponent, TooltipComponent } from "echarts/components";
   import { CanvasRenderer } from "echarts/renderers";
   import type { ECharts } from "echarts/core";
+  import { resolveColor } from "./chart-color";
 
   use([PieChart, LegendComponent, TooltipComponent, CanvasRenderer]);
 
@@ -76,7 +77,9 @@
           data: stages.map((stage) => ({
             name: stage.name,
             value: stage.value,
-            itemStyle: { color: stage.color },
+            itemStyle: {
+              color: resolveColor(stage.color, styles, "#38bdf8"),
+            },
           })),
         },
       ],
