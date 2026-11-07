@@ -112,9 +112,7 @@
         summary.totals.distance_known_count === 0
           ? "—"
           : formatDistance(summary.totals.distance_m)}
-        sub={summary.totals.distance_unknown_count > 0
-          ? `Known distance for ${summary.totals.distance_known_count} of ${summary.totals.activity_count} activities; ${summary.totals.distance_unknown_count} unavailable`
-          : "Across recorded movement"}
+        sub="Across recorded movement"
       />
       <StatTile
         compact

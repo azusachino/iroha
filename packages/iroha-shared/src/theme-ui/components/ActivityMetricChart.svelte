@@ -113,12 +113,15 @@
       .sort((left, right) => right.total - left.total),
   );
   const tableRows = $derived(
-    periods.map((period, index) => ({
-      period,
-      value: totalDistance[index],
-      duration: totalDuration[index],
-      observedDays: observedDaysFor(series, period),
-    })),
+    periods
+      .map((period, index) => ({
+        period,
+        value: totalDistance[index],
+        duration: totalDuration[index],
+        observedDays: observedDaysFor(series, period),
+      }))
+      .slice()
+      .reverse(),
   );
 
   function formatKm(value: number): string {

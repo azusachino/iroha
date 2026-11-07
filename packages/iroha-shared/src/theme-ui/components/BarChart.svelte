@@ -232,11 +232,11 @@
                 data: secondary.values,
                 showSymbol: false,
                 lineStyle: {
-                  color: secondary.color || muted,
+                  color: resolveColor(secondary.color, styles, muted),
                   width: 2,
                   type: "dashed" as const,
                 },
-                itemStyle: { color: secondary.color || muted },
+                itemStyle: { color: resolveColor(secondary.color, styles, muted) },
               },
             ]
           : []),
