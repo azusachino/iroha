@@ -229,12 +229,18 @@ export function createTodayState() {
     });
   }
 
-  async function loadBriefing(selectedDay: string) {
-    await briefingResource.run(() => getBriefing(selectedDay));
+  async function loadBriefing(selectedDay: string, forceRefresh = false) {
+    await briefingResource.run(() =>
+      getBriefing(selectedDay, { forceRefresh }),
+    );
   }
 
   async function loadAvailableDays() {
     await calendarResource.run(() => getDailyDates());
+  }
+
+  async function hardRefresh() {
+    await loadBriefing(day, true);
   }
 
   $effect(() => {
@@ -274,6 +280,7 @@ export function createTodayState() {
     calendarResource,
     retryBriefing: () => loadBriefing(day),
     retryCalendar: loadAvailableDays,
+    hardRefresh,
     get unavailableSections() {
       return (
         briefing?.sections

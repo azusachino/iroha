@@ -283,18 +283,21 @@ export function createNightState() {
     return {};
   }
 
-  async function loadSessions(append = false) {
+  async function loadSessions(append = false, forceRefresh = false) {
     const scope = selectedScope();
     if (append) {
       const previous = sessionsResource.data;
       if (!hasMore || !previous?.value.next_cursor || loadingMore) return;
       pendingPage = previous;
       const next = await pageResource.run(() =>
-        listSleep({
-          limit: PAGE_SIZE,
-          cursor: previous.value.next_cursor!,
-          ...scope,
-        }),
+        listSleep(
+          {
+            limit: PAGE_SIZE,
+            cursor: previous.value.next_cursor!,
+            ...scope,
+          },
+          { forceRefresh },
+        ),
       );
       if (
         !next ||
@@ -314,9 +317,18 @@ export function createNightState() {
     pendingPage = null;
     const result = await sessionsResource.run(async () => ({
       date: scope.date,
-      value: await listSleep({ limit: PAGE_SIZE, ...scope }),
+      value: await listSleep({ limit: PAGE_SIZE, ...scope }, { forceRefresh }),
     }));
     if (result) selected = result.value.items[0] ?? null;
+  }
+
+  async function hardRefresh() {
+    await Promise.all([
+      loadSessions(false, true),
+      loadAggregates("year", true),
+      loadAggregates("month", true),
+      loadAggregates("lifetime", true),
+    ]);
   }
 
   function changeYear(value: string) {
@@ -346,7 +358,10 @@ export function createNightState() {
     return () => observer.disconnect();
   });
 
-  async function loadAggregates(granularity: "year" | "month" | "lifetime") {
+  async function loadAggregates(
+    granularity: "year" | "month" | "lifetime",
+    forceRefresh = false,
+  ) {
     const resource =
       granularity === "year"
         ? yearResource
@@ -354,7 +369,8 @@ export function createNightState() {
           ? monthResource
           : lifetimeResource;
     await resource.run(
-      async () => (await listSleepAggregates(granularity)).buckets,
+      async () =>
+        (await listSleepAggregates(granularity, {}, { forceRefresh })).buckets,
     );
   }
 
@@ -402,6 +418,7 @@ export function createNightState() {
     },
     loadAggregates,
     loadBounds,
+    hardRefresh,
     get sessions() {
       return sessions;
     },

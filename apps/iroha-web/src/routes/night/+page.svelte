@@ -48,7 +48,13 @@
       }}
     >
       {#snippet children()}
-        <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
+        <PeriodToolbar
+          title="Sleep history scope"
+          ariaLabel="Sleep period"
+          onRefresh={() => void t.hardRefresh()}
+          refreshing={t.sessionsResource.loading ||
+            t.aggregatesResource.loading}
+        >
           <PeriodSelector
             years={t.periodYears}
             months={t.periodMonths}
@@ -161,7 +167,12 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
-      <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
+      <PeriodToolbar
+        title="Sleep history scope"
+        ariaLabel="Sleep period"
+        onRefresh={() => void t.hardRefresh()}
+        refreshing={t.sessionsResource.loading || t.aggregatesResource.loading}
+      >
         <PeriodSelector
           years={t.periodYears}
           months={t.periodMonths}

@@ -402,7 +402,7 @@ export function getMonthlyReportSeries(
 export function listDailyAggregates(
   granularity: "month" | "year",
   params: { date?: string; from?: string; to?: string } = {},
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<DailyAggregates> {
   const query = new URLSearchParams({ granularity });
   if (params.date) query.set("date", params.date);
@@ -413,7 +413,7 @@ export function listDailyAggregates(
   setTimezone(query);
   return getJSON<DailyAggregates>(
     `/api/v1/daily/aggregates?${query.toString()}`,
-    fetchFn,
+    fetchFnOrOptions,
   );
 }
 
@@ -882,7 +882,7 @@ export function getSleepSegments(
 export function listSleepAggregates(
   granularity: "month" | "year" | "lifetime",
   params: { date?: string; from?: string; to?: string } = {},
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<SleepAggregates> {
   const query = new URLSearchParams({ granularity });
   if (params.date) query.set("date", params.date);
@@ -893,7 +893,7 @@ export function listSleepAggregates(
   setTimezone(query);
   return getJSON<SleepAggregates>(
     `/api/v1/sleep/aggregates?${query.toString()}`,
-    fetchFn,
+    fetchFnOrOptions,
   );
 }
 
@@ -1042,7 +1042,7 @@ export interface ActivitySummaryParams {
 
 export function getActivitySummary(
   params: ActivitySummaryParams = {},
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<ActivitySummary> {
   const query = new URLSearchParams();
   if (params.date) query.set("date", params.date);
@@ -1053,7 +1053,7 @@ export function getActivitySummary(
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return getJSON<ActivitySummary>(
     `/api/v1/activities/summary${suffix}`,
-    fetchFn,
+    fetchFnOrOptions,
   );
 }
 

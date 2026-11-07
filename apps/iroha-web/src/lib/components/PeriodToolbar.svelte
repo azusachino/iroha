@@ -7,11 +7,15 @@
     title,
     eyebrow = "Period",
     ariaLabel = "Period controls",
+    onRefresh,
+    refreshing = false,
     children,
   }: {
     title?: string;
     eyebrow?: string;
     ariaLabel?: string;
+    onRefresh?: () => void;
+    refreshing?: boolean;
     children: Snippet;
   } = $props();
 
@@ -22,6 +26,8 @@
   {title}
   {eyebrow}
   {ariaLabel}
+  {onRefresh}
+  {refreshing}
   appearance={theme.definition().primitives.periodControl.appearance}
 >
   {#snippet children()}

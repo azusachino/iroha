@@ -553,7 +553,12 @@
     tabindex="-1"
     bind:this={boundsTarget}
   >
-    <PeriodToolbar title="Expense spending scope" ariaLabel="Expense period">
+    <PeriodToolbar
+      title="Expense spending scope"
+      ariaLabel="Expense period"
+      onRefresh={() => void loadExpenses(month, true)}
+      refreshing={expensesResource.loading}
+    >
       <PeriodSelector
         year={periodYear}
         month={periodMonth}
@@ -589,15 +594,6 @@
         markerColor={categoryColor(filterCategory || "other")}
         onChange={selectCategory}
       />
-      <div class="filter-actions">
-        <button
-          class="refresh"
-          type="button"
-          onclick={() => void loadExpenses(month, true)}
-          disabled={expensesResource.loading}
-          ><RefreshCw size={15} /> Refresh</button
-        >
-      </div>
     </div>
     <p>
       Selected period: {month} · {filterCurrency || "All currencies"} · {filterCategory

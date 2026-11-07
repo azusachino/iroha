@@ -50,7 +50,12 @@
           tabindex="-1"
           bind:this={boundsTarget}
         >
-          <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
+          <PeriodToolbar
+            title="Daily pattern scope"
+            ariaLabel="Daily period"
+            onRefresh={() => void t.hardRefresh()}
+            refreshing={t.seriesResource.loading || t.latestDayResource.loading}
+          >
             <PeriodSelector
               years={t.periodYears}
               months={t.periodMonths}
@@ -138,7 +143,12 @@
       actionLabel="Today"
     />
 
-    <PeriodToolbar title="Daily pattern scope" ariaLabel="Daily period">
+    <PeriodToolbar
+      title="Daily pattern scope"
+      ariaLabel="Daily period"
+      onRefresh={() => void t.hardRefresh()}
+      refreshing={t.seriesResource.loading || t.latestDayResource.loading}
+    >
       <PeriodSelector
         years={t.periodYears}
         months={t.periodMonths}

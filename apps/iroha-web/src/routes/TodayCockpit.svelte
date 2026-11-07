@@ -17,6 +17,7 @@
   import TodaySkeleton from "$lib/components/TodaySkeleton.svelte";
   import MediaUpdateList from "@iroha/shared/theme-ui/components/MediaUpdateList.svelte";
   import { createTodayState } from "./today-state.svelte";
+  import { RefreshCw } from "@lucide/svelte";
 
   import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
   const theme = useTheme();
@@ -65,6 +66,15 @@
       disabled={!t.canMoveNext}
       onclick={() => t.shift(1)}>›</button
     >
+    <button
+      type="button"
+      class="scrub-refresh"
+      aria-label="Refresh today"
+      onclick={() => void t.hardRefresh()}
+      disabled={t.loading}
+    >
+      <RefreshCw size={13} class={t.loading ? "spin" : ""} />
+    </button>
     {#if t.pickerOpen}
       <button
         class="pk-backdrop"
@@ -720,6 +730,40 @@
   .nav:disabled {
     cursor: default;
     opacity: 0.35;
+  }
+  .scrub-refresh {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      border-color 0.15s ease;
+  }
+  .scrub-refresh:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .scrub-refresh:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  :global(.scrub-refresh .spin) {
+    animation: scrub-spin 0.8s linear infinite;
+  }
+  @keyframes scrub-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
   .today-link {
     display: block;

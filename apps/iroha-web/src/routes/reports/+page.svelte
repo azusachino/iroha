@@ -189,12 +189,6 @@
         provenance.
       </p>
     </div>
-    <button
-      class="refresh"
-      type="button"
-      onclick={() => void loadReport(month, true)}
-      disabled={reportResource.loading}><RefreshCw size={15} /> Refresh</button
-    >
   </header>
   <p>Selected month: {month}</p>
   <section
@@ -205,6 +199,8 @@
     <PeriodToolbar
       title="Monthly cross-domain report"
       ariaLabel="Report period"
+      onRefresh={() => void loadReport(month, true)}
+      refreshing={reportResource.loading}
     >
       <PeriodSelector
         year={periodYear}
@@ -308,32 +304,6 @@
   .generated {
     color: var(--text-muted);
     font-size: 0.78rem;
-  }
-  button {
-    min-height: 2.4rem;
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) - 4px);
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    cursor: pointer;
-  }
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0 0.8rem;
-  }
-  button:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  button:disabled {
-    cursor: default;
-    opacity: 0.5;
-  }
-  .refresh {
-    color: var(--accent);
   }
   @media (max-width: 768px) {
     .page-head {
