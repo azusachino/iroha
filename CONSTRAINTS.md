@@ -60,3 +60,4 @@ Record an exception here only with a named owner, reason, and expiry. The floor 
 | E5 | test-deleted | apps/iroha-public-site/** | Consolidate public site into iroha-web; test preserved in apps/iroha-web/src/lib/public/ | haru | 2026-12-08 |
 | E6 | assertion-removed | scripts/dev_watch_test.py | Subtract retired apps/iroha-public-site fixture | haru | 2026-12-08 |
 | E7 | assertion-removed | scripts/local_checks_test.py | Subtract retired apps/iroha-public-site fixture | haru | 2026-12-08 |
+| E8 | test-deleted | scripts/public_site_response_check_test.py | Retire public-site Caddy fixture checker with Caddyfile.public-site | haru | 2026-12-08 |
