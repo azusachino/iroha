@@ -4,8 +4,8 @@
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import SleepScopeSummary from "@iroha/shared/theme-ui/components/SleepScopeSummary.svelte";
   import SleepArchitectureChart from "@iroha/shared/theme-ui/components/SleepArchitectureChart.svelte";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";

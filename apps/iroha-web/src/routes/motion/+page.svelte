@@ -26,8 +26,8 @@
     formatHr,
     formatElevation,
   } from "$lib/format";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import {
     currentYear,
     MONTH_OPTIONS,

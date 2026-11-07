@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DesignLanguage } from "../theme/themes";
+  import { useTheme } from "../theme-ui/context.svelte";
 
   export type SelectControlOption = {
     value: string;
@@ -13,7 +14,7 @@
     ariaLabel = label,
     disabled = false,
     markerColor,
-    appearance = "grapher",
+    appearance,
     onChange,
   }: {
     label: string;
@@ -25,9 +26,16 @@
     appearance?: DesignLanguage;
     onChange: (value: string) => void;
   } = $props();
+
+  const theme = useTheme();
+  const effectiveAppearance = $derived(
+    appearance ??
+      theme?.definition().primitives.periodControl.appearance ??
+      "grapher",
+  );
 </script>
 
-<label class="select-control" data-appearance={appearance}>
+<label class="select-control" data-appearance={effectiveAppearance}>
   <span class="select-label">
     {#if markerColor}
       <i

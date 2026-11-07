@@ -14,9 +14,11 @@
     type ExpenseCurrency,
     type MetricSeriesResponse,
   } from "$lib/api";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import FilterSelect from "$lib/components/FilterSelect.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
+  import SelectControl, {
+    type SelectControlOption,
+  } from "@iroha/shared/components/SelectControl.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import {
@@ -581,13 +583,13 @@
     {/if}
 
     <div class="expense-filters" aria-label="Expense filters">
-      <FilterSelect
+      <SelectControl
         label="Currency"
         value={filterCurrency}
         options={[{ value: "", label: "All currencies" }, ...currencyOptions]}
         onChange={selectCurrency}
       />
-      <FilterSelect
+      <SelectControl
         label="Category"
         value={filterCategory}
         options={categoryOptions}

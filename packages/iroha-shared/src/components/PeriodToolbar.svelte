@@ -1,13 +1,14 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import type { DesignLanguage } from "../theme/themes";
+  import { useTheme } from "../theme-ui/context.svelte";
   import { RefreshCw } from "@lucide/svelte";
 
   let {
     title,
     eyebrow = "Period",
     ariaLabel = "Period controls",
-    appearance = "grapher",
+    appearance,
     onRefresh,
     refreshing = false,
     children,
@@ -20,26 +21,36 @@
     refreshing?: boolean;
     children: Snippet;
   } = $props();
+
+  const theme = useTheme();
+  const effectiveAppearance = $derived(
+    appearance ??
+      theme?.definition().primitives.periodControl.appearance ??
+      "grapher",
+  );
 </script>
 
 <section
   class="period-toolbar"
-  data-appearance={appearance}
+  data-appearance={effectiveAppearance}
   aria-label={ariaLabel}
 >
   <div class="period-slot">
     {@render children()}
     {#if onRefresh}
-      <button
-        type="button"
-        class="period-refresh-btn"
-        aria-label="Refresh view"
-        onclick={onRefresh}
-        disabled={refreshing}
-      >
-        <RefreshCw size={14} class={refreshing ? "spin" : ""} />
-        <span>Refresh</span>
-      </button>
+      <div class="period-action-group">
+        <span class="action-spacer" aria-hidden="true">&nbsp;</span>
+        <button
+          type="button"
+          class="period-refresh-btn"
+          aria-label="Refresh view"
+          onclick={onRefresh}
+          disabled={refreshing}
+        >
+          <RefreshCw size={13} class={refreshing ? "spin" : ""} />
+          <span>Refresh</span>
+        </button>
+      </div>
     {/if}
   </div>
 </section>
@@ -66,27 +77,51 @@
     display: flex;
     min-width: 0;
     width: 100%;
-    align-items: center;
+    align-items: flex-end;
     justify-content: flex-end;
-    gap: var(--space-2);
+    gap: var(--space-3);
+  }
+
+  .period-action-group {
+    display: grid;
+    gap: var(--space-1);
+    align-items: end;
+  }
+
+  .action-spacer {
+    display: inline-flex;
+    align-items: center;
+    min-height: 0.85rem;
+    font-size: var(--type-caption);
+    line-height: 1;
+    user-select: none;
+    visibility: hidden;
   }
 
   .period-refresh-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.35rem;
+    min-height: 2rem;
     height: 2rem;
-    padding: 0 0.65rem;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--border);
-    border-radius: var(--radius, 4px);
-    background: var(--surface-2, transparent);
+    border-radius: 7px;
+    background: var(--surface-2);
     color: var(--text-muted);
     font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
+    font-size: var(--type-label, 0.85rem);
+    font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
+    box-sizing: border-box;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .period-toolbar[data-appearance="grapher"] .period-refresh-btn {
+    border-radius: 2px;
+    border-bottom-width: 2px;
   }
 
   .period-refresh-btn:hover:not(:disabled) {

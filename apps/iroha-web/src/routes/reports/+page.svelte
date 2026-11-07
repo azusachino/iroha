@@ -13,8 +13,8 @@
   import ReportComparison from "@iroha/shared/theme-ui/components/ReportComparison.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import { formatDate } from "$lib/format";
   import {
     currentMonth,

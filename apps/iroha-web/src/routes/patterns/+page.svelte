@@ -1,8 +1,8 @@
 <script lang="ts">
   import RingGauge from "@iroha/shared/theme-ui/components/RingGauge.svelte";
   import DailySmallMultiples from "@iroha/shared/theme-ui/components/DailySmallMultiples.svelte";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import {
     formatDateOnly,
     formatMonth as formatCanonicalMonth,
