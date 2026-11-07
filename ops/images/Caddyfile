@@ -21,6 +21,10 @@
 	@immutable path /_app/immutable/*
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
 
+	handle /public/v1/* {
+		reverse_proxy {$IROHA_SERVER_UPSTREAM}
+	}
+
 	handle /api/* {
 		reverse_proxy {$IROHA_SERVER_UPSTREAM}
 	}

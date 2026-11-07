@@ -578,10 +578,7 @@ func parseHaeWorkout(w haeWorkout, rawHash string) (observations.Activity, error
 	}
 
 	sportType := normalizeHaeSport(w.Name)
-	title := w.Name
-	if title == "" {
-		title = "Workout"
-	}
+	title := canonicalHaeWorkoutTitle(w.Name)
 
 	durationS := int(math.Round(w.Duration))
 	var distanceM *float64
@@ -771,6 +768,39 @@ func normalizeHaeSleepStage(val string) string {
 
 func normalizeHaeSport(name string) string {
 	return observations.NormalizeSport(name)
+}
+
+func canonicalHaeWorkoutTitle(name string) string {
+	switch strings.TrimSpace(name) {
+	case "屋外ラン", "屋外 ラン":
+		return "Outdoor Run"
+	case "屋内ラン", "屋内 ラン":
+		return "Indoor Run"
+	case "屋外ウォーキング", "屋外 ウォーキング":
+		return "Outdoor Walk"
+	case "屋内ウォーキング", "屋内 ウォーキング":
+		return "Indoor Walk"
+	case "屋外サイクリング", "屋外 サイクリング":
+		return "Outdoor Cycling"
+	case "屋内サイクリング", "屋内 サイクリング":
+		return "Indoor Cycling"
+	case "プールスイミング":
+		return "Pool Swim"
+	case "オープンウォータースイミング":
+		return "Open Water Swim"
+	case "ハイキング":
+		return "Hiking"
+	case "機能的筋力トレーニング":
+		return "Functional Strength Training"
+	case "高強度インターバルトレーニング":
+		return "High Intensity Interval Training"
+	case "ヨガ":
+		return "Yoga"
+	case "":
+		return "Workout"
+	default:
+		return name
+	}
 }
 
 func getFloat(m map[string]any, key string) (float64, bool) {

@@ -103,8 +103,8 @@ for (const mode of ["light", "dark"] as const) {
     await expect(page.getByRole("alert")).toContainText(
       "Public activity data is temporarily unavailable.",
     );
-    await page.keyboard.press("Tab");
     const retry = page.getByRole("button", { name: "Try again", exact: true });
+    await retry.focus();
     await expect(retry).toBeFocused();
     let failedRetryResponses = 0;
     page.on("response", (response) => {

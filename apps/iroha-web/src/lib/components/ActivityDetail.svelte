@@ -9,8 +9,8 @@
     formatSport,
   } from "$lib/format";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
-  import type { Activity } from "$lib/types";
-  import type { RouteFeatureCollection } from "$lib/types";
+  import type { Activity } from "$lib/public/types";
+  import type { RouteFeatureCollection } from "$lib/public/types";
   import RoutesMap from "$lib/components/RoutesMap.svelte";
 
   let {

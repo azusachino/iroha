@@ -18,8 +18,7 @@ class DevWatchTest(unittest.TestCase):
 
     def test_workspace_and_shared_changes_rebuild_web_only(self) -> None:
         for relative in ("bun.lock", "package.json",
-                         "packages/iroha-shared/src/Theme.svelte",
-                         "apps/iroha-public-site/package.json"):
+                         "packages/iroha-shared/src/Theme.svelte"):
             path = dev_stack.ROOT / relative
             with self.subTest(path=relative):
                 self.assertEqual(dev_watch.changed_services({path: 1}, {path: 2}), ["web"])

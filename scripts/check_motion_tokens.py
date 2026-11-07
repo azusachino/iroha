@@ -23,7 +23,6 @@ DEFINE_RE = re.compile(r"--(motion-[\w-]+)\s*:")
 USE_RE = re.compile(r"var\(\s*--(motion-[\w-]+)")
 SOURCE_ROOTS = (
     "apps/iroha-web/src",
-    "apps/iroha-public-site/src",
     "packages/iroha-shared/src",
 )
 SOURCE_SUFFIXES = {".css", ".svelte"}

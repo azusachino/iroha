@@ -1,9 +1,8 @@
-FROM oven/bun:latest AS build
+FROM docker.io/oven/bun:latest AS build
 
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/iroha-web ./apps/iroha-web
-COPY apps/iroha-public-site ./apps/iroha-public-site
 COPY packages/iroha-shared ./packages/iroha-shared
 RUN bun install --frozen-lockfile
 WORKDIR /app/apps/iroha-web
@@ -11,11 +10,12 @@ ARG PUBLIC_IROHA_API_BASE=
 ENV PUBLIC_IROHA_API_BASE=$PUBLIC_IROHA_API_BASE
 ARG PUBLIC_IROHA_VERSION=dev
 ENV PUBLIC_IROHA_VERSION=$PUBLIC_IROHA_VERSION
+ENV VITE_IROHA_VERSION=$PUBLIC_IROHA_VERSION
 ARG PUBLIC_IROHA_TIMEZONE=Asia/Tokyo
 ENV PUBLIC_IROHA_TIMEZONE=$PUBLIC_IROHA_TIMEZONE
 RUN rm -rf .svelte-kit build && bun run build
 
-FROM caddy:2-alpine
+FROM docker.io/caddy:2-alpine
 ARG SOURCE_REVISION
 RUN test -n "$SOURCE_REVISION"
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION

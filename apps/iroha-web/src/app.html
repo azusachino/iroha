@@ -35,6 +35,10 @@
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
+    <!-- Client-only SvelteKit waits for PageLoad before mounting the shell. -->
+    <p id="public-bootstrap-status" role="status" aria-live="polite">
+      Loading public activity data…
+    </p>
     <div style="display: contents">%sveltekit.body%</div>
   </body>
 </html>

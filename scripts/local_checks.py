@@ -19,7 +19,6 @@ GROUPS = {
     "scripts": ("scripts-test",),
     "contracts": ("theme-boundary-check", "responsive-check", "motion-tokens-check"),
     "web": ("web-fmt-check", "web-check", "web-test"),
-    "public": ("public-site-fmt-check", "public-site-check"),
 }
 TOOLS = {
     "go": (["go", "version"], r"go version go(\d+\.\d+\.\d+)"),
@@ -81,11 +80,8 @@ def verify_tools(root: Path) -> dict[str, str]:
 def groups_for(path: str) -> set[str]:
     if path.startswith("apps/iroha-web/"):
         return {"web", "contracts"}
-    if path.startswith("apps/iroha-public-site/"):
-        # Private svelte-check includes browser fixtures against both hosts.
-        return {"public", "web", "contracts"}
     if path.startswith("packages/"):
-        return {"web", "public", "contracts"}
+        return {"web", "contracts"}
     if path.startswith("apps/") or path.startswith("go.work"):
         return {"go"}
     if path.startswith("scripts/"):

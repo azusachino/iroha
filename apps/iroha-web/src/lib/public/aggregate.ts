@@ -10,6 +10,7 @@ export function activeDaysFromActivities(
   activities: Activity[],
 ): ActivityActiveDay[] {
   const counts = new Map<string, number>();
+  if (!activities || !Array.isArray(activities)) return [];
   for (const activity of activities) {
     const day = activity.started_at.slice(0, 10);
     if (!day) continue;
@@ -22,6 +23,7 @@ export function activeDaysFromActivities(
 
 export function yearsFromActivities(activities: Activity[]): string[] {
   const years = new Set<string>();
+  if (!activities || !Array.isArray(activities)) return [];
   for (const activity of activities) {
     const year = activity.started_at.slice(0, 4);
     if (year) years.add(year);
@@ -33,6 +35,7 @@ export function yearsFromActivities(activities: Activity[]): string[] {
 // YearProgressChart's own per-year slicing.
 export function monthlyBuckets(activities: Activity[]): SummaryBucket[] {
   const byKey = new Map<string, SummaryBucket>();
+  if (!activities || !Array.isArray(activities)) return [];
   for (const activity of activities) {
     const key = activity.started_at.slice(0, 7);
     let bucket = byKey.get(key);
@@ -69,6 +72,7 @@ export function filterByYearAndSport(
   year: string | null,
   sport: string | null,
 ): Activity[] {
+  if (!activities || !Array.isArray(activities)) return [];
   return activities.filter((activity) => {
     if (year && activity.started_at.slice(0, 4) !== year) return false;
     if (sport && activity.sport_type !== sport) return false;
@@ -86,6 +90,7 @@ export interface CityGroup {
 
 export function cityGroupsForRoutes(features: RouteFeature[]): CityGroup[] {
   const groups: Record<string, CityGroup> = {};
+  if (!features || !Array.isArray(features)) return [];
   for (const feature of features) {
     const city = feature.properties.city || "Unknown";
     const status =

@@ -5,10 +5,9 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = 5183; // off 5173, which a person's `vite dev` uses
 const COMMAND = `bun run dev --host 127.0.0.1 --port ${PORT} --strictPort`; // /api calls are faked per spec with page.route; no Go backend
 const external = process.env.E2E_BASE_URL;
-const PUBLIC_PORT = 5184;
 const publicExternal = process.env.E2E_PUBLIC_BASE_URL;
 export const PUBLIC_BASE_URL =
-  publicExternal ?? `http://127.0.0.1:${PUBLIC_PORT}`;
+  publicExternal ?? external ?? `http://127.0.0.1:${PORT}`;
 const CI = !!process.env.CI;
 const chrome = devices["Desktop Chrome"];
 
@@ -48,17 +47,6 @@ export default defineConfig({
           {
             command: COMMAND,
             url: `http://127.0.0.1:${PORT}`,
-            reuseExistingServer: false,
-            timeout: 60_000,
-          },
-        ]),
-    ...(publicExternal
-      ? []
-      : [
-          {
-            command: `bun run dev --host 127.0.0.1 --port ${PUBLIC_PORT} --strictPort`,
-            cwd: "../iroha-public-site",
-            url: PUBLIC_BASE_URL,
             reuseExistingServer: false,
             timeout: 60_000,
           },

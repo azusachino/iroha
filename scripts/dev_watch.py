@@ -11,7 +11,7 @@ import dev_stack
 
 GO_ROOTS = (dev_stack.ROOT / "apps",)
 WEB_ROOTS = tuple(dev_stack.ROOT / path for path in (
-    "apps/iroha-web", "apps/iroha-public-site", "packages/iroha-shared",
+    "apps/iroha-web", "packages/iroha-shared",
 ))
 WORKSPACE_FILES = tuple(dev_stack.ROOT / path for path in (
     "package.json", "bun.lock",

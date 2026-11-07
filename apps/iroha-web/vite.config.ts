@@ -13,13 +13,28 @@ const apiTarget =
   loadEnv("", ".", "IROHA_DEV_").IROHA_DEV_API_TARGET ??
   "http://127.0.0.1:8080";
 
+const env = loadEnv("", ".", ["PUBLIC_IROHA_", "VITE_IROHA_"]);
+const appVersion =
+  process.env.PUBLIC_IROHA_VERSION ||
+  process.env.VITE_IROHA_VERSION ||
+  env.PUBLIC_IROHA_VERSION ||
+  env.VITE_IROHA_VERSION ||
+  "0.6.0-rc1";
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
+  envPrefix: ["VITE_", "PUBLIC_"],
   resolve: {
     // Shared and host imports must use one ECharts/zrender state registry.
     dedupe: ["echarts", "zrender"],
     alias: {
       "@iroha/shared": sharedPath,
     },
+  },
+  optimizeDeps: {
+    include: ["maplibre-gl"],
   },
   build: {
     // MapLibre and ECharts are core to the private route/detail experience and
@@ -35,6 +50,7 @@ export default defineConfig({
     // ever talks to this dev origin — no CORS and no per-host API base. The
     // server stays bound to localhost; Vite forwards from the same machine.
     proxy: {
+      "/public": apiTarget,
       "/api": apiTarget,
     },
   },
@@ -42,6 +58,7 @@ export default defineConfig({
   // same-origin and the HttpOnly session cookie reaches the API.
   preview: {
     proxy: {
+      "/public": apiTarget,
       "/api": apiTarget,
     },
   },

@@ -5,7 +5,7 @@
     Activity,
     ActivityDetail as ActivityDetailData,
     RouteFeatureCollection,
-  } from "$lib/types";
+  } from "$lib/public/types";
 
   let {
     activity,
