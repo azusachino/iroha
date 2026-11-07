@@ -50,7 +50,9 @@
   } = $props();
 
   let summary = $state<Summary | null>(initialData?.summary ?? null);
-  let activities = $state<Activity[]>(initialData?.activities ?? []);
+  let activities = $state<Activity[]>(
+    Array.isArray(initialData?.activities) ? initialData.activities : [],
+  );
   let meta = $state<Meta>(initialData?.meta ?? { generated_at: "" });
   let loading = $state(!initialData?.summary && !initialData?.error);
   let loadError = $state<string | null>(initialData?.error ?? null);
@@ -97,7 +99,9 @@
   );
   const activityQuery = $derived(page.url.search);
   const selectedActivity = $derived(
-    activities.find((activity) => activity.id === selectedActivityId),
+    Array.isArray(activities)
+      ? activities.find((activity) => activity.id === selectedActivityId)
+      : undefined,
   );
   // Details are fetched per activity on selection instead of shipping every
   // activity's route and samplings up front.
@@ -492,7 +496,7 @@
         }),
       ]);
       summary = s as Summary | null;
-      activities = a as Activity[];
+      activities = Array.isArray(a) ? (a as Activity[]) : [];
       meta = m as Meta;
       if (a && a.length > 0 && !selectedYear) {
         selectedYear = yearsFromActivities(a)[0] ?? "";
@@ -944,16 +948,16 @@
                 {/each}
               </tbody>
             </table>
-            {#if hasMoreActivities}
-              <div class="load-more">
-                <button type="button" onclick={loadMore}>Load more</button>
-                <span class="muted small">
-                  Showing {visibleActivities.length} of {sortedActivities.length}
-                </span>
-              </div>
-            {/if}
-          </div></PanelFrame
-        >
+          </div>
+          {#if hasMoreActivities}
+            <div class="load-more">
+              <button type="button" onclick={loadMore}>Load more</button>
+              <span class="muted small">
+                Showing {visibleActivities.length} of {sortedActivities.length}
+              </span>
+            </div>
+          {/if}
+        </PanelFrame>
       {/if}
     </div>
   {/if}

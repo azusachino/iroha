@@ -13,6 +13,28 @@ test("first route renders without console errors", async ({ page }) => {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   await fakeSession(page, signedOut);
+  await page.route("**/public/v1/summary", (route) =>
+    route.fulfill({
+      json: {
+        totals: {
+          activity_count: 0,
+          distance_m: 0,
+          duration_s: 0,
+          elevation_gain_m: 0,
+        },
+        by_year: [],
+      },
+    }),
+  );
+  await page.route("**/public/v1/activities", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/public/v1/meta", (route) =>
+    route.fulfill({ json: { generated_at: "2026-11-01T00:00:00Z" } }),
+  );
+  await page.route("**/public/v1/routes", (route) =>
+    route.fulfill({ json: { type: "FeatureCollection", features: [] } }),
+  );
 
   await page.goto(ROUTE);
 
