@@ -27,14 +27,6 @@
 			<stop offset="1" stop-color="#77e6d1" stop-opacity="0" />
 		</radialGradient>
 	</defs>
-	<style>
-		@media (prefers-color-scheme: light) {
-			.field { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1.5px; }
-			.orbit-ring { stroke: #0f172a; stroke-opacity: .15; }
-			.hub { fill: #ffffff; stroke: #0f172a; }
-			.core { fill: #08736c; }
-		}
-	</style>
 	<rect width="64" height="64" rx="17" fill="url(#field)" class="field" />
 	<circle cx="32" cy="32" r="23" fill="url(#halo)" />
 	<g fill="none" stroke="#e8fff8" stroke-opacity=".16" stroke-width="1" class="orbit-ring">

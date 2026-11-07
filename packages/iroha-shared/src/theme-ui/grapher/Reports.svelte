@@ -373,8 +373,8 @@
 <style>
   .grapher-reports {
     display: grid;
-    gap: 1rem;
-    font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    gap: 1.25rem;
+    font-family: var(--font-sans);
     min-width: 0;
   }
   .grapher-reports > * {
@@ -398,9 +398,11 @@
 
   h2 {
     max-width: 43rem;
+    font-family: var(--font-serif);
     font-size: var(--grapher-utility-title-size);
-    letter-spacing: -0.05em;
-    line-height: 1;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
   }
 
   .grapher-heading p:last-child {
@@ -413,7 +415,8 @@
 
   .kicker {
     color: var(--accent);
-    font-size: 0.66rem;
+    font-size: 0.68rem;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }

@@ -23,10 +23,17 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
   /* Base sans stack for every language that doesn't declare its own
-     --font-sans (currently only Atlas does). Reuses Atlas's already-chosen
-     value rather than introducing a second default. */
+     --font-sans. Clean modern geometric sans with Outfit as the bundled webfont,
+     system-ui fallbacks, and tabular numbers support. */
   --font-sans:
-    "Avenir Next", "Century Gothic", "Outfit", ui-sans-serif, sans-serif;
+    "Outfit", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-serif:
+    "Lora", "Crimson Pro", Iowan Old Style, "Apple Garamond", Baskerville,
+    "Times New Roman", "YuMincho", "Hiragino Mincho ProN", serif;
+  --font-mono:
+    "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
 
   /* Named motion families (2026-08-24 semantic-motion plan). Each pairs a
      duration with an easing so a consumer writes `transition: opacity
