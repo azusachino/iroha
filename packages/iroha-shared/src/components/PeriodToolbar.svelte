@@ -43,7 +43,6 @@
         <button
           type="button"
           class="period-refresh-btn"
-          aria-label="Refresh view"
           onclick={onRefresh}
           disabled={refreshing}
         >
