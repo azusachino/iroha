@@ -1,6 +1,6 @@
 <script lang="ts">
-  import ApprovedActivityDetail from "$lib/public/components/ApprovedActivityDetail.svelte";
-  import ActivityDetail from "$lib/public/components/ActivityDetail.svelte";
+  import ApprovedActivityDetail from "$lib/components/ApprovedActivityDetail.svelte";
+  import ActivityDetail from "$lib/components/ActivityDetail.svelte";
   import type {
     Activity,
     ActivityDetail as ActivityDetailData,

@@ -24,13 +24,44 @@ async function fakeAuthenticatedCockpit(
   );
 }
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/public/v1/summary", (route) =>
+    route.fulfill({
+      json: {
+        totals: {
+          activity_count: 0,
+          distance_m: 0,
+          duration_s: 0,
+          elevation_gain_m: 0,
+        },
+        by_year: [],
+      },
+    }),
+  );
+  await page.route("**/public/v1/activities", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/public/v1/meta", (route) =>
+    route.fulfill({ json: { generated_at: "2026-11-01T00:00:00Z" } }),
+  );
+  await page.route("**/public/v1/routes", (route) =>
+    route.fulfill({ json: { type: "FeatureCollection", features: [] } }),
+  );
+});
+
+async function openSignIn(page: Page) {
+  await page.getByRole("button", { name: "Sign in" }).first().click();
+}
+
 test("a signed-out visitor is asked to sign in", async ({ page }) => {
   await fakeSession(page, signedOut);
   await page.goto("/");
+  await openSignIn(page);
 
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-  await expect(page.getByLabel("Username")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(dialog.getByLabel("Username")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
 
 test("a fresh install asks for the owner account", async ({ page }) => {
@@ -53,15 +84,17 @@ test("a rejected sign-in says so and keeps the form", async ({ page }) => {
     }),
   );
   await page.goto("/");
+  await openSignIn(page);
 
-  await page.getByLabel("Username").fill("owner");
-  await page.getByLabel("Password", { exact: true }).fill("not-the-password");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Username").fill("owner");
+  await dialog.getByLabel("Password", { exact: true }).fill("not-the-password");
+  await dialog.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page.getByRole("alert")).toHaveText(
+  await expect(dialog.getByRole("alert")).toHaveText(
     "Wrong username or password.",
   );
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
 test("an unreachable backend offers a retry that recovers", async ({
@@ -74,10 +107,12 @@ test("an unreachable backend offers a retry that recovers", async ({
       : route.fulfill({ json: signedOut }),
   );
   await page.goto("/");
+  await openSignIn(page);
 
-  await expect(page.getByRole("alert")).toHaveText("Couldn't reach Iroha.");
-  await page.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("alert")).toHaveText("Couldn't reach Iroha.");
+  await dialog.getByRole("button", { name: "Try again" }).click();
+  await expect(dialog.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
 test("passkeys are offered on sign-in when enabled on server and supported by browser", async ({
@@ -89,9 +124,11 @@ test("passkeys are offered on sign-in when enabled on server and supported by br
     passkeys_enabled: true,
   });
   await page.goto("/");
+  await openSignIn(page);
 
+  const dialog = page.getByRole("dialog");
   await expect(
-    page.getByRole("button", { name: "Sign in with a passkey" }),
+    dialog.getByRole("button", { name: "Sign in with a passkey" }),
   ).toBeVisible();
 });
 
@@ -102,9 +139,11 @@ test("passkeys are omitted when disabled on server", async ({ page }) => {
     passkeys_enabled: false,
   });
   await page.goto("/");
+  await openSignIn(page);
 
+  const dialog = page.getByRole("dialog");
   await expect(
-    page.getByRole("button", { name: "Sign in with a passkey" }),
+    dialog.getByRole("button", { name: "Sign in with a passkey" }),
   ).toHaveCount(0);
 });
 
@@ -147,16 +186,18 @@ test("passkey login cancellation clears error and retains form", async ({
     }),
   );
   await page.goto("/");
+  await openSignIn(page);
 
-  const passkeyButton = page.getByRole("button", {
+  const dialog = page.getByRole("dialog");
+  const passkeyButton = dialog.getByRole("button", {
     name: "Sign in with a passkey",
   });
   await expect(passkeyButton).toBeVisible();
   await passkeyButton.click();
 
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Sign in", exact: true }),
+    dialog.getByRole("button", { name: "Sign in with a passkey" }),
   ).toBeEnabled();
 });
 
@@ -178,12 +219,14 @@ test("passkey login failure displays error alert and retains form", async ({
     }),
   );
   await page.goto("/");
+  await openSignIn(page);
 
-  await page.getByRole("button", { name: "Sign in with a passkey" }).click();
-  await expect(page.getByRole("alert")).toHaveText(
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Sign in with a passkey" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText(
     "Passkey authentication temporarily unavailable.",
   );
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
 test("successful passkey login transitions to authenticated cockpit", async ({
@@ -239,7 +282,9 @@ test("successful passkey login transitions to authenticated cockpit", async ({
   );
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Sign in with a passkey" }).click();
+  await openSignIn(page);
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Sign in with a passkey" }).click();
 
   await expect(
     page.getByRole("navigation", { name: "Primary navigation" }),
@@ -261,7 +306,7 @@ test("session state observer: unauthenticated event expires active session and d
     window.dispatchEvent(new CustomEvent("iroha:unauthenticated"));
   });
 
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
 
 test("session state observer: signing out from user menu returns to sign in", async ({
@@ -277,7 +322,7 @@ test("session state observer: signing out from user menu returns to sign in", as
   await userMenu.click();
   await page.getByRole("menuitem", { name: "Log out" }).click();
 
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
 
 test("passkey settings in account dialog reflects server passkeys disabled state", async ({

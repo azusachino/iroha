@@ -86,6 +86,7 @@ export interface CityGroup {
 
 export function cityGroupsForRoutes(features: RouteFeature[]): CityGroup[] {
   const groups: Record<string, CityGroup> = {};
+  if (!features || !Array.isArray(features)) return [];
   for (const feature of features) {
     const city = feature.properties.city || "Unknown";
     const status =

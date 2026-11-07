@@ -1,7 +1,13 @@
 <script lang="ts">
   import { Eye, EyeOff, KeyRound, Lock, X } from "@lucide/svelte";
   import { ApiError } from "$lib/api";
-  import { auth, login, passkeyLogin, setup } from "$lib/auth.svelte";
+  import {
+    auth,
+    loadSession,
+    login,
+    passkeyLogin,
+    setup,
+  } from "$lib/auth.svelte";
   import { PasskeyCancelled, passkeysSupported } from "$lib/passkey";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
@@ -94,7 +100,7 @@
     <header class="dialog-header">
       <div class="dialog-title-row">
         <h2 id="auth-dialog-title">
-          {isSetup ? "Create owner account" : "Sign in to Iroha"}
+          {isSetup ? "Welcome" : "Sign in"}
         </h2>
         <button
           type="button"
@@ -112,117 +118,126 @@
       </p>
     </header>
 
-    {#if error}
-      <div class="alert" role="alert">{error}</div>
-    {/if}
-
-    {#if offerPasskey}
-      <div class="passkey-section">
-        <button
-          type="button"
-          class="passkey-primary-btn"
-          disabled={busy}
-          onclick={() => void usePasskey()}
-        >
-          <KeyRound size={20} />
-          <span>Sign in with a passkey</span>
-        </button>
-      </div>
-    {/if}
-
-    {#if offerPasskey && !showPasswordForm && !isSetup}
-      <div class="divider">
-        <span>or</span>
-      </div>
+    {#if auth.status === "error"}
+      <div class="alert" role="alert">Couldn't reach Iroha.</div>
       <button
         type="button"
-        class="secondary-toggle-btn"
-        onclick={() => (showPasswordForm = true)}
+        class="submit-btn"
+        onclick={() => void loadSession()}>Try again</button
       >
-        <Lock size={15} />
-        <span>Use username & password</span>
-      </button>
-    {/if}
+    {:else}
+      {#if error}
+        <div class="alert" role="alert">{error}</div>
+      {/if}
 
-    {#if showPasswordForm || isSetup || !offerPasskey}
-      {#if offerPasskey && !isSetup}
-        <div class="divider">
-          <span>or use password</span>
+      {#if offerPasskey}
+        <div class="passkey-section">
+          <button
+            type="button"
+            class="passkey-primary-btn"
+            disabled={busy}
+            onclick={() => void usePasskey()}
+          >
+            <KeyRound size={20} />
+            <span>Sign in with a passkey</span>
+          </button>
         </div>
       {/if}
 
-      <form class="password-form" onsubmit={submit}>
-        <label>
-          <span>Username</span>
-          <input
-            name="username"
-            type="text"
-            autocomplete="username"
-            autocapitalize="none"
-            spellcheck="false"
-            placeholder="Username"
-            required
-            bind:value={username}
-          />
-        </label>
-        {#if isSetup}
-          <small class="muted"
-            >Lowercase letters, digits, dots, dashes, or underscores.</small
-          >
+      {#if offerPasskey && !showPasswordForm && !isSetup}
+        <div class="divider">
+          <span>or</span>
+        </div>
+        <button
+          type="button"
+          class="secondary-toggle-btn"
+          onclick={() => (showPasswordForm = true)}
+        >
+          <Lock size={15} />
+          <span>Use username & password</span>
+        </button>
+      {/if}
+
+      {#if showPasswordForm || isSetup || !offerPasskey}
+        {#if offerPasskey && !isSetup}
+          <div class="divider">
+            <span>or use password</span>
+          </div>
         {/if}
 
-        <label>
-          <span>Password</span>
-          <span class="password-input-wrap">
-            <input
-              name="password"
-              type={showPassword ? "text" : "password"}
-              autocomplete={isSetup ? "new-password" : "current-password"}
-              placeholder="Password"
-              minlength={isSetup ? 12 : undefined}
-              required
-              bind:value={password}
-            />
-            <button
-              type="button"
-              class="reveal-btn"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              onclick={() => (showPassword = !showPassword)}
-            >
-              {#if showPassword}<EyeOff size={16} />{:else}<Eye
-                  size={16}
-                />{/if}
-            </button>
-          </span>
-        </label>
-
-        {#if isSetup}
+        <form class="password-form" onsubmit={submit}>
           <label>
-            <span>Confirm password</span>
+            <span>Username</span>
             <input
-              name="confirm-password"
-              type={showPassword ? "text" : "password"}
-              autocomplete="new-password"
-              minlength="12"
+              name="username"
+              type="text"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="Username"
               required
-              bind:value={confirmPassword}
+              bind:value={username}
             />
           </label>
-          <small class="muted"
-            >At least 12 characters. You can register passkeys once signed in.</small
-          >
-        {/if}
+          {#if isSetup}
+            <small class="muted"
+              >Lowercase letters, digits, dots, dashes, or underscores.</small
+            >
+          {/if}
 
-        <button type="submit" class="submit-btn" disabled={busy}>
-          {busy
-            ? isSetup
-              ? "Creating account…"
-              : "Signing in…"
-            : isSetup
-              ? "Create account"
-              : "Sign in"}
-        </button>
-      </form>
+          <label>
+            <span>Password</span>
+            <span class="password-input-wrap">
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autocomplete={isSetup ? "new-password" : "current-password"}
+                placeholder="Password"
+                minlength={isSetup ? 12 : undefined}
+                required
+                bind:value={password}
+              />
+              <button
+                type="button"
+                class="reveal-btn"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                onclick={() => (showPassword = !showPassword)}
+              >
+                {#if showPassword}<EyeOff size={16} />{:else}<Eye
+                    size={16}
+                  />{/if}
+              </button>
+            </span>
+          </label>
+
+          {#if isSetup}
+            <label>
+              <span>Confirm password</span>
+              <input
+                name="confirm-password"
+                type={showPassword ? "text" : "password"}
+                autocomplete="new-password"
+                minlength="12"
+                required
+                bind:value={confirmPassword}
+              />
+            </label>
+            <small class="muted"
+              >At least 12 characters. You can register passkeys once signed in.</small
+            >
+          {/if}
+
+          <button type="submit" class="submit-btn" disabled={busy}>
+            {busy
+              ? isSetup
+                ? "Creating account…"
+                : "Signing in…"
+              : isSetup
+                ? "Create account"
+                : "Sign in"}
+          </button>
+        </form>
+      {/if}
     {/if}
   </div>
 </dialog>

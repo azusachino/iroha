@@ -329,14 +329,25 @@ export async function installPilotFixtures(
   await page.route("**/api/v1/**", (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
-    requests.push(path + url.search);
     if (pilot === "public") {
+      if (path === "/api/v1/auth/session") {
+        return route.fulfill({
+          status: 200,
+          json: {
+            setup_required: false,
+            authenticated: false,
+            passkeys_enabled: true,
+          },
+        });
+      }
+      requests.push(path + url.search);
       unknown.push(path);
       return route.fulfill({
         status: 403,
         json: { error: "private API forbidden in public fixture" },
       });
     }
+    requests.push(path + url.search);
     if (path.endsWith("/bounds"))
       return route.fulfill({ json: { min: "2025-01-01", max: "2026-09-30" } });
     if (scenario === "error")

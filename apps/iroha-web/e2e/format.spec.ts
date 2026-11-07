@@ -92,10 +92,20 @@ for (const host of ["private", "public"] as const) {
         await mockPrivate(page);
       } else {
         page.on("request", (request) => {
-          if (new URL(request.url()).pathname.startsWith("/api/")) {
+          const path = new URL(request.url()).pathname;
+          if (path.startsWith("/api/") && path !== "/api/v1/auth/session") {
             privateRequests.push(request.url());
           }
         });
+        await page.route("**/api/v1/auth/session", (route) =>
+          route.fulfill({
+            json: {
+              setup_required: false,
+              authenticated: false,
+              passkeys_enabled: true,
+            },
+          }),
+        );
         const responses: Record<string, unknown> = {
           summary,
           activities: [activity],

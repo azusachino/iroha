@@ -24,7 +24,14 @@
   let { children } = $props();
   let authDialogOpen = $state(false);
 
+  $effect(() => {
+    if (auth.status === "setup") {
+      authDialogOpen = true;
+    }
+  });
+
   onMount(() => {
+    document.getElementById("public-bootstrap-status")?.remove();
     void loadSession();
     window.addEventListener(UNAUTHENTICATED_EVENT, sessionExpired);
     return () =>
@@ -99,7 +106,6 @@
     <button
       class="signin-btn"
       type="button"
-      aria-label="Sign in as owner"
       onclick={() => (authDialogOpen = true)}
     >
       <KeyRound size={15} />
