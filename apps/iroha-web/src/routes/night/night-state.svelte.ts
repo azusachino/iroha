@@ -1,4 +1,4 @@
-import { onMount } from "svelte";
+import { onMount, untrack } from "svelte";
 import { replaceState } from "$app/navigation";
 import { page } from "$app/state";
 import {
@@ -270,7 +270,7 @@ export function createNightState() {
         ? (parseCalendarScope(selectedMonth) ?? scopeFromParts(selectedYear))
         : scopeFromParts(selectedYear),
     );
-    if (url.href !== window.location.href) replaceState(url, page.state);
+    if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
   function selectSession(session: SleepSession) {
@@ -397,6 +397,30 @@ export function createNightState() {
     for (const granularity of ["year", "month", "lifetime"] as const)
       void loadAggregates(granularity);
     void loadSessions(false);
+  });
+
+  // Re-read URL searchParams whenever navigation occurs (e.g. popping back from /night/[id])
+  $effect(() => {
+    const scope = readCalendarScope(page.url.searchParams, {
+      fallback: defaultScope,
+      allowDay: false,
+    });
+    const urlYear =
+      scope.kind === "year" || scope.kind === "month"
+        ? String(scope.year)
+        : scope.kind === "lifetime"
+          ? ""
+          : currentYear(new Date(), IROHA_TIMEZONE);
+    const urlMonth =
+      scope.kind === "month" ? (serializeCalendarScope(scope) as string) : "";
+
+    if (urlYear !== selectedYear || urlMonth !== selectedMonth) {
+      untrack(() => {
+        selectedYear = urlYear;
+        selectedMonth = urlMonth;
+        void loadSessions(false);
+      });
+    }
   });
 
   return {

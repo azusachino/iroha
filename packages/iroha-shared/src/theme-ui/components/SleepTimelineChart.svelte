@@ -9,6 +9,7 @@
   import type { ECharts } from "echarts/core";
   import type { SleepSegment } from "../../domain/sleep";
   import { sleepStageColor, sleepStageLabel } from "../../domain/sleep-stages";
+  import { resolveColor } from "./chart-color";
 
   use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -85,24 +86,31 @@
         formatter: (params: { seriesName: string; value: number }) =>
           `${sleepStageLabel(params.seriesName)}<br/><strong>${formatDuration(params.value)}</strong>`,
       },
-      series: segments.map((segment) => ({
-        name: segment.stage,
-        type: "bar",
-        stack: "sleep",
-        barWidth: 42,
-        data: [duration(segment)],
-        itemStyle: {
-          color: sleepStageColor(segment.stage),
-          borderColor: styles.getPropertyValue("--surface").trim(),
-          borderWidth: 1,
-        },
-        emphasis: {
+      series: segments.map((segment) => {
+        const stageColor = resolveColor(
+          sleepStageColor(segment.stage),
+          styles,
+          "#60a5fa",
+        );
+        return {
+          name: segment.stage,
+          type: "bar",
+          stack: "sleep",
+          barWidth: 42,
+          data: [duration(segment)],
           itemStyle: {
-            shadowBlur: 14,
-            shadowColor: sleepStageColor(segment.stage),
+            color: stageColor,
+            borderColor: styles.getPropertyValue("--surface").trim() || "transparent",
+            borderWidth: 1,
           },
-        },
-      })),
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 14,
+              shadowColor: stageColor,
+            },
+          },
+        };
+      }),
     });
   }
 
