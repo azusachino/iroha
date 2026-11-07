@@ -116,9 +116,9 @@ html:root[data-language="grapher"] {
 }
 
 html:root[data-language="grapher"][data-theme="light"] {
-  --theme-swatch: #08736c;
-  --accent: #08736c;
-  --accent-2: #b84256;
+  --theme-swatch: #076660;
+  --accent: #076660;
+  --accent-2: #be123c;
   --tile-surface: linear-gradient(180deg, rgb(0 0 0 / 0.015), rgb(0 0 0 / 0))
     var(--surface);
   --tile-shadow: 0 4px 16px -2px rgb(15 23 42 / 0.08);

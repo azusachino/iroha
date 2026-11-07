@@ -88,6 +88,7 @@
     const muted = styles.getPropertyValue("--text-muted").trim() || "#9aa3b2";
     const border = styles.getPropertyValue("--border").trim() || "#2a2f3a";
     const accent = styles.getPropertyValue("--accent").trim() || "#5c8dff";
+    const gridColor = styles.getPropertyValue("--chart-grid").trim() || border;
     const primaryColor = resolveColor(primary.color, styles, accent);
     const primaryFormat = primary.formatter || defaultFormatter;
     const secondaryFormat = secondary?.formatter || defaultFormatter;
@@ -111,7 +112,7 @@
           : primaryFormat(value),
       },
       axisLine: { lineStyle: { color: border } },
-      splitLine: { lineStyle: { color: border, opacity: 0.5 } },
+      splitLine: { lineStyle: { color: gridColor } },
     };
 
     chart.clear();

@@ -4,29 +4,29 @@
 @import "@iroha/shared/theme/themes.css";
 
 @theme {
-  --color-bg: #090d16;
-  --color-surface: #111827;
-  --color-surface-2: #1e293b;
-  --color-border: #233146;
-  --color-text: #e6e8ec;
-  --color-text-muted: #9aa3b2;
+  --color-bg: #0b0f19;
+  --color-surface: #121826;
+  --color-surface-2: #1b2438;
+  --color-border: #243047;
+  --color-text: #f1f3f7;
+  --color-text-muted: #94a3b8;
   --color-accent: var(--accent);
   --color-danger: var(--danger);
 }
 
 :root {
   color-scheme: dark;
-  --bg: #090d16;
-  --surface: #111827;
-  --surface-2: #1e293b;
-  --border: #233146;
-  --text: #e6e8ec;
-  --text-muted: #9aa3b2;
+  --bg: #0b0f19;
+  --surface: #121826;
+  --surface-2: #1b2438;
+  --border: #243047;
+  --text: #f1f3f7;
+  --text-muted: #94a3b8;
 
-  --accent-glow: 0 0 24px rgb(57 197 187 / 0.28);
+  --accent-glow: 0 0 24px rgb(0 210 180 / 0.28);
   --accent-2-glow: 0 0 24px rgb(255 92 138 / 0.26);
   --brand-ink: #071214;
-  --brand-a: #39c5bb;
+  --brand-a: #00d2b4;
   --brand-b: #ff5c8a;
   /* Semantic aliases used by shared primitives and route compositions. */
   --color-canvas: var(--bg);
@@ -67,19 +67,19 @@
    from the shared palette import. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --color-bg: #f8fafc;
+  --color-bg: #f7f6f2;
   --color-surface: #ffffff;
-  --color-surface-2: #f1f5f9;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-text-muted: #5b6472;
+  --color-surface-2: #efede5;
+  --color-border: #e3dfd4;
+  --color-text: #1c1b18;
+  --color-text-muted: #57534e;
 
-  --bg: #f8fafc;
+  --bg: #f7f6f2;
   --surface: #ffffff;
-  --surface-2: #f1f5f9;
-  --border: #e2e8f0;
-  --text: #0f172a;
-  --text-muted: #5b6472;
+  --surface-2: #efede5;
+  --border: #e3dfd4;
+  --text: #1c1b18;
+  --text-muted: #57534e;
   --color-canvas: var(--bg);
   --color-surface-raised: var(--surface-2);
   --color-ink: var(--text);
@@ -88,12 +88,12 @@
   --color-signal-secondary: var(--accent-2);
   --color-positive: var(--mark-teal);
   --color-warning: var(--mark-amber);
-  --color-focus: #08736c;
-  --accent-glow: 0 0 20px rgb(14 143 134 / 0.2);
-  --accent-2-glow: 0 0 20px rgb(214 63 116 / 0.18);
+  --color-focus: #0f766e;
+  --accent-glow: 0 0 20px rgb(15 118 110 / 0.2);
+  --accent-2-glow: 0 0 20px rgb(190 18 60 / 0.18);
   --brand-ink: #ffffff;
-  --brand-a: #0e8f86;
-  --brand-b: #d63f74;
+  --brand-a: #0f766e;
+  --brand-b: #be123c;
   --tile-surface: linear-gradient(180deg, rgb(0 0 0 / 0.015), rgb(0 0 0 / 0))
     var(--surface);
   --tile-shadow: 0 12px 32px rgb(20 30 60 / 0.1);
