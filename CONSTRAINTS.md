@@ -57,3 +57,6 @@ Record an exception here only with a named owner, reason, and expiry. The floor 
 | E2 | test-deleted | apps/iroha-web/e2e/metric-* | Cleanly subtract /metrics route | haru | 2026-11-08 |
 | E3 | assertion-removed | apps/iroha-web/** | Cleanly subtract /metrics route | haru | 2026-11-08 |
 | E4 | assertion-removed | scripts/mobile_route_check_test.py | Cleanly subtract /metrics route | haru | 2026-11-08 |
+| E5 | test-deleted | apps/iroha-public-site/** | Consolidate public site into iroha-web; test preserved in apps/iroha-web/src/lib/public/ | haru | 2026-12-08 |
+| E6 | assertion-removed | scripts/dev_watch_test.py | Subtract retired apps/iroha-public-site fixture | haru | 2026-12-08 |
+| E7 | assertion-removed | scripts/local_checks_test.py | Subtract retired apps/iroha-public-site fixture | haru | 2026-12-08 |

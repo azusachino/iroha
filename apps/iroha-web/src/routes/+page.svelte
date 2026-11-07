@@ -1,1168 +1,1319 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { Check, ListTodo } from "@lucide/svelte";
-  import RingGauge from "@iroha/shared/theme-ui/components/RingGauge.svelte";
-  import SportBadge from "@iroha/shared/components/SportBadge.svelte";
-  import DayPicker from "$lib/components/DayPicker.svelte";
-  import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
-  import { hasThemeRoute } from "$lib/themes/registry";
+  import { browser } from "$app/env";
+  import { page } from "$app/state";
+  import { onMount, untrack } from "svelte";
   import {
+    activeDaysFromActivities,
+    cityGroupsForRoutes,
+    filterByYearAndSport,
+    monthlyBuckets,
+    yearsFromActivities,
+  } from "$lib/public/aggregate";
+  import {
+    formatDate,
+    formatDateOnly,
     formatDistance,
     formatDuration,
-    formatPace,
     formatHr,
-    mediaEventVerb,
+    formatHumanDuration,
+    formatMetricValue,
+    formatPace,
+    formatSport,
   } from "$lib/format";
-  import EmptyState from "@iroha/shared/theme-ui/components/EmptyState.svelte";
-  import TodaySkeleton from "$lib/components/TodaySkeleton.svelte";
-  import MediaUpdateList from "@iroha/shared/theme-ui/components/MediaUpdateList.svelte";
-  import { createTodayState } from "./today-state.svelte";
+  import { site } from "$lib/public/site";
+  import { isDistanceSport, sportColor } from "@iroha/shared/domain/sport";
+  import type {
+    Activity,
+    ActivityDetail as ActivityDetailData,
+    RouteFeatureCollection,
+  } from "$lib/public/types";
+  import ActivityHeatmap from "@iroha/shared/theme-ui/components/ActivityHeatmap.svelte";
+  import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
+  import YearProgressChart from "@iroha/shared/components/YearProgressChart.svelte";
+  import SportBadge from "@iroha/shared/components/SportBadge.svelte";
+  import StatTile from "@iroha/shared/components/StatTile.svelte";
+  import RouteHeader from "@iroha/shared/components/RouteHeader.svelte";
+  import PanelFrame from "@iroha/shared/components/PanelFrame.svelte";
+  import type { PageProps } from "./$types";
 
-  import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
-  const theme = useTheme();
-  const t = createTodayState();
-  let briefingPanel = $state<HTMLElement>();
-  let taskPanel = $state<HTMLElement>();
-  let calendarPanel = $state<HTMLElement>();
+  let { data }: PageProps = $props();
+  const activities = $derived(data.activities);
+  let routes = $state<RouteFeatureCollection>({
+    type: "FeatureCollection",
+    features: [],
+  });
+  let routesLoading = $state(true);
+  const meta = $derived(data.meta);
+  const activeDays = $derived(activeDaysFromActivities(activities));
+  const latestDay = $derived(
+    activities[0]?.started_at.slice(0, 10) ??
+      new Date().toISOString().slice(0, 10),
+  );
+
+  const MONTH_LABELS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  const years = $derived(yearsFromActivities(activities));
+  let recordsScroll = $state<HTMLDivElement>();
+  let selectedYear = $state<string>(
+    untrack(() => yearsFromActivities(data.activities)[0] ?? ""),
+  );
+  let sportFilter = $state<string | null>(null);
+  let cityFilter = $state<string | null>(null);
+  let selectedActivityId = $state<string | null>(
+    browser
+      ? new URLSearchParams(window.location.search).get("activity")
+      : null,
+  );
+  const activityQuery = $derived(page.url.search);
+  const selectedActivity = $derived(
+    activities.find((activity) => activity.id === selectedActivityId),
+  );
+  // Details are fetched per activity on selection instead of shipping every
+  // activity's route and samplings up front.
+  let selectedActivityDetail = $state<ActivityDetailData | undefined>();
+  // Issue #116 review fix: list absence alone is not proof of not-found.
+  // The notice is only confirmed by an actual 404 detail response for the
+  // currently selected id; pending or failing reads keep the archive
+  // fallback without a not-found claim, and the state is reset per selection
+  // so a stale 404 can never carry into a new id.
+  let confirmedMissingActivityId = $state<string | null>(null);
+  $effect(() => {
+    const id = selectedActivityId;
+    selectedActivityDetail = undefined;
+    confirmedMissingActivityId = null;
+    if (!id) return;
+    let cancelled = false;
+    void fetch(`/public/v1/activities/${encodeURIComponent(id)}`)
+      .then((res) => {
+        if (cancelled) return undefined;
+        if (res.status === 404) confirmedMissingActivityId = id;
+        return res.ok ? (res.json() as Promise<ActivityDetailData>) : undefined;
+      })
+      .then((detail) => {
+        if (!cancelled) selectedActivityDetail = detail;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  $effect(() => {
+    const activityId = new URLSearchParams(
+      activityQuery || window.location.search,
+    ).get("activity");
+    if (activityId !== selectedActivityId) selectedActivityId = activityId;
+  });
+
+  function activityHref(id: string): string {
+    const url = new URL(page.url.href);
+    url.searchParams.set("activity", id);
+    return `${url.pathname}${url.search}`;
+  }
+
+  function selectYear(year: string) {
+    selectedYear = year;
+    cityFilter = null;
+    visibleCount = batchSize;
+  }
+
+  function toggleSport(sport: string) {
+    sportFilter = sportFilter === sport ? null : sport;
+    cityFilter = null;
+    visibleCount = batchSize;
+  }
+
+  function toggleCity(city: string) {
+    cityFilter = cityFilter === city ? null : city;
+  }
+
+  function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
+    if (!sport) return true;
+    if (distanceM == null || distanceM <= 0) return true;
+    const s = sport.toLowerCase();
+    return !["run", "walk", "hike", "ride", "cycl", "swim"].some((k) =>
+      s.includes(k),
+    );
+  }
+
+  function isCycling(sport?: string): boolean {
+    const s = sport?.toLowerCase() ?? "";
+    return s.includes("ride") || s.includes("cycl") || s.includes("bik");
+  }
+
+  function isSwimming(sport?: string): boolean {
+    return (sport?.toLowerCase() ?? "").includes("swim");
+  }
+
+  function hasMeaningfulActivityTitle(activity: Activity): boolean {
+    const title = formatSport(activity.title);
+    const sport = formatSport(activity.sport_type);
+    const genericTitles: Record<string, string[]> = {
+      Run: ["Run", "Running"],
+      Walk: ["Walk", "Walking"],
+      Ride: ["Ride", "Riding", "Cycling"],
+      Swim: ["Swim", "Swimming"],
+    };
+    return title !== "—" && !(genericTitles[sport] ?? [sport]).includes(title);
+  }
+
+  function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
+    if (distanceM == null || durationS == null || durationS <= 0) return "—";
+    return `${(distanceM / 1000 / (durationS / 3600)).toFixed(1)} km/h`;
+  }
+
+  function formatSwimmingPace(distanceM?: number, durationS?: number): string {
+    if (distanceM == null || durationS == null || durationS <= 0) return "—";
+    const pace100m = durationS / (distanceM / 100);
+    const m = Math.floor(pace100m / 60);
+    const s = Math.round(pace100m % 60);
+    return `${m}:${String(s).padStart(2, "0")} /100m`;
+  }
+
+  function cityLabel(city: string, status?: string): string {
+    if (status === "pending") return "Location pending";
+    if (status === "unknown" || city === "Unknown")
+      return "Location unavailable";
+    return city;
+  }
+
+  // --- Summary (all-time totals + by-sport are precomputed server-side;
+  // everything scoped by year/sport is derived client-side from the full
+  // activity list, since there is no live backend to re-query per filter). ---
+  const selectedYearTotals = $derived.by(() => {
+    const scoped = filterByYearAndSport(activities, selectedYear, sportFilter);
+    return scoped.reduce(
+      (acc, activity) => {
+        const hasDistance = activity.distance_m != null;
+        const isUnknownDistance =
+          !hasDistance && isDistanceSport(activity.sport_type);
+        return {
+          activity_count: acc.activity_count + 1,
+          distance_m: acc.distance_m + (activity.distance_m ?? 0),
+          distance_known_count:
+            acc.distance_known_count + (hasDistance ? 1 : 0),
+          distance_unknown_count:
+            acc.distance_unknown_count + (isUnknownDistance ? 1 : 0),
+          duration_s: acc.duration_s + (activity.duration_s ?? 0),
+          moving_time_s: acc.moving_time_s + (activity.moving_time_s ?? 0),
+        };
+      },
+      {
+        activity_count: 0,
+        distance_m: 0,
+        distance_known_count: 0,
+        distance_unknown_count: 0,
+        duration_s: 0,
+        moving_time_s: 0,
+      },
+    );
+  });
+  const distanceSub = $derived.by(() => {
+    const { distance_known_count, distance_unknown_count } = selectedYearTotals;
+    if (distance_unknown_count === 0) return undefined;
+    if (distance_known_count === 0)
+      return `Distance unavailable for ${distance_unknown_count} ${distance_unknown_count === 1 ? "activity" : "activities"}`;
+    return `Known distance for ${distance_known_count} of ${selectedYearTotals.activity_count} activities; ${distance_unknown_count} unavailable`;
+  });
+  const summaryContext = $derived(
+    `${selectedYear || "No records"} · ${sportFilter ? formatSport(sportFilter) : "All sports"}`,
+  );
+  const distanceValue = $derived(
+    selectedYearTotals.distance_unknown_count > 0 &&
+      selectedYearTotals.distance_known_count === 0
+      ? "—"
+      : formatDistance(selectedYearTotals.distance_m),
+  );
+  const selectedYearRunningCount = $derived(
+    activities.filter(
+      (activity) =>
+        activity.started_at.slice(0, 4) === selectedYear &&
+        activity.sport_type.toLowerCase().includes("run"),
+    ).length,
+  );
+
+  const monthlyAll = $derived(
+    monthlyBuckets(filterByYearAndSport(activities, null, sportFilter)),
+  );
+
+  const monthSlots = $derived.by(() => {
+    if (!selectedYear) return [];
+    const byKey = new Map(monthlyAll.map((b) => [b.key, b]));
+    return MONTH_LABELS.map((label, idx) => {
+      const key = `${selectedYear}-${String(idx + 1).padStart(2, "0")}`;
+      return { label, key, bucket: byKey.get(key) };
+    });
+  });
+
+  const monthMetric = $derived(
+    monthSlots.some((slot) => (slot.bucket?.distance_unknown_count ?? 0) > 0) ||
+      !monthSlots.some((slot) => (slot.bucket?.distance_known_count ?? 0) > 0)
+      ? "activity_count"
+      : "distance_m",
+  );
+
+  const sportBuckets = $derived.by(() => {
+    const buckets = new Map<
+      string,
+      {
+        key: string;
+        activity_count: number;
+        distance_m: number;
+        duration_s: number;
+        moving_time_s: number;
+      }
+    >();
+    for (const activity of filterByYearAndSport(
+      activities,
+      selectedYear,
+      null,
+    )) {
+      const bucket = buckets.get(activity.sport_type) ?? {
+        key: activity.sport_type,
+        activity_count: 0,
+        distance_m: 0,
+        duration_s: 0,
+        moving_time_s: 0,
+      };
+      bucket.activity_count += 1;
+      bucket.distance_m += activity.distance_m ?? 0;
+      bucket.duration_s += activity.duration_s ?? 0;
+      bucket.moving_time_s += activity.moving_time_s ?? 0;
+      buckets.set(activity.sport_type, bucket);
+    }
+    return Array.from(buckets.values()).sort(
+      (a, b) => b.activity_count - a.activity_count,
+    );
+  });
+
+  const sportMax = $derived(
+    Math.max(1, ...sportBuckets.map((s) => s.activity_count)),
+  );
+
+  // --- Routes & cities ---
+  const selectedYearRoutes = $derived(
+    selectedYear
+      ? routes.features.filter((f) => f.properties.year === selectedYear)
+      : routes.features,
+  );
+  const filteredRoutes = $derived(
+    sportFilter
+      ? selectedYearRoutes.filter(
+          (f) => f.properties.sport_type === sportFilter,
+        )
+      : selectedYearRoutes,
+  );
+  const cityGroups = $derived(cityGroupsForRoutes(filteredRoutes));
+  const maxRunCount = $derived(
+    Math.max(1, ...cityGroups.map((g) => g.runCount)),
+  );
+  const hasPendingLocations = $derived(
+    cityGroups.some((g) => g.status === "pending"),
+  );
+  const mappedRoutes = $derived(
+    cityFilter
+      ? filteredRoutes.filter(
+          (f) => (f.properties.city || "Unknown") === cityFilter,
+        )
+      : filteredRoutes,
+  );
+
+  // --- Activities table (sorting + progressive rendering over the already-
+  // loaded, year/sport-filtered array -- no server round trip). ---
+  const filteredActivities = $derived(
+    filterByYearAndSport(activities, selectedYear, sportFilter),
+  );
+
+  type SortKey =
+    "started_at" | "sport_type" | "distance_m" | "avg_pace_s_per_km";
+  let sorting = $state<{ id: SortKey; desc: boolean }[]>([
+    { id: "started_at", desc: true },
+  ]);
+  const batchSize = 50;
+  let visibleCount = $state(batchSize);
+  const columns: { id: SortKey; header: string }[] = [
+    { id: "started_at", header: "Date" },
+    { id: "sport_type", header: "Activity" },
+    { id: "distance_m", header: "Distance / Duration" },
+    { id: "avg_pace_s_per_km", header: "Pace / HR" },
+  ];
+
+  // Preserve the former TanStack v8 toggle defaults, including Shift state.
+  // The existing row ordering below deliberately uses only the leading key.
+  function toggleSort(id: SortKey, event: MouseEvent) {
+    const current = sorting.find((sort) => sort.id === id);
+    const firstDesc = typeof filteredActivities[0]?.[id] !== "string";
+    const remove = current && current.desc !== firstDesc;
+    const next = {
+      id,
+      desc: remove ? false : current ? !current.desc : firstDesc,
+    };
+    if (event.shiftKey && sorting.length) {
+      sorting = remove
+        ? sorting.filter((sort) => sort.id !== id)
+        : current
+          ? sorting.map((sort) => (sort.id === id ? next : sort))
+          : [...sorting, next];
+    } else {
+      sorting = remove && sorting.at(-1)?.id === id ? [] : [next];
+    }
+  }
+
+  const sortedActivities = $derived.by(() => {
+    const rows = [...filteredActivities];
+    const sort = sorting[0];
+    if (!sort) return rows;
+    const numeric = ["distance_m", "avg_pace_s_per_km"].includes(sort.id);
+    const key = sort.id as keyof Activity;
+    rows.sort((a, b) => {
+      const left = numeric ? Number(a[key] ?? -Infinity) : String(a[key] ?? "");
+      const right = numeric
+        ? Number(b[key] ?? -Infinity)
+        : String(b[key] ?? "");
+      const result = left < right ? -1 : left > right ? 1 : 0;
+      return sort.desc ? -result : result;
+    });
+    return rows;
+  });
+
+  const visibleActivities = $derived(sortedActivities.slice(0, visibleCount));
+  const hasMoreActivities = $derived(visibleCount < sortedActivities.length);
+
+  function loadMore() {
+    visibleCount = Math.min(visibleCount + batchSize, sortedActivities.length);
+  }
+
+  function loadMoreNearBottom() {
+    if (!hasMoreActivities) return;
+    const remaining =
+      document.documentElement.scrollHeight -
+      (window.scrollY + window.innerHeight);
+    if (remaining < 600) loadMore();
+  }
+
+  let routesSectionEl = $state<HTMLElement>();
+  let routesRequested = false;
+
+  function ensureRoutesLoaded() {
+    if (routesRequested) return;
+    routesRequested = true;
+    data
+      .loadRoutes()
+      .then((r) => {
+        routes = r;
+        routesLoading = false;
+      })
+      .catch(() => {
+        routesLoading = false;
+      });
+  }
+
+  $effect(() => {
+    if (selectedActivityId) {
+      ensureRoutesLoaded();
+    }
+  });
+
+  $effect(() => {
+    const el = routesSectionEl;
+    if (!el || !browser) return;
+    if (typeof IntersectionObserver === "undefined") {
+      ensureRoutesLoaded();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          ensureRoutesLoaded();
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
+  onMount(() => {
+    ensureRoutesLoaded();
+    window.addEventListener("scroll", loadMoreNearBottom, { passive: true });
+    return () => window.removeEventListener("scroll", loadMoreNearBottom);
+  });
 </script>
 
 <svelte:head>
-  <title>Today · iroha</title>
+  <title>{site.name} · public archive</title>
 </svelte:head>
 
-<svelte:window onkeydown={t.onKey} />
-
-<section class="cockpit">
-  {#if !t.briefing || !t.dayHasData}
-    <h1 class="visually-hidden">Today, {t.dayLabel}</h1>
-  {/if}
-  <div
-    class="scrubber tile glow"
-    role="region"
-    aria-label="Day calendar"
-    tabindex="-1"
-    bind:this={calendarPanel}
+{#if selectedActivity}
+  <header class="hero tile">
+    <div class="hero-topline">
+      <a class="brand" href="/" aria-label={`${site.name} home`}>
+        <img src="/favicon.svg" alt="" width="22" height="22" />
+        <span class="brand-title">{site.name}</span>
+        <span class="eyebrow visually-hidden">{site.name}</span>
+      </a>
+    </div>
+    <h1>The shape of the miles.</h1>
+    <p class="hero-summary">
+      A public field guide to the routes and rhythms made visible.
+    </p>
+    <div class="hero-meta" aria-label="Archive metadata">
+      <span>Live</span>
+      <span>Updated {formatDateOnly(meta.generated_at)}</span>
+      <span>iroha v{site.version}</span>
+    </div>
+  </header>
+{:else}
+  <RouteHeader
+    title={site.name}
+    context={`Observed year: ${selectedYear || "No records"} · ${sportFilter ? formatSport(sportFilter) : "All sports"}`}
   >
-    {#if t.calendarResource.error}<RetryNotice
-        message={`Day calendar unavailable: ${t.calendarResource.error}. Date selection remains available.`}
-        retryLabel="Retry day calendar"
-        onRetry={t.retryCalendar}
-        focusTarget={calendarPanel}
-      />{/if}
-    <button class="nav" aria-label="Previous day" onclick={() => t.shift(-1)}
-      >‹</button
+    {#snippet titleSnippet()}
+      <a class="brand" href="/" aria-label={`${site.name} home`}>
+        <img src="/favicon.svg" alt="" width="22" height="22" />
+        <h1 class="brand-title">{site.name}</h1>
+        <span class="eyebrow visually-hidden">{site.name}</span>
+      </a>
+    {/snippet}
+    {#if years.length > 0}
+      <nav class="year-tabs" aria-label="Select year">
+        {#each years as year (year)}
+          <button
+            type="button"
+            class:active={selectedYear === year}
+            onclick={() => selectYear(year)}>{year}</button
+          >
+        {/each}
+      </nav>
+    {/if}
+    {#snippet actions()}
+      <div class="public-actions">
+        <div class="hero-meta" aria-label="Archive metadata">
+          <span>Live</span><span
+            >Updated {formatDateOnly(meta.generated_at)}</span
+          ><span>iroha v{site.version}</span>
+        </div>
+      </div>
+    {/snippet}
+  </RouteHeader>
+{/if}
+
+{#snippet selectedRecord(activity: Activity)}
+  <a href={page.url.pathname}>← Back to archive</a>
+  <h2>{activity.title || formatSport(activity.sport_type)}</h2>
+  <p>
+    Distance: {formatDistance(activity.distance_m)} · Duration:
+    {formatDuration(activity.duration_s)}
+  </p>
+{/snippet}
+
+{#if selectedActivity}
+  {#await import("$lib/public/components/ActivityDetailView.svelte")}
+    <section class="tile" aria-busy="true">
+      {@render selectedRecord(selectedActivity)}
+      <p role="status">Loading activity details…</p>
+    </section>
+  {:then { default: DetailView }}
+    <DetailView
+      activity={selectedActivity}
+      detail={selectedActivityDetail}
+      {routes}
+      backHref={page.url.pathname}
+    />
+  {:catch}
+    <section class="tile" aria-busy="false">
+      {@render selectedRecord(selectedActivity)}
+      <p role="alert">
+        Activity detail view unavailable. Record summary remains.
+      </p>
+      <button type="button" onclick={() => window.location.reload()}
+        >Reload page</button
+      >
+    </section>
+  {/await}
+{:else}
+  {#if selectedActivityId && !selectedActivity && confirmedMissingActivityId === selectedActivityId}
+    <!-- Issue #116: an unknown ?activity= link must be told apart from the
+         ordinary archive view. The notice renders only after the detail read
+         for this exact id confirmed a 404; a pending or failing read keeps
+         the plain archive fallback. -->
+    <section
+      class="tile notice-tile"
+      role="status"
+      aria-label="Activity not found"
     >
-    <button
-      class="scrub-center"
-      aria-haspopup="dialog"
-      aria-expanded={t.pickerOpen}
-      onclick={() => (t.pickerOpen = !t.pickerOpen)}
-    >
-      <span class="day-main">{t.dayLabel}</span>
-      <span class="day-hint">pick a day · ← → to move</span>
-    </button>
-    <button
-      class="nav"
-      aria-label="Next day"
-      disabled={!t.canMoveNext}
-      onclick={() => t.shift(1)}>›</button
-    >
-    {#if t.pickerOpen}
-      <button
-        class="pk-backdrop"
-        aria-label="Close picker"
-        onclick={() => (t.pickerOpen = false)}
-      ></button>
-      <div class="pk-pop tile" role="dialog" aria-label="Pick a day">
-        <DayPicker
-          value={t.day}
-          days={t.daysSet}
-          max={t.today}
-          onselect={(d) => {
-            t.day = d;
-            t.pickerOpen = false;
-          }}
+      <p>
+        This activity is not in the public archive. Showing the full archive
+        instead.
+      </p>
+      <a href={page.url.pathname}>View the full archive</a>
+    </section>
+  {/if}
+  <div class="dashboard">
+    <div class="stat-grid">
+      <div class="stat-tile-wrap" style="--accent: #00e5bf;">
+        <StatTile
+          label="Distance"
+          value={distanceValue}
+          sub={distanceSub}
+          context={summaryContext}
         />
-        <button
-          class="today-link"
-          type="button"
-          onclick={() => {
-            t.day = t.today;
-            t.pickerOpen = false;
-          }}
+      </div>
+      <div class="stat-tile-wrap" style="--accent: #f59e0b;">
+        <StatTile
+          label="Activities"
+          context={summaryContext}
+          value={formatMetricValue(selectedYearTotals.activity_count, "count")}
+        />
+      </div>
+      <div class="stat-tile-wrap" style="--accent: #38bdf8;">
+        <StatTile
+          label="Running count"
+          value={formatMetricValue(selectedYearRunningCount, "count")}
+          context={selectedYear
+            ? `${selectedYear} · All running records`
+            : "No records"}
+        />
+      </div>
+      <div class="stat-tile-wrap" style="--accent: #f43f5e;">
+        <StatTile
+          label="Total time"
+          context={summaryContext}
+          value={formatHumanDuration(
+            selectedYearTotals.moving_time_s || selectedYearTotals.duration_s,
+          )}
+        />
+      </div>
+    </div>
+
+    <ActivityHeatmap days={activeDays} endDay={latestDay} embedded={false} />
+
+    {#if years.length > 0}
+      {#if selectedYear}
+        <div class="analytics-grid">
+          <PanelFrame label="Cumulative distance">
+            <YearProgressChart
+              embedded
+              byMonth={monthlyAll}
+              year={selectedYear}
+              sportName={sportFilter ? formatSport(sportFilter) : undefined}
+            />
+          </PanelFrame>
+          <PanelFrame label="Monthly observations">
+            <MonthlyBarChart
+              embedded
+              points={monthSlots.map((slot) => ({
+                label: slot.label,
+                value: slot.bucket?.[monthMetric] ?? 0,
+              }))}
+              metric={monthMetric}
+              year={selectedYear}
+            />
+          </PanelFrame>
+        </div>
+      {/if}
+    {/if}
+
+    {#if sportBuckets.length > 0}
+      <PanelFrame label="Activities by sport"
+        ><section class="by-sport">
+          <div class="section-kicker eyebrow">
+            {selectedYear} by sport
+          </div>
+          {#each sportBuckets as sport (sport.key)}
+            <button
+              type="button"
+              class="sport-row"
+              class:active={sportFilter === sport.key}
+              onclick={() => toggleSport(sport.key)}
+            >
+              <SportBadge sport={sport.key} />
+              <span class="bar">
+                <i
+                  style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
+                ></i>
+              </span>
+              <span class="count">{sport.activity_count}×</span>
+            </button>
+          {/each}
+          {#if sportFilter}
+            <button
+              type="button"
+              class="clear-filter"
+              onclick={() => toggleSport(sportFilter!)}
+            >
+              Clear sport filter ({formatSport(sportFilter)})
+            </button>
+          {/if}
+        </section></PanelFrame
+      >
+    {/if}
+
+    <section class="section-heading" bind:this={routesSectionEl}>
+      <h2>Routes &amp; cities</h2>
+      {#if hasPendingLocations}
+        <p class="muted small">Some locations are waiting for geocoding.</p>
+      {/if}
+    </section>
+
+    {#if routesLoading}
+      <div class="routes-grid" aria-busy="true">
+        <PanelFrame label="Route map">
+          <div class="map-wrap map-loading">
+            <p class="muted">Loading routes map…</p>
+          </div>
+        </PanelFrame>
+        <PanelFrame label="Geography selection">
+          <div class="cities cities-loading">
+            <p class="muted">Loading geography data…</p>
+          </div>
+        </PanelFrame>
+      </div>
+    {:else if filteredRoutes.length === 0}
+      <p class="muted">No routes recorded yet.</p>
+    {:else}
+      <div class="routes-grid">
+        <PanelFrame label="Route map"
+          ><div class="map-wrap">
+            {#await import("$lib/components/RoutesMap.svelte") then { default: RoutesMap }}
+              <RoutesMap
+                data={{ type: "FeatureCollection", features: mappedRoutes }}
+              />
+            {/await}
+          </div></PanelFrame
         >
-          Return to today
-        </button>
+        <PanelFrame label="Geography selection"
+          ><div class="cities">
+            <p class="muted small">
+              {selectedYear} · {sportFilter
+                ? formatSport(sportFilter)
+                : "All sports"} · {cityFilter
+                ? cityLabel(cityFilter)
+                : "All cities"} (geography only)
+            </p>
+            <div class="cities-head">
+              <h3>
+                {sportFilter
+                  ? `${formatSport(sportFilter)} cities`
+                  : "Cities visited"}
+              </h3>
+              {#if cityFilter}
+                <button
+                  type="button"
+                  class="clear-filter"
+                  onclick={() => (cityFilter = null)}
+                >
+                  Show all
+                </button>
+              {/if}
+            </div>
+            {#if cityGroups.length === 0}
+              <p class="muted small">
+                No route coordinates for this selection.
+              </p>
+            {:else}
+              <div class="city-grid">
+                {#each cityGroups as group (group.city)}
+                  {@const intensity = group.runCount / maxRunCount}
+                  <button
+                    type="button"
+                    class="city-card"
+                    class:selected={cityFilter === group.city}
+                    style={`--intensity: ${intensity}`}
+                    onclick={() => toggleCity(group.city)}
+                  >
+                    <div class="city-name">
+                      {cityLabel(group.city, group.status)}
+                    </div>
+                    <div class="city-sports">
+                      {Array.from(group.sports)
+                        .map((s) => formatSport(s))
+                        .join(", ")}
+                    </div>
+                    <div class="city-count">
+                      {group.runCount}
+                      {group.runCount === 1 ? "run" : "runs"}
+                      {#if group.count > group.runCount}
+                        <span class="muted small"
+                          >(+{group.count - group.runCount} other)</span
+                        >
+                      {/if}
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div></PanelFrame
+        >
       </div>
     {/if}
 
-    <section
-      class="to-go-strip tile"
-      aria-label="Daily to-go"
-      tabindex="-1"
-      bind:this={taskPanel}
-    >
-      {#if t.taskError}<RetryNotice
-          message={`Daily tasks unavailable: ${t.taskError}`}
-          retryLabel="Retry daily tasks"
-          onRetry={t.retryTasks}
-          focusTarget={taskPanel}
-        />{/if}
-      {#if t.finishError}<p role="alert">
-          Task completion failed: {t.finishError}
-        </p>{/if}
-      {#if t.taskResource.loading}<p role="status">Loading daily tasks…</p>{/if}
-      {#if t.taskResource.data}<p>
-          Observed tasks: {t.taskResource.data.date} · up to 5 open tasks
-        </p>{/if}
-      <div class="to-go-heading">
-        <span class="to-go-icon" aria-hidden="true"><ListTodo size={17} /></span
-        >
-        <div>
-          <p class="eyebrow">Daily to-go</p>
-          <p class="to-go-title">
-            {t.toGoTasks.length
-              ? `${t.toGoTasks.length} ${t.toGoTasks.length === 1 ? "thing" : "things"} to carry`
-              : t.taskResource.ready
-                ? "A clear next step"
-                : "Tasks unavailable"}
-          </p>
-        </div>
-      </div>
-      <div class="to-go-items">
-        {#if t.toGoTasks.length}
-          {#each t.toGoTasks as task (task.id)}
-            <div class="to-go-task">
-              <button
-                type="button"
-                aria-label={`Complete ${task.title}`}
-                disabled={t.finishingTaskId != null}
-                aria-busy={t.finishingTaskId === task.id}
-                onclick={() => t.finishTask(task)}><Check size={14} /></button
-              >
-              <span>{task.title}</span>
-            </div>
-          {/each}
-        {:else if t.taskResource.ready && !t.taskError && !t.taskResource.loading}
-          <span class="to-go-empty">No open tasks for this day.</span>
-        {/if}
-      </div>
-      <a class="to-go-link" href="/to-go">Open control room →</a>
+    <section class="section-heading">
+      <h2>Activities</h2>
     </section>
-  </div>
-  <section
-    aria-label="Daily briefing read state"
-    tabindex="-1"
-    bind:this={briefingPanel}
-  >
-    {#if t.error || t.unavailableSections.length}<RetryNotice
-        message={t.error
-          ? `Daily briefing unavailable: ${t.error}`
-          : `Unavailable briefing sections: ${t.unavailableSections.join(", ")}. Absence of records is not established for these sections.`}
-        retryLabel="Retry daily briefing"
-        onRetry={t.retryBriefing}
-        focusTarget={briefingPanel}
-      />{/if}
-  </section>
 
-  {#if !t.briefing && t.loading}
-    <TodaySkeleton label={`Loading ${t.dayLabel}…`} />
-  {:else if !t.briefing && t.error}
-    <p class="error status" role="alert">Could not load data: {t.error}</p>
-  {:else if t.briefing}
-    <div class="briefing-surface" aria-busy={t.loading}>
-      {#if t.loading}
-        <p class="briefing-update" role="status" aria-live="polite">
-          Updating {t.dayLabel}…
+    {#if filteredActivities.length === 0}
+      <p class="muted">No activities for this selection.</p>
+    {:else}
+      <PanelFrame label="Activity records">
+        <p class="muted small">
+          All record columns are preserved. Swipe horizontally, or focus the
+          table region and use arrow keys, to reach later columns.
         </p>
-      {/if}
-      {#if t.error}
-        <p class="error update-error" role="alert">
-          Could not update {t.dayLabel}; showing {t.dataDayLabel}.
-        </p>
-      {/if}
-      <div class="briefing-content">
-        {#if !t.dayHasData && t.unavailableSections.length}
-          <p role="status">
-            Some sections for {t.dataDayLabel} are unavailable. Available sections
-            contain no records.
-          </p>
-        {:else if !t.dayHasData}
-          <EmptyState
-            eyebrow="Quiet day"
-            title={`No records for ${t.dataDayLabel}.`}
-            description="The canonical cockpit has no imported movement, recovery, health, media, or task records for this date."
-            actionHref={!t.canJumpToLatestDay && t.dataDay !== t.today
-              ? "/"
-              : undefined}
-            actionLabel={t.canJumpToLatestDay
-              ? "Jump to latest recorded day"
-              : "Return to today"}
-            actionOnclick={t.canJumpToLatestDay ? t.jumpToLatestDay : undefined}
-          />
-        {:else if hasThemeRoute(theme.definition(), "today")}
-          <ThemeRouteRenderer
-            route="today"
-            props={{
-              dayLabel: t.dataDayLabel,
-              day: t.dataDay,
-              unavailableSections: t.unavailableSections,
-              dRow: t.dRow,
-              mainNight: t.mainNight,
-              acts: t.acts,
-              mediaEvents: t.mediaEvents,
-              mediaUpdates: t.mediaUpdates,
-              onOpenActivity: (id: string) => void goto(`/motion/${id}`),
-              onOpenMedia: (id: string) => void goto(`/library/${id}`),
-            }}
-          />
-        {:else}
-          <header class="command-heading tile hero-surface">
-            <div>
-              <p class="eyebrow">Private command center / {t.dataDayLabel}</p>
-              <h1>Today, in one view.</h1>
-              <p class="heading-copy">
-                A calm operating view of movement, recovery, and the things you
-                touched today.
-              </p>
-              <p class="data-note">
-                Imported snapshot · {t.dataDay === t.today
-                  ? "latest available day"
-                  : "historical day"}
-              </p>
-            </div>
-            <div class="day-orbit" aria-label="Day signal">
-              <div class="orbit orbit-one"></div>
-              <div class="orbit orbit-two"></div>
-              <div class="orbit-core">
-                <strong>{t.daySignal.value}</strong>
-                <span>{t.daySignal.label}</span>
-              </div>
-              <i class="orbit-star star-one"></i>
-              <i class="orbit-star star-two"></i>
-            </div>
-          </header>
-          <div class="home-kpis" aria-label="Today summary">
-            <div class="home-kpi tile">
-              <span>Move</span>
-              <strong
-                >{t.num(t.dailyRing?.move_kcal, 0)}<small> kcal</small></strong
-              >
-              <i
-                style={"--fill:" +
-                  Math.min(
-                    100,
-                    ((t.dailyRing?.move_kcal ?? 0) /
-                      (t.dailyRing?.move_goal_kcal || 1)) *
-                      100,
-                  ) +
-                  "%"}
-              ></i>
-            </div>
-            <div class="home-kpi tile">
-              <span>Exercise</span>
-              <strong
-                >{t.num(t.dailyRing?.exercise_min, 0)}<small>
-                  min</small
-                ></strong
-              >
-              <i
-                style={"--fill:" +
-                  Math.min(
-                    100,
-                    ((t.dailyRing?.exercise_min ?? 0) /
-                      (t.dailyRing?.exercise_goal_min || 1)) *
-                      100,
-                  ) +
-                  "%"}
-              ></i>
-            </div>
-            <div class="home-kpi tile">
-              <span>Steps</span>
-              <strong>{t.num(t.dRow?.steps, 0)}</strong>
-              <small class="kpi-note"
-                >{t.num(t.dRow?.distance_km, 1)} km walked</small
-              >
-            </div>
-            <div class="home-kpi tile">
-              <span>Recovery</span>
-              <strong
-                >{t.mainNight
-                  ? Math.round(t.mainNight.efficiency * 100) + "%"
-                  : "—"}</strong
-              >
-              <small class="kpi-note">sleep efficiency</small>
-            </div>
-          </div>
-          <div class="bento signal-layout">
-            <!-- Rings -->
-            <a class="card tile feature-card" href="/patterns">
-              <header><span class="ic">◎</span> Activity rings</header>
-              {#if t.hasRing}
-                <RingGauge rings={t.ringData} size={116} />
-                <div class="mini-stats">
-                  <span>{t.num(t.dRow?.steps, 0)} steps</span>
-                  <span>{t.num(t.dRow?.distance_km, 1)} km</span>
-                  <span>{t.num(t.dRow?.flights, 0)} flights</span>
-                </div>
-              {:else}
-                <p class="empty">
-                  {t.unavailableSections.includes("daily")
-                    ? "Rings unavailable for this day."
-                    : "No rings this day"}
-                </p>
-              {/if}
-            </a>
-
-            <!-- Vitals -->
-            <a class="card tile vitals-card" href="/patterns">
-              <header><span class="ic">♥</span> Body vitals</header>
-              {#if t.vitals.length}
-                <dl class="vitals">
-                  {#each t.vitals as m}
-                    <div>
-                      <dt>{m.l}</dt>
-                      <dd>{t.num(m.v, m.d)}<span class="u">{m.u}</span></dd>
+        <button
+          class="scroll-hint"
+          type="button"
+          aria-controls="public-records-scroll"
+          onclick={() => recordsScroll?.focus({ preventScroll: true })}
+          >Focus public records to scroll all columns</button
+        >
+        <div
+          class="table-wrap"
+          id="public-records-scroll"
+          bind:this={recordsScroll}
+          role="region"
+          aria-label="Public activity records — horizontally scrollable"
+          tabindex="-1"
+        >
+          <table aria-label="Public activity records">
+            <thead>
+              <tr>
+                {#each columns as column (column.id)}
+                  {@const activeSort = sorting.find(
+                    (sort) => sort.id === column.id,
+                  )}
+                  <th
+                    aria-sort={sorting[0]?.id === column.id
+                      ? sorting[0].desc
+                        ? "descending"
+                        : "ascending"
+                      : "none"}
+                  >
+                    <button
+                      type="button"
+                      class="sort-header"
+                      onclick={(event) => toggleSort(column.id, event)}
+                    >
+                      {column.header}
+                      {#if activeSort}{activeSort.desc ? "▼" : "▲"}{/if}
+                    </button>
+                  </th>
+                {/each}
+              </tr>
+            </thead>
+            <tbody>
+              {#each visibleActivities as activity (activity.id)}
+                <tr>
+                  <td class="nowrap">
+                    <a class="activity-link" href={activityHref(activity.id)}>
+                      {formatDate(activity.started_at, activity.timezone)}
+                    </a>
+                  </td>
+                  <td>
+                    <div class="activity-cell">
+                      <SportBadge sport={activity.sport_type} />
+                      {#if hasMeaningfulActivityTitle(activity)}
+                        <span class="activity-title">{activity.title}</span>
+                      {/if}
                     </div>
-                  {/each}
-                </dl>
-              {:else}
-                <p class="empty">
-                  {t.unavailableSections.includes("daily")
-                    ? "Vitals unavailable for this day."
-                    : "No vitals this day"}
-                </p>
-              {/if}
-            </a>
-
-            <!-- Sleep -->
-            <a class="card tile sleep-card" href="/night">
-              <header><span class="ic">☾</span> Sleep</header>
-              {#if t.mainNight}
-                <div class="sleep-hero">
-                  {formatDuration(t.mainNight.asleep_s)}
-                </div>
-                <div class="mini-stats">
-                  <span
-                    >{Math.round(t.mainNight.efficiency * 100)}% efficiency</span
-                  >
-                  <span>{formatDuration(t.mainNight.time_in_bed_s)} in bed</span
-                  >
-                  <span>{t.mainNight.is_main_sleep ? "Main sleep" : "Nap"}</span
-                  >
-                </div>
-              {:else}
-                <p class="empty">
-                  {t.unavailableSections.includes("sleep")
-                    ? "Sleep session unavailable for this day."
-                    : "No sleep recorded"}
-                </p>
-              {/if}
-            </a>
-
-            <!-- Activities: each row links to its own detail page. -->
-            <div class="card tile wide activity-card">
-              <header>
-                <span class="ic">⚡</span>
-                <a class="hdr-link" href="/motion">Motion</a>
-              </header>
-              {#if t.acts.length}
-                <ul class="acts">
-                  {#each t.acts as a}
-                    <li>
-                      <a class="act-row" href={`/motion/${a.id}`}>
-                        <SportBadge sport={a.sport_type} />
-                        <span class="a-title">{a.title || "Untitled"}</span>
-                        <span class="a-metrics">
-                          {#if a.distance_m}{formatDistance(a.distance_m)} ·
-                          {/if}{formatDuration(
-                            a.duration_s ?? a.moving_time_s,
-                          )}{#if a.avg_pace_s_per_km}
-                            · {formatPace(
-                              a.avg_pace_s_per_km,
-                            )}{/if}{#if a.avg_hr}
-                            · {formatHr(a.avg_hr)}{/if}
-                        </span>
-                      </a>
-                    </li>
-                  {/each}
-                </ul>
-              {:else}
-                <p class="empty">
-                  {t.unavailableSections.includes("activities")
-                    ? "Activity sessions unavailable for this day."
-                    : "No activities this day"}
-                </p>
-              {/if}
+                  </td>
+                  <td>
+                    {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                      {formatDuration(
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}
+                    {:else}
+                      {formatDistance(activity.distance_m)}
+                    {/if}
+                  </td>
+                  <td>
+                    {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                      {#if activity.avg_hr}Avg HR: {formatHr(
+                          activity.avg_hr,
+                        )}{:else if activity.max_hr}Max HR: {formatHr(
+                          activity.max_hr,
+                        )}{:else}—{/if}
+                    {:else if isCycling(activity.sport_type)}
+                      {formatCyclingSpeed(
+                        activity.distance_m,
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}
+                    {:else if isSwimming(activity.sport_type)}
+                      {formatSwimmingPace(
+                        activity.distance_m,
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}
+                    {:else}
+                      {formatPace(activity.avg_pace_s_per_km)}
+                      {#if activity.avg_hr}· {formatHr(activity.avg_hr)}{/if}
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          {#if hasMoreActivities}
+            <div class="load-more">
+              <button type="button" onclick={loadMore}>Load more</button>
+              <span class="muted small">
+                Showing {visibleActivities.length} of {sortedActivities.length}
+              </span>
             </div>
-
-            <!-- Media events: the selected-day slice of the media history. -->
-            <div class="card tile wide media-card">
-              <header>
-                <span class="ic">▤</span>
-                <a class="hdr-link" href="/library">Library</a>
-              </header>
-              {#if t.mediaEvents.length}
-                <ul class="media-events">
-                  {#each t.mediaEvents as event (event.id)}
-                    <li>
-                      <a
-                        class="media-event-row"
-                        href={`/library/${event.media_id}`}
-                      >
-                        {#if event.cover_image_url}
-                          <img
-                            src={event.cover_image_url}
-                            alt=""
-                            loading="lazy"
-                          />
-                        {:else}
-                          <span class="media-thumb" aria-hidden="true"
-                            >{(event.native_title || event.title).slice(
-                              0,
-                              1,
-                            )}</span
-                          >
-                        {/if}
-                        <span class="media-event-copy">
-                          <strong>{event.native_title || event.title}</strong>
-                          <span>{mediaEventVerb(event)}</span>
-                        </span>
-                        {#if event.rating != null}<span class="media-score"
-                            >{event.rating.toFixed(1)}</span
-                          >{/if}
-                      </a>
-                    </li>
-                  {/each}
-                </ul>
-              {:else}
-                <p class="empty">
-                  {t.unavailableSections.includes("media")
-                    ? "Media sessions unavailable for this day."
-                    : "No exact media sessions this day"}
-                </p>
-              {/if}
-            </div>
-            {#if t.mediaUpdates.length}
-              <div class="card tile wide media-card media-updates-card">
-                <header>
-                  <span class="ic">↻</span>
-                  <div>
-                    <span class="hdr-link">Library updates</span>
-                    <small>dated provider facts</small>
-                  </div>
-                  <span>{t.mediaUpdates.length} updates</span>
-                </header>
-                <MediaUpdateList
-                  updates={t.mediaUpdates}
-                  onOpenMedia={(id) => void goto(`/library/${id}`)}
-                />
-              </div>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    </div>
-  {/if}
-</section>
+          {/if}
+        </div></PanelFrame
+      >
+    {/if}
+  </div>
+{/if}
 
 <style>
-  .cockpit {
-    display: grid;
-    gap: 1.25rem;
+  .notice-tile {
+    margin-bottom: 1.25rem;
   }
-  .to-go-strip {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 1rem;
-    align-items: center;
-    padding: 0.8rem 1rem;
-    background: color-mix(in srgb, var(--surface) 92%, var(--accent));
-  }
-  .to-go-strip :global(.retry-notice) {
-    grid-column: 1 / -1;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-  .to-go-heading {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-  }
-  .to-go-icon {
-    display: grid;
-    width: 2.2rem;
-    height: 2.2rem;
-    place-items: center;
-    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-    border-radius: 50%;
+  .notice-tile a {
     color: var(--accent);
   }
-  .to-go-heading .eyebrow {
-    margin-bottom: 0.1rem;
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 2.25rem 1.75rem;
+    margin-bottom: 1.25rem;
+    background:
+      radial-gradient(
+        ellipse 70% 60% at 85% 15%,
+        color-mix(in srgb, var(--accent) 14%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 50% 50% at 15% 85%,
+        color-mix(in srgb, #38bdf8 10%, transparent),
+        transparent 70%
+      ),
+      var(--tile-surface);
   }
-  .to-go-title {
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 6px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .brand img {
+    flex: none;
+    border-radius: 6px;
+  }
+  .brand:hover .brand-title {
+    color: var(--accent);
+  }
+  .brand:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  .hero-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.4rem;
+  }
+  .hero h1 {
     margin: 0;
-    font-size: 0.98rem;
-    font-weight: 700;
+    font-size: clamp(var(--type-title), 5vw, var(--type-display));
+    letter-spacing: -0.03em;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--text) 40%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
-  .to-go-items {
+  .hero-summary {
+    max-width: 34rem;
+    margin: 0.7rem 0 1.15rem;
+    color: var(--text-muted);
+    font-size: var(--type-body);
+    line-height: 1.5;
+  }
+  .hero-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem 0.8rem;
+    gap: 0.45rem 1rem;
+    color: var(--text-muted);
+    font-size: var(--type-caption);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .hero-meta span + span {
+    padding-left: 1rem;
+    border-left: 1px solid var(--border);
+  }
+  @media (max-width: 640px) {
+    .hero-meta span + span {
+      padding-left: 0;
+      border-left: 0;
+    }
+  }
+  .small {
+    font-size: var(--type-label);
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .stat-tile-wrap {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
   }
-  .to-go-task {
+  .stat-tile-wrap :global(.stat-tile) {
+    height: 100%;
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .stat-tile-wrap :global(.stat-tile:hover) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px -3px
+      color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .brand-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    transition: color 0.15s ease;
+  }
+  .public-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+  }
+  .public-actions .hero-meta {
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  .public-actions .hero-meta span + span {
+    padding-left: 0;
+    border-left: 0;
+  }
+  @media (max-width: 640px) {
+    .public-actions {
+      align-items: flex-start;
+    }
+  }
+  .year-tabs {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
-    min-width: 0;
-    color: var(--text-muted);
-    font-size: 0.78rem;
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.25rem 0;
+    margin-bottom: 0;
   }
-  .to-go-task span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .year-tabs::-webkit-scrollbar {
+    display: none;
   }
-  .to-go-task button {
-    display: grid;
-    flex: 0 0 auto;
-    width: 24px;
-    height: 24px;
-    place-items: center;
+  .year-tabs button {
+    flex-shrink: 0;
+    padding: 0.42rem 0.9rem;
     border: 1px solid var(--border);
-    border-radius: 50%;
-    background: transparent;
+    border-radius: 999px;
+    background: var(--surface);
     color: var(--text-muted);
+    font-size: var(--type-label);
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+  .year-tabs button:hover {
+    border-color: var(--text);
+    color: var(--text);
+  }
+  .year-tabs button:focus-visible,
+  .year-tabs button:focus {
+    outline: 2px solid var(--color-focus, var(--accent)) !important;
+    outline-offset: 3px !important;
+  }
+  .year-tabs button.active {
+    border-color: var(--tab-active-border);
+    background: var(--tab-active-bg);
+    color: var(--tab-active-text);
+    font-weight: 750;
+    box-shadow: var(--tab-active-shadow);
+  }
+  .dashboard {
+    display: grid;
+    gap: 1rem;
+  }
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .by-sport {
+    min-width: 0;
+  }
+  .eyebrow,
+  .section-kicker {
+    margin-bottom: 0.65rem;
+    color: var(--accent);
+    font-size: var(--type-caption);
+    font-weight: 750;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .sport-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .sport-row:hover {
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+  }
+  .sport-row .bar {
+    flex: 1;
+    height: 0.6rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--surface-2);
+  }
+  .sport-row .bar i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    box-shadow: 0 0 10px currentColor;
+  }
+  .sport-row .count {
+    min-width: 3rem;
+    text-align: right;
+    color: var(--text-muted);
+    font-size: var(--type-label);
+  }
+  .sport-row.active .count {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .clear-filter {
+    margin-top: 0.4rem;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: var(--type-label);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .section-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 1.5rem 0 0.75rem;
+  }
+  .section-heading h2 {
+    margin: 0;
+    font-size: var(--type-title);
+    letter-spacing: -0.02em;
+  }
+  .routes-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+  }
+  .map-wrap {
+    min-height: 20rem;
+    padding: 0.5rem;
+  }
+  .map-loading,
+  .cities-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 18rem;
+  }
+  .cities {
+    min-width: 0;
+    max-height: 24rem;
+    overflow-y: auto;
+  }
+  .cities-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .cities-head h3 {
+    margin: 0;
+    font-size: var(--type-label);
+  }
+  .city-grid {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .city-card {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: color-mix(
+      in srgb,
+      var(--accent) calc(var(--intensity) * 25%),
+      var(--surface-2)
+    );
+    color: var(--text);
     cursor: pointer;
   }
-  .to-go-task button:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+  .city-card.selected {
+    outline: 2px solid var(--accent);
   }
-  .to-go-empty {
+  .city-name {
+    font-weight: 700;
+    font-size: var(--type-label);
+  }
+  .city-sports,
+  .city-count {
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--type-caption);
+    margin-top: 0.2rem;
   }
-  .to-go-link {
-    color: var(--accent);
-    font-size: 0.75rem;
-    white-space: nowrap;
-  }
-  .status {
-    padding: 2rem 0;
-  }
-  .error {
-    color: var(--danger);
-  }
-  .briefing-surface {
-    position: relative;
-    min-width: 0;
-  }
-  .briefing-content {
-    min-width: 0;
-  }
-  .briefing-update,
-  .update-error {
-    margin: 0 0 0.65rem;
-    font-size: 0.75rem;
-  }
-  .briefing-update {
-    /* Keep the live announcement out of layout so date scrubbing cannot
-       move the whole data surface while the next snapshot is loading. */
+  .scroll-hint {
     position: absolute;
     width: 1px;
     height: 1px;
     padding: 0;
+    margin: -1px;
     overflow: hidden;
-    clip: rect(0 0 0 0);
+    clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
-    margin: -1px;
   }
-  .update-error {
-    color: var(--danger);
-  }
-  .command-heading {
-    position: relative;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 1.5rem;
-    min-height: 22rem;
-    padding: 2.5rem 2.5rem 2rem;
-    overflow: hidden;
-  }
-  .hero-surface {
-    background:
-      radial-gradient(
-        circle at 78% 45%,
-        color-mix(in srgb, var(--accent) 18%, transparent),
-        transparent 19rem
-      ),
-      linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--surface) 92%, var(--accent)),
-        var(--surface)
-      );
-  }
-  .hero-surface::before {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      115deg,
-      transparent 0 48%,
-      color-mix(in srgb, var(--accent) 8%, transparent) 48.2% 48.5%,
-      transparent 48.7%
-    );
-    content: "";
-    pointer-events: none;
-  }
-  .command-heading > div:first-child {
-    position: relative;
-    z-index: 1;
-  }
-  .eyebrow {
-    margin: 0 0 0.45rem;
-    color: var(--accent);
-    font-size: 0.7rem;
-    font-weight: 750;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-  .command-heading h1 {
-    margin: 0;
-    max-width: 9ch;
-    font-size: clamp(3.2rem, 8vw, 7rem);
-    letter-spacing: -0.1em;
-    line-height: 0.84;
-  }
-  .heading-copy {
-    max-width: 34rem;
-    margin: 0.7rem 0 0;
-    color: var(--text-muted);
-    line-height: 1.5;
-  }
-  .data-note {
-    margin: 0.75rem 0 0;
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    letter-spacing: 0.02em;
-  }
-  .day-orbit {
-    position: relative;
-    display: grid;
-    width: min(32rem, 44vw);
-    min-width: 18rem;
-    height: 18rem;
-    place-items: center;
-    overflow: hidden;
-  }
-  .orbit {
-    position: absolute;
-    width: 13rem;
-    height: 13rem;
-    border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
-    border-radius: 50%;
-    transform: rotate(30deg) scaleX(1.55);
-  }
-  .orbit-two {
-    width: 9rem;
-    height: 9rem;
-    border-color: color-mix(in srgb, var(--accent-2) 48%, transparent);
-    transform: rotate(-38deg) scaleX(1.7);
-  }
-  .orbit-core {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    width: 8.5rem;
-    height: 8.5rem;
-    place-items: center;
-    align-content: center;
-    border: 1px solid color-mix(in srgb, var(--accent) 62%, transparent);
-    border-radius: 50%;
-    background: radial-gradient(
-      circle at 35% 25%,
-      color-mix(in srgb, var(--accent) 30%, transparent),
-      var(--surface-2) 72%
-    );
-    box-shadow: 0 0 60px color-mix(in srgb, var(--accent) 22%, transparent);
-  }
-  .orbit-core strong {
-    font-size: 4rem;
-    letter-spacing: -0.12em;
-    line-height: 0.75;
-  }
-  .orbit-core span {
-    margin-top: 0.55rem;
-    color: var(--text-muted);
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-  .orbit-star {
-    position: absolute;
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 16px var(--accent);
-  }
-  .star-one {
-    top: 22%;
-    left: 20%;
-  }
-  .star-two {
-    right: 16%;
-    bottom: 22%;
-    background: var(--accent-2);
-    box-shadow: 0 0 16px var(--accent-2);
-  }
-  .home-kpis {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
-    position: relative;
-    z-index: 1;
-  }
-  .home-kpi {
-    display: grid;
-    gap: 0.35rem;
-    padding: 0.9rem;
-    border-radius: calc(var(--radius) - 4px);
-    background: color-mix(in srgb, var(--surface) 78%, transparent);
-  }
-  .home-kpi > span {
-    color: var(--text-muted);
-    font-size: 0.67rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .home-kpi strong {
-    font-size: 1.45rem;
-    letter-spacing: -0.06em;
-  }
-  .home-kpi strong small {
-    color: var(--text-muted);
-    font-size: 0.45em;
+  .scroll-hint:focus,
+  .scroll-hint:focus-visible {
+    position: static;
+    width: auto;
+    height: auto;
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    background: var(--surface, #1e222b);
+    color: var(--text, #fff);
+    border: 1px solid var(--border, #333);
+    border-radius: 6px;
+    font-size: var(--type-label);
     font-weight: 500;
-    letter-spacing: 0;
-  }
-  .home-kpi > i {
-    display: block;
-    width: 100%;
-    height: 0.2rem;
-    border-radius: 99px;
-    background: linear-gradient(
-      90deg,
-      var(--accent) var(--fill, 0%),
-      var(--surface-2) var(--fill, 0%)
-    );
-  }
-  .home-kpi:nth-child(2) > i {
-    background: linear-gradient(
-      90deg,
-      var(--ring-exercise) var(--fill, 0%),
-      var(--surface-2) var(--fill, 0%)
-    );
-  }
-  .kpi-note {
-    color: var(--text-muted);
-    font-size: 0.7rem;
-  }
-
-  /* Date scrubber — the spine control, gets the neon chrome glow. */
-  .scrubber {
-    position: relative;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    min-width: 0;
-    padding: 0.85rem 1rem;
-  }
-  .scrubber > :global(.retry-notice) {
-    order: 1;
-    flex: 0 0 100%;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-  .glow {
-    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
-    box-shadow: var(--accent-glow), var(--tile-shadow);
-  }
-  .scrub-center {
-    flex: 1;
-    min-width: max-content;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.1rem;
-    appearance: none;
-    border: 0;
-    background: transparent;
     cursor: pointer;
-    border-radius: var(--radius);
+    display: inline-block;
+    outline: 2px solid var(--color-focus, var(--accent));
+    outline-offset: 2px;
+  }
+  .table-wrap {
+    overflow-x: auto;
     padding: 0.25rem;
   }
-  .scrub-center:hover {
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--type-label);
   }
-  .day-main {
-    color: var(--accent);
-    font-size: 1.1rem;
-    white-space: nowrap;
-    font-weight: 700;
-    text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 28%, transparent);
+  th,
+  td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
   }
-  .day-hint {
-    font-size: 0.72rem;
-    color: var(--text-muted);
+  tbody tr {
+    transition: background 0.15s ease;
   }
-  .pk-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    border: 0;
-    background: transparent;
-    cursor: default;
+  tbody tr:hover {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
   }
-  .pk-pop {
-    position: absolute;
-    z-index: 21;
-    top: calc(100% + 0.5rem);
-    left: 50%;
-    transform: translateX(-50%);
-    box-shadow: var(--accent-glow), var(--tile-shadow);
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  }
-  .nav {
-    flex: 0 0 2.2rem;
-    appearance: none;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    width: 2.2rem;
-    height: 2.2rem;
-    border-radius: 50%;
-    font-size: 1.2rem;
-    line-height: 1;
-    cursor: pointer;
-  }
-  .nav:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .nav:disabled {
-    cursor: default;
-    opacity: 0.35;
-  }
-  .today-link {
-    display: block;
-    width: calc(100% - 1.5rem);
-    margin: 0 auto 0.7rem;
-    padding: 0.45rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface-2);
+  .sort-header {
+    min-height: 44px;
+    min-width: 44px;
+    border: none;
+    background: none;
     color: var(--text-muted);
     font: inherit;
-    font-size: 0.75rem;
+    font-weight: 700;
     cursor: pointer;
   }
-  .today-link:hover {
-    border-color: var(--accent);
-    color: var(--text);
+  .nowrap {
+    white-space: nowrap;
   }
-  .bento {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 1rem;
-  }
-  .card {
-    padding: 1.1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    color: var(--text);
-    min-height: 11rem;
-    overflow: hidden;
-    border-radius: calc(var(--radius) + 2px);
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--surface) 96%, var(--accent)),
-        var(--surface)
-      ),
-      var(--surface);
-  }
-  .card:hover {
-    text-decoration: none;
-    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  }
-  .card.wide {
-    grid-column: span 7;
-  }
-  .feature-card {
-    grid-column: span 5;
-    grid-row: span 2;
-    min-height: 24rem;
-    justify-content: space-between;
-    background:
-      radial-gradient(
-        circle at 90% 10%,
-        color-mix(in srgb, var(--accent-2) 17%, transparent),
-        transparent 14rem
-      ),
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--surface) 86%, var(--accent)),
-        var(--surface)
-      );
-  }
-  .vitals-card {
-    grid-column: span 7;
-    min-height: 11.5rem;
-  }
-  .sleep-card {
-    grid-column: span 7;
-    min-height: 11.5rem;
-  }
-  .activity-card {
-    min-height: 16rem;
-  }
-  .media-card {
-    min-height: 16rem;
-  }
-  .card header {
+  .activity-cell {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.82rem;
-    font-weight: 650;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   }
-  .ic {
+  .activity-link {
     color: var(--accent);
-    font-size: 1rem;
-  }
-  .empty {
-    color: var(--text-muted);
-    font-size: 0.88rem;
-    margin: auto 0;
-  }
-
-  .mini-stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem 1rem;
-    color: var(--text-muted);
-    font-size: 0.82rem;
-  }
-  .sleep-hero {
-    font-size: 1.9rem;
     font-weight: 700;
-    color: var(--accent);
-    text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent);
   }
-
-  .vitals {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem 1rem;
-    margin: 0;
-  }
-  .vitals div {
-    display: flex;
-    flex-direction: column;
-  }
-  .vitals dt {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-  }
-  .vitals dd {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 650;
-  }
-  .vitals .u {
-    font-size: 0.72rem;
-    font-weight: 400;
-    color: var(--text-muted);
-    margin-left: 0.15rem;
-  }
-
-  .acts {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 0.6rem;
-  }
-  .acts li {
-    min-width: 0;
-  }
-  .act-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 0.3rem 0.6rem;
-    min-width: 0;
-    color: var(--text);
-    padding: 0.2rem 0;
-  }
-  .act-row:hover {
-    color: var(--accent);
-    text-decoration: none;
-  }
-  .hdr-link {
-    color: inherit;
-  }
-  .hdr-link:hover {
-    color: var(--accent);
-  }
-  .a-title {
-    min-width: 0;
+  .activity-title {
     font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
-  .a-metrics {
-    grid-column: 2;
-    min-width: 0;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    overflow-wrap: anywhere;
-  }
-  .media-events {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 0.55rem;
-  }
-  .media-event-row {
-    display: grid;
-    grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+  .load-more {
+    display: flex;
     align-items: center;
-    gap: 0.65rem;
-    min-width: 0;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0.75rem;
+  }
+  .load-more button {
+    padding: 0.35rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
     color: var(--text);
+    cursor: pointer;
   }
-  .media-event-row:hover {
-    color: var(--accent);
-    text-decoration: none;
-  }
-  .media-event-row img,
-  .media-thumb {
-    width: 2.2rem;
-    height: 2.2rem;
-    object-fit: cover;
-    border-radius: 4px;
-  }
-  .media-thumb {
-    display: grid;
-    place-items: center;
-    background: var(--surface-2);
-    color: var(--accent);
-    font-weight: 800;
-  }
-  .media-event-copy {
-    min-width: 0;
-    display: grid;
-    gap: 0.15rem;
-  }
-  .media-event-copy strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.82rem;
-  }
-  .media-event-copy span {
-    color: var(--text-muted);
-    font-size: 0.75rem;
-  }
-  .media-score {
-    color: var(--accent);
-    font-size: 0.78rem;
-    font-weight: 750;
-  }
-
-  @media (max-width: 1024px) {
-    .to-go-strip {
-      flex: 1 0 100%;
-      grid-template-columns: 1fr auto;
-    }
-    .to-go-items {
-      grid-column: 1 / -1;
-      grid-row: 2;
-    }
-    .command-heading {
-      align-items: flex-start;
-      flex-direction: column;
-      padding: 1.5rem;
-    }
-    .command-heading {
-      min-height: 0;
-    }
-    .day-orbit {
-      width: 100%;
-      min-width: 0;
-      height: 15rem;
-    }
-    .home-kpis {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .bento {
+  @media (max-width: 768px) {
+    .stat-grid {
       grid-template-columns: 1fr;
     }
-    .card.wide,
-    .feature-card,
-    .vitals-card,
-    .sleep-card {
-      grid-column: span 1;
-      grid-row: auto;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .scrubber {
-      flex-wrap: wrap;
-      gap: 0.45rem;
-    }
-
-    .scrub-center {
-      min-width: 0;
-    }
-
-    .day-hint {
-      max-width: 100%;
-      overflow-wrap: anywhere;
-      text-align: center;
-    }
-
-    .to-go-strip {
-      width: 100%;
+    .routes-grid {
       grid-template-columns: 1fr;
-      gap: 0.55rem;
     }
-
-    .to-go-items {
-      grid-column: auto;
-      grid-row: auto;
-    }
-
-    .to-go-link {
-      justify-self: start;
+    .analytics-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>

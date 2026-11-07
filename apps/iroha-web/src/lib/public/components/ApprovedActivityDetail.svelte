@@ -25,7 +25,7 @@
     ActivityDetailLap,
     ActivityDetailRoutePoint,
     RouteFeatureCollection,
-  } from "$lib/types";
+  } from "$lib/public/types";
 
   use([
     BarChart,

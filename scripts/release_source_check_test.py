@@ -18,6 +18,8 @@ class ReleaseSourceCheckTests(unittest.TestCase):
         git(self.root, "init", "--quiet")
         git(self.root, "config", "user.name", "Synthetic fixture")
         git(self.root, "config", "user.email", "fixture@example.invalid")
+        git(self.root, "config", "tag.gpgSign", "false")
+        git(self.root, "config", "commit.gpgSign", "false")
         (self.root / "source.txt").write_text("synthetic source\n")
         git(self.root, "add", "source.txt")
         git(self.root, "commit", "--quiet", "-m", "synthetic")

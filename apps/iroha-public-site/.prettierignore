@@ -1,7 +1,0 @@
-node_modules
-.svelte-kit
-build
-bun.lock
-package.json
-tsconfig.json
-static/data/**

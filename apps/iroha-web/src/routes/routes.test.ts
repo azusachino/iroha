@@ -4,13 +4,14 @@ const routePages = import.meta.glob("./**/+page.svelte", { eager: true });
 const routeLoads = import.meta.glob("./**/+page.ts", { eager: true });
 
 describe("root route", () => {
-  it("renders the day-aggregator cockpit directly (no redirect)", () => {
+  it("renders the public showcase directly", () => {
     expect(routePages["./+page.svelte"]).toBeDefined();
   });
 });
 
 describe("cockpit route layout", () => {
   it("has concrete page files for the user-facing primary URLs", () => {
+    expect(routePages["./today/+page.svelte"]).toBeDefined();
     expect(routePages["./patterns/+page.svelte"]).toBeDefined();
     expect(routePages["./motion/+page.svelte"]).toBeDefined();
     expect(routePages["./library/+page.svelte"]).toBeDefined();
@@ -26,7 +27,6 @@ describe("cockpit route layout", () => {
   });
 
   it("keeps the old page URLs as redirects", () => {
-    expect(routeLoads["./today/+page.ts"]).toBeDefined();
     expect(routeLoads["./dashboard/+page.ts"]).toBeDefined();
     expect(routeLoads["./daily/+page.ts"]).toBeDefined();
     expect(routeLoads["./activities/+page.ts"]).toBeDefined();
@@ -35,20 +35,6 @@ describe("cockpit route layout", () => {
     expect(routeLoads["./sleep/[id]/+page.ts"]).toBeDefined();
     expect(routeLoads["./media/+page.ts"]).toBeDefined();
     expect(routeLoads["./media/[id]/+page.ts"]).toBeDefined();
-  });
-
-  it("redirects /today to the canonical root while preserving the selected date", async () => {
-    const { load } = await import("./today/+page");
-    let result: unknown;
-    try {
-      load({ url: new URL("https://iroha.test/today?date=2099-01-02") });
-    } catch (error) {
-      result = error;
-    }
-    expect(result).toMatchObject({
-      status: 308,
-      location: "/?date=2099-01-02",
-    });
   });
 
   it("keeps navigation grouped instead of growing the top tab row", async () => {
@@ -60,7 +46,7 @@ describe("cockpit route layout", () => {
       "More",
     ]);
     expect(navigationGroups[0].items.map((item) => item.href)).toEqual([
-      "/",
+      "/today",
       "/overview",
     ]);
     expect(

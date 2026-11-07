@@ -12,8 +12,7 @@ class LocalChecksTest(unittest.TestCase):
         for path, groups in {
             "apps/iroha-server/pkg/x.go": {"go"},
             "apps/iroha-web/src/RoutesMap.svelte": {"web", "contracts"},
-            "apps/iroha-public-site/src/page.svelte": {"web", "public", "contracts"},
-            "packages/iroha-shared/src/x.ts": {"web", "public", "contracts"},
+            "packages/iroha-shared/src/x.ts": {"web", "contracts"},
             "scripts/check_theme_boundary.py": set(checks.GROUPS),
             ".mise.toml": set(checks.GROUPS),
             "unknown/config": set(checks.GROUPS),

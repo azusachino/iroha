@@ -1,5 +1,2 @@
-import { redirect } from "@sveltejs/kit";
-
-export function load({ url }: { url: URL }) {
-  redirect(308, `/${url.search}`);
-}
+// Canonical today/day-aggregator route (previously mounted at root /).
+export const prerender = false;

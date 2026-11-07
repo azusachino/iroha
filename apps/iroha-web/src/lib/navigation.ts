@@ -20,7 +20,7 @@ export const navigationGroups: readonly NavigationGroup[] = [
       {
         id: "today",
         label: "Today",
-        href: "/",
+        href: "/today",
         kind: "primary",
         hint: "Any-day cross-domain view",
       },

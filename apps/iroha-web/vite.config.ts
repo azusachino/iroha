@@ -21,6 +21,9 @@ export default defineConfig({
       "@iroha/shared": sharedPath,
     },
   },
+  optimizeDeps: {
+    include: ["maplibre-gl"],
+  },
   build: {
     // MapLibre and ECharts are core to the private route/detail experience and
     // together produce one intentionally large vendor chunk.
@@ -35,6 +38,7 @@ export default defineConfig({
     // ever talks to this dev origin — no CORS and no per-host API base. The
     // server stays bound to localhost; Vite forwards from the same machine.
     proxy: {
+      "/public": apiTarget,
       "/api": apiTarget,
     },
   },
@@ -42,6 +46,7 @@ export default defineConfig({
   // same-origin and the HttpOnly session cookie reaches the API.
   preview: {
     proxy: {
+      "/public": apiTarget,
       "/api": apiTarget,
     },
   },

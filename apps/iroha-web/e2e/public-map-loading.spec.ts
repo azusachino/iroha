@@ -4,7 +4,7 @@ import { PUBLIC_BASE_URL } from "../playwright.config";
 import { installPilotFixtures } from "./pilot-fixtures";
 
 const manifestUrl = new URL(
-  "../../iroha-public-site/.svelte-kit/output/client/.vite/manifest.json",
+  "../.svelte-kit/output/client/.vite/manifest.json",
   import.meta.url,
 );
 const manifest = existsSync(manifestUrl)

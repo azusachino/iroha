@@ -18,7 +18,6 @@ def find_violations(root: Path = REPO_ROOT) -> list[str]:
     violations: list[str] = []
     roots = (
         root / "apps/iroha-web/src",
-        root / "apps/iroha-public-site/src",
         root / "packages/iroha-shared/src",
     )
     for source_root in roots:

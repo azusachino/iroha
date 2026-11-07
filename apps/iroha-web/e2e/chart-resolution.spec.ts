@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { resolve } from "node:path";
 import { resolveConfig } from "vite";
 
-for (const consumer of ["iroha-web", "iroha-public-site"]) {
+for (const consumer of ["iroha-web"]) {
   test(`${consumer} resolves shared and host chart imports to one runtime`, async () => {
     const root = resolve(process.cwd(), "..", consumer);
     const config = await resolveConfig(

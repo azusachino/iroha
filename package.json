@@ -4,7 +4,6 @@
   "type": "module",
   "workspaces": [
     "apps/iroha-web",
-    "apps/iroha-public-site",
     "packages/iroha-shared"
   ],
   "trustedDependencies": [],

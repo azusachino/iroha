@@ -15,7 +15,7 @@
   const pageGuides: PageGuide[] = [
     {
       name: "Today",
-      href: "/",
+      href: "/today",
       question: "What did today contain?",
       chart: "Daily signal, rings, and a chronological cross-domain read.",
       detail:
