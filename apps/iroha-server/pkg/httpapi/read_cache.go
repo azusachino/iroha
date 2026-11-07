@@ -101,12 +101,34 @@ func (i *ReadCacheInterceptor) Intercept(next http.Handler) http.Handler {
 			return
 		}
 		key := cache.KeyWithRevisionVector(i.Key(request), vector)
-		body, generation, ok := cache.GetWithGeneration[[]byte](request.Context(), i.cache, namespace, key)
-		if ok {
-			w.Header().Set("X-Iroha-Cache", "HIT")
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(body)
+		forceReload := isNoCacheRequest(r)
+		var (
+			body       []byte
+			generation int64
+			found      bool
+		)
+
+		if !forceReload {
+			body, generation, found = cache.GetWithGeneration[[]byte](request.Context(), i.cache, namespace, key)
+			if found {
+				w.Header().Set("X-Iroha-Cache", "HIT")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(body)
+				return
+			}
+		}
+
+		if forceReload {
+			w.Header().Set("X-Iroha-Cache", "RELOAD")
+			wrapped := &readCacheResponseWriter{ResponseWriter: w}
+			next.ServeHTTP(wrapped, request)
+			if wrapped.status == http.StatusOK && wrapped.body.Len() > 0 && isJSONContentType(wrapped.Header().Get("Content-Type")) {
+				respBytes := wrapped.body.Bytes()
+				setCtx, cancel := context.WithTimeout(context.WithoutCancel(request.Context()), 5*time.Second)
+				defer cancel()
+				cache.SetAtGeneration(setCtx, i.cache, namespace, key, generation, readCacheTTL, respBytes)
+			}
 			return
 		}
 
@@ -283,4 +305,16 @@ func (i *ReadCacheInterceptor) CanonicalScopeQuery(r *http.Request) url.Values {
 
 func isJSONContentType(value string) bool {
 	return strings.HasPrefix(strings.ToLower(value), "application/json")
+}
+
+func isNoCacheRequest(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	cc := strings.ToLower(r.Header.Get("Cache-Control"))
+	if strings.Contains(cc, "no-cache") || strings.Contains(cc, "no-store") {
+		return true
+	}
+	pragma := strings.ToLower(r.Header.Get("Pragma"))
+	return strings.Contains(pragma, "no-cache")
 }

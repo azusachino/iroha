@@ -317,7 +317,7 @@ function setTimezone(query: URLSearchParams, timezone = IROHA_TIMEZONE): void {
 export function getMetricSeries(
   metricId: string,
   params: MetricSeriesParams,
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<MetricSeriesResponse> {
   const query = new URLSearchParams({
     from: params.from,
@@ -330,19 +330,19 @@ export function getMetricSeries(
   }
   return getJSON<MetricSeriesResponse>(
     `/api/v1/metrics/${encodeURIComponent(metricId)}/series?${query.toString()}`,
-    fetchFn,
+    fetchFnOrOptions,
   );
 }
 
 export function getBriefing(
   date: string,
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<BriefingResponse> {
   const query = new URLSearchParams({ date });
   setTimezone(query);
   return getJSON<BriefingResponse>(
     `/api/v1/briefing?${query.toString()}`,
-    fetchFn,
+    fetchFnOrOptions,
   );
 }
 
@@ -373,26 +373,26 @@ export function recordMatchingDecision(
 
 export function getMonthlyReport(
   month: string,
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<MonthlyReport> {
   const query = new URLSearchParams({ date: month });
   setTimezone(query);
   return getJSON<MonthlyReport>(
     `/api/v1/reports/monthly?${query.toString()}`,
-    fetchFn,
+    fetchFnOrOptions,
   );
 }
 
 export function getMonthlyReportSeries(
   endMonth: string,
   months = 12,
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<MonthlyReportSeries> {
   const query = new URLSearchParams({ date: endMonth, months: String(months) });
   setTimezone(query);
   return getJSON<MonthlyReportSeries>(
     `/api/v1/reports/monthly-series?${query.toString()}`,
-    fetchFn,
+    fetchFnOrOptions,
   );
 }
 
@@ -489,8 +489,29 @@ async function requestJSON<T>(
   return (await res.json()) as T;
 }
 
-async function getJSON<T>(path: string, fetchFn: typeof fetch = fetch) {
-  return requestJSON<T>(path, {}, fetchFn);
+export interface RequestOptions {
+  fetchFn?: typeof fetch;
+  forceRefresh?: boolean;
+}
+
+async function getJSON<T>(
+  path: string,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
+) {
+  let fetchFn = fetch;
+  const init: RequestInit = {};
+  if (typeof fetchFnOrOptions === "function") {
+    fetchFn = fetchFnOrOptions;
+  } else if (fetchFnOrOptions) {
+    if (fetchFnOrOptions.fetchFn) fetchFn = fetchFnOrOptions.fetchFn;
+    if (fetchFnOrOptions.forceRefresh) {
+      init.headers = {
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+      };
+    }
+  }
+  return requestJSON<T>(path, init, fetchFn);
 }
 
 async function mutateJSON<T>(
@@ -561,7 +582,7 @@ export function updateTask(
 
 export function listExpenses(
   params: ListExpensesParams = {},
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<Page<Expense>> {
   const query = new URLSearchParams();
   if (params.date) query.set("date", params.date);
@@ -577,20 +598,32 @@ export function listExpenses(
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<Page<Expense>>(`/api/v1/expenses${suffix}`, fetchFn);
+  return getJSON<Page<Expense>>(`/api/v1/expenses${suffix}`, fetchFnOrOptions);
 }
 
 export async function listAllExpenses(
   params: ListExpensesParams = {},
-  fetchFn: typeof fetch = fetch,
+  maxItemsOrFetch?: number | typeof fetch | RequestOptions,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<Expense[]> {
+  let maxItems = 2000;
+  let options: typeof fetch | RequestOptions = fetch;
+  if (typeof maxItemsOrFetch === "number") {
+    maxItems = maxItemsOrFetch;
+    options = fetchFnOrOptions;
+  } else if (
+    typeof maxItemsOrFetch === "function" ||
+    (maxItemsOrFetch && typeof maxItemsOrFetch === "object")
+  ) {
+    options = maxItemsOrFetch;
+  }
   const expenses: Expense[] = [];
   let cursor = params.cursor;
   do {
-    const page = await listExpenses({ ...params, limit: 100, cursor }, fetchFn);
+    const page = await listExpenses({ ...params, limit: 100, cursor }, options);
     expenses.push(...page.items);
     cursor = page.has_more ? (page.next_cursor ?? undefined) : undefined;
-  } while (cursor);
+  } while (cursor && expenses.length < maxItems);
   return expenses;
 }
 
@@ -670,7 +703,7 @@ export function triggerAction(
 
 export function listActivities(
   params: ListActivitiesParams = {},
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<Page<Activity>> {
   const query = new URLSearchParams();
   if (params.date) query.set("date", params.date);
@@ -687,7 +720,10 @@ export function listActivities(
   if (params.cursor) query.set("cursor", params.cursor);
   if (params.date) setTimezone(query);
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<Page<Activity>>(`/api/v1/activities${suffix}`, fetchFn);
+  return getJSON<Page<Activity>>(
+    `/api/v1/activities${suffix}`,
+    fetchFnOrOptions,
+  );
 }
 
 // Walk the keyset pages for views that need a complete activity sweep (the
@@ -718,7 +754,7 @@ export async function listAllActivities(
 
 export function listMedia(
   params: ListMediaParams = {},
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<Page<MediaRow>> {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
@@ -729,7 +765,7 @@ export function listMedia(
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.cursor) query.set("cursor", params.cursor);
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<Page<MediaRow>>(`/api/v1/media${suffix}`, fetchFn);
+  return getJSON<Page<MediaRow>>(`/api/v1/media${suffix}`, fetchFnOrOptions);
 }
 
 export function getMediaAggregates(
@@ -737,7 +773,7 @@ export function getMediaAggregates(
     ListMediaParams,
     "status" | "media_type" | "family" | "completed_year"
   > = {},
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<MediaAggregates> {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
@@ -746,7 +782,10 @@ export function getMediaAggregates(
   if (params.completed_year != null)
     query.set("completed_year", String(params.completed_year));
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<MediaAggregates>(`/api/v1/media/aggregates${suffix}`, fetchFn);
+  return getJSON<MediaAggregates>(
+    `/api/v1/media/aggregates${suffix}`,
+    fetchFnOrOptions,
+  );
 }
 
 export function getMedia(
@@ -802,7 +841,7 @@ export function listMediaChanges(
 
 export function listSleep(
   params: ListSleepParams = {},
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<Page<SleepSession>> {
   const query = new URLSearchParams();
   if (params.date) query.set("date", params.date);
@@ -814,7 +853,10 @@ export function listSleep(
   if (params.cursor) query.set("cursor", params.cursor);
   if (params.date || params.from || params.to) setTimezone(query);
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<Page<SleepSession>>(`/api/v1/sleep${suffix}`, fetchFn);
+  return getJSON<Page<SleepSession>>(
+    `/api/v1/sleep${suffix}`,
+    fetchFnOrOptions,
+  );
 }
 
 export function getSleep(
@@ -878,7 +920,7 @@ export function getSleepBounds(
 
 export function listDaily(
   params: ListDailyParams = {},
-  fetchFn: typeof fetch = fetch,
+  fetchFnOrOptions: typeof fetch | RequestOptions = fetch,
 ): Promise<Page<DailyRow>> {
   const query = new URLSearchParams();
   if (params.date) query.set("date", params.date);
@@ -890,7 +932,7 @@ export function listDaily(
   if (params.cursor) query.set("cursor", params.cursor);
   if (params.date || params.from || params.to) setTimezone(query);
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return getJSON<Page<DailyRow>>(`/api/v1/daily${suffix}`, fetchFn);
+  return getJSON<Page<DailyRow>>(`/api/v1/daily${suffix}`, fetchFnOrOptions);
 }
 
 export function getDailyDates(

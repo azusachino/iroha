@@ -88,10 +88,12 @@
     void loadBounds();
   });
 
-  async function loadReport(requestedMonth: string) {
+  async function loadReport(requestedMonth: string, forceRefresh = false) {
     await reportResource.run(async () => {
       try {
-        return await getMonthlyReportSeries(requestedMonth);
+        return await getMonthlyReportSeries(requestedMonth, 12, {
+          forceRefresh,
+        });
       } catch (cause) {
         throw new Error(formatError(cause));
       }
@@ -190,7 +192,7 @@
     <button
       class="refresh"
       type="button"
-      onclick={() => void loadReport(month)}
+      onclick={() => void loadReport(month, true)}
       disabled={reportResource.loading}><RefreshCw size={15} /> Refresh</button
     >
   </header>
