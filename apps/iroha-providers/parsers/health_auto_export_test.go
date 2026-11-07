@@ -141,11 +141,9 @@ func TestParseHealthAutoExportSleepEfficiencyUsesBedWindow(t *testing.T) {
 	}
 }
 
-func TestParseHealthAutoExportSleepEfficiencyFallsBackToSegments(t *testing.T) {
-	// Without inBedStart/inBedEnd the rounded inBed hours start at
-	// lights-out-asleep and would report ~100%. The stage segments span
-	// 23:30 → 07:00 with 30m of awake inside, so the honest ratio is
-	// 6.5h asleep over a 7.5h span.
+func TestParseHealthAutoExportSleepEfficiencyKeepsSummaryWithPartialSegments(t *testing.T) {
+	// A stage timeline does not establish the complete in-bed interval.
+	// Preserve the summary ratio even when the segment span differs.
 	body := `{"data":{"metrics":[{"name":"sleep_analysis","units":"hr","data":[
 		{"sleepStart":"2026-09-19 23:30:00 +0900","sleepEnd":"2026-09-20 07:00:00 +0900",
 			"inBed":7,"asleep":7,"core":4,"deep":1,"rem":1.5,"awake":0.5},
@@ -160,9 +158,9 @@ func TestParseHealthAutoExportSleepEfficiencyFallsBackToSegments(t *testing.T) {
 		t.Fatalf("got %d sleep sessions, want 1", len(batch.Sleep))
 	}
 	sleep := batch.Sleep[0]
-	wantEfficiency := (3.5 + 3.5) / (7 + 0.5)
+	wantEfficiency := 1.0
 	if math.Abs(sleep.Efficiency-wantEfficiency) > 1e-9 {
-		t.Errorf("Efficiency = %v, want segment-span %v", sleep.Efficiency, wantEfficiency)
+		t.Errorf("Efficiency = %v, want summary ratio %v", sleep.Efficiency, wantEfficiency)
 	}
 }
 

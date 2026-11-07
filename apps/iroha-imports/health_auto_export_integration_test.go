@@ -113,6 +113,15 @@ func TestIntegrationHealthAutoExportReplayAndBoundedReplacement(t *testing.T) {
 	if observationCount != 1 {
 		t.Fatalf("activity observations after first import = %d, want 1", observationCount)
 	}
+	var sourceSegments int64
+	if err := db.Raw(`select count(*) from tb_sleep_observation_segments seg
+join tb_source_observations o on o.id = seg.sleep_observation_id
+where o.source_instance_id = ?`, instanceID).Scan(&sourceSegments).Error; err != nil {
+		t.Fatalf("count source sleep segments: %v", err)
+	}
+	if sourceSegments != 2 {
+		t.Fatalf("source sleep segments = %d, want 2", sourceSegments)
+	}
 
 	var coverageCount int64
 	if err := db.Model(&models.SourceCoverageAssertion{}).Where("source_instance_id = ?", instanceID).Count(&coverageCount).Error; err != nil {
