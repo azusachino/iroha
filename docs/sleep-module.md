@@ -56,6 +56,16 @@ tb_sleep_segments
 
 Rollup columns on the session make the common query (nightly trends, stage mix) a single-row read; `tb_sleep_segments` backs the per-night timeline render.
 
+## Cross-source reconciliation design (planned)
+
+Apple Health exports and Health Auto Export (HAE) are independent evidence. Prefer native Apple Health when both sources describe the same session; fill a field from HAE only when its meaning, unit and time scope are compatible and the native field is absent. Zero is a value, not evidence of absence. Track the selected source per field and retain each source observation and its original stage intervals.
+
+Matching requires more than sharing a wake date or any overlap. Compare intervals and session type; attach observations automatically only for a unique, mutually unambiguous match. Keep naps, split nights, and ambiguous candidates separate until resolved. Reimports must update the same source observation without duplicating sessions or overwriting an explicit user selection. Bounded imports cannot imply deletion outside their coverage.
+
+Efficiency requires an identified in-bed denominator and asleep duration, with their provenance and validity exposed to the reader. A stage timeline alone does not prove the complete in-bed window. Where required evidence is unavailable, represent the value as unknown rather than manufacturing 100%. Existing non-null fields cannot represent every missing-data case and require a contract and migration before field-level fallback is safe.
+
+The current importer creates distinct sessions per source and rejects multiple observations on a session. This section is the target design, not a claim that it is implemented. Existing duplicated records need a separately verified reconciliation and replay; retain the original observations and do not delete them by overlap alone.
+
 ## Reconcile / reprocess
 
 Reuse the existing import machinery unchanged in spirit:

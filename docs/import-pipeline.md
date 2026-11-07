@@ -4,6 +4,14 @@
 
 The import pipeline turns raw source files into canonical activities and health records. The user retains source data on their primary devices/iCloud, while Iroha retains canonical observations, metrics, and receipts. Raw file bytes are retained for 7 days for initial processing and verification, after which raw file blobs are purged via `iroha-admin purge raw-files --days 7`, preserving `tb_raw_files` metadata, content hashes, and receipt history for deduplication and provenance.
 
+## Cross-source selection design (planned)
+
+The owner may import HAE frequently and native Apple Health periodically. Keep each source receipt and observation; prefer compatible native observations over HAE regardless of import order. Fill a missing native field from HAE only when its meaning, unit, time scope and identity are compatible. An explicit zero is not missing. Record field-level provenance and preserve explicit owner selections.
+
+Matching rules differ by domain. Daily metrics require the same local day, metric and compatible unit. Sleep requires a unique session match, accounting for naps and split nights; see [sleep module](sleep-module.md). Workouts require stable identifiers or sufficiently strong time, duration and type evidence. Ambiguous matches remain separate and are surfaced for resolution. Child streams such as routes, samples and sleep stages must retain their source ownership. Replays must be idempotent, while partial exports cannot delete observations outside their coverage.
+
+This is a target design: the current importer does not yet provide full multi-source reconciliation or field-level provenance for sleep and workouts. Existing source observations must not be deleted or merged solely because their intervals overlap.
+
 ## Supported Sources
 
 ### Health Auto Export JSON (Automated Daily Intake)
@@ -15,9 +23,9 @@ Continuous daily intake path for iOS/watchOS.
 - Extracts daily metrics (`step_count`, `resting_heart_rate`, etc.), sleep night durations and stage segments (`sleep_analysis`), and workout activities with GPS trackpoints and heart-rate samplings.
 - See [Setting up Health Auto Export HTTP Intake](health-auto-export-setup.md).
 
-### Apple Health Export Zip (Historical Bulk Backfill)
+### Apple Health Export Zip (Periodic Full Export)
 
-Authoritative one-time/historical backfill path.
+Periodic native source for historical backfill and updating observations already received through HAE.
 
 User flow:
 

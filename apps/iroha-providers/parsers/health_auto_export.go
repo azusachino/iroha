@@ -363,11 +363,6 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 		segments []observations.SleepSegment
 		minTime  time.Time
 		maxTime  time.Time
-
-		// Tracks which sessions carried the explicit inBedStart/inBedEnd
-		// window; those keep the summary ratio, the rest get the segment
-		// fallback after attachment.
-		hasHaeBedWindow []bool
 	)
 
 	trackTime := func(t time.Time) {
@@ -407,11 +402,8 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 			continue
 		}
 
-		// Night aggregate (Summarize Data ON). inBedStart/inBedEnd carry the
-		// true bed window (tap-in-bed to final wake) that native Health uses
-		// as the efficiency denominator; HAE's rounded inBed hours alone
-		// often start at lights-out-asleep, which is why summary-only
-		// efficiency landed at ~100% for most watch nights.
+		// Night aggregate (Summarize Data ON). The optional in-bed timestamps
+		// describe an interval supplied by the export.
 		startStr, _ := pt["sleepStart"].(string)
 		endStr, _ := pt["sleepEnd"].(string)
 		startedAt, err := parseHaeTime(startStr)
@@ -423,8 +415,7 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 			return nil, minTime, maxTime, fmt.Errorf("sleep_analysis sleepEnd: %w", err)
 		}
 
-		// The session window opens at tap-in-bed when HAE provides it, so
-		// StartedAt/EndedAt describe the whole night like native imports.
+		// Extend the session window to include supplied in-bed timestamps.
 		inBedStartStr, _ := pt["inBedStart"].(string)
 		inBedEndStr, _ := pt["inBedEnd"].(string)
 		inBedStart, hasInBedStart := parseOptionalHaeTime(inBedStartStr)
@@ -454,8 +445,7 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 		awakeH, _ := getFloat(pt, "awake")
 
 		timeInBedS := int(math.Round(inBedH * 3600))
-		// The explicit bed window is the honest denominator, even when the
-		// rounded inBed hours disagree with it by minutes.
+		// Prefer the supplied interval when both endpoints are valid.
 		if hasInBedStart && hasInBedEnd && inBedEnd.After(inBedStart) {
 			timeInBedS = int(inBedEnd.Sub(inBedStart).Seconds())
 		}
@@ -487,7 +477,6 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 			UnspecifiedS: 0,
 			Source:       KindHealthAutoExport,
 		})
-		hasHaeBedWindow = append(hasHaeBedWindow, hasInBedStart && hasInBedEnd && inBedEnd.After(inBedStart))
 	}
 
 	// Summarize Data OFF sends only stage intervals, which cannot form a night.
@@ -504,45 +493,7 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 		}
 	}
 
-	// Fallback for nights without an explicit bed window: recompute from
-	// stage segments, whose span includes pre-sleep and mid-night awake
-	// time that the rounded inBed summary drops.
-	for i := range sessions {
-		if hasHaeBedWindow[i] {
-			continue
-		}
-		sessions[i].Efficiency = haeSegmentEfficiency(sessions[i])
-	}
-
 	return sessions, minTime, maxTime, nil
-}
-
-// haeSegmentEfficiency recomputes efficiency from the night's stage
-// segments (asleep stages over their full span), falling back to the
-// session's existing efficiency when segments are missing or empty.
-func haeSegmentEfficiency(session observations.Sleep) float64 {
-	if len(session.Segments) == 0 {
-		return session.Efficiency
-	}
-	first, last := session.Segments[0].StartedAt, session.Segments[0].EndedAt
-	asleepS := 0.0
-	for _, seg := range session.Segments {
-		if seg.StartedAt.Before(first) {
-			first = seg.StartedAt
-		}
-		if seg.EndedAt.After(last) {
-			last = seg.EndedAt
-		}
-		switch seg.Stage {
-		case SleepStageCore, SleepStageDeep, SleepStageREM, SleepStageAsleepUnspecified:
-			asleepS += seg.EndedAt.Sub(seg.StartedAt).Seconds()
-		}
-	}
-	spanS := last.Sub(first).Seconds()
-	if spanS <= 0 || asleepS <= 0 {
-		return session.Efficiency
-	}
-	return asleepS / spanS
 }
 
 func parseHaeDailyMetric(metric haeMetric) ([]observations.DailyMetric, time.Time, time.Time, error) {

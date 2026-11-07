@@ -151,6 +151,34 @@ func replaceSleepSegments(tx *gorm.DB, sessionID uuid.UUID, segments []observati
 	return tx.CreateInBatches(rows, sleepSegmentInsertBatchSize).Error
 }
 
+// Keep each source's timeline independently so selecting a different source
+// cannot destroy the evidence needed to restore or compare its segments.
+func replaceSleepObservationSegments(tx *gorm.DB, observationID uuid.UUID, segments []observations.SleepSegment) error {
+	if err := tx.Exec("delete from tb_sleep_observation_segments where sleep_observation_id = ?", observationID).Error; err != nil {
+		return err
+	}
+	if len(segments) == 0 {
+		return nil
+	}
+	type sourceSegment struct {
+		ID                 uuid.UUID
+		SleepObservationID uuid.UUID
+		Stage              string
+		StartedAt          time.Time
+		EndedAt            time.Time
+		Seq                int
+	}
+	rows := make([]sourceSegment, 0, len(segments))
+	for seq, segment := range segments {
+		id, err := ids.New()
+		if err != nil {
+			return err
+		}
+		rows = append(rows, sourceSegment{ID: id, SleepObservationID: observationID, Stage: segment.Stage, StartedAt: segment.StartedAt, EndedAt: segment.EndedAt, Seq: seq})
+	}
+	return tx.Table("tb_sleep_observation_segments").CreateInBatches(rows, sleepSegmentInsertBatchSize).Error
+}
+
 func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, session observations.Sleep, sessionID, snapshotID uuid.UUID, reprocess bool) error {
 	contentHash := sleepSessionContentHash(session)
 	observationID, err := upsertSourceObservation(tx, rawFile, "sleep", "apple_health", sleepSessionSourceKey(session), contentHash, snapshotID)
@@ -180,6 +208,9 @@ func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, s
 		"core_s": session.CoreS, "deep_s": session.DeepS, "rem_s": session.RemS, "awake_s": session.AwakeS, "unspecified_s": session.UnspecifiedS,
 		"source": session.Source, "updated_at": now,
 	}).Error; err != nil {
+		return err
+	}
+	if err := replaceSleepObservationSegments(tx, observationID, session.Segments); err != nil {
 		return err
 	}
 	if err := tx.Exec(`insert into tb_sleep_session_observations (sleep_session_id, sleep_observation_id, is_preferred)
