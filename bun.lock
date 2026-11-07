@@ -11,10 +11,10 @@
     },
     "apps/iroha-web": {
       "name": "iroha-web",
-      "version": "0.1.4",
+      "version": "0.6.0-rc1",
       "dependencies": {
         "@iroha/shared": "workspace:*",
-        "@lucide/svelte": "^1.66.0",
+        "@lucide/svelte": "^1.68.0",
         "echarts": "^6.1.0",
         "maplibre-gl": "^6.16.0",
         "zrender": "6.1.0",
@@ -42,7 +42,7 @@
     "packages/iroha-shared": {
       "name": "@iroha/shared",
       "dependencies": {
-        "@lucide/svelte": "^1.66.0",
+        "@lucide/svelte": "^1.68.0",
         "echarts": "^6.1.0",
       },
       "peerDependencies": {
@@ -79,7 +79,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "3.1.2", "@jridgewell/sourcemap-codec": "1.6.0" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@lucide/svelte": ["@lucide/svelte@1.66.0", "", { "peerDependencies": { "svelte": "^5" } }, "sha512-G2qFyutQpgk9TY0QYgqXk9rQtUt8p509mFpQzmTpyc894hfRSFhGNcGAVAUgB8znAyVsp5WTF/2vmCwprnNQ/w=="],
+    "@lucide/svelte": ["@lucide/svelte@1.68.0", "", { "peerDependencies": { "svelte": "^5" } }, "sha512-5iOupZmuGCJD89emoHsTlwkwMHzuNTBUwt/IbH3YVnmphBNqKqz4CKepzsOBXpf+c17DXlTOeV8nhzV0pU+5qw=="],
 
     "@mapbox/jsonlint-lines-primitives": ["@mapbox/jsonlint-lines-primitives@2.0.3", "", {}, "sha512-0SElaV0uMxEnxzBhhX9WTuPyUeMsAN/SS0i16tjuba4/mio63MG9khjC1a0JAiPGXAwvwm4UfHJURCN7nyudQg=="],
 
