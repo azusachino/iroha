@@ -37,6 +37,7 @@
   import RouteHeader from "@iroha/shared/components/RouteHeader.svelte";
   import PanelFrame from "@iroha/shared/components/PanelFrame.svelte";
   import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
+  import BrandMark from "$lib/components/BrandMark.svelte";
 
   let {
     initialData,
@@ -541,7 +542,7 @@
     <header class="hero tile">
       <div class="hero-topline">
         <a class="brand" href="/" aria-label={`${site.name} home`}>
-          <img src="/favicon.svg" alt="" width="22" height="22" />
+          <BrandMark size={22} />
           <span class="brand-title">{site.name}</span>
           <span class="eyebrow visually-hidden">{site.name}</span>
         </a>
@@ -563,7 +564,7 @@
     >
       {#snippet titleSnippet()}
         <a class="brand" href="/" aria-label={`${site.name} home`}>
-          <img src="/favicon.svg" alt="" width="22" height="22" />
+          <BrandMark size={22} />
           <h1 class="brand-title">{site.name}</h1>
           <span class="eyebrow visually-hidden">{site.name}</span>
         </a>
@@ -997,7 +998,7 @@
     color: inherit;
     text-decoration: none;
   }
-  .brand img {
+  .brand :global(.brand-mark) {
     flex: none;
     border-radius: 6px;
   }

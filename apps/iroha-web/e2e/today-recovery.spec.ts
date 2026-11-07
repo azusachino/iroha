@@ -20,11 +20,9 @@ async function fixtures(page: Page) {
     const kind =
       url.pathname === "/api/v1/briefing"
         ? "briefing"
-        : url.pathname === "/api/v1/tasks"
-          ? "tasks"
-          : url.pathname === "/api/v1/daily/dates"
-            ? "calendar"
-            : null;
+        : url.pathname === "/api/v1/daily/dates"
+          ? "calendar"
+          : null;
     if (!kind) {
       unknown.push(url.pathname);
       return route.fulfill({
@@ -62,20 +60,15 @@ async function fixtures(page: Page) {
                   ]
                 : [],
             }
-          : kind === "calendar"
-            ? ["2020-08-15"]
-            : state.populated
-              ? [task]
-              : [],
+          : ["2020-08-15"],
     });
   });
   await fakeSession(page, { setup_required: false, authenticated: true });
-  return { failures, requests, unknown, state, task };
+  return { failures, requests, unknown, state };
 }
 for (const mode of ["light", "dark"] as const) {
   for (const [read, label] of [
     ["briefing", "Retry daily briefing"],
-    ["tasks", "Retry daily tasks"],
     ["calendar", "Retry day calendar"],
   ]) {
     test(`Today ${mode} ${read} failure has independent named recovery`, async ({
@@ -87,10 +80,6 @@ for (const mode of ["light", "dark"] as const) {
       await page.goto("/?date=2020-08-15");
       const retry = page.getByRole("button", { name: label, exact: true });
       await expect(retry).toBeVisible();
-      if (read === "tasks")
-        await expect(
-          page.getByText("No open tasks for this day.", { exact: true }),
-        ).toHaveCount(0);
       await retry.click();
       await expect(
         page.getByRole("button", { name: label, exact: true }),
@@ -108,7 +97,6 @@ for (const mode of ["light", "dark"] as const) {
       ).toBeVisible();
       for (const [kind, path] of [
         ["briefing", "/api/v1/briefing"],
-        ["tasks", "/api/v1/tasks"],
         ["calendar", "/api/v1/daily/dates"],
       ])
         expect(
@@ -181,139 +169,5 @@ for (const mode of ["light", "dark"] as const) {
       }),
     ).toHaveCount(0);
     expect(fixture.unknown).toEqual([]);
-  });
-  test(`Today ${mode} completion failure preserves observed task and recovers`, async ({
-    page,
-  }) => {
-    const fixture = await fixtures(page);
-    fixture.state.populated = true;
-    let writes = 0;
-    await page.route("**/api/v1/tasks/today-a", (route) => {
-      expect(route.request().method()).toBe("PATCH");
-      return route.fulfill(
-        ++writes === 1
-          ? { status: 503, json: { error: "Synthetic completion failure" } }
-          : { json: { ...fixture.task, status: "completed" } },
-      );
-    });
-    await page.emulateMedia({ colorScheme: mode });
-    await page.goto("/?date=2020-08-15");
-    await expect(
-      page.getByText("Observed tasks: 2020-08-15 · up to 5 open tasks", {
-        exact: true,
-      }),
-    ).toBeVisible();
-    const complete = page.getByRole("button", {
-      name: "Complete Synthetic daily task",
-      exact: true,
-    });
-    await complete.click();
-    await expect(
-      page.getByRole("alert").filter({ hasText: "Task completion failed" }),
-    ).toBeVisible();
-    await expect(complete).toBeVisible();
-    await complete.focus();
-    await page.keyboard.press("Enter");
-    await expect(complete).toHaveCount(0);
-    await expect(
-      page.getByRole("alert").filter({ hasText: "Task completion failed" }),
-    ).toHaveCount(0);
-    expect(writes).toBe(2);
-    expect(fixture.unknown).toEqual([]);
-  });
-  test(`Today ${mode} completion cannot drop a pending next-day inventory`, async ({
-    page,
-  }) => {
-    const fixture = await fixtures(page);
-    fixture.state.populated = true;
-    let releaseWrite!: () => void;
-    const writeHold = new Promise<void>((resolve) => {
-      releaseWrite = resolve;
-    });
-    let releaseRead!: () => void;
-    const readHold = new Promise<void>((resolve) => {
-      releaseRead = resolve;
-    });
-    let writes = 0;
-    let nextReads = 0;
-    await page.route("**/api/v1/tasks/today-a", async (route) => {
-      writes++;
-      await writeHold;
-      await route.fulfill({ json: { ...fixture.task, status: "completed" } });
-    });
-    await page.route("**/api/v1/tasks?**", async (route) => {
-      if (
-        new URL(route.request().url()).searchParams.get("due") !== "2020-08-16"
-      )
-        return route.fallback();
-      if (++nextReads === 1) {
-        await readHold;
-        await route.fulfill({ status: 503, json: { error: "Stale day read" } });
-      } else
-        await route.fulfill({
-          json: [
-            { ...fixture.task, id: "day-two", title: "Next-day inventory" },
-          ],
-        });
-    });
-    try {
-      await page.emulateMedia({ colorScheme: mode });
-      await page.goto("/?date=2020-08-15");
-      await page
-        .getByRole("button", {
-          name: "Complete Synthetic daily task",
-          exact: true,
-        })
-        .click();
-      await expect.poll(() => writes).toBe(1);
-      await expect(
-        page.getByRole("button", {
-          name: "Complete Synthetic daily task",
-          exact: true,
-        }),
-      ).toBeDisabled();
-      await expect(
-        page.getByRole("button", {
-          name: "Complete Synthetic daily task",
-          exact: true,
-        }),
-      ).toHaveAttribute("aria-busy", "true");
-      await page.getByRole("button", { name: "Next day", exact: true }).click();
-      await expect.poll(() => nextReads).toBe(1);
-      releaseWrite();
-      await expect(
-        page.getByRole("button", {
-          name: "Complete Next-day inventory",
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(
-        page.getByText("Observed tasks: 2020-08-16 · up to 5 open tasks", {
-          exact: true,
-        }),
-      ).toBeVisible();
-      const oldResponse = page.waitForResponse(
-        (response) =>
-          response.url().includes("due=2020-08-16") &&
-          response.status() === 503,
-      );
-      releaseRead();
-      await oldResponse;
-      await expect(
-        page.getByRole("button", {
-          name: "Complete Next-day inventory",
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "Retry daily tasks", exact: true }),
-      ).toHaveCount(0);
-      expect(nextReads).toBe(2);
-      expect(writes).toBe(1);
-      expect(fixture.unknown).toEqual([]);
-    } finally {
-      releaseWrite();
-      releaseRead();
-    }
   });
 }

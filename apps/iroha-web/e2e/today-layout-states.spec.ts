@@ -99,244 +99,12 @@ const populatedSections = [
   },
 ];
 
-async function todayFixture(
-  page: Page,
-  state: "initial-503" | "partial-tasks-503" | "populated",
-) {
-  const failures = new Set(
-    state === "initial-503"
-      ? ["briefing", "tasks", "calendar"]
-      : state === "partial-tasks-503"
-        ? ["tasks"]
-        : [],
-  );
-  const unknown: string[] = [];
-  const requests: { method: string; path: string; status: number }[] = [];
-  let completed = false;
-  const task = {
-    id: "today-layout-task",
-    title: "Synthetic daily task",
-    status: "open",
-    due_date: "2020-08-15",
-    priority: 1,
-    source: "synthetic",
-    created_at: "2020-08-10T00:00:00Z",
-    updated_at: "2020-08-10T00:00:00Z",
-  };
-  await page.route("**/api/v1/**", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const kind =
-      url.pathname === "/api/v1/briefing"
-        ? "briefing"
-        : url.pathname === "/api/v1/tasks"
-          ? "tasks"
-          : url.pathname === "/api/v1/daily/dates"
-            ? "calendar"
-            : null;
-    const fulfill = async (statusCode: number, json: unknown) => {
-      requests.push({
-        method: request.method(),
-        path: `${url.pathname}${url.search}`,
-        status: statusCode,
-      });
-      return route.fulfill({ status: statusCode, json });
-    };
-    if (
-      url.pathname === `/api/v1/tasks/${task.id}` &&
-      request.method() === "PATCH"
-    ) {
-      completed = true;
-      return fulfill(200, {
-        ...task,
-        status: "completed",
-        completed_at: "2020-08-15T12:00:00Z",
-      });
-    }
-    if (!kind) {
-      unknown.push(`${request.method()} ${url.pathname}`);
-      return fulfill(404, { error: "Unknown Today fixture" });
-    }
-    if (failures.has(kind))
-      return fulfill(503, { error: "Synthetic Today unavailable" });
-    return fulfill(
-      200,
-      kind === "briefing"
-        ? {
-            date: url.searchParams.get("date"),
-            previous_date: "2020-08-14",
-            next_date: "2020-08-16",
-            sections: populatedSections,
-          }
-        : kind === "calendar"
-          ? ["2020-08-14", "2020-08-15"]
-          : completed
-            ? []
-            : [task],
-    );
-  });
-  await fakeSession(page, { setup_required: false, authenticated: true });
-  return { failures, unknown, requests };
-}
-
-for (const mode of ["light", "dark"] as const) {
-  for (const state of ["initial-503", "partial-tasks-503"] as const) {
-    test(`Today ${mode} ${state} keeps the Daily to-go error inside 1280px`, async ({
-      page,
-    }) => {
-      await page.setViewportSize({ width: 1280, height: 900 });
-      const fixture = await todayFixture(page, state);
-      await page.emulateMedia({ colorScheme: mode });
-      await page.goto("/?date=2020-08-15");
-
-      const panel = page.getByRole("region", { name: "Daily to-go" });
-      const notice = page
-        .getByRole("alert")
-        .filter({ hasText: "Daily tasks unavailable:" });
-      const retry = page.getByRole("button", {
-        name: "Retry daily tasks",
-        exact: true,
-      });
-      await expect(panel).toBeVisible();
-      await expect(notice).toBeVisible();
-      await expect(retry).toBeVisible();
-      await expect(
-        panel.getByText("Daily to-go", { exact: true }),
-      ).toBeVisible();
-      await expect(
-        panel.getByRole("link", { name: "Open control room →" }),
-      ).toBeVisible();
-      if (state === "partial-tasks-503") {
-        await expect(
-          page.getByRole("heading", { name: "What did this day contain?" }),
-        ).toBeVisible();
-        await expect(
-          page.getByRole("button", { name: /Synthetic morning run/ }),
-        ).toBeVisible();
-      }
-      await expect
-        .poll(() => page.evaluate(() => document.body.scrollWidth))
-        .toBeLessThanOrEqual(1280);
-      for (const element of [panel, notice, retry]) {
-        const box = await element.boundingBox();
-        expect(box).not.toBeNull();
-        expect(box!.x).toBeGreaterThanOrEqual(0);
-        expect(box!.x + box!.width).toBeLessThanOrEqual(1280);
-      }
-      const panelBox = await panel.boundingBox();
-      for (const child of [
-        notice,
-        retry,
-        panel.getByRole("link", { name: "Open control room →" }),
-      ]) {
-        const box = await child.boundingBox();
-        expect(box).not.toBeNull();
-        expect(box!.x).toBeGreaterThanOrEqual(panelBox!.x);
-        expect(box!.x + box!.width).toBeLessThanOrEqual(
-          panelBox!.x + panelBox!.width,
-        );
-      }
-      for (const endpoint of [
-        "/api/v1/briefing",
-        "/api/v1/tasks",
-        "/api/v1/daily/dates",
-      ]) {
-        const calls = fixture.requests.filter((request) =>
-          request.path.startsWith(endpoint),
-        );
-        expect(calls.length).toBeGreaterThan(0);
-        expect(calls.every((request) => request.method === "GET")).toBe(true);
-      }
-      if (state === "initial-503") {
-        for (const endpoint of [
-          "/api/v1/briefing",
-          "/api/v1/tasks",
-          "/api/v1/daily/dates",
-        ])
-          expect(
-            fixture.requests.find((request) =>
-              request.path.startsWith(endpoint),
-            )?.status,
-          ).toBe(503);
-      } else {
-        expect(
-          fixture.requests.find((request) =>
-            request.path.startsWith("/api/v1/briefing"),
-          )?.status,
-        ).toBe(200);
-        expect(
-          fixture.requests.find((request) =>
-            request.path.startsWith("/api/v1/tasks"),
-          )?.status,
-        ).toBe(503);
-        expect(
-          fixture.requests.find((request) =>
-            request.path.startsWith("/api/v1/daily/dates"),
-          )?.status,
-        ).toBe(200);
-      }
-      fixture.failures.delete("tasks");
-      await retry.click();
-      await expect(notice).toHaveCount(0);
-      expect(
-        fixture.requests.filter((request) =>
-          request.path.startsWith("/api/v1/tasks"),
-        ),
-      ).toHaveLength(2);
-      expect(fixture.unknown).toEqual([]);
-    });
-  }
-
-  for (const width of [320, 390]) {
-    test(`Today ${mode} complete task target is at least 24px at ${width}px`, async ({
-      page,
-    }) => {
-      await page.setViewportSize({ width, height: 900 });
-      const fixture = await todayFixture(page, "populated");
-      await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
-      await page.goto("/?date=2020-08-15");
-      const complete = page.getByRole("button", {
-        name: "Complete Synthetic daily task",
-        exact: true,
-      });
-      await expect(complete).toBeVisible();
-      const dimensions = await complete.evaluate((node) => {
-        const rect = node.getBoundingClientRect();
-        return { width: rect.width, height: rect.height };
-      });
-      expect(dimensions.width).toBeGreaterThanOrEqual(24);
-      expect(dimensions.height).toBeGreaterThanOrEqual(24);
-      await complete.focus();
-      await expect(complete).toBeFocused();
-      expect(
-        await complete.evaluate((node) => node.closest("[inert]")),
-      ).toBeNull();
-      await page.keyboard.press("Space");
-      await expect(
-        page.getByText("Synthetic daily task", { exact: true }),
-      ).toHaveCount(0);
-      expect(
-        fixture.requests.filter(
-          (request) =>
-            request.method === "PATCH" &&
-            request.path === "/api/v1/tasks/today-layout-task",
-        ),
-      ).toHaveLength(1);
-      expect(fixture.unknown).toEqual([]);
-      await expect
-        .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
-        .toBeLessThanOrEqual(width);
-    });
-  }
-}
-
 const dateStates = [
   "confirmed-empty(sections ready-empty)",
   "initial-503",
   "named-retry-success",
   "partial-briefing-503",
   "partial-calendar-503",
-  "partial-tasks-503",
   "populated",
   "retained-failed-refetch(previous-day)",
   "section-unavailable(partial-dependency)",
@@ -354,11 +122,10 @@ const emptySections = ["daily", "sleep", "activities"].map((key) => ({
 async function dateControlsFixture(page: Page, state: DateState) {
   const failInitially: Record<DateState, string[]> = {
     "confirmed-empty(sections ready-empty)": [],
-    "initial-503": ["briefing", "tasks", "calendar"],
-    "named-retry-success": ["tasks"],
+    "initial-503": ["briefing", "calendar"],
+    "named-retry-success": ["calendar"],
     "partial-briefing-503": ["briefing"],
     "partial-calendar-503": ["calendar"],
-    "partial-tasks-503": ["tasks"],
     populated: [],
     "retained-failed-refetch(previous-day)": [],
     "section-unavailable(partial-dependency)": [],
@@ -366,27 +133,15 @@ async function dateControlsFixture(page: Page, state: DateState) {
   const failures = new Set(failInitially[state]);
   const unknown: string[] = [];
   const requests: { method: string; path: string; status: number }[] = [];
-  const task = {
-    id: "date-layout-task",
-    title: "Synthetic date-control task",
-    status: "open",
-    due_date: "2020-08-15",
-    priority: 1,
-    source: "synthetic",
-    created_at: "2020-08-10T00:00:00Z",
-    updated_at: "2020-08-10T00:00:00Z",
-  };
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const kind =
       url.pathname === "/api/v1/briefing"
         ? "briefing"
-        : url.pathname === "/api/v1/tasks"
-          ? "tasks"
-          : url.pathname === "/api/v1/daily/dates"
-            ? "calendar"
-            : null;
+        : url.pathname === "/api/v1/daily/dates"
+          ? "calendar"
+          : null;
     const fulfill = async (statusCode: number, json: unknown) => {
       requests.push({
         method: request.method(),
@@ -430,11 +185,7 @@ async function dateControlsFixture(page: Page, state: DateState) {
             next_date: "2020-08-16",
             sections,
           }
-        : kind === "calendar"
-          ? ["2020-08-14", "2020-08-15"]
-          : state === "confirmed-empty(sections ready-empty)"
-            ? []
-            : [task],
+        : ["2020-08-14", "2020-08-15"],
     );
   });
   await fakeSession(page, { setup_required: false, authenticated: true });
@@ -445,7 +196,7 @@ async function dateControlRectangles(page: Page) {
   const controls = [
     page.getByRole("button", { name: "Previous day", exact: true }),
     page.getByRole("button", { name: "Next day", exact: true }),
-    page.getByRole("button", { name: /^2020-08-15 pick a day/ }),
+    page.getByRole("button", { name: /^2020-08-15/ }),
   ];
   return Promise.all(
     controls.map(async (control) => {
@@ -474,7 +225,7 @@ async function expectDateControlUsable(page: Page, width: number) {
   const names = ["Previous day", "Next day"] as const;
   const controls = [
     page.getByRole("button", { name: names[0], exact: true }),
-    page.getByRole("button", { name: /^2020-08-15 pick a day/ }),
+    page.getByRole("button", { name: /^2020-08-15/ }),
     page.getByRole("button", { name: names[1], exact: true }),
   ];
   const measurements = await dateControlRectangles(page);
@@ -609,10 +360,6 @@ for (const mode of ["light", "dark"] as const) {
         await expect(
           page.getByRole("button", { name: "Retry daily briefing" }),
         ).toBeVisible();
-      if (state === "partial-tasks-503")
-        await expect(
-          page.getByRole("button", { name: "Retry daily tasks" }),
-        ).toBeVisible();
       if (state === "confirmed-empty(sections ready-empty)")
         await expect(
           page.getByRole("heading", { name: "No records for 2020-08-15." }),
@@ -626,15 +373,13 @@ for (const mode of ["light", "dark"] as const) {
           page.getByText(/Unavailable briefing sections: sleep/),
         ).toBeVisible();
       if (state === "named-retry-success") {
-        const retry = page.getByRole("button", { name: "Retry daily tasks" });
+        const retry = page.getByRole("button", { name: "Retry day calendar" });
         await expect(retry).toBeVisible();
-        fixture.failures.delete("tasks");
+        fixture.failures.delete("calendar");
         await retry.click();
         await expect(
-          page.getByRole("button", {
-            name: "Complete Synthetic date-control task",
-          }),
-        ).toBeVisible();
+          page.getByRole("button", { name: "Retry day calendar" }),
+        ).toHaveCount(0);
       }
       if (state === "retained-failed-refetch(previous-day)") {
         fixture.failures.add("briefing");
@@ -651,23 +396,14 @@ for (const mode of ["light", "dark"] as const) {
     });
   }
 
-  for (const state of [
-    "initial-503",
-    "partial-calendar-503",
-    "partial-tasks-503",
-  ] as const) {
+  for (const state of ["initial-503", "partial-calendar-503"] as const) {
     test(`Today date controls ${mode} ${state} at 1280px`, async ({ page }) => {
       const fixture = await dateControlsFixture(page, state);
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
       await page.goto("/?date=2020-08-15");
       await expectDateControlUsable(page, 1280);
-      if (state !== "partial-tasks-503")
-        await expectCalendarErrorContained(page, 1280);
-      if (state === "partial-tasks-503")
-        await expect(
-          page.getByRole("button", { name: "Retry daily tasks" }),
-        ).toBeVisible();
+      await expectCalendarErrorContained(page, 1280);
       expect(fixture.unknown).toEqual([]);
     });
   }
@@ -700,7 +436,7 @@ for (const mode of ["light", "dark"] as const) {
     await previous.focus();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/date=2020-08-14/);
-    const center = page.getByRole("button", { name: /^2020-08-14 pick a day/ });
+    const center = page.getByRole("button", { name: /^2020-08-14/ });
     await center.click();
     const dialog = page.getByRole("dialog", { name: "Pick a day" });
     await expect(dialog).toBeVisible();

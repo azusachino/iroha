@@ -14,6 +14,7 @@
   import { navigationGroups } from "$lib/navigation";
   import ThemeFrame from "$lib/themes/ThemeFrame.svelte";
   import ThemeProvider from "$lib/themes/ThemeProvider.svelte";
+  import BrandMark from "$lib/components/BrandMark.svelte";
   import AuthDialog from "$lib/components/AuthDialog.svelte";
   import { UNAUTHENTICATED_EVENT } from "$lib/api";
   import { auth, loadSession, sessionExpired } from "$lib/auth.svelte";
@@ -55,7 +56,7 @@
     href="/"
     aria-label="iroha — sound and flower"
   >
-    <img class="brand-mark" src="/favicon.svg" alt="" aria-hidden="true" />
+    <BrandMark size={22} />
     <span>iroha</span>
     <small class="brand-version">v{APP_VERSION}</small>
   </a>
