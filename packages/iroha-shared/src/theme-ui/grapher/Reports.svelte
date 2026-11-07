@@ -79,6 +79,127 @@
       : [],
   );
   const periodDays = $derived(reportPeriodDays(report));
+  const periodWeeks = $derived(periodDays > 0 ? periodDays / 7 : 4);
+
+  // WHO 2020 Guidelines calculations:
+  const activeMinutes = $derived(
+    movement ? Math.round(movement.duration_s / 60) : 0,
+  );
+  const weeklyActiveMinutes = $derived(
+    periodWeeks > 0 ? Math.round(activeMinutes / periodWeeks) : 0,
+  );
+  const whoCompliancePercent = $derived(
+    Math.min(200, Math.round((weeklyActiveMinutes / 150) * 100)),
+  );
+  const strengthActivities = $derived(
+    movement?.by_sport
+      .filter((s) => /strength|weight|resistance/i.test(s.sport))
+      .reduce((sum, s) => sum + s.activity_count, 0) ?? 0,
+  );
+  const weeklyStrengthDays = $derived(
+    periodWeeks > 0 ? (strengthActivities / periodWeeks).toFixed(1) : "0",
+  );
+
+  // Sleep architecture calculations:
+  const totalStageSeconds = $derived(
+    sleep
+      ? sleep.stage_seconds.core +
+        sleep.stage_seconds.deep +
+        sleep.stage_seconds.rem +
+        sleep.stage_seconds.awake +
+        sleep.stage_seconds.unspecified
+      : 0,
+  );
+  const deepPct = $derived(
+    totalStageSeconds > 0 && sleep
+      ? Math.round((sleep.stage_seconds.deep / totalStageSeconds) * 100)
+      : 0,
+  );
+  const remPct = $derived(
+    totalStageSeconds > 0 && sleep
+      ? Math.round((sleep.stage_seconds.rem / totalStageSeconds) * 100)
+      : 0,
+  );
+  const efficiencyPct = $derived(
+    sleep ? Math.round(sleep.average_efficiency * 100) : 0,
+  );
+
+  // Vitals:
+  const rhr = $derived(
+    health?.metric_averages.find((m) => m.metric === "resting_heart_rate"),
+  );
+  const hrv = $derived(
+    health?.metric_averages.find((m) => /hrv|variability/i.test(m.metric)),
+  );
+  const steps = $derived(
+    health?.metric_averages.find((m) => m.metric === "steps"),
+  );
+
+  const movementFacts = $derived([
+    {
+      label: "WHO Aerobic",
+      value: `${whoCompliancePercent}%`,
+      detail: `${weeklyActiveMinutes}m/wk (Target: 150m)`,
+    },
+    {
+      label: "Strength Target",
+      value: `${weeklyStrengthDays}/wk`,
+      detail: `${strengthActivities} sessions (Target: ≥2/wk)`,
+    },
+    {
+      label: "Active Volume",
+      value: formatDuration(movement?.duration_s ?? 0),
+      detail: `${movement?.activity_count ?? 0} total sessions`,
+    },
+  ]);
+
+  const sleepFacts = $derived([
+    {
+      label: "Efficiency",
+      value: `${efficiencyPct}%`,
+      detail: "AASM benchmark: ≥85%",
+    },
+    {
+      label: "Deep Sleep",
+      value: `${deepPct}%`,
+      detail: "Target: 15–25%",
+    },
+    {
+      label: "REM Sleep",
+      value: `${remPct}%`,
+      detail: "Target: 20–25%",
+    },
+  ]);
+
+  const vitalsFacts = $derived([
+    ...(rhr
+      ? [
+          {
+            label: "Resting HR",
+            value: `${Math.round(rhr.value)} bpm`,
+            detail: "AHA baseline: 60–100 bpm",
+          },
+        ]
+      : []),
+    ...(hrv
+      ? [
+          {
+            label: "HRV (rMSSD)",
+            value: `${Math.round(hrv.value)} ms`,
+            detail: "Autonomic recovery index",
+          },
+        ]
+      : []),
+    ...(steps
+      ? [
+          {
+            label: "Daily Steps",
+            value: number(steps.value),
+            detail: `${steps.observed_days} days observed`,
+          },
+        ]
+      : []),
+  ]);
   const healthRows = $derived<PanelRow[]>(
     healthPanelRows(health?.metric_averages ?? [], periodDays, {
       colored: false,
@@ -202,11 +323,13 @@
           <CoverageBars rows={healthRows} />
         </MetricPanel>
         <ReportFactGrid
-          facts={(health.metric_averages ?? []).slice(0, 3).map((item) => ({
-            label: healthMetricLabel(item.metric),
-            value: formatMetricValue(item.value, item.unit),
-            detail: item.unit,
-          }))}
+          facts={vitalsFacts.length
+            ? vitalsFacts
+            : (health.metric_averages ?? []).slice(0, 3).map((item) => ({
+                label: healthMetricLabel(item.metric),
+                value: formatMetricValue(item.value, item.unit),
+                detail: item.unit,
+              }))}
         />
       {:else}<p class="empty">No canonical daily-health observations.</p>{/if}
     </ReportMetricCard>
@@ -254,7 +377,9 @@
     <ReportMetricCard
       label="Movement"
       title="Distance by sport"
-      summary={movement ? movement.activity_count + " sessions" : "No records"}
+      summary={movement
+        ? `${whoCompliancePercent}% WHO aerobic · ${movement.activity_count} sessions`
+        : "No records"}
     >
       {#if movement?.by_sport.length}
         <MetricPanel
@@ -282,13 +407,16 @@
             height={220}
           />
         </MetricPanel>
+        <ReportFactGrid facts={movementFacts} />
       {:else}<p class="empty">No canonical movement records.</p>{/if}
     </ReportMetricCard>
 
     <ReportMetricCard
       label="Sleep"
       title="Stage composition"
-      summary={sleep ? formatDuration(sleep.average_asleep_s) : "No records"}
+      summary={sleep
+        ? `${efficiencyPct}% efficiency · ${formatDuration(sleep.average_asleep_s)} avg`
+        : "No records"}
     >
       {#if sleep}
         <MetricPanel
@@ -313,6 +441,7 @@
             height={220}
           />
         </MetricPanel>
+        <ReportFactGrid facts={sleepFacts} />
       {:else}<p class="empty">No canonical sleep records.</p>{/if}
     </ReportMetricCard>
 
