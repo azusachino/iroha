@@ -22,12 +22,6 @@
   data-appearance={appearance}
   aria-label={ariaLabel}
 >
-  {#if title}
-    <div class="period-copy">
-      <span>{eyebrow}</span>
-      <strong>{title}</strong>
-    </div>
-  {/if}
   <div class="period-slot">
     {@render children()}
   </div>
@@ -37,11 +31,11 @@
   .period-toolbar {
     display: flex;
     min-width: 0;
-    min-height: 5.25rem;
+    min-height: 3.25rem;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-    padding: var(--space-3) var(--space-4);
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface);
@@ -51,28 +45,11 @@
     border-radius: 2px;
   }
 
-  .period-copy {
-    display: grid;
-    min-width: 0;
-    gap: var(--space-1);
-  }
-
-  .period-copy span {
-    color: var(--accent);
-    font-size: var(--type-caption);
-    font-weight: 750;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .period-copy strong {
-    font-size: var(--type-label);
-  }
-
   .period-slot {
     display: flex;
     min-width: 0;
-    margin-left: auto;
+    width: 100%;
+    align-items: center;
     justify-content: flex-end;
   }
 
@@ -80,11 +57,11 @@
     .period-toolbar {
       align-items: stretch;
       flex-direction: column;
+      padding: var(--space-3);
     }
 
     .period-slot {
       width: 100%;
-      margin-left: 0;
       justify-content: stretch;
     }
 

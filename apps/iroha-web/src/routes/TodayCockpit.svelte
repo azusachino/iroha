@@ -1,6 +1,5 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { Check, ListTodo } from "@lucide/svelte";
   import RingGauge from "@iroha/shared/theme-ui/components/RingGauge.svelte";
   import SportBadge from "@iroha/shared/components/SportBadge.svelte";
   import DayPicker from "$lib/components/DayPicker.svelte";
@@ -23,7 +22,6 @@
   const theme = useTheme();
   const t = createTodayState();
   let briefingPanel = $state<HTMLElement>();
-  let taskPanel = $state<HTMLElement>();
   let calendarPanel = $state<HTMLElement>();
 </script>
 
@@ -60,7 +58,6 @@
       onclick={() => (t.pickerOpen = !t.pickerOpen)}
     >
       <span class="day-main">{t.dayLabel}</span>
-      <span class="day-hint">pick a day · ← → to move</span>
     </button>
     <button
       class="nav"
@@ -96,60 +93,6 @@
         </button>
       </div>
     {/if}
-
-    <section
-      class="to-go-strip tile"
-      aria-label="Daily to-go"
-      tabindex="-1"
-      bind:this={taskPanel}
-    >
-      {#if t.taskError}<RetryNotice
-          message={`Daily tasks unavailable: ${t.taskError}`}
-          retryLabel="Retry daily tasks"
-          onRetry={t.retryTasks}
-          focusTarget={taskPanel}
-        />{/if}
-      {#if t.finishError}<p role="alert">
-          Task completion failed: {t.finishError}
-        </p>{/if}
-      {#if t.taskResource.loading}<p role="status">Loading daily tasks…</p>{/if}
-      {#if t.taskResource.data}<p>
-          Observed tasks: {t.taskResource.data.date} · up to 5 open tasks
-        </p>{/if}
-      <div class="to-go-heading">
-        <span class="to-go-icon" aria-hidden="true"><ListTodo size={17} /></span
-        >
-        <div>
-          <p class="eyebrow">Daily to-go</p>
-          <p class="to-go-title">
-            {t.toGoTasks.length
-              ? `${t.toGoTasks.length} ${t.toGoTasks.length === 1 ? "thing" : "things"} to carry`
-              : t.taskResource.ready
-                ? "A clear next step"
-                : "Tasks unavailable"}
-          </p>
-        </div>
-      </div>
-      <div class="to-go-items">
-        {#if t.toGoTasks.length}
-          {#each t.toGoTasks as task (task.id)}
-            <div class="to-go-task">
-              <button
-                type="button"
-                aria-label={`Complete ${task.title}`}
-                disabled={t.finishingTaskId != null}
-                aria-busy={t.finishingTaskId === task.id}
-                onclick={() => t.finishTask(task)}><Check size={14} /></button
-              >
-              <span>{task.title}</span>
-            </div>
-          {/each}
-        {:else if t.taskResource.ready && !t.taskError && !t.taskResource.loading}
-          <span class="to-go-empty">No open tasks for this day.</span>
-        {/if}
-      </div>
-      <a class="to-go-link" href="/to-go">Open control room →</a>
-    </section>
   </div>
   <section
     aria-label="Daily briefing read state"
@@ -472,85 +415,6 @@
     display: grid;
     gap: 1.25rem;
   }
-  .to-go-strip {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 1rem;
-    align-items: center;
-    padding: 0.8rem 1rem;
-    background: color-mix(in srgb, var(--surface) 92%, var(--accent));
-  }
-  .to-go-strip :global(.retry-notice) {
-    grid-column: 1 / -1;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-  .to-go-heading {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-  }
-  .to-go-icon {
-    display: grid;
-    width: 2.2rem;
-    height: 2.2rem;
-    place-items: center;
-    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-    border-radius: 50%;
-    color: var(--accent);
-  }
-  .to-go-heading .eyebrow {
-    margin-bottom: 0.1rem;
-  }
-  .to-go-title {
-    margin: 0;
-    font-size: 0.98rem;
-    font-weight: 700;
-  }
-  .to-go-items {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem 0.8rem;
-    min-width: 0;
-  }
-  .to-go-task {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-width: 0;
-    color: var(--text-muted);
-    font-size: 0.78rem;
-  }
-  .to-go-task span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .to-go-task button {
-    display: grid;
-    flex: 0 0 auto;
-    width: 24px;
-    height: 24px;
-    place-items: center;
-    border: 1px solid var(--border);
-    border-radius: 50%;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-  }
-  .to-go-task button:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .to-go-empty {
-    color: var(--text-muted);
-    font-size: 0.78rem;
-  }
-  .to-go-link {
-    color: var(--accent);
-    font-size: 0.75rem;
-    white-space: nowrap;
-  }
   .status {
     padding: 2rem 0;
   }
@@ -818,10 +682,6 @@
     white-space: nowrap;
     font-weight: 700;
     text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 28%, transparent);
-  }
-  .day-hint {
-    font-size: 0.72rem;
-    color: var(--text-muted);
   }
   .pk-backdrop {
     position: fixed;
@@ -1098,14 +958,6 @@
   }
 
   @media (max-width: 1024px) {
-    .to-go-strip {
-      flex: 1 0 100%;
-      grid-template-columns: 1fr auto;
-    }
-    .to-go-items {
-      grid-column: 1 / -1;
-      grid-row: 2;
-    }
     .command-heading {
       align-items: flex-start;
       flex-direction: column;
@@ -1142,27 +994,6 @@
 
     .scrub-center {
       min-width: 0;
-    }
-
-    .day-hint {
-      max-width: 100%;
-      overflow-wrap: anywhere;
-      text-align: center;
-    }
-
-    .to-go-strip {
-      width: 100%;
-      grid-template-columns: 1fr;
-      gap: 0.55rem;
-    }
-
-    .to-go-items {
-      grid-column: auto;
-      grid-row: auto;
-    }
-
-    .to-go-link {
-      justify-self: start;
     }
   }
 </style>

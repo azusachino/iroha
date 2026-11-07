@@ -4,14 +4,11 @@ import { page } from "$app/state";
 import {
   getBriefing,
   getDailyDates,
-  listTasks,
-  updateTask,
   type DailyRow,
   type SleepSession,
   type Activity,
   type MediaDaySection,
   type BriefingResponse,
-  type Task,
 } from "$lib/api";
 import type { Ring } from "@iroha/shared/theme-ui/components/RingGauge.svelte";
 import { todayInTimezone } from "@iroha/shared/format/date";
@@ -38,16 +35,10 @@ export function latestRecordedDay(
 // itself -- it's a rendering-position concern, not Today-specific state.
 export function createTodayState() {
   const briefingResource = createAsyncResource<BriefingResponse>();
-  const taskResource = createAsyncResource<{ date: string; items: Task[] }>();
   const calendarResource = createAsyncResource<string[]>();
   const briefing = $derived(briefingResource.data);
   const loading = $derived(briefingResource.loading);
   const error = $derived(briefingResource.error);
-  const toGoTasks = $derived(taskResource.data?.items ?? []);
-  const taskError = $derived(taskResource.error);
-  let finishError = $state<string | null>(null);
-  let finishingTaskId = $state<Task["id"] | null>(null);
-  const TASK_LIMIT = 5;
 
   const today = todayInTimezone(new Date(), IROHA_TIMEZONE);
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -250,7 +241,6 @@ export function createTodayState() {
     const selected = day;
     untrack(() => {
       void loadBriefing(selected);
-      void loadTasks(selected);
     });
   });
 
@@ -278,52 +268,11 @@ export function createTodayState() {
     return () => window.clearTimeout(urlSyncTimer);
   });
 
-  async function loadTasks(selectedDay: string) {
-    await taskResource.run(async () => ({
-      date: selectedDay,
-      items: await listTasks({
-        status: "open",
-        due: selectedDay,
-        limit: TASK_LIMIT,
-      }),
-    }));
-  }
-
-  async function finishTask(task: Task) {
-    if (finishingTaskId != null) return;
-    finishingTaskId = task.id;
-    try {
-      finishError = null;
-      await updateTask(task.id, "completed");
-      const replacePendingRead = taskResource.loading;
-      if (replacePendingRead) taskResource.invalidate();
-      const current = taskResource.data;
-      if (current)
-        taskResource.mutate(() => ({
-          ...current,
-          items: current.items.filter((item) => item.id !== task.id),
-        }));
-      if (replacePendingRead) void loadTasks(day);
-    } catch (cause) {
-      finishError = cause instanceof Error ? cause.message : String(cause);
-    } finally {
-      finishingTaskId = null;
-    }
-  }
-
   return {
     today,
     briefingResource,
-    taskResource,
     calendarResource,
-    get finishError() {
-      return finishError;
-    },
-    get finishingTaskId() {
-      return finishingTaskId;
-    },
     retryBriefing: () => loadBriefing(day),
-    retryTasks: () => loadTasks(day),
     retryCalendar: loadAvailableDays,
     get unavailableSections() {
       return (
@@ -340,12 +289,6 @@ export function createTodayState() {
     },
     get error() {
       return error;
-    },
-    get toGoTasks() {
-      return toGoTasks;
-    },
-    get taskError() {
-      return taskError;
     },
     get day() {
       return day;
@@ -414,6 +357,5 @@ export function createTodayState() {
     jumpToLatestDay,
     onKey,
     num,
-    finishTask,
   };
 }

@@ -66,14 +66,6 @@
     </div>
   </header>
 
-  <div class="provenance-line">
-    <span>Selected day</span><strong>{dayLabel}</strong>
-    <span>Source</span><strong>Imported snapshot</strong>
-    <span>Interpretation</span><strong
-      >Raw and derived values shown separately</strong
-    >
-  </div>
-
   <section class="plot-panel" aria-labelledby="activity-chart-title">
     <div class="panel-heading">
       <div>
@@ -279,21 +271,6 @@
     margin: 0.85rem 0 0;
     color: var(--text-muted);
   }
-  .provenance-line {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.25rem 0.6rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--border);
-    color: var(--text-muted);
-    font-size: 0.72rem;
-  }
-  .provenance-line strong {
-    margin-right: 1rem;
-    color: var(--text);
-    font-weight: 650;
-  }
   .plot-panel,
   .data-panel {
     padding: 1.25rem;
@@ -434,6 +411,7 @@
     display: grid;
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
     gap: 1rem;
+    align-items: start;
   }
   .large-value {
     display: block;
