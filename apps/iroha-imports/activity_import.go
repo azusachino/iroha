@@ -85,6 +85,11 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
+	if activity.DurationS != nil && row.DistanceM != nil && *row.DistanceM > 0 && row.AvgPaceSPerKM == nil {
+		pace := float64(*activity.DurationS) / (*row.DistanceM / 1000.0)
+		row.AvgPaceSPerKM = &pace
+	}
+
 	var existing models.ActivityObservation
 	if err := tx.First(&existing, "id = ?", observationID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		if err := tx.Create(&row).Error; err != nil {
