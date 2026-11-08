@@ -9,6 +9,7 @@
     formatDistance,
     formatSport,
   } from "../../format/format";
+  import { sportColor } from "../../domain/sport";
 
   let {
     series,
@@ -230,10 +231,10 @@
             primary={{
               name: "Distance",
               values: sportBreakdown.map((item) => item.total),
+              colors: sportBreakdown.map((item) => sportColor(item.sport)),
               formatter: formatKm,
             }}
             orientation="horizontal"
-            categorical
             height={Math.max(220, sportBreakdown.length * 42)}
             showDataTable={false}
           />
