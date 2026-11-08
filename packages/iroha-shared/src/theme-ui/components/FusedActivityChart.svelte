@@ -83,6 +83,8 @@
         name: xLabel,
         nameLocation: "middle",
         nameGap: 30,
+        min: "dataMin",
+        max: "dataMax",
         axisLabel: {
           color: muted,
           fontSize: 10,

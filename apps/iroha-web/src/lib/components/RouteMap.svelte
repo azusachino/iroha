@@ -104,44 +104,7 @@
     bind:this={container}
     role="region"
     aria-label={mapLabel}
-    aria-describedby="route-map-help"
   ></div>
-  <p id="route-map-help" class="visually-hidden">
-    Use the map zoom and pan controls to inspect the route. The exact recorded
-    coordinates are available in the route data table below.
-  </p>
-  <details class="map-data">
-    <summary>View route coordinates</summary>
-    <div class="table-wrap">
-      <table>
-        <caption>Recorded route coordinates</caption>
-        <thead>
-          <tr>
-            <th scope="col">Fix</th>
-            <th scope="col">Recorded at</th>
-            <th scope="col">Latitude</th>
-            <th scope="col">Longitude</th>
-            <th scope="col">Elevation</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each validPoints as point}
-            <tr>
-              <th scope="row">{point.seq}</th>
-              <td>{point.ts ?? "—"}</td>
-              <td>{point.lat.toFixed(6)}</td>
-              <td>{point.lon.toFixed(6)}</td>
-              <td>
-                {point.elevation_m == null
-                  ? "—"
-                  : `${point.elevation_m.toFixed(1)} m`}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  </details>
 </section>
 
 <style>
@@ -154,40 +117,5 @@
     min-height: 18rem;
     overflow: hidden;
     border-radius: var(--radius);
-  }
-  .map-data {
-    color: var(--text-muted);
-    font-size: 0.78rem;
-  }
-  .map-data summary {
-    width: fit-content;
-    cursor: pointer;
-  }
-  .table-wrap {
-    margin-top: 0.5rem;
-    overflow-x: auto;
-  }
-  table {
-    width: 100%;
-    min-width: 42rem;
-    border-collapse: collapse;
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
-  }
-  th,
-  td {
-    padding: 0.35rem 0.5rem;
-    border-bottom: 1px solid var(--border);
-    text-align: right;
-  }
-  th:first-child,
-  td:first-child,
-  th:nth-child(2),
-  td:nth-child(2) {
-    text-align: left;
-  }
-  thead th {
-    color: var(--text-muted);
-    font-weight: 650;
   }
 </style>

@@ -223,7 +223,7 @@
         <div class="sport-chart">
           <header>
             <p class="eyebrow">Sport composition</p>
-            <h3>Where the distance came from</h3>
+            <h3>Distance by sport</h3>
           </header>
           <BarChart
             categories={sportBreakdown.map((item) => formatSport(item.sport))}
