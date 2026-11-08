@@ -18,6 +18,7 @@
   import AuthDialog from "$lib/components/AuthDialog.svelte";
   import { UNAUTHENTICATED_EVENT } from "$lib/api";
   import { auth, loadSession, sessionExpired } from "$lib/auth.svelte";
+  import { initThemeWatcher } from "$lib/theme";
   import { onMount } from "svelte";
   import "@iroha/shared/theme/chart-presentation";
   import "./app.css";
@@ -34,9 +35,12 @@
   onMount(() => {
     document.getElementById("public-bootstrap-status")?.remove();
     void loadSession();
+    const cleanupTheme = initThemeWatcher();
     window.addEventListener(UNAUTHENTICATED_EVENT, sessionExpired);
-    return () =>
+    return () => {
+      cleanupTheme();
       window.removeEventListener(UNAUTHENTICATED_EVENT, sessionExpired);
+    };
   });
 
   function isActive(href: string) {

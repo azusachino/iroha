@@ -26,8 +26,8 @@
     formatHr,
     formatElevation,
   } from "$lib/format";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import {
     currentYear,
     MONTH_OPTIONS,
@@ -208,7 +208,7 @@
     };
   }
 
-  async function loadActivitySeries() {
+  async function loadActivitySeries(forceRefresh = false) {
     const window = chartWindow();
     const scope = buildParams();
     if (!window) {
@@ -229,8 +229,8 @@
     };
     await seriesResource.run(async () => {
       const [distance, duration] = await Promise.all([
-        getMetricSeries("movement.distance_m", params),
-        getMetricSeries("movement.duration_s", params),
+        getMetricSeries("movement.distance_m", params, { forceRefresh }),
+        getMetricSeries("movement.duration_s", params, { forceRefresh }),
       ]);
       return { scope, value: { distance, duration } };
     });
@@ -278,9 +278,17 @@
       : period;
   }
 
+  async function hardRefresh() {
+    await Promise.all([
+      load(false, true),
+      loadSummary(true),
+      loadActivitySeries(true),
+    ]);
+  }
+
   // Fetch one page. `append` distinguishes a fresh query (replace) from
   // "Load more" (accumulate). Cursor + has_more drive the keyset walk.
-  async function load(append: boolean) {
+  async function load(append: boolean, forceRefresh = false) {
     if (append) {
       const previous = activitiesResource.data;
       if (
@@ -319,7 +327,7 @@
     const scope = params;
     await activitiesResource.run(async () => ({
       scope,
-      value: await listActivities(params),
+      value: await listActivities(params, { forceRefresh }),
     }));
   }
 
@@ -333,16 +341,19 @@
     void loadSummary();
   }
 
-  async function loadSummary() {
+  async function loadSummary(forceRefresh = false) {
     const params = buildParams();
     const scope = params;
     await summaryResource.run(async () => ({
       scope,
-      value: await getActivitySummary({
-        date: params.date,
-        sport: params.sport_type || null,
-        timezone: IROHA_TIMEZONE,
-      }),
+      value: await getActivitySummary(
+        {
+          date: params.date,
+          sport: params.sport_type || null,
+          timezone: IROHA_TIMEZONE,
+        },
+        { forceRefresh },
+      ),
     }));
   }
 
@@ -380,6 +391,39 @@
   });
 
   const trackedSports = $derived(summary?.by_sport.length ?? 0);
+
+  // Re-read URL searchParams on browser history popstate (e.g. Back button)
+  onMount(() => {
+    const handlePopState = () => {
+      const requested = readCalendarScope(page.url.searchParams, {
+        fallback: defaultScope,
+        allowDay: false,
+      });
+      const urlSport = page.url.searchParams.get("sport") ?? "";
+      const urlYear =
+        requested.kind === "year" || requested.kind === "month"
+          ? String(requested.year)
+          : requested.kind === "lifetime"
+            ? ""
+            : currentYear(new Date(), IROHA_TIMEZONE);
+      const urlMonth =
+        requested.kind === "month"
+          ? (serializeCalendarScope(requested) as string)
+          : "";
+
+      if (
+        urlSport !== sportType ||
+        urlYear !== selectedYear ||
+        urlMonth !== selectedMonth
+      ) {
+        sportType = urlSport;
+        selectedYear = urlYear;
+        selectedMonth = urlMonth;
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  });
 
   // Reactive filtering effect: automatically re-runs query when filter states change.
   $effect(() => {
@@ -477,7 +521,7 @@
 </script>
 
 <svelte:head>
-  <title>Motion · iroha</title>
+  <title>iroha · Motion</title>
 </svelte:head>
 
 <section class="activities-shell">
@@ -546,7 +590,12 @@
         }}
       >
         {#snippet children()}
-          <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
+          <PeriodToolbar
+            title="Motion archive scope"
+            ariaLabel="Motion period"
+            onRefresh={() => void hardRefresh()}
+            refreshing={activitiesResource.loading || summaryResource.loading}
+          >
             <PeriodSelector
               year={selectedYear}
               month={selectedMonth}
@@ -577,7 +626,12 @@
       actionLabel="Back to Today"
     />
 
-    <PeriodToolbar title="Motion archive scope" ariaLabel="Motion period">
+    <PeriodToolbar
+      title="Motion archive scope"
+      ariaLabel="Motion period"
+      onRefresh={() => void hardRefresh()}
+      refreshing={activitiesResource.loading || summaryResource.loading}
+    >
       <PeriodSelector
         year={selectedYear}
         month={selectedMonth}

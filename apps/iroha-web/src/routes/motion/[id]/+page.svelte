@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { browser } from "$app/env";
   import {
     getActivity,
     getActivityRoute,
@@ -449,18 +450,24 @@
     const minutes = Math.floor(value / 60);
     return `${minutes}:${String(Math.round(value % 60)).padStart(2, "0")} ${isSwimming(activity?.sport_type) ? "/100m" : "/km"}`;
   }
+  function goBack(e: MouseEvent) {
+    if (browser && window.history.length > 1) {
+      e.preventDefault();
+      window.history.back();
+    }
+  }
 </script>
 
 <svelte:head>
   <title
     >{activity
-      ? `${displayTitle(activity.title, activity.sport_type)} · Motion · iroha`
-      : "Motion detail · iroha"}</title
+      ? `iroha · Motion · ${displayTitle(activity.title, activity.sport_type)}`
+      : "iroha · Motion detail"}</title
   >
 </svelte:head>
 
 <section aria-label="Activity reads" tabindex="-1" bind:this={readPanel}>
-  <a href="/motion">← Back to Motion</a>
+  <a href="/motion" onclick={goBack}>← Back to Motion</a>
   {#if detailResource.error}<RetryNotice
       message={`Could not load activity: ${detailResource.error}`}
       retryLabel="Retry activity"
@@ -553,7 +560,9 @@
     <p class="error">Failed to load activity: {detailResource.error}</p>
   {/if}
 {:else}
-  <p class="detail-back"><a href="/motion">← Back to Motion</a></p>
+  <p class="detail-back">
+    <a href="/motion" onclick={goBack}>← Back to Motion</a>
+  </p>
 
   {#if detailResource.loading}
     <p class="muted">Loading activity…</p>

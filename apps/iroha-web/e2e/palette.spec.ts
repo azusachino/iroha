@@ -93,6 +93,7 @@ for (const mode of ["light", "dark"] as const) {
     const publicColors = await readPalette();
     await checkContrast();
     await page.evaluate((mode) => {
+      localStorage.setItem("iroha-theme", mode);
       document.documentElement.dataset.theme = mode;
     }, mode);
     await page.emulateMedia({

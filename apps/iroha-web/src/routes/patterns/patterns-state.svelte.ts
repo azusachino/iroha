@@ -347,9 +347,10 @@ export function createPatternsState() {
     });
   }
 
-  async function loadMonthly() {
+  async function loadMonthly(forceRefresh = false) {
     const year = selectedYear;
     if (
+      !forceRefresh &&
       monthlyResource.data?.year === year &&
       !monthlyResource.loading &&
       !monthlyResource.error
@@ -357,8 +358,11 @@ export function createPatternsState() {
       return;
     await monthlyResource.run(async () => ({
       year,
-      buckets: (await listDailyAggregates("month", year ? { date: year } : {}))
-        .buckets,
+      buckets: (
+        await listDailyAggregates("month", year ? { date: year } : {}, {
+          forceRefresh,
+        })
+      ).buckets,
     }));
   }
 
@@ -367,16 +371,17 @@ export function createPatternsState() {
     if (gran === "day" && !selectedMonth) await loadDays(activeMonth);
   }
 
-  async function loadLatestDay() {
+  async function loadLatestDay(forceRefresh = false) {
     await latestDayResource.run(async () => {
-      const result = await listDaily({ limit: 1 });
+      const result = await listDaily({ limit: 1 }, { forceRefresh });
       return result.items[0] ?? null;
     });
   }
 
-  async function loadYearly() {
+  async function loadYearly(forceRefresh = false) {
     const year = selectedYear;
     if (
+      !forceRefresh &&
       yearlyResource.data?.year === year &&
       !yearlyResource.loading &&
       !yearlyResource.error
@@ -384,15 +389,19 @@ export function createPatternsState() {
       return;
     await yearlyResource.run(async () => ({
       year,
-      buckets: (await listDailyAggregates("year", year ? { date: year } : {}))
-        .buckets,
+      buckets: (
+        await listDailyAggregates("year", year ? { date: year } : {}, {
+          forceRefresh,
+        })
+      ).buckets,
     }));
   }
 
-  async function loadDays(month: string) {
+  async function loadDays(month: string, forceRefresh = false) {
     if (
       !month ||
-      (daysResource.data?.month === month &&
+      (!forceRefresh &&
+        daysResource.data?.month === month &&
         !daysResource.loading &&
         !daysResource.error)
     )
@@ -401,12 +410,24 @@ export function createPatternsState() {
     if (!bounds) return;
     const result = await daysResource.run(async () => ({
       month,
-      rows: (await listDaily({ date: month, limit: 31 })).items,
+      rows: (await listDaily({ date: month, limit: 31 }, { forceRefresh }))
+        .items,
     }));
     if (result) {
       rangeFrom = bounds.from;
       rangeTo = bounds.to;
     }
+  }
+
+  async function hardRefresh() {
+    await Promise.all([
+      loadMonthly(true),
+      loadLatestDay(true),
+      gran === "year" ? loadYearly(true) : Promise.resolve(),
+      gran === "day" && activeMonth
+        ? loadDays(activeMonth, true)
+        : Promise.resolve(),
+    ]);
   }
 
   // A day/month/year tab always means "zoom all the way out to this level" --
@@ -478,6 +499,38 @@ export function createPatternsState() {
     void loadBounds();
     if (gran === "year") void loadYearly();
     if (gran === "day" && selectedMonth) void loadDays(selectedMonth);
+
+    const handlePopState = () => {
+      const requested = readCalendarScope(page.url.searchParams, {
+        fallback: defaultScope,
+        allowDay: false,
+      });
+      const urlGran = granFromUrl();
+      const urlYear =
+        requested.kind === "year" || requested.kind === "month"
+          ? String(requested.year)
+          : requested.kind === "lifetime"
+            ? ""
+            : currentYear(new Date(), IROHA_TIMEZONE);
+      const urlMonth =
+        requested.kind === "month"
+          ? (serializeCalendarScope(requested) as string)
+          : "";
+
+      if (
+        urlGran !== gran ||
+        urlYear !== selectedYear ||
+        urlMonth !== selectedMonth
+      ) {
+        gran = urlGran;
+        selectedYear = urlYear;
+        selectedMonth = urlMonth;
+        if (gran === "year") void loadYearly();
+        if (gran === "day" && selectedMonth) void loadDays(selectedMonth);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   });
 
   const observedScope = $derived(
@@ -593,6 +646,7 @@ export function createPatternsState() {
     changeGranularity,
     selectYear,
     selectMonth,
+    hardRefresh,
     drillIntoPeriod,
     drillIntoIndex,
     fmt,

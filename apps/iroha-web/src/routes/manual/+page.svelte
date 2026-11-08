@@ -125,7 +125,7 @@
   const theme = useTheme();
 </script>
 
-<svelte:head><title>Manual · iroha</title></svelte:head>
+<svelte:head><title>iroha · Manual</title></svelte:head>
 
 <section class="manual-page" data-theme={theme.definition().identity.id}>
   <header class="manual-hero">

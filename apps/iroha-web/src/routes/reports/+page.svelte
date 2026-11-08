@@ -13,8 +13,8 @@
   import ReportComparison from "@iroha/shared/theme-ui/components/ReportComparison.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import { formatDate } from "$lib/format";
   import {
     currentMonth,
@@ -88,10 +88,12 @@
     void loadBounds();
   });
 
-  async function loadReport(requestedMonth: string) {
+  async function loadReport(requestedMonth: string, forceRefresh = false) {
     await reportResource.run(async () => {
       try {
-        return await getMonthlyReportSeries(requestedMonth);
+        return await getMonthlyReportSeries(requestedMonth, 12, {
+          forceRefresh,
+        });
       } catch (cause) {
         throw new Error(formatError(cause));
       }
@@ -174,7 +176,7 @@
   );
 </script>
 
-<svelte:head><title>Reports · iroha</title></svelte:head>
+<svelte:head><title>iroha · Reports</title></svelte:head>
 
 <section class="reports-shell">
   <header class="page-head">
@@ -187,12 +189,6 @@
         provenance.
       </p>
     </div>
-    <button
-      class="refresh"
-      type="button"
-      onclick={() => void loadReport(month)}
-      disabled={reportResource.loading}><RefreshCw size={15} /> Refresh</button
-    >
   </header>
   <p>Selected month: {month}</p>
   <section
@@ -203,6 +199,8 @@
     <PeriodToolbar
       title="Monthly cross-domain report"
       ariaLabel="Report period"
+      onRefresh={() => void loadReport(month, true)}
+      refreshing={reportResource.loading}
     >
       <PeriodSelector
         year={periodYear}
@@ -306,32 +304,6 @@
   .generated {
     color: var(--text-muted);
     font-size: 0.78rem;
-  }
-  button {
-    min-height: 2.4rem;
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) - 4px);
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    cursor: pointer;
-  }
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0 0.8rem;
-  }
-  button:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  button:disabled {
-    cursor: default;
-    opacity: 0.5;
-  }
-  .refresh {
-    color: var(--accent);
   }
   @media (max-width: 768px) {
     .page-head {

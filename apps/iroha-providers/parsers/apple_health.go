@@ -1023,7 +1023,10 @@ func applyWorkoutStatistics(activity *ActivityObservation, stats []appleWorkoutS
 				activity.MaxHR = &rounded
 			}
 
-		case "HKQuantityTypeIdentifierDistanceWalkingRunning":
+		case "HKQuantityTypeIdentifierDistanceWalkingRunning",
+			"HKQuantityTypeIdentifierDistanceCycling",
+			"HKQuantityTypeIdentifierDistanceSwimming",
+			"HKQuantityTypeIdentifierDistanceDownhillSnowSports":
 			// The per-statistic distance is authoritative over the
 			// workout-level totalDistance attribute when present.
 			if distanceM := parseDistanceMeters(stat.Sum, stat.Unit); distanceM != nil {

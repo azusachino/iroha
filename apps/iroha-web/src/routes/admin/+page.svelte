@@ -47,7 +47,7 @@
   }
 </script>
 
-<svelte:head><title>Admin · iroha</title></svelte:head>
+<svelte:head><title>iroha · Admin</title></svelte:head>
 
 <section class="admin-page" data-theme={theme.definition().identity.id}>
   <header class="page-head">

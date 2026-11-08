@@ -31,7 +31,7 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 			progress.started_on_precision,
 			progress.completed_on_value,
 			progress.completed_on_precision,
-			coalesce(progress.last_update_at, item.updated_at) AS last_update_at,
+			coalesce(progress.last_update_at, progress.completed_on_value::timestamptz, progress.started_on_value::timestamptz, item.created_at) AS last_update_at,
 			rating.rating,
 			rating.rating_scale,
 			coalesce(progress.hidden_from_continue, false) AS hidden_from_continue,
@@ -78,11 +78,11 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 		query = query.Where("extract(year from completion.completed_at) = ?", *filters.CompletedYear)
 	}
 	if filters.Cursor != nil {
-		query = query.Where("(coalesce(progress.last_update_at, item.updated_at), item.id) < (?, ?)", filters.Cursor.LastUpdateAt, filters.Cursor.ID)
+		query = query.Where("(coalesce(progress.last_update_at, progress.completed_on_value::timestamptz, progress.started_on_value::timestamptz, item.created_at), item.id) < (?, ?)", filters.Cursor.LastUpdateAt, filters.Cursor.ID)
 	}
 
 	var rows []Item
-	if err := query.Order("last_update_at DESC, item.id DESC").Limit(limit + 1).Scan(&rows).Error; err != nil {
+	if err := query.Order("coalesce(progress.last_update_at, progress.completed_on_value::timestamptz, progress.started_on_value::timestamptz, item.created_at) DESC, item.id DESC").Limit(limit + 1).Scan(&rows).Error; err != nil {
 		return Page{}, err
 	}
 

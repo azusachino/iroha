@@ -144,6 +144,19 @@ func TestReadCacheCachesSuccessfulJSONReads(t *testing.T) {
 	if second.Body.String() != first.Body.String() {
 		t.Fatalf("cached body = %q, want %q", second.Body.String(), first.Body.String())
 	}
+
+	// Request with Cache-Control: no-cache forces a reload
+	reloadReq := httptest.NewRequest(http.MethodGet, "/api/v1/daily?to=2026-01-31&from=2026-01-01", nil)
+	reloadReq.Header.Set("Cache-Control", "no-cache")
+	third := httptest.NewRecorder()
+	handler.ServeHTTP(third, reloadReq)
+
+	if calls != 2 {
+		t.Fatalf("handler calls = %d, want 2 after force reload", calls)
+	}
+	if third.Header().Get("X-Iroha-Cache") != "RELOAD" {
+		t.Fatalf("cache header = %q, want RELOAD", third.Header().Get("X-Iroha-Cache"))
+	}
 }
 
 func TestReadCacheInvalidationReloadsData(t *testing.T) {

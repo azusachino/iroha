@@ -1,4 +1,4 @@
-import { onMount } from "svelte";
+import { onMount, untrack } from "svelte";
 import { replaceState } from "$app/navigation";
 import { page } from "$app/state";
 import {
@@ -270,7 +270,7 @@ export function createNightState() {
         ? (parseCalendarScope(selectedMonth) ?? scopeFromParts(selectedYear))
         : scopeFromParts(selectedYear),
     );
-    if (url.href !== window.location.href) replaceState(url, page.state);
+    if (url.search !== window.location.search) replaceState(url, page.state);
   }
 
   function selectSession(session: SleepSession) {
@@ -283,18 +283,21 @@ export function createNightState() {
     return {};
   }
 
-  async function loadSessions(append = false) {
+  async function loadSessions(append = false, forceRefresh = false) {
     const scope = selectedScope();
     if (append) {
       const previous = sessionsResource.data;
       if (!hasMore || !previous?.value.next_cursor || loadingMore) return;
       pendingPage = previous;
       const next = await pageResource.run(() =>
-        listSleep({
-          limit: PAGE_SIZE,
-          cursor: previous.value.next_cursor!,
-          ...scope,
-        }),
+        listSleep(
+          {
+            limit: PAGE_SIZE,
+            cursor: previous.value.next_cursor!,
+            ...scope,
+          },
+          { forceRefresh },
+        ),
       );
       if (
         !next ||
@@ -314,9 +317,18 @@ export function createNightState() {
     pendingPage = null;
     const result = await sessionsResource.run(async () => ({
       date: scope.date,
-      value: await listSleep({ limit: PAGE_SIZE, ...scope }),
+      value: await listSleep({ limit: PAGE_SIZE, ...scope }, { forceRefresh }),
     }));
     if (result) selected = result.value.items[0] ?? null;
+  }
+
+  async function hardRefresh() {
+    await Promise.all([
+      loadSessions(false, true),
+      loadAggregates("year", true),
+      loadAggregates("month", true),
+      loadAggregates("lifetime", true),
+    ]);
   }
 
   function changeYear(value: string) {
@@ -346,7 +358,10 @@ export function createNightState() {
     return () => observer.disconnect();
   });
 
-  async function loadAggregates(granularity: "year" | "month" | "lifetime") {
+  async function loadAggregates(
+    granularity: "year" | "month" | "lifetime",
+    forceRefresh = false,
+  ) {
     const resource =
       granularity === "year"
         ? yearResource
@@ -354,7 +369,8 @@ export function createNightState() {
           ? monthResource
           : lifetimeResource;
     await resource.run(
-      async () => (await listSleepAggregates(granularity)).buckets,
+      async () =>
+        (await listSleepAggregates(granularity, {}, { forceRefresh })).buckets,
     );
   }
 
@@ -383,6 +399,32 @@ export function createNightState() {
     void loadSessions(false);
   });
 
+  // Re-read URL searchParams on browser history popstate (e.g. Back button)
+  onMount(() => {
+    const handlePopState = () => {
+      const scope = readCalendarScope(page.url.searchParams, {
+        fallback: defaultScope,
+        allowDay: false,
+      });
+      const urlYear =
+        scope.kind === "year" || scope.kind === "month"
+          ? String(scope.year)
+          : scope.kind === "lifetime"
+            ? ""
+            : currentYear(new Date(), IROHA_TIMEZONE);
+      const urlMonth =
+        scope.kind === "month" ? (serializeCalendarScope(scope) as string) : "";
+
+      if (urlYear !== selectedYear || urlMonth !== selectedMonth) {
+        selectedYear = urlYear;
+        selectedMonth = urlMonth;
+        void loadSessions(false);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  });
+
   return {
     sessionsResource,
     yearResource,
@@ -402,6 +444,7 @@ export function createNightState() {
     },
     loadAggregates,
     loadBounds,
+    hardRefresh,
     get sessions() {
       return sessions;
     },

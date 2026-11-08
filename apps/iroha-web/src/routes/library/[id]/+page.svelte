@@ -99,7 +99,7 @@
 </script>
 
 <svelte:head>
-  <title>{detail?.item.title ?? "Library"} · Library · iroha</title>
+  <title>iroha · Library · {detail?.item.title ?? "Library"}</title>
 </svelte:head>
 
 <section

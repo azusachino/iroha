@@ -149,26 +149,33 @@ export function createLibraryState() {
     };
   }
 
-  async function loadRecords() {
+  async function loadRecords(forceRefresh = false) {
     pageResource.invalidate();
     pendingPage = null;
     const scope = currentFilters();
     await libraryResource.run(async () => ({
       scope,
-      value: await listMedia({ limit: PAGE_SIZE, ...scope }),
+      value: await listMedia({ limit: PAGE_SIZE, ...scope }, { forceRefresh }),
     }));
   }
-  async function loadAggregates() {
+  async function loadAggregates(forceRefresh = false) {
     const scope = currentFilters();
     const result = await aggregatesResource.run(async () => ({
       scope,
-      value: await getMediaAggregates(scope),
+      value: await getMediaAggregates(scope, { forceRefresh }),
     }));
     if (result && !scope.completed_year)
       availableYears = result.value.completions_by_year;
   }
-  async function load() {
-    await Promise.all([loadRecords(), loadAggregates()]);
+  async function load(forceRefresh = false) {
+    await Promise.all([
+      loadRecords(forceRefresh),
+      loadAggregates(forceRefresh),
+    ]);
+  }
+
+  async function hardRefresh() {
+    await load(true);
   }
 
   async function selectFamily(value: string) {
@@ -260,6 +267,7 @@ export function createLibraryState() {
     aggregatesResource,
     loadRecords,
     loadAggregates,
+    hardRefresh,
     get activeScope() {
       return libraryResource.data
         ? scopeLabel({ ...libraryResource.data.scope, status: undefined })

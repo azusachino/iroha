@@ -9,6 +9,7 @@
     formatDistance,
     formatSport,
   } from "../../format/format";
+  import { sportColor } from "../../domain/sport";
 
   let {
     series,
@@ -113,12 +114,15 @@
       .sort((left, right) => right.total - left.total),
   );
   const tableRows = $derived(
-    periods.map((period, index) => ({
-      period,
-      value: totalDistance[index],
-      duration: totalDuration[index],
-      observedDays: observedDaysFor(series, period),
-    })),
+    periods
+      .map((period, index) => ({
+        period,
+        value: totalDistance[index],
+        duration: totalDuration[index],
+        observedDays: observedDaysFor(series, period),
+      }))
+      .slice()
+      .reverse(),
   );
 
   function formatKm(value: number): string {
@@ -220,17 +224,17 @@
         <div class="sport-chart">
           <header>
             <p class="eyebrow">Sport composition</p>
-            <h3>Where the distance came from</h3>
+            <h3>Distance by sport</h3>
           </header>
           <BarChart
             categories={sportBreakdown.map((item) => formatSport(item.sport))}
             primary={{
               name: "Distance",
               values: sportBreakdown.map((item) => item.total),
+              colors: sportBreakdown.map((item) => sportColor(item.sport)),
               formatter: formatKm,
             }}
             orientation="horizontal"
-            categorical
             height={Math.max(220, sportBreakdown.length * 42)}
             showDataTable={false}
           />

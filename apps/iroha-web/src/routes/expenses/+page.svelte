@@ -14,9 +14,11 @@
     type ExpenseCurrency,
     type MetricSeriesResponse,
   } from "$lib/api";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
-  import FilterSelect from "$lib/components/FilterSelect.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
+  import SelectControl, {
+    type SelectControlOption,
+  } from "@iroha/shared/components/SelectControl.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import {
@@ -193,14 +195,14 @@
     void loadBounds();
   });
 
-  async function loadExpenses(selectedMonth = month) {
+  async function loadExpenses(selectedMonth = month, forceRefresh = false) {
     await Promise.all([
-      loadRecords(selectedMonth),
-      loadSpending(selectedMonth),
+      loadRecords(selectedMonth, forceRefresh),
+      loadSpending(selectedMonth, forceRefresh),
     ]);
   }
 
-  async function loadRecords(selectedMonth = month) {
+  async function loadRecords(selectedMonth = month, forceRefresh = false) {
     const currency = filterCurrency;
     const category = filterCategory;
     const result = await expensesResource.run(async () => {
@@ -209,11 +211,14 @@
           month: selectedMonth,
           currency,
           category,
-          expenses: await listAllExpenses({
-            date: selectedMonth,
-            currency: (currency || undefined) as ExpenseCurrency | undefined,
-            category: (category || undefined) as ExpenseCategory | undefined,
-          }),
+          expenses: await listAllExpenses(
+            {
+              date: selectedMonth,
+              currency: (currency || undefined) as ExpenseCurrency | undefined,
+              category: (category || undefined) as ExpenseCategory | undefined,
+            },
+            { forceRefresh },
+          ),
         };
       } catch (cause) {
         throw new Error(formatError(cause));
@@ -227,7 +232,7 @@
     selectedId = selected?.id ?? "";
   }
 
-  async function loadSpending(selectedMonth = month) {
+  async function loadSpending(selectedMonth = month, forceRefresh = false) {
     const currency = filterCurrency;
     const category = filterCategory;
     await spendingResource.run(async () => {
@@ -249,18 +254,26 @@
           ? [category as ExpenseCategory]
           : [];
         const [currenciesForMonth, countsForCurrency] = await Promise.all([
-          getMetricSeries("expenses.amount_minor", {
-            from: bounds.from,
-            to: bounds.to,
-            grain: totalsGrain,
-            dimensions: metricDimensions(chartCurrencies, selectedCategory),
-          }),
-          getMetricSeries("expenses.count", {
-            from: bounds.from,
-            to: bounds.to,
-            grain: totalsGrain,
-            dimensions: metricDimensions(chartCurrencies, selectedCategory),
-          }),
+          getMetricSeries(
+            "expenses.amount_minor",
+            {
+              from: bounds.from,
+              to: bounds.to,
+              grain: totalsGrain,
+              dimensions: metricDimensions(chartCurrencies, selectedCategory),
+            },
+            { forceRefresh },
+          ),
+          getMetricSeries(
+            "expenses.count",
+            {
+              from: bounds.from,
+              to: bounds.to,
+              grain: totalsGrain,
+              dimensions: metricDimensions(chartCurrencies, selectedCategory),
+            },
+            { forceRefresh },
+          ),
         ]);
         const chartCurrency = (currency ||
           currenciesForMonth.series.find(
@@ -273,18 +286,26 @@
           ? [category as ExpenseCategory]
           : categories;
         const [daily, categoriesForCurrency] = await Promise.all([
-          getMetricSeries("expenses.amount_minor", {
-            from: bounds.from,
-            to: bounds.to,
-            grain: "day",
-            dimensions: metricDimensions([chartCurrency], selectedCategory),
-          }),
-          getMetricSeries("expenses.amount_minor", {
-            from: bounds.from,
-            to: bounds.to,
-            grain: totalsGrain,
-            dimensions: metricDimensions([chartCurrency], chartCategories),
-          }),
+          getMetricSeries(
+            "expenses.amount_minor",
+            {
+              from: bounds.from,
+              to: bounds.to,
+              grain: "day",
+              dimensions: metricDimensions([chartCurrency], selectedCategory),
+            },
+            { forceRefresh },
+          ),
+          getMetricSeries(
+            "expenses.amount_minor",
+            {
+              from: bounds.from,
+              to: bounds.to,
+              grain: totalsGrain,
+              dimensions: metricDimensions([chartCurrency], chartCategories),
+            },
+            { forceRefresh },
+          ),
         ]);
         return {
           month: selectedMonth,
@@ -518,7 +539,7 @@
 </script>
 
 <svelte:head>
-  <title>Expenses · iroha</title>
+  <title>iroha · Expenses</title>
 </svelte:head>
 
 <section class="expenses-shell">
@@ -534,7 +555,12 @@
     tabindex="-1"
     bind:this={boundsTarget}
   >
-    <PeriodToolbar title="Expense spending scope" ariaLabel="Expense period">
+    <PeriodToolbar
+      title="Expense spending scope"
+      ariaLabel="Expense period"
+      onRefresh={() => void loadExpenses(month, true)}
+      refreshing={expensesResource.loading}
+    >
       <PeriodSelector
         year={periodYear}
         month={periodMonth}
@@ -557,28 +583,19 @@
     {/if}
 
     <div class="expense-filters" aria-label="Expense filters">
-      <FilterSelect
+      <SelectControl
         label="Currency"
         value={filterCurrency}
         options={[{ value: "", label: "All currencies" }, ...currencyOptions]}
         onChange={selectCurrency}
       />
-      <FilterSelect
+      <SelectControl
         label="Category"
         value={filterCategory}
         options={categoryOptions}
         markerColor={categoryColor(filterCategory || "other")}
         onChange={selectCategory}
       />
-      <div class="filter-actions">
-        <button
-          class="refresh"
-          type="button"
-          onclick={() => void loadExpenses()}
-          disabled={expensesResource.loading}
-          ><RefreshCw size={15} /> Refresh</button
-        >
-      </div>
     </div>
     <p>
       Selected period: {month} · {filterCurrency || "All currencies"} · {filterCategory

@@ -4,8 +4,8 @@
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import SleepScopeSummary from "@iroha/shared/theme-ui/components/SleepScopeSummary.svelte";
   import SleepArchitectureChart from "@iroha/shared/theme-ui/components/SleepArchitectureChart.svelte";
-  import PeriodSelector from "$lib/components/PeriodSelector.svelte";
-  import PeriodToolbar from "$lib/components/PeriodToolbar.svelte";
+  import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
+  import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import { formatDateOnly, formatDuration } from "$lib/format";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
   import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
@@ -22,7 +22,7 @@
 </script>
 
 <svelte:head>
-  <title>Night · iroha</title>
+  <title>iroha · Night</title>
 </svelte:head>
 
 <section class="sleep-shell" bind:this={root}>
@@ -48,7 +48,13 @@
       }}
     >
       {#snippet children()}
-        <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
+        <PeriodToolbar
+          title="Sleep history scope"
+          ariaLabel="Sleep period"
+          onRefresh={() => void t.hardRefresh()}
+          refreshing={t.sessionsResource.loading ||
+            t.aggregatesResource.loading}
+        >
           <PeriodSelector
             years={t.periodYears}
             months={t.periodMonths}
@@ -161,7 +167,12 @@
         <p class="muted">No sleep sessions imported yet.</p>
       </section>
     {:else}
-      <PeriodToolbar title="Sleep history scope" ariaLabel="Sleep period">
+      <PeriodToolbar
+        title="Sleep history scope"
+        ariaLabel="Sleep period"
+        onRefresh={() => void t.hardRefresh()}
+        refreshing={t.sessionsResource.loading || t.aggregatesResource.loading}
+      >
         <PeriodSelector
           years={t.periodYears}
           months={t.periodMonths}

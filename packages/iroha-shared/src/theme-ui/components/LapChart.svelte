@@ -56,7 +56,6 @@
         color: "var(--accent)",
         formatter: formatValue,
       }}
-      categorical
       height={250}
     />
   {:else}

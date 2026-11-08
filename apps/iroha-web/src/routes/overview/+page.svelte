@@ -161,7 +161,7 @@
 </script>
 
 <svelte:head>
-  <title>Overview · iroha</title>
+  <title>iroha · Overview</title>
 </svelte:head>
 
 <section class="dashboard-shell">

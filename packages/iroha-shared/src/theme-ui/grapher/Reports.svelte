@@ -309,7 +309,6 @@
               colors: sleepStages.map(([stage]) => stageColor(stage)),
               formatter: (value) => number(value) + "h",
             }}
-            categorical
             height={220}
           />
         </MetricPanel>

@@ -1,31 +1,52 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { Sun, Moon } from "@lucide/svelte";
-  import { getTheme, toggleTheme, type Theme } from "$lib/theme";
+  import { Sun, Moon, Monitor } from "@lucide/svelte";
+  import {
+    cycleTheme,
+    getEffectiveTheme,
+    getThemePreference,
+    type EffectiveTheme,
+    type ThemePreference,
+  } from "$lib/theme";
 
-  let theme = $state<Theme>("dark");
+  let preference = $state<ThemePreference>("auto");
+  let effectiveTheme = $state<EffectiveTheme>("dark");
+
+  function syncState() {
+    preference = getThemePreference();
+    effectiveTheme = getEffectiveTheme();
+  }
 
   onMount(() => {
-    theme = getTheme();
+    syncState();
+    const observer = new MutationObserver(() => {
+      syncState();
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme", "data-theme-preference"],
+    });
+    return () => observer.disconnect();
   });
 
   function onClick() {
-    theme = toggleTheme();
+    cycleTheme();
+    syncState();
   }
 </script>
 
 <button
   class="theme-toggle"
   type="button"
-  aria-label={theme === "dark"
-    ? "Switch to light theme"
-    : "Switch to dark theme"}
-  title="Toggle theme"
+  aria-label={`Theme: ${preference} (currently ${effectiveTheme}). Click to cycle.`}
+  title={`Theme: ${preference} (${effectiveTheme})`}
   onclick={onClick}
 >
-  {#if theme === "dark"}
-    <Sun size={18} />
+  {#if preference === "auto"}
+    <Monitor size={17} />
+  {:else if effectiveTheme === "dark"}
+    <Sun size={17} />
   {:else}
-    <Moon size={18} />
+    <Moon size={17} />
   {/if}
 </button>

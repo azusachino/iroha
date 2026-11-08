@@ -521,12 +521,15 @@
 </script>
 
 <svelte:head>
-  <title>{site.name} · public archive</title>
+  <title>iroha · public archive</title>
 </svelte:head>
 
 {#if loading}
-  <div class="content">
-    <p role="status">Loading public activity data…</p>
+  <div class="content public-loading">
+    <div class="public-loading-box">
+      <BrandMark size={36} />
+      <p role="status">Loading public activity data…</p>
+    </div>
   </div>
 {:else if loadError}
   <div class="content">
@@ -965,6 +968,23 @@
 {/if}
 
 <style>
+  .public-loading {
+    display: grid;
+    place-items: center;
+    min-height: 55vh;
+  }
+  .public-loading-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+  .public-loading-box p {
+    margin: 0;
+  }
   .notice-tile {
     margin-bottom: 1.25rem;
   }

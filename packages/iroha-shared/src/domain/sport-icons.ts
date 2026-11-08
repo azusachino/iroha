@@ -1,9 +1,9 @@
 import type { LucideIcon } from "@lucide/svelte";
-import { Bike, Footprints, Mountain, Waves, Zap, Activity } from "@lucide/svelte";
+import { Bike, Flame, Footprints, Mountain, Waves, Activity } from "@lucide/svelte";
 import { canonicalSport } from "./sport";
 
 const SPORT_ICONS: Record<string, LucideIcon> = {
-  run: Zap,
+  run: Flame,
   walk: Footprints,
   hike: Mountain,
   ride: Bike,
