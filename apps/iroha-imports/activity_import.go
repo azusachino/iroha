@@ -108,8 +108,7 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 	}
 
 	baseImporter := NewBaseDomainImporter("tb_activities")
-	incomingKind := ParseSourceKind(rawFile.SourceKind)
-	shouldSelect, err := baseImporter.ShouldSelectIncoming(tx, activityID, incomingKind)
+	shouldSelect, err := baseImporter.ShouldSelectIncoming(tx, activityID, rawFile)
 	if err != nil {
 		return err
 	}

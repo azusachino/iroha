@@ -26,7 +26,13 @@ func NewBaseDomainImporter(tableName string) BaseDomainImporter {
 
 // ShouldSelectIncoming evaluates the source priority ladder between the incoming raw file
 // and the currently selected observation for an entity.
-func (b *BaseDomainImporter) ShouldSelectIncoming(tx *gorm.DB, entityID uuid.UUID, incomingKind SourceKind) (bool, error) {
+func (b *BaseDomainImporter) ShouldSelectIncoming(tx *gorm.DB, entityID uuid.UUID, rawFile models.RawFile) (bool, error) {
+	if rawFile.SourceKind == "" {
+		if err := tx.Select("source_kind").First(&rawFile, "id = ?", rawFile.ID).Error; err != nil {
+			return false, err
+		}
+	}
+	incomingKind := ParseSourceKind(rawFile.SourceKind)
 	var current struct {
 		SelectedObservationID *uuid.UUID `gorm:"column:selected_observation_id"`
 	}

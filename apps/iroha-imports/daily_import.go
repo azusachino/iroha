@@ -230,8 +230,7 @@ func (s *Service) persistDailyMetricObservation(tx *gorm.DB, rawFile models.RawF
 	// Evaluate the source priority ladder: do not allow a lower-priority source
 	// to overwrite a higher-priority observation.
 	baseImporter := NewBaseDomainImporter("tb_daily_metrics")
-	incomingKind := ParseSourceKind(rawFile.SourceKind)
-	shouldSelect, err := baseImporter.ShouldSelectIncoming(tx, metricID, incomingKind)
+	shouldSelect, err := baseImporter.ShouldSelectIncoming(tx, metricID, rawFile)
 	if err != nil {
 		return err
 	}

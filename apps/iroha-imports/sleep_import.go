@@ -220,8 +220,7 @@ func (s *Service) persistSleepObservation(tx *gorm.DB, rawFile models.RawFile, s
 	}
 
 	baseImporter := NewBaseDomainImporter("tb_sleep_sessions")
-	incomingKind := ParseSourceKind(rawFile.SourceKind)
-	shouldSelect, err := baseImporter.ShouldSelectIncoming(tx, sessionID, incomingKind)
+	shouldSelect, err := baseImporter.ShouldSelectIncoming(tx, sessionID, rawFile)
 	if err != nil {
 		return err
 	}
