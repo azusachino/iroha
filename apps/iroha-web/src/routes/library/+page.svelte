@@ -15,7 +15,7 @@
 </script>
 
 <svelte:head>
-  <title>Library · iroha</title>
+  <title>iroha · Library</title>
 </svelte:head>
 
 <section class="media-shell">

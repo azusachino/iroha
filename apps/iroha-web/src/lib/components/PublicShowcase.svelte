@@ -521,7 +521,7 @@
 </script>
 
 <svelte:head>
-  <title>{site.name} · public archive</title>
+  <title>iroha · public archive</title>
 </svelte:head>
 
 {#if loading}

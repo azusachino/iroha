@@ -103,8 +103,8 @@
 <svelte:head>
   <title
     >{session
-      ? `${formatDateOnly(session.wake_date)} · Night · iroha`
-      : "Night detail · iroha"}</title
+      ? `iroha · Night · ${formatDateOnly(session.wake_date)}`
+      : "iroha · Night detail"}</title
   >
 </svelte:head>
 

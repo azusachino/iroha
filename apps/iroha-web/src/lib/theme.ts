@@ -48,7 +48,7 @@ export function applyTheme(pref: ThemePreference): EffectiveTheme {
     const favicon = document.querySelector<HTMLLinkElement>("#theme-favicon");
     if (favicon) {
       favicon.href =
-        effective === "light" ? "/favicon-light.svg?v=2" : "/favicon.svg?v=2";
+        effective === "light" ? "/favicon-light.svg?v=3" : "/favicon.svg?v=3";
     }
   }
 

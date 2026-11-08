@@ -521,7 +521,7 @@
 </script>
 
 <svelte:head>
-  <title>Motion · iroha</title>
+  <title>iroha · Motion</title>
 </svelte:head>
 
 <section class="activities-shell">

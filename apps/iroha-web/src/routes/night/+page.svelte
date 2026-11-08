@@ -22,7 +22,7 @@
 </script>
 
 <svelte:head>
-  <title>Night · iroha</title>
+  <title>iroha · Night</title>
 </svelte:head>
 
 <section class="sleep-shell" bind:this={root}>

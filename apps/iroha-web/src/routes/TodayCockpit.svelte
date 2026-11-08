@@ -27,7 +27,7 @@
 </script>
 
 <svelte:head>
-  <title>Today · iroha</title>
+  <title>iroha · Today</title>
 </svelte:head>
 
 <svelte:window onkeydown={t.onKey} />

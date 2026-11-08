@@ -461,8 +461,8 @@
 <svelte:head>
   <title
     >{activity
-      ? `${displayTitle(activity.title, activity.sport_type)} · Motion · iroha`
-      : "Motion detail · iroha"}</title
+      ? `iroha · Motion · ${displayTitle(activity.title, activity.sport_type)}`
+      : "iroha · Motion detail"}</title
   >
 </svelte:head>
 

@@ -539,7 +539,7 @@
 </script>
 
 <svelte:head>
-  <title>Expenses · iroha</title>
+  <title>iroha · Expenses</title>
 </svelte:head>
 
 <section class="expenses-shell">

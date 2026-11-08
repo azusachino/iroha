@@ -7,22 +7,13 @@
 			<stop stop-color="#00d2b4" stop-opacity="0" />
 		</radialGradient>
 	</defs>
-	<!-- Container field matching BrandMark.svelte (--surface-2 / --surface) -->
 	<rect width="64" height="64" rx="17" fill="#141c2b" stroke="#1f2d42" stroke-width="1.5" />
-	<!-- Subtle ambient glow -->
 	<circle cx="32" cy="32" r="23" fill="url(#halo)" />
-	<!-- Orbit boundary ring -->
 	<circle cx="32" cy="32" r="21" fill="none" stroke="#e6e8ec" stroke-opacity=".16" stroke-width="1.2" />
-	<!-- Four data-bloom petals matching BrandMark.svelte palette -->
-	<!-- North: Primary accent (--accent) -->
 	<path d="M32 31C25.5 27.3 23.9 20.1 26.7 13.8 28.3 10.2 31 8 32 8c1 0 3.7 2.2 5.3 5.8 2.8 6.3 1.2 13.5-5.3 17.2Z" fill="#00d2b4" />
-	<!-- East: Secondary accent (--accent-2) -->
 	<path d="M33 32C36.7 25.5 43.9 23.9 50.2 26.7 53.8 28.3 56 31 56 32c0 1-2.2 3.7-5.8 5.3-6.3 2.8-13.5 1.2-17.2-5.3Z" fill="#ff5c8a" />
-	<!-- South: Tertiary accent (--mark-violet) -->
 	<path d="M32 33C38.5 36.7 40.1 43.9 37.3 50.2 35.7 53.8 33 56 32 56c-1 0-3.7-2.2-5.3-5.8-2.8-6.3-1.2-13.5 5.3-17.2Z" fill="#8d78ed" />
-	<!-- West: Quaternary accent (--mark-amber) -->
 	<path d="M31 32C27.3 38.5 20.1 40.1 13.8 37.3 10.2 35.7 8 33 8 32c0-1 2.2-3.7 5.8-5.3 6.3-2.8 13.5-1.2 17.2 5.3Z" fill="#e9b84e" />
-	<!-- Central core hub -->
 	<circle cx="32" cy="32" r="7.2" fill="#111827" stroke="#e6e8ec" stroke-width="1.6" />
 	<circle cx="32" cy="32" r="2.8" fill="#00d2b4" />
 </svg>

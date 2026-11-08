@@ -234,7 +234,7 @@
 </script>
 
 <svelte:head>
-  <title>To-go · iroha</title>
+  <title>iroha · To-go</title>
 </svelte:head>
 
 <section class="admin-shell">

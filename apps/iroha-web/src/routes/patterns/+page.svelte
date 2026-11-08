@@ -35,7 +35,7 @@
 </script>
 
 <svelte:head>
-  <title>Patterns · iroha</title>
+  <title>iroha · Patterns</title>
 </svelte:head>
 
 <section class="daily">

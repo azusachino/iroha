@@ -176,7 +176,7 @@
   );
 </script>
 
-<svelte:head><title>Reports · iroha</title></svelte:head>
+<svelte:head><title>iroha · Reports</title></svelte:head>
 
 <section class="reports-shell">
   <header class="page-head">

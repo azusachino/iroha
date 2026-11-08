@@ -90,6 +90,9 @@
     const accent = styles.getPropertyValue("--accent").trim() || "#5c8dff";
     const gridColor = styles.getPropertyValue("--chart-grid").trim() || border;
     const primaryColor = resolveColor(primary.color, styles, accent);
+    const barPalette = ["--sport-run", "--sport-walk", "--sport-ride", "--sport-swim", "--mark-violet", "--mark-amber"].map(
+      (token) => styles.getPropertyValue(token).trim() || accent,
+    );
     const primaryFormat = primary.formatter || defaultFormatter;
     const secondaryFormat = secondary?.formatter || defaultFormatter;
     const categoryAxis = {
@@ -186,7 +189,9 @@
                       styles,
                       muted,
                     )
-                  : primaryColor,
+                  : primaryType === "bar"
+                    ? barPalette[index % barPalette.length]
+                    : primaryColor,
               opacity: activeIndex == null || activeIndex === index ? 1 : 0.45,
             },
           })),
