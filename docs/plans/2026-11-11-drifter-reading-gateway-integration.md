@@ -78,6 +78,34 @@ Implement cross-edition work deduplication:
    - Wire `ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncDrifter, os.Getenv(config.EnvDrifterAPIToken) != "", os.Getenv(config.EnvDrifterSyncInterval))`.
 4. Update `schedule_integration_test.go` and run verification gates.
 
+### Slice 6: Reading duration, event updates, unread filtering, and auth state preservation
+
+1. In `apps/iroha-providers/drifter/adapter.go`:
+   - Filter unread/planned books from Drifter sync (`progress.FinishedAt == 0 && progress.Percent == 0 && progress.ReadingTimeSeconds == 0`) so unread books do not clutter media progress.
+2. In `apps/iroha-imports/media_import.go` & `apps/iroha-server/pkg/media/query.go`:
+   - Update existing consumption events when a reading change occurs.
+   - Order unstarted items last in library and cockpit views (`status != 'unstarted' DESC`).
+   - Expose reading duration (`duration_seconds`) on items, events, and cards with human-formatted display (e.g., `48m`, `2h 15m`).
+3. In `apps/iroha-web/src/routes/+layout.svelte`:
+   - Add loading spinner during session resolution on hard refresh to prevent flash of "Owner login required" gate.
+
+### Slice 7: Same-origin cover image proxy and local disk cache
+
+1. In `apps/iroha-server/pkg/httpapi/media.go`:
+   - Implement `GET /api/v1/media/{mediaId}/cover` proxying upstream cover URLs with disk caching in `$IROHA_DATA_DIR/covers` and HTTP 304 `ETag` validation.
+   - Set upstream bypass headers (`User-Agent` and `Referer: https://weread.qq.com/`).
+   - Rewrite cover URLs in all responses to `/api/v1/media/{mediaId}/cover`.
+2. Add `referrerpolicy="no-referrer"` to all cover `<img>` tags across library and cockpit views.
+3. Exclude `/cover` routes from the JSON read-cache interceptor.
+4. Synchronize route inventory in `api_contract_test.go` and `docs/contracts/openapi.yaml`.
+
+### Slice 8: Navigation icons and version bump to v0.6.0-rc2
+
+1. In `apps/iroha-web`:
+   - Add Lucide navigation icons across all top-level groups (`Domains` -> `Layers`, `Analyze` -> `TrendingUp`, `More` -> `Ellipsis`) and items (`Motion` -> `Activity`, `Night` -> `Moon`, `Library` -> `BookOpen`, `Expenses` -> `Receipt`, `Patterns` -> `Sparkles`, `Reports` -> `FileText`, `To-go` -> `ListTodo`, `Admin` -> `Shield`, `Manual` -> `BookMarked`).
+   - Update `NavigationMenu` and `CommandPalette` to display icons with active state styling.
+2. Bump version to `0.6.0-rc2` across `VERSION`, `package.json`, `vite.config.ts`, `kustomization.yaml`, and `CHANGELOG.md`.
+
 ---
 
 ## Verification Gates
