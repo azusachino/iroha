@@ -369,6 +369,7 @@
                             src={event.cover_image_url}
                             alt=""
                             loading="lazy"
+                            referrerpolicy="no-referrer"
                           />
                         {:else}
                           <span class="media-thumb" aria-hidden="true"

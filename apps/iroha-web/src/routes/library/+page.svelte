@@ -240,7 +240,12 @@
                 <a class="continue-card tile" href={`/library/${item.id}`}>
                   <div class="thumb">
                     {#if item.cover_image_url}
-                      <img src={item.cover_image_url} alt="" loading="lazy" />
+                      <img
+                        src={item.cover_image_url}
+                        alt=""
+                        loading="lazy"
+                        referrerpolicy="no-referrer"
+                      />
                     {:else}
                       <span class="thumb-ph" aria-hidden="true"
                         >{l.initial(item)}</span
@@ -310,6 +315,7 @@
                             src={item.cover_image_url}
                             alt=""
                             loading="lazy"
+                            referrerpolicy="no-referrer"
                           />
                         {:else}
                           <span class="cover-ph" aria-hidden="true"

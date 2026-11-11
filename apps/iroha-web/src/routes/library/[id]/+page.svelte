@@ -133,7 +133,12 @@
   {:else if detail}
     <section class="hero tile">
       {#if detail.item.cover_image_url}
-        <img class="hero-cover" src={detail.item.cover_image_url} alt="" />
+        <img
+          class="hero-cover"
+          src={detail.item.cover_image_url}
+          alt=""
+          referrerpolicy="no-referrer"
+        />
       {:else}
         <div class="hero-cover cover-placeholder" aria-hidden="true">
           {detail.item.title.slice(0, 1)}
@@ -277,6 +282,7 @@
                   >{#if relation.cover_image_url}<img
                       src={relation.cover_image_url}
                       alt=""
+                      referrerpolicy="no-referrer"
                     />{:else}<div
                       class="relation-placeholder"
                       aria-hidden="true"
