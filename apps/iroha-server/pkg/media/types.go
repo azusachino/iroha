@@ -51,6 +51,7 @@ type Item struct {
 	MediaType            string
 	ItemRole             string
 	CoverImageURL        string
+	Publisher            string `gorm:"column:publisher"`
 	Status               *string
 	Position             *float64
 	Total                *float64
@@ -192,6 +193,7 @@ type ProgressDetail struct {
 	CompletedOnValue     *time.Time `gorm:"column:completed_on_value"`
 	CompletedOnPrecision string     `gorm:"column:completed_on_precision"`
 	PlayCount            int        `gorm:"column:play_count"`
+	ReadingTimeSeconds   *int       `gorm:"column:reading_time_seconds"`
 }
 
 type Detail struct {

@@ -341,6 +341,13 @@ func resolveMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBrid
 		}
 	}
 
+	if media.MediaType == "book" {
+		// ADR-0011 §5: Disable generic title/year auto-attachment for book adapters.
+		// Ambiguous or separate book editions remain separate source-owned records
+		// rather than collapsing into existing items.
+		return mediaResolution{}, nil
+	}
+
 	candidates, err := titleYearCandidates(tx, media)
 	if err != nil {
 		return mediaResolution{}, err

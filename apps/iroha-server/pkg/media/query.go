@@ -19,6 +19,7 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 			item.media_type,
 			item.item_role,
 			item.cover_image_url,
+			item.publisher,
 			progress.status,
 			progress.position,
 			coalesce(progress.total, case
@@ -166,6 +167,7 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 		NativeTitle          *string    `gorm:"column:native_title"`
 		EpisodeCount         *int       `gorm:"column:episode_count"`
 		ChapterCount         *int       `gorm:"column:chapter_count"`
+		Publisher            string     `gorm:"column:publisher"`
 		WorkID               uuid.UUID  `gorm:"column:work_id"`
 		WorkKind             string     `gorm:"column:work_kind"`
 		PrimaryTitle         string     `gorm:"column:primary_title"`
@@ -176,7 +178,7 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 	}
 	result := s.db.Table("tb_media_items AS item").
 		Select(`item.id, item.title, item.media_type, item.item_role, item.cover_image_url,
-			item.episode_count, item.chapter_count,
+			item.episode_count, item.chapter_count, item.publisher,
 			progress.status, progress.position, progress.total, progress.progress_percent,
 			progress.started_on_value, progress.started_on_precision,
 			progress.completed_on_value, progress.completed_on_precision,
@@ -213,7 +215,7 @@ func (s *Service) Get(id uuid.UUID) (Detail, bool, error) {
 	detail := Detail{
 		Item: Item{
 			ID: row.ID, Title: row.Title, MediaType: row.MediaType, ItemRole: row.ItemRole,
-			CoverImageURL: row.CoverImageURL, Status: row.Status, Position: row.Position,
+			CoverImageURL: row.CoverImageURL, Publisher: row.Publisher, Status: row.Status, Position: row.Position,
 			Total: row.Total, ProgressPercent: row.ProgressPercent, LastUpdateAt: row.LastUpdateAt,
 			Rating: row.Rating, RatingScale: row.RatingScale, HiddenFromContinue: row.HiddenFromContinue,
 			NativeTitle: row.NativeTitle, EpisodeCount: row.EpisodeCount, ChapterCount: row.ChapterCount,

@@ -96,6 +96,16 @@
   function eventDate(value?: string): string {
     return value ? formatDate(value) : "Undated";
   }
+
+  function formatReadingDuration(seconds?: number): string {
+    if (!seconds || seconds <= 0) return "";
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${mins}m read`;
+    }
+    return `${mins}m read`;
+  }
 </script>
 
 <svelte:head>
@@ -158,6 +168,7 @@
         {/if}
         <div class="hero-meta">
           <span>{detail.item.status?.replaceAll("_", " ") ?? "Untracked"}</span>
+          {#if detail.item.publisher}<span>{detail.item.publisher}</span>{/if}
           {#if detail.item.rating != null}<span class="score"
               >{detail.item.rating.toFixed(1)} / 10</span
             >{/if}
@@ -190,6 +201,13 @@
             {/if}
             <div class="progress-meta">
               <span>{progressCountLabel()}</span>
+              {#if detail.progress.reading_time_seconds}
+                <span
+                  >{formatReadingDuration(
+                    detail.progress.reading_time_seconds,
+                  )}</span
+                >
+              {/if}
               <span
                 >{detail.progress.play_count
                   ? `${detail.progress.play_count} replays`

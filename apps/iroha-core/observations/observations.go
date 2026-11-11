@@ -333,6 +333,7 @@ type MediaProgress struct {
 	StartedOn          *PartialDate
 	CompletedOn        *PartialDate
 	PlayCount          int
+	ReadingTimeSeconds *int
 	HiddenFromContinue bool
 	Paused             bool
 }
