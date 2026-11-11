@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-core/i18n"
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
 )
@@ -606,9 +607,6 @@ func parseHaeWorkout(w haeWorkout, rawHash string) (observations.Activity, error
 		}
 	}
 
-	sportType := normalizeHaeSport(w.Name)
-	title := canonicalHaeWorkoutTitle(w.Name)
-
 	durationS := int(math.Round(w.Duration))
 	var distanceM *float64
 	if w.Distance != nil {
@@ -621,6 +619,17 @@ func parseHaeWorkout(w haeWorkout, rawHash string) (observations.Activity, error
 		}
 		distanceM = &d
 	}
+
+	// Health Auto Export formats w.Name with Apple's localized string API, so
+	// the taxonomy owns the canonical title and sport slug for every locale.
+	// HAE carries no indoor/outdoor metadata; a route is the only location
+	// evidence available, which keeps a bare "ラン" honestly at "Run".
+	sportType, title, titleOrigin := resolveProviderActivity(w.Name, i18n.ActivityContext{
+		Provider:   appleHealthProvider,
+		SourceKind: KindHealthAutoExport,
+		HasRoute:   len(w.Route) > 0,
+		DistanceM:  distanceM,
+	})
 
 	var caloriesKcal *float64
 	if w.ActiveEnergyBurned != nil {
@@ -686,11 +695,12 @@ func parseHaeWorkout(w haeWorkout, rawHash string) (observations.Activity, error
 	}
 
 	return observations.Activity{
-		Provider:         "apple_health",
+		Provider:         appleHealthProvider,
 		ExternalID:       w.ID,
 		SourceActivityID: w.ID,
 		SportType:        sportType,
 		Title:            title,
+		TitleOrigin:      titleOrigin,
 		StartedAt:        startedAt,
 		EndedAt:          endedAt,
 		DistanceM:        distanceM,
@@ -792,43 +802,6 @@ func normalizeHaeSleepStage(val string) string {
 		return SleepStageInBed
 	default:
 		return SleepStageAsleepUnspecified
-	}
-}
-
-func normalizeHaeSport(name string) string {
-	return observations.NormalizeSport(name)
-}
-
-func canonicalHaeWorkoutTitle(name string) string {
-	switch strings.TrimSpace(name) {
-	case "屋外ラン", "屋外 ラン":
-		return "Outdoor Run"
-	case "屋内ラン", "屋内 ラン":
-		return "Indoor Run"
-	case "屋外ウォーキング", "屋外 ウォーキング":
-		return "Outdoor Walk"
-	case "屋内ウォーキング", "屋内 ウォーキング":
-		return "Indoor Walk"
-	case "屋外サイクリング", "屋外 サイクリング":
-		return "Outdoor Cycling"
-	case "屋内サイクリング", "屋内 サイクリング":
-		return "Indoor Cycling"
-	case "プールスイミング":
-		return "Pool Swim"
-	case "オープンウォータースイミング":
-		return "Open Water Swim"
-	case "ハイキング":
-		return "Hiking"
-	case "機能的筋力トレーニング":
-		return "Functional Strength Training"
-	case "高強度インターバルトレーニング":
-		return "High Intensity Interval Training"
-	case "ヨガ":
-		return "Yoga"
-	case "":
-		return "Workout"
-	default:
-		return name
 	}
 }
 

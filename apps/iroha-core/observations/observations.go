@@ -89,11 +89,22 @@ func maxInt(value, fallback int) int {
 	return value
 }
 
+// Activity title provenance values. They mirror the title_origin check
+// constraint on tb_activities and tb_activity_observations (migration 00027):
+// a taxonomy label is "system", text the user authored is "custom", and
+// anything an importer could not classify stays "unknown".
+const (
+	TitleOriginSystem  = "system"
+	TitleOriginCustom  = "custom"
+	TitleOriginUnknown = "unknown"
+)
+
 type Activity struct {
 	Provider         string
 	ExternalID       string
 	SportType        string
 	Title            string
+	TitleOrigin      string
 	StartedAt        time.Time
 	EndedAt          *time.Time
 	DistanceM        *float64

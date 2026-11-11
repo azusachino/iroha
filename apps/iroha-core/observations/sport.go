@@ -3,6 +3,8 @@ package observations
 import (
 	"regexp"
 	"strings"
+
+	"github.com/azusachino/iroha/apps/iroha-core/i18n"
 )
 
 var (
@@ -10,42 +12,44 @@ var (
 	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
 )
 
-// NormalizeSport maps raw provider sport names, Apple Health activity types, and legacy aliases
-// into a single canonical sport vocabulary:
-//   - "run", "running", "HKWorkoutActivityTypeRunning" -> "run"
-//   - "walk", "walking", "HKWorkoutActivityTypeWalking" -> "walk"
-//   - "ride", "cycling", "bike", "HKWorkoutActivityTypeCycling" -> "ride"
-//   - "hike", "hiking", "HKWorkoutActivityTypeHiking" -> "hike"
-//   - "swim", "swimming", "HKWorkoutActivityTypeSwimming" -> "swim"
-//   - "fitness_gaming", "FitnessGaming", "HKWorkoutActivityTypeFitnessGaming" -> "fitness_gaming"
+// NormalizeSport maps raw provider sport names, Apple Health activity types,
+// localized activity labels, and legacy aliases into the canonical sport
+// vocabulary owned by i18n's activity taxonomy:
+//   - "run", "running", "HKWorkoutActivityTypeRunning", "ラン", "跑步" -> "run"
+//   - "walk", "walking", "HKWorkoutActivityTypeWalking", "ウォーキング", "步行" -> "walk"
+//   - "ride", "cycling", "bike", "HKWorkoutActivityTypeCycling", "サイクリング", "骑行" -> "ride"
+//   - "hike", "hiking", "HKWorkoutActivityTypeHiking", "ハイキング", "徒步" -> "hike"
+//   - "swim", "swimming", "HKWorkoutActivityTypeSwimming", "水泳", "游泳" -> "swim"
+//   - "FitnessGaming", "HKWorkoutActivityTypeFitnessGaming", "健身游戏" -> "fitness_gaming"
+//   - "HIIT", "HighIntensityIntervalTraining", "高強度インターバルトレーニング" -> "hiit"
+//   - "Traditional Strength Training", "機能的筋力トレーニング" -> "traditional_strength_training"
 //
-// Other sports are converted to clean snake_case slugs.
+// The taxonomy's exact synonym table is the primary source, so a localized
+// Health Auto Export label and the native export's enum resolve to the same slug
+// (this is what keeps cross-source dedupe on (started_at, sport_type) intact).
+// Labels outside the taxonomy are classified by keyword and, failing that,
+// converted to a clean snake_case slug, so provider-specific sports such as
+// "HKWorkoutActivityTypeRowing" keep a stable identity ("rowing") instead of
+// collapsing into "other". An empty value stays empty: absence of a sport is not
+// a classification.
 func NormalizeSport(value string) string {
-	val := strings.TrimSpace(value)
-	val = strings.TrimPrefix(val, "HKWorkoutActivityType")
-	normalized := strings.ToLower(val)
-
-	switch {
-	case strings.Contains(normalized, "fitnessgaming") || strings.Contains(normalized, "fitness_gaming") || strings.Contains(normalized, "fitness gaming"):
-		return "fitness_gaming"
-	case strings.Contains(normalized, "hike") || strings.Contains(normalized, "hiking") || strings.Contains(val, "ハイキング"):
-		return "hike"
-	case strings.Contains(normalized, "run") || strings.Contains(normalized, "running") || strings.Contains(val, "ラン"):
-		return "run"
-	case strings.Contains(normalized, "walk") || strings.Contains(normalized, "walking") || strings.Contains(val, "ウォーキング") || strings.Contains(val, "徒歩"):
-		return "walk"
-	case strings.Contains(normalized, "cycle") || strings.Contains(normalized, "cycling") || strings.Contains(normalized, "bike") || strings.Contains(normalized, "biking") || normalized == "ride" || strings.Contains(val, "サイクリング") || strings.Contains(val, "自転車"):
-		return "ride"
-	case strings.Contains(normalized, "swim") || strings.Contains(normalized, "swimming") || strings.Contains(val, "スイム") || strings.Contains(val, "水泳"):
-		return "swim"
-	case strings.Contains(val, "筋トレ") || strings.Contains(val, "筋力トレーニング"):
-		return "traditional_strength_training"
-	case strings.Contains(val, "ヨガ"):
-		return "yoga"
+	label := strings.TrimSpace(value)
+	if label == "" {
+		return ""
 	}
+	label = i18n.TrimAppleHealthActivityTypePrefix(label)
+	if classification := i18n.ResolveActivity(label, i18n.ActivityContext{}); classification.IsSystemLabel {
+		return classification.SportType
+	}
+	if sport := i18n.InferSportType(label); sport != "" {
+		return sport
+	}
+	return sportSlug(label)
+}
 
-	// For PascalCase or spaced strings, convert to snake_case
-	snake := matchFirstCap.ReplaceAllString(val, "${1}_${2}")
+// sportSlug converts an unrecognized sport name into a clean snake_case slug.
+func sportSlug(value string) string {
+	snake := matchFirstCap.ReplaceAllString(value, "${1}_${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	snake = strings.ToLower(snake)
 	snake = strings.ReplaceAll(snake, " ", "_")
@@ -64,18 +68,18 @@ func NormalizeSport(value string) string {
 func SportAliases(sport string) []string {
 	canon := NormalizeSport(sport)
 	switch canon {
-	case "run":
-		return []string{"run", "running"}
-	case "walk":
-		return []string{"walk", "walking"}
-	case "ride":
-		return []string{"ride", "cycling", "bike"}
-	case "hike":
-		return []string{"hike", "hiking"}
-	case "swim":
-		return []string{"swim", "swimming"}
-	case "fitness_gaming":
-		return []string{"fitness_gaming", "FitnessGaming"}
+	case i18n.SportRun:
+		return []string{i18n.SportRun, "running"}
+	case i18n.SportWalk:
+		return []string{i18n.SportWalk, "walking"}
+	case i18n.SportRide:
+		return []string{i18n.SportRide, "cycling", "bike"}
+	case i18n.SportHike:
+		return []string{i18n.SportHike, "hiking"}
+	case i18n.SportSwim:
+		return []string{i18n.SportSwim, "swimming"}
+	case i18n.SportFitnessGaming:
+		return []string{i18n.SportFitnessGaming, "FitnessGaming"}
 	default:
 		return []string{canon}
 	}

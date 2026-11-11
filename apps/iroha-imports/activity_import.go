@@ -59,6 +59,18 @@ func (s *Service) persistActivitiesTx(tx *gorm.DB, rawFile models.RawFile, parse
 	return nil
 }
 
+// normalizeTitleOrigin keeps provenance inside the values the title_origin
+// check constraint allows. A provider that does not classify its label (GPX
+// names its own tracks) is recorded as unknown rather than as an empty string.
+func normalizeTitleOrigin(origin string) string {
+	switch origin {
+	case observations.TitleOriginSystem, observations.TitleOriginCustom:
+		return origin
+	default:
+		return observations.TitleOriginUnknown
+	}
+}
+
 func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile, activity observations.Activity, activityID, snapshotID uuid.UUID, reprocess bool) error {
 	observationID, err := upsertSourceObservation(tx, rawFile, "activity", activity.Provider, activity.ExternalID, activity.ContentHash, snapshotID)
 	if err != nil {
@@ -67,12 +79,14 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 	// Multi-source activity observations attach to the canonical activity.
 	// Prefer native Apple Health export over Health Auto Export when both are present.
 	now := time.Now().UTC()
+	titleOrigin := normalizeTitleOrigin(activity.TitleOrigin)
 	row := models.ActivityObservation{
 		ID:               observationID,
 		ActivityID:       activityID,
 		SourceActivityID: activity.SourceActivityID,
 		SportType:        activity.SportType,
 		Title:            activity.Title,
+		TitleOrigin:      titleOrigin,
 		StartedAt:        activity.StartedAt,
 		EndedAt:          activity.EndedAt,
 		DistanceM:        activity.DistanceM,
@@ -99,7 +113,7 @@ func (s *Service) persistActivityObservation(tx *gorm.DB, rawFile models.RawFile
 		return err
 	} else if err := tx.Model(&models.ActivityObservation{}).Where("id = ?", observationID).Updates(map[string]any{
 		"activity_id": activityID, "source_activity_id": activity.SourceActivityID, "sport_type": activity.SportType,
-		"title": activity.Title, "started_at": activity.StartedAt, "ended_at": activity.EndedAt,
+		"title": activity.Title, "title_origin": titleOrigin, "started_at": activity.StartedAt, "ended_at": activity.EndedAt,
 		"distance_m": activity.DistanceM, "duration_s": activity.DurationS, "avg_hr": activity.AvgHR,
 		"max_hr": activity.MaxHR, "avg_pace_s_per_km": activity.AvgPaceSPerKM, "calories_kcal": activity.CaloriesKcal,
 		"updated_at": now,
@@ -201,6 +215,7 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed obs
 		updates := map[string]any{
 			"sport_type":         observations.NormalizeSport(parsed.SportType),
 			"title":              parsed.Title,
+			"title_origin":       normalizeTitleOrigin(parsed.TitleOrigin),
 			"started_at":         parsed.StartedAt,
 			"ended_at":           parsed.EndedAt,
 			"distance_m":         parsed.DistanceM,
@@ -228,6 +243,7 @@ func (s *Service) upsertActivity(tx *gorm.DB, rawFile models.RawFile, parsed obs
 		ID:               activityID,
 		SportType:        observations.NormalizeSport(parsed.SportType),
 		Title:            parsed.Title,
+		TitleOrigin:      normalizeTitleOrigin(parsed.TitleOrigin),
 		StartedAt:        parsed.StartedAt,
 		EndedAt:          parsed.EndedAt,
 		DistanceM:        parsed.DistanceM,
