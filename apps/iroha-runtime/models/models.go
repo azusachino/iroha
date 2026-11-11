@@ -91,6 +91,7 @@ type Activity struct {
 	ID                    uuid.UUID `gorm:"type:uuid;primaryKey"`
 	SportType             string
 	Title                 string
+	TitleOrigin           string `gorm:"default:unknown"`
 	StartedAt             time.Time
 	EndedAt               *time.Time
 	Timezone              string
@@ -147,6 +148,7 @@ type ActivityObservation struct {
 	SourceActivityID string
 	SportType        string
 	Title            string
+	TitleOrigin      string `gorm:"default:unknown"`
 	StartedAt        time.Time
 	EndedAt          *time.Time
 	DistanceM        *float64
@@ -425,6 +427,7 @@ type MediaItem struct {
 	ChapterCount         *int
 	Language             string
 	Country              string
+	Publisher            string
 	CoverImageURL        string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time

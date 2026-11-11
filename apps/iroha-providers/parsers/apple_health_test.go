@@ -262,6 +262,11 @@ func TestDecodeAppleWorkoutsProducesUnchangedActivity(t *testing.T) {
 	if activity.SportType != "run" {
 		t.Errorf("SportType = %q, want run", activity.SportType)
 	}
+	// The sample carries HKIndoorWorkout="0" and a declared route file, so
+	// evidence promotes the family label "Running" to the outdoor canonical.
+	if activity.Title != "Outdoor Run" {
+		t.Errorf("Title = %q, want Outdoor Run", activity.Title)
+	}
 	if activity.SourceKind != "apple_health_export" {
 		t.Errorf("SourceKind = %q, want apple_health_export", activity.SourceKind)
 	}
@@ -642,6 +647,159 @@ func TestWorkoutToActivityWithoutDistanceStatKeepsTotalDistance(t *testing.T) {
 	}
 	if activity.AvgHR != nil || activity.MaxHR != nil {
 		t.Errorf("expected AvgHR/MaxHR to remain nil without a HeartRate statistic, got %v/%v", activity.AvgHR, activity.MaxHR)
+	}
+}
+
+func TestWorkoutToActivityResolvesActivityTaxonomy(t *testing.T) {
+	declaredRoute := &appleWorkoutRoute{FileReference: &appleFileReference{Path: "/workout-routes/route.gpx"}}
+
+	tests := []struct {
+		name         string
+		activityType string
+		metadata     []appleMetadataEntry
+		route        *appleWorkoutRoute
+		wantSport    string
+		wantTitle    string
+		wantOrigin   string
+	}{
+		{
+			name:         "native enum without location metadata stays family level",
+			activityType: "HKWorkoutActivityTypeRunning",
+			wantSport:    "run",
+			wantTitle:    "Run",
+			wantOrigin:   "system",
+		},
+		{
+			name:         "explicit indoor metadata",
+			activityType: "HKWorkoutActivityTypeRunning",
+			metadata:     []appleMetadataEntry{{Key: "HKIndoorWorkout", Value: "1"}},
+			wantSport:    "run",
+			wantTitle:    "Indoor Run",
+			wantOrigin:   "system",
+		},
+		{
+			name:         "explicit outdoor metadata",
+			activityType: "HKWorkoutActivityTypeRunning",
+			metadata:     []appleMetadataEntry{{Key: "HKIndoorWorkout", Value: "0"}},
+			wantSport:    "run",
+			wantTitle:    "Outdoor Run",
+			wantOrigin:   "system",
+		},
+		{
+			name:         "healthkit constant spelling of the key",
+			activityType: "HKWorkoutActivityTypeRunning",
+			metadata:     []appleMetadataEntry{{Key: "HKMetadataKeyIndoorWorkout", Value: "1"}},
+			wantSport:    "run",
+			wantTitle:    "Indoor Run",
+			wantOrigin:   "system",
+		},
+		{
+			name:         "unrecognized metadata value keeps the family canonical",
+			activityType: "HKWorkoutActivityTypeRunning",
+			metadata:     []appleMetadataEntry{{Key: "HKIndoorWorkout", Value: "true"}},
+			wantSport:    "run",
+			wantTitle:    "Run",
+			wantOrigin:   "system",
+		},
+		{
+			name:         "declared route promotes to outdoor",
+			activityType: "HKWorkoutActivityTypeRunning",
+			route:        declaredRoute,
+			wantSport:    "run",
+			wantTitle:    "Outdoor Run",
+			wantOrigin:   "system",
+		},
+		{
+			name:         "indoor metadata outranks a declared route",
+			activityType: "HKWorkoutActivityTypeRunning",
+			metadata:     []appleMetadataEntry{{Key: "HKIndoorWorkout", Value: "1"}},
+			route:        declaredRoute,
+			wantSport:    "run",
+			wantTitle:    "Indoor Run",
+			wantOrigin:   "system",
+		},
+		{
+			name:         "unmapped activity type keeps its provider title and slug",
+			activityType: "HKWorkoutActivityTypeRowing",
+			wantSport:    "rowing",
+			wantTitle:    "Rowing",
+			wantOrigin:   "custom",
+		},
+		{
+			name:         "unmapped activity type ignores location metadata",
+			activityType: "HKWorkoutActivityTypeElliptical",
+			metadata:     []appleMetadataEntry{{Key: "HKIndoorWorkout", Value: "1"}},
+			wantSport:    "elliptical",
+			wantTitle:    "Elliptical",
+			wantOrigin:   "custom",
+		},
+		{
+			name:         "cycling enum maps to the outdoor cycling canonical",
+			activityType: "HKWorkoutActivityTypeCycling",
+			wantSport:    "ride",
+			wantTitle:    "Outdoor Cycling",
+			wantOrigin:   "system",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workout := appleWorkout{
+				WorkoutActivityType: tt.activityType,
+				StartDate:           "2024-01-01 08:00:00 -0700",
+				EndDate:             "2024-01-01 08:30:00 -0700",
+				Duration:            "30",
+				DurationUnit:        "min",
+				TotalDistance:       "5",
+				TotalDistanceUnit:   "km",
+				MetadataEntries:     tt.metadata,
+				WorkoutRoute:        tt.route,
+			}
+
+			activity, ok := workoutToActivity(workout)
+			if !ok {
+				t.Fatalf("workoutToActivity returned ok=false")
+			}
+			if activity.SportType != tt.wantSport {
+				t.Errorf("SportType = %q, want %q", activity.SportType, tt.wantSport)
+			}
+			if activity.Title != tt.wantTitle {
+				t.Errorf("Title = %q, want %q", activity.Title, tt.wantTitle)
+			}
+			if activity.TitleOrigin != tt.wantOrigin {
+				t.Errorf("TitleOrigin = %q, want %q", activity.TitleOrigin, tt.wantOrigin)
+			}
+		})
+	}
+}
+
+func TestWorkoutIndoorMetadataIsTriState(t *testing.T) {
+	tests := []struct {
+		name    string
+		entries []appleMetadataEntry
+		want    *bool
+	}{
+		{name: "absent", want: nil},
+		{name: "unrelated keys only", entries: []appleMetadataEntry{{Key: "HKWeatherTemperature", Value: "1"}}, want: nil},
+		{name: "indoor", entries: []appleMetadataEntry{{Key: "HKIndoorWorkout", Value: "1"}}, want: boolPointer(true)},
+		{name: "outdoor", entries: []appleMetadataEntry{{Key: "HKIndoorWorkout", Value: "0"}}, want: boolPointer(false)},
+		{name: "padded value", entries: []appleMetadataEntry{{Key: "HKIndoorWorkout", Value: " 1 "}}, want: boolPointer(true)},
+		{name: "non boolean value", entries: []appleMetadataEntry{{Key: "HKIndoorWorkout", Value: "yes"}}, want: nil},
+		{name: "constant name", entries: []appleMetadataEntry{{Key: "HKMetadataKeyIndoorWorkout", Value: "0"}}, want: boolPointer(false)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := workoutIndoorMetadata(appleWorkout{MetadataEntries: tt.entries})
+			switch {
+			case tt.want == nil && got != nil:
+				t.Errorf("got %v, want nil", *got)
+			case tt.want != nil && got == nil:
+				t.Errorf("got nil, want %v", *tt.want)
+			case tt.want != nil && got != nil && *got != *tt.want:
+				t.Errorf("got %v, want %v", *got, *tt.want)
+			}
+		})
 	}
 }
 

@@ -247,3 +247,39 @@ collections). See epic `iroha:media-connector-spike`.
 - **Bangumi→AniList auto-bridge = 0% of manga** (measured 2026-08-06 against every Bangumi manga ID in a real production sync: none present in `bangumi_to_mal.json`). BangumiExtLinker doesn't
   cross-reference manga/light-novel subjects at all, so freshness doesn't help here the way it does for anime — title+date matching is the _only_ cross-provider dedup path for manga, not a fallback.
 - **Dedupe is load-bearing**: 63 of the 136 Bangumi anime are also in the AniList list (same `idMal`) — real cross-account collisions the `external_refs` ladder must merge onto one item.
+
+## 12. Drifter reading gateway (2026-11-11 amendment)
+
+WeRead reading state now arrives through **Drifter (`drifter-server`)**, the provider-neutral reading companion adopted in the
+[ADR 0011 amendment](adr/0011-provider-neutral-reading-evidence.md). This supersedes the "WeRead adapter" line in §10's deferred list for reading state; the
+[integration plan](plans/2026-11-11-drifter-reading-gateway-integration.md) stages the rest.
+
+Shipped in this slice:
+
+- **Connector + adapter split, unchanged.** `apps/iroha-providers/drifter/connector.go` fetches one page of `GET /api/v1/reading/snapshot?limit=N`
+  (plus `&cursor=` while `has_more`) with `Authorization: Bearer <DRIFTER_API_TOKEN>` from `DRIFTER_BASE_URL`. Each page is stored verbatim as raw evidence under
+  source kind `drifter_reading_snapshot`; the adapter is a pure parser over those bytes. Worker job kind: `media_sync_drifter`, connector id `drifter`.
+- **The gateway names its own accounts.** No `account=` parameter is sent: the page's `source_identity`/`target_identity` fields carry that fact, so a request
+  cannot silently fall back to a server default the owner never chose.
+- **Replication follows a watermark, not a page cursor.** The page envelope carries `watermark` (the highest observed source timestamp) and the connector stores
+  it on the page's `tb_source_receipts.ordering_basis`. `GET /api/v1/reading/changes?since=<RFC3339>&limit=100` (plus `&cursor=` while `has_more`) serves only the
+  books Drifter recorded at or after that watermark. `connector.ChangeFetcher` is the protocol contract; `connector.ErrSnapshotRequired` is the signal that the
+  watermark is out of horizon.
+- **Follower state machine in the sync runner.** `imports.SyncRunner` resumes from the latest receipt's ordering basis. No watermark means a bootstrap full
+  snapshot (`ingestion_mode=full_snapshot`). A readable watermark means a changes run (`ingestion_mode=incremental`). A 410 Gone, or a `snapshot_required` body,
+  makes the same run fall back to a full snapshot instead of failing. The sync-state cursor stays reserved for an interrupted full-snapshot pagination, so the two
+  resume points never get confused.
+- **Identity stays with the source provider.** A Drifter book is persisted as a `weread` item (`provider`/external ref `weread`/`source_book_id`), so a future
+  direct WeRead path claims the same item instead of creating a copy. `isbn` and a confirmed `matched_target.edition_id` become additional external refs
+  (`isbn`, `hardcover`).
+- **Creators are persisted.** Author and translator credits become `tb_media_creators` rows linked through `tb_media_creator_roles` scoped to the item. A replayed
+  snapshot reuses the existing creator and role rows instead of appending duplicates.
+- **Publisher is an item column.** Migration `00028_media_item_publisher` adds `tb_media_items.publisher`; it is a per-edition fact, not a work fact.
+- **Honest time semantics.** WeRead's real `finished_at` becomes a `finished` consumption event with the existing deterministic source event id; completion date
+  uses the import timezone for its calendar day. `progress_percent`/`last_read_at` feed `tb_media_progress`. No `started` or session event is fabricated, and
+  `reading_time_seconds` is retained in the stored snapshot only — Iroha has no typed reading-time field yet.
+- **Source priority.** `mediaProgressSourcePriority` places `drifter`, `weread` and `hardcover` on the AniList tier (2), above Bangumi (1); owner-authored
+  sources (manual/web/telegram) still win.
+
+Not yet wired: a schedule or private API trigger for `drifter` syncs, work-level linking through `matched_target.work_id`, and the cockpit surfaces from the
+plan's slices 3–4.

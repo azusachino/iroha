@@ -14,7 +14,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azusachino/iroha/apps/iroha-core/observations"
+	"github.com/azusachino/iroha/apps/iroha-core/i18n"
+)
+
+// Indoor-vs-outdoor is not a HealthKit activity type: Apple carries it in
+// HKMetadataKeyIndoorWorkout, which native exports spell "HKIndoorWorkout".
+const (
+	appleIndoorWorkoutMetadataKey      = "HKIndoorWorkout"
+	appleIndoorWorkoutMetadataKeyAlias = "HKMetadataKeyIndoorWorkout"
 )
 
 type appleWorkout struct {
@@ -38,6 +45,39 @@ type appleWorkout struct {
 type appleWorkoutRoute struct {
 	FileReference   *appleFileReference  `xml:"FileReference"`
 	MetadataEntries []appleMetadataEntry `xml:"MetadataEntry"`
+}
+
+// workoutIndoorMetadata reads HKMetadataKeyIndoorWorkout as tri-state evidence.
+// Only "1" and "0" are meaningful; any other value is treated as absent so the
+// taxonomy returns the family canonical instead of claiming a location.
+func workoutIndoorMetadata(workout appleWorkout) *bool {
+	for _, entry := range workout.MetadataEntries {
+		key := strings.TrimSpace(entry.Key)
+		if key != appleIndoorWorkoutMetadataKey && key != appleIndoorWorkoutMetadataKeyAlias {
+			continue
+		}
+		switch strings.TrimSpace(entry.Value) {
+		case "1":
+			return boolPointer(true)
+		case "0":
+			return boolPointer(false)
+		}
+	}
+	return nil
+}
+
+// hasDeclaredWorkoutRoute reports whether the export declares a route file for
+// the workout. Route points are attached later (attachWorkoutRoute needs the zip
+// reader), so the declared reference is the route evidence available while the
+// activity is classified; HealthKit only writes WorkoutRoute for workouts it
+// tracked with GPS.
+func hasDeclaredWorkoutRoute(workout appleWorkout) bool {
+	return workout.WorkoutRoute != nil && workout.WorkoutRoute.FileReference != nil
+}
+
+// boolPointer returns a pointer to a local copy of value.
+func boolPointer(value bool) *bool {
+	return &value
 }
 
 // syncIdentifier returns the WorkoutRoute's HKMetadataKeySyncIdentifier
@@ -986,16 +1026,25 @@ func workoutToActivity(workout appleWorkout) (ActivityObservation, bool) {
 	externalID := stableWorkoutSourceKey(workout)
 	contentHash := workoutContentHash(workout)
 
+	sportType, title, titleOrigin := resolveProviderActivity(workout.WorkoutActivityType, i18n.ActivityContext{
+		Provider:   appleHealthProvider,
+		SourceKind: KindAppleHealthExport,
+		Indoor:     workoutIndoorMetadata(workout),
+		HasRoute:   hasDeclaredWorkoutRoute(workout),
+		DistanceM:  distanceM,
+	})
+
 	activity := ActivityObservation{
-		Provider:         "apple_health",
+		Provider:         appleHealthProvider,
 		ExternalID:       externalID,
-		SportType:        normalizeAppleSport(workout.WorkoutActivityType),
-		Title:            strings.TrimPrefix(workout.WorkoutActivityType, "HKWorkoutActivityType"),
+		SportType:        sportType,
+		Title:            title,
+		TitleOrigin:      titleOrigin,
 		StartedAt:        startedAt,
 		EndedAt:          endedAt,
 		DistanceM:        distanceM,
 		DurationS:        durationS,
-		SourceKind:       "apple_health_export",
+		SourceKind:       KindAppleHealthExport,
 		SourceActivityID: externalID,
 		ContentHash:      contentHash,
 	}
@@ -1258,8 +1307,4 @@ func parseDistanceMeters(value string, unit string) *float64 {
 		parsed *= 1609.344
 	}
 	return &parsed
-}
-
-func normalizeAppleSport(value string) string {
-	return observations.NormalizeSport(value)
 }

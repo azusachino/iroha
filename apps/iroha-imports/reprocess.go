@@ -25,7 +25,7 @@ func selectImportedObservation(tx *gorm.DB, table string, objectID, observationI
 
 func restoreSelectedActivity(tx *gorm.DB, activityID uuid.UUID) error {
 	return tx.Exec(`update tb_activities a
-set sport_type = o.sport_type, title = o.title, started_at = o.started_at,
+set sport_type = o.sport_type, title = o.title, title_origin = o.title_origin, started_at = o.started_at,
     ended_at = o.ended_at, distance_m = o.distance_m, duration_s = o.duration_s,
     avg_hr = o.avg_hr, max_hr = o.max_hr, avg_pace_s_per_km = o.avg_pace_s_per_km,
     calories_kcal = o.calories_kcal, source_activity_id = o.source_activity_id,

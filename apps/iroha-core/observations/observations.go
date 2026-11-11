@@ -89,11 +89,22 @@ func maxInt(value, fallback int) int {
 	return value
 }
 
+// Activity title provenance values. They mirror the title_origin check
+// constraint on tb_activities and tb_activity_observations (migration 00027):
+// a taxonomy label is "system", text the user authored is "custom", and
+// anything an importer could not classify stays "unknown".
+const (
+	TitleOriginSystem  = "system"
+	TitleOriginCustom  = "custom"
+	TitleOriginUnknown = "unknown"
+)
+
 type Activity struct {
 	Provider         string
 	ExternalID       string
 	SportType        string
 	Title            string
+	TitleOrigin      string
 	StartedAt        time.Time
 	EndedAt          *time.Time
 	DistanceM        *float64
@@ -182,6 +193,7 @@ type Media struct {
 	ChapterCount     *int
 	Language         string
 	Country          string
+	Publisher        string
 	CoverImageURL    string
 	Description      string
 	Status           string
@@ -197,7 +209,24 @@ type Media struct {
 	Relations        []MediaRelation
 	Events           []MediaEvent
 	ProgressState    *MediaProgress
+	Creators         []MediaCreatorRole
 }
+
+// MediaCreatorRole is one credited role a source reports for a media item.
+// It is evidence, not a canonical person record: name and role are kept as the
+// provider stated them so a later resolution can differ without losing it.
+type MediaCreatorRole struct {
+	Name     string
+	Role     string
+	Provider string
+}
+
+// Media creator role vocabulary. Providers report free-form labels; the
+// importer only defaults an unlabeled credit, it never invents a role.
+const (
+	MediaCreatorRoleAuthor     = "author"
+	MediaCreatorRoleTranslator = "translator"
+)
 
 // MediaHistory is a provider's dated state-update evidence. It identifies the
 // canonical media item and carries one or more provider activity records. The

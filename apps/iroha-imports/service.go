@@ -107,7 +107,7 @@ func (s *Service) Create(input CreateInput) (models.ImportJob, error) {
 		jobKind = jobs.KindAppleImportParse
 	case coreimports.KindGPX:
 		jobKind = jobs.KindGPXImportParse
-	case coreimports.KindAniList, coreimports.KindAniListActivity, coreimports.KindBangumi:
+	case coreimports.KindAniList, coreimports.KindAniListActivity, coreimports.KindBangumi, coreimports.KindDrifter:
 		jobKind = jobs.KindMediaIntakeParse
 	default:
 		return models.ImportJob{}, fmt.Errorf("unsupported parser kind: %s", input.ParserKind)

@@ -74,6 +74,9 @@ func TestParseHealthAutoExportFixture(t *testing.T) {
 	if act.SportType != "run" {
 		t.Errorf("sportType = %q, want run", act.SportType)
 	}
+	if act.Title != "Outdoor Run" {
+		t.Errorf("title = %q, want Outdoor Run", act.Title)
+	}
 	if act.DistanceM == nil || *act.DistanceM != 5120 {
 		t.Errorf("distanceM = %v, want 5120", act.DistanceM)
 	}
@@ -103,6 +106,115 @@ func TestParseHealthAutoExportFixture(t *testing.T) {
 	cov := batch.Coverage[0]
 	if cov.Category != "health" || cov.IngestionMode != "bounded_replacement" {
 		t.Errorf("coverage mismatch: %+v", cov)
+	}
+}
+
+func TestParseHaeWorkoutResolvesActivityTaxonomy(t *testing.T) {
+	tests := []struct {
+		name       string
+		label      string
+		hasRoute   bool
+		wantSport  string
+		wantTitle  string
+		wantOrigin string
+	}{
+		{
+			name:       "english outdoor run",
+			label:      "Outdoor Run",
+			hasRoute:   true,
+			wantSport:  "run",
+			wantTitle:  "Outdoor Run",
+			wantOrigin: "system",
+		},
+		{
+			name:       "japanese run with a route is outdoor",
+			label:      "ラン",
+			hasRoute:   true,
+			wantSport:  "run",
+			wantTitle:  "Outdoor Run",
+			wantOrigin: "system",
+		},
+		{
+			name:       "japanese run without route stays family level",
+			label:      "ラン",
+			wantSport:  "run",
+			wantTitle:  "Run",
+			wantOrigin: "system",
+		},
+		{
+			name:       "japanese indoor run",
+			label:      "屋内ラン",
+			wantSport:  "run",
+			wantTitle:  "Indoor Run",
+			wantOrigin: "system",
+		},
+		{
+			name:       "chinese outdoor run",
+			label:      "户外跑步",
+			wantSport:  "run",
+			wantTitle:  "Outdoor Run",
+			wantOrigin: "system",
+		},
+		{
+			name:       "custom title is preserved verbatim",
+			label:      "Sub-40 10k Tempo",
+			wantSport:  "run",
+			wantTitle:  "Sub-40 10k Tempo",
+			wantOrigin: "custom",
+		},
+		{
+			name:       "empty name falls back to the generic workout",
+			label:      "",
+			wantSport:  "other",
+			wantTitle:  "Workout",
+			wantOrigin: "system",
+		},
+		{
+			name:       "unmapped sport keeps its own slug and title",
+			label:      "Rowing",
+			wantSport:  "rowing",
+			wantTitle:  "Rowing",
+			wantOrigin: "custom",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workout := haeWorkout{
+				ID:       "workout-1",
+				Name:     tt.label,
+				Start:    "2026-09-20 07:00:00 +0900",
+				End:      "2026-09-20 07:30:00 +0900",
+				Duration: 1800,
+			}
+			if tt.hasRoute {
+				workout.Route = []haeRoutePoint{{
+					Latitude:  35.6812,
+					Longitude: 139.7671,
+					Timestamp: "2026-09-20 07:00:00 +0900",
+				}}
+			}
+
+			activity, err := parseHaeWorkout(workout, "hae-hash")
+			if err != nil {
+				t.Fatalf("parseHaeWorkout() failed: %v", err)
+			}
+			if activity.SportType != tt.wantSport {
+				t.Errorf("SportType = %q, want %q", activity.SportType, tt.wantSport)
+			}
+			if activity.Title != tt.wantTitle {
+				t.Errorf("Title = %q, want %q", activity.Title, tt.wantTitle)
+			}
+			if activity.TitleOrigin != tt.wantOrigin {
+				t.Errorf("TitleOrigin = %q, want %q", activity.TitleOrigin, tt.wantOrigin)
+			}
+			if got := len(activity.RoutePoints); tt.hasRoute && got != 1 {
+				t.Errorf("got %d route points, want 1", got)
+			}
+			if activity.SourceKind != KindHealthAutoExport {
+				t.Errorf("SourceKind = %q, want %q", activity.SourceKind, KindHealthAutoExport)
+			}
+		})
 	}
 }
 

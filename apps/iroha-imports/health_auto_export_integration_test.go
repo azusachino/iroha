@@ -13,6 +13,7 @@ import (
 	"time"
 
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
 	providerregistry "github.com/azusachino/iroha/apps/iroha-providers/registry"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
@@ -112,6 +113,45 @@ func TestIntegrationHealthAutoExportReplayAndBoundedReplacement(t *testing.T) {
 	}
 	if observationCount != 1 {
 		t.Fatalf("activity observations after first import = %d, want 1", observationCount)
+	}
+
+	// The HAE fixture names the workout "Outdoor Run": the taxonomy owns the
+	// canonical title and records it as a system label on both the canonical
+	// activity and its observation.
+	var importedActivity models.Activity
+	if err := db.First(&importedActivity, "first_raw_file_id = ?", firstRawID).Error; err != nil {
+		t.Fatalf("load imported activity: %v", err)
+	}
+	if importedActivity.Title != "Outdoor Run" || importedActivity.SportType != "run" {
+		t.Errorf("imported activity = %q/%q, want Outdoor Run/run", importedActivity.Title, importedActivity.SportType)
+	}
+	if importedActivity.TitleOrigin != observations.TitleOriginSystem {
+		t.Errorf("imported activity title origin = %q, want %q", importedActivity.TitleOrigin, observations.TitleOriginSystem)
+	}
+	var importedObservation models.ActivityObservation
+	if err := db.First(&importedObservation, "activity_id = ?", importedActivity.ID).Error; err != nil {
+		t.Fatalf("load activity observation: %v", err)
+	}
+	if importedObservation.TitleOrigin != observations.TitleOriginSystem {
+		t.Errorf("imported observation title origin = %q, want %q", importedObservation.TitleOrigin, observations.TitleOriginSystem)
+	}
+	// Restoring the selected observation copies the title's provenance, so a
+	// locally edited canonical row cannot keep a stale "custom" claim.
+	if err := db.Model(&models.Activity{}).Where("id = ?", importedActivity.ID).Updates(map[string]any{
+		"title": "hand-edited", "title_origin": observations.TitleOriginCustom,
+	}).Error; err != nil {
+		t.Fatalf("simulate edited activity: %v", err)
+	}
+	if err := restoreSelectedActivity(db, importedActivity.ID); err != nil {
+		t.Fatalf("restore selected activity: %v", err)
+	}
+	var restoredActivity models.Activity
+	if err := db.First(&restoredActivity, "id = ?", importedActivity.ID).Error; err != nil {
+		t.Fatalf("load restored activity: %v", err)
+	}
+	if restoredActivity.Title != "Outdoor Run" || restoredActivity.TitleOrigin != observations.TitleOriginSystem {
+		t.Errorf("restored activity = %q/%q, want Outdoor Run/%q",
+			restoredActivity.Title, restoredActivity.TitleOrigin, observations.TitleOriginSystem)
 	}
 	var sourceSegments int64
 	if err := db.Raw(`select count(*) from tb_sleep_observation_segments seg

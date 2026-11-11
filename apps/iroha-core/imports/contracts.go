@@ -8,4 +8,5 @@ const (
 	KindAniList           = "anilist"
 	KindAniListActivity   = "anilist_activity"
 	KindBangumi           = "bangumi"
+	KindDrifter           = "drifter_reading_snapshot"
 )

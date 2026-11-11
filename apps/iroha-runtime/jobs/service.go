@@ -31,6 +31,7 @@ const (
 	KindMediaConnectorSync    = "media_connector_sync"
 	KindMediaSyncAniList      = "media_sync_anilist"
 	KindMediaSyncBangumi      = "media_sync_bangumi"
+	KindMediaSyncDrifter      = "media_sync_drifter"
 	KindMediaBridgeRefresh    = "media_bridge_refresh"
 	KindHealthFullDumpRequest = "health_full_dump_request"
 	KindProjectionRefresh     = "projection_refresh"

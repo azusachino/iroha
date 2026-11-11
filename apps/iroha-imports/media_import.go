@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-core/i18n"
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
@@ -39,6 +41,9 @@ func (s *Service) persistMediaHistoryTx(tx *gorm.DB, rawFile models.RawFile, par
 			return err
 		}
 		if err := persistMediaMetadata(tx, itemID, history.Media); err != nil {
+			return err
+		}
+		if err := persistMediaCreators(tx, itemID, history.Media); err != nil {
 			return err
 		}
 		if err := persistMediaRelations(tx, itemID, history.Media); err != nil {
@@ -124,6 +129,9 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, snapshot model
 	if err := persistMediaMetadata(tx, itemID, media); err != nil {
 		return err
 	}
+	if err := persistMediaCreators(tx, itemID, media); err != nil {
+		return err
+	}
 	listName := media.Provider + " library"
 	var list models.MediaList
 	result := tx.Where("source_kind = ? and name = ?", media.Provider, listName).First(&list)
@@ -199,14 +207,29 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 			return uuid.Nil, err
 		}
 		now := time.Now().UTC()
+		// Native First: the authored title claim wins at creation, with the
+		// provider's display title as the fallback when no claim resolves.
+		// media.Language is the provider's declaration about the work itself; a
+		// provider that only knows the consumed edition's language must leave it
+		// empty, because the projection never guesses a language from script.
+		titleResolution := i18n.ResolveWorkTitles("", "", media.Language, titleCandidates(media.Titles))
+		primaryTitle := titleResolution.PrimaryTitle
+		if primaryTitle == "" {
+			primaryTitle = media.Title
+		}
+		originalTitle := titleResolution.OriginalTitle
+		if originalTitle == "" {
+			originalTitle = media.Title
+		}
 		work := models.MediaWork{
-			ID:            workID,
-			WorkKind:      mediaWorkKind,
-			PrimaryTitle:  media.Title,
-			OriginalTitle: media.Title,
-			Description:   media.Description,
-			CreatedAt:     now,
-			UpdatedAt:     now,
+			ID:               workID,
+			WorkKind:         mediaWorkKind,
+			PrimaryTitle:     primaryTitle,
+			OriginalTitle:    originalTitle,
+			OriginalLanguage: titleResolution.OriginalLanguage,
+			Description:      media.Description,
+			CreatedAt:        now,
+			UpdatedAt:        now,
 		}
 		if err := tx.Create(&work).Error; err != nil {
 			return uuid.Nil, err
@@ -231,6 +254,7 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 			ChapterCount:         media.ChapterCount,
 			Language:             media.Language,
 			Country:              media.Country,
+			Publisher:            media.Publisher,
 			CoverImageURL:        media.CoverImageURL,
 			CreatedAt:            now,
 			UpdatedAt:            now,
@@ -345,6 +369,64 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 		}
 	}
 	return resolution.ItemID, nil
+}
+
+// persistMediaCreators records the credited creator roles a source reports for
+// an item. A creator row is canonical by name; each role is scoped to the item,
+// so one edition's translator cannot become another edition's author. Replaying
+// the same source snapshot reuses the existing rows instead of duplicating
+// them, and a single observation that repeats a credit is collapsed here.
+func persistMediaCreators(tx *gorm.DB, itemID uuid.UUID, media observations.Media) error {
+	now := time.Now().UTC()
+	seen := make(map[string]struct{}, len(media.Creators))
+	for _, credit := range media.Creators {
+		name := strings.TrimSpace(credit.Name)
+		if name == "" {
+			continue
+		}
+		role := strings.TrimSpace(credit.Role)
+		if role == "" {
+			role = observations.MediaCreatorRoleAuthor
+		}
+		key := name + "\x00" + role
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+
+		var creator models.MediaCreator
+		result := tx.Where("name = ?", name).First(&creator)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			creatorID, err := ids.New()
+			if err != nil {
+				return err
+			}
+			creator = models.MediaCreator{ID: creatorID, Name: name, SortName: name, CreatedAt: now, UpdatedAt: now}
+			if err := tx.Create(&creator).Error; err != nil {
+				return err
+			}
+		} else if result.Error != nil {
+			return result.Error
+		}
+
+		var existing models.MediaCreatorRole
+		result = tx.Where("creator_id = ? and scope_type = ? and scope_id = ? and role = ?", creator.ID, mediaScopeType, itemID, role).First(&existing)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			roleID, err := ids.New()
+			if err != nil {
+				return err
+			}
+			if err := tx.Create(&models.MediaCreatorRole{
+				ID: roleID, CreatorID: creator.ID, ScopeType: mediaScopeType, ScopeID: itemID,
+				Role: role, Provider: credit.Provider, CreatedAt: now,
+			}).Error; err != nil {
+				return err
+			}
+		} else if result.Error != nil {
+			return result.Error
+		}
+	}
+	return nil
 }
 
 // persistMediaRelations writes the provider relation graph (adaptation/sequel/
@@ -686,35 +768,27 @@ func canonicalReleaseDate(media observations.Media) (*time.Time, string) {
 	return nil, ""
 }
 
-// titleLanguageRank scores a title string for the JPN > ENG > CHN display
-// precedence: kana (hiragana/katakana) marks it distinctly Japanese even
-// mixed with kanji, since kana never appears in Chinese; CJK ideographs
-// with no kana are treated as Chinese (Bangumi's name_cn); anything else
-// (Latin script -- English/romaji) ranks in between.
-func titleLanguageRank(title string) int {
-	const (
-		rankJapanese = 1
-		rankEnglish  = 2
-		rankChinese  = 3
-	)
-	hasKana := false
-	hasCJK := false
-	for _, r := range title {
-		switch {
-		case r >= 0x3040 && r <= 0x30FF:
-			hasKana = true
-		case r >= 0x4E00 && r <= 0x9FFF:
-			hasCJK = true
+// titleCandidates adapts provider title claims to the pure projection contract
+// in i18n, which owns the title policy and deliberately depends on no provider
+// or persistence package.
+func titleCandidates(titles []observations.MediaTitle) []i18n.TitleCandidate {
+	candidates := make([]i18n.TitleCandidate, 0, len(titles))
+	for _, title := range titles {
+		if title.Title == "" {
+			continue
 		}
+		candidates = append(candidates, i18n.TitleCandidate{
+			Title:      title.Title,
+			Language:   title.Language,
+			Script:     title.Script,
+			Region:     title.Region,
+			TitleKind:  title.TitleKind,
+			Provider:   title.Provider,
+			IsPrimary:  title.IsPrimary,
+			Confidence: title.Confidence,
+		})
 	}
-	switch {
-	case hasKana:
-		return rankJapanese
-	case hasCJK:
-		return rankChinese
-	default:
-		return rankEnglish
-	}
+	return candidates
 }
 
 // refreshMediaItemFields updates the core columns of an already-existing item
@@ -753,14 +827,13 @@ func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Me
 		}
 	}
 
-	// Title precedence is by script, not the generic owned/existing-empty rule
-	// above, and not by provider: Bangumi's own subject.Name (used whenever
-	// subject.NameCN is empty) is Japanese too, so "prefer AniList" would be
-	// the wrong proxy for "prefer Japanese." Rank JPN > ENG > CHN and only
-	// replace the existing title with a strictly higher-ranked incoming one.
-	if media.Title != "" && media.Title != item.Title {
-		if item.Title == "" || titleLanguageRank(media.Title) < titleLanguageRank(item.Title) {
-			updates["title"] = media.Title
+	// Edition preserved: an item is one consumed edition (a Chinese WeRead book,
+	// an English Hardcover edition), so its title follows the same ownership rule
+	// as every other column. Script ranking used to let any Japanese or English
+	// sync replace a Chinese edition's title.
+	if media.Title != "" && media.Title != item.Title && (owned || item.Title == "") {
+		updates["title"] = media.Title
+		if item.OriginalTitle == "" {
 			updates["original_title"] = media.Title
 		}
 	}
@@ -785,6 +858,7 @@ func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Me
 	setInt("chapter_count", item.ChapterCount, media.ChapterCount)
 	setStr("language", item.Language, media.Language)
 	setStr("country", item.Country, media.Country)
+	setStr("publisher", item.Publisher, media.Publisher)
 	setStr("cover_image_url", item.CoverImageURL, media.CoverImageURL)
 
 	if len(updates) > 0 {
@@ -794,12 +868,10 @@ func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Me
 		}
 	}
 
-	// Description and title live on the work, not the item -- description
-	// follows the same owned/existing-empty rule as the item fields above;
-	// title follows the same JPN > ENG > CHN language-rank rule as item.title,
-	// since tb_media_works.primary_title/original_title were seeded from the
-	// same media.Title value at creation and would otherwise drift from it.
-	if item.WorkID != nil && (media.Description != "" || media.Title != "") {
+	// Work titles are a pure projection over title claims (ADR-0012): Native
+	// First, and a localized translation never overwrites the authored title.
+	// Description follows the same owned/existing-empty rule as the item fields.
+	if item.WorkID != nil && (media.Description != "" || len(media.Titles) > 0 || media.Title != "") {
 		var work models.MediaWork
 		if err := tx.First(&work, "id = ?", *item.WorkID).Error; err != nil {
 			return err
@@ -808,10 +880,26 @@ func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Me
 		if media.Description != "" && (owned || work.Description == "") && work.Description != media.Description {
 			workUpdates["description"] = media.Description
 		}
-		if media.Title != "" && media.Title != work.PrimaryTitle &&
-			(work.PrimaryTitle == "" || titleLanguageRank(media.Title) < titleLanguageRank(work.PrimaryTitle)) {
-			workUpdates["primary_title"] = media.Title
-			workUpdates["original_title"] = media.Title
+		candidates := titleCandidates(media.Titles)
+		if len(candidates) == 0 && media.Title != "" {
+			// The provider gave no title claims; its display title is still a
+			// localized claim about the work, never an authored one.
+			candidates = []i18n.TitleCandidate{{
+				Title:     media.Title,
+				Language:  media.Language,
+				TitleKind: i18n.TitleKindLocalized,
+				Provider:  media.Provider,
+			}}
+		}
+		resolution := i18n.ResolveWorkTitles(work.PrimaryTitle, work.OriginalTitle, work.OriginalLanguage, candidates)
+		if resolution.PrimaryTitle != "" && resolution.PrimaryTitle != work.PrimaryTitle {
+			workUpdates["primary_title"] = resolution.PrimaryTitle
+		}
+		if resolution.OriginalTitle != "" && resolution.OriginalTitle != work.OriginalTitle {
+			workUpdates["original_title"] = resolution.OriginalTitle
+		}
+		if resolution.OriginalLanguage != "" && resolution.OriginalLanguage != work.OriginalLanguage {
+			workUpdates["original_language"] = resolution.OriginalLanguage
 		}
 		if len(workUpdates) > 0 {
 			workUpdates["updated_at"] = time.Now().UTC()

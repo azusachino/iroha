@@ -5,9 +5,10 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-providers/anilist"
 	"github.com/azusachino/iroha/apps/iroha-providers/applehealth"
 	"github.com/azusachino/iroha/apps/iroha-providers/bangumi"
+	"github.com/azusachino/iroha/apps/iroha-providers/drifter"
 	"github.com/azusachino/iroha/apps/iroha-providers/gpx"
 )
 
 func New() (*provider.Registry, error) {
-	return provider.NewRegistry(applehealth.New(), anilist.NewAdapter(), bangumi.NewAdapter(), gpx.New())
+	return provider.NewRegistry(applehealth.New(), anilist.NewAdapter(), bangumi.NewAdapter(), drifter.NewAdapter(), gpx.New())
 }
