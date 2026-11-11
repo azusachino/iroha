@@ -61,3 +61,4 @@ Record an exception here only with a named owner, reason, and expiry. The floor 
 | E6 | assertion-removed | scripts/dev_watch_test.py | Subtract retired apps/iroha-public-site fixture | haru | 2026-12-08 |
 | E7 | assertion-removed | scripts/local_checks_test.py | Subtract retired apps/iroha-public-site fixture | haru | 2026-12-08 |
 | E8 | test-deleted | scripts/public_site_response_check_test.py | Retire public-site Caddy fixture checker with Caddyfile.public-site | haru | 2026-12-08 |
+| E9 | assertion-removed | apps/iroha-imports/service_test.go | Retire titleLanguageRank: ADR-0012 replaces script ranking with the i18n work-title projection (covered by apps/iroha-core/i18n/media_titles_test.go) | haru | 2026-12-08 |
