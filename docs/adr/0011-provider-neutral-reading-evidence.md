@@ -73,4 +73,14 @@ Costs and prerequisites:
 
 The [Phase A plan](../plans/reading-hub.md) contains the capability matrix, minimum observation mapping, inbound/reconciliation/outbound state machines, test-first slices and risks. The owner reviews this complete package after documentation and repository gates pass. Acceptance of this ADR records the architecture, not a runtime provider PASS.
 
+## Amendment (2026-11-11): Drifter as reading gateway companion
+
+Following production reconciliation of 1,174 WeRead books in Drifter v0.1.1, the owner approved adopting **Drifter (`drifter-server`)** as the provider-neutral reading companion gateway, superseding BookOrbit mediation:
+
+1. **Drifter as reading intake gateway.** `KindMediaSyncDrifter = "media_sync_drifter"` fetches paginated, bearer-authenticated snapshots from `drifter-server`. Drifter encapsulates WeRead Agent Gateway 1.0.5 calls, Douban ISBN resolution with pacing, and confirmed Hardcover target links.
+2. **Work-level linking extension.** Distinct translations and formats remain separate `tb_media_items` (preserving distinct ISBNs, translators, publishers, and progress). To fulfill work-level deduplication across languages, incoming edition items carrying verified `matched_target.work_id` attach to the existing canonical `tb_media_works` entity rather than creating duplicate 1:1 works.
+3. **Creator roles persistence.** `observations.Media` is extended with `Creators []MediaCreatorRole`. Authors and translators from WeRead are persisted into `tb_media_creators` and `tb_media_creator_roles` during item creation.
+4. **Decisions-first conservative matching.** The resolver ladder enforces: 1. Matching Decisions (`tb_media_matching_decisions`) $\to$ 2. External Refs (including normalized ISBN) $\to$ 3. Drifter Bridge (`matched_target`) $\to$ 4. Create new canonical item. Generic title/year auto-attachment remains disabled for `media_sync_drifter`.
+5. **Deterministic source priority.** `drifter` and `hardcover` are registered explicitly in `mediaProgressSourceWins` with recency comparison based on WeRead's `last_reading_time`.
+
 First implementation candidate: private BookOrbit and Hardcover **saved-snapshot** imports, with one explicitly mapped shared work, separate translation items and a metadata-only Kindle/Hardcover item. Prove deterministic normalization, identity, retention and replay before network scheduling or an outbound writer. WeRead's authenticated contract and controlled WeRead → Hardcover route follow as separately scoped slices. Public sharing remains a separate published-contract outcome.
