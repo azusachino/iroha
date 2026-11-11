@@ -19,6 +19,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-providers/anilist"
 	"github.com/azusachino/iroha/apps/iroha-providers/bangumi"
 	connectorregistry "github.com/azusachino/iroha/apps/iroha-providers/connectors"
+	"github.com/azusachino/iroha/apps/iroha-providers/drifter"
 	providerregistry "github.com/azusachino/iroha/apps/iroha-providers/registry"
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/config"
@@ -119,6 +120,7 @@ func main() {
 		anilist.NewConnector(os.Getenv(config.EnvAniListUsername), os.Getenv(config.EnvAniListToken)),
 		activityConnector,
 		bangumi.NewConnector(os.Getenv(config.EnvBangumiUsername), os.Getenv(config.EnvBangumiToken)),
+		drifter.NewConnector(os.Getenv(config.EnvDrifterBaseURL), os.Getenv(config.EnvDrifterAPIToken)),
 	)
 	if err != nil {
 		logger.Error("build connector registry", "error", err)
@@ -136,6 +138,7 @@ func main() {
 	jobs.Register(registry, jobs.KindMediaIntakeParse, importHandler)
 	jobs.Register(registry, jobs.KindMediaSyncAniList, mediaSyncHandler(syncRunner, "anilist"))
 	jobs.Register(registry, jobs.KindMediaSyncBangumi, mediaSyncHandler(syncRunner, "bangumi"))
+	jobs.Register(registry, jobs.KindMediaSyncDrifter, mediaSyncHandler(syncRunner, "drifter"))
 	jobs.Register(registry, jobs.KindMediaBridgeRefresh, mediaBridgeRefreshHandler(db, mediaBridge))
 	retention := rawFileRetention(logger, os.Getenv(config.EnvRawRetentionDays))
 	jobs.Register(registry, jobs.KindRawFilePurge, rawFilePurgeHandler(logger, rawFileService, retention))

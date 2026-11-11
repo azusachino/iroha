@@ -17,6 +17,8 @@ const (
 	EnvBangumiUsername             = "IROHA_BANGUMI_USERNAME"
 	EnvBangumiToken                = "IROHA_BANGUMI_TOKEN"
 	EnvBangumiSyncInterval         = "IROHA_BANGUMI_SYNC_INTERVAL"
+	EnvDrifterBaseURL              = "DRIFTER_BASE_URL"
+	EnvDrifterAPIToken             = "DRIFTER_API_TOKEN"
 	EnvTimezone                    = "IROHA_TIMEZONE"
 	EnvRawRetentionDays            = "IROHA_RAW_RETENTION_DAYS"
 	EnvPublicExportDir             = "IROHA_PUBLIC_EXPORT_DIR"

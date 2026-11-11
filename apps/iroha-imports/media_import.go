@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-core/i18n"
@@ -40,6 +41,9 @@ func (s *Service) persistMediaHistoryTx(tx *gorm.DB, rawFile models.RawFile, par
 			return err
 		}
 		if err := persistMediaMetadata(tx, itemID, history.Media); err != nil {
+			return err
+		}
+		if err := persistMediaCreators(tx, itemID, history.Media); err != nil {
 			return err
 		}
 		if err := persistMediaRelations(tx, itemID, history.Media); err != nil {
@@ -123,6 +127,9 @@ func persistMediaObservation(tx *gorm.DB, rawFile models.RawFile, snapshot model
 	}
 
 	if err := persistMediaMetadata(tx, itemID, media); err != nil {
+		return err
+	}
+	if err := persistMediaCreators(tx, itemID, media); err != nil {
 		return err
 	}
 	listName := media.Provider + " library"
@@ -247,6 +254,7 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 			ChapterCount:         media.ChapterCount,
 			Language:             media.Language,
 			Country:              media.Country,
+			Publisher:            media.Publisher,
 			CoverImageURL:        media.CoverImageURL,
 			CreatedAt:            now,
 			UpdatedAt:            now,
@@ -361,6 +369,64 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 		}
 	}
 	return resolution.ItemID, nil
+}
+
+// persistMediaCreators records the credited creator roles a source reports for
+// an item. A creator row is canonical by name; each role is scoped to the item,
+// so one edition's translator cannot become another edition's author. Replaying
+// the same source snapshot reuses the existing rows instead of duplicating
+// them, and a single observation that repeats a credit is collapsed here.
+func persistMediaCreators(tx *gorm.DB, itemID uuid.UUID, media observations.Media) error {
+	now := time.Now().UTC()
+	seen := make(map[string]struct{}, len(media.Creators))
+	for _, credit := range media.Creators {
+		name := strings.TrimSpace(credit.Name)
+		if name == "" {
+			continue
+		}
+		role := strings.TrimSpace(credit.Role)
+		if role == "" {
+			role = observations.MediaCreatorRoleAuthor
+		}
+		key := name + "\x00" + role
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+
+		var creator models.MediaCreator
+		result := tx.Where("name = ?", name).First(&creator)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			creatorID, err := ids.New()
+			if err != nil {
+				return err
+			}
+			creator = models.MediaCreator{ID: creatorID, Name: name, SortName: name, CreatedAt: now, UpdatedAt: now}
+			if err := tx.Create(&creator).Error; err != nil {
+				return err
+			}
+		} else if result.Error != nil {
+			return result.Error
+		}
+
+		var existing models.MediaCreatorRole
+		result = tx.Where("creator_id = ? and scope_type = ? and scope_id = ? and role = ?", creator.ID, mediaScopeType, itemID, role).First(&existing)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			roleID, err := ids.New()
+			if err != nil {
+				return err
+			}
+			if err := tx.Create(&models.MediaCreatorRole{
+				ID: roleID, CreatorID: creator.ID, ScopeType: mediaScopeType, ScopeID: itemID,
+				Role: role, Provider: credit.Provider, CreatedAt: now,
+			}).Error; err != nil {
+				return err
+			}
+		} else if result.Error != nil {
+			return result.Error
+		}
+	}
+	return nil
 }
 
 // persistMediaRelations writes the provider relation graph (adaptation/sequel/
@@ -792,6 +858,7 @@ func refreshMediaItemFields(tx *gorm.DB, itemID uuid.UUID, media observations.Me
 	setInt("chapter_count", item.ChapterCount, media.ChapterCount)
 	setStr("language", item.Language, media.Language)
 	setStr("country", item.Country, media.Country)
+	setStr("publisher", item.Publisher, media.Publisher)
 	setStr("cover_image_url", item.CoverImageURL, media.CoverImageURL)
 
 	if len(updates) > 0 {

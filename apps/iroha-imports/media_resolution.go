@@ -292,7 +292,7 @@ func mediaProgressSourcePriority(source string) int {
 	switch strings.ToLower(source) {
 	case "manual", "web", "telegram":
 		return 3
-	case "anilist":
+	case "anilist", "drifter", "weread", "hardcover", "media_sync_drifter":
 		return 2
 	case "bangumi":
 		return 1
