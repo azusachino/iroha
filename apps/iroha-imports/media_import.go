@@ -554,11 +554,27 @@ func persistMediaEvents(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, m
 			return fmt.Errorf("media exact event %q is missing event_at", event.EventType)
 		}
 		event.EventAt = event.EventAt.UTC()
-		unchanged, err := latestEventUnchanged(tx, itemID, rawFile.SourceKind, event)
+		existing, unchanged, err := findExistingEvent(tx, itemID, rawFile.SourceKind, event)
 		if err != nil {
 			return err
 		}
 		if unchanged {
+			continue
+		}
+		if existing != nil {
+			if err := tx.Model(existing).Updates(map[string]any{
+				"event_at":         event.EventAt,
+				"unit":             event.Unit,
+				"position":         event.Position,
+				"total":            event.Total,
+				"progress_percent": event.ProgressPercent,
+				"rating":           event.Rating,
+				"rating_scale":     event.RatingScale,
+				"note":             event.Note,
+				"raw_file_id":      &rawFile.ID,
+			}).Error; err != nil {
+				return err
+			}
 			continue
 		}
 		id, err := ids.New()
@@ -712,12 +728,12 @@ func partialDateFields(value *observations.PartialDate) (*time.Time, string) {
 	return &date, string(value.Precision)
 }
 
-// latestEventUnchanged reports whether the most recent event for the same
-// source entry already records identical progress/rating/note, meaning a fresh
-// sync observed no change. Events without a stable source id always append.
-func latestEventUnchanged(tx *gorm.DB, itemID uuid.UUID, sourceKind string, event observations.MediaEvent) (bool, error) {
+// findExistingEvent reports whether the most recent event for the same
+// source entry already exists, and whether it records identical progress/rating/note.
+// Events without a stable source id always report not existing, meaning they append.
+func findExistingEvent(tx *gorm.DB, itemID uuid.UUID, sourceKind string, event observations.MediaEvent) (*models.MediaConsumptionEvent, bool, error) {
 	if event.SourceEventID == "" {
-		return false, nil
+		return nil, false, nil
 	}
 	var existing models.MediaConsumptionEvent
 	err := tx.Where("media_item_id = ? and source_kind = ? and source_event_id = ? and event_type = ?",
@@ -725,19 +741,20 @@ func latestEventUnchanged(tx *gorm.DB, itemID uuid.UUID, sourceKind string, even
 		Order("event_at desc, created_at desc").
 		First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, nil
+		return nil, false, nil
 	}
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
-	return existing.EventAt.Equal(event.EventAt) &&
+	unchanged := existing.EventAt.Equal(event.EventAt) &&
 		existing.Unit == event.Unit &&
 		floatPtrEqual(existing.Position, event.Position) &&
 		floatPtrEqual(existing.Total, event.Total) &&
 		floatPtrEqual(existing.Rating, event.Rating) &&
 		floatPtrEqual(existing.ProgressPercent, event.ProgressPercent) &&
 		floatPtrEqual(existing.RatingScale, event.RatingScale) &&
-		existing.Note == event.Note, nil
+		existing.Note == event.Note
+	return &existing, unchanged, nil
 }
 
 // upsertMediaProgress recomputes the current-progress projection, preferring
