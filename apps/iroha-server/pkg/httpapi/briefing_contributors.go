@@ -100,6 +100,7 @@ func (c mediaBriefingContributor) Contribute(_ context.Context, day briefing.Day
 			Title: event.Title, NativeTitle: event.NativeTitle, CoverImageURL: event.CoverImageURL, EventType: event.EventType,
 			OccurredAt: event.OccurredAt, Unit: event.Unit, Position: event.Position, Total: event.Total,
 			ProgressPercent: event.ProgressPercent, Rating: normalizedRating(event.Rating, event.RatingScale),
+			Note: event.Note,
 		})
 	}
 	updates := make([]mediaChangeResponse, 0, len(changePage.Items))

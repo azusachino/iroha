@@ -172,13 +172,28 @@ func mapBook(book readingSnapshotBook, location *time.Location) (observations.Me
 			media.CompletedOn = completedOn
 			media.ProgressState.CompletedOn = completedOn
 		}
+		var note string
+		if readingTime != nil && *readingTime > 0 {
+			note = formatReadingDuration(*readingTime)
+		}
 		media.Events = append(media.Events, observations.MediaEvent{
-			EventType:     observations.MediaEventFinished,
-			EventAt:       finishedAt,
-			SourceEventID: finishEventPrefix + externalID,
+			EventType:       observations.MediaEventFinished,
+			EventAt:         finishedAt,
+			SourceEventID:   finishEventPrefix + externalID,
+			ProgressPercent: &percent,
+			Note:            note,
 		})
 	}
 	return media, nil
+}
+
+func formatReadingDuration(seconds int) string {
+	hours := seconds / 3600
+	mins := (seconds % 3600) / 60
+	if hours > 0 {
+		return fmt.Sprintf("Read for %dh %dm", hours, mins)
+	}
+	return fmt.Sprintf("Read for %dm", mins)
 }
 
 // mapReadingStatus is the gateway's status vocabulary. "abandoned" is a known

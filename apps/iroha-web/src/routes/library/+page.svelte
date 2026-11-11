@@ -1,5 +1,6 @@
 <script lang="ts">
   import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
+  import { formatReadingDuration } from "$lib/format";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import MediaBarChart from "@iroha/shared/theme-ui/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
@@ -263,8 +264,14 @@
                       </div>
                     {/if}
                     <span class="progress-label">
-                      {item.position ?? 0}{item.total ? ` / ${item.total}` : ""}
-                      {item.unit ?? ""}
+                      {#if item.media_type === "book" && item.reading_time_seconds}
+                        {formatReadingDuration(item.reading_time_seconds)}
+                      {:else}
+                        {item.position ?? 0}{item.total
+                          ? ` / ${item.total}`
+                          : ""}
+                        {item.unit ?? ""}
+                      {/if}
                     </span>
                   </div>
                 </a>
@@ -330,6 +337,13 @@
                           class="dot"
                           style={`background:${mediaTypeColor(item.media_type)}`}
                         ></span>{mediaTypeLabel(item.media_type)}
+                        {#if item.media_type === "book" && item.reading_time_seconds}
+                          <span
+                            >· {formatReadingDuration(
+                              item.reading_time_seconds,
+                            )}</span
+                          >
+                        {/if}
                       </span>
                     </a>
                   {/each}

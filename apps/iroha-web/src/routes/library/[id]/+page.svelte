@@ -5,6 +5,7 @@
     cleanDescription,
     formatDate,
     formatProgressCount,
+    formatReadingDuration,
     mediaEventLabel,
     mediaWorkTotal,
     progressPercent,
@@ -95,16 +96,6 @@
 
   function eventDate(value?: string): string {
     return value ? formatDate(value) : "Undated";
-  }
-
-  function formatReadingDuration(seconds?: number): string {
-    if (!seconds || seconds <= 0) return "";
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}h ${mins}m read`;
-    }
-    return `${mins}m read`;
   }
 </script>
 

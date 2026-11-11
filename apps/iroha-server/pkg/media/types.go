@@ -52,6 +52,7 @@ type Item struct {
 	ItemRole             string
 	CoverImageURL        string
 	Publisher            string `gorm:"column:publisher"`
+	ReadingTimeSeconds   *int   `gorm:"column:reading_time_seconds"`
 	Status               *string
 	Position             *float64
 	Total                *float64
@@ -229,6 +230,7 @@ type Event struct {
 	ProgressPercent *float64  `gorm:"column:progress_percent"`
 	Rating          *float64  `gorm:"column:rating"`
 	RatingScale     *float64  `gorm:"column:rating_scale"`
+	Note            string    `gorm:"column:note"`
 }
 
 type EventListFilters struct {

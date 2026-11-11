@@ -39,6 +39,7 @@ type mediaResponse struct {
 	EpisodeCount       *int      `json:"episode_count,omitempty"`
 	ChapterCount       *int      `json:"chapter_count,omitempty"`
 	Publisher          string    `json:"publisher,omitempty"`
+	ReadingTimeSeconds *int      `json:"reading_time_seconds,omitempty"`
 	StartedOn          *string   `json:"started_on,omitempty"`
 	CompletedOn        *string   `json:"completed_on,omitempty"`
 }
@@ -180,6 +181,7 @@ type mediaHomeEventResponse struct {
 	Total           *float64  `json:"total,omitempty"`
 	ProgressPercent *float64  `json:"progress_percent,omitempty"`
 	Rating          *float64  `json:"rating,omitempty"`
+	Note            string    `json:"note,omitempty"`
 }
 
 func (s *Server) handleListMedia(w http.ResponseWriter, r *http.Request) {
@@ -486,6 +488,7 @@ func toMediaResponse(row media.Item) mediaResponse {
 		HiddenFromContinue: row.HiddenFromContinue,
 		NativeTitle:        row.NativeTitle,
 		Publisher:          row.Publisher,
+		ReadingTimeSeconds: row.ReadingTimeSeconds,
 		EpisodeCount:       row.EpisodeCount,
 		ChapterCount:       row.ChapterCount,
 		StartedOn:          partialDateString(row.StartedOnValue, row.StartedOnPrecision),

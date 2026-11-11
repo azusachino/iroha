@@ -110,6 +110,9 @@ func TestParseSnapshotMapsCreatorsFinishAndRefs(t *testing.T) {
 	if !event.EventAt.Equal(wantFinish) {
 		t.Fatalf("finished event at = %v, want %v", event.EventAt, wantFinish)
 	}
+	if event.Note != "Read for 1h 30m" {
+		t.Fatalf("finished event note = %q, want %q", event.Note, "Read for 1h 30m")
+	}
 }
 
 func TestParseSnapshotMapsCustomBookAndHonestStatus(t *testing.T) {
