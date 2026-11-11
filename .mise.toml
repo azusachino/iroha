@@ -5,3 +5,7 @@
 golangci-lint = "2.15"
 "cargo:sqlx-cli" = "0.9"
 ripgrep = "15"
+bun = "1.4"
+go = "1.27"
+rumdl = "0.3"
+uv = "0.13"
