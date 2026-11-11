@@ -2,6 +2,6 @@
 # a host prerequisite for the local backend stack.
 
 [tools]
-golangci-lint = "latest"
-"cargo:sqlx-cli" = "latest"
-ripgrep = "latest"
+golangci-lint = "2.15"
+"cargo:sqlx-cli" = "0.9"
+ripgrep = "15"
