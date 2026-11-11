@@ -153,6 +153,10 @@ func main() {
 		logger.Error("ensure Bangumi sync schedule", "error", err)
 		os.Exit(1)
 	}
+	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncDrifter, os.Getenv(config.EnvDrifterAPIToken) != "", os.Getenv(config.EnvDrifterSyncInterval)); err != nil {
+		logger.Error("ensure Drifter sync schedule", "error", err)
+		os.Exit(1)
+	}
 	if err := ensureSchedule(db, jobs.KindMediaBridgeRefresh, jobs.ScheduleKindInterval, defaultMediaBridgeRefreshInterval.String()); err != nil {
 		logger.Error("ensure media bridge refresh schedule", "error", err)
 		os.Exit(1)

@@ -68,6 +68,16 @@ Implement cross-edition work deduplication:
 2. Verify `/library/[id]` displays authors, translators, ISBN, and read completion dates.
 3. Verify monthly reports reflect finished books in media sections.
 
+### Slice 5: Recurring schedule wiring & page limit calibration
+
+1. In `apps/iroha-providers/drifter/connector.go`:
+   - Calibrate `DefaultLimit = 10` (from 50) and `DefaultClientTimeout = 60 * time.Second` to respect 1s upstream WeRead pacing.
+2. In `apps/iroha-runtime/config/config.go`:
+   - Add `EnvDrifterSyncInterval = "IROHA_DRIFTER_SYNC_INTERVAL"`.
+3. In `apps/iroha-job/main.go`:
+   - Wire `ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncDrifter, os.Getenv(config.EnvDrifterAPIToken) != "", os.Getenv(config.EnvDrifterSyncInterval))`.
+4. Update `schedule_integration_test.go` and run verification gates.
+
 ---
 
 ## Verification Gates

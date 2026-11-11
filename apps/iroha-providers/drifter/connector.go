@@ -32,8 +32,11 @@ const (
 	// ChangesPath is the authenticated incremental feed: books Drifter
 	// recorded at or after a watermark.
 	ChangesPath = "/api/v1/reading/changes"
-	// DefaultLimit is the page size requested when the connector has none.
-	DefaultLimit = 50
+	// DefaultLimit is the page size requested when the connector has none. It
+	// stays small on purpose: upstream WeRead paces one request per second, so a
+	// large page makes the gateway exceed its client timeout instead of
+	// paginating.
+	DefaultLimit = 10
 	// ChangesLimit is the page size requested from the changes feed.
 	ChangesLimit = 100
 	// SourceInstanceKey names the one Drifter gateway a receipt came from.
@@ -47,8 +50,10 @@ const (
 	snapshotFilename = "drifter_reading_snapshot.json"
 	// changesFilename names a stored changes page in evidence.
 	changesFilename = "drifter_reading_changes.json"
-	// DefaultClientTimeout bounds one page fetch.
-	DefaultClientTimeout = 30 * time.Second
+	// DefaultClientTimeout bounds one page fetch. A small page still pays
+	// WeRead's per-request pacing on the gateway side, so the bound is
+	// generous rather than tight.
+	DefaultClientTimeout = 60 * time.Second
 )
 
 // ErrSnapshotRequired is the protocol signal that the requested watermark is
