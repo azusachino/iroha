@@ -132,19 +132,31 @@ func mapBook(book readingSnapshotBook, location *time.Location) (observations.Me
 	if isbn := strings.TrimSpace(book.ISBN); isbn != "" {
 		media.ExternalRefs = append(media.ExternalRefs, observations.MediaExternalRef{Provider: sourceProviderISBN, ExternalID: isbn})
 	}
-	if target := book.MatchedTarget; target != nil && target.EditionID > 0 {
-		media.ExternalRefs = append(media.ExternalRefs, observations.MediaExternalRef{
-			Provider: sourceProviderHardcover, ExternalID: strconv.FormatInt(target.EditionID, 10),
-		})
+	if target := book.MatchedTarget; target != nil {
+		if target.EditionID > 0 {
+			media.ExternalRefs = append(media.ExternalRefs, observations.MediaExternalRef{
+				Provider: sourceProviderHardcover, ExternalID: strconv.FormatInt(target.EditionID, 10),
+			})
+		}
+		if target.WorkID > 0 {
+			media.WorkExternalID = strconv.FormatInt(target.WorkID, 10)
+			media.WorkTitle = target.OriginalTitle
+		}
 	}
 
 	status := mapReadingStatus(book.Status)
 	percent := float64(book.ProgressPercent)
 	media.Status = status
+	var readingTime *int
+	if book.ReadingTimeSeconds > 0 {
+		rt := book.ReadingTimeSeconds
+		readingTime = &rt
+	}
 	media.ProgressState = &observations.MediaProgress{
-		Status:          status,
-		ProgressPercent: &percent,
-		LastUpdateAt:    book.LastReadAt,
+		Status:             status,
+		ProgressPercent:    &percent,
+		LastUpdateAt:       book.LastReadAt,
+		ReadingTimeSeconds: readingTime,
 	}
 	if book.StartedOn != nil {
 		if startedOn, err := parseDay(*book.StartedOn); err == nil {

@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -57,10 +58,11 @@ const drifterIntegrationSnapshot = `{
       "isbn": "9787532786331",
       "status": "completed",
       "progress_percent": 100,
+      "reading_time_seconds": 18240,
       "last_read_at": "2024-03-04T00:20:00+08:00",
       "finished_at": "2024-03-04T00:30:00+08:00",
       "is_custom": false,
-      "matched_target": {"target_provider": "hardcover", "work_id": 9001, "edition_id": 424242}
+      "matched_target": {"target_provider": "hardcover", "work_id": 9001, "edition_id": 424242, "original_title": "Klara and the Sun"}
     }
   ]
 }`
@@ -181,6 +183,9 @@ func assertDrifterProgress(t *testing.T, db *gorm.DB, itemID uuid.UUID) {
 	if progress.ProgressPercent == nil || *progress.ProgressPercent != 100 {
 		t.Fatalf("progress percent = %v, want 100", progress.ProgressPercent)
 	}
+	if progress.ReadingTimeSeconds == nil || *progress.ReadingTimeSeconds != 18240 {
+		t.Fatalf("reading time seconds = %v, want 18240", progress.ReadingTimeSeconds)
+	}
 }
 
 func cleanupDrifterIntegrationRows(t *testing.T, db *gorm.DB, importJobID, queueJobID, rawFileID uuid.UUID) {
@@ -214,7 +219,10 @@ func cleanupDrifterIntegrationRows(t *testing.T, db *gorm.DB, importJobID, queue
 		{"delete from tb_media_lists l where l.name = 'weread library' and not exists (select 1 from tb_media_list_items li where li.list_id = l.id)", nil},
 	}
 	if workID != nil {
-		statements = append(statements, cleanupStatement{"delete from tb_media_works where id = ?", []any{*workID}})
+		statements = append(statements,
+			cleanupStatement{"delete from tb_media_external_refs where scope_type = 'work' and scope_id = ?", []any{*workID}},
+			cleanupStatement{"delete from tb_media_works where id = ?", []any{*workID}},
+		)
 	}
 	for _, statement := range statements {
 		if err := db.Exec(statement.query, statement.args...).Error; err != nil {
@@ -551,7 +559,10 @@ func cleanupDrifterSyncRows(t *testing.T, db *gorm.DB, enqueuer *drifterIntegrat
 		{"delete from tb_media_lists l where l.name = 'weread library' and not exists (select 1 from tb_media_list_items li where li.list_id = l.id)", nil},
 	}
 	if workID != nil {
-		statements = append(statements, cleanupStatement{"delete from tb_media_works where id = ?", []any{*workID}})
+		statements = append(statements,
+			cleanupStatement{"delete from tb_media_external_refs where scope_type = 'work' and scope_id = ?", []any{*workID}},
+			cleanupStatement{"delete from tb_media_works where id = ?", []any{*workID}},
+		)
 	}
 	for _, queued := range enqueuer.enqueued {
 		statements = append(statements, cleanupStatement{"delete from tb_jobs where id = ?", []any{queued.queueJob.ID}})
@@ -563,5 +574,152 @@ func cleanupDrifterSyncRows(t *testing.T, db *gorm.DB, enqueuer *drifterIntegrat
 		if err := db.Exec(statement.query, statement.args...).Error; err != nil {
 			t.Errorf("cleanup %q: %v", statement.query, err)
 		}
+	}
+}
+
+// TestIntegrationDrifterCrossEditionWorkLinking verifies the Phase 3a work-linking
+// seam: when an English edition already exists linked to Hardcover work 9002,
+// importing the Chinese WeRead edition with matched_target.work_id=9002 attaches
+// it to the existing canonical tb_media_works row rather than creating a duplicate.
+// Both edition items remain distinct, their languages and publishers are preserved,
+// and an edition relation edge links them in tb_media_relations.
+func TestIntegrationDrifterCrossEditionWorkLinking(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	now := time.Now().UTC()
+	const crossEditionBookID = "integration-cross-edition-klara"
+
+	// Clean up any stale artifacts
+	_ = db.Exec("delete from tb_media_relations where provider = 'weread'").Error
+	_ = db.Exec("delete from tb_media_external_refs where provider = 'hardcover_work' and external_id = '9002'").Error
+
+	// 1. Seed an English edition linked to hardcover_work/9002
+	workID := uuid.New()
+	if err := db.Create(&models.MediaWork{
+		ID: workID, WorkKind: "work", PrimaryTitle: "Klara and the Sun",
+		OriginalTitle: "Klara and the Sun", OriginalLanguage: "en",
+		CreatedAt: now, UpdatedAt: now,
+	}).Error; err != nil {
+		t.Fatalf("create canonical work: %v", err)
+	}
+	defer func() {
+		_ = db.Exec("delete from tb_media_relations where provider = 'weread'").Error
+		_ = db.Exec("delete from tb_media_items where work_id = ?", workID).Error
+		_ = db.Exec("delete from tb_media_external_refs where scope_type = 'work' and scope_id = ?", workID).Error
+		_ = db.Exec("delete from tb_media_works where id = ?", workID).Error
+	}()
+
+	workRefID := uuid.New()
+	if err := db.Create(&models.MediaExternalRef{
+		ID: workRefID, ScopeType: "work", ScopeID: workID,
+		Provider: "hardcover_work", ExternalID: "9002", MatchedBy: "provider_id",
+		CreatedAt: now,
+	}).Error; err != nil {
+		t.Fatalf("create work external ref: %v", err)
+	}
+
+	englishItemID := uuid.New()
+	if err := db.Create(&models.MediaItem{
+		ID: englishItemID, WorkID: &workID, MediaType: "book", ItemRole: "book",
+		Title: "Klara and the Sun", OriginalTitle: "Klara and the Sun", Language: "en",
+		Publisher: "Faber & Faber", CreatedAt: now, UpdatedAt: now,
+	}).Error; err != nil {
+		t.Fatalf("create english edition item: %v", err)
+	}
+	defer func() {
+		_ = db.Exec("delete from tb_media_external_refs where scope_type = 'item' and scope_id = ?", englishItemID).Error
+		_ = db.Exec("delete from tb_media_items where id = ?", englishItemID).Error
+	}()
+
+	englishItemRefID := uuid.New()
+	if err := db.Create(&models.MediaExternalRef{
+		ID: englishItemRefID, ScopeType: "item", ScopeID: englishItemID,
+		Provider: "hardcover", ExternalID: "424243", MatchedBy: "provider_id",
+		CreatedAt: now,
+	}).Error; err != nil {
+		t.Fatalf("create english item external ref: %v", err)
+	}
+
+	// 2. Now run WeRead import with matched_target.work_id = 9002
+	crossEditionSnapshot := strings.ReplaceAll(
+		strings.ReplaceAll(drifterIntegrationSnapshot, drifterIntegrationBookID, crossEditionBookID),
+		`"work_id": 9001`, `"work_id": 9002`,
+	)
+	body := []byte(crossEditionSnapshot)
+	rawID := uuid.New()
+	hash := sha256.Sum256(body)
+	storagePath := filepath.Join(t.TempDir(), "drifter_reading_cross_edition.json")
+	if err := os.WriteFile(storagePath, body, 0o600); err != nil {
+		t.Fatalf("write drifter snapshot: %v", err)
+	}
+	shaStr := hex.EncodeToString(hash[:])
+	_ = db.Exec("delete from tb_import_snapshots where import_job_id in (select id from tb_import_jobs where raw_file_id in (select id from tb_raw_files where sha256 = ?))", shaStr)
+	_ = db.Exec("delete from tb_import_jobs where raw_file_id in (select id from tb_raw_files where sha256 = ?)", shaStr)
+	_ = db.Exec("delete from tb_raw_files where sha256 = ?", shaStr)
+	if err := db.Create(&models.RawFile{
+		ID: rawID, SHA256: shaStr, OriginalFilename: "drifter_reading_cross_edition.json",
+		ContentType: "application/json", SizeBytes: int64(len(body)), StoragePath: storagePath,
+		SourceKind: coreimports.KindDrifter, UploadedVia: "connector", ObservedAt: &now, CreatedAt: now,
+	}).Error; err != nil {
+		t.Fatalf("create raw file: %v", err)
+	}
+	enqueuer := &drifterIntegrationEnqueuer{db: db}
+	providers, err := provider.NewRegistry(drifter.NewAdapter())
+	if err != nil {
+		t.Fatalf("build provider registry: %v", err)
+	}
+	service := NewServiceWithRegistry(db, nil, DefaultParserVersion, enqueuer, nil, providers)
+	importJob, err := service.Create(CreateInput{
+		RawFileID:  ids.Encode(ids.RawFilePrefix, rawID),
+		ParserKind: coreimports.KindDrifter,
+	})
+	if err != nil {
+		t.Fatalf("create import job: %v", err)
+	}
+	defer func() {
+		_ = db.Exec("delete from tb_import_snapshots where import_job_id = ?", importJob.ID).Error
+		_ = db.Exec("delete from tb_import_jobs where id = ?", importJob.ID).Error
+		_ = db.Exec("delete from tb_jobs where id = ?", enqueuer.job.ID).Error
+		_ = db.Exec("delete from tb_raw_files where id = ?", rawID).Error
+	}()
+
+	ctx := jobs.WithClaim(context.Background(), jobs.Claim{JobID: enqueuer.job.ID, WorkerID: "drifter-integration", Attempt: 1})
+	if err := service.ProcessContext(ctx, importJob.ID); err != nil {
+		t.Fatalf("process drifter import: %v", err)
+	}
+
+	// 3. Assertions
+	var chineseRef models.MediaExternalRef
+	if err := db.Where("provider = ? and external_id = ?", "weread", crossEditionBookID).First(&chineseRef).Error; err != nil {
+		t.Fatalf("find chinese edition ref: %v", err)
+	}
+	chineseItemID := chineseRef.ScopeID
+	defer func() {
+		_ = db.Exec("delete from tb_media_creator_roles where scope_type = 'item' and scope_id = ?", chineseItemID).Error
+		_ = db.Exec("delete from tb_media_consumption_events where media_item_id = ?", chineseItemID).Error
+		_ = db.Exec("delete from tb_media_progress where media_item_id = ?", chineseItemID).Error
+		_ = db.Exec("delete from tb_media_titles where scope_type = 'item' and scope_id = ?", chineseItemID).Error
+		_ = db.Exec("delete from tb_media_external_refs where scope_type = 'item' and scope_id = ?", chineseItemID).Error
+		_ = db.Exec("delete from tb_media_items where id = ?", chineseItemID).Error
+	}()
+
+	if chineseItemID == englishItemID {
+		t.Fatalf("chinese edition collapsed into english item %v (items must remain separate editions)", englishItemID)
+	}
+
+	var chineseItem models.MediaItem
+	if err := db.First(&chineseItem, "id = ?", chineseItemID).Error; err != nil {
+		t.Fatalf("find chinese item: %v", err)
+	}
+	if chineseItem.WorkID == nil || *chineseItem.WorkID != workID {
+		t.Fatalf("chinese item work_id = %v, want shared work_id %v", chineseItem.WorkID, workID)
+	}
+	if chineseItem.Title != "克拉拉与太阳" || chineseItem.Language != "zh" {
+		t.Fatalf("chinese item title/language = %q/%q, want 克拉拉与太阳/zh", chineseItem.Title, chineseItem.Language)
+	}
+
+	// Check edition relation edge in tb_media_relations
+	var rel models.MediaRelation
+	if err := db.Where("from_id = ? and to_id = ? and relation_type = 'edition'", chineseItemID, englishItemID).First(&rel).Error; err != nil {
+		t.Fatalf("edition relation edge between chinese and english items not found: %v", err)
 	}
 }

@@ -198,40 +198,92 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 	}
 	var externalRef models.MediaExternalRef
 	if resolution.ItemID == uuid.Nil {
-		workID, err := ids.New()
-		if err != nil {
-			return uuid.Nil, err
+		now := time.Now().UTC()
+		var workID uuid.UUID
+		var isNewWork bool
+
+		// Work-level linking seam: when incoming item carries a verified work
+		// external identity (e.g. from Hardcover target bridge), link it to the
+		// existing canonical work rather than creating an orphaned 1:1 work.
+		if media.WorkExternalID != "" {
+			workRef, err := findExternalRef(tx, "hardcover_work", media.WorkExternalID)
+			if err != nil {
+				return uuid.Nil, err
+			}
+			if workRef != nil {
+				var existingWork models.MediaWork
+				if err := tx.First(&existingWork, "id = ?", workRef.ScopeID).Error; err == nil {
+					workID = workRef.ScopeID
+				} else {
+					_ = tx.Delete(&models.MediaExternalRef{}, workRef.ID)
+				}
+			}
 		}
+
+		if workID == uuid.Nil {
+			var err error
+			workID, err = ids.New()
+			if err != nil {
+				return uuid.Nil, err
+			}
+			isNewWork = true
+			// Native First: the authored title claim wins at creation, with the
+			// provider's display title as the fallback when no claim resolves.
+			// media.Language is the provider's declaration about the work itself; a
+			// provider that only knows the consumed edition's language must leave it
+			// empty, because the projection never guesses a language from script.
+			titleResolution := i18n.ResolveWorkTitles("", "", media.Language, titleCandidates(media.Titles))
+			primaryTitle := titleResolution.PrimaryTitle
+			if primaryTitle == "" {
+				if media.WorkTitle != "" {
+					primaryTitle = media.WorkTitle
+				} else {
+					primaryTitle = media.Title
+				}
+			}
+			originalTitle := titleResolution.OriginalTitle
+			if originalTitle == "" {
+				if media.WorkTitle != "" {
+					originalTitle = media.WorkTitle
+				} else {
+					originalTitle = media.Title
+				}
+			}
+			work := models.MediaWork{
+				ID:               workID,
+				WorkKind:         mediaWorkKind,
+				PrimaryTitle:     primaryTitle,
+				OriginalTitle:    originalTitle,
+				OriginalLanguage: titleResolution.OriginalLanguage,
+				Description:      media.Description,
+				CreatedAt:        now,
+				UpdatedAt:        now,
+			}
+			if err := tx.Create(&work).Error; err != nil {
+				return uuid.Nil, err
+			}
+			if media.WorkExternalID != "" {
+				workRefID, err := ids.New()
+				if err != nil {
+					return uuid.Nil, err
+				}
+				workRef := models.MediaExternalRef{
+					ID:         workRefID,
+					ScopeType:  "work",
+					ScopeID:    workID,
+					Provider:   "hardcover_work",
+					ExternalID: media.WorkExternalID,
+					MatchedBy:  "provider_id",
+					CreatedAt:  now,
+				}
+				if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&workRef).Error; err != nil {
+					return uuid.Nil, err
+				}
+			}
+		}
+
 		itemID, err := ids.New()
 		if err != nil {
-			return uuid.Nil, err
-		}
-		now := time.Now().UTC()
-		// Native First: the authored title claim wins at creation, with the
-		// provider's display title as the fallback when no claim resolves.
-		// media.Language is the provider's declaration about the work itself; a
-		// provider that only knows the consumed edition's language must leave it
-		// empty, because the projection never guesses a language from script.
-		titleResolution := i18n.ResolveWorkTitles("", "", media.Language, titleCandidates(media.Titles))
-		primaryTitle := titleResolution.PrimaryTitle
-		if primaryTitle == "" {
-			primaryTitle = media.Title
-		}
-		originalTitle := titleResolution.OriginalTitle
-		if originalTitle == "" {
-			originalTitle = media.Title
-		}
-		work := models.MediaWork{
-			ID:               workID,
-			WorkKind:         mediaWorkKind,
-			PrimaryTitle:     primaryTitle,
-			OriginalTitle:    originalTitle,
-			OriginalLanguage: titleResolution.OriginalLanguage,
-			Description:      media.Description,
-			CreatedAt:        now,
-			UpdatedAt:        now,
-		}
-		if err := tx.Create(&work).Error; err != nil {
 			return uuid.Nil, err
 		}
 		releaseDate, releasePrecision := canonicalReleaseDate(media)
@@ -293,10 +345,28 @@ func ensureMediaItem(tx *gorm.DB, media observations.Media, bridge MediaRefBridg
 			if err := tx.Delete(&models.MediaItem{}, itemID).Error; err != nil {
 				return uuid.Nil, err
 			}
-			if err := tx.Delete(&models.MediaWork{}, workID).Error; err != nil {
-				return uuid.Nil, err
+			if isNewWork {
+				_ = tx.Where("id = ? and not exists (select 1 from tb_media_items where work_id = ?)", workID, workID).Delete(&models.MediaWork{})
 			}
 			resolution.ItemID = existing.ScopeID
+		} else if !isNewWork && workID != uuid.Nil {
+			var siblings []models.MediaItem
+			if err := tx.Where("work_id = ? and id != ?", workID, itemID).Find(&siblings).Error; err == nil {
+				for _, sib := range siblings {
+					relID, _ := ids.New()
+					rel := models.MediaRelation{
+						ID:           relID,
+						FromType:     mediaScopeType,
+						FromID:       itemID,
+						ToType:       mediaScopeType,
+						ToID:         sib.ID,
+						RelationType: "edition",
+						Provider:     media.Provider,
+						CreatedAt:    now,
+					}
+					_ = tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&rel)
+				}
+			}
 		}
 		if resolution.ItemID == uuid.Nil {
 			resolution.ItemID = itemID
@@ -694,6 +764,7 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 		progress.LastUpdateAt = ps.LastUpdateAt
 		progress.CompletedOnValue, progress.CompletedOnPrecision = partialDateFields(ps.CompletedOn)
 		progress.PlayCount = ps.PlayCount
+		progress.ReadingTimeSeconds = ps.ReadingTimeSeconds
 		// Paused/on-hold entries stay status=in_progress but must not surface in
 		// the "continue" strip; fold the adapter's Paused flag into the column.
 		progress.HiddenFromContinue = ps.HiddenFromContinue || ps.Paused
@@ -727,6 +798,7 @@ func upsertMediaProgress(tx *gorm.DB, rawFile models.RawFile, itemID uuid.UUID, 
 		"completed_on_value":     progress.CompletedOnValue,
 		"completed_on_precision": progress.CompletedOnPrecision,
 		"play_count":             progress.PlayCount,
+		"reading_time_seconds":   progress.ReadingTimeSeconds,
 		"hidden_from_continue":   progress.HiddenFromContinue,
 		"source_kind":            progress.SourceKind,
 		"updated_at":             progress.UpdatedAt,

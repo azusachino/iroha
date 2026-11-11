@@ -17,6 +17,7 @@ export interface MediaRow {
   native_title?: string;
   episode_count?: number;
   chapter_count?: number;
+  publisher?: string;
   started_on?: string;
   completed_on?: string;
 }
@@ -105,6 +106,7 @@ export interface MediaDetail {
     last_update_at?: string;
     completed_on?: string;
     play_count: number;
+    reading_time_seconds?: number;
   };
   creators: { id: string; name: string; role: string }[];
   relations: {

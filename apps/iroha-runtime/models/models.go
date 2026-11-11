@@ -536,6 +536,7 @@ type MediaProgress struct {
 	CompletedOnValue     *time.Time `gorm:"column:completed_on_value;type:date"`
 	CompletedOnPrecision string
 	PlayCount            int
+	ReadingTimeSeconds   *int
 	HiddenFromContinue   bool
 	SourceKind           string
 	UpdatedAt            time.Time

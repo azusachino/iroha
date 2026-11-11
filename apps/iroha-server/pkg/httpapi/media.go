@@ -38,6 +38,7 @@ type mediaResponse struct {
 	NativeTitle        *string   `json:"native_title,omitempty"`
 	EpisodeCount       *int      `json:"episode_count,omitempty"`
 	ChapterCount       *int      `json:"chapter_count,omitempty"`
+	Publisher          string    `json:"publisher,omitempty"`
 	StartedOn          *string   `json:"started_on,omitempty"`
 	CompletedOn        *string   `json:"completed_on,omitempty"`
 }
@@ -64,16 +65,17 @@ type mediaWorkResponse struct {
 }
 
 type mediaProgressResponse struct {
-	Status          string     `json:"status"`
-	SourceKind      string     `json:"source_kind,omitempty"`
-	Unit            string     `json:"unit"`
-	Position        *float64   `json:"position,omitempty"`
-	Total           *float64   `json:"total,omitempty"`
-	ProgressPercent *float64   `json:"progress_percent,omitempty"`
-	StartedOn       *string    `json:"started_on,omitempty"`
-	LastUpdateAt    *time.Time `json:"last_update_at,omitempty"`
-	CompletedOn     *string    `json:"completed_on,omitempty"`
-	PlayCount       int        `json:"play_count"`
+	Status             string     `json:"status"`
+	SourceKind         string     `json:"source_kind,omitempty"`
+	Unit               string     `json:"unit"`
+	Position           *float64   `json:"position,omitempty"`
+	Total              *float64   `json:"total,omitempty"`
+	ProgressPercent    *float64   `json:"progress_percent,omitempty"`
+	StartedOn          *string    `json:"started_on,omitempty"`
+	LastUpdateAt       *time.Time `json:"last_update_at,omitempty"`
+	CompletedOn        *string    `json:"completed_on,omitempty"`
+	PlayCount          int        `json:"play_count"`
+	ReadingTimeSeconds *int       `json:"reading_time_seconds,omitempty"`
 }
 
 type mediaExternalRefResponse struct {
@@ -379,11 +381,12 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 		progress = &mediaProgressResponse{
 			Status: detail.Progress.Status, SourceKind: detail.Progress.SourceKind, Unit: detail.Progress.Unit,
 			Position: detail.Progress.Position, Total: detail.Progress.Total,
-			ProgressPercent: detail.Progress.ProgressPercent,
-			StartedOn:       partialDateString(detail.Progress.StartedOnValue, detail.Progress.StartedOnPrecision),
-			LastUpdateAt:    detail.Progress.LastUpdateAt,
-			CompletedOn:     partialDateString(detail.Progress.CompletedOnValue, detail.Progress.CompletedOnPrecision),
-			PlayCount:       detail.Progress.PlayCount,
+			ProgressPercent:    detail.Progress.ProgressPercent,
+			StartedOn:          partialDateString(detail.Progress.StartedOnValue, detail.Progress.StartedOnPrecision),
+			LastUpdateAt:       detail.Progress.LastUpdateAt,
+			CompletedOn:        partialDateString(detail.Progress.CompletedOnValue, detail.Progress.CompletedOnPrecision),
+			PlayCount:          detail.Progress.PlayCount,
+			ReadingTimeSeconds: detail.Progress.ReadingTimeSeconds,
 		}
 	}
 	writeJSON(w, http.StatusOK, mediaDetailResponse{
@@ -482,6 +485,7 @@ func toMediaResponse(row media.Item) mediaResponse {
 		Rating:             normalizedRating(row.Rating, row.RatingScale),
 		HiddenFromContinue: row.HiddenFromContinue,
 		NativeTitle:        row.NativeTitle,
+		Publisher:          row.Publisher,
 		EpisodeCount:       row.EpisodeCount,
 		ChapterCount:       row.ChapterCount,
 		StartedOn:          partialDateString(row.StartedOnValue, row.StartedOnPrecision),
