@@ -2,7 +2,6 @@
 # a host prerequisite for the local backend stack.
 
 [tools]
-rumdl = "latest"
 golangci-lint = "latest"
 "cargo:sqlx-cli" = "latest"
 ripgrep = "latest"
