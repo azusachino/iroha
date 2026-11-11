@@ -1,17 +1,37 @@
 package drifter
 
-import "time"
+import (
+	"time"
 
-// readingSnapshotResponse is one page of drifter-server's
-// GET /api/v1/reading/snapshot response. The page is stored verbatim as raw
-// evidence; the fields here exist only to read the pagination envelope.
-type readingSnapshotResponse struct {
-	Version       string                `json:"version"`
-	GeneratedAt   time.Time             `json:"generated_at"`
-	SourceAccount string                `json:"source_account"`
-	Cursor        string                `json:"cursor"`
-	HasMore       bool                  `json:"has_more"`
-	Books         []readingSnapshotBook `json:"books"`
+	connector "github.com/azusachino/iroha/apps/iroha-core/connector/v1"
+)
+
+// ReadingSnapshot is one page of drifter-server's reading feed, served by both
+// GET /api/v1/reading/snapshot (a whole shelf) and GET /api/v1/reading/changes
+// (books touched since a watermark). The page is stored verbatim as raw
+// evidence; these fields exist to read the envelope, the pagination and the
+// ordering facts. Nothing the gateway did not state is inferred here.
+type ReadingSnapshot struct {
+	Version        string                `json:"version"`
+	GeneratedAt    time.Time             `json:"generated_at"`
+	SourceIdentity string                `json:"source_identity"`
+	TargetIdentity string                `json:"target_identity,omitempty"`
+	Watermark      string                `json:"watermark"`
+	Cursor         string                `json:"cursor"`
+	HasMore        bool                  `json:"has_more"`
+	Books          []readingSnapshotBook `json:"books"`
+	// SnapshotRequired marks a body that refuses the requested watermark even
+	// without the matching HTTP status.
+	SnapshotRequired bool `json:"snapshot_required,omitempty"`
+	// SourceAccount is the pre-replication account field. The gateway now
+	// names its accounts through SourceIdentity/TargetIdentity; this stays
+	// readable so an older gateway's pages still decode.
+	SourceAccount string `json:"source_account,omitempty"`
+
+	// evidence is the exact response this page was decoded from, ready to be
+	// stored. Only the connector sets it; the adapter keeps parsing stored
+	// bytes so a replay reads the same evidence.
+	evidence connector.Snapshot
 }
 
 // readingSnapshotBook is Drifter's provider-neutral view of one shelf book.

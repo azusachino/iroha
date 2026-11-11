@@ -11,6 +11,7 @@ import (
 	connectorregistry "github.com/azusachino/iroha/apps/iroha-providers/connectors"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"gorm.io/gorm"
 )
 
@@ -35,6 +36,33 @@ func NewSyncRunner(db *gorm.DB, connectors *connectorregistry.Registry, snapshot
 	return &SyncRunner{db: db, connectors: connectors, snapshots: snapshots, imports: imports}
 }
 
+// syncRun is one media sync run's shared bookkeeping: the run row, the
+// connector's resumable state, the pages stored so far, and the phase the run
+// is currently in.
+type syncRun struct {
+	runner      *SyncRunner
+	item        connector.Connector
+	run         models.MediaSyncRun
+	state       models.MediaSyncState
+	credentials connector.Credentials
+	// cursor is where a resumed full snapshot would restart. It stays nil for
+	// an incremental run: a changes feed resumes from its watermark instead.
+	cursor      *connector.Cursor
+	phase       syncPhase
+	lastRawFile *models.RawFile
+}
+
+// syncPhase is what the current attempt is doing, in the terms coverage is
+// reported in: how the pages were fetched and which window they claim.
+type syncPhase struct {
+	ingestionMode string
+	windowStart   time.Time
+	runStart      time.Time
+}
+
+// Run executes one connector sync. A connector that can serve changes follows
+// the follower state machine; every other connector reads its whole current
+// state, as before.
 func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials connector.Credentials) error {
 	if connectorID == "" {
 		return errors.New("connector id is required")
@@ -56,76 +84,207 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 		_ = s.failSyncRun(run.ID, err)
 		return s.failSyncState(state, err, nil)
 	}
-	runStart := time.Now().UTC()
-	windowStart := runStart
-	if windowed, ok := item.(connector.CoverageWindowProvider); ok {
-		windowStart = windowed.CoverageWindowStart(cursor, runStart)
-	}
-	var lastRawFile *models.RawFile
-	fail := func(cause error) error {
-		if lastRawFile != nil {
-			// The run stored some pages but did not finish; say so.
-			_ = s.recordSyncCoverage(*lastRawFile, item.Descriptor().SourceKind, windowStart, runStart, coverageCompletenessPartial)
-		}
-		if runErr := s.failSyncRun(run.ID, cause); runErr != nil {
-			return runErr
-		}
-		return s.failSyncState(state, cause, cursor)
-	}
 	if err := s.updateSyncState(state, mediaSyncStatusRunning, nil, cursor, false); err != nil {
 		_ = s.failSyncRun(run.ID, err)
 		return err
 	}
+	job := &syncRun{runner: s, item: item, run: run, state: state, credentials: credentials}
+	return s.runFollower(ctx, job, cursor)
+}
 
-	for {
-		snapshot, nextCursor, fetchErr := item.Fetch(ctx, credentials, cursor)
-		if fetchErr != nil {
-			return fail(fetchErr)
-		}
-		if snapshot.SourceKind == "" {
-			snapshot.SourceKind = item.Descriptor().SourceKind
-		}
-		if snapshot.SourceKind != item.Descriptor().SourceKind {
-			return fail(fmt.Errorf("connector %q returned source kind %q, want %q", connectorID, snapshot.SourceKind, item.Descriptor().SourceKind))
-		}
-		if snapshot.Filename == "" {
-			snapshot.Filename = connectorID + ".json"
-		}
-		rawFile, err := s.snapshots.StoreSnapshot(ctx, snapshot)
+// runFollower executes the follower state machine. A connector that can serve
+// changes resumes from the watermark its latest receipt proved; when the
+// gateway can no longer serve that watermark the same run falls back to a full
+// snapshot, so the horizon signal is a state transition and never a failure.
+//
+// The sync-state cursor means "a full snapshot stopped mid-pagination", while a
+// receipt's ordering basis means "the incremental watermark". Keeping them
+// separate is what makes a resumed snapshot and a resumed changes feed
+// distinguishable.
+func (s *SyncRunner) runFollower(ctx context.Context, job *syncRun, cursor *connector.Cursor) error {
+	runStart := time.Now().UTC()
+	windowStart := runStart
+	if windowed, ok := job.item.(connector.CoverageWindowProvider); ok {
+		windowStart = windowed.CoverageWindowStart(cursor, runStart)
+	}
+	changes, servesChanges := job.item.(connector.ChangeFetcher)
+	if servesChanges && cursor == nil {
+		since, resumable, err := s.resumeWatermark(job.item.Descriptor().SourceKind)
 		if err != nil {
-			return fail(err)
+			return job.fail(err)
 		}
-		lastRawFile = &rawFile
-		if _, err := s.imports.Create(CreateInput{
-			RawFileID:  ids.Encode(ids.RawFilePrefix, rawFile.ID),
-			ParserKind: snapshot.SourceKind,
-			SyncRunID:  &run.ID,
-		}); err != nil {
-			return fail(err)
+		if resumable {
+			err := s.runChanges(ctx, job, changes, since, runStart)
+			if err == nil {
+				return nil
+			}
+			if !errors.Is(err, connector.ErrSnapshotRequired) {
+				return err
+			}
+			s.logNote("change watermark horizon exceeded, falling back to full snapshot",
+				"connector_id", job.item.Descriptor().ID,
+				"watermark", since.Format(time.RFC3339))
+			// The full snapshot starts at its first page, never mid-feed.
+			cursor = nil
+			windowStart = runStart
 		}
-		if err := s.touchSyncRun(run.ID); err != nil {
-			return fail(err)
-		}
+	}
+	return s.runSnapshot(ctx, job, cursor, windowStart, runStart)
+}
 
-		if err := s.updateSyncState(state, mediaSyncStatusRunning, nil, nextCursor, true); err != nil {
-			return fail(err)
+// resumeWatermark returns the ordering fact the latest stored receipt proved.
+// A source with no receipt, or one whose ordering basis is not a readable
+// timestamp, has nothing to resume from and must read a full snapshot.
+func (s *SyncRunner) resumeWatermark(sourceKind string) (time.Time, bool, error) {
+	var receipt models.SourceReceipt
+	err := s.db.Where("source_kind = ? and ordering_basis <> ''", sourceKind).
+		Order("received_at desc").
+		First(&receipt).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	since, err := time.Parse(time.RFC3339, receipt.OrderingBasis)
+	if err != nil {
+		s.logNote("unreadable source watermark; falling back to full snapshot",
+			"source_kind", sourceKind, "ordering_basis", receipt.OrderingBasis)
+		return time.Time{}, false, nil
+	}
+	return since.UTC(), true, nil
+}
+
+// runSnapshot reads the connector's whole current state, page by page. It is
+// both the bootstrap for a change-feed connector and the fallback when its
+// watermark is out of horizon.
+func (s *SyncRunner) runSnapshot(ctx context.Context, job *syncRun, cursor *connector.Cursor, windowStart, runStart time.Time) error {
+	job.cursor = cursor
+	job.phase = syncPhase{ingestionMode: rawfiles.IngestionModeFullSnapshot, windowStart: windowStart, runStart: runStart}
+	for {
+		snapshot, nextCursor, err := job.item.Fetch(ctx, job.credentials, cursor)
+		if err != nil {
+			return job.fail(err)
+		}
+		if err := job.storePage(ctx, snapshot); err != nil {
+			return job.fail(err)
+		}
+		if err := s.updateSyncState(job.state, mediaSyncStatusRunning, nil, nextCursor, true); err != nil {
+			return job.fail(err)
 		}
 		if nextCursor == nil {
-			if resumable, ok := item.(connector.ResumeCursorProvider); ok {
-				nextCursor = resumable.ResumeCursor()
-			}
-			if err := s.updateSyncState(state, mediaSyncStatusCompleted, nil, nextCursor, true); err != nil {
-				_ = s.failSyncRun(run.ID, err)
-				return err
-			}
-			if err := s.recordSyncCoverage(rawFile, snapshot.SourceKind, windowStart, runStart, coverageCompletenessCovered); err != nil {
-				_ = s.failSyncRun(run.ID, err)
-				return err
-			}
-			return s.completeSyncRun(run.ID)
+			return job.complete(nil)
 		}
 		cursor = nextCursor
+		job.cursor = nextCursor
 	}
+}
+
+// runChanges fetches the incremental feed from since until it is exhausted.
+// Each page is stored as its own evidence and queued for parsing, so a changed
+// book is updated without re-reading the whole shelf. A page that proves a
+// newer watermark becomes the next run's resume point through its receipt.
+//
+// It returns connector.ErrSnapshotRequired unwrapped when the feed refuses the
+// watermark, so the caller can fall back inside the same run.
+func (s *SyncRunner) runChanges(ctx context.Context, job *syncRun, changes connector.ChangeFetcher, since, runStart time.Time) error {
+	job.phase = syncPhase{ingestionMode: rawfiles.IngestionModeIncremental, windowStart: since, runStart: runStart}
+	var cursor *connector.Cursor
+	for {
+		page, err := changes.FetchChanges(ctx, job.credentials, since, cursor)
+		if err != nil {
+			if errors.Is(err, connector.ErrSnapshotRequired) {
+				return err
+			}
+			return job.fail(err)
+		}
+		// The watermark a changes page proves is the receipt's ordering basis,
+		// whatever the connector named it on the page.
+		if page.Watermark != "" {
+			page.Snapshot.OrderingBasis = page.Watermark
+		}
+		if err := job.storePage(ctx, page.Snapshot); err != nil {
+			return job.fail(err)
+		}
+		if err := s.updateSyncState(job.state, mediaSyncStatusRunning, nil, nil, true); err != nil {
+			return job.fail(err)
+		}
+		if page.Cursor == nil {
+			return job.complete(nil)
+		}
+		cursor = page.Cursor
+	}
+}
+
+// storePage persists one fetched page as raw evidence and queues its import.
+// The connector's own ingestion mode and ordering basis travel with the page
+// into its receipt; a connector that states neither gets the run's mode.
+func (s *syncRun) storePage(ctx context.Context, snapshot connector.Snapshot) error {
+	descriptor := s.item.Descriptor()
+	if snapshot.SourceKind == "" {
+		snapshot.SourceKind = descriptor.SourceKind
+	}
+	if snapshot.SourceKind != descriptor.SourceKind {
+		return fmt.Errorf("connector %q returned source kind %q, want %q", descriptor.ID, snapshot.SourceKind, descriptor.SourceKind)
+	}
+	if snapshot.Filename == "" {
+		snapshot.Filename = descriptor.ID + ".json"
+	}
+	if snapshot.IngestionMode == "" {
+		snapshot.IngestionMode = s.phase.ingestionMode
+	}
+	rawFile, err := s.runner.snapshots.StoreSnapshot(ctx, snapshot)
+	if err != nil {
+		return err
+	}
+	s.lastRawFile = &rawFile
+	if _, err := s.runner.imports.Create(CreateInput{
+		RawFileID:  ids.Encode(ids.RawFilePrefix, rawFile.ID),
+		ParserKind: snapshot.SourceKind,
+		SyncRunID:  &s.run.ID,
+	}); err != nil {
+		return err
+	}
+	return s.runner.touchSyncRun(s.run.ID)
+}
+
+// fail closes a run that stopped early. The pages it did store are recorded as
+// a partial assertion so nothing later mistakes them for a covered window.
+func (s *syncRun) fail(cause error) error {
+	if s.lastRawFile != nil {
+		_ = s.runner.recordSyncCoverage(*s.lastRawFile, s.item.Descriptor().SourceKind, s.phase.ingestionMode, s.phase.windowStart, s.phase.runStart, coverageCompletenessPartial)
+	}
+	if err := s.runner.failSyncRun(s.run.ID, cause); err != nil {
+		return err
+	}
+	return s.runner.failSyncState(s.state, cause, s.cursor)
+}
+
+// complete closes a run that read its whole window, recording what it proved.
+func (s *syncRun) complete(nextCursor *connector.Cursor) error {
+	if resumable, ok := s.item.(connector.ResumeCursorProvider); ok {
+		nextCursor = resumable.ResumeCursor()
+	}
+	if err := s.runner.updateSyncState(s.state, mediaSyncStatusCompleted, nil, nextCursor, true); err != nil {
+		_ = s.runner.failSyncRun(s.run.ID, err)
+		return err
+	}
+	if s.lastRawFile != nil {
+		if err := s.runner.recordSyncCoverage(*s.lastRawFile, s.item.Descriptor().SourceKind, s.phase.ingestionMode, s.phase.windowStart, s.phase.runStart, coverageCompletenessCovered); err != nil {
+			_ = s.runner.failSyncRun(s.run.ID, err)
+			return err
+		}
+	}
+	return s.runner.completeSyncRun(s.run.ID)
+}
+
+// logNote records a state-machine note when the runner has a service to log
+// through.
+func (s *SyncRunner) logNote(message string, args ...any) {
+	if s.imports == nil {
+		return
+	}
+	s.imports.logger.Info(message, args...)
 }
 
 func (s *SyncRunner) syncState(connectorID string) (models.MediaSyncState, error) {

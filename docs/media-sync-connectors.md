@@ -256,9 +256,19 @@ WeRead reading state now arrives through **Drifter (`drifter-server`)**, the pro
 
 Shipped in this slice:
 
-- **Connector + adapter split, unchanged.** `apps/iroha-providers/drifter/connector.go` fetches one page of `GET /api/v1/reading/snapshot?account=default&limit=N`
+- **Connector + adapter split, unchanged.** `apps/iroha-providers/drifter/connector.go` fetches one page of `GET /api/v1/reading/snapshot?limit=N`
   (plus `&cursor=` while `has_more`) with `Authorization: Bearer <DRIFTER_API_TOKEN>` from `DRIFTER_BASE_URL`. Each page is stored verbatim as raw evidence under
   source kind `drifter_reading_snapshot`; the adapter is a pure parser over those bytes. Worker job kind: `media_sync_drifter`, connector id `drifter`.
+- **The gateway names its own accounts.** No `account=` parameter is sent: the page's `source_identity`/`target_identity` fields carry that fact, so a request
+  cannot silently fall back to a server default the owner never chose.
+- **Replication follows a watermark, not a page cursor.** The page envelope carries `watermark` (the highest observed source timestamp) and the connector stores
+  it on the page's `tb_source_receipts.ordering_basis`. `GET /api/v1/reading/changes?since=<RFC3339>&limit=100` (plus `&cursor=` while `has_more`) serves only the
+  books Drifter recorded at or after that watermark. `connector.ChangeFetcher` is the protocol contract; `connector.ErrSnapshotRequired` is the signal that the
+  watermark is out of horizon.
+- **Follower state machine in the sync runner.** `imports.SyncRunner` resumes from the latest receipt's ordering basis. No watermark means a bootstrap full
+  snapshot (`ingestion_mode=full_snapshot`). A readable watermark means a changes run (`ingestion_mode=incremental`). A 410 Gone, or a `snapshot_required` body,
+  makes the same run fall back to a full snapshot instead of failing. The sync-state cursor stays reserved for an interrupted full-snapshot pagination, so the two
+  resume points never get confused.
 - **Identity stays with the source provider.** A Drifter book is persisted as a `weread` item (`provider`/external ref `weread`/`source_book_id`), so a future
   direct WeRead path claims the same item instead of creating a copy. `isbn` and a confirmed `matched_target.edition_id` become additional external refs
   (`isbn`, `hardcover`).

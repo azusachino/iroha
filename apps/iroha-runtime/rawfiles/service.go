@@ -106,7 +106,10 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 				return models.RawFile{}, false, err
 			}
 		}
-		receipt, receiptErr := s.recordReceipt(existing, input.SourceKind, input.UploadedVia, input.SourceInstanceKey, input.IngestionMode, input.ObservedAt, now)
+		receipt, receiptErr := s.recordReceipt(existing, receiptInput{
+			SourceKind: input.SourceKind, UploadedVia: input.UploadedVia, InstanceKey: input.SourceInstanceKey,
+			IngestionMode: input.IngestionMode, ObservedAt: input.ObservedAt, ReceivedAt: now,
+		})
 		if receiptErr != nil {
 			return models.RawFile{}, false, receiptErr
 		}
@@ -137,7 +140,10 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 	if err := s.db.Create(&rawFile).Error; err != nil {
 		_ = os.Remove(storagePath)
 		if existing, found, findErr := s.findByHash(hash); findErr == nil && found {
-			receipt, receiptErr := s.recordReceipt(existing, input.SourceKind, input.UploadedVia, input.SourceInstanceKey, input.IngestionMode, input.ObservedAt, now)
+			receipt, receiptErr := s.recordReceipt(existing, receiptInput{
+				SourceKind: input.SourceKind, UploadedVia: input.UploadedVia, InstanceKey: input.SourceInstanceKey,
+				IngestionMode: input.IngestionMode, ObservedAt: input.ObservedAt, ReceivedAt: now,
+			})
 			if receiptErr != nil {
 				return models.RawFile{}, false, receiptErr
 			}
@@ -146,7 +152,10 @@ func (s *Service) Create(input CreateInput) (models.RawFile, bool, error) {
 		}
 		return models.RawFile{}, false, err
 	}
-	receipt, err := s.recordReceipt(rawFile, input.SourceKind, input.UploadedVia, input.SourceInstanceKey, input.IngestionMode, input.ObservedAt, now)
+	receipt, err := s.recordReceipt(rawFile, receiptInput{
+		SourceKind: input.SourceKind, UploadedVia: input.UploadedVia, InstanceKey: input.SourceInstanceKey,
+		IngestionMode: input.IngestionMode, ObservedAt: input.ObservedAt, ReceivedAt: now,
+	})
 	if err != nil {
 		_ = s.db.Delete(&models.RawFile{}, "id = ?", rawFile.ID).Error
 		_ = os.Remove(storagePath)
@@ -183,7 +192,11 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 				return models.RawFile{}, err
 			}
 		}
-		receipt, receiptErr := s.recordReceipt(existing, snapshot.SourceKind, "connector", snapshot.SourceInstanceKey, snapshot.IngestionMode, timePtrOrNow(snapshot.ObservedAt, now), now)
+		receipt, receiptErr := s.recordReceipt(existing, receiptInput{
+			SourceKind: snapshot.SourceKind, UploadedVia: "connector", InstanceKey: snapshot.SourceInstanceKey,
+			IngestionMode: snapshot.IngestionMode, OrderingBasis: snapshot.OrderingBasis,
+			ObservedAt: timePtrOrNow(snapshot.ObservedAt, now), ReceivedAt: now,
+		})
 		if receiptErr != nil {
 			return models.RawFile{}, receiptErr
 		}
@@ -216,7 +229,11 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 	if err := s.db.Create(&rawFile).Error; err != nil {
 		_ = os.Remove(storagePath)
 		if existing, found, findErr := s.findByHash(hash); findErr == nil && found {
-			receipt, receiptErr := s.recordReceipt(existing, snapshot.SourceKind, "connector", snapshot.SourceInstanceKey, snapshot.IngestionMode, timePtrOrNow(snapshot.ObservedAt, now), now)
+			receipt, receiptErr := s.recordReceipt(existing, receiptInput{
+				SourceKind: snapshot.SourceKind, UploadedVia: "connector", InstanceKey: snapshot.SourceInstanceKey,
+				IngestionMode: snapshot.IngestionMode, OrderingBasis: snapshot.OrderingBasis,
+				ObservedAt: timePtrOrNow(snapshot.ObservedAt, now), ReceivedAt: now,
+			})
 			if receiptErr != nil {
 				return models.RawFile{}, receiptErr
 			}
@@ -225,7 +242,11 @@ func (s *Service) StoreSnapshot(ctx context.Context, snapshot connector.Snapshot
 		}
 		return models.RawFile{}, err
 	}
-	receipt, err := s.recordReceipt(rawFile, snapshot.SourceKind, "connector", snapshot.SourceInstanceKey, snapshot.IngestionMode, rawFile.ObservedAt, now)
+	receipt, err := s.recordReceipt(rawFile, receiptInput{
+		SourceKind: snapshot.SourceKind, UploadedVia: "connector", InstanceKey: snapshot.SourceInstanceKey,
+		IngestionMode: snapshot.IngestionMode, OrderingBasis: snapshot.OrderingBasis,
+		ObservedAt: rawFile.ObservedAt, ReceivedAt: now,
+	})
 	if err != nil {
 		_ = s.db.Delete(&models.RawFile{}, "id = ?", rawFile.ID).Error
 		_ = os.Remove(storagePath)
@@ -319,20 +340,36 @@ func writePrivateSnapshot(path string, body []byte) error {
 	return nil
 }
 
-func (s *Service) recordReceipt(rawFile models.RawFile, sourceKind, uploadedVia, instanceKey, ingestionMode string, observedAt *time.Time, receivedAt time.Time) (models.SourceReceipt, error) {
+// receiptInput is one receipt's provenance. Empty values fall back to the raw
+// file's own source kind and a full-snapshot ingestion mode; ordering basis is
+// empty for a page that proves nothing about ordering.
+type receiptInput struct {
+	SourceKind    string
+	UploadedVia   string
+	InstanceKey   string
+	IngestionMode string
+	OrderingBasis string
+	ObservedAt    *time.Time
+	ReceivedAt    time.Time
+}
+
+func (s *Service) recordReceipt(rawFile models.RawFile, input receiptInput) (models.SourceReceipt, error) {
+	sourceKind := input.SourceKind
 	if sourceKind == "" {
 		sourceKind = rawFile.SourceKind
 	}
+	instanceKey := input.InstanceKey
 	if instanceKey == "" {
-		instanceKey = uploadedVia
+		instanceKey = input.UploadedVia
 	}
 	if instanceKey == "" {
 		instanceKey = "unknown"
 	}
+	ingestionMode := input.IngestionMode
 	if ingestionMode == "" {
 		ingestionMode = IngestionModeFullSnapshot
 	}
-	now := receivedAt.UTC()
+	now := input.ReceivedAt.UTC()
 	instanceID, err := ids.New()
 	if err != nil {
 		return models.SourceReceipt{}, err
@@ -348,7 +385,8 @@ func (s *Service) recordReceipt(rawFile models.RawFile, sourceKind, uploadedVia,
 		SourceKind:       sourceKind,
 		IngestionMode:    ingestionMode,
 		ScopeJSON:        json.RawMessage(`{}`),
-		ObservedAt:       observedAt,
+		OrderingBasis:    input.OrderingBasis,
+		ObservedAt:       input.ObservedAt,
 		ReceivedAt:       now,
 		CreatedAt:        now,
 	}

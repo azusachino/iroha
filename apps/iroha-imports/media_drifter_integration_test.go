@@ -7,22 +7,35 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
+	connector "github.com/azusachino/iroha/apps/iroha-core/connector/v1"
 	coreimports "github.com/azusachino/iroha/apps/iroha-core/imports"
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
+	connectorregistry "github.com/azusachino/iroha/apps/iroha-providers/connectors"
 	"github.com/azusachino/iroha/apps/iroha-providers/drifter"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/jobs"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 const drifterIntegrationBookID = "integration-drifter-klara"
+
+// drifterIntegrationWorker is the worker identity the integration enqueuer
+// claims jobs under.
+const drifterIntegrationWorker = "drifter-integration"
 
 // drifterIntegrationSnapshot is one page of the Drifter reading snapshot shape
 // documented in docs/plans/2026-11-11-drifter-reading-gateway-integration.md:
@@ -220,8 +233,17 @@ type cleanupStatement struct {
 // the claim real means ProcessContext runs the same protected transaction an
 // actual worker does instead of a test-only bypass.
 type drifterIntegrationEnqueuer struct {
-	db  *gorm.DB
-	job models.Job
+	db       *gorm.DB
+	job      models.Job
+	enqueued []drifterIntegrationQueued
+	drained  int
+}
+
+// drifterIntegrationQueued pairs a queued parse job with the import it will
+// process, so a test can drain a sync run's imports the way the worker would.
+type drifterIntegrationQueued struct {
+	importJobID uuid.UUID
+	queueJob    models.Job
 }
 
 func (e *drifterIntegrationEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (models.Job, error) {
@@ -230,7 +252,7 @@ func (e *drifterIntegrationEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload
 		return models.Job{}, err
 	}
 	now := time.Now().UTC()
-	worker := "drifter-integration"
+	worker := drifterIntegrationWorker
 	e.job = models.Job{
 		ID: uuid.New(), Kind: kind, Status: jobs.StatusRunning, PayloadJSON: encoded,
 		Attempts: 1, MaxAttempts: jobs.DefaultMaxAttempts, RunAfter: now,
@@ -239,5 +261,307 @@ func (e *drifterIntegrationEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload
 	if tx == nil {
 		tx = e.db
 	}
-	return e.job, tx.Create(&e.job).Error
+	if err := tx.Create(&e.job).Error; err != nil {
+		return models.Job{}, err
+	}
+	e.enqueued = append(e.enqueued, drifterIntegrationQueued{importJobID: importJobIDFromPayload(payload), queueJob: e.job})
+	return e.job, nil
+}
+
+// drain returns the parse jobs enqueued since the previous drain.
+func (e *drifterIntegrationEnqueuer) drain() []drifterIntegrationQueued {
+	pending := e.enqueued[e.drained:]
+	e.drained = len(e.enqueued)
+	return pending
+}
+
+func importJobIDFromPayload(payload any) uuid.UUID {
+	object, ok := payload.(map[string]any)
+	if !ok {
+		return uuid.Nil
+	}
+	value, ok := object["import_job_id"].(string)
+	if !ok {
+		return uuid.Nil
+	}
+	id, err := uuid.Parse(value)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
+}
+
+// TestIntegrationDrifterSyncFollowerStateMachine drives the real sync runner
+// against a stand-in drifter-server. It locks the replication state machine:
+// a first run bootstraps from a full snapshot and stores its watermark, the
+// next run asks only for changes since that watermark, and a watermark the
+// gateway no longer serves falls back to a full snapshot inside the same run.
+func TestIntegrationDrifterSyncFollowerStateMachine(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	// The watermark is read from the latest receipt of the source kind, and
+	// the run lock is per connector id, so a row left by an interrupted run
+	// would steer this test. The integration database is disposable.
+	for _, statement := range []string{
+		"delete from tb_source_receipts where source_kind = '" + coreimports.KindDrifter + "'",
+		"delete from tb_source_instances where provider = '" + coreimports.KindDrifter + "'",
+		"delete from tb_media_sync_state where connector_id = '" + drifter.ProviderID + "'",
+	} {
+		if err := db.Exec(statement).Error; err != nil {
+			t.Fatalf("reset drifter sync state (%s): %v", statement, err)
+		}
+	}
+
+	feed := &drifterSyncFeed{}
+	server := httptest.NewServer(feed)
+	t.Cleanup(server.Close)
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	providers, err := provider.NewRegistry(drifter.NewAdapter())
+	if err != nil {
+		t.Fatalf("build provider registry: %v", err)
+	}
+	enqueuer := &drifterIntegrationEnqueuer{db: db}
+	service := NewServiceWithRegistry(db, logger, DefaultParserVersion, enqueuer, nil, providers)
+	store, err := rawfiles.NewService(db, t.TempDir())
+	if err != nil {
+		t.Fatalf("create raw file service: %v", err)
+	}
+	connectors, err := connectorregistry.New(drifter.NewConnector(server.URL, "sync-token"))
+	if err != nil {
+		t.Fatalf("build connector registry: %v", err)
+	}
+	runner := NewSyncRunner(db, connectors, store, service)
+	t.Cleanup(func() { cleanupDrifterSyncRows(t, db, enqueuer) })
+
+	// 1. Bootstrap: no stored watermark, so the run reads the whole shelf and
+	//    its receipt becomes the resume point.
+	feed.serveSnapshot(drifterSyncPage("2026-11-11T10:00:00Z", "completed", 100, "2024-03-04T00:20:00+08:00", "2024-03-04T00:30:00+08:00"))
+	if err := runner.Run(context.Background(), drifter.ProviderID, connector.Credentials{}); err != nil {
+		t.Fatalf("bootstrap sync: %v", err)
+	}
+	processDrifterSyncImports(t, service, enqueuer)
+	assertDrifterSyncRun(t, db, rawfiles.IngestionModeFullSnapshot, "2026-11-11T10:00:00Z")
+	assertDrifterSyncProgress(t, db, "completed", 100)
+	if since := feed.requestedSince(); len(since) != 0 {
+		t.Fatalf("bootstrap requested changes since %v, want a full snapshot only", since)
+	}
+
+	// 2. Steady state: the run asks for changes since the stored watermark and
+	//    stores only the changed book.
+	feed.serveChanges(drifterSyncPage("2026-11-11T15:00:00Z", "reading", 55, "2026-11-11T14:00:00Z", ""))
+	if err := runner.Run(context.Background(), drifter.ProviderID, connector.Credentials{}); err != nil {
+		t.Fatalf("incremental sync: %v", err)
+	}
+	processDrifterSyncImports(t, service, enqueuer)
+	if since := feed.requestedSince(); len(since) != 1 || since[0] != "2026-11-11T10:00:00Z" {
+		t.Fatalf("incremental requested changes since %v, want the bootstrap watermark", since)
+	}
+	assertDrifterSyncRun(t, db, rawfiles.IngestionModeIncremental, "2026-11-11T15:00:00Z")
+	assertDrifterSyncProgress(t, db, "in_progress", 55)
+
+	// 3. Expired horizon: the changes feed answers 410 Gone, so the same run
+	//    falls back to a full snapshot, finishes completed, and stores the new
+	//    watermark instead of failing the sync.
+	feed.expireHorizon(drifterSyncPage("2026-11-12T09:00:00Z", "reading", 60, "2026-11-12T08:00:00Z", ""))
+	if err := runner.Run(context.Background(), drifter.ProviderID, connector.Credentials{}); err != nil {
+		t.Fatalf("fallback sync: %v", err)
+	}
+	processDrifterSyncImports(t, service, enqueuer)
+	if since := feed.requestedSince(); len(since) != 2 || since[1] != "2026-11-11T15:00:00Z" {
+		t.Fatalf("fallback requested changes since %v, want the incremental watermark", since)
+	}
+	assertDrifterSyncRun(t, db, rawfiles.IngestionModeFullSnapshot, "2026-11-12T09:00:00Z")
+	assertDrifterSyncProgress(t, db, "in_progress", 60)
+}
+
+// drifterSyncFeed is a stand-in drifter-server. It serves the snapshot and
+// changes endpoints from programmable bodies and records the watermark each
+// changes request asked for, so a test can prove what the runner resumed from.
+type drifterSyncFeed struct {
+	mu       sync.Mutex
+	snapshot string
+	changes  string
+	gone     bool
+	since    []string
+}
+
+func (f *drifterSyncFeed) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	switch r.URL.Path {
+	case drifter.SnapshotPath:
+		_, _ = w.Write([]byte(f.snapshot))
+	case drifter.ChangesPath:
+		f.since = append(f.since, r.URL.Query().Get("since"))
+		if f.gone {
+			w.WriteHeader(http.StatusGone)
+			_, _ = w.Write([]byte(`{"error":"horizon_exceeded","message":"watermark is older than 14 days; full snapshot required","snapshot_required":true}`))
+			return
+		}
+		_, _ = w.Write([]byte(f.changes))
+	default:
+		w.WriteHeader(http.StatusNotFound)
+	}
+}
+
+func (f *drifterSyncFeed) serveSnapshot(body string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.snapshot, f.gone = body, false
+}
+
+func (f *drifterSyncFeed) serveChanges(body string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.changes, f.gone = body, false
+}
+
+// expireHorizon keeps serving the snapshot but refuses every changes request.
+func (f *drifterSyncFeed) expireHorizon(body string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.snapshot, f.gone = body, true
+}
+
+func (f *drifterSyncFeed) requestedSince() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.since...)
+}
+
+// drifterSyncPage renders one page of the reading feed for the fixture book.
+// finishedAt is omitted for a changes page, which carries only what moved.
+func drifterSyncPage(watermark, status string, progress int, lastReadAt, finishedAt string) string {
+	finished := ""
+	if finishedAt != "" {
+		finished = `,"finished_at":"` + finishedAt + `"`
+	}
+	return `{"version":"1.0","source_identity":"weread:23849102","watermark":"` + watermark + `","has_more":false,"books":[{
+  "source_provider":"weread","source_book_id":"` + drifterIntegrationBookID + `",
+  "title":"克拉拉与太阳","author":"石黑一雄","translator":"赵松","publisher":"上海译文出版社",
+  "isbn":"9787532786331","status":"` + status + `","progress_percent":` + strconv.Itoa(progress) + `,
+  "last_read_at":"` + lastReadAt + `"` + finished + `,
+  "is_custom":false,"matched_target":{"target_provider":"hardcover","work_id":9001,"edition_id":424242}
+}]}`
+}
+
+func processDrifterSyncImports(t *testing.T, service *Service, enqueuer *drifterIntegrationEnqueuer) {
+	t.Helper()
+	for _, queued := range enqueuer.drain() {
+		if queued.importJobID == uuid.Nil {
+			t.Fatalf("enqueued parse job %s carries no import job id", queued.queueJob.ID)
+		}
+		ctx := jobs.WithClaim(context.Background(), jobs.ClaimFor(queued.queueJob, drifterIntegrationWorker))
+		if err := service.ProcessContext(ctx, queued.importJobID); err != nil {
+			t.Fatalf("process drifter import %s: %v", queued.importJobID, err)
+		}
+	}
+}
+
+// assertDrifterSyncRun checks the newest drifter run finished completed with a
+// receipt proving the expected ingestion mode and watermark, and that its
+// coverage assertion says the same thing.
+func assertDrifterSyncRun(t *testing.T, db *gorm.DB, ingestionMode, watermark string) {
+	t.Helper()
+	var run models.MediaSyncRun
+	if err := db.Where("connector_id = ?", drifter.ProviderID).Order("started_at desc").First(&run).Error; err != nil {
+		t.Fatalf("load latest drifter sync run: %v", err)
+	}
+	if run.Status != syncRunStatusCompleted || run.FinishedAt == nil {
+		t.Fatalf("sync run status = %q (finished %v), want completed", run.Status, run.FinishedAt)
+	}
+	var receipts []struct {
+		IngestionMode string
+		OrderingBasis string
+	}
+	if err := db.Raw(`select distinct r.ingestion_mode, r.ordering_basis
+from tb_source_receipts r
+join tb_import_jobs j on j.raw_file_id = r.raw_file_id
+where j.sync_run_id = ?`, run.ID).Scan(&receipts).Error; err != nil {
+		t.Fatalf("load run receipts: %v", err)
+	}
+	if len(receipts) != 1 || receipts[0].IngestionMode != ingestionMode || receipts[0].OrderingBasis != watermark {
+		t.Fatalf("run receipts = %#v, want one %s receipt with watermark %s", receipts, ingestionMode, watermark)
+	}
+	var covered int64
+	if err := db.Raw(`select count(*) from tb_source_coverage_assertions a
+join tb_source_receipts r on r.id = a.source_receipt_id
+join tb_import_jobs j on j.raw_file_id = r.raw_file_id
+where j.sync_run_id = ? and a.category = 'media_list' and a.completeness = 'covered' and a.ingestion_mode = ?`, run.ID, ingestionMode).Scan(&covered).Error; err != nil || covered != 1 {
+		t.Fatalf("covered media_list assertions = %d (err %v), want 1 with mode %s", covered, err, ingestionMode)
+	}
+}
+
+func assertDrifterSyncProgress(t *testing.T, db *gorm.DB, status string, percent float64) {
+	t.Helper()
+	var itemRef models.MediaExternalRef
+	if err := db.Where("provider = ? and external_id = ?", "weread", drifterIntegrationBookID).First(&itemRef).Error; err != nil {
+		t.Fatalf("load weread external ref: %v", err)
+	}
+	var progress models.MediaProgress
+	if err := db.First(&progress, "media_item_id = ?", itemRef.ScopeID).Error; err != nil {
+		t.Fatalf("load media progress: %v", err)
+	}
+	if progress.Status != status {
+		t.Fatalf("progress status = %q, want %q", progress.Status, status)
+	}
+	if progress.ProgressPercent == nil || *progress.ProgressPercent != percent {
+		t.Fatalf("progress percent = %v, want %v", progress.ProgressPercent, percent)
+	}
+}
+
+// cleanupDrifterSyncRows removes everything the state-machine test created:
+// media rows for the fixture book, then its evidence, imports, queue jobs, raw
+// files, source instances and the sync bookkeeping rows themselves.
+func cleanupDrifterSyncRows(t *testing.T, db *gorm.DB, enqueuer *drifterIntegrationEnqueuer) {
+	t.Helper()
+	connectorID := drifter.ProviderID
+	var rawFileIDs []uuid.UUID
+	if err := db.Raw(`select distinct raw_file_id from tb_import_jobs where sync_run_id in (select id from tb_media_sync_runs where connector_id = ?)`, connectorID).Scan(&rawFileIDs).Error; err != nil {
+		t.Errorf("collect sync raw files: %v", err)
+	}
+	var itemRef models.MediaExternalRef
+	itemID := uuid.Nil
+	var workID *uuid.UUID
+	if err := db.Where("provider = ? and external_id = ?", "weread", drifterIntegrationBookID).First(&itemRef).Error; err == nil {
+		itemID = itemRef.ScopeID
+		var item models.MediaItem
+		if err := db.First(&item, "id = ?", itemID).Error; err == nil {
+			workID = item.WorkID
+		}
+	}
+	statements := []cleanupStatement{
+		{"delete from tb_media_creator_roles where scope_type = 'item' and scope_id = ?", []any{itemID}},
+		{"delete from tb_media_consumption_events where media_item_id = ?", []any{itemID}},
+		{"delete from tb_media_state_history where media_item_id = ?", []any{itemID}},
+		{"delete from tb_media_progress where media_item_id = ?", []any{itemID}},
+		{"delete from tb_media_titles where scope_type = 'item' and scope_id = ?", []any{itemID}},
+		{"delete from tb_media_external_refs where scope_type = 'item' and scope_id = ?", []any{itemID}},
+		{"delete from tb_media_list_items where media_item_id = ?", []any{itemID}},
+		{"delete from tb_media_items where id = ?", []any{itemID}},
+		{"delete from tb_source_coverage_assertions where source_receipt_id in (select id from tb_source_receipts where source_kind = ?)", []any{coreimports.KindDrifter}},
+		{"delete from tb_source_receipts where source_kind = ?", []any{coreimports.KindDrifter}},
+		{"delete from tb_import_snapshots where import_job_id in (select id from tb_import_jobs where sync_run_id in (select id from tb_media_sync_runs where connector_id = ?))", []any{connectorID}},
+		{"delete from tb_import_jobs where sync_run_id in (select id from tb_media_sync_runs where connector_id = ?)", []any{connectorID}},
+		{"delete from tb_source_instances where provider = ?", []any{coreimports.KindDrifter}},
+		{"delete from tb_media_sync_state where connector_id = ?", []any{connectorID}},
+		{"delete from tb_media_sync_runs where connector_id = ?", []any{connectorID}},
+		{"delete from tb_media_creators c where not exists (select 1 from tb_media_creator_roles r where r.creator_id = c.id)", nil},
+		{"delete from tb_media_lists l where l.name = 'weread library' and not exists (select 1 from tb_media_list_items li where li.list_id = l.id)", nil},
+	}
+	if workID != nil {
+		statements = append(statements, cleanupStatement{"delete from tb_media_works where id = ?", []any{*workID}})
+	}
+	for _, queued := range enqueuer.enqueued {
+		statements = append(statements, cleanupStatement{"delete from tb_jobs where id = ?", []any{queued.queueJob.ID}})
+	}
+	for _, id := range rawFileIDs {
+		statements = append(statements, cleanupStatement{"delete from tb_raw_files where id = ?", []any{id}})
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement.query, statement.args...).Error; err != nil {
+			t.Errorf("cleanup %q: %v", statement.query, err)
+		}
+	}
 }

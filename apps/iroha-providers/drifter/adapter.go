@@ -76,7 +76,7 @@ func (Adapter) ImportMedia(ctx context.Context, source provider.Source, options 
 // unreadable entry must stay visible, because skipping it would quietly lose
 // reading history.
 func ParseSnapshot(body []byte, location *time.Location) ([]observations.Media, error) {
-	var response readingSnapshotResponse
+	var response ReadingSnapshot
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("decode drifter snapshot: %w", err)
 	}

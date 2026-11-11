@@ -5,6 +5,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -27,6 +28,10 @@ type Snapshot struct {
 	Filename          string
 	SourceInstanceKey string
 	IngestionMode     string
+	// OrderingBasis is the ordering fact this page proves, such as a feed
+	// watermark. It is stored on the page's source receipt so the next run can
+	// resume from it; a page that proves nothing about ordering leaves it empty.
+	OrderingBasis string
 	// ObservedAt is when the connector received this source snapshot. It is
 	// distinct from the time Iroha stores the raw file or processes its job.
 	ObservedAt time.Time
@@ -56,4 +61,27 @@ type ResumeCursorProvider interface {
 // whole current state do not implement it.
 type CoverageWindowProvider interface {
 	CoverageWindowStart(cursor *Cursor, now time.Time) time.Time
+}
+
+// ErrSnapshotRequired reports that an incremental feed can no longer serve the
+// caller's watermark. The caller must read a full snapshot instead; the signal
+// is a normal state transition, not a failure.
+var ErrSnapshotRequired = errors.New("change horizon exceeded; full snapshot required")
+
+// ChangePage is one page of an incremental feed: the raw evidence to store,
+// the ordering fact the page proves, and the cursor for the next page. A nil
+// cursor means the feed is exhausted for this run.
+type ChangePage struct {
+	Snapshot  Snapshot
+	Watermark string
+	Cursor    *Cursor
+}
+
+// ChangeFetcher lets a connector serve only what changed since a watermark
+// instead of re-reading its whole current state. FetchChanges returns
+// ErrSnapshotRequired when it cannot serve that watermark; any other error is a
+// real failure. A connector that implements it must also keep Fetch working:
+// Fetch is the bootstrap and the fallback.
+type ChangeFetcher interface {
+	FetchChanges(context.Context, Credentials, time.Time, *Cursor) (ChangePage, error)
 }

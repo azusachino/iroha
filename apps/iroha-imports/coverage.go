@@ -11,6 +11,7 @@ import (
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/azusachino/iroha/apps/iroha-runtime/revisions"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -100,12 +101,17 @@ func validateCoverageAssertion(assertion provider.CoverageAssertion) error {
 
 // recordSyncCoverage records what one connector run proved it read. A run is
 // one assertion, not one per page: a single page proves nothing about
-// completeness. Current-state lists are full snapshots over the run; the
-// activity feed adds to what is stored, so it is incremental over its window.
-func (s *SyncRunner) recordSyncCoverage(rawFile models.RawFile, sourceKind string, from, to time.Time, completeness string) error {
-	category, mode := "media_list", "full_snapshot"
+// completeness. Current-state lists are full snapshots over the run; a changes
+// feed adds to what is stored, so it is incremental over its watermark window.
+func (s *SyncRunner) recordSyncCoverage(rawFile models.RawFile, sourceKind, ingestionMode string, from, to time.Time, completeness string) error {
+	category := "media_list"
 	if sourceKind == coreimports.KindAniListActivity {
-		category, mode = "media_activity", "incremental"
+		// The activity feed always adds to what is stored, whatever a single
+		// page claims.
+		category, ingestionMode = "media_activity", rawfiles.IngestionModeIncremental
+	}
+	if ingestionMode == "" {
+		ingestionMode = rawfiles.IngestionModeFullSnapshot
 	}
 	if !to.After(from) {
 		to = from.Add(time.Second)
@@ -117,7 +123,7 @@ func (s *SyncRunner) recordSyncCoverage(rawFile models.RawFile, sourceKind strin
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := insertCoverageAssertion(tx, rawFile, provider.CoverageAssertion{
 			Category: category, From: from, To: to, Timezone: timezone,
-			IngestionMode: mode, Completeness: completeness,
+			IngestionMode: ingestionMode, Completeness: completeness,
 		}, nil); err != nil {
 			return err
 		}
