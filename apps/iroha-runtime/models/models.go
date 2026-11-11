@@ -427,6 +427,7 @@ type MediaItem struct {
 	ChapterCount         *int
 	Language             string
 	Country              string
+	Publisher            string
 	CoverImageURL        string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
