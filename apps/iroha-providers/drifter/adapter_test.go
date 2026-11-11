@@ -115,22 +115,23 @@ func TestParseSnapshotMapsCreatorsFinishAndRefs(t *testing.T) {
 	}
 }
 
-func TestParseSnapshotMapsCustomBookAndHonestStatus(t *testing.T) {
+func TestParseSnapshotMapsCustomBookAndFiltersUnreadPlanned(t *testing.T) {
 	body := []byte(`{
   "version": "1.0",
   "has_more": false,
   "books": [
     {"source_book_id": "CB_custom_1", "title": "自印笔记", "status": "reading", "progress_percent": 42, "is_custom": true},
     {"source_book_id": "book-2", "title": "未开始的书", "author": "某作者", "status": "planned"},
-    {"source_book_id": "book-3", "title": "弃读的书", "status": "abandoned"}
+    {"source_book_id": "book-3", "title": "弃读的书", "status": "abandoned"},
+    {"source_book_id": "book-4", "title": "已读的书", "author": "某作者", "status": "completed", "progress_percent": 100}
   ]
 }`)
 	entries, err := ParseSnapshot(body, time.UTC)
 	if err != nil {
 		t.Fatalf("ParseSnapshot() error = %v", err)
 	}
-	if len(entries) != 3 {
-		t.Fatalf("ParseSnapshot() returned %d entries, want 3", len(entries))
+	if len(entries) != 2 {
+		t.Fatalf("ParseSnapshot() returned %d entries, want 2 (only active and completed books)", len(entries))
 	}
 	if entries[0].Description != customUploadDescription {
 		t.Fatalf("custom description = %q, want %q", entries[0].Description, customUploadDescription)
@@ -141,11 +142,8 @@ func TestParseSnapshotMapsCustomBookAndHonestStatus(t *testing.T) {
 	if len(entries[0].Events) != 0 {
 		t.Fatalf("custom book events = %#v, want none without a finish timestamp", entries[0].Events)
 	}
-	if entries[1].ProgressState.Status != "planned" {
-		t.Fatalf("planned status = %q, want planned", entries[1].ProgressState.Status)
-	}
-	if entries[2].ProgressState.Status != "abandoned" {
-		t.Fatalf("abandoned status = %q, want abandoned", entries[2].ProgressState.Status)
+	if entries[1].ExternalID != "book-4" || entries[1].ProgressState.Status != "completed" {
+		t.Fatalf("completed book = %#v", entries[1])
 	}
 }
 
