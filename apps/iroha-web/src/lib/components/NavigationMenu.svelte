@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { NavigationGroup } from "$lib/navigation";
+  import { navGroupIcons, navItemIcons } from "$lib/nav-icons";
 
   let {
     group,
@@ -11,6 +12,7 @@
   } = $props();
 
   const groupActive = $derived(group.items.some((item) => active(item.href)));
+  const GroupIcon = $derived(navGroupIcons[group.id]);
   let menu: HTMLDetailsElement;
   let summary: HTMLElement;
   let popoverStyle = $state("");
@@ -156,23 +158,33 @@
   class:active={groupActive}
   class="navigation-menu"
 >
-  <summary bind:this={summary} aria-controls={`${group.id}-navigation-menu`}
-    ><span>{group.label}</span><i class="chevron" aria-hidden="true"
-    ></i></summary
-  >
+  <summary bind:this={summary} aria-controls={`${group.id}-navigation-menu`}>
+    {#if GroupIcon}
+      <GroupIcon size={14} />
+    {/if}
+    <span>{group.label}</span>
+    <i class="chevron" aria-hidden="true"></i>
+  </summary>
   <div
     id={`${group.id}-navigation-menu`}
     class="navigation-popover"
     style={popoverStyle}
   >
     {#each group.items as item}
+      {@const ItemIcon = navItemIcons[item.id]}
       <a
         class:active={active(item.href)}
         aria-current={active(item.href) ? "page" : undefined}
         href={item.href}
         onclick={closeAfterNavigation}
       >
-        <strong>{item.label}</strong><small>{item.hint}</small>
+        <span class="nav-item-title">
+          {#if ItemIcon}
+            <ItemIcon size={14} />
+          {/if}
+          <strong>{item.label}</strong>
+        </span>
+        <small>{item.hint}</small>
       </a>
     {/each}
   </div>
@@ -185,6 +197,7 @@
   summary {
     display: inline-flex;
     align-items: center;
+    gap: 0.35rem;
     min-height: 2rem;
     padding: 0 0.65rem;
     color: var(--text-muted);
@@ -193,13 +206,16 @@
     cursor: pointer;
     list-style: none;
   }
+  summary :global(svg) {
+    flex-shrink: 0;
+  }
   summary::-webkit-details-marker {
     display: none;
   }
   .chevron {
     width: 0.46rem;
     height: 0.46rem;
-    margin-left: 0.35rem;
+    margin-left: 0.15rem;
     border-right: 1.5px solid currentColor;
     border-bottom: 1.5px solid currentColor;
     transform: rotate(45deg) translateY(-1px);
@@ -210,6 +226,23 @@
   }
   .navigation-menu.active summary {
     color: var(--color-focus);
+  }
+  .navigation-menu.active summary :global(svg) {
+    color: var(--accent);
+  }
+  .nav-item-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .nav-item-title :global(svg) {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: color var(--motion-micro);
+  }
+  a:hover .nav-item-title :global(svg),
+  a.active .nav-item-title :global(svg) {
+    color: var(--accent);
   }
   .navigation-popover {
     position: absolute;
