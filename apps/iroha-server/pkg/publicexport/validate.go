@@ -13,7 +13,7 @@ import (
 // regression gate: a future change to Activity, Summary, or route
 // sanitization that reintroduces a private field or an out-of-range value
 // should fail here instead of silently reaching the public site.
-func Validate(summary activities.Summary, activityList []Activity, routes RouteFeatureCollection) error {
+func Validate(summary activities.Summary, activityList []Activity, routes RouteFeatureCollection, books []Book) error {
 	if err := validateSummary(summary); err != nil {
 		return fmt.Errorf("summary: %w", err)
 	}
@@ -25,6 +25,48 @@ func Validate(summary activities.Summary, activityList []Activity, routes RouteF
 	for i, feature := range routes.Features {
 		if err := validateRouteFeature(feature); err != nil {
 			return fmt.Errorf("route feature %d: %w", i, err)
+		}
+	}
+	return ValidateBooks(books)
+}
+
+// ValidateBooks checks the independently served reading list.
+func ValidateBooks(books []Book) error {
+	for _, book := range books {
+		if err := validateBook(book); err != nil {
+			return fmt.Errorf("book %s: %w", book.ID, err)
+		}
+	}
+	return nil
+}
+
+var publicBookStatuses = map[string]bool{
+	"planning":    true,
+	"in_progress": true,
+	"completed":   true,
+	"paused":      true,
+	"abandoned":   true,
+	"dropped":     true,
+}
+
+func validateBook(book Book) error {
+	// Like activities: a raw internal UUID would mean the sanitizer was
+	// bypassed for this record.
+	if !strings.HasPrefix(book.ID, ids.MediaPrefix+"_") {
+		return fmt.Errorf("id is not %s-prefixed", ids.MediaPrefix)
+	}
+	if strings.TrimSpace(book.Title) == "" {
+		return fmt.Errorf("empty title")
+	}
+	if !publicBookStatuses[book.Status] {
+		return fmt.Errorf("status %q is not a public reading status", book.Status)
+	}
+	if len(book.Authors) > 32 {
+		return fmt.Errorf("too many authors")
+	}
+	for _, author := range book.Authors {
+		if strings.TrimSpace(author) == "" {
+			return fmt.Errorf("empty author name")
 		}
 	}
 	return nil

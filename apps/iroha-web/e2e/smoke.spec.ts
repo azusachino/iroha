@@ -29,6 +29,9 @@ test("first route renders without console errors", async ({ page }) => {
   await page.route("**/public/v1/activities", (route) =>
     route.fulfill({ json: [] }),
   );
+  await page.route("**/public/v1/books", (route) =>
+    route.fulfill({ json: [] }),
+  );
   await page.route("**/public/v1/meta", (route) =>
     route.fulfill({ json: { generated_at: "2026-11-01T00:00:00Z" } }),
   );

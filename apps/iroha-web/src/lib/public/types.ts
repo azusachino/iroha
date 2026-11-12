@@ -15,3 +15,8 @@ export type {
   PublicSummaryBucket as SummaryBucket,
   PublicSummaryTotals as SummaryTotals,
 } from "@iroha/shared/domain/public-activity";
+export type {
+  PublicBook as Book,
+  PublicBookStatus as BookStatus,
+} from "@iroha/shared/domain/public-book";
+export { PUBLIC_BOOK_STATUS_LABELS } from "@iroha/shared/domain/public-book";

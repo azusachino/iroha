@@ -25,10 +25,12 @@
   import type {
     Activity,
     ActivityDetail as ActivityDetailData,
+    Book,
     Meta,
     RouteFeatureCollection,
     Summary,
   } from "$lib/public/types";
+  import PublicReading from "@iroha/shared/theme-ui/grapher/PublicReading.svelte";
   import ActivityHeatmap from "@iroha/shared/theme-ui/components/ActivityHeatmap.svelte";
   import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
   import YearProgressChart from "@iroha/shared/components/YearProgressChart.svelte";
@@ -63,6 +65,35 @@
     features: [],
   });
   let routesLoading = $state(true);
+
+  // Fetch the reading list when its tab becomes visible.
+  let books = $state<Book[]>([]);
+  let booksLoading = $state(true);
+  let booksUnavailable = $state(false);
+  let booksSectionEl = $state<HTMLElement>();
+  let booksRequested = false;
+  let _booksPromise: Promise<Book[]> | null = null;
+
+  function ensureBooksLoaded() {
+    if (booksRequested) return;
+    booksRequested = true;
+    if (!_booksPromise) {
+      _booksPromise = fetch("/public/v1/books").then(async (r) => {
+        if (!r.ok) throw new Error("reading list unavailable");
+        return (await r.json()) as Book[];
+      });
+    }
+    _booksPromise
+      .then((list) => {
+        books = Array.isArray(list) ? list : [];
+        booksLoading = false;
+      })
+      .catch(() => {
+        booksUnavailable = true;
+        booksLoading = false;
+      });
+  }
+
   const activeDays = $derived(activeDaysFromActivities(activities));
   const latestDay = $derived(
     activities[0]?.started_at.slice(0, 10) ??
@@ -91,6 +122,23 @@
       () => yearsFromActivities(initialData?.activities ?? [])[0] ?? "2026",
     ),
   );
+  let archiveTab = $state<"run" | "books">("run");
+  function navigateArchiveTabs(event: KeyboardEvent) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    archiveTab =
+      event.key === "Home"
+        ? "run"
+        : event.key === "End"
+          ? "books"
+          : archiveTab === "run"
+            ? "books"
+            : "run";
+    const tabs = (event.currentTarget as HTMLElement).parentElement;
+    tabs
+      ?.querySelector<HTMLButtonElement>(`#archive-tab-${archiveTab}`)
+      ?.focus();
+  }
   let sportFilter = $state<string | null>(null);
   let cityFilter = $state<string | null>(null);
   let selectedActivityId = $state<string | null>(
@@ -475,6 +523,26 @@
     return () => observer.disconnect();
   });
 
+  $effect(() => {
+    const el = booksSectionEl;
+    if (!el || !browser) return;
+    if (typeof IntersectionObserver === "undefined") {
+      ensureBooksLoaded();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          ensureBooksLoaded();
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
   async function loadData() {
     loading = true;
     loadError = null;
@@ -521,7 +589,7 @@
 </script>
 
 <svelte:head>
-  <title>iroha · public archive</title>
+  <title>{site.name} · public archive</title>
 </svelte:head>
 
 {#if loading}
@@ -544,7 +612,11 @@
   {#if selectedActivity}
     <header class="hero tile">
       <div class="hero-topline">
-        <a class="brand" href="/" aria-label={`${site.name} home`}>
+        <a
+          class="brand"
+          href={page.url.pathname === "/showcase" ? "/showcase" : "/"}
+          aria-label={`${site.name} home`}
+        >
           <BrandMark size={22} />
           <span class="brand-title">{site.name}</span>
           <span class="eyebrow visually-hidden">{site.name}</span>
@@ -563,16 +635,22 @@
   {:else}
     <RouteHeader
       title={site.name}
-      context={`Observed year: ${selectedYear || "No records"} · ${sportFilter ? formatSport(sportFilter) : "All sports"}`}
+      context={archiveTab === "run"
+        ? `Observed year: ${selectedYear || "No records"} · ${sportFilter ? formatSport(sportFilter) : "All sports"}`
+        : "A record of books and reading"}
     >
       {#snippet titleSnippet()}
-        <a class="brand" href="/" aria-label={`${site.name} home`}>
+        <a
+          class="brand"
+          href={page.url.pathname === "/showcase" ? "/showcase" : "/"}
+          aria-label={`${site.name} home`}
+        >
           <BrandMark size={22} />
           <h1 class="brand-title">{site.name}</h1>
           <span class="eyebrow visually-hidden">{site.name}</span>
         </a>
       {/snippet}
-      {#if years.length > 0}
+      {#if archiveTab === "run" && years.length > 0}
         <nav class="year-tabs" aria-label="Select year">
           {#each years as year (year)}
             <button
@@ -646,328 +724,407 @@
         <a href={page.url.pathname}>View the full archive</a>
       </section>
     {/if}
-    <div class="dashboard">
-      <div class="stat-grid">
-        <div class="stat-tile-wrap" style="--accent: #00e5bf;">
-          <StatTile
-            label="Distance"
-            value={distanceValue}
-            sub={distanceSub}
-            context={summaryContext}
-          />
-        </div>
-        <div class="stat-tile-wrap" style="--accent: #f59e0b;">
-          <StatTile
-            label="Activities"
-            context={summaryContext}
-            value={formatMetricValue(
-              selectedYearTotals.activity_count,
-              "count",
-            )}
-          />
-        </div>
-        <div class="stat-tile-wrap" style="--accent: #38bdf8;">
-          <StatTile
-            label="Running count"
-            value={formatMetricValue(selectedYearRunningCount, "count")}
-            context={selectedYear
-              ? `${selectedYear} · All running records`
-              : "No records"}
-          />
-        </div>
-        <div class="stat-tile-wrap" style="--accent: #f43f5e;">
-          <StatTile
-            label="Total time"
-            context={summaryContext}
-            value={formatHumanDuration(
-              selectedYearTotals.moving_time_s || selectedYearTotals.duration_s,
-            )}
-          />
-        </div>
-      </div>
-
-      <ActivityHeatmap days={activeDays} endDay={latestDay} embedded={false} />
-
-      {#if years.length > 0}
-        {#if selectedYear}
-          <div class="analytics-grid">
-            <PanelFrame label="Cumulative distance">
-              <YearProgressChart
-                embedded
-                byMonth={monthlyAll}
-                year={selectedYear}
-                sportName={sportFilter ? formatSport(sportFilter) : undefined}
-              />
-            </PanelFrame>
-            <PanelFrame label="Monthly observations">
-              <MonthlyBarChart
-                embedded
-                points={monthSlots.map((slot) => ({
-                  label: slot.label,
-                  value: slot.bucket?.[monthMetric] ?? 0,
-                }))}
-                metric={monthMetric}
-                year={selectedYear}
-              />
-            </PanelFrame>
-          </div>
-        {/if}
-      {/if}
-
-      {#if sportBuckets.length > 0}
-        <PanelFrame label="Activities by sport"
-          ><section class="by-sport">
-            <div class="section-kicker eyebrow">
-              {selectedYear} by sport
-            </div>
-            {#each sportBuckets as sport (sport.key)}
-              <button
-                type="button"
-                class="sport-row"
-                class:active={sportFilter === sport.key}
-                onclick={() => toggleSport(sport.key)}
-              >
-                <SportBadge sport={sport.key} />
-                <span class="bar">
-                  <i
-                    style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
-                  ></i>
-                </span>
-                <span class="count">{sport.activity_count}×</span>
-              </button>
-            {/each}
-            {#if sportFilter}
-              <button
-                type="button"
-                class="clear-filter"
-                onclick={() => toggleSport(sportFilter!)}
-              >
-                Clear sport filter ({formatSport(sportFilter)})
-              </button>
-            {/if}
-          </section></PanelFrame
+    <div class="archive-tabs" role="tablist" aria-label="Archive sections">
+      {#each ["run", "books"] as tab (tab)}
+        <button
+          type="button"
+          role="tab"
+          id={`archive-tab-${tab}`}
+          aria-selected={archiveTab === tab}
+          aria-controls={`archive-panel-${tab}`}
+          tabindex={archiveTab === tab ? 0 : -1}
+          onclick={() => (archiveTab = tab as "run" | "books")}
+          onkeydown={navigateArchiveTabs}
+          >{tab === "run" ? "Run" : "Books"}</button
         >
-      {/if}
-
-      <section class="section-heading" bind:this={routesSectionEl}>
-        <h2>Routes &amp; cities</h2>
-        {#if hasPendingLocations}
-          <p class="muted small">Some locations are waiting for geocoding.</p>
-        {/if}
-      </section>
-
-      {#if routesLoading}
-        <div class="routes-grid" aria-busy="true">
-          <PanelFrame label="Route map">
-            <div class="map-wrap map-loading">
-              <p class="muted">Loading routes map…</p>
-            </div>
-          </PanelFrame>
-          <PanelFrame label="Geography selection">
-            <div class="cities cities-loading">
-              <p class="muted">Loading geography data…</p>
-            </div>
-          </PanelFrame>
-        </div>
-      {:else if filteredRoutes.length === 0}
-        <p class="muted">No routes recorded yet.</p>
-      {:else}
-        <div class="routes-grid">
-          <PanelFrame label="Route map"
-            ><div class="map-wrap">
-              {#await import("$lib/components/RoutesMap.svelte") then { default: RoutesMap }}
-                <RoutesMap
-                  data={{ type: "FeatureCollection", features: mappedRoutes }}
-                />
-              {/await}
-            </div></PanelFrame
-          >
-          <PanelFrame label="Geography selection"
-            ><div class="cities">
-              <p class="muted small">
-                {selectedYear} · {sportFilter
-                  ? formatSport(sportFilter)
-                  : "All sports"} · {cityFilter
-                  ? cityLabel(cityFilter)
-                  : "All cities"} (geography only)
-              </p>
-              <div class="cities-head">
-                <h3>
-                  {sportFilter
-                    ? `${formatSport(sportFilter)} cities`
-                    : "Cities visited"}
-                </h3>
-                {#if cityFilter}
-                  <button
-                    type="button"
-                    class="clear-filter"
-                    onclick={() => (cityFilter = null)}
-                  >
-                    Show all
-                  </button>
-                {/if}
-              </div>
-              {#if cityGroups.length === 0}
-                <p class="muted small">
-                  No route coordinates for this selection.
-                </p>
-              {:else}
-                <div class="city-grid">
-                  {#each cityGroups as group (group.city)}
-                    {@const intensity = group.runCount / maxRunCount}
-                    <button
-                      type="button"
-                      class="city-card"
-                      class:selected={cityFilter === group.city}
-                      style={`--intensity: ${intensity}`}
-                      onclick={() => toggleCity(group.city)}
-                    >
-                      <div class="city-name">
-                        {cityLabel(group.city, group.status)}
-                      </div>
-                      <div class="city-sports">
-                        {Array.from(group.sports)
-                          .map((s) => formatSport(s))
-                          .join(", ")}
-                      </div>
-                      <div class="city-count">
-                        {group.runCount}
-                        {group.runCount === 1 ? "run" : "runs"}
-                        {#if group.count > group.runCount}
-                          <span class="muted small"
-                            >(+{group.count - group.runCount} other)</span
-                          >
-                        {/if}
-                      </div>
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-            </div></PanelFrame
-          >
-        </div>
-      {/if}
-
-      <section class="section-heading">
-        <h2>Activities</h2>
-      </section>
-
-      {#if filteredActivities.length === 0}
-        <p class="muted">No activities for this selection.</p>
-      {:else}
-        <PanelFrame label="Activity records">
-          <p class="muted small">
-            All record columns are preserved. Swipe horizontally, or focus the
-            table region and use arrow keys, to reach later columns.
-          </p>
-          <button
-            class="scroll-hint"
-            type="button"
-            aria-controls="public-records-scroll"
-            onclick={() => recordsScroll?.focus({ preventScroll: true })}
-            >Focus public records to scroll all columns</button
-          >
-          <div
-            class="table-wrap"
-            id="public-records-scroll"
-            bind:this={recordsScroll}
-            role="region"
-            aria-label="Public activity records — horizontally scrollable"
-            tabindex="-1"
-          >
-            <table aria-label="Public activity records">
-              <thead>
-                <tr>
-                  {#each columns as column (column.id)}
-                    {@const activeSort = sorting.find(
-                      (sort) => sort.id === column.id,
-                    )}
-                    <th
-                      aria-sort={sorting[0]?.id === column.id
-                        ? sorting[0].desc
-                          ? "descending"
-                          : "ascending"
-                        : "none"}
-                    >
-                      <button
-                        type="button"
-                        class="sort-header"
-                        onclick={(event) => toggleSort(column.id, event)}
-                      >
-                        {column.header}
-                        {#if activeSort}{activeSort.desc ? "▼" : "▲"}{/if}
-                      </button>
-                    </th>
-                  {/each}
-                </tr>
-              </thead>
-              <tbody>
-                {#each visibleActivities as activity (activity.id)}
-                  <tr>
-                    <td class="nowrap">
-                      <a class="activity-link" href={activityHref(activity.id)}>
-                        {formatDate(activity.started_at, activity.timezone)}
-                      </a>
-                    </td>
-                    <td>
-                      <div class="activity-cell">
-                        <SportBadge sport={activity.sport_type} />
-                        {#if hasMeaningfulActivityTitle(activity)}
-                          <span class="activity-title">{activity.title}</span>
-                        {/if}
-                      </div>
-                    </td>
-                    <td>
-                      {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                        {formatDuration(
-                          activity.duration_s ?? activity.moving_time_s,
-                        )}
-                      {:else}
-                        {formatDistance(activity.distance_m)}
-                      {/if}
-                    </td>
-                    <td>
-                      {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                        {#if activity.avg_hr}Avg HR: {formatHr(
-                            activity.avg_hr,
-                          )}{:else if activity.max_hr}Max HR: {formatHr(
-                            activity.max_hr,
-                          )}{:else}—{/if}
-                      {:else if isCycling(activity.sport_type)}
-                        {formatCyclingSpeed(
-                          activity.distance_m,
-                          activity.duration_s ?? activity.moving_time_s,
-                        )}
-                      {:else if isSwimming(activity.sport_type)}
-                        {formatSwimmingPace(
-                          activity.distance_m,
-                          activity.duration_s ?? activity.moving_time_s,
-                        )}
-                      {:else}
-                        {formatPace(activity.avg_pace_s_per_km)}
-                        {#if activity.avg_hr}· {formatHr(activity.avg_hr)}{/if}
-                      {/if}
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+      {/each}
+    </div>
+    {#if archiveTab === "run"}
+      <div
+        class="dashboard"
+        role="tabpanel"
+        id="archive-panel-run"
+        aria-labelledby="archive-tab-run"
+        tabindex="0"
+      >
+        <div class="stat-grid">
+          <div class="stat-tile-wrap" style="--accent: #00e5bf;">
+            <StatTile
+              label="Distance"
+              value={distanceValue}
+              sub={distanceSub}
+              context={summaryContext}
+            />
           </div>
-          {#if hasMoreActivities}
-            <div class="load-more">
-              <button type="button" onclick={loadMore}>Load more</button>
-              <span class="muted small">
-                Showing {visibleActivities.length} of {sortedActivities.length}
-              </span>
+          <div class="stat-tile-wrap" style="--accent: #f59e0b;">
+            <StatTile
+              label="Activities"
+              context={summaryContext}
+              value={formatMetricValue(
+                selectedYearTotals.activity_count,
+                "count",
+              )}
+            />
+          </div>
+          <div class="stat-tile-wrap" style="--accent: #38bdf8;">
+            <StatTile
+              label="Running count"
+              value={formatMetricValue(selectedYearRunningCount, "count")}
+              context={selectedYear
+                ? `${selectedYear} · All running records`
+                : "No records"}
+            />
+          </div>
+          <div class="stat-tile-wrap" style="--accent: #f43f5e;">
+            <StatTile
+              label="Total time"
+              context={summaryContext}
+              value={formatHumanDuration(
+                selectedYearTotals.moving_time_s ||
+                  selectedYearTotals.duration_s,
+              )}
+            />
+          </div>
+        </div>
+
+        <ActivityHeatmap
+          days={activeDays}
+          endDay={latestDay}
+          embedded={false}
+        />
+
+        {#if years.length > 0}
+          {#if selectedYear}
+            <div class="analytics-grid">
+              <PanelFrame label="Cumulative distance">
+                <YearProgressChart
+                  embedded
+                  byMonth={monthlyAll}
+                  year={selectedYear}
+                  sportName={sportFilter ? formatSport(sportFilter) : undefined}
+                />
+              </PanelFrame>
+              <PanelFrame label="Monthly observations">
+                <MonthlyBarChart
+                  embedded
+                  points={monthSlots.map((slot) => ({
+                    label: slot.label,
+                    value: slot.bucket?.[monthMetric] ?? 0,
+                  }))}
+                  metric={monthMetric}
+                  year={selectedYear}
+                />
+              </PanelFrame>
             </div>
           {/if}
-        </PanelFrame>
-      {/if}
-    </div>
+        {/if}
+
+        {#if sportBuckets.length > 0}
+          <PanelFrame label="Activities by sport"
+            ><section class="by-sport">
+              <div class="section-kicker eyebrow">
+                {selectedYear} by sport
+              </div>
+              {#each sportBuckets as sport (sport.key)}
+                <button
+                  type="button"
+                  class="sport-row"
+                  class:active={sportFilter === sport.key}
+                  onclick={() => toggleSport(sport.key)}
+                >
+                  <SportBadge sport={sport.key} />
+                  <span class="bar">
+                    <i
+                      style={`width: ${Math.max(2, (sport.activity_count / sportMax) * 100)}%; background: ${sportColor(sport.key)}`}
+                    ></i>
+                  </span>
+                  <span class="count">{sport.activity_count}×</span>
+                </button>
+              {/each}
+              {#if sportFilter}
+                <button
+                  type="button"
+                  class="clear-filter"
+                  onclick={() => toggleSport(sportFilter!)}
+                >
+                  Clear sport filter ({formatSport(sportFilter)})
+                </button>
+              {/if}
+            </section></PanelFrame
+          >
+        {/if}
+
+        <section class="section-heading" bind:this={routesSectionEl}>
+          <h2>Routes &amp; cities</h2>
+          {#if hasPendingLocations}
+            <p class="muted small">Some locations are waiting for geocoding.</p>
+          {/if}
+        </section>
+
+        {#if routesLoading}
+          <div class="routes-grid" aria-busy="true">
+            <PanelFrame label="Route map">
+              <div class="map-wrap map-loading">
+                <p class="muted">Loading routes map…</p>
+              </div>
+            </PanelFrame>
+            <PanelFrame label="Geography selection">
+              <div class="cities cities-loading">
+                <p class="muted">Loading geography data…</p>
+              </div>
+            </PanelFrame>
+          </div>
+        {:else if filteredRoutes.length === 0}
+          <p class="muted">No routes recorded yet.</p>
+        {:else}
+          <div class="routes-grid">
+            <PanelFrame label="Route map"
+              ><div class="map-wrap">
+                {#await import("$lib/components/RoutesMap.svelte") then { default: RoutesMap }}
+                  <RoutesMap
+                    data={{ type: "FeatureCollection", features: mappedRoutes }}
+                  />
+                {/await}
+              </div></PanelFrame
+            >
+            <PanelFrame label="Geography selection"
+              ><div class="cities">
+                <p class="muted small">
+                  {selectedYear} · {sportFilter
+                    ? formatSport(sportFilter)
+                    : "All sports"} · {cityFilter
+                    ? cityLabel(cityFilter)
+                    : "All cities"} (geography only)
+                </p>
+                <div class="cities-head">
+                  <h3>
+                    {sportFilter
+                      ? `${formatSport(sportFilter)} cities`
+                      : "Cities visited"}
+                  </h3>
+                  {#if cityFilter}
+                    <button
+                      type="button"
+                      class="clear-filter"
+                      onclick={() => (cityFilter = null)}
+                    >
+                      Show all
+                    </button>
+                  {/if}
+                </div>
+                {#if cityGroups.length === 0}
+                  <p class="muted small">
+                    No route coordinates for this selection.
+                  </p>
+                {:else}
+                  <div class="city-grid">
+                    {#each cityGroups as group (group.city)}
+                      {@const intensity = group.runCount / maxRunCount}
+                      <button
+                        type="button"
+                        class="city-card"
+                        class:selected={cityFilter === group.city}
+                        style={`--intensity: ${intensity}`}
+                        onclick={() => toggleCity(group.city)}
+                      >
+                        <div class="city-name">
+                          {cityLabel(group.city, group.status)}
+                        </div>
+                        <div class="city-sports">
+                          {Array.from(group.sports)
+                            .map((s) => formatSport(s))
+                            .join(", ")}
+                        </div>
+                        <div class="city-count">
+                          {group.runCount}
+                          {group.runCount === 1 ? "run" : "runs"}
+                          {#if group.count > group.runCount}
+                            <span class="muted small"
+                              >(+{group.count - group.runCount} other)</span
+                            >
+                          {/if}
+                        </div>
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              </div></PanelFrame
+            >
+          </div>
+        {/if}
+
+        <section class="section-heading">
+          <h2>Activities</h2>
+        </section>
+
+        {#if filteredActivities.length === 0}
+          <p class="muted">No activities for this selection.</p>
+        {:else}
+          <PanelFrame label="Activity records">
+            <p class="muted small">
+              All record columns are preserved. Swipe horizontally, or focus the
+              table region and use arrow keys, to reach later columns.
+            </p>
+            <button
+              class="scroll-hint"
+              type="button"
+              aria-controls="public-records-scroll"
+              onclick={() => recordsScroll?.focus({ preventScroll: true })}
+              >Focus public records to scroll all columns</button
+            >
+            <div
+              class="table-wrap"
+              id="public-records-scroll"
+              bind:this={recordsScroll}
+              role="region"
+              aria-label="Public activity records — horizontally scrollable"
+              tabindex="-1"
+            >
+              <table aria-label="Public activity records">
+                <thead>
+                  <tr>
+                    {#each columns as column (column.id)}
+                      {@const activeSort = sorting.find(
+                        (sort) => sort.id === column.id,
+                      )}
+                      <th
+                        aria-sort={sorting[0]?.id === column.id
+                          ? sorting[0].desc
+                            ? "descending"
+                            : "ascending"
+                          : "none"}
+                      >
+                        <button
+                          type="button"
+                          class="sort-header"
+                          onclick={(event) => toggleSort(column.id, event)}
+                        >
+                          {column.header}
+                          {#if activeSort}{activeSort.desc ? "▼" : "▲"}{/if}
+                        </button>
+                      </th>
+                    {/each}
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each visibleActivities as activity (activity.id)}
+                    <tr>
+                      <td class="nowrap">
+                        <a
+                          class="activity-link"
+                          href={activityHref(activity.id)}
+                        >
+                          {formatDate(activity.started_at, activity.timezone)}
+                        </a>
+                      </td>
+                      <td>
+                        <div class="activity-cell">
+                          <SportBadge sport={activity.sport_type} />
+                          {#if hasMeaningfulActivityTitle(activity)}
+                            <span class="activity-title">{activity.title}</span>
+                          {/if}
+                        </div>
+                      </td>
+                      <td>
+                        {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                          {formatDuration(
+                            activity.duration_s ?? activity.moving_time_s,
+                          )}
+                        {:else}
+                          {formatDistance(activity.distance_m)}
+                        {/if}
+                      </td>
+                      <td>
+                        {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
+                          {#if activity.avg_hr}Avg HR: {formatHr(
+                              activity.avg_hr,
+                            )}{:else if activity.max_hr}Max HR: {formatHr(
+                              activity.max_hr,
+                            )}{:else}—{/if}
+                        {:else if isCycling(activity.sport_type)}
+                          {formatCyclingSpeed(
+                            activity.distance_m,
+                            activity.duration_s ?? activity.moving_time_s,
+                          )}
+                        {:else if isSwimming(activity.sport_type)}
+                          {formatSwimmingPace(
+                            activity.distance_m,
+                            activity.duration_s ?? activity.moving_time_s,
+                          )}
+                        {:else}
+                          {formatPace(activity.avg_pace_s_per_km)}
+                          {#if activity.avg_hr}· {formatHr(
+                              activity.avg_hr,
+                            )}{/if}
+                        {/if}
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+            {#if hasMoreActivities}
+              <div class="load-more">
+                <button type="button" onclick={loadMore}>Load more</button>
+                <span class="muted small">
+                  Showing {visibleActivities.length} of {sortedActivities.length}
+                </span>
+              </div>
+            {/if}
+          </PanelFrame>
+        {/if}
+      </div>
+    {:else}
+      <div
+        class="dashboard"
+        role="tabpanel"
+        id="archive-panel-books"
+        aria-labelledby="archive-tab-books"
+        tabindex="0"
+      >
+        <section class="section-heading" bind:this={booksSectionEl}>
+          <h2>Reading</h2>
+        </section>
+
+        {#if booksLoading}
+          <p class="muted">Loading reading list…</p>
+        {:else if booksUnavailable}
+          <p class="muted">Reading list is temporarily unavailable.</p>
+        {:else if books.length === 0}
+          <p class="muted">No reading records yet.</p>
+        {:else}
+          <PublicReading {books} />
+        {/if}
+      </div>
+    {/if}
   {/if}
 {/if}
 
 <style>
+  .archive-tabs {
+    display: flex;
+    gap: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+  .archive-tabs button {
+    padding: 0.75rem 0.25rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font: inherit;
+  }
+  .archive-tabs button[aria-selected="true"] {
+    border-bottom-color: var(--accent);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .archive-tabs button:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
   .public-loading {
     display: grid;
     place-items: center;

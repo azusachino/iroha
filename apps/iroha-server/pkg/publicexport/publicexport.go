@@ -6,6 +6,7 @@ package publicexport
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 )
 
 // Activity is the sanitized public view of an activity. It is a deliberate,
@@ -83,6 +85,58 @@ func Activities(svc *activities.Service, filters activities.ListFilters) (Activi
 		out.NextCursor = &cursor
 	}
 	return out, nil
+}
+
+// Book is the sanitized public view of one book's reading record. Like
+// Activity above it is a deliberate, separate type: it MUST NOT carry
+// source-provider ids, external refs, notes, ratings, reading time or
+// progress detail. Do not replace it with the private media DTO.
+type Book struct {
+	ID         string     `json:"id"`
+	Title      string     `json:"title"`
+	Authors    []string   `json:"authors"`
+	Status     string     `json:"status"`
+	StartedAt  *time.Time `json:"started_at,omitempty"`
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	LastReadAt *time.Time `json:"last_read_at,omitempty"`
+}
+
+// ToBook sanitizes one exported book for public consumption.
+func ToBook(row media.BookExport) (Book, error) {
+	var authors []string
+	if row.AuthorsJSON != "" {
+		if err := json.Unmarshal([]byte(row.AuthorsJSON), &authors); err != nil {
+			return Book{}, fmt.Errorf("decode authors for %s: %w", row.ID, err)
+		}
+	}
+	if authors == nil {
+		authors = []string{}
+	}
+	return Book{
+		ID:         ids.Encode(ids.MediaPrefix, row.ID),
+		Title:      row.Title,
+		Authors:    authors,
+		Status:     row.Status,
+		StartedAt:  row.StartedOn,
+		FinishedAt: row.CompletedOn,
+	}, nil
+}
+
+// Books returns the sanitized reading list, most recently touched first.
+func Books(svc *media.Service) ([]Book, error) {
+	rows, err := svc.ExportBooks()
+	if err != nil {
+		return nil, err
+	}
+	books := make([]Book, 0, len(rows))
+	for _, row := range rows {
+		book, err := ToBook(row)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, book)
+	}
+	return books, nil
 }
 
 // Summary is a thin pass-through — activities.Summary is already an

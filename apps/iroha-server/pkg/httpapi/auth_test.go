@@ -54,7 +54,7 @@ func serve(t *testing.T, deps Dependencies, method, path, body string, headers m
 
 func TestPrivateRoutesRequireSession(t *testing.T) {
 	deps := Dependencies{Auth: tokenAuth{setUp: true}}
-	for _, path := range []string{"/api/v1/metrics", "/api/v1/expenses", "/api/v1/admin/intake-credentials"} {
+	for _, path := range []string{"/api/v1/metrics", "/api/v1/expenses", "/api/v1/media", "/api/v1/admin/intake-credentials"} {
 		if code := serve(t, deps, http.MethodGet, path, "", nil).Code; code != http.StatusUnauthorized {
 			t.Errorf("GET %s without session = %d, want 401", path, code)
 		}

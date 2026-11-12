@@ -112,6 +112,13 @@ export const navigationGroups: readonly NavigationGroup[] = [
         kind: "tool",
         hint: "How to read Iroha",
       },
+      {
+        id: "public-archive",
+        label: "Public archive",
+        href: "/showcase",
+        kind: "tool",
+        hint: "View Miles & Margins",
+      },
     ],
   },
 ] as const;

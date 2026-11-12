@@ -79,6 +79,19 @@ type Page struct {
 	ActiveCount  int
 }
 
+// BookExport is the minimal read model behind the public books projection:
+// identity and reading dates only. It deliberately carries no source ids,
+// notes, ratings, reading time or progress detail, so nothing private can
+// leak through queries built on it.
+type BookExport struct {
+	ID          uuid.UUID  `gorm:"column:id"`
+	Title       string     `gorm:"column:title"`
+	AuthorsJSON string     `gorm:"column:authors_json"`
+	Status      string     `gorm:"column:status"`
+	StartedOn   *time.Time `gorm:"column:started_on"`
+	CompletedOn *time.Time `gorm:"column:completed_on"`
+}
+
 type CompletionBucket struct {
 	Year  int `gorm:"column:year" json:"year"`
 	Count int `gorm:"column:count" json:"count"`

@@ -145,7 +145,7 @@ const archiveVisible = async (
   page: Parameters<typeof installPilotFixtures>[0],
 ) => {
   await expect(
-    page.getByRole("heading", { name: /harus track/i }),
+    page.getByRole("heading", { name: /miles & margins/i }),
   ).toBeVisible();
   await expect(
     page.getByRole("table", { name: "Public activity records" }),

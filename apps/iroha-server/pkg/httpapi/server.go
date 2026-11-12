@@ -85,12 +85,13 @@ type Dependencies struct {
 }
 
 type Server struct {
-	deps           Dependencies
-	mux            chi.Router
-	now            func() time.Time
-	trustedProxies []netip.Prefix
-	intakeQuota    *intakeQuota
-	publicCache    *publicSnapshotCache
+	deps             Dependencies
+	mux              chi.Router
+	now              func() time.Time
+	trustedProxies   []netip.Prefix
+	intakeQuota      *intakeQuota
+	publicCache      *publicSnapshotCache
+	publicBooksCache *publicSnapshotCache
 }
 
 func NewServer(deps Dependencies) http.Handler {
@@ -119,6 +120,7 @@ func NewServer(deps Dependencies) http.Handler {
 	}
 	server.intakeQuota = newIntakeQuota(server.now)
 	server.publicCache = &publicSnapshotCache{}
+	server.publicBooksCache = &publicSnapshotCache{}
 	if server.deps.BriefingRegistry == nil {
 		server.deps.BriefingRegistry, _ = briefing.NewRegistry()
 	}

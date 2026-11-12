@@ -47,7 +47,7 @@ func (s *Server) publicRoutes(r chi.Router) {
 		MaxAge:         300,
 	}))
 	r.Use(s.limitByClient(publicRateLimitPerMin, time.Minute))
-	for _, part := range []string{"summary", "activities", "routes", "meta"} {
+	for _, part := range []string{"summary", "activities", "routes", "books", "meta"} {
 		r.Get("/"+part, s.servePublic(part))
 	}
 	r.Get("/activities/{activityId}", s.handlePublicActivityDetail)
@@ -101,7 +101,13 @@ func servePublicRepresentation(w http.ResponseWriter, r *http.Request, value pub
 
 func (s *Server) servePublic(part string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snap, err := s.publicSnapshot(r)
+		var snap map[string]publicRepresentation
+		var err error
+		if part == "books" {
+			snap, err = s.publicBooksSnapshot(r)
+		} else {
+			snap, err = s.publicSnapshot(r)
+		}
 		if err != nil {
 			s.deps.Logger.Error("build public projection", "error", err)
 			writeContractError(w, http.StatusInternalServerError, "public_unavailable", "public data is unavailable")
@@ -132,6 +138,36 @@ func (s *Server) publicSnapshot(r *http.Request) (map[string]publicRepresentatio
 	if err != nil {
 		return nil, err
 	}
+	cache.encoded, cache.builtAt, cache.revision = encoded, now, revision
+	return encoded, nil
+}
+
+func (s *Server) publicBooksSnapshot(r *http.Request) (map[string]publicRepresentation, error) {
+	cache := s.publicBooksCache
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	now := s.now()
+	vector, err := s.readCacheRevisionVector(r.Context(), readcache.NamespaceMedia)
+	if err != nil {
+		return nil, err
+	}
+	revision := fmt.Sprint(vector)
+	if !cache.builtAt.IsZero() && now.Sub(cache.builtAt) < publicSnapshotTTL && revision == cache.revision {
+		return cache.encoded, nil
+	}
+	books, err := publicexport.Books(s.deps.MediaService)
+	if err != nil {
+		return nil, err
+	}
+	if err := publicexport.ValidateBooks(books); err != nil {
+		return nil, err
+	}
+	body, err := json.Marshal(books)
+	if err != nil {
+		return nil, err
+	}
+	body = append(body, '\n')
+	encoded := map[string]publicRepresentation{"books": {body: body, etag: fmt.Sprintf("\"%x\"", sha256.Sum256(body))}}
 	cache.encoded, cache.builtAt, cache.revision = encoded, now, revision
 	return encoded, nil
 }

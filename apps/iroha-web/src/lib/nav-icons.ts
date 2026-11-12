@@ -5,6 +5,7 @@ import {
   BookOpen,
   Ellipsis,
   FileText,
+  Globe,
   HeartPulse,
   Layers,
   LayoutDashboard,
@@ -26,6 +27,7 @@ export const navGroupIcons: Record<string, LucideIcon> = {
 export const navItemIcons: Record<string, LucideIcon> = {
   today: HeartPulse,
   overview: LayoutDashboard,
+  "public-archive": Globe,
   motion: Activity,
   night: Moon,
   library: BookOpen,

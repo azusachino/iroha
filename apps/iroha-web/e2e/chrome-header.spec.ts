@@ -24,7 +24,7 @@ for (const pilot of ["overview", "public"] as const) {
     await installPilotFixtures(page, pilot);
     await page.goto(pilot === "public" ? PUBLIC_BASE_URL : `/${pilot}`);
     await expect(page.getByRole("img").first()).toBeVisible();
-    const name = pilot === "overview" ? "Overview" : "harus track";
+    const name = pilot === "overview" ? "Overview" : "Miles & Margins";
     const header = page.getByRole("region", {
       name: `${name} header`,
       exact: true,

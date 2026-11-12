@@ -126,7 +126,7 @@
       <CommandPalette />
     {/if}
     <ThemeFrame {brand} {nav} {actions}>
-      {#if auth.status === "ready" || page.url.pathname === "/"}
+      {#if auth.status === "ready" || page.url.pathname === "/" || page.url.pathname === "/showcase"}
         {@render children()}
       {:else if auth.status === "loading"}
         <div class="auth-loading tile" aria-busy="true" aria-live="polite">

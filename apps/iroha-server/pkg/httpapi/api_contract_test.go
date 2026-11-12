@@ -91,6 +91,7 @@ func TestActiveRouteInventory(t *testing.T) {
 		"GET /healthz",
 		"GET /public/v1/activities",
 		"GET /public/v1/activities/{activityId}",
+		"GET /public/v1/books",
 		"GET /public/v1/meta",
 		"GET /public/v1/routes",
 		"GET /public/v1/summary",

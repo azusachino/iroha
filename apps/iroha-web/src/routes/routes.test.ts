@@ -78,6 +78,7 @@ describe("cockpit route layout", () => {
       "/to-go",
       "/admin",
       "/manual",
+      "/showcase",
     ]);
   });
 
