@@ -7,6 +7,12 @@ contract between minor versions.
 
 ## [Unreleased]
 
+## [0.6.0-rc4] - 2026-11-12
+
+### Added
+
+- **Anime and manga consumption in reports and Today**: AniList list activities now emit consumption events — completions become `completed` events, episode/chapter/volume advances become `progressed` events keyed to the activity id — so watching and reading tracked on AniList reach the Today page, media feeds and report aggregates alongside books. Paused/dropped/planning activities stay state-only.
+
 ## [0.6.0-rc3] - 2026-11-12
 
 ### Fixed
