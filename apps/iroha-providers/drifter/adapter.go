@@ -150,10 +150,12 @@ func mapBook(book readingSnapshotBook, location *time.Location) (observations.Me
 	if isbn := strings.TrimSpace(book.ISBN); isbn != "" {
 		media.ExternalRefs = append(media.ExternalRefs, observations.MediaExternalRef{Provider: sourceProviderISBN, ExternalID: isbn})
 	}
+	media.MappedRefProvider = sourceProviderHardcover
 	if target := book.MatchedTarget; target != nil {
 		if target.EditionID > 0 {
 			media.ExternalRefs = append(media.ExternalRefs, observations.MediaExternalRef{
 				Provider: sourceProviderHardcover, ExternalID: strconv.FormatInt(target.EditionID, 10),
+				MatchedBy: observations.MediaMatchSourceMapping,
 			})
 		}
 		if target.WorkID > 0 {

@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -96,6 +97,9 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 // changes resumes from the watermark its last completed run proved; when the
 // gateway can no longer serve that watermark the same run falls back to a full
 // snapshot, so the horizon signal is a state transition and never a failure.
+// It also reads a full snapshot when the last completed one is older than the
+// connector's maximum snapshot age, because a changes feed cannot report an
+// unlink or a removal.
 //
 // The sync-state cursor means "a full snapshot stopped mid-pagination", while a
 // receipt's ordering basis means "the incremental watermark". Keeping them
@@ -113,7 +117,15 @@ func (s *SyncRunner) runFollower(ctx context.Context, job *syncRun, cursor *conn
 		if err != nil {
 			return job.fail(err)
 		}
+		due := false
 		if resumable {
+			var err error
+			due, err = s.snapshotDue(job.item, runStart)
+			if err != nil {
+				return job.fail(err)
+			}
+		}
+		if resumable && !due {
 			err := s.runChanges(ctx, job, changes, since, runStart)
 			if err == nil {
 				return nil
@@ -130,6 +142,36 @@ func (s *SyncRunner) runFollower(ctx context.Context, job *syncRun, cursor *conn
 		}
 	}
 	return s.runSnapshot(ctx, job, cursor, windowStart, runStart)
+}
+
+// snapshotDue reports whether the connector's last completed full snapshot is
+// older than its maximum age. A connector with no completed full snapshot on
+// record is due. The age comes from the coverage assertion a completed run
+// records for itself, so a snapshot that failed part-way, which is recorded as
+// partial and on a failed run, never counts.
+func (s *SyncRunner) snapshotDue(item connector.Connector, now time.Time) (bool, error) {
+	maxAge := connector.DefaultMaxSnapshotAge
+	if provider, ok := item.(connector.SnapshotAgeProvider); ok {
+		maxAge = provider.MaxSnapshotAge()
+	}
+	var last sql.NullTime
+	err := s.db.Raw(`select max(a.interval_end)
+from tb_media_sync_runs m
+join tb_import_jobs j on j.sync_run_id = m.id
+join tb_source_receipts r on r.raw_file_id = j.raw_file_id
+join tb_source_coverage_assertions a on a.source_receipt_id = r.id
+where m.connector_id = ? and m.status = ?
+and a.category = 'media_list' and a.ingestion_mode = ? and a.completeness = ?`,
+		item.Descriptor().ID, syncRunStatusCompleted, rawfiles.IngestionModeFullSnapshot, coverageCompletenessCovered).Row().Scan(&last)
+	if err != nil {
+		return false, err
+	}
+	if !last.Valid || now.Sub(last.Time) > maxAge {
+		s.logNote("last full snapshot is older than its maximum age, reading a full snapshot",
+			"connector_id", item.Descriptor().ID, "max_age", maxAge.String())
+		return true, nil
+	}
+	return false, nil
 }
 
 // resumeWatermark returns the ordering fact the last completed run proved. The

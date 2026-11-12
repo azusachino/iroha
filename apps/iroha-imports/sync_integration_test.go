@@ -147,14 +147,27 @@ type syncChangesConnector struct {
 	snapshotWatermark string
 	changesWatermark  string
 	failSecondPage    bool
-	sinces            []time.Time
+	// failSnapshot makes a full snapshot return a first page and then fail, as
+	// a feed that drops mid-pagination does.
+	failSnapshot  bool
+	snapshotReads int
+	sinces        []time.Time
 }
 
 func (c *syncChangesConnector) Descriptor() connector.Descriptor {
 	return connector.Descriptor{ID: c.id, DisplayName: "Sync changes test", SourceKind: "bangumi"}
 }
 
-func (c *syncChangesConnector) Fetch(context.Context, connector.Credentials, *connector.Cursor) (connector.Snapshot, *connector.Cursor, error) {
+func (c *syncChangesConnector) Fetch(_ context.Context, _ connector.Credentials, cursor *connector.Cursor) (connector.Snapshot, *connector.Cursor, error) {
+	if cursor == nil {
+		c.snapshotReads++
+	}
+	if c.failSnapshot {
+		if cursor != nil {
+			return connector.Snapshot{}, nil, errors.New("snapshot page 2 unavailable")
+		}
+		return c.page(c.snapshotWatermark), &connector.Cursor{Token: "snapshot-page-2"}, nil
+	}
 	return c.page(c.snapshotWatermark), nil, nil
 }
 
@@ -223,5 +236,115 @@ func TestIntegrationFailedChangesRunDoesNotMoveResumePoint(t *testing.T) {
 	var failed int64
 	if err := db.Model(&models.MediaSyncRun{}).Where("connector_id = ? and status = ?", feed.id, syncRunStatusFailed).Count(&failed).Error; err != nil || failed != 2 {
 		t.Fatalf("failed runs = %d (err %v), want 2 kept as evidence", failed, err)
+	}
+}
+
+func newSyncChangesRunner(t *testing.T, db *gorm.DB, feed *syncChangesConnector) *SyncRunner {
+	t.Helper()
+	connectorRegistry, err := connectorregistry.New(feed)
+	if err != nil {
+		t.Fatalf("build connector registry: %v", err)
+	}
+	providers, err := providerregistry.New()
+	if err != nil {
+		t.Fatalf("build provider registry: %v", err)
+	}
+	importService := NewServiceWithRegistry(db, nil, DefaultParserVersion, syncTestEnqueuer{db: db}, nil, providers)
+	return NewSyncRunner(db, connectorRegistry, &syncTestSnapshotStore{db: db, dir: t.TempDir()}, importService)
+}
+
+// ageFullSnapshots moves every full-snapshot coverage assertion a connector's
+// runs recorded back in time, which is how a test makes "a week ago" without
+// waiting for it.
+func ageFullSnapshots(t *testing.T, db *gorm.DB, connectorID string, by time.Duration) {
+	t.Helper()
+	if err := db.Exec(`update tb_source_coverage_assertions
+set interval_start = interval_start - make_interval(secs => ?), interval_end = interval_end - make_interval(secs => ?)
+where ingestion_mode = 'full_snapshot' and source_receipt_id in (
+  select r.id from tb_source_receipts r
+  join tb_import_jobs j on j.raw_file_id = r.raw_file_id
+  join tb_media_sync_runs m on m.id = j.sync_run_id
+  where m.connector_id = ?)`, by.Seconds(), by.Seconds(), connectorID).Error; err != nil {
+		t.Fatalf("age full snapshots: %v", err)
+	}
+}
+
+// A changes feed cannot report an unlink or a removal, so the follower reads a
+// full snapshot once the last completed one is older than the maximum age and
+// reads changes before that.
+func TestIntegrationFollowerReadsSnapshotWhenLastOneIsStale(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	feed := &syncChangesConnector{id: "sync-periodic-test-" + uuid.NewString(), snapshotWatermark: "2026-11-01T00:00:00Z", changesWatermark: "2026-11-02T00:00:00Z"}
+	runner := newSyncChangesRunner(t, db, feed)
+	run := func() {
+		t.Helper()
+		if err := runner.Run(context.Background(), feed.id, connector.Credentials{}); err != nil {
+			t.Fatalf("sync run: %v", err)
+		}
+	}
+
+	run() // bootstrap snapshot
+	if feed.snapshotReads != 1 || len(feed.sinces) != 0 {
+		t.Fatalf("bootstrap: %d snapshot reads, %d changes reads, want 1 and 0", feed.snapshotReads, len(feed.sinces))
+	}
+	ageFullSnapshots(t, db, feed.id, 2*24*time.Hour)
+	run()
+	if feed.snapshotReads != 1 || len(feed.sinces) != 1 {
+		t.Fatalf("2 days after the snapshot: %d snapshot reads, %d changes reads, want 1 and 1", feed.snapshotReads, len(feed.sinces))
+	}
+	ageFullSnapshots(t, db, feed.id, 6*24*time.Hour)
+	run()
+	if feed.snapshotReads != 2 || len(feed.sinces) != 1 {
+		t.Fatalf("8 days after the snapshot: %d snapshot reads, %d changes reads, want 2 and 1", feed.snapshotReads, len(feed.sinces))
+	}
+	run()
+	if feed.snapshotReads != 2 || len(feed.sinces) != 2 {
+		t.Fatalf("after the periodic snapshot: %d snapshot reads, %d changes reads, want 2 and 2", feed.snapshotReads, len(feed.sinces))
+	}
+}
+
+// A periodic snapshot that fails part-way is not a completed snapshot and does
+// not move the changes resume point; the next run resumes it through the
+// sync-state cursor until it completes.
+func TestIntegrationFailedPeriodicSnapshotIsRetriedAndKeepsResumePoint(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	feed := &syncChangesConnector{id: "sync-periodic-fail-test-" + uuid.NewString(), snapshotWatermark: "2026-11-01T00:00:00Z", changesWatermark: "2026-11-02T00:00:00Z"}
+	runner := newSyncChangesRunner(t, db, feed)
+	run := func() error { return runner.Run(context.Background(), feed.id, connector.Credentials{}) }
+
+	if err := run(); err != nil {
+		t.Fatalf("bootstrap snapshot run: %v", err)
+	}
+	ageFullSnapshots(t, db, feed.id, 8*24*time.Hour)
+
+	feed.failSnapshot, feed.snapshotWatermark = true, "2026-11-05T00:00:00Z"
+	if err := run(); err == nil {
+		t.Fatal("periodic snapshot with a failing page 2 returned nil error")
+	}
+	if feed.snapshotReads != 2 || len(feed.sinces) != 0 {
+		t.Fatalf("periodic snapshot: %d snapshot reads, %d changes reads, want 2 and 0", feed.snapshotReads, len(feed.sinces))
+	}
+	since, resumable, err := runner.resumeWatermark(feed.id)
+	if err != nil || !resumable || !since.Equal(time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("resume point after the failed snapshot = %v (resumable %v, err %v), want the bootstrap watermark", since, resumable, err)
+	}
+	if due, err := runner.snapshotDue(feed, time.Now().UTC()); err != nil || !due {
+		t.Fatalf("snapshot due after a failed periodic snapshot = %v (err %v), want true", due, err)
+	}
+
+	// The retry resumes at the stored cursor instead of restarting the shelf.
+	feed.failSnapshot, feed.snapshotWatermark = false, "2026-11-06T00:00:00Z"
+	if err := run(); err != nil {
+		t.Fatalf("resumed periodic snapshot: %v", err)
+	}
+	if feed.snapshotReads != 2 {
+		t.Fatalf("snapshot reads after resume = %d, want 2 (resumed, not restarted)", feed.snapshotReads)
+	}
+	if due, err := runner.snapshotDue(feed, time.Now().UTC()); err != nil || due {
+		t.Fatalf("snapshot due after the completed periodic snapshot = %v (err %v), want false", due, err)
+	}
+	since, _, err = runner.resumeWatermark(feed.id)
+	if err != nil || !since.Equal(time.Date(2026, time.November, 6, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("resume point after the completed snapshot = %v (err %v), want 2026-11-06", since, err)
 	}
 }
