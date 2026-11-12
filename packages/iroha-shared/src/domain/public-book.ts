@@ -2,29 +2,12 @@
 // media records: public identity and reading dates only. Keeping its wire
 // shape here prevents the public site from inventing a second frontend-only
 // contract. Source ids, notes, ratings, reading time and progress never ship.
+// Only completed books are public; the server decides that, not the page.
 export interface PublicBook {
   id: string;
   title: string;
   authors: string[];
-  status:
-    | "planning"
-    | "in_progress"
-    | "completed"
-    | "paused"
-    | "abandoned"
-    | "dropped";
+  status: "completed";
   started_at?: string;
   finished_at?: string;
-  last_read_at?: string;
 }
-
-export type PublicBookStatus = PublicBook["status"];
-
-export const PUBLIC_BOOK_STATUS_LABELS: Record<PublicBookStatus, string> = {
-  planning: "Planned",
-  in_progress: "Reading",
-  completed: "Finished",
-  paused: "Paused",
-  abandoned: "Abandoned",
-  dropped: "Dropped",
-};

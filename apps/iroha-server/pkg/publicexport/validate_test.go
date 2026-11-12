@@ -2,6 +2,8 @@ package publicexport
 
 import (
 	"encoding/json"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -151,11 +153,13 @@ func TestValidate_RejectsUnprefixedBookID(t *testing.T) {
 	}
 }
 
-func TestValidate_RejectsUnknownBookStatus(t *testing.T) {
-	book := validBook()
-	book.Status = "secretly_reading"
-	if err := Validate(validSummary(), nil, RouteFeatureCollection{}, []Book{book}); err == nil {
-		t.Fatal("expected error for unknown book status")
+func TestValidate_RejectsNonCompletedBookStatus(t *testing.T) {
+	for _, status := range []string{"planning", "in_progress", "paused", "abandoned", "dropped", "secretly_reading"} {
+		book := validBook()
+		book.Status = status
+		if err := Validate(validSummary(), nil, RouteFeatureCollection{}, []Book{book}); err == nil {
+			t.Fatalf("expected error for book status %q", status)
+		}
 	}
 }
 
@@ -195,12 +199,36 @@ func TestToBookFallsBackToEmptyAuthors(t *testing.T) {
 		ID:          uuid.New(),
 		Title:       "Anonymous",
 		AuthorsJSON: "",
-		Status:      "in_progress",
+		Status:      "completed",
 	})
 	if err != nil {
 		t.Fatalf("ToBook: %v", err)
 	}
 	if book.Authors == nil || len(book.Authors) != 0 {
 		t.Fatalf("authors = %v, want empty non-nil", book.Authors)
+	}
+}
+
+// TestBookJSONKeySetIsPinned fails when a field is added to the public book:
+// every key is a privacy decision and must be made here on purpose.
+func TestBookJSONKeySetIsPinned(t *testing.T) {
+	book := validBook()
+	book.StartedAt = ptrTimePublic(time.Unix(0, 0))
+	payload, err := json.Marshal(book)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &keys); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	want := []string{"authors", "finished_at", "id", "started_at", "status", "title"}
+	got := make([]string, 0, len(keys))
+	for key := range keys {
+		got = append(got, key)
+	}
+	sort.Strings(got)
+	if !slices.Equal(got, want) {
+		t.Fatalf("public book keys = %v, want %v", got, want)
 	}
 }
