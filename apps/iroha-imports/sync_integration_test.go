@@ -118,8 +118,8 @@ func (s *syncTestSnapshotStore) StoreSnapshot(_ context.Context, snapshot connec
 	if err := s.db.Exec(`insert into tb_source_instances (id, provider, instance_key, display_name, created_at, updated_at) values (?, ?, ?, '', ?, ?) on conflict (provider, instance_key) do nothing`, instanceID, snapshot.SourceKind, "sync-test", now, now).Error; err != nil {
 		return models.RawFile{}, err
 	}
-	err = s.db.Exec(`insert into tb_source_receipts (id, source_instance_id, raw_file_id, source_kind, ingestion_mode, scope_json, received_at, created_at)
-select ?, id, ?, ?, 'full_snapshot', '{}', ?, ? from tb_source_instances where provider = ? and instance_key = 'sync-test'`, receiptID, id, snapshot.SourceKind, now, now, snapshot.SourceKind).Error
+	err = s.db.Exec(`insert into tb_source_receipts (id, source_instance_id, raw_file_id, source_kind, ingestion_mode, scope_json, ordering_basis, received_at, created_at)
+select ?, id, ?, ?, 'full_snapshot', '{}', ?, ?, ? from tb_source_instances where provider = ? and instance_key = 'sync-test'`, receiptID, id, snapshot.SourceKind, snapshot.OrderingBasis, now, now, snapshot.SourceKind).Error
 	return rawFile, err
 }
 
@@ -137,4 +137,91 @@ func (e syncTestEnqueuer) EnqueueTx(tx *gorm.DB, kind string, payload any) (mode
 		tx = e.db
 	}
 	return job, tx.Create(&job).Error
+}
+
+// syncChangesConnector scripts a change-feed connector: a snapshot that proves
+// one watermark, then a two-page changes run that proves another. It records
+// every `since` the runner asks for.
+type syncChangesConnector struct {
+	id                string
+	snapshotWatermark string
+	changesWatermark  string
+	failSecondPage    bool
+	sinces            []time.Time
+}
+
+func (c *syncChangesConnector) Descriptor() connector.Descriptor {
+	return connector.Descriptor{ID: c.id, DisplayName: "Sync changes test", SourceKind: "bangumi"}
+}
+
+func (c *syncChangesConnector) Fetch(context.Context, connector.Credentials, *connector.Cursor) (connector.Snapshot, *connector.Cursor, error) {
+	return c.page(c.snapshotWatermark), nil, nil
+}
+
+func (c *syncChangesConnector) FetchChanges(_ context.Context, _ connector.Credentials, since time.Time, cursor *connector.Cursor) (connector.ChangePage, error) {
+	if cursor == nil {
+		c.sinces = append(c.sinces, since)
+		return connector.ChangePage{Snapshot: c.page(c.changesWatermark), Watermark: c.changesWatermark, Cursor: &connector.Cursor{Token: "page-2"}}, nil
+	}
+	if c.failSecondPage {
+		return connector.ChangePage{}, errors.New("page 2 unavailable")
+	}
+	return connector.ChangePage{Snapshot: c.page(c.changesWatermark), Watermark: c.changesWatermark}, nil
+}
+
+func (*syncChangesConnector) page(watermark string) connector.Snapshot {
+	return connector.Snapshot{ContentType: "application/json", Body: []byte(`{"data":[]}`), SourceKind: "bangumi", Filename: "sync-changes-test.json", OrderingBasis: watermark, ObservedAt: time.Now().UTC()}
+}
+
+// A changes run that stores page 1 and then fails must not move the resume
+// point: the next run asks for the watermark the last completed run proved.
+func TestIntegrationFailedChangesRunDoesNotMoveResumePoint(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	// A unique id keeps rows from earlier runs of this test out of its history.
+	feed := &syncChangesConnector{id: "sync-changes-test-" + uuid.NewString(), snapshotWatermark: "2026-11-01T00:00:00Z", changesWatermark: "2026-11-02T00:00:00Z"}
+	connectorRegistry, err := connectorregistry.New(feed)
+	if err != nil {
+		t.Fatalf("build connector registry: %v", err)
+	}
+	providers, err := providerregistry.New()
+	if err != nil {
+		t.Fatalf("build provider registry: %v", err)
+	}
+	importService := NewServiceWithRegistry(db, nil, DefaultParserVersion, syncTestEnqueuer{db: db}, nil, providers)
+	runner := NewSyncRunner(db, connectorRegistry, &syncTestSnapshotStore{db: db, dir: t.TempDir()}, importService)
+	run := func() error { return runner.Run(context.Background(), feed.id, connector.Credentials{}) }
+
+	if err := run(); err != nil {
+		t.Fatalf("bootstrap snapshot run: %v", err)
+	}
+	feed.failSecondPage = true
+	if err := run(); err == nil {
+		t.Fatal("changes run with a failing page 2 returned nil error")
+	}
+	if err := run(); err == nil {
+		t.Fatal("second changes run with a failing page 2 returned nil error")
+	}
+	feed.failSecondPage = false
+	if err := run(); err != nil {
+		t.Fatalf("recovering changes run: %v", err)
+	}
+	if err := run(); err != nil {
+		t.Fatalf("follow-up changes run: %v", err)
+	}
+
+	snapshotWatermark := time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC)
+	changesWatermark := time.Date(2026, time.November, 2, 0, 0, 0, 0, time.UTC)
+	want := []time.Time{snapshotWatermark, snapshotWatermark, snapshotWatermark, changesWatermark}
+	if len(feed.sinces) != len(want) {
+		t.Fatalf("changes requested since %v, want %v", feed.sinces, want)
+	}
+	for i := range want {
+		if !feed.sinces[i].Equal(want[i]) {
+			t.Fatalf("changes run %d requested since %v, want %v (all: %v)", i+1, feed.sinces[i], want[i], feed.sinces)
+		}
+	}
+	var failed int64
+	if err := db.Model(&models.MediaSyncRun{}).Where("connector_id = ? and status = ?", feed.id, syncRunStatusFailed).Count(&failed).Error; err != nil || failed != 2 {
+		t.Fatalf("failed runs = %d (err %v), want 2 kept as evidence", failed, err)
+	}
 }

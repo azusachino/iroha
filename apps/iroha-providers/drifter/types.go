@@ -1,10 +1,27 @@
 package drifter
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	connector "github.com/azusachino/iroha/apps/iroha-core/connector/v1"
 )
+
+// SupportedMajorVersion is the one feed major version this package reads.
+// Drifter publishes the contract as schemas/reading-snapshot-v1.schema.json.
+const SupportedMajorVersion = "1"
+
+// checkVersion refuses a page whose major version is not supported. It is the
+// single check shared by the connector (live pages) and the adapter (stored
+// evidence), so neither reads a page the other would reject.
+func checkVersion(version string) error {
+	major, _, _ := strings.Cut(version, ".")
+	if major != SupportedMajorVersion {
+		return fmt.Errorf("unsupported drifter feed version %q, want major %s", version, SupportedMajorVersion)
+	}
+	return nil
+}
 
 // ReadingSnapshot is one page of drifter-server's reading feed, served by both
 // GET /api/v1/reading/snapshot (a whole shelf) and GET /api/v1/reading/changes

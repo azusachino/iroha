@@ -93,7 +93,7 @@ func (s *SyncRunner) Run(ctx context.Context, connectorID string, credentials co
 }
 
 // runFollower executes the follower state machine. A connector that can serve
-// changes resumes from the watermark its latest receipt proved; when the
+// changes resumes from the watermark its last completed run proved; when the
 // gateway can no longer serve that watermark the same run falls back to a full
 // snapshot, so the horizon signal is a state transition and never a failure.
 //
@@ -109,7 +109,7 @@ func (s *SyncRunner) runFollower(ctx context.Context, job *syncRun, cursor *conn
 	}
 	changes, servesChanges := job.item.(connector.ChangeFetcher)
 	if servesChanges && cursor == nil {
-		since, resumable, err := s.resumeWatermark(job.item.Descriptor().SourceKind)
+		since, resumable, err := s.resumeWatermark(job.item.Descriptor().ID)
 		if err != nil {
 			return job.fail(err)
 		}
@@ -132,24 +132,30 @@ func (s *SyncRunner) runFollower(ctx context.Context, job *syncRun, cursor *conn
 	return s.runSnapshot(ctx, job, cursor, windowStart, runStart)
 }
 
-// resumeWatermark returns the ordering fact the latest stored receipt proved.
-// A source with no receipt, or one whose ordering basis is not a readable
-// timestamp, has nothing to resume from and must read a full snapshot.
-func (s *SyncRunner) resumeWatermark(sourceKind string) (time.Time, bool, error) {
-	var receipt models.SourceReceipt
-	err := s.db.Where("source_kind = ? and ordering_basis <> ''", sourceKind).
-		Order("received_at desc").
-		First(&receipt).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+// resumeWatermark returns the ordering fact the last completed run proved. The
+// resume point belongs to a run, not to a page: pages a failed run stored are
+// kept as evidence but cannot move it. A source with no completed run, or one
+// whose ordering basis is not a readable timestamp, has nothing to resume from
+// and must read a full snapshot.
+func (s *SyncRunner) resumeWatermark(connectorID string) (time.Time, bool, error) {
+	var orderingBasis string
+	result := s.db.Raw(`select r.ordering_basis
+from tb_media_sync_runs m
+join tb_import_jobs j on j.sync_run_id = m.id
+join tb_source_receipts r on r.raw_file_id = j.raw_file_id
+where m.connector_id = ? and m.status = ? and r.ordering_basis <> ''
+order by m.finished_at desc, r.received_at desc
+limit 1`, connectorID, syncRunStatusCompleted).Scan(&orderingBasis)
+	if result.Error != nil {
+		return time.Time{}, false, result.Error
+	}
+	if result.RowsAffected == 0 {
 		return time.Time{}, false, nil
 	}
-	if err != nil {
-		return time.Time{}, false, err
-	}
-	since, err := time.Parse(time.RFC3339, receipt.OrderingBasis)
+	since, err := time.Parse(time.RFC3339, orderingBasis)
 	if err != nil {
 		s.logNote("unreadable source watermark; falling back to full snapshot",
-			"source_kind", sourceKind, "ordering_basis", receipt.OrderingBasis)
+			"connector_id", connectorID, "ordering_basis", orderingBasis)
 		return time.Time{}, false, nil
 	}
 	return since.UTC(), true, nil
@@ -182,8 +188,9 @@ func (s *SyncRunner) runSnapshot(ctx context.Context, job *syncRun, cursor *conn
 
 // runChanges fetches the incremental feed from since until it is exhausted.
 // Each page is stored as its own evidence and queued for parsing, so a changed
-// book is updated without re-reading the whole shelf. A page that proves a
-// newer watermark becomes the next run's resume point through its receipt.
+// book is updated without re-reading the whole shelf. The pages' watermark
+// becomes the next run's resume point only once this run completes; a run that
+// fails part-way leaves the resume point where it was.
 //
 // It returns connector.ErrSnapshotRequired unwrapped when the feed refuses the
 // watermark, so the caller can fall back inside the same run.

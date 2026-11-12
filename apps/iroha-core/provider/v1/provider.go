@@ -123,7 +123,11 @@ const (
 	ErrorUnsupported   ErrorKind = "unsupported"
 	ErrorUnavailable   ErrorKind = "unavailable"
 	ErrorRateLimited   ErrorKind = "rate_limited"
-	ErrorInternal      ErrorKind = "internal"
+	// ErrorCredentials means the source rejected the credential (HTTP 401 or
+	// 403). It is not an outage: retrying cannot help until the credential is
+	// replaced.
+	ErrorCredentials ErrorKind = "credentials"
+	ErrorInternal    ErrorKind = "internal"
 )
 
 type Error struct {

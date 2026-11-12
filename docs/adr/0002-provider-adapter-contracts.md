@@ -176,6 +176,7 @@ const (
 	ErrorUnsupported   ErrorKind = "unsupported"
 	ErrorUnavailable   ErrorKind = "unavailable"
 	ErrorRateLimited   ErrorKind = "rate_limited"
+	ErrorCredentials   ErrorKind = "credentials"
 	ErrorInternal      ErrorKind = "internal"
 )
 
@@ -193,7 +194,7 @@ func (e *Error) Unwrap() error
 
 Errors should provide source/provider context with `%w`. The pipeline maps error kinds to retry policy:
 
-- `invalid_source` and `unsupported` are permanent failures;
+- `invalid_source`, `unsupported` and `credentials` (the source rejected the credential, HTTP 401 or 403) are permanent failures until the input or credential is fixed;
 - `unavailable` and `rate_limited` are retryable, subject to job limits;
 - `internal` is retryable only when the operation is known to be idempotent;
 - `context.Canceled` and `context.DeadlineExceeded` preserve cancellation semantics and are not wrapped into a permanent provider error.

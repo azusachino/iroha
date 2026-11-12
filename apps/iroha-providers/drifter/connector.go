@@ -32,13 +32,15 @@ const (
 	// ChangesPath is the authenticated incremental feed: books Drifter
 	// recorded at or after a watermark.
 	ChangesPath = "/api/v1/reading/changes"
-	// DefaultLimit is the page size requested when the connector has none. It
-	// stays small on purpose: upstream WeRead paces one request per second, so a
-	// large page makes the gateway exceed its client timeout instead of
-	// paginating.
+	// DefaultLimit is the page size requested from both feeds when the connector
+	// has none. It stays small on purpose: upstream WeRead paces one request per
+	// second, so a large page makes the gateway exceed its client timeout
+	// instead of paginating. The gateway also time-bounds a page, so a slow page
+	// returns fewer books with has_more rather than failing.
 	DefaultLimit = 10
-	// ChangesLimit is the page size requested from the changes feed.
-	ChangesLimit = 100
+	// MaxResponseBytes bounds one page body. A page of DefaultLimit books is
+	// far below this; a larger body is a misbehaving gateway, not a big shelf.
+	MaxResponseBytes = 8 << 20
 	// SourceInstanceKey names the one Drifter gateway a receipt came from.
 	SourceInstanceKey = "drifter:primary"
 	// IngestionModeSnapshot is the receipt mode recorded for a whole-shelf
@@ -115,7 +117,7 @@ func (c Connector) FetchChanges(ctx context.Context, credentials connector.Crede
 	}
 	query := url.Values{}
 	query.Set("since", since.UTC().Format(time.RFC3339))
-	query.Set("limit", strconv.Itoa(ChangesLimit))
+	query.Set("limit", strconv.Itoa(c.pageLimit()))
 	if cursor != nil && cursor.Token != "" {
 		query.Set("cursor", cursor.Token)
 	}
@@ -147,15 +149,21 @@ func (c Connector) fetchPage(ctx context.Context, credentials connector.Credenti
 		return ReadingSnapshot{}, &provider.Error{Kind: provider.ErrorUnavailable, Provider: ProviderID, SourceKind: SourceKind, Op: "fetch", Err: err}
 	}
 	defer func() { _ = response.Body.Close() }()
-	body, err := io.ReadAll(response.Body)
+	body, err := io.ReadAll(io.LimitReader(response.Body, MaxResponseBytes+1))
 	if err != nil {
 		return ReadingSnapshot{}, &provider.Error{Kind: provider.ErrorUnavailable, Provider: ProviderID, SourceKind: SourceKind, Op: "read_response", Err: err}
+	}
+	if len(body) > MaxResponseBytes {
+		return ReadingSnapshot{}, &provider.Error{Kind: provider.ErrorInvalidSource, Provider: ProviderID, SourceKind: SourceKind, Op: "read_response", Err: fmt.Errorf("response body exceeds %d bytes", MaxResponseBytes)}
 	}
 	if response.StatusCode == http.StatusGone {
 		return ReadingSnapshot{}, ErrSnapshotRequired
 	}
 	if response.StatusCode == http.StatusTooManyRequests {
 		return ReadingSnapshot{}, rateLimitError(response)
+	}
+	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
+		return ReadingSnapshot{}, &provider.Error{Kind: provider.ErrorCredentials, Provider: ProviderID, SourceKind: SourceKind, Op: "fetch", Err: fmt.Errorf("HTTP %s", response.Status)}
 	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return ReadingSnapshot{}, &provider.Error{Kind: provider.ErrorUnavailable, Provider: ProviderID, SourceKind: SourceKind, Op: "fetch", Err: fmt.Errorf("HTTP %s", response.Status)}
@@ -166,6 +174,12 @@ func (c Connector) fetchPage(ctx context.Context, credentials connector.Credenti
 	}
 	if page.SnapshotRequired {
 		return ReadingSnapshot{}, ErrSnapshotRequired
+	}
+	if err := checkVersion(page.Version); err != nil {
+		return ReadingSnapshot{}, &provider.Error{Kind: provider.ErrorInvalidSource, Provider: ProviderID, SourceKind: SourceKind, Op: "check_version", Err: err}
+	}
+	if page.HasMore && page.Cursor == "" {
+		return ReadingSnapshot{}, &provider.Error{Kind: provider.ErrorInvalidSource, Provider: ProviderID, SourceKind: SourceKind, Op: "decode_response", Err: errors.New("page has_more is true but carries no cursor")}
 	}
 	page.evidence = connector.Snapshot{
 		ContentType:       "application/json",
@@ -195,7 +209,7 @@ func rateLimitError(response *http.Response) *provider.Error {
 }
 
 func nextCursor(page ReadingSnapshot) *connector.Cursor {
-	if !page.HasMore || page.Cursor == "" {
+	if !page.HasMore {
 		return nil
 	}
 	return &connector.Cursor{Token: page.Cursor}
