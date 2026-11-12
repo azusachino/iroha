@@ -215,7 +215,7 @@ test("public reading section handles an empty book list", async ({ page }) => {
   );
   await page.goto(PUBLIC_BASE_URL);
   await page.getByRole("tab", { name: "Books" }).click();
-  await expect(page.getByText("No finished books yet.")).toBeVisible();
+  await expect(page.getByText("No reading records yet.")).toBeVisible();
 });
 
 test("public reading section quiets itself when the part is unavailable", async ({
