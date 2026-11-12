@@ -22,7 +22,7 @@ docs/                 design docs
 
 ## Toolchain & tasks
 
-- **mise-first**: tools use LTS where available, otherwise latest stable, in `.mise.toml` (`mise install`). `make` targets run through `mise exec --`; CI uses the same selection policy. Application
+- **mise-first**: tools are pinned to minor versions in `.mise.toml` (`mise install`). `make` targets run through `mise exec --`; CI uses the same selection policy. Application
   dependencies use frozen lockfiles. Record actual tool versions for verification; see `docs/dev-runtime.md`.
 - **`make` is the task runner** — always reference `make <target>`. `make check` is the pre-commit gate; `make validate` is the pre-PR gate (both enforced by local hooks).
 - Migrations run through **SQLx CLI** via `make db-up` / `make db-reset` (which call `scripts/dev_stack.py`). There is **no** GORM AutoMigrate — the SQL migration is the source of truth and the
