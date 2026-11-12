@@ -15,7 +15,7 @@ import (
 
 const (
 	// AdapterVersion versions the mapping semantics, not the wire schema.
-	AdapterVersion = "drifter-2026-11-1"
+	AdapterVersion = "drifter-2026-11-2"
 
 	// sourceProviderWeRead is the provider that actually owns the shelf. Drifter
 	// is a gateway, so an item's identity stays with its source provider and a
@@ -36,6 +36,10 @@ const (
 	// finishEventPrefix namespaces the deterministic finish event per book so a
 	// replay updates instead of appending a duplicate.
 	finishEventPrefix = "weread-finish-"
+	// progressEventPrefix namespaces the deterministic daily progress event.
+	// The day suffix keys one event per reading day, so re-syncs update today's
+	// row in place while past days stay frozen.
+	progressEventPrefix = "weread-progress-"
 )
 
 // Adapter maps Drifter reading snapshots into provider-neutral media
@@ -174,6 +178,20 @@ func mapBook(book readingSnapshotBook, location *time.Location) (observations.Me
 			media.StartedOn = startedOn
 			media.ProgressState.StartedOn = startedOn
 		}
+	}
+	// In-progress books contribute a day-keyed progressed event so current
+	// reading is visible on the day it happened; without it the library only
+	// learned about a book once it was finished. Reading time is deliberately
+	// omitted: Drifter reports it cumulatively for the whole book, and stamping
+	// it on every reading day would count the same minutes repeatedly.
+	if status == "in_progress" && book.LastReadAt != nil && !book.LastReadAt.IsZero() {
+		lastRead := book.LastReadAt.UTC()
+		media.Events = append(media.Events, observations.MediaEvent{
+			EventType:       observations.MediaEventProgressed,
+			EventAt:         lastRead,
+			SourceEventID:   fmt.Sprintf("%s%s:%s", progressEventPrefix, externalID, lastRead.In(location).Format(time.DateOnly)),
+			ProgressPercent: &percent,
+		})
 	}
 	if book.FinishedAt != nil && !book.FinishedAt.IsZero() {
 		finishedAt := book.FinishedAt.UTC()
