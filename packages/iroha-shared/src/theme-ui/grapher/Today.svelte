@@ -2,6 +2,7 @@
   import type { TodayThemeProps } from "../../view-contracts/today-view";
   import {
     formatDistance,
+    formatDateOnly,
     formatDuration,
     formatHr,
     formatPace,
@@ -203,7 +204,7 @@
                   >
                 </td>
                 <td>{mediaEventVerb(event)}</td>
-                <td>{event.occurred_at.slice(0, 10)}</td>
+                <td>{formatDateOnly(event.occurred_at)}</td>
               </tr>
             {/each}
           </tbody>

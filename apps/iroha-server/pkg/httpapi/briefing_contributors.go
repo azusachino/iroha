@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/activities"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/briefing"
@@ -104,7 +106,14 @@ func (c mediaBriefingContributor) Contribute(_ context.Context, day briefing.Day
 		})
 	}
 	updates := make([]mediaChangeResponse, 0, len(changePage.Items))
+	eventMedia := make(map[uuid.UUID]struct{}, len(eventPage.Items))
+	for _, event := range eventPage.Items {
+		eventMedia[event.MediaItemID] = struct{}{}
+	}
 	for _, change := range changePage.Items {
+		if _, covered := eventMedia[change.MediaItemID]; covered && duplicatesEvent(change) {
+			continue
+		}
 		updates = append(updates, toMediaChangeResponse(change))
 	}
 	timezone := day.Timezone
@@ -134,6 +143,18 @@ type mediaDayList[T any] struct {
 	Items   []T                   `json:"items"`
 	Count   int                   `json:"count"`
 	HasMore bool                  `json:"has_more"`
+}
+
+// duplicatesEvent reports whether a dated provider update repeats a
+// consumption event already surfaced in the same media section: progress or
+// completion state for a title the section already shows as an event.
+// Status-only rows (planned, paused, abandoned) and rating or note changes
+// have no event counterpart and must stay visible.
+func duplicatesEvent(change media.Change) bool {
+	return change.Position != nil ||
+		change.ProgressPercent != nil ||
+		change.Status == "completed" ||
+		change.Status == "in_progress"
 }
 
 type mediaDayCoverage struct {
