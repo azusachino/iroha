@@ -28,6 +28,7 @@
     onDrillPeriod: t.drillIntoPeriod,
     ringData: t.ringData,
     latestRingDay: t.latestRingDay,
+    ringGoalSourceDate: t.ringGoalSourceDate,
   });
   let seriesTarget = $state<HTMLElement>();
   let latestTarget = $state<HTMLElement>();
@@ -177,6 +178,9 @@
             >{/if}
         </div>
         <RingGauge rings={t.ringData} />
+        {#if t.ringGoalSourceDate}
+          <p>Missing goals last recorded {t.ringGoalSourceDate}</p>
+        {/if}
       </div>
 
       <div class="controls">

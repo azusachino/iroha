@@ -68,11 +68,17 @@ export function createPatternsState() {
     rows: DailyRow[];
   }>();
   const boundsResource = createAsyncResource<DateBounds>();
-  const latestDayResource = createAsyncResource<DailyRow | null>();
+  const latestDayResource = createAsyncResource<{
+    day: DailyRow | null;
+    goalDay: DailyRow | null;
+  }>();
   const monthly = $derived(monthlyResource.data?.buckets ?? []);
   const yearly = $derived(yearlyResource.data?.buckets ?? []);
   const dayRows = $derived(daysResource.data?.rows ?? []);
-  const latestDay = $derived(latestDayResource.data ?? null);
+  const latestDay = $derived(latestDayResource.data?.day ?? null);
+  const goalDay = $derived(latestDayResource.data?.goalDay ?? null);
+  const fallbackGoals = $derived(goalDay?.ring ?? null);
+  const ringGoalSourceDate = $derived(goalDay?.day ?? null);
   const error = $derived(
     monthlyResource.error ??
       latestDayResource.error ??
@@ -202,21 +208,30 @@ export function createPatternsState() {
           {
             label: "Move",
             value: latestRing.move_kcal,
-            goal: latestRing.move_goal_kcal,
+            goal:
+              latestRing.move_goal_kcal > 0
+                ? latestRing.move_goal_kcal
+                : (fallbackGoals?.move_goal_kcal ?? 0),
             unit: "kcal",
             color: "var(--ring-move)",
           },
           {
             label: "Exercise",
             value: latestRing.exercise_min,
-            goal: latestRing.exercise_goal_min,
+            goal:
+              latestRing.exercise_goal_min > 0
+                ? latestRing.exercise_goal_min
+                : (fallbackGoals?.exercise_goal_min ?? 0),
             unit: "min",
             color: "var(--ring-exercise)",
           },
           {
             label: "Stand",
             value: latestRing.stand_hours,
-            goal: latestRing.stand_goal_hours,
+            goal:
+              latestRing.stand_goal_hours > 0
+                ? latestRing.stand_goal_hours
+                : (fallbackGoals?.stand_goal_hours ?? 0),
             unit: "h",
             color: "var(--ring-stand)",
           },
@@ -374,7 +389,31 @@ export function createPatternsState() {
   async function loadLatestDay(forceRefresh = false) {
     await latestDayResource.run(async () => {
       const result = await listDaily({ limit: 1 }, { forceRefresh });
-      return result.items[0] ?? null;
+      const day = result.items[0] ?? null;
+      const ring = day?.ring;
+      if (
+        !ring ||
+        (ring.move_goal_kcal > 0 &&
+          ring.exercise_goal_min > 0 &&
+          ring.stand_goal_hours > 0)
+      ) {
+        return { day, goalDay: null };
+      }
+      // Keep the current reading if looking up older goals fails.
+      try {
+        const recent = await listDaily({ limit: 100 }, { forceRefresh });
+        const goalDay = recent.items.find(
+          (candidate) =>
+            candidate.day < day!.day &&
+            candidate.ring &&
+            candidate.ring.move_goal_kcal > 0 &&
+            candidate.ring.exercise_goal_min > 0 &&
+            candidate.ring.stand_goal_hours > 0,
+        );
+        return { day, goalDay: goalDay ?? null };
+      } catch {
+        return { day, goalDay: null };
+      }
     });
   }
 
@@ -603,6 +642,9 @@ export function createPatternsState() {
     },
     get ringData() {
       return ringData;
+    },
+    get ringGoalSourceDate() {
+      return ringGoalSourceDate;
     },
     get latestRingDay() {
       return latestRingDay;

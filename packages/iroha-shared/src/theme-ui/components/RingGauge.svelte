@@ -52,19 +52,21 @@
       />
     {/each}
     {#each geom as g}
-      <circle
-        class="arc"
-        class:closed={g.closed}
-        cx={center}
-        cy={center}
-        r={g.radius}
-        stroke-width={stroke}
-        stroke={g.ring.color}
-        pathLength="100"
-        stroke-dasharray={`${g.pct} 100`}
-        stroke-linecap="round"
-        transform={`rotate(-90 ${center} ${center})`}
-      />
+      {#if g.ring.goal > 0 && g.pct > 0}
+        <circle
+          class="arc"
+          class:closed={g.closed}
+          cx={center}
+          cy={center}
+          r={g.radius}
+          stroke-width={stroke}
+          stroke={g.ring.color}
+          pathLength="100"
+          stroke-dasharray={`${g.pct} 100`}
+          stroke-linecap="round"
+          transform={`rotate(-90 ${center} ${center})`}
+        />
+      {/if}
     {/each}
   </svg>
   <ul class="legend">
@@ -73,9 +75,11 @@
         <span class="dot" style={`background:${g.ring.color}`}></span>
         <span class="lbl">{g.ring.label}</span>
         <span class="val">
-          {display(g.ring.value)}<span class="goal"
-            >/{display(g.ring.goal)} {g.ring.unit}</span
-          >
+          {display(g.ring.value)}<span class="goal">
+            {#if g.ring.goal > 0}/{display(g.ring.goal)} {g.ring.unit}{:else}
+              {g.ring.unit} · goal unavailable
+            {/if}
+          </span>
           {#if g.closed}<span class="check" aria-label="goal met">✓</span>{/if}
         </span>
       </li>
