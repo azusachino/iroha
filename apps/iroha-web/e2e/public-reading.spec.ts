@@ -16,33 +16,100 @@ test("public reading section renders the sanitized book list", async ({
   const books = page.getByRole("tab", { name: "Books" });
   await expect(run).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "Activities" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Reading" })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Reading", exact: true }),
+  ).toHaveCount(0);
   await run.focus();
   await page.keyboard.press("ArrowRight");
   await expect(books).toBeFocused();
   await expect(books).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("heading", { name: "Reading" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Reading", exact: true }),
+  ).toBeVisible();
 
   const section = page.getByRole("region", { name: "Reading list" });
   await expect(section).toBeVisible();
 
-  // Grouped by year, most recent year first: 2026 before 2024.
-  const years = section.locator(".book-year");
-  await expect(years).toHaveCount(2);
-  await expect(years.nth(0)).toHaveText("2026");
-  await expect(years.nth(1)).toHaveText("2024");
+  await expect(section.getByText("A life in books.")).toBeVisible();
+  await expect(section.locator(".total strong")).toHaveText("6");
+  await expect(section.getByText("A Winter Book")).toBeVisible();
+  await expect(section.getByText("A Spring Book")).toBeVisible();
+  await expect(section.getByText("如何了解一个人")).toHaveCount(0);
+  await expect(section.getByText("2 books finished")).toBeVisible();
+  await expect(
+    section.getByRole("img", {
+      name: /Books finished each month in 2026: January 1, February 0, March 1/,
+    }),
+  ).toBeVisible();
 
-  const finished = section.locator(".book-row", {
-    hasText: "克拉拉与太阳",
-  });
-  await expect(finished).toContainText("石黑一雄");
-  await expect(finished.locator(".book-status")).toHaveText("Finished");
+  await section.getByRole("button", { name: "2024: 1 book finished" }).click();
+  await expect(section.getByText("克拉拉与太阳")).toBeVisible();
+  await expect(section.getByText("石黑一雄")).toBeVisible();
+  await expect(section.getByText("A Winter Book")).toHaveCount(0);
+  await section
+    .getByRole("combobox", { name: "Reading year" })
+    .selectOption("2025");
+  await expect(section.getByText("New Year's Eve")).toBeVisible();
+  await expect(
+    section.getByRole("img", { name: /November 0, December 1/ }),
+  ).toBeVisible();
+  await section
+    .getByRole("combobox", { name: "Reading year" })
+    .selectOption("undated");
+  await expect(section.getByText("An Undated Book")).toBeVisible();
+  await expect(section.getByText("A Book With an Invalid Date")).toBeVisible();
+  await expect(
+    section.getByRole("img", { name: /Books finished each month/ }),
+  ).toHaveCount(0);
+});
 
-  const reading = section.locator(".book-row", {
-    hasText: "如何了解一个人",
-  });
-  await expect(reading.locator(".book-status")).toHaveText("Reading");
-  await expect(reading.locator(".book-date")).toContainText("2026");
+test("undated books with long titles fit a narrow screen", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await installPilotFixtures(page, "public");
+  await page.route("**/public/v1/books", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "undated",
+          title: "LongUnbrokenTitle".repeat(20),
+          authors: ["Author"],
+          status: "completed",
+        },
+      ],
+    }),
+  );
+  await page.goto(PUBLIC_BASE_URL);
+  await page.getByRole("tab", { name: "Books" }).click();
+  const section = page.getByRole("region", { name: "Reading list" });
+  await expect(section.locator(".total strong")).toHaveText("1");
+  await expect(section.getByText("Undated books")).toBeVisible();
+  await expect(section.getByText("LongUnbrokenTitle".repeat(20))).toBeVisible();
+  await expect(section.locator(".book-date")).toHaveText("Date unavailable");
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
+});
+
+test("public reading section handles records with no finished books", async ({
+  page,
+}) => {
+  await installPilotFixtures(page, "public");
+  await page.route("**/public/v1/books", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "reading-only",
+          title: "Still reading",
+          authors: [],
+          status: "in_progress",
+        },
+      ],
+    }),
+  );
+  await page.goto(PUBLIC_BASE_URL);
+  await page.getByRole("tab", { name: "Books" }).click();
+  await expect(page.getByText("No finished books yet.")).toBeVisible();
+  await expect(page.getByText("Still reading")).toHaveCount(0);
 });
 
 test("public reading section quiets itself when the part is unavailable", async ({
