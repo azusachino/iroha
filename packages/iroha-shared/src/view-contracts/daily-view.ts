@@ -38,6 +38,7 @@ export type DailyThemeProps = {
   onDrillPeriod: (period: string) => void;
   ringData: ActivityRing[];
   latestRingDay: DailyRow | null;
+  ringGoalSourceDate?: string | null;
   theme: DesignLanguage;
   children?: Snippet;
 };

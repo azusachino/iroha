@@ -14,6 +14,7 @@
     onDrillPeriod,
     ringData,
     latestRingDay,
+    ringGoalSourceDate,
     theme,
     children,
   }: DailyThemeProps = $props();
@@ -86,6 +87,9 @@
           {#if latestRingDay}<strong>{latestRingDay.day}</strong>{/if}
         </div>
         <RingGauge rings={ringData} />
+        {#if ringGoalSourceDate}
+          <p>Missing goals last recorded {ringGoalSourceDate}</p>
+        {/if}
       </section>
     {/if}
   {/if}
