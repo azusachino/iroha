@@ -260,3 +260,35 @@ func TestParseSnapshotRefusesUnknownMajorVersion(t *testing.T) {
 		t.Fatalf("ParseSnapshot(minor bump 1.3) error = %v, want accepted", err)
 	}
 }
+
+// A mapping is the source's own confirmed statement, so its ref is marked as a
+// source mapping and the adapter declares the provider it owns. A book listed
+// without a matched target carries no such ref, which is what lets a full
+// snapshot withdraw the one stored earlier.
+func TestParseSnapshotMarksMappingRefAndDeclaresItsProvider(t *testing.T) {
+	mapped, err := ParseSnapshot([]byte(`{"version":"1.0","books":[{"source_book_id":"b1","title":"T","status":"reading","matched_target":{"target_provider":"hardcover","work_id":7,"edition_id":42}}]}`), time.UTC)
+	if err != nil || len(mapped) != 1 {
+		t.Fatalf("mapped page = %v, %v", mapped, err)
+	}
+	var found bool
+	for _, ref := range mapped[0].ExternalRefs {
+		if ref.Provider == sourceProviderHardcover {
+			found = ref.MatchedBy == observations.MediaMatchSourceMapping
+		}
+	}
+	if !found {
+		t.Fatalf("hardcover ref = %#v, want matched_by %q", mapped[0].ExternalRefs, observations.MediaMatchSourceMapping)
+	}
+	unmapped, err := ParseSnapshot([]byte(`{"version":"1.0","books":[{"source_book_id":"b1","title":"T","status":"reading","matched_target":null}]}`), time.UTC)
+	if err != nil || len(unmapped) != 1 {
+		t.Fatalf("unmapped page = %v, %v", unmapped, err)
+	}
+	if unmapped[0].MappedRefProvider != sourceProviderHardcover {
+		t.Fatalf("MappedRefProvider = %q, want %q", unmapped[0].MappedRefProvider, sourceProviderHardcover)
+	}
+	for _, ref := range unmapped[0].ExternalRefs {
+		if ref.Provider == sourceProviderHardcover {
+			t.Fatalf("unmapped book carries a hardcover ref: %#v", ref)
+		}
+	}
+}

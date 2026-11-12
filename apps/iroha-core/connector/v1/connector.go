@@ -63,6 +63,19 @@ type CoverageWindowProvider interface {
 	CoverageWindowStart(cursor *Cursor, now time.Time) time.Time
 }
 
+// DefaultMaxSnapshotAge is how old a connector's last completed full snapshot
+// may grow before the follower reads another one. A changes feed can only add
+// or update what it lists, so it cannot report an unlink or a removal; only a
+// full snapshot shows the current truth. The follower therefore refreshes it
+// on this schedule, whatever the changes feed's own horizon is.
+const DefaultMaxSnapshotAge = 7 * 24 * time.Hour
+
+// SnapshotAgeProvider lets a change-feed connector state its own maximum
+// snapshot age instead of DefaultMaxSnapshotAge.
+type SnapshotAgeProvider interface {
+	MaxSnapshotAge() time.Duration
+}
+
 // ErrSnapshotRequired reports that an incremental feed can no longer serve the
 // caller's watermark. The caller must read a full snapshot instead; the signal
 // is a normal state transition, not a failure.

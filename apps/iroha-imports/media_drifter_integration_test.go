@@ -382,6 +382,97 @@ func TestIntegrationDrifterSyncFollowerStateMachine(t *testing.T) {
 	assertDrifterSyncProgress(t, db, "in_progress", 60)
 }
 
+// TestIntegrationDrifterPeriodicSnapshotWithdrawsRemovedMapping proves what a
+// changes feed cannot: a mapping Drifter deleted. A stale follower reads a full
+// snapshot, and the snapshot that lists the book without a matched target
+// removes the Hardcover ref the source asserted, while the book itself and its
+// WeRead identity stay.
+func TestIntegrationDrifterPeriodicSnapshotWithdrawsRemovedMapping(t *testing.T) {
+	db := openImportsIntegrationDB(t)
+	for _, statement := range []string{
+		"delete from tb_source_receipts where source_kind = '" + coreimports.KindDrifter + "'",
+		"delete from tb_source_instances where provider = '" + coreimports.KindDrifter + "'",
+		"delete from tb_media_sync_state where connector_id = '" + drifter.ProviderID + "'",
+	} {
+		if err := db.Exec(statement).Error; err != nil {
+			t.Fatalf("reset drifter sync state (%s): %v", statement, err)
+		}
+	}
+	feed := &drifterSyncFeed{}
+	server := httptest.NewServer(feed)
+	t.Cleanup(server.Close)
+	providers, err := provider.NewRegistry(drifter.NewAdapter())
+	if err != nil {
+		t.Fatalf("build provider registry: %v", err)
+	}
+	enqueuer := &drifterIntegrationEnqueuer{db: db}
+	service := NewServiceWithRegistry(db, slog.New(slog.NewTextHandler(io.Discard, nil)), DefaultParserVersion, enqueuer, nil, providers)
+	store, err := rawfiles.NewService(db, t.TempDir())
+	if err != nil {
+		t.Fatalf("create raw file service: %v", err)
+	}
+	connectors, err := connectorregistry.New(drifter.NewConnector(server.URL, "sync-token"))
+	if err != nil {
+		t.Fatalf("build connector registry: %v", err)
+	}
+	runner := NewSyncRunner(db, connectors, store, service)
+	t.Cleanup(func() { cleanupDrifterSyncRows(t, db, enqueuer) })
+	run := func() {
+		t.Helper()
+		if err := runner.Run(context.Background(), drifter.ProviderID, connector.Credentials{}); err != nil {
+			t.Fatalf("sync run: %v", err)
+		}
+		processDrifterSyncImports(t, service, enqueuer)
+	}
+
+	mapped := drifterSyncPage("2026-11-01T10:00:00Z", "completed", 100, "2024-03-04T00:20:00+08:00", "2024-03-04T00:30:00+08:00")
+	feed.serveSnapshot(mapped)
+	run()
+	if !drifterHardcoverRefExists(t, db) {
+		t.Fatal("bootstrap snapshot did not record the matched Hardcover edition")
+	}
+
+	// The mapping is deleted in Drifter. The changes feed never lists the book,
+	// so a recent follower keeps the stale ref.
+	unmapped := strings.Replace(mapped, `"matched_target":{"target_provider":"hardcover","work_id":9001,"edition_id":424242}`, `"matched_target":null`, 1)
+	feed.serveSnapshot(unmapped)
+	feed.serveChanges(`{"version":"1.0","source_identity":"weread:23849102","watermark":"2026-11-03T10:00:00Z","has_more":false,"books":[]}`)
+	ageFullSnapshots(t, db, drifter.ProviderID, 2*24*time.Hour)
+	run()
+	if since := feed.requestedSince(); len(since) != 1 {
+		t.Fatalf("2 days after the snapshot requested changes %d times, want 1", len(since))
+	}
+	if !drifterHardcoverRefExists(t, db) {
+		t.Fatal("a changes run withdrew the Hardcover ref; only a full snapshot may")
+	}
+
+	// A week later the follower reads the snapshot instead of changes.
+	ageFullSnapshots(t, db, drifter.ProviderID, 6*24*time.Hour)
+	run()
+	if since := feed.requestedSince(); len(since) != 1 {
+		t.Fatalf("8 days after the snapshot requested changes %d times in total, want still 1", len(since))
+	}
+	assertDrifterSyncRun(t, db, rawfiles.IngestionModeFullSnapshot, "2026-11-01T10:00:00Z")
+	if drifterHardcoverRefExists(t, db) {
+		t.Fatal("the full snapshot without a matched target left the Hardcover ref behind")
+	}
+	var itemRef models.MediaExternalRef
+	if err := db.Where("provider = ? and external_id = ?", "weread", drifterIntegrationBookID).First(&itemRef).Error; err != nil {
+		t.Fatalf("the book lost its WeRead identity: %v", err)
+	}
+}
+
+func drifterHardcoverRefExists(t *testing.T, db *gorm.DB) bool {
+	t.Helper()
+	var count int64
+	if err := db.Raw(`select count(*) from tb_media_external_refs h
+join tb_media_external_refs w on w.scope_type = h.scope_type and w.scope_id = h.scope_id
+where h.provider = 'hardcover' and h.external_id = '424242' and w.provider = 'weread' and w.external_id = ?`, drifterIntegrationBookID).Scan(&count).Error; err != nil {
+		t.Fatalf("count hardcover refs: %v", err)
+	}
+	return count > 0
+}
+
 // drifterSyncFeed is a stand-in drifter-server. It serves the snapshot and
 // changes endpoints from programmable bodies and records the watermark each
 // changes request asked for, so a test can prove what the runner resumed from.

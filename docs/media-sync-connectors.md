@@ -269,6 +269,13 @@ Shipped in this slice:
   snapshot (`ingestion_mode=full_snapshot`). A readable watermark means a changes run (`ingestion_mode=incremental`). A 410 Gone, or a `snapshot_required` body,
   makes the same run fall back to a full snapshot instead of failing. The sync-state cursor stays reserved for an interrupted full-snapshot pagination, so the two
   resume points never get confused.
+- **Periodic full snapshot.** A changes feed cannot report an unlink or a book removed from the shelf, so the follower also reads a full snapshot whenever the
+  last completed one is older than `connector.DefaultMaxSnapshotAge` (7 days); a connector may state its own through `connector.SnapshotAgeProvider`. The age is
+  the interval end of the `media_list` / `full_snapshot` / `covered` coverage assertion that a completed run records, so a snapshot that failed part-way (recorded
+  `partial`, on a failed run) never counts and does not move the changes resume point. It resumes from the sync-state cursor on the next run. A full-snapshot page that
+  lists a book without a matched target removes the Hardcover ref the source asserted earlier (`matched_by = source_mapping`, or empty for refs written before that
+  marker); refs from other sources or owner decisions stay. **Limit:** a book absent from a complete snapshot (removed from the shelf) is left as it is, nothing is
+  deleted or hidden, and a book's link to its Hardcover work is not undone by an unlink.
 - **Identity stays with the source provider.** A Drifter book is persisted as a `weread` item (`provider`/external ref `weread`/`source_book_id`), so a future
   direct WeRead path claims the same item instead of creating a copy. `isbn` and a confirmed `matched_target.edition_id` become additional external refs
   (`isbn`, `hardcover`).

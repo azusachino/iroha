@@ -14,6 +14,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
 	"github.com/azusachino/iroha/apps/iroha-runtime/models"
+	"github.com/azusachino/iroha/apps/iroha-runtime/rawfiles"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -23,12 +24,61 @@ func (s *Service) persistMediaTx(tx *gorm.DB, rawFile models.RawFile, parsed []o
 	if err := tx.Create(&snapshot).Error; err != nil {
 		return err
 	}
+	fullSnapshot, err := isFullSnapshotPage(tx, rawFile)
+	if err != nil {
+		return err
+	}
 	for _, media := range parsed {
 		if err := persistMediaObservation(tx, rawFile, snapshot, media, s.mediaBridge); err != nil {
 			return err
 		}
+		if fullSnapshot {
+			if err := withdrawRemovedMapping(tx, media); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
+}
+
+// isFullSnapshotPage reports whether the raw file was received as a source's
+// whole current state. A changes page lists only what changed, so what it omits
+// says nothing; a raw file with no receipt makes no claim either.
+func isFullSnapshotPage(tx *gorm.DB, rawFile models.RawFile) (bool, error) {
+	var receipt models.SourceReceipt
+	result := tx.Where("raw_file_id = ?", rawFile.ID).Order("received_at desc, id desc").Limit(1).Find(&receipt)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0 && receipt.IngestionMode == rawfiles.IngestionModeFullSnapshot, nil
+}
+
+// withdrawRemovedMapping applies a full snapshot's statement about one item's
+// source-confirmed mapping: any ref of the mapped provider that the source
+// asserted earlier and no longer lists is removed from the item. Refs written
+// by other sources or by an owner decision keep their own matched_by and stay.
+// Refs written before sources marked their mappings have an empty matched_by,
+// and only a source mapping was ever written that way.
+func withdrawRemovedMapping(tx *gorm.DB, media observations.Media) error {
+	if media.MappedRefProvider == "" {
+		return nil
+	}
+	var itemRef models.MediaExternalRef
+	result := tx.Where("provider = ? and external_id = ? and scope_type = ?", media.Provider, media.ExternalID, mediaScopeType).Limit(1).Find(&itemRef)
+	if result.Error != nil || result.RowsAffected == 0 {
+		return result.Error
+	}
+	// The empty entry keeps the "not in" list non-empty when the source lists no ref.
+	keep := []string{""}
+	for _, ref := range media.ExternalRefs {
+		if ref.Provider == media.MappedRefProvider {
+			keep = append(keep, ref.ExternalID)
+		}
+	}
+	return tx.Where("scope_type = ? and scope_id = ? and provider = ? and matched_by in ? and external_id not in ?",
+		mediaScopeType, itemRef.ScopeID, media.MappedRefProvider,
+		[]string{"", observations.MediaMatchSourceMapping}, keep).
+		Delete(&models.MediaExternalRef{}).Error
 }
 
 func (s *Service) persistMediaHistoryTx(tx *gorm.DB, rawFile models.RawFile, parsed []observations.MediaHistory, snapshot models.ImportSnapshot) error {

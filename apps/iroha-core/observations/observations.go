@@ -210,6 +210,12 @@ type Media struct {
 	Events           []MediaEvent
 	ProgressState    *MediaProgress
 	Creators         []MediaCreatorRole
+	// MappedRefProvider names the catalog provider whose ref this source
+	// asserts through its own confirmed mapping (MatchedBy
+	// MediaMatchSourceMapping). It is the source's complete statement for that
+	// provider: when a full snapshot lists the item without such a ref, the
+	// mapping was removed and the ref the source wrote earlier is withdrawn.
+	MappedRefProvider string
 }
 
 // MediaCreatorRole is one credited role a source reports for a media item.
@@ -261,6 +267,12 @@ type MediaTitle struct {
 	IsPrimary  bool
 	Confidence *float64
 }
+
+// MediaMatchSourceMapping marks a ref that a source asserted from a mapping it
+// confirmed itself. It is the only kind of ref a source's full snapshot may
+// withdraw; refs from other sources or from an owner decision are never
+// touched.
+const MediaMatchSourceMapping = "source_mapping"
 
 type MediaExternalRef struct {
 	Provider    string
