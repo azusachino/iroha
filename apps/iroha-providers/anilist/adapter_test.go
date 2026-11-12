@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azusachino/iroha/apps/iroha-core/observations"
 	provider "github.com/azusachino/iroha/apps/iroha-core/provider/v1"
 )
 
@@ -91,6 +92,66 @@ func TestFuzzyDateDoesNotBecomeAnInstant(t *testing.T) {
 	invalid := anilistDate{Year: 2024, Day: 31}
 	if invalid.Partial() != nil || invalid.Time() != nil {
 		t.Fatal("provider day without a month was accepted")
+	}
+}
+
+func TestImportMediaHistoryEmitsConsumptionEvents(t *testing.T) {
+	entries, err := NewAdapter().ImportMediaHistory(context.Background(), provider.Source{
+		Kind: ActivitySourceKind,
+		Open: func(context.Context) (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader(`{
+  "data": {"Page": {"activities": [
+    {"id": 21, "status": "completed", "progress": "12", "createdAt": 1786752000,
+     "media": {"id": 111, "type": "ANIME", "format": "TV", "episodes": 12,
+       "title": {"romaji": "Kanata no Astra"}}},
+    {"id": 22, "status": "progressed", "progress": "chapter 5 - 8", "createdAt": 1786838400,
+     "media": {"id": 321, "type": "MANGA", "format": "MANGA", "chapters": 42,
+       "title": {"native": "例示漫画"}}},
+    {"id": 23, "status": "paused", "progress": "3", "createdAt": 1786924800,
+     "media": {"id": 111, "type": "ANIME", "format": "TV", "episodes": 12,
+       "title": {"romaji": "Kanata no Astra"}}},
+    {"id": 24, "status": "progressed", "progress": "", "createdAt": 1787011200,
+     "media": {"id": 111, "type": "ANIME", "format": "TV", "episodes": 12,
+       "title": {"romaji": "Kanata no Astra"}}}
+  ]}}
+}`)), nil
+		},
+	}, provider.ImportOptions{})
+	if err != nil {
+		t.Fatalf("ImportMediaHistory() error = %v", err)
+	}
+	if len(entries) != 4 {
+		t.Fatalf("history entries = %d, want 4", len(entries))
+	}
+	completed := entries[0]
+	if len(completed.Media.Events) != 1 {
+		t.Fatalf("completed anime events = %#v, want one", completed.Media.Events)
+	}
+	event := completed.Media.Events[0]
+	if event.EventType != observations.MediaEventCompleted || event.SourceEventID != "activity:21" {
+		t.Fatalf("completed event = %#v", event)
+	}
+	if !event.EventAt.Equal(time.Unix(1786752000, 0).UTC()) || event.Unit != "episodes" || event.Total == nil || *event.Total != 12 {
+		t.Fatalf("completed event detail = %#v", event)
+	}
+	progressed := entries[1]
+	if len(progressed.Media.Events) != 1 {
+		t.Fatalf("progressed manga events = %#v, want one", progressed.Media.Events)
+	}
+	event = progressed.Media.Events[0]
+	if event.EventType != observations.MediaEventProgressed || event.SourceEventID != "activity:22" {
+		t.Fatalf("progressed event = %#v", event)
+	}
+	if event.Unit != "chapters" || event.Position == nil || *event.Position != 8 || event.Total == nil || *event.Total != 42 {
+		t.Fatalf("progressed event keeps range end and total = %#v", event)
+	}
+	if event.Note != "" {
+		t.Fatalf("note = %q, want empty", event.Note)
+	}
+	for _, entry := range entries[2:] {
+		if len(entry.Media.Events) != 0 {
+			t.Fatalf("state-only activity emitted events = %#v", entry.Media.Events)
+		}
 	}
 }
 
