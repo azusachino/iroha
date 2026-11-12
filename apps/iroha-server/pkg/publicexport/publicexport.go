@@ -98,7 +98,6 @@ type Book struct {
 	Status     string     `json:"status"`
 	StartedAt  *time.Time `json:"started_at,omitempty"`
 	FinishedAt *time.Time `json:"finished_at,omitempty"`
-	LastReadAt *time.Time `json:"last_read_at,omitempty"`
 }
 
 // ToBook sanitizes one exported book for public consumption.

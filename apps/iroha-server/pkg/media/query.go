@@ -102,14 +102,15 @@ func (s *Service) List(filters ListFilters) (Page, error) {
 	return page, nil
 }
 
-// ExportBooks returns every book with a reading status, most recently
-// touched first. It feeds the sanitized public projection: callers must map it
-// through a dedicated public type, never expose it as-is.
+// ExportBooks returns completed books only, most recently touched first. The
+// server is the only place that decides what is public: other reading states
+// never leave this query. It feeds the sanitized public projection: callers
+// must map it through a dedicated public type, never expose it as-is.
 func (s *Service) ExportBooks() ([]BookExport, error) {
 	var rows []BookExport
 	if err := s.db.Table("tb_media_items AS item").
 		Select(`item.id, item.title,
-			CASE WHEN progress.status = 'in_progress' AND coalesce(progress.hidden_from_continue, false) THEN 'paused' ELSE progress.status END AS status,
+			progress.status AS status,
 			CASE WHEN progress.started_on_precision = 'day' THEN progress.started_on_value END AS started_on,
 			CASE WHEN progress.completed_on_precision = 'day' THEN progress.completed_on_value END AS completed_on,
 			coalesce((SELECT json_agg(creator.name ORDER BY creator.sort_name, creator.name)
@@ -118,7 +119,7 @@ func (s *Service) ExportBooks() ([]BookExport, error) {
 				WHERE role.scope_type = 'item' AND role.scope_id = item.id AND role.role = 'author'), '[]') AS authors_json`).
 		Joins("JOIN tb_media_progress AS progress ON progress.media_item_id = item.id").
 		Where("item.media_type = 'book'").
-		Where("progress.status IS NOT NULL").
+		Where("progress.status = 'completed'").
 		Order("coalesce(progress.last_update_at, progress.completed_on_value, progress.started_on_value, item.created_at) DESC, item.id DESC").
 		Scan(&rows).Error; err != nil {
 		return nil, err

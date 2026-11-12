@@ -50,7 +50,7 @@ func bumpMediaRevision(t *testing.T, db *gorm.DB) {
 }
 
 // TestIntegrationPublicBooksAreSanitizedAndRevisionFresh drives the books part
-// of the public projection: only books appear, only allowlisted fields ship,
+// of the public projection: only completed books appear, only allowlisted fields ship,
 // and a media revision change rebuilds the cached snapshot.
 func TestIntegrationPublicBooksAreSanitizedAndRevisionFresh(t *testing.T) {
 	db := openIntegrationDB(t)
@@ -70,6 +70,10 @@ func TestIntegrationPublicBooksAreSanitizedAndRevisionFresh(t *testing.T) {
 	readingWork := seedWork(t, db, "book")
 	readingBook := seedItem(t, db, readingWork, "book", "如何了解一个人")
 	seedBookProgress(t, db, readingBook, "in_progress", nil, &recent)
+
+	planningWork := seedWork(t, db, "book")
+	planningBook := seedItem(t, db, planningWork, "book", "Wishlist Secret")
+	seedBookProgress(t, db, planningBook, "planning", nil, &recent)
 
 	animeWork := seedWork(t, db, "anime")
 	anime := seedItem(t, db, animeWork, "anime", "Dragon Maid")
@@ -95,34 +99,27 @@ func TestIntegrationPublicBooksAreSanitizedAndRevisionFresh(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &books); err != nil {
 		t.Fatalf("decode books: %v", err)
 	}
-	if len(books) != 2 {
-		t.Fatalf("books = %d, want 2 (reading book first)", len(books))
+	if len(books) != 1 {
+		t.Fatalf("books = %d, want only the completed book: %v", len(books), books)
 	}
 	first := books[0]
-	if first["title"] != "如何了解一个人" || first["status"] != "in_progress" {
-		t.Fatalf("first book = %v, want most recently touched", first)
+	if first["title"] != "克拉拉与太阳" || first["status"] != "completed" {
+		t.Fatalf("first book = %v", first)
 	}
 	id, _ := first["id"].(string)
 	if len(id) < 6 || id[:6] != "media_" {
 		t.Fatalf("book id %q is not media_-prefixed", id)
 	}
-	if _, ok := first["finished_at"]; ok {
-		t.Fatalf("in-progress book ships finished_at: %v", first)
-	}
 	if _, ok := first["last_read_at"]; ok {
 		t.Fatalf("progress update was incorrectly published as a reading time: %v", first)
 	}
-	second := books[1]
-	if second["title"] != "克拉拉与太阳" || second["status"] != "completed" {
-		t.Fatalf("second book = %v", second)
-	}
-	authors, _ := second["authors"].([]any)
+	authors, _ := first["authors"].([]any)
 	if len(authors) != 1 || authors[0] != "石黑一雄" {
-		t.Fatalf("authors = %v", second["authors"])
+		t.Fatalf("authors = %v", first["authors"])
 	}
 
 	encoded := rec.Body.String()
-	for _, banned := range []string{"41077357", "weread", "reading_time", "progress_percent", "external", "note", "rating", "Dragon Maid"} {
+	for _, banned := range []string{"41077357", "weread", "reading_time", "progress_percent", "external", "note", "rating", "Dragon Maid", "Wishlist Secret", "如何了解一个人"} {
 		if strings.Contains(encoded, banned) {
 			t.Fatalf("public books payload leaks %q", banned)
 		}
@@ -135,10 +132,7 @@ func TestIntegrationPublicBooksAreSanitizedAndRevisionFresh(t *testing.T) {
 	// A later media change must rebuild the snapshot despite the 24h TTL.
 	moreWork := seedWork(t, db, "book")
 	more := seedItem(t, db, moreWork, "book", "第三本书")
-	seedBookProgress(t, db, more, "in_progress", nil, &recent)
-	if err := db.Exec(`update tb_media_progress set hidden_from_continue = true where media_item_id = ?`, more).Error; err != nil {
-		t.Fatalf("pause book: %v", err)
-	}
+	seedBookProgress(t, db, more, "completed", &recent, &recent)
 	bumpMediaRevision(t, db)
 	conditional := httptest.NewRequest(http.MethodGet, "/public/v1/books", nil)
 	conditional.Header.Set("If-None-Match", etag)
@@ -148,17 +142,11 @@ func TestIntegrationPublicBooksAreSanitizedAndRevisionFresh(t *testing.T) {
 		t.Fatalf("media revision change did not rebuild books: %d %v", rebuilt.Code, rebuilt.Header())
 	}
 	var after []map[string]any
-	if err := json.Unmarshal(rebuilt.Body.Bytes(), &after); err != nil || len(after) != 3 {
+	if err := json.Unmarshal(rebuilt.Body.Bytes(), &after); err != nil || len(after) != 2 {
 		t.Fatalf("books after second seed = %d (%v)", len(after), err)
 	}
-	foundPaused := false
-	for _, book := range after {
-		if book["title"] == "第三本书" && book["status"] == "paused" {
-			foundPaused = true
-		}
-	}
-	if !foundPaused {
-		t.Fatalf("hidden in-progress book is not marked paused: %v", after)
+	if after[0]["title"] != "第三本书" {
+		t.Fatalf("most recently touched completed book should be first: %v", after)
 	}
 
 	if err := db.Exec(`update tb_media_items set title = ' ' where id = ?`, more).Error; err != nil {

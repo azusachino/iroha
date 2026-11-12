@@ -35,21 +35,18 @@
   let selection = $state("");
   let trendRange = $state("recent");
   let trendScroller: HTMLDivElement | undefined = $state();
-  const finished = $derived(
-    books.filter((book) => book.status === "completed"),
-  );
   const yearly = $derived.by(() => {
     const counts = new Map<string, number>();
-    for (const book of finished) {
+    for (const book of books) {
       const year = completionDate(book)?.slice(0, 4);
       if (year) counts.set(year, (counts.get(year) ?? 0) + 1);
     }
     return [...counts].sort(([a], [b]) => b.localeCompare(a));
   });
-  const undated = $derived(finished.filter((book) => !completionDate(book)));
+  const undated = $derived(books.filter((book) => !completionDate(book)));
   const selectedYear = $derived(selection || yearly[0]?.[0] || "undated");
   const visible = $derived(
-    finished
+    books
       .filter((book) => {
         const date = completionDate(book);
         return selectedYear === "undated"
@@ -144,7 +141,7 @@
 </script>
 
 <PanelFrame label="Reading list">
-  {#if finished.length === 0}
+  {#if books.length === 0}
     <div class="empty">
       <p class="eyebrow">THE READING ARCHIVE</p>
       <h3>No finished books yet.</h3>
@@ -160,7 +157,7 @@
         </p>
       </div>
       <div class="total">
-        <strong>{finished.length}</strong><span
+        <strong>{books.length}</strong><span
           >books finished<br />all time</span
         >
       </div>

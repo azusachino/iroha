@@ -40,14 +40,8 @@ func ValidateBooks(books []Book) error {
 	return nil
 }
 
-var publicBookStatuses = map[string]bool{
-	"planning":    true,
-	"in_progress": true,
-	"completed":   true,
-	"paused":      true,
-	"abandoned":   true,
-	"dropped":     true,
-}
+// StatusCompleted is the only reading status that is public.
+const StatusCompleted = "completed"
 
 func validateBook(book Book) error {
 	// Like activities: a raw internal UUID would mean the sanitizer was
@@ -58,8 +52,8 @@ func validateBook(book Book) error {
 	if strings.TrimSpace(book.Title) == "" {
 		return fmt.Errorf("empty title")
 	}
-	if !publicBookStatuses[book.Status] {
-		return fmt.Errorf("status %q is not a public reading status", book.Status)
+	if book.Status != StatusCompleted {
+		return fmt.Errorf("status %q is not public; only %q books are", book.Status, StatusCompleted)
 	}
 	if len(book.Authors) > 32 {
 		return fmt.Errorf("too many authors")

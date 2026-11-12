@@ -251,7 +251,7 @@ paths:
     get:
       tags: [public]
       summary: Sanitized public reading list.
-      description: "Every book with a reading status, most recently touched first. Fields are limited to public identity and reading dates; source ids, notes, ratings, reading time and progress never ship. Exact-byte ETag (ADR-0010); Cache-Control public, max-age=86400."
+      description: "Completed books only, most recently touched first; other reading states are never public. Fields are limited to public identity and reading dates; source ids, notes, ratings, reading time and progress never ship. Exact-byte ETag (ADR-0010); Cache-Control public, max-age=86400."
       security: []
       parameters:
         - $ref: "#/components/parameters/PublicIfMatch"
@@ -1991,15 +1991,9 @@ components:
         authors:
           type: array
           items: { type: string }
-        status:
-          {
-            type: string,
-            enum:
-              [planning, in_progress, completed, paused, abandoned, dropped],
-          }
+        status: { type: string, enum: [completed] }
         started_at: { type: string, format: date-time }
         finished_at: { type: string, format: date-time }
-        last_read_at: { type: string, format: date-time }
     MetricDimension:
       type: object
       additionalProperties: false

@@ -150,13 +150,6 @@ const books: PublicBook[] = [
     status: "completed",
     finished_at: "2024-03-04T00:30:00Z",
   },
-  {
-    id: "media-synthetic-person",
-    title: "如何了解一个人",
-    authors: [],
-    status: "in_progress",
-    last_read_at: "2026-11-12T01:22:14Z",
-  },
 ];
 const expenses: Expense[] = [
   {
