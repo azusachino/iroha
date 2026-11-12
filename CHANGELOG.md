@@ -7,6 +7,12 @@ contract between minor versions.
 
 ## [Unreleased]
 
+## [0.6.0-rc5] - 2026-11-12
+
+### Fixed
+
+- **Today no longer duplicates consumed media**: provider updates that repeat a same-day consumption event for the same title (progress or completion) are dropped from the briefing media section, and event dates render in the effective timezone instead of raw UTC — one viewing session shows once, with one date.
+
 ## [0.6.0-rc4] - 2026-11-12
 
 ### Added
