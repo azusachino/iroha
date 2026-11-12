@@ -41,8 +41,8 @@ jobs:
               - 'CONSTRAINTS.md'
             go:
               - *global
-              - 'apps/iroha-server/**'
-              - 'apps/iroha-job/**'
+              - 'apps/**'
+              - '!apps/iroha-web/**'
               - 'go.work*'
               - '**/go.mod'
               - '**/go.sum'
