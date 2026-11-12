@@ -469,6 +469,20 @@ func TestInferSportType(t *testing.T) {
 		{"游泳", SportSwim},
 		{"Rowing Machine", ""},
 		{"", ""},
+		// Distances are not sport evidence, and keywords are whole tokens.
+		{"Morning Ride 15km", SportRide},
+		{"Cycling 25km", SportRide},
+		{"Walk 15km", SportWalk},
+		{"Brunch ride", SportRide},
+		{"Morning 5k", SportRun},
+		{"10K race", SportRun},
+		{"Brunch", ""},
+		{"Evening 15km", ""},
+		{"FunctionalStrengthTraining", SportTraditionalStrengthTraining},
+		{"HighIntensityIntervalTraining", SportHIIT},
+		{"ランチ", ""},
+		{"プランク", ""},
+		{"朝ランニング", SportRun},
 	}
 
 	for _, tt := range tests {
