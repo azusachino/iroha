@@ -8,10 +8,19 @@ test("public reading section renders the sanitized book list", async ({
   await installPilotFixtures(page, "public");
   await page.goto(PUBLIC_BASE_URL);
 
-  const heading = page.getByRole("heading", { name: "Reading", exact: true });
-  await expect(heading).toBeVisible();
-  // The reading list loads lazily: bring its section into the viewport.
-  await heading.scrollIntoViewIfNeeded();
+  await expect(
+    page.getByRole("heading", { name: "Miles & Margins" }),
+  ).toBeVisible();
+  const run = page.getByRole("tab", { name: "Run" });
+  const books = page.getByRole("tab", { name: "Books" });
+  await expect(run).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Activities" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Reading" })).toHaveCount(0);
+  await run.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(books).toBeFocused();
+  await expect(books).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Reading" })).toBeVisible();
 
   const section = page.getByRole("region", { name: "Reading list" });
   await expect(section).toBeVisible();
@@ -44,30 +53,36 @@ test("public reading section quiets itself when the part is unavailable", async 
   );
   await page.goto(PUBLIC_BASE_URL);
 
-  await expect(
-    page.getByRole("heading", { name: "Reading", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("heading", { name: "Reading", exact: true })
-    .scrollIntoViewIfNeeded();
+  await page.getByRole("tab", { name: "Books" }).click();
   await expect(
     page.getByText("Reading list is temporarily unavailable."),
   ).toBeVisible();
-  // The rest of the public site is unaffected.
+  // Switching back preserves access to the activity archive.
+  await page.getByRole("tab", { name: "Run" }).click();
   await expect(
     page.getByRole("heading", { name: "Activities", exact: true }),
   ).toBeVisible();
+});
+
+test("public tabs fit and switch at a narrow viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await installPilotFixtures(page, "public");
+  await page.goto(PUBLIC_BASE_URL);
+  await page.getByRole("tab", { name: "Books" }).click();
+  await expect(
+    page.getByRole("region", { name: "Reading list" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
+  await page.getByRole("tab", { name: "Run" }).click();
+  await expect(page.getByRole("heading", { name: "Activities" })).toBeVisible();
 });
 
 test("public reading section stays empty-safe", async ({ page }) => {
   await installPilotFixtures(page, "public", "empty");
   await page.goto(PUBLIC_BASE_URL);
 
-  await expect(
-    page.getByRole("heading", { name: "Reading", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("heading", { name: "Reading", exact: true })
-    .scrollIntoViewIfNeeded();
+  await page.getByRole("tab", { name: "Books" }).click();
   await expect(page.getByText("No reading records yet.")).toBeVisible();
 });

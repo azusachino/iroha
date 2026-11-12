@@ -29,7 +29,7 @@ for (const pilot of ["overview", "expenses", "public"] as const) {
               ? "Overview"
               : pilot === "expenses"
                 ? "Expenses"
-                : "harus track";
+                : "Miles & Margins";
           const header = page.getByRole("region", {
             name: `${title} header`,
             exact: true,
