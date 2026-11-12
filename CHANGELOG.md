@@ -7,6 +7,13 @@ contract between minor versions.
 
 ## [Unreleased]
 
+## [0.6.0-rc3] - 2026-11-12
+
+### Fixed
+
+- **Reports page crash on duplicate VO2 max labels**: canonicalize the VO2 max unit across the Health Auto Export and Apple Health parsers (HealthKit's `ml/(kg·min)` folded onto `ml/kg/min`), bump the parser version for replay, and disambiguate repeated labels in `ReportReceipt` / `ReportFactGrid` so no unit aliasing can crash the keyed each-block again.
+- **Missing reading records for in-progress books**: the Drifter adapter now emits a day-keyed `progressed` event per reading day (percent + last-read instant, reading day in the import timezone), so books being read appear on the Today page and media feeds without waiting for completion. Report aggregates still count only `finished`/`completed` events.
+
 ## [0.6.0-rc2] - 2026-11-11
 
 ### Added
