@@ -31,6 +31,7 @@ A pure domain package with zero DB dependencies:
 - `lang.go`: `LangEN`, `LangZH`, `LangJA`, `DetectScript(string) Language`.
 - `activity_taxonomy.go`: Canonical activity taxonomy cataloging standard Apple Health / Strava activities across EN, JA, ZH:
   - Context-aware resolution signature:
+
     ```go
     type ActivityContext struct {
         Provider   string
@@ -41,6 +42,7 @@ A pure domain package with zero DB dependencies:
     }
     func ResolveActivity(raw string, ctx ActivityContext) ActivityClassification
     ```
+
   - **Family-Level Canonicals**: Bare labels (`"ラン"`, `"Running"`, `"跑步"`) map to family-level `"Run"`.
   - **Context Promotion**:
     - Promotes to `"Outdoor Run"` if `ctx.Indoor == false` or `ctx.HasRoute == true`.

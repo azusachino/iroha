@@ -9,12 +9,14 @@
 ## Context
 
 Iroha aggregates heterogeneous personal data across two major domains:
+
 1. **Health and Activities**: Apple Watch / HealthKit data ingested via native Apple Health exports (`export.xml`) and Health Auto Export (HAE) JSON v2 webhooks.
 2. **Media and Reading**: Books, manga, anime, and movies ingested from WeRead, Hardcover, Bangumi, and AniList.
 
 Both domains experienced systematic data pollution due to ad-hoc string comparisons and brittle language heuristics:
 
 ### 1. Activity Domain: Fractured Workout Records Across iOS Locales
+
 - Apple HealthKit internally models workouts as integer enums (`HKWorkoutActivityTypeRunning`, `HKWorkoutActivityTypeWalking`).
 - Native Apple Health XML exports expose the enum constant string (`HKWorkoutActivityTypeRunning`), parsed into `Title: "Running"`.
 - Health Auto Export (HAE) exports `w.Name` formatted by Apple's localized string API in the device's active system locale at the moment of export (e.g., English `"Outdoor Run"`, Japanese `"屋外ラン"` / `"ラン"`, Chinese `"户外跑步"` / `"跑步"`).
@@ -24,6 +26,7 @@ Both domains experienced systematic data pollution due to ad-hoc string comparis
 - Furthermore, indoor vs. outdoor is **not** an activity type enum in HealthKit; it is carried by `HKMetadataKeyIndoorWorkout` (parsed into `appleWorkout.MetadataEntries` but previously ignored) and GPS route presence. Statically mapping bare `"ラン"` to `"Outdoor Run"` would fabricate location data for treadmill runs.
 
 ### 2. Media Domain: Clobbered Edition and Work Titles
+
 - In `apps/iroha-imports/media_import.go:689-766`, title precedence was hardcoded via `titleLanguageRank` with an arbitrary script hierarchy:
   $$\text{JPN (1)} > \text{ENG (2)} > \text{CHN (3)}$$
 - This heuristic was written specifically for Anime (Bangumi vs. AniList).
@@ -64,6 +67,7 @@ Propose a comprehensive, unified multilingual architecture supporting the three 
 
 5. **Context-Aware Activity Resolution**:
    - The resolver signature in `apps/iroha-core/i18n` takes both raw label and workout context:
+
      ```go
      type ActivityContext struct {
          Provider   string
@@ -74,6 +78,7 @@ Propose a comprehensive, unified multilingual architecture supporting the three 
      }
      func ResolveActivity(raw string, ctx ActivityContext) ActivityClassification
      ```
+
    - **Family-Level Canonicals**: Bare labels (`"ラン"`, `"Running"`, `"跑步"`) match family-level `"Run"`.
    - **Evidence-Based Promotion**:
      - Upgrade to `"Outdoor Run"` only when `ctx.Indoor == false` or `ctx.HasRoute == true`.
@@ -128,12 +133,15 @@ Propose a comprehensive, unified multilingual architecture supporting the three 
 ## Alternatives Considered
 
 ### Retain Ad-Hoc `switch` and Patch Individual Strings
+
 Rejected. Hardcoding individual string cases in parser files creates an unending cycle of locale bugs whenever watchOS renames a label or a user switches languages. A structured taxonomy with synonym normalization is the industry standard for wearable telemetry.
 
 ### Use Naive Unicode Script Detection (`DetectScript`) for Media Originality
+
 Rejected. Script does not equal language. Japanese works like *SPY×FAMILY*, *BLEACH*, or romaji titles (*Kimi no Na wa*) use Latin script; Chinese and Japanese share thousands of kanji/hanzi characters. Determining originality from script would reproduce the exact defects of `titleLanguageRank`. Explicit provider declarations must govern.
 
 ### Unconditionally Map Bare `"ラン"` to `"Outdoor Run"`
+
 Rejected. Fabricates location data. A plain `"ラン"` or `"Running"` on Apple Watch can be an indoor treadmill run. Conflating bare run with outdoor run corrupts pace and environmental analysis.
 
 ---
@@ -141,6 +149,7 @@ Rejected. Fabricates location data. A plain `"ラン"` or `"Running"` on Apple W
 ## Consequences
 
 Positive:
+
 - Historical and future workout timelines remain completely unified regardless of iOS system language switches.
 - Cross-source deduplication between HAE and Apple Health native exports operates without title or sport slug collisions.
 - Chinese book editions read on WeRead retain their authentic Chinese titles; English technical books retain their original English titles.
@@ -148,6 +157,7 @@ Positive:
 - All titles remain fully searchable and discoverable in `tb_media_titles`.
 
 Costs and Prerequisites:
+
 - `apps/iroha-core/i18n` introduces an activity taxonomy catalog requiring ongoing maintenance for new Apple HealthKit activity types.
 - Adapters must be extended to populate `original_language` and `item.language`.
 - Migration 00027 requires integration testing against fixture databases with simulated English, Japanese, and Chinese workout records.

@@ -9,6 +9,7 @@ The import pipeline turns raw source files into canonical activities and health 
 The owner may import HAE frequently and native Apple Health periodically. Keep each source receipt and observation; prefer compatible native observations over HAE regardless of import order. Fill a missing native field from HAE only when its meaning, unit, time scope and identity are compatible. An explicit zero is not missing. Record field-level provenance and preserve explicit owner selections.
 
 Matching rules differ by domain:
+
 - **Daily metrics**: Require the same local day, metric, and compatible unit.
 - **Sleep sessions**: Reconcile on matching start and end timestamps. When concurrent HAE and native Apple Health records exist for the same night, the importer attaches both source observations to the canonical session and prefers native Apple Health (retaining its granular stage segments).
 - **Workouts**: Match on identical start instant and normalized sport type when external IDs differ (such as HealthKit UUID in HAE vs synthetic compound key in Apple Health XML). The canonical activity links both source observations, prioritizes native, and backfills compatible missing metrics (e.g. distance from HAE).
