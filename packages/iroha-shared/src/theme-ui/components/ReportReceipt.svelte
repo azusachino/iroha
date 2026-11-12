@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { disambiguateLabels } from "../../domain/report";
   import type { ReportEvidenceRow } from "../../domain/report";
   import type { DesignLanguage } from "../../theme/themes";
 
@@ -9,12 +10,16 @@
     rows: ReportEvidenceRow[];
     theme: DesignLanguage;
   } = $props();
+
+  // Report data controls the labels, so repeated labels (e.g. one metric
+  // under two unit spellings) must not crash the each-block.
+  const keyedRows = $derived(disambiguateLabels(rows));
 </script>
 
 <section class="report-receipt" data-theme={theme} aria-label="Exact evidence">
   <div class="receipt-edge" aria-hidden="true"></div>
   <ul>
-    {#each rows as row (row.label)}
+    {#each keyedRows as row (row.key)}
       <li>
         <span>{row.label}</span>
         <strong>{row.value}</strong>

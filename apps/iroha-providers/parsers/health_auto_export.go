@@ -497,6 +497,22 @@ func parseHaeSleep(metric haeMetric) ([]observations.Sleep, time.Time, time.Time
 	return sessions, minTime, maxTime, nil
 }
 
+// normalizeHaeUnit canonicalizes Health Auto Export unit spellings onto the
+// spelling shared with the Apple Health export parser (DailyMetricVO2MaxUnit),
+// so one metric cannot produce two unit series in the daily metrics store.
+// Only aliases of identical magnitude are folded; scale conversions stay in
+// the callers.
+func normalizeHaeUnit(canonicalMetric, unit string) string {
+	if canonicalMetric != DailyMetricVO2Max {
+		return unit
+	}
+	switch strings.ToLower(strings.TrimSpace(unit)) {
+	case "ml/(kg·min)", "ml/(kg*min)", "ml/kg_min", "ml/kg·min", "ml/kg/min":
+		return DailyMetricVO2MaxUnit
+	}
+	return unit
+}
+
 func parseHaeDailyMetric(metric haeMetric) ([]observations.DailyMetric, time.Time, time.Time, error) {
 	var (
 		results []observations.DailyMetric
@@ -526,6 +542,7 @@ func parseHaeDailyMetric(metric haeMetric) ([]observations.DailyMetric, time.Tim
 		}
 		unit = "km"
 	}
+	unit = normalizeHaeUnit(canonicalMetric, unit)
 
 	trackTime := func(t time.Time) {
 		if t.IsZero() {
@@ -776,7 +793,7 @@ func mapHaeMetricName(name string) (metric string, defaultUnit string, isCumulat
 	case "heart_rate_variability_sdnn":
 		return DailyMetricHRVSDNN, "ms", false
 	case "vo2_max":
-		return DailyMetricVO2Max, "ml/kg_min", false
+		return DailyMetricVO2Max, DailyMetricVO2MaxUnit, false
 	case "body_mass":
 		return DailyMetricBodyMassKG, "kg", false
 	case "oxygen_saturation", "blood_oxygen_saturation":

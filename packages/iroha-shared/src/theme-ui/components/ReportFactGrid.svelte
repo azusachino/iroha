@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { disambiguateLabels } from "../../domain/report";
+
   export type ReportFact = {
     label: string;
     value: string;
@@ -6,10 +8,14 @@
   };
 
   let { facts }: { facts: ReportFact[] } = $props();
+
+  // Report data controls the labels, so repeated labels (e.g. one metric
+  // under two unit spellings) must not crash the each-block.
+  const keyedFacts = $derived(disambiguateLabels(facts));
 </script>
 
 <dl class="report-facts">
-  {#each facts as fact (fact.label)}
+  {#each keyedFacts as fact (fact.key)}
     <div>
       <dt>{fact.label}</dt>
       <dd>{fact.value}</dd>

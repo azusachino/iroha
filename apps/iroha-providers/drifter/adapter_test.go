@@ -41,6 +41,64 @@ const snapshotWithCreatorsAndFinish = `{
   ]
 }`
 
+const snapshotWithReadingBook = `{
+  "version": "1.0",
+  "generated_at": "2026-11-12T02:15:30Z",
+  "source_account": "default",
+  "has_more": false,
+  "books": [
+    {
+      "source_provider": "weread",
+      "source_book_id": "book-9",
+      "title": "福尔摩斯探案集",
+      "author": "柯南·道尔",
+      "status": "reading",
+      "progress_percent": 12,
+      "reading_time_seconds": 12337,
+      "last_read_at": "2026-11-12T00:53:39+09:00",
+      "started_on": "2026-11-01",
+      "is_custom": false
+    }
+  ]
+}`
+
+func TestParseSnapshotEmitsDailyProgressEventForReadingBook(t *testing.T) {
+	// 00:53+09:00 is still 2026-11-11 in UTC; the reading day must follow the
+	// import timezone so the event lands on the day the reader experienced.
+	location := time.FixedZone("JST", 9*60*60)
+	entries, err := ParseSnapshot([]byte(snapshotWithReadingBook), location)
+	if err != nil {
+		t.Fatalf("ParseSnapshot() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("ParseSnapshot() returned %d entries, want 1", len(entries))
+	}
+	media := entries[0]
+	if media.Status != "in_progress" || media.ProgressState == nil || media.ProgressState.Status != "in_progress" {
+		t.Fatalf("status mapping = %#v", media)
+	}
+	if len(media.Events) != 1 {
+		t.Fatalf("events = %#v, want one progressed event", media.Events)
+	}
+	event := media.Events[0]
+	if event.EventType != observations.MediaEventProgressed {
+		t.Fatalf("event type = %q, want %q", event.EventType, observations.MediaEventProgressed)
+	}
+	if event.SourceEventID != "weread-progress-book-9:2026-11-12" {
+		t.Fatalf("source event id = %q, want day-keyed weread-progress-book-9:2026-11-12", event.SourceEventID)
+	}
+	wantAt := time.Date(2026, time.November, 11, 15, 53, 39, 0, time.UTC)
+	if !event.EventAt.Equal(wantAt) {
+		t.Fatalf("event at = %v, want %v", event.EventAt, wantAt)
+	}
+	if event.ProgressPercent == nil || *event.ProgressPercent != 12 {
+		t.Fatalf("progress percent = %#v, want 12", event.ProgressPercent)
+	}
+	if event.Note != "" {
+		t.Fatalf("note = %q, want empty: cumulative reading time must not be stamped per day", event.Note)
+	}
+}
+
 func TestParseSnapshotMapsCreatorsFinishAndRefs(t *testing.T) {
 	// The reader finished the book at 00:30 in +08:00; UTC would put it on the
 	// previous day, so the completion date must follow the import timezone.

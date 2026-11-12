@@ -344,6 +344,28 @@ func TestParseHealthAutoExportMapsDocumentedBloodOxygenName(t *testing.T) {
 	}
 }
 
+func TestParseHaeDailyMetricCanonicalizesVO2MaxUnit(t *testing.T) {
+	for _, units := range []string{"ml/(kg·min)", "ml/(kg*min)", "ml/kg_min", "ml/kg·min", "ml/kg/min", ""} {
+		metric := haeMetric{
+			Name:  "vo2_max",
+			Units: units,
+			Data: []map[string]any{
+				{"date": "2026-11-10 08:00:00 +0900", "qty": 38.9, "source": "Apple Watch"},
+			},
+		}
+		results, _, _, err := parseHaeDailyMetric(metric)
+		if err != nil {
+			t.Fatalf("parseHaeDailyMetric(units=%q) failed: %v", units, err)
+		}
+		if len(results) != 1 {
+			t.Fatalf("units=%q: got %d daily metrics, want 1", units, len(results))
+		}
+		if results[0].Unit != DailyMetricVO2MaxUnit {
+			t.Errorf("units=%q: unit = %q, want %q", units, results[0].Unit, DailyMetricVO2MaxUnit)
+		}
+	}
+}
+
 func TestValidateHealthAutoExport(t *testing.T) {
 	valid := []byte(`{"data":{"metrics":[{"name":"step_count","data":[]}]}}`)
 	meta, err := ValidateHealthAutoExport(valid)
