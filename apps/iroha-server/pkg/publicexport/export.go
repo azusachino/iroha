@@ -56,8 +56,9 @@ func Export(ctx context.Context, activityService *activities.Service, geocodeSer
 	}
 
 	// Validate before anything touches disk: a failure here must leave outDir
-	// exactly as it was.
-	if err := Validate(summary, activityList, routes); err != nil {
+	// exactly as it was. The static export carries no books part today; the
+	// live /public/v1 projection serves them.
+	if err := Validate(summary, activityList, routes, nil); err != nil {
 		return ExportResult{}, fmt.Errorf("validate export: %w", err)
 	}
 	if err := ValidateActivityDetails(activityDetails); err != nil {

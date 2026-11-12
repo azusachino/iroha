@@ -5,6 +5,7 @@ import type {
   MetricSeriesResponse,
 } from "../src/lib/api";
 import type { PublicActivity } from "@iroha/shared/domain/public-activity";
+import type { PublicBook } from "@iroha/shared/domain/public-book";
 import { fakeSession } from "./session";
 
 export type Pilot = "overview" | "expenses" | "public";
@@ -107,6 +108,22 @@ const emptySummary = {
   by_sport: [],
 };
 const routes = { type: "FeatureCollection", features: [] };
+const books: PublicBook[] = [
+  {
+    id: "media-synthetic-klara",
+    title: "克拉拉与太阳",
+    authors: ["石黑一雄"],
+    status: "completed",
+    finished_at: "2024-03-04T00:30:00Z",
+  },
+  {
+    id: "media-synthetic-person",
+    title: "如何了解一个人",
+    authors: [],
+    status: "in_progress",
+    last_read_at: "2026-11-12T01:22:14Z",
+  },
+];
 const expenses: Expense[] = [
   {
     id: "synthetic-jpy",
@@ -317,7 +334,11 @@ export async function installPilotFixtures(
             : fixtureSummary,
       activities: records,
       routes,
-      meta: { generated_at: instant, activity_count: records.length },
+      books: scenario === "empty" ? [] : books,
+      meta: {
+        generated_at: instant,
+        activity_count: records.length,
+      },
     };
     const key = path.split("/").pop()!;
     if (!(key in response)) unknown.push(path);

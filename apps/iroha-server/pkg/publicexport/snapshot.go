@@ -33,7 +33,7 @@ func BuildSnapshot(ctx context.Context, activitySvc *activities.Service, geocode
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("build routes: %w", err)
 	}
-	if err := Validate(summary, list, routes); err != nil {
+	if err := Validate(summary, list, routes, nil); err != nil {
 		return Snapshot{}, fmt.Errorf("validate public projection: %w", err)
 	}
 	return Snapshot{

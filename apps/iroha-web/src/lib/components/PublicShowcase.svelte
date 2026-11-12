@@ -25,10 +25,12 @@
   import type {
     Activity,
     ActivityDetail as ActivityDetailData,
+    Book,
     Meta,
     RouteFeatureCollection,
     Summary,
   } from "$lib/public/types";
+  import PublicReading from "@iroha/shared/theme-ui/grapher/PublicReading.svelte";
   import ActivityHeatmap from "@iroha/shared/theme-ui/components/ActivityHeatmap.svelte";
   import MonthlyBarChart from "@iroha/shared/components/MonthlyBarChart.svelte";
   import YearProgressChart from "@iroha/shared/components/YearProgressChart.svelte";
@@ -63,6 +65,36 @@
     features: [],
   });
   let routesLoading = $state(true);
+
+  // The reading list rides the same lazy pattern as routes: fetched when its
+  // section approaches the viewport, and any failure just quiets the section.
+  let books = $state<Book[]>([]);
+  let booksLoading = $state(true);
+  let booksUnavailable = $state(false);
+  let booksSectionEl = $state<HTMLElement>();
+  let booksRequested = false;
+  let _booksPromise: Promise<Book[]> | null = null;
+
+  function ensureBooksLoaded() {
+    if (booksRequested) return;
+    booksRequested = true;
+    if (!_booksPromise) {
+      _booksPromise = fetch("/public/v1/books").then(async (r) => {
+        if (!r.ok) throw new Error("reading list unavailable");
+        return (await r.json()) as Book[];
+      });
+    }
+    _booksPromise
+      .then((list) => {
+        books = Array.isArray(list) ? list : [];
+        booksLoading = false;
+      })
+      .catch(() => {
+        booksUnavailable = true;
+        booksLoading = false;
+      });
+  }
+
   const activeDays = $derived(activeDaysFromActivities(activities));
   const latestDay = $derived(
     activities[0]?.started_at.slice(0, 10) ??
@@ -466,6 +498,26 @@
       (entries) => {
         if (entries[0]?.isIntersecting) {
           ensureRoutesLoaded();
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
+  $effect(() => {
+    const el = booksSectionEl;
+    if (!el || !browser) return;
+    if (typeof IntersectionObserver === "undefined") {
+      ensureBooksLoaded();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          ensureBooksLoaded();
           observer.disconnect();
         }
       },
@@ -962,6 +1014,20 @@
             </div>
           {/if}
         </PanelFrame>
+      {/if}
+
+      <section class="section-heading" bind:this={booksSectionEl}>
+        <h2>Reading</h2>
+      </section>
+
+      {#if booksLoading}
+        <p class="muted">Loading reading list…</p>
+      {:else if booksUnavailable}
+        <p class="muted">Reading list is temporarily unavailable.</p>
+      {:else if books.length === 0}
+        <p class="muted">No reading records yet.</p>
+      {:else}
+        <PublicReading {books} />
       {/if}
     </div>
   {/if}

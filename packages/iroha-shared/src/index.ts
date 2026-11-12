@@ -26,4 +26,5 @@ export * from "./view-contracts/expense-view";
 export * from "./domain/daily";
 export * from "./view-contracts/daily-view";
 export * from "./domain/public-activity";
+export * from "./domain/public-book";
 export * from "./domain/connections";

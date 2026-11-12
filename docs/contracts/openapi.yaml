@@ -247,6 +247,30 @@ paths:
           $ref: "#/components/responses/PublicPreconditionFailed"
         "429":
           description: Rate limited.
+  /public/v1/books:
+    get:
+      tags: [public]
+      summary: Sanitized public reading list.
+      description: "Every book with a reading status, most recently touched first. Fields are limited to public identity and reading dates; source ids, notes, ratings, reading time and progress never ship. Exact-byte ETag (ADR-0010); Cache-Control public, max-age=86400."
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/PublicIfMatch"
+        - $ref: "#/components/parameters/PublicIfNoneMatch"
+      responses:
+        "200":
+          description: Public reading list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicBook"
+        "304":
+          $ref: "#/components/responses/PublicNotModified"
+        "412":
+          $ref: "#/components/responses/PublicPreconditionFailed"
+        "429":
+          description: Rate limited.
   /public/v1/meta:
     get:
       tags: [public]
@@ -1957,6 +1981,25 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    PublicBook:
+      type: object
+      additionalProperties: false
+      required: [id, title, authors, status]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        authors:
+          type: array
+          items: { type: string }
+        status:
+          {
+            type: string,
+            enum:
+              [planning, in_progress, completed, paused, abandoned, dropped],
+          }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        last_read_at: { type: string, format: date-time }
     MetricDimension:
       type: object
       additionalProperties: false
