@@ -7,6 +7,16 @@ contract between minor versions.
 
 ## [Unreleased]
 
+### Added
+
+- **Public reading list**: the public archive gains a sanitized reading list beside the running archive, with separate Run and Books tabs (Run is selected by default) under the name Miles & Margins. Signed-in owners reach it through More → Public archive or `/showcase`; `/` stays the private Today page. Responses carry public item IDs, titles, authors, reading status and supported reading dates, and exclude source IDs, notes, ratings and progress. Paused books show as paused.
+- **Finished books by year and month**: the public Books tab lists finished books only, with an all-time total, yearly counts, a monthly chart and the selected year's books. Completed books without a valid completion date sit in a separate undated list; no date is inferred from progress.
+- **Reading totals across years**: the public Books page compares yearly completions in the same chart style as Reports. It opens on the latest ten years, older decades are selectable, and years with no completions show zero.
+
+### Fixed
+
+- **Patterns rings with missing goals**: when the latest activity reading has no ring goals (Health Auto Export supplies none), Patterns uses the last observed goals from the 100 most recent daily records and dates them on the page. When no earlier goals exist, it shows the goals as unavailable instead of a misleading zero-length arc.
+
 ## [0.6.0-rc5] - 2026-11-12
 
 ### Fixed
@@ -30,6 +40,10 @@ contract between minor versions.
 
 ### Added
 
+- **Multilingual activity taxonomy and titles**: a canonical activity catalog with universal English keys and CJK script detection (17 canonical activities) in `apps/iroha-core/i18n/` (ADR-0012). Apple Health and Health Auto Export parsers read indoor/outdoor metadata instead of guessing from labels. Migration 00027 canonicalizes activity titles and records the change in an audit table. Media titles prefer native titles from script and language evidence, replacing the title-language ranking heuristic.
+- **Drifter reading gateway**: a Drifter connector with Bearer auth, cursor pagination, rate-limit mapping and honest WeRead status and progress mapping. Media creators persist by role, and a first-class publisher column arrives with migration 00028. `drifter`, `weread` and `hardcover` register at source priority 2.
+- **Cross-edition work linking**: editions that share a Hardcover work ID attach to one canonical work and link to their siblings as editions. Fuzzy title and year matching no longer auto-attaches books.
+- **Reading time and publisher metadata**: reading time is stored per progress record (migration 00029), exposed in the API, and shown as `Xh Ym read` on the detail view, which also renders the publisher.
 - **Same-Origin Cover Image Proxy & Disk Cache**:
   - Add `GET /api/v1/media/{mediaId}/cover` proxy with disk caching in `$IROHA_DATA_DIR/covers` and HTTP 304 `ETag` / `If-None-Match` validation.
   - Automatically rewrite media cover URLs across all listing and detail endpoints to `/api/v1/media/{mediaId}/cover`, preventing third-party tracking blocks (Privacy Badger) and CDN hotlink errors across books, anime, and manga.
@@ -40,6 +54,7 @@ contract between minor versions.
 
 ### Changed
 
+- **CI toolchain pins**: CI pins bun 1.4, go 1.27, rumdl 0.3 and uv 0.13 from this repository's own `.mise.toml`, instead of relying on the workstation's shared mise config.
 - **Drifter & Media Sync Polish**:
   - Filter unread/planned books from Drifter sync so only finished or in-progress books appear.
   - Order unstarted items last in library lists and media feeds.
