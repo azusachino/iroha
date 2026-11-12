@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"path/filepath"
 	"time"
 
 	imports "github.com/azusachino/iroha/apps/iroha-imports"
@@ -18,6 +19,7 @@ import (
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/daily"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/expenses"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/geocode"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/imagefetch"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metrics"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/metricseries"
@@ -92,6 +94,7 @@ type Server struct {
 	intakeQuota      *intakeQuota
 	publicCache      *publicSnapshotCache
 	publicBooksCache *publicSnapshotCache
+	coverFetcher     *imagefetch.Fetcher
 }
 
 func NewServer(deps Dependencies) http.Handler {
@@ -106,9 +109,10 @@ func NewServer(deps Dependencies) http.Handler {
 	}
 
 	server := &Server{
-		deps: deps,
-		mux:  chi.NewRouter(),
-		now:  time.Now,
+		deps:         deps,
+		mux:          chi.NewRouter(),
+		now:          time.Now,
+		coverFetcher: imagefetch.New(filepath.Join(coverDataDir(deps.Config.Storage.DataDir), "covers")),
 	}
 	if deps.Now != nil {
 		server.now = deps.Now
@@ -332,4 +336,12 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": statusReady})
+}
+
+// coverDataDir is where the cover cache lives when no data dir is configured.
+func coverDataDir(dataDir string) string {
+	if dataDir == "" {
+		return ".iroha-data"
+	}
+	return dataDir
 }
