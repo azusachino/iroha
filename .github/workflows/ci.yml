@@ -41,8 +41,10 @@ jobs:
               - 'CONSTRAINTS.md'
             go:
               - *global
-              - 'apps/iroha-server/**'
-              - 'apps/iroha-job/**'
+              # Every app except the web app. A separate '!apps/iroha-web/**'
+              # line would match every file outside it, because the filter
+              # passes when any one pattern matches.
+              - 'apps/!(iroha-web)/**'
               - 'go.work*'
               - '**/go.mod'
               - '**/go.sum'

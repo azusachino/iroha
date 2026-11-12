@@ -145,15 +145,15 @@ func main() {
 	if err := ensureConfiguredRawFilePurgeSchedule(db, retention > 0); err != nil {
 		logger.Error("ensure raw file purge schedule", "error", err)
 	}
-	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncAniList, os.Getenv(config.EnvAniListUsername) != "", os.Getenv(config.EnvAniListSyncInterval)); err != nil {
+	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncAniList, mediaSyncEnabled(logger, jobs.KindMediaSyncAniList, config.EnvAniListUsername, os.Getenv(config.EnvAniListSyncInterval), os.Getenv(config.EnvAniListUsername) != ""), os.Getenv(config.EnvAniListSyncInterval)); err != nil {
 		logger.Error("ensure AniList sync schedule", "error", err)
 		os.Exit(1)
 	}
-	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncBangumi, os.Getenv(config.EnvBangumiUsername) != "", os.Getenv(config.EnvBangumiSyncInterval)); err != nil {
+	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncBangumi, mediaSyncEnabled(logger, jobs.KindMediaSyncBangumi, config.EnvBangumiUsername, os.Getenv(config.EnvBangumiSyncInterval), os.Getenv(config.EnvBangumiUsername) != ""), os.Getenv(config.EnvBangumiSyncInterval)); err != nil {
 		logger.Error("ensure Bangumi sync schedule", "error", err)
 		os.Exit(1)
 	}
-	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncDrifter, os.Getenv(config.EnvDrifterAPIToken) != "", os.Getenv(config.EnvDrifterSyncInterval)); err != nil {
+	if err := ensureConfiguredMediaSchedule(db, jobs.KindMediaSyncDrifter, mediaSyncEnabled(logger, jobs.KindMediaSyncDrifter, config.EnvDrifterAPIToken, os.Getenv(config.EnvDrifterSyncInterval), os.Getenv(config.EnvDrifterAPIToken) != ""), os.Getenv(config.EnvDrifterSyncInterval)); err != nil {
 		logger.Error("ensure Drifter sync schedule", "error", err)
 		os.Exit(1)
 	}
@@ -408,4 +408,27 @@ func ensureConfiguredMediaSchedule(db *gorm.DB, kind string, configured bool, re
 		"next_run_at":   gorm.Expr("coalesce(next_run_at, ?)", now),
 		"updated_at":    now,
 	}).Error
+}
+
+// mediaSyncEnabled decides whether a connector's sync schedule may run and
+// says why not, once at startup. A missing credential keeps the schedule off,
+// but an owner who set an explicit interval wants it on, so that case is a
+// misconfiguration and logs a warning naming the missing setting (never its
+// value). An explicit off interval is the owner's choice and needs no warning.
+func mediaSyncEnabled(logger *slog.Logger, kind, credentialSetting, requestedInterval string, credentialSet bool) bool {
+	interval := strings.TrimSpace(requestedInterval)
+	if strings.EqualFold(interval, "off") || strings.EqualFold(interval, "disabled") {
+		logger.Info("media sync schedule disabled by interval", "kind", kind)
+		return false
+	}
+	if credentialSet {
+		return true
+	}
+	if interval != "" {
+		logger.Warn("media sync schedule disabled: interval is set but the credential is missing",
+			"kind", kind, "missing_setting", credentialSetting)
+		return false
+	}
+	logger.Info("media sync schedule disabled: no credential set", "kind", kind, "setting", credentialSetting)
+	return false
 }
