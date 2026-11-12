@@ -396,7 +396,7 @@ func parseDailyRecord(record appleRecord, metric string) (dailyActivityRecord, b
 	case DailyMetricHRVSDNN:
 		unit = "ms"
 	case DailyMetricVO2Max:
-		unit = "ml/kg/min"
+		unit = DailyMetricVO2MaxUnit
 	case DailyMetricBodyMassKG:
 		unit = "kg"
 	case DailyMetricSpO2Avg:

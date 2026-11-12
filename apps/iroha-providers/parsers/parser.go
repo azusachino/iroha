@@ -53,6 +53,13 @@ const (
 	DailyMetricRespiratoryRate = "respiratory_rate"
 )
 
+// DailyMetricVO2MaxUnit is the canonical VO2 max unit spelling shared by both
+// health parsers. HealthKit serializes the unit as "ml/(kg·min)" (and the HAE
+// default once said "ml/kg_min"), while the Apple Health export parser emits
+// "ml/kg/min"; sharing one spelling keeps a month from carrying two unit
+// series for the same metric.
+const DailyMetricVO2MaxUnit = "ml/kg/min"
+
 type DailySummaryObservation = observations.DailySummary
 
 type DailyMetricObservation = observations.DailyMetric
