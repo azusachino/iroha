@@ -85,6 +85,9 @@ func ParseSnapshot(body []byte, location *time.Location) ([]observations.Media, 
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("decode drifter snapshot: %w", err)
 	}
+	if err := checkVersion(response.Version); err != nil {
+		return nil, err
+	}
 	entries := make([]observations.Media, 0, len(response.Books))
 	for _, book := range response.Books {
 		if strings.TrimSpace(book.SourceBookID) == "" {

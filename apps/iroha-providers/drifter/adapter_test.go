@@ -1,6 +1,9 @@
 package drifter
 
 import (
+	"bytes"
+	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -215,5 +218,45 @@ func TestParseSnapshotRejectsBookWithoutIdentityOrTitle(t *testing.T) {
 				t.Fatal("ParseSnapshot() returned nil error, want an identity error")
 			}
 		})
+	}
+}
+
+// goldenPagePath is a copy of drifter's published golden page; see
+// testdata/README.md for the drifter commit it came from.
+const goldenPagePath = "testdata/reading-snapshot-v1.golden.json"
+
+func TestParseSnapshotReadsDrifterGoldenPage(t *testing.T) {
+	body, err := os.ReadFile(goldenPagePath)
+	if err != nil {
+		t.Fatalf("read golden page: %v", err)
+	}
+	// Every field drifter publishes must have a home in the wire structs.
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	var page ReadingSnapshot
+	if err := decoder.Decode(&page); err != nil {
+		t.Fatalf("golden page has fields the wire structs do not read: %v", err)
+	}
+	if page.Watermark == "" || !page.HasMore || page.Cursor == "" {
+		t.Fatalf("golden envelope = watermark %q has_more %v cursor %q", page.Watermark, page.HasMore, page.Cursor)
+	}
+	entries, err := ParseSnapshot(body, time.UTC)
+	if err != nil {
+		t.Fatalf("ParseSnapshot(golden) error = %v", err)
+	}
+	if len(entries) != 1 || entries[0].Title != "克拉拉与太阳" {
+		t.Fatalf("golden entries = %#v, want the one completed book", entries)
+	}
+}
+
+func TestParseSnapshotRefusesUnknownMajorVersion(t *testing.T) {
+	for _, version := range []string{"2.0", ""} {
+		body := []byte(`{"version":"` + version + `","has_more":false,"books":[]}`)
+		if _, err := ParseSnapshot(body, time.UTC); err == nil {
+			t.Fatalf("ParseSnapshot(version %q) returned nil error", version)
+		}
+	}
+	if _, err := ParseSnapshot([]byte(`{"version":"1.3","has_more":false,"books":[]}`), time.UTC); err != nil {
+		t.Fatalf("ParseSnapshot(minor bump 1.3) error = %v, want accepted", err)
 	}
 }

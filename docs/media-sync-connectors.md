@@ -262,10 +262,10 @@ Shipped in this slice:
 - **The gateway names its own accounts.** No `account=` parameter is sent: the page's `source_identity`/`target_identity` fields carry that fact, so a request
   cannot silently fall back to a server default the owner never chose.
 - **Replication follows a watermark, not a page cursor.** The page envelope carries `watermark` (the highest observed source timestamp) and the connector stores
-  it on the page's `tb_source_receipts.ordering_basis`. `GET /api/v1/reading/changes?since=<RFC3339>&limit=100` (plus `&cursor=` while `has_more`) serves only the
+  it on the page's `tb_source_receipts.ordering_basis`. `GET /api/v1/reading/changes?since=<RFC3339>&limit=N` (plus `&cursor=` while `has_more`) serves only the
   books Drifter recorded at or after that watermark. `connector.ChangeFetcher` is the protocol contract; `connector.ErrSnapshotRequired` is the signal that the
   watermark is out of horizon.
-- **Follower state machine in the sync runner.** `imports.SyncRunner` resumes from the latest receipt's ordering basis. No watermark means a bootstrap full
+- **Follower state machine in the sync runner.** `imports.SyncRunner` resumes from the ordering basis of the last *completed* run's receipts; pages stored by a failed run are kept as evidence but never move the resume point. No watermark means a bootstrap full
   snapshot (`ingestion_mode=full_snapshot`). A readable watermark means a changes run (`ingestion_mode=incremental`). A 410 Gone, or a `snapshot_required` body,
   makes the same run fall back to a full snapshot instead of failing. The sync-state cursor stays reserved for an interrupted full-snapshot pagination, so the two
   resume points never get confused.

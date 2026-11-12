@@ -98,7 +98,7 @@ func TestConnectorFetchCredentialsOverrideToken(t *testing.T) {
 	var authorization string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authorization = r.Header.Get("Authorization")
-		_, _ = w.Write([]byte(`{"has_more":false,"books":[]}`))
+		_, _ = w.Write([]byte(`{"version":"1.0","has_more":false,"books":[]}`))
 	}))
 	defer server.Close()
 
@@ -134,8 +134,8 @@ func TestConnectorFetchChangesSendsSinceAndCursor(t *testing.T) {
 	if !strings.Contains(request, "since=2026-11-11T12%3A00%3A00Z") {
 		t.Fatalf("request = %q, want the RFC3339 watermark", request)
 	}
-	if !strings.Contains(request, "limit=100") {
-		t.Fatalf("request = %q, want the changes page size", request)
+	if !strings.Contains(request, "limit=10") {
+		t.Fatalf("request = %q, want the shared page size", request)
 	}
 	if !strings.Contains(request, "cursor=offset%3A0") {
 		t.Fatalf("request = %q, want the escaped cursor token", request)
@@ -222,7 +222,7 @@ func TestConnectorMapsAuthAndRateLimitFailures(t *testing.T) {
 	client := NewConnector(unauthorized.URL, "wrong")
 	if _, _, err := client.Fetch(context.Background(), connector.Credentials{}, nil); err == nil {
 		t.Fatal("Fetch() returned nil error for 401")
-	} else if providerErr, ok := err.(*provider.Error); !ok || providerErr.Kind != provider.ErrorUnavailable || !strings.Contains(providerErr.Error(), "401") {
+	} else if providerErr, ok := err.(*provider.Error); !ok || providerErr.Kind != provider.ErrorCredentials || !strings.Contains(providerErr.Error(), "401") {
 		t.Fatalf("401 error = %#v", err)
 	}
 
@@ -240,5 +240,67 @@ func TestConnectorMapsAuthAndRateLimitFailures(t *testing.T) {
 	}
 	if providerErr.RetryAfter == nil || *providerErr.RetryAfter != 9*time.Second {
 		t.Fatalf("retry after = %v, want 9s", providerErr.RetryAfter)
+	}
+}
+
+func TestConnectorMapsForbiddenToCredentials(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	_, err := NewConnector(server.URL, "wrong").FetchChanges(context.Background(), connector.Credentials{}, time.Now().UTC(), nil)
+	if providerErr, ok := err.(*provider.Error); !ok || providerErr.Kind != provider.ErrorCredentials {
+		t.Fatalf("403 error = %#v, want credentials kind", err)
+	}
+
+	unavailable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer unavailable.Close()
+	_, _, err = NewConnector(unavailable.URL, "secret").Fetch(context.Background(), connector.Credentials{}, nil)
+	if providerErr, ok := err.(*provider.Error); !ok || providerErr.Kind != provider.ErrorUnavailable {
+		t.Fatalf("502 error = %#v, want unavailable kind", err)
+	}
+}
+
+func TestConnectorRefusesUnknownMajorVersion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"2.0","watermark":"2026-11-11T10:00:00Z","has_more":false,"books":[]}`))
+	}))
+	defer server.Close()
+
+	_, _, err := NewConnector(server.URL, "secret").Fetch(context.Background(), connector.Credentials{}, nil)
+	providerErr, ok := err.(*provider.Error)
+	if !ok || providerErr.Kind != provider.ErrorInvalidSource || !strings.Contains(providerErr.Error(), "2.0") {
+		t.Fatalf("version 2.0 error = %#v, want invalid_source naming the version", err)
+	}
+}
+
+func TestConnectorRejectsHasMoreWithoutCursor(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"1.0","watermark":"2026-11-11T10:00:00Z","has_more":true,"books":[]}`))
+	}))
+	defer server.Close()
+
+	_, err := NewConnector(server.URL, "secret").FetchChanges(context.Background(), connector.Credentials{}, time.Now().UTC(), nil)
+	providerErr, ok := err.(*provider.Error)
+	if !ok || providerErr.Kind != provider.ErrorInvalidSource || !strings.Contains(providerErr.Error(), "cursor") {
+		t.Fatalf("has_more without cursor error = %#v, want invalid_source", err)
+	}
+}
+
+func TestConnectorRejectsOversizedBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"1.0","has_more":false,"books":[],"pad":"`))
+		_, _ = w.Write([]byte(strings.Repeat("x", MaxResponseBytes)))
+		_, _ = w.Write([]byte(`"}`))
+	}))
+	defer server.Close()
+
+	_, _, err := NewConnector(server.URL, "secret").Fetch(context.Background(), connector.Credentials{}, nil)
+	providerErr, ok := err.(*provider.Error)
+	if !ok || providerErr.Kind != provider.ErrorInvalidSource || !strings.Contains(providerErr.Error(), "exceeds") {
+		t.Fatalf("oversized body error = %#v, want invalid_source", err)
 	}
 }
