@@ -49,7 +49,6 @@ contract between minor versions.
 - **Dependency Modernization**:
   - Bump \`github.com/jackc/pgx/v5\` to 5.12.0 in \`apps/iroha-server\`.
   - Bump \`@sveltejs/kit\` to 3.1.1, \`@sveltejs/adapter-static\` to 4.0.1, \`svelte\` to 5.57.3, \`@lucide/svelte\` to 1.66.0, and \`@types/node\` to 26.6.6.
-
 - **Frontend & Cockpit UI**:
   - Upgrade SvelteKit to 3.0 (`@sveltejs/kit@^3.0.0` and `@sveltejs/adapter-static@^4.0.0`) across `apps/iroha-web` and `apps/iroha-public-site`, unlocking `cookie@2.0.1` and migrating to SvelteKit 3 API contracts.
   - Grapher Foundations (Phase 1 & Phase 2): unified pilot chrome, typed roles, shared formatting, axis/chart presentation contracts, contrast checks, keyboard zoom (200%), motion controls, and palette parity.
