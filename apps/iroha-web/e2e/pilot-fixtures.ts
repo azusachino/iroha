@@ -110,6 +110,40 @@ const emptySummary = {
 const routes = { type: "FeatureCollection", features: [] };
 const books: PublicBook[] = [
   {
+    id: "media-synthetic-one",
+    title: "A Winter Book",
+    authors: ["Synthetic Author"],
+    status: "completed",
+    finished_at: "2026-01-10T00:00:00Z",
+  },
+  {
+    id: "media-synthetic-two",
+    title: "A Spring Book",
+    authors: [],
+    status: "completed",
+    finished_at: "2026-03-12T00:00:00Z",
+  },
+  {
+    id: "media-synthetic-boundary",
+    title: "New Year's Eve",
+    authors: [],
+    status: "completed",
+    finished_at: "2025-12-31T00:00:00Z",
+  },
+  {
+    id: "media-synthetic-undated",
+    title: "An Undated Book",
+    authors: [],
+    status: "completed",
+  },
+  {
+    id: "media-synthetic-invalid-date",
+    title: "A Book With an Invalid Date",
+    authors: [],
+    status: "completed",
+    finished_at: "2026-02-31T00:00:00Z",
+  },
+  {
     id: "media-synthetic-klara",
     title: "克拉拉与太阳",
     authors: ["石黑一雄"],
