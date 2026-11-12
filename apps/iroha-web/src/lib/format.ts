@@ -4,6 +4,7 @@
 export {
   cleanDescription,
   formatProgressCount,
+  formatReadingDuration,
   mediaEventLabel,
   mediaEventVerb,
   mediaWorkTotal,

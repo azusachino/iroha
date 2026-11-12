@@ -1,5 +1,6 @@
 <script lang="ts">
   import { mediaTypeColor, mediaTypeLabel } from "$lib/media";
+  import { formatReadingDuration } from "$lib/format";
   import StatTile from "@iroha/shared/components/StatTile.svelte";
   import MediaBarChart from "@iroha/shared/theme-ui/components/MediaBarChart.svelte";
   import RouteIntro from "$lib/components/RouteIntro.svelte";
@@ -239,7 +240,12 @@
                 <a class="continue-card tile" href={`/library/${item.id}`}>
                   <div class="thumb">
                     {#if item.cover_image_url}
-                      <img src={item.cover_image_url} alt="" loading="lazy" />
+                      <img
+                        src={item.cover_image_url}
+                        alt=""
+                        loading="lazy"
+                        referrerpolicy="no-referrer"
+                      />
                     {:else}
                       <span class="thumb-ph" aria-hidden="true"
                         >{l.initial(item)}</span
@@ -263,8 +269,14 @@
                       </div>
                     {/if}
                     <span class="progress-label">
-                      {item.position ?? 0}{item.total ? ` / ${item.total}` : ""}
-                      {item.unit ?? ""}
+                      {#if item.media_type === "book" && item.reading_time_seconds}
+                        {formatReadingDuration(item.reading_time_seconds)}
+                      {:else}
+                        {item.position ?? 0}{item.total
+                          ? ` / ${item.total}`
+                          : ""}
+                        {item.unit ?? ""}
+                      {/if}
                     </span>
                   </div>
                 </a>
@@ -303,6 +315,7 @@
                             src={item.cover_image_url}
                             alt=""
                             loading="lazy"
+                            referrerpolicy="no-referrer"
                           />
                         {:else}
                           <span class="cover-ph" aria-hidden="true"
@@ -330,6 +343,13 @@
                           class="dot"
                           style={`background:${mediaTypeColor(item.media_type)}`}
                         ></span>{mediaTypeLabel(item.media_type)}
+                        {#if item.media_type === "book" && item.reading_time_seconds}
+                          <span
+                            >· {formatReadingDuration(
+                              item.reading_time_seconds,
+                            )}</span
+                          >
+                        {/if}
                       </span>
                     </a>
                   {/each}

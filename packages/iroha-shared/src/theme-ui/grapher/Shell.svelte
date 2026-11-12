@@ -129,7 +129,8 @@
       0 0 12px color-mix(in srgb, var(--accent) 15%, transparent);
   }
 
-  .grapher-header :global(.main-nav > a.active svg) {
+  .grapher-header :global(.main-nav > a.active svg),
+  .grapher-header :global(.navigation-menu.active > summary svg) {
     color: var(--accent);
   }
 
@@ -414,7 +415,8 @@
       font-size: 0.68rem;
     }
 
-    .grapher-header :global(.main-nav > a svg) {
+    .grapher-header :global(.main-nav > a svg),
+    .grapher-header :global(.navigation-menu > summary svg) {
       display: none;
     }
 

@@ -128,6 +128,13 @@
     <ThemeFrame {brand} {nav} {actions}>
       {#if auth.status === "ready" || page.url.pathname === "/"}
         {@render children()}
+      {:else if auth.status === "loading"}
+        <div class="auth-loading tile" aria-busy="true" aria-live="polite">
+          <div class="auth-loading-inner">
+            <span class="auth-spinner" aria-hidden="true"></span>
+            <p class="muted">Loading…</p>
+          </div>
+        </div>
       {:else}
         <section class="auth-gate tile">
           <div class="auth-gate-inner">
@@ -209,6 +216,36 @@
     min-height: 50vh;
     padding: 3rem 1.5rem;
     text-align: center;
+  }
+
+  .auth-loading {
+    display: grid;
+    place-items: center;
+    min-height: 50vh;
+    padding: 3rem 1.5rem;
+    text-align: center;
+  }
+
+  .auth-loading-inner {
+    display: grid;
+    gap: 0.85rem;
+    max-width: 24rem;
+    place-items: center;
+  }
+
+  .auth-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .auth-gate-inner {

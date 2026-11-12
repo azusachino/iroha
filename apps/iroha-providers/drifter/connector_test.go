@@ -81,6 +81,19 @@ func TestConnectorFetchSendsBearerAndFollowsCursor(t *testing.T) {
 	}
 }
 
+func TestNewConnectorDefaultsRespectGatewayPacing(t *testing.T) {
+	client := NewConnector("", "")
+	if client.Limit != 10 {
+		t.Fatalf("default page limit = %d, want 10", client.Limit)
+	}
+	if client.Client == nil || client.Client.Timeout != 60*time.Second {
+		t.Fatalf("default client timeout = %v, want 60s", client.Client)
+	}
+	if client.BaseURL != DefaultBaseURL {
+		t.Fatalf("default base URL = %q, want %q", client.BaseURL, DefaultBaseURL)
+	}
+}
+
 func TestConnectorFetchCredentialsOverrideToken(t *testing.T) {
 	var authorization string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

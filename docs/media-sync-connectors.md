@@ -280,6 +280,9 @@ Shipped in this slice:
   `reading_time_seconds` is retained in the stored snapshot only — Iroha has no typed reading-time field yet.
 - **Source priority.** `mediaProgressSourcePriority` places `drifter`, `weread` and `hardcover` on the AniList tier (2), above Bangumi (1); owner-authored
   sources (manual/web/telegram) still win.
+- **The sync schedule is configuration-driven.** With `DRIFTER_API_TOKEN` set, `iroha-job` reconciles one enabled `media_sync_drifter` schedule at startup;
+  `IROHA_DRIFTER_SYNC_INTERVAL` (Go duration such as `12h`) sets the cadence and `off` disables it. Without the token no schedule is created and an existing one
+  is disabled. Pages request `drifter.DefaultLimit` (10) books with a 60-second per-page timeout: upstream WeRead paces the gateway at one request per second, so a
+  50-book page times out instead of paginating.
 
-Not yet wired: a schedule or private API trigger for `drifter` syncs, work-level linking through `matched_target.work_id`, and the cockpit surfaces from the
-plan's slices 3–4.
+Not yet wired: a private API trigger for `drifter` syncs, work-level linking through `matched_target.work_id`, and the cockpit surfaces from the plan's slices 3–4.

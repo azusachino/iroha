@@ -1,9 +1,16 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
@@ -39,6 +46,7 @@ type mediaResponse struct {
 	EpisodeCount       *int      `json:"episode_count,omitempty"`
 	ChapterCount       *int      `json:"chapter_count,omitempty"`
 	Publisher          string    `json:"publisher,omitempty"`
+	ReadingTimeSeconds *int      `json:"reading_time_seconds,omitempty"`
 	StartedOn          *string   `json:"started_on,omitempty"`
 	CompletedOn        *string   `json:"completed_on,omitempty"`
 }
@@ -180,6 +188,7 @@ type mediaHomeEventResponse struct {
 	Total           *float64  `json:"total,omitempty"`
 	ProgressPercent *float64  `json:"progress_percent,omitempty"`
 	Rating          *float64  `json:"rating,omitempty"`
+	Note            string    `json:"note,omitempty"`
 }
 
 func (s *Server) handleListMedia(w http.ResponseWriter, r *http.Request) {
@@ -238,7 +247,7 @@ func (s *Server) handleListMediaEvents(w http.ResponseWriter, r *http.Request) {
 	for _, event := range page.Items {
 		items = append(items, mediaHomeEventResponse{
 			ID: mediaEventID(event.ID), MediaID: ids.Encode(ids.MediaPrefix, event.MediaItemID),
-			Title: event.Title, NativeTitle: event.NativeTitle, CoverImageURL: event.CoverImageURL, EventType: event.EventType,
+			Title: event.Title, NativeTitle: event.NativeTitle, CoverImageURL: mediaCoverURL(event.MediaItemID, event.CoverImageURL), EventType: event.EventType,
 			OccurredAt: event.OccurredAt, Unit: event.Unit, Position: event.Position, Total: event.Total,
 			ProgressPercent: event.ProgressPercent, Rating: normalizedRating(event.Rating, event.RatingScale),
 		})
@@ -347,7 +356,7 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 			ID: ids.Encode(ids.MediaPrefix, relation.ID), RelationType: relation.RelationType,
 			Direction: relation.Direction, RelatedItemID: ids.Encode(ids.MediaPrefix, relation.RelatedItemID),
 			RelatedTitle: relation.RelatedTitle, RelatedType: relation.RelatedType,
-			CoverImageURL: relation.CoverImageURL,
+			CoverImageURL: mediaCoverURL(relation.RelatedItemID, relation.CoverImageURL),
 		})
 	}
 	events := make([]mediaEventResponse, 0, len(detail.Events))
@@ -400,6 +409,112 @@ func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 		Progress: progress, ExternalRefs: externalRefs, Creators: creators, Relations: relations,
 		Events: events, Updates: updates,
 	})
+}
+
+func (s *Server) handleGetMediaCover(w http.ResponseWriter, r *http.Request) {
+	id, err := ids.Decode(ids.MediaPrefix, chi.URLParam(r, "mediaId"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid media id")
+		return
+	}
+	detail, found, err := s.deps.MediaService.Get(id)
+	if err != nil {
+		s.deps.Logger.Error("get media cover", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to get media")
+		return
+	}
+	if !found || strings.TrimSpace(detail.Item.CoverImageURL) == "" {
+		writeError(w, http.StatusNotFound, "cover not found")
+		return
+	}
+
+	etag := fmt.Sprintf(`"%s"`, id.String())
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	rawURL := strings.TrimSpace(detail.Item.CoverImageURL)
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		writeError(w, http.StatusBadRequest, "invalid cover image url")
+		return
+	}
+
+	dataDir := s.deps.Config.Storage.DataDir
+	if dataDir == "" {
+		dataDir = ".iroha-data"
+	}
+	coverDir := filepath.Join(dataDir, "covers")
+	_ = os.MkdirAll(coverDir, 0o755)
+
+	cacheFile := filepath.Join(coverDir, id.String())
+	metaFile := filepath.Join(coverDir, id.String()+".meta")
+
+	if data, err := os.ReadFile(cacheFile); err == nil && len(data) > 0 {
+		contentType := "image/jpeg"
+		if meta, err := os.ReadFile(metaFile); err == nil && len(meta) > 0 {
+			contentType = strings.TrimSpace(string(meta))
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400")
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		_, _ = w.Write(data)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "failed to create upstream request")
+		return
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+	if strings.Contains(parsedURL.Host, "weread.qq.com") || strings.Contains(parsedURL.Host, "myqcloud.com") {
+		req.Header.Set("Referer", "https://weread.qq.com/")
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		s.deps.Logger.Warn("fetch cover upstream failed", "url", rawURL, "error", err)
+		writeError(w, http.StatusBadGateway, "failed to fetch upstream cover")
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		s.deps.Logger.Warn("fetch cover upstream returned non-200", "url", rawURL, "status", resp.StatusCode)
+		writeError(w, http.StatusBadGateway, fmt.Sprintf("upstream returned %d", resp.StatusCode))
+		return
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "failed to read upstream body")
+		return
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/jpeg"
+	}
+
+	tmpFile := cacheFile + ".tmp." + uuid.NewString()
+	if err := os.WriteFile(tmpFile, body, 0o644); err == nil {
+		_ = os.Rename(tmpFile, cacheFile)
+	}
+	_ = os.WriteFile(metaFile, []byte(contentType), 0o644)
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400")
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	_, _ = w.Write(body)
 }
 
 func mediaEventID(id uuid.UUID) string {
@@ -469,13 +584,20 @@ func parseMediaEventFilters(w http.ResponseWriter, r *http.Request) (media.Event
 	return filters, true
 }
 
+func mediaCoverURL(id uuid.UUID, rawURL string) string {
+	if strings.TrimSpace(rawURL) == "" {
+		return ""
+	}
+	return fmt.Sprintf("/api/v1/media/%s/cover", ids.Encode(ids.MediaPrefix, id))
+}
+
 func toMediaResponse(row media.Item) mediaResponse {
 	return mediaResponse{
 		ID:                 ids.Encode(ids.MediaPrefix, row.ID),
 		Title:              row.Title,
 		MediaType:          row.MediaType,
 		ItemRole:           row.ItemRole,
-		CoverImageURL:      row.CoverImageURL,
+		CoverImageURL:      mediaCoverURL(row.ID, row.CoverImageURL),
 		Status:             row.Status,
 		Position:           row.Position,
 		Total:              row.Total,
@@ -486,6 +608,7 @@ func toMediaResponse(row media.Item) mediaResponse {
 		HiddenFromContinue: row.HiddenFromContinue,
 		NativeTitle:        row.NativeTitle,
 		Publisher:          row.Publisher,
+		ReadingTimeSeconds: row.ReadingTimeSeconds,
 		EpisodeCount:       row.EpisodeCount,
 		ChapterCount:       row.ChapterCount,
 		StartedOn:          partialDateString(row.StartedOnValue, row.StartedOnPrecision),
@@ -500,7 +623,7 @@ func toMediaChangeResponse(change media.Change) mediaChangeResponse {
 	}
 	return mediaChangeResponse{
 		ID: ids.Encode(ids.MediaChangePrefix, change.ID), MediaID: ids.Encode(ids.MediaPrefix, change.MediaItemID),
-		Title: change.Title, NativeTitle: change.NativeTitle, CoverImageURL: change.CoverImageURL,
+		Title: change.Title, NativeTitle: change.NativeTitle, CoverImageURL: mediaCoverURL(change.MediaItemID, change.CoverImageURL),
 		SourceKind: change.SourceKind, ChangeKind: change.ChangeKind, TimeBasis: change.TimeBasis,
 		ObservedAt: change.ObservedAt, EffectiveAt: change.EffectiveAt,
 		EffectiveOn:   partialDateString(change.EffectiveOnValue, change.EffectiveOnPrecision),

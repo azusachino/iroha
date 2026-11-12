@@ -34,6 +34,7 @@
       class="cover"
       src={detail.item.cover_image_url}
       alt=""
+      referrerpolicy="no-referrer"
     />{/if}
   <section class="chart-panel">
     <header>

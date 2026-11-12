@@ -252,6 +252,7 @@ func (s *Server) privateRoutes(r chi.Router) {
 		r.Get("/changes", s.handleListMediaChanges)
 		r.Get("/", s.handleListMedia)
 		r.Get("/{mediaId}", s.handleGetMedia)
+		r.Get("/{mediaId}/cover", s.handleGetMediaCover)
 	})
 	r.Route("/tasks", func(r chi.Router) {
 		r.Get("/", s.handleListTasks)

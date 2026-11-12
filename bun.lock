@@ -11,7 +11,7 @@
     },
     "apps/iroha-web": {
       "name": "iroha-web",
-      "version": "0.6.0-rc1",
+      "version": "0.6.0-rc2",
       "dependencies": {
         "@iroha/shared": "workspace:*",
         "@lucide/svelte": "^1.68.0",
@@ -50,6 +50,7 @@
       },
     },
   },
+  "trustedDependencies": [],
   "overrides": {
     "postcss@8.5.26": {
       "nanoid": "3.3.18",

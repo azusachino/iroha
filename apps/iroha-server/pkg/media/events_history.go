@@ -178,7 +178,7 @@ func (s *Service) Events(filters EventListFilters) (EventPage, error) {
 			 ORDER BY t.is_primary DESC, t.created_at ASC LIMIT 1) AS native_title,
 			event.event_type, event.event_at AS occurred_at,
 			event.unit, event.position, event.total, event.progress_percent,
-			event.rating, event.rating_scale`).
+			event.rating, event.rating_scale, event.note`).
 		Joins("JOIN tb_media_items AS item ON item.id = event.media_item_id")
 	// The schema makes event_at non-null and rejects list_state, so the exact
 	// event contract is structural rather than a best-effort filter.

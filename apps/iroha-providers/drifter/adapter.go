@@ -74,7 +74,8 @@ func (Adapter) ImportMedia(ctx context.Context, source provider.Source, options 
 // ParseSnapshot converts one snapshot page into media observations. A book
 // without an id or title fails the page instead of being silently dropped: an
 // unreadable entry must stay visible, because skipping it would quietly lose
-// reading history.
+// reading history. Unstarted / planned books without reading activity are
+// excluded so only books actually engaged with appear in the library.
 func ParseSnapshot(body []byte, location *time.Location) ([]observations.Media, error) {
 	var response ReadingSnapshot
 	if err := json.Unmarshal(body, &response); err != nil {
@@ -82,6 +83,16 @@ func ParseSnapshot(body []byte, location *time.Location) ([]observations.Media, 
 	}
 	entries := make([]observations.Media, 0, len(response.Books))
 	for _, book := range response.Books {
+		if strings.TrimSpace(book.SourceBookID) == "" {
+			return nil, fmt.Errorf("drifter book %q is missing source_book_id", book.Title)
+		}
+		if strings.TrimSpace(book.Title) == "" {
+			return nil, fmt.Errorf("drifter book %s is missing title", book.SourceBookID)
+		}
+		status := mapReadingStatus(book.Status)
+		if status != "in_progress" && status != "completed" {
+			continue
+		}
 		media, err := mapBook(book, location)
 		if err != nil {
 			return nil, err
@@ -172,13 +183,28 @@ func mapBook(book readingSnapshotBook, location *time.Location) (observations.Me
 			media.CompletedOn = completedOn
 			media.ProgressState.CompletedOn = completedOn
 		}
+		var note string
+		if readingTime != nil && *readingTime > 0 {
+			note = formatReadingDuration(*readingTime)
+		}
 		media.Events = append(media.Events, observations.MediaEvent{
-			EventType:     observations.MediaEventFinished,
-			EventAt:       finishedAt,
-			SourceEventID: finishEventPrefix + externalID,
+			EventType:       observations.MediaEventFinished,
+			EventAt:         finishedAt,
+			SourceEventID:   finishEventPrefix + externalID,
+			ProgressPercent: &percent,
+			Note:            note,
 		})
 	}
 	return media, nil
+}
+
+func formatReadingDuration(seconds int) string {
+	hours := seconds / 3600
+	mins := (seconds % 3600) / 60
+	if hours > 0 {
+		return fmt.Sprintf("Read for %dh %dm", hours, mins)
+	}
+	return fmt.Sprintf("Read for %dm", mins)
 }
 
 // mapReadingStatus is the gateway's status vocabulary. "abandoned" is a known

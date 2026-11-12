@@ -7,6 +7,25 @@ contract between minor versions.
 
 ## [Unreleased]
 
+## [0.6.0-rc2] - 2026-11-11
+
+### Added
+
+- **Same-Origin Cover Image Proxy & Disk Cache**:
+  - Add `GET /api/v1/media/{mediaId}/cover` proxy with disk caching in `$IROHA_DATA_DIR/covers` and HTTP 304 `ETag` / `If-None-Match` validation.
+  - Automatically rewrite media cover URLs across all listing and detail endpoints to `/api/v1/media/{mediaId}/cover`, preventing third-party tracking blocks (Privacy Badger) and CDN hotlink errors across books, anime, and manga.
+  - Add `referrerpolicy="no-referrer"` to cover images across cockpit and library views.
+- **Navigation Icons Across Shell & Command Palette**:
+  - Add Lucide icons to all top-level navigation groups (`Domains` -> Layers, `Analyze` -> TrendingUp, `More` -> Ellipsis).
+  - Add distinct icons for every navigation item in `NavigationMenu` popovers and `CommandPalette` (`Motion` -> Activity, `Night` -> Moon, `Library` -> BookOpen, `Expenses` -> Receipt, `Patterns` -> Sparkles, `Reports` -> FileText, `To-go` -> ListTodo, `Admin` -> Shield, `Manual` -> BookMarked).
+
+### Changed
+
+- **Drifter & Media Sync Polish**:
+  - Filter unread/planned books from Drifter sync so only finished or in-progress books appear.
+  - Order unstarted items last in library lists and media feeds.
+  - Add loading spinner during session resolution on hard refresh to prevent flash of "Owner login required" gate.
+
 ## [0.6.0-rc1] - 2026-11-07
 
 ### Added

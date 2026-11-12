@@ -54,3 +54,17 @@ func TestMediaChangeIDUsesSeparatePrefix(t *testing.T) {
 		t.Fatalf("media change id = %q, want %q", got, want)
 	}
 }
+
+func TestMediaCoverURL(t *testing.T) {
+	id := uuid.MustParse("018cc251-7b2e-7d52-9b0d-6bd6f2c9c9e4")
+	encoded := ids.Encode(ids.MediaPrefix, id)
+
+	if got := mediaCoverURL(id, ""); got != "" {
+		t.Fatalf("mediaCoverURL with empty rawURL = %q, want empty", got)
+	}
+
+	want := "/api/v1/media/" + encoded + "/cover"
+	if got := mediaCoverURL(id, "https://cdn.weread.qq.com/cover/123.jpg"); got != want {
+		t.Fatalf("mediaCoverURL = %q, want %q", got, want)
+	}
+}

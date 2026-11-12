@@ -35,7 +35,12 @@
 >
   <span class="asset-cover">
     {#if item.cover_image_url}
-      <img src={item.cover_image_url} alt="" loading="lazy" />
+      <img
+        src={item.cover_image_url}
+        alt=""
+        loading="lazy"
+        referrerpolicy="no-referrer"
+      />
     {:else}
       <span class="asset-placeholder" aria-hidden="true"
         >{title.slice(0, 1)}</span

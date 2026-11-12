@@ -18,6 +18,7 @@ export interface MediaRow {
   episode_count?: number;
   chapter_count?: number;
   publisher?: string;
+  reading_time_seconds?: number;
   started_on?: string;
   completed_on?: string;
 }
@@ -35,6 +36,7 @@ export interface MediaHomeEvent {
   total?: number;
   progress_percent?: number;
   rating?: number;
+  note?: string;
 }
 
 export interface MediaEvent {
@@ -252,9 +254,24 @@ export function mediaEventLabel(eventType: string): string {
   return eventType.replaceAll("_", " ");
 }
 
+export function formatReadingDuration(seconds?: number): string {
+  if (!seconds || seconds <= 0) return "";
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${mins}m read`;
+  }
+  return `${mins}m read`;
+}
+
 export function mediaEventVerb(event: MediaHomeEvent): string {
+  if (event.note) return event.note;
   if (event.rating != null) return "Rated";
-  if (event.progress_percent != null && event.progress_percent >= 100)
+  if (
+    event.event_type === "finished" ||
+    event.event_type === "completed" ||
+    (event.progress_percent != null && event.progress_percent >= 100)
+  )
     return "Finished";
   if (event.position != null || event.progress_percent != null)
     return "Progressed";

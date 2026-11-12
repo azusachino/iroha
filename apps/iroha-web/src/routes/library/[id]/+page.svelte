@@ -5,6 +5,7 @@
     cleanDescription,
     formatDate,
     formatProgressCount,
+    formatReadingDuration,
     mediaEventLabel,
     mediaWorkTotal,
     progressPercent,
@@ -96,16 +97,6 @@
   function eventDate(value?: string): string {
     return value ? formatDate(value) : "Undated";
   }
-
-  function formatReadingDuration(seconds?: number): string {
-    if (!seconds || seconds <= 0) return "";
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}h ${mins}m read`;
-    }
-    return `${mins}m read`;
-  }
 </script>
 
 <svelte:head>
@@ -142,7 +133,12 @@
   {:else if detail}
     <section class="hero tile">
       {#if detail.item.cover_image_url}
-        <img class="hero-cover" src={detail.item.cover_image_url} alt="" />
+        <img
+          class="hero-cover"
+          src={detail.item.cover_image_url}
+          alt=""
+          referrerpolicy="no-referrer"
+        />
       {:else}
         <div class="hero-cover cover-placeholder" aria-hidden="true">
           {detail.item.title.slice(0, 1)}
@@ -286,6 +282,7 @@
                   >{#if relation.cover_image_url}<img
                       src={relation.cover_image_url}
                       alt=""
+                      referrerpolicy="no-referrer"
                     />{:else}<div
                       class="relation-placeholder"
                       aria-hidden="true"

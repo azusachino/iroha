@@ -390,7 +390,8 @@ Per-IP rate limiting still applies to `/api/v1` as a basic abuse guard; see [HTT
 Use TOML config with environment variable overrides.
 
 When `IROHA_ANILIST_USERNAME` or `IROHA_BANGUMI_USERNAME` is configured, `iroha-job` creates one enabled daily sync schedule for that provider. Override the cadence with `IROHA_ANILIST_SYNC_INTERVAL`
-or `IROHA_BANGUMI_SYNC_INTERVAL` (Go duration such as `12h`); set either to `off` to disable its default schedule. The schedules are independent: neither provider silently wins a media conflict;
+or `IROHA_BANGUMI_SYNC_INTERVAL` (Go duration such as `12h`); set either to `off` to disable its default schedule. The Drifter reading gateway follows the same rule with `DRIFTER_API_TOKEN` and
+`IROHA_DRIFTER_SYNC_INTERVAL`. The schedules are independent: neither provider silently wins a media conflict;
 explicit matching decisions remain authoritative. Concurrent runs for one connector are rejected, while the other connector remains independent.
 
 Default lookup:

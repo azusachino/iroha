@@ -2,13 +2,10 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import { tick } from "svelte";
-  import { allNavigationItems } from "$lib/navigation";
+  import { allNavigationItems, type NavigationItem } from "$lib/navigation";
+  import { navItemIcons } from "$lib/nav-icons";
 
-  type Command = {
-    label: string;
-    href: string;
-    hint: string;
-  };
+  type Command = NavigationItem;
 
   let commands = $state<Command[]>(allNavigationItems());
 
@@ -135,6 +132,7 @@
         aria-activedescendant={`command-${selected}`}
       >
         {#each commands as command, index}
+          {@const CommandIcon = navItemIcons[command.id]}
           <button
             type="button"
             id={`command-${index}`}
@@ -145,7 +143,12 @@
             onmouseenter={() => (selected = index)}
             onclick={() => activate(command)}
           >
-            <span class="command-label">{command.label}</span>
+            <span class="command-label">
+              {#if CommandIcon}
+                <CommandIcon size={14} />
+              {/if}
+              {command.label}
+            </span>
             <span class="command-hint">{command.hint}</span>
           </button>
         {/each}
@@ -248,7 +251,21 @@
   }
 
   .command-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
     font-weight: 720;
+  }
+
+  .command-label :global(svg) {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: color var(--motion-micro);
+  }
+
+  button.selected .command-label :global(svg),
+  button:hover .command-label :global(svg) {
+    color: var(--accent);
   }
 
   .command-hint {
