@@ -1,20 +1,16 @@
 package httpapi
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/azusachino/iroha/apps/iroha-runtime/cache"
 	"github.com/azusachino/iroha/apps/iroha-runtime/ids"
+	"github.com/azusachino/iroha/apps/iroha-server/pkg/imagefetch"
 	"github.com/azusachino/iroha/apps/iroha-server/pkg/media"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -428,93 +424,39 @@ func (s *Server) handleGetMediaCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	etag := fmt.Sprintf(`"%s"`, id.String())
+	s.serveCover(w, r, strings.TrimSpace(detail.Item.CoverImageURL))
+}
+
+// serveCover serves the image at coverURL. The ETag is keyed by the URL, so a
+// changed cover URL is fetched again.
+func (s *Server) serveCover(w http.ResponseWriter, r *http.Request, coverURL string) {
+	etag := `"` + imagefetch.Key(coverURL) + `"`
 	if r.Header.Get("If-None-Match") == etag {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
 
-	rawURL := strings.TrimSpace(detail.Item.CoverImageURL)
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+	img, err := s.coverFetcher.Fetch(r.Context(), coverURL)
+	switch {
+	case errors.Is(err, imagefetch.ErrInvalidURL):
 		writeError(w, http.StatusBadRequest, "invalid cover image url")
 		return
-	}
-
-	dataDir := s.deps.Config.Storage.DataDir
-	if dataDir == "" {
-		dataDir = ".iroha-data"
-	}
-	coverDir := filepath.Join(dataDir, "covers")
-	_ = os.MkdirAll(coverDir, 0o755)
-
-	cacheFile := filepath.Join(coverDir, id.String())
-	metaFile := filepath.Join(coverDir, id.String()+".meta")
-
-	if data, err := os.ReadFile(cacheFile); err == nil && len(data) > 0 {
-		contentType := "image/jpeg"
-		if meta, err := os.ReadFile(metaFile); err == nil && len(meta) > 0 {
-			contentType = strings.TrimSpace(string(meta))
-		}
-		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400")
-		w.Header().Set("ETag", etag)
-		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-		_, _ = w.Write(data)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "failed to create upstream request")
-		return
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-	if strings.Contains(parsedURL.Host, "weread.qq.com") || strings.Contains(parsedURL.Host, "myqcloud.com") {
-		req.Header.Set("Referer", "https://weread.qq.com/")
-	}
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		s.deps.Logger.Warn("fetch cover upstream failed", "url", rawURL, "error", err)
+	case err != nil:
+		s.deps.Logger.Warn("fetch cover failed", "url", coverURL, "error", err)
 		writeError(w, http.StatusBadGateway, "failed to fetch upstream cover")
 		return
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		s.deps.Logger.Warn("fetch cover upstream returned non-200", "url", rawURL, "status", resp.StatusCode)
-		writeError(w, http.StatusBadGateway, fmt.Sprintf("upstream returned %d", resp.StatusCode))
-		return
+	if img.CacheErr != nil {
+		s.deps.Logger.Warn("cache cover failed", "url", coverURL, "error", img.CacheErr)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "failed to read upstream body")
-		return
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "image/jpeg"
-	}
-
-	tmpFile := cacheFile + ".tmp." + uuid.NewString()
-	if err := os.WriteFile(tmpFile, body, 0o644); err == nil {
-		_ = os.Rename(tmpFile, cacheFile)
-	}
-	_ = os.WriteFile(metaFile, []byte(contentType), 0o644)
-
-	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Type", img.ContentType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "sandbox")
 	w.Header().Set("Cache-Control", "public, max-age=604800, stale-while-revalidate=86400")
 	w.Header().Set("ETag", etag)
-	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
-	_, _ = w.Write(body)
+	w.Header().Set("Content-Length", strconv.Itoa(len(img.Data)))
+	_, _ = w.Write(img.Data)
 }
 
 func mediaEventID(id uuid.UUID) string {
