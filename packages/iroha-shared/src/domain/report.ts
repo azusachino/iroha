@@ -6,6 +6,31 @@ export type ReportEvidenceRow = {
   detail?: string;
 };
 
+/**
+ * Svelte `{#each (key)}` blocks require unique keys, and report payloads are
+ * data-driven: one metric arriving under two unit spellings once produced two
+ * rows with the same label and crashed the page with `each_key_duplicate`.
+ * Disambiguate repeated labels at the render boundary; the visible suffix
+ * keeps both series on screen instead of silently dropping either.
+ */
+export function disambiguateLabels<T extends { label: string }>(
+  rows: T[],
+): (T & { key: string })[] {
+  const seen = new Map<string, number>();
+  return rows.map((row) => {
+    const occurrence = (seen.get(row.label) ?? 0) + 1;
+    seen.set(row.label, occurrence);
+    if (occurrence === 1) {
+      return { ...row, key: row.label };
+    }
+    return {
+      ...row,
+      key: `${row.label}#${occurrence}`,
+      label: `${row.label} (${occurrence})`,
+    };
+  });
+}
+
 export interface MovementReportData {
   activity_count: number;
   distance_m: number;
