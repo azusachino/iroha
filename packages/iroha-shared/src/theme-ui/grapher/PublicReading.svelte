@@ -1,5 +1,6 @@
 <script lang="ts">
   import PanelFrame from "../../components/PanelFrame.svelte";
+  import BarChart from "../components/BarChart.svelte";
   import type { PublicBook } from "../../domain/public-book";
 
   let { books }: { books: PublicBook[] } = $props();
@@ -32,6 +33,8 @@
   }
 
   let selection = $state("");
+  let trendRange = $state("recent");
+  let trendScroller: HTMLDivElement | undefined = $state();
   const finished = $derived(
     books.filter((book) => book.status === "completed"),
   );
@@ -67,7 +70,76 @@
       ).length,
     })),
   );
-  const maxYear = $derived(Math.max(1, ...yearly.map(([, count]) => count)));
+  const decades = $derived([
+    ...new Set(yearly.map(([year]) => Math.floor(Number(year) / 10) * 10)),
+  ]);
+  const latestYear = $derived(Number(yearly[0]?.[0] ?? 0));
+  const earliestYear = $derived(Number(yearly[yearly.length - 1]?.[0] ?? 0));
+  const trendStart = $derived(
+    trendRange === "recent"
+      ? Math.max(earliestYear, latestYear - 9)
+      : Math.max(0, Number(trendRange)),
+  );
+  const trendEnd = $derived(
+    trendRange === "recent"
+      ? latestYear
+      : Math.min(latestYear, Number(trendRange) + 9),
+  );
+  const trend = $derived.by(() => {
+    if (!yearly.length) return [];
+    const counts = new Map(yearly);
+    const end = trendEnd;
+    return Array.from({ length: end - trendStart + 1 }, (_, index) => {
+      const year = String(trendStart + index).padStart(4, "0");
+      return { year, count: counts.get(year) ?? 0 };
+    });
+  });
+  function chooseYear(year: string) {
+    selection = year;
+    if (
+      year !== "undated" &&
+      (Number(year) < trendStart || Number(year) > trendEnd)
+    ) {
+      trendRange = String(Math.floor(Number(year) / 10) * 10);
+    }
+  }
+  function chooseTrendRange(range: string) {
+    trendRange = range;
+    const start =
+      range === "recent"
+        ? Math.max(earliestYear, latestYear - 9)
+        : Math.max(0, Number(range));
+    const end = range === "recent" ? latestYear : Number(range) + 9;
+    if (
+      selectedYear === "undated" ||
+      Number(selectedYear) < start ||
+      Number(selectedYear) > end
+    ) {
+      selection =
+        yearly.find(
+          ([year]) => Number(year) >= start && Number(year) <= end,
+        )?.[0] ?? selection;
+    }
+  }
+  $effect(() => {
+    const scroller = trendScroller;
+    const index = trend.findIndex(({ year }) => year === selectedYear);
+    const length = trend.length;
+    if (!scroller || index < 0) return;
+    const frame = requestAnimationFrame(() => {
+      const chart = scroller.querySelector<HTMLElement>(".bar-chart");
+      if (!chart) return;
+      const point =
+        48 + ((chart.clientWidth - 64) * index) / Math.max(1, length - 1);
+      if (
+        point < scroller.scrollLeft + 40 ||
+        point > scroller.scrollLeft + scroller.clientWidth - 40
+      ) {
+        scroller.scrollLeft = Math.max(0, point - scroller.clientWidth / 2);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  });
   const maxMonth = $derived(Math.max(1, ...monthly.map(({ count }) => count)));
 </script>
 
@@ -104,7 +176,7 @@
         <select
           aria-label="Reading year"
           value={selectedYear}
-          onchange={(event) => (selection = event.currentTarget.value)}
+          onchange={(event) => chooseYear(event.currentTarget.value)}
         >
           {#each yearly as [year, count] (year)}
             <option value={year}
@@ -119,26 +191,81 @@
     </div>
 
     {#if yearly.length}
-      <div class="year-chart" aria-label="Finished books by year">
-        {#each yearly as [year, count] (year)}
-          <button
-            type="button"
-            class:chosen={selectedYear === year}
-            aria-pressed={selectedYear === year}
-            aria-label={`${year}: ${count} ${count === 1 ? "book" : "books"} finished`}
-            onclick={() => (selection = year)}
-          >
-            <span class="year-count">{count}</span>
-            <span class="year-track"
-              ><span
-                class="year-bar"
-                style={`--fill:${(count / maxYear) * 100}%`}
-              ></span></span
+      <div class="trend-heading">
+        <div>
+          <h4>Books finished by year</h4>
+          <p>
+            Recorded completions by year. Years with no recorded completions are
+            shown as zero. Choose a year above to see its books; scroll the
+            chart to see more years.
+          </p>
+          <p>
+            Highest yearly total: {Math.max(
+              ...trend.map(({ count }) => count),
+            )}.
+          </p>
+        </div>
+        {#if Number(yearly[0][0]) - Number(yearly[yearly.length - 1][0]) >= 10}
+          <label class="year-select"
+            >Trend range
+            <select
+              aria-label="Trend range"
+              value={trendRange}
+              onchange={(event) => chooseTrendRange(event.currentTarget.value)}
             >
-            <span class="year-label">{year}</span>
-          </button>
-        {/each}
+              <option value="recent">Recent 10 years</option>
+              {#each decades as decade (decade)}
+                <option value={String(decade)}
+                  >{String(decade).padStart(4, "0")}–{String(
+                    decade + 9,
+                  ).padStart(4, "0")}</option
+                >
+              {/each}
+            </select>
+          </label>
+        {/if}
       </div>
+      <div
+        class="trend-scroll"
+        bind:this={trendScroller}
+        role="region"
+        aria-label="Yearly trend chart, scroll horizontally to see all years"
+        tabindex="0"
+      >
+        <div style={`--trend-width: ${Math.max(420, trend.length * 55)}px`}>
+          <BarChart
+            categories={trend.map(({ year }) => year)}
+            primary={{
+              name: "Books finished",
+              values: trend.map(({ count }) => count),
+              color: "var(--accent)",
+              axis: { unit: "books", minimumInterval: 1 },
+            }}
+            primaryType="line"
+            showDataTable={false}
+            activeIndex={selectedYear === "undated"
+              ? undefined
+              : trend.findIndex(({ year }) => year === selectedYear)}
+            height={230}
+          />
+        </div>
+      </div>
+      <details class="trend-data">
+        <summary>View chart data</summary>
+        <table>
+          <caption>Books finished by category</caption>
+          <thead
+            ><tr
+              ><th scope="col">Year</th><th scope="col">Books finished</th></tr
+            ></thead
+          >
+          <tbody>
+            {#each trend as { year, count } (year)}
+              <tr><th scope="row">{year}</th><td>{count}</td></tr>
+            {/each}
+          </tbody>
+        </table>
+      </details>
     {/if}
 
     <div class="reading-content">
@@ -287,59 +414,66 @@
     font: inherit;
     font-size: 0.85rem;
   }
-  .year-chart {
+  .trend-heading {
     display: flex;
-    overflow-x: auto;
-    gap: 0.4rem;
-    padding: 0.5rem 0 0.35rem;
+    justify-content: space-between;
+    align-items: end;
+    gap: 1rem;
+    margin-top: 1.5rem;
   }
-  .year-chart button {
-    flex: 1 0 48px;
-    min-width: 48px;
-    display: grid;
-    gap: 0.35rem;
-    padding: 0.5rem 0.3rem;
-    border: 1px solid transparent;
-    border-radius: 8px;
+  .trend-heading p {
+    margin-top: 0.3rem;
     color: var(--text-muted);
-    background: transparent;
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+  .trend-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 0.5rem 0;
+  }
+  .trend-scroll :global(.bar-chart) {
+    min-width: var(--trend-width);
+  }
+  .trend-data {
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: var(--type-label);
+  }
+  .trend-data summary {
+    width: fit-content;
     cursor: pointer;
-    font: inherit;
   }
-  .year-chart button:hover,
-  .year-chart button.chosen {
-    background: color-mix(in srgb, var(--accent) 9%, transparent);
+  .trend-data table {
+    width: 100%;
+    margin-top: 0.5rem;
+    border-collapse: collapse;
     color: var(--text);
+    font-variant-numeric: tabular-nums;
   }
-  .year-chart button.chosen {
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  .trend-data th,
+  .trend-data td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
   }
-  .year-chart button:focus-visible,
+  .trend-data th:first-child {
+    text-align: left;
+  }
+  .trend-data thead th {
+    color: var(--text-muted);
+    font-weight: 650;
+  }
+  @media (max-width: 640px) {
+    .trend-heading {
+      align-items: stretch;
+      flex-direction: column;
+    }
+  }
+  .trend-scroll:focus-visible,
   select:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-  }
-  .year-count {
-    font-size: 0.85rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  .year-track {
-    height: 5px;
-    background: var(--border);
-    border-radius: 5px;
-    overflow: hidden;
-  }
-  .year-bar {
-    display: block;
-    height: 100%;
-    width: var(--fill);
-    background: var(--accent);
-    border-radius: inherit;
-  }
-  .year-label {
-    font-size: 0.7rem;
-    font-variant-numeric: tabular-nums;
   }
   .reading-content {
     margin-top: 0.65rem;
