@@ -54,6 +54,9 @@ func (s *Service) persistMediaHistoryTx(tx *gorm.DB, rawFile models.RawFile, par
 				return err
 			}
 		}
+		if err := persistMediaEvents(tx, rawFile, itemID, history.Media); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -108,6 +108,9 @@ func (Adapter) ImportMediaHistory(ctx context.Context, source provider.Source, _
 		position, unit := parseActivityProgress(activity.Progress, media.MediaType)
 		note := strings.TrimSpace(strings.Join([]string{activity.Status, activity.Progress}, " "))
 		effectiveAt := time.Unix(activity.CreatedAt, 0).UTC()
+		if event := activityConsumptionEvent(activity, media, position, unit, effectiveAt); event != nil {
+			media.Events = append(media.Events, *event)
+		}
 		history = append(history, observations.MediaHistory{
 			Media: media,
 			Updates: []observations.MediaStateUpdate{{
@@ -122,6 +125,35 @@ func (Adapter) ImportMediaHistory(ctx context.Context, source provider.Source, _
 		})
 	}
 	return history, nil
+}
+
+// activityConsumptionEvent derives a consumption event from one AniList list
+// activity so watching and reading show up in the Today page, media feeds and
+// report aggregates instead of only in library state history. A completion
+// becomes a completed event; an activity that advanced an episode, chapter or
+// volume count becomes a progressed event keyed to the activity id. Statuses
+// that mark no consumption (paused, dropped, planning) stay state-only, and a
+// progress activity without a parsable number emits nothing.
+func activityConsumptionEvent(activity listActivity, media observations.Media, position *float64, unit string, effectiveAt time.Time) *observations.MediaEvent {
+	status := strings.ToLower(strings.TrimSpace(activity.Status))
+	if status == "paused" || status == "dropped" || status == "planning" {
+		return nil
+	}
+	if status != "completed" && position == nil {
+		return nil
+	}
+	event := &observations.MediaEvent{
+		EventType:     observations.MediaEventProgressed,
+		EventAt:       effectiveAt,
+		SourceEventID: "activity:" + strconv.Itoa(activity.ID),
+		Unit:          unit,
+		Position:      position,
+		Total:         activityTotal(activity.Media, unit),
+	}
+	if status == "completed" {
+		event.EventType = observations.MediaEventCompleted
+	}
+	return event
 }
 
 func mapActivityMedia(media mediaNode) observations.Media {
