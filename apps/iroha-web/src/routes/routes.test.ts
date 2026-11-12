@@ -75,10 +75,10 @@ describe("cockpit route layout", () => {
       "/expenses",
       "/patterns",
       "/reports",
-      "/showcase",
       "/to-go",
       "/admin",
       "/manual",
+      "/showcase",
     ]);
   });
 

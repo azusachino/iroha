@@ -12,7 +12,7 @@ import { installPilotFixtures } from "./pilot-fixtures";
 const modes = ["light", "dark"] as const;
 const motions = ["no-preference", "reduce"] as const;
 const compactWidths = [320, 390] as const;
-const commandCount = 11;
+const commandCount = 12;
 
 function observeBrowser(page: Page) {
   const consoleErrors: string[] = [];

@@ -92,13 +92,6 @@ export const navigationGroups: readonly NavigationGroup[] = [
     label: "More",
     items: [
       {
-        id: "public-archive",
-        label: "Public archive",
-        href: "/showcase",
-        kind: "tool",
-        hint: "View Miles & Margins",
-      },
-      {
         id: "to-go",
         label: "To-go",
         href: "/to-go",
@@ -118,6 +111,13 @@ export const navigationGroups: readonly NavigationGroup[] = [
         href: "/manual",
         kind: "tool",
         hint: "How to read Iroha",
+      },
+      {
+        id: "public-archive",
+        label: "Public archive",
+        href: "/showcase",
+        kind: "tool",
+        hint: "View Miles & Margins",
       },
     ],
   },

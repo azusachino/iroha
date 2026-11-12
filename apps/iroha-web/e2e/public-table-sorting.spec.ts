@@ -68,9 +68,14 @@ for (const mode of ["light", "dark"] as const) {
     await expect(distance).toHaveText("Distance / Duration");
     await expect(sport).toHaveText("Activity ▲");
     await expect(links).toHaveCount(50);
+    // Scrolling to the button also triggers automatic loading near the page
+    // bottom, so exercise its keyboard action without triggering that race.
     await records
       .getByRole("button", { name: "Load more", exact: true })
-      .click();
+      .evaluate((button: HTMLButtonElement) =>
+        button.focus({ preventScroll: true }),
+      );
+    await page.keyboard.press("Enter");
     await expect.poll(() => links.count()).toBeGreaterThan(50);
     await page.locator(".sport-row").filter({ hasText: "Run" }).click();
     await expect(records.locator("tbody tr")).toHaveCount(50);
