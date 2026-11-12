@@ -3,6 +3,7 @@ package i18n
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Canonical activity keys identify one catalog entry. A key is stable domain
@@ -405,33 +406,121 @@ func ResolveActivity(raw string, ctx ActivityContext) ActivityClassification {
 // sport slug or "" when nothing matches. It is the fallback for labels outside
 // the catalog (for example "Trail Running 12km"); callers that need a concrete
 // bucket should map "" to SportOther themselves.
+//
+// Latin keywords match whole tokens, so "Brunch" is not a run and "15km" is not
+// "5k". Han and kana keywords have no word boundaries and match as substrings,
+// except katakana, which must not touch other katakana ("ランチ" is lunch, not
+// a run). A bare distance is the weakest evidence and is consulted only when no
+// sport keyword matches.
 func InferSportType(raw string) string {
 	lower := strings.ToLower(raw)
+	tokens := sportTokens(raw)
 	for _, rule := range sportKeywordRules {
 		for _, keyword := range rule.keywords {
-			if strings.Contains(lower, keyword) {
+			if matchSportKeyword(lower, tokens, keyword) {
 				return rule.sport
 			}
+		}
+	}
+	for _, distance := range runDistanceTokens {
+		if strings.Contains(tokens, sportTokens(distance)) {
+			return SportRun
 		}
 	}
 	return ""
 }
 
+// matchSportKeyword reports whether keyword occurs in lower. tokens is lower
+// reduced to space-separated letter/digit runs, padded with spaces.
+func matchSportKeyword(lower, tokens, keyword string) bool {
+	if keyword == "" {
+		return false
+	}
+	if !isLatinKeyword(keyword) {
+		return containsBounded(lower, keyword)
+	}
+	return strings.Contains(tokens, sportTokens(keyword))
+}
+
+// sportTokens reduces text to its lowercase words, separated and surrounded by
+// single spaces. Words split at any non-alphanumeric rune and at a lower-to-upper
+// camel-case step, so "FunctionalStrengthTraining" and "fitness_gaming" yield
+// the same words as their spaced forms.
+func sportTokens(text string) string {
+	var b strings.Builder
+	b.WriteByte(' ')
+	var prev rune
+	for _, r := range text {
+		switch {
+		case !unicode.IsLetter(r) && !unicode.IsDigit(r):
+			if !strings.HasSuffix(b.String(), " ") {
+				b.WriteByte(' ')
+			}
+		default:
+			if unicode.IsUpper(r) && unicode.IsLower(prev) {
+				b.WriteByte(' ')
+			}
+			b.WriteRune(unicode.ToLower(r))
+		}
+		prev = r
+	}
+	if !strings.HasSuffix(b.String(), " ") {
+		b.WriteByte(' ')
+	}
+	return b.String()
+}
+
+func isLatinKeyword(keyword string) bool {
+	for _, r := range keyword {
+		if r > unicode.MaxASCII {
+			return false
+		}
+	}
+	return true
+}
+
+// containsBounded finds keyword in text. A katakana keyword only matches when
+// the neighboring runes are not katakana; any other script matches anywhere.
+func containsBounded(text, keyword string) bool {
+	if first, _ := utf8.DecodeRuneInString(keyword); !unicode.Is(unicode.Katakana, first) {
+		return strings.Contains(text, keyword)
+	}
+	for offset := 0; ; {
+		i := strings.Index(text[offset:], keyword)
+		if i < 0 {
+			return false
+		}
+		start, end := offset+i, offset+i+len(keyword)
+		before, _ := utf8.DecodeLastRuneInString(text[:start])
+		after, _ := utf8.DecodeRuneInString(text[end:])
+		if !unicode.Is(unicode.Katakana, before) && !unicode.Is(unicode.Katakana, after) {
+			return true
+		}
+		_, size := utf8.DecodeRuneInString(keyword)
+		offset = start + size
+	}
+}
+
+// runDistanceTokens are race distances that suggest a run only when the label
+// names no sport.
+var runDistanceTokens = []string{"5k", "10k"}
+
 // sportKeywordRules is ordered: earlier rules win, so "HIIT Run" reads as HIIT
 // rather than run and "Fitness Gaming" is not mistaken for generic training.
+// Latin keywords are whole words, so inflections are listed explicitly.
 var sportKeywordRules = []struct {
 	sport    string
 	keywords []string
 }{
-	{SportFitnessGaming, []string{"fitnessgaming", "fitness_gaming", "fitness gaming", "fitness-gaming", "フィットネスゲーム", "健身游戏"}},
+	{SportFitnessGaming, []string{"fitnessgaming", "fitness gaming", "フィットネスゲーム", "健身游戏"}},
 	{SportHIIT, []string{"hiit", "highintensityinterval", "high intensity interval", "高強度インターバル", "高强度间歇"}},
 	{SportTraditionalStrengthTraining, []string{"strength", "筋トレ", "筋力トレーニング", "力量训练", "健身"}},
 	{SportYoga, []string{"yoga", "ヨガ", "瑜伽"}},
-	{SportHike, []string{"hike", "hiking", "ハイキング", "登山", "徒步", "远足", "爬山"}},
-	{SportRun, []string{"run", "jog", "treadmill", "marathon", "5k", "10k", "ラン", "ランニング", "跑步"}},
-	{SportWalk, []string{"walk", "ウォーキング", "徒歩", "歩行", "步行", "散步"}},
-	{SportRide, []string{"cycl", "bike", "biking", "ride", "サイクリング", "自転車", "骑行", "自行车", "单车"}},
-	{SportSwim, []string{"swim", "スイム", "水泳", "游泳"}},
+	{SportHike, []string{"hike", "hikes", "hiking", "ハイキング", "登山", "徒步", "远足", "爬山"}},
+	{SportRun, []string{"run", "runs", "running", "jog", "jogging", "treadmill", "marathon", "ラン", "ランニング", "跑步"}},
+	{SportWalk, []string{"walk", "walks", "walking", "ウォーキング", "徒歩", "歩行", "步行", "散步"}},
+	{SportRide, []string{"cycle", "cycling", "bike", "biking", "ride", "rides", "サイクリング", "自転車", "骑行", "自行车", "单车"}},
+	{SportSwim, []string{"swim", "swimming", "スイム", "水泳", "游泳"}},
 }
 
 func buildActivityEntryIndex() map[string]int {
