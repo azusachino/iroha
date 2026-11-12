@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { PUBLIC_BASE_URL } from "../playwright.config";
 import { installPilotFixtures } from "./pilot-fixtures";
+import { inspectPilotCharts } from "./pilot-charts";
 import { fakeSession } from "./session";
 
 test("public reading section renders the sanitized book list", async ({
@@ -42,7 +43,12 @@ test("public reading section renders the sanitized book list", async ({
     }),
   ).toBeVisible();
 
-  await section.getByRole("button", { name: "2024: 1 book finished" }).click();
+  await expect(
+    section.getByRole("img", { name: /Books finished chart/ }),
+  ).toBeVisible();
+  await section
+    .getByRole("combobox", { name: "Reading year" })
+    .selectOption("2024");
   await expect(section.getByText("克拉拉与太阳")).toBeVisible();
   await expect(section.getByText("石黑一雄")).toBeVisible();
   await expect(section.getByText("A Winter Book")).toHaveCount(0);
@@ -61,6 +67,117 @@ test("public reading section renders the sanitized book list", async ({
   await expect(
     section.getByRole("img", { name: /Books finished each month/ }),
   ).toHaveCount(0);
+});
+
+test("yearly trend scales beyond a decade and includes empty years", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await installPilotFixtures(page, "public");
+  const years = Array.from({ length: 16 }, (_, index) => 2010 + index).filter(
+    (year) => year !== 2018,
+  );
+  await page.route("**/public/v1/books", (route) =>
+    route.fulfill({
+      json: years.map((year) => ({
+        id: String(year),
+        title: `Book ${year}`,
+        authors: [],
+        status: "completed",
+        finished_at: `${year}-06-01`,
+      })),
+    }),
+  );
+  await page.goto(PUBLIC_BASE_URL);
+  await page.getByRole("tab", { name: "Books" }).click();
+  const section = page.getByRole("region", { name: "Reading list" });
+  const range = section.getByRole("combobox", { name: "Trend range" });
+  await expect(range).toHaveValue("recent");
+  const scroller = section.getByRole("region", { name: /Yearly trend chart/ });
+  await expect
+    .poll(() => scroller.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(0);
+  await section.getByText("View chart data").click();
+  const table = section.getByRole("table", {
+    name: "Books finished by category",
+  });
+  await expect(table.getByRole("row", { name: "2016 1" })).toBeVisible();
+  await expect(table.getByRole("row", { name: "2018 0" })).toBeVisible();
+  await expect(table.getByRole("row", { name: "2010 1" })).toHaveCount(0);
+  await section
+    .getByRole("combobox", { name: "Reading year" })
+    .selectOption("2010");
+  await expect(range).toHaveValue("2010");
+  await expect
+    .poll(() => scroller.evaluate((element) => element.scrollLeft))
+    .toBe(0);
+  await expect(table.getByRole("row", { name: "2010 1" })).toBeVisible();
+  await expect(table.getByRole("row", { name: "2018 0" })).toBeVisible();
+  await expect(section.getByText("Book 2010")).toBeVisible();
+  await expect
+    .poll(async () => {
+      const result = await page.evaluate(inspectPilotCharts);
+      if (!result.verified) return [];
+      return result.charts.find((chart) =>
+        chart.label?.startsWith("Books finished chart"),
+      )?.xAxis[0]?.data;
+    })
+    .toEqual([
+      "2010",
+      "2011",
+      "2012",
+      "2013",
+      "2014",
+      "2015",
+      "2016",
+      "2017",
+      "2018",
+      "2019",
+    ]);
+  await range.selectOption("recent");
+  await expect(
+    section.getByRole("combobox", { name: "Reading year" }),
+  ).toHaveValue("2025");
+  await expect(table.getByRole("row", { name: "2025 1" })).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
+});
+
+test("distant dates do not make the trend unbounded", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await installPilotFixtures(page, "public");
+  await page.route("**/public/v1/books", (route) =>
+    route.fulfill({
+      json: ["0000", "2025"].map((year) => ({
+        id: year,
+        title: `Book ${year}`,
+        authors: [],
+        status: "completed",
+        finished_at: `${year}-06-01`,
+      })),
+    }),
+  );
+  await page.goto(PUBLIC_BASE_URL);
+  await page.getByRole("tab", { name: "Books" }).click();
+  const section = page.getByRole("region", { name: "Reading list" });
+  await section
+    .getByRole("combobox", { name: "Reading year" })
+    .selectOption("0000");
+  await expect(
+    section.getByRole("combobox", { name: "Trend range" }),
+  ).toHaveValue("0");
+  await section.getByText("View chart data").click();
+  const table = section.getByRole("table", {
+    name: "Books finished by category",
+  });
+  await expect(table.getByRole("row", { name: "0000 1" })).toBeVisible();
+  await expect(table.locator("tbody tr")).toHaveCount(10);
+  await expect(section.getByText("Book 0000")).toBeVisible();
+  const chartWidth = await section
+    .getByRole("img", { name: /Books finished chart/ })
+    .evaluate((element) => element.getBoundingClientRect().width);
+  expect(chartWidth).toBeLessThanOrEqual(550);
 });
 
 test("undated books with long titles fit a narrow screen", async ({ page }) => {
