@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { PUBLIC_BASE_URL } from "../playwright.config";
 import { installPilotFixtures } from "./pilot-fixtures";
+import { fakeSession } from "./session";
 
 test("public reading section renders the sanitized book list", async ({
   page,
@@ -64,6 +65,38 @@ test("public reading section quiets itself when the part is unavailable", async 
   ).toBeVisible();
 });
 
+test("signed-in owners can open and navigate the public archive", async ({
+  page,
+}) => {
+  await installPilotFixtures(page, "public");
+  await fakeSession(page, {
+    setup_required: false,
+    authenticated: true,
+    username: "synthetic-owner",
+    display_name: "Synthetic owner",
+  });
+  await page.goto("/overview");
+  await page.locator("summary").filter({ hasText: "More" }).click();
+  await page.getByRole("link", { name: "Public archive" }).click();
+  await expect(page).toHaveURL(/\/showcase$/);
+  await expect(
+    page.getByRole("heading", { name: "Miles & Margins" }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Books" }).click();
+  await expect(
+    page.getByRole("region", { name: "Reading list" }),
+  ).toBeVisible();
+  await page.goto("/showcase?activity=synthetic-2026");
+  await page.getByRole("link", { name: "Back to archive" }).click();
+  await expect(page).toHaveURL(/\/showcase$/);
+  await expect(
+    page.getByRole("heading", { name: "Miles & Margins" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Today", exact: true }),
+  ).toBeVisible();
+});
+
 test("public tabs fit and switch at a narrow viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await installPilotFixtures(page, "public");
@@ -79,9 +112,11 @@ test("public tabs fit and switch at a narrow viewport", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Activities" })).toBeVisible();
 });
 
-test("public reading section stays empty-safe", async ({ page }) => {
+test("public reading section stays empty-safe for signed-out visitors at the showcase address", async ({
+  page,
+}) => {
   await installPilotFixtures(page, "public", "empty");
-  await page.goto(PUBLIC_BASE_URL);
+  await page.goto("/showcase");
 
   await page.getByRole("tab", { name: "Books" }).click();
   await expect(page.getByText("No reading records yet.")).toBeVisible();

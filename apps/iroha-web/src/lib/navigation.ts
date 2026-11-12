@@ -92,6 +92,13 @@ export const navigationGroups: readonly NavigationGroup[] = [
     label: "More",
     items: [
       {
+        id: "public-archive",
+        label: "Public archive",
+        href: "/showcase",
+        kind: "tool",
+        hint: "View Miles & Margins",
+      },
+      {
         id: "to-go",
         label: "To-go",
         href: "/to-go",

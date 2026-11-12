@@ -612,7 +612,11 @@
   {#if selectedActivity}
     <header class="hero tile">
       <div class="hero-topline">
-        <a class="brand" href="/" aria-label={`${site.name} home`}>
+        <a
+          class="brand"
+          href={page.url.pathname === "/showcase" ? "/showcase" : "/"}
+          aria-label={`${site.name} home`}
+        >
           <BrandMark size={22} />
           <span class="brand-title">{site.name}</span>
           <span class="eyebrow visually-hidden">{site.name}</span>
@@ -636,7 +640,11 @@
         : "A record of books and reading"}
     >
       {#snippet titleSnippet()}
-        <a class="brand" href="/" aria-label={`${site.name} home`}>
+        <a
+          class="brand"
+          href={page.url.pathname === "/showcase" ? "/showcase" : "/"}
+          aria-label={`${site.name} home`}
+        >
           <BrandMark size={22} />
           <h1 class="brand-title">{site.name}</h1>
           <span class="eyebrow visually-hidden">{site.name}</span>
