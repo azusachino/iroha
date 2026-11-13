@@ -26,7 +26,7 @@ Documentation only. The application contract comes from:
 - `docs/health-auto-export-setup.md` for HAE payload/export details;
 - the actual server, web, migration, ingress, and deployment code at implementation time.
 
-Iroha owns its image builds and the k3s deployment runbook under `ops/k8s/`. Cluster-specific manifests, ingress, secret management, storage classes, image distribution, and operations remain with the operator's infrastructure repository (harus-k3s `03-core/iroha/`).
+Iroha owns its image builds, the k3s deployment runbook, and a sanitized portable Kustomize baseline under `ops/k8s/`. Cluster-specific manifests, ingress, secret management, storage classes, image distribution, and operations remain with the operator's infrastructure repository (harus-k3s `03-core/iroha/`).
 
 ## Commands
 
