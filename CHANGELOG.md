@@ -13,6 +13,10 @@ contract between minor versions.
 - **Finished books by year and month**: the public Books tab lists finished books only, with an all-time total, yearly counts, a monthly chart and the selected year's books. Completed books without a valid completion date sit in a separate undated list; no date is inferred from progress.
 - **Reading totals across years**: the public Books page compares yearly completions in the same chart style as Reports. It opens on the latest ten years, older decades are selectable, and years with no completions show zero.
 
+### Changed
+
+- **Runtime images build on the workstation's shared runtime base**: the `server`, `job` and `db-migrate` stages and the web runtime stage now run on `media-base` (Debian trixie, glibc) instead of `alpine` and `caddy:2-alpine`, so every workstation service shares one runtime base. Builders are unchanged (only `rust:alpine` stays musl, because its `sqlx` binary is static), and so are the image contracts: iroha stays `100:101`, tini stays PID 1 for the Go services, `EXPOSE 8080` and the Caddyfile entrypoint are as before. The web image still copies the upstream Caddy binary and strips its `cap_net_bind_service` file capability, since it only binds `:8080`. The `job` image installs `procps` because its Kubernetes liveness probe runs `pgrep -f iroha-job`, which the base image does not ship.
+
 ### Fixed
 
 - **Patterns rings with missing goals**: when the latest activity reading has no ring goals (Health Auto Export supplies none), Patterns uses the last observed goals from the 100 most recent daily records and dates them on the page. When no earlier goals exist, it shows the goals as unavailable instead of a misleading zero-length arc.

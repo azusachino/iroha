@@ -206,6 +206,10 @@ smoke-k3s-cache: ## Verify the live k3s Valkey cache (API_BASE=..., MONTH=...)
 	$(TOOL_ENV) uv run python scripts/k3s_cache_smoke.py --api-base "$(or $(API_BASE),https://iroha.h.azusachino.com)" --month "$(or $(MONTH),2099-01)"
 
 ## --- k3s local images (build with Podman, import straight into containerd; no registry) ---
+# Runtime stages build FROM the workstation's local-only shared base
+# (azusachino.com/media-base). Build it first -- `make media-base-build` in the
+# harus-workstation repository -- and never pass --pull to these targets: the
+# base tag is not on any registry. See ops/k8s/README.md.
 image-server: ## Build iroha-server and import it into the local k3s containerd store (TAG=$(TAG))
 	podman build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) --target server -t $(IMAGE_NS)/iroha-server:$(TAG) -f ops/images/Containerfile.server .
 	podman save $(IMAGE_NS)/iroha-server:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -

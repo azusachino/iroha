@@ -15,18 +15,35 @@ ARG PUBLIC_IROHA_TIMEZONE=Asia/Tokyo
 ENV PUBLIC_IROHA_TIMEZONE=$PUBLIC_IROHA_TIMEZONE
 RUN rm -rf .svelte-kit build && bun run build
 
-FROM docker.io/caddy:2-alpine
+# Runtime stage: the workstation's single shared runtime image (Debian trixie,
+# glibc) instead of the caddy image, so every app image shares one base. Only
+# the caddy binary comes from upstream's image (floating source, per the
+# workstation's no-pin policy). The tag is local-only: never build with --pull.
+FROM azusachino.com/media-base:py3.14-trixie-r2 AS runtime
 ARG SOURCE_REVISION
 RUN test -n "$SOURCE_REVISION"
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
+# Caddy's own writable state directories, as the upstream image sets them.
+# Kubernetes mounts /data and /config as writable emptyDirs on top of these.
+ENV XDG_CONFIG_HOME=/config
+ENV XDG_DATA_HOME=/data
+COPY --from=docker.io/library/caddy:2-alpine /usr/bin/caddy /usr/local/bin/caddy
 COPY ops/images/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/apps/iroha-web/build /srv
 # Run unprivileged; /data and /config are Caddy's writable state directories.
+# iroha is 100:101 to match the k8s runAsUser/runAsGroup/fsGroup and the other
+# iroha images, so file ownership never depends on a distro-assigned GID.
 # Re-copy the binary to drop its cap_net_bind_service file capability: it is
 # unneeded on :8080, and the kernel refuses to exec a file-capability binary
 # once Kubernetes drops all capabilities with no privilege escalation.
-RUN addgroup -S iroha && adduser -S -G iroha -H iroha \
+RUN groupadd -g 101 iroha \
+  && useradd -u 100 -g 101 -d /data -M -s /usr/sbin/nologin iroha \
+  && mkdir -p /data /config \
   && chown -R iroha:iroha /data /config \
-  && cp /usr/bin/caddy /usr/bin/caddy.nocap && mv /usr/bin/caddy.nocap /usr/bin/caddy
+  && cp /usr/local/bin/caddy /usr/local/bin/caddy.nocap \
+  && mv /usr/local/bin/caddy.nocap /usr/local/bin/caddy
 USER iroha
 EXPOSE 8080
+# The upstream caddy image ran this exact command as its CMD; the shared base
+# has its own defaults, so spell it out here instead of inheriting them.
+ENTRYPOINT ["/usr/local/bin/caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

@@ -19,36 +19,46 @@ RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-server ./
 RUN CGO_ENABLED=0 go -C apps/iroha-server build -mod=mod -o /out/iroha-admin ./cmd/iroha-admin
 RUN CGO_ENABLED=0 go -C apps/iroha-job build -mod=mod -o /out/iroha-job .
 
-FROM alpine:3.22 AS server
+# Runtime stages use the workstation's single shared runtime image (Debian
+# trixie, glibc) instead of a per-image distro. It already provides
+# ca-certificates (outbound HTTPS), tzdata (explicit IANA timezones) and tini
+# at /usr/bin/tini (PID 1, so signals reach the Go process and no zombies
+# accumulate), so each stage only adds its runtime user. The tag is local-only:
+# never build with --pull, which would try to fetch it from a registry.
+FROM azusachino.com/media-base:py3.14-trixie-r2 AS server
 ARG SOURCE_REVISION
 RUN test -n "$SOURCE_REVISION"
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
 # iroha is 100:101 in every stage: k8s runs it with runAsUser/runAsGroup 100/101
 # and the dev compose maps the host user to it, so the IDs must not drift.
-# ca-certificates is required for outbound HTTPS (e.g. Nominatim geocoding);
-# tzdata is required for explicit IANA report timezones in the Alpine runtime.
-# tini is PID 1 so signals reach the Go process and no zombies accumulate.
-RUN apk add --no-cache ca-certificates tini tzdata \
-  && addgroup -S -g 101 iroha && adduser -S -u 100 -G iroha -H -h /data iroha \
+RUN groupadd -g 101 iroha \
+  && useradd -u 100 -g 101 -d /data -M -s /usr/sbin/nologin iroha \
   && mkdir -p /data && chown iroha:iroha /data
 COPY --from=build /out/iroha-server /usr/local/bin/iroha-server
 COPY --from=build /out/iroha-admin /usr/local/bin/iroha-admin
 USER iroha
 EXPOSE 8080
-ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-server"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/iroha-server"]
 
-FROM alpine:3.22 AS job
+FROM azusachino.com/media-base:py3.14-trixie-r2 AS job
 ARG SOURCE_REVISION
 RUN test -n "$SOURCE_REVISION"
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
-# ca-certificates is required for outbound HTTPS (AniList/Bangumi media sync);
-# tzdata keeps worker-side calendar/time handling consistent with the server.
-RUN apk add --no-cache ca-certificates tini tzdata \
-  && addgroup -S -g 101 iroha && adduser -S -u 100 -G iroha -H -h /data iroha \
+# Same shared runtime base as the server stage: ca-certificates for outbound
+# HTTPS (AniList/Bangumi media sync) and tzdata so worker-side calendar/time
+# handling matches the server. procps is the one package the base does not
+# carry that this image needs: the k3s liveness probe (vendor/harus-k3s,
+# 03-core/iroha/job.yaml) runs `sh -c "pgrep -f iroha-job"`, which busybox
+# used to provide.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends procps \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd -g 101 iroha \
+  && useradd -u 100 -g 101 -d /data -M -s /usr/sbin/nologin iroha \
   && mkdir -p /data && chown iroha:iroha /data
 COPY --from=build /out/iroha-job /usr/local/bin/iroha-job
 USER iroha
-ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/iroha-job"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/iroha-job"]
 
 FROM rust:alpine AS sqlx
 RUN apk add --no-cache musl-dev \
@@ -56,17 +66,19 @@ RUN apk add --no-cache musl-dev \
 
 # Standalone migration runner image: run as a k8s Job/initContainer ahead of
 # the server rollout. Reads DATABASE_URL or IROHA_DATABASE_URL, same as
-# scripts/db.py, and defaults to the "up" action.
-FROM alpine:3.22 AS db-migrate
+# scripts/db.py, and defaults to the "up" action. The sqlx-cli builder stays
+# musl/alpine: the static binary it produces runs unchanged on the glibc
+# runtime base.
+FROM azusachino.com/media-base:py3.14-trixie-r2 AS db-migrate
 ARG SOURCE_REVISION
 RUN test -n "$SOURCE_REVISION"
 LABEL org.opencontainers.image.revision=$SOURCE_REVISION
-RUN apk add --no-cache ca-certificates tini \
-  && addgroup -S -g 101 iroha && adduser -S -u 100 -G iroha iroha
+RUN groupadd -g 101 iroha \
+  && useradd -u 100 -g 101 -M -s /usr/sbin/nologin iroha
 COPY --from=sqlx /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 COPY apps/iroha-server/db/migrations /migrations
 COPY ops/images/db-migrate-entrypoint.sh /usr/local/bin/db-migrate-entrypoint.sh
 RUN chmod +x /usr/local/bin/db-migrate-entrypoint.sh
 USER iroha
-ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/db-migrate-entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/db-migrate-entrypoint.sh"]
 CMD ["up"]
