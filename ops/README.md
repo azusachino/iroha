@@ -13,7 +13,7 @@ is no third path.
 ```text
 ops/local-dev/   Podman Compose stack: PostGIS dev database, server, job, web, Caddy
 ops/images/      Containerfiles for the four production images + base sample
-ops/k8s/         The k3s production runbook (manifests live in harus-k3s, not here)
+ops/k8s/         The k3s production runbook + a sanitized portable Kustomize baseline (the deployed manifests live in harus-k3s)
 ops/sql/         SQL operational helpers
 ```
 
