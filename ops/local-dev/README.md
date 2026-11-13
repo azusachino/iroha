@@ -5,8 +5,9 @@ The supported Podman Compose profile runs the stateful local dependencies:
 ```text
 PostgreSQL 18 + PostGIS 3.6  -> localhost:5432
 
-The local database uses the pinned multi-architecture image
-`docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21`.
+The local database uses docker.io/postgis/postgis:18-3.6-alpine — the
+same image the k3s cluster runs for iroha-postgis, so local development and
+production share one PostGIS build (see ops/k8s/README.md).
 Cache                       -> Postgres (`tb_cache_entries`)
 ```
 
@@ -62,10 +63,16 @@ environment is unavailable.
 
 ## Podman boundary
 
-On macOS, Podman isolates containers in a Podman machine. `podman-compose` provides the private project network, so server and worker use the `db` service name rather than generated host IPs.
+Development happens on the Linux workstation, where Podman runs containers
+natively — no Podman machine is involved. `podman-compose` provides the private
+project network, so server and worker reach the database at the `db` service
+name rather than generated host IPs.
 
-The full application profile uses the repo-local `.iroha-data` bind mount for raw files because Apple container VMs can share host bind mounts reliably while named-volume attachment across isolated
-application VMs is not required by the Podman profile. The server and worker mount it at `/data`.
+The full application profile uses the repo-local `.iroha-data` bind mount for
+raw files, mounted at `/data` by the server and worker; on Linux this is a
+plain host bind mount. The database lives in the named `iroha-dev_pgdata`
+volume managed by the stack.
 
-The runner refuses to initialize a machine implicitly. If no machine exists, create one with a deliberately small disk, for example `podman machine init --disk-size 30`, then run
-`podman machine start`.
+On macOS the same profile works through a Podman machine: create one with a
+deliberately small disk (`podman machine init --disk-size 30`) and start it
+before using the stack; the runner refuses to initialize a machine implicitly.

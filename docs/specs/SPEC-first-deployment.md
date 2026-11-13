@@ -26,7 +26,7 @@ Documentation only. The application contract comes from:
 - `docs/health-auto-export-setup.md` for HAE payload/export details;
 - the actual server, web, migration, ingress, and deployment code at implementation time.
 
-Iroha owns portable Kubernetes manifests and their deployment instructions under `ops/k8s/`. Cluster-specific ingress, secret management, storage classes, image distribution, and operations remain with the operator's infrastructure repository.
+Iroha owns its image builds and the k3s deployment runbook under `ops/k8s/`. Cluster-specific manifests, ingress, secret management, storage classes, image distribution, and operations remain with the operator's infrastructure repository (harus-k3s `03-core/iroha/`).
 
 ## Commands
 
@@ -47,7 +47,7 @@ make check
 
 The guide must explain these steps in order:
 
-1. **Choose the deployment path:** direct the operator to Iroha's `ops/k8s/README.md` for its portable Kubernetes baseline, and to their infrastructure repository for environment-specific instructions.
+1. **Choose the deployment path:** direct the operator to Iroha's `ops/k8s/README.md` for the k3s deployment runbook, and to their infrastructure repository for environment-specific instructions.
 2. **Deploy privately first:** make the app reachable on the tailnet for setup; do not enable public exposure before ingress protections and application auth are in place.
 3. **Create the owner account:** visit a tailnet-only, one-time setup path; create the sole administrator with username/password. Creation must be atomic and unavailable once an account exists. There
    is no public registration.
