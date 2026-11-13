@@ -1,25 +1,30 @@
-# Kubernetes deployment
+# Kubernetes deployment (harus-mini k3s)
 
-This directory contains Iroha's portable Kubernetes baseline. It deploys the
-private web cockpit, server, worker, persistent PostGIS database, migration
-Job, disposable Valkey cache, and separate public-site frontend. PostGIS is
-the authoritative store; Valkey is only a rebuildable cache. It does not
-install an Ingress controller or publish any route; configure private access
-and public access deliberately in your cluster.
+This is the recommended and only supported Kubernetes setup: the production
+instance of Iroha runs on the single-node k3s cluster `harus-mini`. This
+repository owns the **image builds** (`ops/images/`); the **cluster manifests**
+are owned by the [harus-k3s](https://github.com/azusachino/harus-k3s)
+repository in `03-core/iroha/` (namespace `harus-core`). A sanitized,
+self-contained Kustomize copy of the same workloads is kept here for anyone
+deploying outside the homelab — see [Portable baseline](#portable-baseline)
+at the end of this page.
+
+The cluster runs: `iroha-server`, `iroha-job`, and `iroha-web` Deployments (the
+web image serves both the private cockpit and the public site under separate
+ingress routes), the `iroha-postgis` StatefulSet
+(`postgis/postgis:18-3.6-alpine`, 10Gi PVC, canonical store), the
+`iroha-db-migrate` Job (recreated on every apply), a shared cluster Valkey used
+as the disposable cache backend, and the `iroha-data` PVC for raw evidence.
+Secrets land only as a `iroha-secrets` SealedSecret. See the harus-k3s
+`03-core/iroha/README.md` for the full topology, networking, and backup story.
 
 ## Requirements
 
-- Kubernetes with Kustomize (`kubectl apply -k`) and a default StorageClass.
-- Build tools for Iroha's images, or an OCI registry where you publish them.
-- A secret named `iroha-secrets` in namespace `iroha` with `POSTGRES_PASSWORD`.
-  Optional `IROHA_ANILIST_TOKEN` and `IROHA_BANGUMI_TOKEN` keys enable private
-  provider sync. Do not commit credentials. Create this Secret through your
-  cluster's secret manager or a secure interactive process; do not put its
-  values in shell history, manifests, or source control.
+- The harus-workstation checkout (build tooling, Podman, mise).
+- `kubectl` access to the cluster, and a harus-k3s checkout for the deploy step.
+- The shared runtime base image (below).
 
-## Build and deploy
-
-### Prerequisite: the shared runtime base
+## Prerequisite: the shared runtime base
 
 Every runtime stage builds `FROM azusachino.com/media-base:py3.14-trixie-r2`,
 a local-only image owned by the workstation repository, not by this one. It is
@@ -33,64 +38,117 @@ make media-base-check
 ```
 
 The recipe is `containers/media-base/Dockerfile` there. Two consequences:
-never pass `--pull` to an Iroha image build (podman would try to fetch the
-local-only tag from a registry that does not exist), and a CI runner needs that
-image built in the job or published to a registry it can reach before these
-Containerfiles can build.
+never pass `--pull` to an Iroha image build (Podman would try to fetch the
+local-only tag from a registry that does not exist), and any other machine
+needs that image built locally first — strangers can build it from
+`ops/images/Containerfile.base.sample` in this repository.
 
-From the Iroha repository root, build the application images using the
-project's pinned version:
+## Build and import
 
-```sh
-make image-server image-job image-db-migrate image-web image-public-site
-```
-
-These targets build and import images into the local k3s containerd store.
-For another cluster, build and publish the same five images to a registry
-accessible to Kubernetes. The Containerfiles are in `ops/images/`; for
-example, build the server image with:
+From the repository root:
 
 ```sh
-podman build -t registry.example/iroha-server:vX.Y.Z --target server -f ops/images/Containerfile.server .
-podman push registry.example/iroha-server:vX.Y.Z
+make images                     # server, job, db-migrate, web: build + import
+make image-server TAG=deploy-abc1234   # one image with an explicit tag
 ```
 
-Repeat for `job` and `db-migrate` targets in `Containerfile.server`, plus
-`Containerfile.web` and `Containerfile.public-site`. Update the `images`
-entries in `kustomization.yaml` to your registry and immutable version tags.
+These targets build with Podman and pipe `podman save` into
+`sudo k3s ctr images import`, so they must run on the cluster node (or wherever
+k3s's containerd is reachable) and end with the images present in the k3s
+store. `make images-local` builds without importing.
 
-Create the `iroha` namespace and required Secret through your secure
-secret-management workflow, then apply the baseline:
+The default tag is `v$(cat VERSION)`. Working rollouts between releases use a
+`deploy-<shortsha>` tag built from the exact merged commit — whatever tag you
+build must be recorded in harus-k3s `SERVICE_VERSIONS.yaml` next (below).
+`IMAGE_NS` must stay `azusachino.com`: `imagePullPolicy` is `Never`, so a
+prefix mismatch is an `ErrImageNeverPull` at apply time.
+
+Before rebuilding under a tag that is already deployed, retain the previous
+images for rollback:
 
 ```sh
-kubectl apply -k ops/k8s
-kubectl -n iroha wait --for=condition=complete job/iroha-db-migrate --timeout=10m
-kubectl -n iroha rollout status statefulset/iroha-postgis
-kubectl -n iroha rollout status deployment/iroha-server
-kubectl -n iroha rollout status deployment/iroha-job
-kubectl -n iroha rollout status deployment/iroha-web
-kubectl -n iroha rollout status deployment/iroha-public-site
+for img in server job db-migrate web; do
+  podman tag azusachino.com/iroha-$img:deploy-old azusachino.com/iroha-$img:rollback-pre-<change>
+done
 ```
 
-The migration Job is a fixed-name, one-shot resource. Before applying a changed
-migration image or re-running migrations, delete the completed Job first:
+and import the rollback tags the same way (`podman save | sudo k3s ctr images
+import`). Both stores retain them.
 
-```sh
-kubectl -n iroha delete job iroha-db-migrate --ignore-not-found
-kubectl apply -k ops/k8s
-```
+## Deploy
 
-The private web app is unauthenticated at the network edge only when protected
-by Iroha's application login; never expose private routes to anonymous users.
-The public-site service serves the sanitized `/public/v1` projection only via
-its proxy. Add ingress rules in your own cluster configuration, keeping the
-private app and API private. The baseline's Services are ClusterIP and expose
-no NodePorts or LoadBalancers.
+In the harus-k3s checkout:
 
-## Data and recovery
+1. Update the four `iroha-*` version entries in `SERVICE_VERSIONS.yaml` to the
+   imported tags. The manifests in `03-core/iroha/` pin the same tags; keep
+   the two in sync (the apply step validates this).
+2. `make validate` — the harus-k3s CI gate.
+3. `make apply-iroha` — validates the pins, recreates and waits for the
+   `iroha-db-migrate` Job, then applies and waits for `iroha-server`,
+   `iroha-job`, and `iroha-web` in sequence, and the public-site Service.
 
-The default manifests request a 20Gi PVC for uploaded raw evidence and a 10Gi
-PostGIS volume. Valkey has no persistent volume because its contents are
-rebuildable. Set an appropriate StorageClass and capacity for your cluster.
-Back up both persistent volumes: PostGIS contains canonical records and the
-evidence volume contains source files. Kubernetes PVCs alone are not backups.
+   `make apply-iroha-web` rolls only the web deployment;
+   `uv run scripts/apply_iroha.py --dry-run` rehearses without applying.
+
+## Verify
+
+- `make apply-iroha` already waits for each rollout; check the pod phase if it
+  fails.
+- Server health: `/healthz` and `/readyz` return OK (the private cockpit is
+  tailnet-only; check from the network).
+- Web: `https://iroha.h.azusachino.com/` returns 200.
+- From this repository, `make smoke-k3s-cache` verifies the live Valkey cache
+  path against the deployed API.
+- In harus-k3s, `make check-drift` confirms the applied objects match the
+  manifests.
+
+## Rollback
+
+Point `SERVICE_VERSIONS.yaml` (and the manifest pins) back to the retained
+`rollback-*` tags and re-run `make apply-iroha`. For an immediate revert
+before that, `kubectl -n harus-core rollout undo deployment/iroha-server`
+(restores the previous revision's image reference) — then still record the
+revert in `SERVICE_VERSIONS.yaml` so the files match the cluster.
+
+## Portable baseline
+
+The YAML files in this directory (`namespace.yaml`, `config.yaml`,
+`valkey.yaml`, `app.yaml`, `kustomization.yaml`) are a sanitized copy of the
+homelab deployment: the same `iroha-db-migrate` Job, `iroha-server`,
+`iroha-job`, and `iroha-web` Deployments (web serves both the private cockpit
+and the public site — the `iroha-public-site` Service selects the web pods,
+there is no fifth image), the `iroha-postgis` StatefulSet with its own 10Gi
+PVC, the `iroha-data` PVC, and a disposable Valkey — everything a cluster
+needs, with no dependency on homelab internals.
+
+To deploy it on any Kubernetes cluster:
+
+1. Build the images (`make images-local`) and publish them to a registry you
+   control, then edit `kustomization.yaml`'s `images:` block (default
+   `newName: azusachino.com/...` is a private, non-pullable name).
+2. Create the secret first: `kubectl create namespace iroha` then
+   `kubectl -n iroha create secret generic iroha-secrets --from-literal=POSTGRES_PASSWORD=...`
+   (optional keys: `IROHA_ANILIST_TOKEN`, `IROHA_BANGUMI_TOKEN`,
+   `DRIFTER_API_TOKEN`).
+3. Set your hostname in `IROHA_ALLOWED_ORIGINS` (`config.yaml`),
+   `IROHA_WEBAUTHN_RP_ID` / `IROHA_WEBAUTHN_ORIGINS` (`app.yaml`, server
+   Deployment) — passkeys only work once these match your real origin.
+4. `kubectl apply -k ops/k8s/`. The db-migrate Job runs once; on later
+   upgrades delete it first (`kubectl -n iroha delete job iroha-db-migrate`)
+   so apply re-creates it with the new image.
+
+**Sanitization and sync rule.** The copy deliberately omits internal
+hostnames, usernames, ingress routes, network policies, and backup
+annotations. When the harus-k3s `03-core/iroha/` workloads change (env,
+budgets, probes, topology), update this baseline in the same change or the
+two drift — the same failure mode that retired the first portable baseline.
+
+## History
+
+This directory previously held a portable Kustomize baseline (namespace
+`iroha`, a separate `iroha-public-site` image, `v0.6.0-rc2` tags). It had
+drifted badly from the homelab deployment and was removed on 2026-11-13 in
+favor of this runbook; a refreshed, sanitized baseline (this time matching
+the deployed workloads, public-site Service selecting web, `iroha_v05`
+database, WebAuthn env, drifter token) was added back the same day. The
+homelab manifests in harus-k3s remain the single supported Kubernetes setup.

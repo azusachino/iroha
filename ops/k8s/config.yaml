@@ -7,9 +7,14 @@ metadata:
 data:
   IROHA_DATA_DIR: /data
   IROHA_TIMEZONE: Asia/Tokyo
+  IROHA_ALLOWED_ORIGINS: https://iroha.example.com
   IROHA_SERVER_ADDR: 0.0.0.0:8080
   IROHA_CACHE_BACKEND: valkey
   IROHA_VALKEY_URL: redis://iroha-valkey:6379
+  # Optional cross-service sync (iroha's drifter integration). Uncomment and
+  # point at your own drifter instance; DRIFTER_API_TOKEN goes in iroha-secrets.
+  # IROHA_DRIFTER_SYNC_INTERVAL: 12h
+  # DRIFTER_BASE_URL: http://drifter:80
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

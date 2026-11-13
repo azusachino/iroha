@@ -2,7 +2,10 @@
 
 ## Current Assumption
 
-Iroha development happens on macOS. mise manages the project tools, while Podman with `podman-compose` owns the containerized services. Make remains the only task and lifecycle entrypoint;
+Iroha development happens on the Linux workstation (`harus-mini`, the same
+node the k3s cluster runs on). mise manages the project tools, while Podman
+(native, no machine) with `podman-compose` owns the containerized services.
+Make remains the only task and lifecycle entrypoint;
 `scripts/dev_stack.py` implements its backend behavior.
 
 The runtime design should be capability-based. The checked-in Compose files target the OCI-compatible Podman runtime; Docker compatibility is incidental and not the supported local contract.
@@ -32,7 +35,7 @@ make db-down
 
 CI provisions the same `.mise.toml` selection policy with `jdx/mise-action`. Floating selectors can resolve differently across installation dates; record actual versions when comparing results.
 
-Podman and `podman-compose` remain macOS host prerequisites rather than project-managed tools. The uv-managed runner detects missing tools and reports a clear prerequisite error.
+Podman and `podman-compose` remain host prerequisites rather than project-managed tools. The uv-managed runner detects missing tools and reports a clear prerequisite error.
 
 ## Incremental local checks
 
@@ -233,18 +236,21 @@ inside the iroha repo, not an external Git submodule.
 
 ## Podman
 
-Podman is the supported local container runtime. On macOS it runs the containers inside a Podman machine; the machine disk is separate from the repository and should be sized deliberately rather than
-using an oversized default.
+Podman is the supported local container runtime. On the Linux workstation it
+runs containers natively; on a macOS host the same profile runs inside a
+Podman machine whose disk is separate from the repository and should be sized
+deliberately rather than using an oversized default.
 
 Verified local tools on the development host:
 
 ```text
-podman 5.8.2
-podman-compose 1.5.0
+podman 5.8.9
+podman-compose (podman-compose 1.5.0 or compatible)
 ```
 
-Initialize a lean machine once when needed, then start it before using the stack. Do not run `podman system prune` or remove volumes as part of normal development; raw imports remain in `.iroha-data`,
-while the database volume is explicitly managed by the stack.
+Do not run `podman system prune` or remove volumes as part of normal
+development; raw imports remain in `.iroha-data`, while the database volume is
+explicitly managed by the stack.
 
 For MVP v0, the important local service is Postgres with PostGIS.
 
@@ -307,15 +313,16 @@ No manual `uv` environment setup is needed. Run repo scripts through mise or Mak
 
 ## Postgres/PostGIS Runtime Shape
 
-Use OCI images that support arm64. The validated local image is `docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21`. The Kartoza image is a temporary local development choice; production deployments
-should pin and validate their own PostGIS image separately.
+The validated local image is `docker.io/postgis/postgis:18-3.6-alpine` — the
+same image the k3s cluster runs, so local and production share one PostGIS
+build (parity chosen over an independent pin; see `ops/k8s/README.md`).
 
 Runtime requirements:
 
 ```text
-POSTGRES_DBNAME=iroha
+POSTGRES_DB=iroha
 POSTGRES_USER=postgres
-POSTGRES_PASS=iroha_dev
+POSTGRES_PASSWORD=iroha_dev
 published port: 5432
 persistent local data volume
 ```
@@ -326,7 +333,9 @@ Application config should use a normal database URL:
 DATABASE_URL=postgres://iroha:iroha_dev@127.0.0.1:5432/iroha?sslmode=disable
 ```
 
-Kartoza uses `POSTGRES_PASS` and `POSTGRES_DBNAME` for initialization. The local bootstrap keeps `postgres` as the image’s bootstrap superuser and creates the application-owned `iroha` role through
+The image initializes with the standard `POSTGRES_*` variables. The local
+bootstrap keeps `postgres` as the image's bootstrap superuser and creates the
+application-owned `iroha` role through
 `ops/local-dev/initdb/001-iroha-user.sql`.
 
 ## Database Migrations
