@@ -19,6 +19,25 @@ and public access deliberately in your cluster.
 
 ## Build and deploy
 
+### Prerequisite: the shared runtime base
+
+Every runtime stage builds `FROM azusachino.com/media-base:py3.14-trixie-r2`,
+a local-only image owned by the workstation repository, not by this one. It is
+not published to any registry, so build it once before the first Iroha image
+build on a machine and after a base refresh:
+
+```sh
+# in the harus-workstation repository
+make media-base-build            # REFRESH=1 pulls upstream and bypasses cache
+make media-base-check
+```
+
+The recipe is `containers/media-base/Dockerfile` there. Two consequences:
+never pass `--pull` to an Iroha image build (podman would try to fetch the
+local-only tag from a registry that does not exist), and a CI runner needs that
+image built in the job or published to a registry it can reach before these
+Containerfiles can build.
+
 From the Iroha repository root, build the application images using the
 project's pinned version:
 
