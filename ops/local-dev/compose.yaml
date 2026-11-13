@@ -2,13 +2,17 @@ name: iroha-dev
 
 services:
   db:
-    image: docker.io/kartoza/postgis:18.4-3.6.4--v2026.06.21
+    # Parity with the cluster's postgis (k3s: mirror.gcr.io/postgis/postgis:18-3.6-alpine):
+    # same upstream image and tag, so local findings match production and the
+    # old kartoza image (25 CRITICALs at the 2026-11-13 audit) stays out of the
+    # store. Standard postgres entrypoint variables.
+    image: docker.io/postgis/postgis:18-3.6-alpine
     cpus: 2
     mem_limit: 2g
     environment:
-      POSTGRES_DBNAME: iroha
+      POSTGRES_DB: iroha
       POSTGRES_USER: postgres
-      POSTGRES_PASS: iroha_dev
+      POSTGRES_PASSWORD: iroha_dev
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
@@ -18,4 +22,6 @@ services:
 
 volumes:
   pgdata:
-    name: iroha-dev_pgdata-kartoza
+    # Fresh volume: the previous iroha-dev_pgdata-kartoza held throwaway dev
+    # data under the kartoza layout; recreate rather than migrate.
+    name: iroha-dev_pgdata
