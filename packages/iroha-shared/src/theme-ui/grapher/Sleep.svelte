@@ -25,7 +25,7 @@
     children,
   }: SleepThemeProps = $props();
 
-  const chartSessions = $derived([...sessions].reverse());
+  const chartSessions = $derived(sessions.toReversed());
   let recordsPanel = $state<HTMLElement>();
 </script>
 

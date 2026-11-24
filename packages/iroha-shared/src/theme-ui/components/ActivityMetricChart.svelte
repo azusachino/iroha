@@ -121,8 +121,7 @@
         duration: totalDuration[index],
         observedDays: observedDaysFor(series, period),
       }))
-      .slice()
-      .reverse(),
+      .toReversed(),
   );
 
   function formatKm(value: number): string {

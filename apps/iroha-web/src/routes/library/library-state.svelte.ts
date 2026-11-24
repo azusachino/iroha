@@ -86,25 +86,19 @@ export function createLibraryState() {
   ];
   const groupedItems = $derived(
     Object.entries(
-      items
-        .filter((item) => !isContinuing(item))
-        .reduce(
-          (groups, item) => {
-            // Paused items share the in_progress status; give them a shelf.
-            const key =
-              item.status === "in_progress"
-                ? "paused"
-                : item.status || "unknown";
-            (groups[key] ??= []).push(item);
-            return groups;
-          },
-          {} as Record<string, MediaRow[]>,
-        ),
-    ).sort(
-      ([a], [b]) =>
-        (STATUS_ORDER.indexOf(a) + 1 || 99) -
-        (STATUS_ORDER.indexOf(b) + 1 || 99),
-    ),
+      Object.groupBy(
+        items.filter((item) => !isContinuing(item)),
+        (item) =>
+          // Paused items share the in_progress status; give them a shelf.
+          item.status === "in_progress" ? "paused" : item.status || "unknown",
+      ),
+    )
+      .filter((entry): entry is [string, MediaRow[]] => entry[1] !== undefined)
+      .sort(
+        ([a], [b]) =>
+          (STATUS_ORDER.indexOf(a) + 1 || 99) -
+          (STATUS_ORDER.indexOf(b) + 1 || 99),
+      ),
   );
 
   // The API splits by raw media_type (anime_season, manga, movie, ova…);
@@ -127,7 +121,7 @@ export function createLibraryState() {
   const completions = $derived(aggregates?.completions_by_year ?? []);
   const scores = $derived(aggregates?.score_distribution ?? []);
   const yearOptions = $derived(
-    [...availableYears].sort((a, b) => b.year - a.year),
+    availableYears.toSorted((a, b) => b.year - a.year),
   );
 
   $effect(() => {

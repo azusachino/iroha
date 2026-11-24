@@ -140,7 +140,7 @@
     );
     if (hrs.length === 0) return points;
 
-    const sortedHrs = [...hrs].sort(
+    const sortedHrs = hrs.toSorted(
       (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime(),
     );
 

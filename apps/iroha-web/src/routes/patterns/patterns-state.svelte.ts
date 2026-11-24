@@ -322,7 +322,7 @@ export function createPatternsState() {
       )
       .map(aggToDisp);
   });
-  const table = $derived([...chrono].reverse());
+  const table = $derived(chrono.toReversed());
   const aggregated = $derived(gran !== "day");
 
   function ser(pick: (d: Disp) => number | null): (number | null)[] {

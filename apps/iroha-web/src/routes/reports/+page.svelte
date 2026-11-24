@@ -68,7 +68,7 @@
   const periodMonths = $derived(
     bounds.min && bounds.max
       ? monthOptionsInRange(periodYear, bounds)
-      : [...MONTH_OPTIONS].reverse(),
+      : MONTH_OPTIONS.toReversed(),
   );
   const theme = useTheme();
 
