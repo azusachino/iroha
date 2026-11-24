@@ -49,7 +49,6 @@
     border-right: 1px solid var(--border);
     background: var(--surface);
     box-shadow: none;
-    backdrop-filter: none;
   }
 
   .rail-label {
@@ -72,11 +71,10 @@
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    backdrop-filter: none;
   }
 
   .grapher-header :global(.main-nav > a),
-  .grapher-header :global(.navigation-menu > summary) {
+  .grapher-header :global(.navigation-menu > .navigation-trigger) {
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -94,12 +92,12 @@
   }
 
   .grapher-header :global(.main-nav > a)::after,
-  .grapher-header :global(.navigation-menu > summary)::after {
+  .grapher-header :global(.navigation-menu > .navigation-trigger)::after {
     display: none;
   }
 
   .grapher-header :global(.main-nav > a),
-  .grapher-header :global(.navigation-menu > summary) {
+  .grapher-header :global(.navigation-menu > .navigation-trigger) {
     transition:
       background-color var(--motion-micro),
       box-shadow var(--motion-micro),
@@ -108,7 +106,7 @@
   }
 
   .grapher-header :global(.main-nav > a:hover),
-  .grapher-header :global(.navigation-menu > summary:hover) {
+  .grapher-header :global(.navigation-menu > .navigation-trigger:hover) {
     background: var(--surface-2);
     color: var(--text);
   }
@@ -118,7 +116,7 @@
   }
 
   .grapher-header :global(.main-nav > a.active),
-  .grapher-header :global(.navigation-menu.active > summary) {
+  .grapher-header :global(.navigation-menu.active > .navigation-trigger) {
     background: color-mix(in srgb, var(--accent) 14%, var(--surface));
     color: var(--text);
   }
@@ -130,7 +128,7 @@
   }
 
   .grapher-header :global(.main-nav > a.active svg),
-  .grapher-header :global(.navigation-menu.active > summary svg) {
+  .grapher-header :global(.navigation-menu.active > .navigation-trigger svg) {
     color: var(--accent);
   }
 
@@ -138,12 +136,11 @@
     width: 100%;
   }
 
-  .grapher-header :global(.navigation-menu > summary) {
-    list-style: none;
+  .grapher-header :global(.navigation-menu > .navigation-trigger) {
     cursor: pointer;
   }
 
-  .grapher-header :global(.navigation-menu .navigation-popover) {
+  .grapher-header :global(.navigation-menu.inline .navigation-popover) {
     position: static;
     display: grid;
     gap: 0.15rem;
@@ -155,10 +152,9 @@
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    backdrop-filter: none;
   }
 
-  .grapher-header :global(.navigation-menu:not([open]) .navigation-popover) {
+  .grapher-header :global(.navigation-menu.inline .navigation-popover[hidden]) {
     display: none;
   }
 
@@ -194,14 +190,14 @@
   }
 
   .grapher-header :global(.command-trigger:hover),
-  .grapher-header :global(.appbar-actions .user-menu > summary:hover) {
+  .grapher-header :global(.appbar-actions .user-menu > .user-menu-trigger:hover) {
     box-shadow:
       var(--tile-shadow),
       0 8px 20px -6px rgb(0 0 0 / 0.3);
     transform: translateY(-1px);
   }
 
-  .grapher-header :global(.appbar-actions .user-menu > summary) {
+  .grapher-header :global(.appbar-actions .user-menu > .user-menu-trigger) {
     border-radius: var(--radius);
     box-shadow: var(--tile-shadow);
     transition:
@@ -215,7 +211,7 @@
     min-width: 0;
   }
 
-  .grapher-header :global(.appbar-actions .user-menu > summary) {
+  .grapher-header :global(.appbar-actions .user-menu > .user-menu-trigger) {
     width: 100%;
   }
 
@@ -248,23 +244,16 @@
   }
 
   /* The account control sits at the bottom of the rail, so its menu opens
-     upward across the full row. Opening down ran past the viewport, and a
-     menu wider than the rail made the rail scroll sideways. */
+     upward from the trigger using CSS Anchor Positioning (with JS fallback). */
   @media (min-width: 1025px) {
-    .grapher-header :global(.appbar-actions) {
-      position: relative;
-    }
-
-    .grapher-header :global(.appbar-actions .user-menu) {
-      position: static;
-    }
-
-    .grapher-header :global(.appbar-actions .user-menu .user-popover) {
-      top: auto;
-      right: 0;
-      bottom: calc(100% + 0.4rem);
-      left: 0;
-      min-width: 0;
+    @supports (position-area: block-end) {
+      .grapher-header :global(.appbar-actions .user-menu .user-popover) {
+        position-area: block-start span-inline-end;
+        position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+        inset: auto;
+        margin: 0 0 0.4rem;
+        min-width: anchor-size(width);
+      }
     }
   }
 
@@ -309,23 +298,12 @@
     }
 
     .grapher-header :global(.main-nav > a),
-    .grapher-header :global(.navigation-menu > summary) {
+    .grapher-header :global(.navigation-menu > .navigation-trigger) {
       width: auto;
       min-height: 2rem;
       padding: 0.42rem 0.62rem;
       border-radius: 999px;
       font-size: 0.76rem;
-    }
-
-    .grapher-header :global(.navigation-menu .navigation-popover) {
-      position: absolute;
-      min-width: 13rem;
-      margin: 0;
-      padding: 0.45rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--surface-2);
-      box-shadow: var(--tile-shadow);
     }
 
     .grapher-header :global(.appbar-actions) {
@@ -350,7 +328,7 @@
       flex: 0 0 auto;
     }
 
-    .grapher-header :global(.appbar-actions .user-menu > summary) {
+    .grapher-header :global(.appbar-actions .user-menu > .user-menu-trigger) {
       width: auto;
     }
 
@@ -366,24 +344,6 @@
 
     .grapher-footer {
       padding: 1rem 1.5rem;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .grapher-header :global(.navigation-menu .navigation-popover) {
-      position: fixed;
-      top: var(--navigation-popover-top, -9999px);
-      left: var(--navigation-popover-left, -9999px);
-      width: min(13rem, calc(100vw - 1rem));
-      min-width: 0;
-      max-height: min(60vh, 20rem);
-      overflow-y: auto;
-      margin: 0;
-      padding: 0.45rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--surface-2);
-      box-shadow: var(--tile-shadow);
     }
   }
 
@@ -408,7 +368,7 @@
     }
 
     .grapher-header :global(.main-nav > a),
-    .grapher-header :global(.navigation-menu > summary) {
+    .grapher-header :global(.navigation-menu > .navigation-trigger) {
       justify-content: center;
       min-height: 2.5rem;
       padding: 0.42rem 0.1rem;
@@ -416,7 +376,7 @@
     }
 
     .grapher-header :global(.main-nav > a svg),
-    .grapher-header :global(.navigation-menu > summary svg) {
+    .grapher-header :global(.navigation-menu > .navigation-trigger svg) {
       display: none;
     }
 

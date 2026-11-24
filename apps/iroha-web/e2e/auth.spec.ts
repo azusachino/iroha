@@ -318,7 +318,7 @@ test("session state observer: signing out from user menu returns to sign in", as
   );
   await page.goto("/");
 
-  const userMenu = page.locator("summary[aria-label*='Account menu for']");
+  const userMenu = page.locator("button[aria-label*='Account menu for']");
   await userMenu.click();
   await page.getByRole("menuitem", { name: "Log out" }).click();
 
@@ -334,7 +334,7 @@ test("passkey settings in account dialog reflects server passkeys disabled state
   );
   await page.goto("/");
 
-  const userMenu = page.locator("summary[aria-label*='Account menu for']");
+  const userMenu = page.locator("button[aria-label*='Account menu for']");
   await userMenu.click();
   await page.getByRole("menuitem", { name: "Account settings" }).click();
 
@@ -382,7 +382,7 @@ test("passkey settings in account dialog lists passkeys and supports renaming an
 
   await page.goto("/");
 
-  const userMenu = page.locator("summary[aria-label*='Account menu for']");
+  const userMenu = page.locator("button[aria-label*='Account menu for']");
   await userMenu.click();
   await page.getByRole("menuitem", { name: "Account settings" }).click();
 

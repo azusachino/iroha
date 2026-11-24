@@ -119,27 +119,7 @@
   .data-content {
     min-width: 0;
   }
-  .loading-overlay {
-    position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    top: auto;
-    z-index: 100;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.45rem 0.85rem;
-    border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--surface) 95%, transparent);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-    color: var(--accent);
-    font-size: 0.72rem;
-    font-weight: 650;
-    pointer-events: none;
-  }
+  .loading-overlay,
   .update-status {
     position: fixed;
     bottom: 1.5rem;
@@ -148,18 +128,20 @@
     z-index: 100;
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.45rem;
     padding: 0.45rem 0.85rem;
     border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
     border-radius: 999px;
     background: color-mix(in srgb, var(--surface) 95%, transparent);
     backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
     color: var(--accent);
     font-size: 0.72rem;
     font-weight: 650;
     pointer-events: none;
+  }
+  .loading-overlay {
+    gap: 0.5rem;
   }
   @keyframes loading-sweep {
     from {

@@ -177,7 +177,8 @@ test("Floating navigation does not hide a keyboard-focused link when the pointer
     page
       .getByRole("navigation", { name: "Primary navigation" })
       .getByRole("group")
-      .filter({ has: page.getByText("More", { exact: true }) }),
-  ).toHaveAttribute("open", "");
+      .filter({ has: page.getByText("More", { exact: true }) })
+      .locator("button.navigation-trigger"),
+  ).toHaveAttribute("aria-expanded", "true");
   await expect(link).toBeFocused();
 });

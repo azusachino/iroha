@@ -94,8 +94,8 @@ export function createNightState() {
   const loadedMainSleep = $derived(
     sessions.filter((session) => session.is_main_sleep),
   );
-  const monthlyBuckets = $derived(monthBuckets.slice().reverse());
-  const yearlyBuckets = $derived(yearBuckets.slice().reverse());
+  const monthlyBuckets = $derived(monthBuckets.toReversed());
+  const yearlyBuckets = $derived(yearBuckets.toReversed());
   const periodYears = $derived(
     bounds.min
       ? yearOptionsInRange(bounds)

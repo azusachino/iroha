@@ -55,8 +55,8 @@
     ),
   );
   const sports = $derived(
-    [...(summary?.by_sport ?? [])]
-      .sort((left, right) => right.activity_count - left.activity_count)
+    (summary?.by_sport ?? [])
+      .toSorted((left, right) => right.activity_count - left.activity_count)
       .slice(0, 5),
   );
   const comparison = $derived.by(() => {

@@ -102,7 +102,7 @@
       }
       return { ...point, distance_m: point.distance_m ?? distance };
     });
-    const samples = [...heartRateSamples].sort(
+    const samples = heartRateSamples.toSorted(
       (a, b) => Date.parse(a.ts) - Date.parse(b.ts),
     );
     return points.map((point, index) => {

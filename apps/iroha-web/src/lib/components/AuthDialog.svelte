@@ -9,6 +9,7 @@
     setup,
   } from "$lib/auth.svelte";
   import { PasskeyCancelled, passkeysSupported } from "$lib/passkey";
+  import { dialogLightDismiss } from "$lib/dialog";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -93,6 +94,8 @@
 <dialog
   bind:this={dialog}
   class="auth-dialog"
+  closedby="any"
+  use:dialogLightDismiss
   onclose={() => (open = false)}
   aria-labelledby="auth-dialog-title"
 >
@@ -252,11 +255,6 @@
     padding: 0;
     width: min(92vw, 24rem);
     box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
-  }
-
-  .auth-dialog::backdrop {
-    background: rgb(0 0 0 / 0.6);
-    backdrop-filter: blur(4px);
   }
 
   .auth-dialog-content {

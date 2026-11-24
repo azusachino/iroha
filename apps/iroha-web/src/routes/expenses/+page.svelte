@@ -154,7 +154,7 @@
   const periodMonths = $derived(
     dateBounds.min && dateBounds.max
       ? monthOptionsInRange(periodYear, dateBounds)
-      : [...MONTH_OPTIONS].reverse(),
+      : MONTH_OPTIONS.toReversed(),
   );
 
   async function loadBounds() {

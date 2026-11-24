@@ -1,103 +1,195 @@
 /* Canonical domain identity colors. Dark marks and light marks also support
-   text use; labels remain required, not a color-vision conformance claim. */
+   text use; labels remain required, not a color-vision conformance claim.
+   Registering each color token via @property ensures light-dark() resolves to
+   a concrete computed color string for Canvas/ECharts readers calling
+   getComputedStyle(...).getPropertyValue(...). */
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #00d2b4;
+}
+@property --danger {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ff6b6b;
+}
+@property --accent-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ff5c8a;
+}
+@property --mark-teal {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2dd4bf;
+}
+@property --mark-magenta {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f472b6;
+}
+@property --mark-amber {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fcd34d;
+}
+@property --mark-violet {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c084fc;
+}
+@property --ring-move {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f43f5e;
+}
+@property --ring-exercise {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #22c55e;
+}
+@property --ring-stand {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #06b6d4;
+}
+@property --sport-run {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #38bdf8;
+}
+@property --sport-walk {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #34d399;
+}
+@property --sport-hike {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #a3e635;
+}
+@property --sport-ride {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fb923c;
+}
+@property --sport-swim {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #a5b4fc;
+}
+@property --sport-other {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #94a3b8;
+}
+@property --category-groceries {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #bef264;
+}
+@property --category-shopping {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fda4af;
+}
+@property --category-utilities {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #67e8f9;
+}
+@property --category-health {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f472b6;
+}
+@property --category-subscriptions {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2dd4bf;
+}
+@property --sleep-deep {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #818cf8;
+}
+@property --sleep-rem {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c084fc;
+}
+@property --sleep-core {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #38bdf8;
+}
+@property --sleep-awake {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fb923c;
+}
+@property --sleep-in-bed {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #94a3b8;
+}
+@property --sleep-unspecified {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #60a5fa;
+}
+@property --chart-pace {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #34d399;
+}
+@property --chart-heart-rate {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f43f5e;
+}
+@property --chart-elevation {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #38bdf8;
+}
+@property --chart-grid {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(255, 255, 255, 0.07);
+}
+
 :root {
-  --accent: #00d2b4;
-  --danger: #ff6b6b;
-  --accent-2: #ff5c8a;
-  --mark-teal: #2dd4bf;
-  --mark-magenta: #f472b6;
-  --mark-amber: #fcd34d;
-  --mark-violet: #c084fc;
-  --ring-move: #f43f5e;
-  --ring-exercise: #22c55e;
-  --ring-stand: #06b6d4;
-  --sport-run: #38bdf8;
-  --sport-walk: #34d399;
-  --sport-hike: #a3e635;
-  --sport-ride: #fb923c;
-  --sport-swim: #a5b4fc;
-  --sport-other: #94a3b8;
-  --category-groceries: #bef264;
-  --category-shopping: #fda4af;
-  --category-utilities: #67e8f9;
-  --category-health: #f472b6;
-  --category-subscriptions: #2dd4bf;
-  --sleep-deep: #818cf8;
-  --sleep-rem: #c084fc;
-  --sleep-core: #38bdf8;
-  --sleep-awake: #fb923c;
-  --sleep-in-bed: #94a3b8;
-  --sleep-unspecified: #60a5fa;
-  --chart-pace: #34d399;
-  --chart-heart-rate: #f43f5e;
-  --chart-elevation: #38bdf8;
-  --chart-grid: rgba(255, 255, 255, 0.07);
-}
-:root[data-theme="light"] {
-  --accent: #076660;
-  --danger: #b91c1c;
-  --accent-2: #be123c;
-  --mark-teal: #076660;
-  --mark-magenta: #9d174d;
-  --mark-amber: #854d0e;
-  --mark-violet: #5b21b6;
-  --ring-move: #be123c;
-  --ring-exercise: #15803d;
-  --ring-stand: #0369a1;
-  --sport-run: #0369a1;
-  --sport-walk: #047857;
-  --sport-hike: #456b20;
-  --sport-ride: #9a3412;
-  --sport-swim: #4338ca;
-  --sport-other: #475569;
-  --category-groceries: #3f6212;
-  --category-shopping: #be123c;
-  --category-utilities: #0e7490;
-  --category-health: #9d174d;
-  --category-subscriptions: #076660;
-  --sleep-deep: #4338ca;
-  --sleep-rem: #7e22ce;
-  --sleep-core: #0369a1;
-  --sleep-awake: #9a3412;
-  --sleep-in-bed: #475569;
-  --sleep-unspecified: #2563eb;
-  --chart-pace: #047857;
-  --chart-heart-rate: #be123c;
-  --chart-elevation: #0369a1;
-  --chart-grid: rgba(0, 0, 0, 0.07);
-}
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) {
-    --accent: #076660;
-    --danger: #b91c1c;
-    --accent-2: #be123c;
-    --mark-teal: #076660;
-    --mark-magenta: #9d174d;
-    --mark-amber: #854d0e;
-    --mark-violet: #5b21b6;
-    --ring-move: #be123c;
-    --ring-exercise: #15803d;
-    --ring-stand: #0369a1;
-    --sport-run: #0369a1;
-    --sport-walk: #047857;
-    --sport-hike: #456b20;
-    --sport-ride: #9a3412;
-    --sport-swim: #4338ca;
-    --sport-other: #475569;
-    --category-groceries: #3f6212;
-    --category-shopping: #be123c;
-    --category-utilities: #0e7490;
-    --category-health: #9d174d;
-    --category-subscriptions: #076660;
-    --sleep-deep: #4338ca;
-    --sleep-rem: #7e22ce;
-    --sleep-core: #0369a1;
-    --sleep-awake: #9a3412;
-    --sleep-in-bed: #475569;
-    --sleep-unspecified: #2563eb;
-    --chart-pace: #047857;
-    --chart-heart-rate: #be123c;
-    --chart-elevation: #0369a1;
-    --chart-grid: rgba(0, 0, 0, 0.07);
-  }
+  color-scheme: light dark;
+  --accent: light-dark(#076660, #00d2b4);
+  --danger: light-dark(#b91c1c, #ff6b6b);
+  --accent-2: light-dark(#be123c, #ff5c8a);
+  --mark-teal: light-dark(#076660, #2dd4bf);
+  --mark-magenta: light-dark(#9d174d, #f472b6);
+  --mark-amber: light-dark(#854d0e, #fcd34d);
+  --mark-violet: light-dark(#5b21b6, #c084fc);
+  --ring-move: light-dark(#be123c, #f43f5e);
+  --ring-exercise: light-dark(#15803d, #22c55e);
+  --ring-stand: light-dark(#0369a1, #06b6d4);
+  --sport-run: light-dark(#0369a1, #38bdf8);
+  --sport-walk: light-dark(#047857, #34d399);
+  --sport-hike: light-dark(#456b20, #a3e635);
+  --sport-ride: light-dark(#9a3412, #fb923c);
+  --sport-swim: light-dark(#4338ca, #a5b4fc);
+  --sport-other: light-dark(#475569, #94a3b8);
+  --category-groceries: light-dark(#3f6212, #bef264);
+  --category-shopping: light-dark(#be123c, #fda4af);
+  --category-utilities: light-dark(#0e7490, #67e8f9);
+  --category-health: light-dark(#9d174d, #f472b6);
+  --category-subscriptions: light-dark(#076660, #2dd4bf);
+  --sleep-deep: light-dark(#4338ca, #818cf8);
+  --sleep-rem: light-dark(#7e22ce, #c084fc);
+  --sleep-core: light-dark(#0369a1, #38bdf8);
+  --sleep-awake: light-dark(#9a3412, #fb923c);
+  --sleep-in-bed: light-dark(#475569, #94a3b8);
+  --sleep-unspecified: light-dark(#2563eb, #60a5fa);
+  --chart-pace: light-dark(#047857, #34d399);
+  --chart-heart-rate: light-dark(#be123c, #f43f5e);
+  --chart-elevation: light-dark(#0369a1, #38bdf8);
+  --chart-grid: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.07));
 }

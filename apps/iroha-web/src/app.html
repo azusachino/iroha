@@ -12,7 +12,8 @@
     />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <meta name="theme-color" content="#0c1222" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0b0f19" />
     <script>
       // Apply saved visual modes before first paint to avoid a flash.
       (function () {
@@ -22,23 +23,35 @@
             "(prefers-color-scheme: light)",
           ).matches;
           var t = "dark";
+          var cs = "light dark";
           if (pref === "light" || pref === "dark") {
             t = pref;
+            cs = pref;
           } else {
             pref = "auto";
             t = isSystemLight ? "light" : "dark";
           }
+          var csMeta = document.querySelector('meta[name="color-scheme"]');
+          if (csMeta) csMeta.content = cs;
+          var tcMeta = document.querySelector('meta[name="theme-color"]');
+          if (tcMeta) tcMeta.content = t === "light" ? "#f7f6f2" : "#0b0f19";
           document.documentElement.dataset.theme = t;
           document.documentElement.dataset.themePreference = pref;
-          document.getElementById("theme-favicon").href =
-            t === "light" ? "/favicon-light.svg?v=3" : "/favicon.svg?v=3";
+          var favicon = document.getElementById("theme-favicon");
+          if (favicon) {
+            favicon.href =
+              t === "light" ? "/favicon-light.svg?v=3" : "/favicon.svg?v=3";
+          }
           // Grapher is the only design language; drop any stored choice
           // from the retired languages.
           document.documentElement.dataset.language = "grapher";
           try {
             localStorage.removeItem("iroha-design-language");
-          } catch (e) {}
+          } catch (e) {
+            void e;
+          }
         } catch (e) {
+          void e;
           document.documentElement.dataset.theme = "dark";
           document.documentElement.dataset.themePreference = "auto";
           document.documentElement.dataset.language = "grapher";
