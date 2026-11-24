@@ -40,13 +40,13 @@ docs/                 design docs
 
 Iroha's registered design language (Grapher, the only one since 2026-09-28) is a core product asset, not `iroha-web` implementation details. The source of truth for design identities, the registry,
 theme-specific compositions, shared visual primitives, charts, controls, and theme-aware presentation components **must live under `packages/`** (currently `packages/iroha-shared/`, or a dedicated
-package when the boundary is split). They must not be created or maintained solely under `apps/iroha-web/src/` or `apps/iroha-public-site/src/`.
+package when the boundary is split). They must not be created or maintained solely under `apps/iroha-web/src/`.
 
 The applications are adapters and hosts:
 
 - `iroha-web` owns API clients, route state, loading/error behavior, and navigation callbacks. It may adapt canonical API data into the shared view contracts, but it must not own a theme composition
-  or duplicate a theme primitive.
-- `iroha-public-site` owns its static content/data adapter and site shell. It consumes the same shared theme assets; it must not fork a visual component because its data is static.
+  or duplicate a theme primitive. The public archive (Miles & Margins, `/showcase`, adapters in `apps/iroha-web/src/lib/public/`) is part of this app: its static content/data adapter consumes the
+  same shared theme assets and must not fork a visual component because its data is sanitized or static.
 - Shared theme code accepts typed data, snippets, and callbacks. It must not import `$lib/api`, route modules, server packages, or another application's source path.
 
 The current `apps/iroha-web/src/lib/themes/` tree is migration debt. Do not add new theme files there or add a web-local shared visual primitive to work around the debt. Before adding a component,
@@ -61,9 +61,9 @@ Design identities, route registrations, design compositions, and theme-aware CSS
 and receive a deliberate shared implementation before it is considered adopted. A web-local copy, wrapper that changes the design language, or a CSS switch without a deliberate composition is a
 boundary violation.
 
-Some `theme-ui/<language>/` files (`Media.svelte`, `Shell.svelte`, and similar) are six independent per-language copies rather than one parameterized component, because their content genuinely differs
-(labels, widths, decoration). That does not make them exempt from "one canonical definition" for whatever _is_ shared across them — a loading guard, a filter-chip set, a width convention. Before
-calling a fix in one theme's copy complete, `rg` the component's filename across all six `theme-ui/*/` directories and check whether the same fix applies there too.
+The `theme-ui/grapher/` files (`Media.svelte`, `Shell.svelte`, and similar) are a single composition set, not parameterized copies of a shared component. That does not exempt them from "one canonical
+definition" for whatever is shared across components — a loading guard, a filter-chip set, a width convention. Before calling a fix in one component complete, `rg` its filename across
+`packages/iroha-shared/src/theme-ui/` and `apps/iroha-web/src/` and check whether the same fix applies to any parallel copy there too.
 
 ## Loading state (hard rule)
 

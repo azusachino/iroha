@@ -1,6 +1,7 @@
 # Roadmap
 
-> This is the original MVP roadmap baseline. Several constraints below are historical milestones rather than current architecture; current runtime and release behavior is documented in the README,
+> The milestones below are the original MVP roadmap baseline, kept as history; several of their constraints (for example "no `go.work` yet" and a separate public-site app) no longer describe the
+> architecture. Current state: [Release 0.6](#release-06-consolidated-cockpit) and [Post-v0.6 direction](#post-v06-direction). Runtime and release behavior is documented in the README,
 > `docs/dev-runtime.md`, and `docs/contracts/`.
 
 This roadmap tracks MVP v0. The product goal is to prove one vertical first: personal running data import, canonical storage, and private activity browsing. The broader cockpit direction is described
@@ -160,7 +161,7 @@ Full Apple Health export zips may exceed normal Telegram Bot API file limits, so
 
 Goal: separate private canonical data from public output. See [Public-site publishing workflow](public-site-publishing.md) for the operational pipeline, review loop, and rollback path (issue #41).
 
-Status: live at [iroha.azusachino.com](https://iroha.azusachino.com/), self-hosted on the deployment cluster. `apps/iroha-public-site` is a static client shell; its Caddy proxy exposes only `/public/v1/*` from `iroha-server`. The server validates and serves the sanitized projection, caches it for up to 24 hours, and rebuilds it when the activity revision changes. The public site does not expose private `/api/v1` routes, and the live pipeline has no export or builder job. `iroha-export-public` remains available for local/manual snapshot inspection. See [public-site publishing](public-site-publishing.md) for current behavior.
+Status: live at [iroha.azusachino.com](https://iroha.azusachino.com/), self-hosted on the deployment cluster. Since v0.6 the public archive is part of `apps/iroha-web` (adapters under `apps/iroha-web/src/lib/public/`; the separate `apps/iroha-public-site` app is retired), and anonymous visitors reach only the sanitized `/public/v1/*` projection from `iroha-server`. The server validates and serves it, caches it for up to 24 hours, and rebuilds it when the activity revision changes. The live pipeline has no export or builder job. `iroha-export-public` remains available for local/manual snapshot inspection. See [public-site publishing](public-site-publishing.md) for current behavior.
 
 Earlier designs used the private app's `/public/v1` route, a GitHub Pages snapshot, and a cluster export/builder job. Those delivery paths are retired. The `publicexport` implementation remains the validation and projection boundary used by the active public API and the standalone CLI.
 
@@ -250,6 +251,31 @@ Current evidence: [v0.5 release audit](audits/2026-09-11-v0.5.0-release.md).
 The release includes replay-based reprocessing, automatic bounded Health intake, scheduled media syncs, agent-owned AniList/Bangumi conflict decisions, late expense/refund semantics, revision-backed
 consistent reads, coverage/evidence status, connection actions, and parity between the private cockpit, local CLI, and sanitized public exporter.
 
+## Release 0.6: Consolidated cockpit
+
+Goal: one app, one design language, and reading as a first-class domain.
+
+Status: `v0.6.0-rc5` cut (2026-11-12); the final `v0.6.0` release follows the Slice 1–3 gates in [azusachino/iroha#223](https://github.com/azusachino/iroha/issues/223) and needs owner approval. See
+the `[Unreleased]` section of [CHANGELOG.md](../CHANGELOG.md) for work since rc5.
+
+Shipped:
+
+- Consolidated app: the private cockpit and the public archive are one `iroha-web` build served by one image; `apps/iroha-public-site` is retired.
+- Grapher is the only registered design language (since 2026-09-28); compositions and primitives live in `packages/iroha-shared/`.
+- Drifter reading gateway (WeRead status and progress), cross-edition work linking, and reading time and publisher metadata (migrations 00027–00029, ADR-0012 multilingual taxonomy).
+- Public reading archive *Miles & Margins*: Run and Books tabs, finished books by year and month, an undated list, and yearly totals across decades.
+- Tooling: `go.work` over the six Go modules (`iroha-core`, `iroha-imports`, `iroha-job`, `iroha-providers`, `iroha-runtime`, `iroha-server`), the agent CLI `scripts/iroha_cli.py`, and `iroha-admin`.
+- Local and k3s runbooks under `ops/`; runtime images on the workstation's shared runtime base.
+
+## Post-v0.6 direction
+
+Tracked in [azusachino/iroha#223](https://github.com/azusachino/iroha/issues/223). `iroha` is the active product; `grace` (its planned successor) is inactive and is not a source of scope here.
+
+1. Regular updates, docs and housekeeping: consolidated dependency bumps, version drift, stale docs and expiring `CONSTRAINTS.md` exceptions.
+2. Modern web guidance: native `<dialog>`, popover and anchor positioning, `color-scheme` and `light-dark()`, and `toSorted`/`Object.groupBy` cleanups.
+3. Architecture cleanup: remove the `apps/iroha-web/src/lib/themes/` migration-debt layer and single-theme registry indirection, audit Tailwind use, and split oversized components and routes.
+4. Product milestones after the final `v0.6.0` release: wider Health Auto Export metric coverage, Reading Hub polish (library and public Books search/filter, Hardcover or BookOrbit sync, highlights), and cross-domain yearly summary, yearbook and heatmaps.
+
 ## Future Module: Reading and Watching Stats
 
 Goal: track personal media consumption without turning iroha into a social media clone.
@@ -330,11 +356,8 @@ Exit criteria for the study:
 - Strava API integration.
 - FIT and TCX full fidelity.
 - In-repo Telegram bot.
-- `go.work`.
-- Shared Go packages.
-- Dedicated CLI.
+- Shared Go packages beyond the existing modules.
 - Route clustering and similarity.
-- Heatmaps.
-- Annual yearbook.
+- Heatmaps and annual yearbook (candidates for the post-v0.6 product milestones above).
 - Reading and watching stats.
 - Photos, location history, notes, and other personal data modules.
