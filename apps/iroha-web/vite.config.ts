@@ -1,6 +1,5 @@
 import adapter from "@sveltejs/adapter-static";
 import { sveltekit } from "@sveltejs/kit/vite";
-import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, loadEnv } from "vite";
 
 const sharedPath = new URL("../../packages/iroha-shared/src", import.meta.url)
@@ -19,7 +18,7 @@ const appVersion =
   process.env.VITE_IROHA_VERSION ||
   env.PUBLIC_IROHA_VERSION ||
   env.VITE_IROHA_VERSION ||
-  "0.6.0-rc2";
+  "0.6.0-rc6";
 
 export default defineConfig({
   define: {
@@ -63,7 +62,6 @@ export default defineConfig({
     },
   },
   plugins: [
-    tailwindcss(),
     sveltekit({
       compilerOptions: {
         // Force runes mode for the project, except for libraries. Can be removed in svelte 6.

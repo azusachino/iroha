@@ -1,6 +1,10 @@
 <script lang="ts">
-  // A compact month-grid day picker. Days that actually have data are dotted,
-  // so scrubbing lands on real days. Emits the chosen 'YYYY-MM-DD'.
+  import { Calendar } from "bits-ui";
+  import { parseDate, type DateValue } from "@internationalized/date";
+
+  // A compact month-grid day picker built on bits-ui Calendar. Days that
+  // actually have data are dotted so scrubbing lands on real days. Emits the
+  // chosen 'YYYY-MM-DD'.
   let {
     value,
     days,
@@ -13,145 +17,84 @@
     onselect: (day: string) => void;
   } = $props();
 
-  // Shown month follows the selected value, unless the user browsed months.
-  import { formatMonth } from "$lib/format";
-  let monthOverride = $state<string | null>(null);
-  $effect(() => {
-    void value;
-    monthOverride = null; // a new selection re-centers on its month
-  });
-  const view = $derived(monthOverride ?? value.slice(0, 7)); // 'YYYY-MM'
-
-  const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
-
-  const cells = $derived.by<(string | null)[]>(() => {
-    const [y, m] = view.split("-").map(Number);
-    const startDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
-    const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    const out: (string | null)[] = [];
-    for (let i = 0; i < startDow; i++) out.push(null);
-    for (let d = 1; d <= daysInMonth; d++)
-      out.push(`${view}-${String(d).padStart(2, "0")}`);
-    return out;
-  });
-  const monthLabel = $derived(formatMonth(view));
-  const focusableDay = $derived(value);
-  let dayGrid: HTMLDivElement;
-
-  function dayLabel(day: string): string {
-    return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "UTC",
-    });
+  function safeParse(iso: string | undefined): DateValue | undefined {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return undefined;
+    try {
+      return parseDate(iso);
+    } catch {
+      return undefined;
+    }
   }
 
-  function handleDayKeydown(event: KeyboardEvent, day: string) {
-    const index = cells.indexOf(day);
-    if (index < 0) return;
-    const delta =
-      event.key === "ArrowLeft"
-        ? -1
-        : event.key === "ArrowRight"
-          ? 1
-          : event.key === "ArrowUp"
-            ? -7
-            : event.key === "ArrowDown"
-              ? 7
-              : event.key === "Home"
-                ? -(index % 7)
-                : event.key === "End"
-                  ? 6 - (index % 7)
-                  : 0;
-    if (delta === 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const nextDay = cells[index + delta];
-    if (!nextDay || (max && nextDay > max)) return;
-    dayGrid
-      ?.querySelector<HTMLButtonElement>(`button[data-day="${nextDay}"]`)
-      ?.focus();
-  }
+  const parsedValue = $derived(safeParse(value));
+  const parsedMax = $derived(safeParse(max));
 
-  function shiftMonth(delta: number) {
-    const [y, m] = view.split("-").map(Number);
-    monthOverride = new Date(Date.UTC(y, m - 1 + delta, 1))
-      .toISOString()
-      .slice(0, 7);
+  function handleValueChange(next: DateValue | undefined) {
+    if (!next) return;
+    onselect(next.toString());
   }
 </script>
 
-<div class="picker" role="group" aria-label={`Choose a day in ${monthLabel}`}>
-  <div class="pk-head" aria-live="polite">
-    <button
-      type="button"
-      aria-label="Previous month"
-      onclick={() => shiftMonth(-1)}>‹</button
-    >
-    <span role="heading" aria-level="2">{monthLabel}</span>
-    <button type="button" aria-label="Next month" onclick={() => shiftMonth(1)}
-      >›</button
-    >
-  </div>
-  <div
-    class="pk-grid"
-    bind:this={dayGrid}
-    role="grid"
-    aria-label={`Calendar for ${monthLabel}`}
-  >
-    {#each WEEKDAYS as w, index}
-      <span
-        class="dow"
-        role="columnheader"
-        aria-label={index === 0
-          ? "Sunday"
-          : index === 1
-            ? "Monday"
-            : index === 2
-              ? "Tuesday"
-              : index === 3
-                ? "Wednesday"
-                : index === 4
-                  ? "Thursday"
-                  : index === 5
-                    ? "Friday"
-                    : "Saturday"}>{w}</span
+<Calendar.Root
+  type="single"
+  class="picker"
+  value={parsedValue}
+  maxValue={parsedMax}
+  preventDeselect
+  weekdayFormat="narrow"
+  calendarLabel="Choose a day"
+  onValueChange={handleValueChange}
+>
+  {#snippet children({ months, weekdays })}
+    <Calendar.Header class="pk-head">
+      <Calendar.PrevButton class="pk-nav" aria-label="Previous month"
+        >‹</Calendar.PrevButton
       >
+      <Calendar.Heading class="pk-heading" />
+      <Calendar.NextButton class="pk-nav" aria-label="Next month"
+        >›</Calendar.NextButton
+      >
+    </Calendar.Header>
+    {#each months as month (month.value.toString())}
+      <Calendar.Grid class="pk-grid">
+        <Calendar.GridHead>
+          <Calendar.GridRow class="pk-row">
+            {#each weekdays as day, index (`${day}-${index}`)}
+              <Calendar.HeadCell class="dow">{day}</Calendar.HeadCell>
+            {/each}
+          </Calendar.GridRow>
+        </Calendar.GridHead>
+        <Calendar.GridBody>
+          {#each month.weeks as weekDates (weekDates[0].toString())}
+            <Calendar.GridRow class="pk-row">
+              {#each weekDates as date (date.toString())}
+                {@const iso = date.toString()}
+                <Calendar.Cell {date} month={month.value} class="pk-cell">
+                  <Calendar.Day
+                    class={`day${days.has(iso) ? " has" : ""}`}
+                    data-day={iso}
+                  >
+                    {#snippet child({ props })}
+                      <button type="button" {...props}>{date.day}</button>
+                    {/snippet}
+                  </Calendar.Day>
+                </Calendar.Cell>
+              {/each}
+            </Calendar.GridRow>
+          {/each}
+        </Calendar.GridBody>
+      </Calendar.Grid>
     {/each}
-    {#each cells as d}
-      {#if d == null}
-        <span role="gridcell" aria-hidden="true"></span>
-      {:else}
-        <button
-          type="button"
-          role="gridcell"
-          class="day"
-          class:selected={d === value}
-          class:has={days.has(d)}
-          disabled={max ? d > max : false}
-          data-day={d}
-          tabindex={d === focusableDay ? 0 : -1}
-          aria-label={dayLabel(d)}
-          aria-selected={d === value}
-          aria-current={d === value ? "date" : undefined}
-          onkeydown={(event) => handleDayKeydown(event, d)}
-          onclick={() => onselect(d)}
-        >
-          {Number(d.slice(8))}
-        </button>
-      {/if}
-    {/each}
-  </div>
-</div>
+  {/snippet}
+</Calendar.Root>
 
 <style>
-  .picker {
+  :global(.picker) {
     width: 15rem;
     padding: 0.75rem;
   }
-  .pk-head {
+
+  :global(.picker .pk-head) {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -159,7 +102,8 @@
     font-weight: 650;
     color: var(--text);
   }
-  .pk-head button {
+
+  :global(.picker .pk-nav) {
     appearance: none;
     border: 0;
     background: transparent;
@@ -169,42 +113,63 @@
     height: 1.8rem;
     border-radius: var(--radius);
     cursor: pointer;
+    display: inline-grid;
+    place-items: center;
   }
-  .pk-head button:hover {
+
+  :global(.picker .pk-nav:hover:not(:disabled)) {
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
-  .pk-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
+
+  :global(.picker .pk-grid) {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
   }
-  .dow {
+
+  :global(.picker .dow) {
     text-align: center;
     font-size: 0.68rem;
+    font-weight: 500;
     color: var(--text-muted);
     padding-bottom: 0.25rem;
   }
-  .day {
-    appearance: none;
+
+  :global(.picker .pk-cell) {
+    padding: 1px;
+    text-align: center;
+  }
+
+  :global(.picker .day) {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    aspect-ratio: 1;
     border: 0;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--text);
-    aspect-ratio: 1;
-    border-radius: var(--radius);
     font-size: 0.8rem;
     cursor: pointer;
     position: relative;
   }
-  .day:hover:not(:disabled) {
+
+  :global(.picker .day:hover:not([data-disabled]):not([data-outside-month])) {
     background: color-mix(in srgb, var(--accent) 14%, transparent);
   }
-  .day:disabled {
+
+  :global(.picker .day[data-outside-month]) {
+    opacity: 0.28;
+  }
+
+  :global(.picker .day[data-disabled]) {
     color: color-mix(in srgb, var(--text-muted) 45%, transparent);
     cursor: default;
   }
+
   /* dot marks days that actually have data */
-  .day.has::after {
+  :global(.picker .day.has::after) {
     content: "";
     position: absolute;
     bottom: 3px;
@@ -215,13 +180,15 @@
     border-radius: 50%;
     background: var(--accent);
   }
-  .day.selected {
+
+  :global(.picker .day[data-selected]) {
     background: var(--accent);
     color: #08131a;
     font-weight: 700;
     box-shadow: var(--accent-glow);
   }
-  .day.selected.has::after {
+
+  :global(.picker .day[data-selected].has::after) {
     background: #08131a;
   }
 </style>

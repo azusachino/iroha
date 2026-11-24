@@ -1,15 +1,15 @@
 <script lang="ts">
   import { X } from "@lucide/svelte";
+  import { Tabs } from "bits-ui";
   import PasskeySettings from "./PasskeySettings.svelte";
   import { ApiError } from "$lib/api";
   import { auth, setDisplayName } from "$lib/auth.svelte";
-  import { nextTabId } from "$lib/tab-keys";
   import { dialogLightDismiss } from "$lib/dialog";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
   let dialog: HTMLDialogElement;
-  let tab = $state<"profile" | "security">("profile");
+  let tab = $state<string>("profile");
   let displayName = $state("");
   let saving = $state(false);
   let message = $state<{ ok: boolean; text: string } | null>(null);
@@ -24,23 +24,6 @@
       dialog.close();
     }
   });
-
-  const TABS = [
-    { id: "profile", label: "Profile" },
-    { id: "security", label: "Security" },
-  ] as const;
-
-  function onTabKeydown(event: KeyboardEvent) {
-    const next = nextTabId(
-      TABS.map((item) => item.id),
-      tab,
-      event.key,
-    );
-    if (!next) return;
-    event.preventDefault();
-    tab = next;
-    document.getElementById(`account-tab-${next}`)?.focus();
-  }
 
   async function saveProfile(event: SubmitEvent) {
     event.preventDefault();
@@ -81,27 +64,13 @@
     >
   </header>
 
-  <div class="tabs" role="tablist" aria-label="Account settings sections">
-    {#each TABS as item (item.id)}
-      <button
-        type="button"
-        role="tab"
-        id={`account-tab-${item.id}`}
-        aria-selected={tab === item.id}
-        aria-controls="account-panel"
-        tabindex={tab === item.id ? 0 : -1}
-        onkeydown={onTabKeydown}
-        onclick={() => (tab = item.id)}>{item.label}</button
-      >
-    {/each}
-  </div>
+  <Tabs.Root bind:value={tab} loop>
+    <Tabs.List class="account-tabs" aria-label="Account settings sections">
+      <Tabs.Trigger value="profile" class="account-tab">Profile</Tabs.Trigger>
+      <Tabs.Trigger value="security" class="account-tab">Security</Tabs.Trigger>
+    </Tabs.List>
 
-  <div
-    id="account-panel"
-    role="tabpanel"
-    aria-labelledby={`account-tab-${tab}`}
-  >
-    {#if tab === "profile"}
+    <Tabs.Content value="profile">
       <form class="panel" onsubmit={saveProfile}>
         <label>
           Username
@@ -129,12 +98,16 @@
           >{saving ? "Saving…" : "Save"}</button
         >
       </form>
-    {:else}
-      <div class="panel">
-        <PasskeySettings />
-      </div>
-    {/if}
-  </div>
+    </Tabs.Content>
+
+    <Tabs.Content value="security">
+      {#if open && tab === "security"}
+        <div class="panel">
+          <PasskeySettings />
+        </div>
+      {/if}
+    </Tabs.Content>
+  </Tabs.Root>
 </dialog>
 
 <style>
@@ -161,14 +134,14 @@
     font-size: 1.15rem;
   }
 
-  .tabs {
+  .account-dialog :global(.account-tabs) {
     display: flex;
     gap: 0.25rem;
     padding: 0 1.25rem;
     border-bottom: 1px solid var(--border);
   }
 
-  .tabs button {
+  .account-dialog :global(.account-tab) {
     padding: 0.6rem 0.75rem;
     border: 0;
     border-bottom: 2px solid transparent;
@@ -178,7 +151,7 @@
     cursor: pointer;
   }
 
-  .tabs button[aria-selected="true"] {
+  .account-dialog :global(.account-tab[data-state="active"]) {
     border-bottom-color: var(--accent);
     color: var(--text);
     font-weight: 650;

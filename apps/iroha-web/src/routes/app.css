@@ -1,18 +1,6 @@
-@import "tailwindcss";
 @import "@iroha/shared/theme/fonts.css";
 @import "@iroha/shared/theme/palette.css";
 @import "@iroha/shared/theme/themes.css";
-
-@theme {
-  --color-bg: #0b0f19;
-  --color-surface: #121826;
-  --color-surface-2: #1b2438;
-  --color-border: #243047;
-  --color-text: #f1f3f7;
-  --color-text-muted: #94a3b8;
-  --color-accent: var(--accent);
-  --color-danger: var(--danger);
-}
 
 :root {
   color-scheme: light dark;
@@ -62,19 +50,9 @@
   color-scheme: dark;
 }
 
-/* Light theme. Overrides both the Tailwind @theme tokens (--color-*, driving
-   utility classes like bg-surface) and the plain vars used by component
-   <style> blocks, so both styling systems flip together. Domain colors come
-   from the shared palette import via light-dark(). */
+/* Light theme. Domain colors come from the shared palette import via light-dark(). */
 :root[data-theme="light"] {
   color-scheme: light;
-  --color-bg: #f7f6f2;
-  --color-surface: #ffffff;
-  --color-surface-2: #efede5;
-  --color-border: #e3dfd4;
-  --color-text: #1c1b18;
-  --color-text-muted: #57534e;
-
   --bg: #f7f6f2;
   --surface: #ffffff;
   --surface-2: #efede5;
@@ -113,8 +91,42 @@
   color-scheme: light;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+ol,
+ul,
+menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+table {
+  border-collapse: collapse;
+  border-color: inherit;
+  text-indent: 0;
 }
 
 html,
