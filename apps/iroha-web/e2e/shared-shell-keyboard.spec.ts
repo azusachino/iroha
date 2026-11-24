@@ -12,7 +12,7 @@ import { installPilotFixtures } from "./pilot-fixtures";
 const modes = ["light", "dark"] as const;
 const motions = ["no-preference", "reduce"] as const;
 const compactWidths = [320, 390] as const;
-const commandCount = 12;
+const commandCount = 13;
 
 function observeBrowser(page: Page) {
   const consoleErrors: string[] = [];
@@ -184,13 +184,13 @@ async function exerciseKeyboardShell(
     ),
   ).toBe(mode === "dark");
 
-  const summary = page.locator('summary[aria-label^="Account menu for"]');
+  const summary = page.locator('button[aria-label^="Account menu for"]');
   await tabUntilFocused(page, summary);
   await page.keyboard.press("Enter");
   await expect
     .poll(() =>
       summary.evaluate(
-        (element) => (element.parentElement as HTMLDetailsElement).open,
+        (element) => element.getAttribute("aria-expanded") === "true",
       ),
     )
     .toBe(true);
@@ -227,7 +227,7 @@ async function exerciseKeyboardShell(
   await expect
     .poll(() =>
       summary.evaluate(
-        (element) => (element.parentElement as HTMLDetailsElement).open,
+        (element) => element.getAttribute("aria-expanded") === "true",
       ),
     )
     .toBe(false);
@@ -238,7 +238,7 @@ async function exerciseKeyboardShell(
   const beforeUrl = page.url();
   const beforeScroll = await page.evaluate(() => ({ x: scrollX, y: scrollY }));
   await page.keyboard.press("Enter");
-  const listbox = page.getByRole("listbox", { name: "Navigation commands" });
+  const listbox = page.getByRole("combobox", { name: "Filter commands" });
   await expect(listbox).toBeFocused();
   await expect(page.getByRole("option")).toHaveCount(commandCount);
   const options = page.getByRole("option");
@@ -440,3 +440,53 @@ for (const mode of modes) {
     }
   });
 }
+
+test("command palette filters commands live and runs quick actions", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  const fixture = await installPilotFixtures(page, "overview");
+  await page.goto("/overview");
+  await expect(
+    page.getByRole("button", { name: "Open command palette" }),
+  ).toBeVisible();
+
+  await page.keyboard.press("Control+k");
+  const dialog = page.getByRole("dialog", { name: "Command palette" });
+  await expect(dialog).toBeVisible();
+
+  const combobox = dialog.getByRole("combobox", { name: "Filter commands" });
+  await expect(combobox).toBeFocused();
+
+  await combobox.fill("cycle theme");
+  const options = dialog.getByRole("option");
+  await expect(options).toHaveCount(1);
+  await expect(options.first()).toContainText("Cycle theme");
+
+  await page.keyboard.press("Enter");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator('meta[name="color-scheme"]')).toHaveAttribute(
+    "content",
+    "light",
+  );
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
+    "content",
+    "#f7f6f2",
+  );
+
+  await page.keyboard.press("Control+k");
+  await expect(dialog).toBeVisible();
+  await combobox.fill("zz-no-match");
+  await expect(dialog.getByRole("option")).toHaveCount(0);
+  await expect(dialog.getByText("No matching commands.")).toBeVisible();
+
+  await combobox.fill("showcase");
+  await expect(dialog.getByRole("option")).toHaveCount(1);
+  await expect(dialog.getByRole("option").first()).toContainText(
+    "Open public showcase",
+  );
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  expect(fixture.unknown).toEqual([]);
+});
