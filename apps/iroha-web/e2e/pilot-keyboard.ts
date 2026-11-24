@@ -10,7 +10,7 @@ export async function openNavigationByKeyboard(page: Page, name: string) {
   const label = menu.getByText(name, { exact: true });
   const focused = () =>
     label.evaluate(
-      (element) => element.closest("summary") === document.activeElement,
+      (element) => element.closest("button") === document.activeElement,
     );
   for (let step = 0; step < 80; step++) {
     await page.keyboard.press("Tab");
@@ -18,7 +18,10 @@ export async function openNavigationByKeyboard(page: Page, name: string) {
   }
   await expect.poll(focused).toBe(true);
   await page.keyboard.press("Enter");
-  await expect(menu).toHaveAttribute("open", "");
+  await expect(menu.locator("button.navigation-trigger")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   await expect
     .poll(() =>
       menu.evaluate((element) => {

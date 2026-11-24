@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { dialogLightDismiss } from "$lib/dialog";
 
   let {
     open = $bindable(false),
@@ -15,108 +15,63 @@
     onConfirm: () => void;
   } = $props();
 
-  let dialog = $state<HTMLDivElement>();
+  let dialog = $state<HTMLDialogElement>();
   let cancelButton = $state<HTMLButtonElement>();
-  let previouslyFocused: HTMLElement | null = null;
 
   $effect(() => {
-    if (!open) return;
-    previouslyFocused =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    void tick().then(() => cancelButton?.focus());
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      dialog.returnValue = "";
+      dialog.showModal();
+      cancelButton?.focus();
+    } else if (!open && dialog.open) {
+      dialog.close();
+    }
   });
 
-  function close() {
+  function handleClose() {
+    const confirmed = dialog?.returnValue === "confirm";
+    if (dialog) dialog.returnValue = "";
     open = false;
-    const target = previouslyFocused;
-    previouslyFocused = null;
-    target?.focus();
-  }
-
-  function confirm() {
-    close();
-    onConfirm();
-  }
-
-  function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close();
-      return;
-    }
-    if (event.key !== "Tab" || !dialog) return;
-    const focusable = Array.from(
-      dialog.querySelectorAll<HTMLElement>(
-        "button, [tabindex]:not([tabindex='-1'])",
-      ),
-    );
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
+    if (confirmed) onConfirm();
   }
 </script>
 
-{#if open}
-  <div class="confirm-backdrop" role="presentation" onclick={close}>
-    <div
-      class="confirm-dialog tile"
-      bind:this={dialog}
-      role="alertdialog"
-      aria-modal="true"
-      aria-label={message}
-      tabindex="-1"
-      onclick={(event) => event.stopPropagation()}
-      onkeydown={onKeydown}
-    >
-      <p>{message}</p>
-      <div class="confirm-actions">
-        <button type="button" bind:this={cancelButton} onclick={close}
-          >{cancelLabel}</button
-        >
-        <button type="button" class="danger" onclick={confirm}
-          >{confirmLabel}</button
-        >
-      </div>
-    </div>
-  </div>
-{/if}
+<dialog
+  bind:this={dialog}
+  class="confirm-dialog tile"
+  role="alertdialog"
+  aria-label={message}
+  closedby="any"
+  use:dialogLightDismiss
+  onclose={handleClose}
+>
+  <p>{message}</p>
+  <form method="dialog" class="confirm-actions">
+    <button type="submit" value="cancel" bind:this={cancelButton}>
+      {cancelLabel}
+    </button>
+    <button type="submit" value="confirm" class="danger">
+      {confirmLabel}
+    </button>
+  </form>
+</dialog>
 
 <style>
-  .confirm-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    display: grid;
-    place-items: center;
-    padding: 1rem;
-    background: rgb(5 7 10 / 0.62);
-    backdrop-filter: blur(10px);
+  .confirm-dialog {
+    margin: auto;
+    width: min(24rem, calc(100% - 2rem));
+    padding: 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--tile-shadow);
   }
 
-  .confirm-dialog {
+  .confirm-dialog[open] {
     display: grid;
     gap: 1rem;
-    width: min(24rem, 100%);
-    padding: 1.1rem;
-    background: var(--glass-surface);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    box-shadow: var(--glass-highlight), var(--tile-shadow);
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .confirm-dialog {
-      background: var(--surface);
-      backdrop-filter: none;
-    }
   }
 
   p {

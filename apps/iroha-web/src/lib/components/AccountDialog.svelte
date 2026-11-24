@@ -4,6 +4,7 @@
   import { ApiError } from "$lib/api";
   import { auth, setDisplayName } from "$lib/auth.svelte";
   import { nextTabId } from "$lib/tab-keys";
+  import { dialogLightDismiss } from "$lib/dialog";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -65,6 +66,8 @@
 <dialog
   bind:this={dialog}
   class="account-dialog"
+  closedby="any"
+  use:dialogLightDismiss
   aria-labelledby="account-title"
   onclose={() => (open = false)}
 >
@@ -144,10 +147,6 @@
     border-radius: var(--radius);
     background: var(--surface);
     color: var(--text);
-  }
-
-  .account-dialog::backdrop {
-    background: rgb(0 0 0 / 0.45);
   }
 
   header {

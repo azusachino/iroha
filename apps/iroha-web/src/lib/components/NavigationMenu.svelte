@@ -13,49 +13,87 @@
 
   const groupActive = $derived(group.items.some((item) => active(item.href)));
   const GroupIcon = $derived(navGroupIcons[group.id]);
-  let menu: HTMLDetailsElement;
-  let summary: HTMLElement;
-  let popoverStyle = $state("");
+  const popoverId = $derived(`${group.id}-navigation-menu`);
+  const anchorName = $derived(`--nav-menu-${group.id}`);
+
+  let root = $state<HTMLDivElement>();
+  let trigger = $state<HTMLButtonElement>();
+  let popover = $state<HTMLDivElement>();
+  let open = $state(false);
+  let inlineMode = $state(false);
+  let hoverPreviewed = false;
+  let fallbackStyle = $state("");
   let openTimer: ReturnType<typeof setTimeout> | undefined;
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
 
-  function updatePopoverPosition() {
-    if (!menu?.open || !summary || typeof window === "undefined") return;
-    const popover = menu.querySelector<HTMLElement>(".navigation-popover");
-    if (!popover) return;
+  function supportsAnchorPositioning(): boolean {
+    return (
+      typeof CSS !== "undefined" &&
+      typeof CSS.supports === "function" &&
+      CSS.supports("position-area", "block-end")
+    );
+  }
 
-    const trigger = summary.getBoundingClientRect();
+  // In the side rail (desktop Grapher header >= 1025px) the sub-menu is
+  // expanded inline like an accordion: it opens and closes only on click and
+  // stays open across navigation. In the horizontal app bar it is a native
+  // popover="auto" positioned with CSS Anchor Positioning.
+  function detectInlineMode(): boolean {
+    if (typeof window === "undefined" || !root) return false;
+    return (
+      Boolean(root.closest(".grapher-header")) &&
+      window.matchMedia("(min-width: 1025px)").matches
+    );
+  }
+
+  function syncLayoutMode() {
+    if (!popover) return;
+    const nextInline = detectInlineMode();
+    if (nextInline) {
+      if (popover.hasAttribute("popover")) {
+        popover.removeAttribute("popover");
+      }
+      popover.hidden = !open;
+      fallbackStyle = "";
+    } else {
+      popover.hidden = false;
+      if (!popover.hasAttribute("popover")) {
+        popover.setAttribute("popover", "auto");
+        open = false;
+      } else {
+        open = popover.matches(":popover-open");
+      }
+      if (open) requestAnimationFrame(updateFallbackPosition);
+    }
+    inlineMode = nextInline;
+  }
+
+  function updateFallbackPosition() {
+    if (
+      inlineMode ||
+      !open ||
+      !trigger ||
+      !popover ||
+      typeof window === "undefined" ||
+      supportsAnchorPositioning()
+    ) {
+      fallbackStyle = "";
+      return;
+    }
+    const triggerRect = trigger.getBoundingClientRect();
     const viewportPadding = 8;
     const viewportWidth = document.documentElement.clientWidth;
     const preferredWidth = Math.min(208, viewportWidth - viewportPadding * 2);
     const height = popover.scrollHeight;
     const left = Math.min(
-      Math.max(viewportPadding, trigger.left),
+      Math.max(viewportPadding, triggerRect.left),
       viewportWidth - preferredWidth - viewportPadding,
     );
     const top = Math.min(
-      trigger.bottom + 6,
+      triggerRect.bottom + 6,
       Math.max(viewportPadding, window.innerHeight - height - viewportPadding),
     );
-    popoverStyle = `--navigation-popover-top:${top}px;--navigation-popover-left:${left}px;`;
-  }
-
-  // In the side rail the sub-menu is expanded inline, not floated. There it
-  // behaves like an accordion: it opens and closes only on click and stays
-  // open across navigation, instead of following the pointer.
-  function isInline(): boolean {
-    const popover = menu?.querySelector<HTMLElement>(".navigation-popover");
-    return !!popover && getComputedStyle(popover).position === "static";
-  }
-
-  function closeMenu() {
-    cancelOpen();
-    if (closeTimer) {
-      clearTimeout(closeTimer);
-      closeTimer = undefined;
-    }
-    if (menu) menu.open = false;
-    popoverStyle = "";
+    fallbackStyle = `--navigation-popover-top:${top}px;--navigation-popover-left:${left}px;`;
   }
 
   function cancelOpen() {
@@ -72,18 +110,38 @@
     }
   }
 
-  function handleToggle() {
+  function closeFloatingMenu() {
     cancelOpen();
-    if (!menu?.open) {
-      popoverStyle = "";
+    cancelClose();
+    hoverPreviewed = false;
+    if (!inlineMode && popover?.matches(":popover-open")) {
+      popover.hidePopover();
+    }
+  }
+
+  function handleTriggerClick(event: MouseEvent) {
+    if (inlineMode) {
+      open = !open;
+      if (popover) popover.hidden = !open;
       return;
     }
-    window.dispatchEvent(
-      new CustomEvent<HTMLDetailsElement>("iroha:navigation-open", {
-        detail: menu,
-      }),
-    );
-    requestAnimationFrame(updatePopoverPosition);
+    // If the popover is currently open only from hover preview, clicking the
+    // trigger pins it open instead of toggling it closed.
+    if (hoverPreviewed && open) {
+      hoverPreviewed = false;
+      event.preventDefault();
+    }
+  }
+
+  function handlePopoverToggle(event: ToggleEvent) {
+    cancelOpen();
+    open = event.newState === "open";
+    if (!open) {
+      hoverPreviewed = false;
+      fallbackStyle = "";
+    } else {
+      requestAnimationFrame(updateFallbackPosition);
+    }
   }
 
   function isHoverPointer(event: PointerEvent): boolean {
@@ -94,81 +152,87 @@
   }
 
   function openOnPointer(event: PointerEvent) {
-    if (isInline() || !isHoverPointer(event)) return;
+    if (inlineMode || !isHoverPointer(event)) return;
     cancelClose();
-    if (menu.open || openTimer) return;
+    if (open || openTimer) return;
     openTimer = setTimeout(() => {
       openTimer = undefined;
-      menu.open = true;
+      if (inlineMode || !popover || popover.matches(":popover-open")) return;
+      hoverPreviewed = true;
+      popover.showPopover();
     }, 180);
   }
 
   function closeOnPointer(event: PointerEvent) {
-    if (isInline() || !isHoverPointer(event)) return;
+    if (inlineMode || !isHoverPointer(event)) return;
     cancelOpen();
     cancelClose();
     closeTimer = setTimeout(() => {
       closeTimer = undefined;
       // Pointer departure must not hide a link being reached by keyboard.
-      if (!menu?.contains(document.activeElement)) closeMenu();
+      if (!root?.contains(document.activeElement)) {
+        closeFloatingMenu();
+      }
     }, 180);
   }
 
   function closeAfterNavigation() {
-    if (!isInline()) closeMenu();
+    if (!inlineMode) closeFloatingMenu();
   }
 
   onMount(() => {
-    const closeOtherMenus = (event: Event) => {
-      const opened = (event as CustomEvent<HTMLDetailsElement>).detail;
-      if (opened !== menu && !isInline()) closeMenu();
-    };
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (menu?.open && !isInline() && !menu.contains(event.target as Node))
-        closeMenu();
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && menu?.open && !isInline()) {
-        closeMenu();
-        menu.querySelector("summary")?.focus();
-      }
-    };
-    window.addEventListener("iroha:navigation-open", closeOtherMenus);
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    window.addEventListener("keydown", closeOnEscape);
-    window.addEventListener("resize", updatePopoverPosition);
-    window.addEventListener("scroll", updatePopoverPosition, true);
+    syncLayoutMode();
+    const mediaQuery = window.matchMedia("(min-width: 1025px)");
+    const onMediaChange = () => syncLayoutMode();
+    const onReposition = () => updateFallbackPosition();
+    mediaQuery.addEventListener("change", onMediaChange);
+    window.addEventListener("resize", onReposition);
+    window.addEventListener("scroll", onReposition, true);
     return () => {
       cancelOpen();
       cancelClose();
-      window.removeEventListener("iroha:navigation-open", closeOtherMenus);
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      window.removeEventListener("keydown", closeOnEscape);
-      window.removeEventListener("resize", updatePopoverPosition);
-      window.removeEventListener("scroll", updatePopoverPosition, true);
+      mediaQuery.removeEventListener("change", onMediaChange);
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
     };
   });
 </script>
 
-<details
-  bind:this={menu}
-  ontoggle={handleToggle}
+<div
+  bind:this={root}
+  class="navigation-menu"
+  class:active={groupActive}
+  class:open
+  class:inline={inlineMode}
+  class:floating={!inlineMode}
+  role="group"
+  aria-label={group.label}
   onpointerenter={openOnPointer}
   onpointerleave={closeOnPointer}
-  class:active={groupActive}
-  class="navigation-menu"
 >
-  <summary bind:this={summary} aria-controls={`${group.id}-navigation-menu`}>
+  <button
+    bind:this={trigger}
+    type="button"
+    class="navigation-trigger"
+    aria-expanded={open}
+    aria-controls={popoverId}
+    popovertarget={inlineMode ? undefined : popoverId}
+    style={`anchor-name:${anchorName};`}
+    onclick={handleTriggerClick}
+  >
     {#if GroupIcon}
-      <GroupIcon size={14} />
+      <GroupIcon size={14} aria-hidden="true" />
     {/if}
     <span>{group.label}</span>
     <i class="chevron" aria-hidden="true"></i>
-  </summary>
+  </button>
   <div
-    id={`${group.id}-navigation-menu`}
+    bind:this={popover}
+    id={popoverId}
     class="navigation-popover"
-    style={popoverStyle}
+    hidden={inlineMode && !open}
+    style={`position-anchor:${anchorName};${fallbackStyle}`}
+    ontoggle={handlePopoverToggle}
   >
     {#each group.items as item}
       {@const ItemIcon = navItemIcons[item.id]}
@@ -180,7 +244,7 @@
       >
         <span class="nav-item-title">
           {#if ItemIcon}
-            <ItemIcon size={14} />
+            <ItemIcon size={14} aria-hidden="true" />
           {/if}
           <strong>{item.label}</strong>
         </span>
@@ -188,30 +252,31 @@
       </a>
     {/each}
   </div>
-</details>
+</div>
 
 <style>
   .navigation-menu {
     position: relative;
   }
-  summary {
+
+  .navigation-trigger {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
     min-height: 2rem;
     padding: 0 0.65rem;
+    border: 0;
+    background: transparent;
     color: var(--text-muted);
     font-size: 0.78rem;
     font-weight: 700;
     cursor: pointer;
-    list-style: none;
   }
-  summary :global(svg) {
+
+  .navigation-trigger :global(svg) {
     flex-shrink: 0;
   }
-  summary::-webkit-details-marker {
-    display: none;
-  }
+
   .chevron {
     width: 0.46rem;
     height: 0.46rem;
@@ -219,75 +284,110 @@
     border-right: 1.5px solid currentColor;
     border-bottom: 1.5px solid currentColor;
     transform: rotate(45deg) translateY(-1px);
-    transition: transform 160ms ease;
+    transition: transform var(--motion-micro);
   }
-  .navigation-menu[open] .chevron {
+
+  .navigation-menu.open .chevron {
     transform: rotate(225deg) translate(-1px, -1px);
   }
-  .navigation-menu.active summary {
+
+  .navigation-menu.active .navigation-trigger {
     color: var(--color-focus);
   }
-  .navigation-menu.active summary :global(svg) {
+
+  .navigation-menu.active .navigation-trigger :global(svg) {
     color: var(--accent);
   }
+
   .nav-item-title {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
   }
+
   .nav-item-title :global(svg) {
     flex-shrink: 0;
     color: var(--text-muted);
     transition: color var(--motion-micro);
   }
+
   a:hover .nav-item-title :global(svg),
   a.active .nav-item-title :global(svg) {
     color: var(--accent);
   }
-  .navigation-popover {
-    position: absolute;
-    top: calc(100% + 0.35rem);
-    left: 0;
-    z-index: 20;
-    display: grid;
+
+  .navigation-menu.floating .navigation-popover {
     gap: 0.25rem;
     min-width: 13rem;
+    max-inline-size: calc(100vw - 1rem);
+    max-block-size: min(60vh, 20rem);
+    overflow-y: auto;
     padding: 0.45rem;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--glass-surface-strong);
-    backdrop-filter: blur(calc(var(--glass-blur) / 2))
-      saturate(var(--glass-saturate));
-    box-shadow: var(--glass-highlight), var(--tile-shadow);
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    transition:
-      opacity var(--motion-quick-state),
-      transform var(--motion-quick-state),
-      display var(--motion-quick-state) allow-discrete,
-      overlay var(--motion-quick-state) allow-discrete;
+    background: var(--glass-surface-strong, var(--surface-2));
+    backdrop-filter: blur(calc(var(--glass-blur, 0px) / 2))
+      saturate(var(--glass-saturate, 100%));
+    box-shadow: var(--glass-highlight, none), var(--tile-shadow);
+    color: var(--text);
   }
-  /* .navigation-menu is the <details> element; :not([open]) is the native
-     reflected state, not a Svelte-controlled one -- Svelte's transition:
-     directive can't hook a native display:none toggle, so this reveal is
-     plain CSS: an explicit closed state plus @starting-style below give the
-     browser both ends of the display:none <-> grid interpolation. */
-  .navigation-menu:not([open]) .navigation-popover {
+
+  .navigation-menu.floating .navigation-popover:popover-open {
+    display: grid;
+  }
+
+  .navigation-menu.inline .navigation-popover[hidden] {
     display: none;
-    opacity: 0;
-    transform: translateY(-4px) scale(0.98);
   }
-  @starting-style {
-    .navigation-menu[open] .navigation-popover {
+
+  @supports (position-area: block-end) {
+    .navigation-menu.floating .navigation-popover {
+      position-area: block-end span-inline-end;
+      position-try-fallbacks:
+        flip-inline,
+        --nav-viewport-fit,
+        flip-block,
+        flip-block flip-inline;
+      inset: auto;
+      height: auto;
+      margin: 0.35rem 0 0;
+    }
+  }
+
+  @supports not (position-area: block-end) {
+    .navigation-menu.floating .navigation-popover {
+      position: fixed;
+      inset: auto;
+      margin: 0;
+      top: var(--navigation-popover-top, 0);
+      left: var(--navigation-popover-left, 0);
+      width: min(13rem, calc(100vw - 1rem));
+      min-width: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .navigation-menu.floating .navigation-popover {
       opacity: 0;
-      transform: translateY(-4px) scale(0.98);
+      translate: 0 -0.25rem;
+      transition-property: opacity, translate, display, overlay;
+      transition-duration: 140ms;
+      transition-timing-function: ease-out;
+      transition-behavior: allow-discrete;
+    }
+
+    .navigation-menu.floating .navigation-popover:popover-open {
+      opacity: 1;
+      translate: 0 0;
+      transition-duration: 100ms;
+
+      @starting-style {
+        opacity: 0;
+        translate: 0 -0.25rem;
+      }
     }
   }
-  @media (prefers-reduced-motion: reduce) {
-    .navigation-popover {
-      transition: none;
-    }
-  }
+
   a {
     display: grid;
     gap: 0.18rem;
@@ -297,47 +397,49 @@
     color: var(--text);
     text-decoration: none;
   }
+
   a:hover,
   a.active {
     background: color-mix(in srgb, var(--accent) 12%, transparent);
     color: var(--text);
   }
+
   small {
     min-width: 0;
     color: var(--text-muted);
     font-size: 0.68rem;
   }
+
   @media (max-width: 768px) {
     .navigation-menu {
       flex: 0 1 auto;
       min-width: 0;
     }
-    .navigation-popover {
-      position: fixed;
-      top: var(--navigation-popover-top, -9999px);
-      left: var(--navigation-popover-left, -9999px);
+
+    .navigation-menu.floating .navigation-popover {
       width: min(13rem, calc(100vw - 1rem));
       min-width: 0;
-      max-height: min(60vh, 20rem);
-      overflow-y: auto;
     }
   }
+
   @media (max-width: 640px) {
-    summary {
+    .navigation-trigger {
       width: 100%;
       justify-content: center;
       gap: 0.15rem;
       padding: 0 0.1rem;
       font-size: 0.62rem;
     }
+
     .chevron {
       width: 0.4rem;
       height: 0.4rem;
       margin-left: 0.2rem;
     }
   }
+
   @media (prefers-reduced-transparency: reduce) {
-    .navigation-popover {
+    .navigation-menu.floating .navigation-popover {
       background: var(--surface-2);
       backdrop-filter: none;
     }

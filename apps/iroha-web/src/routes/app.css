@@ -15,7 +15,7 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
   --bg: #0b0f19;
   --surface: #121826;
   --surface-2: #1b2438;
@@ -48,23 +48,24 @@
     0 4px 20px -2px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.04);
   --radius: 14px;
   font-family: var(--font-sans);
-  /* Liquid-glass material for floating chrome (app bar, popovers, command
-     palette) -- an approximation, not Apple's real-time refraction. Data
-     tiles and route content stay opaque; this is scoped to overlay chrome
-     only so dense metrics never lose contrast to a blur. */
-  --glass-surface: color-mix(in srgb, var(--surface) 55%, transparent);
+  /* Translucent overlay material scoped to floating popovers (NavigationMenu,
+     MonthNavigator). Data tiles, side rails, and modal dialogs stay opaque so
+     dense metrics and controls never lose contrast to a blur. */
   --glass-surface-strong: color-mix(in srgb, var(--surface-2) 90%, transparent);
-  --glass-blur: 22px;
-  --glass-saturate: 160%;
+  --glass-blur: 16px;
+  --glass-saturate: 150%;
   --glass-highlight:
     inset 0 1px 0 rgb(255 255 255 / 0.12), inset 0 -1px 0 rgb(0 0 0 / 0.3);
-  --glass-border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 /* Light theme. Overrides both the Tailwind @theme tokens (--color-*, driving
    utility classes like bg-surface) and the plain vars used by component
    <style> blocks, so both styling systems flip together. Domain colors come
-   from the shared palette import. */
+   from the shared palette import via light-dark(). */
 :root[data-theme="light"] {
   color-scheme: light;
   --color-bg: #f7f6f2;
@@ -97,13 +98,19 @@
   --tile-surface: linear-gradient(180deg, rgb(0 0 0 / 0.015), rgb(0 0 0 / 0))
     var(--surface);
   --tile-shadow: 0 12px 32px rgb(20 30 60 / 0.1);
-  --glass-surface: color-mix(in srgb, var(--surface) 62%, transparent);
   --glass-surface-strong: color-mix(in srgb, var(--surface-2) 92%, transparent);
-  --glass-blur: 22px;
-  --glass-saturate: 160%;
   --glass-highlight:
     inset 0 1px 0 rgb(255 255 255 / 0.6), inset 0 -1px 0 rgb(0 0 0 / 0.06);
-  --glass-border: 1px solid rgb(255 255 255 / 0.5);
+}
+
+/* Map <meta name="color-scheme"> back to CSS color-scheme so explicit light/dark
+   overrides win over the :root `light dark` default. */
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
+  color-scheme: dark;
+}
+
+:root:has(> head > meta[name="color-scheme"][content="light"]) {
+  color-scheme: light;
 }
 
 * {
@@ -195,23 +202,8 @@ button:active {
   gap: 1rem;
   padding: 0.75rem 1.25rem;
   border-bottom: 1px solid var(--border);
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--accent) 5%, transparent),
-      transparent 45%
-    ),
-    var(--glass-surface);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  box-shadow: var(--glass-highlight);
+  background: var(--surface);
   min-width: 0;
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .appbar {
-    background: var(--surface);
-    backdrop-filter: none;
-  }
 }
 
 .brand {
@@ -252,20 +244,10 @@ button:active {
   margin-left: auto;
   margin-right: auto;
   padding: 0.2rem;
-  border: var(--glass-border);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
-  backdrop-filter: blur(calc(var(--glass-blur) / 2))
-    saturate(var(--glass-saturate));
-  box-shadow: var(--glass-highlight);
+  background: var(--surface);
   min-width: 0;
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .main-nav {
-    background: var(--surface);
-    backdrop-filter: none;
-  }
 }
 
 .main-nav > a {
@@ -288,7 +270,7 @@ button:active {
 }
 
 .main-nav > a.active svg,
-.main-nav > .navigation-menu.active summary svg {
+.main-nav > .navigation-menu.active .navigation-trigger svg {
   color: var(--accent);
 }
 
@@ -301,38 +283,6 @@ button:active {
   align-items: center;
   gap: 0.65rem;
   min-width: 0;
-}
-
-.language-picker {
-  display: inline-flex;
-  align-items: center;
-}
-
-.language-picker > span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-.language-picker select {
-  min-height: 2.25rem;
-  max-width: 9.5rem;
-  padding: 0.38rem 1.8rem 0.38rem 0.65rem;
-  border-radius: 999px;
-  border-color: var(--border);
-  background: var(--surface);
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.language-picker select:hover {
-  border-color: var(--accent);
-  color: var(--text);
 }
 
 .detail-back {
@@ -497,22 +447,11 @@ button:active {
 
   .appbar {
     padding: 0.7rem 0.8rem;
-    backdrop-filter: none;
     background: var(--bg);
   }
 
   .appbar-actions {
     gap: 0.35rem;
-  }
-
-  .language-picker {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .language-picker select {
-    width: 100%;
-    min-width: 0;
   }
 
   .command-trigger {
@@ -543,7 +482,7 @@ button:active {
   }
 
   .main-nav > a svg,
-  .main-nav > .navigation-menu summary svg {
+  .main-nav > .navigation-menu .navigation-trigger svg {
     display: none;
   }
 }
@@ -784,4 +723,80 @@ button:disabled {
   font-size: 0.88rem;
   font-weight: 500;
   letter-spacing: -0.01em;
+}
+
+/* Native modal <dialog> scroll containment and top-layer transitions.
+   Never declare `display` unconditionally on `dialog`; scope it to `dialog[open]`. */
+dialog:modal {
+  overscroll-behavior: contain;
+  opacity: 0;
+  transition-property: opacity, transform, display, overlay;
+  transition-duration: 220ms;
+  transition-timing-function: ease;
+  transition-behavior: allow-discrete;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgb(5 7 10 / 0);
+  backdrop-filter: blur(0px);
+  transition-property: background-color, backdrop-filter, display, overlay;
+  transition-duration: 220ms;
+  transition-timing-function: ease;
+  transition-behavior: allow-discrete;
+}
+
+dialog[open]:modal {
+  opacity: 1;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+dialog[open]::backdrop {
+  background-color: rgb(5 7 10 / 0.56);
+  backdrop-filter: blur(4px);
+
+  @starting-style {
+    background-color: rgb(5 7 10 / 0);
+    backdrop-filter: blur(0px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog:modal {
+    transform: scale(0.96);
+  }
+
+  dialog[open]:modal {
+    transform: scale(1);
+
+    @starting-style {
+      transform: scale(0.96);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog:modal,
+  dialog::backdrop {
+    transition-duration: 100ms;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  dialog[open]::backdrop {
+    backdrop-filter: none;
+  }
+}
+
+/* Anchor-positioning fallback for narrow viewports (e.g. 320px) where neither
+   inline-end nor inline-start fits a floating navigation popover. */
+@position-try --nav-viewport-fit {
+  position-area: block-end span-all;
+  justify-self: anchor-center;
+  min-inline-size: 0;
+  max-inline-size: calc(100vw - 1rem);
 }

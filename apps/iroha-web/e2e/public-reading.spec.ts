@@ -249,7 +249,7 @@ test("signed-in owners can open and navigate the public archive", async ({
     display_name: "Synthetic owner",
   });
   await page.goto("/overview");
-  await page.locator("summary").filter({ hasText: "More" }).click();
+  await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("link", { name: "Public archive" }).click();
   await expect(page).toHaveURL(/\/showcase$/);
   await expect(
