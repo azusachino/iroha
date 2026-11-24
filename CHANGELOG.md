@@ -7,15 +7,20 @@ contract between minor versions.
 
 ## [Unreleased]
 
+## [0.6.0-rc6] - 2026-11-24
+
 ### Added
 
 - **Public reading list**: the public archive gains a sanitized reading list beside the running archive, with separate Run and Books tabs (Run is selected by default) under the name Miles & Margins. Signed-in owners reach it through More → Public archive or `/showcase`; `/` stays the private Today page. Responses carry public item IDs, titles, authors, reading status and supported reading dates, and exclude source IDs, notes, ratings and progress. Paused books show as paused.
 - **Finished books by year and month**: the public Books tab lists finished books only, with an all-time total, yearly counts, a monthly chart and the selected year's books. Completed books without a valid completion date sit in a separate undated list; no date is inferred from progress.
 - **Reading totals across years**: the public Books page compares yearly completions in the same chart style as Reports. It opens on the latest ten years, older decades are selectable, and years with no completions show zero.
+- **Live-filterable CommandPalette with quick actions**: `Cmd/Ctrl+K` now includes instant search filtering across navigation items plus quick actions (cycle theme, open public showcase) on a native `<dialog>`.
 
 ### Changed
 
+- **Modern web platform primitives & chrome cleanup**: synchronized `<meta name="color-scheme">` and `<meta name="theme-color">` across tabs with `light-dark()` palette tokens (`@property` `<color>` for Canvas/ECharts), converted `ConfirmDialog` and `CommandPalette` to native `<dialog>` with `closedby="any"` + fallback, scroll containment, and `@starting-style` top-layer transitions, migrated floating `NavigationMenu` and `UserMenu` to `popover="auto"` + CSS Anchor Positioning with `@supports` fallback, replaced 11 copy-before-sort/reverse calls with `.toSorted()`/`.toReversed()` and manual grouping with `Object.groupBy()`, removed retired `.language-picker` CSS, deduplicated `LoadingBoundary` styles, and replaced `ThemeToggle`'s `MutationObserver` with reactive Svelte 5 state.
 - **Runtime images build on the workstation's shared runtime base**: the `server`, `job` and `db-migrate` stages and the web runtime stage now run on `media-base` (Debian trixie, glibc) instead of `alpine` and `caddy:2-alpine`, so every workstation service shares one runtime base. Builders are unchanged (only `rust:alpine` stays musl, because its `sqlx` binary is static), and so are the image contracts: iroha stays `100:101`, tini stays PID 1 for the Go services, `EXPOSE 8080` and the Caddyfile entrypoint are as before. The web image still copies the upstream Caddy binary and strips its `cap_net_bind_service` file capability, since it only binds `:8080`. The `job` image installs `procps` because its Kubernetes liveness probe runs `pgrep -f iroha-job`, which the base image does not ship.
+- **Dependencies & docs refresh**: consolidated Bun/Web (`playwright`, `@lucide/svelte`, `maplibre-gl`, `vite`, `prettier`), Go (`pgx/v5`, `golang.org/x/{crypto,sync,text}`), and Python (`psycopg`, `coverage`) updates; refreshed `docs/roadmap.md` and removed retired `apps/iroha-public-site` wording.
 
 ### Fixed
 
