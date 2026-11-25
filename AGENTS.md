@@ -35,6 +35,7 @@ docs/                 design docs
 - **2-space indent** for YAML/TOML/JSON; tabs for Go.
 - **Conventional commits**, no emojis. Stage specific files, never `git add -A`.
 - Prefer extracting **pure, DB-free helpers** so logic is unit-testable without Postgres (see `imports/decision.go`, `parsers` key/hash helpers).
+- **Frontend UI & styling**: scoped Svelte CSS + CSS custom properties (no Tailwind). Prefer native web platform primitives first (`<dialog>`, `popover`, CSS Anchor Positioning, `light-dark()`); use headless `bits-ui` for complex interactive widgets (calendars, tabs, comboboxes, date-range pickers) styled with Grapher tokens.
 
 ## Theme asset boundary (hard rule)
 
