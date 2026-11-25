@@ -24,6 +24,8 @@
     recordsScope={l.recordsScope}
     onRetryAggregates={l.loadAggregates}
     onRetryRecords={l.loadRecords}
+    onRefresh={l.hardRefresh}
+    refreshing={l.libraryResource.loading || l.aggregatesResource.loading}
     family={l.family}
     status={l.status}
     completedYear={l.completedYear}

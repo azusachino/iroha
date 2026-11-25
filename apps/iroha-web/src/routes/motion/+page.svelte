@@ -33,7 +33,7 @@
     type DateBounds,
   } from "@iroha/shared/format/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
-  import { sportColor, sportLabel } from "$lib/sport";
+  import { sportLabel } from "$lib/sport";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import GrapherActivities from "@iroha/shared/theme-ui/grapher/Activities.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
@@ -316,16 +316,6 @@
     }));
   }
 
-  function clear() {
-    sportType = "";
-    selectedYear = "";
-    selectedMonth = "";
-    applied = buildParams();
-    syncUrl();
-    load(false);
-    void loadSummary();
-  }
-
   async function loadSummary(forceRefresh = false) {
     const params = buildParams();
     const scope = params;
@@ -374,8 +364,6 @@
       duration_s: totals.moving_time_s || totals.duration_s,
     };
   });
-
-  const trackedSports = $derived(summary?.by_sport.length ?? 0);
 
   // Re-read URL searchParams on browser history popstate (e.g. Back button)
   onMount(() => {
@@ -461,48 +449,6 @@
     io.observe(el);
     return () => io.disconnect();
   });
-
-  function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
-    if (!sport) return true;
-    if (distanceM == null || distanceM <= 0) return true;
-    const s = sport.toLowerCase();
-    return !["run", "walk", "hike", "ride", "cycl", "swim"].some((k) =>
-      s.includes(k),
-    );
-  }
-
-  function isCycling(sport?: string): boolean {
-    if (!sport) return false;
-    const s = sport.toLowerCase();
-    return s.includes("ride") || s.includes("cycl") || s.includes("bik");
-  }
-
-  function isSwimming(sport?: string): boolean {
-    if (!sport) return false;
-    const s = sport.toLowerCase();
-    return s.includes("swim");
-  }
-
-  function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
-    if (!distanceM || !durationS) return "—";
-    const km = distanceM / 1000;
-    const hours = durationS / 3600;
-    const kmh = km / hours;
-    return `${kmh.toFixed(1)} km/h`;
-  }
-
-  function formatSwimmingPace(distanceM?: number, durationS?: number): string {
-    if (!distanceM || !durationS || distanceM <= 0) return "—";
-    const secPer100m = (durationS / distanceM) * 100;
-    const m = Math.floor(secPer100m / 60);
-    const s = Math.round(secPer100m % 60);
-    return `${m}:${String(s).padStart(2, "0")} /100m`;
-  }
-  function displayTitle(title?: string, sport?: string): string {
-    if (!title) return sportLabel(sport);
-    if (sportLabel(title) === sportLabel(sport)) return sportLabel(sport);
-    return title;
-  }
 </script>
 
 <svelte:head>

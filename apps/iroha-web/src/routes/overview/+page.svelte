@@ -15,6 +15,7 @@
     type SleepOverview,
     type Summary,
   } from "$lib/api";
+  import ArchiveTotals from "$lib/components/ArchiveTotals.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import RouteFootprint from "$lib/components/RouteFootprint.svelte";
   import GrapherDashboard from "@iroha/shared/theme-ui/grapher/Dashboard.svelte";
@@ -43,7 +44,9 @@
   const currentStreak = $derived(overviewResource.data?.current_streak ?? 0);
   const routes = $derived(routesResource.data ?? null);
   const sleepOverview = $derived(sleepResource.data ?? null);
+  const sleepSessionCount = $derived(sleepOverview?.session_count ?? null);
   const mediaAggregates = $derived(mediaResource.data ?? null);
+  const activityCount = $derived(summary?.totals.activity_count ?? 0);
 
   const heatmapEndDay = todayInTimezone(new Date(), IROHA_TIMEZONE);
 
@@ -137,6 +140,15 @@
       {/snippet}
     </GrapherDashboard>
   </LoadingBoundary>
+  <ArchiveTotals
+    activityCount={overviewResource.loading || overviewResource.error
+      ? null
+      : activityCount}
+    nightCount={sleepResource.loading ? null : sleepSessionCount}
+    mediaCount={mediaResource.loading || !mediaAggregates
+      ? null
+      : mediaAggregates.totals.item_count}
+  />
 </section>
 
 <style>

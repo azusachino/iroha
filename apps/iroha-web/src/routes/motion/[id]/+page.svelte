@@ -15,15 +15,6 @@
     deriveRouteDistanceM,
     populateRouteDistances,
   } from "$lib/activity-metrics";
-  import {
-    formatDistance,
-    formatDuration,
-    formatPace,
-    formatSwimmingPace,
-    formatElevation,
-    formatHr,
-    formatDate,
-  } from "$lib/format";
   import RouteMap from "$lib/components/RouteMap.svelte";
   import ActivityDetailChart from "@iroha/shared/theme-ui/components/ActivityDetailChart.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
@@ -171,10 +162,6 @@
   const derivedDistanceM = $derived(
     activity?.distance_m == null ? deriveRouteDistanceM(route) : undefined,
   );
-  const displayDistanceM = $derived(
-    activity?.distance_m ??
-      (isSwimming(activity?.sport_type) ? derivedDistanceM : undefined),
-  );
 
   // Choose an x-axis shared by all route-derived charts: distance if every
   // point has it, else elapsed time, else the raw sequence number.
@@ -233,26 +220,6 @@
   // Apple exports carry no activity-level elevation gain, but route points do
   // have elevation — estimate cumulative climb from them (3 m hysteresis to
   // damp GPS noise) when the stored value is absent.
-  const elevationGainM = $derived.by<number | undefined>(() => {
-    if (activity?.elevation_gain_m != null) return activity.elevation_gain_m;
-    if (isSwimming(activity?.sport_type)) return undefined;
-    const elevs = processedRoute
-      .map((p) => p.elevation_m)
-      .filter((e): e is number => e != null && Number.isFinite(e));
-    if (elevs.length < 2) return undefined;
-    const threshold = 3;
-    let gain = 0;
-    let ref = elevs[0];
-    for (const e of elevs) {
-      if (e - ref >= threshold) {
-        gain += e - ref;
-        ref = e;
-      } else if (e < ref) {
-        ref = e;
-      }
-    }
-    return gain;
-  });
 
   // Fallback heart-rate series from samplings when route points carry no HR.
   interface SamplingChart {
@@ -312,35 +279,6 @@
     processedRoute.filter(
       (p) => Number.isFinite(p.lat) && Number.isFinite(p.lon),
     ).length >= 2,
-  );
-  const anyChart = $derived(!!detailChart);
-
-  const hrZones = $derived.by(() => {
-    const values = (detailChart?.heartRate ?? []).filter(
-      (value): value is number => value != null && value > 0,
-    );
-    if (!values.length) return [];
-    const zones = [
-      { label: "Easy", min: 0, max: 0.7, color: "#3ecf8e" },
-      { label: "Steady", min: 0.7, max: 0.8, color: "#f5c451" },
-      { label: "Tempo", min: 0.8, max: 0.9, color: "#ff9f43" },
-      { label: "Hard", min: 0.9, max: 2, color: "#ff6b6b" },
-    ];
-    const maxHr = Math.max(...values);
-    return zones
-      .map((zone) => ({
-        ...zone,
-        count: values.filter(
-          (value) => value <= maxHr * zone.max && value > maxHr * zone.min,
-        ).length,
-      }))
-      .filter((zone) => zone.count > 0);
-  });
-
-  const supportsSplits = $derived(
-    /run|walk|hike|ride|cycl|swim/.test(
-      activity?.sport_type?.toLowerCase() ?? "",
-    ),
   );
 
   interface CalculatedLap {
@@ -437,11 +375,6 @@
     return hasMeasuredLap ? laps : [];
   });
 
-  function formatSplitPace(value?: number): string {
-    if (value == null || !Number.isFinite(value) || value <= 0) return "—";
-    const minutes = Math.floor(value / 60);
-    return `${minutes}:${String(Math.round(value % 60)).padStart(2, "0")} ${isSwimming(activity?.sport_type) ? "/100m" : "/km"}`;
-  }
   function goBack(e: MouseEvent) {
     if (browser && window.history.length > 1) {
       e.preventDefault();

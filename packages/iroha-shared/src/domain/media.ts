@@ -211,6 +211,8 @@ export interface MediaThemeProps {
   recordsScope: string;
   onRetryAggregates: () => Promise<void>;
   onRetryRecords: () => Promise<void>;
+  onRefresh?: () => void | Promise<void>;
+  refreshing?: boolean;
   family: string;
   status: string;
   completedYear: string;
