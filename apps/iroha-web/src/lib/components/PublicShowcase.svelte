@@ -10,18 +10,23 @@
     yearsFromActivities,
   } from "$lib/public/aggregate";
   import {
-    formatDate,
     formatDateOnly,
     formatDistance,
     formatDuration,
-    formatHr,
     formatHumanDuration,
     formatMetricValue,
-    formatPace,
     formatSport,
   } from "$lib/format";
+  import {
+    MONTH_LABELS,
+    buildPublicSportBuckets,
+    sortPublicActivities,
+    summarizePublicActivities,
+    type PublicSortEntry,
+    type PublicSortKey,
+  } from "$lib/public/showcase-helpers";
   import { site } from "$lib/public/site";
-  import { isDistanceSport, sportColor } from "@iroha/shared/domain/sport";
+  import { sportColor } from "@iroha/shared/domain/sport";
   import type {
     Activity,
     ActivityDetail as ActivityDetailData,
@@ -40,6 +45,8 @@
   import PanelFrame from "@iroha/shared/components/PanelFrame.svelte";
   import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
   import BrandMark from "$lib/components/BrandMark.svelte";
+  import PublicRoutesSection from "$lib/components/PublicRoutesSection.svelte";
+  import PublicActivityTable from "$lib/components/PublicActivityTable.svelte";
 
   let {
     initialData,
@@ -52,13 +59,23 @@
     };
   } = $props();
 
-  let summary = $state<Summary | null>(initialData?.summary ?? null);
-  let activities = $state<Activity[]>(
-    Array.isArray(initialData?.activities) ? initialData.activities : [],
+  let summary = $state<Summary | null>(
+    untrack(() => initialData?.summary ?? null),
   );
-  let meta = $state<Meta>(initialData?.meta ?? { generated_at: "" });
-  let loading = $state(!initialData?.summary && !initialData?.error);
-  let loadError = $state<string | null>(initialData?.error ?? null);
+  let activities = $state<Activity[]>(
+    untrack(() =>
+      Array.isArray(initialData?.activities) ? initialData.activities : [],
+    ),
+  );
+  let meta = $state<Meta>(
+    untrack(() => initialData?.meta ?? { generated_at: "" }),
+  );
+  let loading = $state(
+    untrack(() => !initialData?.summary && !initialData?.error),
+  );
+  let loadError = $state<string | null>(
+    untrack(() => initialData?.error ?? null),
+  );
 
   let routes = $state<RouteFeatureCollection>({
     type: "FeatureCollection",
@@ -100,23 +117,7 @@
       new Date().toISOString().slice(0, 10),
   );
 
-  const MONTH_LABELS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-
   const years = $derived(yearsFromActivities(activities));
-  let recordsScroll = $state<HTMLDivElement>();
   let selectedYear = $state<string>(
     untrack(
       () => yearsFromActivities(initialData?.activities ?? [])[0] ?? "2026",
@@ -211,87 +212,12 @@
     cityFilter = cityFilter === city ? null : city;
   }
 
-  function isNonDistanceSport(sport?: string, distanceM?: number): boolean {
-    if (!sport) return true;
-    if (distanceM == null || distanceM <= 0) return true;
-    const s = sport.toLowerCase();
-    return !["run", "walk", "hike", "ride", "cycl", "swim"].some((k) =>
-      s.includes(k),
-    );
-  }
-
-  function isCycling(sport?: string): boolean {
-    const s = sport?.toLowerCase() ?? "";
-    return s.includes("ride") || s.includes("cycl") || s.includes("bik");
-  }
-
-  function isSwimming(sport?: string): boolean {
-    return (sport?.toLowerCase() ?? "").includes("swim");
-  }
-
-  function hasMeaningfulActivityTitle(activity: Activity): boolean {
-    const title = formatSport(activity.title);
-    const sport = formatSport(activity.sport_type);
-    const genericTitles: Record<string, string[]> = {
-      Run: ["Run", "Running"],
-      Walk: ["Walk", "Walking"],
-      Ride: ["Ride", "Riding", "Cycling"],
-      Swim: ["Swim", "Swimming"],
-    };
-    return title !== "—" && !(genericTitles[sport] ?? [sport]).includes(title);
-  }
-
-  function formatCyclingSpeed(distanceM?: number, durationS?: number): string {
-    if (distanceM == null || durationS == null || durationS <= 0) return "—";
-    return `${(distanceM / 1000 / (durationS / 3600)).toFixed(1)} km/h`;
-  }
-
-  function formatSwimmingPace(distanceM?: number, durationS?: number): string {
-    if (distanceM == null || durationS == null || durationS <= 0) return "—";
-    const pace100m = durationS / (distanceM / 100);
-    const m = Math.floor(pace100m / 60);
-    const s = Math.round(pace100m % 60);
-    return `${m}:${String(s).padStart(2, "0")} /100m`;
-  }
-
-  function cityLabel(city: string, status?: string): string {
-    if (status === "pending") return "Location pending";
-    if (status === "unknown" || city === "Unknown")
-      return "Location unavailable";
-    return city;
-  }
-
-  // --- Summary (all-time totals + by-sport are precomputed server-side;
-  // everything scoped by year/sport is derived client-side from the full
-  // activity list, since there is no live backend to re-query per filter). ---
-  const selectedYearTotals = $derived.by(() => {
-    const scoped = filterByYearAndSport(activities, selectedYear, sportFilter);
-    return scoped.reduce(
-      (acc, activity) => {
-        const hasDistance = activity.distance_m != null;
-        const isUnknownDistance =
-          !hasDistance && isDistanceSport(activity.sport_type);
-        return {
-          activity_count: acc.activity_count + 1,
-          distance_m: acc.distance_m + (activity.distance_m ?? 0),
-          distance_known_count:
-            acc.distance_known_count + (hasDistance ? 1 : 0),
-          distance_unknown_count:
-            acc.distance_unknown_count + (isUnknownDistance ? 1 : 0),
-          duration_s: acc.duration_s + (activity.duration_s ?? 0),
-          moving_time_s: acc.moving_time_s + (activity.moving_time_s ?? 0),
-        };
-      },
-      {
-        activity_count: 0,
-        distance_m: 0,
-        distance_known_count: 0,
-        distance_unknown_count: 0,
-        duration_s: 0,
-        moving_time_s: 0,
-      },
-    );
-  });
+  // --- Summary ---
+  const selectedYearTotals = $derived(
+    summarizePublicActivities(
+      filterByYearAndSport(activities, selectedYear, sportFilter),
+    ),
+  );
   const distanceSub = $derived.by(() => {
     const { distance_known_count, distance_unknown_count } = selectedYearTotals;
     if (distance_unknown_count === 0) return undefined;
@@ -336,39 +262,11 @@
       : "distance_m",
   );
 
-  const sportBuckets = $derived.by(() => {
-    const buckets = new Map<
-      string,
-      {
-        key: string;
-        activity_count: number;
-        distance_m: number;
-        duration_s: number;
-        moving_time_s: number;
-      }
-    >();
-    for (const activity of filterByYearAndSport(
-      activities,
-      selectedYear,
-      null,
-    )) {
-      const bucket = buckets.get(activity.sport_type) ?? {
-        key: activity.sport_type,
-        activity_count: 0,
-        distance_m: 0,
-        duration_s: 0,
-        moving_time_s: 0,
-      };
-      bucket.activity_count += 1;
-      bucket.distance_m += activity.distance_m ?? 0;
-      bucket.duration_s += activity.duration_s ?? 0;
-      bucket.moving_time_s += activity.moving_time_s ?? 0;
-      buckets.set(activity.sport_type, bucket);
-    }
-    return Array.from(buckets.values()).sort(
-      (a, b) => b.activity_count - a.activity_count,
-    );
-  });
+  const sportBuckets = $derived(
+    buildPublicSportBuckets(
+      filterByYearAndSport(activities, selectedYear, null),
+    ),
+  );
 
   const sportMax = $derived(
     Math.max(1, ...sportBuckets.map((s) => s.activity_count)),
@@ -402,29 +300,18 @@
       : (filteredRoutes ?? []),
   );
 
-  // --- Activities table (sorting + progressive rendering over the already-
-  // loaded, year/sport-filtered array -- no server round trip). ---
+  // --- Activities table ---
   const filteredActivities = $derived(
     filterByYearAndSport(activities, selectedYear, sportFilter),
   );
 
-  type SortKey =
-    "started_at" | "sport_type" | "distance_m" | "avg_pace_s_per_km";
-  let sorting = $state<{ id: SortKey; desc: boolean }[]>([
-    { id: "started_at", desc: true },
-  ]);
+  let sorting = $state<PublicSortEntry[]>([{ id: "started_at", desc: true }]);
   const batchSize = 50;
   let visibleCount = $state(batchSize);
-  const columns: { id: SortKey; header: string }[] = [
-    { id: "started_at", header: "Date" },
-    { id: "sport_type", header: "Activity" },
-    { id: "distance_m", header: "Distance / Duration" },
-    { id: "avg_pace_s_per_km", header: "Pace / HR" },
-  ];
 
   // Preserve the former TanStack v8 toggle defaults, including Shift state.
   // The existing row ordering below deliberately uses only the leading key.
-  function toggleSort(id: SortKey, event: MouseEvent) {
+  function toggleSort(id: PublicSortKey, event: MouseEvent) {
     const current = sorting.find((sort) => sort.id === id);
     const firstDesc = typeof filteredActivities[0]?.[id] !== "string";
     const remove = current && current.desc !== firstDesc;
@@ -443,23 +330,9 @@
     }
   }
 
-  const sortedActivities = $derived.by(() => {
-    const rows = [...filteredActivities];
-    const sort = sorting[0];
-    if (!sort) return rows;
-    const numeric = ["distance_m", "avg_pace_s_per_km"].includes(sort.id);
-    const key = sort.id as keyof Activity;
-    rows.sort((a, b) => {
-      const left = numeric ? Number(a[key] ?? -Infinity) : String(a[key] ?? "");
-      const right = numeric
-        ? Number(b[key] ?? -Infinity)
-        : String(b[key] ?? "");
-      const result = left < right ? -1 : left > right ? 1 : 0;
-      return sort.desc ? -result : result;
-    });
-    return rows;
-  });
-
+  const sortedActivities = $derived(
+    sortPublicActivities(filteredActivities, sorting),
+  );
   const visibleActivities = $derived(sortedActivities.slice(0, visibleCount));
   const hasMoreActivities = $derived(visibleCount < sortedActivities.length);
 
@@ -708,10 +581,6 @@
     {/await}
   {:else}
     {#if selectedActivityId && !selectedActivity && confirmedMissingActivityId === selectedActivityId}
-      <!-- Issue #116: an unknown ?activity= link must be told apart from the
-         ordinary archive view. The notice renders only after the detail read
-         for this exact id confirmed a 404; a pending or failing read keeps
-         the plain archive fallback. -->
       <section
         class="tile notice-tile"
         role="status"
@@ -793,35 +662,33 @@
           embedded={false}
         />
 
-        {#if years.length > 0}
-          {#if selectedYear}
-            <div class="analytics-grid">
-              <PanelFrame label="Cumulative distance">
-                <YearProgressChart
-                  embedded
-                  byMonth={monthlyAll}
-                  year={selectedYear}
-                  sportName={sportFilter ? formatSport(sportFilter) : undefined}
-                />
-              </PanelFrame>
-              <PanelFrame label="Monthly observations">
-                <MonthlyBarChart
-                  embedded
-                  points={monthSlots.map((slot) => ({
-                    label: slot.label,
-                    value: slot.bucket?.[monthMetric] ?? 0,
-                  }))}
-                  metric={monthMetric}
-                  year={selectedYear}
-                />
-              </PanelFrame>
-            </div>
-          {/if}
+        {#if years.length > 0 && selectedYear}
+          <div class="analytics-grid">
+            <PanelFrame label="Cumulative distance">
+              <YearProgressChart
+                embedded
+                byMonth={monthlyAll}
+                year={selectedYear}
+                sportName={sportFilter ? formatSport(sportFilter) : undefined}
+              />
+            </PanelFrame>
+            <PanelFrame label="Monthly observations">
+              <MonthlyBarChart
+                embedded
+                points={monthSlots.map((slot) => ({
+                  label: slot.label,
+                  value: slot.bucket?.[monthMetric] ?? 0,
+                }))}
+                metric={monthMetric}
+                year={selectedYear}
+              />
+            </PanelFrame>
+          </div>
         {/if}
 
         {#if sportBuckets.length > 0}
-          <PanelFrame label="Activities by sport"
-            ><section class="by-sport">
+          <PanelFrame label="Activities by sport">
+            <section class="by-sport">
               <div class="section-kicker eyebrow">
                 {selectedYear} by sport
               </div>
@@ -850,229 +717,35 @@
                   Clear sport filter ({formatSport(sportFilter)})
                 </button>
               {/if}
-            </section></PanelFrame
-          >
-        {/if}
-
-        <section class="section-heading" bind:this={routesSectionEl}>
-          <h2>Routes &amp; cities</h2>
-          {#if hasPendingLocations}
-            <p class="muted small">Some locations are waiting for geocoding.</p>
-          {/if}
-        </section>
-
-        {#if routesLoading}
-          <div class="routes-grid" aria-busy="true">
-            <PanelFrame label="Route map">
-              <div class="map-wrap map-loading">
-                <p class="muted">Loading routes map…</p>
-              </div>
-            </PanelFrame>
-            <PanelFrame label="Geography selection">
-              <div class="cities cities-loading">
-                <p class="muted">Loading geography data…</p>
-              </div>
-            </PanelFrame>
-          </div>
-        {:else if filteredRoutes.length === 0}
-          <p class="muted">No routes recorded yet.</p>
-        {:else}
-          <div class="routes-grid">
-            <PanelFrame label="Route map"
-              ><div class="map-wrap">
-                {#await import("$lib/components/RoutesMap.svelte") then { default: RoutesMap }}
-                  <RoutesMap
-                    data={{ type: "FeatureCollection", features: mappedRoutes }}
-                  />
-                {/await}
-              </div></PanelFrame
-            >
-            <PanelFrame label="Geography selection"
-              ><div class="cities">
-                <p class="muted small">
-                  {selectedYear} · {sportFilter
-                    ? formatSport(sportFilter)
-                    : "All sports"} · {cityFilter
-                    ? cityLabel(cityFilter)
-                    : "All cities"} (geography only)
-                </p>
-                <div class="cities-head">
-                  <h3>
-                    {sportFilter
-                      ? `${formatSport(sportFilter)} cities`
-                      : "Cities visited"}
-                  </h3>
-                  {#if cityFilter}
-                    <button
-                      type="button"
-                      class="clear-filter"
-                      onclick={() => (cityFilter = null)}
-                    >
-                      Show all
-                    </button>
-                  {/if}
-                </div>
-                {#if cityGroups.length === 0}
-                  <p class="muted small">
-                    No route coordinates for this selection.
-                  </p>
-                {:else}
-                  <div class="city-grid">
-                    {#each cityGroups as group (group.city)}
-                      {@const intensity = group.runCount / maxRunCount}
-                      <button
-                        type="button"
-                        class="city-card"
-                        class:selected={cityFilter === group.city}
-                        style={`--intensity: ${intensity}`}
-                        onclick={() => toggleCity(group.city)}
-                      >
-                        <div class="city-name">
-                          {cityLabel(group.city, group.status)}
-                        </div>
-                        <div class="city-sports">
-                          {Array.from(group.sports)
-                            .map((s) => formatSport(s))
-                            .join(", ")}
-                        </div>
-                        <div class="city-count">
-                          {group.runCount}
-                          {group.runCount === 1 ? "run" : "runs"}
-                          {#if group.count > group.runCount}
-                            <span class="muted small"
-                              >(+{group.count - group.runCount} other)</span
-                            >
-                          {/if}
-                        </div>
-                      </button>
-                    {/each}
-                  </div>
-                {/if}
-              </div></PanelFrame
-            >
-          </div>
-        {/if}
-
-        <section class="section-heading">
-          <h2>Activities</h2>
-        </section>
-
-        {#if filteredActivities.length === 0}
-          <p class="muted">No activities for this selection.</p>
-        {:else}
-          <PanelFrame label="Activity records">
-            <p class="muted small">
-              All record columns are preserved. Swipe horizontally, or focus the
-              table region and use arrow keys, to reach later columns.
-            </p>
-            <button
-              class="scroll-hint"
-              type="button"
-              aria-controls="public-records-scroll"
-              onclick={() => recordsScroll?.focus({ preventScroll: true })}
-              >Focus public records to scroll all columns</button
-            >
-            <div
-              class="table-wrap"
-              id="public-records-scroll"
-              bind:this={recordsScroll}
-              role="region"
-              aria-label="Public activity records — horizontally scrollable"
-              tabindex="-1"
-            >
-              <table aria-label="Public activity records">
-                <thead>
-                  <tr>
-                    {#each columns as column (column.id)}
-                      {@const activeSort = sorting.find(
-                        (sort) => sort.id === column.id,
-                      )}
-                      <th
-                        aria-sort={sorting[0]?.id === column.id
-                          ? sorting[0].desc
-                            ? "descending"
-                            : "ascending"
-                          : "none"}
-                      >
-                        <button
-                          type="button"
-                          class="sort-header"
-                          onclick={(event) => toggleSort(column.id, event)}
-                        >
-                          {column.header}
-                          {#if activeSort}{activeSort.desc ? "▼" : "▲"}{/if}
-                        </button>
-                      </th>
-                    {/each}
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each visibleActivities as activity (activity.id)}
-                    <tr>
-                      <td class="nowrap">
-                        <a
-                          class="activity-link"
-                          href={activityHref(activity.id)}
-                        >
-                          {formatDate(activity.started_at, activity.timezone)}
-                        </a>
-                      </td>
-                      <td>
-                        <div class="activity-cell">
-                          <SportBadge sport={activity.sport_type} />
-                          {#if hasMeaningfulActivityTitle(activity)}
-                            <span class="activity-title">{activity.title}</span>
-                          {/if}
-                        </div>
-                      </td>
-                      <td>
-                        {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                          {formatDuration(
-                            activity.duration_s ?? activity.moving_time_s,
-                          )}
-                        {:else}
-                          {formatDistance(activity.distance_m)}
-                        {/if}
-                      </td>
-                      <td>
-                        {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                          {#if activity.avg_hr}Avg HR: {formatHr(
-                              activity.avg_hr,
-                            )}{:else if activity.max_hr}Max HR: {formatHr(
-                              activity.max_hr,
-                            )}{:else}—{/if}
-                        {:else if isCycling(activity.sport_type)}
-                          {formatCyclingSpeed(
-                            activity.distance_m,
-                            activity.duration_s ?? activity.moving_time_s,
-                          )}
-                        {:else if isSwimming(activity.sport_type)}
-                          {formatSwimmingPace(
-                            activity.distance_m,
-                            activity.duration_s ?? activity.moving_time_s,
-                          )}
-                        {:else}
-                          {formatPace(activity.avg_pace_s_per_km)}
-                          {#if activity.avg_hr}· {formatHr(
-                              activity.avg_hr,
-                            )}{/if}
-                        {/if}
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-            {#if hasMoreActivities}
-              <div class="load-more">
-                <button type="button" onclick={loadMore}>Load more</button>
-                <span class="muted small">
-                  Showing {visibleActivities.length} of {sortedActivities.length}
-                </span>
-              </div>
-            {/if}
+            </section>
           </PanelFrame>
         {/if}
+
+        <PublicRoutesSection
+          bind:sectionEl={routesSectionEl}
+          {routesLoading}
+          {filteredRoutes}
+          {mappedRoutes}
+          {cityGroups}
+          {maxRunCount}
+          {hasPendingLocations}
+          {selectedYear}
+          {sportFilter}
+          {cityFilter}
+          onToggleCity={toggleCity}
+          onClearCity={() => (cityFilter = null)}
+        />
+
+        <PublicActivityTable
+          filteredCount={filteredActivities.length}
+          totalSortedCount={sortedActivities.length}
+          {visibleActivities}
+          {sorting}
+          hasMore={hasMoreActivities}
+          {activityHref}
+          onToggleSort={toggleSort}
+          onLoadMore={loadMore}
+        />
       </div>
     {:else}
       <div
@@ -1166,7 +839,6 @@
       ),
       var(--tile-surface);
   }
-
   .brand {
     display: inline-flex;
     align-items: center;
@@ -1228,9 +900,6 @@
       padding-left: 0;
       border-left: 0;
     }
-  }
-  .small {
-    font-size: var(--type-label);
   }
   .stat-grid {
     display: grid;
@@ -1410,167 +1079,8 @@
     font-size: var(--type-title);
     letter-spacing: -0.02em;
   }
-  .routes-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 1rem;
-  }
-  .map-wrap {
-    min-height: 20rem;
-    padding: 0.5rem;
-  }
-  .map-loading,
-  .cities-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 18rem;
-  }
-  .cities {
-    min-width: 0;
-    max-height: 24rem;
-    overflow-y: auto;
-  }
-  .cities-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-  }
-  .cities-head h3 {
-    margin: 0;
-    font-size: var(--type-label);
-  }
-  .city-grid {
-    display: grid;
-    gap: 0.5rem;
-  }
-  .city-card {
-    text-align: left;
-    padding: 0.6rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: color-mix(
-      in srgb,
-      var(--accent) calc(var(--intensity) * 25%),
-      var(--surface-2)
-    );
-    color: var(--text);
-    cursor: pointer;
-  }
-  .city-card.selected {
-    outline: 2px solid var(--accent);
-  }
-  .city-name {
-    font-weight: 700;
-    font-size: var(--type-label);
-  }
-  .city-sports,
-  .city-count {
-    color: var(--text-muted);
-    font-size: var(--type-caption);
-    margin-top: 0.2rem;
-  }
-  .scroll-hint {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  .scroll-hint:focus,
-  .scroll-hint:focus-visible {
-    position: static;
-    width: auto;
-    height: auto;
-    min-height: 44px;
-    padding: 0.5rem 1rem;
-    margin: 0.5rem 0;
-    overflow: visible;
-    clip: auto;
-    white-space: normal;
-    background: var(--surface, #1e222b);
-    color: var(--text, #fff);
-    border: 1px solid var(--border, #333);
-    border-radius: 6px;
-    font-size: var(--type-label);
-    font-weight: 500;
-    cursor: pointer;
-    display: inline-block;
-    outline: 2px solid var(--color-focus, var(--accent));
-    outline-offset: 2px;
-  }
-  .table-wrap {
-    overflow-x: auto;
-    padding: 0.25rem;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--type-label);
-  }
-  th,
-  td {
-    padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid var(--border);
-    text-align: left;
-  }
-  tbody tr {
-    transition: background 0.15s ease;
-  }
-  tbody tr:hover {
-    background: color-mix(in srgb, var(--accent) 7%, transparent);
-  }
-  .sort-header {
-    min-height: 44px;
-    min-width: 44px;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    font: inherit;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .nowrap {
-    white-space: nowrap;
-  }
-  .activity-cell {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .activity-link {
-    color: var(--accent);
-    font-weight: 700;
-  }
-  .activity-title {
-    font-weight: 600;
-  }
-  .load-more {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    padding: 0.75rem;
-  }
-  .load-more button {
-    padding: 0.35rem 0.9rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--text);
-    cursor: pointer;
-  }
   @media (max-width: 768px) {
     .stat-grid {
-      grid-template-columns: 1fr;
-    }
-    .routes-grid {
       grid-template-columns: 1fr;
     }
     .analytics-grid {
