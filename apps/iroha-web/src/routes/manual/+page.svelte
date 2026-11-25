@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowRight, BookOpen } from "@lucide/svelte";
   import { PAGE_PERIOD_DEFAULTS } from "@iroha/shared/format/period";
-  import { useTheme } from "$lib/themes/context.svelte";
+  import { useTheme } from "@iroha/shared/theme-ui/context.svelte";
 
   type PageGuide = {
     name: string;

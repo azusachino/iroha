@@ -75,71 +75,13 @@ export type ThemePrimitives<Language extends DesignLanguage = DesignLanguage> =
     periodControl: { appearance: Language };
   };
 
-export type ThemeImplementation<
-  Component,
-  Language extends DesignLanguage = DesignLanguage,
-> = {
-  implementation: ThemeImplementationStatus;
-  primitives: ThemePrimitives<Language>;
-  components: Record<ThemeRoute, Component> & { shell: Component };
-};
-
-export type ThemeImplementations<Component> = {
-  [Language in DesignLanguage]: ThemeImplementation<Component, Language>;
-};
-
-export type ThemeDefinition<Component> = {
+export type ThemeDefinition<Components> = {
   identity: ThemeIdentity;
   implementation: ThemeImplementationStatus;
   primitives: ThemePrimitives;
   routes: readonly ThemeRoute[];
-  components: Record<ThemeRoute, Component> & { shell: Component };
+  components: Components;
 };
-
-export type ThemeRegistry<Component> = {
-  definitions: readonly ThemeDefinition<Component>[];
-  get(language: DesignLanguage): ThemeDefinition<Component>;
-  hasRoute(theme: ThemeDefinition<Component>, route: ThemeRoute): boolean;
-};
-
-export function defineThemeRegistry<Component>(
-  implementations: ThemeImplementations<Component>,
-): ThemeRegistry<Component> {
-  const definitions = THEME_IDS.map((id) => {
-    const entry = implementations[id];
-    const routes = Object.keys(entry.components).filter(
-      (route): route is ThemeRoute => route !== "shell",
-    );
-    for (const route of routes) {
-      if (!THEME_ROUTES.some((known) => known === route)) {
-        throw new Error(`Unknown theme route: ${route}`);
-      }
-    }
-    return {
-      identity: THEME_IDENTITIES[id],
-      implementation: entry.implementation,
-      primitives: entry.primitives,
-      routes,
-      components: entry.components,
-    };
-  });
-
-  return {
-    definitions,
-    get(language) {
-      const definition = definitions.find(
-        (item) => item.identity.id === language,
-      );
-      if (!definition) {
-        throw new Error(`Unknown Iroha design language: ${language}`);
-      }
-      return definition;
-    },
-    hasRoute(theme, route) {
-      return theme.routes.includes(route);
-    },
-  };
-}
 
 export function isDesignLanguage(
   value: string | null | undefined,

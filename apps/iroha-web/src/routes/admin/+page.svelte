@@ -2,7 +2,7 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { Server } from "@lucide/svelte";
-  import { useTheme } from "$lib/themes/context.svelte";
+  import { useTheme } from "@iroha/shared/theme-ui/context.svelte";
   import AdminSystem from "$lib/components/admin/AdminSystem.svelte";
   import AdminSources from "$lib/components/admin/AdminSources.svelte";
   import AdminJobs from "$lib/components/admin/AdminJobs.svelte";

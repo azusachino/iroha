@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { MediaThemeProps } from "../../domain/media";
+  import { RefreshCw } from "@lucide/svelte";
   import MediaBarChart from "../components/MediaBarChart.svelte";
   import MediaAssetCard from "../components/MediaAssetCard.svelte";
   import RetryNotice from "../components/RetryNotice.svelte";
@@ -17,6 +18,8 @@
     recordsScope,
     onRetryAggregates,
     onRetryRecords,
+    onRefresh,
+    refreshing = false,
     family,
     status,
     completedYear,
@@ -97,6 +100,17 @@
           >{/each}</select
       ></label
     >
+    {#if onRefresh}
+      <button
+        type="button"
+        class="refresh-btn"
+        aria-label="Refresh library"
+        onclick={() => void onRefresh()}
+        disabled={refreshing}
+      >
+        <RefreshCw size={13} class={refreshing ? "spin" : ""} />
+      </button>
+    {/if}
   </div>
 
   <section
@@ -331,7 +345,32 @@
   .filters {
     display: flex;
     flex-wrap: wrap;
+    align-items: flex-end;
     gap: 0.8rem;
+  }
+  .refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    padding: 0;
+    border-radius: 50%;
+  }
+  .refresh-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  :global(.refresh-btn .spin) {
+    animation: media-spin 0.8s linear infinite;
+  }
+  @keyframes media-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
   label {
     display: grid;

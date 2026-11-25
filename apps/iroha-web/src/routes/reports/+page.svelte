@@ -30,9 +30,9 @@
     type DateBounds,
   } from "@iroha/shared/format/scope";
   import { IROHA_TIMEZONE } from "$lib/config";
-  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
+  import GrapherReports from "@iroha/shared/theme-ui/grapher/Reports.svelte";
   import type { ReportThemeProps } from "@iroha/shared/domain/report";
-  import { useTheme } from "$lib/themes/context.svelte";
+  import { useTheme } from "@iroha/shared/theme-ui/context.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   const defaultMonthScope = currentCalendarScope(
@@ -256,7 +256,7 @@
         {/if}
         {#if themeProps}
           <ReportComparison {series} {formatMoney} theme={theme.language()} />
-          <ThemeRouteRenderer route="reports" props={themeProps} />
+          <GrapherReports {...themeProps} theme={theme.language()} />
         {/if}
       {/snippet}
     </LoadingBoundary>
