@@ -18,7 +18,7 @@ const appVersion =
   process.env.VITE_IROHA_VERSION ||
   env.PUBLIC_IROHA_VERSION ||
   env.VITE_IROHA_VERSION ||
-  "0.6.0-rc6";
+  "0.6.0";
 
 export default defineConfig({
   define: {

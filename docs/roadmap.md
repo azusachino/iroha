@@ -255,8 +255,7 @@ consistent reads, coverage/evidence status, connection actions, and parity betwe
 
 Goal: one app, one design language, and reading as a first-class domain.
 
-Status: `v0.6.0-rc5` cut (2026-11-12); the final `v0.6.0` release follows the Slice 1–3 gates in [azusachino/iroha#223](https://github.com/azusachino/iroha/issues/223) and needs owner approval. See
-the `[Unreleased]` section of [CHANGELOG.md](../CHANGELOG.md) for work since rc5.
+Status: `v0.6.0` released (2026-11-25) after completing Slices 1–3 of [azusachino/iroha#223](https://github.com/azusachino/iroha/issues/223) (#224–#228). See [CHANGELOG.md](../CHANGELOG.md) for the complete `v0.6.0` release history.
 
 Shipped:
 
@@ -269,12 +268,13 @@ Shipped:
 
 ## Post-v0.6 direction
 
-Tracked in [azusachino/iroha#223](https://github.com/azusachino/iroha/issues/223). `iroha` is the active product; `grace` (its planned successor) is inactive and is not a source of scope here.
+Tracked in [azusachino/iroha#223](https://github.com/azusachino/iroha/issues/223). `iroha` is the active product; `grace` (its planned successor) is inactive and is not a source of scope here. Slices 1–3 (dependency/doc housekeeping, `modern-web-guidance` adoption, Tailwind removal + `bits-ui`, `lib/themes` removal, and `PublicShowcase`/`expenses` decomposition) shipped in `v0.6.0`.
 
-1. Regular updates, docs and housekeeping: consolidated dependency bumps, version drift, stale docs and expiring `CONSTRAINTS.md` exceptions.
-2. Modern web guidance: native `<dialog>`, popover and anchor positioning, `color-scheme` and `light-dark()`, and `toSorted`/`Object.groupBy` cleanups.
-3. Architecture cleanup: remove the `apps/iroha-web/src/lib/themes/` migration-debt layer and single-theme registry indirection, audit Tailwind use, and split oversized components and routes.
-4. Product milestones after the final `v0.6.0` release: wider Health Auto Export metric coverage, Reading Hub polish (library and public Books search/filter, Hardcover or BookOrbit sync, highlights), and cross-domain yearly summary, yearbook and heatmaps.
+Next active product milestones:
+
+1. Wider Health Auto Export metric coverage beyond the currently mapped subset.
+2. Reading Hub polish: library and public Books search/filter, Hardcover or BookOrbit sync, highlights, and book plan (#142).
+3. Cross-domain yearly summary, yearbook, and heatmaps.
 
 ## Future Module: Reading and Watching Stats
 

@@ -7,6 +7,15 @@ contract between minor versions.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-25
+
+### Changed
+
+- **Drop unused Tailwind CSS v4 & adopt headless `bits-ui`** (#226): removed unused `tailwindcss` / `@tailwindcss/vite` (~13.4 KB less raw CSS) in favor of an explicit minimal reset and scoped CSS custom properties, and migrated `DayPicker` (`Calendar`) and `AccountDialog` (`Tabs`) to headless `bits-ui`.
+- **Remove `lib/themes` migration-debt layer & single-theme indirection** (#227): deleted `apps/iroha-web/src/lib/themes/` (enforced in `scripts/check_theme_boundary.py`), retired `defineThemeRegistry`, `ThemeRouteRenderer`, and `Component<never>` prop erasure, mounted `GrapherShell` and shared `ThemeProvider` directly in `+layout.svelte`, replaced unreachable `{:else}` route fallbacks with direct typed `Grapher*` imports (~4,300 net lines removed), and wired `onRefresh` / `refreshing` into `GrapherMedia`.
+- **Decompose `PublicShowcase` and `expenses` route** (#228): extracted `expenses-state.svelte.ts` (dropping ~265 lines of dead CSS and its unused-CSS suppression), split `PublicShowcase.svelte` into `showcase-helpers.ts`, `PublicRoutesSection.svelte`, and `PublicActivityTable.svelte`, and cleared `state_referenced_locally` warnings.
+- **Dependencies**: bumped `@lucide/svelte` to `1.77.0` (#221).
+
 ## [0.6.0-rc6] - 2026-11-24
 
 ### Added
