@@ -4,7 +4,7 @@ import {
   THEME_DEFINITIONS,
   getThemeDefinition,
   hasThemeRoute,
-} from "./registry";
+} from "@iroha/shared/theme-ui/registry";
 
 describe("Iroha theme registry", () => {
   it("ships grapher as the only design language", () => {

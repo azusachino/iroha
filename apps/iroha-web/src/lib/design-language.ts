@@ -1,4 +1,7 @@
-import { THEME_DEFINITIONS, isDesignLanguage } from "$lib/themes/registry";
+import {
+  THEME_DEFINITIONS,
+  isDesignLanguage,
+} from "@iroha/shared/theme-ui/registry";
 import type { DesignLanguage } from "@iroha/shared/theme/themes";
 
 export type { DesignLanguage } from "@iroha/shared/theme/themes";

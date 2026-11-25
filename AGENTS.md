@@ -50,8 +50,7 @@ The applications are adapters and hosts:
   same shared theme assets and must not fork a visual component because its data is sanitized or static.
 - Shared theme code accepts typed data, snippets, and callbacks. It must not import `$lib/api`, route modules, server packages, or another application's source path.
 
-The current `apps/iroha-web/src/lib/themes/` tree is migration debt. Do not add new theme files there or add a web-local shared visual primitive to work around the debt. Before adding a component,
-search `packages/` first and decide whether it is an app adapter or a reusable theme asset. A review is incomplete unless it checks both file placement and import direction:
+The `apps/iroha-web/src/lib/themes/` migration-debt tree has been removed and is forbidden by `scripts/check_theme_boundary.py`. Do not re-create `src/lib/themes/` or add web-local shared visual primitives. Before adding a component, search `packages/` first and decide whether it is an app adapter or a reusable theme asset. A review is incomplete unless it checks both file placement and import direction:
 
 ```bash
 rg -n 'src/lib/themes|from "\$lib/(api|routes)' apps packages

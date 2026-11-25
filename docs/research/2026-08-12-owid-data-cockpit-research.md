@@ -451,6 +451,6 @@ These are the few decisions that genuinely need approval; everything else can fo
 - [`apps/iroha-server/pkg/httpapi/server.go`](../../apps/iroha-server/pkg/httpapi/server.go)
 - [`apps/iroha-web/src/lib/navigation.ts`](../../apps/iroha-web/src/lib/navigation.ts)
 - [`apps/iroha-web/src/routes/+layout.svelte`](../../apps/iroha-web/src/routes/+layout.svelte)
-- [`apps/iroha-web/src/lib/themes/registry.ts`](../../apps/iroha-web/src/lib/themes/registry.ts)
+- `apps/iroha-web/src/lib/themes/registry.ts` (retired; moved to `packages/iroha-shared/src/theme-ui/registry.ts`)
 - [`apps/iroha-web/src/routes/expenses/+page.svelte`](../../apps/iroha-web/src/routes/expenses/+page.svelte)
 - [`apps/iroha-web/src/routes/reports/+page.svelte`](../../apps/iroha-web/src/routes/reports/+page.svelte)

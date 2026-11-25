@@ -8,9 +8,7 @@ import check_theme_boundary
 class ThemeBoundaryTest(unittest.TestCase):
     def _root(self) -> Path:
         root = Path(tempfile.mkdtemp())
-        registry = root / "apps/iroha-web/src/lib/themes/registry.ts"
-        registry.parent.mkdir(parents=True)
-        registry.write_text('export * from "@iroha/shared/theme-ui/registry";\n')
+        (root / "apps/iroha-web/src/lib").mkdir(parents=True)
         (root / "packages/iroha-shared/src").mkdir(parents=True)
         return root
 
@@ -42,19 +40,18 @@ class ThemeBoundaryTest(unittest.TestCase):
             violations,
         )
 
-    def test_allows_host_adapters(self):
+    def test_rejects_app_theme_directory(self):
         root = self._root()
-        for relative in check_theme_boundary.THEME_ADAPTERS:
-            path = root / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            contents = (
-                'export * from "@iroha/shared/theme-ui/registry";\n'
-                if relative.endswith("registry.ts")
-                else "// adapter\n"
-            )
-            path.write_text(contents)
+        legacy = root / "apps/iroha-web/src/lib/themes/registry.ts"
+        legacy.parent.mkdir(parents=True, exist_ok=True)
+        legacy.write_text('export * from "@iroha/shared/theme-ui/registry";\n')
 
-        self.assertEqual(check_theme_boundary.find_violations(root), [])
+        self.assertEqual(
+            check_theme_boundary.find_violations(root),
+            [
+                "apps/iroha-web/src/lib/themes/registry.ts: themed assets belong under packages/iroha-shared",
+            ],
+        )
 
 
 if __name__ == "__main__":

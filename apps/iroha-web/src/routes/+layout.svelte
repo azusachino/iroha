@@ -12,8 +12,10 @@
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import UserMenu from "$lib/components/UserMenu.svelte";
   import { navigationGroups } from "$lib/navigation";
-  import ThemeFrame from "$lib/themes/ThemeFrame.svelte";
-  import ThemeProvider from "$lib/themes/ThemeProvider.svelte";
+  import { getDesignLanguage, setDesignLanguage } from "$lib/design-language";
+  import type { DesignLanguage } from "@iroha/shared/theme/themes";
+  import ThemeProvider from "@iroha/shared/theme-ui/ThemeProvider.svelte";
+  import GrapherShell from "@iroha/shared/theme-ui/grapher/Shell.svelte";
   import BrandMark from "$lib/components/BrandMark.svelte";
   import AuthDialog from "$lib/components/AuthDialog.svelte";
   import { UNAUTHENTICATED_EVENT } from "$lib/api";
@@ -25,6 +27,12 @@
 
   let { children } = $props();
   let authDialogOpen = $state(false);
+  let language = $state<DesignLanguage>(getDesignLanguage());
+
+  function selectLanguage(next: DesignLanguage) {
+    language = next;
+    setDesignLanguage(next);
+  }
 
   $effect(() => {
     if (auth.status === "setup") {
@@ -33,6 +41,7 @@
   });
 
   onMount(() => {
+    language = getDesignLanguage();
     document.getElementById("public-bootstrap-status")?.remove();
     void loadSession();
     const cleanupTheme = initThemeWatcher();
@@ -119,54 +128,61 @@
   {/if}
 {/snippet}
 
-<ThemeProvider>
+<ThemeProvider {language} onSelect={selectLanguage}>
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="app">
     {#if auth.status === "ready"}
       <CommandPalette />
     {/if}
-    <ThemeFrame {brand} {nav} {actions}>
-      {#if auth.status === "ready" || page.url.pathname === "/" || page.url.pathname === "/showcase"}
-        {@render children()}
-      {:else if auth.status === "loading"}
-        <div class="auth-loading tile" aria-busy="true" aria-live="polite">
-          <div class="auth-loading-inner">
-            <span class="auth-spinner" aria-hidden="true"></span>
-            <p class="muted">Loading…</p>
-          </div>
-        </div>
-      {:else}
-        <section class="auth-gate tile">
-          <div class="auth-gate-inner">
-            <div class="gate-icon">
-              <KeyRound size={28} />
-            </div>
-            <h1>Owner login required</h1>
-            <p class="muted">
-              This section of the cockpit contains private records. Sign in as
-              the owner to view it.
-            </p>
-            <div class="gate-actions">
-              <button
-                type="button"
-                class="primary-gate-btn"
-                onclick={() => (authDialogOpen = true)}
-              >
-                Sign in
-              </button>
-              <a href="/" class="secondary-gate-link"
-                >← Return to public showcase</a
-              >
+    <GrapherShell theme={language} {brand} {nav} {actions}>
+      <main id="main-content" class="theme-content" tabindex="-1">
+        {#if auth.status === "ready" || page.url.pathname === "/" || page.url.pathname === "/showcase"}
+          {@render children()}
+        {:else if auth.status === "loading"}
+          <div class="auth-loading tile" aria-busy="true" aria-live="polite">
+            <div class="auth-loading-inner">
+              <span class="auth-spinner" aria-hidden="true"></span>
+              <p class="muted">Loading…</p>
             </div>
           </div>
-        </section>
-      {/if}
-    </ThemeFrame>
+        {:else}
+          <section class="auth-gate tile">
+            <div class="auth-gate-inner">
+              <div class="gate-icon">
+                <KeyRound size={28} />
+              </div>
+              <h1>Owner login required</h1>
+              <p class="muted">
+                This section of the cockpit contains private records. Sign in as
+                the owner to view it.
+              </p>
+              <div class="gate-actions">
+                <button
+                  type="button"
+                  class="primary-gate-btn"
+                  onclick={() => (authDialogOpen = true)}
+                >
+                  Sign in
+                </button>
+                <a href="/" class="secondary-gate-link"
+                  >← Return to public showcase</a
+                >
+              </div>
+            </div>
+          </section>
+        {/if}
+      </main>
+    </GrapherShell>
   </div>
   <AuthDialog bind:open={authDialogOpen} />
 </ThemeProvider>
 
 <style>
+  .theme-content {
+    min-width: 0;
+    scroll-margin-top: 8rem;
+  }
+
   .skip-link {
     position: fixed;
     top: 0.5rem;

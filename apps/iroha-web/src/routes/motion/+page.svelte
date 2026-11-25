@@ -15,17 +15,6 @@
     type Page as ActivityPage,
   } from "$lib/api";
   import type { ActivitySummaryTotals } from "@iroha/shared/domain/activity";
-  import SportBadge from "@iroha/shared/components/SportBadge.svelte";
-  import StatTile from "@iroha/shared/components/StatTile.svelte";
-  import {
-    formatDate,
-    formatDateOnly,
-    formatDistance,
-    formatDuration,
-    formatPace,
-    formatHr,
-    formatElevation,
-  } from "$lib/format";
   import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
   import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import {
@@ -46,10 +35,7 @@
   import { IROHA_TIMEZONE } from "$lib/config";
   import { sportColor, sportLabel } from "$lib/sport";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
-  import RouteIntro from "$lib/components/RouteIntro.svelte";
-  import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
-  import { hasThemeRoute } from "$lib/themes/registry";
+  import GrapherActivities from "@iroha/shared/theme-ui/grapher/Activities.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   // Scoped reads follow the selection. `applied` snapshots the records query
@@ -104,7 +90,6 @@
   const activityDurationSeries = $derived(
     seriesResource.data?.value.duration ?? null,
   );
-  const theme = useTheme();
   const sportOptions = $derived(
     [
       ...new Set(
@@ -525,276 +510,89 @@
 </svelte:head>
 
 <section class="activities-shell">
-  {#if hasThemeRoute(theme.definition(), "activities")}
-    <LoadingBoundary
-      resource={activitiesResource}
-      preserveLayout
-      label="Loading activities…"
+  <LoadingBoundary
+    resource={activitiesResource}
+    preserveLayout
+    label="Loading activities…"
+  >
+    <GrapherActivities
+      theme="grapher"
+      {activities}
+      {displaySummary}
+      summaryLoading={summaryResource.loading}
+      summaryError={summaryResource.error}
+      summaryDistanceUnknownCount={summaryTotals?.distance_unknown_count ?? 0}
+      boundsError={boundsResource.error}
+      boundsLoading={boundsResource.loading}
+      onRetryBounds={() => loadBounds()}
+      summaryScope={summaryResource.data
+        ? scopeLabel(summaryResource.data.scope)
+        : ""}
+      recordsScope={activitiesResource.data
+        ? scopeLabel(activitiesResource.data.scope)
+        : ""}
+      recordsReady={activitiesResource.ready}
+      onRetrySummary={() => loadSummary()}
+      onRetryRecords={() => load(false)}
+      onRetrySeries={() => {
+        if (!selectedYear && !matchesScope(summaryResource.data, buildParams()))
+          return loadSummary();
+        return loadActivitySeries();
+      }}
+      {sportType}
+      {sportOptions}
+      loading={activitiesResource.loading}
+      error={activitiesResource.error}
+      hasMore={canLoadMore}
+      {loadingMore}
+      {loadMoreError}
+      {activitySeries}
+      {activityDurationSeries}
+      activitySeriesLoading={seriesResource.loading ||
+        (!selectedYear && summaryResource.loading)}
+      activitySeriesError={seriesResource.error ??
+        (!selectedYear && summaryResource.error
+          ? "Could not determine the movement series scope."
+          : null)}
+      activitySeriesScope={seriesResource.data
+        ? scopeLabel(seriesResource.data.scope)
+        : ""}
+      onSportType={(value: string) => {
+        sportType = value;
+        syncUrl();
+        void loadSummary();
+      }}
+      onLoadMore={() => load(true)}
+      onOpenDetail={(id: string) => void goto(`/motion/${id}`)}
     >
-      <ThemeRouteRenderer
-        route="activities"
-        props={{
-          activities,
-          displaySummary,
-          summaryLoading: summaryResource.loading,
-          summaryError: summaryResource.error,
-          summaryDistanceUnknownCount:
-            summaryTotals?.distance_unknown_count ?? 0,
-          boundsError: boundsResource.error,
-          boundsLoading: boundsResource.loading,
-          onRetryBounds: () => loadBounds(),
-          summaryScope: summaryResource.data
-            ? scopeLabel(summaryResource.data.scope)
-            : "",
-          recordsScope: activitiesResource.data
-            ? scopeLabel(activitiesResource.data.scope)
-            : "",
-          recordsReady: activitiesResource.ready,
-          onRetrySummary: () => loadSummary(),
-          onRetryRecords: () => load(false),
-          onRetrySeries: () => {
-            if (
-              !selectedYear &&
-              !matchesScope(summaryResource.data, buildParams())
-            )
-              return loadSummary();
-            return loadActivitySeries();
-          },
-          sportType,
-          sportOptions,
-          loading: activitiesResource.loading,
-          error: activitiesResource.error,
-          hasMore: canLoadMore,
-          loadingMore,
-          loadMoreError,
-          activitySeries,
-          activityDurationSeries,
-          activitySeriesLoading:
-            seriesResource.loading ||
-            (!selectedYear && summaryResource.loading),
-          activitySeriesError:
-            seriesResource.error ??
-            (!selectedYear && summaryResource.error
-              ? "Could not determine the movement series scope."
-              : null),
-          activitySeriesScope: seriesResource.data
-            ? scopeLabel(seriesResource.data.scope)
-            : "",
-          onSportType: (value: string) => {
-            sportType = value;
-            syncUrl();
-            void loadSummary();
-          },
-          onLoadMore: () => load(true),
-          onOpenDetail: (id: string) => void goto(`/motion/${id}`),
-        }}
-      >
-        {#snippet children()}
-          <PeriodToolbar
-            title="Motion archive scope"
-            ariaLabel="Motion period"
-            onRefresh={() => void hardRefresh()}
-            refreshing={activitiesResource.loading || summaryResource.loading}
-          >
-            <PeriodSelector
-              year={selectedYear}
-              month={selectedMonth}
-              {years}
-              {months}
-              {bounds}
-              monthDisabled={!selectedYear}
-              surface="inline"
-              onYear={(value) => {
-                selectedYear = value;
-                handleYearChange();
-              }}
-              onMonth={(value) => {
-                selectedMonth = value;
-                handleMonthChange();
-              }}
-            />
-          </PeriodToolbar>
-        {/snippet}
-      </ThemeRouteRenderer>
-    </LoadingBoundary>
-  {:else}
-    <RouteIntro
-      eyebrow="Motion / activity archive"
-      title="Every session, in one place."
-      description="Find a movement session quickly, narrow the archive, and open the record when you want its route and measurements."
-      actionHref="/"
-      actionLabel="Back to Today"
-    />
-
-    <PeriodToolbar
-      title="Motion archive scope"
-      ariaLabel="Motion period"
-      onRefresh={() => void hardRefresh()}
-      refreshing={activitiesResource.loading || summaryResource.loading}
-    >
-      <PeriodSelector
-        year={selectedYear}
-        month={selectedMonth}
-        {years}
-        {months}
-        {bounds}
-        monthDisabled={!selectedYear}
-        surface="inline"
-        onYear={(value) => {
-          selectedYear = value;
-          handleYearChange();
-        }}
-        onMonth={(value) => {
-          selectedMonth = value;
-          handleMonthChange();
-        }}
-      />
-    </PeriodToolbar>
-
-    <div class="stat-strip" aria-label="Activity summary">
-      <StatTile
-        label="Activities"
-        value={displaySummary
-          ? displaySummary.activity_count.toLocaleString()
-          : "—"}
-        sub={sportType || selectedYear ? "Filtered count" : "Imported sessions"}
-      />
-      <StatTile
-        label="Distance"
-        value={displaySummary ? formatDistance(displaySummary.distance_m) : "—"}
-        sub={sportType || selectedYear
-          ? "Filtered distance"
-          : "Across all activities"}
-      />
-      <StatTile
-        label="Total time"
-        value={displaySummary ? formatDuration(displaySummary.duration_s) : "—"}
-        sub={sportType || selectedYear
-          ? "Filtered duration"
-          : "Recorded duration"}
-      />
-      <StatTile
-        label="Sports"
-        value={summary ? trackedSports.toLocaleString() : "—"}
-        sub="Activity types tracked"
-      />
-    </div>
-
-    <form class="activity-toolbar tile" onsubmit={(e) => e.preventDefault()}>
-      <div class="filter-fields">
-        <label
-          >Sport
-          <select
-            value={sportType}
-            onchange={(event) => {
-              sportType = (event.currentTarget as HTMLSelectElement).value;
-              syncUrl();
-              void loadSummary();
-            }}
-          >
-            <option value="">All sports</option>
-            {#each sportOptions as option (option)}
-              <option value={option}>{sportLabel(option)}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
-      <div class="toolbar-actions">
-        <button type="button" class="secondary" onclick={clear}
-          >Clear filters</button
+      {#snippet children()}
+        <PeriodToolbar
+          title="Motion archive scope"
+          ariaLabel="Motion period"
+          onRefresh={() => void hardRefresh()}
+          refreshing={activitiesResource.loading || summaryResource.loading}
         >
-      </div>
-    </form>
-
-    {#if activitiesResource.loading && activities.length === 0}
-      <p class="muted">Loading activities…</p>
-    {:else if activitiesResource.error}
-      <p class="error">
-        Failed to load activities: {activitiesResource.error}
-      </p>
-    {:else if activities.length === 0}
-      <p class="muted">No activities found.</p>
-    {:else}
-      <p class="muted result-count">
-        {activities.length} shown{hasMore ? " (more available)" : ""}
-      </p>
-      <ul class="activity-grid">
-        {#each activities as activity (activity.id)}
-          <li>
-            <a
-              class="activity-card tile tile-interactive"
-              href={`/motion/${activity.id}`}
-              style={`--sport-color: ${sportColor(activity.sport_type)}`}
-            >
-              <span class="accent" aria-hidden="true"></span>
-              <div class="card-top">
-                <SportBadge sport={activity.sport_type} /><span
-                  class="activity-date"
-                  >{formatDateOnly(
-                    activity.started_at,
-                    activity.timezone,
-                  )}</span
-                >
-              </div>
-              <h2>{displayTitle(activity.title, activity.sport_type)}</h2>
-              {#if isNonDistanceSport(activity.sport_type, activity.distance_m)}
-                <div class="primary-metric">
-                  {formatDuration(
-                    activity.duration_s ?? activity.moving_time_s,
-                  )}
-                </div>
-                <div class="card-metrics">
-                  <span>Avg HR: {formatHr(activity.avg_hr)}</span>
-                  <span>Max HR: {formatHr(activity.max_hr)}</span>
-                </div>
-              {:else}
-                <div class="primary-metric">
-                  {formatDistance(activity.distance_m)}
-                </div>
-                <div class="card-metrics">
-                  {#if isCycling(activity.sport_type)}
-                    <span
-                      >{formatCyclingSpeed(
-                        activity.distance_m,
-                        activity.duration_s ?? activity.moving_time_s,
-                      )}</span
-                    >
-                  {:else if isSwimming(activity.sport_type)}
-                    <span
-                      >{formatSwimmingPace(
-                        activity.distance_m,
-                        activity.duration_s ?? activity.moving_time_s,
-                      )}</span
-                    >
-                  {:else}
-                    <span>{formatPace(activity.avg_pace_s_per_km)}</span>
-                  {/if}
-                  <span
-                    >{formatDuration(
-                      activity.duration_s ?? activity.moving_time_s,
-                    )}</span
-                  >
-                  {#if activity.avg_hr}<span
-                      >Avg HR: {formatHr(activity.avg_hr)}</span
-                    >{/if}
-                </div>
-              {/if}
-            </a>
-          </li>
-        {/each}
-      </ul>
-      {#if hasMore}
-        <div class="load-sentinel">
-          <button
-            class="load-more"
-            onclick={() => load(true)}
-            disabled={loadingMore}
-            >{loadingMore ? "Loading…" : "Load more activities"}</button
-          >
-        </div>
-      {/if}
-    {/if}
-  {/if}
+          <PeriodSelector
+            year={selectedYear}
+            month={selectedMonth}
+            {years}
+            {months}
+            {bounds}
+            monthDisabled={!selectedYear}
+            surface="inline"
+            onYear={(value) => {
+              selectedYear = value;
+              handleYearChange();
+            }}
+            onMonth={(value) => {
+              selectedMonth = value;
+              handleMonthChange();
+            }}
+          />
+        </PeriodToolbar>
+      {/snippet}
+    </GrapherActivities>
+  </LoadingBoundary>
   {#if canLoadMore}
     <div
       bind:this={sentinel}
@@ -809,141 +607,5 @@
   .activities-shell {
     display: grid;
     gap: 1.25rem;
-  }
-  .stat-strip {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.75rem;
-  }
-  .activity-toolbar {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem;
-  }
-  .filter-fields {
-    display: flex;
-    flex: 1;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  .filter-fields label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    color: var(--text-muted);
-    font-size: 0.76rem;
-    font-weight: 650;
-  }
-  .toolbar-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-  .toolbar-actions button {
-    border: 1px solid var(--accent);
-    border-radius: var(--radius);
-    background: var(--accent);
-    color: var(--bg);
-    padding: 0.5rem 0.75rem;
-    font: inherit;
-    font-size: 0.84rem;
-    cursor: pointer;
-  }
-  .toolbar-actions .secondary {
-    border-color: var(--border);
-    background: var(--surface-2);
-    color: var(--text);
-  }
-  .activity-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.75rem;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .activity-card {
-    position: relative;
-    display: grid;
-    gap: 0.75rem;
-    min-height: 13rem;
-    padding: 1rem;
-    overflow: hidden;
-    color: var(--text);
-    text-decoration: none;
-    container-type: inline-size;
-    background:
-      linear-gradient(
-        157deg,
-        color-mix(in srgb, var(--sport-color) 13%, transparent) 0%,
-        transparent 55%
-      ),
-      var(--tile-surface);
-  }
-  .activity-card:hover {
-    text-decoration: none;
-  }
-  .accent {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 0.25rem;
-    background: var(--sport-color);
-  }
-  .card-top {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-  .activity-date {
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    text-align: right;
-  }
-  .activity-card h2 {
-    margin: 0;
-    font-size: 1rem;
-    line-height: 1.25;
-  }
-  .primary-metric {
-    align-self: end;
-    color: var(--text);
-    font-size: clamp(1.3rem, 13cqi, 2rem);
-    font-weight: 750;
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .card-metrics {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-  }
-  @media (max-width: 1024px) {
-    .stat-strip {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .activity-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .activity-toolbar {
-      align-items: stretch;
-      flex-direction: column;
-    }
-  }
-  @media (max-width: 640px) {
-    .activity-grid {
-      grid-template-columns: 1fr;
-    }
-    .toolbar-actions {
-      width: 100%;
-    }
-    .toolbar-actions button {
-      flex: 1;
-    }
-    .activity-date {
-      max-width: 9rem;
-    }
   }
 </style>

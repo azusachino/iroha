@@ -25,17 +25,10 @@
     formatDate,
   } from "$lib/format";
   import RouteMap from "$lib/components/RouteMap.svelte";
-  import FusedActivityChart from "@iroha/shared/theme-ui/components/FusedActivityChart.svelte";
   import ActivityDetailChart from "@iroha/shared/theme-ui/components/ActivityDetailChart.svelte";
-  import LapChart from "@iroha/shared/theme-ui/components/LapChart.svelte";
-  import SportBadge from "@iroha/shared/components/SportBadge.svelte";
-  import StatTile from "@iroha/shared/components/StatTile.svelte";
-  import RouteIntro from "$lib/components/RouteIntro.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import { isSwimming, sportLabel } from "$lib/sport";
-  import { useTheme } from "$lib/themes/context.svelte";
-  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
-  import { hasThemeRoute } from "$lib/themes/registry";
+  import GrapherActivityDetail from "@iroha/shared/theme-ui/grapher/ActivityDetail.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
 
   function displayTitle(title?: string, sport?: string): string {
@@ -95,7 +88,6 @@
     }));
   }
   let selectedRouteIndex = $state<number | null>(null);
-  const theme = useTheme();
 
   $effect(() => {
     const activityId = id;
@@ -498,238 +490,65 @@
       Loading activity streams…
     </p>{/if}
 </section>
-{#if hasThemeRoute(theme.definition(), "activity-detail")}
-  {#if activity || detailResource.loading}
-    <LoadingBoundary resource={detailResource} label="Loading activity…">
-      {#snippet children()}
-        {#if activity}
-          <ThemeRouteRenderer
-            route="activity-detail"
-            props={{
-              activity,
-              derivedDistanceM,
-              route,
-              samplings,
-              laps: displayLaps,
-              routeReady: routeResource.data?.id === id,
-              samplesReady: samplesResource.data?.id === id,
-              lapsDerived: displayLaps.some((lap) =>
-                lap.id.startsWith("derived-lap-"),
-              ),
-            }}
-          >
-            {#snippet children()}
-              {#if hasRouteLine}
-                <section
-                  class="canonical-route-panel"
-                  aria-labelledby="route-map-title"
-                >
-                  <header class="canonical-route-heading">
-                    <div>
-                      <p class="muted">Canonical geography</p>
-                      <h2 id="route-map-title">Recorded route</h2>
-                    </div>
-                    <span class="muted">{processedRoute.length} GPS fixes</span>
-                  </header>
-                  <RouteMap
-                    points={processedRoute}
-                    selectedIndex={selectedRouteIndex}
-                  />
-                  <p class="muted swim-note">
-                    {isSwimming(activity?.sport_type)
-                      ? "Open-water GPS route; no pool intervals are inferred from this record."
-                      : "The basemap and line use the canonical latitude/longitude record."}
-                  </p>
-                </section>
-              {/if}
-              {#if detailChart}
-                <ActivityDetailChart
-                  {...detailChart}
-                  paceLabel={isSwimming(activity?.sport_type)
-                    ? "Pace / 100m"
-                    : "Pace / km"}
-                  onHover={(index) => (selectedRouteIndex = index)}
-                />
-              {/if}
-            {/snippet}
-          </ThemeRouteRenderer>
-        {/if}
-      {/snippet}
-    </LoadingBoundary>
-  {:else if detailResource.error}
-    <p class="error">Failed to load activity: {detailResource.error}</p>
-  {/if}
-{:else}
-  <p class="detail-back">
-    <a href="/motion" onclick={goBack}>← Back to Motion</a>
-  </p>
-
-  {#if detailResource.loading}
-    <p class="muted">Loading activity…</p>
-  {:else if detailResource.error}
-    <p class="error">Failed to load activity: {detailResource.error}</p>
-  {:else if activity}
-    <RouteIntro
-      eyebrow="Motion / performance report"
-      title={displayTitle(activity.title, activity.sport_type)}
-      description="A measured record of this session, from the route and effort to the details worth revisiting."
-    />
-    <div class="activity-meta">
-      <SportBadge sport={activity.sport_type} />
-      <span class="muted"
-        >{formatDate(activity.started_at, activity.timezone)}</span
-      >
-    </div>
-
-    <div class="activity-stats">
-      {#if displayDistanceM != null && displayDistanceM > 0}
-        <StatTile
-          label={isSwimming(activity.sport_type) ? "GPS distance" : "Distance"}
-          value={formatDistance(displayDistanceM)}
-        />
-      {/if}
-      <StatTile label="Duration" value={formatDuration(activity.duration_s)} />
-      {#if isSwimming(activity.sport_type)}
-        <StatTile
-          label="Pace / 100m"
-          value={formatSwimmingPace(displayDistanceM, activity.duration_s)}
-        />
-      {/if}
-      {#if activity.moving_time_s != null}
-        <StatTile
-          label="Moving time"
-          value={formatDuration(activity.moving_time_s)}
-        />
-      {/if}
-      {#if elevationGainM != null && elevationGainM > 0}
-        <StatTile
-          label="Elevation gain"
-          value={formatElevation(elevationGainM)}
-        />
-      {/if}
-      {#if activity.avg_pace_s_per_km != null && activity.avg_pace_s_per_km > 0}
-        <StatTile
-          label="Avg pace"
-          value={formatPace(activity.avg_pace_s_per_km)}
-        />
-      {/if}
-      {#if activity.avg_hr != null && activity.avg_hr > 0}
-        <StatTile label="Avg HR" value={formatHr(activity.avg_hr)} />
-      {/if}
-      {#if activity.max_hr != null && activity.max_hr > 0}
-        <StatTile label="Max HR" value={formatHr(activity.max_hr)} />
-      {/if}
-    </div>
-
-    {#if hasRouteLine}
-      <h2>Route</h2>
-      <RouteMap points={processedRoute} selectedIndex={selectedRouteIndex} />
-      {#if isSwimming(activity.sport_type)}
-        <p class="muted swim-note">
-          Open-water GPS route; no pool intervals are inferred from this record.
-        </p>
-      {/if}
-    {/if}
-
-    {#if anyChart}
-      <h2>Charts</h2>
-      {#if detailChart}
-        <FusedActivityChart
-          xValues={detailChart.xValues}
-          xLabel={detailChart.xLabel}
-          pace={detailChart.pace}
-          heartRate={detailChart.heartRate}
-          elevation={detailChart.elevation}
-          paceLabel={isSwimming(activity.sport_type)
-            ? "Pace /100m"
-            : "Pace /km"}
-          onHover={(index) => (selectedRouteIndex = index)}
-        />
-      {/if}
-      {#if hrZones.length > 0}
-        <div class="zone-card tile">
-          <div class="card-heading">
-            <strong>Heart-rate zones</strong><span class="muted"
-              >time distribution</span
-            >
-          </div>
-          <div class="zone-bar">
-            {#each hrZones as zone}<span
-                style={`flex: ${zone.count}; background: ${zone.color}`}
-                title={`${zone.label}: ${Math.round((zone.count / (detailChart?.heartRate.filter((v) => v != null).length || 1)) * 100)}%`}
-              ></span>{/each}
-          </div>
-          <div class="zone-legend">
-            {#each hrZones as zone}<span
-                ><i style={`background: ${zone.color}`}></i>{zone.label}</span
-              >{/each}
-          </div>
-        </div>
-      {/if}
-    {/if}
-
-    {#if supportsSplits && displayLaps.length > 0}
-      <h2 class="section-title">
-        Laps ({isSwimming(activity.sport_type) ? "100 m" : "1 km"} splits)
-      </h2>
-      <div class="laps-container tile">
-        <LapChart
+{#if activity || detailResource.loading}
+  <LoadingBoundary resource={detailResource} label="Loading activity…">
+    {#snippet children()}
+      {#if activity}
+        <GrapherActivityDetail
+          {activity}
+          {derivedDistanceM}
+          {route}
+          {samplings}
           laps={displayLaps}
-          swimming={isSwimming(activity.sport_type)}
-        />
-        <div class="split-bars" aria-label="Split pace bars">
-          {#each displayLaps as lap (lap.lap_no)}
-            <div class="split-row">
-              <span class="split-label">{lap.lap_no}</span><span
-                class="split-track"
-                ><span
-                  class="split-fill"
-                  style={`width: ${Math.min(100, ((lap.avg_pace_s_per_km ?? 0) / Math.max(...displayLaps.map((l) => l.avg_pace_s_per_km ?? 0), 1)) * 100)}%`}
-                ></span></span
-              ><strong>{formatSplitPace(lap.avg_pace_s_per_km)}</strong>
-            </div>
-          {/each}
-        </div>
-        <table class="laps-table">
-          <thead>
-            <tr>
-              <th>Lap</th>
-              <th>Distance</th>
-              <th>Duration</th>
-              <th>Pace</th>
-              <th>Avg HR</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each displayLaps as lap (lap.lap_no)}
-              <tr>
-                <td><strong>{lap.lap_no}</strong></td>
-                <td>{formatDistance(lap.distance_m)}</td>
-                <td>{formatDuration(lap.duration_s)}</td>
-                <td>{formatSplitPace(lap.avg_pace_s_per_km)}</td>
-                <td>{formatHr(lap.avg_hr)}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  {/if}
+          routeReady={routeResource.data?.id === id}
+          samplesReady={samplesResource.data?.id === id}
+          lapsDerived={displayLaps.some((lap) =>
+            lap.id.startsWith("derived-lap-"),
+          )}
+        >
+          {#snippet children()}
+            {#if hasRouteLine}
+              <section
+                class="canonical-route-panel"
+                aria-labelledby="route-map-title"
+              >
+                <header class="canonical-route-heading">
+                  <div>
+                    <p class="muted">Canonical geography</p>
+                    <h2 id="route-map-title">Recorded route</h2>
+                  </div>
+                  <span class="muted">{processedRoute.length} GPS fixes</span>
+                </header>
+                <RouteMap
+                  points={processedRoute}
+                  selectedIndex={selectedRouteIndex}
+                />
+                <p class="muted swim-note">
+                  {isSwimming(activity?.sport_type)
+                    ? "Open-water GPS route; no pool intervals are inferred from this record."
+                    : "The basemap and line use the canonical latitude/longitude record."}
+                </p>
+              </section>
+            {/if}
+            {#if detailChart}
+              <ActivityDetailChart
+                {...detailChart}
+                paceLabel={isSwimming(activity?.sport_type)
+                  ? "Pace / 100m"
+                  : "Pace / km"}
+                onHover={(index) => (selectedRouteIndex = index)}
+              />
+            {/if}
+          {/snippet}
+        </GrapherActivityDetail>
+      {/if}
+    {/snippet}
+  </LoadingBoundary>
+{:else if detailResource.error}
+  <p class="error">Failed to load activity: {detailResource.error}</p>
 {/if}
 
 <style>
-  .activity-meta {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-  .activity-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-  }
   .canonical-route-panel {
     display: grid;
     gap: 0.75rem;
@@ -756,107 +575,7 @@
     margin: 0;
     font-size: 0.76rem;
   }
-  .section-title {
-    margin-top: 2rem;
-    margin-bottom: 0.75rem;
-    font-size: 1.25rem;
-    font-weight: 700;
-  }
-  .laps-container {
-    overflow-x: auto;
-    padding: 0.5rem;
-    margin-bottom: 2rem;
-  }
-  .zone-card {
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-  }
-  .card-heading,
-  .zone-legend {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    align-items: center;
-  }
-  .zone-bar {
-    display: flex;
-    height: 0.65rem;
-    overflow: hidden;
-    border-radius: 999px;
-    margin: 1rem 0 0.75rem;
-    background: var(--surface-3);
-  }
-  .zone-bar span {
-    min-width: 0.35rem;
-  }
-  .zone-legend {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    color: var(--text-muted);
-    font-size: 0.76rem;
-  }
-  .zone-legend span {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-  .zone-legend i {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 50%;
-  }
-  .split-bars {
-    display: grid;
-    gap: 0.45rem;
-    padding: 0.75rem 1rem 1rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .split-row {
-    display: grid;
-    grid-template-columns: 1.5rem 1fr auto;
-    align-items: center;
-    gap: 0.6rem;
-    font-size: 0.8rem;
-  }
-  .split-label {
-    color: var(--text-muted);
-  }
-  .split-track {
-    height: 0.45rem;
-    overflow: hidden;
-    border-radius: 999px;
-    background: var(--surface-3);
-  }
-  .split-fill {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, var(--sport-run), var(--sport-cycling));
-  }
-  .laps-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-    font-size: 0.9rem;
-  }
-  .laps-table th {
-    padding: 0.75rem 1rem;
-    color: var(--text-muted);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    border-bottom: 1px solid var(--border);
-  }
-  .laps-table td {
-    padding: 0.75rem 1rem;
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
-  }
-  .laps-table tbody tr:last-child td {
-    border-bottom: none;
-  }
-  .laps-table tbody tr:hover td {
-    background: var(--surface-2);
+  .error {
+    color: var(--danger);
   }
 </style>

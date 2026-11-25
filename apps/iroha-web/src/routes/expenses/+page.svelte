@@ -43,7 +43,7 @@
     type ExpenseThemeProps,
   } from "@iroha/shared/view-contracts/expense-view";
   import { categoryColor } from "@iroha/shared/domain/category-color";
-  import ThemeRouteRenderer from "@iroha/shared/theme-ui/ThemeRouteRenderer.svelte";
+  import GrapherExpenses from "@iroha/shared/theme-ui/grapher/Expenses.svelte";
   import { createAsyncResource } from "$lib/asyncResource.svelte";
   import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
 
@@ -648,13 +648,10 @@
                 ]
               : "All categories"}
           </p>
-          <ThemeRouteRenderer
-            route="expenses"
-            props={{
-              ...themeProps,
-              month: spendingResource.data.month,
-              section: "spending",
-            }}
+          <GrapherExpenses
+            {...themeProps}
+            month={spendingResource.data.month}
+            section="spending"
           />
         {/if}
       {/snippet}
@@ -689,10 +686,7 @@
                 ]
               : "All categories"}
           </p>
-          <ThemeRouteRenderer
-            route="expenses"
-            props={{ ...themeProps, section: "ledger" }}
-          />
+          <GrapherExpenses {...themeProps} section="ledger" />
         {/if}
       {/snippet}
     </LoadingBoundary>
