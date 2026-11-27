@@ -1,3 +1,4 @@
+import type { Snippet } from "svelte";
 import type { Activity } from "../domain/activity";
 import type { DailyRow } from "../domain/daily";
 import type { MediaChange, MediaHomeEvent } from "../domain/media";
@@ -14,6 +15,7 @@ export type TodayThemeProps = {
   mediaEvents: MediaHomeEvent[];
   mediaUpdates: MediaChange[];
   theme: DesignLanguage;
+  controls?: Snippet;
   onOpenActivity: (id: string) => void;
   onOpenMedia: (id: string) => void;
 };

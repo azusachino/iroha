@@ -28,6 +28,7 @@
     mediaEvents,
     mediaUpdates,
     theme,
+    controls,
     onOpenActivity,
     onOpenMedia,
   }: TodayThemeProps = $props();
@@ -73,10 +74,10 @@
       });
     }
 
-    if (acts.length > 0) {
+    if (dRow?.resting_hr != null) {
       items.push({
-        label: "Sessions",
-        value: `${acts.length} ${acts.length === 1 ? "session" : "sessions"}`,
+        label: "Resting HR",
+        value: formatHr(dRow.resting_hr),
       });
     }
 
@@ -85,13 +86,6 @@
       items.push({
         label: "Media",
         value: `${totalMedia} ${totalMedia === 1 ? "record" : "records"}`,
-      });
-    }
-
-    if (items.length === 0 && dRow?.resting_hr != null) {
-      items.push({
-        label: "Resting HR",
-        value: formatHr(dRow.resting_hr),
       });
     }
 
@@ -137,6 +131,7 @@
 
   <FocalBand
     heading="Daily summary"
+    {controls}
     secondary={secondaryItems}
     empty={emptyNotes.length ? emptyNotes.join(" · ") : undefined}
   >
