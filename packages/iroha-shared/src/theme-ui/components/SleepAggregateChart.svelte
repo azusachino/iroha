@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { DesignLanguage } from "../../theme/themes";
   import type { SleepAggregateBucket } from "../../domain/sleep";
+  import EmptyNote from "../../components/EmptyNote.svelte";
+  import MetricTable from "../../components/MetricTable.svelte";
+  import PanelFrame from "../../components/PanelFrame.svelte";
   import BarChart from "./BarChart.svelte";
   import { formatDuration, formatCanonicalMonth } from "../../format/format";
 
@@ -15,6 +18,8 @@
     scope?: string;
     theme: DesignLanguage;
   } = $props();
+
+  const ROLLUP_CHART_MIN_POINTS = 3;
 
   function labelFor(period: string): string {
     return granularity === "year"
@@ -34,60 +39,63 @@
   const napCount = $derived(buckets.map((bucket) => bucket.nap_count));
 </script>
 
-<section
-  class="sleep-aggregate-chart"
-  data-theme={theme}
-  aria-labelledby="sleep-rollup-title"
->
-  <header class="chart-header">
-    <div>
-      <p class="eyebrow">Complete {granularity} rollup</p>
-      <h2 id="sleep-rollup-title">Sleep rhythm over time</h2>
-      <p class="description">
-        Average main-sleep duration, main sleeps, and naps from the full
-        canonical dataset{scope ? ` · ${scope}` : ""}.
-      </p>
-    </div>
-    <span class="coverage">{buckets.length} periods</span>
-  </header>
+<div class="sleep-aggregate-chart" data-theme={theme}>
+  <PanelFrame title="Sleep rhythm over time">
+    {#snippet meta()}
+      <span>
+        {buckets.length} {buckets.length === 1 ? "period" : "periods"}
+        {scope ? ` · ${scope}` : ""}
+      </span>
+    {/snippet}
 
-  <div class="chart-grid">
-    <div>
-      <p class="chart-label">Average main sleep</p>
-      <BarChart
-        {categories}
-        primary={{
-          name: "Average main sleep",
-          values: averageAsleep,
-          color: "var(--accent)",
-          formatter: (value) => formatDuration(value),
-        }}
-        primaryType="line"
-        height={290}
+    {#if buckets.length >= ROLLUP_CHART_MIN_POINTS}
+      <div class="chart-grid">
+        <div>
+          <p class="chart-label">Average main sleep</p>
+          <BarChart
+            {categories}
+            primary={{
+              name: "Average main sleep",
+              values: averageAsleep,
+              color: "var(--accent)",
+              formatter: (value) => formatDuration(value),
+            }}
+            primaryType="line"
+            height={290}
+          />
+        </div>
+        <div>
+          <p class="chart-label">Main sleep and naps</p>
+          <BarChart
+            {categories}
+            primary={{
+              name: "Main sleep",
+              values: mainSleepCount,
+              color: "var(--accent)",
+            }}
+            secondary={{
+              name: "Naps",
+              values: napCount,
+              color: "var(--accent-2)",
+            }}
+            height={290}
+          />
+        </div>
+      </div>
+    {:else}
+      <EmptyNote
+        text={`Only ${buckets.length} ${granularity} ${buckets.length === 1 ? "period" : "periods"} in this scope — chart requires at least ${ROLLUP_CHART_MIN_POINTS} periods; exact values are below.`}
       />
-    </div>
-    <div>
-      <p class="chart-label">Main sleep and naps</p>
-      <BarChart
-        {categories}
-        primary={{
-          name: "Main sleep",
-          values: mainSleepCount,
-          color: "var(--accent)",
-        }}
-        secondary={{
-          name: "Naps",
-          values: napCount,
-          color: "var(--accent-2)",
-        }}
-        height={290}
-      />
-    </div>
-  </div>
+    {/if}
 
-  <div class="table-scroll">
-    <table>
-      <caption>Exact rollup values</caption>
+    <MetricTable
+      ariaLabel="Exact rollup values"
+      caption="Exact rollup values"
+      minWidth="36rem"
+      nowrap
+      numericAlign
+      dense
+    >
       <thead>
         <tr>
           <th>Period</th>
@@ -114,156 +122,33 @@
           </tr>
         {/each}
       </tbody>
-    </table>
-  </div>
-</section>
+    </MetricTable>
+  </PanelFrame>
+</div>
 
 <style>
   .sleep-aggregate-chart {
-    display: grid;
-    gap: 1rem;
-    padding: clamp(1rem, 2.5vw, 1.5rem);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
+    min-width: 0;
   }
 
-  .sleep-aggregate-chart[data-theme="atlas"] {
-    border-width: 2px;
-    border-radius: 2px;
-    background-image:
-      linear-gradient(
-        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--accent) 8%, transparent) 1px,
-        transparent 1px
-      );
-    background-size: 14px 14px;
-  }
-
-  .sleep-aggregate-chart[data-theme="field-journal"] {
-    border-style: dashed;
-    border-radius: 0;
-  }
-
-  .sleep-aggregate-chart[data-theme="phenology"] {
-    border-radius: 1.2rem;
-  }
-
-  .sleep-aggregate-chart[data-theme="cadence"] {
-    border-inline-width: 3px;
-  }
-
-  .sleep-aggregate-chart[data-theme="archive"] {
-    border-width: 3px;
-    border-radius: 0;
-  }
-
-  .sleep-aggregate-chart[data-theme="grapher"] {
-    border-radius: 2px;
-    border-bottom-width: 3px;
-  }
-
-  .chart-header,
-  .chart-header h2,
-  .chart-header p {
-    margin: 0;
-  }
-
-  .chart-header {
-    display: flex;
-    align-items: start;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .eyebrow,
   .chart-label {
+    margin: 0 0 var(--space-1);
     color: var(--accent);
-    font-size: 0.66rem;
-    font-weight: 750;
-    letter-spacing: 0.12em;
+    font-size: var(--type-caption);
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-  }
-
-  .eyebrow {
-    margin-bottom: 0.35rem !important;
-  }
-
-  .chart-header h2 {
-    font-size: clamp(1.25rem, 2.5vw, 1.8rem);
-  }
-
-  .description,
-  .coverage {
-    color: var(--text-muted);
-    font-size: 0.78rem;
-    line-height: 1.5;
-  }
-
-  .coverage {
-    white-space: nowrap;
   }
 
   .chart-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-  }
-
-  .chart-label {
-    margin: 0 0 0.25rem;
-  }
-
-  .table-scroll {
-    max-height: 17rem;
-    overflow: auto;
-    border-top: 1px solid var(--border);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.76rem;
-  }
-
-  caption {
-    padding: 0.7rem 0 0.45rem;
-    color: var(--text-muted);
-    text-align: left;
-  }
-
-  th,
-  td {
-    padding: 0.5rem 0.4rem;
-    border-bottom: 1px solid var(--border);
-    text-align: right;
-    white-space: nowrap;
-  }
-
-  th:first-child,
-  td:first-child {
-    text-align: left;
-  }
-
-  th {
-    color: var(--text-muted);
-    font-size: 0.64rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    gap: var(--gap-grid);
   }
 
   @media (max-width: 768px) {
     .chart-grid {
       grid-template-columns: 1fr;
-    }
-
-    .chart-header {
-      display: grid;
-      gap: 0.25rem;
     }
   }
 </style>

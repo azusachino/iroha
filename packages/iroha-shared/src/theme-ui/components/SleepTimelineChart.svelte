@@ -9,6 +9,8 @@
   import type { ECharts } from "echarts/core";
   import type { SleepSegment } from "../../domain/sleep";
   import { sleepStageColor, sleepStageLabel } from "../../domain/sleep-stages";
+  import EmptyNote from "../../components/EmptyNote.svelte";
+  import MetricTable from "../../components/MetricTable.svelte";
   import { resolveColor } from "./chart-color";
 
   use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
@@ -17,9 +19,10 @@
     segments,
     sessionKind = "main",
   }: { segments: SleepSegment[]; sessionKind?: "main" | "nap" } = $props();
-  let container: HTMLDivElement;
+  let container = $state<HTMLDivElement>();
   let chart: ECharts | undefined;
 
+  const TIMELINE_MIN_SEGMENTS = 2;
   const sessionLabel = $derived(sessionKind === "nap" ? "Nap" : "Main sleep");
 
   function duration(segment: SleepSegment): number {
@@ -60,7 +63,7 @@
   });
 
   function render() {
-    if (!chart) return;
+    if (!chart || !container) return;
     const styles = getComputedStyle(container);
     const total = segments.reduce((sum, segment) => sum + duration(segment), 0);
     const reducedMotion = window.matchMedia(
@@ -115,6 +118,7 @@
   }
 
   onMount(() => {
+    if (!container) return;
     chart = init(container, undefined, { renderer: "canvas" });
     attachChartInstance(container, chart);
     render();
@@ -136,47 +140,59 @@
   });
 </script>
 
-<div
-  class="timeline-chart"
-  bind:this={container}
-  role="img"
-  aria-label={`Interactive ${sessionLabel.toLowerCase()} sleep stage timeline. Exact segments are available in the sleep data table.`}
-></div>
-<ul class="timeline-legend">
-  {#each legend as item (item.stage)}
-    <li>
-      <span class="dot" style={`background:${item.color}`}></span>
-      <span class="lbl">{item.label}</span>
-      <span class="val">{formatDuration(item.seconds)}</span>
-    </li>
-  {/each}
-</ul>
-<details class="chart-data">
-  <summary>View sleep segments</summary>
-  <div class="table-wrap">
-    <table>
-      <caption>{sessionLabel} stage segments</caption>
-      <thead>
-        <tr>
-          <th scope="col">Stage</th>
-          <th scope="col">Started</th>
-          <th scope="col">Ended</th>
-          <th scope="col">Duration</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each segments as segment}
+{#if segments.length === 0}
+  <EmptyNote text="No sleep stage segments recorded for this session." />
+{:else if segments.length < TIMELINE_MIN_SEGMENTS}
+  <EmptyNote
+    text={`Single stage recorded: ${sleepStageLabel(segments[0].stage)} (${formatDuration(duration(segments[0]))}).`}
+  />
+{:else}
+  <div
+    class="timeline-chart"
+    bind:this={container}
+    role="img"
+    aria-label={`Interactive ${sessionLabel.toLowerCase()} sleep stage timeline. Exact segments are available in the sleep data table.`}
+  ></div>
+  <ul class="timeline-legend">
+    {#each legend as item (item.stage)}
+      <li>
+        <span class="dot" style={`background:${item.color}`}></span>
+        <span class="lbl">{item.label}</span>
+        <span class="val">{formatDuration(item.seconds)}</span>
+      </li>
+    {/each}
+  </ul>
+  <details class="chart-data">
+    <summary>View sleep segments</summary>
+    <div class="table-wrap">
+      <MetricTable
+        ariaLabel={`${sessionLabel} stage segments`}
+        caption={`${sessionLabel} stage segments`}
+        minWidth="38rem"
+        dense
+      >
+        <thead>
           <tr>
-            <th scope="row">{sleepStageLabel(segment.stage)}</th>
-            <td>{segment.started_at}</td>
-            <td>{segment.ended_at}</td>
-            <td>{formatDuration(duration(segment))}</td>
+            <th scope="col">Stage</th>
+            <th scope="col">Started</th>
+            <th scope="col">Ended</th>
+            <th scope="col">Duration</th>
           </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
-</details>
+        </thead>
+        <tbody>
+          {#each segments as segment}
+            <tr>
+              <th scope="row">{sleepStageLabel(segment.stage)}</th>
+              <td>{segment.started_at}</td>
+              <td>{segment.ended_at}</td>
+              <td>{formatDuration(duration(segment))}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </MetricTable>
+    </div>
+  </details>
+{/if}
 
 <style>
   .timeline-chart {
@@ -215,26 +231,12 @@
   }
   .chart-data summary {
     width: fit-content;
+    min-height: var(--control-target-min);
+    display: inline-flex;
+    align-items: center;
     cursor: pointer;
   }
   .table-wrap {
     margin-top: 0.5rem;
-    overflow-x: auto;
-  }
-  table {
-    width: 100%;
-    min-width: 38rem;
-    border-collapse: collapse;
-    color: var(--text);
-  }
-  th,
-  td {
-    padding: 0.35rem 0.5rem;
-    border-bottom: 1px solid var(--border);
-    text-align: left;
-  }
-  thead th {
-    color: var(--text-muted);
-    font-weight: 650;
   }
 </style>

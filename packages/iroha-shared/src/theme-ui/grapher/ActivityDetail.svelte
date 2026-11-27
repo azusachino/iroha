@@ -6,6 +6,12 @@
     RoutePoint,
     SamplingPoint,
   } from "../../domain/activity";
+  import FocalBand, {
+    type FocalPrimaryMetric,
+    type FocalSecondaryItem,
+  } from "../../components/FocalBand.svelte";
+  import MetricTable from "../../components/MetricTable.svelte";
+  import PanelFrame from "../../components/PanelFrame.svelte";
   import SourceBadge from "../../components/SourceBadge.svelte";
   import LapChart from "../components/LapChart.svelte";
   import {
@@ -42,6 +48,67 @@
 
   const swimming = $derived(isSwimming(activity.sport_type));
   const distance = $derived(activity.distance_m ?? derivedDistanceM);
+  const paceValue = $derived(
+    swimming
+      ? formatSwimmingPace(distance, activity.duration_s)
+      : formatPace(activity.avg_pace_s_per_km),
+  );
+
+  const primaryMetric = $derived<FocalPrimaryMetric>(
+    distance != null
+      ? {
+          label: "Distance",
+          value: formatDistance(distance),
+          detail:
+            activity.duration_s != null
+              ? `${formatDuration(activity.duration_s)} total duration`
+              : undefined,
+        }
+      : {
+          label: "Duration",
+          value: formatDuration(activity.duration_s),
+        },
+  );
+
+  const secondaryItems = $derived.by<FocalSecondaryItem[]>(() => {
+    const items: FocalSecondaryItem[] = [];
+    if (distance != null && activity.duration_s != null) {
+      items.push({
+        label: "Duration",
+        value: formatDuration(activity.duration_s),
+      });
+    }
+    if (paceValue !== "—") {
+      items.push({
+        label: swimming ? "Pace / 100m" : "Average pace",
+        value: paceValue,
+      });
+    }
+    if (activity.avg_hr != null) {
+      items.push({
+        label: "Average HR",
+        value: formatHr(activity.avg_hr),
+      });
+    }
+    if (
+      items.length < 3 &&
+      activity.elevation_gain_m != null &&
+      activity.elevation_gain_m > 0
+    ) {
+      items.push({
+        label: "Elevation",
+        value: formatDistance(activity.elevation_gain_m),
+      });
+    }
+    return items;
+  });
+
+  const emptyNote = $derived.by(() => {
+    const missing: string[] = [];
+    if (activity.avg_hr == null) missing.push("Average HR unavailable");
+    if (activity.elevation_gain_m == null) missing.push("Elevation unavailable");
+    return missing.length ? missing.join(" · ") : undefined;
+  });
 </script>
 
 <article
@@ -55,7 +122,7 @@
       <h1 id="grapher-detail-title">
         {activity.title || sportLabel(activity.sport_type)}
       </h1>
-      <p>
+      <p class="detail-meta">
         {formatDate(activity.started_at, activity.timezone)} · {sportLabel(
           activity.sport_type,
         )}
@@ -63,57 +130,57 @@
     </div>
     <SourceBadge source={activity.source_kind} />
   </header>
-  <div class="metrics">
-    <div><span>Distance</span><strong>{formatDistance(distance)}</strong></div>
-    <div>
-      <span>Duration</span><strong>{formatDuration(activity.duration_s)}</strong
-      >
-    </div>
-    <div>
-      <span>{swimming ? "Pace / 100m" : "Average pace"}</span><strong
-        >{swimming
-          ? formatSwimmingPace(distance, activity.duration_s)
-          : formatPace(activity.avg_pace_s_per_km)}</strong
-      >
-    </div>
-    <div>
-      <span>Average HR</span><strong>{formatHr(activity.avg_hr)}</strong>
-    </div>
-    <div>
-      <span>Elevation</span><strong
-        >{formatDistance(activity.elevation_gain_m)}</strong
-      >
-    </div>
-  </div>
+
+  <FocalBand
+    heading="Session summary"
+    primary={primaryMetric}
+    secondary={secondaryItems}
+    empty={emptyNote}
+  />
+
   {@render children?.()}
-  {#if laps.length}<section class="chart-panel">
-      <header>
-        <p class="kicker">
-          {lapsDerived ? "Route-derived intervals" : "Measured intervals"}
-        </p>
-        <h2>Lap chart</h2>
-      </header>
+
+  {#if laps.length}
+    <PanelFrame title="Lap chart">
+      {#snippet meta()}
+        <span>{lapsDerived ? "Route-derived intervals" : "Measured intervals"}</span>
+      {/snippet}
       <LapChart {laps} {swimming} />
-      <div class="lap-table">
-        <table>
-          <thead
-            ><tr><th>Lap</th><th>Distance</th><th>Duration</th><th>Pace</th></tr
-            ></thead
-          ><tbody
-            >{#each laps as lap (lap.id)}<tr
-                ><td>{lap.lap_no}</td><td>{formatDistance(lap.distance_m)}</td
-                ><td>{formatDuration(lap.duration_s)}</td><td
-                  >{formatPace(lap.avg_pace_s_per_km)}</td
-                ></tr
-              >{/each}</tbody
-          >
-        </table>
-      </div>
-    </section>{/if}
-  <section class="evidence-grid">
-    <div>
-      <p class="kicker">Source measurements</p>
-      <h2>Exact record</h2>
+      <MetricTable
+        ariaLabel="Activity laps"
+        caption="Recorded lap splits"
+        minWidth="28rem"
+        nowrap
+        numericAlign
+        dense
+      >
+        <thead>
+          <tr>
+            <th>Lap</th>
+            <th>Distance</th>
+            <th>Duration</th>
+            <th>Pace</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each laps as lap (lap.id)}
+            <tr>
+              <td>{lap.lap_no}</td>
+              <td>{formatDistance(lap.distance_m)}</td>
+              <td>{formatDuration(lap.duration_s)}</td>
+              <td>{formatPace(lap.avg_pace_s_per_km)}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </MetricTable>
+    </PanelFrame>
+  {/if}
+
+  <div class="evidence-grid">
+    <PanelFrame title="Exact record">
+      {#snippet meta()}
+        <span>Source measurements</span>
+      {/snippet}
       <dl>
         <div>
           <dt>Samples</dt>
@@ -132,144 +199,83 @@
           <dd>{routeReady ? route.length : "—"}</dd>
         </div>
       </dl>
-    </div>
-  </section>
+    </PanelFrame>
+  </div>
 </article>
 
 <style>
   .grapher-detail {
     --accent: var(--activity-accent);
     display: grid;
-    gap: 1rem;
-    font-family: var(--font-mono);
+    gap: var(--gap-section);
+    min-width: 0;
   }
+
+  .grapher-detail > * {
+    min-width: 0;
+  }
+
   h1,
-  h2,
   p {
     margin: 0;
   }
+
   h1 {
-    max-width: 16ch;
-    font-family: var(--font-sans);
-    font-size: var(--grapher-utility-title-size);
-    letter-spacing: -0.05em;
-    line-height: 1;
+    max-width: 18ch;
+    font-size: var(--grapher-utility-title-size, var(--type-display));
+    letter-spacing: -0.03em;
+    line-height: 1.1;
   }
-  h2 {
-    font-family: var(--font-sans);
-    font-size: 1.2rem;
-  }
+
   .kicker {
-    margin-bottom: 0.45rem;
+    margin-bottom: var(--space-1);
     color: var(--accent);
-    font-size: 0.64rem;
-    letter-spacing: 0.12em;
+    font-size: var(--type-caption);
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
+
   .detail-header {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--space-4);
     align-items: end;
     border-bottom: 1px solid var(--border);
-    padding-bottom: 1.5rem;
+    padding-bottom: var(--space-5);
   }
-  .detail-header p:last-child {
+
+  .detail-meta {
+    margin-top: var(--space-1);
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-label);
   }
-  .metrics {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.65rem;
-  }
-  .metrics div {
-    display: grid;
-    gap: 0.35rem;
-    min-width: 0;
-    padding: 0.85rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 14px);
-    background: var(--tile-surface, var(--surface));
-    box-shadow: var(--tile-shadow);
-  }
-  .metrics span,
-  dt {
-    color: var(--text-muted);
-    font-size: 0.64rem;
-    text-transform: uppercase;
-  }
-  .metrics strong {
-    font-family: var(--font-sans);
-    font-size: 1.1rem;
-    letter-spacing: -0.05em;
-  }
-  .chart-panel,
-  .evidence-grid > div {
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 14px);
-    background: var(--tile-surface, var(--surface));
-    box-shadow: var(--tile-shadow);
-    padding: 1rem;
-  }
-  .chart-panel {
-    border-top: 4px solid var(--accent);
-  }
-  .chart-panel > header {
-    margin-bottom: 0.5rem;
-  }
-  .lap-table {
-    overflow-x: auto;
-    border-top: 1px solid var(--border);
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.72rem;
-  }
-  th,
-  td {
-    padding: 0.65rem 0.35rem;
-    border-bottom: 1px solid var(--border);
-    text-align: left;
-    white-space: nowrap;
-  }
-  th {
-    color: var(--text-muted);
-    font-size: 0.62rem;
-    text-transform: uppercase;
-  }
+
   .evidence-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--gap-grid);
   }
-  .evidence-grid > * {
-    min-width: 0;
+
+  dt {
+    color: var(--text-muted);
+    font-size: var(--type-caption);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
+
   dl {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
-    margin: 1rem 0 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    margin: 0;
   }
+
   dd {
-    margin: 0.25rem 0 0;
-    font-size: 0.85rem;
-  }
-  @media (max-width: 768px) {
-    .detail-header,
-    .evidence-grid {
-      display: grid;
-    }
-    .metrics {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .metrics div:nth-child(even) {
-      border-right: 0;
-    }
-    .metrics div:nth-child(n + 3) {
-      border-top: 1px solid var(--border);
-    }
+    margin: var(--space-1) 0 0;
+    font-size: var(--type-body);
+    font-variant-numeric: tabular-nums;
   }
 </style>
