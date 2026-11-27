@@ -431,7 +431,7 @@
 
   .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
     gap: 1rem;
   }
@@ -442,22 +442,6 @@
 
   .heatmap-panel {
     min-width: 0;
-  }
-
-  .chart-panel {
-    grid-column: span 8;
-  }
-
-  .sport-panel {
-    grid-column: span 4;
-  }
-
-  .table-panel {
-    grid-column: span 7;
-  }
-
-  .route-panel {
-    grid-column: span 5;
   }
 
   .empty-note,
@@ -557,14 +541,21 @@
   }
 
   .activity-link {
+    display: block;
+    max-width: 16rem;
+    min-width: var(--control-target-min);
     min-height: var(--control-target-min);
+    overflow: hidden;
     padding: 0;
     border: 0;
     background: transparent;
     color: var(--text);
     font: inherit;
     font-weight: 700;
+    line-height: var(--control-target-min);
     text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -611,15 +602,6 @@
   footer {
     border-top: 1px solid var(--border);
     padding-top: 0.75rem;
-  }
-
-  @media (max-width: 768px) {
-    .chart-panel,
-    .sport-panel,
-    .table-panel,
-    .route-panel {
-      grid-column: 1 / -1;
-    }
   }
 
   @media (max-width: 640px) {
