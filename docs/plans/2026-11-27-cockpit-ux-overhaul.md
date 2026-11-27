@@ -97,7 +97,7 @@ Execute in order. Every slice stays inside `packages/iroha-shared/` and `apps/ir
 ### Slice 1: Token layer
 
 - **Owns**: `apps/iroha-web/src/routes/app.css`, `packages/iroha-shared/src/theme/themes.css`, `packages/iroha-shared/src/theme/palette.css` (only if a contrast check requires adjusting a light shade).
-- **Changes**: Apply the accepted tinted-canvas light tokens (`#eef4f4` canvas, `#ffffff` surface, `#f4f8f8` surface-2, `#d7e3e2` border, `#12201f`/`#4b5f5e` text, `#0f766e`/`#be123c` accents, new `--tile-shadow`). Reconcile light `--accent` to `#0f766e` across `app.css`, `themes.css`, and `palette.css`. Add `--type-hero`, `--space-5`, `--space-10`, layout rhythm aliases, `--radius-*`, `--control-height*`, `--tile-rim`, and `--tile-shadow-hover`. Register any new color token read by charts via `@property` (`syntax: "<color>"`).
+- **Changes**: Apply the accepted tinted-canvas light tokens (`#eef4f4` canvas, `#ffffff` surface, `#f4f8f8` surface-2, `#d7e3e2` border, `#12201f`/`#4b5f5e` text, `#076660`/`#be123c` accents, new `--tile-shadow`). Reconcile light `--accent` to `#076660` across `app.css`, `themes.css`, and `palette.css`, because `#076660` clears the `5.04:1` focus floor at `6.13:1` on `#eef4f4`, where `#0f766e` measures `4.92:1`. Add `--type-hero`, `--space-5`, `--space-10`, layout rhythm aliases, `--radius-*`, `--control-height*`, `--tile-rim`, and `--tile-shadow-hover`. Register any new color token read by charts via `@property` (`syntax: "<color>"`).
 - **Moves**: **flat and grey**, **inconsistent**.
 - **Done when**: `make theme-boundary-check motion-tokens-check responsive-check web-fmt-check web-check`
 
@@ -167,5 +167,5 @@ Tracked against issue [#236](https://github.com/azusachino/iroha/issues/236):
 - **Dense screens fighting the `#eef4f4` tint** — enforce one focal metric per screen, `--gap-section`/`--pad-card` spacing, and clean `#ffffff` surfaces without per-tile radial glows.
 - **Theme-boundary violations from fixing a route in `apps/iroha-web/`** — implement all visual changes in `packages/iroha-shared/` and run `make theme-boundary-check` in every slice.
 - **Chart colour floors in light mode** — charts read CSS variables via `getComputedStyle`, so register any new color token with `@property` (`syntax: "<color>"`) in `palette.css` to ensure concrete resolution, and verify light series contrast on `#ffffff`.
-- **Split light-mode `--accent` definitions (`#076660` vs `#0f766e`)** — unify `app.css`, `themes.css`, and `palette.css` on `#0f766e` in Slice 1 so focus rings, active nav, and charts stay consistent.
+- **Split light-mode `--accent` definitions (`#076660` vs `#0f766e`)** — unify `app.css`, `themes.css`, and `palette.css` on `#076660` (`6.13:1` on `#eef4f4`, clearing the `5.04:1` focus floor where `#0f766e` measures `4.92:1`) in Slice 1 so focus rings, active nav, and charts stay consistent. A future slice must not "correct" it back to `#0f766e` without changing the floor first.
 - **Regressing loading or period-scope contracts during layout edits** — keep `createAsyncResource` / `LoadingBoundary` and `PeriodSelector` wiring untouched and verify with `make web-test` and `make e2e`.
