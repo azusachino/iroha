@@ -34,7 +34,14 @@
 
   const NIGHT_CHART_MIN_POINTS = 3;
   const chartSessions = $derived(sessions.toReversed());
+  const summaryHeadingId = $props.id();
   let recordsPanel = $state<HTMLElement>();
+
+  const hasRecordedNights = $derived(
+    (sleepSummary?.session_count ?? 0) > 0 ||
+      averageAsleep != null ||
+      sessions.length > 0,
+  );
 
   const primaryMetric = $derived<FocalPrimaryMetric>({
     label: "Average main sleep",
@@ -126,13 +133,29 @@
     context="Recovery and sleep sessions"
   />
 
-  <FocalBand
-    heading="Sleep summary"
-    controls={children}
-    primary={primaryMetric}
-    secondary={secondaryItems}
-    empty={emptyNotes.length ? emptyNotes.join(" · ") : undefined}
-  />
+  {#if hasRecordedNights}
+    <FocalBand
+      heading="Sleep summary"
+      controls={children}
+      primary={primaryMetric}
+      secondary={secondaryItems}
+      empty={emptyNotes.length ? emptyNotes.join(" · ") : undefined}
+    />
+  {:else}
+    <section class="focal-band" aria-labelledby={summaryHeadingId}>
+      <div class="focal-header">
+        <h2 id={summaryHeadingId} class="focal-heading">Sleep summary</h2>
+        {#if children}
+          <div class="focal-controls">{@render children()}</div>
+        {/if}
+      </div>
+      <EmptyNote
+        text={emptyNotes.length
+          ? emptyNotes.join(" · ")
+          : "No sleep sessions recorded"}
+      />
+    </section>
+  {/if}
 
   {#if rollupBuckets.length}
     <SleepAggregateChart
@@ -175,9 +198,7 @@
   >
     <PanelFrame title="Night by night">
       {#snippet meta()}
-        <span>
-          {rollupBuckets.length ? "Recent loaded records" : "Imported values"}
-        </span>
+        {#if recordsScope}<span>{recordsScope}</span>{/if}
       {/snippet}
 
       {#if sessionsError && onRetrySessions}
@@ -267,6 +288,36 @@
 
   .grapher-sleep > * {
     min-width: 0;
+  }
+
+  .focal-band {
+    display: grid;
+    gap: var(--space-3);
+    margin-bottom: var(--gap-section);
+  }
+
+  .focal-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .focal-heading {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--type-title-small);
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .focal-controls {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
   }
 
   .session-table-region {

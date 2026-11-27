@@ -131,13 +131,15 @@
     !!activitySeries &&
       !activitySeriesError &&
       movementPeriods.length > 0 &&
-      observedMovementRows.length > 0 &&
       observedMovementRows.length < MOVEMENT_CHART_MIN_POINTS,
   );
 
   const shortMovementSummary = $derived.by(() => {
     const grain = activitySeries?.period.grain ?? "period";
     const chronological = observedMovementRows.toReversed();
+    if (chronological.length === 0) {
+      return `No ${grain}s observed in this scope.`;
+    }
     if (chronological.length === 1) {
       const only = chronological[0];
       return `Single ${grain} observed: ${formatSeriesPeriod(only.period)} · ${formatDistance(only.distance_m)} · ${formatDuration(only.duration_s)}.`;
@@ -306,34 +308,36 @@
 
       <EmptyNote text={shortMovementSummary} />
 
-      <MetricTable
-        ariaLabel="Exact movement series"
-        scrollLabel="Exact movement series scroll area"
-        caption="Exact movement series"
-        minWidth="36rem"
-        nowrap
-        numericAlign
-        dense
-      >
-        <thead>
-          <tr>
-            <th>Period</th>
-            <th>Distance</th>
-            <th>Duration</th>
-            <th>Observed days</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each movementRows as row (row.period)}
+      {#if observedMovementRows.length > 0}
+        <MetricTable
+          ariaLabel="Exact movement series"
+          scrollLabel="Exact movement series scroll area"
+          caption="Exact movement series"
+          minWidth="36rem"
+          nowrap
+          numericAlign
+          dense
+        >
+          <thead>
             <tr>
-              <td>{formatSeriesPeriod(row.period)}</td>
-              <td>{formatDistance(row.distance_m)}</td>
-              <td>{formatDuration(row.duration_s)}</td>
-              <td>{row.observedDays || "—"}</td>
+              <th>Period</th>
+              <th>Distance</th>
+              <th>Duration</th>
+              <th>Observed days</th>
             </tr>
-          {/each}
-        </tbody>
-      </MetricTable>
+          </thead>
+          <tbody>
+            {#each movementRows as row (row.period)}
+              <tr>
+                <td>{formatSeriesPeriod(row.period)}</td>
+                <td>{formatDistance(row.distance_m)}</td>
+                <td>{formatDuration(row.duration_s)}</td>
+                <td>{row.observedDays || "—"}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </MetricTable>
+      {/if}
     </PanelFrame>
   {:else}
     <ActivityMetricChart
