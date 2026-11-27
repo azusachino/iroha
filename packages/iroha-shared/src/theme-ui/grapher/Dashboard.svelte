@@ -433,11 +433,22 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
-    gap: 1rem;
+    gap: var(--gap-grid);
   }
 
   .dashboard-grid > * {
     min-width: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .dashboard-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .table-panel,
+    .route-panel {
+      grid-column: 1 / -1;
+    }
   }
 
   .heatmap-panel {
