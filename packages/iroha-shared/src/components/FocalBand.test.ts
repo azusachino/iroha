@@ -55,7 +55,7 @@ describe("FocalBand", () => {
     });
 
     expect(body).toContain("3 currencies empty: USD, EUR, GBP");
-    expect(body).toContain("focal-empty-text");
+    expect(body).toContain("empty-note");
   });
 
   it("names the region for a screen reader via aria-labelledby", () => {

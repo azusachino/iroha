@@ -1,4 +1,6 @@
 <script lang="ts">
+  import EmptyNote from "@iroha/shared/components/EmptyNote.svelte";
+
   let {
     activityCount,
     nightCount,
@@ -53,9 +55,7 @@
     </div>
   {/if}
   {#if emptyEntries.length > 0}
-    <p class="totals-empty">
-      No records yet for {formatEmptyList(emptyEntries)}.
-    </p>
+    <EmptyNote text={`No records yet for ${formatEmptyList(emptyEntries)}.`} />
   {/if}
 </section>
 
@@ -93,11 +93,6 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
     gap: 0.65rem;
   }
-  .totals-empty {
-    margin: 0;
-    color: var(--text-muted);
-    font-size: var(--type-caption);
-  }
   a {
     display: grid;
     gap: 0.2rem;
@@ -107,13 +102,13 @@
     color: inherit;
     text-decoration: none;
   }
-  a:hover,
-  a:focus-visible {
+  a:hover {
     border-color: var(--accent);
   }
   a:focus-visible {
+    border-color: var(--accent);
     outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
+    outline-offset: 3px;
   }
   strong {
     color: var(--text);

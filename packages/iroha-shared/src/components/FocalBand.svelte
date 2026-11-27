@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import EmptyNote from "./EmptyNote.svelte";
 
   export interface FocalPrimaryMetric {
     label: string;
@@ -106,7 +107,7 @@
   {#if empty}
     <div class="focal-empty">
       {#if typeof empty === "string"}
-        <p class="focal-empty-text">{empty}</p>
+        <EmptyNote text={empty} />
       {:else}
         {@render empty()}
       {/if}
@@ -277,11 +278,5 @@
 
   .focal-secondary-link:hover {
     text-decoration: underline;
-  }
-
-  .focal-empty-text {
-    margin: 0;
-    color: var(--text-muted);
-    font-size: var(--type-label);
   }
 </style>

@@ -94,8 +94,8 @@
     if (summary.totals.activity_count > 0) {
       items.push({
         label: "Movement",
-        value: formatMetricValue(summary.totals.activity_count, "count"),
-        detail: `${formatHumanDuration(summary.totals.moving_time_s || summary.totals.duration_s)} · ${streak} streak`,
+        value: streak,
+        detail: "Active streak",
         href: "/motion",
         linkLabel: "Explore movement →",
       });
@@ -105,7 +105,7 @@
       items.push({
         label: "Main sleep",
         value: formatHumanDuration(sleepSummary.averageAsleepS),
-        detail: `${sleepSummary.nightCount} ${sleepSummary.nightCount === 1 ? "night" : "nights"}`,
+        detail: "Average per night",
         href: "/night",
         linkLabel: "Explore sleep →",
       });
@@ -118,8 +118,11 @@
     ) {
       items.push({
         label: "Library",
-        value: formatMetricValue(mediaAggregates?.totals.item_count ?? 0, "count"),
-        detail: "Tracked items",
+        value: formatMetricValue(
+          mediaAggregates?.totals.this_year_completed ?? 0,
+          "count",
+        ),
+        detail: "Completed this year",
         href: "/library",
         linkLabel: "Explore library →",
       });

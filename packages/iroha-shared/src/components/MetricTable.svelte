@@ -8,6 +8,7 @@
     rowHeader = "Period",
     caption,
     ariaLabel,
+    scrollLabel,
     minWidth,
     nowrap = false,
     numericAlign = false,
@@ -20,6 +21,7 @@
     rowHeader?: string;
     caption?: string;
     ariaLabel?: string;
+    scrollLabel?: string;
     minWidth?: string;
     nowrap?: boolean;
     numericAlign?: boolean;
@@ -43,10 +45,16 @@
     if (row.value > max) return `${min}–${max} (above range)`;
     return `${min}–${max} (in range)`;
   }
+  const wrapLabel = $derived(scrollLabel ?? ariaLabel ?? caption ?? "Exact values");
 </script>
 
 {#if children}
-  <div class="metric-table-wrap">
+  <div
+    class="metric-table-wrap"
+    role="region"
+    tabindex="0"
+    aria-label={wrapLabel}
+  >
     <table
       aria-label={ariaLabel}
       class:nowrap
@@ -65,7 +73,12 @@
     {@render empty()}
   {/if}
 {:else}
-  <div class="metric-table-wrap">
+  <div
+    class="metric-table-wrap"
+    role="region"
+    tabindex="0"
+    aria-label={wrapLabel}
+  >
     <table
       aria-label={ariaLabel}
       class:nowrap
@@ -107,7 +120,8 @@
 {/if}
 
 <style>
-  .metric-table-wrap { overflow-x: auto; }
+  .metric-table-wrap { overflow-x: auto; border-radius: var(--radius-sm, 4px); }
+  .metric-table-wrap:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
   table {
     width: 100%;
     min-width: var(--metric-table-min-width, 0);

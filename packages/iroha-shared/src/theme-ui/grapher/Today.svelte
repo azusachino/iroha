@@ -103,6 +103,14 @@
       );
     }
 
+    if (dRow?.steps == null) {
+      notes.push(
+        unavailableSections.includes("daily")
+          ? "Steps unavailable for this day."
+          : "No steps recorded for this day.",
+      );
+    }
+
     if (!mainNight) {
       notes.push(
         unavailableSections.includes("sleep")
@@ -140,24 +148,22 @@
         {#if rings.length > 0}
           <RingGauge {rings} />
         {/if}
-        <div class="focal-steps">
-          <div class="focal-steps-label">Steps</div>
-          <div class="focal-steps-metric">
-            <span class="focal-steps-value">
-              {dRow?.steps != null
-                ? formatMetricValue(dRow.steps, "count")
-                : "—"}
-            </span>
-            {#if dRow?.steps != null}
+        {#if dRow?.steps != null}
+          <div class="focal-steps">
+            <div class="focal-steps-label">Steps</div>
+            <div class="focal-steps-metric">
+              <span class="focal-steps-value">
+                {formatMetricValue(dRow.steps, "count")}
+              </span>
               <span class="focal-steps-unit">steps</span>
+            </div>
+            {#if dRow.distance_km != null && dRow.distance_km > 0}
+              <p class="focal-steps-detail">
+                {formatDistance(dRow.distance_km * 1000)}
+              </p>
             {/if}
           </div>
-          {#if dRow?.distance_km != null && dRow.distance_km > 0}
-            <p class="focal-steps-detail">
-              {formatDistance(dRow.distance_km * 1000)}
-            </p>
-          {/if}
-        </div>
+        {/if}
       </div>
     {/snippet}
   </FocalBand>
