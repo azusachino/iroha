@@ -1,20 +1,26 @@
 <script lang="ts">
   import type { TodayThemeProps } from "../../view-contracts/today-view";
+  import type { ActivityRing } from "../../view-contracts/daily-view";
   import {
     formatDistance,
     formatDateOnly,
     formatDuration,
     formatHr,
+    formatMetricValue,
     formatPace,
   } from "../../format/format";
   import { sportColor, sportLabel } from "../../domain/sport";
   import { mediaEventVerb } from "../../domain/media";
-  import AnimatedNumber from "../../components/AnimatedNumber.svelte";
+  import FocalBand, {
+    type FocalSecondaryItem,
+  } from "../../components/FocalBand.svelte";
+  import MetricTable from "../../components/MetricTable.svelte";
+  import PanelFrame from "../../components/PanelFrame.svelte";
+  import RouteHeader from "../../components/RouteHeader.svelte";
+  import RingGauge from "../components/RingGauge.svelte";
   import MediaUpdateList from "../components/MediaUpdateList.svelte";
 
   let {
-    dayLabel,
-    day,
     unavailableSections = [],
     dRow,
     mainNight,
@@ -26,130 +32,191 @@
     onOpenMedia,
   }: TodayThemeProps = $props();
 
-  const points = $derived([
-    {
-      label: "Move",
-      value: dRow?.ring?.move_kcal ?? null,
-      unit: "kcal",
-      color: "var(--ring-move)",
-    },
-    {
-      label: "Exercise",
-      value: dRow?.ring?.exercise_min ?? null,
-      unit: "min",
-      color: "var(--ring-exercise)",
-    },
-    {
-      label: "Steps",
-      value: dRow?.steps ?? null,
-      unit: "steps",
-      color: "var(--ring-stand)",
-    },
-  ]);
-
-  const maxPoint = $derived(
-    Math.max(1, ...points.map((point) => point.value ?? 0)),
+  const rings = $derived<ActivityRing[]>(
+    dRow?.ring
+      ? [
+          {
+            label: "Move",
+            value: dRow.ring.move_kcal,
+            goal: dRow.ring.move_goal_kcal,
+            unit: "kcal",
+            color: "var(--ring-move)",
+          },
+          {
+            label: "Exercise",
+            value: dRow.ring.exercise_min,
+            goal: dRow.ring.exercise_goal_min,
+            unit: "min",
+            color: "var(--ring-exercise)",
+          },
+          {
+            label: "Stand",
+            value: dRow.ring.stand_hours,
+            goal: dRow.ring.stand_goal_hours,
+            unit: "h",
+            color: "var(--ring-stand)",
+          },
+        ]
+      : [],
   );
+
+  const hasMedia = $derived(mediaEvents.length > 0 || mediaUpdates.length > 0);
+
+  const secondaryItems = $derived.by<FocalSecondaryItem[]>(() => {
+    const items: FocalSecondaryItem[] = [];
+
+    if (mainNight) {
+      items.push({
+        label: "Sleep",
+        value: formatDuration(mainNight.asleep_s),
+        detail: `${Math.round(mainNight.efficiency * 100)}% efficiency · ${formatDuration(mainNight.time_in_bed_s)} in bed`,
+      });
+    }
+
+    if (acts.length > 0) {
+      items.push({
+        label: "Sessions",
+        value: `${acts.length} ${acts.length === 1 ? "session" : "sessions"}`,
+      });
+    }
+
+    if (hasMedia) {
+      const totalMedia = mediaEvents.length + mediaUpdates.length;
+      items.push({
+        label: "Media",
+        value: `${totalMedia} ${totalMedia === 1 ? "record" : "records"}`,
+      });
+    }
+
+    if (items.length === 0 && dRow?.resting_hr != null) {
+      items.push({
+        label: "Resting HR",
+        value: formatHr(dRow.resting_hr),
+      });
+    }
+
+    return items;
+  });
+
+  const emptyNotes = $derived.by<string[]>(() => {
+    const notes: string[] = [];
+
+    if (!dRow?.ring) {
+      notes.push(
+        unavailableSections.includes("daily")
+          ? "Activity rings unavailable for this day."
+          : "No activity rings recorded for this day.",
+      );
+    }
+
+    if (!mainNight) {
+      notes.push(
+        unavailableSections.includes("sleep")
+          ? "Sleep session unavailable for this day."
+          : "No sleep session recorded for this day.",
+      );
+    }
+
+    if (!hasMedia) {
+      notes.push(
+        unavailableSections.includes("media")
+          ? "Media sessions unavailable for this day."
+          : "No exact media sessions recorded for this day.",
+      );
+    }
+
+    return notes;
+  });
 </script>
 
-<section
-  class="grapher-today"
-  data-theme={theme}
-  aria-labelledby="grapher-today-title"
->
-  <header class="grapher-intro">
-    <div>
-      <p class="grapher-kicker">Daily data explorer / {day}</p>
-      <h1 id="grapher-today-title">What did this day contain?</h1>
-      <p>
-        One imported day, rendered as comparable evidence rather than a score.
-      </p>
-    </div>
-  </header>
+<section class="grapher-today" data-theme={theme} aria-label="Today">
+  <RouteHeader
+    title="What did this day contain?"
+    context="One imported day, rendered as comparable evidence rather than a score."
+  />
 
-  <section class="plot-panel" aria-labelledby="activity-chart-title">
-    <div class="panel-heading">
-      <div>
-        <p class="grapher-kicker">Activity indicators</p>
-        <h2 id="activity-chart-title">Movement across the day</h2>
-      </div>
-      <span class="panel-note">Values preserve source units</span>
-    </div>
-    <div
-      class="plot"
-      role="img"
-      aria-label="Bar comparison of move calories, exercise minutes, and steps"
-    >
-      {#each points as point}
-        <div class="plot-column" style={`--metric-accent: ${point.color}`}>
-          <div class="plot-value">
-            <AnimatedNumber value={point.value} /> <small>{point.unit}</small>
-          </div>
-          <div class="plot-track">
-            <i
-              style={`height: ${Math.max(3, ((point.value ?? 0) / maxPoint) * 100)}%; background: ${point.color}`}
-            ></i>
-          </div>
-          <strong>{point.label}</strong>
-        </div>
-      {/each}
-    </div>
-  </section>
-
-  <section
-    class="plot-panel activity-panel"
-    aria-labelledby="activity-record-title"
+  <FocalBand
+    heading="Daily summary"
+    secondary={secondaryItems}
+    empty={emptyNotes.length ? emptyNotes.join(" · ") : undefined}
   >
-    <div class="panel-heading">
-      <div>
-        <p class="grapher-kicker">Activity record</p>
-        <h2 id="activity-record-title">Sessions</h2>
+    {#snippet primary()}
+      <div class="focal-rings">
+        {#if rings.length > 0}
+          <RingGauge {rings} />
+        {/if}
+        <div class="focal-steps">
+          <div class="focal-steps-label">Steps</div>
+          <div class="focal-steps-metric">
+            <span class="focal-steps-value">
+              {dRow?.steps != null
+                ? formatMetricValue(dRow.steps, "count")
+                : "—"}
+            </span>
+            {#if dRow?.steps != null}
+              <span class="focal-steps-unit">steps</span>
+            {/if}
+          </div>
+          {#if dRow?.distance_km != null && dRow.distance_km > 0}
+            <p class="focal-steps-detail">
+              {formatDistance(dRow.distance_km * 1000)}
+            </p>
+          {/if}
+        </div>
       </div>
-      <span class="panel-note"
-        >{unavailableSections.includes("activities")
+    {/snippet}
+  </FocalBand>
+
+  <PanelFrame title="Sessions">
+    {#snippet meta()}
+      <span>
+        {unavailableSections.includes("activities")
           ? "Sessions unavailable"
-          : `${acts.length} ${acts.length === 1 ? "session" : "sessions"}`}</span
-      >
-    </div>
+          : `${acts.length} ${acts.length === 1 ? "session" : "sessions"}`}
+      </span>
+    {/snippet}
     {#if acts.length}
-      <ul class="sessions">
-        {#each acts as activity (activity.id)}
-          <li style={`--sport: ${sportColor(activity.sport_type)}`}>
-            <button
-              type="button"
-              class="session"
-              onclick={() => onOpenActivity(activity.id)}
-            >
-              <span class="session-title">
-                <strong
-                  >{activity.title || sportLabel(activity.sport_type)}</strong
+      <MetricTable
+        ariaLabel="Sessions"
+        caption="Activity sessions recorded for this day"
+        minWidth="32rem"
+        nowrap
+        dense
+      >
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Sport</th>
+            <th>Distance</th>
+            <th>Duration</th>
+            <th>Pace</th>
+            <th>Avg HR</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each acts as activity (activity.id)}
+            <tr>
+              <td>
+                <button
+                  type="button"
+                  class="session-link"
+                  style={`--sport: ${sportColor(activity.sport_type)}`}
+                  onclick={() => onOpenActivity(activity.id)}
                 >
-                <small>{sportLabel(activity.sport_type)}</small>
-              </span>
-              <span class="session-stat">
-                <strong>{formatDistance(activity.distance_m)}</strong>
-                <small>distance</small>
-              </span>
-              <span class="session-stat">
-                <strong
-                  >{formatDuration(
-                    activity.duration_s ?? activity.moving_time_s,
-                  )}</strong
-                >
-                <small>duration</small>
-              </span>
-              <span class="session-stat">
-                <strong>{formatPace(activity.avg_pace_s_per_km)}</strong>
-                <small>pace</small>
-              </span>
-              <span class="session-stat">
-                <strong>{formatHr(activity.avg_hr)}</strong>
-                <small>avg HR</small>
-              </span>
-            </button>
-          </li>
-        {/each}
-      </ul>
+                  {activity.title || sportLabel(activity.sport_type)}
+                </button>
+              </td>
+              <td>{sportLabel(activity.sport_type)}</td>
+              <td>{formatDistance(activity.distance_m)}</td>
+              <td>
+                {formatDuration(activity.duration_s ?? activity.moving_time_s)}
+              </td>
+              <td>{formatPace(activity.avg_pace_s_per_km)}</td>
+              <td>{formatHr(activity.avg_hr)}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </MetricTable>
     {:else}
       <p class="muted">
         {unavailableSections.includes("activities")
@@ -157,41 +224,23 @@
           : "No activity sessions recorded for this day."}
       </p>
     {/if}
-  </section>
+  </PanelFrame>
 
-  <div class="data-grid">
-    <section class="data-panel" aria-labelledby="recovery-title">
-      <p class="grapher-kicker">Recovery indicator</p>
-      <h2 id="recovery-title">Sleep efficiency</h2>
-      {#if mainNight}
-        <strong class="large-value"
-          ><AnimatedNumber value={mainNight.efficiency * 100} />%</strong
-        >
-        <dl>
-          <div>
-            <dt>Asleep</dt>
-            <dd>{formatDuration(mainNight.asleep_s)}</dd>
-          </div>
-          <div>
-            <dt>Time in bed</dt>
-            <dd>{formatDuration(mainNight.time_in_bed_s)}</dd>
-          </div>
-        </dl>
-      {:else}
-        <p class="muted">
-          {unavailableSections.includes("sleep")
-            ? "Sleep session unavailable for this day."
-            : "No sleep session recorded for this day."}
-        </p>
-      {/if}
-    </section>
-
-    <section class="data-panel" aria-labelledby="media-record-title">
-      <p class="grapher-kicker">Media record</p>
-      <h2 id="media-record-title">Library changes fixed to this day</h2>
+  {#if hasMedia}
+    <PanelFrame title="Media record">
       {#if mediaEvents.length}
-        <table>
-          <thead><tr><th>Title</th><th>Evidence</th><th>At</th></tr></thead>
+        <MetricTable
+          ariaLabel="Media record"
+          caption="Library changes fixed to this day"
+          dense
+        >
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Evidence</th>
+              <th>At</th>
+            </tr>
+          </thead>
           <tbody>
             {#each mediaEvents as event (event.id)}
               <tr>
@@ -200,28 +249,25 @@
                     class="media-link"
                     type="button"
                     onclick={() => onOpenMedia(event.media_id)}
-                    >{event.native_title || event.title}</button
                   >
+                    {event.native_title || event.title}
+                  </button>
                 </td>
                 <td>{mediaEventVerb(event)}</td>
                 <td>{formatDateOnly(event.occurred_at)}</td>
               </tr>
             {/each}
           </tbody>
-        </table>
+        </MetricTable>
       {:else}
-        <p class="muted">
-          {unavailableSections.includes("media")
-            ? "Media sessions unavailable for this day."
-            : "No exact media sessions recorded for this day."}
-        </p>
+        <p class="muted">No exact media sessions recorded for this day.</p>
       {/if}
       {#if mediaUpdates.length}
         <h3 class="media-updates-heading">Dated provider updates</h3>
         <MediaUpdateList updates={mediaUpdates} {onOpenMedia} />
       {/if}
-    </section>
-  </div>
+    </PanelFrame>
+  {/if}
 
   <footer class="source-note">
     This view is a presentation of imported facts. It does not calculate a
@@ -232,238 +278,71 @@
 <style>
   .grapher-today {
     display: grid;
-    gap: 1rem;
+    gap: var(--gap-section);
     min-width: 0;
   }
+
   .grapher-today > * {
     min-width: 0;
   }
-  .grapher-intro {
-    display: flex;
-    justify-content: space-between;
-    align-items: end;
-    gap: 2rem;
-    padding-bottom: 2rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .grapher-kicker {
-    margin: 0 0 0.45rem;
-    color: var(--accent);
-    font-size: 0.68rem;
-    font-weight: 750;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-  h1,
-  h2 {
-    margin: 0;
-    letter-spacing: -0.06em;
-  }
-  h1 {
-    max-width: 15ch;
-    font-size: var(--grapher-utility-title-size);
-    line-height: 1;
-  }
-  h2 {
-    font-size: 1.25rem;
-  }
-  .grapher-intro p:not(.grapher-kicker) {
-    max-width: 35rem;
-    margin: 0.85rem 0 0;
-    color: var(--text-muted);
-  }
-  .plot-panel,
-  .data-panel {
-    padding: 1.25rem;
-    border: 1px solid var(--border);
-    background: var(--surface);
-  }
-  .panel-heading {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-  .panel-note,
-  .source-note {
-    color: var(--text-muted);
-    font-size: 0.72rem;
-  }
-  .plot {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 2rem;
-    height: 20rem;
-    margin-top: 2rem;
-    padding: 0 1rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .plot-column {
-    display: grid;
-    grid-template-rows: auto 1fr auto;
-    gap: 0.5rem;
-    min-width: 0;
-    text-align: center;
-    transition: transform var(--motion-micro);
-  }
 
-  .plot-column:hover {
-    transform: translateY(-2px);
-  }
-
-  .plot-column:hover .plot-value {
-    color: var(--metric-accent);
-  }
-  .plot-value {
-    font-size: 1rem;
-    font-variant-numeric: tabular-nums;
-    font-weight: 700;
-  }
-  .plot-value small {
-    color: var(--text-muted);
-    font-size: 0.7em;
-    font-weight: 400;
-  }
-  .plot-track {
-    position: relative;
+  .focal-rings {
     display: flex;
-    align-items: end;
-    justify-content: center;
-    min-height: 0;
-    background: repeating-linear-gradient(
-      to top,
-      transparent 0 3.2rem,
-      color-mix(in srgb, var(--border) 65%, transparent) 3.2rem 3.25rem
-    );
-  }
-  .plot-track i {
-    display: block;
-    width: min(5rem, 70%);
-    min-height: 0.35rem;
-  }
-  .plot-column strong {
-    padding-top: 0.6rem;
-    font-size: 0.74rem;
-  }
-  .activity-panel {
-    border-top: 3px solid var(--text);
-  }
-  .sessions {
-    display: grid;
-    gap: 0.5rem;
-    margin: 1.2rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-  .session {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr));
+    flex-wrap: wrap;
     align-items: center;
-    gap: 1rem;
-    width: 100%;
-    padding: 1rem 1.1rem;
-    border: 1px solid var(--border);
-    border-left: 6px solid var(--sport);
-    border-radius: var(--radius);
-    background: var(--tile-surface, var(--surface-2, var(--surface)));
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition:
-      border-color var(--motion-micro),
-      box-shadow var(--motion-micro),
-      transform var(--motion-micro);
-  }
-  .session:hover,
-  .session:focus-visible {
-    border-color: var(--sport);
-    box-shadow:
-      var(--tile-shadow),
-      0 8px 24px -4px color-mix(in srgb, var(--sport) 20%, transparent);
-  }
-
-  .session:hover {
-    transform: translateY(-1px);
-  }
-  .session-title,
-  .session-stat {
-    display: grid;
-    gap: 0.15rem;
+    justify-content: space-between;
+    gap: var(--space-4) var(--space-6);
     min-width: 0;
   }
-  .session-title strong {
-    overflow: hidden;
-    font-size: 1.05rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .session-stat strong {
-    font-size: 1.35rem;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.04em;
-  }
-  .session small {
-    color: var(--text-muted);
-    font-size: 0.68rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .data-grid {
+
+  .focal-steps {
     display: grid;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-    gap: 1rem;
-    align-items: start;
+    gap: var(--space-1);
+    min-width: 0;
   }
-  .large-value {
-    display: block;
-    margin: 1.5rem 0;
-    color: var(--accent);
-    font-size: clamp(3rem, 8vw, 6rem);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.08em;
-    line-height: 0.9;
-  }
-  dl {
-    display: grid;
-    gap: 0.55rem;
-    margin: 0;
-  }
-  dl div {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding-top: 0.55rem;
-    border-top: 1px solid var(--border);
-  }
-  dt {
+
+  .focal-steps-label {
     color: var(--text-muted);
-    font-size: 0.75rem;
-  }
-  dd {
-    margin: 0;
-    font-size: 0.8rem;
+    font-size: var(--type-label);
     font-weight: 700;
-  }
-  table {
-    width: 100%;
-    margin-top: 1.2rem;
-    border-collapse: collapse;
-    font-size: 0.78rem;
-  }
-  th,
-  td {
-    padding: 0.65rem 0.35rem;
-    border-bottom: 1px solid var(--border);
-    text-align: left;
-  }
-  th {
-    color: var(--text-muted);
-    font-size: 0.65rem;
-    font-weight: 650;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
+
+  .focal-steps-metric {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+
+  .focal-steps-value {
+    color: var(--text);
+    font-size: var(--type-hero);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  .focal-steps-unit {
+    color: var(--text-muted);
+    font-size: var(--type-title-small);
+    font-weight: 600;
+  }
+
+  .focal-steps-detail {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--type-label);
+    line-height: 1.4;
+  }
+
+  .session-link,
   .media-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -472,43 +351,45 @@
     font-weight: 700;
     text-align: left;
     cursor: pointer;
+    border-radius: var(--radius-sm, 4px);
+    transition: color var(--motion-micro);
   }
+
+  .session-link {
+    padding-left: var(--space-2);
+    border-left: 4px solid var(--sport);
+  }
+
+  .session-link:hover,
   .media-link:hover {
     text-decoration: underline;
   }
+
+  .session-link:focus-visible,
+  .media-link:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 3px;
+  }
+
   .media-updates-heading {
-    margin: 1.4rem 0 0.7rem;
+    margin: var(--space-4) 0 var(--space-2);
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
+
   .muted {
+    margin: 0;
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: var(--type-label);
   }
+
   .source-note {
-    padding: 0.8rem 0;
+    padding: var(--space-3) 0;
     border-top: 1px solid var(--border);
-  }
-  @media (max-width: 768px) {
-    .grapher-intro,
-    .panel-heading {
-      align-items: start;
-      flex-direction: column;
-    }
-    .data-grid {
-      grid-template-columns: 1fr;
-    }
-    .session {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .session-title {
-      grid-column: 1 / -1;
-    }
-    .plot {
-      gap: 0.75rem;
-      padding: 0;
-    }
+    color: var(--text-muted);
+    font-size: var(--type-caption);
   }
 </style>

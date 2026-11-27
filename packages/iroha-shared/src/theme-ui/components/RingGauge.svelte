@@ -93,6 +93,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 1.1rem;
+    min-width: 0;
   }
   svg {
     flex: 0 0 auto;
@@ -124,6 +125,7 @@
     grid-template-columns: auto auto 1fr;
     align-items: baseline;
     gap: 0.4rem 0.5rem;
+    min-width: 0;
   }
   .dot {
     width: 9px;
@@ -154,6 +156,10 @@
   @media (max-width: 640px) {
     .legend {
       flex-basis: 100%;
+    }
+    .val {
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
   }
 </style>
