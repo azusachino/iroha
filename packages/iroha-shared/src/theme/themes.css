@@ -10,18 +10,33 @@
 :root {
   --surface-1: var(--surface);
   --control-target-min: 1.5rem;
+  --control-height: 2.25rem;
+  --control-height-lg: 2.75rem;
   --type-caption: 0.75rem;
   --type-label: 0.875rem;
   --type-body: 1rem;
   --type-title-small: 1.25rem;
-  --type-title: 1.5rem;
-  --type-display: 2rem;
+  --type-title: 1.625rem;
+  --type-display: 2.125rem;
+  --type-hero: clamp(2rem, 4vw, 2.75rem);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
+  --space-10: 2.5rem;
+  --gutter-page: var(--space-8);
+  --gap-section: var(--space-6);
+  --gap-grid: var(--space-4);
+  --gap-dense: var(--space-2);
+  --pad-card: var(--space-5);
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius: 14px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
   /* Base sans stack for every language that doesn't declare its own
      --font-sans. Clean modern geometric sans with Outfit as the bundled webfont,
      system-ui fallbacks, and tabular numbers support. */
@@ -32,8 +47,8 @@
     "Lora", "Crimson Pro", Iowan Old Style, "Apple Garamond", Baskerville,
     "Times New Roman", "YuMincho", "Hiragino Mincho ProN", serif;
   --font-mono:
-    "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono",
-    monospace;
+    "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
 
   /* Named motion families (2026-08-24 semantic-motion plan). Each pairs a
      duration with an easing so a consumer writes `transition: opacity
@@ -106,6 +121,18 @@
   }
 }
 
+@media (max-width: 1024px) {
+  :root {
+    --gutter-page: var(--space-6);
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gutter-page: var(--space-4);
+  }
+}
+
 html:root[data-language="grapher"] {
   --theme-swatch: #00d2b4;
   --grapher-utility-title-size: var(--type-display);
@@ -114,19 +141,23 @@ html:root[data-language="grapher"] {
   --radius: 14px;
   --tile-surface: linear-gradient(
       180deg,
-      rgb(255 255 255 / 0.035),
+      rgb(255 255 255 / 0.03),
       rgb(255 255 255 / 0)
     )
     var(--surface);
-  --tile-shadow:
-    0 4px 20px -2px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --tile-shadow: 0 4px 20px -2px rgb(0 0 0 / 0.45);
+  --tile-rim: inset 0 1px 0 rgb(255 255 255 / 0.07);
+  --tile-shadow-hover: 0 8px 28px -2px rgb(0 0 0 / 0.55);
 }
 
 html:root[data-language="grapher"][data-theme="light"] {
   --theme-swatch: #076660;
   --accent: #076660;
   --accent-2: #be123c;
-  --tile-surface: linear-gradient(180deg, rgb(0 0 0 / 0.015), rgb(0 0 0 / 0))
-    var(--surface);
-  --tile-shadow: 0 4px 16px -2px rgb(15 23 42 / 0.08);
+  --tile-surface: var(--surface);
+  --tile-shadow:
+    0 2px 4px rgb(10 40 38 / 0.05), 0 16px 40px rgb(10 40 38 / 0.1);
+  --tile-rim: inset 0 1px 0 rgb(255 255 255 / 0.85);
+  --tile-shadow-hover:
+    0 4px 10px rgb(10 40 38 / 0.08), 0 20px 44px rgb(10 40 38 / 0.14);
 }
