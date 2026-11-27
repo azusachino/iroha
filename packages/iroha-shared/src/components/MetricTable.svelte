@@ -1,14 +1,31 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import { isOutOfRange, type PanelRow } from "./metric-panel";
 
   let {
-    rows,
-    unit,
+    rows = [],
+    unit = "",
     rowHeader = "Period",
+    caption,
+    ariaLabel,
+    minWidth,
+    nowrap = false,
+    numericAlign = false,
+    dense = false,
+    empty,
+    children,
   }: {
-    rows: PanelRow[];
-    unit: string;
+    rows?: PanelRow[];
+    unit?: string;
     rowHeader?: string;
+    caption?: string;
+    ariaLabel?: string;
+    minWidth?: string;
+    nowrap?: boolean;
+    numericAlign?: boolean;
+    dense?: boolean;
+    empty?: string | Snippet;
+    children?: Snippet;
   } = $props();
 
   const hasBreakdown = $derived(rows.some((row) => row.breakdown));
@@ -28,47 +45,100 @@
   }
 </script>
 
-<div class="metric-table-wrap">
-  <table>
-    <caption class="sr-only">Exact values</caption>
-    <thead
-      ><tr
-        ><th>{rowHeader}</th>{#if hasBreakdown}<th>Breakdown</th>{/if}<th
-          >Value ({unit})</th
-        >{#if hasRange}<th>Reference range</th>{/if}{#if hasObserved}<th
-            >Observed days</th
-          >{/if}</tr
-      ></thead
+{#if children}
+  <div class="metric-table-wrap">
+    <table
+      aria-label={ariaLabel}
+      class:nowrap
+      class:numeric-align={numericAlign}
+      class:dense
+      style:--metric-table-min-width={minWidth}
     >
-    <tbody>
-      {#each rows as row}
-        <tr>
-          <th scope="row"
-            >{#if row.icon}<row.icon
-                class="row-icon"
-                size={14}
-                aria-hidden="true"
-              />{/if}{row.label}</th
-          >
-          {#if hasBreakdown}<td>{row.breakdown ?? "—"}</td>{/if}
-          <td>{row.display}</td>
-          {#if hasRange}<td class:danger={isOutOfRange(row)}
-              >{rangeStatus(row)}</td
-            >{/if}
-          {#if hasObserved}<td>{row.observed ?? "—"}</td>{/if}
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-</div>
+      {#if caption}<caption class="sr-only">{caption}</caption>{/if}
+      {@render children()}
+    </table>
+  </div>
+{:else if rows.length === 0 && empty}
+  {#if typeof empty === "string"}
+    <p class="metric-table-empty">{empty}</p>
+  {:else}
+    {@render empty()}
+  {/if}
+{:else}
+  <div class="metric-table-wrap">
+    <table
+      aria-label={ariaLabel}
+      class:nowrap
+      class:numeric-align={numericAlign}
+      class:dense
+      style:--metric-table-min-width={minWidth}
+    >
+      <caption class="sr-only">{caption ?? "Exact values"}</caption>
+      <thead
+        ><tr
+          ><th>{rowHeader}</th>{#if hasBreakdown}<th>Breakdown</th>{/if}<th
+            >Value ({unit})</th
+          >{#if hasRange}<th>Reference range</th>{/if}{#if hasObserved}<th
+              >Observed days</th
+            >{/if}</tr
+        ></thead
+      >
+      <tbody>
+        {#each rows as row}
+          <tr>
+            <th scope="row"
+              >{#if row.icon}<row.icon
+                  class="row-icon"
+                  size={14}
+                  aria-hidden="true"
+                />{/if}{row.label}</th
+            >
+            {#if hasBreakdown}<td>{row.breakdown ?? "—"}</td>{/if}
+            <td>{row.display}</td>
+            {#if hasRange}<td class:danger={isOutOfRange(row)}
+                >{rangeStatus(row)}</td
+              >{/if}
+            {#if hasObserved}<td>{row.observed ?? "—"}</td>{/if}
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{/if}
 
 <style>
   .metric-table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; color: var(--text, #1b2430); font-size: var(--type-label); }
-  th, td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border, #d6dbe3); text-align: left; }
-  thead th { color: var(--text-muted, #778090); font-size: var(--type-caption); letter-spacing: 0.06em; text-transform: uppercase; }
+  table {
+    width: 100%;
+    min-width: var(--metric-table-min-width, 0);
+    border-collapse: collapse;
+    color: var(--text, #1b2430);
+    font-size: var(--type-label);
+  }
+  table.dense { font-size: var(--type-caption); }
+  th, td {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border, #d6dbe3);
+    text-align: left;
+  }
+  table.nowrap :is(th, td) { white-space: nowrap; }
+  table.numeric-align :is(th, td):not(:first-child) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  thead th {
+    color: var(--text-muted, #778090);
+    font-size: var(--type-caption);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
   tbody th { font-weight: 650; }
   td.danger { color: var(--danger, #c0392b); font-weight: 650; }
+  .metric-table-empty {
+    margin: 0;
+    color: var(--text-muted, #778090);
+    font-size: var(--type-label);
+  }
   :global(.row-icon) { margin-right: 0.35rem; color: var(--text-muted, #778090); vertical-align: -0.15em; }
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 </style>
