@@ -19,7 +19,6 @@
   } = $props();
 
   const model = $derived(buildActivityHeatmap(days, endDay));
-  const firstDay = $derived(model.weeks.flat().find((cell) => cell.date)?.date);
   let heatmapGrid: HTMLDivElement;
   let hasHorizontalOverflow = $state(false);
 
@@ -38,25 +37,29 @@
   });
 </script>
 
-<section class="activity-heatmap" class:embedded aria-labelledby="activity-heatmap-title">
-  <header class="heatmap-header">
-    <div>
-      <p class="kicker">Movement / daily density</p>
+<section class="activity-heatmap" class:embedded aria-label={embedded ? title : undefined} aria-labelledby={embedded ? undefined : "activity-heatmap-title"}>
+  {#if embedded}
+    <div class="heatmap-legend-row">
+      <div class="legend" aria-label="Activity count intensity">
+        <span>Less</span>
+        {#each LEGEND_LEVELS as level}
+          <span class="cell" data-level={level} aria-hidden="true"></span>
+        {/each}
+        <span>More</span>
+      </div>
+    </div>
+  {:else}
+    <header class="heatmap-header">
       <h2 id="activity-heatmap-title">{title}</h2>
-      <p>
-        {model.activeDayCount.toLocaleString()} active days ·
-        {model.totalActivityCount.toLocaleString()} activity records ·
-        {firstDay} to {endDay}
-      </p>
-    </div>
-    <div class="legend" aria-label="Activity count intensity">
-      <span>Less</span>
-      {#each LEGEND_LEVELS as level}
-        <span class="cell" data-level={level} aria-hidden="true"></span>
-      {/each}
-      <span>More</span>
-    </div>
-  </header>
+      <div class="legend" aria-label="Activity count intensity">
+        <span>Less</span>
+        {#each LEGEND_LEVELS as level}
+          <span class="cell" data-level={level} aria-hidden="true"></span>
+        {/each}
+        <span>More</span>
+      </div>
+    </header>
+  {/if}
 
   {#if hasHorizontalOverflow}
     <button
@@ -120,35 +123,23 @@
   }
   .heatmap-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1.1rem;
   }
 
-  .kicker {
-    margin: 0 0 0.35rem;
-    color: var(--accent);
-    font-family: var(--font-mono);
-    font-size: 0.62rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  h2,
-  p {
-    margin: 0;
+  .heatmap-legend-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.6rem;
   }
 
   h2 {
-    font-size: 1.12rem;
-    letter-spacing: -0.035em;
-  }
-
-  .heatmap-header p:last-child {
-    margin-top: 0.3rem;
-    color: var(--text-muted);
-    font-size: 0.78rem;
+    margin: 0;
+    font-size: var(--type-title-small);
+    font-weight: 700;
+    line-height: 1.25;
   }
 
   .scroll-hint {
