@@ -126,10 +126,9 @@
     context="Recovery and sleep sessions"
   />
 
-  {@render children?.()}
-
   <FocalBand
     heading="Sleep summary"
+    controls={children}
     primary={primaryMetric}
     secondary={secondaryItems}
     empty={emptyNotes.length ? emptyNotes.join(" · ") : undefined}
@@ -222,7 +221,6 @@
             {#each sessions as session (session.id)}
               <tr
                 class="session-row"
-                class:selected={selected?.id === session.id}
                 role="link"
                 tabindex="0"
                 onclick={() => onOpenDetail(session)}
@@ -281,13 +279,23 @@
     font-size: var(--type-label);
   }
 
+  .grapher-sleep
+    :global(
+      .focal-controls
+        section[aria-label="Sleep totals read state"]
+        > p:not([role="status"])
+    ),
+  .grapher-sleep
+    :global(.focal-controls .sleep-scope-summary .scope-label) {
+    display: none;
+  }
+
   .session-row {
     cursor: pointer;
     transition: background-color var(--motion-micro);
   }
 
-  .session-row:hover,
-  .session-row.selected {
+  .session-row:hover {
     background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   }
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ActivityThemeProps } from "../../view-contracts/activity-view";
+  import type { MetricSeriesResponse } from "../../components/metric-series";
   import EmptyNote from "../../components/EmptyNote.svelte";
   import FocalBand, {
     type FocalPrimaryMetric,
@@ -11,6 +12,7 @@
   import ActivityMetricChart from "../components/ActivityMetricChart.svelte";
   import RetryNotice from "../components/RetryNotice.svelte";
   import {
+    formatCanonicalMonth,
     formatDateOnly,
     formatDistance,
     formatDuration,
@@ -53,9 +55,99 @@
     theme,
   }: ActivityThemeProps = $props();
 
+  const MOVEMENT_CHART_MIN_POINTS = 3;
+
   let root = $state<HTMLElement>();
   let summaryPanel = $state<HTMLElement>();
   let recordsPanel = $state<HTMLElement>();
+
+  function aggregatePeriodValue(
+    response: MetricSeriesResponse | null | undefined,
+    period: string,
+  ): number | null {
+    let total = 0;
+    let observed = false;
+    for (const item of response?.series ?? []) {
+      const point = item.points.find((candidate) => candidate.period === period);
+      if (point && "value" in point && point.value != null) {
+        total += point.value;
+        observed = true;
+      }
+    }
+    return observed ? total : null;
+  }
+
+  function periodObservedDays(
+    response: MetricSeriesResponse | null | undefined,
+    period: string,
+  ): number {
+    return (response?.series ?? []).reduce(
+      (max, item) =>
+        Math.max(
+          max,
+          item.points.find((point) => point.period === period)?.observed_days ??
+            0,
+        ),
+      0,
+    );
+  }
+
+  function formatSeriesPeriod(period: string): string {
+    if (/^\d{4}-\d{2}$/.test(period)) return formatCanonicalMonth(period);
+    return period;
+  }
+
+  const movementPeriods = $derived(
+    activitySeries?.series[0]?.points.map((point) => point.period) ?? [],
+  );
+
+  const expectedMovementPeriods = $derived(
+    Math.max(
+      0,
+      ...(activitySeries?.series ?? []).map(
+        (item) => item.coverage.expected_periods,
+      ),
+    ),
+  );
+
+  const movementRows = $derived(
+    movementPeriods
+      .map((period) => ({
+        period,
+        distance_m: aggregatePeriodValue(activitySeries, period),
+        duration_s: aggregatePeriodValue(activityDurationSeries, period),
+        observedDays: periodObservedDays(activitySeries, period),
+      }))
+      .toReversed(),
+  );
+
+  const observedMovementRows = $derived(
+    movementRows.filter(
+      (row) => row.distance_m != null || row.duration_s != null,
+    ),
+  );
+
+  const useShortMovementSummary = $derived(
+    !!activitySeries &&
+      !activitySeriesError &&
+      movementPeriods.length > 0 &&
+      observedMovementRows.length > 0 &&
+      observedMovementRows.length < MOVEMENT_CHART_MIN_POINTS,
+  );
+
+  const shortMovementSummary = $derived.by(() => {
+    const grain = activitySeries?.period.grain ?? "period";
+    const chronological = observedMovementRows.toReversed();
+    if (chronological.length === 1) {
+      const only = chronological[0];
+      return `Single ${grain} observed: ${formatSeriesPeriod(only.period)} · ${formatDistance(only.distance_m)} · ${formatDuration(only.duration_s)}.`;
+    }
+    if (chronological.length === 2) {
+      const [first, second] = chronological;
+      return `Two ${grain}s observed: ${formatSeriesPeriod(first.period)} (${formatDistance(first.distance_m)}, ${formatDuration(first.duration_s)}) and ${formatSeriesPeriod(second.period)} (${formatDistance(second.distance_m)}, ${formatDuration(second.duration_s)}).`;
+    }
+    return "";
+  });
 
   const primaryMetric = $derived.by<FocalPrimaryMetric>(() => {
     if (!displaySummary) {
@@ -200,15 +292,60 @@
     </label>
   </div>
 
-  <ActivityMetricChart
-    series={activitySeries}
-    durationSeries={activityDurationSeries}
-    loading={activitySeriesLoading}
-    error={activitySeriesError}
-    scope={activitySeriesScope}
-    onRetry={onRetrySeries}
-    {theme}
-  />
+  {#if useShortMovementSummary}
+    <PanelFrame title="Movement over time">
+      {#snippet meta()}
+        <span>
+          {observedMovementRows.length} / {expectedMovementPeriods} periods observed
+        </span>
+      {/snippet}
+
+      {#if activitySeriesLoading}
+        <p class="status-note" role="status">Updating movement series…</p>
+      {/if}
+
+      <EmptyNote text={shortMovementSummary} />
+
+      <MetricTable
+        ariaLabel="Exact movement series"
+        scrollLabel="Exact movement series scroll area"
+        caption="Exact movement series"
+        minWidth="36rem"
+        nowrap
+        numericAlign
+        dense
+      >
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Distance</th>
+            <th>Duration</th>
+            <th>Observed days</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each movementRows as row (row.period)}
+            <tr>
+              <td>{formatSeriesPeriod(row.period)}</td>
+              <td>{formatDistance(row.distance_m)}</td>
+              <td>{formatDuration(row.duration_s)}</td>
+              <td>{row.observedDays || "—"}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </MetricTable>
+    </PanelFrame>
+  {:else}
+    <ActivityMetricChart
+      series={activitySeries}
+      durationSeries={activityDurationSeries}
+      loading={activitySeriesLoading}
+      error={activitySeriesError}
+      scope={activitySeriesScope}
+      onRetry={onRetrySeries}
+      {theme}
+    />
+  {/if}
 
   <div
     class="read-state"
