@@ -60,8 +60,10 @@
       type="button"
       class="icon"
       aria-label="Close account settings"
-      onclick={() => (open = false)}><X size={18} /></button
+      onclick={() => (open = false)}
     >
+      <X size={18} />
+    </button>
   </header>
 
   <Tabs.Root bind:value={tab} loop>
@@ -85,18 +87,18 @@
             bind:value={displayName}
           />
         </label>
-        <small
-          >Shown in the menu instead of your username. Leave empty to use the
-          username.</small
-        >
+        <small>
+          Shown in the menu instead of your username. Leave empty to use the
+          username.
+        </small>
         {#if message}
           <p class:error={!message.ok} role={message.ok ? "status" : "alert"}>
             {message.text}
           </p>
         {/if}
-        <button type="submit" class="primary" disabled={saving}
-          >{saving ? "Saving…" : "Save"}</button
-        >
+        <button type="submit" class="primary" disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </button>
       </form>
     </Tabs.Content>
 

@@ -113,9 +113,9 @@
                   {group.runCount}
                   {group.runCount === 1 ? "run" : "runs"}
                   {#if group.count > group.runCount}
-                    <span class="muted small"
-                      >(+{group.count - group.runCount} other)</span
-                    >
+                    <span class="muted small">
+                      (+{group.count - group.runCount} other)
+                    </span>
                   {/if}
                 </div>
               </button>

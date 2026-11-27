@@ -126,8 +126,10 @@
       <button
         type="button"
         class="submit-btn"
-        onclick={() => void loadSession()}>Try again</button
+        onclick={() => void loadSession()}
       >
+        Try again
+      </button>
     {:else}
       {#if error}
         <div class="alert" role="alert">{error}</div>
@@ -183,9 +185,9 @@
             />
           </label>
           {#if isSetup}
-            <small class="muted"
-              >Lowercase letters, digits, dots, dashes, or underscores.</small
-            >
+            <small class="muted">
+              Lowercase letters, digits, dots, dashes, or underscores.
+            </small>
           {/if}
 
           <label>
@@ -225,9 +227,9 @@
                 bind:value={confirmPassword}
               />
             </label>
-            <small class="muted"
-              >At least 12 characters. You can register passkeys once signed in.</small
-            >
+            <small class="muted">
+              At least 12 characters. You can register passkeys once signed in.
+            </small>
           {/if}
 
           <button type="submit" class="submit-btn" disabled={busy}>

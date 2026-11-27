@@ -403,32 +403,32 @@
 
   <div class="metric-grid">
     <div>
-      <span>Distance</span><strong
-        >{formatDistance(detail.activity.distance_m)}</strong
-      >
+      <span>Distance</span><strong>
+        {formatDistance(detail.activity.distance_m)}
+      </strong>
     </div>
     <div>
-      <span>Duration</span><strong
-        >{formatDuration(detail.activity.duration_s)}</strong
-      >
+      <span>Duration</span><strong>
+        {formatDuration(detail.activity.duration_s)}
+      </strong>
     </div>
     <div>
-      <span>Moving time</span><strong
-        >{formatDuration(detail.activity.moving_time_s)}</strong
-      >
+      <span>Moving time</span><strong>
+        {formatDuration(detail.activity.moving_time_s)}
+      </strong>
     </div>
     <div>
       <span>{paceLabel}</span><strong>{formatSummaryPace()}</strong>
     </div>
     <div>
-      <span>Elevation</span><strong
-        >{formatElevation(detail.activity.elevation_gain_m)}</strong
-      >
+      <span>Elevation</span><strong>
+        {formatElevation(detail.activity.elevation_gain_m)}
+      </strong>
     </div>
     <div>
-      <span>Avg heart rate</span><strong
-        >{formatHr(detail.activity.avg_hr)}</strong
-      >
+      <span>Avg heart rate</span><strong>
+        {formatHr(detail.activity.avg_hr)}
+      </strong>
     </div>
   </div>
 
@@ -484,11 +484,11 @@
       ></div>
       <div class="zone-legend">
         {#each heartRateZones as zone}
-          <span
-            ><i style={`background: ${zone.color}`}></i>{zone.label}<b
-              >{Math.round((zone.count / measuredHeartRate.length) * 100)}%</b
-            ></span
-          >
+          <span>
+            <i style={`background: ${zone.color}`}></i>{zone.label}<b>
+              {Math.round((zone.count / measuredHeartRate.length) * 100)}%
+            </b>
+          </span>
         {/each}
       </div>
     </section>
@@ -501,11 +501,11 @@
           <p class="kicker">Intervals</p>
           <h2>{isSwimming ? "100 m splits" : "1 km splits"}</h2>
         </div>
-        <span
-          >{displayLaps.length} splits · {lapsAreDerived
+        <span>
+          {displayLaps.length} splits · {lapsAreDerived
             ? "derived from the route"
-            : "from the activity record"}</span
-        >
+            : "from the activity record"}
+        </span>
       </div>
       <div
         class="laps-chart"

@@ -162,9 +162,9 @@
   {:else if mapError}
     <div role="alert">
       <p>Interactive map unavailable. Route summaries remain below.</p>
-      <button type="button" onclick={() => window.location.reload()}
-        >Reload page</button
-      >
+      <button type="button" onclick={() => window.location.reload()}>
+        Reload page
+      </button>
     </div>
   {:else if tileError}
     <p role="status">

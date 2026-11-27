@@ -130,8 +130,10 @@
       >
         {#if t.loadingMore}<span>Loading more nights…</span>{:else}<button
             type="button"
-            onclick={() => t.loadSessions(true)}>Load more nights</button
-          >{/if}
+            onclick={() => t.loadSessions(true)}
+          >
+            Load more nights
+          </button>{/if}
       </div>
     {/if}
   </section>

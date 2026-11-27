@@ -87,10 +87,10 @@
     <header>
       <div>
         <h2 id="upload-title">Upload</h2>
-        <small
-          >Stores the file as raw evidence, then imports it. Re-uploading the
-          same file is detected.</small
-        >
+        <small>
+          Stores the file as raw evidence, then imports it. Re-uploading the
+          same file is detected.
+        </small>
       </div>
     </header>
     <form class="upload" onsubmit={upload}>
@@ -125,8 +125,10 @@
         type="button"
         class="admin-button"
         onclick={() => void load()}
-        disabled={loading}><RefreshCw size={14} /> Refresh</button
+        disabled={loading}
       >
+        <RefreshCw size={14} /> Refresh
+      </button>
     </header>
     {#if imports.length}
       <ul class="admin-list">
@@ -141,17 +143,19 @@
                 {#if file}· {formatBytes(file.size_bytes)} · via {file.uploaded_via}{/if}
                 · {formatDate(job.created_at)}
               </small>
-              {#if job.error_message}<small class="admin-error"
-                  >{job.error_message}</small
-                >{/if}
+              {#if job.error_message}<small class="admin-error">
+                  {job.error_message}
+                </small>{/if}
             </div>
             <div class="admin-actions">
               <button
                 type="button"
                 class="admin-button"
                 disabled={busy}
-                onclick={() => void reprocess(job)}>Reprocess</button
+                onclick={() => void reprocess(job)}
               >
+                Reprocess
+              </button>
             </div>
           </li>
         {/each}
