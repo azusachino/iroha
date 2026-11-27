@@ -22,6 +22,6 @@
   .empty-note {
     margin: 0;
     color: var(--text-muted);
-    font-size: var(--type-label);
+    font-size: var(--type-caption);
   }
 </style>

@@ -12,6 +12,7 @@
     formatDate,
     formatDistance,
     formatDuration,
+    formatElevation,
     formatHumanDuration,
     formatMetricValue,
   } from "../../format/format";
@@ -87,15 +88,51 @@
     return formatDistance(periodDistanceM);
   });
 
+  const activeDayCount = $derived(
+    activeDays.filter((day) => day.activity_count > 0).length,
+  );
+
+  const movementSecondary = $derived.by<{ value: string; detail: string } | null>(() => {
+    if (!summary || summary.totals.activity_count <= 0) return null;
+    if (!/^0\b/.test(streak.trim())) {
+      return { value: streak, detail: "Active streak" };
+    }
+    if (activeDayCount > 0) {
+      return {
+        value:
+          activeDayCount === 1
+            ? "1 day"
+            : `${formatMetricValue(activeDayCount, "count")} days`,
+        detail: "Active days",
+      };
+    }
+    if (summary.totals.elevation_gain_m > 0) {
+      return {
+        value: formatElevation(summary.totals.elevation_gain_m),
+        detail: "Total elevation gain",
+      };
+    }
+    if (summary.by_sport.length > 0) {
+      return {
+        value: formatMetricValue(summary.by_sport.length, "count"),
+        detail: summary.by_sport.length === 1 ? "Activity type" : "Activity types",
+      };
+    }
+    return {
+      value: formatMetricValue(summary.totals.activity_count, "count"),
+      detail: "All-time records",
+    };
+  });
+
   const secondaryItems = $derived.by<FocalSecondaryItem[]>(() => {
     if (!summary) return [];
     const items: FocalSecondaryItem[] = [];
 
-    if (summary.totals.activity_count > 0) {
+    if (movementSecondary) {
       items.push({
         label: "Movement",
-        value: streak,
-        detail: "Active streak",
+        value: movementSecondary.value,
+        detail: movementSecondary.detail,
         href: "/motion",
         linkLabel: "Explore movement →",
       });
@@ -119,10 +156,10 @@
       items.push({
         label: "Library",
         value: formatMetricValue(
-          mediaAggregates?.totals.this_year_completed ?? 0,
+          mediaAggregates?.totals.item_count ?? 0,
           "count",
         ),
-        detail: "Completed this year",
+        detail: "Total items",
         href: "/library",
         linkLabel: "Explore library →",
       });
@@ -159,9 +196,6 @@
     return notes;
   });
 
-  const activeDayCount = $derived(
-    activeDays.filter((day) => day.activity_count > 0).length,
-  );
   const sports = $derived(
     (summary?.by_sport ?? [])
       .toSorted((left, right) => right.activity_count - left.activity_count)
