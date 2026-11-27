@@ -1,3 +1,4 @@
+import { createRawSnippet } from "svelte";
 import { render } from "svelte/server";
 import { describe, expect, it } from "vitest";
 import FocalBand from "./FocalBand.svelte";
@@ -71,6 +72,57 @@ describe("FocalBand", () => {
     const headingId = sectionMatch![1];
     expect(body).toMatch(
       new RegExp(`<h2[^>]*id="${headingId}"[^>]*>Daily summary</h2>`),
+    );
+  });
+
+  it("renders optional controls in the band header", () => {
+    const controls = createRawSnippet(() => ({
+      render: () => `<button type="button">2026-08</button>`,
+    }));
+    const { body } = render(FocalBand, {
+      props: {
+        heading: "Monthly overview",
+        controls,
+        primary: { label: "Distance", value: "142.8", unit: "km" },
+        secondary: [{ label: "Sessions", value: "12" }],
+      },
+    });
+
+    expect(body).toContain("focal-header");
+    expect(body).toContain("focal-controls");
+    expect(body).toContain("<button type=\"button\">2026-08</button>");
+  });
+
+  it("omits the heading element when heading is omitted and names the region from primary.label", () => {
+    const { body } = render(FocalBand, {
+      props: {
+        primary: { label: "Distance", value: "142.8", unit: "km" },
+        secondary: [{ label: "Sessions", value: "12" }],
+      },
+    });
+
+    expect(body).not.toContain("<h2");
+    expect(body).not.toContain("aria-labelledby");
+    expect(body).toMatch(/<section[^>]*aria-label="Distance"/);
+  });
+
+  it("renders a secondary item with href as an anchor with its accessible label", () => {
+    const { body } = render(FocalBand, {
+      props: {
+        primary: { label: "Distance", value: "142.8", unit: "km" },
+        secondary: [
+          {
+            label: "Sleep",
+            value: "7h 15m",
+            href: "/sleep",
+            linkLabel: "Explore sleep →",
+          },
+        ],
+      },
+    });
+
+    expect(body).toMatch(
+      /<a[^>]*href="\/sleep"[^>]*aria-label="Explore sleep →"[^>]*>\s*Explore sleep →\s*<\/a>/,
     );
   });
 });

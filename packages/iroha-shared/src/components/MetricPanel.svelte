@@ -20,6 +20,8 @@
     rows,
     period,
     framed = false,
+    title,
+    meta,
     heading,
     children,
   }: {
@@ -33,6 +35,8 @@
     rows: PanelRow[];
     period?: string;
     framed?: boolean;
+    title?: string;
+    meta?: Snippet;
     heading?: Snippet;
     children: Snippet;
   } = $props();
@@ -83,7 +87,7 @@
 {/snippet}
 
 {#if framed}
-  <PanelFrame {label}>{@render content()}</PanelFrame>
+  <PanelFrame {label} {title} {meta}>{@render content()}</PanelFrame>
 {:else}
   {@render content()}
 {/if}

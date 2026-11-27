@@ -74,7 +74,17 @@ Keep the batch 1 tokens and scales unchanged:
 
 ---
 
-## 6. Implementation slices (ordered)
+## 6. Content, chart, and voice rules
+
+Three rules added from the design review so slices 3–4 remove clutter rather than relocating it:
+
+1. **A card or chart renders only what it can fill.** Below a small number of points a chart becomes an inline sentence or a sparkline; a card with no data becomes one line. Evidence: Overview draws a 12-month line for one run and a full-width "Route footprint" card reading *No routes recorded yet*; Night spends roughly 400px of chart on one bar. The muted `empty` line in `FocalBand` currently covers tiles only — charts and cards need their own minimum-point and empty-state threshold.
+2. **A chart may not compare different units on one axis.** Evidence: Today plots kcal, minutes, and steps on one shared scale, so 11,840 steps dwarfs 612 kcal.
+3. **One voice.** One page-header row carries title, scope, and controls; no card wraps only controls; monospace is for numbers, IDs, and code, not for a page's whole typeface. Evidence: `Expenses.svelte:116` switches the whole page to monospace, Overview's eyebrows are mono while Today's are sans, and Night and Expenses each give two dropdowns a full-width card with an empty left half.
+
+---
+
+## 7. Implementation slices (ordered)
 
 Execute in order. Every slice passes its done-when Makefile targets before the next starts.
 
@@ -115,16 +125,20 @@ Execute in order. Every slice passes its done-when Makefile targets before the n
 
 ---
 
-## 7. Acceptance criteria, revised
+## 8. Acceptance criteria, revised
 
 - **One focal band per route:** every private route renders exactly one `FocalBand` (`2fr 1fr` at `>= 1024px`).
 - **No duplicated figures:** no page states the same figure or scope banner twice.
 - **No empty tiles:** no tile renders whose only content is `0`, `—`, or an unavailable note; empty items collapse into one muted line.
 - **Distinct type voice:** page title (`h1`) and card title differ in size; the `--type-hero` metric owns the largest step inside `FocalBand`.
 - **One table implementation:** no pasted table CSS outside `MetricTable.svelte`.
+- **One card header:** no page renders a heading stack of more than one element above a card's data.
+- **Minimum data thresholds:** no chart or card renders with fewer than the stated minimum of data points.
+- **Single-unit axes:** no chart mixes units on one axis.
+- **Prose typeface:** no page sets monospace for prose.
 - **Contrast, targets, focus, overflow:** body/muted contrast `>= 4.5:1`, large/UI `>= 3:1`, focus contrast `>= 5.04:1`; interactive targets `>= 24x24` CSS px (`36px`–`44px` primary controls); `:focus-visible` `2px solid var(--color-focus)` with `3px` offset; zero horizontal overflow at `320`, `375`, `414`, `768`, and `1280` px in light and dark modes.
 
-## 8. What this plan does not do
+## 9. What this plan does not do
 
 - **No API or backend changes:** no modifications to `apps/iroha-server/`, `apps/iroha-job/`, DTOs, or pagination/date semantics.
 - **No new routes:** no new pages, URL restructures, or navigation IA changes.
@@ -132,7 +146,7 @@ Execute in order. Every slice passes its done-when Makefile targets before the n
 - **No `/showcase` content changes:** `apps/iroha-web/src/lib/public/` data, copy, and projection boundaries remain untouched.
 - **No second design language:** Grapher remains the single registered language.
 
-## 9. Risks and mitigations
+## 10. Risks and mitigations
 
 - **Cutting a figure a future feature needs** — mitigated by the per-screen cut table and by moving, not deleting, any figure the owner names.
 - **Boundary violations from doing layout work inside `apps/iroha-web/`** — all shared primitives and compositions live in `packages/iroha-shared/`, enforced by `make theme-boundary-check` in every slice.

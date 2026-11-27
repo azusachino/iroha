@@ -12,25 +12,49 @@
     label: string;
     value: string;
     detail?: string;
+    href?: string;
+    linkLabel?: string;
   }
 
   let {
     heading,
+    controls,
     primary,
     secondary,
     empty,
   }: {
-    heading: string;
+    heading?: string;
+    controls?: Snippet;
     primary: Snippet | FocalPrimaryMetric;
     secondary: FocalSecondaryItem[] | Snippet;
     empty?: string | Snippet;
   } = $props();
 
   const headingId = $props.id();
+  const sectionLabel = $derived(
+    heading
+      ? undefined
+      : typeof primary === "function"
+        ? undefined
+        : primary.label,
+  );
 </script>
 
-<section class="focal-band" aria-labelledby={headingId}>
-  <h2 id={headingId} class="focal-heading">{heading}</h2>
+<section
+  class="focal-band"
+  aria-labelledby={heading ? headingId : undefined}
+  aria-label={sectionLabel}
+>
+  {#if heading || controls}
+    <div class="focal-header">
+      {#if heading}
+        <h2 id={headingId} class="focal-heading">{heading}</h2>
+      {/if}
+      {#if controls}
+        <div class="focal-controls">{@render controls()}</div>
+      {/if}
+    </div>
+  {/if}
   <div class="focal-grid">
     <div class="focal-primary">
       {#if typeof primary === "function"}
@@ -62,6 +86,15 @@
                 {#if item.detail}
                   <span class="focal-secondary-detail">{item.detail}</span>
                 {/if}
+                {#if item.href}
+                  <a
+                    class="focal-secondary-link"
+                    href={item.href}
+                    aria-label={item.linkLabel ?? item.label}
+                  >
+                    {item.linkLabel ?? item.label}
+                  </a>
+                {/if}
               </dd>
             </div>
           {/each}
@@ -88,12 +121,38 @@
     margin-bottom: var(--gap-section);
   }
 
+  .focal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
   .focal-heading {
     margin: 0;
     color: var(--text-muted);
     font-size: var(--type-title-small);
     font-weight: 700;
     line-height: 1.2;
+  }
+
+  .focal-controls {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  @media (max-width: 640px) {
+    .focal-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .focal-controls {
+      margin-left: 0;
+    }
   }
 
   .focal-grid {
@@ -204,6 +263,20 @@
     color: var(--text-muted);
     font-size: var(--type-caption);
     font-weight: 500;
+  }
+
+  .focal-secondary-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-target-min);
+    color: var(--accent);
+    font-size: var(--type-caption);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .focal-secondary-link:hover {
+    text-decoration: underline;
   }
 
   .focal-empty-text {
