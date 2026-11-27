@@ -82,19 +82,21 @@
   <header>
     <div>
       <h2 id="sources-title">Sources</h2>
-      <small role="status"
-        >{connections.length} source{connections.length === 1 ? "" : "s"} ·
+      <small role="status">
+        {connections.length} source{connections.length === 1 ? "" : "s"} ·
         {attention
           ? `${attention} need${attention === 1 ? "s" : ""} attention`
-          : "no overdue or failed sources"}</small
-      >
+          : "no overdue or failed sources"}
+      </small>
     </div>
     <button
       type="button"
       class="admin-button"
       onclick={() => void load()}
-      disabled={loading}><RefreshCw size={14} /> Refresh</button
+      disabled={loading}
     >
+      <RefreshCw size={14} /> Refresh
+    </button>
   </header>
 
   {#if error}<p class="admin-error" role="alert">{error}</p>{/if}
@@ -132,9 +134,9 @@
               {/if}
             </small>
             {#if connection.last_import?.error_message}
-              <small class="admin-error"
-                >{connection.last_import.error_message}</small
-              >
+              <small class="admin-error">
+                {connection.last_import.error_message}
+              </small>
             {/if}
           </div>
           <div class="admin-actions">
@@ -144,10 +146,9 @@
                 class="admin-button"
                 disabled={running !== null}
                 onclick={() => void run(connection, action)}
-                >{running === connection.id
-                  ? "Working…"
-                  : actionLabel(action)}</button
               >
+                {running === connection.id ? "Working…" : actionLabel(action)}
+              </button>
             {/each}
           </div>
         </li>

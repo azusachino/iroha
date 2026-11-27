@@ -101,9 +101,9 @@
   {#if issued}
     <div class="issued" role="status">
       <strong>Token for “{issued.name}”</strong>
-      <small
-        >Copy it into Health Auto Export now. Iroha can't show it again.</small
-      >
+      <small>
+        Copy it into Health Auto Export now. Iroha can't show it again.
+      </small>
       <code class="token">{issued.token}</code>
       <div class="row">
         <button type="button" onclick={() => void copy()}>
@@ -133,14 +133,14 @@
           input.value = name;
         }}
       />
-      <small id="device-hint"
-        >Lowercase letters, digits, and dashes, like <code>harus-phone</code>.
-        Keep the same name when you rotate the token.</small
-      >
+      <small id="device-hint">
+        Lowercase letters, digits, and dashes, like <code>harus-phone</code>.
+        Keep the same name when you rotate the token.
+      </small>
     </label>
-    <button type="submit" disabled={busy}
-      >{busy ? "Issuing…" : "Issue token"}</button
-    >
+    <button type="submit" disabled={busy}>
+      {busy ? "Issuing…" : "Issue token"}
+    </button>
   </form>
 
   {#if credentialsResource.error}<RetryNotice
@@ -172,9 +172,9 @@
             </small>
           </div>
           {#if !credential.revoked_at}
-            <button type="button" onclick={() => askRevoke(credential)}
-              >Revoke</button
-            >
+            <button type="button" onclick={() => askRevoke(credential)}>
+              Revoke
+            </button>
           {/if}
         </li>
       {/each}

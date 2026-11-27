@@ -84,16 +84,18 @@
           ? "page"
           : undefined}
         href={navigationGroups[0].items[0].href}
-        ><HeartPulse size={14} />{navigationGroups[0].items[0].label}</a
       >
+        <HeartPulse size={14} />{navigationGroups[0].items[0].label}
+      </a>
       <a
         class:active={isActive(navigationGroups[0].items[1].href)}
         aria-current={isActive(navigationGroups[0].items[1].href)
           ? "page"
           : undefined}
         href={navigationGroups[0].items[1].href}
-        ><LayoutDashboard size={14} />{navigationGroups[0].items[1].label}</a
       >
+        <LayoutDashboard size={14} />{navigationGroups[0].items[1].label}
+      </a>
       {#each navigationGroups.slice(1) as group}
         <NavigationMenu {group} active={isActive} />
       {/each}
@@ -164,9 +166,9 @@
                 >
                   Sign in
                 </button>
-                <a href="/" class="secondary-gate-link"
-                  >← Return to public showcase</a
-                >
+                <a href="/" class="secondary-gate-link">
+                  ← Return to public showcase
+                </a>
               </div>
             </div>
           </section>

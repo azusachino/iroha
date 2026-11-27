@@ -38,25 +38,29 @@
 <table>
   <thead>
     <tr>
-      <th class="l" scope="col"
-        >{gran === "day" ? "Day" : gran === "month" ? "Month" : "Year"}</th
-      >
+      <th class="l" scope="col">
+        {gran === "day" ? "Day" : gran === "month" ? "Month" : "Year"}
+      </th>
       {#if aggregated}<th scope="col">Days</th>{/if}
-      <th scope="col">Move</th><th scope="col"
-        ><abbr title="Exercise">Exer</abbr></th
-      ><th scope="col">Stand</th><th scope="col"
-        ><abbr title="Move ring closed">Move ✓</abbr></th
-      >
-      <th scope="col">Steps{aggregated ? "/d" : ""}</th><th scope="col"
-        >Dist{aggregated ? "/d" : ""}</th
-      >
+      <th scope="col">Move</th><th scope="col">
+        <abbr title="Exercise">Exer</abbr>
+      </th><th scope="col">Stand</th><th scope="col">
+        <abbr title="Move ring closed">Move ✓</abbr>
+      </th>
+      <th scope="col">Steps{aggregated ? "/d" : ""}</th><th scope="col">
+        Dist{aggregated ? "/d" : ""}
+      </th>
       <th scope="col"><abbr title="Resting heart rate">rHR</abbr></th><th
-        scope="col"><abbr title="Heart rate variability (SDNN)">HRV</abbr></th
-      ><th scope="col"><abbr title="Blood oxygen saturation">SpO₂</abbr></th><th
-        scope="col"><abbr title="Respiratory rate">Resp</abbr></th
-      ><th scope="col"><abbr title="VO2 max">VO₂</abbr></th><th scope="col"
-        ><abbr title="Body mass">Mass</abbr></th
+        scope="col"
       >
+        <abbr title="Heart rate variability (SDNN)">HRV</abbr>
+      </th><th scope="col">
+        <abbr title="Blood oxygen saturation">SpO₂</abbr>
+      </th><th scope="col"><abbr title="Respiratory rate">Resp</abbr></th><th
+        scope="col"
+      >
+        <abbr title="VO2 max">VO₂</abbr>
+      </th><th scope="col"><abbr title="Body mass">Mass</abbr></th>
     </tr>
   </thead>
   <tbody>
@@ -74,11 +78,11 @@
         <td>{format(row.move, 0)}</td>
         <td>{format(row.exercise, 0)}</td>
         <td>{format(row.stand, 0)}</td>
-        <td
-          >{row.moveClosedPct == null
+        <td>
+          {row.moveClosedPct == null
             ? "—"
-            : `${Math.round(row.moveClosedPct)}%`}</td
-        >
+            : `${Math.round(row.moveClosedPct)}%`}
+        </td>
         <td data-period-evidence>{format(row.steps, 0)}</td>
         <td>{format(row.distance, 1)}</td>
         <td>{format(row.resting_hr, 0)}</td>

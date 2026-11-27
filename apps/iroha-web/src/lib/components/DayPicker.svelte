@@ -47,13 +47,13 @@
 >
   {#snippet children({ months, weekdays })}
     <Calendar.Header class="pk-head">
-      <Calendar.PrevButton class="pk-nav" aria-label="Previous month"
-        >‹</Calendar.PrevButton
-      >
+      <Calendar.PrevButton class="pk-nav" aria-label="Previous month">
+        ‹
+      </Calendar.PrevButton>
       <Calendar.Heading class="pk-heading" />
-      <Calendar.NextButton class="pk-nav" aria-label="Next month"
-        >›</Calendar.NextButton
-      >
+      <Calendar.NextButton class="pk-nav" aria-label="Next month">
+        ›
+      </Calendar.NextButton>
     </Calendar.Header>
     {#each months as month (month.value.toString())}
       <Calendar.Grid class="pk-grid">

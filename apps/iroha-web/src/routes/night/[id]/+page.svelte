@@ -149,24 +149,24 @@
               </p>
               <div class="metric-grid">
                 <div>
-                  <span>Started</span><strong
-                    >{formatDate(session.started_at)}</strong
-                  >
+                  <span>Started</span><strong>
+                    {formatDate(session.started_at)}
+                  </strong>
                 </div>
                 <div>
-                  <span>Ended</span><strong
-                    >{formatDate(session.ended_at)}</strong
-                  >
+                  <span>Ended</span><strong>
+                    {formatDate(session.ended_at)}
+                  </strong>
                 </div>
                 <div>
-                  <span>Deep + REM</span><strong
-                    >{formatDuration(session.deep_s + session.rem_s)}</strong
-                  >
+                  <span>Deep + REM</span><strong>
+                    {formatDuration(session.deep_s + session.rem_s)}
+                  </strong>
                 </div>
                 <div>
-                  <span>Source</span><strong
-                    ><SourceBadge source={session.source} /></strong
-                  >
+                  <span>Source</span><strong>
+                    <SourceBadge source={session.source} />
+                  </strong>
                 </div>
               </div>
             </article>
@@ -191,9 +191,9 @@
                   <p class="eyebrow">Stage timeline</p>
                   <h2>Sleep architecture</h2>
                 </div>
-                <span class="section-note"
-                  >{stagesReady ? segments.length : "—"} segments</span
-                >
+                <span class="section-note">
+                  {stagesReady ? segments.length : "—"} segments
+                </span>
               </div>
               {#if segments.length > 0}
                 <p class="chart-note">
@@ -220,11 +220,11 @@
                   <p class="eyebrow">Stage evidence</p>
                   <h2 id="stage-evidence-title">Every recorded interval</h2>
                 </div>
-                <span class="section-note"
-                  >{stageRows.length} intervals · {formatDuration(
+                <span class="section-note">
+                  {stageRows.length} intervals · {formatDuration(
                     observedSeconds,
-                  )} observed</span
-                >
+                  )} observed
+                </span>
               </div>
 
               {#if stageTotals.length}
@@ -233,8 +233,9 @@
                     <div>
                       <span>{item.stage}</span>
                       <strong>{formatDuration(item.duration)}</strong>
-                      <small>{Math.round(item.share)}% of observed stages</small
-                      >
+                      <small>
+                        {Math.round(item.share)}% of observed stages
+                      </small>
                     </div>
                   {/each}
                 </div>
@@ -243,9 +244,9 @@
               {#if stageRows.length}
                 <div class="segment-table">
                   <table>
-                    <caption
-                      >Canonical sleep stage intervals in source order</caption
-                    >
+                    <caption>
+                      Canonical sleep stage intervals in source order
+                    </caption>
                     <thead>
                       <tr>
                         <th>#</th>
@@ -270,11 +271,11 @@
                           <td>{formatDate(row.startedAt)}</td>
                           <td>{formatDate(row.endedAt)}</td>
                           <td>{formatDuration(row.duration)}</td>
-                          <td
-                            >{observedSeconds > 0
+                          <td>
+                            {observedSeconds > 0
                               ? `${Math.round((row.duration / observedSeconds) * 100)}%`
-                              : "—"}</td
-                          >
+                              : "—"}
+                          </td>
                         </tr>
                       {/each}
                     </tbody>

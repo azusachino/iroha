@@ -70,8 +70,10 @@
         aria-controls="admin-panel"
         tabindex={tab === item.id ? 0 : -1}
         onkeydown={onTabKeydown}
-        onclick={() => select(item.id)}>{item.label}</button
+        onclick={() => select(item.id)}
       >
+        {item.label}
+      </button>
     {/each}
   </div>
 

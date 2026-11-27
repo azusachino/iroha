@@ -49,8 +49,10 @@
         type="button"
         class="admin-button"
         onclick={() => void load()}
-        disabled={loading}><RefreshCw size={14} /> Refresh</button
+        disabled={loading}
       >
+        <RefreshCw size={14} /> Refresh
+      </button>
     </header>
     {#if error}
       <p class="admin-error" role="alert">API unavailable: {error}</p>

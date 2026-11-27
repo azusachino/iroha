@@ -36,9 +36,9 @@
         onRetry={t.retryCalendar}
         focusTarget={calendarPanel}
       />{/if}
-    <button class="nav" aria-label="Previous day" onclick={() => t.shift(-1)}
-      >‹</button
-    >
+    <button class="nav" aria-label="Previous day" onclick={() => t.shift(-1)}>
+      ‹
+    </button>
     <button
       class="scrub-center"
       aria-haspopup="dialog"
@@ -51,8 +51,10 @@
       class="nav"
       aria-label="Next day"
       disabled={!t.canMoveNext}
-      onclick={() => t.shift(1)}>›</button
+      onclick={() => t.shift(1)}
     >
+      ›
+    </button>
     <button
       type="button"
       class="scrub-refresh"

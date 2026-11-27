@@ -139,9 +139,9 @@
       </p>
     </div>
     <div class="hero-mark" aria-hidden="true">
-      <span>01</span><strong>read</strong><small
-        >the shape, then the record</small
-      >
+      <span>01</span><strong>read</strong><small>
+        the shape, then the record
+      </small>
     </div>
   </header>
 
@@ -259,10 +259,10 @@
   </section>
 
   <footer class="manual-footer">
-    <span
-      >Canonical dates use <code>yyyy-MM</code> for periods and
-      <code>yyyy-MM-dd</code> for days.</span
-    >
+    <span>
+      Canonical dates use <code>yyyy-MM</code> for periods and
+      <code>yyyy-MM-dd</code> for days.
+    </span>
   </footer>
 </section>
 

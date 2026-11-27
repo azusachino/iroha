@@ -193,18 +193,18 @@
                   bind:value={editName}
                 />
                 <button type="submit" disabled={busy}>Save</button>
-                <button type="button" onclick={() => (editing = null)}
-                  >Cancel</button
-                >
+                <button type="button" onclick={() => (editing = null)}>
+                  Cancel
+                </button>
               </form>
             {:else}
               <div>
                 <strong>{passkey.name}</strong>
-                <small
-                  >Added {formatDate(passkey.created_at)} · {passkey.last_used_at
+                <small>
+                  Added {formatDate(passkey.created_at)} · {passkey.last_used_at
                     ? `last used ${formatDate(passkey.last_used_at)}`
-                    : "never used"}</small
-                >
+                    : "never used"}
+                </small>
               </div>
               <div class="row-actions">
                 <button
@@ -212,15 +212,19 @@
                   onclick={() => {
                     editing = passkey.id;
                     editName = passkey.name;
-                  }}>Rename</button
+                  }}
                 >
+                  Rename
+                </button>
                 <button
                   type="button"
                   class="danger"
                   aria-label={`Remove ${passkey.name}`}
                   disabled={busy}
-                  onclick={() => remove(passkey)}><Trash2 size={15} /></button
+                  onclick={() => remove(passkey)}
                 >
+                  <Trash2 size={15} />
+                </button>
               </div>
             {/if}
           </li>
@@ -240,9 +244,9 @@
           />
         </label>
         <div class="row-actions">
-          <button type="submit" class="primary" disabled={busy}
-            >{busy ? "Checking…" : "Continue"}</button
-          >
+          <button type="submit" class="primary" disabled={busy}>
+            {busy ? "Checking…" : "Continue"}
+          </button>
           <button type="button" onclick={() => (pending = null)}>Cancel</button>
         </div>
       </form>

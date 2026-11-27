@@ -78,8 +78,10 @@
         class="update-status"
         role="status"
         aria-live="polite"
-        transition:fade={quickState}>Updating…</span
+        transition:fade={quickState}
       >
+        Updating…
+      </span>
     {/if}
   </div>
 {/if}

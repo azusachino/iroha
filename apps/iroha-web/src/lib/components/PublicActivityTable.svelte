@@ -67,8 +67,9 @@
       type="button"
       aria-controls="public-records-scroll"
       onclick={() => recordsScroll?.focus({ preventScroll: true })}
-      >Focus public records to scroll all columns</button
     >
+      Focus public records to scroll all columns
+    </button>
     <div
       class="table-wrap"
       id="public-records-scroll"

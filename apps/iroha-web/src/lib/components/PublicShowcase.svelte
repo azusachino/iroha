@@ -529,17 +529,19 @@
             <button
               type="button"
               class:active={selectedYear === year}
-              onclick={() => selectYear(year)}>{year}</button
+              onclick={() => selectYear(year)}
             >
+              {year}
+            </button>
           {/each}
         </nav>
       {/if}
       {#snippet actions()}
         <div class="public-actions">
           <div class="hero-meta" aria-label="Archive metadata">
-            <span>Live</span><span
-              >Updated {formatDateOnly(meta.generated_at)}</span
-            ><span>iroha v{site.version}</span>
+            <span>Live</span><span>
+              Updated {formatDateOnly(meta.generated_at)}
+            </span><span>iroha v{site.version}</span>
           </div>
         </div>
       {/snippet}
@@ -574,9 +576,9 @@
         <p role="alert">
           Activity detail view unavailable. Record summary remains.
         </p>
-        <button type="button" onclick={() => window.location.reload()}
-          >Reload page</button
-        >
+        <button type="button" onclick={() => window.location.reload()}>
+          Reload page
+        </button>
       </section>
     {/await}
   {:else}
@@ -604,8 +606,9 @@
           tabindex={archiveTab === tab ? 0 : -1}
           onclick={() => (archiveTab = tab as "run" | "books")}
           onkeydown={navigateArchiveTabs}
-          >{tab === "run" ? "Run" : "Books"}</button
         >
+          {tab === "run" ? "Run" : "Books"}
+        </button>
       {/each}
     </div>
     {#if archiveTab === "run"}

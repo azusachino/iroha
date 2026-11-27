@@ -262,11 +262,11 @@
           <p class="eyebrow">Today</p>
           <h2 id="tasks-title">To-go list</h2>
         </div>
-        <span class="count"
-          >{tasksResource.ready
+        <span class="count">
+          {tasksResource.ready
             ? `${openTasks.length} open in loaded tasks`
-            : "Task count unavailable"}</span
-        >
+            : "Task count unavailable"}
+        </span>
       </header>
 
       {#if tasksResource.error}
@@ -400,13 +400,13 @@
             actionIsActive("media-sync-anilist")}
           onclick={() => runAction("media-sync-anilist")}
         >
-          <span
-            ><strong>AniList</strong><small
-              >{actionIsActive("media-sync-anilist")
+          <span>
+            <strong>AniList</strong><small>
+              {actionIsActive("media-sync-anilist")
                 ? "Sync already running"
-                : "Refresh anime and manga"}</small
-            ></span
-          ><Play size={15} />
+                : "Refresh anime and manga"}
+            </small>
+          </span><Play size={15} />
         </button>
         <button
           type="button"
@@ -416,13 +416,13 @@
             actionIsActive("media-sync-bangumi")}
           onclick={() => runAction("media-sync-bangumi")}
         >
-          <span
-            ><strong>Bangumi</strong><small
-              >{actionIsActive("media-sync-bangumi")
+          <span>
+            <strong>Bangumi</strong><small>
+              {actionIsActive("media-sync-bangumi")
                 ? "Sync already running"
-                : "Refresh the Chinese catalog"}</small
-            ></span
-          ><Play size={15} />
+                : "Refresh the Chinese catalog"}
+            </small>
+          </span><Play size={15} />
         </button>
         <button
           type="button"
@@ -432,13 +432,13 @@
             actionIsActive("media-bridge-refresh")}
           onclick={() => runAction("media-bridge-refresh")}
         >
-          <span
-            ><strong>Media bridge</strong><small
-              >{actionIsActive("media-bridge-refresh")
+          <span>
+            <strong>Media bridge</strong><small>
+              {actionIsActive("media-bridge-refresh")
                 ? "Refresh already running"
-                : "Re-fetch the Bangumi/AniList crosswalk"}</small
-            ></span
-          ><Play size={15} />
+                : "Re-fetch the Bangumi/AniList crosswalk"}
+            </small>
+          </span><Play size={15} />
         </button>
       </div>
     </section>
@@ -459,8 +459,10 @@
         class="refresh"
         type="button"
         onclick={() => void refreshJobs()}
-        aria-label="Refresh jobs"><RefreshCw size={15} /></button
+        aria-label="Refresh jobs"
       >
+        <RefreshCw size={15} />
+      </button>
     </header>
     <p class="panel-copy queue-note">
       Only the actions above are shown here. Their importer jobs stay out of
@@ -493,16 +495,16 @@
             {#each jobs as job (job.id)}
               <div class="job-row">
                 <span class={`job-dot ${job.status}`} aria-hidden="true"></span>
-                <span class="job-copy"
-                  ><strong>{actionLabel(job.kind)}</strong><small
-                    >{job.status === "failed" && job.error_message
+                <span class="job-copy">
+                  <strong>{actionLabel(job.kind)}</strong><small>
+                    {job.status === "failed" && job.error_message
                       ? job.error_message
-                      : `${statusLabel(job.status)} · ${job.attempts}/${job.max_attempts} attempts`}</small
-                  ></span
-                >
-                <time datetime={job.created_at}
-                  >{formatDate(job.created_at)}</time
-                >
+                      : `${statusLabel(job.status)} · ${job.attempts}/${job.max_attempts} attempts`}
+                  </small>
+                </span>
+                <time datetime={job.created_at}>
+                  {formatDate(job.created_at)}
+                </time>
               </div>
             {/each}
           </div>

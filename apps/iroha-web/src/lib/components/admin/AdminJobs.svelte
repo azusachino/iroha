@@ -89,8 +89,10 @@
         type="button"
         class="admin-button"
         onclick={() => void load()}
-        disabled={loading}><RefreshCw size={14} /> Refresh</button
+        disabled={loading}
       >
+        <RefreshCw size={14} /> Refresh
+      </button>
     </header>
     {#if schedules.length}
       <ul class="admin-list">
@@ -136,8 +138,10 @@
                     `run-${schedule.kind}`,
                     `${kindLabel(schedule.kind)} will run on the worker's next poll.`,
                     () => runSchedule(schedule.kind),
-                  )}><Play size={14} /> Run now</button
+                  )}
               >
+                <Play size={14} /> Run now
+              </button>
             </div>
           </li>
         {/each}
@@ -160,8 +164,10 @@
             class="admin-button"
             class:primary={filter === value}
             aria-pressed={filter === value}
-            onclick={() => (filter = value as typeof filter)}>{label}</button
+            onclick={() => (filter = value as typeof filter)}
           >
+            {label}
+          </button>
         {/each}
       </div>
     </header>
@@ -176,12 +182,12 @@
             <div>
               <strong>{kindLabel(job.kind)}</strong>
               <span class={`status ${tone(job.status)}`}>{job.status}</span>
-              <small
-                >created {formatDate(job.created_at)} · attempt {job.attempts}/{job.max_attempts}</small
-              >
-              {#if job.error_message}<small class="admin-error"
-                  >{job.error_message}</small
-                >{/if}
+              <small>
+                created {formatDate(job.created_at)} · attempt {job.attempts}/{job.max_attempts}
+              </small>
+              {#if job.error_message}<small class="admin-error">
+                  {job.error_message}
+                </small>{/if}
             </div>
             <div class="admin-actions">
               {#if job.status === "failed" || job.status === "canceled"}
@@ -192,8 +198,10 @@
                   onclick={() =>
                     void act(job.id, "Queued a new attempt.", () =>
                       retryJob(job.id),
-                    )}>Retry</button
+                    )}
                 >
+                  Retry
+                </button>
               {/if}
               {#if job.status === "queued"}
                 <button
@@ -202,8 +210,9 @@
                   disabled={busy !== null}
                   onclick={() =>
                     void act(job.id, "Job canceled.", () => cancelJob(job.id))}
-                  >Cancel</button
                 >
+                  Cancel
+                </button>
               {/if}
             </div>
           </li>
