@@ -13,12 +13,14 @@
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
     min-width: 0;
-    padding: var(--space-4);
-    border: 1px solid color-mix(in srgb, var(--border) 88%, white 12%);
-    border-radius: var(--radius, 14px);
+    padding: var(--pad-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     background: var(--tile-surface, var(--surface));
-    box-shadow:
-      var(--tile-shadow, none),
-      inset 0 1px 0 rgb(255 255 255 / 0.035);
+    box-shadow: var(--tile-shadow), var(--tile-rim);
+  }
+
+  .panel-frame :global(h2) {
+    font-size: var(--type-title-small);
   }
 </style>

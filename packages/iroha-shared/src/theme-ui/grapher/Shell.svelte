@@ -39,12 +39,12 @@
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
-    gap: 1.25rem;
+    gap: var(--space-5);
     width: 15rem;
     height: 100vh;
     max-height: 100vh;
     overflow-y: auto;
-    padding: 1.5rem 1rem 1rem;
+    padding: var(--space-6) var(--space-4) var(--space-4);
     border: 0;
     border-right: 1px solid var(--border);
     background: var(--surface);
@@ -52,11 +52,11 @@
   }
 
   .rail-label {
-    margin: 0.75rem 0 -0.75rem;
+    margin: var(--space-3) 0 calc(var(--space-3) * -1);
     padding: 0 0.65rem;
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: var(--type-caption);
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
@@ -64,7 +64,7 @@
   .grapher-header :global(.main-nav) {
     display: grid;
     align-content: start;
-    gap: 0.25rem;
+    gap: var(--space-1);
     margin: 0;
     padding: 0;
     border: 0;
@@ -80,12 +80,12 @@
     justify-content: flex-start;
     gap: 0.7rem;
     width: 100%;
-    min-height: 2.75rem;
-    padding: 0.65rem 0.75rem;
+    min-height: var(--control-height-lg);
+    padding: 0.65rem var(--space-3);
     border: 0;
-    border-radius: calc(var(--radius) - 3px);
+    border-radius: var(--radius-md);
     color: var(--text-muted);
-    font-size: 0.82rem;
+    font-size: var(--type-label);
     font-weight: 650;
     text-align: left;
     text-decoration: none;
@@ -159,10 +159,10 @@
   }
 
   .grapher-header :global(.navigation-menu .navigation-popover a) {
-    min-height: 2.5rem;
-    padding: 0.5rem 0.65rem;
-    border-radius: calc(var(--radius) - 4px);
-    font-size: 0.78rem;
+    min-height: var(--control-height);
+    padding: var(--space-2) 0.65rem;
+    border-radius: var(--radius-md);
+    font-size: var(--type-label);
   }
 
   .grapher-header :global(.appbar-actions) {
@@ -170,19 +170,19 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
-    gap: 0.5rem;
+    gap: var(--space-2);
     width: 100%;
     margin: auto 0 0;
-    padding-top: 1rem;
+    padding-top: var(--space-4);
     border-top: 1px solid var(--border);
   }
 
   .grapher-header :global(.command-trigger) {
     justify-content: space-between;
     width: 100%;
-    min-height: 2.75rem;
+    min-height: var(--control-height-lg);
     border-radius: var(--radius);
-    box-shadow: var(--tile-shadow);
+    box-shadow: var(--tile-shadow), var(--tile-rim);
     transition:
       border-color var(--motion-micro),
       box-shadow var(--motion-micro),
@@ -191,15 +191,13 @@
 
   .grapher-header :global(.command-trigger:hover),
   .grapher-header :global(.appbar-actions .user-menu > .user-menu-trigger:hover) {
-    box-shadow:
-      var(--tile-shadow),
-      0 8px 20px -6px rgb(0 0 0 / 0.3);
+    box-shadow: var(--tile-shadow-hover), var(--tile-rim);
     transform: translateY(-1px);
   }
 
   .grapher-header :global(.appbar-actions .user-menu > .user-menu-trigger) {
     border-radius: var(--radius);
-    box-shadow: var(--tile-shadow);
+    box-shadow: var(--tile-shadow), var(--tile-rim);
     transition:
       border-color var(--motion-micro),
       box-shadow var(--motion-micro),
@@ -225,10 +223,10 @@
     grid-column: 2;
     grid-row: 1;
     --shell-width: 1440px;
-    width: min(var(--shell-width), calc(100% - 4rem));
+    width: min(var(--shell-width), calc(100% - var(--gutter-page) * 2));
     min-width: 0;
     margin: 0 auto;
-    padding: 2.5rem 0 4rem;
+    padding: var(--space-10) 0 4rem;
   }
 
   .grapher-footer {
@@ -236,11 +234,11 @@
     grid-row: 2;
     display: flex;
     justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem 2rem;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--gutter-page);
     border-top: 1px solid var(--border);
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
   }
 
   /* The account control sits at the bottom of the rail, so its menu opens
@@ -300,10 +298,10 @@
     .grapher-header :global(.main-nav > a),
     .grapher-header :global(.navigation-menu > .navigation-trigger) {
       width: auto;
-      min-height: 2rem;
+      min-height: var(--control-height);
       padding: 0.42rem 0.62rem;
-      border-radius: 999px;
-      font-size: 0.76rem;
+      border-radius: var(--radius-pill);
+      font-size: var(--type-caption);
     }
 
     .grapher-header :global(.appbar-actions) {
@@ -312,7 +310,7 @@
       flex-wrap: nowrap;
       align-items: center;
       justify-content: flex-end;
-      gap: 0.5rem;
+      gap: var(--space-2);
       width: auto;
       margin: 0;
       padding: 0;
@@ -321,7 +319,7 @@
 
     .grapher-header :global(.command-trigger) {
       width: auto;
-      min-height: 2.25rem;
+      min-height: var(--control-height);
     }
 
     .grapher-header :global(.appbar-actions .user-menu) {
@@ -338,12 +336,11 @@
     }
 
     .grapher-content {
-      width: min(var(--shell-width), calc(100% - 3rem));
       padding: 2.25rem 0 4rem;
     }
 
     .grapher-footer {
-      padding: 1rem 1.5rem;
+      padding: var(--space-4) var(--gutter-page);
     }
   }
 
@@ -370,9 +367,9 @@
     .grapher-header :global(.main-nav > a),
     .grapher-header :global(.navigation-menu > .navigation-trigger) {
       justify-content: center;
-      min-height: 2.5rem;
+      min-height: var(--control-height);
       padding: 0.42rem 0.1rem;
-      font-size: 0.68rem;
+      font-size: var(--type-caption);
     }
 
     .grapher-header :global(.main-nav > a svg),
@@ -387,13 +384,12 @@
     }
 
     .grapher-content {
-      width: min(100% - 2rem, var(--shell-width));
       padding: 1.75rem 0 3rem;
     }
 
     .grapher-footer {
       flex-direction: column;
-      padding: 1rem;
+      padding: var(--space-4) var(--gutter-page);
     }
   }
 </style>

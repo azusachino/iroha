@@ -94,6 +94,11 @@
     gap: var(--space-3);
     min-width: 0;
   }
+  .metric-panel > :global(h2),
+  .metric-panel > :global(h3) {
+    margin: 0;
+    font-size: var(--type-title-small);
+  }
   .metric-panel-body {
     min-width: 0;
   }
@@ -109,10 +114,10 @@
     gap: var(--space-1);
   }
   button {
-    min-height: 1.9rem;
+    min-height: var(--control-height);
     padding: var(--space-1) var(--space-3);
     border: 1px solid var(--border, #d6dbe3);
-    border-radius: calc(var(--radius, 8px) - 4px);
+    border-radius: var(--radius-sm);
     background: var(--surface-2, transparent);
     color: var(--text-muted, #778090);
     font: inherit;
@@ -120,6 +125,9 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     cursor: pointer;
+    transition:
+      border-color var(--motion-micro),
+      color var(--motion-micro);
   }
   button[aria-pressed="true"] {
     border-color: var(--accent, #2f6fed);
