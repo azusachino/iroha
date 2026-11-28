@@ -2,6 +2,9 @@
   "name": "iroha-workspace",
   "private": true,
   "type": "module",
+  "scripts": {
+    "tools:test": "bun test tools/tests"
+  },
   "workspaces": [
     "apps/iroha-web",
     "packages/iroha-shared"

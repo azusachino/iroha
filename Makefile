@@ -23,7 +23,7 @@ MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: test-integration-ci help fmt fmt-check vet lint test contract-check test-integration scripts-test quality-floor-check theme-boundary-check responsive-check motion-tokens-check build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-dev web-visual-install web-visual-check web-mobile-check fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web images
+.PHONY: test-integration-ci help fmt fmt-check vet lint test contract-check test-integration scripts-test tools-test gate-parity quality-floor-check theme-boundary-check theme-boundary-check-py responsive-check responsive-check-py motion-tokens-check motion-tokens-check-py web-coverage-check-py build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-bundle-report-py web-dev web-visual-install web-visual-check web-mobile-check fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web images
 
 PRETTIER := bun run prettier
 MARKDOWN_FILES = $(shell rg --files -g '*.md' -g '!**/node_modules/**')
@@ -67,17 +67,52 @@ scripts-test: ## Run Python script unit tests and report coverage
 	$(TOOL_ENV) uv run coverage run --branch --source=scripts --omit='*_test.py' -m unittest discover -s scripts -p '*_test.py'
 	$(TOOL_ENV) uv run coverage report -m
 
+tools-test: ## Run Bun TypeScript checker unit tests
+	$(TOOL_ENV) bun test tools/tests
+
 quality-floor-check: ## Block changes that weaken CONSTRAINTS.md or the quality floor
 	$(TOOL_ENV) uv run python scripts/quality_floor_guard.py --base "$(QUALITY_BASE)"
 
 theme-boundary-check: ## Fail if theme assets escape the shared package boundary
+	$(TOOL_ENV) bun tools/check-theme-boundary.ts
+
+theme-boundary-check-py: ## Compare-only Python original for theme-boundary-check
 	$(TOOL_ENV) uv run python scripts/check_theme_boundary.py
 
 responsive-check: ## Fail if frontend media queries use non-canonical breakpoints
+	$(TOOL_ENV) bun tools/check-responsive-contract.ts
+
+responsive-check-py: ## Compare-only Python original for responsive-check
 	$(TOOL_ENV) uv run python scripts/check_responsive_contract.py
 
 motion-tokens-check: ## Fail if a --motion-* token is referenced but never defined
+	$(TOOL_ENV) bun tools/check-motion-tokens.ts
+
+motion-tokens-check-py: ## Compare-only Python original for motion-tokens-check
 	$(TOOL_ENV) uv run python scripts/check_motion_tokens.py
+
+gate-parity: ## Compare Python and Bun checker exit codes against the current tree
+	@set -euo pipefail; \
+	pairs=( \
+		"theme-boundary|uv run python scripts/check_theme_boundary.py|bun tools/check-theme-boundary.ts" \
+		"motion-tokens|uv run python scripts/check_motion_tokens.py|bun tools/check-motion-tokens.ts" \
+		"responsive-contract|uv run python scripts/check_responsive_contract.py|bun tools/check-responsive-contract.ts" \
+		"web-coverage|uv run python scripts/check_web_coverage.py|bun tools/check-web-coverage.ts" \
+		"web-bundle-report|uv run python scripts/web_bundle_report.py $(WEB_DIR)/build|bun tools/web-bundle-report.ts $(WEB_DIR)/build" \
+	); \
+	printf "%-22s %-6s %-6s %s\n" "checker" "py" "bun" "status"; \
+	printf "%-22s %-6s %-6s %s\n" "----------------------" "------" "------" "------"; \
+	fail=0; \
+	for entry in "$${pairs[@]}"; do \
+		IFS='|' read -r name py_cmd bun_cmd <<< "$$entry"; \
+		set +e; \
+		$(TOOL_ENV) $$py_cmd >/dev/null 2>&1; py_rc=$$?; \
+		$(TOOL_ENV) $$bun_cmd >/dev/null 2>&1; bun_rc=$$?; \
+		set -e; \
+		if [ "$$py_rc" -eq "$$bun_rc" ]; then status="match"; else status="MISMATCH"; fail=1; fi; \
+		printf "%-22s %-6d %-6d %s\n" "$$name" "$$py_rc" "$$bun_rc" "$$status"; \
+	done; \
+	exit $$fail
 
 build: ## Build all Go modules
 	$(TOOL_ENV) uv run python scripts/go_tasks.py build
@@ -116,12 +151,18 @@ web-check: ## Type-check the web app (svelte-check)
 
 web-test: ## Run web unit tests, report coverage and verify both source inventories
 	cd $(WEB_DIR) && $(TOOL_ENV) bun run test
+	$(TOOL_ENV) bun tools/check-web-coverage.ts
+
+web-coverage-check-py: ## Compare-only Python original for web-coverage check
 	$(TOOL_ENV) uv run python scripts/check_web_coverage.py
 
 web-build: web-install ## Production build of the web app
 	cd $(WEB_DIR) && PUBLIC_IROHA_VERSION=$(VERSION) PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) $(TOOL_ENV) bun run build
 
 web-bundle-report: web-build ## Report total emitted JavaScript and CSS raw/gzip sizes
+	$(TOOL_ENV) bun tools/web-bundle-report.ts $(WEB_DIR)/build
+
+web-bundle-report-py: web-build ## Compare-only Python original for web-bundle-report
 	$(TOOL_ENV) uv run python scripts/web_bundle_report.py $(WEB_DIR)/build
 
 web-dev: ## Run the web dev server, bound to all interfaces (Tailscale/LAN)
@@ -162,7 +203,7 @@ fmt-docs-check: ## Check all Markdown with rumdl and docs/config YAML and JSON w
 local-check: ## Reuse unchanged local module checks (ARGS='--force' for a fresh run)
 	$(TOOL_ENV) uv run python scripts/local_checks.py $(ARGS)
 
-check: quality-floor-check fmt-check vet lint test contract-check scripts-test theme-boundary-check responsive-check motion-tokens-check web-fmt-check web-check web-test ## Pre-commit gate: quality floor + fmt-check + vet + lint + test + contract route check + script tests + theme/responsive/motion boundaries + web checks
+check: quality-floor-check fmt-check vet lint test contract-check scripts-test tools-test theme-boundary-check responsive-check motion-tokens-check web-fmt-check web-check web-test ## Pre-commit gate: quality floor + fmt-check + vet + lint + test + contract route check + script/tool tests + theme/responsive/motion boundaries + web checks
 validate: check build web-bundle-report ## Pre-PR gate: check + full server, and web builds
 
 release-candidate: ## Isolated DB integration + seeded production runtime/browser gate
