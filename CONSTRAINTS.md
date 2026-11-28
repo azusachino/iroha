@@ -61,4 +61,4 @@ Record an exception here only with a named owner, reason, and expiry. The floor 
 | E10 | assertion-removed | apps/iroha-web/e2e/public-reading.spec.ts | Owner requested completed-only book archive; replace old in-progress and grouped-list assertions with finished-only, year, chart and undated-record checks | haru | 2026-12-12 |
 | E11 | test-deleted | apps/iroha-web/src/lib/themes/registry.test.ts | Remove apps/iroha-web/src/lib/themes/ migration-debt layer; test preserved in apps/iroha-web/src/lib/theme-registry.test.ts | haru | 2026-12-25 |
 | E12 | assertion-removed | scripts/check_theme_boundary_test.py | Retire apps/iroha-web/src/lib/themes/ host-adapter allowlist; replace allowlist assertion with rejection assertion | haru | 2026-12-25 |
-| E13 | assertion-removed | scripts/dev_stack_test.py | podman_cmd() split into per-operation builders; each operation now asserts its exact argv for both podman and colima/nerdctl | haru | 2026-12-31 |
+| E24 | assertion-removed | scripts/dev_stack_test.py | podman_cmd() split into per-operation builders; each operation now asserts its exact argv for both podman and colima/nerdctl | haru | 2026-12-31 |
