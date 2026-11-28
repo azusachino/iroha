@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PanelFrame from "../../components/PanelFrame.svelte";
   import { categoryColor } from "../../domain/category-color";
   import { expenseCategoryIcon } from "../../domain/expense-icons";
   import type { Expense } from "../../domain/expense";
@@ -16,12 +17,8 @@
     onSelect,
     onRemove,
     formatMoney,
-    embedded = false,
-    period,
   }: {
     expenses: Expense[];
-    embedded?: boolean;
-    period?: string;
     selected: Expense | null;
     selectedId: string;
     detailLoading: boolean;
@@ -55,21 +52,10 @@
   }
 </script>
 
-<section
-  class="canonical-ledger"
-  class:embedded
-  aria-labelledby="canonical-expense-records-title"
->
-  <header class="ledger-heading">
-    <div>
-      <p class="eyebrow">Canonical records · exact data</p>
-      <h2 id="canonical-expense-records-title">Expense records</h2>
-    </div>
-    <p class="ledger-description">
-      This surface preserves every canonical record for {period ??
-        "the selected period"}; spending evidence has its own observed scope.
-    </p>
-  </header>
+<PanelFrame title="Expense records">
+  {#snippet meta()}
+    <span>Canonical records · exact data</span>
+  {/snippet}
 
   <div class="ledger-grid">
     <section class="panel list-panel" aria-labelledby="expense-list-title">
@@ -116,7 +102,7 @@
                       expenseCategoryLabel[expense.category]}</strong
                   >
                   <small
-                    >{expense.occurred_on} · {expenseCategoryLabel[
+                    ><span class="mono-inline">{expense.occurred_on}</span> · {expenseCategoryLabel[
                       expense.category
                     ]}</small
                   >
@@ -182,7 +168,7 @@
         <dl class="detail-list">
           <div>
             <dt>Amount</dt>
-            <dd>
+            <dd class="mono">
               {formatMoney(
                 selected.amount_minor,
                 selected.currency,
@@ -192,11 +178,11 @@
           </div>
           <div>
             <dt>Raw amount</dt>
-            <dd>{selected.amount_minor} minor {selected.currency}</dd>
+            <dd class="mono">{selected.amount_minor} minor {selected.currency}</dd>
           </div>
           <div>
             <dt>Date</dt>
-            <dd>{selected.occurred_on}</dd>
+            <dd class="mono">{selected.occurred_on}</dd>
           </div>
           <div>
             <dt>Category</dt>
@@ -222,7 +208,7 @@
               {#each selected.items as item}
                 <li>
                   <span>{item.name}</span>
-                  {#if item.amount_minor != null}<span
+                  {#if item.amount_minor != null}<span class="mono"
                       >{item.amount_minor} minor</span
                     >{/if}
                 </li>
@@ -253,7 +239,7 @@
       {/if}
     </section>
   </div>
-</section>
+</PanelFrame>
 
 <style>
   .ledger-grid {
@@ -261,40 +247,6 @@
     grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
     gap: 0;
     border-top: 1px solid var(--border);
-  }
-  .canonical-ledger {
-    display: grid;
-    gap: 1rem;
-    padding: var(--space-4);
-    border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
-    border-top: 3px solid var(--accent);
-    border-radius: var(--radius);
-    background: color-mix(in srgb, var(--accent) 4%, var(--surface));
-  }
-  .canonical-ledger.embedded {
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-  .ledger-heading {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    align-items: end;
-  }
-  .ledger-heading h2 {
-    margin: var(--space-1) 0 0;
-    font-size: clamp(var(--type-title), 3vw, var(--type-display));
-    letter-spacing: -0.06em;
-  }
-  .ledger-description {
-    max-width: 22rem;
-    margin: 0;
-    color: var(--text-muted);
-    font-size: var(--type-label);
-    line-height: 1.5;
-    text-align: right;
   }
   .panel {
     min-width: 0;
@@ -319,20 +271,19 @@
     align-items: center;
     gap: var(--space-3);
   }
-  h2,
   h3,
   p,
   ul,
   dl {
     margin: 0;
   }
-  h2,
   h3,
   h4 {
     font-size: var(--type-title-small);
     letter-spacing: -0.04em;
   }
   h4 {
+    margin: 0;
     font-size: var(--type-label);
   }
   .eyebrow {
@@ -349,6 +300,10 @@
     color: var(--text-muted);
     font-size: var(--type-caption);
   }
+  .count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
   .expense-list,
   .item-detail ul {
     display: grid;
@@ -361,6 +316,7 @@
     justify-content: space-between;
     gap: 1rem;
     width: 100%;
+    min-height: var(--control-height);
     padding: var(--space-3);
     border: 1px solid transparent;
     background: transparent;
@@ -373,9 +329,17 @@
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
+  .expense-row:focus-visible,
+  .export:focus-visible,
+  .show-more:focus-visible,
+  .danger:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
   .expense-row span {
     display: grid;
     gap: 0.25rem;
+    min-width: 0;
   }
   .expense-row strong {
     display: flex;
@@ -398,13 +362,18 @@
     color: var(--text-muted);
     font-size: var(--type-caption);
   }
+  .mono-inline {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
   .expense-row b {
     white-space: nowrap;
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
   .export,
   .show-more {
-    min-height: 1.9rem;
+    min-height: var(--control-height);
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) - 4px);
     background: var(--surface-2);
@@ -430,10 +399,12 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
+    min-height: var(--control-height);
     border: 1px solid var(--danger);
     padding: var(--space-2) var(--space-3);
     background: transparent;
     color: var(--danger);
+    font: inherit;
     cursor: pointer;
   }
   .action-icon {
@@ -466,6 +437,7 @@
   .mono {
     font-family: var(--font-mono);
     font-size: var(--type-caption);
+    font-variant-numeric: tabular-nums;
   }
   .item-detail {
     display: grid;
@@ -491,12 +463,6 @@
     height: 1.5rem;
   }
   @media (max-width: 768px) {
-    .ledger-heading {
-      display: grid;
-    }
-    .ledger-description {
-      text-align: left;
-    }
     .ledger-grid {
       grid-template-columns: 1fr;
     }
