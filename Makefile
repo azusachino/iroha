@@ -23,7 +23,7 @@ MOBILE_DEFAULT_MODES := light,dark
 MOBILE_DEFAULT_MOTION := normal,reduced
 
 .DEFAULT_GOAL := help
-.PHONY: test-integration-ci help fmt fmt-check vet lint test contract-check test-integration scripts-test tools-test gate-parity quality-floor-check theme-boundary-check theme-boundary-check-py responsive-check responsive-check-py motion-tokens-check motion-tokens-check-py web-coverage-check-py build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-bundle-report-py web-dev web-visual-install web-visual-check web-mobile-check fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web images
+.PHONY: test-integration-ci help fmt fmt-check vet lint test contract-check test-integration scripts-test tools-test gate-parity quality-floor-check quality-floor-check-py theme-boundary-check theme-boundary-check-py responsive-check responsive-check-py motion-tokens-check motion-tokens-check-py web-coverage-check-py build run run-job export-public media-bridge-build shared-install web-install web-fmt web-fmt-check web-check web-test web-build web-bundle-report web-bundle-report-py web-dev web-visual-install web-visual-check web-mobile-check fmt-docs fmt-docs-check check validate release-candidate dev-up dev-watch db-up db-down db-status db-logs db-reset smoke-real-import smoke-local soak-local smoke-k3s-cache image-server image-job image-db-migrate image-web images
 
 PRETTIER := bun run prettier
 MARKDOWN_FILES = $(shell rg --files -g '*.md' -g '!**/node_modules/**')
@@ -71,6 +71,9 @@ tools-test: ## Run Bun TypeScript checker unit tests
 	$(TOOL_ENV) bun test tools/tests
 
 quality-floor-check: ## Block changes that weaken CONSTRAINTS.md or the quality floor
+	$(TOOL_ENV) bun tools/quality-floor-guard.ts --base "$(QUALITY_BASE)"
+
+quality-floor-check-py: ## Compare-only Python original for quality-floor-check
 	$(TOOL_ENV) uv run python scripts/quality_floor_guard.py --base "$(QUALITY_BASE)"
 
 theme-boundary-check: ## Fail if theme assets escape the shared package boundary
@@ -94,6 +97,7 @@ motion-tokens-check-py: ## Compare-only Python original for motion-tokens-check
 gate-parity: ## Compare Python and Bun checker exit codes against the current tree
 	@set -euo pipefail; \
 	pairs=( \
+		"quality-floor|uv run python scripts/quality_floor_guard.py --base $(QUALITY_BASE)|bun tools/quality-floor-guard.ts --base $(QUALITY_BASE)" \
 		"theme-boundary|uv run python scripts/check_theme_boundary.py|bun tools/check-theme-boundary.ts" \
 		"motion-tokens|uv run python scripts/check_motion_tokens.py|bun tools/check-motion-tokens.ts" \
 		"responsive-contract|uv run python scripts/check_responsive_contract.py|bun tools/check-responsive-contract.ts" \
@@ -112,6 +116,13 @@ gate-parity: ## Compare Python and Bun checker exit codes against the current tr
 		if [ "$$py_rc" -eq "$$bun_rc" ]; then status="match"; else status="MISMATCH"; fail=1; fi; \
 		printf "%-22s %-6d %-6d %s\n" "$$name" "$$py_rc" "$$bun_rc" "$$status"; \
 	done; \
+	broken_diff=$$(printf -- "--- a/example.go\n+++ b/example.go\n@@\n+//""nolint:gosec\n"); \
+	set +e; \
+	PYTHONPATH=scripts $(TOOL_ENV) uv run python -c 'import sys; from quality_floor_guard import find_floor_violations; sys.exit(1 if find_floor_violations(sys.argv[1]) else 0)' "$$broken_diff" >/dev/null 2>&1; py_broken_rc=$$?; \
+	$(TOOL_ENV) bun -e 'import { findFloorViolations } from "./tools/quality-floor-guard.ts"; process.exit(findFloorViolations(process.argv[1]).length > 0 ? 1 : 0);' "$$broken_diff" >/dev/null 2>&1; bun_broken_rc=$$?; \
+	set -e; \
+	if [ "$$py_broken_rc" -ne 0 ] && [ "$$bun_broken_rc" -ne 0 ] && [ "$$py_broken_rc" -eq "$$bun_broken_rc" ]; then broken_status="match"; else broken_status="MISMATCH"; fail=1; fi; \
+	printf "%-22s %-6d %-6d %s\n" "quality-floor-broken" "$$py_broken_rc" "$$bun_broken_rc" "$$broken_status"; \
 	exit $$fail
 
 build: ## Build all Go modules

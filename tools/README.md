@@ -1,9 +1,11 @@
 # Tools (Bun TypeScript Checkers)
 
-Bun TypeScript ports of the five frontend/theme/bundle checks originally in `scripts/`.
+Bun TypeScript ports of the repository quality/theme/bundle checks originally in `scripts/`.
 All scripts import `node:` built-ins only and run directly under Bun with no build step or extra dependencies.
 
 ## Scripts
+
+- `tools/quality-floor-guard.ts`: Fails when a diff weakens `CONSTRAINTS.md` or the quality floor (`make quality-floor-check`).
 
 - `tools/check-theme-boundary.ts`: Enforces the shared theme asset and import-direction boundary (`make theme-boundary-check`).
 - `tools/check-motion-tokens.ts`: Fails if any `--motion-*` custom property is referenced without a definition in `packages/iroha-shared/src/theme/themes.css` (`make motion-tokens-check`).
