@@ -50,7 +50,7 @@ def changed_services(before: dict[Path, int], after: dict[Path, int]) -> list[st
 
 
 def rebuild(services: list[str]) -> int:
-    command = dev_stack.podman_cmd() + ["up", "--build", "-d", *services]
+    command = dev_stack.compose_argv("up", "--build", "-d", *services)
     print("+ " + " ".join(command), flush=True)
     return subprocess.call(command, cwd=dev_stack.ROOT)
 

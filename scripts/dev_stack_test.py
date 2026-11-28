@@ -1,4 +1,6 @@
+import io
 import os
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -6,31 +8,116 @@ from unittest import mock
 import dev_stack
 
 
+def _make_fake_bin(directory: Path, *names: str) -> dict[str, Path]:
+    created: dict[str, Path] = {}
+    for name in names:
+        exe = directory / name
+        exe.write_text("#!/bin/sh\nexit 0\n")
+        exe.chmod(0o755)
+        created[name] = exe
+    return created
+
+
 class DevStackScriptTest(unittest.TestCase):
-    def test_podman_bin_prefers_configured_path(self) -> None:
-        with mock.patch.dict(os.environ, {"PODMAN": "/tmp/custom-podman"}):
-            self.assertEqual(dev_stack.podman_bin(), "/tmp/custom-podman")
+    def test_container_cmd_prefers_configured_podman_path(self) -> None:
+        with mock.patch.dict(os.environ, {"PODMAN": "/tmp/custom-podman"}, clear=True):
+            self.assertEqual(dev_stack.container_cmd(), ["/tmp/custom-podman"])
 
-    def test_compose_bin_uses_path_lookup(self) -> None:
-        with (
-            mock.patch.dict(os.environ, {}, clear=True),
-            mock.patch.object(dev_stack.shutil, "which", return_value="/usr/local/bin/podman-compose"),
-        ):
-            self.assertEqual(dev_stack.compose_bin(), "/usr/local/bin/podman-compose")
+    def test_container_cmd_override_takes_precedence_over_path_and_podman(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _make_fake_bin(Path(tmpdir), "podman", "podman-compose")
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "PATH": tmpdir,
+                    "PODMAN": "/tmp/custom-podman",
+                    "IROHA_CONTAINER": "colima nerdctl",
+                },
+                clear=True,
+            ):
+                self.assertEqual(dev_stack.container_cmd(), ["colima", "nerdctl"])
+                self.assertEqual(
+                    dev_stack.compose_cmd(),
+                    [
+                        "colima",
+                        "nerdctl",
+                        "compose",
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                    ],
+                )
 
-    def test_podman_cmd_exits_when_missing(self) -> None:
-        with mock.patch.object(dev_stack, "podman_bin", return_value=""):
-            with self.assertRaises(SystemExit) as raised:
-                dev_stack.podman_cmd()
+    def test_container_cmd_resolves_podman_from_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman", "podman-compose")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(dev_stack.container_cmd(), [str(bins["podman"])])
+                self.assertEqual(
+                    dev_stack.compose_cmd(),
+                    [
+                        str(bins["podman-compose"]),
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                    ],
+                )
+
+    def test_container_cmd_resolves_colima_nerdctl_when_podman_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(dev_stack.container_cmd(), [str(bins["colima"]), "nerdctl"])
+                self.assertEqual(
+                    dev_stack.compose_cmd(),
+                    [
+                        str(bins["colima"]),
+                        "nerdctl",
+                        "compose",
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                    ],
+                )
+
+    def test_container_cmd_prefers_podman_when_both_on_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman", "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(dev_stack.container_cmd(), [str(bins["podman"])])
+
+    def test_container_cmd_exits_when_missing_with_clear_single_line_error(self) -> None:
+        stderr = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with (
+                mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True),
+                mock.patch.object(dev_stack.sys, "stderr", stderr),
+                self.assertRaises(SystemExit) as raised,
+            ):
+                dev_stack.container_cmd()
         self.assertEqual(raised.exception.code, 2)
+        message = stderr.getvalue().strip()
+        self.assertNotIn("\n", message)
+        self.assertIn("podman", message)
+        self.assertIn("colima", message)
+        self.assertIn("colima start --runtime containerd", message)
+        self.assertIn("IROHA_CONTAINER", message)
 
-    def test_podman_cmd_uses_both_compose_files(self) -> None:
+    def test_compose_cmd_uses_both_compose_files(self) -> None:
         with (
-            mock.patch.object(dev_stack, "podman_bin", return_value="podman"),
-            mock.patch.object(dev_stack, "compose_bin", return_value="podman-compose"),
+            mock.patch.dict(os.environ, {"PODMAN": "podman", "PODMAN_COMPOSE": "podman-compose"}, clear=True),
         ):
             self.assertEqual(
-                dev_stack.podman_cmd(),
+                dev_stack.compose_cmd(),
                 [
                     "podman-compose",
                     "-f",
@@ -47,11 +134,32 @@ class DevStackScriptTest(unittest.TestCase):
         started = mock.Mock(returncode=0)
         with (
             mock.patch.object(dev_stack.subprocess, "run", side_effect=[stopped, started]) as run,
-            mock.patch.object(dev_stack, "podman_bin", return_value="podman"),
+            mock.patch.object(dev_stack, "container_cmd", return_value=["podman"]),
         ):
             dev_stack.ensure_machine()
 
         self.assertEqual(run.call_args.args[0], ["podman", "machine", "start"])
+
+    def test_ensure_machine_starts_colima_when_resolved_to_colima(self) -> None:
+        stopped = mock.Mock(returncode=1, stderr="not running")
+        started = mock.Mock(returncode=0)
+        with (
+            mock.patch.object(dev_stack.subprocess, "run", side_effect=[stopped, started]) as run,
+            mock.patch.object(dev_stack, "container_cmd", return_value=["/opt/homebrew/bin/colima", "nerdctl"]),
+        ):
+            dev_stack.ensure_machine()
+
+        self.assertEqual(run.call_args.args[0], ["/opt/homebrew/bin/colima", "start"])
+
+    def test_main_container_cmd_prints_resolved_prefix(self) -> None:
+        stdout = io.StringIO()
+        with (
+            mock.patch.object(dev_stack.sys, "argv", ["dev_stack.py", "container-cmd"]),
+            mock.patch.object(dev_stack, "container_cmd", return_value=["/opt/homebrew/bin/colima", "nerdctl"]),
+            mock.patch.object(dev_stack.sys, "stdout", stdout),
+        ):
+            self.assertEqual(dev_stack.main(), 0)
+        self.assertEqual(stdout.getvalue().strip(), "/opt/homebrew/bin/colima nerdctl")
 
     def test_migrate_sets_database_url_for_db_script(self) -> None:
         captured_env: dict[str, str] = {}
@@ -76,7 +184,7 @@ class DevStackScriptTest(unittest.TestCase):
 
         with (
             mock.patch.object(dev_stack, "run", side_effect=fake_run),
-            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+            mock.patch.object(dev_stack, "compose_cmd", return_value=["compose"]),
         ):
             self.assertEqual(dev_stack.recreate_test_db(), 0)
 
@@ -99,7 +207,7 @@ class DevStackScriptTest(unittest.TestCase):
     def test_recreate_test_db_stops_when_a_statement_fails(self) -> None:
         with (
             mock.patch.object(dev_stack, "run", return_value=1) as run,
-            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+            mock.patch.object(dev_stack, "compose_cmd", return_value=["compose"]),
         ):
             self.assertEqual(dev_stack.recreate_test_db(), 1)
         self.assertEqual(run.call_count, 1)
@@ -108,7 +216,7 @@ class DevStackScriptTest(unittest.TestCase):
         result = mock.Mock(returncode=0, stdout="ready\n")
         with (
             mock.patch.object(dev_stack.subprocess, "run", return_value=result) as run,
-            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+            mock.patch.object(dev_stack, "compose_cmd", return_value=["compose"]),
         ):
             self.assertEqual(dev_stack.wait_for_db(timeout_s=1), 0)
 
@@ -125,7 +233,7 @@ class DevStackScriptTest(unittest.TestCase):
 
     def test_start_database_waits_after_bringing_up_db(self) -> None:
         with (
-            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+            mock.patch.object(dev_stack, "compose_cmd", return_value=["compose"]),
             mock.patch.object(dev_stack, "check_call") as check_call,
             mock.patch.object(dev_stack, "wait_for_db", return_value=0) as wait_for_db,
         ):
@@ -136,7 +244,7 @@ class DevStackScriptTest(unittest.TestCase):
 
     def test_start_app_only_starts_application_services(self) -> None:
         with (
-            mock.patch.object(dev_stack, "podman_cmd", return_value=["compose"]),
+            mock.patch.object(dev_stack, "compose_cmd", return_value=["compose"]),
             mock.patch.object(dev_stack, "run", return_value=0) as run,
         ):
             self.assertEqual(dev_stack.start_app(), 0)
@@ -146,6 +254,136 @@ class DevStackScriptTest(unittest.TestCase):
     def test_compose_files_stay_repo_local(self) -> None:
         self.assertEqual(dev_stack.COMPOSE_FILE, Path(dev_stack.ROOT) / "ops" / "local-dev" / "compose.yaml")
         self.assertEqual(dev_stack.APP_COMPOSE_FILE, Path(dev_stack.ROOT) / "ops" / "local-dev" / "compose.app.yaml")
+
+    def test_compose_exec_cmd_selects_tty_flag_per_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman", "podman-compose")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.compose_exec_cmd("db", "pg_isready"),
+                    [
+                        str(bins["podman-compose"]),
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                        "exec",
+                        "-T",
+                        "db",
+                        "pg_isready",
+                    ],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.compose_exec_cmd("db", "pg_isready"),
+                    [
+                        str(bins["colima"]),
+                        "nerdctl",
+                        "compose",
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                        "exec",
+                        "-i",
+                        "db",
+                        "pg_isready",
+                    ],
+                )
+
+    def test_compose_argv_with_args_for_both_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman", "podman-compose")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.compose_argv("up", "-d", "db"),
+                    [
+                        str(bins["podman-compose"]),
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                        "up",
+                        "-d",
+                        "db",
+                    ],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.compose_argv("up", "-d", "db"),
+                    [
+                        str(bins["colima"]),
+                        "nerdctl",
+                        "compose",
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                        "up",
+                        "-d",
+                        "db",
+                    ],
+                )
+
+    def test_build_cmd_for_both_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.build_cmd("-t", "iroha:test", "."),
+                    [str(bins["podman"]), "build", "-t", "iroha:test", "."],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.build_cmd("-t", "iroha:test", "."),
+                    [str(bins["colima"]), "nerdctl", "build", "-t", "iroha:test", "."],
+                )
+
+    def test_save_cmd_for_both_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.save_cmd("iroha:test"),
+                    [str(bins["podman"]), "save", "iroha:test"],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.save_cmd("iroha:test"),
+                    [str(bins["colima"]), "nerdctl", "save", "iroha:test"],
+                )
+
+    def test_machine_info_cmd_for_both_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.machine_info_cmd(),
+                    [str(bins["podman"]), "machine", "info"],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.machine_info_cmd(),
+                    [str(bins["colima"]), "status"],
+                )
 
 
 if __name__ == "__main__":
