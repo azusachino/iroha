@@ -53,63 +53,39 @@ for (const mode of ["light", "dark"] as const)
       await expect(
         page.getByText("Loading your long view…", { exact: true }),
       ).toHaveCount(0);
-      const calendar = page.getByLabel("Activity calendar", { exact: true });
+      const calendar = page
+        .getByLabel("Activity calendar", { exact: true })
+        .first();
       await expect(calendar).toBeVisible();
       const y = await calendar.evaluate(
         (element) => element.getBoundingClientRect().top + window.scrollY,
       );
       expect(y).toBeLessThan(900);
       await expect(
-        page.getByRole("link", { name: "Explore sleep", exact: false }),
+        page.getByRole("link", { name: "Explore movement", exact: false }),
       ).toBeVisible();
-      await expect(
-        page.getByRole("link", { name: "Explore library", exact: false }),
-      ).toBeVisible();
-      await expect(page.getByText(/Mixed windows/)).toBeVisible();
-      const tiles = page.locator(".grapher-dashboard .stat-tile");
-      await expect(tiles).toHaveCount(6);
-      const distance = page.getByRole("region", {
-        name: "Distance · all time",
+      const band = page.getByRole("region", {
+        name: "Last 12 months",
         exact: true,
       });
-      await expect(distance).toContainText(dense ? "20,500.00 km" : "20.50 km");
-      await expect(distance).toContainText("All time");
-      const count = page.getByRole("region", {
-        name: "Activity records",
-        exact: true,
-      });
-      await expect(count).toContainText(dense ? "5,000" : "2");
-      await expect(
-        page.getByRole("region", { name: "Main sleep · recent", exact: true }),
-      ).toContainText("Recent records (limit 30)");
-      await expect(
-        page
-          .getByRole("region", { name: "Main sleep · recent", exact: true })
-          .locator(".stat-value"),
-      ).toHaveText("—");
-      await expect(
-        page
-          .getByRole("region", { name: "Library items", exact: true })
-          .locator(".stat-value"),
-      ).toHaveText("0");
-      const fontEvidence = await tiles.evaluateAll((elements) =>
-        elements.map((element) => {
-          const fonts = () =>
-            Array.from(
-              element.querySelectorAll(
-                ".stat-label,.stat-value,.stat-context,.stat-sub,.stat-actions a",
-              ),
-            ).map((node) => getComputedStyle(node).fontSize);
-          const compact = fonts();
-          element.classList.remove("compact");
-          const regular = fonts();
-          element.classList.add("compact");
-          return { compact, regular };
-        }),
+      await expect(band).toBeVisible();
+      await expect(page.locator(".grapher-dashboard .focal-band")).toHaveCount(
+        1,
       );
-      for (const tile of fontEvidence)
-        expect(tile.compact).toEqual(tile.regular);
-      for (const label of ["Explore sleep", "Explore library"]) {
+      await expect(band.locator(".focal-primary-value")).toHaveText(
+        dense ? "20,500.00 km" : "12.50 km",
+      );
+      await expect(band.locator(".focal-primary-detail")).toContainText(
+        dense ? "5,000 activities" : "1 activity",
+      );
+      await expect(band.locator(".focal-empty")).toHaveText(
+        "Sleep has no records · Library has no records · No routes recorded yet",
+      );
+      for (const label of [
+        "Explore movement",
+        "Open movement archive",
+        "All records",
+      ]) {
         const target = await page
           .getByRole("link", { name: label, exact: false })
           .boundingBox();

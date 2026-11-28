@@ -219,7 +219,7 @@
                 }
               : undefined,
           itemStyle: {
-            ...(categorical ? {} : { color: primaryColor }),
+            color: primaryColor,
             borderRadius:
               primaryType === "bar"
                 ? orientation === "horizontal"

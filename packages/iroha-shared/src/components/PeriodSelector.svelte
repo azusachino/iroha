@@ -171,7 +171,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--tile-surface);
-    box-shadow: var(--tile-shadow);
+    box-shadow: var(--tile-shadow), var(--tile-rim);
   }
 
   .period-controls.inline {
@@ -179,6 +179,20 @@
     border: 0;
     background: transparent;
     box-shadow: none;
+  }
+
+  .period-controls :global(.select-control select),
+  .period-controls :global(.select-control[data-appearance="grapher"] select) {
+    min-height: var(--control-height);
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-pill);
+    border-bottom-width: 1px;
+    font-size: var(--type-label);
+  }
+
+  .period-controls.inline :global(a),
+  .period-controls.inline :global(button) {
+    min-height: var(--control-target-min);
   }
 
   @media (max-width: 640px) {

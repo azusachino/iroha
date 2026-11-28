@@ -7,6 +7,7 @@
     context,
     children,
     compact = false,
+    featured = false,
   }: {
     label: string;
     value: string;
@@ -14,6 +15,7 @@
     context?: string;
     children?: Snippet;
     compact?: boolean;
+    featured?: boolean;
   } = $props();
 </script>
 
@@ -21,6 +23,7 @@
   class="stat-tile tile"
   class:has-context={!!context}
   class:compact
+  class:featured
   aria-label={context ? label : undefined}
 >
   <div class="stat-label">{label}</div>
@@ -40,9 +43,20 @@
     flex-direction: column;
     justify-content: space-between;
     gap: var(--space-3);
-    padding: var(--space-4);
+    padding: var(--pad-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius, 14px);
+    border-radius: var(--radius);
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow), var(--tile-rim);
+    transition:
+      border-color var(--motion-micro),
+      box-shadow var(--motion-micro),
+      transform var(--motion-micro);
+  }
+
+  .stat-tile.featured {
+    border-radius: var(--radius-lg);
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
     background:
       radial-gradient(
         120% 140% at 100% 0%,
@@ -50,21 +64,9 @@
         transparent 55%
       ),
       var(--tile-surface, var(--surface));
-    transition:
-      border-color 0.15s ease,
-      box-shadow 0.15s ease,
-      transform 0.15s ease;
   }
 
-  .stat-tile:hover {
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-    transform: translateY(-1px);
-    box-shadow:
-      var(--tile-shadow),
-      0 8px 24px -4px color-mix(in srgb, var(--accent) 20%, transparent);
-  }
-
-  .stat-tile::before {
+  .stat-tile.featured::before {
     content: "";
     position: absolute;
     inset: 0 0 auto;
@@ -75,7 +77,7 @@
 
   .stat-label {
     color: var(--text-muted);
-    font-size: var(--type-caption);
+    font-size: var(--type-label);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -89,6 +91,10 @@
     line-height: 1.05;
     letter-spacing: -0.01em;
     white-space: nowrap;
+  }
+
+  .stat-tile.featured .stat-value {
+    font-size: var(--type-hero);
   }
 
   .has-context .stat-value {
@@ -110,7 +116,7 @@
   .stat-actions :global(a) {
     display: inline-flex;
     align-items: center;
-    min-height: 24px;
+    min-height: var(--control-target-min);
     font-size: var(--type-label);
     font-weight: 650;
   }

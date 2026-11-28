@@ -65,11 +65,8 @@
     padding: var(--space-2) var(--space-4);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--surface);
-  }
-
-  .period-toolbar[data-appearance="grapher"] {
-    border-radius: 2px;
+    background: var(--tile-surface, var(--surface));
+    box-shadow: var(--tile-shadow), var(--tile-rim);
   }
 
   .period-slot {
@@ -102,25 +99,28 @@
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
-    min-height: 2rem;
-    height: 2rem;
-    padding: var(--space-1) var(--space-3);
+    min-height: var(--control-height);
+    height: var(--control-height);
+    padding: var(--space-1) var(--space-4);
     border: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: var(--radius-pill);
     background: var(--surface-2);
     color: var(--text-muted);
     font: inherit;
-    font-size: var(--type-label, 0.85rem);
+    font-size: var(--type-label);
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
     box-sizing: border-box;
-    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    transition:
+      color var(--motion-micro),
+      border-color var(--motion-micro),
+      background var(--motion-micro);
   }
 
-  .period-toolbar[data-appearance="grapher"] .period-refresh-btn {
-    border-radius: 2px;
-    border-bottom-width: 2px;
+  .period-toolbar :global(a),
+  .period-toolbar :global(button) {
+    min-height: var(--control-target-min);
   }
 
   .period-refresh-btn:hover:not(:disabled) {

@@ -1,6 +1,13 @@
 <script lang="ts">
-  let recordsScroll = $state<HTMLDivElement>();
   import type { SleepThemeProps } from "../../view-contracts/sleep-view";
+  import EmptyNote from "../../components/EmptyNote.svelte";
+  import FocalBand, {
+    type FocalPrimaryMetric,
+    type FocalSecondaryItem,
+  } from "../../components/FocalBand.svelte";
+  import MetricTable from "../../components/MetricTable.svelte";
+  import PanelFrame from "../../components/PanelFrame.svelte";
+  import RouteHeader from "../../components/RouteHeader.svelte";
   import BarChart from "../components/BarChart.svelte";
   import RetryNotice from "../components/RetryNotice.svelte";
   import SleepAggregateChart from "../components/SleepAggregateChart.svelte";
@@ -25,39 +32,130 @@
     children,
   }: SleepThemeProps = $props();
 
+  const NIGHT_CHART_MIN_POINTS = 3;
   const chartSessions = $derived(sessions.toReversed());
+  const summaryHeadingId = $props.id();
   let recordsPanel = $state<HTMLElement>();
+
+  const hasRecordedNights = $derived(
+    (sleepSummary?.session_count ?? 0) > 0 ||
+      averageAsleep != null ||
+      sessions.length > 0,
+  );
+
+  const primaryMetric = $derived<FocalPrimaryMetric>({
+    label: "Average main sleep",
+    value: averageAsleep == null ? "—" : formatDuration(averageAsleep),
+    detail:
+      sleepSummary && sleepSummary.main_sleep_count > 0
+        ? `${sleepSummary.main_sleep_count.toLocaleString()} main ${sleepSummary.main_sleep_count === 1 ? "sleep" : "sleeps"}`
+        : undefined,
+  });
+
+  const stageSplits = $derived.by(() => {
+    if (!sleepSummary) return [];
+    const stages = [
+      { label: "Deep", seconds: sleepSummary.deep_s },
+      { label: "REM", seconds: sleepSummary.rem_s },
+      { label: "Core", seconds: sleepSummary.core_s },
+    ].filter((stage) => stage.seconds > 0);
+    return stages.map(
+      (stage) => `${stage.label} ${formatDuration(stage.seconds)}`,
+    );
+  });
+
+  const secondaryItems = $derived.by<FocalSecondaryItem[]>(() => {
+    const items: FocalSecondaryItem[] = [];
+
+    if (averageEfficiency != null) {
+      items.push({
+        label: "Average efficiency",
+        value: `${Math.round(averageEfficiency * 100)}%`,
+      });
+    }
+
+    if (sleepSummary && sleepSummary.session_count > 0) {
+      items.push({
+        label: "Recorded sessions",
+        value: sleepSummary.session_count.toLocaleString(),
+        detail:
+          sleepSummary.nap_count > 0
+            ? `${sleepSummary.main_sleep_count.toLocaleString()} main · ${sleepSummary.nap_count.toLocaleString()} ${sleepSummary.nap_count === 1 ? "nap" : "naps"}`
+            : undefined,
+      });
+    }
+
+    if (stageSplits.length > 0) {
+      items.push({
+        label: "Stage splits",
+        value: stageSplits[0],
+        detail: stageSplits.slice(1).join(" · ") || undefined,
+      });
+    }
+
+    return items;
+  });
+
+  const emptyNotes = $derived.by<string[]>(() => {
+    const notes: string[] = [];
+
+    if (averageAsleep == null) {
+      notes.push("Main sleep duration unavailable");
+    }
+    if (averageEfficiency == null) {
+      notes.push("Efficiency unavailable");
+    }
+    if (sleepSummary && sleepSummary.session_count === 0) {
+      notes.push("No sleep sessions recorded");
+    } else if (sleepSummary && stageSplits.length === 0) {
+      notes.push("No sleep stage splits recorded");
+    }
+
+    return notes;
+  });
+
+  const shortSeriesSummary = $derived.by(() => {
+    if (chartSessions.length === 1) {
+      const only = chartSessions[0];
+      return `Single night recorded: ${formatDateOnly(only.wake_date)} · ${formatDuration(only.asleep_s)} asleep (${Math.round(only.efficiency * 100)}% efficiency).`;
+    }
+    if (chartSessions.length === 2) {
+      const [first, second] = chartSessions;
+      return `Two nights recorded: ${formatDateOnly(first.wake_date)} (${formatDuration(first.asleep_s)}) and ${formatDateOnly(second.wake_date)} (${formatDuration(second.asleep_s)}).`;
+    }
+    return "";
+  });
 </script>
 
-<section class="grapher-sleep" aria-labelledby="sleep-data-title">
-  <header class="domain-header" role="region" aria-label="Night header">
-    <div class="header-copy">
-      <h1 id="sleep-data-title">Night</h1>
-      <p>Recovery and sleep sessions</p>
-    </div>
-  </header>
+<section class="grapher-sleep" aria-label="Night">
+  <RouteHeader
+    title="Night"
+    context="Recovery and sleep sessions"
+  />
 
-  {@render children?.()}
-
-  <div class="summary-row" role="region" aria-label="Sleep summary">
-    <div>
-      <span>Recorded sessions</span><strong
-        >{sleepSummary?.session_count ?? "—"}</strong
-      >
-    </div>
-    <div>
-      <span>Average main sleep</span><strong
-        >{averageAsleep == null ? "—" : formatDuration(averageAsleep)}</strong
-      >
-    </div>
-    <div>
-      <span>Average efficiency</span><strong
-        >{averageEfficiency == null
-          ? "—"
-          : `${Math.round(averageEfficiency * 100)}%`}</strong
-      >
-    </div>
-  </div>
+  {#if hasRecordedNights}
+    <FocalBand
+      heading="Sleep summary"
+      controls={children}
+      primary={primaryMetric}
+      secondary={secondaryItems}
+      empty={emptyNotes.length ? emptyNotes.join(" · ") : undefined}
+    />
+  {:else}
+    <section class="focal-band" aria-labelledby={summaryHeadingId}>
+      <div class="focal-header">
+        <h2 id={summaryHeadingId} class="focal-heading">Sleep summary</h2>
+        {#if children}
+          <div class="focal-controls">{@render children()}</div>
+        {/if}
+      </div>
+      <EmptyNote
+        text={emptyNotes.length
+          ? emptyNotes.join(" · ")
+          : "No sleep sessions recorded"}
+      />
+    </section>
+  {/if}
 
   {#if rollupBuckets.length}
     <SleepAggregateChart
@@ -66,122 +164,116 @@
       scope={rollupScope}
       {theme}
     />
-  {:else if sessions.length}<section
-      class="sleep-series"
-      aria-labelledby="sleep-series-title"
-    >
-      <div class="panel-heading">
-        <div>
-          <p class="kicker">Observed sessions</p>
-          <h2 id="sleep-series-title">Asleep time by night</h2>
-        </div>
-        <span>Observed sessions: {recordsScope}</span>
-      </div>
-      <BarChart
-        categories={chartSessions.map((session) =>
-          formatDateOnly(session.wake_date),
-        )}
-        primary={{
-          name: "Asleep",
-          values: chartSessions.map((session) => session.asleep_s),
-          colors: chartSessions.map((session) =>
-            session.is_main_sleep ? "var(--accent)" : "var(--accent-2)",
-          ),
-          formatter: (value) => formatDuration(value),
-        }}
-        onBarClick={(index) => {
-          const session = chartSessions[index];
-          if (session) onOpenDetail(session);
-        }}
-      />
-    </section>{/if}
+  {:else if sessions.length}
+    <PanelFrame title="Asleep time by night">
+      {#if chartSessions.length >= NIGHT_CHART_MIN_POINTS}
+        <BarChart
+          categories={chartSessions.map((session) =>
+            formatDateOnly(session.wake_date),
+          )}
+          primary={{
+            name: "Asleep",
+            values: chartSessions.map((session) => session.asleep_s),
+            colors: chartSessions.map((session) =>
+              session.is_main_sleep ? "var(--accent)" : "var(--accent-2)",
+            ),
+            formatter: (value) => formatDuration(value),
+          }}
+          onBarClick={(index) => {
+            const session = chartSessions[index];
+            if (session) onOpenDetail(session);
+          }}
+        />
+      {:else}
+        <EmptyNote text={shortSeriesSummary} />
+      {/if}
+    </PanelFrame>
+  {/if}
 
   <section
-    class="session-table"
+    class="session-table-region"
     aria-label="Sleep session read state"
     tabindex="-1"
     bind:this={recordsPanel}
   >
-    {#if sessionsError && onRetrySessions}<RetryNotice
-        message={`Could not load sleep sessions: ${sessionsError}`}
-        retryLabel="Retry sleep sessions"
-        onRetry={onRetrySessions}
-        focusTarget={recordsPanel}
-      />{/if}
-    {#if sessionsLoading}<p role="status">
-        {sessionsReady ? "Updating sleep sessions…" : "Loading sleep sessions…"}
-      </p>{/if}
-    {#if recordsScope}<p>Observed sessions: {recordsScope}</p>{/if}
-    {#if sessionsReady && !sessionsLoading && !sessionsError && !sessions.length}<p
-      >
-        No sleep sessions in this observed scope.
-      </p>{/if}
-    <div class="panel-heading">
-      <div>
-        <p class="kicker">Session records</p>
-        <h2 id="sleep-table-title">Night by night</h2>
-      </div>
-      <span
-        >{rollupBuckets.length
-          ? "Recent loaded records"
-          : "Imported values"}</span
-      >
-    </div>
-    <button
-      class="scroll-hint"
-      type="button"
-      aria-controls="night-records-scroll"
-      onclick={() => recordsScroll?.focus({ preventScroll: true })}
-      >Focus sleep records to scroll all columns</button
-    >
-    <div
-      class="table-scroll"
-      id="night-records-scroll"
-      role="region"
-      aria-label="Night exact sleep records"
-      tabindex="-1"
-      bind:this={recordsScroll}
-    >
-      <table aria-label="Sleep session records">
-        <thead
-          ><tr
-            ><th>Date</th><th>Asleep</th><th>In bed</th><th>Efficiency</th><th
-              >Type</th
-            ></tr
-          ></thead
-        ><tbody>
-          {#each sessions as session (session.id)}
-            <tr
-              class:selected={selected?.id === session.id}
-              role="link"
-              tabindex="0"
-              onclick={() => onOpenDetail(session)}
-              onkeydown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onOpenDetail(session);
-                }
-              }}
-              ><td>{formatDateOnly(session.wake_date)}</td><td
-                >{formatDuration(session.asleep_s)}</td
-              ><td>{formatDuration(session.time_in_bed_s)}</td><td
-                >{Math.round(session.efficiency * 100)}%</td
-              ><td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td></tr
-            >
-          {/each}
-        </tbody>
-      </table>
-    </div>
+    <PanelFrame title="Night by night">
+      {#snippet meta()}
+        {#if recordsScope}<span>{recordsScope}</span>{/if}
+      {/snippet}
+
+      {#if sessionsError && onRetrySessions}
+        <RetryNotice
+          message={`Could not load sleep sessions: ${sessionsError}`}
+          retryLabel="Retry sleep sessions"
+          onRetry={onRetrySessions}
+          focusTarget={recordsPanel}
+        />
+      {/if}
+      {#if sessionsLoading}
+        <p class="status-note" role="status">
+          {sessionsReady
+            ? "Updating sleep sessions…"
+            : "Loading sleep sessions…"}
+        </p>
+      {/if}
+
+      {#if sessionsReady && !sessionsLoading && !sessionsError && !sessions.length}
+        <EmptyNote text="No sleep sessions in this observed scope." />
+      {:else if sessions.length}
+        <MetricTable
+          ariaLabel="Sleep session records"
+          scrollLabel="Night exact sleep records"
+          caption="Sleep session records"
+          minWidth="38rem"
+          nowrap
+          numericAlign
+          dense
+        >
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Asleep</th>
+              <th>In bed</th>
+              <th>Efficiency</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each sessions as session (session.id)}
+              <tr
+                class="session-row"
+                role="link"
+                tabindex="0"
+                onclick={() => onOpenDetail(session)}
+                onkeydown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onOpenDetail(session);
+                  }
+                }}
+              >
+                <td>{formatDateOnly(session.wake_date)}</td>
+                <td>{formatDuration(session.asleep_s)}</td>
+                <td>{formatDuration(session.time_in_bed_s)}</td>
+                <td>{Math.round(session.efficiency * 100)}%</td>
+                <td>{session.is_main_sleep ? "Main sleep" : "Nap"}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </MetricTable>
+      {/if}
+    </PanelFrame>
   </section>
 
   {#if selected}
     <aside class="selected-note">
       <p class="kicker">Selected session</p>
-      <strong
-        >{formatDateOnly(selected.wake_date)} · {formatDuration(
+      <strong>
+        {formatDateOnly(selected.wake_date)} · {formatDuration(
           selected.asleep_s,
-        )} asleep</strong
-      ><span>Open the standard detail view for stage-level inspection.</span>
+        )} asleep
+      </strong>
+      <span>Open the standard detail view for stage-level inspection.</span>
     </aside>
   {/if}
 </section>
@@ -190,126 +282,94 @@
   .grapher-sleep {
     --accent: var(--mark-violet);
     display: grid;
-    gap: 1rem;
+    gap: var(--gap-section);
     min-width: 0;
   }
+
   .grapher-sleep > * {
     min-width: 0;
   }
-  .domain-header {
+
+  .focal-band {
+    display: grid;
+    gap: var(--space-3);
+    margin-bottom: var(--gap-section);
+  }
+
+  .focal-header {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--border);
   }
-  .header-copy h1 {
+
+  .focal-heading {
     margin: 0;
-    font-size: var(--type-title);
-    line-height: 1.25;
-  }
-  .header-copy p {
-    margin: 0.25rem 0 0;
-    font-size: var(--type-caption);
     color: var(--text-muted);
+    font-size: var(--type-title-small);
+    font-weight: 700;
+    line-height: 1.2;
   }
-  h2 {
-    font-size: 1.25rem;
-  }
-  .summary-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.75rem;
-  }
-  .summary-row div {
-    display: grid;
-    gap: 0.4rem;
-    min-width: 0;
-    padding: 1rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 14px);
-    background: var(--tile-surface, var(--surface));
-    box-shadow: var(--tile-shadow);
-  }
-  .summary-row span {
-    color: var(--text-muted);
-    font-size: 0.66rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-  .summary-row strong {
-    font-size: clamp(1.35rem, 3vw, 2.5rem);
-    letter-spacing: -0.08em;
-  }
-  .sleep-series,
-  .session-table {
-    padding: 1.25rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 14px);
-    background: var(--tile-surface, var(--surface));
-    box-shadow: var(--tile-shadow);
-  }
-  .panel-heading {
+
+  .focal-controls {
+    margin-left: auto;
     display: flex;
-    justify-content: space-between;
-    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
   }
-  .panel-heading > span {
+
+  .session-table-region {
+    min-width: 0;
+  }
+
+  .status-note {
+    margin: 0;
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-label);
   }
-  .scroll-hint {
-    min-height: 44px;
+
+  .grapher-sleep
+    :global(
+      .focal-controls
+        section[aria-label="Sleep totals read state"]
+        > p:not([role="status"])
+    ),
+  .grapher-sleep
+    :global(.focal-controls .sleep-scope-summary .scope-label) {
+    display: none;
   }
-  .table-scroll {
-    overflow-x: auto;
-    margin-top: 1.5rem;
-    border-top: 2px solid var(--text);
-  }
-  table {
-    width: 100%;
-    min-width: 38rem;
-    border-collapse: collapse;
-    font-size: 0.78rem;
-  }
-  th,
-  td {
-    padding: 0.7rem 0.4rem;
-    border-bottom: 1px solid var(--border);
-    text-align: right;
-    white-space: nowrap;
-  }
-  th:first-child,
-  td:first-child {
-    text-align: left;
-  }
-  th {
-    color: var(--text-muted);
-    font-size: 0.64rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  tbody tr {
+
+  .session-row {
     cursor: pointer;
+    transition: background-color var(--motion-micro);
   }
-  tbody tr:hover,
-  tbody tr.selected {
+
+  .session-row:hover {
     background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   }
+
+  .session-row:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
+
   .selected-note {
     display: grid;
-    gap: 0.3rem;
-    padding: 1rem;
+    gap: var(--space-1);
+    padding: var(--pad-card);
     border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
     background: var(--surface-2);
   }
+
   .selected-note strong {
-    font-size: 1rem;
+    font-size: var(--type-body);
   }
+
   .selected-note span {
     color: var(--text-muted);
-    font-size: 0.75rem;
+    font-size: var(--type-caption);
   }
 </style>

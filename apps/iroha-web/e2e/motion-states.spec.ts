@@ -9,15 +9,20 @@ for (const mode of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: mode });
     await page.goto("/motion?date=2026-07");
     await expect(
-      page.getByText("Observed summary: 2026-07", { exact: true }),
+      page
+        .getByRole("region", { name: "Motion summary", exact: true })
+        .getByRole("paragraph")
+        .filter({ hasText: /^2026-07$/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Filtered activity summary" }),
+      page.getByRole("region", { name: "Motion summary", exact: true }),
     ).toContainText("0 m");
     await expect(
-      page.getByText("No activity sessions in this observed scope.", {
-        exact: true,
-      }),
+      page
+        .getByRole("region", { name: "Activity records", exact: true })
+        .getByText("No activity sessions in this observed scope.", {
+          exact: true,
+        }),
     ).toBeVisible();
     await expect(page.getByText("20.50 km", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
@@ -45,7 +50,10 @@ for (const mode of ["light", "dark"] as const) {
     ).toHaveValue("8");
     expect(new URL(page.url()).searchParams.get("date")).toBe("2026-08");
     await expect(
-      page.getByText("Observed summary: 2026-08", { exact: true }),
+      page
+        .getByRole("region", { name: "Motion summary", exact: true })
+        .getByRole("paragraph")
+        .filter({ hasText: /^2026-08$/ }),
     ).toBeVisible();
     fixture.failures.clear();
     await page
@@ -72,9 +80,11 @@ for (const mode of ["light", "dark"] as const) {
     await page.goto("/motion?date=2026-08&sport=run");
     const table = page.getByRole("table", { name: "Exact movement series" });
     await expect(table).toContainText("12.50 km");
-    await expect(table).toContainText("1h 2m");
+    await expect(table).toContainText("1:02:00");
     await expect(
-      page.getByText("Observed summary: 2026-08 · Run", { exact: true }),
+      page
+        .getByRole("region", { name: "Motion summary", exact: true })
+        .getByText("2026-08 · Run", { exact: true }),
     ).toBeVisible();
     const requests = fixture.requests.map(
       (request) => new URL(request, "http://synthetic.local"),
@@ -122,12 +132,12 @@ for (const mode of ["light", "dark"] as const) {
       page.getByText("1 session has no observed distance.", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Filtered activity summary" }),
-    ).toContainText("—");
+      page.getByRole("region", { name: "Motion summary", exact: true }),
+    ).toContainText("1:02:00");
     const table = page.getByRole("table", { name: "Exact movement series" });
     await expect(table).toContainText("2026-08-14");
     await expect(table).toContainText("—");
-    await expect(table).toContainText("1h 2m");
+    await expect(table).toContainText("1:02:00");
     await expect(
       page.getByRole("region", { name: "Activity records", exact: true }),
     ).toContainText("—");
@@ -153,7 +163,10 @@ for (const mode of ["light", "dark"] as const) {
         page.getByRole("link", { name: "Synthetic run 2026-08", exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText("Observed summary: 2026-08", { exact: true }),
+        page
+          .getByRole("region", { name: "Motion summary", exact: true })
+          .getByRole("paragraph")
+          .filter({ hasText: /^2026-08$/ }),
       ).toBeVisible();
       await expect(
         page.getByRole("table", { name: "Exact movement series" }),
@@ -185,7 +198,9 @@ for (const mode of ["light", "dark"] as const) {
         }),
       ).toHaveCount(0);
       await expect(
-        page.getByText("Observed records: 2026-09", { exact: true }),
+        page
+          .getByRole("region", { name: "Activity records", exact: true })
+          .getByText("2026-09", { exact: true }),
       ).toBeVisible();
     } finally {
       release();
@@ -253,7 +268,10 @@ for (const mode of ["light", "dark"] as const) {
       page.getByRole("link", { name: "Synthetic run 2026-08", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("Observed summary: 2026-08", { exact: true }),
+      page
+        .getByRole("region", { name: "Motion summary", exact: true })
+        .getByRole("paragraph")
+        .filter({ hasText: /^2026-08$/ }),
     ).toBeVisible();
     expect(fixture.unknown).toEqual([]);
   });
@@ -299,7 +317,7 @@ for (const mode of ["light", "dark"] as const) {
       window.scrollTo(0, 0);
     });
     await expect(
-      page.getByRole("region", { name: "Filtered activity summary" }),
+      page.getByRole("region", { name: "Motion summary", exact: true }),
     ).toContainText("—");
     await page.screenshot({
       path: info.outputPath("motion-unavailable.png"),
@@ -322,7 +340,7 @@ for (const mode of ["light", "dark"] as const) {
       page.getByRole("table", { name: "Exact movement series" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Filtered activity summary" }),
+      page.getByRole("region", { name: "Motion summary", exact: true }),
     ).toContainText("—");
     await expect(
       page.getByRole("button", { name: "Retry activity summary", exact: true }),
@@ -332,7 +350,7 @@ for (const mode of ["light", "dark"] as const) {
       .getByRole("button", { name: "Retry activity summary", exact: true })
       .press("Enter");
     await expect(
-      page.getByRole("region", { name: "Filtered activity summary" }),
+      page.getByRole("region", { name: "Motion summary", exact: true }),
     ).toContainText("12.50 km");
     await expect(page.getByRole("alert")).toHaveCount(0);
     await expect(
@@ -361,7 +379,7 @@ for (const mode of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: mode });
     await page.goto("/motion?date=2026-08");
     await expect(
-      page.getByRole("region", { name: "Filtered activity summary" }),
+      page.getByRole("region", { name: "Motion summary", exact: true }),
     ).toContainText("12.50 km");
     await expect(
       page.getByRole("table", { name: "Exact movement series" }),
@@ -421,12 +439,14 @@ for (const mode of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: mode });
     await page.goto("/motion?scope=lifetime&sport=walk");
     await expect(
-      page.getByText("No activity sessions in this observed scope.", {
-        exact: true,
-      }),
+      page
+        .getByRole("region", { name: "Activity records", exact: true })
+        .getByText("No activity sessions in this observed scope.", {
+          exact: true,
+        }),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Filtered activity summary" }),
+      page.getByRole("region", { name: "Motion summary", exact: true }),
     ).toContainText("0 m");
     let release!: () => void;
     fixture.hold = new Promise<void>((resolve) => {
@@ -442,14 +462,18 @@ for (const mode of ["light", "dark"] as const) {
       ).toHaveCount(0);
       await expect(page.getByRole("combobox", { name: "Sport" })).toBeEnabled();
       await expect(
-        page.getByText("Observed records: Lifetime · Walk", { exact: true }),
+        page
+          .getByRole("region", { name: "Activity records", exact: true })
+          .getByText("Lifetime · Walk", { exact: true }),
       ).toBeVisible();
     } finally {
       release();
       fixture.hold = null;
     }
     await expect(
-      page.getByText("Observed records: 2026 · Walk", { exact: true }),
+      page
+        .getByRole("region", { name: "Activity records", exact: true })
+        .getByText("2026 · Walk", { exact: true }),
     ).toBeVisible();
     expect(fixture.unknown).toEqual([]);
   });
@@ -509,17 +533,25 @@ for (const mode of ["light", "dark"] as const) {
         page.getByRole("table", { name: "Exact movement series" }),
       ).toContainText("2026-08-14");
       await expect(
-        page.getByText("Observed summary: 2026-08", { exact: true }),
+        page
+          .getByRole("region", { name: "Motion summary", exact: true })
+          .getByRole("paragraph")
+          .filter({ hasText: /^2026-08$/ }),
       ).toBeVisible();
       await expect(
-        page.getByText("Observed records: Lifetime", { exact: true }),
+        page
+          .getByRole("region", { name: "Activity records", exact: true })
+          .getByText("Lifetime", { exact: true }),
       ).toBeVisible();
       fixture.failures.clear();
       await page
         .getByRole("button", { name: "Retry movement series", exact: true })
         .click();
       await expect(
-        page.getByText("Observed summary: Lifetime", { exact: true }),
+        page
+          .getByRole("region", { name: "Motion summary", exact: true })
+          .getByRole("paragraph")
+          .filter({ hasText: /^Lifetime$/ }),
       ).toBeVisible();
       await expect(
         page.getByRole("region", { name: "Movement over time" }),
@@ -580,16 +612,21 @@ for (const mode of ["light", "dark"] as const) {
       await Promise.all(oldResponses);
       await page.evaluate(() => new Promise(requestAnimationFrame));
       await expect(
-        page.getByText("Observed summary: 2026-08", { exact: true }),
+        page
+          .getByRole("region", { name: "Motion summary", exact: true })
+          .getByRole("paragraph")
+          .filter({ hasText: /^2026-08$/ }),
       ).toBeVisible();
       await expect(
-        page.getByText("Observed records: 2026-08", { exact: true }),
+        page
+          .getByRole("region", { name: "Activity records", exact: true })
+          .getByText("2026-08", { exact: true }),
       ).toBeVisible();
       await expect(
         page.getByRole("link", { name: "Synthetic run 2026-09", exact: true }),
       ).toHaveCount(0);
       await expect(
-        page.getByRole("region", { name: "Filtered activity summary" }),
+        page.getByRole("region", { name: "Motion summary", exact: true }),
       ).toContainText("12.50 km");
     } finally {
       release();
@@ -625,13 +662,18 @@ for (const mode of ["light", "dark"] as const) {
       await record.focus();
       await expect(record).toBeFocused();
       await expect(
-        page.getByText("Observed records: 2026-08", { exact: true }),
+        page
+          .getByRole("region", { name: "Activity records", exact: true })
+          .getByText("2026-08", { exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText("Observed summary: 2026-08", { exact: true }),
+        page
+          .getByRole("region", { name: "Motion summary", exact: true })
+          .getByRole("paragraph")
+          .filter({ hasText: /^2026-08$/ }),
       ).toBeVisible();
       await expect(
-        page.getByRole("region", { name: "Filtered activity summary" }),
+        page.getByRole("region", { name: "Motion summary", exact: true }),
       ).toContainText("12.50 km");
       await expect(
         page.getByRole("table", { name: "Exact movement series" }),
@@ -656,7 +698,10 @@ for (const mode of ["light", "dark"] as const) {
       page.getByRole("table", { name: "Exact movement series" }),
     ).toBeVisible();
     await expect(
-      page.getByText("Observed summary: 2026-08", { exact: true }),
+      page
+        .getByRole("region", { name: "Motion summary", exact: true })
+        .getByRole("paragraph")
+        .filter({ hasText: /^2026-08$/ }),
     ).toBeVisible();
     fixture.failures.clear();
     await page
@@ -666,19 +711,27 @@ for (const mode of ["light", "dark"] as const) {
       page.getByRole("link", { name: "Synthetic run 2026-09", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("Observed records: 2026-09", { exact: true }),
+      page
+        .getByRole("region", { name: "Activity records", exact: true })
+        .getByText("2026-09", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("Observed summary: 2026-08", { exact: true }),
+      page
+        .getByRole("region", { name: "Motion summary", exact: true })
+        .getByRole("paragraph")
+        .filter({ hasText: /^2026-08$/ }),
     ).toBeVisible();
     await page
       .getByRole("button", { name: "Retry activity summary", exact: true })
       .click();
     await expect(
-      page.getByText("Observed summary: 2026-09", { exact: true }),
+      page
+        .getByRole("region", { name: "Motion summary", exact: true })
+        .getByRole("paragraph")
+        .filter({ hasText: /^2026-09$/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole("region", { name: "Filtered activity summary" }),
+      page.getByRole("region", { name: "Motion summary", exact: true }),
     ).toContainText("8.00 km");
     await expect(
       page.getByRole("button", { name: "Retry movement series", exact: true }),

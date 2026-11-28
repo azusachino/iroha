@@ -44,9 +44,20 @@ async function mockPrivate(page: Page, count = 1) {
       summary: {
         ...summary,
         totals: { ...summary.totals, activity_count: count },
+        by_month: [
+          {
+            key: "2026-08",
+            activity_count: count,
+            distance_m: 12500,
+            distance_known_count: 1,
+            distance_unknown_count: 0,
+            duration_s: 3720,
+            elevation_gain_m: 0,
+          },
+        ],
       },
       recent: [recent],
-      active_days: [],
+      active_days: [{ day: "2026-08-14", activity_count: count }],
       current_streak: 0,
     },
     "/api/v1/activities/routes": routes,
@@ -121,7 +132,7 @@ for (const host of ["private", "public"] as const) {
       await page.goto(host === "private" ? "/overview" : PUBLIC_BASE_URL);
       const grid = page.locator(
         host === "private"
-          ? ".grapher-dashboard .stat-grid"
+          ? ".grapher-dashboard .focal-band"
           : ".dashboard .stat-grid",
       );
       await expect(page.locator("html")).toHaveAttribute("data-theme", mode);
@@ -132,11 +143,7 @@ for (const host of ["private", "public"] as const) {
           page.getByRole("cell").filter({ hasText: "1:02:00" }),
         ).toBeVisible();
         await expect(grid).toContainText("45 min");
-        await expect(
-          grid
-            .getByRole("region", { name: "Library items", exact: true })
-            .getByText("0", { exact: true }),
-        ).toHaveText("0");
+        await expect(grid).toContainText("Library has no records");
       } else {
         await expect(page.getByText("1:00 /km", { exact: true })).toBeVisible();
       }
@@ -151,7 +158,7 @@ test("Overview groups large counts without changing units", async ({
 }) => {
   await mockPrivate(page, 12345);
   await page.goto("/overview");
-  await expect(page.locator(".grapher-dashboard .stat-grid")).toContainText(
+  await expect(page.locator(".grapher-dashboard .focal-band")).toContainText(
     "12,345",
   );
 });

@@ -1,14 +1,18 @@
 <script lang="ts">
   import type { DashboardThemeProps } from "../../view-contracts/dashboard-view";
   import ActivityHeatmap from "../components/ActivityHeatmap.svelte";
-  import RouteHeader from "../../components/RouteHeader.svelte";
+  import FocalBand, {
+    type FocalSecondaryItem,
+  } from "../../components/FocalBand.svelte";
+  import MetricTable from "../../components/MetricTable.svelte";
   import PanelFrame from "../../components/PanelFrame.svelte";
-  import StatTile from "../../components/StatTile.svelte";
+  import RouteHeader from "../../components/RouteHeader.svelte";
   import BarChart from "../components/BarChart.svelte";
   import {
     formatDate,
     formatDistance,
     formatDuration,
+    formatElevation,
     formatHumanDuration,
     formatMetricValue,
   } from "../../format/format";
@@ -41,12 +45,8 @@
   }: DashboardThemeProps = $props();
 
   let period = $state<Period>(12);
-  let recentMovementScroll = $state<HTMLDivElement>();
 
-  function focusRecentMovementTable() {
-    recentMovementScroll?.focus({ preventScroll: true });
-  }
-
+  const periodLabel = $derived(`Last ${period} months`);
   const monthly = $derived(
     buildMonthlyDistanceSeries(
       summary?.by_month ?? [],
@@ -54,6 +54,148 @@
       period,
     ),
   );
+  const activeMonths = $derived(
+    monthly.filter((bucket) => bucket.distance_m > 0),
+  );
+  const periodBucketKeys = $derived(
+    new Set(monthly.map((bucket) => bucket.key)),
+  );
+  const periodBuckets = $derived(
+    (summary?.by_month ?? []).filter((bucket) =>
+      periodBucketKeys.has(bucket.key),
+    ),
+  );
+  const periodDistanceM = $derived(
+    periodBuckets.reduce((sum, bucket) => sum + bucket.distance_m, 0),
+  );
+  const periodActivityCount = $derived(
+    periodBuckets.reduce((sum, bucket) => sum + bucket.activity_count, 0),
+  );
+  const periodDurationS = $derived(
+    periodBuckets.reduce(
+      (sum, bucket) => sum + (bucket.moving_time_s || bucket.duration_s),
+      0,
+    ),
+  );
+  const primaryDistanceValue = $derived.by(() => {
+    if (!summary) return "—";
+    if (
+      summary.totals.distance_unknown_count > 0 &&
+      summary.totals.distance_known_count === 0
+    ) {
+      return "—";
+    }
+    return formatDistance(periodDistanceM);
+  });
+
+  const activeDayCount = $derived(
+    activeDays.filter((day) => day.activity_count > 0).length,
+  );
+
+  const movementSecondary = $derived.by<{ value: string; detail: string } | null>(() => {
+    if (!summary || summary.totals.activity_count <= 0) return null;
+    if (!/^0\b/.test(streak.trim())) {
+      return { value: streak, detail: "Active streak" };
+    }
+    if (activeDayCount > 0) {
+      return {
+        value:
+          activeDayCount === 1
+            ? "1 day"
+            : `${formatMetricValue(activeDayCount, "count")} days`,
+        detail: "Active days",
+      };
+    }
+    if (summary.totals.elevation_gain_m > 0) {
+      return {
+        value: formatElevation(summary.totals.elevation_gain_m),
+        detail: "Total elevation gain",
+      };
+    }
+    if (summary.by_sport.length > 0) {
+      return {
+        value: formatMetricValue(summary.by_sport.length, "count"),
+        detail: summary.by_sport.length === 1 ? "Activity type" : "Activity types",
+      };
+    }
+    return {
+      value: formatMetricValue(summary.totals.activity_count, "count"),
+      detail: "All-time records",
+    };
+  });
+
+  const secondaryItems = $derived.by<FocalSecondaryItem[]>(() => {
+    if (!summary) return [];
+    const items: FocalSecondaryItem[] = [];
+
+    if (movementSecondary) {
+      items.push({
+        label: "Movement",
+        value: movementSecondary.value,
+        detail: movementSecondary.detail,
+        href: "/motion",
+        linkLabel: "Explore movement →",
+      });
+    }
+
+    if (!sleepLoading && !sleepError && sleepSummary.nightCount > 0) {
+      items.push({
+        label: "Main sleep",
+        value: formatHumanDuration(sleepSummary.averageAsleepS),
+        detail: "Average per night",
+        href: "/night",
+        linkLabel: "Explore sleep →",
+      });
+    }
+
+    if (
+      !mediaLoading &&
+      !mediaError &&
+      (mediaAggregates?.totals.item_count ?? 0) > 0
+    ) {
+      items.push({
+        label: "Library",
+        value: formatMetricValue(
+          mediaAggregates?.totals.item_count ?? 0,
+          "count",
+        ),
+        detail: "Total items",
+        href: "/library",
+        linkLabel: "Explore library →",
+      });
+    }
+
+    return items;
+  });
+
+  const emptyNotes = $derived.by<string[]>(() => {
+    if (!summary) return [];
+    const notes: string[] = [];
+
+    if (summary.totals.activity_count === 0) {
+      notes.push("Movement has no records");
+    }
+    if (!sleepLoading) {
+      if (sleepError) {
+        notes.push("Sleep unavailable");
+      } else if (sleepSummary.nightCount === 0) {
+        notes.push("Sleep has no records");
+      }
+    }
+    if (!mediaLoading) {
+      if (mediaError) {
+        notes.push("Library unavailable");
+      } else if ((mediaAggregates?.totals.item_count ?? 0) === 0) {
+        notes.push("Library has no records");
+      }
+    }
+    if (!routes || routes.features.length === 0) {
+      notes.push("No routes recorded yet");
+    }
+
+    return notes;
+  });
+
   const sports = $derived(
     (summary?.by_sport ?? [])
       .toSorted((left, right) => right.activity_count - left.activity_count)
@@ -68,10 +210,7 @@
 </script>
 
 <section class="grapher-dashboard" data-theme={theme} aria-label="Overview">
-  <RouteHeader
-    title="Overview"
-    context="Mixed windows · movement and library: all time · sleep and activity: recent records"
-  >
+  <RouteHeader title="Overview" context="Canonical movement, sleep, and library">
     {#snippet actions()}
       <a class="archive-link" href="/motion"
         >Open movement archive <span aria-hidden="true">→</span></a
@@ -93,124 +232,69 @@
       <p class="updating" role="status">Updating overview…</p>
     {/if}
 
+    <FocalBand
+      heading={periodLabel}
+      primary={{
+        label: "Period distance",
+        value: primaryDistanceValue,
+        detail:
+          periodActivityCount > 0
+            ? `${formatMetricValue(periodActivityCount, "count")} ${periodActivityCount === 1 ? "activity" : "activities"} · ${formatHumanDuration(periodDurationS)}`
+            : "No recorded movement in this window",
+      }}
+      secondary={secondaryItems}
+      empty={emptyNotes.length ? emptyNotes.join(" · ") : undefined}
+    >
+      {#snippet controls()}
+        <div
+          class="period-control"
+          role="group"
+          aria-label="Distance chart range"
+        >
+          {#each periods as months (months)}
+            <button
+              type="button"
+              aria-label={`${months}M: Last ${months} months`}
+              aria-pressed={period === months}
+              class:selected={period === months}
+              onclick={() => (period = months)}>{months}M</button
+            >
+          {/each}
+        </div>
+      {/snippet}
+    </FocalBand>
+
     <div class="heatmap-panel">
-      <PanelFrame label="Activity calendar">
+      <PanelFrame title="Activity calendar">
+        {#snippet meta()}
+          <span>{formatMetricValue(activeDayCount, "count")} active days</span>
+        {/snippet}
         <ActivityHeatmap
           days={activeDays}
           endDay={heatmapEndDay}
-          title="Activity through the year"
+          title="Activity calendar"
           embedded
         />
       </PanelFrame>
     </div>
-    <div class="stat-grid">
-      <StatTile
-        compact
-        label="Distance · all time"
-        context="All time"
-        value={summary.totals.distance_unknown_count > 0 &&
-        summary.totals.distance_known_count === 0
-          ? "—"
-          : formatDistance(summary.totals.distance_m)}
-        sub="Across recorded movement"
-      />
-      <StatTile
-        compact
-        label="Activity records"
-        value={formatMetricValue(summary.totals.activity_count, "count")}
-        context="All time"
-        sub="Imported movement sessions"
-      />
-      <StatTile
-        compact
-        label="Total movement time"
-        value={formatHumanDuration(
-          summary.totals.moving_time_s || summary.totals.duration_s,
-        )}
-        context="All time"
-        sub="Recorded duration"
-      />
-      <StatTile
-        compact
-        label="Main sleep · recent"
-        context="Recent records (limit 30)"
-        value={sleepLoading || sleepError || sleepSummary.nightCount === 0
-          ? "—"
-          : formatHumanDuration(sleepSummary.averageAsleepS)}
-        sub={sleepLoading
-          ? "Loading recent nights"
-          : sleepError
-            ? "Could not load sleep data"
-            : sleepSummary.nightCount
-              ? `Average across ${sleepSummary.nightCount} main nights`
-              : "No main sleep records in this window"}
-      >
-        <a href="/night">Explore sleep <span aria-hidden="true">→</span></a>
-      </StatTile>
-      <StatTile
-        compact
-        label="Library items"
-        context="All time"
-        value={mediaLoading || mediaError
-          ? "—"
-          : formatMetricValue(mediaAggregates?.totals.item_count ?? 0, "count")}
-        sub={mediaLoading
-          ? "Loading the library"
-          : mediaError
-            ? "Could not load library data"
-            : "Collected and tracked items"}
-      >
-        <a href="/library">Explore library <span aria-hidden="true">→</span></a>
-      </StatTile>
-      <StatTile
-        compact
-        label="Current activity streak"
-        value={streak}
-        context="Consecutive days ending today"
-      />
-    </div>
 
     <div class="dashboard-grid">
       <div class="chart-panel">
-        <PanelFrame label="Monthly distance">
-          <header class="panel-header">
-            <div>
-              <p class="kicker">Movement / distance</p>
-              <h2 id="distance-trend-title">Monthly distance</h2>
-              <p class="panel-caption">
-                Each point represents one calendar month.
-              </p>
-            </div>
-            <div class="chart-tools">
-              {#if comparison}
-                <span class="comparison">
-                  {comparison.difference > 0
-                    ? "▲"
-                    : comparison.difference < 0
-                      ? "▼"
-                      : "→"}
-                  {formatDistance(Math.abs(comparison.difference))}
-                  <small>vs {formatMonth(comparison.previous.key)}</small>
-                </span>
-              {/if}
-              <div
-                class="period-control"
-                role="group"
-                aria-label="Distance chart range"
-              >
-                {#each periods as months (months)}
-                  <button
-                    type="button"
-                    aria-label={`${months}M: Last ${months} months`}
-                    aria-pressed={period === months}
-                    class:selected={period === months}
-                    onclick={() => (period = months)}>{months}M</button
-                  >
-                {/each}
-              </div>
-            </div>
-          </header>
-          {#if monthly.length}
+        <PanelFrame title="Monthly distance">
+          {#snippet meta()}
+            {#if comparison && activeMonths.length >= 2}
+              <span class="comparison">
+                {comparison.difference > 0
+                  ? "▲"
+                  : comparison.difference < 0
+                    ? "▼"
+                    : "→"}
+                {formatDistance(Math.abs(comparison.difference))}
+                vs {formatMonth(comparison.previous.key)}
+              </span>
+            {/if}
+          {/snippet}
+          {#if activeMonths.length >= 2}
             <BarChart
               categories={monthly.map((bucket) => formatMonth(bucket.key))}
               primary={{
@@ -223,25 +307,25 @@
               primaryType="line"
               height={270}
             />
-            <p class="chart-note">
-              {monthly[0].key}–{monthly[monthly.length - 1].key} · Months without
-              recorded distance show 0 km; the current month is partial.
+          {:else if activeMonths.length === 1}
+            <p class="empty-note">
+              Single active month: {formatMonth(activeMonths[0].key)} with {formatDistance(
+                activeMonths[0].distance_m,
+              )}.
             </p>
           {:else}
-            <p class="empty-note">No canonical movement periods yet.</p>
+            <p class="empty-note">No recorded distance in this window.</p>
           {/if}
         </PanelFrame>
       </div>
 
       <div class="sport-panel">
-        <PanelFrame label="By activity">
-          <header class="panel-header">
-            <div>
-              <p class="kicker">Movement / composition</p>
-              <h2 id="sport-breakdown-title">By activity</h2>
-            </div>
-            <a href="/motion">All records <span aria-hidden="true">→</span></a>
-          </header>
+        <PanelFrame title="By activity">
+          {#snippet meta()}
+            <a class="panel-link" href="/motion"
+              >All records <span aria-hidden="true">→</span></a
+            >
+          {/snippet}
           {#if sports.length}
             <ul class="sport-list">
               {#each sports as sport (sport.key)}
@@ -262,108 +346,81 @@
                 </li>
               {/each}
             </ul>
-            <p class="chart-note">
-              Select a category to filter the movement archive.
-            </p>
           {:else}
             <p class="empty-note">No activity categories to compare yet.</p>
           {/if}
         </PanelFrame>
       </div>
 
-      <div class="route-panel">
-        <PanelFrame label="Route footprint">
-          <header class="panel-header">
-            <div>
-              <p class="kicker">Geography / privacy-trimmed</p>
-              <h2 id="route-footprint-title">Route footprint</h2>
-            </div>
-            <span>{routes?.features.length ?? "—"} traces</span>
-          </header>
-          {@render children?.()}
-        </PanelFrame>
-      </div>
-
       <div class="table-panel">
-        <PanelFrame label="Recent movement">
-          <header class="panel-header">
-            <div>
-              <p class="kicker">Latest records · up to 5</p>
-              <h2 id="recent-movement-title">Recent movement</h2>
-            </div>
-            <a href="/motion"
+        <PanelFrame title="Recent movement">
+          {#snippet meta()}
+            <a class="panel-link" href="/motion"
               >Browse archive <span aria-hidden="true">→</span></a
             >
-          </header>
+          {/snippet}
           {#if activities.length}
-            <button
-              class="table-scroll-hint"
-              type="button"
-              aria-controls="recent-movement-table-scroll"
-              onclick={focusRecentMovementTable}
+            <MetricTable
+              ariaLabel="Recent movement"
+              caption="Recent movement records with distance and duration"
+              nowrap
+              dense
             >
-              Focus the recent movement table.
-            </button>
-            <div
-              id="recent-movement-table-scroll"
-              bind:this={recentMovementScroll}
-              class="table-wrap"
-              role="region"
-              tabindex="-1"
-              aria-label="Recent movement table; scroll horizontally to view all columns"
-            >
-              <table>
-                <caption class="visually-hidden">
-                  Recent movement records with distance and duration
-                </caption>
-                <thead>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Activity</th>
+                  <th>Distance</th>
+                  <th>Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each activities.slice(0, 8) as activity (activity.id)}
                   <tr>
-                    <th>Date</th>
-                    <th>Activity</th>
-                    <th>Distance</th>
-                    <th>Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each activities.slice(0, 8) as activity (activity.id)}
-                    <tr>
-                      <td
-                        >{formatDate(
-                          activity.started_at,
-                          activity.timezone,
-                        )}</td
+                    <td
+                      >{formatDate(
+                        activity.started_at,
+                        activity.timezone,
+                      )}</td
+                    >
+                    <td>
+                      <button
+                        class="activity-link"
+                        type="button"
+                        onclick={() => onOpenActivity(activity.id)}
+                        >{activity.title || activity.sport_type}</button
                       >
-                      <td>
-                        <button
-                          class="activity-link"
-                          type="button"
-                          onclick={() => onOpenActivity(activity.id)}
-                          >{activity.title || activity.sport_type}</button
-                        >
-                      </td>
-                      <td>{formatDistance(activity.distance_m)}</td>
-                      <td>
-                        {formatDuration(
-                          activity.duration_s ?? activity.moving_time_s,
-                        )}
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
+                    </td>
+                    <td>{formatDistance(activity.distance_m)}</td>
+                    <td>
+                      {formatDuration(
+                        activity.duration_s ?? activity.moving_time_s,
+                      )}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </MetricTable>
           {:else}
             <p class="empty-note">No movement records to show yet.</p>
           {/if}
         </PanelFrame>
       </div>
+
+      {#if routes && routes.features.length > 0}
+        <div class="route-panel">
+          <PanelFrame title="Route footprint">
+            {#snippet meta()}
+              <span>{routes.features.length} traces</span>
+            {/snippet}
+            {@render children?.()}
+          </PanelFrame>
+        </div>
+      {/if}
     </div>
   {/if}
 
-  <footer>
-    Source: canonical activity summary · every chart keeps its period and unit
-    visible.
-  </footer>
+  <footer>Source: canonical activity summary.</footer>
 </section>
 
 <style>
@@ -377,124 +434,67 @@
     min-width: 0;
   }
 
-  h2,
+  .grapher-dashboard :global(.focal-primary-value),
+  .grapher-dashboard :global(.focal-secondary-item dd > span:first-child) {
+    white-space: nowrap;
+  }
+
   p {
     margin: 0;
   }
 
-  h2 {
-    font-family: var(--font-sans);
-    font-size: var(--type-title-small);
-    letter-spacing: -0.04em;
-  }
-
-  .kicker {
-    margin-bottom: 0.45rem;
-    color: var(--accent);
-    font-family: var(--font-mono);
-    font-size: var(--type-caption);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
   .archive-link,
-  .panel-header > a {
+  .panel-link {
     display: inline-flex;
     align-items: center;
     gap: 0.2rem;
     width: fit-content;
-    min-height: 24px;
+    min-height: var(--control-target-min);
     padding: 0 0.15rem;
     font-size: var(--type-label);
     font-weight: 650;
   }
 
-  .stat-grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.75rem;
-    margin: 0;
-  }
-
-  .stat-grid > :global(.stat-tile:nth-child(1)) {
-    --accent: var(--sport-walk, #00e5bf);
-  }
-
-  .stat-grid > :global(.stat-tile:nth-child(2)) {
-    --accent: var(--mark-amber, #f59e0b);
-  }
-
-  .stat-grid > :global(.stat-tile:nth-child(3)) {
-    --accent: var(--sport-run, #38bdf8);
-  }
-
-  .stat-grid > :global(.stat-tile:nth-child(4)) {
-    --accent: var(--mark-violet, #818cf8);
-  }
-
-  .stat-grid > :global(.stat-tile:nth-child(5)) {
-    --accent: var(--category-subscriptions, #ff5c8a);
-  }
-
-  .stat-grid > :global(.stat-tile:nth-child(6)) {
-    --accent: var(--ring-move, #f07c78);
+  .archive-link:focus-visible,
+  .panel-link:focus-visible,
+  .period-control button:focus-visible,
+  .sport-row:focus-visible,
+  .activity-link:focus-visible,
+  .status button:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 3px;
   }
 
   .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
-    gap: 1rem;
+    gap: var(--gap-grid);
   }
 
   .dashboard-grid > * {
     min-width: 0;
   }
 
+  @media (min-width: 1024px) {
+    .dashboard-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .table-panel,
+    .route-panel {
+      grid-column: 1 / -1;
+    }
+  }
+
   .heatmap-panel {
-    grid-column: 1 / -1;
+    min-width: 0;
   }
 
-  .chart-panel {
-    grid-column: span 8;
-  }
-
-  .sport-panel {
-    grid-column: span 4;
-  }
-
-  .table-panel {
-    grid-column: span 7;
-  }
-
-  .route-panel {
-    grid-column: span 5;
-  }
-
-  .panel-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.8rem;
-    margin-bottom: 0.9rem;
-  }
-
-  .panel-caption,
-  .chart-note,
   .empty-note,
   footer {
     color: var(--text-muted);
     font-size: var(--type-caption);
-  }
-
-  .panel-caption {
-    margin-top: 0.28rem;
-  }
-
-  .chart-tools {
-    display: grid;
-    justify-items: end;
-    gap: 0.5rem;
   }
 
   .comparison {
@@ -502,13 +502,6 @@
     font-size: var(--type-label);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-  }
-
-  .comparison small {
-    display: block;
-    color: var(--text-muted);
-    font-size: var(--type-caption);
-    text-align: right;
   }
 
   .period-control {
@@ -522,7 +515,7 @@
 
   .period-control button {
     min-width: 2.45rem;
-    min-height: 2.1rem;
+    min-height: var(--control-target-min);
     padding: 0.25rem 0.45rem;
     border: 0;
     border-radius: 999px;
@@ -551,11 +544,6 @@
     color: var(--bg);
   }
 
-  .chart-note {
-    border-top: 1px solid var(--border);
-    padding-top: 0.6rem;
-  }
-
   .sport-list {
     display: grid;
     gap: 0.2rem;
@@ -567,9 +555,11 @@
   .sport-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     gap: 0.35rem 0.7rem;
     width: 100%;
-    padding: 0.65rem 0.2rem;
+    min-height: var(--control-target-min);
+    padding: 0.5rem 0.2rem;
     border: 0;
     border-bottom: 1px solid var(--border);
     background: transparent;
@@ -597,74 +587,22 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .table-wrap {
-    overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-  }
-
-  .table-wrap tbody tr {
-    transition: background-color var(--motion-micro);
-  }
-
-  .table-wrap tbody tr:hover {
-    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  }
-
-  .table-scroll-hint {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    margin: 0 0 0.35rem;
-    padding: 0 0.25rem;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    font: inherit;
-    font-size: var(--type-caption);
-    text-align: left;
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
-    cursor: pointer;
-  }
-
-  .table-scroll-hint:focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
-  }
-
-  table {
-    width: 100%;
-    min-width: 34rem;
-    border-collapse: collapse;
-    font-size: var(--type-caption);
-  }
-
-  th,
-  td {
-    padding: 0.68rem 0.35rem;
-    border-top: 1px solid var(--border);
-    text-align: left;
-    white-space: nowrap;
-  }
-
-  th {
-    color: var(--text-muted);
-    font-size: var(--type-caption);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
   .activity-link {
+    display: block;
+    max-width: 16rem;
+    min-width: var(--control-target-min);
     min-height: var(--control-target-min);
+    overflow: hidden;
     padding: 0;
     border: 0;
     background: transparent;
     color: var(--text);
     font: inherit;
     font-weight: 700;
+    line-height: var(--control-target-min);
     text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -688,7 +626,7 @@
 
   .status button {
     width: fit-content;
-    min-height: 2.5rem;
+    min-height: var(--control-target-min);
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) - 4px);
@@ -713,49 +651,15 @@
     padding-top: 0.75rem;
   }
 
-  @media (max-width: 1024px) {
-    .stat-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 768px) {
-    .chart-panel,
-    .sport-panel,
-    .table-panel,
-    .route-panel {
-      grid-column: 1 / -1;
+  @media (prefers-reduced-motion: reduce) {
+    .period-control button {
+      transition: none;
     }
   }
 
   @media (max-width: 640px) {
-    .stat-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.5rem;
-    }
-
     .dashboard-grid {
       gap: 0.75rem;
-    }
-
-    .panel-header {
-      flex-direction: column;
-    }
-
-    .chart-tools {
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      justify-items: start;
-      width: 100%;
-    }
-
-    .comparison {
-      grid-column: 1;
-    }
-
-    .period-control {
-      grid-column: 2;
-      grid-row: 1;
     }
 
     .route-panel :global(.map) {

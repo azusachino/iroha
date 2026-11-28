@@ -19,12 +19,9 @@
 
 <svelte:window onkeydown={t.onKey} />
 
-<section class="cockpit">
-  {#if !t.briefing || !t.dayHasData}
-    <h1 class="visually-hidden">Today, {t.dayLabel}</h1>
-  {/if}
+{#snippet dayScrubber()}
   <div
-    class="scrubber tile glow"
+    class="scrubber"
     role="region"
     aria-label="Day calendar"
     tabindex="-1"
@@ -93,6 +90,13 @@
       </div>
     {/if}
   </div>
+{/snippet}
+
+<section class="cockpit">
+  {#if !t.briefing || !t.dayHasData}
+    <h1 class="visually-hidden">Today, {t.dayLabel}</h1>
+    {@render dayScrubber()}
+  {/if}
   <section
     aria-label="Daily briefing read state"
     tabindex="-1"
@@ -154,6 +158,7 @@
             acts={t.acts}
             mediaEvents={t.mediaEvents}
             mediaUpdates={t.mediaUpdates}
+            controls={dayScrubber}
             onOpenActivity={(id: string) => void goto(`/motion/${id}`)}
             onOpenMedia={(id: string) => void goto(`/library/${id}`)}
           />
@@ -203,15 +208,14 @@
     color: var(--danger);
   }
 
-  /* Date scrubber — the spine control, gets the neon chrome glow. */
+  /* Date scrubber — inline control group in the band header. */
   .scrubber {
     position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.45rem;
     min-width: 0;
-    padding: 0.85rem 1rem;
   }
   .scrubber > :global(.retry-notice) {
     order: 1;
@@ -219,13 +223,10 @@
     min-width: 0;
     box-sizing: border-box;
   }
-  .glow {
-    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
-    box-shadow: var(--accent-glow), var(--tile-shadow);
-  }
   .scrub-center {
-    flex: 1;
-    min-width: max-content;
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -235,14 +236,21 @@
     background: transparent;
     cursor: pointer;
     border-radius: var(--radius);
-    padding: 0.25rem;
+    padding: 0.25rem 0.5rem;
   }
   .scrub-center:hover {
     background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
+  .scrub-center:focus-visible,
+  .nav:focus-visible,
+  .scrub-refresh:focus-visible,
+  .today-link:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
   .day-main {
     color: var(--accent);
-    font-size: 1.1rem;
+    font-size: 1rem;
     white-space: nowrap;
     font-weight: 700;
     text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 28%, transparent);
@@ -259,8 +267,8 @@
     position: absolute;
     z-index: 21;
     top: calc(100% + 0.5rem);
-    left: 50%;
-    transform: translateX(-50%);
+    right: 0;
+    max-width: calc(100vw - 2rem);
     box-shadow: var(--accent-glow), var(--tile-shadow);
     border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
   }
@@ -345,6 +353,11 @@
 
     .scrub-center {
       min-width: 0;
+    }
+
+    .pk-pop {
+      left: 0;
+      right: auto;
     }
   }
 </style>

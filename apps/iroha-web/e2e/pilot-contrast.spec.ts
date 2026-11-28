@@ -16,6 +16,11 @@ for (const pilot of ["overview", "expenses", "public"] as const) {
         await page.goto(
           pilot === "public" ? PUBLIC_BASE_URL : `/${pilot}?date=2026-08`,
         );
+        if (pilot === "overview") {
+          await page
+            .getByRole("button", { name: "24M: Last 24 months", exact: true })
+            .click();
+        }
         await expect
           .poll(
             async () =>
