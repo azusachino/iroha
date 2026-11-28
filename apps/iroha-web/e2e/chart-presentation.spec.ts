@@ -16,6 +16,11 @@ for (const pilot of ["overview", "expenses", "public"] as const) {
         ? PUBLIC_BASE_URL
         : `/${pilot}${pilot === "expenses" ? "?date=2026-08&currency=JPY" : ""}`,
     );
+    if (pilot === "overview") {
+      await page
+        .getByRole("button", { name: "24M: Last 24 months", exact: true })
+        .click();
+    }
     await expect
       .poll(async () => {
         const snapshot = await page.evaluate(inspectPilotCharts);
@@ -30,19 +35,18 @@ for (const pilot of ["overview", "expenses", "public"] as const) {
         currentPilot === "public"
           ? [
               [".eyebrow", "--type-caption"],
-              [".route-copy p", "--type-caption"],
+              [".route-copy p", "--type-label"],
               [".section-heading h2", "--type-title"],
             ]
           : currentPilot === "overview"
             ? [
-                [".route-copy p", "--type-caption"],
+                [".route-copy p", "--type-label"],
                 [".chart-data", "--type-label"],
               ]
             : currentPilot === "expenses"
               ? [
                   [".chart-data", "--type-label"],
-                  [".canonical-ledger .eyebrow", "--type-caption"],
-                  [".ledger-description", "--type-label"],
+                  [".list-panel .eyebrow", "--type-caption"],
                   [".expense-row small", "--type-caption"],
                   [".detail-list dt", "--type-caption"],
                   [".detail-panel h3", "--type-title-small"],

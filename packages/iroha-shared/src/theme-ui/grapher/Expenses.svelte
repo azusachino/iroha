@@ -242,7 +242,7 @@
             primary={{
               name: primaryCurrency,
               values: observedCategoryTotals.map((item) => item.amount),
-              color: "var(--accent-2)",
+              color: "var(--mark-amber)",
               axis: {
                 unit: primaryCurrency,
                 scale: 10 ** -primaryExponent,

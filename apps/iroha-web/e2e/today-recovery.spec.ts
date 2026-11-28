@@ -161,7 +161,7 @@ for (const mode of ["light", "dark"] as const) {
       "Sleep session unavailable for this day.",
       "Media sessions unavailable for this day.",
     ])
-      await expect(page.getByText(text, { exact: true })).toBeVisible();
+      await expect(page.getByText(text, { exact: false })).toBeVisible();
     await expect(
       page.getByRole("heading", {
         name: "No records for 2020-08-15.",

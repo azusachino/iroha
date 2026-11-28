@@ -66,7 +66,7 @@ for (const mode of ["light", "dark"] as const) {
       await expect(
         page.getByRole("heading", { name: "Expense records", exact: true }),
       ).toHaveCount(0);
-      await expect(page.locator(".stat-tile")).toHaveCount(0);
+      await expect(page.locator(".focal-band")).toHaveCount(0);
       await expect(
         page.getByText("No canonical expenses match these filters.", {
           exact: true,
@@ -92,14 +92,17 @@ for (const mode of ["light", "dark"] as const) {
       exact: true,
     });
     await expect(empty).toBeVisible();
-    await expect(
-      page
-        .getByRole("region", { name: "Spending · JPY", exact: true })
-        .locator(".stat-value"),
-    ).toHaveText("—");
-    await expect(
-      page.getByRole("region", { name: "Spending · JPY", exact: true }),
-    ).toContainText("Record count unavailable");
+    const band = page.getByRole("region", {
+      name: "Spending summary",
+      exact: true,
+    });
+    await expect(band.locator(".focal-primary-value")).toHaveText("—");
+    await expect(band.locator(".focal-primary")).toContainText(
+      "Period spend · JPY",
+    );
+    await expect(band.locator(".focal-primary")).toContainText(
+      "Record count unavailable",
+    );
     let release!: () => void;
     const hold = new Promise<void>((resolve) => {
       release = resolve;
@@ -156,7 +159,7 @@ for (const mode of ["light", "dark"] as const) {
     ).toHaveCount(0);
     await expect(
       page.getByRole("region", {
-        name: "Expense period selection",
+        name: "Expense spending",
         exact: true,
       }),
     ).toBeFocused();
@@ -188,8 +191,8 @@ for (const mode of ["light", "dark"] as const) {
     await expect(retry).toBeVisible();
     await expect(
       page
-        .getByRole("region", { name: "Spending · JPY", exact: true })
-        .locator(".stat-value"),
+        .getByRole("region", { name: "Spending summary", exact: true })
+        .locator(".focal-primary-value"),
     ).toHaveText("¥12,345");
     const count = fixture.requests.filter((request) =>
       request.includes("/series?"),
@@ -229,8 +232,8 @@ for (const mode of ["light", "dark"] as const) {
     await page.goto("/expenses?date=2026-08");
     await expect(
       page
-        .getByRole("region", { name: "Spending · JPY", exact: true })
-        .locator(".stat-value"),
+        .getByRole("region", { name: "Spending summary", exact: true })
+        .locator(".focal-primary-value"),
     ).toHaveText("¥12,345");
     fixture.failures.add("spending:2026-09");
     await page
@@ -243,16 +246,14 @@ for (const mode of ["light", "dark"] as const) {
       page.getByText("Synthetic september", { exact: true }).first(),
     ).toBeVisible();
     await expect(
-      page.getByText(
-        "Observed spending period: 2026-08 · All currencies · All categories",
-        { exact: true },
-      ),
+      page
+        .getByRole("region", { name: "Expense spending", exact: true })
+        .getByText("Observed period: 2026-08", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText(
-        "Observed ledger period: 2026-09 · All currencies · All categories",
-        { exact: true },
-      ),
+      page
+        .getByRole("region", { name: "Expense records read", exact: true })
+        .getByText("Observed period: 2026-09", { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Daily spend · JPY", exact: true }),
@@ -266,8 +267,8 @@ for (const mode of ["light", "dark"] as const) {
       .click();
     await expect(
       page
-        .getByRole("region", { name: "Spending · USD", exact: true })
-        .locator(".stat-value"),
+        .getByRole("region", { name: "Spending summary", exact: true })
+        .locator(".focal-primary-value"),
     ).toHaveText("$1,234.56");
     await expect(
       page.getByRole("region", { name: "Expense spending", exact: true }),
@@ -307,16 +308,12 @@ for (const mode of ["light", "dark"] as const) {
         .getByRole("combobox", { name: "Filter by month" })
         .selectOption("9");
       await expect(
-        page.getByText(
-          "Selected period: 2026-09 · All currencies · All categories",
-          { exact: true },
-        ),
-      ).toBeVisible();
+        page.getByRole("combobox", { name: "Filter by month" }),
+      ).toHaveValue("9");
       await expect(
-        page.getByText(
-          "Observed ledger period: 2026-08 · All currencies · All categories",
-          { exact: true },
-        ),
+        page
+          .getByRole("region", { name: "Expense records read", exact: true })
+          .getByText("Observed period: 2026-08", { exact: true }),
       ).toBeVisible();
       await page
         .getByRole("combobox", { name: "Filter by month" })
@@ -336,8 +333,8 @@ for (const mode of ["light", "dark"] as const) {
     ).toHaveCount(0);
     await expect(
       page
-        .getByRole("region", { name: "Spending · JPY", exact: true })
-        .locator(".stat-value"),
+        .getByRole("region", { name: "Spending summary", exact: true })
+        .locator(".focal-primary-value"),
     ).toHaveText("¥12,345");
     expect(fixture.unknown).toEqual([]);
   });
@@ -350,14 +347,14 @@ for (const mode of ["light", "dark"] as const) {
     await page.goto("/expenses?date=2026&keep=receipt");
     await expect(
       page
-        .getByRole("region", { name: "Spending · JPY", exact: true })
-        .locator(".stat-value"),
+        .getByRole("region", { name: "Spending summary", exact: true })
+        .locator(".focal-primary-value"),
     ).toHaveText("¥12,345");
     await expect(
       page
-        .getByRole("region", { name: "Spending · USD", exact: true })
-        .locator(".stat-value"),
-    ).toHaveText("$1,234.56");
+        .getByRole("region", { name: "Spending summary", exact: true })
+        .locator(".focal-secondary-item", { hasText: "USD" }),
+    ).toContainText("$1,234.56");
     await expect(
       page.getByText("123456 minor USD", { exact: true }),
     ).toHaveCount(0);
@@ -392,18 +389,29 @@ for (const mode of ["light", "dark"] as const) {
     fixture.netZero = true;
     await page.emulateMedia({ colorScheme: mode });
     await page.goto("/expenses?date=2026-08&currency=JPY&category=food");
-    const tile = page.getByRole("region", {
-      name: "Spending · JPY",
+    const band = page.getByRole("region", {
+      name: "Spending summary",
       exact: true,
     });
-    await expect(tile.locator(".stat-value")).toHaveText("¥0");
-    await expect(tile).toContainText("2 records");
+    await expect(band.locator(".focal-primary-value")).toHaveText("¥0");
+    await expect(band.locator(".focal-primary")).toContainText(
+      "Period spend · JPY",
+    );
+    await expect(band.locator(".focal-primary")).toContainText("2 records");
     await expect(
       page.getByText("Synthetic refund", { exact: true }).first(),
     ).toBeVisible();
     await expect(
-      page.getByText("Selected period: 2026-08 · JPY · Food", { exact: true }),
+      page
+        .getByRole("region", { name: "Expense spending", exact: true })
+        .getByText("Observed period: 2026-08", { exact: true }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: "Currency" }),
+    ).toHaveValue("JPY");
+    await expect(
+      page.getByRole("combobox", { name: "Category" }),
+    ).toHaveValue("food");
     expect(fixture.unknown).toEqual([]);
   });
 

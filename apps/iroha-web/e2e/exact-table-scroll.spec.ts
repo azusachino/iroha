@@ -9,20 +9,13 @@ for (const mode of ["light", "dark"] as const) {
     await page.setViewportSize({ width: 320, height: 900 });
     await page.emulateMedia({ colorScheme: mode });
     await page.goto("/night?date=2026-08");
-    const focus = page.getByRole("button", {
-      name: "Focus sleep records to scroll all columns",
-      exact: true,
-    });
-    await expect(focus).toBeVisible();
-    const bounds = await focus.boundingBox();
-    expect(bounds).not.toBeNull();
-    expect(bounds!.height).toBeGreaterThanOrEqual(44);
-    await focus.focus();
-    await page.keyboard.press("Enter");
     const region = page.getByRole("region", {
       name: "Night exact sleep records",
       exact: true,
     });
+    await expect(region).toBeVisible();
+    await expect(region).toHaveAttribute("tabindex", "0");
+    await region.focus();
     await expect(region).toBeFocused();
     const before = await region.evaluate((node) => node.scrollLeft);
     await page.keyboard.press("ArrowRight");
@@ -44,30 +37,17 @@ for (const mode of ["light", "dark"] as const) {
     await page.setViewportSize({ width: 320, height: 900 });
     await page.emulateMedia({ colorScheme: mode });
     await page.goto("/motion?date=2026-08");
-    for (const [buttonLabel, regionLabel] of [
-      [
-        "Focus activity records to scroll all columns",
-        "Motion exact activity records",
-      ],
-      [
-        "Focus movement series to scroll all columns",
-        "Exact movement series scroll area",
-      ],
-    ]) {
-      const button = page.getByRole("button", {
-        name: buttonLabel,
-        exact: true,
-      });
-      await expect(button).toBeVisible();
-      const bounds = await button.boundingBox();
-      expect(bounds).not.toBeNull();
-      expect(bounds!.height).toBeGreaterThanOrEqual(44);
-      await button.focus();
-      await page.keyboard.press("Enter");
+    for (const [regionLabel, columnCount] of [
+      ["Motion exact activity records", 5],
+      ["Exact movement series scroll area", 4],
+    ] as const) {
       const region = page.getByRole("region", {
         name: regionLabel,
         exact: true,
       });
+      await expect(region).toBeVisible();
+      await expect(region).toHaveAttribute("tabindex", "0");
+      await region.focus();
       await expect(region).toBeFocused();
       expect(
         await region.evaluate((node) => node.scrollWidth > node.clientWidth),
@@ -81,9 +61,7 @@ for (const mode of ["light", "dark"] as const) {
       await page.keyboard.press("End");
       const table = region.getByRole("table");
       await expect(table).toBeVisible();
-      await expect(table.locator("thead th")).toHaveCount(
-        buttonLabel.includes("activity records") ? 5 : 4,
-      );
+      await expect(table.locator("thead th")).toHaveCount(columnCount);
     }
     expect(fixture.unknown).toEqual([]);
   });

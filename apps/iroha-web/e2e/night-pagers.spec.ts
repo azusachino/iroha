@@ -6,7 +6,7 @@ for (const mode of ["light", "dark"] as const) {
     page,
   }) => {
     const fixture = await installNightFixtures(page);
-    await page.emulateMedia({ colorScheme: mode });
+    await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
     await page.goto("/night?date=2026-08");
 
     // "Domains" group in Primary navigation contains Night with aria-current="page"
@@ -37,25 +37,16 @@ for (const mode of ["light", "dark"] as const) {
   }) => {
     const fixture = await installNightFixtures(page);
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.emulateMedia({ colorScheme: mode });
+    await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
     await page.goto("/night?date=2026-08");
-
-    const focusButton = page.getByRole("button", {
-      name: "Focus sleep records to scroll all columns",
-      exact: true,
-    });
-    await expect(focusButton).toBeVisible();
-    const bounds = await focusButton.boundingBox();
-    expect(bounds).not.toBeNull();
-    expect(bounds!.height).toBeGreaterThanOrEqual(44);
-
-    await focusButton.focus();
-    await page.keyboard.press("Enter");
 
     const scrollRegion = page.getByRole("region", {
       name: "Night exact sleep records",
       exact: true,
     });
+    await expect(scrollRegion).toBeVisible();
+    await expect(scrollRegion).toHaveAttribute("tabindex", "0");
+    await scrollRegion.focus();
     await expect(scrollRegion).toBeFocused();
 
     // Verify container overflows at 320px
@@ -69,11 +60,11 @@ for (const mode of ["light", "dark"] as const) {
     );
     expect(initialScroll).toBe(0);
 
-    // ArrowRight advances scroll
+    // ArrowRight advances scroll (one 40px step)
     await page.keyboard.press("ArrowRight");
     await expect
       .poll(() => scrollRegion.evaluate((node) => node.scrollLeft))
-      .toBeGreaterThan(initialScroll);
+      .toBeGreaterThanOrEqual(40);
 
     const scrolled = await scrollRegion.evaluate((node) => node.scrollLeft);
 
@@ -128,7 +119,7 @@ for (const mode of ["light", "dark"] as const) {
       route.fulfill({ json: [] }),
     );
 
-    await page.emulateMedia({ colorScheme: mode });
+    await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
     await page.goto("/night?date=2026-08");
 
     const table = page.getByRole("table", {
@@ -195,7 +186,7 @@ for (const mode of ["light", "dark"] as const) {
       route.fulfill({ json: [] }),
     );
 
-    await page.emulateMedia({ colorScheme: mode });
+    await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
     await page.goto("/night?date=2026-08");
 
     const table = page.getByRole("table", {

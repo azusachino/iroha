@@ -21,7 +21,11 @@ for (const mode of ["light", "dark"] as const) {
     });
     await expect(privateRecord).toContainText("12.50 km");
     await expect(privateRecord).toContainText("1:02:00");
-    await expect(page.getByText("1 h 02 min", { exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Last 12 months", exact: true })
+        .locator(".focal-primary-detail"),
+    ).toContainText("1 h 02 min");
     const publicPage = await page.context().newPage();
     await publicPage.emulateMedia({ colorScheme: mode });
     const publicFixture = await installPilotFixtures(

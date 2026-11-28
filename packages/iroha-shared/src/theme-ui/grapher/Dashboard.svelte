@@ -239,7 +239,7 @@
         value: primaryDistanceValue,
         detail:
           periodActivityCount > 0
-            ? `${formatMetricValue(periodActivityCount, "count")} activities · ${formatHumanDuration(periodDurationS)}`
+            ? `${formatMetricValue(periodActivityCount, "count")} ${periodActivityCount === 1 ? "activity" : "activities"} · ${formatHumanDuration(periodDurationS)}`
             : "No recorded movement in this window",
       }}
       secondary={secondaryItems}
@@ -363,7 +363,6 @@
             <MetricTable
               ariaLabel="Recent movement"
               caption="Recent movement records with distance and duration"
-              minWidth="34rem"
               nowrap
               dense
             >
@@ -650,6 +649,12 @@
   footer {
     border-top: 1px solid var(--border);
     padding-top: 0.75rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .period-control button {
+      transition: none;
+    }
   }
 
   @media (max-width: 640px) {

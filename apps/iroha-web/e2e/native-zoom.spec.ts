@@ -65,6 +65,11 @@ for (const pilot of ["overview", "expenses", "public"] as const) {
             ? base
             : `${base}/${pilot}${pilot === "expenses" ? "?date=2026-08&currency=JPY" : ""}`,
         );
+        if (pilot === "overview") {
+          await page
+            .getByRole("button", { name: "24M: Last 24 months", exact: true })
+            .click();
+        }
         await expect(page.getByRole("img").first()).toBeVisible();
         const before = await page.evaluate(() => ({
           width: innerWidth,

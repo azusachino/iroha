@@ -10,15 +10,19 @@ test("Expenses metric and canonical frames preserve exact data and distinct capa
   await expect(
     page.getByRole("heading", { name: "Synthetic cafe", exact: true }),
   ).toBeVisible();
+  const spending = page.getByRole("region", {
+    name: "Expense spending",
+    exact: true,
+  });
   const metric = page.getByRole("region", { name: "Daily spend", exact: true });
   await expect(metric).toHaveCount(1);
-  await expect(metric).toContainText("synthetic.v1");
-  await metric.getByRole("button", { name: "Table", exact: true }).click();
+  await expect(spending).toContainText("synthetic.v1");
+  await spending.getByRole("button", { name: "Table", exact: true }).click();
   await expect(
     metric.getByRole("cell", { name: "¥12,345", exact: true }),
   ).toBeVisible();
   const downloading = page.waitForEvent("download");
-  await metric.getByRole("button", { name: "CSV", exact: true }).click();
+  await spending.getByRole("button", { name: "CSV", exact: true }).click();
   const download = await downloading;
   expect(download.suggestedFilename()).toBe(
     "expenses.amount_minor-2026-08.csv",
@@ -26,10 +30,10 @@ test("Expenses metric and canonical frames preserve exact data and distinct capa
   const csv = await readFile((await download.path())!, "utf8");
   expect(csv).toContain("12345");
   expect(csv).toContain("JPY minor");
-  await metric.getByRole("button", { name: "Chart", exact: true }).click();
-  await expect(metric.getByRole("img")).toBeVisible();
+  await spending.getByRole("button", { name: "Chart", exact: true }).click();
+  await expect(spending.getByRole("img")).toBeVisible();
   const ledger = page.getByRole("region", {
-    name: "Canonical ledger",
+    name: "Expense records",
     exact: true,
   });
   await expect(ledger).toHaveCount(1);

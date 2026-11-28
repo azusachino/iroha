@@ -16,7 +16,6 @@
   const e = createExpensesState();
   let recordsTarget = $state<HTMLElement>();
   let spendingTarget = $state<HTMLElement>();
-  let boundsTarget = $state<HTMLElement>();
 </script>
 
 <svelte:head>
@@ -31,21 +30,6 @@
     </div>
   </header>
 
-  {#if e.boundsResource.error}
-    <div tabindex="-1" bind:this={boundsTarget}>
-      <RetryNotice
-        message={`Expense range unavailable. ${e.boundsResource.error}`}
-        retryLabel="Retry expense range"
-        onRetry={e.loadBounds}
-        focusTarget={boundsTarget}
-      />
-      <p class="muted">
-        {e.dateBounds.min && e.dateBounds.max
-          ? "The last observed expense range remains available."
-          : "Period choices are calendar choices, not an observed data inventory."}
-      </p>
-    </div>
-  {/if}
   {#if e.deleteError}
     <p class="error" role="alert">Delete failed: {e.deleteError}</p>
   {/if}
@@ -54,6 +38,19 @@
     tabindex="-1"
     bind:this={spendingTarget}
   >
+    {#if e.boundsResource.error}
+      <RetryNotice
+        message={`Expense range unavailable. ${e.boundsResource.error}`}
+        retryLabel="Retry expense range"
+        onRetry={e.loadBounds}
+        focusTarget={spendingTarget}
+      />
+      <p class="muted">
+        {e.dateBounds.min && e.dateBounds.max
+          ? "The last observed expense range remains available."
+          : "Period choices are calendar choices, not an observed data inventory."}
+      </p>
+    {/if}
     {#if e.spendingResource.error}
       <RetryNotice
         message={`Expense spending unavailable. ${e.spendingResource.error}`}
