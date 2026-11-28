@@ -406,12 +406,12 @@ for (const mode of ["light", "dark"] as const) {
         .getByRole("region", { name: "Expense spending", exact: true })
         .getByText("Observed period: 2026-08", { exact: true }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("combobox", { name: "Currency" }),
-    ).toHaveValue("JPY");
-    await expect(
-      page.getByRole("combobox", { name: "Category" }),
-    ).toHaveValue("food");
+    await expect(page.getByRole("combobox", { name: "Currency" })).toHaveValue(
+      "JPY",
+    );
+    await expect(page.getByRole("combobox", { name: "Category" })).toHaveValue(
+      "food",
+    );
     expect(fixture.unknown).toEqual([]);
   });
 

@@ -107,9 +107,7 @@ test("private no-route overview does not request the map engine", async ({
     if (isMapLibrary(request.url())) engines.push(request.url());
   });
   await page.goto("/overview");
-  await expect(
-    page.getByText(/No routes recorded yet/),
-  ).toBeVisible();
+  await expect(page.getByText(/No routes recorded yet/)).toBeVisible();
   expect(engines).toEqual([]);
   expect(fixture.unknown).toEqual([]);
 });
