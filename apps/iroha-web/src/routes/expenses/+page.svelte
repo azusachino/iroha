@@ -1,11 +1,9 @@
 <script lang="ts">
-  import type { ExpenseCategory } from "$lib/api";
   import PeriodSelector from "@iroha/shared/components/PeriodSelector.svelte";
   import PeriodToolbar from "@iroha/shared/components/PeriodToolbar.svelte";
   import SelectControl from "@iroha/shared/components/SelectControl.svelte";
   import LoadingBoundary from "$lib/components/LoadingBoundary.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
-  import { expenseCategoryLabel } from "@iroha/shared/view-contracts/expense-view";
   import { categoryColor } from "@iroha/shared/domain/category-color";
   import GrapherExpenses from "@iroha/shared/theme-ui/grapher/Expenses.svelte";
   import RetryNotice from "@iroha/shared/theme-ui/components/RetryNotice.svelte";
@@ -33,72 +31,21 @@
     </div>
   </header>
 
-  <section
-    aria-label="Expense period selection"
-    tabindex="-1"
-    bind:this={boundsTarget}
-  >
-    <PeriodToolbar
-      title="Expense spending scope"
-      ariaLabel="Expense period"
-      onRefresh={() => void e.loadExpenses(e.month, true)}
-      refreshing={e.expensesResource.loading}
-    >
-      <PeriodSelector
-        year={e.periodYear}
-        month={e.periodMonth}
-        years={e.periodYears}
-        months={e.periodMonths}
-        bounds={e.dateBounds}
-        showAllYears={false}
-        surface="inline"
-        onYear={e.selectPeriodYear}
-        onMonth={e.selectPeriodMonth}
-      />
-    </PeriodToolbar>
-
-    {#if e.expensesResource.data}
-      <p class="muted">Observed period: {e.expensesResource.data.month}</p>
-    {:else if e.expensesResource.error}
-      <p class="error" role="alert">Ledger period unavailable</p>
-    {:else if e.expensesResource.loading}
-      <p class="muted" role="status">Loading ledger period…</p>
-    {/if}
-
-    <div class="expense-filters" aria-label="Expense filters">
-      <SelectControl
-        label="Currency"
-        value={e.filterCurrency}
-        options={[{ value: "", label: "All currencies" }, ...CURRENCY_OPTIONS]}
-        onChange={e.selectCurrency}
-      />
-      <SelectControl
-        label="Category"
-        value={e.filterCategory}
-        options={CATEGORY_OPTIONS}
-        markerColor={categoryColor(e.filterCategory || "other")}
-        onChange={e.selectCategory}
-      />
-    </div>
-    <p>
-      Selected period: {e.month} · {e.filterCurrency || "All currencies"} · {e.filterCategory
-        ? expenseCategoryLabel[e.filterCategory]
-        : "All categories"}
-    </p>
-    {#if e.boundsResource.error}
+  {#if e.boundsResource.error}
+    <div tabindex="-1" bind:this={boundsTarget}>
       <RetryNotice
         message={`Expense range unavailable. ${e.boundsResource.error}`}
         retryLabel="Retry expense range"
         onRetry={e.loadBounds}
         focusTarget={boundsTarget}
       />
-      <p>
+      <p class="muted">
         {e.dateBounds.min && e.dateBounds.max
           ? "The last observed expense range remains available."
           : "Period choices are calendar choices, not an observed data inventory."}
       </p>
-    {/if}
-  </section>
+    </div>
+  {/if}
   {#if e.deleteError}
     <p class="error" role="alert">Delete failed: {e.deleteError}</p>
   {/if}
@@ -122,20 +69,52 @@
     >
       {#snippet children()}
         {#if e.spendingResource.data}
-          <p>
-            Observed spending period: {e.spendingResource.data.month} · {e
-              .spendingResource.data.currency || "All currencies"} · {e
-              .spendingResource.data.category
-              ? expenseCategoryLabel[
-                  e.spendingResource.data.category as ExpenseCategory
-                ]
-              : "All categories"}
-          </p>
           <GrapherExpenses
             {...e.themeProps}
             month={e.spendingResource.data.month}
             section="spending"
-          />
+          >
+            {#snippet controls()}
+              <PeriodToolbar
+                title="Expense spending scope"
+                ariaLabel="Expense period"
+                onRefresh={() => void e.loadExpenses(e.month, true)}
+                refreshing={e.expensesResource.loading}
+              >
+                <PeriodSelector
+                  year={e.periodYear}
+                  month={e.periodMonth}
+                  years={e.periodYears}
+                  months={e.periodMonths}
+                  bounds={e.dateBounds}
+                  showAllYears={false}
+                  surface="inline"
+                  onYear={e.selectPeriodYear}
+                  onMonth={e.selectPeriodMonth}
+                />
+              </PeriodToolbar>
+            {/snippet}
+            {#snippet filters()}
+              <div class="expense-filters" aria-label="Expense filters">
+                <SelectControl
+                  label="Currency"
+                  value={e.filterCurrency}
+                  options={[
+                    { value: "", label: "All currencies" },
+                    ...CURRENCY_OPTIONS,
+                  ]}
+                  onChange={e.selectCurrency}
+                />
+                <SelectControl
+                  label="Category"
+                  value={e.filterCategory}
+                  options={CATEGORY_OPTIONS}
+                  markerColor={categoryColor(e.filterCategory || "other")}
+                  onChange={e.selectCategory}
+                />
+              </div>
+            {/snippet}
+          </GrapherExpenses>
         {/if}
       {/snippet}
     </LoadingBoundary>
@@ -160,15 +139,6 @@
     >
       {#snippet children()}
         {#if e.expensesResource.data}
-          <p>
-            Observed ledger period: {e.expensesResource.data.month} · {e
-              .expensesResource.data.currency || "All currencies"} · {e
-              .expensesResource.data.category
-              ? expenseCategoryLabel[
-                  e.expensesResource.data.category as ExpenseCategory
-                ]
-              : "All categories"}
-          </p>
           <GrapherExpenses {...e.themeProps} section="ledger" />
         {/if}
       {/snippet}

@@ -1,6 +1,8 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import BarChart from "../components/BarChart.svelte";
   import ExpenseLedger from "../components/ExpenseLedger.svelte";
+  import EmptyNote from "../../components/EmptyNote.svelte";
   import FocalBand, {
     type FocalPrimaryMetric,
     type FocalSecondaryItem,
@@ -11,6 +13,8 @@
   import { panelCsv } from "../../components/metric-panel";
   import type { ExpenseThemeProps } from "../../view-contracts/expense-view";
   import { formatExpenseDay } from "../../view-contracts/expense-view";
+
+  const DAILY_CHART_MIN_POINTS = 3;
 
   let {
     section = "all",
@@ -29,7 +33,12 @@
     onSelect,
     onRemove,
     formatMoney,
-  }: ExpenseThemeProps = $props();
+    controls,
+    filters,
+  }: ExpenseThemeProps & {
+    controls?: Snippet;
+    filters?: Snippet;
+  } = $props();
 
   let chartView = $state<"chart" | "table">("chart");
 
@@ -89,6 +98,28 @@
     dailyPanel.rows.length > 0 || categoryPanel.rows.length > 0,
   );
 
+  const observedDailyTotals = $derived(
+    dailyTotals.filter(([, amount]) => amount != null),
+  );
+  const useShortDailySummary = $derived(
+    observedDailyTotals.length < DAILY_CHART_MIN_POINTS,
+  );
+  const shortDailySummary = $derived.by(() => {
+    if (observedDailyTotals.length === 0) {
+      return `No ${primaryCurrency} spending days observed in this scope.`;
+    }
+    if (observedDailyTotals.length === 1) {
+      const [day, amount] = observedDailyTotals[0];
+      return `Single day observed: ${formatExpenseDay(day)} · ${formatMoney(amount!, primaryCurrency, primaryExponent)}.`;
+    }
+    const [[dayA, amountA], [dayB, amountB]] = observedDailyTotals;
+    return `Two days observed: ${formatExpenseDay(dayA)} (${formatMoney(amountA!, primaryCurrency, primaryExponent)}) and ${formatExpenseDay(dayB)} (${formatMoney(amountB!, primaryCurrency, primaryExponent)}).`;
+  });
+
+  const observedCategoryTotals = $derived(
+    categoryTotals.filter((item) => item.amount != null),
+  );
+
   function downloadSpendingCsv() {
     const sections = [
       dailyPanel.rows.length > 0
@@ -122,16 +153,18 @@
 
 <section class="grapher-expenses" aria-label="Expense evidence">
   {#if section !== "ledger"}
-    <FocalBand
-      heading="Spending summary"
-      primary={primaryMetric}
-      secondary={secondaryItems}
-      empty={emptyCurrenciesNote}
-    >
-      {#snippet controls()}
-        <span class="scope-statement">Observed period: {month}</span>
-      {/snippet}
-    </FocalBand>
+    <div class="band-wrap" class:single-currency={secondaryItems.length === 0}>
+      <FocalBand
+        heading="Spending summary"
+        {controls}
+        primary={primaryMetric}
+        secondary={secondaryItems}
+        empty={emptyCurrenciesNote}
+      />
+    </div>
+    {#if filters}
+      {@render filters()}
+    {/if}
 
     <div class="chart-controls-bar">
       <MetricMetadata
@@ -162,23 +195,27 @@
     <PanelFrame label="Daily spend">
       <h2>Daily spend · {primaryCurrency}</h2>
       {#if chartView === "chart"}
-        <BarChart
-          categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
-          primary={{
-            name: primaryCurrency,
-            values: dailyTotals.map(([, amount]) => amount),
-            color: "var(--accent)",
-            axis: {
-              unit: primaryCurrency,
-              scale: 10 ** -primaryExponent,
-              minimumInterval: 1,
-            },
-            formatter: (value) =>
-              formatMoney(value, primaryCurrency, primaryExponent),
-          }}
-          primaryType="line"
-          height={300}
-        />
+        {#if useShortDailySummary}
+          <EmptyNote text={shortDailySummary} />
+        {:else}
+          <BarChart
+            categories={dailyTotals.map(([day]) => formatExpenseDay(day))}
+            primary={{
+              name: primaryCurrency,
+              values: dailyTotals.map(([, amount]) => amount),
+              color: "var(--accent)",
+              axis: {
+                unit: primaryCurrency,
+                scale: 10 ** -primaryExponent,
+                minimumInterval: 1,
+              },
+              formatter: (value) =>
+                formatMoney(value, primaryCurrency, primaryExponent),
+            }}
+            primaryType="line"
+            height={300}
+          />
+        {/if}
       {:else}
         <MetricTable
           rows={dailyPanel.rows}
@@ -192,24 +229,30 @@
     <PanelFrame label="Spend by category">
       <h2>Spend by category · {primaryCurrency}</h2>
       {#if chartView === "chart"}
-        <BarChart
-          categories={categoryTotals.map((item) => item.category)}
-          primary={{
-            name: primaryCurrency,
-            values: categoryTotals.map((item) => item.amount),
-            color: "var(--accent-2)",
-            axis: {
-              unit: primaryCurrency,
-              scale: 10 ** -primaryExponent,
-              minimumInterval: 1,
-            },
-            formatter: (value) =>
-              formatMoney(value, primaryCurrency, primaryExponent),
-          }}
-          orientation="horizontal"
-          categorical
-          height={250}
-        />
+        {#if observedCategoryTotals.length === 0}
+          <EmptyNote
+            text={`No ${primaryCurrency} category spending observed in this scope.`}
+          />
+        {:else}
+          <BarChart
+            categories={observedCategoryTotals.map((item) => item.category)}
+            primary={{
+              name: primaryCurrency,
+              values: observedCategoryTotals.map((item) => item.amount),
+              color: "var(--accent-2)",
+              axis: {
+                unit: primaryCurrency,
+                scale: 10 ** -primaryExponent,
+                minimumInterval: 1,
+              },
+              formatter: (value) =>
+                formatMoney(value, primaryCurrency, primaryExponent),
+            }}
+            orientation="horizontal"
+            categorical
+            height={250}
+          />
+        {/if}
       {:else}
         <MetricTable
           rows={categoryPanel.rows}
@@ -239,16 +282,20 @@
     display: grid;
     gap: var(--space-4);
     min-width: 0;
+    font-family: var(--font-sans);
   }
   .grapher-expenses :global(.focal-primary-value),
   .grapher-expenses :global(.focal-secondary-item dd > span:first-child) {
     font-family: var(--font-mono);
   }
-  .scope-statement {
-    color: var(--text-muted);
-    font-size: var(--type-caption);
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+  .band-wrap :global(.focal-band) {
+    margin-bottom: 0;
+  }
+  .band-wrap.single-currency :global(.focal-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .band-wrap.single-currency :global(.focal-secondary) {
+    display: none;
   }
   .chart-controls-bar {
     display: flex;
