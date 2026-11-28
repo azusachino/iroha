@@ -72,3 +72,4 @@ Record an exception here only with a named owner, reason, and expiry. The floor 
 | E21 | assertion-removed | apps/iroha-web/e2e/overview-compact.spec.ts | Six-tile compact grid replaced by Last 12 months focal band and updated action links (issue #236) | haru | 2026-12-31 |
 | E22 | assertion-removed | apps/iroha-web/e2e/pilot-equivalence.spec.ts | Standalone duration text moved into Last 12 months focal-primary-detail (issue #236) | haru | 2026-12-31 |
 | E23 | assertion-removed | apps/iroha-web/e2e/today-recovery.spec.ts | Today recovery error banner includes retry guidance alongside unavailable message (issue #236); assertion matches substring | haru | 2026-12-31 |
+| E25 | assertion-removed | apps/iroha-web/e2e/private-map-worker.spec.ts | Prettier 4.2 collapses a multi-line assertion onto one line (issue #237 formatting repair); the assertion is unchanged | haru | 2026-12-31 |
