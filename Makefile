@@ -211,20 +211,24 @@ smoke-k3s-cache: ## Verify the live k3s Valkey cache (API_BASE=..., MONTH=...)
 # harus-workstation repository -- and never pass --pull to these targets: the
 # base tag is not on any registry. See ops/k8s/README.md.
 image-server: ## Build iroha-server and import it into the local k3s containerd store (TAG=$(TAG))
-	podman build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) --target server -t $(IMAGE_NS)/iroha-server:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-server:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
+	@ctr="$$($(TOOL_ENV) uv run python scripts/dev_stack.py container-cmd)" && \
+		$$ctr build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) --target server -t $(IMAGE_NS)/iroha-server:$(TAG) -f ops/images/Containerfile.server . && \
+		$$ctr save $(IMAGE_NS)/iroha-server:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-job: ## Build iroha-job and import it into the local k3s containerd store (TAG=$(TAG))
-	podman build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) --target job -t $(IMAGE_NS)/iroha-job:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-job:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
+	@ctr="$$($(TOOL_ENV) uv run python scripts/dev_stack.py container-cmd)" && \
+		$$ctr build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) --target job -t $(IMAGE_NS)/iroha-job:$(TAG) -f ops/images/Containerfile.server . && \
+		$$ctr save $(IMAGE_NS)/iroha-job:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-db-migrate: ## Build iroha-db-migrate and import it into the local k3s containerd store (TAG=$(TAG))
-	podman build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) --target db-migrate -t $(IMAGE_NS)/iroha-db-migrate:$(TAG) -f ops/images/Containerfile.server .
-	podman save $(IMAGE_NS)/iroha-db-migrate:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
+	@ctr="$$($(TOOL_ENV) uv run python scripts/dev_stack.py container-cmd)" && \
+		$$ctr build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) --target db-migrate -t $(IMAGE_NS)/iroha-db-migrate:$(TAG) -f ops/images/Containerfile.server . && \
+		$$ctr save $(IMAGE_NS)/iroha-db-migrate:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 image-web: ## Build iroha-web and import it into the local k3s containerd store (TAG=$(TAG))
-	podman build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) --build-arg PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) .
-	podman save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
+	@ctr="$$($(TOOL_ENV) uv run python scripts/dev_stack.py container-cmd)" && \
+		$$ctr build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) --build-arg PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) . && \
+		$$ctr save $(IMAGE_NS)/iroha-web:$(TAG) | sudo k3s ctr images import --all-platforms --digests --skip-digest-for-named -
 
 images: image-server image-job image-db-migrate image-web ## Build and import all iroha images into the local k3s containerd store
 
@@ -233,5 +237,6 @@ release-source-check: ## Verify annotated-tag/source and optional local OCI iden
 	$(TOOL_ENV) uv run python scripts/release_source_check.py --tag "$(TAG)" $(ARGS)
 
 images-local: ## Build affected runtime consumers locally, without importing or publishing (TAG=...)
-	podman build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) --target server -t $(IMAGE_NS)/iroha-server:$(TAG) -f ops/images/Containerfile.server .
-	podman build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) --build-arg PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) .
+	@ctr="$$($(TOOL_ENV) uv run python scripts/dev_stack.py container-cmd)" && \
+		$$ctr build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) --target server -t $(IMAGE_NS)/iroha-server:$(TAG) -f ops/images/Containerfile.server . && \
+		$$ctr build --build-arg SOURCE_REVISION=$(SOURCE_REVISION) -t $(IMAGE_NS)/iroha-web:$(TAG) -f ops/images/Containerfile.web --build-arg PUBLIC_IROHA_API_BASE= --build-arg PUBLIC_IROHA_VERSION=$(VERSION) --build-arg PUBLIC_IROHA_TIMEZONE=$(PUBLIC_IROHA_TIMEZONE) .

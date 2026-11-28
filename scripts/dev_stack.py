@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -27,33 +28,28 @@ TEST_DATABASE_URL = os.environ.get(
 
 
 def usage() -> int:
-    print("usage: uv run python scripts/dev_stack.py {start|deps|stop|status|logs|reset|wait|test-db}", file=sys.stderr)
+    print("usage: uv run python scripts/dev_stack.py {start|deps|stop|status|logs|reset|wait|test-db|container-cmd}", file=sys.stderr)
     return 2
 
 
-def podman_bin() -> str:
-    configured = os.environ.get("PODMAN")
+def container_cmd() -> list[str]:
+    configured = os.environ.get("IROHA_CONTAINER", "").strip()
     if configured:
-        return configured
+        return shlex.split(configured)
+    podman = os.environ.get("PODMAN", "").strip()
+    if podman:
+        return [podman]
     found = shutil.which("podman")
     if found:
-        return found
-    print("podman is required. Install it or set PODMAN=/path/to/podman.", file=sys.stderr)
-    return ""
-
-
-def compose_bin() -> str:
-    configured = os.environ.get("PODMAN_COMPOSE")
-    if configured:
-        return configured
-    found = shutil.which("podman-compose")
-    if found:
-        return found
+        return [found]
+    colima = shutil.which("colima")
+    if colima:
+        return [colima, "nerdctl"]
     print(
-        "podman-compose is required. Install it or set PODMAN_COMPOSE=/path/to/podman-compose.",
+        "podman or colima is required. Install one or set IROHA_CONTAINER='colima nerdctl' (or PODMAN=/path/to/podman).",
         file=sys.stderr,
     )
-    return ""
+    raise SystemExit(2)
 
 
 def run(cmd: list[str], env: dict[str, str] | None = None) -> int:
@@ -66,22 +62,37 @@ def check_call(cmd: list[str], env: dict[str, str] | None = None) -> None:
     subprocess.check_call(cmd, cwd=ROOT, env=env)
 
 
-def podman_cmd() -> list[str]:
-    binary = podman_bin()
-    compose = compose_bin()
-    if not binary or not compose:
-        raise SystemExit(2)
-    return [compose, "-f", str(COMPOSE_FILE), "-f", str(APP_COMPOSE_FILE), "-p", "iroha-dev"]
+def compose_cmd() -> list[str]:
+    prefix = container_cmd()
+    if os.environ.get("IROHA_CONTAINER", "").strip() or Path(prefix[0]).name == "colima":
+        compose_prefix = [*prefix, "compose"]
+    else:
+        compose = os.environ.get("PODMAN_COMPOSE", "").strip() or shutil.which("podman-compose")
+        if not compose:
+            print(
+                "podman-compose is required. Install it or set PODMAN_COMPOSE=/path/to/podman-compose.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        compose_prefix = [compose]
+    return [*compose_prefix, "-f", str(COMPOSE_FILE), "-f", str(APP_COMPOSE_FILE), "-p", "iroha-dev"]
 
 
 def ensure_machine() -> None:
-    podman = podman_bin()
-    if not podman:
-        raise SystemExit(2)
-    result = subprocess.run([podman, "info"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    container = container_cmd()
+    result = subprocess.run([*container, "info"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if result.returncode == 0:
         return
-    start = subprocess.run([podman, "machine", "start"], cwd=ROOT, capture_output=True, text=True)
+    if Path(container[0]).name == "colima":
+        start = subprocess.run([container[0], "start"], cwd=ROOT, capture_output=True, text=True)
+        if start.returncode == 0:
+            return
+        print(
+            "Colima is unavailable. Start an existing VM with `colima start`.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    start = subprocess.run([*container, "machine", "start"], cwd=ROOT, capture_output=True, text=True)
     if start.returncode == 0:
         return
     print(
@@ -94,7 +105,7 @@ def ensure_machine() -> None:
 
 def wait_for_db(timeout_s: int = 60) -> int:
     deadline = time.monotonic() + timeout_s
-    cmd = podman_cmd() + [
+    cmd = compose_cmd() + [
         "exec",
         "-T",
         "db",
@@ -126,7 +137,7 @@ def migrate() -> int:
 
 def recreate_test_db() -> int:
     """Drop and recreate the disposable integration database, then migrate it."""
-    base = podman_cmd() + ["exec", "-T", "db", "env", f"PGPASSWORD={DB_PASSWORD}", "psql", "-h", "127.0.0.1", "-U", DB_USER, "-d", DB_NAME, "-v", "ON_ERROR_STOP=1"]
+    base = compose_cmd() + ["exec", "-T", "db", "env", f"PGPASSWORD={DB_PASSWORD}", "psql", "-h", "127.0.0.1", "-U", DB_USER, "-d", DB_NAME, "-v", "ON_ERROR_STOP=1"]
     for statement in (
         f"drop database if exists {TEST_DB_NAME} with (force)",
         f"create database {TEST_DB_NAME} owner {DB_USER}",
@@ -139,13 +150,13 @@ def recreate_test_db() -> int:
 
 
 def start_database() -> None:
-    check_call(podman_cmd() + ["up", "-d", "db"])
+    check_call(compose_cmd() + ["up", "-d", "db"])
     if wait_for_db() != 0:
         raise SystemExit(1)
 
 
 def start_app() -> int:
-    return run(podman_cmd() + ["up", "--build", "-d", "server", "job", "web"])
+    return run(compose_cmd() + ["up", "--build", "-d", "server", "job", "web"])
 
 
 def main() -> int:
@@ -153,8 +164,12 @@ def main() -> int:
         return usage()
 
     action = sys.argv[1]
-    if action not in {"start", "deps", "stop", "status", "logs", "reset", "wait", "test-db"}:
+    if action not in {"start", "deps", "stop", "status", "logs", "reset", "wait", "test-db", "container-cmd"}:
         return usage()
+
+    if action == "container-cmd":
+        print(shlex.join(container_cmd()))
+        return 0
 
     if action == "wait":
         return wait_for_db()
@@ -173,15 +188,15 @@ def main() -> int:
         return recreate_test_db()
 
     if action == "stop":
-        return run(podman_cmd() + ["down"])
+        return run(compose_cmd() + ["down"])
 
     if action == "status":
-        return run(podman_cmd() + ["ps"])
+        return run(compose_cmd() + ["ps"])
 
     if action == "logs":
-        return run(podman_cmd() + ["logs", "db"])
+        return run(compose_cmd() + ["logs", "db"])
 
-    check_call(podman_cmd() + ["down", "-v"])
+    check_call(compose_cmd() + ["down", "-v"])
     start_database()
     if migrate() != 0:
         return 1
