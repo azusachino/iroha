@@ -109,6 +109,7 @@ class DevStackScriptTest(unittest.TestCase):
         self.assertNotIn("\n", message)
         self.assertIn("podman", message)
         self.assertIn("colima", message)
+        self.assertIn("colima start --runtime containerd", message)
         self.assertIn("IROHA_CONTAINER", message)
 
     def test_compose_cmd_uses_both_compose_files(self) -> None:

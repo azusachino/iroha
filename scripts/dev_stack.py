@@ -54,7 +54,8 @@ def container_cmd() -> list[str]:
     if colima:
         return [colima, "nerdctl"]
     print(
-        "podman or colima is required. Install one or set IROHA_CONTAINER='colima nerdctl' (or PODMAN=/path/to/podman).",
+        "podman or colima (started with `colima start --runtime containerd`) is required. "
+        "Install one or set IROHA_CONTAINER='colima nerdctl' (or PODMAN=/path/to/podman).",
         file=sys.stderr,
     )
     raise SystemExit(2)
@@ -121,7 +122,8 @@ def ensure_machine() -> None:
         if start.returncode == 0:
             return
         print(
-            "Colima is unavailable. Start an existing VM with `colima start`.",
+            "Colima is unavailable. Start an existing VM with `colima start --runtime containerd` "
+            "(the containerd runtime is required for `colima nerdctl`).",
             file=sys.stderr,
         )
         raise SystemExit(2)
