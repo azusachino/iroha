@@ -254,6 +254,136 @@ class DevStackScriptTest(unittest.TestCase):
         self.assertEqual(dev_stack.COMPOSE_FILE, Path(dev_stack.ROOT) / "ops" / "local-dev" / "compose.yaml")
         self.assertEqual(dev_stack.APP_COMPOSE_FILE, Path(dev_stack.ROOT) / "ops" / "local-dev" / "compose.app.yaml")
 
+    def test_compose_exec_cmd_selects_tty_flag_per_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman", "podman-compose")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.compose_exec_cmd("db", "pg_isready"),
+                    [
+                        str(bins["podman-compose"]),
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                        "exec",
+                        "-T",
+                        "db",
+                        "pg_isready",
+                    ],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.compose_exec_cmd("db", "pg_isready"),
+                    [
+                        str(bins["colima"]),
+                        "nerdctl",
+                        "compose",
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                        "exec",
+                        "-i",
+                        "db",
+                        "pg_isready",
+                    ],
+                )
+
+    def test_compose_argv_with_args_for_both_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman", "podman-compose")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.compose_argv("up", "-d", "db"),
+                    [
+                        str(bins["podman-compose"]),
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                        "up",
+                        "-d",
+                        "db",
+                    ],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.compose_argv("up", "-d", "db"),
+                    [
+                        str(bins["colima"]),
+                        "nerdctl",
+                        "compose",
+                        "-f",
+                        str(dev_stack.COMPOSE_FILE),
+                        "-f",
+                        str(dev_stack.APP_COMPOSE_FILE),
+                        "-p",
+                        "iroha-dev",
+                        "up",
+                        "-d",
+                        "db",
+                    ],
+                )
+
+    def test_build_cmd_for_both_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.build_cmd("-t", "iroha:test", "."),
+                    [str(bins["podman"]), "build", "-t", "iroha:test", "."],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.build_cmd("-t", "iroha:test", "."),
+                    [str(bins["colima"]), "nerdctl", "build", "-t", "iroha:test", "."],
+                )
+
+    def test_save_cmd_for_both_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.save_cmd("iroha:test"),
+                    [str(bins["podman"]), "save", "iroha:test"],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.save_cmd("iroha:test"),
+                    [str(bins["colima"]), "nerdctl", "save", "iroha:test"],
+                )
+
+    def test_machine_info_cmd_for_both_runtimes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "podman")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.machine_info_cmd(),
+                    [str(bins["podman"]), "machine", "info"],
+                )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _make_fake_bin(Path(tmpdir), "colima")
+            with mock.patch.dict(os.environ, {"PATH": tmpdir}, clear=True):
+                self.assertEqual(
+                    dev_stack.machine_info_cmd(),
+                    [str(bins["colima"]), "status"],
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

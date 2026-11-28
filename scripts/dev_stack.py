@@ -28,8 +28,16 @@ TEST_DATABASE_URL = os.environ.get(
 
 
 def usage() -> int:
-    print("usage: uv run python scripts/dev_stack.py {start|deps|stop|status|logs|reset|wait|test-db|container-cmd}", file=sys.stderr)
+    print(
+        "usage: uv run python scripts/dev_stack.py "
+        "{start|deps|stop|status|logs|reset|wait|test-db|container-cmd|build|save}",
+        file=sys.stderr,
+    )
     return 2
+
+
+def _is_colima(cmd: list[str]) -> bool:
+    return bool(cmd) and Path(cmd[0]).name == "colima"
 
 
 def container_cmd() -> list[str]:
@@ -64,7 +72,7 @@ def check_call(cmd: list[str], env: dict[str, str] | None = None) -> None:
 
 def compose_cmd() -> list[str]:
     prefix = container_cmd()
-    if os.environ.get("IROHA_CONTAINER", "").strip() or Path(prefix[0]).name == "colima":
+    if os.environ.get("IROHA_CONTAINER", "").strip() or _is_colima(prefix):
         compose_prefix = [*prefix, "compose"]
     else:
         compose = os.environ.get("PODMAN_COMPOSE", "").strip() or shutil.which("podman-compose")
@@ -78,12 +86,37 @@ def compose_cmd() -> list[str]:
     return [*compose_prefix, "-f", str(COMPOSE_FILE), "-f", str(APP_COMPOSE_FILE), "-p", "iroha-dev"]
 
 
+def compose_argv(*args: str) -> list[str]:
+    return [*compose_cmd(), *args]
+
+
+def compose_exec_cmd(service: str, *args: str) -> list[str]:
+    base = compose_cmd()
+    tty_flag = "-i" if _is_colima(base) else "-T"
+    return [*base, "exec", tty_flag, service, *args]
+
+
+def build_cmd(*args: str) -> list[str]:
+    return [*container_cmd(), "build", *args]
+
+
+def save_cmd(*args: str) -> list[str]:
+    return [*container_cmd(), "save", *args]
+
+
+def machine_info_cmd() -> list[str]:
+    prefix = container_cmd()
+    if _is_colima(prefix):
+        return [prefix[0], "status"]
+    return [*prefix, "machine", "info"]
+
+
 def ensure_machine() -> None:
-    container = container_cmd()
-    result = subprocess.run([*container, "info"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    result = subprocess.run(machine_info_cmd(), cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if result.returncode == 0:
         return
-    if Path(container[0]).name == "colima":
+    container = container_cmd()
+    if _is_colima(container):
         start = subprocess.run([container[0], "start"], cwd=ROOT, capture_output=True, text=True)
         if start.returncode == 0:
             return
@@ -105,9 +138,7 @@ def ensure_machine() -> None:
 
 def wait_for_db(timeout_s: int = 60) -> int:
     deadline = time.monotonic() + timeout_s
-    cmd = compose_cmd() + [
-        "exec",
-        "-T",
+    cmd = compose_exec_cmd(
         "db",
         "pg_isready",
         "-h",
@@ -118,7 +149,7 @@ def wait_for_db(timeout_s: int = 60) -> int:
         DB_USER,
         "-d",
         DB_NAME,
-    ]
+    )
     while time.monotonic() < deadline:
         result = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         if result.returncode == 0:
@@ -137,7 +168,20 @@ def migrate() -> int:
 
 def recreate_test_db() -> int:
     """Drop and recreate the disposable integration database, then migrate it."""
-    base = compose_cmd() + ["exec", "-T", "db", "env", f"PGPASSWORD={DB_PASSWORD}", "psql", "-h", "127.0.0.1", "-U", DB_USER, "-d", DB_NAME, "-v", "ON_ERROR_STOP=1"]
+    base = compose_exec_cmd(
+        "db",
+        "env",
+        f"PGPASSWORD={DB_PASSWORD}",
+        "psql",
+        "-h",
+        "127.0.0.1",
+        "-U",
+        DB_USER,
+        "-d",
+        DB_NAME,
+        "-v",
+        "ON_ERROR_STOP=1",
+    )
     for statement in (
         f"drop database if exists {TEST_DB_NAME} with (force)",
         f"create database {TEST_DB_NAME} owner {DB_USER}",
@@ -150,20 +194,29 @@ def recreate_test_db() -> int:
 
 
 def start_database() -> None:
-    check_call(compose_cmd() + ["up", "-d", "db"])
+    check_call(compose_argv("up", "-d", "db"))
     if wait_for_db() != 0:
         raise SystemExit(1)
 
 
 def start_app() -> int:
-    return run(compose_cmd() + ["up", "--build", "-d", "server", "job", "web"])
+    return run(compose_argv("up", "--build", "-d", "server", "job", "web"))
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         return usage()
 
     action = sys.argv[1]
+    if action in {"build", "save"}:
+        if len(sys.argv) < 3:
+            return usage()
+        if action == "build":
+            return run(build_cmd(*sys.argv[2:]))
+        return subprocess.call(save_cmd(*sys.argv[2:]), cwd=ROOT)
+
+    if len(sys.argv) != 2:
+        return usage()
     if action not in {"start", "deps", "stop", "status", "logs", "reset", "wait", "test-db", "container-cmd"}:
         return usage()
 
@@ -188,15 +241,15 @@ def main() -> int:
         return recreate_test_db()
 
     if action == "stop":
-        return run(compose_cmd() + ["down"])
+        return run(compose_argv("down"))
 
     if action == "status":
-        return run(compose_cmd() + ["ps"])
+        return run(compose_argv("ps"))
 
     if action == "logs":
-        return run(compose_cmd() + ["logs", "db"])
+        return run(compose_argv("logs", "db"))
 
-    check_call(compose_cmd() + ["down", "-v"])
+    check_call(compose_argv("down", "-v"))
     start_database()
     if migrate() != 0:
         return 1
