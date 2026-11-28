@@ -44,7 +44,7 @@ for (const mode of ["light", "dark"] as const) {
     fixture.failures.add("month");
     await page.goto("/night?date=2026-08");
     await expect(
-      page.getByRole("region", { name: "Sleep totals for 2026", exact: true }),
+      page.getByLabel("Sleep totals for 2026", { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("table", { name: "Sleep session records", exact: true }),
@@ -56,10 +56,13 @@ for (const mode of ["light", "dark"] as const) {
       .press("Enter");
     await expect(
       page.getByRole("region", {
-        name: "Sleep totals for 2026-08",
+        name: "Sleep summary",
         exact: true,
       }),
-    ).toContainText(/Total sessions\s+1/);
+    ).toContainText(/Recorded sessions\s*1/);
+    await expect(
+      page.getByLabel("Sleep totals for 2026-08", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
     expect(fixture.unknown).toEqual([]);
   });
@@ -85,7 +88,7 @@ for (const mode of ["light", "dark"] as const) {
       ).toBeVisible();
       await expect(
         page.getByRole("region", { name: "Sleep summary", exact: true }),
-      ).toContainText("—");
+      ).toContainText("Main sleep duration unavailable");
       await expect(
         page.getByRole("combobox", { name: "Filter by month" }),
       ).toBeEnabled();
@@ -95,8 +98,7 @@ for (const mode of ["light", "dark"] as const) {
         }),
       ).toHaveCount(0);
       await expect(
-        page.getByRole("region", {
-          name: "Sleep totals for 2026",
+        page.getByLabel("Sleep totals for 2026", {
           exact: true,
         }),
       ).toBeVisible();
@@ -154,12 +156,10 @@ for (const mode of ["light", "dark"] as const) {
     ).toBeVisible();
     await expect(
       page.getByRole("region", { name: "Sleep summary", exact: true }),
-    ).toContainText("Recorded sessions0");
+    ).toContainText("No sleep sessions recorded");
     await expect(
-      page
-        .getByRole("region", { name: "Sleep summary" })
-        .getByText("—", { exact: true }),
-    ).toHaveCount(2);
+      page.getByRole("region", { name: "Sleep summary", exact: true }),
+    ).toContainText("Main sleep duration unavailable");
     let release!: () => void;
     fixture.holds.set(
       "records",
@@ -193,12 +193,10 @@ for (const mode of ["light", "dark"] as const) {
     ).toBeVisible();
     await expect(
       page.getByRole("region", { name: "Sleep summary", exact: true }),
-    ).toContainText("Recorded sessions0");
+    ).toContainText("No sleep sessions recorded");
     await expect(
-      page
-        .getByRole("region", { name: "Sleep summary" })
-        .getByText("—", { exact: true }),
-    ).toHaveCount(2);
+      page.getByRole("region", { name: "Sleep summary", exact: true }),
+    ).toContainText("Main sleep duration unavailable");
     expect(fixture.unknown).toEqual([]);
   });
 
@@ -261,7 +259,7 @@ for (const mode of ["light", "dark"] as const) {
         .selectOption("2026-09");
       await expect(
         page.getByRole("region", { name: "Sleep session read state" }),
-      ).toContainText("Observed sessions: 2026-08");
+      ).toContainText("2026-08");
       await expect(
         page.getByRole("region", { name: "Sleep summary" }),
       ).toContainText("6:00:00");
@@ -387,7 +385,7 @@ for (const mode of ["light", "dark"] as const) {
       .selectOption("");
     await expect(
       page.getByRole("region", { name: "Sleep session read state" }),
-    ).toContainText("Observed sessions: Lifetime");
+    ).toContainText("Lifetime");
     expect(
       fixture.requests.some((value) => value === "/api/v1/sleep?limit=31"),
     ).toBe(true);
@@ -406,10 +404,13 @@ for (const mode of ["light", "dark"] as const) {
       page
         .getByRole("region", { name: "Sleep summary" })
         .getByText("—", { exact: true }),
-    ).toHaveCount(2);
+    ).toHaveCount(1);
     await expect(
-      page.getByRole("region", { name: "Sleep totals for 2026-08" }),
-    ).toContainText(/Naps\s+1/);
+      page.getByRole("region", { name: "Sleep summary" }),
+    ).toContainText("1 nap");
+    await expect(
+      page.getByLabel("Sleep totals for 2026-08", { exact: true }),
+    ).toBeVisible();
     expect(fixture.unknown).toEqual([]);
   });
 
@@ -461,7 +462,7 @@ for (const mode of ["light", "dark"] as const) {
       await expect(table).not.toContainText("2026-08-15");
       await expect(
         page.getByRole("region", { name: "Sleep session read state" }),
-      ).toContainText("Observed sessions: 2026-09");
+      ).toContainText("2026-09");
     } finally {
       release();
       fixture.pageHold = null;
@@ -547,8 +548,11 @@ for (const mode of ["light", "dark"] as const) {
       await year.focus();
       release();
       await expect(
-        page.getByRole("region", { name: "Sleep totals for 2026-08" }),
-      ).toContainText(/Total sessions\s+1/);
+        page.getByRole("region", { name: "Sleep summary" }),
+      ).toContainText(/Recorded sessions\s*1/);
+      await expect(
+        page.getByLabel("Sleep totals for 2026-08", { exact: true }),
+      ).toBeVisible();
       await expect(year).toBeFocused();
     } finally {
       release();

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import type { ActivityThemeProps } from "../../view-contracts/activity-view";
   import type { MetricSeriesResponse } from "../../components/metric-series";
   import EmptyNote from "../../components/EmptyNote.svelte";
@@ -59,7 +60,36 @@
 
   let root = $state<HTMLElement>();
   let summaryPanel = $state<HTMLElement>();
+  let seriesPanel = $state<HTMLElement>();
   let recordsPanel = $state<HTMLElement>();
+
+  async function handleRetrySeries(): Promise<void> {
+    await onRetrySeries();
+    await tick();
+    if (document.activeElement === document.body && seriesPanel?.isConnected) {
+      const region = seriesPanel.querySelector<HTMLElement>("section");
+      if (region) {
+        region.tabIndex = -1;
+        region.focus({ preventScroll: true });
+      }
+    }
+  }
+
+  async function handleRetryRecords(): Promise<void> {
+    await onRetryRecords();
+    await tick();
+    if (
+      (document.activeElement === recordsPanel ||
+        document.activeElement === document.body) &&
+      recordsPanel?.isConnected
+    ) {
+      const region = recordsPanel.querySelector<HTMLElement>("section");
+      if (region) {
+        region.tabIndex = -1;
+        region.focus({ preventScroll: true });
+      }
+    }
+  }
 
   function aggregatePeriodValue(
     response: MetricSeriesResponse | null | undefined,
@@ -248,7 +278,7 @@
     </p>
   {/if}
 
-  <div
+  <section
     class="summary-region"
     aria-label="Activity summary read state"
     tabindex="-1"
@@ -276,7 +306,7 @@
       secondary={secondaryItems}
       empty={emptyNote}
     />
-  </div>
+  </section>
 
   <div class="filters" aria-label="Activity filters">
     <label>
@@ -294,62 +324,64 @@
     </label>
   </div>
 
-  {#if useShortMovementSummary}
-    <PanelFrame title="Movement over time">
-      {#snippet meta()}
-        <span>
-          {observedMovementRows.length} / {expectedMovementPeriods} periods observed
-        </span>
-      {/snippet}
+  <div class="series-region" bind:this={seriesPanel}>
+    {#if useShortMovementSummary}
+      <PanelFrame title="Movement over time">
+        {#snippet meta()}
+          <span>
+            {observedMovementRows.length} / {expectedMovementPeriods} periods observed
+          </span>
+        {/snippet}
 
-      {#if activitySeriesLoading}
-        <p class="status-note" role="status">Updating movement series…</p>
-      {/if}
+        {#if activitySeriesLoading}
+          <p class="status-note" role="status">Updating movement series…</p>
+        {/if}
 
-      <EmptyNote text={shortMovementSummary} />
+        <EmptyNote text={shortMovementSummary} />
 
-      {#if observedMovementRows.length > 0}
-        <MetricTable
-          ariaLabel="Exact movement series"
-          scrollLabel="Exact movement series scroll area"
-          caption="Exact movement series"
-          minWidth="36rem"
-          nowrap
-          numericAlign
-          dense
-        >
-          <thead>
-            <tr>
-              <th>Period</th>
-              <th>Distance</th>
-              <th>Duration</th>
-              <th>Observed days</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each movementRows as row (row.period)}
+        {#if observedMovementRows.length > 0}
+          <MetricTable
+            ariaLabel="Exact movement series"
+            scrollLabel="Exact movement series scroll area"
+            caption="Exact movement series"
+            minWidth="36rem"
+            nowrap
+            numericAlign
+            dense
+          >
+            <thead>
               <tr>
-                <td>{formatSeriesPeriod(row.period)}</td>
-                <td>{formatDistance(row.distance_m)}</td>
-                <td>{formatDuration(row.duration_s)}</td>
-                <td>{row.observedDays || "—"}</td>
+                <th>Period</th>
+                <th>Distance</th>
+                <th>Duration</th>
+                <th>Observed days</th>
               </tr>
-            {/each}
-          </tbody>
-        </MetricTable>
-      {/if}
-    </PanelFrame>
-  {:else}
-    <ActivityMetricChart
-      series={activitySeries}
-      durationSeries={activityDurationSeries}
-      loading={activitySeriesLoading}
-      error={activitySeriesError}
-      scope={activitySeriesScope}
-      onRetry={onRetrySeries}
-      {theme}
-    />
-  {/if}
+            </thead>
+            <tbody>
+              {#each movementRows as row (row.period)}
+                <tr>
+                  <td>{formatSeriesPeriod(row.period)}</td>
+                  <td>{formatDistance(row.distance_m)}</td>
+                  <td>{formatDuration(row.duration_s)}</td>
+                  <td>{row.observedDays || "—"}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </MetricTable>
+        {/if}
+      </PanelFrame>
+    {:else}
+      <ActivityMetricChart
+        series={activitySeries}
+        durationSeries={activityDurationSeries}
+        loading={activitySeriesLoading}
+        error={activitySeriesError}
+        scope={activitySeriesScope}
+        onRetry={handleRetrySeries}
+        {theme}
+      />
+    {/if}
+  </div>
 
   <div
     class="read-state"
@@ -365,7 +397,7 @@
       {#if error}
         <RetryNotice
           message={`Could not load activity data: ${error}`}
-          onRetry={onRetryRecords}
+          onRetry={handleRetryRecords}
           retryLabel="Retry activities"
           focusTarget={recordsPanel}
         />

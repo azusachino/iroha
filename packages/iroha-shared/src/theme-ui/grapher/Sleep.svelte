@@ -190,7 +190,7 @@
     </PanelFrame>
   {/if}
 
-  <div
+  <section
     class="session-table-region"
     aria-label="Sleep session read state"
     tabindex="-1"
@@ -263,7 +263,7 @@
         </MetricTable>
       {/if}
     </PanelFrame>
-  </div>
+  </section>
 
   {#if selected}
     <aside class="selected-note">
