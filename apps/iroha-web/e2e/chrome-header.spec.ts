@@ -8,8 +8,13 @@ test("Expenses failed initial load does not claim its ledger period is still loa
   await installPilotFixtures(page, "expenses", "error");
   await page.goto("/expenses?date=2026-08");
   await expect(
-    page.getByText("Ledger period unavailable", { exact: true }),
-  ).toBeVisible();
+    page
+      .getByRole("region", { name: "Expense records read", exact: true })
+      .getByRole("alert"),
+  ).toContainText("Expense records unavailable.");
+  await expect(
+    page.getByText("Loading expense records…", { exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByText("Loading ledger period…", { exact: true }),
   ).toHaveCount(0);
@@ -34,7 +39,9 @@ for (const pilot of ["overview", "public"] as const) {
     const box = await header.boundingBox();
     expect(box!.height).toBeLessThanOrEqual(128);
     if (pilot === "overview") {
-      await expect(header).toContainText("Mixed windows");
+      await expect(header).toContainText(
+        "Canonical movement, sleep, and library",
+      );
       await expect(header.getByRole("combobox")).toHaveCount(0);
       await expect(
         page.getByRole("group", { name: "Distance chart range" }),
@@ -98,25 +105,25 @@ test("Expenses domain header and scope toolbar keep truthful loaded period and r
     await route.fallback();
   });
   try {
-    const selection = page.getByRole("region", {
-      name: "Expense period selection",
+    const records = page.getByRole("region", {
+      name: "Expense records read",
       exact: true,
     });
     await toolbar
       .getByRole("combobox", { name: "Filter by month" })
-      .selectOption("2026-09");
+      .selectOption("9");
     await expect(
-      selection.getByText("Observed period: 2026-08", { exact: true }),
+      records.getByText("Observed period: 2026-08", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("status").filter({ hasText: "Updating…" }),
+      records.getByRole("status").filter({ hasText: "Updating…" }),
     ).toBeVisible();
   } finally {
     release();
   }
   await expect(
     page
-      .getByRole("region", { name: "Expense period selection", exact: true })
+      .getByRole("region", { name: "Expense records read", exact: true })
       .getByText("Observed period: 2026-09", { exact: true }),
   ).toBeVisible();
   await expect(

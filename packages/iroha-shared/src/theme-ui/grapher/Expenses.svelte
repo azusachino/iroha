@@ -161,6 +161,9 @@
         secondary={secondaryItems}
         empty={emptyCurrenciesNote}
       />
+      {#if month}
+        <p class="scope-statement">Observed period: {month}</p>
+      {/if}
     </div>
     {#if filters}
       {@render filters()}
@@ -264,6 +267,9 @@
     </PanelFrame>
   {/if}
   {#if section !== "spending"}
+    {#if month}
+      <p class="scope-statement">Observed period: {month}</p>
+    {/if}
     <ExpenseLedger
       {expenses}
       {selected}
@@ -296,6 +302,13 @@
   }
   .band-wrap.single-currency :global(.focal-secondary) {
     display: none;
+  }
+  .scope-statement {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--type-caption);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
   .chart-controls-bar {
     display: flex;
